@@ -7,6 +7,7 @@ import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
   applySiteSourceExtras,
+  cachedBookMeta,
   detectPageMediaStyle,
   classifyBookType,
   fetchBookMeta,
@@ -15,6 +16,9 @@ import {
   findReshapableLinks,
   isFetchableSite,
   mergeFsBooks,
+  queueBookPages,
+  readBookPages,
+  resetBookQueue,
   narrowFsRegister,
   proposedSiteRepo,
   splitFsRegisters,
@@ -26,6 +30,7 @@ import {
   parseMatriculaTitle,
   parseMatriculaUrl,
   recognizeSourceUrl,
+  siteQuay,
   reshapeOptionsFromOverrides,
   smartCitationTarget,
   reshapeSources,
@@ -1283,6 +1288,31 @@ describe("reshapeSources — apply", () => {
     expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
   });
 
+  it("source page-media style: the page image stays under the source alone", () => {
+    // The same file as the "event" tests, read the other way: the reader's
+    // Settings choice (or a file whose habit says so) keeps page media under
+    // the source, so the event-level pointer converts into a citation and
+    // leaves nothing beside it.
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`,
+      { pageMedia: "source" },
+    );
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).toMatch(/1 BIRT\n2 SOUR @S1@\n3 PAGE 111/);
+    expect(indi).not.toContain("OBJE @M1@"); // no page pointer left on the record
+    expect(text).toMatch(/0 @S1@ SOUR\n(1 .*\n)*1 OBJE @M1@/); // the image is the source's
+  });
+
   it("event page-media style: a person-level pointer moves beside the event citation", () => {
     const { text } = applyAll(
       `0 HEAD
@@ -2515,6 +2545,47 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
     });
   });
 
+  it("reads a queued book in the background, and the save then asks nothing", async () => {
+    // The point of queuing on confirm: by save time the page is already read,
+    // so the button opens the preview instead of holding for the network.
+    resetBookQueue();
+    let calls = 0;
+    const fetchHtml = async () => { calls++; return GRAVE_MD; };
+    const url = "https://en.geneanet.org/cemetery/view/770001";
+
+    queueBookPages([url], fetchHtml);
+    await vi.waitFor(() => expect(cachedBookMeta("geneanet", url)).toBeDefined());
+
+    // Nothing left for the save to read: the page is in this session's cache.
+    expect(await readBookPages([url], fetchHtml)).toBe(0);
+    expect(calls).toBe(1);
+  });
+
+  it("joins a read already in flight rather than asking twice", async () => {
+    resetBookQueue();
+    let calls = 0;
+    const fetchHtml = async () => { calls++; return GRAVE_MD; };
+    const url = "https://en.geneanet.org/cemetery/view/770002";
+
+    queueBookPages([url], fetchHtml);
+    await readBookPages([url], fetchHtml);
+
+    expect(calls).toBe(1);
+  });
+
+  it("never asks again for a book that answered nothing", async () => {
+    // A silent relay chain costs the better part of a minute; spending it again
+    // on every save for the same silence is what made saving slow.
+    resetBookQueue();
+    let calls = 0;
+    const fetchHtml = async () => { calls++; return undefined; };
+    const url = "https://en.geneanet.org/cemetery/view/770003";
+
+    expect(await readBookPages([url], fetchHtml)).toBe(0);
+    expect(await readBookPages([url], fetchHtml)).toBe(0);
+    expect(calls).toBe(1);
+  });
+
   it("fetchBookMeta parses per-site and caches by book", async () => {
     let calls = 0;
     const fetchHtml = async () => {
@@ -3488,5 +3559,23 @@ describe("FamilySearch image links", () => {
     expect(isFetchableSite("familysearch", FILM_URL)).toBe(false);
     expect(isFetchableSite("familysearch", FILM_ARK_URL)).toBe(false);
     expect(isFetchableSite("familysearch")).toBe(false);
+  });
+});
+
+describe("siteQuay — the quality a recognized link proposes for its citation", () => {
+  it("calls a photographed register primary, an index or a memorial secondary, a compiled tree questionable", () => {
+    // The register page itself.
+    expect(siteQuay("matricula", "https://data.matricula-online.eu/sl/slovenia/ljubljana/podzemelj/01727/?pg=20")).toBe("3");
+    expect(siteQuay("familysearch", "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?cc=2040054&i=555")).toBe("3");
+    // One indexed entry read off such a page, and a stone somebody photographed.
+    expect(siteQuay("familysearch", "https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ")).toBe("2");
+    expect(siteQuay("findagrave", "https://www.findagrave.com/memorial/12345")).toBe("2");
+    expect(siteQuay("newspapers", "https://www.newspapers.com/article/12345")).toBe("2");
+    // Another researcher's conclusions.
+    expect(siteQuay("geneanettree", "https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute")).toBe("1");
+    expect(siteQuay("familysearch", "https://www.familysearch.org/tree/person/details/KWCH-1XZ")).toBe("1");
+    // Sites that publish no evidence of their own leave the reader to judge.
+    expect(siteQuay("wikipedia", "https://sl.wikipedia.org/wiki/Ljubljana")).toBeUndefined();
+    expect(siteQuay("other", "https://example.com/page")).toBeUndefined();
   });
 });

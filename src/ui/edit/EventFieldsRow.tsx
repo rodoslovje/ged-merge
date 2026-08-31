@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { linkHref, linkTooltip } from "../FieldValue";
+import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -7,7 +7,6 @@ import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventToo
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
-import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
@@ -22,6 +21,7 @@ import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
+import { linkKey } from "../../normalize/links";
 
 /** Sentinel `<option>` values for the action entries at the end of the
  * event-type dropdown (distinct from any real tag). */
@@ -50,11 +50,14 @@ export function EventFieldsRow({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  agencySuggestions,
+  agencyCanonical,
   placeCoords,
   placeForms,
   pairCoords,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingPageImages,
   mergeKeyBase,
   forcedKeyBase,
   resolvedSessionFields,
@@ -98,6 +101,8 @@ export function EventFieldsRow({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   /** Attested FORM per place (see PlaceSuggestions.placeForms). */
@@ -107,6 +112,9 @@ export function EventFieldsRow({
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
+  /** Key base -> the cited pages' images a confirmed merge will link on this
+   *  event beside its citations — previewed read-only until the merge is saved. */
+  mergeIncomingPageImages?: Map<string, string[]>;
   mergeKeyBase?: string;
   /** Stable per-event identity (e.g. the raw node's `nodeId`) used to look up
    * the session "this field was edited from a merge" markers in
@@ -151,6 +159,7 @@ export function EventFieldsRow({
   const typeMergeVal = mergeHighlight?.get(`${kBase}.type`);
   const causeMergeVal = mergeHighlight?.get(`${kBase}.cause`);
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
+  const pageImagesMergeVal = mergeIncomingPageImages?.get(`${kBase}.sources`);
 
   // A field just materialized from a merge suggestion via a direct edit keeps
   // showing dirty/bold across the row's one-time "extra"→"main" remount.
@@ -342,6 +351,11 @@ export function EventFieldsRow({
   const [links, setLinks] = useState<string[]>(ev?.editableLinks ?? []);
   const mediaLinks = ev?.mediaLinks ?? [];
   const harvestedLinks = harvestedLinksOf(ev?.links, [...(ev?.editableLinks ?? []), ...mediaLinks]);
+  // The page images the merge will link here, minus any the event already has
+  // (`linkPageMedia` never adds a page twice, and neither should the preview).
+  const previewPageImages = (pageImagesMergeVal ?? []).filter(
+    (url) => !mediaLinks.some((have) => linkKey(have) === linkKey(url)),
+  );
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
   // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
@@ -413,7 +427,7 @@ export function EventFieldsRow({
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
-    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
+    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || Boolean(previewPageImages.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
   // A field renders when it has content OR the user added it from the "+ Detail"
   // menu. Empty, un-added fields stay hidden — no more revealing every empty
   // field on hover, which read as a crowded row of blank labelled inputs.
@@ -535,8 +549,8 @@ export function EventFieldsRow({
     links,
     setLinks,
     (next) => commitField({ links: next }),
-    (sourceXref, page, extraPatches, remaining) =>
-      commitField({ links: remaining, addSource: { sourceXref, page } }, extraPatches),
+    (cite, extraPatches, remaining, pageObjeXref) =>
+      commitField({ links: remaining, addSource: { ...cite, pageObjeXref } }, extraPatches),
     onOpenSourceDialog,
   );
 
@@ -670,9 +684,10 @@ export function EventFieldsRow({
           suggestions={suggestions}
           canonical={canonical}
           combos={combos}
-          // This hosts the address field, where the pair list is the only
-          // route to another settlement — so a typed place name matches too.
-          matchCombosByPlace
+          // The address field, whose pair list is the only route to another
+          // settlement, matches a typed place name too. A field with no pairs
+          // at all (the agency) has nothing to match that way.
+          matchCombosByPlace={!!combos}
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
           className={"edit-input " + cls}
@@ -906,7 +921,24 @@ export function EventFieldsRow({
           isEven ? t("event.customTooltip", { tag: tag ?? "EVEN" }) : t("event.type", { event: label }),
           { type: "" },
         )}
-        {extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
+        {/* The agency completes from the ones the file already names — a tree
+            keeps returning to the same handful of parishes and offices. On a
+            custom event this slot hosts the event's own value instead, which
+            those names have nothing to do with, so there it stays a plain box. */}
+        {isEven
+          ? extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)
+          : extraPlace(
+              "agency",
+              t("event.colAgency"),
+              show.agency,
+              agencySlotField,
+              agencySlotForced,
+              agencySuggestions,
+              agencyCanonical,
+              "edit-event-agency",
+              agencySlotLabel,
+              (val) => commitAll({ agency: val }),
+            )}
         {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
         {/* Sources and links lead the note: the note is a textarea that grows to
             as many lines as it holds, and after it the icons ended up alone at
@@ -925,11 +957,11 @@ export function EventFieldsRow({
             <span key={i} className="source-ref-wrap">
               <button
                 type="button"
-                className="link-icon edit-link-icon"
+                className={`${linkGlyph(link).cls} edit-link-icon`}
                 title={linkTooltip(link, t)}
                 onClick={() => openEditLink(i)}
               >
-                {siteIconForUrl(link) ?? "🔗"}
+                {linkGlyph(link).icon}
               </button>
               <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
                 ↗
@@ -957,13 +989,27 @@ export function EventFieldsRow({
           {harvestedLinks.map((link) => (
             <a
               key={link}
-              className="link-icon"
-              href={link}
+              className={linkGlyph(link).cls}
+              href={linkHref(link)}
               target="_blank"
               rel="noreferrer"
               title={linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`)}
             >
-              {siteIconForUrl(link) ?? "🔗"}
+              {linkGlyph(link).icon}
+            </a>
+          ))}
+          {/* The cited page's image the merge will link here — the same generic
+              🔗 the saved link becomes, tinted as incoming until then. */}
+          {previewPageImages.map((link) => (
+            <a
+              key={`merge-media-${link}`}
+              className="link-icon link-new"
+              href={linkHref(link)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
+            >
+              🔗
             </a>
           ))}
         </span>

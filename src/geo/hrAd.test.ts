@@ -249,13 +249,11 @@ describe("searchBucket", () => {
     expect(searchBucket(ANDRASEVEC, { number: 33, street: "Jamnička" })).toEqual([]);
   });
 
-  it("offers every street's house when the file names no street", () => {
+  it("answers nothing when the file names no street and the village numbers by street", () => {
     // Andraševec has streets, so a bare "Andraševec 33" cannot say which house
-    // is meant — both are offered rather than one picked arbitrarily.
-    expect(searchBucket(ANDRASEVEC, { number: 33 }).map((h) => h.address).sort()).toEqual([
-      "Brežna ulica 33",
-      "Kamenjačka ulica 33",
-    ]);
+    // is meant — and the two that carry the number share it and nothing else.
+    // Offering them said the register knew which house this was; it does not.
+    expect(searchBucket(ANDRASEVEC, { number: 33 })).toEqual([]);
   });
 
   it("reads village numbering as the address it is", () => {

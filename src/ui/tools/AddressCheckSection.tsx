@@ -7,7 +7,7 @@ import { isOfflineQuery } from "../../geo/rn";
 import { foldSearch } from "../globalSearch";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import { deleteDecision, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { setDismissed, type GeocodeDecision } from "../../persist/geoDb";
 import {
   addressDecisionKey,
   ADDRESS_ASIDE,
@@ -19,13 +19,13 @@ import {
 } from "../../tools/addressCheck";
 import type { AddressRename, AddressRow } from "../../tools/addresses";
 import { placeCollator } from "../../gedcom/place";
-import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { useVirtualList } from "../useVirtualList";
 import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
 import {
   AppliedNote,
+  CandidateOption,
   ExpandAllToggle,
   GeoPeopleList,
   GeoRowHeader,
@@ -34,7 +34,7 @@ import {
   RenameToggle,
   RowMap,
 } from "./shared";
-import { CountryChips } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 
 // The compliance tab's second half: the file's houses held against a downloaded
@@ -230,12 +230,11 @@ export function AddressCheckSection({
 
   /** Hide a finding, or — on one already hidden — bring it back. The restore
    *  half was missing: the button read "Prikaži" and wrote the dismissal again,
-   *  so a row put away by mistake could not be fetched out. The places list has
-   *  always deleted the decision instead; this now does the same. */
+   *  so a row put away by mistake could not be fetched out. Both compliance
+   *  lists now go through the one store call, which is also what makes a
+   *  failing write leave the row alone instead of throwing. */
   const dismiss = async (f: AddressFinding) => {
-    const key = addressDecisionKey(f.key);
-    if (f.dismissed) await deleteDecision(key);
-    else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    await setDismissed(addressDecisionKey(f.key), !f.dismissed, REGISTER_DISMISSED);
     setReport((prev) =>
       prev
         ? { ...prev, findings: prev.findings.map((o) => (o.key === f.key ? { ...o, dismissed: !f.dismissed } : o)) }
@@ -332,18 +331,12 @@ export function AddressCheckSection({
     // One chip per country the findings stand in — the same country key the
     // places compliance list and both geocoding lists chip on, so all four say
     // the same thing about the same file.
-    const countries: string[] = [];
-    for (const f of pool) {
-      const c = countryOf(f.place, home);
-      if (!countries.includes(c)) countries.push(c);
-    }
-    const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place, home) === activeCountry;
-    const countryChips = countries.map((code) => ({
-      code,
-      count: matched.filter((f) => countryOf(f.place, home) === code && inVerdict(f)).length,
-    }));
-    const countryAll = matched.filter(inVerdict).length;
+    const {
+      chips: countryChips,
+      all: countryAll,
+      active: activeCountry,
+      inCountry,
+    } = countryFacet(pool, matched.filter(inVerdict), (f) => f.place, home, countryFilter);
 
     // Every chip respects each filter but its own, so a picked country narrows
     // the verdict counts exactly as a picked verdict narrows the country counts.
@@ -567,9 +560,9 @@ export function AddressCheckSection({
                       onToggle={() => toggleGroup(group.place)}
                       place={group.place || t("tools.geocode.addr.noPlace")}
                     >
-                      {/* Whose village this is, in the count chip every finding
-                          row on both these tabs pins right — click it and the
-                          people are listed, exactly as on a row. */}
+                      {/* Whose village this is, in the count chip beside the
+                          name — where every row of these two tools carries it —
+                          and clicking it lists the people, exactly as on a row. */}
                       <button
                         className="tools-chip-count tools-count-toggle"
                         aria-pressed={groupPeople}
@@ -633,6 +626,17 @@ export function AddressCheckSection({
                           onClose={() => setRenameKey(null)}
                           title={t("tools.geocode.addr.renameOpen")}
                         />
+                        {/* Whose house it is, beside the value and its ✎ — the
+                            place every list of these two tools keeps the count
+                            in. */}
+                        <button
+                          className="tools-chip-count tools-count-toggle"
+                          aria-pressed={showPeople}
+                          aria-label={t("tools.geocode.peopleToggle")}
+                          onClick={() => togglePeople(f.key)}
+                        >
+                          {f.people.length}
+                        </button>
                         {/* After the arrow stands what the file would say once
                             the row is taken — the exact replacement, note and
                             all, not the register's line it is derived from.
@@ -701,14 +705,6 @@ export function AddressCheckSection({
                             title={t("tools.register.dismissHint")}
                           >
                             {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
-                          </button>
-                          <button
-                            className="tools-chip-count tools-count-toggle"
-                            aria-pressed={showPeople}
-                            aria-label={t("tools.geocode.peopleToggle")}
-                            onClick={() => togglePeople(f.key)}
-                          >
-                            {f.people.length}
                           </button>
                         </span>
                       </GeoRowHeader>
@@ -781,39 +777,38 @@ export function AddressCheckSection({
                               Addresses tab, where the destination is typed. */}
                           {open.has(f.key) && f.official && (
                             <ul className="tools-geo-candidates">
-                              <li>
-                                {f.officialAddress || f.officialPlace ? (
-                                  <label>
-                                    <input
-                                      type="radio"
-                                      className="tools-geo-cand-radio"
-                                      name={`registerAddr-${f.key}`}
-                                      aria-label={f.official}
-                                      disabled={f.dismissed}
-                                      checked={false}
-                                      onChange={() => (f.officialAddress ? takeOfficial([f]) : takeMove(f))}
-                                    />
-                                    {/* The number IS the control everywhere on
-                                        these pages — the input itself is clipped
-                                        to a pixel, so an option without it drew
-                                        no control at all. */}
-                                    <span className="tools-geo-cand-num">1</span>
-                                    <span className="tools-geo-cand-name">{f.official}</span>
-                                    {/* The place this line yields, beside the
-                                        line itself — the header's proposal read
-                                        back to where it comes from, so the move
-                                        is visibly the register's own filing and
-                                        not something composed elsewhere. */}
-                                    {f.officialPlace && <span className="tools-register-place">{f.officialPlace}</span>}
-                                  </label>
-                                ) : (
+                              {f.officialAddress || f.officialPlace ? (
+                                <CandidateOption
+                                  group={`registerAddr-${f.key}`}
+                                  number={1}
+                                  label={f.official}
+                                  ariaLabel={f.official}
+                                  disabled={f.dismissed}
+                                  // Nothing to stand on: taking this line is the
+                                  // write itself, and the row leaves the report.
+                                  checked={false}
+                                  onPick={() => (f.officialAddress ? takeOfficial([f]) : takeMove(f))}
+                                >
+                                  {/* The place this line yields, beside the line
+                                      itself — the header's proposal read back to
+                                      where it comes from, so the move is visibly
+                                      the register's own filing and not something
+                                      composed elsewhere. */}
+                                  {f.officialPlace && <span className="tools-register-place">{f.officialPlace}</span>}
+                                </CandidateOption>
+                              ) : (
+                                // Nothing to write, so no control: a place value
+                                // this app cannot compose the swap for is moved
+                                // on the Addresses tab, where the destination is
+                                // typed.
+                                <li>
                                   <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
                                     <span className="tools-geo-cand-num">1</span>
                                     <span className="tools-geo-cand-name">{f.official}</span>
                                     {f.settlement && <span className="tools-register-place">{f.settlement}</span>}
                                   </span>
-                                )}
-                              </li>
+                                </li>
+                              )}
                             </ul>
                           )}
                           {showPeople && (

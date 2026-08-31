@@ -78,15 +78,27 @@ export function placeNodeCoord(plac: GedNode): GeoCoord | undefined {
 }
 
 /**
- * Parse a typed coordinate pair — "46.24137, 14.35580", "46.24137 14.35580", or
- * the GEDCOM hemisphere form "N46.24137 E14.3558" — into decimal degrees.
- * Returns undefined unless exactly two parseable values are present, so a
- * half-typed entry simply isn't offered yet.
+ * Parse a typed coordinate pair — "46.24137, 14.35580", "46.24137 14.35580",
+ * the GEDCOM hemisphere form "N46.24137 E14.3558", or the decimal comma of most
+ * of Europe ("46,24137 14,35580") — into decimal degrees. Returns undefined
+ * unless exactly two parseable values are present, so a half-typed entry simply
+ * isn't offered yet.
+ *
+ * The one parser behind every field where a coordinate can be typed or pasted:
+ * the tools once had a second, plainer one of their own, and the same text was
+ * taken by one list and refused by the next.
  */
 export function parseCoordInput(raw: string): GeoCoord | undefined {
   const parts = raw.split(/[,;\s]+/).filter(Boolean);
-  if (parts.length !== 2) return undefined;
-  return parseCoordPair(parts[0], parts[1]);
+  if (parts.length === 2) return parseCoordPair(parts[0], parts[1]);
+  // A decimal comma, as most of Europe writes it — and as every map site in
+  // those countries offers for copying. Split on the separators above, "46,0511
+  // 14,5051" is four numbers and was refused; read as two decimal numbers with
+  // one separator between them it is exactly what was pasted. Tried second, so
+  // nothing this already understood ("N46 05, E14 30") changes meaning.
+  const decimalComma = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(raw);
+  if (!decimalComma) return undefined;
+  return parseCoordPair(decimalComma[1].replace(",", "."), decimalComma[2].replace(",", "."));
 }
 
 /** One LATI/LONG value to signed decimal degrees; `negative` names the
@@ -317,6 +329,21 @@ export function looksLikeStreet(segment: string): boolean {
 /** The whole words of a place name, lowercased, for comparing two names word by word. */
 const nameWords = (s: string): string[] =>
   s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+
+/**
+ * Whether two place names have a whole word in common.
+ *
+ * The corroboration test for adopting one name in place of another: a value's
+ * leading name that this file knows as no place of its own, but whose words
+ * turn up in the chain above the place its address names ("Kranj - Šmartin"
+ * over Stražišče's "Kranj, Slovenia"), is describing the same corner of the
+ * world by another name — a parish, a register, a district — rather than
+ * pointing somewhere else.
+ */
+export function sharesPlaceWord(a: string, b: string): boolean {
+  const words = new Set(nameWords(b));
+  return nameWords(a).some((w) => words.has(w));
+}
 
 /**
  * Whether an address name says something the locality doesn't already say — the

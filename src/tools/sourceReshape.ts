@@ -464,7 +464,10 @@ export { parseFamilySearchUrl, type FamilySearchUrlParts };
  * the link's `i=` or the lookup's "image N of M": the hand-editable page
  * field could hold the book's printed page instead, which the film does not
  * count, so a page without the film's number carries the name alone.
- * Undefined when there is no title to build on (a link nothing recognized).
+ *
+ * A link no site recognized names a whole web page rather than a page of a
+ * book, and its source's title is that page's own name — so it serves as the
+ * media title too. Undefined only when there is no title to build on.
  */
 export function pageObjeTitle(
   site: ReshapeSite | undefined,
@@ -477,7 +480,7 @@ export function pageObjeTitle(
    *  page's name. */
   collection?: string,
 ): string | undefined {
-  if (!site || !title) return undefined;
+  if (!title) return undefined;
   if (site === "familysearch") {
     const name = collection && title.endsWith(` - ${collection}`) ? title.slice(0, -(collection.length + 3)) : title;
     return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage} - ${name}` : name;
@@ -948,6 +951,47 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   other: "🔗",
 };
 
+/**
+ * What kind of evidence a recognized site's page is, as the GEDCOM
+ * data-quality value (`QUAY`) a citation of it starts from — `3` primary for a
+ * photographed register page, `2` secondary for an index, a gravestone or a
+ * published account of an event recorded later, `1` questionable for a tree
+ * another researcher compiled, and nothing at all for the sites that publish
+ * no evidence of their own. It is a proposal the reader changes or clears in
+ * the source dialog before anything is written; a site the table leaves out
+ * simply opens the dialog with an empty quality field.
+ */
+const SITE_QUAY: Partial<Record<ReshapeSite, string>> = {
+  // A photograph of the parish register itself.
+  matricula: "3",
+  // The stone and the page that transcribes it: the burial was recorded after
+  // the death, and by whoever raised the marker.
+  findagrave: "2",
+  billiongraves: "2",
+  geneanet: "2",
+  // A newspaper reports an event after it happened, as does a printed account.
+  legacy: "2",
+  newspapers: "2",
+  sistory: "2",
+  dlib: "2",
+  googlebooks: "2",
+  // A compiled tree states another researcher's conclusions, not evidence.
+  geneanettree: "1",
+};
+
+/** The `QUAY` a fresh citation of `url` starts from — see {@link SITE_QUAY}.
+ *  FamilySearch is the one site whose links differ in kind: an image of a film
+ *  is the register page itself, a `1:1` ark is one indexed entry read off such
+ *  a page, and a tree page is somebody's conclusions. */
+export function siteQuay(site: ReshapeSite, url: string | undefined): string | undefined {
+  if (site !== "familysearch") return SITE_QUAY[site];
+  const kind = url ? parseFamilySearchUrl(url)?.kind : undefined;
+  if (kind === "image") return "3";
+  if (kind === "record") return "2";
+  if (kind === "tree") return "1";
+  return undefined;
+}
+
 const siteIconCache = new Map<string, string | undefined>();
 
 /** The recognized site's glyph for a source/link URL, or undefined for URLs
@@ -1339,6 +1383,18 @@ const SITE_BOOK_TYPE: Partial<Record<ReshapeSite, BookType>> = {
   legacy: "death",
   sistory: "death",
 };
+
+/**
+ * The event a recognized site's page documents, where the site's own kind
+ * settles it — a grave photograph is evidence of the burial, an obituary of the
+ * death. {@link smartCitationTarget} asks the same question of a whole file;
+ * this is for callers that have only the link, such as the index CSV import
+ * hanging a cemetery link on the burial it came with.
+ */
+export function siteEventTag(site: ReshapeSite): string | undefined {
+  const type = SITE_BOOK_TYPE[site];
+  return type === "burial" ? "BURI" : type === "death" ? "DEAT" : undefined;
+}
 
 interface GroupState {
   group: ReshapeGroup;
@@ -3367,6 +3423,14 @@ function matriculaEnUrl(bookUrl: string): string {
  *  re-opening the panel or re-running enrichment never refetches a book. */
 const bookMetaCache = new Map<string, ReshapeMeta>();
 
+/** What a book's own page said, if this session has already read it — the
+ *  synchronous half of {@link fetchBookMeta}, for callers that cannot wait for
+ *  the network (the merge writes its sources in one pass) and take the offline
+ *  proposal when nothing has been read. */
+export function cachedBookMeta(site: ReshapeSite, bookUrl: string): ReshapeMeta | undefined {
+  return bookMetaCache.get(`${site}:${bookKeyOf(bookUrl)}`);
+}
+
 /** FamilySearch's edge answers a burst of requests with a block page (403 from
  *  its security service) — which would also hit the user's own FamilySearch
  *  tab, on the same address. Ark lookups therefore run one at a time with a
@@ -3774,6 +3838,114 @@ export async function fetchReshapeMeta(
   const queue = [...targets];
   await Promise.all([worker(queue), worker(queue)]);
   return enrichment;
+}
+
+/**
+ * Read the pages of the given books — the same per-site parsers and the same
+ * session cache {@link fetchBookMeta} keeps, two at a time as the enrichment
+ * pass does — so what each page says is on hand for the source about to be
+ * written for it. Used by the save, which mints sources for the links a merge
+ * brings in and would otherwise name them from the address alone. Failures are
+ * swallowed; the offline proposal stands. Returns how many books answered.
+ */
+export async function readBookPages(
+  bookUrls: readonly string[],
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): Promise<number> {
+  let read = 0;
+  const worker = async (queue: BookTarget[]): Promise<void> => {
+    for (let target = queue.shift(); target; target = queue.shift()) {
+      if (await readBook(target, fetchHtml)) read++;
+    }
+  };
+  const queue = bookTargets(bookUrls);
+  await Promise.all([worker(queue), worker(queue)]);
+  return read;
+}
+
+interface BookTarget { site: ReshapeSite; bookUrl: string }
+
+/** The distinct fetchable books among `bookUrls`, minus the ones this session
+ *  has already read or already tried and failed (see {@link readBook}). */
+function bookTargets(bookUrls: readonly string[]): BookTarget[] {
+  const targets: BookTarget[] = [];
+  for (const bookUrl of new Set(bookUrls)) {
+    const site = recognizeSourceUrl(bookUrl)?.site;
+    if (!site || !isFetchableSite(site, bookUrl)) continue;
+    if (cachedBookMeta(site, bookUrl) || silentBooks.has(`${site}:${bookKeyOf(bookUrl)}`)) continue;
+    targets.push({ site, bookUrl });
+  }
+  return targets;
+}
+
+/**
+ * Books that were asked and said nothing — a relay chain that ends in silence
+ * costs the better part of a minute (Geneanet answers none of the plain relays),
+ * and asking the same book again on the next save spends it again for the same
+ * answer. The offline proposal names the source instead, and a reload gives any
+ * book a fresh chance.
+ */
+const silentBooks = new Set<string>();
+
+/** One book, read once per session: an in-flight read is joined rather than
+ *  duplicated, so the save and the background queue never fetch the same page
+ *  twice, and silence is remembered. */
+function readBook(
+  target: BookTarget,
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): Promise<ReshapeMeta | undefined> {
+  const key = `${target.site}:${bookKeyOf(target.bookUrl)}`;
+  const running = inFlightBooks.get(key);
+  if (running) return running;
+  const p = fetchBookMeta(target.site, target.bookUrl, fetchHtml)
+    .catch(() => undefined)
+    .then((meta) => {
+      inFlightBooks.delete(key);
+      if (!meta) silentBooks.add(key);
+      return meta;
+    });
+  inFlightBooks.set(key, p);
+  return p;
+}
+
+const inFlightBooks = new Map<string, Promise<ReshapeMeta | undefined>>();
+
+/**
+ * Start reading these books in the background, two at a time, and return at
+ * once. Called as matches are confirmed, so the pages a save would need are
+ * already read by the time it runs — the same session cache serves both, and
+ * {@link readBookPages} joins whatever is still in flight instead of asking
+ * again. Books already read, already queued, or already silent cost nothing.
+ */
+export function queueBookPages(
+  bookUrls: readonly string[],
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): void {
+  for (const target of bookTargets(bookUrls)) {
+    if (!inFlightBooks.has(`${target.site}:${bookKeyOf(target.bookUrl)}`)) backlog.push(target);
+  }
+  while (backlogWorkers < BACKLOG_WORKERS && backlog.length) {
+    backlogWorkers++;
+    void (async () => {
+      for (let target = backlog.shift(); target; target = backlog.shift()) {
+        await readBook(target, fetchHtml);
+      }
+      backlogWorkers--;
+    })();
+  }
+}
+
+/** Two at a time, as every other reading pass here: the relays rate-limit, and
+ *  this one runs while the reader is working. */
+const BACKLOG_WORKERS = 2;
+const backlog: BookTarget[] = [];
+let backlogWorkers = 0;
+
+/** Test seam: forget what this session has read, queued and given up on. */
+export function resetBookQueue(): void {
+  silentBooks.clear();
+  inFlightBooks.clear();
+  backlog.length = 0;
 }
 
 /**

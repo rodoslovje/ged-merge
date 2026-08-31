@@ -16,6 +16,7 @@ import {
   attachInlineMedia,
   attachMediaPointer,
   attachSourceCitation,
+  linkPageMedia,
   createMediaRecord,
   findSharedMediaByFile,
   nextXref,
@@ -1220,6 +1221,60 @@ describe("connectExistingChild (birth order)", () => {
   });
 });
 
+// ─── one birth family per person ────────────────────────────────────────────
+
+describe("connectExistingChild (birth family)", () => {
+  // A child born into @F1@, and a second couple @F2@ to be taken as parents.
+  const TEXT =
+    "0 @I1@ INDI\n1 SEX M\n1 FAMS @F1@\n" +
+    "0 @I2@ INDI\n1 SEX F\n1 FAMS @F1@\n" +
+    "0 @I3@ INDI\n1 SEX M\n1 FAMS @F2@\n" +
+    "0 @I4@ INDI\n1 SEX F\n1 FAMS @F2@\n" +
+    "0 @C1@ INDI\n1 BIRT\n2 DATE 1805\n1 FAMC @F1@\n" +
+    "0 @C2@ INDI\n1 BIRT\n2 DATE 1807\n1 FAMC @F1@\n" +
+    "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @C1@\n1 CHIL @C2@\n" +
+    "0 @F2@ FAM\n1 HUSB @I3@\n1 WIFE @I4@\n";
+
+  it("moves the child out of their birth family instead of adding a second one", () => {
+    const ds = buildFromText(TEXT);
+    const father = ds.individuals.get("@I3@")!;
+
+    connectExistingChild(ds, father, "@C1@", ds.families.get("@F2@")!);
+
+    expect(ds.individuals.get("@C1@")!.childOf).toEqual(["@F2@"]);
+    expect(ds.families.get("@F1@")!.children).toEqual(["@C2@"]);
+    expect(ds.families.get("@F2@")!.children).toEqual(["@C1@"]);
+  });
+
+  it("drops a birth family the move leaves with a lone parent", () => {
+    const ds = buildFromText(TEXT);
+    // @F1@ keeps only @I1@, @I2@ and one child; taking both children away
+    // leaves a childless couple, so take the whole of a one-parent family.
+    detachChildFromFamily(ds, ds.families.get("@F1@")!, "@C2@");
+    detachSpouseRole(ds, ds.families.get("@F1@")!, "WIFE");
+
+    connectExistingChild(ds, ds.individuals.get("@I3@")!, "@C1@", ds.families.get("@F2@")!);
+
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.individuals.get("@I1@")!.spouseOf).toEqual([]);
+    expect(ds.individuals.get("@C1@")!.childOf).toEqual(["@F2@"]);
+  });
+
+  it("leaves an adoptive link alone — that is a legitimate second family", () => {
+    const ds = buildFromText(
+      "0 @I3@ INDI\n1 SEX M\n1 FAMS @F2@\n" +
+        "0 @I4@ INDI\n1 SEX F\n1 FAMS @F2@\n" +
+        "0 @C1@ INDI\n1 FAMC @FA@\n2 PEDI adopted\n" +
+        "0 @F2@ FAM\n1 HUSB @I3@\n1 WIFE @I4@\n" +
+        "0 @FA@ FAM\n1 CHIL @C1@\n",
+    );
+
+    connectExistingChild(ds, ds.individuals.get("@I3@")!, "@C1@", ds.families.get("@F2@")!);
+
+    expect(ds.individuals.get("@C1@")!.childOf).toEqual(["@FA@", "@F2@"]);
+  });
+});
+
 // ─── detachSpouseRole ─────────────────────────────────────────────────────────
 
 describe("detachSpouseRole", () => {
@@ -1554,6 +1609,34 @@ describe("createSourceRecord / attachSourceCitation", () => {
     attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].page).toBe("11");
+  });
+
+  it("writes the citation's data quality after its page, and nothing when there is none", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER, "3");
+    attachSourceCitation(indi.raw, source.xref!, "12", INDI_CHILD_ORDER);
+    const citations = indi.raw.children.filter((c) => c.tag === "SOUR");
+    expect(citations[0].children.map((c) => `${c.tag} ${c.value}`)).toEqual(["PAGE 11", "QUAY 3"]);
+    expect(citations[1].children.map((c) => c.tag)).toEqual(["PAGE"]);
+  });
+});
+
+describe("linkPageMedia", () => {
+  it("links the cited page's image beside the citation, once", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga", url: "https://example.com/book/?pg=11" });
+    const objeXref = source.children.find((c) => c.tag === "OBJE")!.value!;
+    attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER);
+    linkPageMedia(indi.raw, objeXref, INDI_CHILD_ORDER);
+    // A second attempt (the same page cited again) adds no duplicate pointer.
+    linkPageMedia(indi.raw, objeXref, INDI_CHILD_ORDER);
+    expect(indi.raw.children.filter((c) => c.tag === "OBJE" && c.value === objeXref)).toHaveLength(1);
+    // The "source only" style passes nothing, and nothing is linked.
+    linkPageMedia(indi.raw, undefined, INDI_CHILD_ORDER);
+    expect(indi.raw.children.filter((c) => c.tag === "OBJE")).toHaveLength(1);
   });
 });
 
@@ -1966,6 +2049,29 @@ describe("updateSourceCitation", () => {
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].page).toBe("7");
     expect(updated.sources![0].title).toBe("Krstna knjiga");
+  });
+
+  it("sets, changes and clears the citation's own QUAY", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    attachSourceCitation(indi.raw, source.xref!, "5", INDI_CHILD_ORDER);
+    const citation = indi.raw.children.find((c) => c.tag === "SOUR")!;
+    const quayOf = () => citation.children.find((c) => c.tag === "QUAY")?.value;
+
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "5", quay: "3" });
+    expect(quayOf()).toBe("3");
+
+    // A changed value rewrites the line the citation already holds — one QUAY,
+    // never a second beside it.
+    const node = citation.children.find((c) => c.tag === "QUAY")!;
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "5", quay: "2" });
+    expect(citation.children.filter((c) => c.tag === "QUAY")).toEqual([node]);
+    expect(quayOf()).toBe("2");
+
+    // Emptying the field takes the value out of the file.
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "5", quay: "" });
+    expect(quayOf()).toBeUndefined();
   });
 
   it("retargets only this citation's page image, leaving sibling pages of the same source untouched", () => {

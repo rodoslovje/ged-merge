@@ -107,13 +107,61 @@ describe("parseGiMatchesCsv", () => {
     const burial = indi?.events.find((e) => e.tag === "BURI");
     expect(burial?.place?.raw).toBe("Zabnica, Pokopališče Žabnica");
 
-    expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
+    // The cemetery link documents that burial, so it arrives on the event
+    // rather than as a bare link on the person.
+    expect(burial?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
+    expect(indi?.links ?? []).not.toContain("https://en.geneanet.org/cemetery/view/8657008");
     expect(indi?.notes).toBeUndefined();
 
     // "Žena: Helena Krt *1883" becomes a real partner family rather than a note.
     const partners = partnerNames(indi!, dataset);
     expect(partners).toHaveLength(1);
     expect(partners[0]).toEqual(expect.objectContaining({ given: "Helena", surname: "Krt" }));
+  });
+
+
+  it("keeps the date and place a register note is written beside", () => {
+    // The index appends the register's own marginal remark to the cell it
+    // belongs to — a death noted on the baptism page (✝), a later note (🗒).
+    // The value in front of it is real, and dropping it once cost the record
+    // its birth date and its place both.
+    const mainRow = row([
+      "Marija", "Slobodnik", "28 AUG 1880", "Bojanja vas 25, Metlika", "20 NOV 1882",
+      "Bojanja vas 25, Metlika", "", "", "", "", "Peter Slobodnik", "Marija Režek", "Renko", "97",
+    ]);
+    const incomingRow = row([
+      "Marija", "Slobodnik", "28 AUG 1880 (✝ 28 AUG 1880)", "Radovica, Bojanja vas 25 (🗒 + 20.11.1882)",
+      "", "", "", "", "https://data.matricula-online.eu/sl/slovenia/ljubljana/radovica/04132/?pg=83",
+      "", "Peter Slobodnik", "Marija Režek", "Kočevar-matricula", "97",
+    ]);
+    const { dataset, pairs } = parseGiMatchesCsv(`${SL_HEADER_SOURCE}\n${mainRow}\n${incomingRow}\n`);
+    expect(pairs[0].mainKey).toEqual({ given: "Marija", surname: "Slobodnik", birthYear: 1880 });
+    const birth = dataset.individuals.get("@SGI1@")?.events.find((e) => e.tag === "BIRT");
+    // The date is comparable — annotated, it read as no birth date at all, and
+    // a missing birth key costs a pair that agrees everywhere ~15 points.
+    expect(birth?.date?.raw).toBe("28 AUG 1880");
+    expect(birth?.date?.year).toBe(1880);
+    expect(birth?.place?.raw).toBe("Radovica, Bojanja vas 25");
+    // The remark itself is not turned into a death: two notes on this page
+    // disagree about when she died, and that is the reader's to judge.
+    expect(dataset.individuals.get("@SGI1@")?.events.find((e) => e.tag === "DEAT")).toBeUndefined();
+  });
+
+  it("leaves a cemetery link on the person when the row names no burial", () => {
+    // A link alone is too thin a reason to assert a burial the index never
+    // stated; the merge still offers it as the person's own source.
+    const mainRow = row([
+      "Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "",
+      "https://en.geneanet.org/cemetery/view/8657008", "", "", "", "Renko", "99",
+    ]);
+    const incomingRow = row([
+      "Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "",
+      "https://en.geneanet.org/cemetery/view/8657008", "", "", "", "Pokopališča-geneanet", "99",
+    ]);
+    const { dataset } = parseGiMatchesCsv(`${SL_HEADER_SOURCE}\n${mainRow}\n${incomingRow}\n`);
+    const indi = dataset.individuals.get("@SGI1@");
+    expect(indi?.events.find((e) => e.tag === "BURI")).toBeUndefined();
+    expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
   });
 
   it("handles the English header with separate Father/Mother columns", () => {

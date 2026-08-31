@@ -35,6 +35,17 @@ export interface FieldRow {
   /** Event-attached links, rendered as icons alongside the event's source citations. */
   mainLinkIcons?: string[];
   incomingLinkIcons?: string[];
+  /** Of this row's `incomingLinkIcons`, the ones the incoming file keeps at
+   *  record level and this merge will write onto this event — the citation
+   *  they become documents it. Applied from here rather than read off the
+   *  incoming event, which does not carry them. */
+  incomingRecordLinks?: string[];
+  /** The incoming value is on screen for the record only: its event was taken
+   *  into the main file by hand in Edit and is out of the merge (see
+   *  `CandidateDecision.rejectedEvents`). Nothing here can be chosen or
+   *  applied — the panel says where the event went instead of offering
+   *  choices that would do nothing. */
+  taken?: true;
   /** Source citations attached to the event, rendered as badges in this row's value cells. */
   mainSources?: SourceCitation[];
   incomingSources?: SourceCitation[];
@@ -301,11 +312,18 @@ export function decisionStatusByMainId(
 }
 
 /** Sensible default merge choice: keep the main's value, else take incoming.
- *  Exception: for a date field, when the incoming date is a strictly more exact
- *  version of the main's (e.g. main "1949" vs incoming "12 MAR 1949"), take
- *  the incoming side — the finer date is almost always what the user wants. */
+ *  Two exceptions. For a date field, when the incoming date is a strictly more
+ *  exact version of the main's (e.g. main "1949" vs incoming "12 MAR 1949"),
+ *  take the incoming side — the finer date is almost always what the user
+ *  wants. And an event row that a record-level incoming link landed on keeps
+ *  both: that link is a source the incoming file hangs on the whole person and
+ *  this merge files under the event it documents — it replaces nothing, and
+ *  before it was shown here it was taken by default from the person's own row.
+ *  The event's own citations keep the conservative default when no such link
+ *  joined them. */
 export function defaultChoice(row: FieldRow): FieldChoice {
   if (!row.main) return "incoming";
+  if (row.incomingRecordLinks?.length) return "both";
   if (row.key.endsWith(".date") && dateRefines(row.main, row.incoming)) return "incoming";
   return "main";
 }

@@ -8,6 +8,7 @@ import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { formatReport, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
+import { readBookPages } from "../tools/sourceReshape";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -952,6 +953,61 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
+  const GRAVE = "https://en.geneanet.org/cemetery/view/10429838";
+
+  it("mints the source a recognized link needs and cites it on the event it documents", () => {
+    const main = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Kranj\n"),
+    );
+    const compare = dataset(
+      wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW ${GRAVE}\n`),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // Not a naked link on the person: a source, its page image, and a citation
+    // on the burial the grave index documents.
+    expect(out).not.toContain("1 WWW ");
+    expect(out).toMatch(/0 @S\d+@ SOUR\n1 TITL .*Geneanet/);
+    expect(out).toContain(`1 FILE ${GRAVE}`);
+    expect(out).toMatch(/1 BURI\n2 PLAC Kranj\n2 SOUR @S\d+@/);
+  });
+
+  it("cites a recognized link on an event this same merge brought in", () => {
+    // The burial arrives with the merge, so the link can only find it once every
+    // other row has been applied — the case that made the link land on the person.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(
+      wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Kranj\n1 WWW ${GRAVE}\n`),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toMatch(/1 BURI\n2 PLAC Kranj\n2 SOUR @S\d+@/);
+  });
+
+  it("writes nothing for an event the incoming file records with no detail at all", () => {
+    // The review shows the heading so the reader can see the incoming file
+    // knows the person died, but there is no field to decide and so nothing to
+    // write — the merge leaves the main record as it stands.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n"));
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).not.toContain("1 DEAT");
+    expect(report.changes).toHaveLength(0);
+  });
+
+  it("keeps a recognized link on the record when the event it documents isn't there", () => {
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(
+      wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW ${GRAVE}\n`),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // A citation still — but the merge invents no burial to hang it on, since an
+    // event nobody decided on is a change the save preview cannot explain.
+    expect(out).toMatch(/1 SEX M\n1 SOUR @S\d+@/);
+    expect(out).not.toContain("1 BURI");
+  });
+
   it("doesn't duplicate a link the main already has (even with a trailing slash)", () => {
     const main = dataset(
       wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/old/\n"),
@@ -1036,11 +1092,120 @@ describe("mergeDecisions — links", () => {
     const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).not.toMatch(/^1 WWW/m);
-    expect(out).toContain("1 SOUR @S1@\n2 PAGE 58");
+    // The main cites this baptism book on the birth it documents, so the new
+    // page joins it there rather than hanging off the person.
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58");
     expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
     // The new page joins the existing book's SOUR rather than minting a new one.
     expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
-    expect(report.changes.some((c) => c.links?.some((l) => l.includes("pg=58")))).toBe(true);
+    // Reported as the citation it became, under the birth's header.
+    const cited = report.changes.find((c) => c.sources?.some((s) => s.url?.includes("pg=58")));
+    expect(cited?.group).toBe("event.BIRT");
+  });
+
+  it("links the cited page's image beside the citation, where the file keeps them there", async () => {
+    // This file's habit: the register page's image sits on the event next to
+    // the citation of it (Add Source writes both), so a merged link must too.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // The page image the merge minted for page 58 is linked on the birth
+    // itself — among the event's other images, as the field order wants —
+    // and named the way the dialog names one.
+    expect(out).toMatch(/1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 OBJE @O2@\n2 SOUR @S1@/);
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n1 TITL #58 - Krstna knjiga - Šenčur");
+    // …and the site's own evidence quality, as the Add Source dialog proposes:
+    // a photographed register page is primary evidence.
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
+  });
+
+  it("leaves the page image under the source alone in a file that keeps them there", () => {
+    // Same merge, in a file whose citations carry no page image: nothing is
+    // linked beside the citation, only the source gains the page.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr).records);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58");
+    expect(out).not.toMatch(/2 OBJE @O2@\n2 SOUR @S1@/);
+    // The source itself still holds the new page.
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n1 OBJE @O2@");
+  });
+
+  it("names a source it mints for an incoming link from the book's own page, once read", async () => {
+    const bookUrl = "https://data.matricula-online.eu/sl/slovenia/ljubljana/vodice/04406/";
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1891\n"));
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW " + bookUrl + "?pg=12\n"),
+    );
+
+    // Nothing read yet: the source is named from the address alone, and the
+    // book is reported for the save to read.
+    const offline = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(offline.records)).toContain("1 TITL Matricula 04406 | Vodice");
+    expect(offline.pendingSourceLookups).toEqual([bookUrl]);
+
+    // Read the book's page, then merge again — the same link now mints the
+    // source the Add Source dialog would have written for a pasted link.
+    const read = await readBookPages(offline.pendingSourceLookups, async () =>
+      "<html><head><title>Krstna knjiga / Taufbuch - 04406 | Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online</title></head><body></body></html>",
+    );
+    expect(read).toBe(1);
+    const online = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(online.records);
+    expect(out).toContain("1 TITL Krstna knjiga / Taufbuch - 04406 | Vodice");
+    expect(out).toContain("1 AGNC Nadškofijski arhiv Ljubljana");
+    // The book has been read; nothing is left for the save to ask about.
+    expect(online.pendingSourceLookups).toEqual([]);
+    // A baptism book's citation lands on the birth it documents.
+    expect(out).toMatch(/1 BIRT\n2 DATE 1891\n2 SOUR @S1@/);
+  });
+
+  it("says on the source's own card which page it gained", () => {
+    // The merge adds the cited page's image to a book the file already keeps.
+    // Without a line of its own, the source card in the save preview could
+    // only say the record is "saved differently than it was loaded".
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const { report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(report.recordKinds["@S1@"]).toBe("record");
+    expect(report.recordLabels["@S1@"]).toBe("Krstna knjiga - Šenčur");
+    const page = report.changes.find((c) => c.recordId === "@S1@");
+    expect(page?.links).toEqual(["https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58"]);
+    expect(page?.to).toBe("#58 - Krstna knjiga - Šenčur");
   });
 
   it("two people bringing the same new page in one merge share the OBJE the first one minted", () => {
@@ -1466,6 +1631,63 @@ describe("mergeDecisions — event source citations", () => {
     expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
     expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
   });
+
+  // The incoming family's own record-level links and citations used to be
+  // dropped: the review had no row for them, so nothing was ever written.
+  const MARR_BOOK = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03180";
+  const mainWithMarriageBook = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1900\n" +
+      "0 @S5@ SOUR\n1 TITL Poročna knjiga - Šenčur\n1 OBJE @O5@\n" +
+      "0 @O5@ OBJE\n1 FILE " + MARR_BOOK + "/?pg=3\n",
+  );
+  const compareFamLink = (line: string) =>
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 MARR\n2 DATE 1900\n" + line,
+    );
+  const famMatches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+  const confirmedFam = (fields: Record<string, "main" | "incoming" | "both"> = {}) =>
+    new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields }],
+    ]);
+
+  it("cites a link the incoming family keeps on the record on the couple's marriage", () => {
+    const main = dataset(mainWithMarriageBook);
+    const compare = dataset(compareFamLink("1 WWW " + MARR_BOOK + "/?pg=11\n"));
+    const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
+    const out = serializeGedcom(records);
+    // The marriage register documents the marriage, so its page is cited
+    // there — not left hanging off the family record as a bare address.
+    expect(out).toContain("1 MARR\n2 DATE 1900\n2 SOUR @S5@\n3 PAGE 11");
+    expect(out).not.toMatch(/^1 WWW/m);
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+  });
+
+  it("keeps a link the incoming family's register cannot place on the family record", () => {
+    const main = dataset(mainWithMarriageBook);
+    const compare = dataset(compareFamLink("1 WWW https://example.com/couple\n"));
+    const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 WWW https://example.com/couple");
+  });
+
+  it("takes the incoming family's own record-level citation", () => {
+    const main = dataset(mainWithMarriageBook);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 MARR\n2 DATE 1900\n1 SOUR @CS1@\n2 PAGE 11\n" +
+          "0 @CS1@ SOUR\n1 TITL Poročna knjiga - Šenčur\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
+    const out = serializeGedcom(records);
+    // The compare source names a book the main already keeps, so the citation
+    // lands on the main's own SOUR rather than importing a second copy.
+    expect(out).toMatch(/0 @F1@ FAM\n(.|\n)*1 SOUR @S5@\n2 PAGE 11/);
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+  });
 });
 
 describe("mergeDecisions — multi-instance events pair main/incoming by their own array position", () => {
@@ -1721,7 +1943,7 @@ describe("materializeEventSources", () => {
     expect(mainDs.records.find((r) => r.xref === "@CS1@")?.children[0]?.value).toBe("Unrelated source");
   });
 
-  it("returns an empty array and does nothing when the incoming event has no SOUR", () => {
+  it("returns an empty array and does nothing when the incoming event has nothing to cite", () => {
     const mainDs = dataset(main);
     const compareDs = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BAPM\n2 DATE 1850\n"));
     const eventNode: GedNode = { level: 1, tag: "BAPM", children: [] };
@@ -1731,6 +1953,34 @@ describe("materializeEventSources", () => {
 
     expect(imported).toEqual([]);
     expect(eventNode.children).toEqual([]);
+  });
+
+  it("brings the event's own link across as the source it would have become", () => {
+    // Correcting the place of a burial the merge suggested materializes the
+    // event and takes it out of the merge for good — so a cemetery link
+    // attached to it has this one chance to arrive, or it is lost with it.
+    const grave = "https://en.geneanet.org/cemetery/view/10429838";
+    const mainDs = dataset(main);
+    const compareDs = dataset(wrap(
+      `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Kranj\n2 WWW ${grave}\n`,
+    ));
+    const eventNode: GedNode = { level: 1, tag: "BURI", children: [{ level: 2, tag: "PLAC", value: "Zgornje Bitnje", children: [] }] };
+    mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BURI")!;
+
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, {
+      linkFormat: "WWW",
+      pageMedia: "source",
+    });
+
+    // A citation of a minted source, not a bare link left on the event.
+    const citation = eventNode.children.find((c) => c.tag === "SOUR");
+    expect(citation?.value).toMatch(/^@S\d+@$/);
+    expect(eventNode.children.some((c) => c.tag === "WWW")).toBe(false);
+    const source = mainDs.records.find((r) => r.xref === citation!.value);
+    expect(source?.children.some((c) => c.tag === "TITL" && /Geneanet/.test(c.value ?? ""))).toBe(true);
+    // Every record it minted comes back, or undo would leave them behind.
+    expect(imported.map((r) => r.xref)).toContain(citation!.value);
   });
 });
 

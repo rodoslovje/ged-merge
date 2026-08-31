@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { NoteRef } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { ClearableTextarea } from "./ClearableInput";
+import { linkHref } from "../FieldValue";
 
 /** First URL in a note's text, for the chip's open-link button. */
 function firstUrlIn(text: string): string | undefined {
@@ -125,7 +126,7 @@ export function NotesEditor({
           onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
         />
         {url && (
-          <a className="source-ref-open" href={url} target="_blank" rel="noreferrer noopener" title={url}>
+          <a className="source-ref-open" href={linkHref(url)} target="_blank" rel="noreferrer noopener" title={url}>
             ↗
           </a>
         )}

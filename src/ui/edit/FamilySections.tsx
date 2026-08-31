@@ -2,17 +2,18 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
+import { childrenByBirth } from "../../gedcom/familySort";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
 import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
 import { collectMediaRefs } from "../../gedcom/media";
 import { coupleAgesDisplay } from "../../gedcom/age";
-import { birthSortKey } from "../../gedcom/lifespan";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
   addFamilyEventNode,
   attachSourceCitation,
+  linkPageMedia,
   FAM_CHILD_ORDER,
   removeFamilyEvent,
   reorderMedia,
@@ -96,17 +97,6 @@ export function NewUnionSection({
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showAge", "showKinship", "formatOverrides"] as const;
-
-/** The family's children in birth order for display — the file's own order is
- *  left untouched. Undated children keep their file position among themselves,
- *  after the dated ones (sort is stable, undated keys are Infinity). */
-function childrenByBirth(fam: Family | undefined, individuals: Dataset["individuals"]): string[] {
-  return [...(fam?.children ?? [])].sort((a, b) => {
-    const ka = birthSortKey(individuals.get(a));
-    const kb = birthSortKey(individuals.get(b));
-    return ka < kb ? -1 : ka > kb ? 1 : 0;
-  });
-}
 
 /** Kinship badge props for a relative card (mirrors the person header's). */
 function kinshipChips(
@@ -361,11 +351,18 @@ interface FamilySectionProps extends SharedSectionProps {
   famMergeKeyBase: string | undefined;
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
+  /** Plain links a confirmed merge will add, keyed by row — the family's own
+   *  are under `<famKey>.links`, an event's under that event's sources row. */
+  mergeIncomingLinks: Map<string, string[]>;
+  /** Page images the incoming citations bring with them — see FamilyEventRow. */
+  mergeIncomingPageImages: Map<string, string[]>;
   resolvedSessionFields: Set<string>;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -413,11 +410,15 @@ export const FamilySection = memo(function FamilySection({
   famMergeKeyBase,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingLinks,
+  mergeIncomingPageImages,
   resolvedSessionFields,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  agencySuggestions,
+  agencyCanonical,
   placeCoords,
   placeForms,
   pairCoords,
@@ -436,6 +437,15 @@ export const FamilySection = memo(function FamilySection({
   };
   const cardKinship = (id: string | undefined) => kinshipChips(dataset, settings.showKinship, startId, startPersonName, t, id);
   const cardDecision = (id: string | undefined) => decisionChips(decisionStatusById, changedPersonIds, t, id);
+
+  // What a confirmed merge will add to the family record itself — its own
+  // citations, the links that stay links, and the pages those citations name.
+  const famLinksKey = `${famMergeKeyBase ?? `fam.${fam?.id}`}.links`;
+  const famLinksMerge = {
+    sources: mergeIncomingSources.get(famLinksKey),
+    links: mergeIncomingLinks.get(famLinksKey),
+    pageImages: mergeIncomingPageImages.get(famLinksKey),
+  };
 
   const partnerId = fam && (fam.husband === personId ? fam.wife : fam.husband);
   const partnerRole = fam && (fam.husband === personId ? "WIFE" : "HUSB");
@@ -571,11 +581,14 @@ export const FamilySection = memo(function FamilySection({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            agencySuggestions={agencySuggestions}
+            agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             famMergeKeyBase={famMergeKeyBase}
             resolvedSessionFields={resolvedSessionFields}
             individuals={dataset.individuals}
@@ -616,22 +629,29 @@ export const FamilySection = memo(function FamilySection({
           )}
         </div>
       </div>
-      {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0) && (
+      {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0 || (famLinksMerge.links?.length ?? 0) > 0 || (famLinksMerge.sources?.length ?? 0) > 0) && (
         <div className="edit-record-section">
           <LinksEditor
-            key={`flinks-${fam.id}-${undoVersion}`}
+            key={`flinks-${fam.id}-${undoVersion}-${mergeGen}`}
             links={fam.editableLinks ?? []}
             harvestedLinks={harvestedLinksOf(fam.links, [...(fam.editableLinks ?? []), ...(fam.mediaLinks ?? [])])}
             mediaLinks={fam.mediaLinks ?? []}
             sources={fam.sources ?? []}
+            incomingLinks={famLinksMerge.links}
+            incomingSources={famLinksMerge.sources}
+            incomingPageImages={famLinksMerge.pageImages}
             sectionLabel={t("field.sources")}
             t={t}
             onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links))}
             onAddSource={() => onOpenSourceDialog({ kind: "family", fam })}
             onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
             onOpenSourceDialog={onOpenSourceDialog}
-            onAttachSource={(sourceXref, page, extraPatches, links) =>
-              commitFamily(fam, (f) => { attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER); setFamilyLinks(f, links); }, extraPatches)
+            onAttachSource={({ sourceXref, page, quay }, extraPatches, links, pageObjeXref) =>
+              commitFamily(fam, (f) => {
+                attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER, quay);
+                linkPageMedia(f.raw, pageObjeXref, FAM_CHILD_ORDER);
+                setFamilyLinks(f, links);
+              }, extraPatches)
             }
             onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}
           />

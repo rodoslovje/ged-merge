@@ -5,6 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import {
   addressesByPlace,
   applyAddressCoords,
+  removeAddress,
   renameAddress,
   replaceLocality,
   scanAddresses,
@@ -362,6 +363,96 @@ describe("renameAddress", () => {
     const row = rows[0];
     expect(renameAddress(ds, row.rawKeys, row.address, row.address)).toHaveLength(0);
     expect(renameAddress(ds, row.rawKeys, row.address, "  ")).toHaveLength(0);
+  });
+
+  it("leaves an address written inside the place value where it is", () => {
+    // The mixed row: one event with the ADDR line, one keeping the same house
+    // in its place value. Only the line can go — cutting the house out of the
+    // place value would take the settlement with it.
+    const ds = build(HOUSES);
+    const packed = scanAddresses(ds).find((r) => r.address === "Hafnarjeva pot 21a")!;
+    removeAddress(ds, packed.rawKeys, packed.address);
+    const text = serializeGedcom(ds.records);
+    expect(text).not.toContain("2 ADDR Hafnarjeva pot 21a");
+    expect(text).toContain("2 PLAC Kranj (Slovenija), Hafnarjeva pot 21a - župnija Šmartin");
+  });
+});
+
+describe("removeAddress", () => {
+  /** A settlement whose own coordinate the file records (the address-less
+   *  birth), and a house that merely repeats the settlement's name, pinned a
+   *  few hundred metres off. */
+  const REPEATED = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Pivka, Naklo, Slovenija
+3 MAP
+4 LATI N46.27004
+4 LONG E14.31892
+1 RESI
+2 PLAC Pivka, Naklo, Slovenija
+3 MAP
+4 LATI N46.26851
+4 LONG E14.31735
+2 ADDR Pivka
+1 DEAT
+2 PLAC Pivka, Naklo, Slovenija
+2 ADDR Pivka
+0 @I2@ INDI
+1 NAME Jože /Kos/
+1 BIRT
+2 PLAC Pivka, Naklo, Slovenija
+2 ADDR Pivka 27
+0 TRLR`;
+
+  it("takes the address off every event of the row and leaves the place", () => {
+    const ds = build(REPEATED);
+    const row = scanAddresses(ds).find((r) => r.address === "Pivka")!;
+    expect(row.count).toBe(2);
+    const patches = removeAddress(ds, row.rawKeys, row.address);
+    expect(patches).toHaveLength(1);
+    const text = serializeGedcom(ds.records);
+    expect(text).not.toContain("2 ADDR Pivka\n");
+    // The place itself is untouched, and the other house keeps its address.
+    expect(text.match(/2 PLAC Pivka, Naklo, Slovenija/g)).toHaveLength(4);
+    expect(text).toContain("2 ADDR Pivka 27");
+    // The row is gone from the list; the other one stays.
+    expect(scanAddresses(ds).map((r) => r.address)).toEqual(["Pivka 27"]);
+  });
+
+  it("gives those events the coordinate the file records for the place", () => {
+    const ds = build(REPEATED);
+    const row = scanAddresses(ds).find((r) => r.address === "Pivka")!;
+    removeAddress(ds, row.rawKeys, row.address);
+    // The house's own pin described a house the file no longer names, so the
+    // settlement's own coordinate takes over — and the place now agrees with
+    // itself, which is what the health check asks of it.
+    const text = serializeGedcom(ds.records);
+    expect(text).not.toContain("N46.26851");
+    // The birth's own and the residence's replaced one — the death carried no
+    // coordinate and is not given one: a missing position is another question.
+    expect(text.match(/4 LATI N46\.27004/g)).toHaveLength(2);
+    expect(scanPlaceCoords(ds).conflicts).toHaveLength(0);
+  });
+
+  it("keeps the position it has where the file records none for the place", () => {
+    // Same file without the address-less birth: the house's pin is the only
+    // position these events have, and removing the address must not cost it.
+    const ds = build(REPEATED.replace(/1 BIRT\n2 PLAC Pivka, Naklo, Slovenija\n3 MAP\n4 LATI N46\.27004\n4 LONG E14\.31892\n/, ""));
+    const row = scanAddresses(ds).find((r) => r.address === "Pivka")!;
+    removeAddress(ds, row.rawKeys, row.address);
+    expect(serializeGedcom(ds.records)).toContain("4 LATI N46.26851");
+  });
+
+  it("is a no-op without an address to remove", () => {
+    const ds = build(REPEATED);
+    const row = scanAddresses(ds).find((r) => r.address === "Pivka")!;
+    expect(removeAddress(ds, row.rawKeys, "  ")).toHaveLength(0);
+    expect(removeAddress(ds, [], row.address)).toHaveLength(0);
   });
 });
 

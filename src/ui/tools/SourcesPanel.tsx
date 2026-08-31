@@ -7,16 +7,20 @@ import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
 import { isPrivateNode } from "../../gedcom/private";
 import { sourceTitle } from "../../gedcom/source";
+import { safeLinkHref } from "../FieldValue";
 import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import type { RecordPatch } from "../historyTypes";
+import type { ToolView } from "../ToolsView";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { scanRepoRegroup } from "../../tools/repoRegroup";
+import { findMissingPageMedia } from "../../tools/pageMediaCheck";
+import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { ToolSummary } from "./ToolSummary";
 
 /** Lightbox side panel for a media object: the person/family records that
@@ -163,33 +167,44 @@ function MediaRows({
           ))}
         </div>
       )}
-      {rowEntries.map((m) => {
-        const photoIndex = indexOf.get(m);
-        const key = rowKey(m);
-        return (
-          <TreeRow
-            key={key}
-            open={isOpen(key)}
-            onToggle={() => toggle(key)}
-            hasChildren={m.usedBy.length > 0}
-            count={m.usedBy.length || undefined}
-            href={m.url}
-            titleText={m.url ?? m.file}
-            label={
-              <span className="tools-tree-meta">
-                {photoIndex !== undefined && m.file ? (
-                  <MediaThumb file={m.file} icon={iconFor(m)} gallery={items} index={photoIndex} />
-                ) : (
-                  iconFor(m)
-                )}{" "}
-                {m.title || m.xref}
-              </span>
-            }
-          >
-            <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
-          </TreeRow>
-        );
-      })}
+      {/* The rows carry their own list. A `TreeRow` is an `<li>`, and these sit
+          under a source's row — itself an `<li>` — so without a list of their
+          own they were list items inside a list item, which is neither valid
+          HTML nor something the browser can be trusted to nest as written. The
+          tray above stays outside it: a `<div>` is no more a list item than an
+          `<li>` is a flex tray. `.tools-tree` adds no indent of its own, so the
+          rows sit exactly where they did. */}
+      {rowEntries.length > 0 && (
+        <ul className="tools-tree">
+          {rowEntries.map((m) => {
+            const photoIndex = indexOf.get(m);
+            const key = rowKey(m);
+            return (
+              <TreeRow
+                key={key}
+                open={isOpen(key)}
+                onToggle={() => toggle(key)}
+                hasChildren={m.usedBy.length > 0}
+                count={m.usedBy.length || undefined}
+                href={m.url}
+                titleText={m.url ?? m.file}
+                label={
+                  <span className="tools-tree-meta">
+                    {photoIndex !== undefined && m.file ? (
+                      <MediaThumb file={m.file} icon={iconFor(m)} gallery={items} index={photoIndex} />
+                    ) : (
+                      iconFor(m)
+                    )}{" "}
+                    {m.title || m.xref}
+                  </span>
+                }
+              >
+                <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
+              </TreeRow>
+            );
+          })}
+        </ul>
+      )}
     </>
   );
 }
@@ -212,6 +227,9 @@ function TreeRow({
   hasChildren: boolean;
   label: ReactNode;
   count?: number;
+  /** The row's own page. Anything that is no web address — a scan's local file
+   *  name, a repository named where its website should be — draws no arrow
+   *  rather than a dead one (see `safeLinkHref`). */
   href?: string;
   /** Tooltip shown on hover over the label — e.g. a media link or filename. */
   titleText?: string;
@@ -242,13 +260,16 @@ function TreeRow({
         >
           {label}
         </span>
-        {href && (
-          <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
+        {safeLinkHref(href) && (
+          <a className="tools-tree-link" href={safeLinkHref(href)} target="_blank" rel="noreferrer" title={href}>
             ↗
           </a>
         )}
-        {count != null && <span className="tools-chip-count">{count}</span>}
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in: what the row is, the way to rewrite it, and how many
+            records are behind it, before anything else the row carries. */}
         {action}
+        {count != null && <span className="tools-chip-count">{count}</span>}
       </div>
       {open && hasChildren && <div className="tools-tree-children">{children}</div>}
     </li>
@@ -398,6 +419,8 @@ export function SourcesPanel({
   onEditMediaInfo,
   onApplyPatches,
   active,
+  view: viewProp,
+  onViewChange,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -418,6 +441,11 @@ export function SourcesPanel({
    *  duplicate sources); returns how many records changed. */
   onApplyPatches: (patches: RecordPatch[]) => number;
   active: boolean;
+  /** Which of this tool's pages is open, and the way to another — held by the
+   *  app, because each is a browser-history step (see ToolView). A page this
+   *  panel does not have (another tool's) reads as its own tree. */
+  view: ToolView;
+  onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<SourceTree | null>(null);
@@ -429,8 +457,10 @@ export function SourcesPanel({
   const [editSrc, setEditSrc] = useState<string | null>(null);
   const [editRepo, setEditRepo] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the cleanup tool.
-  const [view, setView] = useState<"tree" | "cleanup">("tree");
+  // The containment tree or Organize sources. The panel is told which, rather
+  // than deciding — see the prop.
+  const view = viewProp === "cleanup" ? "cleanup" : "tree";
+  const setView = (next: "tree" | "cleanup") => onViewChange(next);
   const { settings } = useSettings();
   // Scanned automatically (in the tools worker) so the toggles can show their
   // counts; cached at the ToolsView level so revisits don't re-scan.
@@ -441,7 +471,9 @@ export function SourcesPanel({
     setTree(null);
     setOpen(new Set());
     setQuery("");
-    setView("tree");
+    // Not the open page: a newly loaded file resets that in the app, where the
+    // history entry it belongs to is written — closing it from here would
+    // record loading a file as a step of the reader's own.
     setAddOpen(false);
     setEditSrc(null);
     setEditRepo(null);
@@ -480,6 +512,19 @@ export function SourcesPanel({
     () => scanRepoRegroup(dataset.records),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, regroupNonce],
+  );
+  // Citations missing their page image. One walk of the records, so it rides
+  // the same nonce rather than the worker: the answer depends on the file's
+  // page-link style, which the reader can change while the page is open.
+  const pageMediaStyle = settings.formatOverrides.pageMedia ?? "auto";
+  const pageMediaReport = useMemo(
+    () =>
+      findMissingPageMedia(
+        dataset,
+        pageMediaStyle === "auto" ? detectPageMediaStyle(dataset.records) : pageMediaStyle,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, regroupNonce, pageMediaStyle],
   );
 
   const toggle = (key: string) =>
@@ -631,6 +676,7 @@ export function SourcesPanel({
         onBack={() => setView("tree")}
         onApplyPatches={onApplyPatches}
         regroupReport={regroupReport}
+        pageMediaReport={pageMediaReport}
         onRescan={() => {
           scans.refresh("sourceReshape");
           scans.refresh("sourceDuplicates");
@@ -665,19 +711,19 @@ export function SourcesPanel({
         count={entries.length}
         label={t(labelKey)}
       >
-        <ul className="tools-tree">
-          <MediaRows
-            entries={entries}
-            dataset={dataset}
-            onNavigate={onNavigate}
-            onEditMediaInfo={editMediaInfo}
-            onShowSource={showSource}
-            isOpen={isOpen}
-            toggle={toggle}
-            rowKey={(m) => `${key}:${m.xref}`}
-            iconFor={() => icon}
-          />
-        </ul>
+        {/* No list around it: MediaRows brings its own, and the photo tray it
+            may put above the rows is not a list item. */}
+        <MediaRows
+          entries={entries}
+          dataset={dataset}
+          onNavigate={onNavigate}
+          onEditMediaInfo={editMediaInfo}
+          onShowSource={showSource}
+          isOpen={isOpen}
+          toggle={toggle}
+          rowKey={(m) => `${key}:${m.xref}`}
+          iconFor={() => icon}
+        />
       </TreeRow>
     );
   };
@@ -693,12 +739,13 @@ export function SourcesPanel({
           <ScanChip
             label={t("tools.sources.cleanupToggle")}
             status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
-            count={dupCount + reshapeCount + regroupReport.groups.length}
+            count={dupCount + reshapeCount + regroupReport.groups.length + pageMediaReport.groups.length}
             hint={t("tools.sources.cleanupChipHint", {
               links: reshapeReport?.totalOccurrences ?? 0,
               groups: reshapeCount,
               dups: dupCount,
               repos: regroupReport.total,
+              pages: pageMediaReport.total,
             })}
             onOpen={() => setView("cleanup")}
           />

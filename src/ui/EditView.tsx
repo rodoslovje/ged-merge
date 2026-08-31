@@ -6,7 +6,7 @@ import { lastChangedText } from "../gedcom/chanCrea";
 import { birthDateOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
-import { isSameSexCouple } from "../gedcom/couple";
+import { birthParentFamilies, isSameSexCouple } from "../gedcom/couple";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { splitFullName } from "../gedcom/name";
@@ -28,6 +28,7 @@ import {
   attachInlineMedia,
   attachMediaPointer,
   attachSourceCitation,
+  linkPageMedia,
   bumpSourceCacheVersion,
   connectExistingChild,
   connectExistingParent,
@@ -71,6 +72,7 @@ import {
   setSex,
   updateSourceCitation,
   type EditSourceFields,
+  type NewCitation,
   type SharedNoteChange,
   type SharedNoteCtx,
 } from "../gedcom/edit";
@@ -91,7 +93,8 @@ import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
-import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, KEY_STATUS, familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
@@ -155,7 +158,15 @@ interface Props {
    * jump Merge to that same person's match candidate when switching modes
    * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
    * had selected before. */
-  onPersonChange?: (id: string) => void;
+  onPersonChange?: (id: string, fromHistory?: boolean) => void;
+  /** Whether anything of the app's own lies behind this view — an earlier
+   *  person, the Tools tab they were opened from, the chart behind an overlay.
+   *  False on the app's first step, where going back would leave the app. */
+  canGoBack?: boolean;
+  /** One step back through the pages, in the order they were visited: the
+   *  browser's own Back, driven from Edit's Back button and ⌫ so both walk the
+   *  one path rather than a person trail of Edit's own. */
+  onGoBack?: () => void;
   /** Returns the compare id of the given person's best (highest-ranked) match
    * candidate, if any — lets the name row show Confirm/Reject/Defer buttons
    * for that pair without switching to Merge mode. */
@@ -216,7 +227,7 @@ const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -233,6 +244,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       dataset.individuals.keys().next().value,
   );
   const [history, setHistory] = useState<string[]>([]);
+  /** The person a Back/Forward press is bringing back, until the change is
+   *  reported (see navigateFromHistory). */
+  const fromHistoryRef = useRef<string | undefined>(undefined);
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
@@ -420,6 +434,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    *  rather than each undoing the other. */
   const navigateFromHistory = useStableHandler((id: string) => {
     if (!id || id === selectedId) return;
+    // Told to the parent with the change itself: a person the app arrived at by
+    // following history is not a step to be recorded as one. Set only once the
+    // change is certain, and consumed by the effect that reports it, so it can
+    // never be left standing over a later navigation of the reader's own.
+    fromHistoryRef.current = id;
     setHistory((h) => {
       const i = h.lastIndexOf(id);
       if (i >= 0) return h.slice(0, i);
@@ -431,25 +450,34 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     setSelectedId(id);
   });
 
-  const goBack = useStableHandler(() => {
-    setHistory((h) => {
-      // Skip entries whose record is gone (deleted, or absorbed by a duplicate
-      // merge) — landing on a dead id would render the empty state.
-      let i = h.length - 1;
-      while (i >= 0 && !dataset.individuals.has(h[i])) i--;
-      if (i < 0) return [];
-      setSelectedId(h[i]);
-      return h.slice(0, i);
-    });
-  });
+  /**
+   * Back out of this person — one step back through the pages, in the order
+   * they were visited, which is the browser's own history (see `goBackPage`).
+   *
+   * Edit used to walk a trail of its own here, of people and nothing else: a
+   * person opened from a Tools list stepped back to whoever Edit had been
+   * showing before, while the list the reader had actually come from was one
+   * browser step away and no button in the view could reach it. The people are
+   * still walked — each is a history entry of its own — and the trail below
+   * stays as the record of who was opened from whom, which is what the popstate
+   * restore rewinds and what positions the family steps.
+   *
+   * A person since deleted is skipped by the restore itself, which knows what
+   * the dataset still holds.
+   */
+  const goBack = useStableHandler(() => onGoBack?.());
 
   // V (tree) shortcut, Left/Right record navigation, Up/Down scrolling, and C/R/D
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
   const chartKind = chartSettings.kind;
-  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
-  shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
+  // `cameFrom` — the person this one was opened from — positions the partner
+  // step (see familyStepTarget), so ⌥⇧→ tours the unions instead of bouncing
+  // between the same two spouses.
+  const cameFrom = history[history.length - 1];
+  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus, dataset, cameFrom });
+  shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus, dataset, cameFrom };
   // Quick-add events (⌥⇧1–9). Fed from below
   // (the handler is defined after `commit`), read through the ref at event
   // time like shortcutRef.
@@ -467,6 +495,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
+      // ⌥ + arrows walk the family, along the axes of the layout around the
+      // person: ⌥↑ a parent, ⌥↓ a child, ⌥←/→ the siblings either side, and
+      // Shift takes the other one on that axis (the mother, the youngest child,
+      // a partner). Unlike the ⌥⇧ edit actions below these stay out of a field
+      // being typed in, where ⌥←/→ is the system's own move-by-word.
+      // preventDefault also keeps Alt+←/→ from being the browser's
+      // Back/Forward on Windows and Linux.
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !isModalOpen() && !isEditableTarget(e.target) && !e.defaultPrevented) {
+        const step = familyStepFor(e.key, e.shiftKey);
+        if (step) {
+          const { selectedId: id, dataset: ds, cameFrom: from, navigate: nav } = shortcutRef.current;
+          e.preventDefault();
+          const target = id && familyStepTarget(ds, id, step, from);
+          if (target) nav(target);
+          return;
+        }
+      }
       // ⌥⇧ — the one family of edit shortcuts that fires even while typing in a
       // field, so a record can be filled in without the keyboard leaving it.
       //
@@ -569,19 +614,20 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }, [historyToId]);
 
   useEffect(() => {
-    if (selectedId) onPersonChange?.(selectedId);
+    if (selectedId) onPersonChange?.(selectedId, fromHistoryRef.current === selectedId);
+    fromHistoryRef.current = undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   // ── Merge overlay (confirmed match projected onto this person) ───────────
   const {
-    mergeHighlight, mergeIncomingLinks, mergeIncomingSources,
+    mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages,
     mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys,
     extraMergeEvents, familyMergeKeyBases: familyKeyBaseById,
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
     rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent,
     resolveMergeFields, markFamilyTagRetagged,
-  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, tick, t });
+  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: settings.formatOverrides, tick, t });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
@@ -1037,11 +1083,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     });
   }
 
-  /** Link the cited page's image beside the citation ("on events" style). */
-  function linkPageMedia(node: GedNode, pageObjeXref: string | undefined, order: string[]) {
-    if (!pageObjeXref) return;
-    if (childrenByTag(node, "OBJE").some((c) => c.value?.trim() === pageObjeXref)) return;
-    insertOrdered(node, { level: node.level + 1, tag: "OBJE", value: pageObjeXref, children: [] }, order);
+  /** The cited page's image to link beside the citation, or undefined when
+   * this file keeps page media under the source alone — Settings → Page
+   * links, whose "auto" follows the file's own habit. Every route that adds a
+   * citation asks this, so the "+ Add source" dialog and the promote of a
+   * plain link write the same shape. */
+  function pageObjeToLink(pageObjeXref: string | undefined): string | undefined {
+    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
+    return style === "event" ? pageObjeXref : undefined;
   }
 
   /** Attach the citation to `host`'s `eventTag` event, creating the event
@@ -1049,8 +1098,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function attachToEvent(
     host: GedNode,
     eventTag: string,
-    sourceXref: string,
-    page: string | undefined,
+    cite: NewCitation,
     order: string[],
     pageObjeXref?: string,
   ) {
@@ -1059,17 +1107,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       event = { level: host.level + 1, tag: eventTag, children: [] };
       insertOrdered(host, event, order);
     }
-    attachSourceCitation(event, sourceXref, page, EVENT_CHILD_ORDER);
+    attachSourceCitation(event, cite.sourceXref, cite.page, EVENT_CHILD_ORDER, cite.quay);
     linkPageMedia(event, pageObjeXref, EVENT_CHILD_ORDER);
   }
 
   function handleAddSource(fields: AddSourceResult) {
     if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
     const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(fields);
-    // In the "on events" page-media style the cited page's image is linked
-    // beside the citation too (Settings; "auto" matches the file's habit).
-    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
-    const pageObje = style === "event" ? pageObjeXref : undefined;
+    // How good the reader judged this reference's evidence: the dialog's own
+    // field, not something the source record can say.
+    const cite: NewCitation = { sourceXref, page, quay: fields.quay };
+    const pageObje = pageObjeToLink(pageObjeXref);
     if (sourceDialogTarget.kind === "individual") {
       // A recognized register/grave source added on the person lands on its
       // matching event (created if missing) when the file keeps citations on
@@ -1083,22 +1131,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         : undefined;
       const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;
       if (smart && !smart.onFam) {
-        commit((indi) => attachToEvent(indi.raw, smart.eventTag, sourceXref, page, INDI_CHILD_ORDER, pageObje), extraPatches);
+        commit((indi) => attachToEvent(indi.raw, smart.eventTag, cite, INDI_CHILD_ORDER, pageObje), extraPatches);
       } else if (smart && smart.onFam && soleFam) {
-        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, sourceXref, page, FAM_CHILD_ORDER, pageObje), extraPatches);
+        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, cite, FAM_CHILD_ORDER, pageObje), extraPatches);
       } else {
         commit((indi) => {
-          attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER);
+          attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER, cite.quay);
           linkPageMedia(indi.raw, pageObje, INDI_CHILD_ORDER);
         }, extraPatches);
       }
     } else if (sourceDialogTarget.kind === "family") {
       commitFamily(sourceDialogTarget.fam, (f) => {
-        attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER);
+        attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER, cite.quay);
         linkPageMedia(f.raw, pageObje, FAM_CHILD_ORDER);
       }, extraPatches);
     } else {
-      sourceDialogTarget.commitField({ addSource: { sourceXref, page, pageObjeXref: pageObje } }, extraPatches);
+      sourceDialogTarget.commitField({ addSource: { ...cite, pageObjeXref: pageObje } }, extraPatches);
     }
     setSourceDialogTarget(null);
   }
@@ -1201,11 +1249,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const citation = sourceCitationNodes(node)[index];
     if (!citation) return;
     const page = childText(citation, "PAGE");
+    const quay = childText(citation, "QUAY");
     const value = citation.value?.trim();
     const sourceNode = value ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === value) : undefined;
     if (!sourceNode) {
       // Inline (plain-text) citation: just its own value/page, no shared record.
-      setSourceDialogTarget({ kind: "edit", node, index, owner, fields: { title: value, page } });
+      setSourceDialogTarget({ kind: "edit", node, index, owner, fields: { title: value, page, quay } });
       return;
     }
     const resolved = resolveSourceCitation(citation, getMediaAndSourceCtx(dataset.records).sourceCtx);
@@ -1220,6 +1269,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         // to, so opening and saving untouched is a no-op.
         ...sourceRecordEditFields(dataset.records, sourceNode),
         page,
+        quay,
         // This citation's own resolved page image (its PAGE matched a page
         // OBJE, or the source has exactly one) beats the record-level rule, so
         // a url edit retargets only this page. A repository-fallback url
@@ -1276,8 +1326,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             saved.title || saved.author || saved.periodical || saved.publisher || saved.agency || saved.place || saved.filingNumber || saved.note,
           );
           if (hasBiblio) {
-            const { sourceXref, page, extraPatches } = resolveSourceFields(saved);
-            commitPromote(sourceXref, page, extraPatches);
+            const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(saved);
+            commitPromote({ sourceXref, page, quay: saved.quay }, extraPatches, pageObjeToLink(pageObjeXref));
           } else {
             commitRename(saved.url ?? "");
           }
@@ -1429,57 +1479,81 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const existing = dataset.individuals.get(existingId);
     if (!existing) return;
 
-    // Snapshot both people, every family either already belongs to, and every
-    // other member of those families, so the diff afterwards catches whatever
-    // the connect did — including a family it dissolved (connecting the second
-    // parent moves the child into the couple's existing family and drops the
-    // stub, which unlinks the FAMS of the parent already sitting there). A
-    // hand-listed set of patches misses those, and undo restores the record
-    // without the pointers back into it.
-    const knownFamIds = new Set<string>([
-      ...person.spouseOf,
-      ...person.childOf,
-      ...existing.spouseOf,
-      ...existing.childOf,
-      ...(fam ? [fam.id] : []),
-    ]);
-    const knownIndiIds = new Set<string>([person.id, existingId]);
-    for (const famId of knownFamIds) {
-      const f = dataset.families.get(famId);
-      if (!f) continue;
-      for (const id of [f.husband, f.wife, ...f.children]) if (id) knownIndiIds.add(id);
-    }
-    const before = snapshotRecords(dataset, knownIndiIds, knownFamIds);
+    const runConnect = () => {
+      // Snapshot both people, every family either already belongs to, and every
+      // other member of those families, so the diff afterwards catches whatever
+      // the connect did — including a family it dissolved (connecting the second
+      // parent moves the child into the couple's existing family and drops the
+      // stub, which unlinks the FAMS of the parent already sitting there). A
+      // hand-listed set of patches misses those, and undo restores the record
+      // without the pointers back into it.
+      const knownFamIds = new Set<string>([
+        ...person.spouseOf,
+        ...person.childOf,
+        ...existing.spouseOf,
+        ...existing.childOf,
+        ...(fam ? [fam.id] : []),
+      ]);
+      const knownIndiIds = new Set<string>([person.id, existingId]);
+      for (const famId of knownFamIds) {
+        const f = dataset.families.get(famId);
+        if (!f) continue;
+        for (const id of [f.husband, f.wife, ...f.children]) if (id) knownIndiIds.add(id);
+      }
+      const before = snapshotRecords(dataset, knownIndiIds, knownFamIds);
+  
+      if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
+      else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
+      else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
+      else connectExistingChild(dataset, person, existingId, fam);
+  
+      const patches: RecordPatch[] = patchesFromSnapshots(dataset, before);
+      // Plus any family the connect created — no snapshot exists to diff it against.
+      const updatedPerson = dataset.individuals.get(person.id);
+      const updatedExisting = dataset.individuals.get(existingId);
+      for (const famId of new Set([
+        ...(updatedPerson?.spouseOf ?? []),
+        ...(updatedPerson?.childOf ?? []),
+        ...(updatedExisting?.spouseOf ?? []),
+        ...(updatedExisting?.childOf ?? []),
+      ])) {
+        if (knownFamIds.has(famId)) continue;
+        const newFam = dataset.families.get(famId);
+        if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
+      }
+  
+      onPushEdit(patches, selectedId);
+      // Everything the connect touched — both people, the family it changed or
+      // created, and any it dissolved on the way — settled one by one: joining
+      // the couple's existing family drops the stub the first parent made, which
+      // leaves that parent's record exactly as it was found.
+      onRecordsSettled(patches);
+      relationsGenRef.current += 1;
+      setPickingSlot(null);
+      setTick((v) => v + 1);
+    };
 
-    if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
-    else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
-    else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
-    else connectExistingChild(dataset, person, existingId, fam);
-
-    const patches: RecordPatch[] = patchesFromSnapshots(dataset, before);
-    // Plus any family the connect created — no snapshot exists to diff it against.
-    const updatedPerson = dataset.individuals.get(person.id);
-    const updatedExisting = dataset.individuals.get(existingId);
-    for (const famId of new Set([
-      ...(updatedPerson?.spouseOf ?? []),
-      ...(updatedPerson?.childOf ?? []),
-      ...(updatedExisting?.spouseOf ?? []),
-      ...(updatedExisting?.childOf ?? []),
-    ])) {
-      if (knownFamIds.has(famId)) continue;
-      const newFam = dataset.families.get(famId);
-      if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
-    }
-
-    onPushEdit(patches, selectedId);
-    // Everything the connect touched — both people, the family it changed or
-    // created, and any it dissolved on the way — settled one by one: joining
-    // the couple's existing family drops the stub the first parent made, which
-    // leaves that parent's record exactly as it was found.
-    onRecordsSettled(patches);
-    relationsGenRef.current += 1;
-    setPickingSlot(null);
-    setTick((v) => v + 1);
+    // A person is born into one family, so taking somebody as a child here
+    // moves them out of the family they are in. Name those parents and ask
+    // first — the alternative is a person with two sets of them, which is what
+    // the health check's "Two sets of parents" finding is about.
+    const leaving = kind === "child"
+      ? birthParentFamilies(existing, dataset).find((f) => f.id !== fam?.id)
+      : undefined;
+    if (!leaving) { runConnect(); return; }
+    const parents = [leaving.husband, leaving.wife]
+      .map((id) => (id ? dataset.individuals.get(id) : undefined))
+      .filter((p): p is Individual => !!p)
+      .map((p) => formatName(p))
+      .join(" & ");
+    const name = formatName(existing);
+    setPendingConfirm({
+      message: parents
+        ? t("edit.childHasParentsConfirm", { name, parents })
+        : t("edit.childHasFamilyConfirm", { name }),
+      confirmLabel: t("confirm.move"),
+      action: runConnect,
+    });
   });
 
   // Identity-stable so the memoized `EventList`/`FamilySection` don't re-render
@@ -1618,7 +1692,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const deferredDerivations = useDeferredValue(derivations);
   const deferredTick = useDeferredValue(tick);
   const deferredUndoVersion = useDeferredValue(undoVersion);
-  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords, placeForms } = useMemo(
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, placeCoords, pairCoords, placeForms } = useMemo(
     // The shared per-edit derivation when the app provides it (computed once
     // for Edit and the geocode panel together); the direct build only for a
     // host without the provider.
@@ -1846,7 +1920,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               label={t("edit.back")}
               shortcutHint="⌫"
               showLabel
-              disabled={history.length === 0}
+              disabled={!canGoBack}
               onClick={goBack}
             />
             <button
@@ -1967,14 +2041,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 sources={person.sources ?? []}
                 incomingLinks={mergeIncomingLinks.get("links")}
                 incomingSources={mergeIncomingSources.get("links")}
+                incomingPageImages={mergeIncomingPageImages.get("links")}
                 sectionLabel={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
                 onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
                 onEditSource={(idx) => openEditSource(person.raw, idx, { kind: "individual", indi: person })}
                 onOpenSourceDialog={setSourceDialogTarget}
-                onAttachSource={(sourceXref, page, extraPatches, links) =>
-                  commit((indi) => { attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER); setIndividualLinks(indi, links); }, extraPatches)
+                onAttachSource={({ sourceXref, page, quay }, extraPatches, links, pageObjeXref) =>
+                  commit((indi) => {
+                    attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER, quay);
+                    linkPageMedia(indi.raw, pageObjeXref, INDI_CHILD_ORDER);
+                    setIndividualLinks(indi, links);
+                  }, extraPatches)
                 }
                 onOpenMediaLink={(url) => openMediaLink(person.raw, { kind: "individual", indi: person }, url)}
               />
@@ -2013,11 +2092,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            agencySuggestions={agencySuggestions}
+            agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             mainMergeKeyBases={mainMergeKeyBases}
             mainMergeCompareKeys={mainMergeCompareKeys}
             mainMergeSortKeys={mainMergeSortKeys}
@@ -2147,11 +2229,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               famMergeKeyBase={fam ? familyKeyBaseById.get(fam.id) : undefined}
               mergeHighlight={mergeHighlight}
               mergeIncomingSources={mergeIncomingSources}
+              mergeIncomingLinks={mergeIncomingLinks}
+              mergeIncomingPageImages={mergeIncomingPageImages}
               resolvedSessionFields={resolvedSessionFields}
               placeSuggestions={placeSuggestions}
               placeToAddrs={placeToAddrs}
               placeCanonical={placeCanonical}
               addrCanonical={addrCanonical}
+              agencySuggestions={agencySuggestions}
+              agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}

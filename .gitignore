@@ -14,3 +14,4 @@ node_modules/.tmp
 /coverage
 # Locally served tile pyramids for overlay testing (built by the maptiles repo)
 public/tiles-local/
+dev.log

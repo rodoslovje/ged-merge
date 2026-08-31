@@ -11,13 +11,14 @@ import { initialWorkspace, workspaceReducer, type SlotState } from "./state/work
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "./gedcom/types";
+import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
@@ -36,12 +37,12 @@ import { SettingsModal } from "./ui/SettingsModal";
 import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
-import { ToolsView } from "./ui/ToolsView";
+import { ToolsView, type Tool, type ToolView } from "./ui/ToolsView";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
-import { applyGeocode, movePlaceForAddresses, renamePlaceValue, renamePlaceValues } from "./tools/geocode";
-import { applyAddressCoords, renameAddress } from "./tools/addresses";
+import { applyGeocode, clearPlaceCoords, movePlaceForAddresses, renamePlaceValue, renamePlaceValues } from "./tools/geocode";
+import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
@@ -49,6 +50,8 @@ import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
+import { queueBookPages, readBookPages } from "./tools/sourceReshape";
+import { fetchPageHtml } from "./normalize/urlMetadata";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
@@ -119,7 +122,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -277,6 +280,9 @@ function AppContent() {
   const [addPersonRequest, setAddPersonRequest] = useState<{ nonce: number; name?: string }>();
   // The pending save dialog's payload — see `SavePreview` for the field docs.
   const [preview, setPreview] = useState<SavePreview | null>(null);
+  // The save is reading the pages of books it is about to write sources for —
+  // see `handleSave`. Holds the Save button until the answers are in.
+  const [readingSources, setReadingSources] = useState(false);
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
   const compareRef = useRef<HTMLDivElement>(null);
@@ -294,6 +300,11 @@ function AppContent() {
 
   // Merge / Edit / Tools mode; persisted to localStorage in a small hook.
   const [mode, setMode] = useMode();
+  // Where Tools stands: which tool, and which of its pages. Held here, not in
+  // ToolsView, because both are browser-history steps — the entry the app is on
+  // records them, and a Back press puts them back (see ToolView).
+  const [tool, setTool] = useState<Tool>("places");
+  const [toolView, setToolView] = useState<ToolView>("tree");
 
   // Light/dark theme mode + applied `data-theme`, in a self-contained hook.
   const { themeMode, changeThemeMode } = useTheme();
@@ -692,6 +703,14 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [main.status, mainLoadGen]);
 
+  // A newly loaded file puts Tools back on the front page of whichever tool is
+  // open: the worklist that was on screen belongs to the file that is gone.
+  // Not a step of the reader's own, so it records no entry — the entry we are
+  // on is simply brought up to date (see useAppHistory's page sync).
+  useEffect(() => {
+    setToolView("tree");
+  }, [mainLoadGen]);
+
   // When the main finishes loading, default the start person to its root
   // individual if present. Attempted once per file (autoStartRef), so a user
   // who later clears the start person isn't overridden.
@@ -759,9 +778,11 @@ function AppContent() {
     treeView, chartsRootId, setChartsRootId, chartsBackKey,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
-    discardAndReload, recordEditPerson, markEditEntry, navigateFromOverlay,
+    discardAndReload, recordEditPerson, navigateFromOverlay,
+    navigateFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
+    tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
     setHistoryPersonId,
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
@@ -959,8 +980,11 @@ function AppContent() {
   // selected (so the person carries over instead of Edit staying on whoever
   // it last showed).
   function switchToEdit() {
-    if (current) setNavigateToId(current.mainId);
-    setMode("edit");
+    // One step, not two: the person Merge has selected is opened *as* the
+    // navigation, so Back returns to Merge rather than to a mode entry with the
+    // person's own entry stacked on top of it.
+    if (current) navigateFromPage(current.mainId);
+    else goToPage({ mode: "edit" });
   }
 
   // Add a person attached to nobody — a new branch, or the first person in a
@@ -968,15 +992,14 @@ function AppContent() {
   // view and the name focus), so switch there and hand the request over.
   function requestAddPerson(name?: string) {
     if (!mainDataset) return;
-    setMode("edit");
+    goToPage({ mode: "edit" });
     setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, name }));
   }
 
   // Clicking the start icon jumps Edit mode to the chosen start person.
   function goToStartPerson() {
     if (!startId) return;
-    setNavigateToId(startId);
-    setMode("edit");
+    navigateFromPage(startId);
   }
 
   // Switch to Merge, pointing it at the match candidate for whichever person
@@ -986,12 +1009,12 @@ function AppContent() {
   function switchToMerge() {
     const c = editPersonId ? allSorted.find((c) => c.mainId === editPersonId) : undefined;
     if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
-    setMode("merge");
+    goToPage({ mode: "merge" });
   }
 
   // Switch to the maintenance Tools tab, which operates on the whole main file.
   function switchToTools() {
-    setMode("tools");
+    goToPage({ mode: "tools" });
   }
 
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
@@ -1284,7 +1307,7 @@ function AppContent() {
       // No start person set → the hub's relationship kind prompts for one
       // inline; only relating the start person to themselves falls back to Edit.
       if (startId !== id) openCharts(id, "relationship");
-      else { setNavigateToId(id); setMode("edit"); }
+      else navigateFromPage(id);
       return;
     }
     // Mode-aware "open": staying in Merge only makes sense when Merge is the
@@ -1294,10 +1317,9 @@ function AppContent() {
     const candidate = mode === "merge" ? indexByMain.get(id) : undefined;
     if (candidate) {
       setSelectedId({ mainId: candidate.mainId, compareId: candidate.compareId });
-      setMode("merge");
+      goToPage({ mode: "merge" });
     } else {
-      setNavigateToId(id);
-      setMode("edit");
+      navigateFromPage(id);
     }
   }
 
@@ -1415,14 +1437,66 @@ function AppContent() {
     };
   }
 
-  function handleSave() {
+  /**
+   * The books a confirmed match will need a source minted for, read in the
+   * background from the moment it is confirmed — reviewing the next candidate
+   * takes far longer than a page fetch, so by the time the save runs the
+   * answers are usually already in this session's cache and it opens at once
+   * instead of holding the button (see `queueBookPages`). Only what the reader
+   * has allowed: with link lookups off, nothing is requested here either.
+   *
+   * Each decision is queued once. A book already read, already queued, or
+   * already asked and silent costs nothing, so re-running over the whole map is
+   * cheap; what a merge would only *cite* (the file has that book) asks nothing.
+   */
+  const queuedDecisionsRef = useRef(new Set<string>());
+  useEffect(() => { queuedDecisionsRef.current = new Set(); }, [compareDataset]);
+  useEffect(() => {
+    if (!settings.allowLinkFetch || !mainDataset || !compareDataset) return;
+    const records: (Individual | Family)[] = [];
+    for (const [key, decision] of decisions) {
+      if (decision.status !== "confirmed" || queuedDecisionsRef.current.has(key)) continue;
+      queuedDecisionsRef.current.add(key);
+      const parsed = parseDecisionKey(key);
+      const incoming = parsed && compareDataset.individuals.get(parsed.compareId);
+      if (!incoming) continue;
+      records.push(incoming);
+      for (const famId of incoming.spouseOf) {
+        const fam = compareDataset.families.get(famId);
+        if (fam) records.push(fam);
+      }
+    }
+    if (records.length) queueBookPages(pendingBookLookups(mainDataset.records, records), fetchPageHtml);
+  }, [decisions, mainDataset, compareDataset, settings.allowLinkFetch]);
+
+  /**
+   * Open the save preview — with one detour: a merge that mints a source for
+   * an incoming link names it from the address alone, so where the reader has
+   * allowed link lookups the books' own pages are read first and the merge is
+   * run again over the answers. Most will have been read already, as matches
+   * were confirmed; this waits only for what is left. A link the merge only cites (the file already
+   * has that book) asks nothing of the network, and neither does a save with
+   * lookups switched off; both open the preview straight away.
+   */
+  async function handleSave() {
     if (!mainDataset || main.status !== "loaded") return;
     const next = buildSavePreview(savePreviewInput(mainDataset, main.file.fileName));
-    if (next) setPreview(next);
+    if (!next) return;
+    if (!settings.allowLinkFetch || next.pendingSourceLookups.length === 0 || readingSources) {
+      setPreview(next);
+      return;
+    }
+    setReadingSources(true);
+    const read = await readBookPages(next.pendingSourceLookups, fetchPageHtml).catch(() => 0);
+    setReadingSources(false);
+    // Nothing answered — the offline titles the first pass wrote still stand,
+    // and building the same preview twice would only cost the user a wait.
+    const enriched = read > 0 ? buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)) : null;
+    setPreview(enriched ?? next);
   }
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
-  globalShortcutRef.current.save = handleSave;
+  globalShortcutRef.current.save = () => void handleSave();
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
 
@@ -1792,7 +1866,7 @@ function AppContent() {
         mode={treeView.mode}
         onModeChange={changeTreeMode}
         onReroot={rerootTree}
-        onBack={() => window.history.back()}
+        onBack={goBackPage}
         onShowInMatches={showInMatches}
         decisions={decisions}
         changedPersonIds={changedPersonIds}
@@ -1817,7 +1891,7 @@ function AppContent() {
         changedPersonIds={changedPersonIds}
         decisions={decisions}
         backLabel={t(chartsBackKey)}
-        onBack={() => window.history.back()}
+        onBack={goBackPage}
         onNavigate={navigateFromOverlay}
         onPickStart={changeStart}
       />
@@ -1993,12 +2067,19 @@ function AppContent() {
               {hasSaveAction && (
                 <button
                   className="export-btn"
-                  onClick={handleSave}
-                  title={t("save.gedcom.tooltip")}
+                  onClick={() => void handleSave()}
+                  disabled={readingSources}
+                  title={readingSources ? t("save.readingSources") : t("save.gedcom.tooltip")}
                 >
-                  <span className="export-btn-label-full">{t("save.gedcom")}</span>
-                  <span className="export-btn-label-short">{t("save")}</span>
-                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
+                  {readingSources ? (
+                    <span>{t("save.readingSources")}</span>
+                  ) : (
+                    <>
+                      <span className="export-btn-label-full">{t("save.gedcom")}</span>
+                      <span className="export-btn-label-short">{t("save")}</span>
+                      {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
+                    </>
+                  )}
                 </button>
               )}
               {hasHistoryAction && (
@@ -2148,11 +2229,18 @@ function AppContent() {
               onNavigated={() => setNavigateToId(undefined)}
               historyToId={historyPersonId}
               onHistoryNavigated={() => setHistoryPersonId(undefined)}
-              onPersonChange={(id) => {
+              // Back is the browser's, so it walks the pages in the order they
+              // were visited — the people opened one after another, and the
+              // Tools tab or chart a person was opened from.
+              canGoBack={canGoBack}
+              onGoBack={goBackPage}
+              onPersonChange={(id, fromHistory) => {
                 setEditPersonId(id);
                 // Every person opened in Edit is a browser-history step, so
-                // Back walks back through them like Edit's own Back button.
-                recordEditPerson(id);
+                // Back walks back through them like Edit's own Back button —
+                // except the ones a Back press itself brought back, which are
+                // the app arriving on an entry rather than making one.
+                recordEditPerson(id, fromHistory);
               }}
               matchCompareIdFor={matches ? (id) => indexByMain.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMainOrder : undefined}
@@ -2180,19 +2268,18 @@ function AppContent() {
               editVersionRef={editVersionRef}
               editVersion={editVersion}
               fileName={lastMainFile.fileName}
-              onNavigate={(id) => {
-                // Tag the current entry as Tools and push an Edit entry, so the
-                // browser Back button returns to the Tools tab we came from.
-                // Pushed here rather than left to Edit's own person-history
-                // step, which would run once the mode had already flipped and
-                // so could no longer tell which tab the person was opened from.
-                window.history.replaceState({ ...window.history.state, gedMode: "tools" }, "");
-                markEditEntry(id);
-                window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
-                setNavigateToId(id);
-                setMode("edit");
-              }}
+              // Tags the current entry as Tools and pushes an Edit entry, so
+              // Back — the browser's, Edit's own button, ⌫ — returns to the
+              // Tools tab the person was opened from.
+              onNavigate={navigateFromPage}
               active={mode === "tools"}
+              // The open tool and its open page are the app's, because each is
+              // a step: going to either is a page the browser Back button can
+              // undo, and a tool's own Back button walks up to its front page.
+              tool={tool}
+              view={toolView}
+              onToolChange={(next) => goToPage({ tool: next, toolView: "tree" })}
+              onViewChange={(next) => goToPage({ toolView: next })}
               onAddSource={(fields) =>
                 applyToolPatches(
                   createStandaloneSource(mainDataset.records, fields, {
@@ -2225,6 +2312,7 @@ function AppContent() {
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope), true); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments), true)}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments), true)}
+              onClearPlaceCoords={(pairs) => applyToolPatches(clearPlaceCoords(mainDataset, pairs), true)}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr), true)}
               onApplyOfficialNames={(renames) => {
                 // One batch → one undo step — and one pass over the records
@@ -2252,8 +2340,19 @@ function AppContent() {
                 // above are applied: a list of houses taken from the register in
                 // a single act must come back in a single act too. Coalesced
                 // because two houses of one village share records.
+                //
+                // An empty `to` is the rename field emptied — the house's events
+                // are to carry no address at all, which is a removal and not a
+                // rewrite, and travels this same path so that it lands in the
+                // same single undo step.
                 applyToolPatches(
-                  coalescePatches(renames.flatMap((r) => renameAddress(mainDataset, r.rawKeys, r.from, r.to))),
+                  coalescePatches(
+                    renames.flatMap((r) =>
+                      r.to.trim()
+                        ? renameAddress(mainDataset, r.rawKeys, r.from, r.to)
+                        : removeAddress(mainDataset, r.rawKeys, r.from),
+                    ),
+                  ),
                   true,
                 )
               }
@@ -2357,7 +2456,7 @@ function AppContent() {
           onOpenPair={(mainId, compareId) => {
             setPreview(null);
             setSelectedId({ mainId, compareId });
-            setMode("merge");
+            goToPage({ mode: "merge" });
           }}
         />
       )}

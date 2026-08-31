@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
-import { collectFileCoords, type OfficialRename } from "../../tools/geocode";
+import { type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { loadDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
 import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { isOfflineQuery } from "../../geo/rn";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
-import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider } from "../edit/PlaceLookupContext";
+import { usePlaceFields } from "../edit/usePlaceFields";
 import { GazetteerMissing, GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { FULL_CHAIN, RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
@@ -53,6 +53,11 @@ interface Props {
   /** Write a coordinate keyed by place+address, so a house's own position
    *  reaches that house and not the settlement around it. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  /** Write a place value's own position — the coordinate panel, where a point
+   *  the register never offered is the reader's own answer. */
+  onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
+  /** And take one away again — the panel's *Clear*. */
+  onClearPlaceCoords: (pairs: Set<string>) => number;
   /** Rename every occurrence of exactly one raw place value — the row's ✎, for
    *  a correction of the researcher's own rather than the register's. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
@@ -70,6 +75,8 @@ export function RegisterPanel({
   editVersion,
   onApplyOfficialNames,
   onApplyAddressCoords,
+  onApplyGeocode,
+  onClearPlaceCoords,
   onRenameAddresses,
   onMovePlaceForAddresses,
   onRenamePlaceValue,
@@ -115,25 +122,23 @@ export function RegisterPanel({
     void loadDecisions().then(setDecisions);
   }, []);
 
-  const placeSug = useMemo(
-    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
-  // The layout this file writes its places in — what a register entry is shown
-  // as, so the reader compares like with like.
-  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions, index);
-  // The register lookup behind the rename box — the same one the Edit fields and
-  // the places list build, so a name this file has never written can be
-  // completed from the directories here too instead of typed out by hand. It is
-  // exactly the case this page is about: the row exists because the written name
-  // is not one the register holds.
-  // At the depth this page's own answers are written in: an offer cut to a file
-  // of bare settlements came back as "Železniki" for a typed "Železniki,
-  // Železniki, Slovenija" — a place the file already writes, so the offer was
-  // dropped as one the list above already had, and the search reported no such
-  // place while the register held it.
-  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions, FULL_CHAIN);
+  // What this page's fields are built on — the file's own places, the registers
+  // behind the rename box, the layout its places are written in (which is what
+  // a register entry is shown as, so the reader compares like with like), and
+  // every coordinate it already holds.
+  //
+  // The lookup answers at the depth this page's own answers are written in: an
+  // offer cut to a file of bare settlements came back as "Železniki" for a typed
+  // "Železniki, Železniki, Slovenija" — a place the file already writes, so the
+  // offer was dropped as one the list above already had, and the search reported
+  // no such place while the register held it. The directories are handed over
+  // too: only a loaded one can tell a county from a municipality.
+  const {
+    placeSug,
+    lookup: placeLookup,
+    style: placeStyle,
+    fileCoords,
+  } = usePlaceFields(dataset, { depth: FULL_CHAIN, ...(index ? { index } : {}) });
 
   const addrRows = useMemo(
     () => derivations?.addressRows() ?? scanAddresses(dataset),
@@ -148,12 +153,6 @@ export function RegisterPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen, startId, appSettings.showKinship, t],
   );
-  const fileCoords = useMemo(
-    () => collectFileCoords(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
-
   const [search, setSearch] = useState("");
   const query = foldSearch(useDebounced(search, 200).trim());
 
@@ -288,6 +287,8 @@ export function RegisterPanel({
           actionsHost={shown === "places" ? tabActionsEl : null}
           onRename={(from, to, addr) => void onRenamePlaceValue(from, to, addr)}
           onApplyAddressCoords={onApplyAddressCoords}
+          onApplyGeocode={onApplyGeocode}
+          onClearPlaceCoords={onClearPlaceCoords}
           placeSug={placeSug}
           onApplyOfficialNames={onApplyOfficialNames}
           onDecisionsChanged={() => void loadDecisions().then(setDecisions)}

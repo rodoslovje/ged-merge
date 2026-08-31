@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import type { RelativeCell, RelativePair } from "../review/types";
 import { linkKey } from "../normalize/links";
+import { isWebAddress } from "../gedcom/uri";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import { sexClass } from "./sex";
 import type { Translate } from "../locales/i18n";
@@ -66,10 +67,10 @@ export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: str
           href={linkHref(url)}
           target="_blank"
           rel="noopener noreferrer"
-          className={otherKeys && !otherKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
+          className={linkGlyph(url).cls + (otherKeys && !otherKeys.has(linkKey(url)) ? " link-new" : "")}
           title={linkTooltip(url, t)}
         >
-          {siteIconForUrl(url) ?? "🔗"}
+          {linkGlyph(url).icon}
         </a>
       ))}
     </span>
@@ -221,6 +222,20 @@ export function linkHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
+/**
+ * The href for a value that may be no address at all — a source's title, a
+ * filing number, a local scan's file name. Undefined for those, so the caller
+ * draws no link rather than one that goes nowhere; `linkHref` alone would hand
+ * every one of them an `https://` prefix and a dead click.
+ *
+ * Use this wherever the value comes from the file and its shape is not
+ * guaranteed. Where a URL is certain by construction — a recognized site link,
+ * a URL harvested out of note text — `linkHref` on its own is enough.
+ */
+export function safeLinkHref(url: string | undefined): string | undefined {
+  return url && isWebAddress(url) ? linkHref(url) : undefined;
+}
+
 /** Sites that show a signed-out visitor nothing but a sign-in form.
  *  FamilySearch is one: its record pages, its images and its tree profiles all
  *  want an account — free to make, but not optional, and worth knowing before
@@ -231,6 +246,18 @@ export function needsFreeAccount(url: string | undefined): boolean {
 
 /** A link's tooltip: what it would say anyway, plus that note where the site
  *  behind it is sign-in only. `label` defaults to the URL itself. */
+/**
+ * The glyph a link chip shows, and the class that sizes it. A site's own glyph
+ * (⛪ Matricula, 🪦 a grave, …) renders noticeably smaller than 🔗 at the same
+ * font-size — the same quirk `.source-ref--book` corrects on a citation chip —
+ * so a link to the very page a citation names must not read as the smaller,
+ * lesser thing beside it.
+ */
+export function linkGlyph(url: string | undefined, forceGeneric = false): { icon: string; cls: string } {
+  const site = forceGeneric ? undefined : (url && siteIconForUrl(url)) || undefined;
+  return site ? { icon: site, cls: "link-icon link-icon--book" } : { icon: "🔗", cls: "link-icon" };
+}
+
 export function linkTooltip(url: string | undefined, t: Translate, label?: string): string {
   return [label ?? url, needsFreeAccount(url) && t("links.needsAccount")].filter(Boolean).join("\n");
 }

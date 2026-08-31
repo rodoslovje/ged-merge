@@ -5,9 +5,7 @@ import {
   buildWriteSet,
   carryPickAcrossRename,
   chosenCoordFor,
-  collectFileCoords,
   confidentCandidate,
-  countryOf,
   planCountryFill,
   placeAddrKey,
   reconcileNoMatchAfterScan,
@@ -20,19 +18,19 @@ import {
   type GeocodeRow,
   type OfficialRename,
 } from "../../tools/geocode";
-import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { loadDecisions, saveDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
-import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
-import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
+import { foldSearch, queryTerms } from "../globalSearch";
+import { PlaceLookupProvider } from "../edit/PlaceLookupContext";
+import { usePlaceFields } from "../edit/usePlaceFields";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
-import { CountryChips, type CountryChip } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { countrySpelling, type HomeCountryDetection } from "../../geo/homeCountry";
 
 /** Stand-in while no file is loaded — nothing detected, nothing to write. */
@@ -173,26 +171,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   }, [dataset, index, decisions, scanGen, home]);
 
-  // Existing place values for the rename input's autocomplete — the same
-  // suggestion list (and canonical casing) the Edit-mode event fields use.
-  const placeSug = useMemo(
-    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
-
-  // Place+address combos for the rename input — one box searches both, and
-  // picking a combo queues the address part as the split's ADDR (shown as a
-  // removable chip next to the input).
-  const placeCombos = useMemo(() => placeCombosOf(placeSug.placeToAddrs, placeSug.placeCanonical), [placeSug]);
-
-  // The register lookup behind those inputs — the same one the Edit view builds,
-  // so a place the file has never written can be completed (chain, address,
-  // coordinate) here too instead of being typed out by hand.
-  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
-  // How this file writes a place — its separator is what joins a value to the
-  // country written into it below.
-  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions);
+  // What this page's fields are built on: the file's own places (the same list
+  // and canonical casing the Edit event fields complete from), the place+address
+  // pairs behind the rename box's one input, the registers a value the file has
+  // never written is completed from, the layout its places are written in, and
+  // every coordinate it already holds — the maps' context dots.
+  const { placeSug, placeCombos, lookup: placeLookup, style: placeStyle, fileCoords } = usePlaceFields(dataset);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
@@ -238,13 +222,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // state (staged picks, filters) lives inside the section, the row lives here.
   const [tabActionsEl, setTabActionsEl] = useState<HTMLElement | null>(null);
 
-  // Every coordinate the file already carries — the mini map's context dots.
-  const fileCoords = useMemo(
-    () => collectFileCoords(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
-
   // Hover lists of the people each unresolved place occurs at — precomputed
   // per scan, not per render (300 rows × nameOf per keystroke adds up).
   const missingInTitles = useMemo(() => {
@@ -287,6 +264,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // so a Slovenian place is found without reaching for its diacritics.
   const [search, setSearch] = useState("");
   const query = foldSearch(useDebounced(search.trim()));
+  // The same box finds a person: a reader looking for "the entries for Marija
+  // Kovačič" has no place name to type, and the rows do know whose events they
+  // stand for. Terms match in any order, as in every other name box here.
+  const personNames = usePersonNameIndex(dataset);
+  const terms = useMemo(() => queryTerms(query), [query]);
   // Which kind of work is on screen, and which country — two chip rows above
   // the list. Both narrow only the place list; the search box stays the
   // page-wide filter. `null` country = all of them.
@@ -323,32 +305,20 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // work in progress (checked for a re-geocode) stays — staged work is
     // never hidden.
     const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => chosen.has(r.key))];
-    const searched = query ? pool.filter((r) => foldSearch(r.key).includes(query)) : pool;
+    const searched = query
+      ? pool.filter((r) => foldSearch(r.key).includes(query) || personMatches(r.missingIn, personNames, terms))
+      : pool;
 
     // One chip per country the pending list's places stand in; a country the
-    // other filters empty out stays visible at 0.
-    const countryChips: CountryChip[] = [];
-    let countryAllCount = 0;
-    const byCountry = new Map<string, CountryChip>();
-    for (const row of pool) {
-      const country = countryOf(row.key, home);
-      if (!byCountry.has(country)) {
-        const chip = { code: country, count: 0 };
-        byCountry.set(country, chip);
-        countryChips.push(chip);
-      }
-    }
-    for (const row of searched) {
-      if (!inStatus(row)) continue;
-      byCountry.get(countryOf(row.key, home))!.count++;
-      countryAllCount++;
-    }
-
-    // A country whose last row was just resolved loses its chip — the stale
-    // pick falls back to "all" instead of filtering the list to nothing.
-    const activeCountry =
-      countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
-    const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key, home) === activeCountry;
+    // other filters empty out stays visible at 0, and one whose last row was
+    // just resolved loses its chip — the stale pick then falls back to "all"
+    // instead of filtering the list to nothing.
+    const {
+      chips: countryChips,
+      all: countryAllCount,
+      active: activeCountry,
+      inCountry,
+    } = countryFacet(pool, searched.filter(inStatus), (row) => row.key, home, countryFilter);
 
     const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0, placed: 0 };
     let statusAllCount = 0;
@@ -361,11 +331,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     const rows = searched.filter((r) => inStatus(r) && inCountry(r));
     // What the "Show already placed" toggle offers: the placed rows the search
     // leaves, minus those already on the list because work is staged on them.
-    const placedTotal = (query ? scan.placed.filter((r) => foldSearch(r.key).includes(query)) : scan.placed).filter(
+    const placedTotal = (
+      query
+        ? scan.placed.filter((r) => foldSearch(r.key).includes(query) || personMatches(r.missingIn, personNames, terms))
+        : scan.placed
+    ).filter(
       (r) => !chosen.has(r.key),
     ).length;
     return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows, placedTotal };
-  }, [scan, query, statusFilter, countryFilter, chosen, noMatch, showPlaced, home]);
+  }, [scan, query, terms, personNames, statusFilter, countryFilter, chosen, noMatch, showPlaced, home]);
   const rows = view?.rows ?? NO_ROWS;
 
   // Every filtered row is reachable — long lists render windowed (the same
@@ -418,10 +392,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       else next.delete(key);
       return next;
     });
-    // A row opened by hand brings its map with it — that is what it was opened
-    // for, and the Edit view's coordinate panel behaves the same way. Expand
-    // all sets the open set directly and so mounts none; closing frees it.
-    setMapKey((prev) => (willOpen ? key : prev === key ? null : prev));
+    // The map is the coordinate panel's now, and a panel is opened by asking
+    // for it — from the coordinate in the header or the map link among the
+    // row's actions — never by merely opening the row: a popover thrown up over
+    // the list by every expand is in the way of the reading it was opened for.
+    // Closing the row still takes its panel down with it.
+    if (!willOpen) setMapKey((prev) => (prev === key ? null : prev));
   };
 
   const renameValue = (from: string, to: string, addr?: string, coord?: GeoAssignment) => {
@@ -490,7 +466,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // GEDCOM is their record; only no-match marks are remembered. A placed
     // row's pick is a re-geocode, so it may overwrite what the value
     // already carries (address-bound house positions excepted).
-    const { assignments, toStore } = buildWriteSet(scan, chosen, noMatch, Date.now());
+    const { assignments, toStore, toForget } = buildWriteSet(scan, chosen, noMatch, Date.now());
     const changed = assignments.size ? onApplyGeocode(assignments) : 0;
     // A written row is finished work and must leave the staged sets: now that
     // placed rows with staged work stay on the worklist, a tick left behind
@@ -498,9 +474,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // this time overwriting.
     if (assignments.size) setChosen((prev) => new Map([...prev].filter(([k]) => !assignments.has(k))));
     setLastApplied(changed);
-    // Decisions reload re-keys the scan memo; dataset changes (when anything
-    // was written) rescan via the edit-version effect.
-    await putDecisions(toStore);
+    // The marks this write makes, and the ones it answers — the restored rows
+    // stop being remembered, or the reload would set them aside again behind
+    // the reader's back. The decisions reload below re-keys the scan memo;
+    // dataset changes (when anything was written) rescan via the edit-version
+    // effect.
+    await saveDecisions(toStore, toForget);
     const fresh = await loadDecisions();
     setDecisions(fresh);
   };
@@ -510,6 +489,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, placedTotal } = view;
   const confidentCount = scan.rows.filter((r) => r.confident && !chosen.has(r.key) && !noMatch.has(r.key)).length;
+  // Rows the store still calls unanswerable that the reader has put back: the
+  // write has to forget those judgements, so a restore on its own is work
+  // enough to offer it.
+  const restoredCount = [...scan.rows, ...scan.placed].filter(
+    (r) => r.cached?.status === "nomatch" && !noMatch.has(r.key),
+  ).length;
 
   // "Take official names": rows whose best proposal is the register's longer
   // (or differently cased) spelling of the very place they write — confident
@@ -590,7 +575,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         // the section's own head (no addresses, no tabs) — one definition.
         const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
           <div className="tools-dup-bulk">
-            <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={chosen.size === 0 && noMatch.size === 0}>
+            <button
+              className="nav-btn primary tools-run"
+              onClick={() => void apply()}
+              disabled={chosen.size === 0 && noMatch.size === 0 && restoredCount === 0}
+            >
               {t("tools.geocode.apply", { count: chosen.size })}
             </button>
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
@@ -645,6 +634,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           {tab === "places" && placesActions}
           {/* The address section owns its buttons' state; it portals them here. */}
           {tab === "addresses" && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
+          {/* One box for both lists, on the tab row itself: the query narrows
+              places and addresses alike, so it belongs with the tabs rather
+              than inside either list — where the other tab could not see it,
+              and a filter typed on one went on narrowing the other with
+              nothing on screen saying so. */}
+          <TreeSearch value={search} onChange={setSearch} />
         </div>
       )}
 
@@ -665,9 +660,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {placesActions}
           </div>
         )}
-      <div className="tools-filter-row tools-filter-row--narrow">
-        <TreeSearch value={search} onChange={setSearch} />
-      </div>
+      {/* Without tabs the page is the places list alone, and the box sits with
+          the rest of its narrowing. */}
+      {!hasTabs && (
+        <div className="tools-filter-row tools-filter-row--narrow">
+          <TreeSearch value={search} onChange={setSearch} />
+        </div>
+      )}
       {countryChips.length > 0 && (
         <CountryChips
           chips={countryChips}
@@ -764,6 +763,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         kinship={kinship}
         onNavigate={onNavigate}
         onRenameAddresses={onRenameAddresses}
+        onRenamePlace={renameValue}
         actionsHost={tab === "addresses" ? tabActionsEl : null}
       />
       </div>

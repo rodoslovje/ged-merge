@@ -3130,7 +3130,8 @@ button:focus-visible {
 .edit-event-value,
 .edit-event-date,
 .edit-event-place,
-.edit-event-addr { width: 100%; min-width: 0; }
+.edit-event-addr,
+.edit-event-agency { width: 100%; min-width: 0; }
 .edit-event-date { text-align: right; }
 /* Compact events: a field with no value (`.ev-collapsed`) takes zero height at
  * rest and is revealed only while the event row is hovered or focused, so a
@@ -3522,6 +3523,15 @@ button:focus-visible {
   .person-card-meta:not(:has(.person-years))::before {
   content: "\00a0";
   font-size: 0.9em;
+}
+/* And the photo column: when any relative card shows a profile photo, every
+   other card with a person in it grows to the photo card's height, so the grid
+   stays even. 72px = the 64px photo minus its 2+2px negative margins, plus the
+   card's 5+5px padding and 1+1px borders — keep in sync with .card-photo /
+   CardPhoto (PersonMedia.tsx). The "+ Add …" placeholders are left out: they
+   carry one line of text and stay one line tall, at the cards' width. */
+.edit-view:has(.card-photo-btn) .person-card:not(.empty) {
+  min-height: 72px;
 }
 .person-card-role {
   color: var(--muted);
@@ -4028,6 +4038,18 @@ button:focus-visible {
 }
 .nav-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .nav-btn.primary:disabled { color: var(--bg); }
+/* The write that takes something away — the rename editor's button once its
+   field stands empty. Outlined like the dialogs' destructive confirm, not
+   filled: the same weight, without the accent's "this is what you came for". */
+.nav-btn.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+.nav-btn.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
 .nav-btn.highlight {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
@@ -4168,6 +4190,10 @@ button:focus-visible {
 /* Edit mode: the icon is a <button> (opens the Edit Source dialog) rather
    than an <a> — reset button chrome so it still looks like a plain icon. */
 button.link-icon { border: none; font: inherit; }
+/* A site's own glyph sits smaller than 🔗 in most emoji fonts — the same
+   correction `.source-ref--book` makes, so a link chip and a citation chip of
+   the same archive read as one size. */
+.link-icon.link-icon--book { font-size: 1.15rem; }
 /* Marks an incoming link that the main doesn't have yet (will be added). */
 .link-icon.link-new {
   background: color-mix(in srgb, var(--status-link) 25%, transparent);
@@ -4856,9 +4882,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   cursor: grab;
   user-select: none;
 }
+/* Only the three things inside a chart that set a cursor of their own need
+   overriding — `*` here made starting a drag recalculate style for every
+   element in the diagram, which a large chart feels as a stutter. */
 .tree-canvas.panning,
-.tree-canvas.panning * {
-  cursor: grabbing !important;
+.tree-canvas.panning .tree-node,
+.tree-canvas.panning .fan-node,
+.tree-canvas.panning .timeline-row {
+  cursor: grabbing;
 }
 /* Translucent at rest so the chart stays readable underneath; solid while the
    pointer is over it (including viewport drags, which keep pointer capture). */
@@ -4970,8 +5001,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    flex canvas (auto margins centre a small chart, same as the bare SVG used to);
    the inner div carries the native-size SVG scaled by CSS transform. Hidden
    overflow keeps the inner's unscaled layout box (larger when zoomed out) from
-   inflating the canvas's scroll extents. (`.tree-zoom` is the zoom toolbar.) */
-.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; }
+   inflating the canvas's scroll extents. The origin is pinned to the top-left
+   corner because the in-flight pinch transform useTreeCanvas paints here is
+   solved for that corner — a centred origin would offset every gesture by half
+   the chart. (`.tree-zoom` is the zoom toolbar.) */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
 .tree-edge {
@@ -5068,6 +5102,160 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   opacity: 0.9;
 }
 .timeline-residence.alt { opacity: 0.55; }
+
+
+/* ── Contemporaries chart (KinshipChart) ──────────────────────────────────────
+   Two layouts over one data pass: the wheel, where the distance from the centre
+   is the blood distance and each wedge is a grandparent line; and the bars, the
+   same people on a year axis banded by that distance. Dot and bar fills come
+   inline from the component (the colour axis is a user choice); the structure
+   is themed here. */
+.kin-controls {
+  gap: 14px 18px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.kin-year {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.kin-year input[type="range"] {
+  width: 170px;
+  accent-color: var(--accent);
+}
+.kin-year-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 3.4em;
+}
+.kin-count {
+  font-size: 13px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Wheel structure: dotted rings for the blood distances, hairline spokes
+   between the family lines. */
+.kin-ring {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 4;
+}
+.kin-spoke {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.kin-wedge-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.kin-wedge-count {
+  fill: var(--faint);
+  font-weight: 400;
+}
+.kin-dot {
+  cursor: pointer;
+  stroke-width: 0.9;
+  stroke-opacity: 0.55;
+}
+.kin-dot:hover { filter: brightness(1.25); }
+/* Dimmed rather than dropped while a year is being scrubbed, so the dots hold
+   still and the wave of who was alive reads as movement, not relayout. */
+.kin-dot.dim,
+.kin-bar.dim { opacity: 0.12; }
+.kin-dot.selected,
+.kin-bar.selected {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-opacity: 1;
+}
+.kin-dot.find-hit,
+.kin-bar.find-hit {
+  stroke: var(--status-diff);
+  stroke-width: 2.5;
+  stroke-opacity: 1;
+}
+/* The root, at the centre of the wheel. */
+.kin-hub { fill: var(--accent); }
+.kin-hub-label {
+  fill: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+/* The ring scale, set on the ring itself and right-aligned to the 6 o'clock
+   gutter; the background halo keeps it readable where it crosses the dots. */
+.kin-ring-label {
+  fill: var(--faint);
+  font-size: 10px;
+  stroke: var(--bg);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+/* Names beside the closest kin — placed by the layout, which drops any that
+   would collide, so they never need to shrink to fit. */
+.kin-name {
+  fill: var(--text);
+  stroke: var(--bg);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.kin-bar-name {
+  fill: var(--muted);
+  stroke-width: 2.4;
+}
+/* Bars layout: the root's own lifetime as a tinted band, and a rule + caption
+   per blood-distance band. */
+.kin-window {
+  fill: var(--accent);
+  opacity: 0.09;
+}
+.kin-band-rule { stroke: var(--border); }
+.kin-band-label {
+  fill: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+/* The colour key, under the controls: each entry is also the show/hide switch
+   for its own group, the way the Map's event-kind chips work. */
+.kin-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.kin-legend-count {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.kin-bar { cursor: pointer; }
+.kin-bar:hover { filter: brightness(1.15); }
+/* The bars' sticky header: the year ruler and the root's own row, pinned over
+   the scrolling canvas. Opaque, so the body scrolls under it rather than
+   through it, and pointer-transparent so panning still grabs the canvas. */
+.kin-sticky {
+  position: absolute;
+  inset: 0 0 auto 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-2);
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.4);
+  z-index: 2;
+  /* Mirrors .tree-canvas: auto margins centre a chart narrower than the pane and
+     resolve to zero once it overflows, so the header lands where the chart does. */
+  display: flex;
+}
+.kin-sticky svg {
+  display: block;
+  margin: auto;
+}
 
 /* ── Ahnentafel report ────────────────────────────────────────────────────
    The hub's text report: same canvas shell as the charts, but a scrolling
@@ -5929,7 +6117,13 @@ body:has(.modal-overlay) {
 .modal-body h3 { font-size: 1.5rem; margin: 32px 0 16px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .modal-body h3:first-child { margin-top: 24px; }
 .modal-body h4 { font-size: 1.15rem; margin: 24px 0 8px; color: var(--text); }
-.modal-body p, .modal-body > div { margin: 0 0 16px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
+/* Prose metrics, for the modals that hold prose (help, shortcuts, settings).
+   A source dialog is a form: its every block is a div in a modal body too, and
+   this rule outweighs any single class, so it was quietly setting 1.05rem/1.7
+   and a 16px margin on captions, field grids and hints that had each asked for
+   their own. Forms say what they want in their own rules; this stays out. */
+.modal-body p,
+.modal:not(.add-source-dialog) .modal-body > div { margin: 0 0 16px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
 .modal-body ul { margin: 0 0 16px; padding-left: 22px; }
 .modal-body li { margin: 6px 0; }
 .modal-body strong { color: var(--text); font-weight: 600; }
@@ -6320,7 +6514,11 @@ kbd {
   border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
   border-radius: var(--radius);
 }
-.add-source-dialog .modal-body { padding-top: 20px; }
+/* Snug enough that a source with every field filled in still opens whole:
+   the dialog is a form to check at a glance, not a page to scroll. */
+.add-source-dialog .modal-header { padding: 12px 28px; }
+.add-source-dialog .modal-body { padding: 16px 28px 18px; }
+.add-source-dialog .add-source-actions { padding: 10px 28px; }
 /* Prose fields read as prose: sans-serif; only the URL stays mono (it's a
    link). Consistent bordered inputs with an accent focus ring. */
 .add-source-dialog .edit-input {
@@ -6329,7 +6527,7 @@ kbd {
   border-color: var(--border);
   background: var(--bg);
   border-radius: var(--radius);
-  padding: 9px 12px;
+  padding: 7px 11px;
 }
 .add-source-dialog .edit-input:focus {
   border-color: var(--accent);
@@ -6391,7 +6589,7 @@ kbd {
   background: color-mix(in oklch, var(--accent) 12%, var(--panel));
   border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
 }
-.add-source-field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
+.add-source-field { display: flex; flex-direction: column; gap: 3px; margin: 0 0 10px; font-size: 0.8rem; color: var(--muted); }
 .add-source-field input {
   width: 100%;
   border-color: var(--border);
@@ -6402,12 +6600,44 @@ kbd {
 .add-source-details-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px 14px;
-  margin: 0 0 12px;
+  gap: 10px 14px;
+  margin: 0 0 10px;
 }
 .add-source-details-grid .add-source-field { margin: 0; }
 /* Repository-name row: the proposed name is long, give it the full width. */
 .add-source-details-grid .add-source-field-wide { grid-column: 1 / -1; }
+/* One dialog edits four records at once — the source, this citation of it, the
+   repository and the page image — so each block says which one it writes to.
+   Set like the event captions of the merge comparison (`.event-header-cell`)
+   but quieter still: centred small-caps, unemphasized, between two hairlines
+   that draw the seam the caption names. The source's own fields open the form
+   uncaptioned — the dialog's title already says what they are. */
+.add-source-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Nearer what it names than what it closes: the space above the caption is
+     the break, the space below it barely a gap. `line-height: 1` is part of
+     that — a caption of small caps in a 1.5-line box carries invisible air
+     above the fields it heads. */
+  margin: 14px 0 4px;
+  line-height: 1;
+  font-variant: small-caps;
+  font-weight: 400;
+  /* Small caps between two rules carry the break on their own — the type only
+     has to name it, so it stays under the 0.8rem of a field label. Below
+     ~0.7rem the caps stop reading as words at a glance. */
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.add-source-group::before,
+.add-source-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 .add-source-url-row { margin-bottom: 0; }
 /* The media-link dialog holds a single field — Edit Source's width gapes. */
 .media-link-dialog { width: 520px; }
@@ -6539,6 +6769,10 @@ kbd {
 }
 .preview-card-head-right { display: flex; align-items: center; gap: 6px; flex: none; }
 .preview-rec { font-weight: 600; color: var(--text); }
+/* The side a one-spouse family does not have. Muted, so the head still reads
+   as the name it leads with, but present — without it the card was that
+   person's name alone and could not be told from the person's own card. */
+.preview-rec-nospouse { color: var(--muted); font-weight: 400; }
 .preview-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap;
@@ -8079,16 +8313,22 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-place-coord:hover { color: var(--accent); }
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
-.tools-place-map { max-width: 560px; margin-left: 26px; }
-.tools-place-map-note { margin: 0 0 6px; color: var(--muted); font-size: 0.82rem; }
+/* The coordinate and the panel it opens are one control, so the panel is
+   anchored to the value rather than to the whole row. */
+.tools-place-coord-wrap { display: inline-flex; align-items: center; }
+/* The pin that stands in for a coordinate the place has not got yet: the same
+   faint-at-rest button the ✎ beside the name is, so an unplaced tree reads as a
+   list of places and not as a column of pins. */
+.tools-place-coord-add { line-height: 0; padding: 2px 4px; color: var(--muted); }
+/* Present on every row it belongs to, at every width: it had been collapsed to
+   nothing until its row was hovered, which on a touch screen — where nothing is
+   ever hovered — meant a control that could not be reached at all. It holds its
+   slot and stays faint at rest instead, so a hundred addresses still read as a
+   list of addresses rather than a column of pencils, and comes up to full
+   strength under the pointer, on focus, and while its editor is open. */
 .tools-place-edit-btn {
-  opacity: 0;
-  /* Fully collapsed until the row is hovered: no width, no padding, and a
-     negative margin that swallows the flex gap slot it would otherwise add. */
-  width: 0;
-  padding: 1px 0;
-  margin-left: -8px;
-  overflow: hidden;
+  opacity: 0.45;
+  padding: 1px 5px;
   transition: opacity 0.12s;
   flex: none;
   background: none;
@@ -8105,10 +8345,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-tree-row:focus-within .tools-place-edit-btn,
 /* The duplicate and regroup rows name records too, and open the same editors. */
 .tools-dup-member:hover .tools-place-edit-btn,
-.tools-dup-member:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
-.tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
-/* Wins over the base rule by source order — no !important needed. */
-.tools-place-edit-cancel { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
+.tools-dup-member:focus-within .tools-place-edit-btn { opacity: 1; }
+.tools-place-edit-btn:hover,
+.tools-place-edit-btn:focus-visible { opacity: 1; color: var(--accent); background: var(--panel-2); }
+/* The ✕ that closes an open editor is never the quiet half of a row. Wins over
+   the base rule by source order — no !important needed. */
+.tools-place-edit-cancel { opacity: 1; }
 .tools-place-rename {
   display: flex;
   align-items: center;
@@ -8131,8 +8373,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* Autocomplete-wrapped variant (geocode list): the wrapper takes the flex
    slot the bare input otherwise fills, and the input stretches inside it.
    Wide, because one box searches places AND addresses — the dropdown (sized
-   to the input) must fit a full "place · address" line. */
-.tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 560px; }
+   to the input) must fit a full "place · address" line. It shares the row with
+   the address two to one: the place carries a whole chain of names, the
+   address a house number and at most a street. */
+.tools-place-rename-auto { flex: 2 1 0; min-width: 140px; max-width: 560px; }
 .tools-place-rename-auto .tools-place-rename-input { width: 100%; max-width: none; }
 /* The ADDR part of the rename: editable, pre-filled by a place·address
    combo pick, cleared with ×. */
@@ -8159,6 +8403,14 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   max-width: 180px;
 }
 .tools-geo-addr-chip-input:focus { outline: none; border-bottom-color: var(--accent); }
+/* The chip as a *field* rather than a tag: it holds an autocomplete whose
+   dropdown must fit an address line, so it takes the third of the rename row
+   the place leaves it instead of hugging what is typed. `nowrap` goes with the
+   growth — the label and the input are a row of their own now, and the input
+   must be free to stretch to the chip's width. */
+.tools-geo-addr-chip--field { flex: 1 1 0; min-width: 120px; white-space: normal; }
+.tools-geo-addr-chip-auto { flex: 1; min-width: 0; }
+.tools-geo-addr-chip-auto .tools-geo-addr-chip-input { width: 100%; max-width: none; }
 .tools-geo-addr-chip-clear {
   background: none;
   border: none;
@@ -8171,7 +8423,17 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-addr-chip-clear:hover { color: var(--danger); }
 .tools-place-rename-hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .tools-place-rename-apply { padding: 4px 12px; font-size: 0.85rem; }
-.tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
+/* The people under a row — in the geocoding lists, the naming and address
+   findings, and Organize sources. A step smaller than the row they hang off:
+   they are the evidence for it, not the thing being read, and at full size a
+   village of thirty names crowded out the rows themselves. */
+.tools-usage {
+  list-style: none; margin: 2px 0 4px; padding-left: 26px;
+  display: flex; flex-direction: column; gap: 2px;
+  /* The same step Organize sources' own member rows take (.tools-dup-member),
+     so the people read alike wherever a list of them hangs off a row. */
+  font-size: 0.9rem;
+}
 .tools-usage li { display: flex; flex-wrap: wrap; align-items: baseline; content-visibility: auto; contain-intrinsic-size: auto 24px; }
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }
 .tools-usage-age { color: var(--muted); }
@@ -8717,6 +8979,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-coord-current { display: flex; align-items: center; gap: 8px; }
 .edit-coord-head .edit-coord-manual { flex: 0 1 320px; }
 .edit-coord-note { color: var(--muted); margin: 0; }
+/* The two searches this panel offers, side by side and wrapping when the panel
+   is narrow — without a gap of their own the labels run into one another and
+   read as a single link. */
+.edit-coord-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
 .edit-coord-results .tools-issue-link { text-align: left; }
@@ -8854,8 +9120,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    text the way the address rows are. */
 .tools-geo-conflict-body { padding: 6px 0 4px 26px; }
 .tools-geo-conflict-body .tools-geo-minimap { margin-top: 4px; }
-/* A mini-map pin carrying a count: the number of events sitting on that exact
-   coordinate, so a contradiction reads as "12 here, 1 there" at a glance. */
+/* A mini-map pin carrying a number: the one its option wears in the list below
+   the map, or — where the pins stand alone — how many events sit on that exact
+   coordinate. */
 .mini-pin-badge {
   display: flex;
   align-items: center;
@@ -8990,6 +9257,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    did can stand at its far end rather than beside the buttons. */
 .tools-geo-tabs-row > .tools-dup-bulk { flex: 1 1 auto; }
 .tools-geo-tabs-row .tools-geo-tabs { margin: 0; }
+/* The filter box rides the tab row: no bottom margin of its own, and it gives
+   way to the actions beside it rather than taking the row's whole width. */
+.tools-geo-tabs-row .tools-search { flex: 0 1 240px; margin: 0; }
 .tools-geo-tabs {
   display: inline-flex;
   gap: 2px;

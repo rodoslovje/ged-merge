@@ -1,26 +1,38 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
+import type { ToolView } from "../ToolsView";
 import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
-import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
+import { countGeocodePending, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCodeOfName, flagEmoji } from "../../geo/placeCountry";
-import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
-import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { AddressSplitField, RenameEditor, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { EventCoordPicker } from "../edit/EventCoordPicker";
+import { PlaceLookupProvider, usePlaceLookup } from "../edit/PlaceLookupContext";
+import { usePlaceFields } from "../edit/usePlaceFields";
+import type { PlaceSuggestions } from "../edit/placeSuggestions";
+import { renameInValue } from "../../tools/placeEdit";
+import type { PlaceProposal } from "../../geo/placeProposal";
+import { PinIcon } from "../icons/PinIcon";
 
-/** The rename field completes from the file's own place segments, which are
- *  already exactly as the file writes them — there is no separate canonical
- *  spelling to snap to. */
-const EMPTY_CANONICAL = new Map<string, string>();
+/** What a rename in the tree comes to: one whole value rewritten (with, where
+ *  it says so, a house taken out onto the event's own ADDR line), or one level
+ *  renamed wherever it appears under the row. See {@link planFor}. */
+type RenamePlan =
+  | { kind: "value"; from: string; to: string; addr?: string }
+  | { kind: "segment"; from: string; to: string };
 
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
+/** What the rename box's helpers are before it is opened — stable identities,
+ *  so a row that is not being edited neither builds them nor re-renders for
+ *  them. */
+const EMPTY_SCOPE: Set<string> = new Set();
+const EMPTY_SUGGESTIONS: string[] = [];
 
 /** How far the row's map opens on a single coordinate: close enough to read
  *  the town and its streets, since the question a place's map answers is
@@ -28,7 +40,8 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 const TOWN_ZOOM = 13;
 
 /** An address row's map answers a closer question — "which building is this" —
- *  so it opens at house level, the same zoom the coordinate picker fits to. */
+ *  so it opens at house level, the zoom the coordinate panel fits to
+ *  everywhere else. */
 const HOUSE_ZOOM = 17;
 
 /** Prune a place node to those whose name matches `q` (already lower-cased)
@@ -49,6 +62,36 @@ function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set
   if (children.length === 0) return null;
   autoOpen.add(path);
   return { ...node, children, uses: [] };
+}
+
+/**
+ * Where a place value sits in the tree: the path whose segments, read outwards,
+ * are the value's own comma parts ("Kokrica, Kranj, Slovenija" →
+ * `Slovenija/Kranj/Kokrica`). Null where the tree does not hold it — which is
+ * what a value naming a country the file writes differently comes to.
+ *
+ * Read off the tree rather than composed, because only the tree knows what a
+ * value decomposed to: a value naming no country hangs under the synthetic
+ * bucket, and one carrying a house number keeps the house as a level below the
+ * locality.
+ */
+function findPlacePath(roots: readonly PlaceNode[], value: string): string | null {
+  const parts = value
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .reverse();
+  if (!parts.length) return null;
+  const descend = (nodes: readonly PlaceNode[], depth: number, path: string): string | null => {
+    const node = nodes.find((n) => n.name === parts[depth]);
+    if (!node) return null;
+    const here = path ? `${path}/${node.name}` : node.name;
+    return depth === parts.length - 1 ? here : descend(node.children, depth + 1, here);
+  };
+  // A value naming no country is filed under the synthetic bucket, which is a
+  // level of the tree and not a part of the value.
+  const unspecified = roots.find((r) => r.name === UNSPECIFIED);
+  return descend(roots, 0, "") ?? (unspecified ? descend(unspecified.children, 0, UNSPECIFIED) : null);
 }
 
 /** Keys to open on first load: when there is a single root place, open it and
@@ -75,12 +118,15 @@ export function PlacesPanel({
   onApplyPlaceRename,
   onApplyGeocode,
   onApplyAddressCoords,
+  onClearPlaceCoords,
   onRenamePlaceValue,
   onApplyOfficialNames,
   onRenameAddresses,
   editVersion,
   onMovePlaceForAddresses,
   startId,
+  view: viewProp,
+  onViewChange,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
@@ -88,21 +134,34 @@ export function PlacesPanel({
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  onClearPlaceCoords: (pairs: Set<string>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   onRenameAddresses: (renames: AddressRename[]) => number;
   editVersion: number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
+  /** Which of this tool's pages is open, and the way to another — held by the
+   *  app, because each is a browser-history step (see ToolView). A page this
+   *  panel does not have (another tool's) reads as its own tree. */
+  view: ToolView;
+  onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
   const derivations = useDatasetDerivations();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the geocode tool
-  // (same pattern as the Sources panel hosting Organize sources).
-  const [view, setView] = useState<"tree" | "geocode" | "register">("tree");
+  // Which page is on screen: the containment tree, the geocoding worklist or
+  // the naming report. The panel is told, rather than deciding — see the prop.
+  const view = viewProp === "geocode" || viewProp === "register" ? viewProp : "tree";
+  const setView = (next: "tree" | "geocode" | "register") => onViewChange(next);
+  // Coordinates applied on one of the other pages changed the dataset in place,
+  // so the tree they were left for is stale: dropped on the way back, and the
+  // panel (with its chip counts) rebuilds it.
+  useEffect(() => {
+    if (view === "tree") setTree(null);
+  }, [view]);
 
   useEffect(() => {
     setTree(null);
@@ -171,54 +230,109 @@ export function PlacesPanel({
     return map;
   }, [tree]);
 
-  function handleRename(from: string, to: string, scope: Set<string>) {
-    // Capture the path of `from` in the current tree before rebuild so we can
-    // derive the correct destination path (avoids opening the wrong "Wayne" in
-    // a different state when multiple nodes share the target name).
-    let fromPath: string | null = null;
-    if (tree) {
-      const findFrom = (node: PlaceNode, path: string): boolean => {
-        if (node.name === from) { fromPath = path; return true; }
-        for (const child of node.children) {
-          if (findFrom(child, `${path}/${child.name}`)) return true;
-        }
-        return false;
-      };
-      for (const root of tree.roots) { if (findFrom(root, root.name)) break; }
-    }
-
+  /**
+   * Rename a place level everywhere under one row, and show where it went.
+   *
+   * The tree the reader was working down stays exactly as open as it was. It
+   * used to be replaced by the renamed value's own chain, which threw away the
+   * bucket the rename was made from — correct a stray under *Unspecified
+   * country* and the seventy values beside it folded away, so there was no
+   * carrying on down the list.
+   *
+   * A coordinate a register offer brought is written before the rebuild, so one
+   * rename costs one pass over the file's places rather than two.
+   *
+   * Where the value went is opened on top of that, read off the rebuilt tree
+   * rather than guessed by substituting the new name into the old path: a
+   * rename that gives a value its country moves it to another branch entirely,
+   * and the old path with one segment swapped names nothing at all.
+   */
+  function handleRename(from: string, to: string, scope: Set<string>, coords?: Map<string, GeoCoord>) {
     onApplyPlaceRename(from, to, scope);
+    if (coords?.size) onApplyAddressCoords(coords);
     const newTree = buildPlaceTree(dataset);
     setTree(newTree);
-
-    // Build the expected path: substitute `to` for `from`, or remove the segment when deleting.
-    const expectedPath = fromPath
-      ? to
-        ? (fromPath as string).split("/").map(s => s === from ? to : s).join("/")
-        : (fromPath as string).split("/").filter(s => s !== from).join("/")
-      : null;
-
-    const toOpen = new Set<string>();
-    if (expectedPath) {
-      const parts = expectedPath.split("/");
-      for (let i = 1; i <= parts.length; i++) toOpen.add(parts.slice(0, i).join("/"));
-    }
-    setOpen(toOpen);
+    reveal(newTree, to);
   }
 
-  // What the geocode tool has to offer, as the chip's two badges: distinct
-  // place names still missing coordinates, and addresses a register lookup
-  // could pin to their house. Both recomputed with the tree (same trigger:
-  // dataset change / re-entry), since the tool works on either kind and a file
-  // can be done with one and full of the other.
-  const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
-  // Placed rows ride along in the scan (the review list can show them back);
-  // pending work is only what still lacks a position of its own.
-  const addressPending = useMemo(
-    () => (tree ? (derivations?.addressRows() ?? scanAddresses(dataset)).filter((r) => !r.placed).length : 0),
+  /** Open the chain down to where a renamed value now sits, leaving every row
+   *  the reader had open where it was. */
+  function reveal(rebuilt: PlaceTree, value: string) {
+    const landed = value ? findPlacePath(rebuilt.roots, value) : null;
+    if (!landed) return;
+    setOpen((prev) => {
+      const next = new Set(prev);
+      const parts = landed.split("/");
+      for (let i = 1; i <= parts.length; i++) next.add(parts.slice(0, i).join("/"));
+      return next;
+    });
+  }
+
+  /**
+   * A row's rename that splits the value: the whole value is rewritten and the
+   * house it named goes on the event's own ADDR line. The tree is rebuilt with
+   * every row the reader had open still open, and the place the house now
+   * stands in opened under them.
+   */
+  function handleRenameValue(from: string, to: string, addr: string, coords?: Map<string, GeoCoord>) {
+    onRenamePlaceValue(from, to, addr);
+    if (coords?.size) onApplyAddressCoords(coords);
+    const newTree = buildPlaceTree(dataset);
+    setTree(newTree);
+    reveal(newTree, to);
+  }
+
+  /** A coordinate written or taken back in a row's panel changed the records
+   *  the tree was built from, so its spots and its counts are stale. Rebuilt on
+   *  the spot — and, unlike a rename, with the tree left exactly as open as it
+   *  was: the row that was just placed is the one being looked at. */
+  function handleCoordChange() {
+    setTree(buildPlaceTree(dataset));
+  }
+
+  /**
+   * What the rename box completes from, beyond the names beside the one being
+   * renamed: every place value the file already writes — the same list the Edit
+   * fields and both geocoding rename boxes offer — and the registers behind
+   * them, so a place the file has never written properly can be completed here
+   * too: its chain, its house, its coordinate. A row under *Unspecified
+   * country* has siblings that are all as unplaced as it is, and what it wants
+   * is one of those two.
+   */
+  const { placeSug, placeCombos, lookup: placeLookup, fileCoords } = usePlaceFields(dataset);
+
+  /**
+   * What the geocode tool has to offer, as the chip's two badges: distinct
+   * place names still missing coordinates, and addresses a register lookup
+   * could pin to their house. The tool works on either kind and a file can be
+   * done with one and full of the other, so both are counted.
+   *
+   * Counted *after* the tree is on screen, not with it. Together they are two
+   * more passes over every record — the address scan is the heaviest thing on
+   * this page — and they were paid inside the render that a rename triggers, so
+   * a correction to one value stood still for the length of them before
+   * anything moved. The badges catch up a frame later, which is soon enough for
+   * a number nobody is reading at that moment.
+   */
+  const [pending, setPending] = useState<{ places: number; addresses: number } | null>(null);
+  useEffect(() => {
+    if (!tree) return;
+    let live = true;
+    const id = window.setTimeout(() => {
+      if (!live) return;
+      setPending({
+        places: countGeocodePending(dataset),
+        addresses: (derivations?.addressRows() ?? scanAddresses(dataset)).filter((r) => !r.placed).length,
+      });
+    }, 0);
+    return () => {
+      live = false;
+      window.clearTimeout(id);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, tree],
-  );
+  }, [dataset, tree]);
+  const geocodePending = pending?.places ?? 0;
+  const addressPending = pending?.addresses ?? 0;
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
@@ -230,15 +344,14 @@ export function PlacesPanel({
         editVersion={editVersion}
         onApplyOfficialNames={onApplyOfficialNames}
         onApplyAddressCoords={onApplyAddressCoords}
+        onApplyGeocode={onApplyGeocode}
+        onClearPlaceCoords={onClearPlaceCoords}
         onRenameAddresses={onRenameAddresses}
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onRenamePlaceValue={onRenamePlaceValue}
         onNavigate={onNavigate}
         startId={startId}
-        onBack={() => {
-          setView("tree");
-          setTree(null);
-        }}
+        onBack={() => setView("tree")}
       />
     );
 
@@ -256,17 +369,14 @@ export function PlacesPanel({
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onNavigate={onNavigate}
         startId={startId}
-        // Applied coordinates changed the dataset in place — drop the cached
-        // tree so the panel (and the chip count) rebuild on return.
-        onBack={() => {
-          setView("tree");
-          setTree(null);
-        }}
+        onBack={() => setView("tree")}
       />
     );
 
   return (
-    <>
+    /* The rename boxes below reach the registers through this, exactly as the
+       geocoding and naming pages' boxes do. */
+    <PlaceLookupProvider value={placeLookup}>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
@@ -326,14 +436,20 @@ export function PlacesPanel({
               toggle={togglePlace}
               onNavigate={onNavigate}
               onRename={handleRename}
-              onGeocode={() => setView("geocode")}
+              onRenameValue={handleRenameValue}
+              onApplyAddressCoords={onApplyAddressCoords}
+              onClearPlaceCoords={onClearPlaceCoords}
+              onCoordChange={handleCoordChange}
+              placeSug={placeSug}
+              placeCombos={placeCombos}
+              fileCoords={fileCoords}
               siblings={siblingNames.get("") ?? []}
               siblingNames={siblingNames}
             />
           ))}
         </ul>
       )}
-    </>
+    </PlaceLookupProvider>
   );
 }
 
@@ -346,7 +462,13 @@ function PlaceTreeRow({
   toggle,
   onNavigate,
   onRename,
-  onGeocode,
+  onRenameValue,
+  onApplyAddressCoords,
+  onClearPlaceCoords,
+  onCoordChange,
+  placeSug,
+  placeCombos,
+  fileCoords,
   siblings,
   siblingNames,
 }: {
@@ -357,9 +479,28 @@ function PlaceTreeRow({
   isOpen: (key: string) => boolean;
   toggle: (node: PlaceNode, path: string) => void;
   onNavigate: (id: string) => void;
-  onRename: (from: string, to: string, scope: Set<string>) => void;
-  /** Open the geocode tool, where a disputed coordinate can be settled. */
-  onGeocode: () => void;
+  /** Rename this level everywhere under the row, with the position a register
+   *  offer brought along — written in the same pass, before the tree rebuild. */
+  onRename: (from: string, to: string, scope: Set<string>, coords?: Map<string, GeoCoord>) => void;
+  /** Rewrite one whole place value, taking a house out of it onto the event's
+   *  own ADDR line — what a segment rename cannot do. */
+  onRenameValue: (from: string, to: string, addr: string, coords?: Map<string, GeoCoord>) => void;
+  /** Write a position onto every event at this row's place+address pairs. The
+   *  row is one written value, so the pair-keyed write is the exact one: a
+   *  settlement's own position never reaches the houses under it, which hold
+   *  their own. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  /** Take that position away again — the panel's *Clear*. */
+  onClearPlaceCoords: (pairs: Set<string>) => number;
+  /** Rebuild the tree after either of them wrote. */
+  onCoordChange: () => void;
+  /** The file's own places, for the rename box's completions. */
+  placeSug: PlaceSuggestions;
+  /** And the place+address pairs it writes, for the split's two fields. */
+  placeCombos: { place: string; addr: string }[];
+  /** Every coordinate the file carries — the faint dots on the row's map, where
+   *  the family cluster is what tells two same-named places apart. */
+  fileCoords: FileCoord[];
   /** The names sitting beside this one under the same parent — what a rename
    *  of this node may complete to, and what makes it a merge. */
   siblings: string[];
@@ -367,12 +508,22 @@ function PlaceTreeRow({
   siblingNames: Map<string, string[]>;
 }) {
   const { t } = useTranslation();
+  const lookup = usePlaceLookup();
   const [editing, setEditing] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  /** A register offer picked in the box: its text is in the draft, and its
+   *  coordinate rides along on apply. Kept with the text it belongs to, so
+   *  editing the draft afterwards drops the coordinate rather than writing one
+   *  that describes a different place — the rule both geocoding rename boxes
+   *  follow. */
+  const [renamePick, setRenamePick] = useState<{ text: string; coord: GeoCoord } | null>(null);
+  /** The house to take out of the value while renaming it — see {@link splitValue}. */
+  const [renameAddrDraft, setRenameAddrDraft] = useState("");
   const debouncedRename = useDebounced(renameValue, 250);
-  /** The row's own mini map, opened by clicking its coordinate. Per-row state:
-   *  several may stand open, and each is its own lazy map instance. */
-  const [mapOpen, setMapOpen] = useState(false);
+  /** The row's coordinate panel — the one the geocoding lists and the Edit
+   *  rows open. Per-row state, so the panel belongs to the coordinate that
+   *  opened it. */
+  const [coordOpen, setCoordOpen] = useState(false);
   /** The records written at exactly this place, listed only when asked for:
    *  opening a place is about the places under it, not about its hundreds of
    *  people. */
@@ -382,28 +533,95 @@ function PlaceTreeRow({
   /** The file puts this place in more than one spot — one of them is wrong. */
   const disputed = (spots?.length ?? 0) > 1;
 
-  const nodeScope = useMemo(() => collectNodeUseIds(node), [node]);
+  /** The records under this row — what a rename is scoped to, and what its
+   *  preview counts. Only for the row being edited: it walks the whole subtree,
+   *  and every row on screen paying that on every rebuild is what made a rename
+   *  of one value feel like work on the whole file. */
+  const nodeScope = useMemo(() => (editing ? collectNodeUseIds(node) : EMPTY_SCOPE), [editing, node]);
 
   /**
-   * What this row's map pins are about, for their tooltips: the place, and the
-   * address when the row *is* one (address levels are their own nodes).
+   * The place and address this row is, as the file writes them — what the
+   * coordinate panel looks the row up by, and what its pins are labelled with.
    *
-   * The place is taken from a record that sits exactly here, so it carries the
-   * file's own spelling and separators; with no such record — a node that only
-   * holds children — the path is read back outwards ("Otlica, Ajdovščina,
-   * Slovenia"), which is the order every place value in the app is written in.
+   * Read off a record that sits exactly here, so they carry the file's own
+   * spelling and separators. A node that only holds children has no record of
+   * its own, and no position to write: it offers no panel at all.
    */
-  const pinAddress =
-    node.isAddress && node.name !== UNSPECIFIED && node.name !== UNSPECIFIED_PLACE ? node.name : undefined;
-  const pinPlace = useMemo(() => {
-    const raw = node.uses[0]?.raw?.trim();
-    if (raw) return raw;
-    return path
-      .split("/")
-      .filter((seg) => seg && seg !== UNSPECIFIED && seg !== UNSPECIFIED_PLACE)
-      .reverse()
-      .join(", ");
-  }, [node.uses, path]);
+  const placeValue = node.uses[0]?.plac.trim() ?? "";
+  const addrValue = node.uses[0]?.addr?.trim() ?? "";
+  /** The two together, as the row reads: what the pin standing on this position
+   *  is called. */
+  const pinValue = addrValue ? `${placeValue} — ${addrValue}` : placeValue;
+
+  /**
+   * The one whole `PLAC` value this row stands for, where it stands for one.
+   *
+   * A rename here rewrites a *segment* wherever it appears under this row — but
+   * taking a house out of a value onto the event's own `ADDR` line is not a
+   * segment's business: it rewrites the whole value, so it can only be offered
+   * where the row is one. Every record under this row must write the same
+   * value, which is exactly the case the split is wanted for — a value naming
+   * no country at all, "?/Grosova ulica 18", where the street is an address in
+   * a place the file has never named.
+   *
+   * The row's own name need not be that value: a value carrying a house number
+   * hangs the house off the locality as a level of its own, so the place row
+   * above it stands for the whole thing just the same.
+   */
+  const splitValue = useMemo(() => {
+    if (!editing || node.isAddress) return undefined;
+    let only: string | undefined;
+    // Stops at the second value rather than reading the subtree out: a country
+    // row holds thousands, and this runs per row on screen.
+    const walk = (n: PlaceNode): boolean => {
+      for (const use of n.uses) {
+        const value = use.plac.trim();
+        if (only === undefined) only = value;
+        else if (only !== value) return false;
+      }
+      return n.children.every(walk);
+    };
+    return walk(node) ? only : undefined;
+  }, [editing, node]);
+
+  /**
+   * Every place+address pair written at exactly this node — what a position
+   * picked here is written onto, and taken back off.
+   *
+   * All of them, not the first: one node is one *place*, and a file spells its
+   * places more than one way ("Kranj, Slovenija" and "Kranj,Slovenija" are one
+   * row of this tree and two values in the file). Pair-keyed, so a settlement's
+   * position reaches the events written at the settlement and never the houses
+   * under it, which are rows of their own and hold their own.
+   *
+   * Worked out when something is written rather than held for every row: what
+   * decides whether the row offers a position at all is simply whether it has
+   * records, and building a set per row per rebuild is a cost the reader pays
+   * for scrolling.
+   */
+  const coordKeys = useCallback(() => {
+    const keys = new Set<string>();
+    for (const use of node.uses) {
+      const place = use.plac.trim();
+      if (place) keys.add(placeAddrKey(place, use.addr?.trim() ?? ""));
+    }
+    return keys;
+  }, [node.uses]);
+
+  /** Write one position onto every record this row stands for, and rebuild the
+   *  tree so the row reads back what the file now says. */
+  const takeCoord = (coord: GeoCoord) => {
+    const keys = coordKeys();
+    if (!keys.size) return;
+    onApplyAddressCoords(new Map([...keys].map((key) => [key, coord])));
+    onCoordChange();
+  };
+  const dropCoord = () => {
+    const keys = coordKeys();
+    if (!keys.size) return;
+    onClearPlaceCoords(keys);
+    onCoordChange();
+  };
 
   /** The triangle is about the places under this one; the people written at
    *  exactly this place are the count's business, opened on their own. */
@@ -421,31 +639,169 @@ function PlaceTreeRow({
   const flag = code ? flagEmoji(code) : undefined;
   const labelNode = flag ? <>{flag} {name}</> : name;
 
-  // Compute rename preview whenever the value differs from the current name.
+  /** The spots the file writes for this place besides the prevailing one, as
+   *  the panel's numbered answers: each says how many records put the place
+   *  there, which is what a choice between them is made on. */
+  const rivalSpots = useMemo(
+    () =>
+      disputed
+        ? spots!.slice(1).map((spot) => ({
+            coord: spot.coord,
+            label: name,
+            detail: t("tools.places.coord.spotUses", { count: spot.n }),
+          }))
+        : undefined,
+    [disputed, spots, name, t],
+  );
+
+  /**
+   * What a rename typed into this box actually does.
+   *
+   * A target naming more than one level is a *complete place* — a directory's
+   * answer, a place the file already writes, a chain typed out — and a complete
+   * place is never spliced into a value as though it were one of its levels.
+   * That is what turned "Celje, Celje, Slovenija" into "Celje, Celje, Celje,
+   * Slovenija, Slovenija": the row named the middle level, and the whole chain
+   * was written over it.
+   *
+   * So a complete place replaces the row's value outright where the row stands
+   * for one ({@link splitValue}); where it stands for several, only the level's
+   * own name is taken from it, since one place cannot be what several different
+   * values all become. A single-level target is what it always was: this level,
+   * renamed wherever it appears under the row.
+   */
+  const planFor = (target: string, addrTarget: string): RenamePlan => {
+    const parts = target.split(",").map((part) => part.trim()).filter(Boolean);
+    if (splitValue && (addrTarget || parts.length > 1)) {
+      return { kind: "value", from: splitValue, to: target, ...(addrTarget ? { addr: addrTarget } : {}) };
+    }
+    // The deepest part is this level's own name — a register writes its chain
+    // outwards, as the file does.
+    return { kind: "segment", from: node.name, to: parts.length > 1 ? parts[0] : target };
+  };
+
+  /**
+   * How many records the rename as typed would reach — counted the way the
+   * rename itself works, so the number is a promise and not a guess.
+   *
+   * A whole value rewritten reaches every record under the row, which is what
+   * a row standing for one value *is*; a level renamed is counted by reading
+   * the file, since the level may sit inside values the row does not own.
+   */
   const preview = useMemo((): PlaceRenamePreview | null => {
-    const target = debouncedRename.trim();
-    if (!editing || target === node.name) return null;
-    return previewPlaceRename(dataset, node.name, target, nodeScope);
-  }, [editing, debouncedRename, node.name, dataset, nodeScope]);
+    if (!editing) return null;
+    const plan = planFor(debouncedRename.trim(), renameAddrDraft.trim());
+    if (plan.kind === "value") {
+      const changes = plan.to !== plan.from || !!plan.addr;
+      return { affectedCount: changes ? nodeScope.size : 0, examples: [] };
+    }
+    if (plan.to === plan.from) return null;
+    return previewPlaceRename(dataset, plan.from, plan.to, nodeScope);
+    // planFor is derived from the drafts and the node, all of which are deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, debouncedRename, renameAddrDraft, splitValue, node.name, dataset, nodeScope]);
+
+  /**
+   * What the box completes from: the names beside this one first — renaming to
+   * one of those is the merge the button then offers — and behind them every
+   * place the file already writes. The sibling list alone is no help at all
+   * where the siblings are the problem: under *Unspecified country* they are
+   * seventy values as unplaced as this one, and what such a row wants is one of
+   * the places the file writes properly, or a register's answer below them.
+   */
+  const renameSuggestions = useMemo(() => {
+    if (!editing) return EMPTY_SUGGESTIONS;
+    const own = siblings.filter((s) => s !== node.name);
+    const seen = new Set(own.map((s) => s.toLowerCase()));
+    return [...own, ...placeSug.placeSuggestions.filter((p) => p !== node.name && !seen.has(p.toLowerCase()))];
+  }, [editing, siblings, node.name, placeSug.placeSuggestions]);
+
+  /**
+   * A register's answer picked in the box. Its whole chain becomes the new name
+   * — which is what places a value the file wrote as a bare "Kokrica" under the
+   * country it belongs to — and the house it names goes to the address field,
+   * where the row can take a house out of its value at all. A house row takes
+   * the register's spelling of the house itself, since that is the segment it
+   * renames.
+   */
+  const pickProposal = (proposal: PlaceProposal) => {
+    if (splitValue) {
+      setRenameValue(proposal.plac.trim());
+      setRenameAddrDraft(proposal.addr?.trim() ?? "");
+      setRenamePick({ text: proposal.plac.trim(), coord: proposal.coord });
+      return;
+    }
+    const text = (node.isAddress && addrValue ? (proposal.addr ?? proposal.plac) : proposal.plac).trim();
+    setRenameValue(text);
+    setRenamePick({ text, coord: proposal.coord });
+  };
 
   function openEdit() {
     setRenameValue(node.name);
+    setRenameAddrDraft("");
+    setRenamePick(null);
     setEditing(true);
   }
 
   function handleApply() {
     const target = renameValue.trim();
-    if (target === node.name) return;
-    onRename(node.name, target, nodeScope);
+    if (applyDisabled) return;
+    const plan = planFor(target, renameAddrDraft.trim());
+    // The coordinate the offer brought, written onto what the rename makes of
+    // this row's values — the register answered for the place it named, and
+    // that is the value the records now carry. Only where the row has none of
+    // its own: a spelling corrected from the register must not quietly move a
+    // position that was already reviewed, which the panel beside it is for.
+    // Handed over rather than written here, so the rename and the position land
+    // before the tree is rebuilt — once, not once each.
+    const picked = renamePick && renamePick.text === target && !spots ? renamePick : null;
+    if (plan.kind === "value") {
+      onRenameValue(
+        plan.from,
+        plan.to,
+        plan.addr ?? "",
+        picked ? new Map([[placeAddrKey(plan.to, plan.addr ?? ""), picked.coord]]) : undefined,
+      );
+    } else {
+      let renamed: Map<string, GeoCoord> | undefined;
+      if (picked) {
+        const renamedValue = (text: string) => (text ? (renameInValue(text, plan.from, plan.to) ?? text) : text);
+        renamed = new Map();
+        for (const key of coordKeys()) {
+          const [place, addr] = key.split("\0");
+          renamed.set(placeAddrKey(renamedValue(place), renamedValue(addr)), picked.coord);
+        }
+      }
+      onRename(plan.from, plan.to, nodeScope, renamed);
+    }
     setEditing(false);
     setRenameValue("");
+    setRenameAddrDraft("");
+    setRenamePick(null);
   }
 
   const targetTrimmed = renameValue.trim();
-  const applyDisabled = targetTrimmed === node.name;
-  // Show "Delete" when target is cleared; "Merge" when it already exists.
-  const isDelete = !applyDisabled && targetTrimmed === "";
-  const isMerge = !applyDisabled && !isDelete && siblings.includes(targetTrimmed);
+  /**
+   * Nothing to do, so nothing to press. Read off the plan rather than off the
+   * text: a complete place picked for a value that already reads exactly that
+   * — the register's own answer for a row that is already right — changes
+   * nothing, however different the box looks from the row's name. A house to
+   * move out is a change of its own.
+   */
+  const applyDisabled = (() => {
+    const plan = planFor(targetTrimmed, renameAddrDraft.trim());
+    if (plan.kind === "value") return plan.to === plan.from && !plan.addr;
+    return plan.to === plan.from;
+  })();
+  // "Merge" when the target is a name this level already has — the editor says
+  // "Delete level" for an emptied field on its own account.
+  const isMerge = !applyDisabled && !!targetTrimmed && siblings.includes(targetTrimmed);
+  /** The one part of a complete place this rename can take, where that is all
+   *  it can take — named, so nothing is quietly dropped. */
+  const levelOnly = (() => {
+    const plan = planFor(targetTrimmed, renameAddrDraft.trim());
+    return plan.kind === "segment" && plan.to !== targetTrimmed ? plan.to : null;
+  })();
 
   return (
     <li className={node.isAddress ? "tools-tree-node tools-tree-addr" : "tools-tree-node"}>
@@ -513,100 +869,157 @@ function PlaceTreeRow({
         ) : (
           <span className="tools-chip-count">{node.count}</span>
         )}
-        {spots && (
-          <button
-            type="button"
-            className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
-            aria-expanded={mapOpen}
-            title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
-            onClick={() => setMapOpen((v) => !v)}
-          >
-            {formatCoord(spots[0].coord)}
-            {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
-          </button>
+        {/* The position this place holds — and the way to change it: the same
+            coordinate panel the geocoding lists and the Edit rows open, with
+            its map, its register and OpenStreetMap searches and its manual
+            entry, where the row used to open a map that could only be looked
+            at. Only on a row with records of its own: a level that merely
+            holds other places has nothing to write a position onto, and the
+            houses under it keep their own. */}
+        {hasUses && (
+          <span className="tools-place-coord-wrap">
+            {spots ? (
+              <button
+                type="button"
+                className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
+                aria-expanded={coordOpen}
+                title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
+                onClick={() => setCoordOpen((v) => !v)}
+              >
+                {formatCoord(spots[0].coord)}
+                {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
+              </button>
+            ) : (
+              /* A place the file never geocoded: the pin is the faint mark the
+                 ✎ beside the name is, present on every row and coming up to
+                 full strength under the pointer, so a tree of unplaced villages
+                 reads as a list of places and not as a column of pins. */
+              <button
+                type="button"
+                className="tools-place-edit-btn tools-place-coord-add"
+                aria-expanded={coordOpen}
+                title={t("tools.places.coord.add")}
+                onClick={() => setCoordOpen((v) => !v)}
+              >
+                <PinIcon />
+              </button>
+            )}
+            <EventCoordPicker
+              place={placeValue}
+              address={addrValue}
+              coord={spots?.[0].coord}
+              title={name}
+              // The place as the file writes it, so the pin standing on the
+              // position says which place is pinned there — "current" is what
+              // an event's own panel calls it, and a tree row is not an event.
+              currentLabel={pinValue}
+              hideTrigger
+              open={coordOpen}
+              onOpenChange={setCoordOpen}
+              // The file's other spots for this very place, numbered as answers
+              // to choose between: picking one writes it over every record the
+              // row stands for, which is what settles the ⚠ above.
+              {...(rivalSpots ? { candidates: rivalSpots } : {})}
+              context={fileCoords}
+              // A row here can be a country, and one pin at house zoom would
+              // fill the map with a single street of it.
+              fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
+              onPick={takeCoord}
+              onClear={dropCoord}
+            />
+          </span>
         )}
       </div>
 
-      {mapOpen && spots && (
-        <div className="tools-place-map">
-          <Suspense fallback={<div className="tools-geo-minimap" />}>
-            <MiniPlaceMap
-              pins={spots.map((s, i): MiniMapPin => ({
-                coord: s.coord,
-                // The place this pin is about, written as the file writes it —
-                // the tooltip prints the coordinate itself on its own last row,
-                // so naming it here would say the numbers twice and the place
-                // not at all.
-                label: pinPlace,
-                ...(pinAddress ? { sub: pinAddress } : {}),
-                // The count only means something once there is a rival spot to
-                // weigh it against.
-                lines: disputed ? [t("tools.places.coord.spotUses", { count: s.n })] : undefined,
-                badge: disputed ? s.n : undefined,
-                // The prevailing spot is the one the row shows, so it reads as
-                // the chosen pin and the outliers as the candidates.
-                kind: i === 0 ? "chosen" : "candidate",
-              }))}
-              fitKey={path}
-              fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
-            />
-          </Suspense>
-          {disputed && (
-            <p className="tools-place-map-note">
-              {t("tools.places.coord.disputedNote", { count: spots.length })}{" "}
-              <button type="button" className="tools-issue-link" onClick={onGeocode}>
-                {t("tools.places.coord.settle")}
-              </button>
-            </p>
-          )}
-        </div>
-      )}
-
       {editing && (
-        <div
-          className="tools-place-rename"
-          onKeyDown={(e) => {
-            // Enter on a highlighted suggestion, and Escape with the dropdown
-            // open, belong to the autocomplete (defaultPrevented); the next
-            // press is the editor's — same contract as the address rename row.
-            if (e.key === "Enter" && !e.defaultPrevented && !applyDisabled) handleApply();
-            if (e.key === "Escape" && !e.defaultPrevented) setEditing(false);
+        // The rename box every list of these tools opens — its completions, its
+        // register lookup and its Enter/Escape contract. What is particular to
+        // the tree is what it says on the button (a target standing beside this
+        // name is a merge, an emptied field deletes the level) and the count of
+        // records it would reach, which sits between the field and the button.
+        <RenameEditor
+          value={renameValue}
+          suggestions={renameSuggestions}
+          canonical={placeSug.placeCanonical}
+          {...(splitValue
+            ? {
+                combos: placeCombos,
+                onPickCombo: (place: string, addr: string) => {
+                  setRenameValue(place);
+                  setRenameAddrDraft(addr);
+                  setRenamePick(null);
+                },
+              }
+            : {})}
+          placeholder={t("tools.places.rename.placeholder")}
+          applyDisabled={applyDisabled}
+          applyLabel={isMerge ? t("tools.places.rename.merge") : t("tools.places.rename.apply")}
+          onChange={(next) => {
+            setRenameValue(next);
+            setRenamePick(null);
           }}
+          onApply={handleApply}
+          onCancel={() => setEditing(false)}
+          onRemove={handleApply}
+          removeLabel={t("tools.places.rename.delete")}
+          onPickProposal={pickProposal}
+          // A house row asks the address registers about a house *at* its
+          // place; everything else asks the place registers about a place.
+          // Online lookups off still leaves the imported gazetteer answering
+          // places — but no register of houses, so a house row says why
+          // instead of offering a search that cannot answer.
+          {...(node.isAddress && addrValue
+            ? {
+                ...(lookup?.online ? { onLookup: (query: string) => lookup.searchAddress(placeValue, query) } : {}),
+                ...(lookup && !lookup.online ? { lookupNote: t("tools.geocode.downloadNeedsOptIn") } : {}),
+              }
+            : {
+                ...(lookup ? { onLookup: (query: string) => lookup.search(query) } : {}),
+                ...(lookup && !lookup.online ? { lookupNote: t("event.place.lookup.offlineOnly") } : {}),
+              })}
         >
-          {/* The app's own dropdown, not a native <datalist>: the browser
-              renders that one in system chrome, which ignores the theme (a
-              dark popup over the light app) and cannot be styled at all. */}
-          <PlaceAutocomplete
-            value={renameValue}
-            suggestions={siblings.filter((s) => s !== node.name)}
-            canonical={EMPTY_CANONICAL}
-            isDirty={false}
-            className="tools-place-rename-input"
-            wrapClassName="tools-place-rename-auto"
-            placeholder={t("tools.places.rename.placeholder")}
-            autoFocus
-            // A rename may be exactly a casing fix, which the canonical map
-            // would otherwise undo — as on the address rename row.
-            preserveCase
-            onChange={setRenameValue}
-            onCommit={setRenameValue}
-            onClear={() => setRenameValue("")}
-          />
-          {preview && (
+          {/* The house to take out of the value, where the row stands for one
+              whole value: "?/Grosova ulica 18" is a street in a place the file
+              never named, and correcting it means saying both — the place it is
+              in, and that the street is an address. */}
+          {splitValue && (
+            <AddressSplitField
+              place={renameValue}
+              value={renameAddrDraft}
+              placeSug={placeSug}
+              placeCombos={placeCombos}
+              onChange={(next) => {
+                setRenameAddrDraft(next);
+                setRenamePick(null);
+              }}
+              onPickCombo={(place, addr) => {
+                setRenameValue(place);
+                setRenameAddrDraft(addr);
+                setRenamePick(null);
+              }}
+              onPickProposal={(proposal) => {
+                // The offer answers the *address*, so its own place comes with
+                // it: what the register found is a house in a settlement, and
+                // taking half of it would leave the two describing different
+                // places.
+                setRenameValue(proposal.plac.trim());
+                setRenameAddrDraft(proposal.addr?.trim() ?? "");
+                setRenamePick({ text: proposal.plac.trim(), coord: proposal.coord });
+              }}
+            />
+          )}
+          {/* A complete place offered to a row that stands for several different
+              values: only the level's own name can be taken from it, and the
+              box says which rather than quietly taking it. */}
+          {levelOnly && <span className="tools-place-rename-hint">{t("tools.places.rename.levelOnly", { name: levelOnly })}</span>}
+          {preview && !renameAddrDraft.trim() && (
             <span className="tools-place-rename-hint">
               {preview.affectedCount > 0
                 ? t("tools.places.rename.count", { count: preview.affectedCount })
                 : t("tools.places.rename.noMatch")}
             </span>
           )}
-          <button
-            className="nav-btn primary tools-place-rename-apply"
-            onClick={handleApply}
-            disabled={applyDisabled}
-          >
-            {isDelete ? t("tools.places.rename.delete") : isMerge ? t("tools.places.rename.merge") : t("tools.places.rename.apply")}
-          </button>
-        </div>
+        </RenameEditor>
       )}
 
       {/* Directly under the count that asked for it, above the sub-places, so
@@ -631,7 +1044,13 @@ function PlaceTreeRow({
                 toggle={toggle}
                 onNavigate={onNavigate}
                 onRename={onRename}
-                onGeocode={onGeocode}
+                onRenameValue={onRenameValue}
+                onApplyAddressCoords={onApplyAddressCoords}
+                onClearPlaceCoords={onClearPlaceCoords}
+                onCoordChange={onCoordChange}
+                placeSug={placeSug}
+                placeCombos={placeCombos}
+                fileCoords={fileCoords}
                 siblings={siblingNames.get(path) ?? node.children.map((c) => c.name)}
                 siblingNames={siblingNames}
               />

@@ -3,6 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { sexFromGivenName } from "../gedcom/nameSex";
 import type { Dataset, GedNode, ParseResult, Sex } from "../gedcom/types";
 import { foldToken } from "../match/text";
+import { recognizeSourceUrl, siteEventTag } from "../tools/sourceReshape";
 
 /**
  * Import for the "matches" CSV exported by a genealogical index site such as
@@ -228,10 +229,24 @@ export function parseCsvText(text: string): string[][] {
   return rows;
 }
 
-/** A place/date cell that's actually a free-text annotation, not real data. */
-function isAnnotation(value: string): boolean {
-  return value.includes("🗒");
+/**
+ * A date or place cell without the note the index appends to it — a marginal
+ * remark from the register itself, marked 🗒 ("+ 20.11.1882", "Podatki na 2
+ * straneh") or ✝ (a death recorded on the same page). The note follows the
+ * value it annotates, so everything from its opening bracket goes: what stands
+ * before it is the real date or place, and dropping the whole cell over a
+ * remark cost the record its birth date — an unreadable `28 AUG 1880 (✝ 28 AUG
+ * 1880)` scores as a *missing* birth key, which is 15 points off a pair that
+ * agrees in every field. The remark itself is not imported: a note saying the
+ * child died on its birth day and another saying two years later cannot both
+ * be written as a death date, and the register's own words are the reader's to
+ * judge (they stay in the link the row carries).
+ */
+function withoutAnnotation(value: string): string {
+  const at = value.search(/\((?:🗒|✝)/u);
+  return (at >= 0 ? value.slice(0, at) : value).trim();
 }
+
 
 /**
  * Strip a trailing "(...)" annotation some exports append to a surname — an
@@ -493,7 +508,7 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
     const mainKey: GiMainKey = {
       given: col(mainRow, "given"),
       surname: stripSurnameAnnotation(col(mainRow, "surname")),
-      birthYear: parseDate(col(mainRow, "birthDate")).year,
+      birthYear: parseDate(withoutAnnotation(col(mainRow, "birthDate"))).year,
     };
     if (!mainKey.given || !mainKey.surname) continue;
 
@@ -506,7 +521,7 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
       dedupKey(
         col(incomingRow, "given"),
         stripSurnameAnnotation(col(incomingRow, "surname")),
-        parseDate(col(incomingRow, "birthDate")).year,
+        parseDate(withoutAnnotation(col(incomingRow, "birthDate"))).year,
       ),
     );
   }
@@ -611,7 +626,7 @@ function addSex(people: People, id: string, sex: Sex | undefined): void {
  */
 function resolveRelative(people: People, entry: RelativeEntry, fallbackId: string, sex?: Sex): string {
   const { given, surname } = splitName(entry.name);
-  const birthYear = entry.date && !isAnnotation(entry.date) ? parseDate(entry.date).year : undefined;
+  const birthYear = entry.date ? parseDate(withoutAnnotation(entry.date)).year : undefined;
   const key = dedupKey(given, surname, birthYear);
   const known = key ? people.idByKey.get(key) : undefined;
   if (known) {
@@ -621,8 +636,9 @@ function resolveRelative(people: People, entry: RelativeEntry, fallbackId: strin
 
   const children: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
   if (sex) children.push(node(1, "SEX", sex));
-  if (entry.date && !isAnnotation(entry.date)) {
-    children.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", entry.date)] });
+  const entryDate = withoutAnnotation(entry.date ?? "");
+  if (entryDate) {
+    children.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", entryDate)] });
   }
   addPerson(people, fallbackId, children);
   claimKey(people, fallbackId, key);
@@ -794,14 +810,42 @@ function personIndiChildren(
   const surname = stripSurnameAnnotation(col(row, "surname"));
   children.push(node(1, "NAME", `${given} /${surname}/`));
 
-  pushEvent(children, "BIRT", col(row, "birthDate"), col(row, "birthPlace"));
-  pushEvent(children, "DEAT", col(row, "deathDate"), col(row, "deathPlace"));
-  pushEvent(children, "BURI", col(row, "burialDate"), col(row, "burialPlace"));
-
-  for (const url of col(row, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
-    children.push(node(1, "WWW", url));
-  }
+  const events: Array<{ tag: string; date: string; place: string }> = [
+    { tag: "BIRT", date: col(row, "birthDate"), place: col(row, "birthPlace") },
+    { tag: "DEAT", date: col(row, "deathDate"), place: col(row, "deathPlace") },
+    { tag: "BURI", date: col(row, "burialDate"), place: col(row, "burialPlace") },
+  ];
+  const { byTag, recordLinks } = splitRowLinks(col(row, "links"), events);
+  for (const e of events) pushEvent(children, e.tag, e.date, e.place, byTag.get(e.tag));
+  for (const url of recordLinks) children.push(node(1, "WWW", url));
   return children;
+}
+
+/**
+ * Which event each of a row's links documents. A cemetery link is evidence of
+ * the burial the same row names, an obituary of the death — attached there, the
+ * link is reviewed and merged as that event's source rather than as a bare link
+ * on the person, which is where the reader has to look for it anyway.
+ *
+ * Only an event the row itself gives a date or place to may take one: a link
+ * alone is too thin a reason to assert an event the index never stated.
+ */
+function splitRowLinks(
+  linksCell: string,
+  events: Array<{ tag: string; date: string; place: string }>,
+): { byTag: Map<string, string[]>; recordLinks: string[] } {
+  const byTag = new Map<string, string[]>();
+  const recordLinks: string[] = [];
+  const stated = new Set(
+    events.filter((e) => withoutAnnotation(e.date) || withoutAnnotation(e.place)).map((e) => e.tag),
+  );
+  for (const url of linksCell.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const site = recognizeSourceUrl(url)?.site;
+    const tag = site && siteEventTag(site);
+    if (tag && stated.has(tag)) byTag.set(tag, [...(byTag.get(tag) ?? []), url]);
+    else recordLinks.push(url);
+  }
+  return { byTag, recordLinks };
 }
 
 /**
@@ -857,8 +901,10 @@ function buildPairRelatives(
  *  them as that event's citation rather than a disconnected record-level link. */
 function pushEvent(into: GedNode[], tag: string, date: string, place: string, links: string[] = []): void {
   const children: GedNode[] = [];
-  if (date && !isAnnotation(date)) children.push(node(2, "DATE", date));
-  if (place && !isAnnotation(place)) children.push(node(2, "PLAC", place));
+  const dateValue = withoutAnnotation(date);
+  const placeValue = withoutAnnotation(place);
+  if (dateValue) children.push(node(2, "DATE", dateValue));
+  if (placeValue) children.push(node(2, "PLAC", placeValue));
   for (const url of links) children.push(node(2, "WWW", url));
   if (children.length) into.push({ level: 1, tag, children });
 }
@@ -986,13 +1032,13 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   for (const acc of personAccs.values()) {
     const { compareId, mainKey, given, surname, birth, sex } = acc;
     const indiChildren: GedNode[] = [node(1, "NAME", `${given} /${surname}/`), node(1, "SEX", sex)];
-    const dated = birth && !isAnnotation(birth);
-    if (dated) indiChildren.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", birth)] });
+    const dated = withoutAnnotation(birth ?? "");
+    if (dated) indiChildren.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", dated)] });
     addPerson(people, compareId, indiChildren);
     // Registered under the *incoming* spelling and birth year, which is what a
     // relative named in another row is written with — so a spouse who is also
     // someone's child or parent elsewhere lands on this record.
-    claimKey(people, compareId, dedupKey(given, surname, dated ? parseDate(birth).year : undefined));
+    claimKey(people, compareId, dedupKey(given, surname, dated ? parseDate(dated).year : undefined));
     pairs.push({ mainKey, compareId });
   }
 

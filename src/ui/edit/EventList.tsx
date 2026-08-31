@@ -6,7 +6,7 @@ import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex,
 import { INDI_EVENT_TAGS, eventDisplayLabel } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween } from "../../gedcom/age";
-import { lifespanAnchors, zoneSortKey } from "../../review/fields";
+import { lifespanAnchors, SINGLE_EVENT_TAGS, zoneSortKey } from "../../review/fields";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { memo } from "react";
@@ -39,11 +39,14 @@ export const EventList = memo(function EventList({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  agencySuggestions,
+  agencyCanonical,
   placeCoords,
   placeForms,
   pairCoords,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingPageImages,
   mainMergeKeyBases,
   mainMergeCompareKeys,
   mainMergeSortKeys,
@@ -73,6 +76,8 @@ export const EventList = memo(function EventList({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -81,6 +86,7 @@ export const EventList = memo(function EventList({
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
+  mergeIncomingPageImages?: Map<string, string[]>;
   /** main person.events[i] → field key base aligned with orderedEventTags. */
   mainMergeKeyBases?: Map<number, string>;
   /** main person.events[i] → the incoming event it's paired with, as `${tag}:${compareIdx}`. */
@@ -90,16 +96,17 @@ export const EventList = memo(function EventList({
   /** Incoming-only events, each carrying a date-based sort key for interleaving. */
   extraMergeEvents?: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[];
   /** Called to permanently reject an incoming event — dismissing/deleting an
-   * "extra" suggestion row, deleting a main row paired with one, or editing
-   * an extra row's field (materializing a new main event from it) — so it's
-   * treated as absent for the rest of the session, on Save too (see
-   * `rejectIncomingEvent`). */
+   * "extra" suggestion row, deleting a main row paired with one, or editing a
+   * *repeatable* extra row's field (materializing a new main event it may not
+   * pair with) — so it's treated as absent for the rest of the session, on
+   * Save too (see `rejectIncomingEvent`). A once-in-a-life event materialized
+   * this way keeps comparing against its incoming original instead. */
   onRejectIncomingEvent?: (tag: string, compareIdx: number) => void;
   /** Called when an "extra" row's direct field edit is about to materialize a
-   * new main event, to copy that incoming event's `SOUR` citations onto the
-   * just-created node before it's rejected (see `onRejectIncomingEvent`) and
-   * its sources become unreachable. Returns undo patches for any imported
-   * top-level `SOUR`/`REPO` records. */
+   * new main event, to bring that incoming event's citations and links onto
+   * the just-created node — before a repeatable one is rejected (see
+   * `onRejectIncomingEvent`) and its evidence becomes unreachable. Returns
+   * undo patches for the top-level records it imported or minted. */
   onMaterializeIncomingSources?: (eventNode: GedNode, tag: string, compareIdx: number) => RecordPatch[];
   /** Called after a direct field edit, to resolve the touched merge sub-fields
    * (e.g. "date", "value") to "main" so they stop being treated as pending
@@ -246,11 +253,14 @@ export const EventList = memo(function EventList({
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
         addrCanonical={addrCanonical}
+        agencySuggestions={agencySuggestions}
+        agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
         mergeHighlight={mergeHighlight}
         mergeIncomingSources={mergeIncomingSources}
+        mergeIncomingPageImages={mergeIncomingPageImages}
         mergeKeyBase={birtMergeKeyBase}
         resolvedSessionFields={resolvedSessionFields}
         eventNodeId={birtOriginalIdx >= 0 ? nodeId(rawEventNodes[birtOriginalIdx]) : undefined}
@@ -289,11 +299,14 @@ export const EventList = memo(function EventList({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            agencySuggestions={agencySuggestions}
+            agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             mergeKeyBase={row.mergeKeyBase}
             forcedKeyBase={String(row.stableKey)}
             resolvedSessionFields={resolvedSessionFields}
@@ -324,7 +337,14 @@ export const EventList = memo(function EventList({
               }, patches);
               if (materializedId !== undefined) onMaterializeEventNode?.(materializedId);
               onResolveMergeField?.(row.keyBase, materializedId !== undefined ? String(materializedId) : row.keyBase, subsOf(update));
-              onRejectIncomingEvent?.(row.tag, row.compareIdx);
+              // A birth, death or burial happens once, so the event this edit
+              // just created and the incoming one it came from always pair —
+              // the comparison goes on field by field, the corrected value
+              // standing against the incoming one it replaced. A repeatable
+              // event (a residence, an occupation) has no such guarantee: an
+              // edited copy can fail to pair with its own original and be
+              // written twice, so there the incoming event leaves the merge.
+              if (!SINGLE_EVENT_TAGS.has(row.tag)) onRejectIncomingEvent?.(row.tag, row.compareIdx);
             }}
             onRemove={() => onRejectIncomingEvent?.(row.tag, row.compareIdx)}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => addEventField(indi, row.tag, update), extraPatches) })}
@@ -333,11 +353,14 @@ export const EventList = memo(function EventList({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            agencySuggestions={agencySuggestions}
+            agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             mergeKeyBase={row.keyBase}
             forcedKeyBase={row.keyBase}
             resolvedSessionFields={resolvedSessionFields}

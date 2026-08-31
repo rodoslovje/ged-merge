@@ -1,12 +1,16 @@
 // Selectable base maps for the Map chart and the mini maps. Every preset here
-// serves plain XYZ tiles without an API key or a registered domain, so the app
-// stays backend-free and key-free; each carries the credit its provider asks
-// for. Leaflet is deliberately a lazy chunk, so this module stays free of it —
-// Settings imports the table to build the picker.
+// serves plain XYZ tiles from a public endpoint, with no registered domain and
+// no account of the user's, so the app stays backend-free; each carries the
+// credit its provider asks for. Leaflet is deliberately a lazy chunk, so this
+// module stays free of it — Settings imports the table to build the picker.
 
 /** Shared OSM data credit: the tiles below are all rendered from OSM data,
  *  except Esri's imagery. */
 const OSM_CREDIT = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+/** CARTO's tiles are no longer served keyless; this is the app's own public
+ *  browser key, sent as `?key=` on every tile request. */
+const CARTO_KEY = "cb1_2f27_1_2f7d4e1ab17690b2a1909577";
 
 /** The id stored when the user supplies their own tile URL instead. */
 export const CUSTOM_BASEMAP = "custom";
@@ -32,15 +36,15 @@ export interface BasemapPreset {
 
 export const BASEMAPS: readonly BasemapPreset[] = [
   {
+    // CARTO's keyed endpoint: the sharded {s}.basemaps.cartocdn.com host now
+    // wants an API key, and the key below is CARTO's public browser key for
+    // this app — it identifies the app to their CDN, it unlocks nothing.
+    // Voyager under both themes, so the map reads the same either way.
     id: "",
     key: "basemap.carto",
-    url: {
-      light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    },
+    url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution: `${OSM_CREDIT} © <a href="https://carto.com/attributions">CARTO</a>`,
     maxNativeZoom: 19,
-    subdomains: "abcd",
   },
   {
     // The standard OSM rendering: the densest place names of the lot — hamlets,

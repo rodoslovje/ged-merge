@@ -51,9 +51,12 @@ test("houses in the place value are grouped under their settlement, and the filt
   await expect(places.first()).toContainText("Črni vrh");
   await expect(places.first()).not.toContainText("35");
 
-  // Two groups: Črni vrh with its two houses, Kranj with the merged one.
+  // Two groups: Črni vrh with its two houses, Kranj with the merged one — whose
+  // header counts the one person both its spellings belong to.
   await expect(groups).toHaveCount(2);
-  await expect(groups.filter({ hasText: "Kranj, Slovenija" })).toContainText("1 addresses");
+  await expect(
+    groups.filter({ hasText: "Kranj, Slovenija" }).locator(".tools-tree-row .tools-chip-count").first(),
+  ).toHaveText("1");
 
   // Both are marked as keeping the address inside the place value, so neither
   // offers the move.
@@ -76,6 +79,17 @@ test("houses in the place value are grouped under their settlement, and the filt
   await page.getByRole("tab", { name: /Addresses/ }).click();
   // A filter landing on one place opens it, so the address searched for shows.
   await expect(page.getByText("Stražišče 114")).toBeVisible();
+
+  // The box narrowing this list is on screen here too, holding what was typed
+  // — a filter that reaches the addresses must be visible from them, or the
+  // list looks short for no stated reason.
+  const box = page.locator(".tools-geocode .tools-search-input");
+  await expect(box).toBeVisible();
+  await expect(box).toHaveValue("114");
+  // And it narrows from this tab as well.
+  await box.fill("crni");
+  await expect(page.locator(".tools-geo-addr-group")).toHaveCount(1);
+  await expect(page.locator(".tools-geo-addr-group").first()).toContainText("Črni vrh");
 });
 
 test("a fully placed place hides from the worklist and returns behind the toggle", async ({ page }) => {
@@ -115,7 +129,7 @@ test("a fully placed place hides from the worklist and returns behind the toggle
   await expect(places).toHaveCount(2);
   const placedRow = places.filter({ hasText: "Ljubljana" });
   await expect(placedRow).toContainText("placed");
-  await expect(placedRow).toContainText("46.0511, 14.5051");
+  await expect(placedRow).toContainText("46.05108, 14.50513");
   await expect(placedRow.locator(".tools-geo-coord-btn.staged")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("1");
 

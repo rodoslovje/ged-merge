@@ -7,6 +7,7 @@ import {
   applyGeocode,
   buildWriteSet,
   carryPickAcrossRename,
+  clearPlaceCoords,
   chosenCoordFor,
   collectPlaceValues,
   confidentCandidate,
@@ -464,6 +465,19 @@ describe("staged review state", () => {
     // The already-cached no-match is not stored again.
     expect(toStore).toEqual([{ key: "Novo", status: "nomatch", ts: 99 }]);
   });
+
+  it("a restored or answered row is forgotten, so a reload does not set it aside again", () => {
+    const aside = (key: string) => row(key, { cached: { key, status: "nomatch" as const, ts: 1 } });
+    const scan = scanOf([aside("Vrnjeno"), aside("Odlozeno"), aside("Najdeno")], []);
+    const { toStore, toForget } = buildWriteSet(
+      scan,
+      new Map([["Najdeno", pick]]), // this write places it — the judgement is answered
+      new Set(["Odlozeno"]), // still set aside, and already remembered as such
+      99,
+    );
+    expect(toStore).toEqual([]);
+    expect(toForget.sort()).toEqual(["Najdeno", "Vrnjeno"]);
+  });
 });
 
 describe("applyGeocode write-noop precision", () => {
@@ -671,6 +685,51 @@ describe("applyGeocode", () => {
     expect(events.find((e) => e.tag === "RESI")!.place?.coord).toEqual({ lat: 45.91234, lon: 15.31234 });
     // The occurrence with no coordinate is filled, as any geocode write is.
     expect(events.find((e) => e.tag === "DEAT")!.place?.coord).toEqual({ lat: 45.85, lon: 15.35 });
+  });
+});
+
+describe("clearPlaceCoords", () => {
+  const PLACED = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME A /B/
+1 BIRT
+2 PLAC Vinji Vrh, Slovenija
+3 MAP
+4 LATI N45.9
+4 LONG E15.3
+3 _GOV object_old
+1 RESI
+2 ADDR Vinji Vrh 5
+2 PLAC Vinji Vrh, Slovenija
+3 MAP
+4 LATI N45.91234
+4 LONG E15.31234
+1 DEAT
+2 PLAC Vinji Vrh, Slovenija
+0 TRLR
+`;
+
+  it("removes the coordinate and its GOV identity from the pair it names, and nothing else", () => {
+    const ds = buildFromText(PLACED);
+    const patches = clearPlaceCoords(ds, new Set([placeAddrKey("Vinji Vrh, Slovenija", "")]));
+    expect(patches.map((p) => p.id)).toEqual(["@I1@"]);
+    const events = ds.individuals.get("@I1@")!.events;
+    // The settlement occurrence loses its position, and the _GOV that named it.
+    expect(events.find((e) => e.tag === "BIRT")!.place?.coord).toBeUndefined();
+    expect(serializeDataset(ds)).not.toContain("_GOV");
+    // The house at that same place is its own pair and keeps its position.
+    expect(events.find((e) => e.tag === "RESI")!.place?.coord).toEqual({ lat: 45.91234, lon: 15.31234 });
+  });
+
+  it("reports nothing for a pair the file never geocoded", () => {
+    const ds = buildFromText(PLACED);
+    expect(clearPlaceCoords(ds, new Set([placeAddrKey("Nowhere", "")]))).toHaveLength(0);
+    // The occurrence that has no MAP is not a change either.
+    const only = clearPlaceCoords(ds, new Set([placeAddrKey("Vinji Vrh, Slovenija", "Vinji Vrh 5")]));
+    expect(only.map((p) => p.id)).toEqual(["@I1@"]);
+    expect(clearPlaceCoords(ds, new Set([placeAddrKey("Vinji Vrh, Slovenija", "Vinji Vrh 5")]))).toHaveLength(0);
   });
 });
 

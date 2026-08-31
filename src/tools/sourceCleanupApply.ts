@@ -8,6 +8,7 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
 import { dedupeSources, type DupGroup } from "./sourceDuplicates";
 import { regroupRepositories, type RepoRegroupGroup } from "./repoRegroup";
+import { linkMissingPageMedia, type PageMediaGroup } from "./pageMediaCheck";
 
 /**
  * Apply the Sources tools — Organize sources' reshape and the duplicate-source
@@ -30,6 +31,7 @@ export function applySourceCleanup(
   reshape: { groups: ReshapeGroup[]; enrichment: ReshapeEnrichment; options: ReshapeOptions },
   dupGroups: DupGroup[],
   regroupGroups: RepoRegroupGroup[] = [],
+  pageMediaGroups: PageMediaGroup[] = [],
 ): RecordPatch[] {
   const reshaped = reshape.groups.length
     ? reshapeSources(dataset.records, reshape.groups, reshape.enrichment, reshape.options).records
@@ -37,7 +39,14 @@ export function applySourceCleanup(
   const deduped = dupGroups.length ? dedupeSources(reshaped, dupGroups).records : reshaped;
   // The regroup runs last, so the sources the reshape just created are
   // gathered under their country's repository along with the older ones.
-  const next = regroupGroups.length ? regroupRepositories(deduped, regroupGroups).records : deduped;
+  const regrouped = regroupGroups.length ? regroupRepositories(deduped, regroupGroups).records : deduped;
+  // Last: the page images it links are the ones the passes above have finished
+  // moving and merging, so a pointer is never written to a record that another
+  // pass then drops.
+  const next = linkMissingPageMedia(
+    regrouped,
+    new Set(pageMediaGroups.map((g) => g.sourceXref)),
+  ).records;
   if (next === dataset.records) return [];
 
   // A media group merged away duplicates that differed only by viewer state —

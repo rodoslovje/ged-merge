@@ -169,15 +169,26 @@ describe("searchLocalAddress and the settlements it widens to", () => {
     ).toEqual([]);
   });
 
-  it("offers every street of the settlement the file itself names", async () => {
-    // "Bled 4" written village-style in a settlement that does have streets:
-    // the file does not say which street, so all of them are offered and the
-    // researcher picks. This widening is the file's own settlement's alone.
+  it("answers nothing for a village number in a settlement that numbers by street", async () => {
+    // "Bled 4" written village-style where Bled numbers by street: every street
+    // has a 4, the value names none of them, and the four houses that came back
+    // shared a number and nothing else. A register that cannot place the house
+    // says so — the row then falls to a hand-placed point or the map.
     load([
       row({ settlement: "Bled", street: "Mlinska cesta", number: 4, municipality: "Bled", post: "4260 Bled" }),
       row({ settlement: "Bled", street: "Prešernova cesta", number: 4, municipality: "Bled", post: "4260 Bled", lon: 14.11 }),
     ]);
+    expect(await searchLocalAddress("SI", { settlement: "Bled", number: 4, parents: ["Bled"] })).toEqual([]);
+  });
+
+  it("still answers a village number the settlement itself carries", async () => {
+    // The rung that survives: houses the register files under no street at all,
+    // which is what village numbering *is*.
+    load([
+      row({ settlement: "Bled", street: "Mlinska cesta", number: 4, municipality: "Bled", post: "4260 Bled" }),
+      row({ settlement: "Bled", number: 4, municipality: "Bled", post: "4260 Bled", lon: 14.11 }),
+    ]);
     const hits = await searchLocalAddress("SI", { settlement: "Bled", number: 4, parents: ["Bled"] });
-    expect(hits.map((h) => h.address)).toEqual(["Mlinska cesta 4", "Prešernova cesta 4"]);
+    expect(hits.map((h) => h.address)).toEqual(["Bled 4"]);
   });
 });

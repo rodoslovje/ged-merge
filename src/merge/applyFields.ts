@@ -1,13 +1,8 @@
-import { looksLikeUrl } from "../gedcom/builder";
 import {
-  addObjeToSource,
-  attachSourceCitation,
   bumpSourceCacheVersion,
-  createMediaRecord,
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
-  getSourceLookup,
   INDI_CHILD_ORDER,
   insertGrouped,
   insertOrdered,
@@ -17,16 +12,22 @@ import {
   SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { buildObjeIndex, findExistingSource, matchesPage, newSourceCitations, sourceContentKey } from "../gedcom/source";
+import { buildObjeIndex, matchesPage, newSourceCitations, sourceContentKey } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
-import type { Dataset, GedNode, PersonName } from "../gedcom/types";
+import { eventDisplayLabel } from "../gedcom/eventTags";
+import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { parseName } from "../gedcom/name";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
+import { placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
+
+// The link-format detection lives with the placement rules that consume it;
+// re-exported here so the merge and the duplicate-merge tool keep their import.
+export { detectLinkFormat, linkPlacementFor, type LinkFormat, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 
 type Row = FieldRow;
 
@@ -202,7 +203,7 @@ export function applyRows(
   touched: Set<string>,
   handled: Set<string>,
   t: (key: string, opts?: Record<string, unknown>) => string,
-  linkFormat: LinkFormat,
+  placement: LinkPlacement,
   records: GedNode[],
   sourMap: SourXrefMap,
   /** The main's values when the match was confirmed — see `mainFields`. Absent
@@ -227,6 +228,9 @@ export function applyRows(
   // collected here instead of pushed straight to `report.changes` so they can be
   // combined into one preview line via `combineEventEdits` once the row loop ends.
   const eventEdits = new Map<string, EventSubEdit[]>();
+  // The record-level "Sources" row's plain links, held back until the loop ends
+  // — see the `row.key === "links"` branch.
+  let pendingLinks: Row | undefined;
   for (const row of rows) {
     // Nothing on the incoming side to take, or the two already agree.
     if (row.state === "agree" || row.state === "main-only") continue;
@@ -264,11 +268,10 @@ export function applyRows(
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
         touched.add(recordId);
       }
-      const added = applyLinks(target, row.incomingLinkIcons ?? [], row.mainLinkIcons ?? [], linkFormat, records, reservedXrefs(sourMap));
-      if (added.length) {
-        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", links: added });
-        touched.add(recordId);
-      }
+      // The links themselves wait until every row has been applied: one may
+      // belong on an event this very merge is bringing in (a grave link on the
+      // burial it documents), which does not exist yet at this point.
+      pendingLinks = row;
       continue;
     }
     if (row.key.endsWith(".links")) {
@@ -277,6 +280,9 @@ export function applyRows(
     }
 
     let applied = false;
+    // What this row's own links became, when it carried any (see
+    // `FieldRow.incomingRecordLinks`) — reported as citations, not addresses.
+    const placedLinks: PlacedLink[] = [];
     if (row.key === "given" || row.key === "surname") {
       applied = applyNamePart(target, incomingRecord, row.key, choice, sourMap, report.customTags);
     } else if (row.key === "sex") {
@@ -302,7 +308,7 @@ export function applyRows(
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, report.customTags, newEventNodes);
+        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
       } else {
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
@@ -320,7 +326,11 @@ export function applyRows(
       } else if (parsed?.sub === "sources") {
         // Render added citations as the same 📖/🔗 icons the main UI uses,
         // inline on the event's line — not as a separate "Source: …" text row.
-        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
+        // A record-level link this row carried is reported as the citation it
+        // became, beside them; one that stayed a plain link as itself.
+        const cited = placedLinks.map((p) => p.citation).filter((c): c is SourceCitation => !!c);
+        const plain = placedLinks.filter((p) => !p.citation).map((p) => p.url);
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: [...newSourceCitations(row.mainSources, row.incomingSources), ...cited], links: plain.length ? plain : undefined });
       } else {
         const identity = row.key === "given" || row.key === "surname" || row.key === "sex";
         report.changes.push({ recordId, field: row.label, from: row.main, to: row.incoming, action: choice, group, unedited: choice === "incoming", identity: identity || undefined });
@@ -331,118 +341,93 @@ export function applyRows(
   for (const [eventKey, entries] of eventEdits) {
     report.changes.push(...combineEventEdits(recordId, eventGroups.get(eventKey)!, entries));
   }
+  if (pendingLinks) {
+    const choice = fields[pendingLinks.key] ?? defaultChoice(pendingLinks as never);
+    const placed = applyLinks(target, pendingLinks.incomingLinkIcons ?? [], pendingLinks.mainLinkIcons ?? [], placement, records, reservedXrefs(sourMap));
+    for (const change of linkChanges(recordId, pendingLinks.label, choice, placed, eventGroups, t)) {
+      report.changes.push(change);
+      touched.add(recordId);
+    }
+  }
 }
 
 /**
- * How the main file stores a record-level link.
- *  - "WWW": a plain `WWW <url>` line (RootsMagic, Ancestry, Synium, …).
- *  - "WEBTAG": Family Historian's `_WEBTAG` block, with the URL on a `URL`
- *    sub-line (`1 _WEBTAG` / `2 URL <url>`).
- *  - "OBJE": a shared multimedia record holding the URL in `FILE`
- *    (`0 @On@ OBJE` / `1 FILE <url>`), referenced via `1 OBJE @On@`.
+ * The save-preview lines for the links a record took in. Links that stayed plain
+ * keep the one 🔗 row they always had; a link that became a citation is reported
+ * as that citation — under the event's header when it landed on one, so the
+ * preview shows it exactly where the file now carries it.
  */
-export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
+export function linkChanges(
+  recordId: string,
+  field: string,
+  choice: FieldChoice,
+  placed: PlacedLink[],
+  eventGroups: Map<string, string>,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): FieldChange[] {
+  const changes: FieldChange[] = [];
+  const plain = placed.filter((p) => !p.citation).map((p) => p.url);
+  if (plain.length) {
+    changes.push({ recordId, field, from: "", to: "", action: choice, unedited: choice === "incoming", links: plain });
+  }
+  // One line per group of citations sharing a destination, so a record whose
+  // links all documented the same burial reads as one burial row.
+  const byGroup = new Map<string, { group?: string; citations: SourceCitation[] }>();
+  for (const p of placed) {
+    if (!p.citation) continue;
+    const group = p.event ? eventLabelOf(p.event.tag, eventGroups, t) : undefined;
+    const entry = byGroup.get(group ?? "");
+    if (entry) entry.citations.push(p.citation);
+    else byGroup.set(group ?? "", { group, citations: [p.citation] });
+  }
+  for (const { group, citations } of byGroup.values()) {
+    changes.push({ recordId, field, from: "", to: "", action: choice, unedited: choice === "incoming", group, sources: citations });
+  }
+  return changes;
+}
+
+/** The preview's name for an event a citation moved onto — the header this
+ *  record's own rows already built for it, else the plain event name. */
+function eventLabelOf(
+  tag: string,
+  eventGroups: Map<string, string>,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  for (const [key, label] of eventGroups) {
+    if (key === tag || key.startsWith(`${tag}.`)) return label;
+  }
+  return eventDisplayLabel(tag, t);
+}
 
 /**
- * Append a link node for each incoming link the main doesn't already have
- * (by `linkKey`), shaped to match the main's own link format. Returns the
- * URLs actually added.
+ * Write each incoming link the main doesn't already have (by `linkKey`) into
+ * the main record, and return what became of each — see `placeIncomingLink`
+ * for the citation-over-plain-link rules and where a citation lands.
  *
- * Before minting a plain link, checks whether the URL belongs to a paginated
- * archive book (Matricula, parish registers, …) the main already cites as
- * a `SOUR` — same matching `findExistingSource` does for the manual "Add
- * Source" dialog. If so, the incoming link is attached as a `SOUR` citation
- * to that book (reusing its existing `OBJE` page, or adding a new one) so it
- * shows with the book icon and joins that book's page collection, instead of
- * becoming a disconnected generic link.
+ * Called after the row loop has finished, so an event the merge itself brought
+ * in (the burial a grave link documents, say) already exists to receive the
+ * citation.
  */
 export function applyLinks(
   target: GedNode,
   incomingLinks: string[],
   mainLinks: string[],
-  linkFormat: LinkFormat,
+  placement: LinkPlacement,
   records: GedNode[],
   /** Output xrefs already promised to compare shared records (the values of
    *  the SourXrefMap) — a minted link record must not squat on one, or the
    *  promised import would be skipped and its pointers would resolve here. */
   reservedXrefs?: ReadonlySet<string>,
-): string[] {
+): PlacedLink[] {
   const existing = new Set(mainLinks.map(linkKey));
-  const added: string[] = [];
+  const added: PlacedLink[] = [];
   for (const url of incomingLinks) {
     const key = linkKey(url);
     if (existing.has(key)) continue;
     existing.add(key);
-    // The cached lookup makes this O(1) per link instead of a full-forest
-    // scan; addObjeToSource/createMediaRecord bump the cache version, so a
-    // page OBJE minted for one link is visible to the next link's lookup.
-    const sourceMatch = findExistingSource(records, url, undefined, getSourceLookup(records));
-    if (sourceMatch) {
-      if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
-      attachSourceCitation(target, sourceMatch.sourceXref, sourceMatch.page, INDI_CHILD_ORDER);
-    } else {
-      insertOrdered(target, buildLinkNode(linkFormat, url, records, reservedXrefs), INDI_CHILD_ORDER);
-    }
-    added.push(url);
+    added.push(placeRecordLink(target, url, records, placement, reservedXrefs));
   }
   return added;
-}
-
-/**
- * Build a new link node for `url`, shaped per `format`. For "OBJE", the
- * shared `createMediaRecord` mints the top-level record — same FORM habit,
- * record grouping, xref bookkeeping and cache bump as an editor-added one —
- * and this returns a pointer to it.
- */
-function buildLinkNode(format: LinkFormat, url: string, records: GedNode[], reservedXrefs?: ReadonlySet<string>): GedNode {
-  if (format === "WEBTAG") {
-    const webtag = newNode("_WEBTAG");
-    webtag.children.push(newNode("URL", url));
-    return webtag;
-  }
-  if (format === "OBJE") {
-    const obje = createMediaRecord(records, url, undefined, reservedXrefs);
-    return newNode("OBJE", obje.xref);
-  }
-  return newNode("WWW", url);
-}
-
-/**
- * Which `LinkFormat` the main file uses for its own record-level links, so
- * newly added links are written the same way. Counts `WWW` lines, `_WEBTAG`
- * blocks, and `OBJE` pointers to a media record whose `FILE` is a URL, across
- * all individuals and families (including their events), and picks whichever
- * the main already uses most; defaults to plain `WWW` lines when the main
- * has none of these (or is ambiguous).
- */
-export function detectLinkFormat(main: Dataset): LinkFormat {
-  const objeFiles = new Map<string, string>();
-  for (const rec of main.records) {
-    if (rec.tag !== "OBJE" || !rec.xref) continue;
-    const file = firstChild(rec, "FILE")?.value?.trim();
-    if (file) objeFiles.set(rec.xref, file);
-  }
-
-  let www = 0;
-  let webtag = 0;
-  let obje = 0;
-  const visit = (node: GedNode): void => {
-    if (node.tag === "WWW" && node.value) www++;
-    else if (node.tag === "_WEBTAG") webtag++;
-    else if (node.tag === "OBJE" && node.value) {
-      const file = objeFiles.get(node.value.trim());
-      if (file && looksLikeUrl(file)) obje++;
-    }
-    for (const child of node.children) visit(child);
-  };
-  for (const indi of main.individuals.values()) visit(indi.raw);
-  for (const fam of main.families.values()) visit(fam.raw);
-
-  const max = Math.max(www, webtag, obje);
-  if (max === 0) return "WWW";
-  if (obje === max) return "OBJE";
-  if (webtag === max) return "WEBTAG";
-  return "WWW";
 }
 
 /** Build the sub-tag map `parseName` expects from a NAME node's children.
@@ -754,12 +739,20 @@ export function applyEventSources(
   order: string[],
   sourMap: SourXrefMap,
   records: GedNode[],
+  placement: LinkPlacement,
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
+  /** Links the incoming file keeps on its record that belong on this event —
+   *  the register they name documents it (see `FieldRow.incomingRecordLinks`).
+   *  They are not on the incoming event, so they arrive with the row. */
+  recordLinks: string[] = [],
+  /** Filled with what each of those links became, so the row that carried them
+   *  can report the citation rather than the bare address. */
+  placedOut?: PlacedLink[],
 ): boolean {
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
-  const incLinks = eventLinkUrls(incEvent);
+  const incLinks = [...eventLinkUrls(incEvent), ...recordLinks];
   if (incSours.length === 0 && incLinks.length === 0) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
@@ -780,15 +773,13 @@ export function applyEventSources(
       const key = linkKey(url);
       if (existing.has(key)) continue;
       existing.add(key);
-      // A link into a paginated archive book the main already cites as a
-      // SOUR is attached as a citation instead of becoming a disconnected link.
-      const sourceMatch = findExistingSource(records, url, undefined, getSourceLookup(records));
-      if (sourceMatch) {
-        if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
-        attachSourceCitation(event, sourceMatch.sourceXref, sourceMatch.page, EVENT_CHILD_ORDER);
-      } else {
-        insertOrdered(event, newNode(EVENT_LINK_TAG, url), EVENT_CHILD_ORDER);
-      }
+      // An event's own link stays on its event — `placeEventLink` cites the
+      // source the main already has for it, mints one when the site is
+      // recognized, and falls back to a plain link only for the rest.
+      // Called first, then reported: `placedOut?.push(placeEventLink(…))`
+      // would not place the link at all when nobody asked for the report.
+      const placed = placeEventLink(event, url, records, placement, reservedXrefs(sourMap));
+      placedOut?.push(placed);
     }
   }
   return true;
@@ -1200,30 +1191,51 @@ export function foldMatchedSourcePages(records: GedNode[], compare: Dataset, sou
 }
 
 /**
- * Copy an incoming-only event's `SOUR` citations into `eventNode`, importing
- * whatever top-level `SOUR`/`REPO` records they reference (and those records'
- * own `REPO` references, transitively) from `compare` into `dataset.records`
- * under a non-colliding xref. Returns the newly-imported top-level records,
- * for the caller to build undo patches from.
+ * Copy an incoming-only event's evidence into `eventNode` — its `SOUR`
+ * citations, importing whatever top-level `SOUR`/`REPO` records they reference
+ * (and those records' own `REPO` references, transitively) from `compare` into
+ * `dataset.records` under a non-colliding xref, and its own attached links,
+ * written the way the save would write them (see {@link placeEventLink}: the
+ * source the file already keeps for that book, else one minted for a
+ * recognized site, else the plain link). Returns every top-level record that
+ * appeared, for the caller to build undo patches from.
  *
  * Used by Edit mode when a direct field edit (e.g. correcting a place)
  * materializes a main event from an incoming-only suggestion: once that
  * happens the event is excluded from all further merge-engine consideration
- * (see EditView's `rejectIncomingEvent`), so its sources must be brought
- * across right now via the same xref-import logic `mergeDecisions` uses, or
- * they're lost for good.
+ * (see EditView's `rejectIncomingEvent`), so its evidence must be brought
+ * across right now via the same logic `mergeDecisions` uses, or it is lost for
+ * good — as a cemetery link on a burial was, the case this exists for.
  */
 export function materializeEventSources(
   dataset: Dataset,
   compare: Dataset,
   eventNode: GedNode,
   incomingEventNode: GedNode,
+  /** How this file writes links and page images. Without it an attached link
+   *  can only be copied as itself, never resolved into a citation. */
+  placement?: LinkPlacement,
 ): GedNode[] {
   const incSours = childrenByTag(incomingEventNode, "SOUR");
-  if (!incSours.length) return [];
+  const incLinks = eventLinkUrls(incomingEventNode);
+  if (!incSours.length && !incLinks.length) return [];
+  const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
   const sourMap = buildSourXrefMap(compare.records, dataset.records);
   for (const s of incSours) insertOrdered(eventNode, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
-  const imported = importSourRecords(dataset.records, compare, sourMap, {});
-  if (imported.length) bumpSourceCacheVersion(dataset.records);
-  return imported;
+  importSourRecords(dataset.records, compare, sourMap, {});
+  if (incLinks.length) {
+    const existing = new Set(eventLinkUrls(eventNode).map(linkKey));
+    for (const url of incLinks) {
+      const key = linkKey(url);
+      if (existing.has(key)) continue;
+      existing.add(key);
+      if (placement) placeEventLink(eventNode, url, dataset.records, placement, reservedXrefs(sourMap));
+      else insertOrdered(eventNode, { level: eventNode.level + 1, tag: EVENT_LINK_TAG, value: url, children: [] }, EVENT_CHILD_ORDER);
+    }
+  }
+  // Everything new at the top level: the records imported from the compare
+  // file, and any `SOUR`/`OBJE` a recognized link minted along the way.
+  const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
+  if (added.length) bumpSourceCacheVersion(dataset.records);
+  return added;
 }

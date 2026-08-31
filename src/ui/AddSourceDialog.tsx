@@ -5,14 +5,14 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { detectSourceCoverage, repoLinkWanted, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
 import { idField } from "./source/standardFields";
-import { SourceFieldsForm } from "./source/SourceFieldsForm";
+import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { SourceDialogShell } from "./source/SourceDialogShell";
 import { SourceLinkRow } from "./source/SourceLinkRow";
@@ -25,6 +25,9 @@ import type { Translate } from "../locales/i18n";
  * extras the Organize sources tool writes. */
 export type AddSourceResult = NewSourceFields & {
   page?: string;
+  /** How good the evidence is (`QUAY`), for the citation about to be written
+   * — a recognized link proposes it, the reader confirms or clears it. */
+  quay?: string;
   site?: ReshapeSite;
   place?: string;
   dateRange?: string;
@@ -81,12 +84,13 @@ interface FormState {
   place: string;
   filingNumber: string;
   page: string;
+  quay: string;
   url: string;
   note: string;
 }
 
 const EMPTY_FORM: FormState = {
-  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", filingNumber: "", page: "", url: "", note: "",
+  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", filingNumber: "", page: "", quay: "", url: "", note: "",
 };
 
 function extractPage(url: string): string | undefined {
@@ -282,6 +286,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: match ? "" : resolvePlace(recognized?.proposed.place ?? parsed.place) ?? "",
       filingNumber: idOnCaln.current ? "" : proposedId ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
+      // What kind of evidence the recognized site's page is — a register scan
+      // is primary, an index or a gravestone secondary, a compiled tree
+      // questionable. It describes this citation, not the source record, so a
+      // link matching a source the file already keeps proposes it just the
+      // same. Unrecognized links leave it for the reader to judge.
+      quay: (recognized && siteQuay(recognized.site, normalizedUrl)) ?? "",
       url: normalizedUrl ?? "",
       note: match || recognized?.cited ? "" : parsed.note ?? "",
     });
@@ -314,6 +324,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: f.place ?? "",
       filingNumber: f.filingNumber ?? "",
       page: f.page ?? "",
+      quay: f.quay ?? "",
       url: f.url ?? "",
       note: f.note ?? "",
     });
@@ -413,6 +424,76 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
 
   if (!isOpen) return null;
 
+  /** The repository the source hangs off, and the call number written on
+   *  that link — handed to the form, which places it directly under the
+   *  source's own fields: both say what the book is and where it is kept. */
+  const repositoryBlock = match ? undefined : (
+      <div className="add-source-details-grid">
+        <label className="add-source-field">
+          <span>{t("addSource.field.repo")}</span>
+          <SelectMenu
+            className="edit-input"
+            value={repoSel}
+            onChange={(v) => {
+              repoTouched.current = true;
+              setRepoSel(v);
+              // Picking the site proposal seeds its name for editing; a
+              // hand-named repository starts from a blank field.
+              if (v === "@create@") setRepoName(repoProposal?.createName ?? "");
+              else if (v === "@new@") setRepoName("");
+            }}
+            // The special choices sit outside the sorted repository
+            // group: no-repo first, the create actions last.
+            groups={[
+              { items: [{ value: "", label: t("tools.sources.noRepo") }] },
+              {
+                label: t("tools.sources.dupKind.repo"),
+                items: repos.map((r) => ({ value: r.xref, label: r.name })),
+              },
+              {
+                items: [
+                  ...(!editing && !repoProposal?.xref && repoProposal?.createName
+                    ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) }]
+                    : []),
+                  { value: "@new@", label: t("addSource.repo.new") },
+                ],
+              },
+            ]}
+          />
+        </label>
+        {/* The call number is written on this link (`REPO > CALN`), so
+            it stands beside it — and only where the file states its ids
+            there: the same value would otherwise be asked for twice,
+            once as the source's own filing number. */}
+        {repoSel !== "" && idOnRepo && (
+          <label className="add-source-field">
+            <span>{t("addSource.field.caln")}</span>
+            <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
+          </label>
+        )}
+        {/* After the call number, so the long name gets its own
+            full-width row under the dropdown | call-number pair. */}
+        {(repoSel === "@new@" || repoSel === "@create@") && (
+          <label className="add-source-field add-source-field-wide">
+            <span>{t("addSource.field.repoName")}</span>
+            {/* autoFocus only for the hand-named choice: the proposal can
+                be preselected by the paste itself, mid-typing. */}
+            <input
+              className="edit-input"
+              value={repoName}
+              onChange={(e) => {
+                // An edited name is a hand-picked choice — the lookup
+                // must not replace it with the repository it finds.
+                repoTouched.current = true;
+                setRepoName(e.target.value);
+              }}
+              autoFocus={repoSel === "@new@"}
+            />
+          </label>
+        )}
+      </div>
+  );
+
   function reset() {
     setText("");
     setFields(EMPTY_FORM);
@@ -449,6 +530,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: trim(fields.place),
       filingNumber: trim(fields.filingNumber),
       page: trim(fields.page),
+      quay: trim(fields.quay),
       // The same normalization the paste path applies — a viewer-state URL
       // pasted straight into the field must not store what the paste box
       // would have trimmed.
@@ -619,91 +701,41 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 // range is not among this dialog's fields; the site lookup
                 // writes it, and the Organize sources editor offers it.
                 page: !(standalone && editing),
+                // The quality belongs to a citation; standalone mode (Tools →
+                // Sources) writes a source record with no citation to carry it.
+                quay: !standalone,
                 dateRange: false,
               }}
               coverage={coverage}
               idOnRepo={idOnRepo}
+              // Tools → Sources writes a record cited by nothing: there the
+              // page names the image the link opens, not an entry in a book.
+              citation={!standalone}
               t={t}
+              repositoryRow={repositoryBlock}
             />
           )}
-          {/* A link that matches a source the file already has adds only its
-              page — the source's own fields are the file's, not a proposal's. */}
+          {/* A link that matches a source the file already has adds only what
+              the new citation itself says — its entry and how good that
+              evidence is; the source's own fields are the file's, not a
+              proposal's. */}
           {match && !standalone && (
-            <label className="add-source-field">
-              <span>{t("addSource.field.page")}</span>
-              <input
-                className="edit-input"
-                value={fields.page}
-                onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
-              />
-            </label>
-          )}
-          {!match && (
-            <div className="add-source-details-grid">
-              <label className="add-source-field">
-                <span>{t("addSource.field.repo")}</span>
-                <SelectMenu
-                  className="edit-input"
-                  value={repoSel}
-                  onChange={(v) => {
-                    repoTouched.current = true;
-                    setRepoSel(v);
-                    // Picking the site proposal seeds its name for editing; a
-                    // hand-named repository starts from a blank field.
-                    if (v === "@create@") setRepoName(repoProposal?.createName ?? "");
-                    else if (v === "@new@") setRepoName("");
-                  }}
-                  // The special choices sit outside the sorted repository
-                  // group: no-repo first, the create actions last.
-                  groups={[
-                    { items: [{ value: "", label: t("tools.sources.noRepo") }] },
-                    {
-                      label: t("tools.sources.dupKind.repo"),
-                      items: repos.map((r) => ({ value: r.xref, label: r.name })),
-                    },
-                    {
-                      items: [
-                        ...(!editing && !repoProposal?.xref && repoProposal?.createName
-                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) }]
-                          : []),
-                        { value: "@new@", label: t("addSource.repo.new") },
-                      ],
-                    },
-                  ]}
-                />
-              </label>
-              {/* The call number is written on this link (`REPO > CALN`), so
-                  it stands beside it — and only where the file states its ids
-                  there: the same value would otherwise be asked for twice,
-                  once as the source's own filing number. */}
-              {repoSel !== "" && idOnRepo && (
+            <>
+              <SourceGroupHead group="citation" t={t} />
+              <div className="add-source-details-grid">
                 <label className="add-source-field">
-                  <span>{t("addSource.field.caln")}</span>
-                  <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
-                </label>
-              )}
-              {/* After the call number, so the long name gets its own
-                  full-width row under the dropdown | call-number pair. */}
-              {(repoSel === "@new@" || repoSel === "@create@") && (
-                <label className="add-source-field add-source-field-wide">
-                  <span>{t("addSource.field.repoName")}</span>
-                  {/* autoFocus only for the hand-named choice: the proposal can
-                      be preselected by the paste itself, mid-typing. */}
+                  <span>{t("addSource.field.page")}</span>
                   <input
                     className="edit-input"
-                    value={repoName}
-                    onChange={(e) => {
-                      // An edited name is a hand-picked choice — the lookup
-                      // must not replace it with the repository it finds.
-                      repoTouched.current = true;
-                      setRepoName(e.target.value);
-                    }}
-                    autoFocus={repoSel === "@new@"}
+                    value={fields.page}
+                    onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
                   />
                 </label>
-              )}
-            </div>
+                <QuayField value={fields.quay} onChange={(v) => setFields((f) => ({ ...f, quay: v }))} t={t} />
+              </div>
+            </>
           )}
+          <SourceGroupHead group="media" t={t} />
           {/* Read the page again and fill these fields from it — for a record
               made before the lookup could answer, or made offline from the
               link alone. Offered while editing a record that has a link; the

@@ -229,7 +229,7 @@
             <ul>
               <li><strong>Zavihki načinov</strong> — preklapljate med <span class="gm-pill">Urejanje</span>, <span class="gm-pill">Združevanje</span> in <span class="gm-pill">Orodja</span> (bližnjice <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>).</li>
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko. Na telefonu sta imeni v meniju <span class="gm-glyph">☰</span>.</li>
-              <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
+              <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja, posege orodij in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>) — glejte <a href="#undo"><em>Razveljavi in ponovi</em></a> spodaj.</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
               <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu — dovolj so začetne črke vsakega dela, v poljubnem vrstnem redu in brez šumnikov, tako da <em>sebas kala</em> najde Sebastjana Kalana; enako bere ime tudi vsako drugo iskalno polje (izbirniki sorodnikov, izhodiščna oseba, iskanje v diagramu, seznam ujemanj); <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. Ko je povezana mapa z mediji (<a href="#photos">§12</a>), se ob vsakem zadetku pokaže tudi sličica osebe — na skupinski fotografiji njeno označeno območje — zato soimenjake ločite na prvi pogled. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§7</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
               <li><strong>Dodaj novo osebo</strong> — gumb <span class="gm-glyph">＋</span> (ali <span class="gm-key">N</span>) ustvari osebo brez povezav, iz katerega koli načina — glejte <a href="#edit">§8</a>.</li>
@@ -250,6 +250,39 @@
             <p>
               GED Merge upravljate s tipkovnico — kjer koli pritisnite <span class="gm-key">?</span>, da odprete celoten
               seznam bližnjic, ali glejte <a href="#shortcuts">§16</a>.
+            </p>
+
+            <h3 id="undo">Razveljavi in ponovi</h3>
+            <p>
+              <strong>Vse, kar tu naredite, lahko vzamete nazaj.</strong> S tipkama <span class="gm-key">Ctrl</span><span
+              class="gm-key">Z</span> razveljavite zadnjo spremembo, s <span class="gm-key">Ctrl</span><span
+              class="gm-key">Shift</span><span class="gm-key">Z</span> jo ponovite, isto storita gumba <span
+              class="gm-glyph">↩</span> <span class="gm-glyph">↪</span> v zgornji vrstici. Ena sama zgodovina drži
+              celotno sejo po vrsti, kakor ste delali: polja, ki jih uredite, osebe, ki jih dodate ali izbrišete, vsak
+              popravek, preimenovanje in koordinato, ki jih zapišejo Orodja, vaše odločitve pri združevanju, veje, ki
+              jih prevzamete iz vhodne datoteke, in pare, ki jih označite kot ne-dvojnike. Zgodovina hrani zadnjih sto
+              korakov. Zato tega ta navodila ne ponavljajo pri vsakem dejanju posebej: kar tu naredite, lahko tudi
+              razveljavite.
+            </p>
+            <p>
+              Poseg orodja čez vso datoteko šteje za <strong>en korak in ne za enega na zapis</strong>: kraj,
+              preimenovan v štiristo dogodkih, hiše cele vasi, ki dobijo koordinate, paketni ukrep nad dvesto osebami —
+              vse to se vrne z enim samim pritiskom <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>.
+              Ponovitev je na voljo, dokler ne naredite nove spremembe; ta začne novo vejo in zavrže, kar ste
+              razveljavili.
+            </p>
+            <p>
+              Zgodovino končata dve stvari. <strong>Shranjevanje</strong> jo počisti: prenesena datoteka je vaše novo
+              izhodišče, zato ni več prejšnjega stanja, v katero bi se vrnili. Enako jo počisti <strong>nalaganje druge
+              glavne datoteke</strong>, medtem ko zamenjava vhodne datoteke odstrani le odločitve o združevanju, vaša
+              urejanja pa ostanejo razveljavljiva. V drugo smer: z nastavitvijo <em>Zapomni si moje delo v tem
+              brskalniku</em> (spodaj) zgodovina preživi ponovno nalaganje strani skupaj z datoteko.
+            </p>
+            <p>
+              Zgodovina <strong>ne</strong> zajema tistega, kar ni sprememba vaše datoteke: nastavitev in oznak
+              pregleda, ki jih seznami za umeščanje krajev hranijo v brskalniku in ne v datoteki — hiša, odložena kot
+              nerešljiva, kraj, skrit na seznamu poimenovanja. To niso urejanja: vsako tako oznako umaknete z gumbom, ki
+              je opisan tam, kjer se pojavi.
             </p>
 
             <h3>Nastavitve</h3>
@@ -360,6 +393,15 @@
               lastni datoteki pusti zapis in presledke v krajih povsem take, kot ste jih napisali.
             </p>
             <p>
+              Pri preoblikovanju krajev je merilo vaša lastna datoteka. Kadar se vrednost iz vhodne datoteke začne z
+              imenom, ki ga vaša datoteka ni nikoli zapisala kot kraj — rodoslovni indeks navaja najprej župnijo,
+              <em>Kranj - Šmartin, Zgornje Bitnje 14</em> — postane kraj tisto naselje, v katerem stoji hiša, zapisano
+              s hierarhijo upravnih enot, kot jo tej hiši daje vaša datoteka, župnija pa se ohrani kot ustanova
+              dogodka in se ne izgubi. To se zgodi le, kadar začetno ime potrjuje novo naselje: <em>Kranj - Šmartin</em>
+              to stori za Stražišče, ki ga vaša datoteka uvršča pod <em>Kranj</em>. Ime, ki mu v tej verigi nič ne
+              odgovarja, ostane zapisano tako, kot je: vas, ki si z drugo deli le ime, ni ta druga vas.
+            </p>
+            <p>
               GED Merge uskladi tudi <strong>različico GEDCOM</strong> obeh datotek. Če vhodna datoteka uporablja drugo
               različico kot vaša glavna (5.5.1 in 7.0), se ob nalaganju pretvori v vašo različico: skupne opombe
               (<code>NOTE</code> ⇄ <code>SNOTE</code>), datumske fraze in dvojna letna števila, starostne ključne besede,
@@ -468,14 +510,32 @@
               Preklopite na <span class="gm-pill">Urejanje</span> (<span class="gm-key">E</span>), da neposredno
               pregledujete in urejate glavno datoteko — brez druge datoteke. Osebo izberite v polju
               <strong>Skoči na osebo</strong> ali kliknite kartico sorodnika in se sprehodite po drevesu;
-              <strong>Nazaj</strong> — gumb v aplikaciji ali gumb Nazaj v brskalniku, oba hodita po isti poti — vas vrne na prejšnjo osebo.
+              <strong>Nazaj</strong> — gumb v aplikaciji ali gumb Nazaj v brskalniku, oba hodita po isti poti — vas vrne
+              na prejšnjo osebo, prav tako pa tudi na seznam v Orodjih, s katerega ste osebo odprli.
               Če se trenutna oseba ujema tudi z vhodno datoteko,
               <strong>Združi</strong> v orodni vrstici skoči naravnost na tisto primerjavo, glava osebe pa nosi iste
               tri gumbe za odločitev — <strong>Potrdi</strong>, <strong>Zavrni</strong> in <strong>Preloži</strong> —
               tako da se za ujemanje odločite ali odločitev spremenite, ne da bi zapustili Urejanje. Kaj vsi trije
               pomenijo, pojasnjuje <a href="#merge">§9</a>.
-              Vsaka sprememba je v pomnilniku in jo lahko razveljavite z <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>,
-              dokler ne prenesete datoteke.
+              Vsaka sprememba ostane v pomnilniku, dokler ne prenesete datoteke.
+            </p>
+            <p>
+              Enak sprehod je mogoč tudi s tipkovnico, s tipko <span class="gm-key">⌥</span>
+              (<span class="gm-key">Alt</span>) in puščico. Smeri sledijo razporeditvi kartic okoli osebe:
+              <span class="gm-key">⌥</span><span class="gm-key">↑</span> odpre očeta,
+              <span class="gm-key">⌥</span><span class="gm-key">↓</span> najstarejšega otroka,
+              <span class="gm-key">⌥</span><span class="gm-key">←</span> in <span class="gm-key">⌥</span><span class="gm-key">→</span>
+              pa se premikata med brati in sestrami po vrstnem redu rojstva. S tipko <span class="gm-key">⇧</span>
+              dosežete drugo možnost v isti smeri: <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↑</span>
+              odpre mater, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span>
+              najmlajšega otroka, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> in
+              <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span> pa partnerja.
+              Med brate in sestre štejejo tudi polbratje in polsestre iz druge zveze enega od staršev, vrsta pa se
+              ustavi pri najstarejšem in najmlajšem otroku. Tipki za partnerja delujeta kot skok: pri eni sami zvezi
+              preklapljata med zakoncema, pri več zvezah pa se po partnerjih premikata enega za drugim. Če je zapisan
+              samo eden od staršev, ga odpreta obe tipki s puščico navzgor. Kadar korak nima cilja, se ne zgodi nič.
+              V polju, ki ga urejate, te tipke ne delujejo — polje najprej zapustite s tipko
+              <span class="gm-key">Esc</span>.
             </p>
             <p>
               Gumb <strong>Diagrami</strong> (<span class="gm-key">V</span>) v orodni vrstici odpre osem diagramov,
@@ -526,7 +586,9 @@
                 <strong>krajem</strong>. Gumb <strong>+ Dodaj</strong> na koncu vrstice doda preostala eno po eno —
                 naslov, ustanovo, vir, vrsto, vzrok, opombo — in kazalec postavi naravnost v novo polje, tako da vrstica
                 nikoli ne postane stena praznih vnosnih polj. Z <span class="gm-glyph">×</span> počistite posamezno
-                polje. Celo vrstico lahko izpolnite brez miške: s tipko <span class="gm-key">Enter</span> se premaknete
+                polje. Polje <strong>Ustanova</strong> se dopolnjuje iz že vpisanih ustanov — iz župnij in uradov, ki
+                jih navajajo dogodki vaše datoteke — tako da ime župnije izpišete enkrat, potem pa ga izberete.
+                Celo vrstico lahko izpolnite brez miške: s tipko <span class="gm-key">Enter</span> se premaknete
                 z datuma na kraj in nato na gumb <strong>+ Dodaj</strong>, tam z isto tipko odprete meni in s puščicama
                 izberete polje, ki ga želite dodati (isti meni odpre kombinacija
                 <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">D</span> kjer koli v
@@ -587,7 +649,7 @@
               imenujete vi; kjer okrožja pišete brez pristavka <em>County</em>, se <em>Kane County</em> ponudi kot <em>Kane</em>. Značka pove, iz katerega
               imenika je predlog. Izbira vnese kraj, njegov
               <strong>naslov</strong>, če ste vpisali hišno številko, ki jo register naslovov prepozna, in
-              <strong>koordinato</strong>, ki jo ta register pripisuje — v enem koraku, ki ga tudi razveljavite naenkrat.
+              <strong>koordinato</strong>, ki jo ta register pripisuje — vse v enem koraku.
             </p>
             <p>
               Če vaša datoteka označuje, kaj so ravni kraja — standardna vrstica <span class="gm-data">FORM</span> pod
@@ -636,7 +698,7 @@
               <ul>
                 <li><strong>Starši</strong> — <strong>+ Dodaj očeta</strong> / <strong>+ Dodaj mater</strong> poiščeta obstoječo osebo ali dodata novo. Z drugim staršem je par popoln: če imata ta dva že svojo družino, se otrok pridruži njej — k njuni poroki in morebitnim drugim otrokom — in ne novemu zapisu za isti par. Ikona <span class="gm-glyph danger">−</span> odklopi vlogo, ne da bi izbrisala zapis. Sklop staršev, ki ne navaja <em>nobenega</em> starša — običajno ostanek druge družine po uvozu ali združevanju — ima na koncu vrstice svojo ikono <span class="gm-glyph danger">−</span>: odklopi to osebo od te družine, z njo pa gre tudi družinski zapis, razen če so v njem še drugi otroci. <a href="#validate">Pregled</a> jih našteje pod <strong>Družina brez staršev</strong>.</li>
                 <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Ko partnerja že ima vsaka družina, za zadnjo stoji še ena kartica <strong>+ Dodaj partnerja</strong>, ki začne novo zvezo — nova poroka tako dobi svojo družino. Vsaka družina prikazuje dogodke, ki jih res ima; prek <strong>+ Dodaj družinski dogodek</strong> dodate poroko, zaroko, ločeno življenje, ločitev, <em>status</em> zveze ali dogodek po meri, meni <span class="gm-glyph">▾</span> pri dogodku pa ga spet odstrani. <span class="gm-glyph danger">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
-                <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph danger">−</span> odklopi otroka brez brisanja.</li>
+                <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph danger">−</span> odklopi otroka brez brisanja. Če izberete osebo, ki je že otrok v drugi družini, se ta oseba <em>premakne</em> sem: rodna družina je lahko le ena, zato premik najprej potrdite, vprašanje pa našteje starše, ki jih oseba zapušča. Posvojitvena ali rejniška vez ostane.</li>
               </ul>
               <p><strong>Istospolni pari.</strong> Pri istospolnem paru sta obe kartici staršev označeni <strong>Starš</strong> namesto <em>Oče</em> ali <em>Mati</em>. Zabeležite ga tako, da partnerja ali starša dodate kot običajno in novi osebi nastavite spol. V ozadju GED Merge ohrani standardno postavitev GEDCOM (po enega partnerja v vsaki zakonski vlogi), tako da datoteka ostane združljiva z drugo rodoslovno programsko opremo.</p>
             </div>
@@ -683,10 +745,7 @@
             <p>
               <strong>Odklop</strong> (ikona <span class="gm-glyph danger">−</span>) odstrani le družinsko vez — oba zapisa oseb
               ostaneta in ju je mogoče pozneje znova povezati. <strong>Izbriši osebo</strong> (ikona
-              <span class="gm-glyph danger">🗑</span> na dnu plošče) osebo odstrani in jo odklopi povsod. Najprej zahteva
-              potrditev, a se — kot vsako urejanje — pridruži zgodovini razveljavitev:
-              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> osebo vrne na njeno prvotno mesto, vse do
-              prenosa datoteke.
+              <span class="gm-glyph danger">🗑</span> na dnu plošče) osebo odstrani in jo odklopi povsod. Najprej zahteva potrditev; s <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> se oseba vrne na svoje prvotno mesto, vse do prenosa datoteke.
             </p>
             <div class="gm-callout warn">
               <span class="gm-callout-label">Opozorilo</span>
@@ -772,6 +831,20 @@
               samo potrjena ujemanja, zato so gumbi pri neodločenem paru zasenčeni, a še vedno kažejo, kaj bi
               potrditev prevzela. Izbire se ob spremembi odločitve ne izgubijo — ujemanje počistite ali zavrnite in
               znova potrdite, pa so izbire spet takšne, kot ste jih pustili.
+            </p>
+            <p>
+              <strong>Dogodek, ki ga prevzamete sami.</strong> Če v <a href="#edit">Urejanju</a>
+              (<a href="#edit">§8</a>) popravite vrednost, ki jo ponuja združevanje — na primer kraj pokopa, še preden
+              se zapiše —, se dogodek takrat zapiše v vašo datoteko. Rojstvo, smrt in pokop se primerjajo naprej, vaša
+              popravljena vrednost proti vhodni, saj gre lahko le za isti dogodek. Dogodek, ki se lahko ponovi —
+              prebivališče, poklic —, pa izstopi iz združevanja, sicer bi se vaš popravljeni zapis ob shranjevanju
+              lahko vpisal še drugič; njegove vrstice tedaj povedo <em>v vaši datoteki</em>, ob njih pa ostanejo
+              vrednosti iz vhodne datoteke, tako da se ne odloča dvakrat in nič ne ostane skrito.
+            </p>
+            <p>
+              <strong>Dogodek brez podatkov se še vedno pokaže.</strong> Pokop brez datuma in kraja ali sam zapis, da
+              je oseba umrla, nima polja, ki bi ga bilo mogoče primerjati — zato se pokaže samo ime dogodka in pod njim
+              nič, kar zadošča, da vidite, da datoteka ta dogodek sploh ima.
             </p>
             <p>
               <strong>Zakoni se primerjajo vsak zase.</strong> Vsaka zveza osebe ima svojo skupino
@@ -860,6 +933,32 @@
               nima nobena datoteka ali kadar si zapisi v datoteki glede lege nasprotujejo, dogodek ostane brez
               koordinate in ga našteje <a href="#validate">Pregled</a> (<a href="#tools">§10</a>).
             </p>
+            <p>
+              Povezave se ob združevanju zapišejo kot viri. Povezavo, ki jo nosi zapis iz vhodne datoteke — stran na
+              Matriculi, grob na Geneanetu, sliko na FamilySearchu — združevanje zapiše kot navedbo vira, ki ga vaša
+              datoteka za to knjigo že ima. Če takega vira nima, nastane nov vir z medijem za stran ter z enakim
+              naslovom, krajem in hrambo, kakršne bi mu dalo orodje <a href="#organize">Uredi vire</a>
+              (<a href="#tools">§10</a>).
+              Taka navedba pusti za sabo isto kot okno <a href="#sources">Dodaj vir</a> (<a href="#sources">§13</a>)
+              pri povezavi, ki jo prilepite sami. Ob njej stoji slika navedene strani, kadar vaša datoteka slike strani hrani pri
+              navedbah — to je nastavitev <em>Povezave strani</em> v <a href="#workspace">Nastavitvah › GEDCOM</a>,
+              njena <em>samodejno</em> pa sledi navadi vaše datoteke. Z navedbo se zapiše tudi kakovost citata, ki jo
+              predlaga spletišče: skenirana stran matične knjige velja za primarni vir, stran groba ali časopisno
+              poročilo za sekundarni vir, tuj rodovnik za vprašljivo navedbo. Knjiga, za katero vaša datoteka nima
+              vira, se prebere, preden vir zanjo nastane — če ste privolili v spletna iskanja
+              (<a href="#workspace">Nastavitve › Napredno</a>): med shranjevanjem se odpre stran same knjige, kar med
+              čakanjem pove tudi napis na gumbu Shrani, nov vir pa potem nosi pravo ime registra, kraj in letnice
+              namesto spletnega naslova.
+              Kadar vaša datoteka svoje navedbe hrani pri dogodkih, se navedba pripne dogodku, ki ga knjiga dokumentira
+              in ki je pri osebi na voljo: grob pokopu, mrliška knjiga smrti, krstna knjiga rojstvu. Dogodek je lahko
+              tudi tak, ki ga prinese isto ujemanje — grob se tako pripne pokopu, s katerim je prišel. Sicer navedba
+              ostane pri osebi in jo pozneje premakne orodje Uredi vire. Pri ujemanju se taka povezava pokaže tam, kamor
+              bo zapisana: v vrstici <em>Vir</em> pri tem dogodku, ob navedbi, ki jo vaša datoteka za to stran morda že
+              ima — stran, ki jo že navajate, se tako pokaže kot ujemanje in ne kot nekaj, kar bi bilo treba dodati.
+              Enako se prebere povezava, ki jo nosi družinski zapis vhodne datoteke: stran poročne knjige se pripne
+              <em>Poroki</em> para. Prevzamejo se tudi viri, ki jih ta zapis navaja.
+              Povezava s spletišča, ki ga GED Merge ne prepozna, se zapiše kot gola povezava.
+            </p>
           </section>
 
           <section id="tools">
@@ -868,9 +967,7 @@
               Zavihek <span class="gm-pill">Orodja</span> (<span class="gm-key">T</span>) izvaja preglede in čiščenja po
               celotni glavni datoteki. Vsako orodje pokaže, kaj je našlo oziroma kaj bi spremenilo, preden to sprejmete.
               Popravki <strong>Pregleda</strong> z enim klikom, združitev v <strong>Dvojnikih</strong>, preimenovanje v
-              <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti — vsakega
-              lahko razveljavite s <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> in shranite kot vsako
-              drugo urejanje, prav tako <a href="#normalize">paketna opravila</a>. <strong>Poenoti datoteko</strong>, <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
+              <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti in jih shranite kot vsako drugo urejanje, prav tako <a href="#normalize">paketna opravila</a>. <strong>Poenoti datoteko</strong>, <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
               pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku nikoli ne
               prepiše: vsako shranjevanje je nova datoteka v mapi s prenosi (<a href="#saving">§14</a>).
               V izbirniku na vrhu je šest orodij —
@@ -943,8 +1040,7 @@
               prizadete vrstice imajo svoj gumb — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>,
               <strong>Odstrani sklic</strong> ali, kadar se vrednost nastavi in ne odstrani, kar izid sam
               (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>). Uporabite jih, kadar se
-              z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu in ga je, tako kot
-              paketne popravke, mogoče razveljaviti. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
+              z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
               je v skupini več ugotovitev, kot jih popravek lahko uredi (trije zakonci brez spola med osmimi zapisi brez
               spola), ima gumb samo tista vrstica, ki jo bo spremenil. Pokvarjeno povezavo je posebej vredno urediti tukaj:
               v <span class="gm-pill">Urejanju</span> je ni mogoče videti ali odstraniti, saj manjkajoča družina tam ne
@@ -960,7 +1056,7 @@
             <p>
               Primerja vsako osebo z vsako drugo z istim algoritmom ujemanja kot Združevanje in navede verjetne pare dvojnikov z
               njihovo stopnjo. Par razširite za vzporedno primerjavo, nato <strong>Združi</strong> en zapis ohrani
-              in vanj zlije drugega — družinske povezave se samodejno preusmerijo, dejanje pa je mogoče razveljaviti.
+              in vanj zlije drugega — družinske povezave se samodejno preusmerijo.
               Ohranjeni zapis je vedno tisti na levi, potrditveno okno pa navede oba zapisa z oznakama GEDCOM, tako da je
               jasno, kateri bo izbrisan.
             </p>
@@ -973,7 +1069,7 @@
             <p>
               Kadar imajo starši (ali partner) na vsaki strani svoj zapis — cela veja, vnesena dvakrat — jih namig pod
               primerjavo poimensko navede z njihovimi stopnjami ujemanja. <strong>Označite tiste, ki so ista oseba</strong>,
-              in združeni bodo najprej, v okviru istega razveljavljivega koraka: njihovi družini se nato zlijeta sami od
+              in združeni bodo najprej, v okviru istega koraka: njihovi družini se nato zlijeta sami od
               sebe, tako da ni treba opustiti nobene povezave in nihče ne ostane brez povezav. Prav ta vrstni red ohrani
               vejo nedotaknjeno; imena ostanejo klikljiva, če želite par najprej odpreti in si ga ogledati. Izbrisan ni nikoli
               nihče razen zapisa, ki ga potrdite — vsi drugi obdržijo svoj zapis, svoje podatke in svojo družino.
@@ -991,7 +1087,7 @@
               ostane kratek in obvladljiv; z izbirnikom stopnje lahko mejo znižate in prikažete šibkejše zadetke. Sorodni
               zapisi so <strong>razvrščeni v skupine</strong> — ista oseba, vnesena večkrat (»vzporedna veja«), se zloži
               v eno glavo s številom zapisov in parov. Razprite jo za pregled parov enega za drugim ali z
-              <strong>Zavrni vse</strong> zavrnite celotno skupino naenkrat (razveljavljivo). Pri vsakem paru sta ob
+              <strong>Zavrni vse</strong> zavrnite celotno skupino naenkrat. Pri vsakem paru sta ob
               imenih izpisani oznaki zapisov GEDCOM, da ločite osebi z enakim imenom in datumi.
             </p>
             <p>
@@ -1006,7 +1102,7 @@
               ni bil nikoli primerjan z ohranjenim zapisom, je po oznaki naveden v opozorilu — nič v pregledu namreč
               ne pravi, da gre za isto osebo. Polja se prevzamejo po običajnih privzetih izbirah: vrednost, ki jo ima
               le ena stran, se prevzame, natančnejši datum obvelja, ob neskladju pa obvelja ohranjeni zapis. Vse
-              skupaj razveljavite v enem koraku, sorodnikov sorodnikov pa združitev ne premakne — po njej znova
+              skupaj je en korak, sorodnikov sorodnikov pa združitev ne premakne — po njej znova
               poženite pregled, saj se zapisi, ki so bili prej preveč narazen, pogosto ujamejo, ko so kopije ena sama.
             </p>
             <h3 id="normalize">Poenoti in paketno uredi</h3>
@@ -1058,7 +1154,7 @@
                 poročnem priimku pa priimke, ki bi jih zapisalo. Pri tem opravilu so dvomljive osebe že v izhodišču
                 neoznačene, vrstica pa pove, zakaj: zveza nima zapisane poroke, zabeležena je kot partnerstvo ali pa
                 njeni otroci nosijo materin priimek in ne očetovega — klasično znamenje rojstva zunaj zakona. Nič ni
-                zavrnjeno: če tako vrstico označite, se priimek zapiše. Celoten zagon je mogoče razveljaviti z enim korakom, osebe, ki sliko ali navedbo že imajo, pa so
+                zavrnjeno: če tako vrstico označite, se priimek zapiše. Celoten zagon je en korak, osebe, ki sliko ali navedbo že imajo, pa so
                 preskočene. Filter skupaj z ukrepom shranite pod imenom, ki ga izberete sami, seznam shranjenih pa vedno pokaže,
                 koliko oseb trenutno ustreza — ponavljajoče se opravilo, recimo slika za osebe, umrle pred dvajsetim
                 letom, je tako le pogled in dva klika.
@@ -1129,7 +1225,7 @@
               katero koli obstoječo hrambo v datoteki, izbira <strong>＋ Nova hramba…</strong> pa ustvari novo z imenom,
               ki ga vpišete; povezavi se lahko doda <strong>signatura</strong> (GEDCOM-ov
               <code>CALN</code>, arhivska oznaka enote). Zapis se v drevesu pokaže pod svojo hrambo s številom uporab
-              0, dodajanje pa je mogoče razveljaviti kot vsako urejanje.
+              0.
             </p>
             <p>
               Arhivska oznaka enote — številka matične knjige na Matriculi, oznaka groba na Geneanetu, film s
@@ -1159,8 +1255,7 @@
               novo ustvarjeno) hrambo, sprememba povezave pa preusmeri sliko strani vira —
               vir, ki ga nihče ne navaja, pa ponudi tudi gumb <strong>Odstrani</strong>. Vrstice hramb imajo svoj
               <span class="gm-glyph">✎</span> za ime, poštni naslov, telefon, e-pošto, povezavo in opombo arhiva;
-              hramba, ki še nima virov, ostane na seznamu s številom 0. Vse to je mogoče razveljaviti kot vsako
-              urejanje.
+              hramba, ki še nima virov, ostane na seznamu s številom 0. 
             </p>
             <h3 id="organize">Uredi vire</h3>
             <p>
@@ -1208,10 +1303,14 @@
               (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
               brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
               <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa
-              si deli z <strong>iskalnikom dvojnikov</strong> virov in z ureditvijo hramb pod njim — en klik opravi
-              vse troje, gumb sam pa pove, kaj bo storil: <strong>Pretvori v vire</strong>, <strong>Združi
-              dvojnike</strong>, <strong>Uredi hrambe po krajih</strong> ali <strong>Uveljavi v
-              datoteki</strong>, kadar označene vrstice terjajo več kot eno od tega. Uveljavitev zapiše v odprto datoteko kot en sam razveljavljiv korak, tako kot vsak drug
+              si deli z <strong>iskalnikom dvojnikov</strong> virov in z ureditvijo hramb — štirje seznami strani so
+              zavihki (<strong>Dvojniki</strong>, <strong>Hrambe</strong>, <strong>Viri</strong>,
+              <strong>Strani</strong>, vsak se pokaže le, kadar ima vrstice, in šteje vrstice, ki jih odpre), ob njih pa
+              je iskalno polje, ki zoži odprti seznam — po tem, kar vrstica pove, in po imenu osebe, ki je v njej, tako
+              da vnose ene osebe najdete tudi brez naslova knjige. En gumb ob zavihkih uveljavi vse označeno na vseh
+              štirih in pove, kaj bo storil: <strong>Pretvori v vire</strong>, <strong>Združi
+              dvojnike</strong>, <strong>Uredi hrambe po krajih</strong>, <strong>Pripni slike strani</strong> ali
+              <strong>Uveljavi v datoteki</strong>, kadar označene vrstice terjajo več kot eno od tega. Uveljavitev zapiše v odprto datoteko kot en sam korak, tako kot vsak drug
               popravek v Orodjih: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> ga vzame nazaj,
               naslednje <a href="#saving">shranjevanje</a> pa ga skupaj z vsemi drugimi spremembami zapiše v vaš GEDCOM.
               Zasebne osebe, opombe in mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§18</a>).
@@ -1220,7 +1319,7 @@
               nosi še puščico ↗, ki stran odpre.
             </p>
             <p>
-              Tretji razdelek, <strong>Hrambe po krajih</strong>, pospravi, kje visijo viri s FamilySearcha.
+              Zavihek <strong>Hrambe</strong> pospravi, kje visijo viri s FamilySearcha.
               FamilySearch objavlja po zbirkah, zato datoteka, ki je naredila hrambo za vsako zbirko, dobi zapis za
               vsak niz matičnih knjig; hramba naj bi bila kraj, kjer se izvirniki hranijo, ime zbirke pa je že naslov
               samega vira. Vsaka vrstica je en kraj: pove hrambo, ki se ji njeni viri pridružijo, in ali ta zapis v
@@ -1236,38 +1335,105 @@
               ne prek povezave, zato naslova za posamezno državo ni mogoče zapisati namesto vas; vpišite ga sami z
               <span class="gm-glyph">✎</span> pri hrambi v drevesu virov, orodje pa se ga potem ne dotika.
             </p>
+            <p>
+              Zavihek <strong>Strani</strong> — <em>Navedene strani brez svoje slike</em> — se pokaže samo pri datoteki, ki sliko
+              navedene strani pripenja k navedbi — to je nastavitev <em>Povezave strani</em> v
+              <a href="#workspace">Nastavitvah › GEDCOM</a>, njena <em>samodejno</em> pa sledi navadi vaše datoteke.
+              Preostanek te strani išče povezave za pretvorbo, ta razdelek pa postavi nasprotno vprašanje, na katerega
+              nobena povezava ne odgovori: navedba je že prava navedba in slika strani je pri zapisu vira, oseba ali
+              dogodek pa je ne navaja, zato program, ki posnetke kaže ob dejstvih, nima česa pokazati. Vsaka vrstica je
+              en vir z navedbami, ki svoje slike nimajo; ko jo odprete, pove ime osebe, ali navedba stoji pri dogodku
+              ali pri samem zapisu, in katero stran navaja. Ko jih označite in uveljavite, se ob vsaki taki navedbi doda
+              ena povezava do slike, drugo ostane nespremenjeno. Katero sliko navedba misli, mora biti nedvoumno: vir z
+              eno samo sliko strani odgovarja za vse svoje navedbe, pri viru z več slikami pa jih loči le navedena
+              stran. Navedba, ki strani ne pove ali pove tako, ki ji ne ustreza nobena slika, ostane nespremenjena — in
+              vrstica to tudi napiše, namesto da bi jo tiho izpustila iz štetja. Nespremenjeno ostane tudi dejstvo, ki
+              <em>povezavo</em> do strani že ima: stran, ki ga dokumentira, je izbrana, druga povezava ob njej pa ji ne
+              bi ničesar dodala, ampak bi ji nasprotovala. Fotografija ni tak odgovor — niti portret niti vaš preneseni
+              posnetek strani —, zato dejstvo obdrži svoje slike in ob njih dobi še stran matične knjige.
+            </p>
+            <p>
+              Iste vrstice pokrivajo tudi obratno napako: stran, ki je pripeta ob navedbi, sam <em>zapis knjige</em> pa
+              je ne vodi. Tako knjiga pozna le eno svojo stran — knjiga z eno samo stranjo pa odgovarja za vse svoje
+              navedbe, in prav zato dejstvo dobi stran, ki je ni navedlo. Zagon take strani najprej uvrsti k njihovi
+              knjigi in šele nato vsaki navedbi pripne stran, ki jo knjiga zdaj pozna, zato ena uveljavitev pusti vire
+              popolne, vsako dejstvo pa pri navedeni strani. Stran mora sama povedati, da je stran te knjige: če je navedba pri zapisu
+              edina, to še ne pomeni, da je knjiga njen dom — zapis navadno navaja en vir, ob njem pa nosi povezave do
+              čisto drugih strani. Zato se stran uvrsti le, kadar nosi prav tisto stran, ki jo navedba navaja, ali je
+              naslovljena po knjigi (tako so poimenovane vse slike strani, ki jih zapiše to orodje), ali njen naslov
+              pripada isti knjigi kot stran, ki jo vir že vodi — in le kadar jo lahko zahteva ena sama navedba.
+            </p>
             <h3 id="places">Kraji</h3>
             <p>
               Navede vsak kraj v hierarhiji država → kraj → hišna številka → naslov, s števcem uporabe pri vsakem kraju. Odprite
               kraj za kraje pod njim, s <strong>klikom na števec</strong> pa dobite seznam zapisov, zapisanih točno na
               tem kraju — naselje s stotinami zapisov tako ostane pregledno. <strong>✎</strong> ob imenu na kateri koli
-              ravni hkrati preimenuje ali združi del kraja po vseh zapisih — odlično za poenotenje različic zapisa;
-              polje predlaga le imena sosednjih vnosov pod istim nadrejenim krajem, zato kraja, ki oba številčita <em>Breg 13</em>,
-              nikoli ne ponudita naslovov drug drugega. Kraj, ki nosi
+              ravni hkrati preimenuje ali združi del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
+              Polje najprej predlaga imena sosednjih vnosov pod istim nadrejenim krajem, zato kraja, ki oba številčita <em>Breg 13</em>,
+              nikoli ne ponudita naslovov drug drugega, pod njimi pa vse kraje, ki jih vaša datoteka piše drugod, na dnu
+              seznama pa stoji <strong>Poišči ta kraj v imenikih</strong> — enako kot v poljih za preimenovanje pri
+              geokodiranju in pregledu poimenovanja. Prav to potrebuje vrednost, ki ne imenuje države: kraji pod
+              <em>Neznana država</em> imajo za sosede le drug drugega, zapis pa se pod državo premakne šele, ko
+              izberete kraj, ki ga datoteka piše pravilno, ali odgovor imenika s celotno verigo. Odgovor imenika prinese
+              tudi koordinato, ki se zapiše, kadar kraj svoje še nima; vrstica z naslovom pa vpraša register naslovov po
+              hišah v svojem kraju.
+            </p>
+            <p>
+              Ime ravni in cel kraj sta dva različna popravka, polje pa naredi tisto, kar vanj vpišete. Vpišite eno samo
+              ime in orodje preimenuje to raven povsod, kjer se pod vrstico pojavi — to je popravek zapisa. Vpišite ali
+              izberite kraj z več ravnmi — odgovor imenika, kraj, ki ga vaša datoteka že piše, ali celo verigo, ki jo
+              natipkate — in to je <em>cel</em> kraj: vrednost vrstice zamenja v celoti, namesto da bi se vpisal vanjo
+              kot ena od njenih ravni. Kadar je pod vrstico več različnih vrednosti, en cel kraj ne more postati vse
+              naenkrat, zato se prevzame le njegov najgloblji del kot ime te ravni, polje pa pove, kateri. Vrstica, ki se
+              že bere natanko tako, kot ste izbrali, nima česa zapisati, in gumb ostane siv.
+            </p>
+            <p>
+              Kraj, ki nosi
               hišno številko (<em>Krupa 7</em>), je uvrščen pod naselje kot vsak drug, s hišno številko na ravni pod njim, zato je
               po naseljih mogoče brskati tudi po datoteki, ki hišne številke piše kar v kraju.
             </p>
             <p>
+              Kadar vsi zapisi pod vrstico pišejo isto vrednost — kar velja za osamelca, kakršen je
+              <em>?/Grosova ulica 18</em> — ima polje za preimenovanje ob kraju še polje <strong>Naslov</strong>, torej
+              enako razdelitev, kot jo ponujata seznama za geokodiranje. Taka vrednost ni napačno zapisan kraj, ampak
+              hiša v kraju, ki ga vaša datoteka ni nikoli imenovala, zato jo popravite z obema polovicama:
+              <em>Kokrica, Kranj, Slovenija</em> kot kraj in <em>Grosova ulica 18</em> kot naslov, ki se zapiše na
+              dogodkovo vrstico <code>ADDR</code>. Polje za naslov se dopolnjuje iz hiš, ki jih vaša datoteka v tem kraju
+              že piše, iz parov kraj · naslov, ki jih pozna, in — za spletno privolitvijo — iz registra naslovov; z
+              izbiro katere koli od teh ponudb se izpolni tudi kraj ob njem, saj je hiša vedno hiša nekje. Vrstica, pod
+              katero je več različnih vrednosti, te razdelitve ne ponudi: preimenovanje tam prepiše ime ravni povsod,
+              kjer se pojavi, hiše pa ni mogoče vzeti iz vrednosti, ki je vse ne nosijo enake.
+            </p>
+            <p>
               Kraj, za katerega ima datoteka koordinato, jo pokaže ob števcu, zato med brskanjem po drevesu vidite tudi,
               kaj še ni geokodirano. To je koordinata, zapisana prav za to raven: kraj, poimenovan le s pokrajino, nosi
-              pokrajinsko. S <strong>klikom na koordinato</strong> se pod vrstico odpre mali zemljevid — najhitrejši
-              način, da opazite kraj, ki je po tihem pripet v napačno državo. Ob prehodu z miško oznaka pove kraj, kot ga
-              piše vaša datoteka, njegov naslov, kadar je vrstica naslov, in v zadnji vrstici koordinato. Enako deluje
-              seznam za geokodiranje: klik na koordinato, ki jo bo vrstica prevzela, odpre to vrstico in njen zemljevid.
+              pokrajinsko. S <strong>klikom na koordinato</strong> se odpre okno za koordinato — isto, kot ga odpirajo
+              seznami za geokodiranje, pregled poimenovanja in dogodki v <a href="#edit">Urejanju</a>: zemljevid s to
+              lego, iskanje po registru in po OpenStreetMap ter polje, v katero koordinato vpišete ali prilepite. Tako
+              najhitreje opazite kraj, ki je po tihem pripet v napačno državo, zdaj pa ga tam tudi popravite. Ob prehodu
+              z miško oznaka pove kraj, kot ga piše vaša datoteka, njegov naslov, kadar je vrstica naslov, in v zadnji
+              vrstici koordinato. Kraj, ki v datoteki koordinate še nima, ima ob števcu bledo bucko, ki odpre isto okno:
+              vas lahko postavite kar v drevesu, brez ovinka čez seznam dela.
+            </p>
+            <p>
+              Prevzeta lega se zapiše prav tistim zapisom, ki jih odpre števec vrstice — dogodkom, zapisanim na tem
+              kraju, v vseh zapisih, kakor jih piše datoteka. Naslovi pod njim so svoje vrstice in obdržijo svoje lege,
+              zato se naselje nikoli ne razlije po svojih hišah. Gumb <strong>Odstrani</strong> v oknu lego istim
+              zapisom spet vzame.
             </p>
             <p>
               Kjer si zapisi v datoteki nasprotujejo glede lege kraja, vrstica pokaže prevladujočo koordinato in za njo
-              <span class="gm-badge rep">⚠ 2 točki</span>, njen zemljevid pa vse skupaj s številom omemb na vsaki —
-              dvanajst pri cerkvi in ena 2&nbsp;km stran je tipkarska napaka, ne druga cerkev. Koordinati nekaj metrov
-              narazen sta ista točka in ne neskladje, zato ponovno geokodiranje oznake ne sproži. Za razrešitev poskrbi
-              <a href="#geocode">Geokodiranje krajev</a>, kamor zemljevid tudi vodi.
+              <span class="gm-badge rep">⚠ 2 točki</span>, okno pa vse te točke oštevilči kot odgovore in pri vsaki
+              pove število omemb — dvanajst pri cerkvi in ena 2&nbsp;km stran je tipkarska napaka, ne druga cerkev. Z
+              izbiro prave točke je vrstica razrešena. Koordinati nekaj metrov narazen sta ista točka in ne neskladje,
+              zato ponovno geokodiranje oznake ne sproži.
             </p>
             <h3 id="geocode">Geokodiranje krajev</h3>
             <p>
               <strong>Geokodiranje krajev</strong> primerja imena krajev iz vaše datoteke z geografskim imenikom brez
               povezave in koordinate, ki jih sprejmete, zapiše v GEDCOM kot standardni <code>MAP</code>
               <code>LATI</code>/<code>LONG</code> — iste koordinate nato izrišeta <a href="#map">Zemljevid krajev</a> in
-              zemljevid osebe v Urejanju. Vsak zapis pregledate vi in ga je mogoče razveljaviti.
+              zemljevid osebe v Urejanju. Vsak zapis najprej pregledate vi.
             </p>
             <p>
               Imenik naložite z enim klikom z <strong>OpenStreetMap</strong> (gumb našteje vse države, ki jih pozna, izbrana država pa sproži prenos); s
@@ -1292,7 +1458,7 @@
               Občina najde tudi imena, ki jih register
               piše daljše od vaših — <em>Vinji vrh</em> pod Semičem najde <em>Vinji Vrh pri Semiču</em> — predlog, na
               katerega se vrstica razreši, pa svojo občino vedno izpiše že v njeni vrstici, tako da istoimensko naselje
-              iz napačne občine opazite na prvi pogled. Kadar je registrsko ime daljše ali popravljeno, vrstica ponudi <strong>Prevzemi</strong> — en klik preimenuje vse navedbe vanj in zapiše njegovo koordinato — gumb <strong>Prevzemi uradna imena</strong> nad seznamom pa enako stori za vse prikazane zanesljive vrstice, v eni potezi razveljavitve.
+              iz napačne občine opazite na prvi pogled. Kadar je registrsko ime daljše ali popravljeno, vrstica ponudi <strong>Prevzemi</strong> — en klik preimenuje vse navedbe vanj in zapiše njegovo koordinato — gumb <strong>Prevzemi uradna imena</strong> nad seznamom pa enako stori za vse prikazane zanesljive vrstice, v enem koraku.
             </p>
             <p>
               Datoteka GeoNames in prenos z
@@ -1337,10 +1503,10 @@
               <span class="gm-pill">Urejanje</span>.
               <strong>Prevzemi</strong>
               popravi naslov na vseh dogodkih, ki ga nosijo, <strong>Prevzemi uradne naslove</strong> ob zavihkih pa
-              stori to za vse naslove na seznamu v eni potezi, ki jo je mogoče razveljaviti. Na drugo ugotovitev odgovori
+              stori to za vse naslove na seznamu v enem koraku. Na drugo ugotovitev odgovori
               <strong>Premakni dogodke</strong>: dogodki pri tem naslovu dobijo naselje, pod katerim ga vodi register,
               naslovne vrstice pa ostanejo nespremenjene — isti premik, kot ga ponuja zavihek Naslovi, opravljen kar
-              pri ugotovitvi, ki ga je našla, in prav tako v eni potezi, ki jo je mogoče razveljaviti. Oba odgovora
+              pri ugotovitvi, ki ga je našla. Oba odgovora
               stojita tudi kot oštevilčena izbira pod vrstico, ob sami registrski vrstici, tako da predlog prevzamete
               tam, kjer ga preberete. Edini primer brez izbire je kraj, zapisan v strnjeni obliki: tam naselja ni
               mogoče zamenjati, zato premik opravite na zavihku Naslovi, kjer nov kraj vpišete sami. Naslov, zapisan pod
@@ -1418,8 +1584,7 @@
               je to — <em>Iz datoteke</em> ali <em>Iz imenikov</em> — namesto tega pa lahko izberete katero koli drugo državo ali predpostavko
               izklopite. <strong>Dopiši državo</strong> ob drugih paketnih dejanjih seznama krajev pa
               predpostavko pošteno zaključi: krajem, ki jih imenik pozna, dopiše državo — v zapisu, kakršnega uporablja
-              vaša datoteka, in z njenim ločilom — zavetnike župnij in zašle datume pa pusti pri miru, vse v enem
-              koraku, ki ga je mogoče razveljaviti. Druga vrsta gumbov seznam zoži po vrsti preostalega dela:
+              vaša datoteka, in z njenim ločilom — zavetnike župnij in zašle datume pa pusti pri miru, vse v enem koraku. Druga vrsta gumbov seznam zoži po vrsti preostalega dela:
               <strong>Zanesljivi</strong> zajame ujemanja, popolna do črke in brez dvojnika,
               <strong>Možni</strong> vse vrstice z oceno pod 100 % — oranžne terjajo vašo presojo, zelena ocena med
               njimi (registrsko ime, ki ga potrdi zapisana občina) pa je še vedno varna za <strong>Izberi
@@ -1450,19 +1615,22 @@
               boljša datoteka GeoNames.
             </p>
             <p>
-              Vsi trije seznami na tej strani se berejo enako: vrstica poimenuje svoj kraj (in naslov, kadar je vrstica naslov), se odpre s
-              klikom, zemljevid pokaže šele na zahtevo, izbire pa zbira, dokler jih gumb na vrhu seznama ne zapiše v enem
-              koraku, ki ga je mogoče razveljaviti. Na <strong>zemljevidu</strong> so predlagani kraji oznake, na katere
-              lahko kliknete, vaša izbrana koordinata poudarjena, druge znane koordinate iz datoteke pa kot drobne pike,
-              tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko.
-              Vrstica ponuja tudi druge možnosti, vtipkano koordinato ali zapomnjeno oznako »ni ujemanja«, ter gumb
+              Vsi trije seznami na tej strani se berejo enako: vrstica poimenuje svoj kraj (in naslov, kadar je vrstica naslov), se s
+              klikom odpre na oštevilčene odgovore, izbire pa zbira, dokler jih gumb na vrhu seznama ne zapiše v enem koraku. <strong>Zemljevid</strong> je isto okno za koordinato, kot ga odpre dogodek v <a href="#edit">Urejanju</a>, in se pokaže šele na zahtevo, nikoli sam čez seznam: odpre ga koordinata, ki jo bo vrstica prevzela, ali gumb <strong>Pokaži zemljevid</strong> med dejanji vrstice. Odgovori vrstice so na njem oznake, na katere
+              lahko kliknete, pod istimi številkami, kot jih nosijo vrstice, vaša izbrana koordinata poudarjena, druge znane koordinate iz datoteke pa kot drobne pike,
+              tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko, lahko pa jo vpišete v polje v oknu.
+              Vrstica ponuja tudi druge možnosti ali zapomnjeno oznako »ni ujemanja«, ter gumb
               <span class="gm-glyph">✎</span> za <strong>preimenovanje</strong> surove vrednosti kraja (vseh navedb hkrati,
               z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Polje za
               preimenovanje je isto polje za kraj kot v <a href="#edit">Urejanju</a> (<a href="#edit">§8</a>): dopolnjuje se iz krajev, ki jih
               datoteka že piše, seznam pa se vedno konča s <strong>Poišči ta kraj v
               imenikih</strong>. Z izbiro ponudbe iz imenika se izpolni celotna veriga kraja in zapiše koordinata, ki mu
               jo ta pripisuje — napačno zapisana ali nikoli razrešena vrednost je tako popravljena in umeščena v
-              enem koraku. Kar imenik brez
+              enem koraku. Polje <strong>Naslov</strong> ob njem je polje iste vrste: dopolnjuje se iz hiš, ki jih vaša
+              datoteka v tem kraju že piše, iz parov kraj · naslov, ki jih pozna, in — za isto spletno privolitvijo — iz
+              samega registra naslovov. To iskanje seže do tega, česar imenik naselij ne more imeti: do hišne številke in
+              do predela mesta, kakršen je <em>Čirče</em>, ki ga register vodi kot ulico v <em>Kranju</em> in ne kot
+              samostojno naselje. Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe zahtevata isto spletno privolitev in se
               sprožita samo s klikom na gumb — njuni zadetki pa se pridružijo kandidatom in oznakam na zemljevidu. Vsaka izbira je oštevilčena in številka je njen izbirni gumb: isto številko nosi njena oznaka na zemljevidu, zato vrstico, na katero so odgovorili štirje imeniki s štirimi točkami, berete po ujemajočih se številkah in ne z ugibanjem, katera oznaka je katera vrstica. Zadetek OpenStreetMap pove tudi, kaj je — predel, stanovanjska ulica, dovozna pot — saj storitev na eno ime odgovori z vsemi tremi, zapisanimi enako. Iskanje, ki je odgovorilo,
               svoj gumb pospravi — odgovor je seznam možnosti, isto vprašanje isti storitvi pa vrne isto; ob
@@ -1481,7 +1649,8 @@
             <p>
               Drugi zavihek strani, <strong>Naslovi za umestitev</strong>, pokriva naslove in ne krajev — kraji in
               naslovi se preklapljajo z zavihkoma na vrhu, vsak s svojim številom vrstic, iskalnik pa zoži odprti
-              zavihek. Naslove najde tam, kjer jih hrani vaša datoteka: v <strong>naslovu</strong> dogodka ob kraju z naseljem
+              zavihek — po besedilu kraja in po imenu osebe, ki ima tam dogodke, zato kraje in hiše ene osebe najdete,
+              ne da bi vedeli, kje je živela. Naslove najde tam, kjer jih hrani vaša datoteka: v <strong>naslovu</strong> dogodka ob kraju z naseljem
               (<em>Kranj</em> + <em>Kidričeva cesta 38</em>), kot celotno vrednost kraja (<em>Črni vrh 35</em>) ali
               stisnjeno med druge dele kraja (<em>Kranj (Slovenija), Stražišče 114 - župnija Šmartin</em>). Vsak je
               uvrščen pod naselje, ki mu pripada, zato se datoteka brez naslovnih vrstic pregleduje enako kot
@@ -1510,21 +1679,19 @@
               Oznaka kraja je znak za lego: stoji pred vsako izpisano koordinato, medla, dokler ni nič umeščeno, in zelena, ko je. <strong>Izberi zanesljive</strong> izbere vsak naslov, ki mu je register odgovoril z natanko enim zadetkom — tistega, ki ga register vodi pod drugim naseljem, izpusti, saj je to primer opozorila o razdelitvi — tako en klik po skupinski poizvedbi odloči vso nedvoumno večino, ostanejo pa le prava vprašanja.
             </p>
             <p>
-              <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tem naslovu — v vrstici <code>ADDR</code> ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v en naslov. Polje za preimenovanje se med tipkanjem dopolnjuje iz drugih naslovov pri istem kraju — tudi iz že umeščenih naslovov, ki jih seznam skriva, dokler jih ne pokličete — tako da je združitev dveh zapisov izbira in ne ponovno tipkanje. Take pare poišče <strong>Zapisano dvakrat</strong>: v istem kraju naslov, ki je zapisan enkrat golo in enkrat z vašim pripisom za njim (<em>Breg ob Savi 26</em> in <em>Breg ob Savi 26 (pd Mlinar)</em>), pod enim od dveh imen ulice, ki ju nosi (<em>Labore 4</em> in <em>Labore 4 / Škofjeloška 4</em>), ali s krajše zapisano ulico (<em>Kidričeva 38</em> namesto <em>Kidričeva cesta 38</em>). Skromnejša vrstica potem pove, kaj bi postala, <strong>Združi</strong> pa ta zapis zapiše na njegove dogodke, da sta vrstici spet en naslov, kar sta od nekdaj bili; oznaka ob gumbih stanja seznam zoži na te pare, obe polovici vsakega. Gre za predlog in ne za razsodbo — polnejši zapis je ponujen zato, ker pove več, a če <em>26</em> združite v <em>26 (pd Mlinar)</em>, dobijo vaš pripis tudi dogodki, ki ga niso nosili; kadar tega nočete, preimenujte v nasprotno smer z <span class="gm-glyph">✎</span>.
+              <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tem naslovu — v vrstici <code>ADDR</code> ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v en naslov. Polje za preimenovanje se med tipkanjem dopolnjuje iz drugih naslovov pri istem kraju — tudi iz že umeščenih naslovov, ki jih seznam skriva, dokler jih ne pokličete — tako da je združitev dveh zapisov izbira in ne ponovno tipkanje. Če polje izpraznite, se naslov namesto preimenovanja odstrani: na gumbu se pokaže <strong>Odstrani naslov</strong>, celotna vrstica <code>ADDR</code> pa se odstrani z vseh dogodkov pri tem naslovu, v enem koraku. Tako se znebite naslova, ki datoteki ne pove ničesar, česar ne pove že kraj — imena naselja, ponovljenega v vrstici <code>ADDR</code> —, prej pa je bilo treba tak naslov izbrisati pri vsaki osebi s seznama posebej. Kraj sam ostane nespremenjen. Dogodki, ki so nosili koordinato hiše, dobijo tisto, ki jo datoteka vodi pri kraju, tako da naselje ni več v neskladju s samim seboj; dogodek, ki koordinate ni imel, je ne dobi. Vrstice z oznako <em>v kraju</em> te možnosti nimajo: tam je naslov zapisan v vrednosti kraja, ki nosi tudi naselje, zato ga od tam ni mogoče odstraniti, ne da bi odstranili tudi naselje. Take pare poišče <strong>Zapisano dvakrat</strong>: v istem kraju naslov, ki je zapisan enkrat golo in enkrat z vašim pripisom za njim (<em>Breg ob Savi 26</em> in <em>Breg ob Savi 26 (pd Mlinar)</em>), pod enim od dveh imen ulice, ki ju nosi (<em>Labore 4</em> in <em>Labore 4 / Škofjeloška 4</em>), ali s krajše zapisano ulico (<em>Kidričeva 38</em> namesto <em>Kidričeva cesta 38</em>). Skromnejša vrstica potem pove, kaj bi postala, <strong>Združi</strong> pa ta zapis zapiše na njegove dogodke, da sta vrstici spet en naslov, kar sta od nekdaj bili; oznaka ob gumbih stanja seznam zoži na te pare, obe polovici vsakega. Gre za predlog in ne za razsodbo — polnejši zapis je ponujen zato, ker pove več, a če <em>26</em> združite v <em>26 (pd Mlinar)</em>, dobijo vaš pripis tudi dogodki, ki ga niso nosili; kadar tega nočete, preimenujte v nasprotno smer z <span class="gm-glyph">✎</span>.
             </p>
             <p>
-              <strong>Več naslovov na eno koordinato…</strong> v glavi skupine je za hiše, na katere noben register ne odgovori — staro vaško oštevilčenje, domačija, ki je ni več: označite naslove, izberite eno lego (dovolj je središče vasi, prva ponudba pa je koordinata, ki jo datoteka vodi pri tem kraju) in prevzamejo jo vsi označeni naslovi. Na začetku je označen ves kraj; polje <em>Se začne z</em> zoži izbor na naslove, ki se začnejo z vpisanim besedilom — <em>Stražišče 11</em> zajame obe domačiji te hišne številke — oznake pa ostanejo vidne, tako da pred prevzemom preberete, kaj je zajel. Vpisano besedilo je tudi tisto, kar poizvedba v tem oknu vpraša — <em>Stražišče</em> pod Kranjem išče Stražišče in ne Kranja — zato ponujena lega ustreza prav naslovom, ki jih označujete. Izbire so pripravljene kot vse druge, zato jih <strong>Zapiši koordinate</strong> potrdi za celo vas z eno potezo razveljavitve.
+              <strong>Več naslovov na eno koordinato…</strong> v glavi skupine je za hiše, na katere noben register ne odgovori — staro vaško oštevilčenje, domačija, ki je ni več: označite naslove, izberite eno lego (dovolj je središče vasi, prva ponudba pa je koordinata, ki jo datoteka vodi pri tem kraju) in prevzamejo jo vsi označeni naslovi. Na začetku je označen ves kraj; polje <em>Se začne z</em> zoži izbor na naslove, ki se začnejo z vpisanim besedilom — <em>Stražišče 11</em> zajame obe domačiji te hišne številke — oznake pa ostanejo vidne, tako da pred prevzemom preberete, kaj je zajel. Vpisano besedilo je tudi tisto, kar poizvedba v tem oknu vpraša — <em>Stražišče</em> pod Kranjem išče Stražišče in ne Kranja — zato ponujena lega ustreza prav naslovom, ki jih označujete. Izbire so pripravljene kot vse druge, zato jih <strong>Zapiši koordinate</strong> potrdi za celo vas v enem koraku.
             </p>
             <p>
-              Naslov, njegova oznaka kraja in lega, ki jo nosi, so en sam gumb: klik kamor koli nanje odpre okno za koordinate — zemljevid za izbiro, poizvedbo v registru in ročni vnos skupaj. Pripravljena vrstica nato pove, kam njena oznaka zdaj kaže — naslov iz registra, <em>iz te datoteke</em>, <em>ročno</em> — tako da celo vas, umeščeno v eni potezi, preberete s seznama in ne oznako za oznako. Koordinata, ki jo ponudi register, s klikom odpre zemljevid kraja na njej. Povezava do registra je izpisana ob tej legi in izgine, ko poizvedba dobi odgovor — pa naj ste vprašali iz vrstice ali v oknu za koordinate, katerega poizvedba svoje naslove prav tako izpiše tukaj; ob preimenovanju naslova se spet pokaže.
+              Naslov, njegova oznaka kraja in lega, ki jo nosi, so en sam gumb: klik kamor koli nanje odpre okno za koordinate — zemljevid za izbiro, poizvedbo v registru in ročni vnos skupaj. Pripravljena vrstica nato pove, kam njena oznaka zdaj kaže — naslov iz registra, <em>iz te datoteke</em>, <em>ročno</em> — tako da celo vas, umeščeno v eni potezi, preberete s seznama in ne oznako za oznako. Koordinata, ki jo ponudi register, s klikom odpre zemljevid kraja na njej. Povezava do registra je izpisana ob tej legi in izgine, ko poizvedba dobi odgovor — pa naj ste vprašali iz vrstice ali v oknu za koordinate, katerega poizvedba svoje naslove prav tako izpiše tukaj; ob preimenovanju naslova se spet pokaže. V oknu se obe poizvedbi vedeta enako: odgovori so oštevilčeni v vrstici in na njenem zemljevidu, povezava, ki je odgovorila — z zadetki ali brez njih, saj bi drugi klik isto storitev vprašal isto — pa se umakne najdenemu ali opombi, da ni našla ničesar.
             </p>
             <p>
               Ob njej stoji <strong>Išči na OpenStreetMap</strong> kot rezerva registra in edina poizvedba za vrstice, ki jih register sploh ne more sprejeti: po en naslov naenkrat — storitev dovoli eno poizvedbo na sekundo, zato skupinske poizvedbe ni — njeni zadetki pa se pridružijo registrovim v istem seznamu predlogov, vsak z oznako <span class="gm-data">OSM</span>, <span class="gm-data">GURS</span> ali <span class="gm-data">DGU</span>, od kod je. OpenStreetMap na ime odgovori z vsem, kar ga nosi — <em>Huje</em> so predel, ulica, poimenovana po njem, in dovozna pot z nje, vse pod eno in isto vrstico — zato vsak zadetek pove tudi, kaj je, in vsak je oštevilčen — številka je izbirni gumb vrstice, zato ga s klikom nanjo prevzamete. Klik na koordinato katerega koli zadetka odpre okno za koordinate te vrstice z vsemi na enem zemljevidu pod istimi številkami: katera od treh enakih vrstic je hiša, odgovori le zemljevid. Zadetek, ki ne imenuje nobenega dela iskanega naslova — OpenStreetMap ujame hišno številko v sosednji vasi, <em>Čirče 5</em> odgovori s hišo v Bregu ob Savi — je označen z <em>v kraju Breg ob Savi</em> in se umakne pod tiste, ki se ujemajo; kadar se ne ujema nobeden, se ulica ali zaselek poišče brez številke, saj je njegova lega tu vredna več kot tuja domača vrata.
             </p>
             <p>
-              In kot vrstica kraja tudi vsak naslov nosi število svojih
-              oseb: ob prehodu z miško pokaže imena, klik pa odpre osebe (s sorodstvom, kjer je vključeno), vsaka je
-              povezava v urejanje.
+              In kot vrstica kraja tudi vsak naslov nosi število svojih oseb: ob prehodu z miško pokaže imena, klik pa odpre osebe (s sorodstvom, kjer je vključeno), vsaka je povezava v urejanje. Isto število nosi nad njimi tudi kraj, in sicer za vso vas: vsako osebo z naslovom v njej šteje enkrat, pa naj ima v njej eno hišo ali pet, in odgovori na isti klik, naj bo skupina odprta ali zaprta.
             </p>
             <p>
               Vrstica je en naslov in ne en zapis: kadar datoteka isti naslov piše na več načinov — recimo isto številko pod
@@ -1551,8 +1718,12 @@
               koordinato ciljnega kraja — na tisto iz ponudbe imenika ali na tisto, ki jo datoteka pri tem kraju že
               vodi. Če je ne pozna ne ena ne druga, obdržijo koordinato, ki so jo imeli, tako da premik nikoli ne pusti
               dogodka brez položaja. Odstrani se le oznaka <code>_GOV</code>, ker imenuje kraj, ki so ga dogodki pravkar
-              zapustili. En korak, ki ga je mogoče razveljaviti, tako kot vsak drug poseg orodij. Okno se odpre že
-              izpolnjeno s tem, kar predlagajo naslovi sami.
+              zapustili. En korak, tako kot vsak drug poseg orodij. Okno se odpre že
+              izpolnjeno s tem, kar predlagajo naslovi sami. Kadar pa je kraj le napačno zapisan in ne skriva tujih
+              hiš, ga z ikono <span class="gm-glyph">✎</span> ob imenu preimenujete v vseh dogodkih, ki navajajo točno
+              to vrednost — tako v tistih z naslovom kot v vseh drugih — enako kot pri preimenovanju na zavihku
+              <strong>Kraji</strong>; skupina z oznako <em>v kraju</em> take vrednosti nima, zato ikone
+              <span class="gm-glyph">✎</span> ne pokaže.
             </p>
             <p>
               Pri slovenskih krajih odloči register. Kadar hišne številke pod navedenim naseljem ni, se poišče še kot
@@ -1568,11 +1739,11 @@
               To pomeni, da ima lahko eno naselje pri različnih dogodkih različne koordinate, kar je pravilno: dva naslova v
               Kranju sta dva kraja. Različnih naslovov zato nikoli ne prijavi; prava napaka je <strong>isti kraj in isti
               naslov</strong> z dvema različnima koordinatama, in razdelek <strong>Isti kraj in naslov z različnimi
-              koordinatami</strong> jih našteje na vrhu te strani. Razprite vrstico za zemljevid njenih koordinat, kjer je
-              vsak krogec oštevilčen s številom dogodkov na njem — dvanajst pri cerkvi in eden dva kilometra stran je
-              tipkarska napaka in ne druga cerkev. Izberite pravi krogec (ali njegov izbirni gumb) in
-              <em>Uporabi to koordinato za vseh N dogodkov</em> vanjo prepiše vse dogodke tega kraja in naslova, v enem
-              koraku, ki ga je mogoče razveljaviti. Kadar ni prava nobena — porodnišnica, zapisana pri treh različnih
+              koordinatami</strong> jih našteje na vrhu te strani. Razprite vrstico za zemljevid njenih koordinat, kjer vsak krogec
+              nosi številko svoje vrstice v seznamu pod njim, kjer je pri vsaki vrstici zapisano tudi število dogodkov na tisti
+              koordinati — dvanajst pri cerkvi in eden dva kilometra stran je
+              tipkarska napaka in ne druga cerkev. Izberite pravi krogec (ali njegovo številko v seznamu) in
+              <em>Uporabi to koordinato za vseh N dogodkov</em> vanjo prepiše vse dogodke tega kraja in naslova, v enem koraku. Kadar ni prava nobena — porodnišnica, zapisana pri treh različnih
               ugibanjih, ni nobeno od njih — kliknite kamor koli na zemljevidu ali koordinato vnesite oziroma prilepite,
               in ta postane izbrana. Tudi dopolnjevanje koordinat v <a href="#tools">Pregledu</a>
               kopira samo znotraj enega naslova, zato se lega naslova ne more razširiti po naselju.
@@ -1637,7 +1808,7 @@
               ničesar, dokler znova ne izberete; ime, ki ustreza več krajem, pa počaka na vašo izbiro z okroglim gumbom,
               saj je prav izbira med njimi celotno vprašanje. <strong>Prevzemi</strong> nato preimenuje vse
               navedbe v izbrano možnost (in naslov preseli, kadar je to odgovor), <strong>Prevzemi uradna imena</strong>
-              nad seznamom pa opravi vse vrstice z odgovorom naenkrat, v enem koraku, ki ga je mogoče razveljaviti.
+              nad seznamom pa opravi vse vrstice z odgovorom naenkrat, v enem koraku.
               Izbira, ki je že zapisana natanko tako kot v vaši datoteki, nima česa preimenovati, zato vrstica namesto
               tega ponudi <strong>Zapiši koordinato</strong>: v datoteko se zapiše lega izbranega kraja, izbira med
               istoimenskimi kraji pa je s tem zabeležena.
@@ -1647,11 +1818,15 @@
               preimenovanje na seznamu krajev. Dopolnjuje se iz krajev vaše datoteke <em>in</em> iz imenikov —
               <strong>Poišči ta kraj v imenikih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
               zapiše, pa tudi umesti tja, kamor kažejo imeniki: k naslovu, kadar je ta imenovan in ga preneseni register
-              pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Popravek se zapiše takoj in ga je mogoče
-              razveljaviti; odgovorom, ki čakajo nad njim, se ne pridruži: tam je beseda imenika, tu vaša. <strong>Pokaži na
-              zemljevidu</strong> — ali klik na koordinato katerega koli odgovora — odgovore nariše kot oštevilčene
-              oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
-              daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
+              pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Popravek se zapiše takoj; odgovorom, ki čakajo nad njim, se ne pridruži: tam je beseda imenika, tu vaša. <strong>Pokaži
+              zemljevid</strong> — ali klik na koordinato katerega koli odgovora — odpre isto okno za koordinato, kot ga
+              odpirata druga dva seznama: odgovori so v njem oštevilčene oznake, kjer je številka na oznaki ista kot ob
+              vrstici, ob njih pa lega, ki jo kraju daje datoteka, kot tisto, kar kraj drži zdaj. Kateri od šestih
+              enakoimenskih krajev je vaš, odgovori le zemljevid. Klik na oznako odgovora izbere ta odgovor, prav tako
+              kot njegov krogec. Lega, ki je register ni ponudil — vpisana, vzeta z zemljevida ali najdena z iskanjem v
+              oknu — je vaša presoja o tem, kje kraj stoji, zato se za ta zapis kraja zapiše takoj, preimenuje pa se
+              nič; gumb <strong>Odstrani</strong> jo spet vzame. Tako pride na zemljevid tudi vas, ki je noben imenik ne
+              pozna. <strong>Poišči
               širše</strong> doda kraje, katerih ime zapisano ime le <em>vsebuje</em> — <em>Bela</em> najde Spodnjo,
               Srednjo in Zgornjo Belo — in take, ki mu je ime le <em>podobno</em>, kar je edini način, da se najde
               napačen zapis: <em>Mrkopolje</em> najde registrski <em>Mrkopalj</em>, do katerega iskanje po zapisu ne
@@ -1683,8 +1858,8 @@
               določite lego prav tega dogodka, na lastnem majhnem zemljevidu: prevzamete koordinato, ki jo datoteka za ta
               naslov ali kraj že uporablja, naslov poiščete v registru, <strong>iščete na spletu</strong> (OpenStreetMap — za
               naslov zunaj Slovenije, ki ga register ne pokriva), koordinato vnesete ali prilepite, ali pa obstoječo
-              odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam v Orodjih ponuja le kraje, ki
-              koordinate sploh nimajo. Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
+              odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam za geokodiranje ponuja le
+              kraje, ki koordinate sploh nimajo (do že določenih pridete v drevesu <a href="#places">Kraji</a>). Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
               ponudi — privzeto obkljukano — da se izbrana koordinata zapiše na vse te dogodke, saj ima en naslov en
               položaj; če kljukico odstranite, koordinato dobi samo ta dogodek. Ponudba velja tudi, kadar ti dogodki koordinato že
               imajo — tako celoten naslov naenkrat prestavite na boljši položaj. (Prenos je svoj korak razveljavitve: prva
@@ -1707,8 +1882,8 @@
             <p>
               En sam gumb <strong>Diagrami</strong> (<span class="gm-key">V</span>) — v orodni vrstici Urejanja, na
               ikoni diagramov v glavi osebe ali v podoknu vozlišča v Primerjalnem drevesu — odpre celozaslonsko stran
-              z diagrami za izbrano osebo. Vrstica zavihkov preklaplja med osmimi vrstami (številke
-              <span class="gm-key">1</span>–<span class="gm-key">8</span> odprejo posamezno neposredno); GED Merge si
+              z diagrami za izbrano osebo. Vrstica zavihkov preklaplja med devetimi vrstami (številke
+              <span class="gm-key">1</span>–<span class="gm-key">9</span> odprejo posamezno neposredno); GED Merge si
               zapomni nazadnje uporabljeno. Vsaka zamenjava korena — <strong>Nastavi kot koren</strong> v podoknu
               vozlišča, značka <span class="gm-badge rep">+7</span>, zadetek iskanja zunaj diagrama — šteje kot korak,
               zato se <strong>Nazaj</strong> (gumb ali brskalnikov) vrača po osebah, na katere ste diagram postavili,
@@ -1731,6 +1906,9 @@
                 prek skupnega prednika. S klikom na <span class="gm-glyph">✎</span> ob enem koncu zamenjate to osebo,
                 s klikom na vozlišče ga postavite v središče ali ga odprete v
                 <span class="gm-pill">Urejanju</span>.</li>
+              <li><strong>Sodobniki</strong> — vsi krvni sorodniki osebe, razporejeni po tem, kako blizu so si v
+                sorodstvu, in omejeni na tiste, ki so živeli v njenem času; glejte
+                <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Zemljevid</strong> — vsi dogodki veje, katerih kraj nosi koordinate, združeni v skupine na
                 pravem zemljevidu, z izbirnimi zgodovinskimi sloji in življenjskimi potmi; glejte <a href="#map">spodaj</a>.</li>
               <li><strong>Poročilo</strong> — besedilno poročilo, seznam prednikov ali potomcev; glejte
@@ -1766,6 +1944,9 @@
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
                 piko) in skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj).</li>
+              <li><strong>Barva</strong> in <strong>Imena</strong> (samo Sodobniki) — kaj pove barva osebe
+                (<em>Rod</em>, <em>Družinska veja</em> ali <em>Živi</em>) in ali so najbližji sorodniki na diagramu
+                poimenovani; glejte <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Dejstva</strong> in <strong>Zgradba</strong> (samo Poročilo) — glejte
                 <a href="#reports">spodaj</a>.</li>
               <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
@@ -1806,7 +1987,9 @@
             <p>
               Z <strong>gumbi za povečavo</strong> povečate ali pomanjšate, ponastavite na 100 % ali prilagodite cel
               diagram zaslonu; veliki diagrami prikažejo tudi pregledno sličico — s potegom po platnu se premikate (na
-              zaslonu na dotik povečujete s ščipom z dvema prstoma).
+              zaslonu na dotik povečujete s ščipom z dvema prstoma). Z <strong>dvojnim klikom</strong> kamor koli po
+              platnu povečate prav na tistem mestu, tako kot na zemljevidu, s <span class="gm-key">Shift</span> in
+              dvojnim klikom pa spet pomanjšate; dvojni klik na osebo jo odpre, enako kot en sam klik.
               Vsaka vrsta ima meni <strong>Izvoz</strong>, ki se vedno začne z <strong>GEDCOM</strong>: ta prenese
               samo osebe, trenutno izrisane v diagramu, kot samostojno datoteko, ki jo lahko kdo drug združi v svoje
               drevo. Kar sledi, je odvisno od vrste: diagrami ponudijo <strong>Sliko SVG</strong> (ostro, neskončno
@@ -1864,6 +2047,62 @@
               brez znanega konca (smrt ni zabeležena) se proti koncu zoži — do zadnjega datiranega dogodka ali do danes,
               če za osebo sklepamo, da še živi.
             </p>
+            <h3 id="contemporaries">Sodobniki</h3>
+            <p>
+              Vrsta <strong>Sodobniki</strong> odgovori na vprašanje, na katerega rodovniški diagrami ne morejo:
+              <em>kdo vse so moji krvni sorodniki, kako blizu smo si in kateri od njih so živeli v istem času kot
+              jaz?</em> Diagram izriše vsakega sorodnika, do katerega vodijo same rojstne vezi — brez svaštva in brez
+              krušnih sorodstev — privzeto pa obdrži samo tiste, katerih življenje se prekriva z življenjem izbrane
+              osebe.
+            </p>
+            <p>
+              Osnovna mera je <strong>krvna razdalja</strong>: število rojstnih vezi med dvema osebama. Starš ali otrok
+              je 1, brat ali sestra in stari starš 2, stric ali nečak 3, bratranec 4, bratranec v 2. kolenu pa 6. To ni
+              isto kot štetje rodov — brat je od vas <em>bolj oddaljen</em> kot oče, saj pot do njega vodi navzgor do
+              staršev in nazaj navzdol — in prav v tem je smisel: samo štetje rodov postavi vse bratrance vseh kolen na
+              isto mesto, v resničnem rodovniku pa gre za več sto oseb.
+            </p>
+            <p>
+              <strong>Kolo</strong> postavi izbrano osebo v središče, oddaljenost od središča pa pomeni krvno razdaljo:
+              najbližji sorodniki so ob sredini, bratranci v 6. kolenu čisto na robu. Krog je razdeljen na izseke, po
+              enega za vsako <strong>vejo starih staršev</strong> — očetova kri je na levi, materina na desni, v vsaki
+              polovici pa je veja starega očeta nad vejo stare matere. Velikost izseka pove, koliko sorodnikov nosi,
+              zato se že na prvi pogled vidi, katero četrtino družine rodovnik v resnici pokriva. Starši, bratje in
+              sestre, otroci in nečaki ne izhajajo iz ene same veje starih staršev, zato si delijo izsek na vrhu. En
+              obroč združuje obe smeri hkrati (razdalja 1 so vaši starši <em>in</em> vaši otroci), pri čemer starejši
+              rod sedi na notranji vrstici obroča, mlajši pa na zunanji. Oznake obročev tečejo po vrzeli na dnu,
+              najbližji sorodniki pa so poimenovani na diagramu, kolikor jih gre brez prekrivanja.
+            </p>
+            <p>
+              <strong>Trakovi</strong> izrišejo iste osebe kot trakove življenjske dobe na letni osi, razvrščene v
+              pasove po krvni razdalji, za vsem skupaj pa stoji obarvan stolpec življenja izbrane osebe. Vrstice
+              najbližjih sorodnikov so dovolj visoke za ime in letnici, tisoči oddaljenih bratrancev pa so tanke črtice.
+              Letna os in vrstica same izbrane osebe ostaneta pripeti na vrhu, kakor daleč se pomaknete navzdol, saj se
+              vsak drug trak bere prav v razmerju do tega življenja.
+            </p>
+            <p>
+              Pod krmilnimi gumbi je <strong>barvni ključ</strong> z eno postavko za vsako skupino na trenutni
+              barvni osi in z njenim številom, vsaka postavka pa je hkrati njeno stikalo: s klikom nanjo tisti
+              rod, družinsko vejo ali stanje odstranite z diagrama. Postavitev se izriše iz vseh oseb, zato
+              skrivanje ene veje ne premakne izsekov okoli nje. V kolesu so oznake obročev napisane kar po
+              obročih; obroč, ki je preblizu središča, da bi bilo prostora za besede, pokaže samo svojo
+              številko — z miško nad njo se izpiše celotno sorodstvo.
+            </p>
+            <p>
+              <strong>Kdo</strong> preklaplja med <em>Sodobniki</em> in <em>Vsemi krvnimi sorodniki</em>. Vklopite
+              <strong>Živi v letu</strong> in povlecite letnico, da potemnijo vsi, ki se takrat še niso rodili ali jih
+              ni bilo več — osebe ostanejo na svojih mestih, zato se val tega, kdo je bil takrat tu, bere kot gibanje
+              in ne kot ponovno risanje diagrama. <em>Rodovi</em> (<a href="#charts">§11</a>) tu omejijo krvno razdaljo,
+              <em>Skrij žive osebe</em> (<a href="#privacy">§18</a>) pa vzame imena vsem, za katere se sklepa, da so
+              žive, njihova znamenja pa pusti na diagramu, saj obroč in izsek sama po sebi ne izdata ničesar.
+            </p>
+            <p>
+              Datumi, ki v datoteki manjkajo, se dopolnijo enako kot povsod drugod v programu GED Merge: rojstvo se
+              oceni po sorodnikih okoli osebe, nezabeležena smrt pa se zapre sto let po rojstvu — to je isto obdobje,
+              po katerem za osebo ne velja več, da je še živa. Ko z miško postojite nad znamenjem, se izpišejo ime,
+              natančno sorodstvo z osebo v središču in letnici; s klikom nanj se odpre podokno osebe, iz katerega
+              lahko diagram postavite nanjo ali jo odprete v <span class="gm-pill">Urejanju</span>.
+            </p>
             <h3 id="map">Zemljevid</h3>
             <p>
               Vrsta <strong>Zemljevid</strong> izriše vsak dogodek izbrane veje, katerega kraj nosi koordinate
@@ -1885,7 +2124,8 @@
               <li><strong>Osnovni zemljevid</strong> — podlaga, na katero se rišejo vsi zemljevidi; izberete jo v
                 <a href="#workspace"><strong>Nastavitve → Zemljevid → Osnovni zemljevid</strong></a>. Pet jih ne
                 potrebuje računa: privzeti
-                enostavni slog <em>CARTO</em>, ki sledi svetli ali temni temi; navadni <em>OpenStreetMap</em>, ki
+                enostavni slog <em>CARTO</em>, dovolj zadržan, da ostane najbolj vidno tisto, kar je vrisano
+                nanj; navadni <em>OpenStreetMap</em>, ki
                 navaja največ zaselkov, kmetij, kapelic in pokopališč; <em>reliefna</em> karta, katere plastnice in
                 senčenje pokažejo dolino, v kateri je družina ostala, in greben, ki je ločeval dve župniji; ter
                 Esrijev <em>satelitski</em> in <em>topografski</em> pogled — prvi odgovori, ali hiša še stoji, drugi
@@ -2081,7 +2321,7 @@
               diska…</strong> v izbirniku — datoteka, ki je še ni v mapi, se najprej kopira vanjo (brskalnik enkrat na sejo
               vpraša za dovoljenje za pisanje). V pregledovalniku je plošča s podatki
               <strong>uredljiva</strong>: spremenite fotografiji <strong>naslov</strong>, <strong>datum</strong> (datum,
-              ki ga slika prikazuje), <strong>kraj</strong> in <strong>opis</strong> — vsako polje se shrani, ko ga zapustite, in se pridruži običajni zgodovini razveljavi/ponovi. <strong>⛶ Označi območje osebe</strong> (pod
+              ki ga slika prikazuje), <strong>kraj</strong> in <strong>opis</strong> — vsako polje se shrani, ko ga zapustite, tako kot vsako drugo urejanje. <strong>⛶ Označi območje osebe</strong> (pod
               polji) omogoča, da na skupinski fotografiji z vlečenjem narišete pravokotnik, ki označi to osebo — postane
               njena sličica in poudarjeno območje zgoraj. Ikona <span class="gm-glyph">×</span> odstrani
               fotografijo z osebe; slikovna datoteka na disku ostane.
@@ -2122,10 +2362,34 @@
               celotno navedbo ali samo URL: GED Merge, kjer lahko, pridobi naslov strani in zazna, kdaj se vaša navedba
               <strong>ujema z obstoječim virom</strong> v datoteki, ter doda novo stran k njemu, namesto da bi ustvaril
               dvojnik. Po potrebi izpolnite strukturirana polja — naslov, avtor, periodika/zbirka, založnik, ustanova,
-              arhivska številka, stran, URL in opomba. Okno potrdite s kombinacijo
+              arhivska številka, stran, kakovost citata, URL in opomba. Okno potrdite s kombinacijo
               <span class="gm-key">Ctrl</span><span class="gm-key">Enter</span> (na Macu
               <span class="gm-key">⌘</span><span class="gm-key">Enter</span>) iz katerega koli polja, tudi iz polja za
               lepljenje; v enovrstičnih poljih zadostuje tipka <span class="gm-key">Enter</span>.
+            </p>
+            <p>
+              Polja so razdeljena po zapisu, v katerega se pišejo, napis med dvema črtama pa ga imenuje. Polja
+              samega vira stojijo na vrhu, pod naslovom okna; pod njimi razdelek <strong>Kje se hrani</strong>
+              imenuje hrambo knjige, razdelek <strong>Navedba</strong> opiše to eno sklicevanje nanjo, razdelek
+              <strong>Povezava</strong> pa sliko strani, ki jo to sklicevanje odpre — v datoteki so to zapis
+              <em>SOUR</em> z <em>REPO</em>, oznaki <em>PAGE</em> in <em>QUAY</em> pri osebi ali dogodku ter zapis
+              <em>OBJE</em>. Delitev je vredno
+              poznati: naslov, ki ga spremenite v razdelku Vir, se spremeni v vseh drugih navedbah iste knjige, stran,
+              ki jo spremenite v razdelku Navedba, pa se spremeni samo v navedbi, ki ste jo odprli.
+            </p>
+            <p>
+              Poleg strani stoji <strong>kakovost citata</strong> — kako dobri so dokazi, na katerih stoji prav ta
+              navedba. V datoteko se zapiše kot vrednost <em>QUAY</em> in ima štiri stopnje:
+              <em>3 – primarni vir</em> za fotografirano stran matične knjige, <em>2 – sekundarni vir</em> za kazalo,
+              nagrobnik ali časopisno poročilo, <em>1 – vprašljivo</em> za rodovnik, ki ga je sestavil drug raziskovalec,
+              in <em>0 – nezanesljivo / ocenjeno</em>. Vrednost opisuje navedbo in ne vira, zato lahko dve osebi,
+              navedeni iz iste knjige, ocenite različno. Pri prepoznani povezavi je ena od stopenj že izbrana: za
+              skenirano stran z Matricule ali sliko filma s FamilySearcha je to <em>3</em>, za posamezen zapis iz
+              kazala, stran groba ali osmrtnico <em>2</em>, za tuj rodovnik <em>1</em>. Stopnjo pred shranjevanjem
+              potrdite, spremenite ali izbrišete; če polje ostane prazno, se <em>QUAY</em> sploh ne zapiše. Ko odprete
+              obstoječo navedbo, vidite stopnjo, ki jo nosi, in tako popravite presojo izpred let. Isto vprašanje
+              postavi tudi orodje <a href="#organize">Uredi vire</a> (<a href="#tools">§10</a>) za navedbe, ki jih
+              zapiše.
             </p>
             <p>
               Dodaj vir <strong>prepozna arhivske povezave</strong> tako kot <a href="#tools">Uredi vire</a>: prilepite
@@ -2409,7 +2673,7 @@
                 <tr><td><span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span></td><td>Lega: koordinate, kjer koli so izpisane, in hišni naslovi, ki jim pripadajo. Medla, dokler ni nič umeščeno, zelena, ko je</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte <a href="#privacy">§18</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. odznači skupino »Odstrani sklice« v Uredi vire</td></tr>
-                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo (razveljavljivo s Ctrl+Z do prenosa) ali označi povezave za odstranitev</td></tr>
+                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo ali označi povezave za odstranitev</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Prejšnja / naslednja fotografija v pregledovalniku</td></tr>
               </tbody>
             </table>
@@ -2484,7 +2748,11 @@
                 <tr><td><span class="gm-key">V</span></td><td>Odpri diagram osebe (drevo, mreža, pahljača, krog)</td></tr>
                 <tr><td><span class="gm-key">S</span></td><td>Odpri diagram sorodstva</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Pojdi na izhodiščno osebo (Urejanje)</td></tr>
-                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Nazaj — prejšnja oseba (Urejanje) ali izhod iz strani z diagramom; kombinacija deluje tudi iz polja, ki ga urejate</td></tr>
+                <tr><td><span class="gm-key">⌥</span><span class="gm-key">↑</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↑</span></td><td>Odpri očeta · mater (Urejanje)</td></tr>
+                <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega brata ali sestro, po rojstvu (Urejanje)</td></tr>
+                <tr><td><span class="gm-key">⌥</span><span class="gm-key">↓</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span></td><td>Odpri najstarejšega · najmlajšega otroka (Urejanje)</td></tr>
+                <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega partnerja (Urejanje)</td></tr>
+                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Nazaj — prejšnja stran v Urejanju (prejšnja oseba ali seznam v Orodjih, s katerega ste jo odprli) ali izhod iz strani z diagramom; kombinacija deluje tudi iz polja, ki ga urejate</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Dodaj novo osebo (brez povezav)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Odpri meni <strong>+ Dodaj dogodek</strong> (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Dodaj hitri dogodek odprti osebi (Urejanje) — gumbi pod seznamom dogodkov, v njihovem vrstnem redu</td></tr>

@@ -93,6 +93,67 @@
           </section>
 
           <section class="changelog-entry">
+            <h2>2026-08-30</h2>
+            <ul>
+              <li><strong>A new Contemporaries chart shows every blood relative by how close they are</strong> — the wheel puts you at the centre with the distance out measuring birth links (a parent 1, a sibling 2, an uncle 3, a first cousin 4) and each wedge one of your grandparent lines, while Bars draws the same people as lifespan bars banded by that distance, both opening on the relatives whose lives overlapped your own.</li>
+              <li><strong>The Places tree places a place</strong> — a row's coordinate, or the faint pin where it has none, opens the full coordinate panel with its map, its register and OpenStreetMap searches and its typed entry, and writes, changes or clears the position of every record written at that place.</li>
+              <li><strong>All three place tools open one coordinate screen</strong> — the geocoding worklists and the naming check now open the same panel the Edit events do, so a village no directory knows can be positioned from the naming check itself.</li>
+              <li><strong>The Places tree's rename box completes from your file and the registers</strong> — a value naming no country can be renamed onto a place your file already writes, or onto a directory's answer, which brings its whole chain and its coordinate with it.</li>
+              <li><strong>A street written as a place is split into a place and an address</strong> — where every record under a row writes the same value, the tree's rename box carries an Address field beside the place, so “?/Grosova ulica 18” becomes Kokrica, Kranj, Slovenia with the street on the event's own address line.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-29</h2>
+            <ul>
+              <li><strong>The books are read while you review, not when you save</strong> — the page of a source a confirmed match will need is fetched from the moment you confirm it, so the save opens its preview at once instead of waiting for the network.</li>
+              <li><strong>A cemetery source lands on the burial it documents</strong> — it is reviewed under the burial the incoming record brings, even where your file has none of its own yet, and a grave link from a matches CSV arrives on that burial already.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-28</h2>
+            <ul>
+              <li><strong>A merged link is written like a pasted one</strong> — the citation it becomes now carries the cited page's image and the site's own evidence quality, and with online lookups allowed a source minted for it is named from the book's own page rather than from the address.</li>
+              <li><strong>A merge brings the couple's own sources across</strong> — the sources and links an incoming family record carries are reviewed under that family, and a marriage register's page lands on the couple's own marriage.</li>
+              <li><strong>An incoming place is read from the house it names</strong> — a value that leads with the parish instead of the settlement is placed at the settlement your file knows that house by, and the parish is kept as the event's agency.</li>
+              <li><strong>The Agency field completes from the ones your file already names</strong> — the parishes and offices its events record are offered as you type.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-25</h2>
+            <ul>
+              <li><strong>A citation records how good its evidence is</strong> — Add Source and Edit Source carry the quality beside the page, and a recognized link proposes it: a register scan as primary evidence, an index or a grave page as secondary, another researcher's tree as questionable.</li>
+              <li><strong>The source dialogs show which record each field is written to</strong> — the source's own fields lead, and captions name the blocks under them — Where it is kept, Citation, Link — so it is plain which record a change reaches.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-23</h2>
+            <ul>
+              <li><strong>The Address box in the places list searches the address register</strong> — it completes from the houses your file already writes at that place, and reaches what a directory of settlements cannot hold: a house number, or a quarter of a town the register files as a street inside it.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-22</h2>
+            <ul>
+              <li><strong>Organize sources puts register pages where they belong.</strong> Where your file shows a page beside the fact it documents, the list now names every citation missing its page and every page its own book does not hold, and one step fixes both.</li>
+              <li><strong>The source lists are tabs with a filter of their own.</strong> Duplicates, repositories, sources and pages each get a tab and a search box, which — like the geocoding one — also finds the rows for a person by name.</li>
+              <li><strong>An address goes from every event at its house in one step.</strong> Empty the rename box on an address in the geocoding list and its button offers <em>Remove address</em>, so an address that only repeats the settlement it stands in no longer has to be cleared person by person.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-21</h2>
+            <ul>
+              <li><strong>A link brought in by a merge becomes a real source.</strong> The link gets a source record with its page image, and the citation is attached to the event its register documents — a grave index to the burial, a death notice to the death — when your file already has that event and keeps its citations there.</li>
+              <li><strong>Arrow keys walk the family in Edit.</strong> Hold <span class="gm-key">⌥</span> and press an arrow to open the father, a child or a sibling — with <span class="gm-key">⇧</span> the mother, the youngest child or a partner.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
             <h2>2026-08-20</h2>
             <ul>
               <li><strong>A FamilySearch record page can be traded for the image behind it.</strong> Paste the image's link into a source's <span class="gm-glyph">✎</span> editor and the collection, archive, film and image number fill the fields, while applying points the media in your file at that image — and a page nothing but its own link names waits unticked until you give it one.</li>
@@ -161,7 +222,7 @@
             <h2>2026-08-15</h2>
             <ul>
               <li><strong>A FamilySearch image link now fills its source in by itself</strong> — paste a link to a page of a book and the collection, parish, register, years, archive and image number arrive from FamilySearch without a sign-in, the source attaches to the repository your file keeps for that collection, and where one book holds two registers you say which one the page is.</li>
-              <li><strong>Organize sources now writes into the open file</strong> — one click applies the link conversion and the duplicate merge to your file as a single undoable step, undone with Ctrl+Z and saved with everything else, instead of arriving as a separate GEDCOM download.</li>
+              <li><strong>Organize sources now writes into the open file</strong> — one click applies the link conversion and the duplicate merge to your file as a single step, saved with everything else, instead of arriving as a separate GEDCOM download.</li>
               <li><strong>Organize sources now gathers a book's pages into one source</strong> — hundreds of single-image FamilySearch links become one source per register, each link a page citation on it, as soon as the lookups say which book every page belongs to.</li>
               <li><strong>Sources can state what they cover the GEDCOM-standard way</strong> — a new GEDCOM setting writes a register's coverage as the standard's DATA structure, one entry per register of a combined book, or keeps your program's own fields, and Normalize file brings the sources you already have in line with the choice.</li>
               <li><strong>The save now accounts for every record it changes, adds or removes</strong> — the preview and the downloaded report, at last written in your language, name and count them all, and spell out what a newly added source brought with it.</li>
@@ -170,7 +231,7 @@
           <section class="changelog-entry">
             <h2>2026-08-13</h2>
             <ul>
-              <li><strong>A whole group of duplicates now merges in one go</strong> — one person entered eight times becomes a single record, with the relatives entered as often as she is folded along when you tick them, in one undoable step.</li>
+              <li><strong>A whole group of duplicates now merges in one go</strong> — one person entered eight times becomes a single record, with the relatives entered as often as she is folded along when you tick them, in one step.</li>
               <li><strong>Every health-check repair is now offered on the finding's own row</strong> — settle the ones you agree with one at a time, and see at a glance which records a batch fix would touch.</li>
               <li><strong>The health check now puts two switched spouses back in their own roles</strong> — one click for a family that holds the man as the wife and the woman as the husband.</li>
               <li><strong>A MyHeritage file now reads in plain words and keeps its own change stamps current</strong> — an unmarried couple shows as “Partners (MyHeritage)” instead of a code and a marriage as “Marriage (MARR)”, while the program's last-updated stamp leaves the event list and is instead refreshed on each record you save.</li>
@@ -264,7 +325,7 @@
           <section class="changelog-entry">
             <h2>2026-08-04</h2>
             <ul>
-              <li><strong>Place a whole village at one coordinate.</strong> Tick the addresses no register can answer — old numbering, a farm long gone — pick one position, and all of them take it in a single undoable step. Type a prefix to tick just the houses that share it.</li>
+              <li><strong>Place a whole village at one coordinate.</strong> Tick the addresses no register can answer — old numbering, a farm long gone — pick one position, and all of them take it in a single step. Type a prefix to tick just the houses that share it.</li>
               <li><strong>Every address is reviewed, not just the numbered ones.</strong> A hamlet with no house number, a house known by its farm name, an address abroad — all listed, marked <em>by hand only</em>, and placeable like the rest.</li>
               <li><strong>OpenStreetMap places the addresses the register cannot.</strong> A hamlet, a house with no number, an address abroad — search OSM from the row; hits sharing a name are told apart by what they are and by numbered pins on one map.</li>
               <li><strong>Place lookups answer in the file's own language.</strong> A file writing <em>United States</em> is answered in English, one writing <em>Slovenija</em> in Slovenian, whatever the interface language — so a register name matches the file it joins.</li>
@@ -309,7 +370,7 @@
           <section class="changelog-entry">
             <h2>2026-08-01</h2>
             <ul>
-              <li><strong>Batch actions on filtered people.</strong> In Tools, stack filters (image, age, kinship, missing event …), then attach media, cite a source, mark people deceased or convert event types across every match in one undoable step; saved filters show live counts.</li>
+              <li><strong>Batch actions on filtered people.</strong> In Tools, stack filters (image, age, kinship, missing event …), then attach media, cite a source, mark people deceased or convert event types across every match in one step; saved filters show live counts.</li>
               <li><strong>Undated people can take an estimated birth year.</strong> A new batch action writes an ABT birth date estimated from dated parents, siblings, spouse or children, previewing each person's year in the match list; re-running reaches further, through estimates already written.</li>
               <li><strong>The health check finds events outside a person's lifespan.</strong> An occupation dated before the birth, or a residence or marriage after the death, is now listed on the person; burial, cremation and probate may follow a death.</li>
               <li><strong>The health check flags the living older than 99.</strong> A person with no death record but born over 99 years ago is listed — almost always a missing death, and the batch mark-as-deceased action closes them.</li>
@@ -377,7 +438,7 @@
           <section class="changelog-entry">
             <h2>2026-07-27</h2>
             <ul>
-              <li><strong>Add a place your file has never used, from the registers.</strong> The place field on an event used to know only the places already in your file. Type one it has never seen and the list now ends with <strong>Look this place up in the registers</strong> — the imported gazetteer, and, on the online opt-in, Slovenia's address register (GURS), GOV and OpenStreetMap. Each offer arrives written the way your file writes places (same layout, separator, country spelling and number of jurisdiction levels), and picking one fills in the place, the house address when you typed a number the register recognised, and its coordinate — in one undoable step.</li>
+              <li><strong>Add a place your file has never used, from the registers.</strong> The place field on an event used to know only the places already in your file. Type one it has never seen and the list now ends with <strong>Look this place up in the registers</strong> — the imported gazetteer, and, on the online opt-in, Slovenia's address register (GURS), GOV and OpenStreetMap. Each offer arrives written the way your file writes places (same layout, separator, country spelling and number of jurisdiction levels), and picking one fills in the place, the house address when you typed a number the register recognised, and its coordinate — in one step.</li>
               <li><strong>The address field looks houses up too.</strong> Type <em>21</em> or <em>Hafnarjeva pot 21</em> in an event's address and the same row searches GURS and OpenStreetMap for that house <em>within the event's place</em>. An offer reads <em>place · address</em> and carries the settlement the register really files the house under — so where a street belongs to the town that absorbed your village, taking it corrects the place along with the address and the coordinate. Needs online lookups; house numbers are not in the offline gazetteer.</li>
               <li><strong>Split a place that hides a settlement of its own.</strong> When a file records a whole hamlet under its neighbour — every <em>Klošter 12</em> filed under <em>Gradac, Metlika, Slovenia</em>, usually because that is the post office — each place group in <em>Geocode places › Addresses</em> now offers <strong>Move to another place…</strong>: tick the addresses that belong elsewhere, name the destination, and only those events move. Renaming the whole place, which would move the events that really do belong there too, is no longer the only option.</li>
               <li><strong>The geocoding tools complete a place from the registers too.</strong> The rename box in <em>Geocode places</em> and the destination in <strong>Move to another place…</strong> are now the same place field as in Edit, so a place your file has never written can be looked up in the gazetteer, GURS, GOV or OpenStreetMap and taken whole — chain, address and coordinate. A renamed value is placed in the same step, and moved addresses land on the destination's own coordinate (the register's, or the one your file already records for it) instead of losing the coordinate they had.</li>
@@ -392,7 +453,7 @@
               <li><strong>Fit the map to what is plotted.</strong> A third button under the zoom controls frames everything currently drawn — on the Places map and the small per-person and geocoding maps alike. Marker tooltips now name the place too, with the street address for a single event.</li>
               <li><strong>The phone layout gives the screen back to your data.</strong> On a phone the frame around the content had grown larger than the content itself. The six Tools sub-tools, which filled the whole first screen as stacked cards, are now one row of chips you swipe sideways — a health check shows its first findings straight away. Chart and map pages keep a long name to two lines instead of four, scroll the chart-kind switcher rather than clipping it, and drop the page footer, so a map now gets a good deal more of the screen. Elsewhere the footer no longer sits pinned over your list — the page scrolls as one, with the header staying put and the footer arriving at the end of the content. Paddings across the app step down, and a long name no longer pushes the editor's fields off the right edge.</li>
               <li><strong>The match counter follows the filter.</strong> In Merge, the <em>‹ ›</em> arrows beside a match step through the filtered list, but the counter beside them was reading the unfiltered one — so a filter that hid everything still showed "1 of 34" next to two arrows that did nothing. The counter and the arrows now describe the same list.</li>
-              <li><strong>Copy an event to other records.</strong> An event's type dropdown now offers <strong>Copy event to…</strong>, a checkbox list of the records it can go to — people for a personal event, families for a family one, with the person's own household first. The whole event travels (date, place with its coordinate, address, notes, sources), so a newly recorded residence reaches the rest of the family in one undoable step.</li>
+              <li><strong>Copy an event to other records.</strong> An event's type dropdown now offers <strong>Copy event to…</strong>, a checkbox list of the records it can go to — people for a personal event, families for a family one, with the person's own household first. The whole event travels (date, place with its coordinate, address, notes, sources), so a newly recorded residence reaches the rest of the family in one step.</li>
             </ul>
           </section>
           <section class="changelog-entry">

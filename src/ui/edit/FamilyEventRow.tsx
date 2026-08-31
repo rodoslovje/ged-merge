@@ -17,8 +17,8 @@ const SETTINGS_KEYS = ["showAge"] as const;
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
   fam, tag, t, commit, openEditSource, openMediaLink, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusLead,
-  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, placeForms, pairCoords,
-  mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
+  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, placeCoords, placeForms, pairCoords,
+  mergeHighlight, mergeIncomingSources, mergeIncomingPageImages, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   openEditSource: OpenEditSource;
@@ -36,6 +36,8 @@ export function FamilyEventRow({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -43,6 +45,11 @@ export function FamilyEventRow({
   pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
   mergeIncomingSources?: Map<string, SourceCitation[]>;
+  /** The page images those incoming citations bring with them, where the file
+   *  keeps a cited page's image beside the citation — a marriage register's
+   *  page belongs on the couple's event just as a baptism's does on the
+   *  person's, and the merge writes it there. */
+  mergeIncomingPageImages?: Map<string, string[]>;
   /** `fam.<id>` key base resolved against the incoming pairing (see
    * `familyMergeKeyBases`); falls back to this family's own id when there's
    * no active merge preview, which is harmless since `mergeHighlight` would
@@ -98,11 +105,14 @@ export function FamilyEventRow({
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
       addrCanonical={addrCanonical}
+      agencySuggestions={agencySuggestions}
+      agencyCanonical={agencyCanonical}
       placeCoords={placeCoords}
       placeForms={placeForms}
       pairCoords={pairCoords}
       mergeHighlight={mergeHighlight}
       mergeIncomingSources={mergeIncomingSources}
+      mergeIncomingPageImages={mergeIncomingPageImages}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
       resolvedSessionFields={resolvedSessionFields}
       age={coupleAges}

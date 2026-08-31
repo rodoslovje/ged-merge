@@ -30,8 +30,14 @@ export interface PlaceUse {
    *  place is shown under its spouses but lives on neither of their records,
    *  so an edit scoped to the people would miss it entirely. */
   recordId: string;
-  /** The original `PLAC` text, shown as a tooltip on the usage. */
-  raw: string;
+  /** The original `PLAC` text — the value the file writes, which is what a
+   *  rename rewrites and what a coordinate is keyed by. */
+  plac: string;
+  /** The event's own `ADDR`, where it has one. Kept apart from the place rather
+   *  than run together with it: the pair is what the registers are asked about
+   *  and what a written coordinate is filed under, and a caller that had to
+   *  split a joined string back apart was reading a separator no one owned. */
+  addr?: string;
 }
 
 export interface PlaceNode {
@@ -246,23 +252,41 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
   const root: MutableNode = { name: "", children: new Map(), uses: [], isAddress: false, coords: new Map() };
   const distinct = new Set<string>();
   let totalUses = 0;
+  /**
+   * One decomposition per distinct value, not per mention.
+   *
+   * A file names a few hundred places over tens of thousands of events, and
+   * working out what a value decomposes to — its jurisdiction chain, its
+   * country, the house it carries — is the expensive half of this pass. The
+   * segments are read and never held, so the same array serves every mention of
+   * the value; the path key is cached with it for the same reason.
+   */
+  const paths = new Map<string, { path: PathSegment[]; key: string }>();
+  const pathOf = (mention: PlaceMention) => {
+    const cacheKey = `${mention.raw}\0${mention.addr ?? ""}\0${mention.addrOnly ? "1" : ""}`;
+    let hit = paths.get(cacheKey);
+    if (!hit) {
+      const path = placePath(mention);
+      hit = { path, key: path.map((s) => s.name).join("\0") };
+      paths.set(cacheKey, hit);
+    }
+    return hit;
+  };
 
-  const visit = (rec: GedNode, use: Omit<PlaceUse, "raw">) => {
+  const visit = (rec: GedNode, use: Omit<PlaceUse, "plac" | "addr">) => {
     const found: PlaceMention[] = [];
     collectPlaces(rec, found);
     const seenPaths = new Set<string>();
     for (const mention of found) {
       distinct.add(mention.addr ? `${mention.raw} | ${mention.addr}` : mention.raw);
       totalUses++;
-      const path = placePath(mention);
+      const { path, key: pathKey } = pathOf(mention);
       if (path.length === 0) continue;
-      const pathKey = path.map((s) => s.name).join("\0");
       if (seenPaths.has(pathKey)) continue;
       seenPaths.add(pathKey);
       let node = root;
       for (const seg of path) node = childNode(node, seg.name, seg.isAddress);
-      const raw = mention.addr ? `${mention.raw} — ${mention.addr}` : mention.raw;
-      node.uses.push({ ...use, raw });
+      node.uses.push({ ...use, plac: mention.raw, ...(mention.addr ? { addr: mention.addr } : {}) });
       // The coordinate belongs to the deepest level the mention reached: the
       // file writes one per PLAC+ADDR pair, which is exactly this node.
       if (mention.coord) {

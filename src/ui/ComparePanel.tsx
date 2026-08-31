@@ -206,6 +206,11 @@ export function ComparePanel({
 
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (forceMain) return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
+    // The event this row belongs to was taken into the file by hand in Edit,
+    // so the incoming value beside it is on screen for the record only.
+    if (row.taken) {
+      return <span className="gm-main-tag" title={t("compare.takenHint")}>{t("compare.taken")}</span>;
+    }
     // Two files naming different fathers/mothers: the merge never replaces a
     // linked parent (the disagreement is kept and listed in the save report),
     // so offering Incoming/Both here would promise what apply refuses. An

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type KinColour, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the layered-chart alignment (left→right /
@@ -33,15 +33,19 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
 /** Whose bars carry event dots on the Timeline (the timeline-only group). */
 const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
 
+/** What a dot's colour says on the Contemporaries wheel. */
+const KIN_COLOURS: KinColour[] = ["generation", "branch", "living"];
+
 /** `lockedType` pins the effective diagram type (used by the Relationship
  *  chart, which always lays out as a tree, and by the Timeline and the
- *  Ahnentafel report, and by the places map) so the right option rows show
+ *  Ahnentafel report, the Contemporaries wheel and the places map) so the
+ *  right option rows show
  *  even when the shared (persisted) type is something else. */
 export function ChartSettings({
   lockedType,
   availableGenerations,
 }: {
-  lockedType?: PedigreeType | "timeline" | "report" | "map";
+  lockedType?: PedigreeType | "timeline" | "report" | "map" | "kin";
   /** How many generations the current view actually has to offer. Passing it
    *  opts the view into the generation limit — the stepper only shows for the
    *  views that honour it, and reads "of N" against the real depth. */
@@ -142,9 +146,10 @@ export function ChartSettings({
             </div>
           )}
           {/* Per-person fields — each independent (multi-select). The report
-              always prints its facts and the map draws no node boxes, so only
-              the generation + privacy groups apply to those two. */}
-          {effectiveType !== "report" && effectiveType !== "map" && (<>
+              always prints its facts, and the map and the Contemporaries wheel
+              draw no node boxes, so only the generation + privacy groups apply
+              to those three. */}
+          {effectiveType !== "report" && effectiveType !== "map" && effectiveType !== "kin" && (<>
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">
@@ -215,6 +220,33 @@ export function ChartSettings({
                   onClick={() => set({ showResidence: !settings.showResidence })}
                 >
                   {t("tree.settings.timeline.residence")}
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Contemporaries-only: what a dot's colour says, and whether the
+              closest kin are named on the chart. */}
+          {effectiveType === "kin" && (
+            <div className="chart-settings-group">
+              <span className="chart-settings-heading">{t("kin.settings.colour")}</span>
+              <div className="chart-settings-segmented">
+                {KIN_COLOURS.map((c) => (
+                  <button
+                    key={c}
+                    className={settings.kinColour === c ? "active" : ""}
+                    onClick={() => set({ kinColour: c })}
+                  >
+                    {t(`kin.settings.colour.${c}`)}
+                  </button>
+                ))}
+              </div>
+              <div className="chart-settings-segmented chart-settings-toggles">
+                <button
+                  className={settings.kinNames ? "active" : ""}
+                  aria-pressed={settings.kinNames}
+                  onClick={() => set({ kinNames: !settings.kinNames })}
+                >
+                  {t("kin.settings.names")}
                 </button>
               </div>
             </div>
