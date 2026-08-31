@@ -463,6 +463,11 @@ export function EventFieldsRow({
   // (ordinary events show Place on the primary line, so only Address is offered).
   const addable: { key: string; label: string }[] = [
     ...(valueIsExtra ? [{ key: "value", label: t("event.colValue") }] : []),
+    // A value-event (Occupation, Education, a custom EVEN) leads with its value
+    // and keeps its date hidden until it has one, so the menu is the only way to
+    // reach it with the mouse — an ordinary event always shows its date and so
+    // filters this entry out below.
+    { key: "date", label: t("event.colDate") },
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
     { key: "agency", label: t("event.colAgency") },

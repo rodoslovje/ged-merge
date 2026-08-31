@@ -177,3 +177,43 @@ test("the picker survives the mousedown that opened it", async ({ page }) => {
   await expect(birth.locator(".relative-picker-input")).toBeVisible();
   await expect(birth.locator(".relative-picker-input")).toBeVisible(); // still there a tick later
 });
+
+test("an event added this session is named with its date in the move menu", async ({ page }) => {
+  // A record-level association — what a 5.5.1 file writes — is the only place
+  // the "move to an event" menu appears.
+  const ged = [
+    "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Janez /Renko/", "1 SEX M",
+    "1 BIRT", "2 DATE 1974",
+    "1 ASSO @I2@", "2 TYPE INDI", "2 RELA teacher",
+    "0 @I2@ INDI", "1 NAME Marjana /Sajovic/", "1 SEX F",
+    "0 TRLR", "",
+  ].join("\n");
+  const filePath = path.join(tmpdir(), `assoc-move-${Date.now()}.ged`);
+  writeFileSync(filePath, ged, "utf-8");
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(filePath);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  await page.getByRole("button", { name: "+ Add Event" }).click();
+  await page.getByRole("option", { name: "Education", exact: true }).click();
+  const educ = page.locator(".edit-event").filter({ hasText: "Education" }).first();
+
+  // A value-event keeps its date hidden until it has one, so the date is
+  // reached through the row's own "+ Add" menu.
+  await educ.locator(".edit-event-addfield").click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Date" }).first().click();
+  const date = educ.locator('[data-detail="date"] input, input[data-detail="date"]').first();
+  await date.fill("1980");
+  await date.blur();
+  await expect(date).toHaveValue("1980");
+
+  // The ↧ is revealed by hovering its row, like the ✎ and ✕ beside it.
+  const assocRow = page.locator(".edit-assoc .edit-assoc-row").first();
+  await assocRow.hover();
+  await assocRow.getByRole("button", { name: "Move to an event" }).click();
+  const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
+  expect(items).toContain("Education 1980");
+});
