@@ -586,7 +586,7 @@ export const sl = {
   "assoc.role.OTHER": "brez navedene vloge",
   // Vnos v meniju »+ Dodaj« poimenuje eno stvar, ki jo dodate; naslov razdelka
   // spodaj ostaja v množini.
-  "assoc.add": "Povezano osebo",
+  "assoc.add": "Povezana oseba",
   "assoc.pickLabel": "Koga je zapis imenoval",
   "assoc.eventLabel": "Pri katerem dogodku",
   "assoc.roleLabel": "V kateri vlogi",
