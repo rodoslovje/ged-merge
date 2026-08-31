@@ -3225,6 +3225,14 @@ button:focus-visible {
 /* Godparents and witnesses wrap like the citations beside them — a baptism may
    name several, and each is a name plus a role, not a glyph. */
 .edit-event-extra--assoc { gap: 4px; flex-wrap: wrap; }
+/* The person picker is sized for the relatives column, whose cards set their
+   own scale; dropped into an event row it inherited the page's 1rem and towered
+   over the row it belongs to. Here it reads at the row's own size. */
+.edit-event-extra--assoc .person-card-wrap {
+  width: 260px;
+  min-width: 0;
+}
+.edit-event-extra--assoc .relative-picker-list { font-size: 0.85rem; }
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */
 .edit-event-extra--note .edit-event-extra-field { min-width: 12ch; }
@@ -9095,11 +9103,31 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border: 0;
   color: var(--muted);
   cursor: pointer;
-  padding: 0 2px;
+  padding: 0;
   font-size: 0.8rem;
 }
 .edit-assoc-action:hover { color: var(--accent); }
 .edit-assoc-remove:hover { color: var(--danger); }
+/* The ✎ and ✕ are hidden until the row is hovered, like the ↗ beside a
+   citation: a baptism naming four godparents is a list of people, and eight
+   glyphs threaded between them is what it stops reading as. Hover-only rather
+   than :focus-within — a clicked control keeps focus after the pointer leaves,
+   which would pin the reveal to the last row touched; keyboard users reach them
+   through :focus-visible. */
+.edit-event-assoc .edit-assoc-action,
+.edit-assoc-row .edit-assoc-action {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+.edit-event:hover .edit-assoc-action,
+.edit-assoc-row:hover .edit-assoc-action,
+.edit-assoc-action:focus-visible {
+  max-width: 1.4em;
+  opacity: 1;
+  padding: 0 2px;
+}
 /* One associate on an event's own row: the person, their role, and the two
    actions — laid out like the row's other chips. */
 .edit-event-assoc {

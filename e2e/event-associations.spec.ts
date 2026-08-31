@@ -41,7 +41,7 @@ test("edit mode: an event's + Add menu records a godparent on that event", async
   // The baptism row's own "+ Add" menu.
   const bapm = page.locator(".edit-event").filter({ hasText: "Baptism" }).first();
   await bapm.locator(".edit-event-addfield").click();
-  await page.getByRole("option", { name: "Associations" }).click();
+  await page.getByRole("option", { name: "Association" }).click();
 
   // The person picker opens on that row — this is what did nothing before.
   const picker = bapm.locator(".relative-picker-input");
@@ -71,7 +71,7 @@ test("the picker survives the mousedown that opened it", async ({ page }) => {
 
   const birth = page.locator(".edit-event").filter({ hasText: "Birth" }).first();
   await birth.locator(".edit-event-addfield").click();
-  await page.locator(".dd-menu [role=option]", { hasText: "Associations" }).click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
   await expect(birth.locator(".relative-picker-input")).toBeVisible();
   await expect(birth.locator(".relative-picker-input")).toBeVisible(); // still there a tick later
 });

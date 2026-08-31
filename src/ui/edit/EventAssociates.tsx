@@ -1,17 +1,64 @@
-import { useState } from "react";
-import type { Association, AssocRole, GedNode } from "../../gedcom/types";
+import { useState, type ReactNode } from "react";
+import type { Association, AssocRole, Dataset, GedNode, Sex } from "../../gedcom/types";
+import { lifespanWithAge } from "../../gedcom/age";
+import { useNameOf, useSettingsSlice } from "../SettingsContext";
+import { sexClass } from "../sex";
 import type { Translate } from "../../locales/i18n";
 import { EDITABLE_ASSOC_ROLES, isVoidAssociation } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { DropdownMenu } from "../DropdownMenu";
-import { useAssoc } from "./AssocContext";
+import { useAssoc, type AssocApi } from "./AssocContext";
 
-/** The role in words: the file's own wording where it has one, else the
- *  translated name of the role it was read as. */
-export function roleLabel(assoc: Association, t: Translate): string {
-  return assoc.roleText?.trim() || t(`assoc.role.${assoc.role}`);
+/**
+ * The role in words: the file's own wording where it has one, else the
+ * translated name of the role it was read as.
+ *
+ * `sex` picks the exact word where the language has one — "boter" or "botra",
+ * godfather or godmother. Without it (an associate the file records as nobody,
+ * or one whose sex it never states) the neutral form stands.
+ */
+export function roleLabel(assoc: Association, t: Translate, sex?: Sex): string {
+  const own = assoc.roleText?.trim();
+  if (own) return own;
+  return t(`assoc.role.${assoc.role}`, { context: sex === "M" || sex === "F" ? sex : undefined });
+}
+
+/**
+ * The associate's name as the app writes it elsewhere, shown while their role
+ * is being chosen — a pick you cannot see is a pick you cannot check. Not a
+ * link: following it mid-form would abandon the form.
+ */
+export function PersonChip({
+  dataset,
+  targetId,
+  name,
+}: {
+  dataset: Dataset;
+  targetId?: string;
+  /** For an associate the file records as nobody: the typed name. */
+  name?: string;
+}) {
+  const nameOf = useNameOf();
+  const settings = useSettingsSlice(CHIP_SETTINGS);
+  const indi = targetId ? dataset.individuals.get(targetId) : undefined;
+  if (!indi) return <span className="person-label">{name}</span>;
+  const span = lifespanWithAge(indi, settings.showAge);
+  return (
+    <span className={`person-label ${sexClass(indi.sex)}`}>
+      <span className="person-name">{nameOf(indi)}</span>
+      {span && <span className="person-years gm-data">{span}</span>}
+    </span>
+  );
+}
+
+const CHIP_SETTINGS = ["showAge"] as const;
+
+/** The associate's sex, where the file records them and states it. */
+function sexOfTarget(api: AssocApi | null, assoc: Association): Sex | undefined {
+  if (!api || isVoidAssociation(assoc)) return undefined;
+  return api.dataset.individuals.get(assoc.targetId)?.sex;
 }
 
 /** Pick the role, and — for one the vocabulary has no word for — the wording to
@@ -19,11 +66,18 @@ export function roleLabel(assoc: Association, t: Translate): string {
 export function RoleForm({
   t,
   initial,
+  who,
+  sex,
   onSave,
   onCancel,
 }: {
   t: Translate;
   initial?: Association;
+  /** Who the role is being chosen for — kept on screen throughout. */
+  who?: ReactNode;
+  /** Their sex, so the options read "boter" rather than "boter/botra" once
+   *  there is a person to say it about. */
+  sex?: Sex;
   onSave: (role: AssocRole, roleText?: string) => void;
   onCancel: () => void;
 }) {
@@ -32,6 +86,7 @@ export function RoleForm({
 
   return (
     <span className="edit-assoc-roleform">
+      {who}
       <select
         className="edit-assoc-select"
         value={role}
@@ -41,7 +96,7 @@ export function RoleForm({
       >
         {EDITABLE_ASSOC_ROLES.map((r) => (
           <option key={r} value={r}>
-            {t(`assoc.role.${r}`)}
+            {t(`assoc.role.${r}`, { context: sex === "M" || sex === "F" ? sex : undefined })}
           </option>
         ))}
       </select>
@@ -117,6 +172,14 @@ export function EventAssociates({
             <RoleForm
               t={t}
               initial={assoc}
+              who={
+                <PersonChip
+                  dataset={api.dataset}
+                  targetId={isVoidAssociation(assoc) ? undefined : assoc.targetId}
+                  name={assoc.name}
+                />
+              }
+              sex={sexOfTarget(api, assoc)}
               onCancel={() => setEditing(null)}
               onSave={(role, roleText) => {
                 api.update(ownerId, assoc.raw, {
@@ -144,7 +207,7 @@ export function EventAssociates({
                   onNavigate={api.navigate}
                 />
               )}
-              <span className="edit-assoc-role">{roleLabel(assoc, t)}</span>
+              <span className="edit-assoc-role">{roleLabel(assoc, t, sexOfTarget(api, assoc))}</span>
               {api && container && (
                 <>
                   <button
@@ -202,6 +265,8 @@ export function EventAssociates({
       {api && container && picking && picked && (
         <RoleForm
           t={t}
+          who={<PersonChip dataset={api.dataset} targetId={picked.targetId} name={picked.name} />}
+          sex={picked.targetId ? api.dataset.individuals.get(picked.targetId)?.sex : undefined}
           onCancel={close}
           onSave={(role, roleText) => {
             api.add(ownerId, container, { targetId: picked.targetId, name: picked.name, role, roleText });

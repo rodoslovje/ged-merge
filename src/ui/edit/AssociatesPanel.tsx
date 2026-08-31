@@ -83,7 +83,9 @@ export function AssociatesPanel({
               return (
                 <li key={i} className="edit-assoc-row">
                   <span className="edit-assoc-context">{label}</span>
-                  <span className="edit-assoc-role">{roleLabel(ref.assoc, t)}</span>
+                  {/* The role is what *this* person was at that event, so the
+                      word agrees with them, not with the record naming them. */}
+                  <span className="edit-assoc-role">{roleLabel(ref.assoc, t, person.sex)}</span>
                   <PersonLink dataset={dataset} id={ref.fromId} fallback={ref.fromId} onNavigate={navigate} />
                 </li>
               );

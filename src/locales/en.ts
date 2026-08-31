@@ -449,7 +449,11 @@ export const en = {
   "assoc.role.CLERGY": "clergy",
   "assoc.role.FATH": "father",
   "assoc.role.FRIEND": "friend",
+  // Where the sex is known the exact word is used; the neutral one covers a
+  // person whose sex the file does not record, and the menu before a pick.
   "assoc.role.GODP": "godparent",
+  "assoc.role.GODP_M": "godfather",
+  "assoc.role.GODP_F": "godmother",
   "assoc.role.HUSB": "husband",
   "assoc.role.MOTH": "mother",
   "assoc.role.MULTIPLE": "born at the same birth",
@@ -460,7 +464,9 @@ export const en = {
   "assoc.role.WIFE": "wife",
   "assoc.role.WITN": "witness",
   "assoc.role.OTHER": "named without a role",
-  "assoc.add": "+ Add association",
+  // The "+ Add" menu entry names one thing to add, like Place / Source / Note
+  // beside it; the section heading below stays plural.
+  "assoc.add": "Association",
   "assoc.pickLabel": "Who was named",
   "assoc.eventLabel": "At which event",
   "assoc.roleLabel": "In what role",

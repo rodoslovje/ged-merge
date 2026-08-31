@@ -472,7 +472,7 @@ export function EventFieldsRow({
     { key: "note", label: t("event.colNote") },
     // Like a source, always offered: an event names as many godparents and
     // witnesses as the register does, so "already shown" is no reason to stop.
-    ...(canAssoc ? [{ key: "assoc", label: t("assoc.heading") }] : []),
+    ...(canAssoc ? [{ key: "assoc", label: t("assoc.add") }] : []),
   ].filter((f) => f.key === "source" || f.key === "assoc" || !show[f.key as keyof typeof show]);
 
   /**

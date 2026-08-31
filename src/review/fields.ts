@@ -212,7 +212,11 @@ function associatesText(
     .map((a) => {
       const named = ds?.individuals.get(a.targetId);
       const who = named ? displayName(named.names[0]) : a.name || a.targetId;
-      const role = a.roleText?.trim() || t(`assoc.role.${a.role}`);
+      // The exact word where the associate's sex is known ("botra", not
+      // "boter/botra"), as the event rows write it.
+      const role =
+        a.roleText?.trim() ||
+        t(`assoc.role.${a.role}`, { context: named?.sex === "M" || named?.sex === "F" ? named.sex : undefined });
       return `${translateUnnamed(who, t)} — ${role}`;
     })
     .join("\n");
