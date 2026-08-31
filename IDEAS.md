@@ -179,6 +179,34 @@ already has a drag-to-draw crop editor, dashed boxes with name labels, and
 - Related: the corpus already carries vendor face regions to read — Family
   Historian `_ASID`/`_AREA`, MyHeritage `_CUTOUT` (see the custom-tag plan).
 
+### Gaps against MacFamilyTree (reviewed 2026-08-31)
+
+Three items from a feature comparison with MacFamilyTree 11, ranked by payoff
+for this app's own premise. The rest of MFT's lead — FamilySearch record search,
+CloudTree sync, website/book publishing, AI photo restoration — sits outside a
+browser-only, file-in/file-out tool and is not pursued here.
+
+1. **Associations editor (ASSO/RELA)** — godparents and marriage witnesses are
+   the relations parish research turns on, and Edit cannot express them: ASSO is
+   round-tripped losslessly (`tools/structure.ts`) but has no UI, and merge drops
+   it outright (`merge.reason.assoNotImported`, `merge/applyRelations.ts`). Wanted:
+   a typed person-to-person link with role, date and sources on the person editor,
+   shown on the person card and carried through merge. MFT 11 shipped the same
+   idea as "Influential Persons" plus a sociogram diagram.
+2. **List reports + CSV export** — the report side is deep but narrow (Ahnentafel,
+   NGSQ register, narrative). MFT's catalogue of flat lists — persons, marriages,
+   events, places, anniversaries, sources, uncited facts — answers the questions
+   users actually ask of a file ("all marriages 1780–1820", "every event in
+   Stražišče") and builds on the existing pure `report/model.ts` layer. Pair each
+   list with a CSV download, which also settles the **CSV / JSON export** item
+   under Import / export and overlaps the **Source coverage report** under
+   Tools tab.
+3. **Hourglass chart and a statistics page** — the one missing pedigree layout is
+   the hourglass (one person's ancestors and descendants in a single chart), which
+   `personTree` + `treeLayout` already have the pieces for. Alongside it, a
+   statistics page the app has all the data for and shows none of: surname and
+   given-name distribution, age at death, family size, births per decade.
+
 ### Sources
 - **Show source images in the Add/edit source dialog** — some sources carry a
   photo/image (OBJE); display it (at least a thumbnail) when adding/editing a

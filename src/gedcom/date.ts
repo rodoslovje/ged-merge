@@ -1,4 +1,4 @@
-import type { DateOrder, DateQualifier, GedDate } from "./types";
+import type { DateOrder, DateQualifier, GedCalendar, GedDate } from "./types";
 
 /**
  * Month name → number. Covers English (GEDCOM standard) plus the Slovenian and
@@ -55,6 +55,47 @@ const RE_BEFORE = new RegExp(`^${kw(BEFORE)}\\s+(.+)$`);
 const RE_AFTER = new RegExp(`^${kw(AFTER)}\\s+(.+)$`);
 const RE_INTERPRETED = new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?$`);
 
+/**
+ * A calendar declaration, in either spelling: 5.5.1's escape `@#DJULIAN@` (and
+ * `@#DFRENCH R@`, whose name carries a space) or GEDCOM 7's leading keyword
+ * `JULIAN`. Both may sit either at the head of the value or after a qualifier
+ * keyword — "ABT @#DJULIAN@ 1700" is as valid as "@#DJULIAN@ ABT 1700" — so
+ * both are looked for in either position and the rest is left to the ordinary
+ * grammar. The keyword form is a closed set of five words, none of which is a
+ * month name or a qualifier, so matching it bare cannot swallow a real date.
+ *
+ * Neither runs on most values at all — see the shape guards in `parseDate` —
+ * and the escape sits behind a substring test on top of that.
+ */
+const RE_CAL_ESCAPE = /@#D([A-Z_ ]+)@\s*/;
+const RE_CAL_KEYWORD = /(?:^|\s)(GREGORIAN|JULIAN|HEBREW|FRENCH_R|ROMAN)\s+/;
+
+/** Calendar names as they appear inside an escape or as a keyword. */
+const CALENDARS: Record<string, GedCalendar> = {
+  GREGORIAN: "GREGORIAN",
+  JULIAN: "JULIAN",
+  HEBREW: "HEBREW",
+  "FRENCH R": "FRENCH_R",
+  FRENCH_R: "FRENCH_R",
+  ROMAN: "ROMAN",
+  UNKNOWN: "UNKNOWN",
+};
+
+/**
+ * A "before the common era" suffix closing the value — `BC`, `BCE` (GEDCOM 7's
+ * spelling), or their dotted forms. Required to follow whitespace so it can
+ * never bite into a month or a word, and written as a bare suffix rather than
+ * with a `(.*?)` prefix: a lazy prefix against a `$` anchor re-tries at every
+ * offset in the string, which is real cost on a hot path that almost always
+ * fails. The caller trims the matched suffix off itself.
+ */
+const RE_BCE = /\s(?:BCE?|B\.\s?C\.(?:\s?E\.)?)$/;
+
+/** The year as the value literally writes it, for an era that counts backwards:
+ *  "44" in "1 JAN 44" means the year 44, never the 1944 the two-digit sliding
+ *  window would otherwise make of it. */
+const RE_TRAILING_YEAR = /(\d{1,4})\s*$/;
+
 // Month-word date atoms, compiled once from the constant MON token (see above).
 const RE_DAY_MON_YEAR = new RegExp(`^([\\d_?<>-]{1,2})[.\\s]\\s*(${MON})\\.?\\s+(\\d{2,4})(?:/\\d{1,4})?$`);
 const RE_MON_DAY_YEAR = new RegExp(`^(${MON})\\.?\\s+(\\d{1,2})\\s+(\\d{2,4})$`);
@@ -76,6 +117,31 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   if (wrapped) return { ...parseDate(wrapped[1], order), raw };
 
   const upper = trimmed.toUpperCase();
+
+  // The two declarations below are ruled out by the value's own shape far more
+  // cheaply than by the patterns that read them, and `parseDate` runs once per
+  // DATE line — ~2M of them on a large file, virtually none declaring anything.
+  // Both guards follow from the grammar rather than from what files tend to
+  // look like, so neither can miss a real declaration: a calendar leads the
+  // date or follows a qualifier, and no qualifier begins with a digit; an era
+  // suffix always closes on a letter or a period.
+  const first = upper.charCodeAt(0);
+  const last = upper.charCodeAt(upper.length - 1);
+  const isDigit = (c: number) => c >= 48 && c <= 57;
+
+  // A value that names its own calendar: lift the declaration out and parse
+  // what remains by the ordinary grammar.
+  if (!isDigit(first)) {
+    const cal = extractCalendar(upper);
+    if (cal) return withCalendar(cal.calendar, cal.rest, raw, order);
+  }
+
+  // A value that counts backwards from year 1 ("44 BCE", "1 JAN 44 B.C.").
+  if (!isDigit(last)) {
+    const era = upper.match(RE_BCE);
+    const bce = era && withBce(upper.slice(0, era.index), raw, order);
+    if (bce) return bce;
+  }
 
   // Range / period forms (two endpoints).
   let m = upper.match(RE_BETWEEN);
@@ -125,6 +191,81 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   if (isAllPlaceholderDate(upper)) return { raw, qualifier: "unknown", placeholder: true };
 
   return { raw, qualifier: "unknown" };
+}
+
+/**
+ * Lift a calendar declaration out of an upper-cased date value, returning the
+ * calendar it names and the value with the declaration removed. Undefined when
+ * the value declares nothing, which is the common case and is why the escape
+ * form is guarded by a substring test before its regex runs.
+ */
+function extractCalendar(upper: string): { calendar: GedCalendar; rest: string } | undefined {
+  if (upper.includes("@#")) {
+    const m = upper.match(RE_CAL_ESCAPE);
+    const named = m && CALENDARS[m[1].trim()];
+    // An escape naming something outside the standard's list is not ours to
+    // interpret; leave the whole value to the ordinary grammar.
+    if (named) return { calendar: named, rest: upper.replace(RE_CAL_ESCAPE, " ").trim() };
+    return undefined;
+  }
+  const m = upper.match(RE_CAL_KEYWORD);
+  if (!m) return undefined;
+  return { calendar: CALENDARS[m[1]], rest: upper.replace(RE_CAL_KEYWORD, " ").trim() };
+}
+
+/**
+ * Build the date for a value that named a calendar. Julian and Gregorian keep
+ * every component — same month names, same year count — so they behave like any
+ * other date downstream. The rest keep only the qualifier: their years belong to
+ * another epoch, and lifting 5760 into `year` would put the person three
+ * millennia in the future on every chart, in every age and in every sort. An
+ * atom we cannot read at all is still an *exact* date under a calendar we don't
+ * convert, not garbage, so it does not fall back to "unknown" — that is what
+ * keeps the health check from reporting a valid Hebrew date as broken.
+ */
+function withCalendar(
+  calendar: GedCalendar,
+  rest: string,
+  raw: string,
+  order?: DateOrder,
+): GedDate {
+  const inner = parseDate(rest, order);
+  if (calendar === "JULIAN" || calendar === "GREGORIAN") return { ...inner, raw, calendar };
+  return { raw, qualifier: inner.qualifier === "unknown" ? "exact" : inner.qualifier, calendar };
+}
+
+/**
+ * Build the date for a value whose era suffix counts backwards from year 1, or
+ * undefined to let the ordinary grammar have it. The year is negated so it
+ * orders and subtracts correctly against ordinary years, and is taken from the
+ * text rather than from the parsed result: "44" is the year 44, not the 1944
+ * that two-digit expansion would produce.
+ *
+ * Two-endpoint forms are declined ("BET 44 BC AND 30 BC" carries an era on each
+ * side, and only the last one is in hand here) — they keep today's behaviour of
+ * parsing as a range with no components rather than gaining a wrong one.
+ */
+function withBce(rest: string, raw: string, order?: DateOrder): GedDate | undefined {
+  const inner = parseDate(rest, order);
+  if (inner.qualifier === "between" || inner.qualifier === "range") return undefined;
+  const written = rest.match(RE_TRAILING_YEAR);
+  if (!written) return undefined;
+
+  // What sits in front of the year has to be something we recognise, or the era
+  // is just the last two letters of a sentence: "SOMETHING 1900 BC" stays the
+  // unparseable value it is today rather than becoming the year -1900. Three
+  // shapes qualify — a date whose components parsed ("1 JAN 44"), a qualifier
+  // ("BEF 44"), and nothing at all ("44", which the atom grammar declines on
+  // its own because two digits alone are far more often a fragment than a year).
+  const yearOnly = written[0].trim() === rest.trim();
+  if (inner.year === undefined && inner.qualifier === "unknown" && !yearOnly) return undefined;
+
+  return {
+    ...inner,
+    raw,
+    qualifier: inner.qualifier === "unknown" ? "exact" : inner.qualifier,
+    year: -Number(written[1]),
+  };
 }
 
 /**

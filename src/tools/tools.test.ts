@@ -951,6 +951,24 @@ describe("validateStructure", () => {
     expect(bad[0].fix).toBeUndefined();
   });
 
+  it("does not flag a date that names its calendar or its era", () => {
+    // These are valid dates the standard defines; reporting them as broken sent
+    // the user hunting for damage in correct data.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE @#DJULIAN@ 14 JAN 1700
+1 BAPM
+2 DATE @#DHEBREW@ 5 TSH 5760
+1 EVEN
+2 DATE JULIAN 3 FEB 1701
+1 DEAT
+2 DATE 44 BCE
+0 TRLR`);
+    expect(validateStructure(ds).counts.badDate).toBe(0);
+  });
+
   it("marks a repairable date fixable and previews the result in the file's format", () => {
     // File's dominant style is "D MMM YYYY", so the previewed fix uses it.
     const ds = dataset(`0 HEAD
