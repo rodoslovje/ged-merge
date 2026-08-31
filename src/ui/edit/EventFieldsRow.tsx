@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
-import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
+import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
@@ -9,6 +9,8 @@ import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
+import { useAssoc } from "./AssocContext";
+import { EventAssociates } from "./EventAssociates";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -62,6 +64,8 @@ export function EventFieldsRow({
   forcedKeyBase,
   resolvedSessionFields,
   eventNodeId,
+  eventNode,
+  personId,
   materializedEventIds,
   age,
 }: {
@@ -126,6 +130,13 @@ export function EventFieldsRow({
   resolvedSessionFields?: Set<string>;
   /** This event's stable `nodeId`, matched against `materializedEventIds`. */
   eventNodeId?: number;
+  /** The event's own raw node — the container an association is written on.
+   *  Absent for a row backed by no real node (a merge suggestion), where the
+   *  associates render read-only. */
+  eventNode?: GedNode;
+  /** The record this row belongs to, so its own person is never offered as
+   *  their own godparent. */
+  personId?: string;
   /** `nodeId`s of events materialized this session from a merge suggestion;
    * every field of such an event renders bold (it's all new vs the saved
    * main), independently of `resolvedSessionFields`. */
@@ -363,6 +374,11 @@ export function EventFieldsRow({
   const [noteAddTrigger, setNoteAddTrigger] = useState(0);
   // Bumped by ⌥⇧D to open the "+ Detail" menu from wherever the keyboard is.
   const [addDetailNonce, setAddDetailNonce] = useState(0);
+  /** True while "+ Add › Association" has this row's person picker open. */
+  const [assocPicking, setAssocPicking] = useState(false);
+  // Editing the people an event names needs the Edit view's file and dialect
+  // (see AssocContext); the merge's read-only rows have neither and offer none.
+  const canAssoc = !!useAssoc() && !!eventNode;
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Agency slot to its line value; every other event keeps the
@@ -440,6 +456,7 @@ export function EventFieldsRow({
     agency: agencyShown || revealed.has("agency"),
     cause: causeShown || revealed.has("cause"),
     note: noteShown || revealed.has("note"),
+    assoc: Boolean(ev?.associations?.length) || revealed.has("assoc"),
   };
   // Fields offered by the "+ Detail" menu: source is always addable; the rest
   // only while not already showing. Place/address adapt to the event kind
@@ -453,7 +470,10 @@ export function EventFieldsRow({
     { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
     { key: "cause", label: t("event.colCause") },
     { key: "note", label: t("event.colNote") },
-  ].filter((f) => f.key === "source" || !show[f.key as keyof typeof show]);
+    // Like a source, always offered: an event names as many godparents and
+    // witnesses as the register does, so "already shown" is no reason to stop.
+    ...(canAssoc ? [{ key: "assoc", label: t("assoc.heading") }] : []),
+  ].filter((f) => f.key === "source" || f.key === "assoc" || !show[f.key as keyof typeof show]);
 
   /**
    * The fields a typical event is filled in, in the order they are typed: an
@@ -506,6 +526,9 @@ export function EventFieldsRow({
     // "Add note" on an event that already has one means *another* note, so the
     // list opens a fresh chip rather than putting the cursor in the first.
     if (key === "note") setNoteAddTrigger((n) => n + 1);
+    // Likewise an association: the entry opens the person picker rather than
+    // focusing the associates already on the row.
+    else if (key === "assoc") setAssocPicking(true);
     else setFocusKey(key);
   }
 
@@ -1013,6 +1036,22 @@ export function EventFieldsRow({
             </a>
           ))}
         </span>
+        {/* The people this event names — godparents, witnesses, the officiant.
+            They belong to the event, not to the person, so they are edited
+            here, beside its date and place. */}
+        {(show.assoc || assocPicking) && (
+          <span data-detail="assoc" className={"edit-event-extra edit-event-extra--assoc" + optCls(true)}>
+            <span className="edit-event-extra-label">{t("assoc.heading")}</span>
+            <EventAssociates
+              associations={ev?.associations ?? []}
+              container={eventNode}
+              ownerId={personId ?? ""}
+              t={t}
+              picking={assocPicking}
+              onDonePicking={() => setAssocPicking(false)}
+            />
+          </span>
+        )}
         <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
           <span className="edit-event-extra-label">{t("event.colNote")}</span>
           {/* An event may carry any number of notes, and one the editor cannot

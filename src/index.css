@@ -3222,6 +3222,9 @@ button:focus-visible {
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* Godparents and witnesses wrap like the citations beside them — a baptism may
+   name several, and each is a name plus a role, not a glyph. */
+.edit-event-extra--assoc { gap: 4px; flex-wrap: wrap; }
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */
 .edit-event-extra--note .edit-event-extra-field { min-width: 12ch; }
@@ -9097,22 +9100,20 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 }
 .edit-assoc-action:hover { color: var(--accent); }
 .edit-assoc-remove:hover { color: var(--danger); }
-.edit-assoc-add {
-  background: none;
-  border: 0;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 2px 0;
-  font-size: 0.8rem;
+/* One associate on an event's own row: the person, their role, and the two
+   actions — laid out like the row's other chips. */
+.edit-event-assoc {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-right: 8px;
 }
-.edit-assoc-roleform,
-.edit-assoc-add-form {
-  display: flex;
+.edit-assoc-roleform {
+  display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 6px;
 }
-.edit-assoc-add-form { margin-top: 4px; }
 .edit-assoc-select,
 .edit-assoc-input {
   font-size: 0.8rem;

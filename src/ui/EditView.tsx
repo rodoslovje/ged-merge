@@ -98,6 +98,8 @@ import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
+import { AssocProvider, type AssocApi } from "./edit/AssocContext";
+import { addAssociation, removeAssociation, writeAssociation } from "../gedcom/edit";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
@@ -837,6 +839,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     if (owner.kind === "individual") commit((indi) => mutate(indi.raw), extraPatches);
     else commitFamily(owner.fam, (f) => mutate(f.raw), extraPatches);
   }
+
+  /** Commit an association edit against whichever record owns the event — the
+   *  person for an individual event, the family for a marriage. */
+  const commitAssoc = (ownerId: string, mutate: () => void) => {
+    const fam = dataset.families.get(ownerId);
+    ownerCommit(fam ? { kind: "family", fam } : { kind: "individual" }, () => mutate());
+  };
+  const assocApi: AssocApi = {
+    dataset,
+    version: dataset.version,
+    navigate,
+    add: (ownerId, container, spec) => commitAssoc(ownerId, () => addAssociation(container, spec, dataset.version)),
+    update: (ownerId, node, spec) => commitAssoc(ownerId, () => writeAssociation(node, spec, dataset.version)),
+    remove: (ownerId, container, node) => commitAssoc(ownerId, () => removeAssociation(container, node)),
+  };
 
   /** Attach a photo by folder-relative path, following the main's media mode:
    *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In
@@ -1886,6 +1903,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   return (
     <CoordShareProvider value={coordShare}>
     <PlaceLookupProvider value={placeLookup}>
+    <AssocProvider value={assocApi}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
@@ -2148,7 +2166,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             namedBy={deferredDerivations?.associationIndex().get(person.id)}
             t={t}
             navigate={navigate}
-            commit={commit}
           />
           {personMap && (
             <div className="edit-person-map">
@@ -2326,6 +2343,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         />
       )}
     </div>
+    </AssocProvider>
     </PlaceLookupProvider>
     </CoordShareProvider>
   );
