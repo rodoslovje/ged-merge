@@ -2,12 +2,14 @@ import L from "leaflet";
 import {
   OHM_ATTRIBUTION,
   OHM_TILE_PX,
+  areaCentroid,
   bordersAt,
   borderWeight,
   decodeBorderTile,
   gridCoords,
   ohmTileUrl,
   ringLength,
+  scanSpans,
   sourceCoords,
   tileTransform,
   type BorderArea,
@@ -242,14 +244,20 @@ interface BordersInternals {
 }
 
 /** How much of the map one territory takes up, gathered across every tile it
- *  reaches into, in the map's own pixel coordinates. */
+ *  reaches into, in the map's own pixel coordinates: the box it spans, and the
+ *  running area-weighted sum that gives its centre of gravity. */
 interface Footprint {
+  id: number;
   level: number;
   name: string;
   minX: number;
   minY: number;
   maxX: number;
   maxY: number;
+  /** Σ centre·area and Σ area over this territory's parts. */
+  sumX: number;
+  sumY: number;
+  weight: number;
 }
 
 const clamp = (v: number, lo: number, hi: number) => (lo > hi ? v : Math.min(Math.max(v, lo), hi));
@@ -262,6 +270,60 @@ function measureLabel(name: string, level: number): number {
   if (!measurer) return name.length * labelSize(level) * 0.55;
   measurer.font = labelFont(level);
   return measurer.measureText(name).width;
+}
+
+/** Where a horizontal line at `y` (map pixels) runs across the territory `id`,
+ *  as the widest such stretch that is on screen — the place its name can be
+ *  written without leaving its own ground.
+ *
+ *  Each tile is scanned in its own coordinates and its answers clipped to its
+ *  own box: a tile holds only a clipped piece of the territory, and the cut
+ *  edges are drawn along the tile's margin, so a stretch measured across tiles
+ *  at once would count them. The pieces are then joined back up, tile by
+ *  neighbouring tile, into the stretches the whole territory has. */
+function widestSpan(
+  live: Map<string, LiveTile>,
+  id: number,
+  opts: BordersLayerOptions,
+  zoom: number,
+  y: number,
+  viewX0: number,
+  viewX1: number,
+): [number, number] | undefined {
+  const pieces: [number, number][] = [];
+  for (const tile of live.values()) {
+    if (!tile.tile || tile.coords.z !== zoom) continue;
+    const area = bordersAt(tile.tile, opts.year, zoom).find((a) => a.id === id);
+    if (!area) continue;
+    const at = tileProjector(tile);
+    const originX = tile.coords.x * tile.size;
+    const originY = tile.coords.y * tile.size;
+    const local = at.unprojectY(y - originY);
+    for (const [from, to] of scanSpans(area, local)) {
+      const x0 = clamp(at.x(from) + originX, originX, originX + tile.size);
+      const x1 = clamp(at.x(to) + originX, originX, originX + tile.size);
+      if (x1 > x0) pieces.push([x0, x1]);
+    }
+  }
+  if (!pieces.length) return undefined;
+  pieces.sort((a, b) => a[0] - b[0]);
+  let best: [number, number] | undefined;
+  let run = pieces[0];
+  const keep = (span: [number, number]) => {
+    const x0 = Math.max(span[0], viewX0);
+    const x1 = Math.min(span[1], viewX1);
+    if (x1 > x0 && (!best || x1 - x0 > best[1] - best[0])) best = [x0, x1];
+  };
+  for (const piece of pieces.slice(1)) {
+    // Touching, because the piece ended where the next tile begins.
+    if (piece[0] <= run[1] + 0.5) run = [run[0], Math.max(run[1], piece[1])];
+    else {
+      keep(run);
+      run = piece;
+    }
+  }
+  keep(run);
+  return best;
 }
 
 /** Work out which names to write, and hand each to the tiles that must draw it.
@@ -282,21 +344,39 @@ function placeLabels(
     const originY = tile.coords.y * tile.size;
     for (const area of bordersAt(tile.tile, opts.year, zoom)) {
       let foot = footprints.get(area.id);
+      if (!foot) {
+        foot = {
+          id: area.id,
+          level: area.level,
+          name: area.name,
+          minX: Infinity,
+          maxX: -Infinity,
+          minY: Infinity,
+          maxY: -Infinity,
+          sumX: 0,
+          sumY: 0,
+          weight: 0,
+        };
+        footprints.set(area.id, foot);
+      }
       for (const ring of area.rings) {
         const n = ringLength(ring);
         for (let i = 0; i < n; i++) {
           const x = at.x(ring[i * 2]) + originX;
           const y = at.y(ring[i * 2 + 1]) + originY;
-          if (!foot) {
-            foot = { level: area.level, name: area.name, minX: x, maxX: x, minY: y, maxY: y };
-            footprints.set(area.id, foot);
-            continue;
-          }
           if (x < foot.minX) foot.minX = x;
           if (x > foot.maxX) foot.maxX = x;
           if (y < foot.minY) foot.minY = y;
           if (y > foot.maxY) foot.maxY = y;
         }
+      }
+      // This tile's share of the territory, weighted so that the pieces add up
+      // to the middle of the whole of it rather than the middle of its box.
+      const centre = areaCentroid(area);
+      if (centre) {
+        foot.sumX += (at.x(centre.x) + originX) * centre.weight;
+        foot.sumY += (at.y(centre.y) + originY) * centre.weight;
+        foot.weight += centre.weight;
       }
     }
   }
@@ -316,7 +396,15 @@ function placeLabels(
     if (width < LABEL_MIN_SPAN || height < LABEL_MIN_SPAN) continue;
     const cover = (width * height) / viewArea;
     if (cover > LABEL_MAX_COVER) continue;
-    wanted.push({ ...foot, x: (x0 + x1) / 2, y: (y0 + y1) / 2, cover });
+    // The height of the territory's centre of gravity, held inside the part of
+    // it that is on screen: a name for a shape reaching off the edge belongs on
+    // the piece the reader can see.
+    const y = foot.weight ? clamp(foot.sumY / foot.weight, y0, y1) : (y0 + y1) / 2;
+    // Then across, onto the territory itself rather than the middle of its
+    // span — Dalmatia's middle is in Bosnia (see scanSpans).
+    const span = widestSpan(live, foot.id, opts, zoom, y, x0, x1);
+    const x = span ? (span[0] + span[1]) / 2 : foot.weight ? clamp(foot.sumX / foot.weight, x0, x1) : (x0 + x1) / 2;
+    wanted.push({ ...foot, x, y, cover });
   }
   // Smallest first: where two names want the same spot, the local one wins —
   // it is the one the reader can't work out from the map around it.
@@ -356,11 +444,13 @@ function placeLabels(
 interface Projector {
   x(value: number): number;
   y(value: number): number;
+  /** …and back again, for a scan line given in the canvas's own pixels. */
+  unprojectY(value: number): number;
 }
 
 function tileProjector(live: LiveTile): Projector {
   const { scale, dx, dy } = tileTransform(live.grid, live.source, live.tile?.extent ?? 4096, live.size);
-  return { x: (v) => v * scale + dx, y: (v) => v * scale + dy };
+  return { x: (v) => v * scale + dx, y: (v) => v * scale + dy, unprojectY: (v) => (v - dy) / scale };
 }
 
 /** Repaint one tile from the data it already holds. */

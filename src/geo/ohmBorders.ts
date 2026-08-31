@@ -158,11 +158,23 @@ function str(value: number | string | boolean | undefined): string | undefined {
   return typeof value === "string" && value ? value : undefined;
 }
 
+/** The name to write on a territory: the interface's language where OHM has it
+ *  (`name_sl`), then English, then the territory's own name.
+ *
+ *  English is in the middle because OHM's `name` is the territory's own, in its
+ *  own script — the Ottoman Empire's is دولت علیه عثمانیه — and half of what a
+ *  Slovenian reader meets here has no `name_sl`. A name in the Latin alphabet
+ *  they can read beats a faithful one they cannot. Where the two are the same
+ *  language, as for the Monarchy's German crownlands, the fallback never
+ *  fires. */
+function pickName(props: Record<string, number | string | boolean>, lang?: string): string | undefined {
+  const local = lang ? str(props[`name_${lang}`]) : undefined;
+  return local ?? str(props.name_en) ?? str(props.name);
+}
+
 /** Read the territories out of one vector tile. `buf` is the tile as served
- *  (the transport gzip already undone by fetch). `lang` picks the name column
- *  OHM ships per language — `name_sl` for the Slovenian interface — falling
- *  back to the territory's own official name, which for the Monarchy's
- *  crownlands is the German one the registers used anyway. */
+ *  (the transport gzip already undone by fetch); `lang` is the interface
+ *  language, resolved by {@link pickName}. */
 export function decodeBorderTile(buf: ArrayBuffer, lang?: string): DecodedTile {
   const tile = new VectorTile(new PbfReader(new Uint8Array(buf)));
   const layer = tile.layers[LAYER];
@@ -172,7 +184,7 @@ export function decodeBorderTile(buf: ArrayBuffer, lang?: string): DecodedTile {
     const level = num(f.properties.admin_level);
     const id = num(f.properties.osm_id);
     if (level === undefined || id === undefined) continue;
-    const name = (lang ? str(f.properties[`name_${lang}`]) : undefined) ?? str(f.properties.name);
+    const name = pickName(f.properties, lang);
     if (!name) continue;
     areas.push({
       id,
@@ -262,35 +274,74 @@ export function ringArea(ring: Ring): number {
   return doubled / 2;
 }
 
-/** Where to write a territory's name: the centroid of its largest ring here,
- *  with that ring's area — the caller compares areas across tiles to decide
- *  which tile writes the name of a territory that spans several. Undefined for
- *  a territory whose parts in this tile are all degenerate. */
-export function labelAnchor(area: BorderArea): (TilePoint & { area: number }) | undefined {
-  let best: Ring | undefined;
-  let bestArea = 0;
-  for (const ring of area.rings) {
-    const size = Math.abs(ringArea(ring));
-    if (size > bestArea) {
-      bestArea = size;
-      best = ring;
-    }
-  }
-  if (!best || !bestArea) return undefined;
-  // Area-weighted centroid — the polygon's balance point, which for the compact
-  // shapes an administrative unit has sits inside it.
-  const n = ringLength(best);
-  let doubled = 0;
+/** The centre of gravity of a territory's parts in this tile, with the area
+ *  they carry — the caller adds these up across the tiles a territory reaches
+ *  into to find the middle of the whole of it.
+ *
+ *  Weighted by signed area, so a hole pulls the centre away from itself and a
+ *  scattered territory's name lands on the bulk of it rather than midway
+ *  between its pieces. A bounding box's centre won't do: the Ottoman Empire's
+ *  box over the Balkans has its middle in Croatia. Undefined where this tile's
+ *  parts are all degenerate. */
+export function areaCentroid(area: BorderArea): (TilePoint & { weight: number }) | undefined {
+  let total = 0;
   let cx = 0;
   let cy = 0;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const cross = best[j * 2] * best[i * 2 + 1] - best[i * 2] * best[j * 2 + 1];
-    doubled += cross;
-    cx += (best[j * 2] + best[i * 2]) * cross;
-    cy += (best[j * 2 + 1] + best[i * 2 + 1]) * cross;
+  for (const ring of area.rings) {
+    const n = ringLength(ring);
+    if (n < 3) continue;
+    let doubled = 0;
+    let rx = 0;
+    let ry = 0;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const cross = ring[j * 2] * ring[i * 2 + 1] - ring[i * 2] * ring[j * 2 + 1];
+      doubled += cross;
+      rx += (ring[j * 2] + ring[i * 2]) * cross;
+      ry += (ring[j * 2 + 1] + ring[i * 2 + 1]) * cross;
+    }
+    if (!doubled) continue;
+    const weight = doubled / 2;
+    total += weight;
+    cx += (rx / (3 * doubled)) * weight;
+    cy += (ry / (3 * doubled)) * weight;
   }
-  if (!doubled) return undefined;
-  return { x: cx / (3 * doubled), y: cy / (3 * doubled), area: bestArea };
+  if (!total) return undefined;
+  return { x: cx / total, y: cy / total, weight: Math.abs(total) };
+}
+
+/** The stretches of a horizontal line at `y` that run *inside* this
+ *  territory's parts in this tile, as `[from, to]` pairs in tile-local units,
+ *  left to right.
+ *
+ *  This is what keeps a name on its own ground. A centre of gravity is the
+ *  middle of a shape, which for a crescent is not in the shape at all: Dalmatia
+ *  curves around Bosnia, so its centre — and its bounding box's, worse — lands
+ *  inland, over a country it never held. Crossing the shape at that height
+ *  instead and writing the name across the widest stretch of it puts the word
+ *  where the territory is.
+ *
+ *  Even-odd, so a hole in a territory is a gap between two stretches, and a
+ *  scattered one gives a stretch per island. */
+export function scanSpans(area: BorderArea, y: number): [number, number][] {
+  const crossings: number[] = [];
+  for (const ring of area.rings) {
+    const n = ringLength(ring);
+    if (n < 3) continue;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const yj = ring[j * 2 + 1];
+      const yi = ring[i * 2 + 1];
+      // Half-open on purpose: an edge is counted at its lower end only, so a
+      // vertex exactly at this height is one crossing, not two.
+      if (yj <= y === yi <= y) continue;
+      const xj = ring[j * 2];
+      const xi = ring[i * 2];
+      crossings.push(xj + ((y - yj) / (yi - yj)) * (xi - xj));
+    }
+  }
+  crossings.sort((a, b) => a - b);
+  const spans: [number, number][] = [];
+  for (let i = 0; i + 1 < crossings.length; i += 2) spans.push([crossings[i], crossings[i + 1]]);
+  return spans;
 }
 
 /** The tile URL for one set of coordinates. */

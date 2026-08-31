@@ -5,13 +5,14 @@ import { describe, expect, it } from "vitest";
 import {
   adminMinZoom,
   aliveAt,
+  areaCentroid,
   bordersAt,
   borderWeight,
   decodeBorderTile,
   gridCoords,
-  labelAnchor,
   ohmTileUrl,
   ringArea,
+  scanSpans,
   sourceCoords,
   sourceZoom,
   tileTransform,
@@ -65,7 +66,7 @@ describe("decodeBorderTile", () => {
     expect(tile.areas.length).toBeGreaterThan(100);
     // The duchy is in the tile several times over — a territory gets a new
     // record whenever its borders move — so it is the 1880 one that is checked.
-    const krain = bordersAt(tile, 1880, 10).find((a) => a.name === "Herzogtum Krain");
+    const krain = bordersAt(tile, 1880, 10).find((a) => a.name === "Duchy of Carniola");
     expect(krain).toBeDefined();
     expect(krain!.level).toBe(4);
     expect(krain!.startDate).toBe("1849-12-08");
@@ -73,12 +74,17 @@ describe("decodeBorderTile", () => {
     expect(krain!.rings.length).toBeGreaterThan(0);
   });
 
-  it("takes the name in the interface's language where OHM has one", () => {
-    const sl = decodeBorderTile(buffer(), "sl");
-    expect(sl.areas.some((a) => a.name === "Vojvodina Kranjska")).toBe(true);
-    // A language OHM doesn't carry falls back to the territory's own name.
-    const none = decodeBorderTile(buffer(), "xx");
-    expect(none.areas.some((a) => a.name === "Herzogtum Krain")).toBe(true);
+  it("takes the name in the interface's language, then English, then its own", () => {
+    const named = (lang: string | undefined, year: number, level: number) =>
+      bordersAt(decodeBorderTile(buffer(), lang), year, 10).find((a) => a.level === level)?.name;
+    expect(named("sl", 1880, 4)).toBe("Vojvodina Kranjska");
+    expect(named("de", 1880, 4)).toBe("Herzogtum Krain");
+    // English stands in where the language has no name of its own — better a
+    // name the reader can read than the territory's own script (OHM writes the
+    // Ottoman Empire's as دولت علیه عثمانیه).
+    expect(named("xx", 1880, 4)).toBe("Duchy of Carniola");
+    // …and the territory's own name where OHM has no English either.
+    expect(named("sl", 1780, 5)).toBe("Neustädtler Kreis");
   });
 });
 
@@ -86,11 +92,7 @@ describe("bordersAt", () => {
   it("keeps the year's territories, largest first", () => {
     const tile = decodeBorderTile(buffer());
     const drawn = bordersAt(tile, 1880, 10);
-    expect(drawn.map((a) => a.name)).toEqual([
-      "Österreich-Ungarn / Ausztria-Magyarország",
-      "Cisleithanien",
-      "Herzogtum Krain",
-    ]);
+    expect(drawn.map((a) => a.name)).toEqual(["Austria-Hungary", "Cisleithania", "Duchy of Carniola"]);
   });
 
   it("moves with the year", () => {
@@ -99,20 +101,18 @@ describe("bordersAt", () => {
     // followed it. (Between them sit years OHM has nothing mapped for — 1919
     // over this tile draws nothing at all, which is a gap in the data and not
     // in the reading of it.)
-    expect(bordersAt(tile, 1780, 10).map((a) => a.name)).toContain("Sacrum Imperium Romanum");
-    expect(bordersAt(tile, 1880, 10).map((a) => a.name)).toContain("Herzogtum Krain");
-    expect(bordersAt(tile, 1935, 10).map((a) => a.name)).toContain(
-      "Kraljevina Jugoslavija / Краљевина Југославија",
-    );
-    expect(bordersAt(tile, 1935, 10).some((a) => a.name === "Herzogtum Krain")).toBe(false);
+    expect(bordersAt(tile, 1780, 10).map((a) => a.name)).toContain("Holy Roman Empire");
+    expect(bordersAt(tile, 1880, 10).map((a) => a.name)).toContain("Duchy of Carniola");
+    expect(bordersAt(tile, 1935, 10).map((a) => a.name)).toContain("Kingdom of Yugoslavia");
+    expect(bordersAt(tile, 1935, 10).some((a) => a.name === "Duchy of Carniola")).toBe(false);
   });
 
   it("drops the levels this zoom doesn't draw", () => {
     const tile = decodeBorderTile(buffer());
     // Cisleithania is level 3, which starts at zoom 5; the duchy (4) at zoom 3.
     const far = bordersAt(tile, 1880, 4);
-    expect(far.some((a) => a.name === "Cisleithanien")).toBe(false);
-    expect(far.some((a) => a.name === "Herzogtum Krain")).toBe(true);
+    expect(far.some((a) => a.name === "Cisleithania")).toBe(false);
+    expect(far.some((a) => a.name === "Duchy of Carniola")).toBe(true);
   });
 });
 
@@ -167,7 +167,7 @@ describe("gridCoords / sourceCoords / tileTransform", () => {
   });
 });
 
-describe("ringArea / labelAnchor", () => {
+describe("ringArea / areaCentroid", () => {
   // Rings are x and y alternating, so that a wide view's tile — millions of
   // points — can be held in memory at all.
   const square = new Int16Array([0, 0, 100, 0, 100, 100, 0, 100]);
@@ -178,15 +178,64 @@ describe("ringArea / labelAnchor", () => {
     expect(Math.abs(ringArea(reversed))).toBe(10000);
   });
 
-  it("puts the name in the middle of a territory's largest part", () => {
-    const small = new Int16Array([500, 500, 510, 500, 510, 510, 500, 510]);
-    const anchor = labelAnchor({ id: 1, level: 4, name: "Krain", rings: [small, square] });
-    expect(anchor).toEqual({ x: 50, y: 50, area: 10000 });
+  it("finds a territory's centre of gravity", () => {
+    expect(areaCentroid({ id: 1, level: 4, name: "Krain", rings: [square] })).toEqual({
+      x: 50,
+      y: 50,
+      weight: 10000,
+    });
   });
 
-  it("has nowhere to write a name on a degenerate ring", () => {
-    expect(labelAnchor({ id: 1, level: 4, name: "x", rings: [] })).toBeUndefined();
-    expect(labelAnchor({ id: 1, level: 4, name: "x", rings: [new Int16Array([5, 5, 5, 5])] })).toBeUndefined();
+  it("pulls the centre towards the bulk of a scattered territory", () => {
+    // A large part and a small one far away: the name belongs on the large one,
+    // not midway between them — where a bounding box's centre would put it.
+    const island = new Int16Array([1000, 1000, 1020, 1000, 1020, 1020, 1000, 1020]);
+    const centre = areaCentroid({ id: 1, level: 4, name: "Krain", rings: [square, island] })!;
+    expect(centre.x).toBeGreaterThan(50);
+    expect(centre.x).toBeLessThan(90);
+    expect(centre.x).toBeCloseTo(centre.y, 6);
+  });
+
+  it("has no centre on a degenerate ring", () => {
+    expect(areaCentroid({ id: 1, level: 4, name: "x", rings: [] })).toBeUndefined();
+    expect(areaCentroid({ id: 1, level: 4, name: "x", rings: [new Int16Array([5, 5, 5, 5])] })).toBeUndefined();
+  });
+});
+
+describe("scanSpans", () => {
+  const area = (...rings: Int16Array[]) => ({ id: 1, level: 4, name: "x", rings });
+
+  it("crosses a simple shape once", () => {
+    expect(scanSpans(area(new Int16Array([0, 0, 100, 0, 100, 100, 0, 100])), 50)).toEqual([[0, 100]]);
+  });
+
+  it("gives a stretch per part, and a gap for a hole", () => {
+    const west = new Int16Array([0, 0, 20, 0, 20, 100, 0, 100]);
+    const east = new Int16Array([80, 0, 100, 0, 100, 100, 80, 100]);
+    expect(scanSpans(area(west, east), 50)).toEqual([
+      [0, 20],
+      [80, 100],
+    ]);
+  });
+
+  it("keeps the name off the hollow of a crescent", () => {
+    // Dalmatia's shape in miniature: a band curving around a bay whose middle
+    // — where a centroid, let alone a bounding box, would put the name — is
+    // outside the territory altogether.
+    const crescent = new Int16Array([0, 0, 100, 0, 100, 100, 60, 100, 60, 40, 40, 40, 40, 100, 0, 100]);
+    const middle = areaCentroid(area(crescent))!;
+    const spans = scanSpans(area(crescent), 70);
+    // The centre of gravity sits in the bay, which no stretch covers…
+    expect(spans.some(([from, to]) => from <= middle.x && middle.x <= to)).toBe(false);
+    // …while the stretches themselves are the two arms of the crescent.
+    expect(spans).toEqual([
+      [0, 40],
+      [60, 100],
+    ]);
+  });
+
+  it("has nothing to say above or below the shape", () => {
+    expect(scanSpans(area(new Int16Array([0, 0, 100, 0, 100, 100, 0, 100])), 200)).toEqual([]);
   });
 });
 
