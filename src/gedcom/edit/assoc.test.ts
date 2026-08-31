@@ -4,7 +4,7 @@ import { buildDataset } from "../builder";
 import { serializeGedcom } from "../serialize";
 import { firstChild } from "../node";
 import { associationsIn } from "../assoc";
-import { addAssociation, canWriteNameOnly, removeAssociation, writeAssociation } from "./assoc";
+import { addAssociation, canWriteNameOnly, moveAssociation, removeAssociation, writeAssociation } from "./assoc";
 import type { GedNode } from "../types";
 
 function dataset(version: "5.5.1" | "7.0", body: string) {
@@ -78,6 +78,31 @@ describe("writing associations", () => {
     expect(firstChild(node, "NOTE")?.value).toBe("from the register");
     // No second ROLE left behind by the rewrite.
     expect(node.children.filter((c) => c.tag === "ROLE")).toHaveLength(1);
+  });
+
+  it("moves a record-level association onto an event, whole", () => {
+    const ds = dataset("7.0", BODY);
+    const record = ds.individuals.get("@I1@")!.raw;
+    const node = addAssociation(record, { targetId: "@I2@", role: "GODP", roleText: "botra" }, ds.version);
+    node.children.push({ level: 2, tag: "NOTE", value: "from the register", children: [] });
+
+    moveAssociation(record, bapm(ds), node);
+
+    expect(record.children.some((c) => c.tag === "ASSO")).toBe(false);
+    const moved = associationsIn(bapm(ds));
+    expect(moved).toHaveLength(1);
+    // Role, wording and the note it carried all travel with it…
+    expect(moved[0]).toMatchObject({ targetId: "@I2@", role: "GODP", roleText: "botra" });
+    expect(firstChild(moved[0].raw, "NOTE")?.value).toBe("from the register");
+    // …and it serializes at the event's depth, not the record's.
+    expect(serializeGedcom([record])).toContain("2 ASSO @I2@\n3 ROLE GODP\n4 PHRASE botra\n3 NOTE from the register");
+  });
+
+  it("ignores a move to where it already is", () => {
+    const ds = dataset("7.0", BODY);
+    const node = addAssociation(bapm(ds), { targetId: "@I2@", role: "GODP" }, ds.version);
+    moveAssociation(bapm(ds), bapm(ds), node);
+    expect(associationsIn(bapm(ds))).toHaveLength(1);
   });
 
   it("removes an association without touching its neighbours", () => {

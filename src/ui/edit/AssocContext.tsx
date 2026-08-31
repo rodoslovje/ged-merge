@@ -26,6 +26,8 @@ export interface AssocApi {
   update: (ownerId: string, node: GedNode, spec: AssociationSpec) => void;
   /** Remove one association from its container. */
   remove: (ownerId: string, container: GedNode, node: GedNode) => void;
+  /** Move one off the record and onto the event it belongs to. */
+  move: (ownerId: string, from: GedNode, to: GedNode, node: GedNode) => void;
 }
 
 const AssocContext = createContext<AssocApi | null>(null);

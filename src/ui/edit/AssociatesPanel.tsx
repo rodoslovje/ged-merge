@@ -1,6 +1,8 @@
 import type { Dataset, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { INDI_EVENT_TAGS, eventDisplayLabel, isChangeStampEvent } from "../../gedcom/eventTags";
+import { firstChild } from "../../gedcom/node";
+import { parseDate } from "../../gedcom/date";
 import type { AssocRef } from "../../gedcom/assoc";
 import { PersonLink } from "../PersonLink";
 import { EventAssociates, roleLabel } from "./EventAssociates";
@@ -36,6 +38,17 @@ export function AssociatesPanel({
   const onRecord = person.associations ?? [];
   if (!onRecord.length && !namedBy?.length) return null;
 
+  // Where a record-level association could go instead. Read off the raw tree,
+  // not `person.events`: the typed list skips change-stamp `EVEN` nodes, so the
+  // two do not line up and the move would land on the wrong event.
+  const moveTargets = person.raw.children
+    .filter((c) => INDI_EVENT_TAGS.has(c.tag) && !isChangeStampEvent(c))
+    .map((node) => {
+      const label = eventDisplayLabel(node.tag, t);
+      const year = parseDate(firstChild(node, "DATE")?.value ?? "")?.year;
+      return { node, label: year ? `${label} ${year}` : label };
+    });
+
   return (
     <div className="edit-assoc">
       {onRecord.length > 0 && (
@@ -55,6 +68,7 @@ export function AssociatesPanel({
                 t={t}
                 picking={false}
                 onDonePicking={() => {}}
+                moveTargets={moveTargets}
               />
             </li>
           </ul>

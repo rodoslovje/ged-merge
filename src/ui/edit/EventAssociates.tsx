@@ -5,6 +5,7 @@ import { EDITABLE_ASSOC_ROLES, isVoidAssociation } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
 import { RelativePickerCard } from "./RelativePickerCard";
+import { DropdownMenu } from "../DropdownMenu";
 import { useAssoc } from "./AssocContext";
 
 /** The role in words: the file's own wording where it has one, else the
@@ -77,6 +78,7 @@ export function EventAssociates({
   t,
   picking,
   onDonePicking,
+  moveTargets,
 }: {
   associations: Association[];
   /** The event node the associations hang under. */
@@ -89,6 +91,13 @@ export function EventAssociates({
   /** True while "+ Add › Association" has the picker open on this row. */
   picking: boolean;
   onDonePicking: () => void;
+  /**
+   * Events this association could be moved onto, for one sitting on the record
+   * itself — which is all a 5.5.1 file can write, and where an import may have
+   * left a godparent whose baptism the file never named. Omitted on an event's
+   * own row: it is already where it belongs.
+   */
+  moveTargets?: { node: GedNode; label: string }[];
 }) {
   const api = useAssoc();
   const [editing, setEditing] = useState<Association | null>(null);
@@ -146,6 +155,16 @@ export function EventAssociates({
                   >
                     ✎
                   </button>
+                  {!!moveTargets?.length && (
+                    <DropdownMenu
+                      className="edit-assoc-action"
+                      title={t("assoc.moveTip")}
+                      ariaLabel={t("assoc.move")}
+                      groups={[{ label: t("assoc.move"), items: moveTargets.map((m, mi) => ({ value: String(mi), label: m.label })) }]}
+                      onSelect={(v) => api.move(ownerId, container, moveTargets[Number(v)].node, assoc.raw)}
+                      trigger="↧"
+                    />
+                  )}
                   <button
                     type="button"
                     className="edit-assoc-action edit-assoc-remove"

@@ -99,7 +99,7 @@ import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSource
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
-import { addAssociation, removeAssociation, writeAssociation } from "../gedcom/edit";
+import { addAssociation, moveAssociation, removeAssociation, writeAssociation } from "../gedcom/edit";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
@@ -853,6 +853,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     add: (ownerId, container, spec) => commitAssoc(ownerId, () => addAssociation(container, spec, dataset.version)),
     update: (ownerId, node, spec) => commitAssoc(ownerId, () => writeAssociation(node, spec, dataset.version)),
     remove: (ownerId, container, node) => commitAssoc(ownerId, () => removeAssociation(container, node)),
+    move: (ownerId, from, to, node) => commitAssoc(ownerId, () => moveAssociation(from, to, node)),
   };
 
   /** Attach a photo by folder-relative path, following the main's media mode:

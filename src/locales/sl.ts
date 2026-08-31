@@ -583,6 +583,8 @@ export const sl = {
   "assoc.nameOnly": "Zapiši samo vpisano ime",
   "assoc.editRole": "Spremeni vlogo",
   "assoc.remove": "Odstrani osebo z dogodka",
+  "assoc.move": "Premakni k dogodku",
+  "assoc.moveTip": "Osebo uvrstite k dogodku, ki ji pripada — h krstu, pri katerem je botrovala, ali k poroki, pri kateri je bila priča",
   "assoc.save": "Shrani",
   "assoc.cancel": "Prekliči",
   "edit.lastChangedTip": "Datum spremembe, ki ga ta zapis nosi v datoteki. Ob shranjevanju vsebinskih sprememb se datum posodobi.",

@@ -91,3 +91,26 @@ export function removeAssociation(container: GedNode, node: GedNode): void {
   const i = container.children.indexOf(node);
   if (i !== -1) container.children.splice(i, 1);
 }
+
+/**
+ * Move an association from one container to another — in practice off the
+ * record and onto the event it belongs to, which is the only way to say *which*
+ * baptism a 5.5.1 file's godparent attended.
+ *
+ * The node travels whole: its role, its date, its notes and its citations are
+ * the same claim wherever it hangs. Only the levels are restated, since it has
+ * changed depth.
+ */
+export function moveAssociation(from: GedNode, to: GedNode, node: GedNode): void {
+  const i = from.children.indexOf(node);
+  if (i === -1 || from === to) return;
+  from.children.splice(i, 1);
+  restack(node, to.level + 1);
+  insertOrdered(to, node, orderFor(to));
+}
+
+/** Restate a subtree's levels after it moves to a new depth. */
+function restack(node: GedNode, level: number): void {
+  node.level = level;
+  for (const child of node.children) restack(child, level + 1);
+}

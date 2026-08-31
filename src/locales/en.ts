@@ -469,6 +469,8 @@ export const en = {
   "assoc.nameOnly": "Record the typed name only",
   "assoc.editRole": "Change the role",
   "assoc.remove": "Remove this person from the event",
+  "assoc.move": "Move to an event",
+  "assoc.moveTip": "File this person under the event they belong to — the baptism they stood godparent at, the wedding they witnessed",
   "assoc.save": "Save",
   "assoc.cancel": "Cancel",
   "edit.lastChangedTip": "The change date this record carries in the file; it advances when a save stamps the record.",
