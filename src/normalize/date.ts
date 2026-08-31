@@ -11,6 +11,12 @@ const DASH_YEAR_RANGE = /^\d{3,4}\s*[-/]\s*\d{3,4}$/;
  * reconstruct the value (so normalization never loses information).
  */
 export function formatGedDate(date: GedDate, profile: DateFormatProfile): string {
+  // A date that names its calendar, or counts backwards from year 1, carries
+  // part of its meaning in text the main's layout has no slot for: re-rendering
+  // "@#DJULIAN@ 14 JAN 1700" as "14.01.1700" would quietly restate it as a
+  // Gregorian date ten days from where the file put it. Keep it as written.
+  if (date.calendar !== undefined || (date.year !== undefined && date.year < 0)) return date.raw;
+
   const first = formatParts(date.year, date.month, date.day, profile);
   const second = formatParts(date.year2, date.month2, date.day2, profile);
   const q = profile.qualifierTokens;

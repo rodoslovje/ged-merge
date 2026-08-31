@@ -149,6 +149,20 @@ export type DateQualifier =
   | "unknown";
 
 /**
+ * A calendar a `DATE` value can name for itself — 5.5.1 writes it as an escape
+ * (`@#DJULIAN@ 14 JAN 1700`), GEDCOM 7 as a leading keyword (`JULIAN 14 JAN
+ * 1700`). Values that name none are Gregorian, which is the overwhelming
+ * majority and is left unmarked (see {@link GedDate.calendar}).
+ */
+export type GedCalendar =
+  | "GREGORIAN"
+  | "JULIAN"
+  | "HEBREW"
+  | "FRENCH_R" // French Republican; 5.5.1 spells the escape "@#DFRENCH R@"
+  | "ROMAN" // 5.5.1 only, and never defined by it
+  | "UNKNOWN"; // "@#DUNKNOWN@" — the file says it doesn't know
+
+/**
  * A semantically-parsed date, kept alongside its original text so it can be
  * rendered back in the main's observed format.
  */
@@ -156,7 +170,26 @@ export interface GedDate {
   /** Original date string exactly as it appeared in the file. */
   raw: string;
   qualifier: DateQualifier;
-  /** Primary date as components; undefined parts mean "not specified". */
+  /**
+   * The calendar the value named for itself, when it named one. Absent means
+   * the value made no declaration and is read as Gregorian — nearly every date
+   * in nearly every file.
+   *
+   * Only `JULIAN` and `GREGORIAN` also carry components: they share the
+   * standard month names and count years from the same epoch, so a Julian date
+   * sorts, matches and dates an event exactly as a Gregorian one does (its
+   * 10–13-day offset is *not* applied — the file states a Julian date and the
+   * app shows the Julian date). The others count from a different epoch
+   * entirely — Tishrei 5760, Vendémiaire an I — so their components are left
+   * unparsed rather than placing a person three millennia in the future; the
+   * calendar is what marks such a value understood rather than broken.
+   */
+  calendar?: GedCalendar;
+  /**
+   * Primary date as components; undefined parts mean "not specified". A `year`
+   * is negative when the value counts backwards from year 1 (`44 BCE` → -44),
+   * which is what makes it order and subtract correctly against ordinary years.
+   */
   year?: number;
   month?: number; // 1-12
   day?: number; // 1-31
