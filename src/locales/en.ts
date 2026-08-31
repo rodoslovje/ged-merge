@@ -1517,6 +1517,9 @@ export const en = {
   "map.pathCountOf": "{{shown}} of {{total}} paths",
   "map.pathOf": "Life path",
   "map.showPath": "Show this person's life path",
+  "map.borders": "Borders",
+  "map.borders.tooltip":
+    "Draw the administrative borders of the year in the To year field — the empires, provinces and districts of OpenHistoricalMap",
   "map.overlays": "Overlays",
   "map.overlays.tooltip": "Additional map layers — configure them in Settings → Map",
   "map.overlays.suggested": "This layer's period matches the selected years",

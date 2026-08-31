@@ -1,0 +1,248 @@
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import {
+  adminMinZoom,
+  aliveAt,
+  areaCentroid,
+  bordersAt,
+  borderWeight,
+  decodeBorderTile,
+  gridCoords,
+  ohmTileUrl,
+  ringArea,
+  scanSpans,
+  sourceCoords,
+  sourceZoom,
+  tileTransform,
+} from "./ohmBorders";
+
+// A real OpenHistoricalMap tile (zoom 10, over Ljubljana), stored as served but
+// gzipped — in the browser fetch undoes that transport encoding itself. It is
+// the boundary tileset's own bytes, so these tests fail if OHM's property names
+// (`start_decdate`, `admin_level`, `name_sl`) ever move under us.
+const TILE = gunzipSync(
+  readFileSync(fileURLToPath(new URL("../__fixtures__/ohm/ohm-admin-z10-553-364.mvt.gz", import.meta.url))),
+);
+const buffer = () => TILE.buffer.slice(TILE.byteOffset, TILE.byteOffset + TILE.byteLength) as ArrayBuffer;
+
+describe("aliveAt", () => {
+  it("keeps a territory through the year it ended in", () => {
+    // Austria-Hungary ended 1918-11-11 — 1918 is still its year, 1919 is not.
+    const monarchy = { start: 1867.41, end: 1918.86 };
+    expect(aliveAt(monarchy, 1918)).toBe(true);
+    expect(aliveAt(monarchy, 1919)).toBe(false);
+    expect(aliveAt(monarchy, 1867)).toBe(true);
+    expect(aliveAt(monarchy, 1866)).toBe(false);
+  });
+
+  it("treats a missing end as still standing, a missing start as always there", () => {
+    expect(aliveAt({ start: 1991.48 }, 2026)).toBe(true);
+    expect(aliveAt({ start: 1991.48 }, 1990)).toBe(false);
+    expect(aliveAt({ end: 1918.86 }, 1500)).toBe(true);
+    expect(aliveAt({}, -3000)).toBe(true);
+  });
+});
+
+describe("adminMinZoom / borderWeight", () => {
+  it("draws countries at every zoom and communes only from close up", () => {
+    expect(adminMinZoom(2)).toBe(0);
+    expect(adminMinZoom(4)).toBe(3);
+    expect(adminMinZoom(6)).toBe(8);
+    expect(adminMinZoom(9)).toBe(11);
+  });
+
+  it("weights an empire's outline over the districts inside it", () => {
+    expect(borderWeight(2)).toBeGreaterThan(borderWeight(4));
+    expect(borderWeight(4)).toBeGreaterThan(borderWeight(6));
+  });
+});
+
+describe("decodeBorderTile", () => {
+  it("reads the territories of a real OHM tile", () => {
+    const tile = decodeBorderTile(buffer());
+    expect(tile.extent).toBe(4096);
+    expect(tile.areas.length).toBeGreaterThan(100);
+    // The duchy is in the tile several times over — a territory gets a new
+    // record whenever its borders move — so it is the 1880 one that is checked.
+    const krain = bordersAt(tile, 1880, 10).find((a) => a.name === "Duchy of Carniola");
+    expect(krain).toBeDefined();
+    expect(krain!.level).toBe(4);
+    expect(krain!.startDate).toBe("1849-12-08");
+    expect(krain!.endDate).toBe("1918-12-01");
+    expect(krain!.rings.length).toBeGreaterThan(0);
+  });
+
+  it("takes the name in the interface's language, then English, then its own", () => {
+    const named = (lang: string | undefined, year: number, level: number) =>
+      bordersAt(decodeBorderTile(buffer(), lang), year, 10).find((a) => a.level === level)?.name;
+    expect(named("sl", 1880, 4)).toBe("Vojvodina Kranjska");
+    expect(named("de", 1880, 4)).toBe("Herzogtum Krain");
+    // English stands in where the language has no name of its own — better a
+    // name the reader can read than the territory's own script (OHM writes the
+    // Ottoman Empire's as دولت علیه عثمانیه).
+    expect(named("xx", 1880, 4)).toBe("Duchy of Carniola");
+    // …and the territory's own name where OHM has no English either.
+    expect(named("sl", 1780, 5)).toBe("Neustädtler Kreis");
+  });
+});
+
+describe("bordersAt", () => {
+  it("keeps the year's territories, largest first", () => {
+    const tile = decodeBorderTile(buffer());
+    const drawn = bordersAt(tile, 1880, 10);
+    expect(drawn.map((a) => a.name)).toEqual(["Austria-Hungary", "Cisleithania", "Duchy of Carniola"]);
+  });
+
+  it("moves with the year", () => {
+    const tile = decodeBorderTile(buffer());
+    // Over one place: the Empire, then the Monarchy, then the kingdom that
+    // followed it. (Between them sit years OHM has nothing mapped for — 1919
+    // over this tile draws nothing at all, which is a gap in the data and not
+    // in the reading of it.)
+    expect(bordersAt(tile, 1780, 10).map((a) => a.name)).toContain("Holy Roman Empire");
+    expect(bordersAt(tile, 1880, 10).map((a) => a.name)).toContain("Duchy of Carniola");
+    expect(bordersAt(tile, 1935, 10).map((a) => a.name)).toContain("Kingdom of Yugoslavia");
+    expect(bordersAt(tile, 1935, 10).some((a) => a.name === "Duchy of Carniola")).toBe(false);
+  });
+
+  it("drops the levels this zoom doesn't draw", () => {
+    const tile = decodeBorderTile(buffer());
+    // Cisleithania is level 3, which starts at zoom 5; the duchy (4) at zoom 3.
+    const far = bordersAt(tile, 1880, 4);
+    expect(far.some((a) => a.name === "Cisleithania")).toBe(false);
+    expect(far.some((a) => a.name === "Duchy of Carniola")).toBe(true);
+  });
+});
+
+describe("gridCoords / sourceCoords / tileTransform", () => {
+  it("reads a 512-px grid tile as the standard tile one zoom coarser", () => {
+    // Leaflet numbers the drawn tile by the map's zoom whatever size it is;
+    // what OHM serves for it is the z − 1 tile with the same x and y.
+    expect(gridCoords({ z: 11, x: 553, y: 364 })).toEqual({ z: 10, x: 553, y: 364 });
+  });
+
+  it("fetches a tile itself until the deepest zoom, then its ancestor", () => {
+    expect(sourceCoords({ z: 10, x: 553, y: 364 })).toEqual({ z: 10, x: 553, y: 364 });
+    expect(sourceCoords({ z: 14, x: 8853, y: 5829 })).toEqual({ z: 12, x: 2213, y: 1457 });
+  });
+
+  it("draws a wide view from a coarser tile, so a screenful stays affordable", () => {
+    // OHM's boundary tiles hold every period at once and barely shrink going
+    // out (465 kB at zoom 6 and 5, 1.4 MB at 4 and 3), so a wide view takes one
+    // coarse tile instead of a dozen expensive ones.
+    expect(sourceZoom(9)).toBe(9);
+    expect(sourceZoom(7)).toBe(7);
+    expect(sourceZoom(6)).toBe(5);
+    expect(sourceZoom(5)).toBe(3);
+    expect(sourceZoom(2)).toBe(0);
+    expect(sourceZoom(0)).toBe(0);
+    expect(sourceZoom(15)).toBe(12);
+    // One zoom-5 tile covers the four zoom-6 tiles that would each have been
+    // fetched at their own scale.
+    expect(sourceCoords({ z: 6, x: 34, y: 22 })).toEqual({ z: 5, x: 17, y: 11 });
+    expect(sourceCoords({ z: 5, x: 17, y: 11 })).toEqual({ z: 3, x: 4, y: 2 });
+  });
+
+  it("scales a tile's own coordinates onto its canvas", () => {
+    const coords = { z: 10, x: 553, y: 364 };
+    const t = tileTransform(coords, coords, 4096, 256);
+    expect(t.scale).toBe(256 / 4096);
+    expect(t.dx).toBe(0);
+    expect(t.dy).toBe(0);
+    // The tile's far corner lands on the far corner of the canvas.
+    expect(4096 * t.scale + t.dx).toBe(256);
+  });
+
+  it("blows an ancestor up and slides the right part of it into view", () => {
+    const source = { z: 12, x: 2213, y: 1457 };
+    // The second of the four children in each direction: the ancestor's middle
+    // becomes this canvas's origin.
+    const child = { z: 13, x: 4427, y: 2915 };
+    const t = tileTransform(child, source, 4096, 256);
+    expect(t.scale).toBe((2 * 256) / 4096);
+    expect(2048 * t.scale + t.dx).toBe(0);
+    expect(4096 * t.scale + t.dx).toBe(256);
+  });
+});
+
+describe("ringArea / areaCentroid", () => {
+  // Rings are x and y alternating, so that a wide view's tile — millions of
+  // points — can be held in memory at all.
+  const square = new Int16Array([0, 0, 100, 0, 100, 100, 0, 100]);
+  const reversed = new Int16Array([0, 100, 100, 100, 100, 0, 0, 0]);
+
+  it("measures a ring however it winds", () => {
+    expect(Math.abs(ringArea(square))).toBe(10000);
+    expect(Math.abs(ringArea(reversed))).toBe(10000);
+  });
+
+  it("finds a territory's centre of gravity", () => {
+    expect(areaCentroid({ id: 1, level: 4, name: "Krain", rings: [square] })).toEqual({
+      x: 50,
+      y: 50,
+      weight: 10000,
+    });
+  });
+
+  it("pulls the centre towards the bulk of a scattered territory", () => {
+    // A large part and a small one far away: the name belongs on the large one,
+    // not midway between them — where a bounding box's centre would put it.
+    const island = new Int16Array([1000, 1000, 1020, 1000, 1020, 1020, 1000, 1020]);
+    const centre = areaCentroid({ id: 1, level: 4, name: "Krain", rings: [square, island] })!;
+    expect(centre.x).toBeGreaterThan(50);
+    expect(centre.x).toBeLessThan(90);
+    expect(centre.x).toBeCloseTo(centre.y, 6);
+  });
+
+  it("has no centre on a degenerate ring", () => {
+    expect(areaCentroid({ id: 1, level: 4, name: "x", rings: [] })).toBeUndefined();
+    expect(areaCentroid({ id: 1, level: 4, name: "x", rings: [new Int16Array([5, 5, 5, 5])] })).toBeUndefined();
+  });
+});
+
+describe("scanSpans", () => {
+  const area = (...rings: Int16Array[]) => ({ id: 1, level: 4, name: "x", rings });
+
+  it("crosses a simple shape once", () => {
+    expect(scanSpans(area(new Int16Array([0, 0, 100, 0, 100, 100, 0, 100])), 50)).toEqual([[0, 100]]);
+  });
+
+  it("gives a stretch per part, and a gap for a hole", () => {
+    const west = new Int16Array([0, 0, 20, 0, 20, 100, 0, 100]);
+    const east = new Int16Array([80, 0, 100, 0, 100, 100, 80, 100]);
+    expect(scanSpans(area(west, east), 50)).toEqual([
+      [0, 20],
+      [80, 100],
+    ]);
+  });
+
+  it("keeps the name off the hollow of a crescent", () => {
+    // Dalmatia's shape in miniature: a band curving around a bay whose middle
+    // — where a centroid, let alone a bounding box, would put the name — is
+    // outside the territory altogether.
+    const crescent = new Int16Array([0, 0, 100, 0, 100, 100, 60, 100, 60, 40, 40, 40, 40, 100, 0, 100]);
+    const middle = areaCentroid(area(crescent))!;
+    const spans = scanSpans(area(crescent), 70);
+    // The centre of gravity sits in the bay, which no stretch covers…
+    expect(spans.some(([from, to]) => from <= middle.x && middle.x <= to)).toBe(false);
+    // …while the stretches themselves are the two arms of the crescent.
+    expect(spans).toEqual([
+      [0, 40],
+      [60, 100],
+    ]);
+  });
+
+  it("has nothing to say above or below the shape", () => {
+    expect(scanSpans(area(new Int16Array([0, 0, 100, 0, 100, 100, 0, 100])), 200)).toEqual([]);
+  });
+});
+
+describe("ohmTileUrl", () => {
+  it("fills the template", () => {
+    expect(ohmTileUrl({ z: 10, x: 553, y: 364 })).toBe(
+      "https://vtiles.openhistoricalmap.org/maps/ohm_admin/10/553/364.pbf",
+    );
+  });
+});
