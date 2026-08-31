@@ -3,7 +3,7 @@
 // kept apart from the builders so both compose the same vocabulary: compact
 // glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
 
-import type { AssocRole, Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
@@ -57,9 +57,6 @@ export interface FactLine {
   /** Marriage lines carry the union's family xref, so the narrative can pair
    *  each marriage sentence with that union's children. */
   fam?: string;
-  /** People the event names who are not the subject's relatives — the
-   *  godparents at a baptism, the witnesses at a wedding. */
-  associates?: AssociateLine[];
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
   /** The event's formatted source citations, when enabled. */
@@ -70,23 +67,6 @@ export interface FactLine {
   /** Sex-tagged ages for events about a couple: a marriage carries both
    *  spouses ("♂32", "♀28"); a birth carries the parents. */
   ages?: string[];
-}
-
-/**
- * One person an event names who is not the subject's relative. Data only: the
- * role is carried as it was read and worded by the renderer in the report's
- * language, and `living` lets the renderer redact them like any other person
- * under the privacy option.
- */
-export interface AssociateLine {
-  /** The record's xref, or "" for one the file names without recording. */
-  id: string;
-  name: string;
-  sex: Sex;
-  living: boolean;
-  role: AssocRole;
-  /** The file's own wording for the role, where it has one ("botra"). */
-  roleText?: string;
 }
 
 /** One rendered citation: the "§ title" text, the cited page kept separate
