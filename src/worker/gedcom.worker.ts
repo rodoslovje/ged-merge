@@ -16,7 +16,8 @@ import { matchGiPairs } from "../match/giMatch";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
 import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
-import { parseGiMatchesCsv, type GiPair } from "../csv/giMatches";
+import { parseCompareCsv } from "../csv/compareCsv";
+import type { GiPair } from "../csv/giMatches";
 import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { WorkerRequest, WorkerResponse } from "./messages";
@@ -80,7 +81,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (req.type === "parseCsv") {
     try {
       const text = decodeCsv(req.buffer);
-      const { dataset, pairs } = parseGiMatchesCsv(text);
+      const { dataset, pairs } = parseCompareCsv(text);
       compareCsvPairs = pairs;
       compareRaw = { fileName: req.fileName, dataset };
       emitCompare(req.fileName, dataset);

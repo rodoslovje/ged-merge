@@ -332,10 +332,11 @@
               <li><strong>Main file</strong> — your primary family tree, the one you own and maintain. Load it first;
                 <span class="gm-pill">Edit</span> and <span class="gm-pill">Tools</span> always work on it.</li>
               <li><strong>Incoming</strong> — what you compare the main file against, loaded only in
-                <span class="gm-pill">Merge</span> mode: a second <em>.ged</em>, or a <strong>matches CSV</strong>
+                <span class="gm-pill">Merge</span> mode: a second <em>.ged</em>, a <strong>matches CSV</strong>
                 exported from
                 <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
-                (the Slovenian genealogical index).</li>
+                (the Slovenian genealogical index), or an <strong>index of a parish register</strong> read on
+                Matricula Online, saved as CSV (<a href="#parish-index">§9</a>).</li>
             </ul>
             <p>
               Neither original is ever changed on disk: every edit and every merge builds a <em>new copy</em> that you
@@ -804,6 +805,33 @@
               woman, Jurij a man, Matija a man despite the ending. A name that settles nothing, whether unknown or one
               borne by both (Saša, Vanja), leaves the sex empty rather than guessed, since a wrong sex would keep a
               real match from ever being offered. Nothing your own file states is ever overwritten by this.
+            </p>
+            <h3 id="parish-index">An index of a parish register</h3>
+            <p>
+              The Slovenian indexing project publishes parish books read on
+              <a href="https://data.matricula-online.eu" target="_blank" rel="noopener noreferrer">Matricula Online</a>
+              as a spreadsheet with one row per record — <em>Indeks P</em> for a book of marriages,
+              <em>Indeks K</em> for a book of baptisms. Save one as CSV and load it as the incoming file: a marriage row
+              arrives as a couple with their wedding, a baptism row as a child with their birth and christening and the
+              parents beside them, and the house each record is filed under becomes a residence — for a baptism, the
+              place of birth, which is the sharpest thing a parish index says about who is who. Every record keeps the
+              link to the page it was read from, so confirming a match brings the scan's citation with it
+              (<a href="#sources">§13</a>). The header decides which book kind a file is, so indexes from different
+              parishes and different years all load, whichever optional columns they happen to carry.
+            </p>
+            <p>
+              Rows naming the same parents become one family, and the index arrives with its brothers and sisters
+              already together. Two couples of one name too far apart in time to be the same — a man's parents and his
+              grandparents, both <em>Martin Žunič in Ana Bilič</em> — stay two families.
+            </p>
+            <p>
+              The <em>opombe</em> column is the indexer's own prose, and where it follows the form they write in
+              (<em>Ženin: vdovec, 42 let, kmet; starša … Priči: …</em>) it is read too: the parents named there become
+              real parent families, an age at the wedding becomes an approximate birth year, and the witnesses and
+              godparents are recorded on the event that names them (<a href="#associates">§8</a>). Where the column says
+              something else, nothing is taken from it. Either way the note is carried whole onto the event, so the
+              indexer's remarks reach you as they wrote them — including the <em>preveri:</em> list of the fields they
+              were unsure of, which is worth reading before you confirm anything.
             </p>
             <h3>Filtering</h3>
             <p>
@@ -2751,7 +2779,7 @@
               <tbody>
                 <tr><td><strong>GEDCOM</strong></td><td>The standard family-tree exchange format (<em>.ged</em>) GED Merge reads and writes.</td></tr>
                 <tr><td><strong>Main file</strong></td><td>Your primary tree — the file you edit and merge into.</td></tr>
-                <tr><td><strong>Incoming</strong></td><td>The file you compare against the main file: another GEDCOM or a <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> CSV.</td></tr>
+                <tr><td><strong>Incoming</strong></td><td>The file you compare against the main file: another GEDCOM, a <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> CSV, or an index of a parish register (<a href="#parish-index">§9</a>).</td></tr>
                 <tr><td><strong>Match score</strong></td><td>0–100% likelihood that two records are the same person.</td></tr>
                 <tr><td><strong>Start person</strong></td><td>The reference person matches are ranked around, by kinship distance.</td></tr>
                 <tr><td><strong>House style</strong></td><td>A file's own date, place, source and name conventions.</td></tr>

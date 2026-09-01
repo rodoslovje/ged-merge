@@ -82,7 +82,7 @@ The user reads the Slovenian pages closely and judges them **as Slovenian, not a
 All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The worker owns the parse → normalize → match pipeline and communicates via typed messages (`src/worker/messages.ts`):
 
 - `parse` → emits `parsed` (with `Dataset`) and then `matching`/`matched`
-- `parseCsv` → loads genealogical-index matches CSV (indeks.rodoslovje.si) into the compare slot
+- `parseCsv` → loads a CSV into the compare slot: a genealogical-index matches export (indeks.rodoslovje.si), matched pair by pair, or a Slovenian parish-register index (Matricula P/K sheets), matched by the ordinary engine
 - `setHome` → re-ranks the last match result by kinship distance; emits `matching`/`matched`
 
 The worker keeps its own copies of `mainDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
@@ -135,7 +135,7 @@ Sanity check after CSS edits: every referenced var must resolve to a definition,
 | `src/review/` | Field-comparison rows (`FieldRow`), diff counts for the results table |
 | `src/chart/` | Pure chart data + geometry: person tree builder (`personTree`), layered/fan/relationship layouts, timeline rows, per-node display rules (`nodeDisplay`) — no React |
 | `src/report/` | Pure text-report builders: Ahnentafel + NGSQ descendant register (`model`, `text`) |
-| `src/csv/` | Genealogical index CSV import |
+| `src/csv/` | Incoming-CSV imports: genealogical-index matches (`giMatches`) and the Slovenian parish-register index (`parishIndex`), on a shared record registry (`people`) |
 | `src/tools/` | Whole-file maintenance tools (Tools tab): validation/health check, within-file duplicate finder, bulk normalize — pure functions; the heavy scans run in `tools.worker`, the geocode scans on the main thread behind a paint |
 | `src/ui/` | React components |
 | `src/locales/` | i18n strings (English `en`, Slovenian `sl`) via i18next |

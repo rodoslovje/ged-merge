@@ -139,6 +139,27 @@ describe("gedcom.worker pipeline", () => {
     expect(reEmit.dataset.individuals.get(survivor)!.events.some((e) => e.tag === "DEAT")).toBe(true);
   });
 
+  it("a parish-register index CSV goes through the ordinary matching engine", async () => {
+    // The matches CSV names its own main-side person and is resolved pair by
+    // pair; a parish index is a whole register and says nothing about the
+    // reader's tree, so it must reach `matchDatasets` exactly as a GEDCOM
+    // compare file does — which is what makes its people, and the parents its
+    // notes name, candidates at all.
+    const index =
+      "zp. št.;župnija;datum poroke;naslov;ime ženina;priimek ženina;ime neveste;priimek neveste;opombe\r\n" +
+      '1;Trbovlje;1875-04-11;Dol 3;Janez;Novak;Marija;Kralj;"Ženin: 25 let; starša Jakob Novak in Ana Kos."\r\n';
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    posted = [];
+    send({ type: "parseCsv", fileName: "Indeks P Trbovlje.csv", buffer: enc(index) });
+    expect(types()).toEqual(["parsed", "matching", "matched"]);
+    const compare = posted[0];
+    if (compare.type !== "parsed") throw new Error("expected the compare slot to parse");
+    // Groom, bride and the two parents his note names.
+    expect(compare.dataset.individuals.size).toBe(4);
+    expect(lastMatched()?.individuals[0]).toMatchObject({ mainId: "@I1@" });
+  });
+
   it("an unreadable matches CSV fails the compare slot, not the worker", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });

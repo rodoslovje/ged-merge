@@ -337,10 +337,11 @@
                 vzdržujete. Naložite jo najprej; <span class="gm-pill">Urejanje</span> in
                 <span class="gm-pill">Orodja</span> delata vedno z njo.</li>
               <li><strong>Vhodna datoteka</strong> — datoteka, ki jo primerjate z glavno; naložite jo samo v načinu
-                <span class="gm-pill">Združevanje</span>: drug <em>.ged</em> ali <strong>CSV z ujemanji</strong>,
+                <span class="gm-pill">Združevanje</span>: drug <em>.ged</em>, <strong>CSV z ujemanji</strong>,
                 izvožen z
                 <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
-                (slovenski rodoslovni indeks).</li>
+                (slovenski rodoslovni indeks), ali <strong>indeks matične knjige</strong>, prebrane na Matriculi in
+                shranjene kot CSV (<a href="#parish-index">§9</a>).</li>
             </ul>
             <p>
               Noben izvirnik se na disku nikoli ne spremeni: vsako urejanje in vsako združevanje zgradi <em>novo
@@ -808,6 +809,32 @@
               kljub končnici moški. Kadar ime ne pove ničesar, ker ga ni mogoče prepoznati ali ker ga nosita oba spola
               (Saša, Vanja), spol raje ostane prazen kakor uganjen: napačen spol pravo ujemanje zavrže, še
               preden se pojavi na seznamu. Podatkov v vaši datoteki to nikoli ne spremeni.
+            </p>
+            <h3 id="parish-index">Indeks matične knjige</h3>
+            <p>
+              Slovenski projekt indeksiranja objavlja matične knjige, prebrane na spletišču
+              <a href="https://data.matricula-online.eu" target="_blank" rel="noopener noreferrer">Matricula Online</a>,
+              kot preglednico z eno vrstico na zapis: <em>Indeks P</em> za poročno knjigo in <em>Indeks K</em> za
+              krstno. Shranite jo kot CSV in naložite kot vhodno datoteko. Vrstica poroke pride kot par s poročnim
+              dogodkom, vrstica krsta pa kot otrok z rojstvom, krstom in staršema. Hiša, pod katero je zapis vpisan,
+              postane bivališče, pri krstu pa kraj rojstva — hišna številka je najmočnejši podatek, ki ga indeks pove o
+              tem, kdo je kdo. Vsak zapis obdrži povezavo do strani, s katere je prebran, zato potrditev ujemanja
+              prinese tudi vir s to stranjo (<a href="#sources">§13</a>). Vrsto knjige določi glava datoteke, zato se
+              naložijo indeksi iz različnih župnij in različnih let, ne glede na to, katere neobvezne stolpce imajo.
+            </p>
+            <p>
+              Vrstice, ki imenujejo iste starše, se združijo v eno družino, zato so bratje in sestre že povezani. Če dve
+              vrstici imenujeta starše z istima imenoma, a sta si po času predaleč, da bi šlo za isti par — starši
+              nekega moža in njegovi stari starši se pogosto imenujejo enako — nastaneta dve družini.
+            </p>
+            <p>
+              Stolpec <em>opombe</em> je prosto besedilo zapisovalca indeksa. Kadar sledi obliki, v kateri ga v projektu
+              pišejo (<em>Ženin: vdovec, 42 let, kmet; starša … Priči: …</em>), se prebere tudi ta: tam imenovani starši
+              postanejo prave starševske družine, starost ob poroki postane približno leto rojstva, priče in botri pa se
+              zapišejo na dogodek, ki jih imenuje (<a href="#associates">§8</a>). Kadar stolpec pove kaj drugega, se iz
+              njega ne vzame nič. Opomba se v obeh primerih v celoti prenese na dogodek, tako da pride do vas taka, kot
+              je zapisana — vključno s seznamom <em>preveri:</em>, ki našteje polja, o katerih zapisovalec ni bil
+              prepričan. Prav ta seznam je vredno prebrati, preden ujemanje potrdite.
             </p>
             <h3>Filtriranje</h3>
             <p>
@@ -2831,7 +2858,7 @@
               <tbody>
                 <tr><td><strong>GEDCOM</strong></td><td>Standardna oblika za izmenjavo rodoslovnih dreves (<em>.ged</em>), ki jo GED Merge bere in zapisuje.</td></tr>
                 <tr><td><strong>Glavna</strong></td><td>Vaše osnovno drevo — datoteka, ki jo urejate in vanjo združujete.</td></tr>
-                <tr><td><strong>Vhodna</strong></td><td>Datoteka, ki jo primerjate z glavno: drug GEDCOM ali CSV z <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>.</td></tr>
+                <tr><td><strong>Vhodna</strong></td><td>Datoteka, ki jo primerjate z glavno: drug GEDCOM, CSV z <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a> ali indeks matične knjige (<a href="#parish-index">§9</a>).</td></tr>
                 <tr><td><strong>Stopnja ujemanja</strong></td><td>0–100 % verjetnost, da gre pri dveh zapisih za isto osebo.</td></tr>
                 <tr><td><strong>Izhodiščna oseba</strong></td><td>Referenčna oseba, okoli katere se ujemanja razvrstijo po sorodstveni razdalji.</td></tr>
                 <tr><td><strong>Slog datoteke</strong></td><td>Lastna pravila datoteke za datume, kraje, vire in imena.</td></tr>
