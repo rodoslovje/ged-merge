@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
+import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
@@ -505,7 +506,7 @@ function AppContent() {
     // c + combining caron. Our subset fonts don't carry the combining marks, so
     // the accent mispositions; normalize to NFC (precomposed) for display.
     const fileName = file.name.normalize("NFC");
-    const isCsv = role === "compare" && /\.csv$/i.test(fileName);
+    const isCsv = role === "compare" && isTableFile(fileName);
     dispatch({ type: "slotLoading", role, fileName });
     // Read the bytes first, before a single thing is torn down. A file can
     // refuse to be read — moved or renamed between the picker and here, a
@@ -606,7 +607,7 @@ function AppContent() {
     const blob = persistence.compareBlobRef.current;
     if (!blob || compare.status !== "loaded") return;
     const fileName = compare.file.fileName;
-    const isCsv = /\.csv$/i.test(fileName);
+    const isCsv = isTableFile(fileName);
     const buffer = await blob.arrayBuffer();
     post(
       isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role: "compare", fileName, buffer },

@@ -336,7 +336,8 @@
                 exported from
                 <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
                 (the Slovenian genealogical index), or an <strong>index of a parish register</strong> read on
-                Matricula Online, saved as CSV (<a href="#parish-index">§9</a>).</li>
+                Matricula Online — the spreadsheet itself (<em>.xlsx</em>, <em>.xlsm</em>) or a CSV saved from it
+                (<a href="#parish-index">§9</a>).</li>
             </ul>
             <p>
               Neither original is ever changed on disk: every edit and every merge builds a <em>new copy</em> that you
@@ -811,13 +812,16 @@
               The Slovenian indexing project publishes parish books read on
               <a href="https://data.matricula-online.eu" target="_blank" rel="noopener noreferrer">Matricula Online</a>
               as a spreadsheet with one row per record — <em>Indeks P</em> for a book of marriages,
-              <em>Indeks K</em> for a book of baptisms. Save one as CSV and load it as the incoming file: a marriage row
+              <em>Indeks K</em> for a book of baptisms. Load one as the incoming file — the workbook as it was
+              published, or a CSV saved from it: a marriage row
               arrives as a couple with their wedding, a baptism row as a child with their birth and christening and the
               parents beside them, and the house each record is filed under becomes a residence — for a baptism, the
               place of birth, which is the sharpest thing a parish index says about who is who. Every record keeps the
               link to the page it was read from, so confirming a match brings the scan's citation with it
               (<a href="#sources">§13</a>). The header decides which book kind a file is, so indexes from different
-              parishes and different years all load, whichever optional columns they happen to carry.
+              parishes and different years all load, whichever optional columns they happen to carry; in a workbook of
+              several sheets, the one holding the index is found by its header too, and the instructions and name-list
+              tabs beside it are passed over.
             </p>
             <p>
               Rows naming the same parents become one family, and the index arrives with its brothers and sisters

@@ -561,7 +561,15 @@ export interface ParishIndexImport {
  * try the other CSV shapes it knows.
  */
 export function parseParishIndexCsv(text: string): ParishIndexImport | undefined {
-  const rows = parseCsvText(text).filter((r) => r.some((cell) => cell.trim()));
+  return parseParishIndexRows(parseCsvText(text));
+}
+
+/**
+ * The same, from rows already read — one sheet of a workbook, or a parsed CSV.
+ * Returns `undefined` when the first row is not a parish-index header.
+ */
+export function parseParishIndexRows(table: string[][]): ParishIndexImport | undefined {
+  const rows = table.filter((r) => r.some((cell) => cell.trim()));
   if (!rows.length) return undefined;
   const layout = detectParishIndex(rows[0]);
   if (!layout) return undefined;

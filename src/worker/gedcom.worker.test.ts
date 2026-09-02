@@ -33,6 +33,9 @@ async function freshWorker(): Promise<(req: WorkerRequest) => void> {
 }
 
 const types = () => posted.map((m) => m.type);
+/** Let the table importer finish: a CSV or spreadsheet is read asynchronously
+ *  (a workbook has to be inflated), so `parseCsv` answers after a turn. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const lastMatched = () => {
   const m = [...posted].reverse().find((x) => x.type === "matched");
   return m?.type === "matched" ? m.result : undefined;
@@ -152,6 +155,7 @@ describe("gedcom.worker pipeline", () => {
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
     posted = [];
     send({ type: "parseCsv", fileName: "Indeks P Trbovlje.csv", buffer: enc(index) });
+    await flush();
     expect(types()).toEqual(["parsed", "matching", "matched"]);
     const compare = posted[0];
     if (compare.type !== "parsed") throw new Error("expected the compare slot to parse");
@@ -160,11 +164,35 @@ describe("gedcom.worker pipeline", () => {
     expect(lastMatched()?.individuals[0]).toMatchObject({ mainId: "@I1@" });
   });
 
+  it("the incoming file chosen last is the one that lands", async () => {
+    // Reading a table is asynchronous, and the app only tears the worker down
+    // when a match is in flight — so two files picked in quick succession are
+    // both in flight here. Whichever finishes reading first, the slot must end
+    // up holding the one the reader chose last.
+    const index = (parish: string, groom: string) =>
+      "zp. št.;župnija;datum poroke;naslov;ime ženina;priimek ženina;ime neveste;priimek neveste;opombe\r\n" +
+      `1;${parish};1875-04-11;Dol 3;${groom};Novak;Marija;Kralj;\r\n`;
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    posted = [];
+    send({ type: "parseCsv", fileName: "first.csv", buffer: enc(index("Trbovlje", "Janez")) });
+    send({ type: "parseCsv", fileName: "second.csv", buffer: enc(index("Kranj", "Peter")) });
+    await flush();
+    const parsed = posted.filter((m) => m.type === "parsed");
+    expect(parsed).toHaveLength(1);
+    if (parsed[0].type !== "parsed") throw new Error("expected a parsed compare");
+    expect(parsed[0].fileName).toBe("second.csv");
+    const names = [...parsed[0].dataset.individuals.values()].map((i) => i.names[0]?.given);
+    expect(names).toContain("Peter");
+    expect(names).not.toContain("Janez");
+  });
+
   it("an unreadable matches CSV fails the compare slot, not the worker", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
     posted = [];
     send({ type: "parseCsv", fileName: "junk.csv", buffer: enc("this;is;no;matches;csv\n1;2;3;4;5\n") });
+    await flush();
     expect(types()).toEqual(["error"]);
     expect(posted[0]).toMatchObject({ type: "error", role: "compare", fileName: "junk.csv" });
     // The worker survives: the main is still loaded and a real compare works.
