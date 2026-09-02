@@ -87,7 +87,14 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
 
   const accept: AcceptSpec =
     accent === "incoming"
-      ? { description: "GEDCOM or CSV files", mime: { "text/plain": [".ged", ".gedcom"], "text/csv": [".csv"] } }
+      ? {
+          description: "GEDCOM, CSV or spreadsheet files",
+          mime: {
+            "text/plain": [".ged", ".gedcom"],
+            "text/csv": [".csv"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx", ".xlsm"],
+          },
+        }
       : { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
@@ -190,7 +197,11 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
             ref={inputRef}
             className="file-input"
             type="file"
-            accept={accent === "incoming" ? ".ged,.gedcom,.csv,text/plain,text/csv" : ".ged,.gedcom,text/plain"}
+            accept={
+              accent === "incoming"
+                ? ".ged,.gedcom,.csv,.xlsx,.xlsm,text/plain,text/csv"
+                : ".ged,.gedcom,text/plain"
+            }
             onChange={onChange}
             onClick={(e) => e.stopPropagation()}
           />

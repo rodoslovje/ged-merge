@@ -53,7 +53,10 @@ const SESSION_KEY = "current";
 export interface StoredFile {
   fileName: string;
   blob: Blob;
-  /** Compare slot only: the file was a genealogical-index matches CSV. */
+  /** Compare slot only: the file was a table — a CSV or a spreadsheet workbook
+   *  — rather than a GEDCOM, so it reloads through the table importer. Named
+   *  from the days when a CSV was the only one; the stored key stays as it is,
+   *  since renaming it would strand every cached workspace. */
   isCsv?: boolean;
   savedAt: number;
   /** SHA-256 of the file's bytes *as originally loaded from disk* — fixed at

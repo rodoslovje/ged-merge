@@ -158,8 +158,9 @@ Key rules inside the components:
 - **Marriage-derived birth plausibility.** When one side has no birth date,
   a fallback may score the birth key 0.85 instead of 0.3 — but only when the
   birth-less record comes from a *sparse-birth source* (`Dataset.
-  sparseBirthDates`, set only by the GI matches CSV import, whose family rows
-  often carry just a marriage date) **and** the known birth year implies a
+  sparseBirthDates`, set only by the CSV imports — the GI matches export, whose
+  family rows often carry just a marriage date, and the parish-register index,
+  which dates the record rather than the people in it) **and** the known birth year implies a
   plausible age (15–60) at the birth-less record's own marriage. Unscoped,
   this fallback once inflated every sparse GEDCOM pair to 85+ "strong".
 - **Date similarity** (`dateSimilarity`, `src/match/similarity.ts`): exact

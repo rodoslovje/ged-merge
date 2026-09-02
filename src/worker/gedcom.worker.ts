@@ -16,7 +16,8 @@ import { matchGiPairs } from "../match/giMatch";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
 import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
-import { parseGiMatchesCsv, type GiPair } from "../csv/giMatches";
+import { parseCompareTable } from "../csv/compareCsv";
+import type { GiPair } from "../csv/giMatches";
 import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { WorkerRequest, WorkerResponse } from "./messages";
@@ -41,6 +42,16 @@ let compareRaw: { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
 /** Set when the compare slot was loaded from a genealogical index matches CSV rather than a GEDCOM. */
 let compareCsvPairs: GiPair[] | undefined;
+/**
+ * Bumped by everything that claims the compare slot, so a table still being read
+ * can tell it has been superseded.
+ *
+ * A spreadsheet is inflated asynchronously, and the app only tears the worker
+ * down when a *match* is in flight — so two incoming files chosen in quick
+ * succession both reach this worker, and without a generation the first to
+ * finish reading would be the one that lands, whichever the reader picked last.
+ */
+let compareGeneration = 0;
 let startId: string | undefined;
 let lastResult: MatchResult | undefined;
 /** The last compare `parsed` payload (minus the dataset), so the consolidated
@@ -70,6 +81,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (req.type === "clearCompare") {
     // Forget the incoming file so a later main reload/re-match doesn't resurrect
     // it. The start person stays set for a subsequent compare.
+    compareGeneration++;
     compareRaw = undefined;
     compareNormalized = undefined;
     compareCsvPairs = undefined;
@@ -78,22 +90,11 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     return;
   }
   if (req.type === "parseCsv") {
-    try {
-      const text = decodeCsv(req.buffer);
-      const { dataset, pairs } = parseGiMatchesCsv(text);
-      compareCsvPairs = pairs;
-      compareRaw = { fileName: req.fileName, dataset };
-      emitCompare(req.fileName, dataset);
-    } catch (err) {
-      post({
-        type: "error",
-        role: "compare",
-        fileName: req.fileName,
-        message: errorMessage(err),
-      });
-      return;
-    }
-    tryMatch();
+    // Awaited rather than run inline: a spreadsheet workbook is a zip, and
+    // inflating it is asynchronous. Nothing else in the message loop depends on
+    // this finishing first — the slot announces itself when it is ready, as it
+    // already does for a compare that arrives before the main.
+    void loadCompareTable(req.fileName, req.buffer, ++compareGeneration);
     return;
   }
   if (req.type !== "parse") return;
@@ -134,6 +135,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
       // Keep the raw parse so we can re-normalize if the main changes later.
+      compareGeneration++;
       compareRaw = { fileName: req.fileName, dataset };
       compareCsvPairs = undefined;
       emitCompare(req.fileName, dataset);
@@ -168,10 +170,30 @@ function tryMatch(): void {
   }
 }
 
-/** Decode an ArrayBuffer as UTF-8 text, stripping a leading BOM if present. */
-function decodeCsv(buffer: ArrayBuffer): string {
-  const text = new TextDecoder("utf-8").decode(buffer);
-  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+/**
+ * Load a CSV or spreadsheet into the compare slot, then match.
+ *
+ * The parse is guarded but the match is not, for the same reason the GEDCOM
+ * path splits them: once the slot has announced itself the file is genuinely
+ * loaded, and a throw in the match pipeline must not flip a healthy slot to
+ * error and leave the spinner up for ever.
+ */
+async function loadCompareTable(fileName: string, buffer: ArrayBuffer, generation: number): Promise<void> {
+  try {
+    const { dataset, pairs } = await parseCompareTable(buffer);
+    if (generation !== compareGeneration) return; // another file claimed the slot
+    compareCsvPairs = pairs;
+    compareRaw = { fileName, dataset };
+    emitCompare(fileName, dataset);
+  } catch (err) {
+    // A superseded file's failure is not this slot's problem: erroring here
+    // would fail the file the reader actually chose.
+    if (generation === compareGeneration) {
+      post({ type: "error", role: "compare", fileName, message: errorMessage(err) });
+    }
+    return;
+  }
+  tryMatch();
 }
 
 /** Emit the compare slot, normalized to the main profile when available. */

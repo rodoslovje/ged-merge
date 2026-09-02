@@ -4,6 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import type { WorkspaceAction, WorkspaceState } from "../state/workspace";
 import type { DatasetRole, WorkerRequest } from "../worker/messages";
+import { isTableFile } from "../csv/compareCsv";
 import type { useDirtyTracking } from "../edit-state/useDirtyTracking";
 import type { useUndoRedo } from "../edit-state/useUndoRedo";
 import {
@@ -374,7 +375,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
       void saveFile("compare", {
         fileName: compare.file.fileName,
         blob: compareBlobRef.current,
-        isCsv: /\.csv$/i.test(compare.file.fileName),
+        isCsv: isTableFile(compare.file.fileName),
         savedAt: Date.now(),
         originalHash: compareOriginalHashRef.current ?? undefined,
         handle: compareHandle ?? undefined,
