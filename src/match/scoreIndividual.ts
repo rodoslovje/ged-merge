@@ -177,7 +177,9 @@ export function scoreIndividualPair(
     mainId: main.id,
     compareId: compare.id,
     score,
-    category: categorize(score01, config),
+    // From the final score, bonus included — the badge must agree with the
+    // number beside it.
+    category: categorize(score / 100, config),
     components,
     title: pairTitle(main, compare),
     name: displayName(primaryName(main)),
