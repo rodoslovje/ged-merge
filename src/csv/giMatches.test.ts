@@ -542,6 +542,19 @@ describe("parseGiMatchesCsv", () => {
     expect(partners[0]).toEqual(expect.objectContaining({ given: "Anica", surname: "Jurejevčič" }));
   });
 
+  it("pads a data row written short instead of dropping it, so later pairs keep their roles", () => {
+    // Rows come in main/incoming pairs; dropping a short row swapped the two
+    // roles for every pair after it.
+    const ana = ["Ana", "Novak", "1 JAN 1900", "", "", "", "", "", "", "", "", "Renko", "99"];
+    const anaIncomingShort = ["Ana", "Novak", "1 JAN 1900", "", "", "", "", "", "", "", "", "Pokopališča-geneanet"]; // 12 cells
+    const meta = ["Meta", "Kos", "2 FEB 1910", "", "", "", "", "", "", "", "", "Renko", "98"];
+    const metaIncoming = ["Meta", "Kos", "2 FEB 1910", "", "", "", "", "", "", "", "", "Pokopališča-geneanet", "98"];
+    const text = [SL_HEADER, row(ana), row(anaIncomingShort), row(meta), row(metaIncoming), '"footer","with","fewer","columns"', ""].join("\n");
+
+    const { pairs } = parseGiMatchesCsv(text);
+    expect(pairs.map((p) => p.mainKey.given)).toEqual(["Ana", "Meta"]);
+  });
+
   it("skips footer rows with a different column count", () => {
     const mainRow = row(["Ana", "Novak", "1 JAN 1900", "", "", "", "", "", "", "", "", "Renko", "99"]);
     const incomingRow = row([
