@@ -484,19 +484,21 @@ function AppContent() {
   }
 
   async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
-    // A user-initiated load supersedes any in-flight startup restore, so enable
-    // session persistence (and stop expecting the cached compare to arrive).
-    persistence.userLoadedRef.current = true;
-    persistence.hydratedRef.current = true;
-    persistence.expectCompareRef.current = false;
-    persistence.pendingSessionRef.current = null;
-    persistence.pendingEditStateRef.current = null;
     // Also guards a reload triggered by the external-change check below: if
     // there's unsaved work, this asks before discarding it exactly as it would
     // for any other replace.
     if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
     }
+    // A user-initiated load supersedes any in-flight startup restore, so enable
+    // session persistence (and stop expecting the cached compare to arrive).
+    // Only once the load is going ahead: a cancelled prompt must leave the
+    // pending restore in place, not discard it.
+    persistence.userLoadedRef.current = true;
+    persistence.hydratedRef.current = true;
+    persistence.expectCompareRef.current = false;
+    persistence.pendingSessionRef.current = null;
+    persistence.pendingEditStateRef.current = null;
     if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
@@ -956,8 +958,12 @@ function AppContent() {
         return;
       }
 
+      // Bare keys only from here: an Alt chord belongs to a view's own binding
+      // (Alt+N is Edit's "add note"), and a key a view already handled must
+      // not fire a second action.
+      if (e.altKey || e.defaultPrevented) return;
+
       // `/` opens the whole-file global search from any mode (Merge/Edit/Tools).
-      // The per-mode match filter has its own key (`f`, handled in MergeView).
       if (e.key === "/") {
         e.preventDefault();
         setShowGlobalSearch(true);
@@ -967,7 +973,7 @@ function AppContent() {
       // `N` adds a new, unattached person from any mode — but not from a
       // full-page chart, where the new person would appear behind the overlay
       // with no sign anything happened.
-      if (e.key.toLowerCase() === KEY.addPerson && !overlayOpenRef.current) {
+      if (e.key.toLowerCase() === KEY.addPerson && !e.shiftKey && !overlayOpenRef.current) {
         e.preventDefault();
         globalShortcutRef.current.addPerson();
       }
