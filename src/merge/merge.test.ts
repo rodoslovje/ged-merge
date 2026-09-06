@@ -270,6 +270,36 @@ describe("mergeDecisions — place reshaping to a structured-addr main", () => {
   });
 });
 
+describe("mergeDecisions — a sex-unknown spouse takes the slot the incoming family gave them", () => {
+  // The main knows nothing of the family; the incoming file has the person as
+  // WIFE. A family created by sex alone put a sex-unknown person as HUSB, and
+  // the incoming WIFE slot then wrote the same person into WIFE too.
+  const main = dataset(wrap("0 @I1@ INDI\n1 NAME Ana /Novak/\n1 SEX U\n"));
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Ana /Novak/\n1 SEX U\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Janez /Kos/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P2@\n1 WIFE @P1@\n",
+    ),
+  );
+  const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+  const decisions = new Map<string, CandidateDecision>([
+    [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+  ]);
+  const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+  const out = serializeGedcom(records);
+
+  it("never files one person as both spouses", () => {
+    const fam = records.find((r) => r.tag === "FAM")!;
+    const husb = fam.children.find((c) => c.tag === "HUSB")?.value;
+    const wife = fam.children.find((c) => c.tag === "WIFE")?.value;
+    expect(wife).toBe("@I1@");
+    expect(husb).toBeDefined();
+    expect(husb).not.toBe("@I1@");
+    expect(out).toContain("1 NAME Janez /Kos/");
+  });
+});
+
 describe("mergeDecisions — family structure (driven by the confirmed spouse)", () => {
   // Main has the people but the family @F1@ only links the husband.
   const main = dataset(
@@ -286,7 +316,7 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
         "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
         "0 @P3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMC @G1@\n" +
-        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n1 FAMC @G1@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n1 FAMC @G1@\n2 PEDI adopted\n" +
         "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n1 CHIL @P4@\n",
     ),
   );
@@ -323,6 +353,12 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
     expect(out).toContain("0 @I4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n1 FAMC @F1@");
     expect(out).toContain("1 CHIL @I4@");
     expect(report.changes.some((c) => c.newRecord && c.to === "Tone Novak")).toBe(true);
+  });
+
+  it("carries the incoming file's PEDI onto the re-stitched child link", () => {
+    // Foreign FAMC pointers are stripped from an imported record and the link
+    // rebuilt by the merge; without the PEDI an adopted child read as born here.
+    expect(out).toContain("1 FAMC @F1@\n2 PEDI adopted");
   });
 
   it("keeps unrelated records and the trailer intact", () => {
