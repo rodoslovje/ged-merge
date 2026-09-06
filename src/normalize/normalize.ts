@@ -269,6 +269,7 @@ export function normalizeDataset(
     warnings: compare.warnings,
     eol: compare.eol,
     finalNewline: compare.finalNewline,
+    bom: compare.bom,
   };
   const dataset = buildDataset(parsed);
   // Provenance isn't derivable from the records — carry it onto the rebuild so

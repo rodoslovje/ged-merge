@@ -8,6 +8,8 @@ export interface SerializeOptions {
   eol?: string;
   /** Emit a trailing newline after the last line. Defaults to true. */
   finalNewline?: boolean;
+  /** Open the text with a UTF-8 byte-order mark, as the source file did. */
+  bom?: boolean;
   /**
    * Wrap physical lines longer than this many **bytes** by splitting the value
    * across `CONC` continuation lines. GEDCOM 5.5.1 caps a line at 255
@@ -54,7 +56,7 @@ export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {})
   const eol = opts.eol ?? "\n";
   const lines: string[] = [];
   for (const record of records) emitNode(record, 0, lines, opts.maxLineLength);
-  const text = lines.join(eol);
+  const text = (opts.bom ? "\uFEFF" : "") + lines.join(eol);
   return opts.finalNewline === false ? text : text + eol;
 }
 
@@ -71,11 +73,12 @@ export function serializeDataset(ds: Dataset): string {
  * legacy 5.5.x, which is what undeclared exports in practice are.)
  */
 export function downloadOptions(
-  ds: Pick<Dataset, "eol" | "finalNewline" | "version">,
+  ds: Pick<Dataset, "eol" | "finalNewline" | "version" | "bom">,
 ): SerializeOptions {
   return {
     eol: ds.eol,
     finalNewline: ds.finalNewline,
+    bom: ds.bom,
     maxLineLength: ds.version === "7.0" ? undefined : LINE_LIMIT_551,
   };
 }

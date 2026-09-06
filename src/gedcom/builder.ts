@@ -104,6 +104,7 @@ export function buildDataset(parsed: ParseResult): Dataset {
     warnings: parsed.warnings,
     eol: parsed.eol,
     finalNewline: parsed.finalNewline,
+    bom: parsed.bom,
     chanCreaUsage: detectChanCreaUsage(records),
   };
 }
