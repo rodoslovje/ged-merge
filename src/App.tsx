@@ -1374,8 +1374,9 @@ function AppContent() {
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
 
   async function handleTitleClick() {
-    const hasChanges = mode === "merge" ? confirmedCount > 0 || importCount > 0 : changedCount > 0 || confirmedCount > 0 || importCount > 0;
-    if (!hasChanges) {
+    // Whatever the current mode: unsaved edits are lost by a reload whether
+    // the user is looking at them or at the match list.
+    if (!hasUnsavedChangesRef.current) {
       discardAndReload();
       return;
     }
