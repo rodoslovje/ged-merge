@@ -65,6 +65,7 @@ export const sl = {
   "tools.tool.privacy": "Zasebnost",
   "tools.tool.privacy.desc": "Prikrij žive osebe za deljivo datoteko",
   "tools.validate.stale": "Datoteka se je po tem pregledu spremenila. Zaženite ga znova, da vidite trenutno stanje.",
+  "tools.duplicates.stale": "Datoteka se je po tem iskanju spremenila. Zaženite ga znova, da vidite trenutne pare.",
   "tools.validate.clean": "Pregled ni našel nobenih težav. 🎉",
   "tools.validate.all": "Vse",
   "tools.validate.cat.brokenLink": "Pokvarjene povezave",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
+import { downloadOptions, serializeGedcom } from "./serialize";
 
 const SAMPLE = `0 HEAD
 1 SOUR Test
@@ -205,6 +206,38 @@ describe("parseGedcom", () => {
     const parsed = parseGedcom(toBuffer(text));
     const indi = parsed.records.find((r) => r.xref === "@I1@")!;
     expect(indi.children.find((c) => c.tag === "NOTE")?.value).toBe("@home with Mother");
+  });
+
+  it("accepts indented lines, as 5.5.1 asks readers to", () => {
+    const text = ["0 HEAD", "0 @I1@ INDI", "  1 NAME Bo /Kos/", "    2 GIVN Bo", "0 TRLR", ""].join("\n");
+    const parsed = parseGedcom(toBuffer(text));
+    expect(parsed.warnings.filter((w) => w.kind === "syntax")).toEqual([]);
+    const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+    const name = indi.children.find((c) => c.tag === "NAME")!;
+    expect(name.value).toBe("Bo /Kos/");
+    expect(name.children[0]?.value).toBe("Bo");
+  });
+
+  it("remembers a UTF-8 byte-order mark, and the download writes it back", () => {
+    const text = "﻿0 HEAD\n1 CHAR UTF-8\n0 TRLR\n";
+    const parsed = parseGedcom(toBuffer(text));
+    expect(parsed.bom).toBe(true);
+    expect(parsed.records[0].tag).toBe("HEAD");
+    const ds = buildDataset(parsed);
+    expect(serializeGedcom(ds.records, downloadOptions(ds))).toBe(text);
+    expect(parseGedcom(toBuffer("0 HEAD\n0 TRLR\n")).bom).toBeUndefined();
+  });
+
+  it("applies an ANSEL combining mark to the special letter that follows it", () => {
+    // 0xE2 (acute) precedes 0xB2 (ø): ǿ. The mark used to be dropped here and
+    // leak onto the next plain letter instead.
+    const enc = (s: string) => [...new TextEncoder().encode(s)];
+    const bytes = new Uint8Array([
+      ...enc("0 HEAD\n1 CHAR ANSEL\n0 @I1@ INDI\n1 NAME "), 0xe2, 0xb2, ...enc("re /Kos/\n0 TRLR\n"),
+    ]);
+    const parsed = parseGedcom(bytes.buffer as ArrayBuffer);
+    const name = parsed.records[1].children.find((c) => c.tag === "NAME")?.value;
+    expect(name?.normalize("NFC")).toBe("ǿre /Kos/");
   });
 
   describe("level-jump recovery", () => {

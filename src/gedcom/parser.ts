@@ -1,7 +1,10 @@
 import { decodeGedcom } from "./decode";
 import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types";
 
-const LINE_RE = /^(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/;
+// Leading whitespace is tolerated: 5.5.1 asks readers to accept an indented
+// line, and some exporters indent by level. Without it every line of such a
+// file was kept verbatim and the file read as empty.
+const LINE_RE = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/;
 
 /**
  * Parse raw GEDCOM bytes into a lossless line tree (`ParseResult`).
@@ -10,7 +13,7 @@ const LINE_RE = /^(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/;
  * by tracking a stack indexed by level → fold CONT/CONC into parent values.
  */
 export function parseGedcom(buffer: ArrayBuffer): ParseResult {
-  const { text, charset, warnings: decodeWarnings } = decodeGedcom(buffer);
+  const { text, charset, warnings: decodeWarnings, bom } = decodeGedcom(buffer);
   const warnings: ParseWarning[] = [...decodeWarnings];
 
   // Remember the source's line-ending style and whether it ended with a newline
@@ -143,7 +146,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   }
 
   const version = detectVersion(roots, warnings);
-  return { version, charset, records: roots, warnings, eol, finalNewline };
+  return { version, charset, records: roots, warnings, eol, finalNewline, bom };
 }
 
 function detectVersion(roots: GedNode[], warnings: ParseWarning[]): GedcomVersion {

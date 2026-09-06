@@ -97,6 +97,8 @@ export interface ParseResult {
   eol: string;
   /** Whether the source ended with a trailing newline. */
   finalNewline: boolean;
+  /** Whether the source opened with a UTF-8 byte-order mark (re-emitted on download). */
+  bom?: boolean;
 }
 
 export interface ParseWarning {
@@ -502,6 +504,8 @@ export interface Dataset {
   eol: string;
   /** Whether the source ended with a trailing newline. */
   finalNewline: boolean;
+  /** Whether the source opened with a UTF-8 byte-order mark (re-emitted on download). */
+  bom?: boolean;
   /** Detected CHAN/CREA usage — governs whether save stamps audit timestamps. */
   chanCreaUsage: ChanCreaUsage;
   /**

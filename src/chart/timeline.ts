@@ -4,6 +4,7 @@
 // dataset → rows logic, so the geometry-free part is unit-testable; the
 // component (ui/TimelineChart.tsx) turns years into pixels.
 
+import { dateText } from "../gedcom/date";
 import type { Dataset, Family, GedEvent, Individual, Sex } from "../gedcom/types";
 import {
   birthSortKey,
@@ -364,7 +365,7 @@ function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
     out.push({
       year: e.date.year,
       kind: "event",
-      label: `${label}: ${e.date.raw}${place ? `, ${place}` : ""}`,
+      label: `${label}: ${dateText(e.date)}${place ? `, ${place}` : ""}`,
       // The compact lane label leads with the most specific detail recorded:
       // the event's own value ("Farmer"), else its locality, else its name.
       short: `${e.value || place || label} ${e.date.year}`,

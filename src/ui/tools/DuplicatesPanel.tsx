@@ -451,8 +451,23 @@ export function DuplicatesPanel({
     );
   }
 
+  // Edits since the scan — an undo that brought a merged pair's records back
+  // among them — may have changed which pairs there are; the list itself is
+  // kept and a re-run offered, as the health check does.
+  const stale = scans.isStale("duplicates");
+
   return (
     <>
+      {stale && (
+        <ul className="tools-fix-list">
+          <li className="tools-fix-item">
+            <button className="nav-btn tools-run primary" onClick={() => scans.refresh("duplicates")}>
+              {t("tools.scan.rerun")}
+            </button>
+            <span className="tools-fix-hint">{t("tools.duplicates.stale")}</span>
+          </li>
+        </ul>
+      )}
       {state.result.length === 0 ? (
         <p className="tools-clean">{t("tools.duplicates.none")}</p>
       ) : (

@@ -3,7 +3,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
-import { INDI_EVENT_TAGS, eventDisplayLabel } from "../../gedcom/eventTags";
+import { eventDisplayLabel, indiEventNodes } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, SINGLE_EVENT_TAGS, zoneSortKey } from "../../review/fields";
@@ -193,7 +193,7 @@ export const EventList = memo(function EventList({
   type AnyRow     = (MainRow | ExtraRow) & { sortKey: number; tagPos: number };
 
   // Raw event nodes in the same order as person.events — used for stable WeakMap keys.
-  const rawEventNodes = person.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
+  const rawEventNodes = indiEventNodes(person.raw);
 
   // Zone-aware anchors so undated life-zone events (RESI, OCCU, …) sort between
   // birth and death rather than before all dated events — used only as a

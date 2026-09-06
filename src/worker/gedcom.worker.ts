@@ -130,8 +130,6 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           coordUsage: detectCoordUsage(dataset),
         });
       }
-      // A compare loaded earlier can now be normalized against this main.
-      if (compareRaw) emitCompare(compareRaw.fileName, compareRaw.dataset);
     } else {
       // Keep the raw parse so we can re-normalize if the main changes later.
       compareRaw = { fileName: req.fileName, dataset };
@@ -146,6 +144,21 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       message: errorMessage(err),
     });
     return;
+  }
+  // A compare loaded earlier can now be normalized against this main. Outside
+  // the parse try/catch, and reported against the *compare* slot: the main's
+  // `parsed` has already been posted and that slot is genuinely loaded, so a
+  // throw while reshaping the compare file must not flip a healthy main to
+  // error and evict its cached file.
+  if (req.role === "main" && compareRaw) {
+    const { fileName } = compareRaw;
+    try {
+      emitCompare(fileName, compareRaw.dataset);
+    } catch (err) {
+      compareRaw = undefined;
+      post({ type: "error", role: "compare", fileName, message: errorMessage(err) });
+      return;
+    }
   }
   // Outside the parse try/catch on purpose: by now `parsed` has been posted
   // and the slot is genuinely loaded, so a throw in the match pipeline must

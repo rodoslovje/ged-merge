@@ -13,6 +13,8 @@ export interface DecodeResult {
   text: string;
   charset: GedcomCharset;
   warnings: ParseWarning[];
+  /** The file opened with a UTF-8 byte-order mark, to be written back on save. */
+  bom?: boolean;
 }
 
 export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
@@ -21,7 +23,7 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
 
   // 1. BOM sniffing.
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return decodeAsUtf8(bytes.subarray(3), warnings, false);
+    return { ...decodeAsUtf8(bytes.subarray(3), warnings, false), bom: true };
   }
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
     return { text: decodeUtf16(bytes.subarray(2), true), charset: "UNICODE", warnings };
@@ -473,7 +475,11 @@ function decodeAnsel(bytes: Uint8Array, warnings: ParseWarning[]): string {
     }
     const special = ANSEL_SPECIAL[b];
     if (special) {
-      out += special;
+      // A combiner precedes the letter it modifies in ANSEL, and a special
+      // (Æ, Ø, ł, …) is a letter too: dropping the pending combiners here lost
+      // the diacritic and leaked it onto the next character.
+      out += applyCombiners(special, pendingCombiners);
+      pendingCombiners = [];
       continue;
     }
     sawUnmapped = true;
