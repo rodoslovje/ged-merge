@@ -1,6 +1,7 @@
 // English narrative grammar (see lang/types.ts for the contract).
 
 import type { GedDate, Sex } from "../../gedcom/types";
+import { dateText } from "../../gedcom/date";
 import type { NarrativeLang } from "./types";
 
 const MONTHS = [
@@ -8,16 +9,25 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-/** The bare date core, no preposition: "5 May 1848" / "May 1848" / "1848". */
+/** The bare date core, no preposition: "5 May 1848" / "May 1848" / "1848".
+ *  A year counted before the common era is negative in the model. */
 function core(day?: number, month?: number, year?: number): string {
   const monthName = month ? MONTHS[month - 1] : undefined;
-  return [day, monthName, year].filter((p) => p !== undefined).join(" ");
+  const yearText = year === undefined ? undefined : year < 0 ? `${-year} BCE` : `${year}`;
+  return [day, monthName, yearText].filter((p) => p !== undefined).join(" ");
 }
 
 function datePhrase(d: GedDate): string {
+  const phrase = plainPhrase(d);
+  // A Julian date keeps its components (the app shows the date the file
+  // states), so the reader has to be told which calendar it is in.
+  return phrase && d.calendar === "JULIAN" ? `${phrase} (Julian calendar)` : phrase;
+}
+
+function plainPhrase(d: GedDate): string {
   if (d.placeholder) return "";
   const c = core(d.day, d.month, d.year);
-  if (!c) return d.raw; // unparseable — keep the recorded text
+  if (!c) return dateText(d); // unparseable — keep the recorded text
   const c2 = core(d.day2, d.month2, d.year2);
   switch (d.qualifier) {
     case "about":

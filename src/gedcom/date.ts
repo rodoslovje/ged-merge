@@ -70,6 +70,21 @@ const RE_INTERPRETED = new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?
 const RE_CAL_ESCAPE = /@#D([A-Z_ ]+)@\s*/;
 const RE_CAL_KEYWORD = /(?:^|\s)(GREGORIAN|JULIAN|HEBREW|FRENCH_R|ROMAN)\s+/;
 
+/**
+ * A date's text for display — the file's own spelling, except that a 5.5.1
+ * calendar escape (`@#DJULIAN@ 14 JAN 1700`) is written the way GEDCOM 7
+ * spells the same declaration (`JULIAN 14 JAN 1700`): the escape is syntax,
+ * not something a report or a tooltip should print. Values without an escape
+ * come back untouched, so this is safe on every date.
+ */
+export function dateText(d: GedDate): string {
+  if (!d.calendar || !d.raw.includes("@#")) return d.raw;
+  const m = d.raw.match(RE_CAL_ESCAPE);
+  if (!m) return d.raw;
+  const rest = d.raw.replace(RE_CAL_ESCAPE, " ").replace(/\s+/g, " ").trim();
+  return rest ? `${d.calendar} ${rest}` : d.raw;
+}
+
 /** Calendar names as they appear inside an escape or as a keyword. */
 const CALENDARS: Record<string, GedCalendar> = {
   GREGORIAN: "GREGORIAN",

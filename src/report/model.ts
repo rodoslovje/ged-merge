@@ -5,6 +5,7 @@
 
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { dateText } from "../gedcom/date";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
@@ -210,7 +211,9 @@ export function generationHeading(
       ? undefined
       : nums.length === 1
         ? t("report.gen.no", { n: nums[0] })
-        : t("report.gen.nos", { from: Math.min(...nums), to: Math.max(...nums) });
+        // Not `Math.min(...nums)`: a generation of a deep register can hold
+        // more entries than the engine accepts as arguments.
+        : t("report.gen.nos", { from: nums.reduce((a, b) => Math.min(a, b)), to: nums.reduce((a, b) => Math.max(a, b)) });
   // Ancestor generations have a fixed slot count (2^gen), so the entry count
   // doubles as a research-coverage measure. Descendant counts are open-ended.
   const coverage =
@@ -301,19 +304,19 @@ export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[
   if (opts.occupation) {
     for (const e of indi.events) {
       if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
-      out.push(withAge(withNote({ tag: "OCCU", glyph: EVENT_GLYPHS.OCCU, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
+      out.push(withAge(withNote({ tag: "OCCU", glyph: EVENT_GLYPHS.OCCU, value: e.value, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
     }
   }
   if (opts.education) {
     for (const e of indi.events) {
       if (e.tag !== "EDUC" || (!e.value && !dated(e))) continue;
-      out.push(withAge(withNote({ tag: "EDUC", glyph: EVENT_GLYPHS.EDUC, value: e.value, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
+      out.push(withAge(withNote({ tag: "EDUC", glyph: EVENT_GLYPHS.EDUC, value: e.value, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
     }
   }
   if (opts.residence) {
     for (const e of indi.events) {
       if (e.tag !== "RESI" || !dated(e)) continue;
-      out.push(withAge(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
+      out.push(withAge(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts));
     }
   }
   return out;
@@ -325,7 +328,7 @@ export function factFor(indi: Individual, tags: string[], opts: ReportFactOption
   for (const tag of tags) {
     const e = indi.events.find((ev) => ev.tag === tag);
     if (e && dated(e)) {
-      const fact = withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date?.raw, parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
+      const fact = withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
       return withAge(fact, indi, e.date, ds, opts);
     }
   }
@@ -347,7 +350,7 @@ export function marriageFact(
   const base: FactLine = {
     tag: "MARR",
     glyph: MARRIAGE_SYMBOL,
-    date: marr?.date?.raw,
+    date: marr?.date && dateText(marr.date),
     parsed: marr?.date,
     place: marr ? factPlace(marr) : undefined,
     ...(marr ? factWhere(marr) : null),
