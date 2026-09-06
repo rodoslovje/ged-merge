@@ -1,6 +1,6 @@
 import type { Dataset, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { INDI_EVENT_TAGS, eventDisplayLabel, isChangeStampEvent } from "../../gedcom/eventTags";
+import { eventDisplayLabel, indiEventNodes } from "../../gedcom/eventTags";
 import { firstChild } from "../../gedcom/node";
 import { dateToSortKey, parseDate } from "../../gedcom/date";
 import type { AssocRef } from "../../gedcom/assoc";
@@ -40,8 +40,7 @@ export function AssociatesPanel({
   // Where a record-level association could go instead. Read off the raw tree,
   // not `person.events`: the typed list skips change-stamp `EVEN` nodes, so the
   // two do not line up and the move would land on the wrong event.
-  const moveTargets = person.raw.children
-    .filter((c) => INDI_EVENT_TAGS.has(c.tag) && !isChangeStampEvent(c))
+  const moveTargets = indiEventNodes(person.raw)
     .map((node) => {
       const label = eventDisplayLabel(node.tag, t);
       const date = parseDate(firstChild(node, "DATE")?.value ?? "");
