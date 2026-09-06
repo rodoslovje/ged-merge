@@ -65,6 +65,19 @@ describe("gedcom.worker pipeline", () => {
     expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I1@", compareId: "@P1@" }]);
   });
 
+  it("a compare that fails to normalize against a new main fails the compare slot, not the main", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    // Break the kept compare so its re-normalization throws once the main lands.
+    const parsedCompare = posted[0];
+    if (parsedCompare.type !== "parsed") throw new Error("expected parsed");
+    Object.defineProperty(parsedCompare.dataset, "records", { get() { throw new Error("boom"); } });
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    expect(types()).toEqual(["parsed", "parsed", "error"]);
+    expect(posted[1]).toMatchObject({ type: "parsed", role: "main", fileName: "a.ged" });
+    expect(posted[2]).toMatchObject({ type: "error", role: "compare", fileName: "b.ged" });
+  });
+
   it("replacing the main re-matches the kept compare against the new file", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
