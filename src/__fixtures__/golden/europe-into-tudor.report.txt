@@ -33,6 +33,24 @@ Elizabeth Tudor  @I265@
   event.TITL: changeReport.verb.added "Queen of England"
   event.colPlace: changeReport.verb.added "Richmond Palace,London,England"
 
+James Stuart  @I257@
+--------------------
+  event.TITL: changeReport.verb.added "King of England"
+  event.colPlace: changeReport.verb.added "Theobalds Park,Hertfordshire,Herts,England"
+  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
+
+Mary Tudor  @I266@
+------------------
+  event.TITL: changeReport.verb.added "Queen of England"
+  event.colPlace: changeReport.verb.added "St. James Palace,,England"
+  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
+
+Edward Tudor  @I34@
+-------------------
+  event.TITL: changeReport.verb.added "King of England"
+  event.colPlace: changeReport.verb.added "Greenwich,Palace,England"
+  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
+
 Henry Tudor  @I14@
 ------------------
   event.TITL: changeReport.verb.added "King of England"
@@ -53,24 +71,6 @@ Henry Tudor + Catherine Howard  @F35@
 Henry Tudor + Catherine Parr  @F36@
 -----------------------------------
   event.colPlace: changeReport.verb.added "Hampton Court,Palace"
-
-James Stuart  @I257@
---------------------
-  event.TITL: changeReport.verb.added "King of England"
-  event.colPlace: changeReport.verb.added "Theobalds Park,Hertfordshire,Herts,England"
-  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
-
-Mary Tudor  @I266@
-------------------
-  event.TITL: changeReport.verb.added "Queen of England"
-  event.colPlace: changeReport.verb.added "St. James Palace,,England"
-  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
-
-Edward Tudor  @I34@
--------------------
-  event.TITL: changeReport.verb.added "King of England"
-  event.colPlace: changeReport.verb.added "Greenwich,Palace,England"
-  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
 
 Henry Beaufort  @I276@
 ----------------------

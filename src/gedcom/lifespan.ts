@@ -1,7 +1,7 @@
 import type { Dataset, GedDate, Individual } from "./types";
 
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
-const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
+export const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
 /** Events that mark a person as deceased (used when no death year is recorded). */
 export const DEATH_TAGS = ["DEAT", "BURI", "CREM"] as const;
 

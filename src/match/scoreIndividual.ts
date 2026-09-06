@@ -1,5 +1,5 @@
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
-import { birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
+import { BIRTH_TAGS, DEATH_TAGS, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { estimatedBirthYear } from "./birthEstimate";
 import { displayName, pairTitle, primaryName } from "./relatives";
 import {
@@ -61,8 +61,8 @@ export function scoreIndividualPair(
   const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
   addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`);
 
-  const mb = cachedFindEvent(main, "BIRT");
-  const cb = cachedFindEvent(compare, "BIRT");
+  const mb = keyEvent(main, BIRTH_TAGS);
+  const cb = keyEvent(compare, BIRTH_TAGS);
   const birthSim = dateSimilarity(mb?.date, cb?.date);
   // Some import formats (the genealogical-index "family matches" CSV) don't
   // reliably carry a birth date — often only a marriage date. Rather than
@@ -81,8 +81,8 @@ export function scoreIndividualPair(
 
   // Death date/place: corroborating evidence, not part of the identity key —
   // absence (e.g. living people) is skipped rather than penalized.
-  const md = cachedFindEvent(main, "DEAT");
-  const cd = cachedFindEvent(compare, "DEAT");
+  const md = keyEvent(main, DEATH_TAGS);
+  const cd = keyEvent(compare, DEATH_TAGS);
   const deathSim = dateSimilarity(md?.date, cd?.date);
   add(components, "deathDate", w.deathDate, deathSim, `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
   add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
@@ -188,6 +188,28 @@ export function scoreIndividualPair(
     deceased: isDeceased(main),
     sex: main.sex !== "U" ? main.sex : compare.sex,
   };
+}
+
+/**
+ * The event that stands for a person's birth (or death) in the identity key:
+ * the first of `tags` that carries a date, else the first that exists at all
+ * (for its place). The proxies matter: a parish index knows the christening,
+ * not the birth, and the era gate, blocking and every year shown in the UI
+ * already read `BAPM`/`CHR` and `BURI`/`CREM` through `birthYear`/`deathYear`
+ * — a scorer that read only `BIRT` charged such a record the missing-key
+ * penalty and denied it the date anchor, so a tree's `BIRT 12 JAN 1830`
+ * against an index's `CHR 13 JAN 1830` could fall under the no-evidence
+ * ceiling.
+ */
+function keyEvent(indi: Individual, tags: readonly string[]) {
+  let first: ReturnType<typeof cachedFindEvent>;
+  for (const tag of tags) {
+    const e = cachedFindEvent(indi, tag);
+    if (!e) continue;
+    if (e.date?.year !== undefined) return e;
+    first ??= e;
+  }
+  return first;
 }
 
 /** The identity key: a perfect match on all three earns a 100 score. */
@@ -574,7 +596,10 @@ export function individualBlockKeys(
   if (!sdx) return [];
 
   const keys: string[] = [];
-  const realYear = indi.events.find((e) => e.tag === "BIRT")?.date?.year;
+  // Birth, else christening — the same proxy the era gate and the scorer read,
+  // so a christening-dated record lands in its decade's buckets rather than
+  // the era-unbounded `S:` fallback.
+  const realYear = birthYear(indi);
   const year = realYear ?? estimatedBirthYear(indi, ds);
   if (year !== undefined) {
     const decade = Math.floor(year / 10);
