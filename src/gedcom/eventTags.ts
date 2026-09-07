@@ -57,6 +57,22 @@ export function isChangeStampEvent(node: GedNode): boolean {
   return isInternalEventType(firstChild(node, "TYPE")?.value);
 }
 
+/** The event nodes of an `INDI` record, in file order — exactly the nodes
+ *  the builder lifts into `Individual.events`, so an index into `events`
+ *  addresses the same node here. Every consumer that maps an event index
+ *  back to its raw node must go through this, not filter `INDI_EVENT_TAGS`
+ *  itself: a MyHeritage change stamp (`EVEN` + `TYPE _UPD`) carries an event
+ *  tag but is *not* an event, and a filter that keeps it shifts every index
+ *  after it by one — an edit or delete then lands on the neighbouring event. */
+export function indiEventNodes(record: GedNode): GedNode[] {
+  return record.children.filter((c) => INDI_EVENT_TAGS.has(c.tag) && !isChangeStampEvent(c));
+}
+
+/** Family-record twin of {@link indiEventNodes}. */
+export function famEventNodes(record: GedNode): GedNode[] {
+  return record.children.filter((c) => FAM_EVENT_TAGS.has(c.tag) && !isChangeStampEvent(c));
+}
+
 /** The `_UPD` change stamp on a record, in whichever of MyHeritage's two
  *  spellings the record uses: the `_UPD` tag, or the `EVEN` above. */
 export function changeStampNode(record: GedNode): GedNode | undefined {

@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { parseDate, dateRefines, dateToSortKey } from "./date";
+import { parseDate, dateRefines, dateText, dateToSortKey } from "./date";
+
+describe("dateText — a date's text for display", () => {
+  it("writes a 5.5.1 calendar escape the way GEDCOM 7 spells it", () => {
+    expect(dateText(parseDate("@#DJULIAN@ 14 JAN 1700"))).toBe("JULIAN 14 JAN 1700");
+    expect(dateText(parseDate("ABT @#DJULIAN@ 1700"))).toBe("JULIAN ABT 1700");
+  });
+  it("leaves every other value as the file wrote it", () => {
+    expect(dateText(parseDate("JULIAN 14 JAN 1700"))).toBe("JULIAN 14 JAN 1700");
+    expect(dateText(parseDate("14 JAN 1700"))).toBe("14 JAN 1700");
+    expect(dateText(parseDate("44 BCE"))).toBe("44 BCE");
+  });
+});
 
 describe("parseDate — Slovenian/German month words", () => {
   it("parses Slovenian months (nominative, genitive, abbreviations)", () => {

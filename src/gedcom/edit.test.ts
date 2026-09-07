@@ -51,6 +51,7 @@ import {
   removeSourceCitationAtIndex,
   setAdditionalName,
   setEventField,
+  setEventFieldAtIndex,
   setFamilyEventField,
   noteCtx,
   setFamilyNotes,
@@ -487,6 +488,40 @@ describe("removeEventAtIndex", () => {
     const updated = rebuildIndividual(ds, indi);
     expect(updated.events).toHaveLength(1);
     expect(updated.events[0].tag).toBe("DEAT");
+  });
+
+  it("addresses events by their index in `events`, skipping a MyHeritage change stamp that precedes them", () => {
+    // The `EVEN` + `TYPE _UPD` stamp carries an event tag but is not lifted
+    // into `events`; an index that counted it would delete RESI's neighbour.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 DATE 1850",
+      "1 EVEN 31 JAN 2020 13:12:03 GMT -0500",
+      "2 TYPE _UPD",
+      "1 RESI",
+      "2 DATE 1880",
+      "1 DEAT",
+      "2 DATE 1920",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.events.map((e) => e.tag)).toEqual(["BIRT", "RESI", "DEAT"]);
+    removeEventAtIndex(indi, 1); // RESI
+    let updated = rebuildIndividual(ds, indi);
+    expect(updated.events.map((e) => e.tag)).toEqual(["BIRT", "DEAT"]);
+    expect(firstChild(updated.raw, "EVEN")?.value).toBe("31 JAN 2020 13:12:03 GMT -0500");
+    changeEventTagAtIndex(updated, 1, "BURI"); // DEAT, not the stamp
+    updated = rebuildIndividual(ds, updated);
+    expect(updated.events.map((e) => e.tag)).toEqual(["BIRT", "BURI"]);
+    setEventFieldAtIndex(updated, 1, { date: "1921" });
+    updated = rebuildIndividual(ds, updated);
+    expect(updated.events[1].date?.raw).toBe("1921");
+    expect(firstChild(updated.raw, "EVEN")?.children.some((c) => c.tag === "DATE")).toBe(false);
   });
 
   it("removes a middle event leaving others intact", () => {

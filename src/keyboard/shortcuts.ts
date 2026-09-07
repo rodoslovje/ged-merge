@@ -78,11 +78,14 @@ export const KEY_STATUS: Record<string, ActiveStatus> = {
 };
 
 /**
- * True while any modal (`.modal-overlay`) is mounted. Bare-key and undo/redo
- * shortcuts bail on this so they don't act on the app behind an open dialog.
+ * True while any modal is mounted — a dialog (`.modal-overlay`) or the photo
+ * lightbox (`.person-media-overlay`). Bare-key and undo/redo shortcuts bail on
+ * this so they don't act on the app behind an open dialog: with the lightbox
+ * open, `e`/`m`/`t` would switch mode, `n` add a person and `c`/`r`/`d` decide
+ * a match, all invisibly behind the photo.
  */
 export function isModalOpen(): boolean {
-  return typeof document !== "undefined" && document.querySelector(".modal-overlay") != null;
+  return typeof document !== "undefined" && document.querySelector(".modal-overlay, .person-media-overlay") != null;
 }
 
 /** True when a typing surface has focus — shortcuts must not steal those keys. */

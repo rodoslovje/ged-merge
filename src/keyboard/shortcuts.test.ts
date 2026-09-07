@@ -124,7 +124,7 @@ describe("isModalOpen", () => {
 
     querySelector.mockReturnValue({} as Element);
     expect(isModalOpen()).toBe(true);
-    expect(querySelector).toHaveBeenLastCalledWith(".modal-overlay");
+    expect(querySelector).toHaveBeenLastCalledWith(".modal-overlay, .person-media-overlay");
   });
 });
 

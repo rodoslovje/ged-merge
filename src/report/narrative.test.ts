@@ -73,6 +73,9 @@ describe("en date phrases", () => {
     ["BEF 5 MAY 1848", "before 5 May 1848"],
     ["AFT MAY 1848", "after May 1848"],
     ["BET 1848 AND 1850", "between 1848 and 1850"],
+    // A calendar the file names, and a year before the common era.
+    ["@#DJULIAN@ 14 JAN 1700", "on 14 January 1700 (Julian calendar)"],
+    ["44 BCE", "in 44 BCE"],
   ])("%s → %s", (raw, expected) => {
     expect(phrase(raw)).toBe(expected);
   });
@@ -94,6 +97,9 @@ describe("sl date phrases", () => {
     ["BET 1848 AND 1850", "med letoma 1848 in 1850"],
     ["BET MAY 1848 AND JUN 1850", "med majem 1848 in junijem 1850"],
     ["FROM 1848 TO 1850", "od leta 1848 do leta 1850"],
+    // A calendar the file names, and a year before the common era.
+    ["@#DJULIAN@ 14 JAN 1700", "14. januarja 1700 (po julijanskem koledarju)"],
+    ["44 BCE", "leta 44 pr. n. št."],
   ])("%s → %s", (raw, expected) => {
     expect(phrase(raw)).toBe(expected);
   });

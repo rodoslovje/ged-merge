@@ -460,6 +460,26 @@ describe("no-hard-evidence ceiling", () => {
     expect(r[0].score).toBeGreaterThan(60);
   });
 
+  it("reads a christening as the birth key when the record has no BIRT, like the era gate does", () => {
+    // A parish index knows the christening, not the birth. Read only BIRT, the
+    // scorer charged the missing-key penalty and denied the pair its date
+    // anchor, so a surname-less pair like this fell under the ceiling.
+    const m = "0 @M@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE 12 JAN 1830\n";
+    const c = "0 @C@ INDI\n1 NAME Marija\n1 SEX F\n1 CHR\n2 DATE 13 JAN 1830\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(70);
+    expect(r[0].components.find((x) => x.key === "birthDate")?.missing).toBeFalsy();
+  });
+
+  it("reads a burial as the death key when the record has no DEAT", () => {
+    const m = "0 @M@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE ABT 1880\n1 DEAT\n2 DATE 2 FEB 1955\n";
+    const c = "0 @C@ INDI\n1 NAME Marija\n1 SEX F\n1 BIRT\n2 DATE ABT 1882\n1 BURI\n2 DATE 4 FEB 1955\n";
+    const r = matchDatasets(doc(m), doc(c)).individuals;
+    expect(r).toHaveLength(1);
+    expect(r[0].score).toBeGreaterThan(60);
+  });
+
   it("keeps an undated pair anchored by a comparable full name", () => {
     const m = "0 @M@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";
     const c = "0 @C@ INDI\n1 NAME Jože /Zagorc/\n1 SEX M\n";

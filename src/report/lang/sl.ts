@@ -10,6 +10,7 @@
 // Open-class words (places, names) are never declined — see lang/types.ts.
 
 import type { GedDate } from "../../gedcom/types";
+import { dateText } from "../../gedcom/date";
 import type { NarrativeLang } from "./types";
 
 const GEN = [
@@ -30,15 +31,29 @@ const GENITIVE: Case = { months: GEN, year: "leta" };
 const INSTRUMENTAL: Case = { months: INS, year: "letom" };
 const LOCATIVE: Case = { months: LOC, year: "letu" };
 
+/** A year as written: a year counted before the common era is negative in the
+ *  model and reads "44 pr. n. št.". */
+function yearText(year: number): string {
+  return year < 0 ? `${-year} pr. n. št.` : `${year}`;
+}
+
 /** The date core in the given case: "5. maja 1848" / "maja 1848" / "leta 1848". */
 function core(kase: Case, day?: number, month?: number, year?: number): string {
-  if (month) return [day !== undefined ? `${day}.` : undefined, kase.months[month - 1], year].filter(Boolean).join(" ");
-  return year !== undefined ? `${kase.year} ${year}` : "";
+  const y = year !== undefined ? yearText(year) : undefined;
+  if (month) return [day !== undefined ? `${day}.` : undefined, kase.months[month - 1], y].filter(Boolean).join(" ");
+  return y !== undefined ? `${kase.year} ${y}` : "";
 }
 
 function datePhrase(d: GedDate): string {
+  const phrase = plainPhrase(d);
+  // A Julian date keeps its components (the app shows the date the file
+  // states), so the reader has to be told which calendar it is in.
+  return phrase && d.calendar === "JULIAN" ? `${phrase} (po julijanskem koledarju)` : phrase;
+}
+
+function plainPhrase(d: GedDate): string {
   if (d.placeholder) return "";
-  if (!core(GENITIVE, d.day, d.month, d.year)) return d.raw; // unparseable — keep the recorded text
+  if (!core(GENITIVE, d.day, d.month, d.year)) return dateText(d); // unparseable — keep the recorded text
   switch (d.qualifier) {
     case "about":
       return `okoli ${core(GENITIVE, d.day, d.month, d.year)}`;

@@ -562,6 +562,9 @@ function convertEventBatch(
       }
       markEventTouched(node, "changed");
     }
+    // The typed record must follow the raw tree, or the panel's own filters
+    // (`event has _FNRL`) still find the person after the conversion.
+    rebuildIndividual(ds, indi);
     changed++;
   }
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
@@ -583,6 +586,8 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
     addEventNode(indi, "DEAT");
     const deat = indi.raw.children.filter((c) => c.tag === "DEAT").pop()!;
     deat.value = "Y";
+    // Rebuild, or `isDeceased` (and so the `living` filter) still says alive.
+    rebuildIndividual(ds, indi);
     changed++;
   }
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };

@@ -1,4 +1,4 @@
-import { INDI_EVENT_TAGS } from "../eventTags";
+import { indiEventNodes } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
 import type { Family, GedNode, GeoCoord, Individual, NoteRef } from "../types";
@@ -196,7 +196,7 @@ export function setEventField(indi: Individual, tag: string, update: EventFieldU
 
 /** Update an individual event at position `index` in `indi.events` (0-based). */
 export function setEventFieldAtIndex(indi: Individual, index: number, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
-  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
+  const eventNodes = indiEventNodes(indi.raw);
   const eventNode = eventNodes[index];
   if (eventNode) {
     applyEventNodeUpdate(indi.raw, eventNode, update, notes);
@@ -211,7 +211,7 @@ export function setEventFieldAtIndex(indi: Individual, index: number, update: Ev
  * of the retagged event jumping to its tag's canonical position. No-op if
  * the event doesn't exist or the tag is unchanged. */
 export function changeEventTagAtIndex(indi: Individual, index: number, newTag: string): void {
-  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
+  const eventNodes = indiEventNodes(indi.raw);
   const eventNode = eventNodes[index];
   if (!eventNode || eventNode.tag === newTag) return;
   eventNode.tag = newTag;
@@ -220,7 +220,7 @@ export function changeEventTagAtIndex(indi: Individual, index: number, newTag: s
 
 /** Remove an individual event at position `index` in `indi.events` (0-based). */
 export function removeEventAtIndex(indi: Individual, index: number): void {
-  const eventNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag));
+  const eventNodes = indiEventNodes(indi.raw);
   const eventNode = eventNodes[index];
   if (eventNode) {
     const i = indi.raw.children.indexOf(eventNode);
@@ -233,7 +233,7 @@ export function removeEventAtIndex(indi: Individual, index: number): void {
  * even when multiple events share the same tag. */
 export function restoreEvent(indi: Individual, tag: string, data: EventFieldUpdate): void {
   addEventNode(indi, tag);
-  const sameTagNodes = indi.raw.children.filter((c) => INDI_EVENT_TAGS.has(c.tag) && c.tag === tag);
+  const sameTagNodes = indiEventNodes(indi.raw).filter((c) => c.tag === tag);
   const newNode = sameTagNodes[sameTagNodes.length - 1];
   if (newNode) {
     applyEventNodeUpdate(indi.raw, newNode, data);

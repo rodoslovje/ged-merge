@@ -394,8 +394,16 @@ export function parseGiMatchesCsv(text: string): GiMatchesImport {
 
   const header = rows[0];
   // Trailing metadata rows (source/date/search footer) have a different
-  // column count than the header and are ignored.
-  const dataRows = rows.slice(1).filter((r) => r.length === header.length);
+  // column count than the header and are ignored — dropped from the end, not
+  // filtered out wherever they occur: rows come in main/incoming pairs, and a
+  // data row written short (a trailing empty field dropped) that was filtered
+  // away swapped the roles of every pair after it. Such a row is padded.
+  const body = rows.slice(1);
+  let end = body.length;
+  while (end > 0 && body[end - 1].length !== header.length) end--;
+  const dataRows = body.slice(0, end).map((r) =>
+    r.length >= header.length ? r.slice(0, header.length) : [...r, ...Array<string>(header.length - r.length).fill("")],
+  );
 
   const layout = detectColumns(header);
   if (layout) return parsePersonMatches(dataRows, layout);
@@ -717,12 +725,12 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     const husbandKey: GiMainKey = {
       given: col(mainRow, "husbandName"),
       surname: stripSurnameAnnotation(col(mainRow, "husbandSurname")),
-      birthYear: parseDate(col(mainRow, "husbandBirth")).year,
+      birthYear: parseDate(withoutAnnotation(col(mainRow, "husbandBirth"))).year,
     };
     const wifeKey: GiMainKey = {
       given: col(mainRow, "wifeName"),
       surname: stripSurnameAnnotation(col(mainRow, "wifeSurname")),
-      birthYear: parseDate(col(mainRow, "wifeBirth")).year,
+      birthYear: parseDate(withoutAnnotation(col(mainRow, "wifeBirth"))).year,
     };
     if (!husbandKey.given && !husbandKey.surname && !wifeKey.given && !wifeKey.surname) continue;
     famCounter++;

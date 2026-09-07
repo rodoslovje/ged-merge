@@ -55,6 +55,7 @@ export const en = {
   "tools.tool.privacy": "Privacy",
   "tools.tool.privacy.desc": "Redact living people for a shareable file",
   "tools.validate.stale": "The file changed since this check. Run it again to see the current findings.",
+  "tools.duplicates.stale": "The file changed since this search. Run it again to see the current pairs.",
   "tools.validate.clean": "No issues found. 🎉",
   "tools.validate.all": "All",
   "tools.validate.cat.brokenLink": "Broken links",

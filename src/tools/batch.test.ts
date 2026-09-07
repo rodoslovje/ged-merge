@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Dataset } from "../gedcom/types";
+import { isDeceased } from "../gedcom/lifespan";
 import { marriedSurnamesOf } from "../match/relatives";
 import {
   ANY_EVENT,
@@ -643,6 +644,8 @@ describe("applyBatchAction", () => {
     const deat = raw.children.find((c) => c.tag === "DEAT")!;
     expect(deat.value).toBe("Y");
     expect(deat.children).toEqual([]); // undated
+    // The typed record follows: the `living` filter must not find @I2@ any more.
+    expect(isDeceased(ds.individuals.get("@I2@")!)).toBe(true);
     const tags = raw.children.map((c) => c.tag);
     expect(tags.indexOf("BIRT")).toBeLessThan(tags.indexOf("DEAT")); // canonical order
     // Re-running is a no-op: everyone now carries death evidence.
@@ -819,6 +822,9 @@ describe("applyBatchAction", () => {
     applyBatchAction(ds, ["@I2@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI", type: "x" });
     const buri = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "BURI")!;
     expect(buri.children.map((c) => c.tag)).toEqual(["DATE"]);
+    // The typed records follow the raw tree, so the panel's own event filters see the new tags.
+    expect(ds.individuals.get("@I1@")!.events.map((e) => e.tag)).toEqual(["EVEN"]);
+    expect(ds.individuals.get("@I2@")!.events.map((e) => e.tag)).toEqual(["BURI"]);
   });
 
   it("attaches an existing shared image as a pointer and skips holders", () => {

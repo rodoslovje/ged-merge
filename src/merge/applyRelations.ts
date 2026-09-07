@@ -71,6 +71,9 @@ export interface MergeContext {
    *  matcher merely proposing it. Only a confirmation outranks hard genealogical
    *  evidence against the pairing. */
   confirmedPair: (mainId: string, incomingId: string) => boolean;
+  /** The `PEDI` the incoming file records on this child's link to this
+   *  incoming family (adopted, foster, …), if any. */
+  childPedigree: (incomingId: string, incomingFamId: string) => string | undefined;
   /** Display label for a main id, for the change report. */
   label: (id: string) => string;
   report: ChangeReport;
@@ -290,6 +293,10 @@ export function makeContext(
       return !!m && !!c && relativePersonSimilarity(m, c, "child") >= RELATIVE_PAIR_THRESHOLD;
     },
     confirmedPair: (mainId, incomingId) => confirmedPairs.has(`${mainId}|${incomingId}`),
+    childPedigree: (incomingId, incomingFamId) => {
+      const famc = compare.individuals.get(incomingId)?.raw.children.find((c) => c.tag === "FAMC" && c.value === incomingFamId);
+      return famc?.children.find((c) => c.tag === "PEDI")?.value?.trim() || undefined;
+    },
     label: (id) =>
       addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
     beginGraftPhase: () => {
@@ -345,6 +352,10 @@ export function applyFamilyStructure(
       const targetId = ctx.resolve(incSlot);
       if (!targetId) continue;
       const mainSlot = slotValue(role);
+      // One person cannot be both spouses: a sex-unknown record the main
+      // placed as HUSB, whose incoming family lists them as WIFE, would
+      // otherwise be written into the other slot too.
+      if (slotValue(role === "HUSB" ? "WIFE" : "HUSB") === targetId) continue;
       if (mainSlot) {
         if (mainSlot !== targetId) {
           ctx.report.deferred.push({
@@ -432,7 +443,7 @@ export function applyFamilyStructure(
       }
       if (addPointer(famNode, "CHIL", targetId, FAM_CHILD_ORDER)) {
         existing.add(targetId);
-        linkBack(ctx, targetId, "FAMC", famId);
+        linkBack(ctx, targetId, "FAMC", famId, ctx.childPedigree(incChild, incFam.id));
         ctx.report.changes.push({
           recordId: famId,
           // A child that resolved to a record the main file already had is
@@ -601,7 +612,7 @@ export function applyIndividualFamilies(
       // the person's lone existing one, which would file a second wife and her
       // children under the first wife's marriage.
       !reviewPairs.has(incFamId));
-    if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx);
+    if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx, incFam.wife === incomingIndi.id ? "WIFE" : "HUSB");
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
 
@@ -786,14 +797,16 @@ function findMainSpouseFamily(
   return undefined;
 }
 
-/** Create a new family with the main person placed in their sex's slot. */
+/** Create a new family with the main person placed in their sex's slot — or,
+ *  when their sex is unknown, in the slot the incoming family gave them. */
 function createPersonFamily(
   mainId: string,
   sex: import("../gedcom/types").Sex,
   ctx: MergeContext,
+  incomingRole: "HUSB" | "WIFE" = "HUSB",
 ): GedNode {
   const fam = ctx.createFamily();
-  const role = sex === "F" ? "WIFE" : "HUSB";
+  const role = sex === "F" ? "WIFE" : sex === "M" ? "HUSB" : incomingRole;
   addPointer(fam.node, role, mainId, FAM_CHILD_ORDER);
   linkBack(ctx, mainId, "FAMS", fam.id);
   return fam.node;
@@ -878,9 +891,15 @@ function incomingParentId(
  * labelled by whoever happened to be in it already. {@link reportFamilyLinks}
  * emits them once the merge is finished and every family is whole.
  */
-function linkBack(ctx: MergeContext, indiId: string, tag: "FAMS" | "FAMC", famId: string): void {
+function linkBack(ctx: MergeContext, indiId: string, tag: "FAMS" | "FAMC", famId: string, pedigree?: string): void {
   const node = ctx.indiNode(indiId);
   if (node && addPointer(node, tag, famId, INDI_CHILD_ORDER)) {
+    // The incoming file's word on the parentage travels with the link: an
+    // adopted child re-stitched as a bare FAMC reads as born to the family.
+    if (pedigree) {
+      const famc = node.children.find((c) => c.tag === tag && c.value === famId);
+      famc?.children.push(newNode("PEDI", pedigree));
+    }
     ctx.familyLinks.push({ indiId, tag, famId });
   }
 }
@@ -1067,7 +1086,7 @@ function importDescendants(
     const otherMainId = otherIncId ? ctx.resolved(otherIncId) : undefined;
 
     let famNode = findMainSpouseFamily(mainId, otherMainId, ctx, incIndi.spouseOf.length, mainIndi);
-    if (!famNode) famNode = createPersonFamily(mainId, sex, ctx);
+    if (!famNode) famNode = createPersonFamily(mainId, sex, ctx, incFam.wife === incId ? "WIFE" : "HUSB");
 
     // Bring the spouse and every child of this union; `applyFamilyStructure`
     // skips slots/children already present, so re-running on a family a confirmed
