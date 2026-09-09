@@ -26,6 +26,7 @@ import type {
 import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, isChangeStampEvent } from "./eventTags";
 import { UPD_STAMP_TYPE } from "./vendorTags";
 import { EDITABLE_LINK_TAGS } from "./edit/shared";
+import { decodeEntities, isHtmlNote, noteToText } from "./noteHtml";
 
 /** An empty, fully-typed `Dataset` — for callers that need a valid compare side
  *  with nothing in it (e.g. single-file chart building). Fresh on every call, so
@@ -363,25 +364,9 @@ export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FIL
  *  Shared with citationParse — one spelling of "what counts as a URL". */
 export const URL_RE = /https?:\/\/[^\s<>"]+/gi;
 
-/** Closing/void tags that represent a line break in rich-text-pasted note markup. */
-const HTML_BLOCK_BREAK_RE = /<\/(?:p|div|li|h[1-6]|blockquote)>|<br\s*\/?>/gi;
-
-/**
- * Recognized rich-text tags (and their closes), e.g. those a word processor
- * or note app leaves behind when a note is pasted in. Deliberately a
- * whitelist rather than "any `<...>`", so a stray "<unknown>" placeholder in
- * real note text isn't mistaken for markup.
- */
-const HTML_TAG_RE = /<\/?(?:p|div|span|a|br|b|i|u|em|strong|ul|ol|li|h[1-6]|blockquote)\b[^>]*>/gi;
-
-/** Convert rich-text HTML markup into plain text: block closes/`<br>` become line breaks, then tags are dropped. */
-function stripHtmlMarkup(text: string): string {
-  return text.replace(HTML_BLOCK_BREAK_RE, "\n").replace(HTML_TAG_RE, "");
-}
-
-/** Strip pasted-in HTML markup and tidy whitespace, keeping the text itself. */
-function tidyNoteText(text: string): string {
-  return stripHtmlMarkup(text)
+/** Trim and tidy the lines of a note already reduced to plain text. */
+function tidyLines(text: string): string {
+  return text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
@@ -398,7 +383,13 @@ function tidyNoteText(text: string): string {
  * remaining text, or "" if nothing is left.
  */
 export function stripNoteLinks(text: string): string {
-  return tidyNoteText(text.replace(URL_RE, ""));
+  return tidyLines(noteToText(text).replace(URL_RE, ""));
+}
+
+/** A note reduced to its text — rich-text markup rendered as plain lines (see
+ *  `noteHtml`) — with tidy whitespace. */
+function tidyNoteText(text: string): string {
+  return tidyLines(noteToText(text));
 }
 
 /**
@@ -446,7 +437,10 @@ function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): str
   // A private note's URLs stay inside the note — never surfaced as links,
   // where they'd be one click from becoming a (public) source citation.
   if (entry && !entry.private && links) {
-    for (const m of entry.text.match(URL_RE) ?? []) links.push(stripTrailingPunct(m));
+    // A rich-text note keeps its addresses HTML-escaped (`&amp;` between the
+    // query parameters); the harvested link must be the address itself.
+    const text = isHtmlNote(entry.text) ? decodeEntities(entry.text) : entry.text;
+    for (const m of text.match(URL_RE) ?? []) links.push(stripTrailingPunct(m));
   }
   return entry?.text;
 }

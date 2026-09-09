@@ -49,7 +49,7 @@ test("a note goes to the person when the keyboard is not in an event", async ({ 
   // Every event keeps a note field in the DOM, hidden until it has something
   // to show — so this asks whether it was revealed, not whether it exists.
   await expect(page.locator(".edit-event").first().locator(".edit-event-note")).toBeHidden();
-  await expect(page.locator("textarea").first()).toBeVisible();
+  await expect(page.locator(".edit-note-chip [contenteditable]").first()).toBeVisible();
 });
 
 test("a source opens the dialog for the event the keyboard is in", async ({ page }) => {

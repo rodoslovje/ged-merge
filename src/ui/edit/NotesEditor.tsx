@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { NoteRef } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { ClearableTextarea } from "./ClearableInput";
+import { noteToText } from "../../gedcom/noteHtml";
+import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
 
 /** First URL in a note's text, for the chip's open-link button. */
 function firstUrlIn(text: string): string | undefined {
-  const m = /https?:\/\/[^\s<>"]+/i.exec(text);
+  const m = /https?:\/\/[^\s<>"]+/i.exec(noteToText(text));
   return m ? m[0].replace(/[.,;)\]]+$/, "") : undefined;
 }
 
@@ -41,7 +42,7 @@ export function NotesEditor({
   const [notes, setNotes] = useState<NoteRef[]>(() => (addOnMount ? [...initialNotes, { text: "" }] : initialNotes));
   const prevTrigger = useRef(addTrigger ?? 0);
   const focusNewRef = useRef<number | null>(addOnMount ? initialNotes.length : null);
-  const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const boxRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     if ((addTrigger ?? 0) > prevTrigger.current) {
@@ -52,7 +53,7 @@ export function NotesEditor({
 
   useEffect(() => {
     if (focusNewRef.current !== null) {
-      textareaRefs.current[focusNewRef.current]?.focus();
+      boxRefs.current[focusNewRef.current]?.focus();
       focusNewRef.current = null;
     }
   });
@@ -80,10 +81,13 @@ export function NotesEditor({
   // Size each note to its widest line (not its total length — a multi-line note
   // is only as wide as its longest line) so short notes sit next to each other
   // and flow to the next line only when they don't fit. The floor is generous:
-  // a freshly added note should offer a sentence's worth of typing room.
+  // a freshly added note should offer a sentence's worth of typing room. A
+  // note with a table or a long paragraph takes the row.
   const noteWidth = (v: string) => {
-    const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
-    return { width: `${Math.min(48, Math.max(18, longest + 2))}ch` };
+    const plain = noteToText(v);
+    const longest = plain.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
+    const wide = /<table\b/i.test(v) || longest > 48;
+    return { width: wide ? "100%" : `${Math.max(18, longest + 2)}ch` };
   };
 
   const noteFields = notes.map((note, i) => {
@@ -91,8 +95,8 @@ export function NotesEditor({
     const url = firstUrlIn(note.text);
     return (
       <span key={i} className="edit-note-item">
-        <ClearableTextarea
-          ref={(el) => { textareaRefs.current[i] = el; }}
+        <RichNoteInput
+          ref={(el) => { boxRefs.current[i] = el; }}
           wrapClassName="edit-note-chip"
           wrapStyle={noteWidth(note.text)}
           leading={
@@ -103,7 +107,7 @@ export function NotesEditor({
               aria-pressed={!!note.private}
               tabIndex={-1}
               onMouseDown={(e) => {
-                e.preventDefault(); // keep the textarea's focus/blur cycle intact
+                e.preventDefault(); // keep the box's focus/blur cycle intact
                 commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)));
               }}
             >
@@ -111,17 +115,13 @@ export function NotesEditor({
             </button>
           }
           className={`edit-input edit-event-note${note.text.trim() && !baseline.has(note.text) ? " edit-input--dirty" : ""}`}
-          // A shared record whose text starts on a CONT line (MacFamilyTree
-          // writes "0 @N@ NOTE" + "1 CONT https://…") has a leading newline in
-          // its verbatim value — hide it from the chip (a 1-row textarea would
-          // show only the blank first line), but keep the stored text verbatim
-          // until the user really edits, so an untouched blur can't rewrite the
-          // record.
-          value={note.text.replace(/^\n+/, "")}
+          // Shown formatted; the stored text stays verbatim until the user
+          // really edits, so an untouched blur can't rewrite the record.
+          text={note.text}
           placeholder={t("field.notes")}
           title={t("field.notes")}
-          rows={1}
-          onChange={(e) => setNotes((prev) => prev.map((n, idx) => (idx === i ? { ...n, text: e.target.value } : n)))}
+          t={t}
+          onInput={(text) => setNotes((prev) => prev.map((n, idx) => (idx === i ? { ...n, text } : n)))}
           onBlur={() => commitNotes(notes)}
           onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
         />

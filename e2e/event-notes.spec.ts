@@ -34,10 +34,10 @@ test("edit mode: every note on an event is shown, editable and saved", async ({ 
   await page.locator(".edit-person").waitFor();
 
   // Both notes are on screen — the second used to be invisible here.
-  const chips = page.locator(".edit-event .edit-note-chip textarea");
+  const chips = page.locator(".edit-event .edit-note-chip [contenteditable]");
   await expect(chips).toHaveCount(2);
-  await expect(chips.nth(0)).toHaveValue("first note");
-  await expect(chips.nth(1)).toHaveValue("second note");
+  await expect(chips.nth(0)).toHaveText("first note");
+  await expect(chips.nth(1)).toHaveText("second note");
 
   // Each carries its own lock: flag the second, leave the first alone.
   await page.locator(".edit-event .edit-note-chip .note-chip-lock").nth(1).click();
