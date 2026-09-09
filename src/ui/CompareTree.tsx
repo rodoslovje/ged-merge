@@ -40,7 +40,6 @@ import { TreeSvg } from "./TreeSvg";
 import { ZoomControls } from "./ZoomControls";
 import { collectFirstFilePath } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
-import { ChartIcon } from "./icons/ChartIcon";
 import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
@@ -84,8 +83,6 @@ interface Props {
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
   /** Start person ID in the main dataset, used to show kinship labels on nodes. */
   startId?: string;
-  /** Open the Charts hub on a main-side person (from the node panel). */
-  onOpenCharts?: (mainId: string) => void;
   /** Jump to a main-side person in Edit mode (closes the tree). */
   onOpenInEdit?: (mainId: string) => void;
 }
@@ -141,7 +138,6 @@ export function CompareTree({
   importBranches,
   onToggleImport,
   startId,
-  onOpenCharts,
   onOpenInEdit,
 }: Props) {
   const { t } = useTranslation();
@@ -642,7 +638,6 @@ export function CompareTree({
                 onDecide(selected.main.id, selected.incoming.id, status);
               }
             }}
-            onOpenCharts={onOpenCharts}
             onOpenInEdit={onOpenInEdit}
           />
         )}
@@ -767,7 +762,6 @@ function NodeCompare({
   kinshipLineage,
   decision,
   onDecide,
-  onOpenCharts,
   onOpenInEdit,
 }: {
   /** The selected node — a laid tree node or a fan segment's person node. */
@@ -785,7 +779,6 @@ function NodeCompare({
   kinshipLineage: string | undefined;
   decision: CandidateDecision | undefined;
   onDecide: (status: MatchDecisionStatus) => void;
-  onOpenCharts?: (mainId: string) => void;
   onOpenInEdit?: (mainId: string) => void;
 }) {
   const { t } = useTranslation();
@@ -871,22 +864,11 @@ function NodeCompare({
       badges={decisionBar}
       extraActions={
         node.main ? (
-          <>
-            {onOpenCharts && (
-              <button
-                className="nav-btn tree-compare-root charts-open-btn"
-                onClick={() => onOpenCharts(node.main!.id)}
-                title={t("edit.charts.tooltip")}
-              >
-                <ChartIcon size={13} /> {t("edit.charts.button")}
-              </button>
-            )}
-            {onOpenInEdit && (
-              <button className="nav-btn tree-compare-root" onClick={() => onOpenInEdit(node.main!.id)}>
-                {t("relpath.openInEdit")}
-              </button>
-            )}
-          </>
+          onOpenInEdit && (
+            <button className="nav-btn tree-compare-root" onClick={() => onOpenInEdit(node.main!.id)}>
+              {t("relpath.openInEdit")}
+            </button>
+          )
         ) : undefined
       }
       controls={controls}

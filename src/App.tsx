@@ -1917,7 +1917,6 @@ function AppContent() {
         importBranches={importBranches}
         onToggleImport={toggleImportBranch}
         startId={startId}
-        onOpenCharts={openCharts}
         onOpenInEdit={navigateFromOverlay}
       />
     );
