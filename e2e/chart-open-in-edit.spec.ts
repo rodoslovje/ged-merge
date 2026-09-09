@@ -27,7 +27,7 @@ test("Open in Edit from a chart opens the clicked person", async ({ page }) => {
   const clicked = (await page.locator(".tree-compare-name").first().textContent())!.trim();
   expect(clicked).not.toBe(before);
 
-  await page.getByRole("button", { name: "Open in Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator("svg.tree-svg")).toHaveCount(0);
   // The name inputs split the panel's display name (given, surname).
   await expect

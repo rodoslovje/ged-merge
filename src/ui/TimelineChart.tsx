@@ -240,7 +240,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, zoomLayerRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
@@ -252,9 +252,13 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
 
   const selectedRow = rows.find((r) => r.key === selectedKey);
+  useChartShortcuts({
+    zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
+    onEdit: selectedRow?.id && onNavigate ? () => onNavigate(selectedRow.id) : undefined,
+    onLeave: onBack,
+  });
   const selectedIndi = selectedRow ? mainDs.individuals.get(selectedRow.id) : undefined;
   const selectedRows = useMemo(
     () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, mainDs) : []),
@@ -445,7 +449,17 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                       key={row.key}
                       transform={`translate(0,${y})`}
                       className={`timeline-row${row.key === selectedKey ? " selected" : ""}${row.key === find.hitKey ? " find-hit" : ""}${row.role === "person" ? " is-person" : ""}`}
+                      data-key={row.key}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={row.years ? `${row.name}, ${row.years}` : row.name}
+                      aria-pressed={row.key === selectedKey}
                       onClick={() => selectNode(row.key)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        e.preventDefault();
+                        selectNode(row.key);
+                      }}
                     >
                       <title>{t("tree.node.clickHint")}</title>
                       {/* Full-width hit/selection strip. */}

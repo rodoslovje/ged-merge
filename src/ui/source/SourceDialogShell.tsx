@@ -22,6 +22,7 @@ export function SourceDialogShell({
   children,
   actions,
   onKeyDown,
+  onConfirm,
 }: {
   /** The record's glyph — 📖 a source, 🏛 a repository, 🔗 a link, or a site's. */
   icon: string;
@@ -33,10 +34,12 @@ export function SourceDialogShell({
   children: ReactNode;
   /** The footer's buttons, in reading order — Remove, Cancel, Save. */
   actions: ReactNode;
-  /** Keys the dialog answers itself — Ctrl+Enter confirming, and the like. */
+  /** Keys the dialog answers itself — a plain Enter in a one-line field, and the like. */
   onKeyDown?: (e: ReactKeyboardEvent) => void;
+  /** The Save or Add button's action, for ⌘/Ctrl+Enter from any field. */
+  onConfirm?: () => void;
 }) {
-  const ref = useModalKeyboard<HTMLDivElement>(true, onClose);
+  const ref = useModalKeyboard<HTMLDivElement>(true, onClose, { onConfirm });
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div

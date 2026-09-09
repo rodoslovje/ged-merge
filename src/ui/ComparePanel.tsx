@@ -1,4 +1,6 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { isEditableTarget } from "../keyboard/shortcuts";
+import { handleListKey } from "../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
@@ -34,6 +36,8 @@ interface Props {
   /** Main individuals carrying unsaved edits, for a relative's "M" chip. */
   changedPersonIds: Set<string> | undefined;
   onChange: (next: CandidateDecision) => void;
+  /** Escape inside the panel: hand the keyboard back to the match list. */
+  onLeave?: () => void;
   /** True when the person on `side` with this id is reachable in the match list. */
   canNavigate: (side: RelativeSide, id: string) => boolean;
   /** Jump the compare view to the person on `side` with this id. */
@@ -56,6 +60,7 @@ export function ComparePanel({
   onChange,
   canNavigate,
   onNavigate,
+  onLeave,
 }: Props) {
   const { t } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -132,6 +137,21 @@ export function ComparePanel({
   // `toggleDecisionStatus`), so locking never discards a recorded choice.
   const locked = status === "undecided";
 
+  // The keyboard's row, once Enter (or Tab) has brought it into the panel:
+  // ↑/↓ and Home/End move it, 1/2/3 pick Main, Incoming or Both where the row
+  // offers them, Escape goes back to the match list. Keyed by the row, not
+  // its index, so a decision that re-sorts the rows keeps the place.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const bodyRows = useMemo(() => rows.filter((r) => !r.isGroupHeader), [rows]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setActiveKey(null); }, [mainIndi, compareIndi]);
+  useEffect(() => {
+    if (!activeKey) return;
+    panelRef.current
+      ?.querySelector<HTMLElement>(`tr[data-row-key="${CSS.escape(activeKey)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeKey]);
+
   // Emit a full decision, carrying over the parts of it this panel doesn't touch
   // (event rejections, per-child picks) so a field edit never wipes them.
   function emit(patch: Partial<CandidateDecision>) {
@@ -204,6 +224,38 @@ export function ComparePanel({
     };
   }
 
+  /** The choices a row's buttons offer — the ones 1/2/3 may take. */
+  function choicesOf(row: FieldRow): FieldChoice[] {
+    if (forceMain || locked || row.taken || row.relatives) return [];
+    if (row.state === "conflict" && (row.key === "father" || row.key === "mother")) return [];
+    if (row.state !== "conflict" && row.state !== "incoming-only") return [];
+    return rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
+  }
+
+  function onPanelKeyDown(e: React.KeyboardEvent) {
+    if (isEditableTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const idx = bodyRows.findIndex((r) => r.key === activeKey);
+    if (handleListKey(e, {
+      count: bodyRows.length,
+      index: idx,
+      setIndex: (i) => setActiveKey(bodyRows[i]?.key ?? null),
+    })) { e.stopPropagation(); return; }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      onLeave?.();
+      return;
+    }
+    const row = bodyRows[idx];
+    const n = ["1", "2", "3"].indexOf(e.key);
+    if (!row || n < 0) return;
+    const choice = CHOICES[n];
+    if (!choicesOf(row).includes(choice)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setField(row.key, choice);
+  }
+
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (forceMain) return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
     // The event this row belongs to was taken into the file by hand in Edit,
@@ -240,7 +292,15 @@ export function ComparePanel({
   }
 
   return (
-    <div className="compare-panel">
+    <div
+      className="compare-panel"
+      ref={panelRef}
+      tabIndex={0}
+      aria-label={t("compare.panelLabel")}
+      onKeyDown={onPanelKeyDown}
+      // Coming in with no row yet: start at the first.
+      onFocus={(e) => { if (e.target === e.currentTarget && !activeKey) setActiveKey(bodyRows[0]?.key ?? null); }}
+    >
       {hasMedia && (
         <div className="compare-media">
           <div className="compare-media-col">
@@ -294,7 +354,11 @@ export function ComparePanel({
             // line inside the grid so a name beneath the first reads as covered.
             // Children instead get a per-child take/skip toggle (`renderPair`).
             return (
-              <tr key={row.key} className={`field ${row.state}${isMajorDifference(row) ? " major" : ""}`}>
+              <tr
+                key={row.key}
+                data-row-key={row.key}
+                className={`field ${row.state}${isMajorDifference(row) ? " major" : ""}${row.key === activeKey ? " kbd-active" : ""}`}
+              >
                 {/* A relatives row compares the two lists as text, so a
                     relative's differing years colour it — but those years only
                     identify the person here; their own data merges from their

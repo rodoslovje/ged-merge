@@ -34,7 +34,6 @@ export function ClusterMergeDialog({
   onConfirm: (survivorId: string, groups: ClusterRelativeGroup[]) => void;
 }) {
   const { t } = useTranslation();
-  const ref = useModalKeyboard(true, onCancel);
   const [survivorId, setSurvivorId] = useState(
     () => pickClusterSurvivor(dataset, cluster.memberIds) ?? cluster.memberIds[0],
   );
@@ -47,6 +46,7 @@ export function ClusterMergeDialog({
     [dataset, survivorId, cluster.memberIds, t],
   );
   const picked = groups.filter((g) => ticked.has(g.key));
+  const ref = useModalKeyboard(true, onCancel, { onConfirm: () => onConfirm(survivorId, picked) });
   const indirect = membersWithoutDirectPair(cluster, survivorId);
   const removedCount =
     cluster.memberIds.length - 1 + picked.reduce((n, g) => n + g.memberIds.length - 1, 0);

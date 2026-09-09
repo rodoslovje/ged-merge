@@ -298,6 +298,7 @@ function RepoEditDialog({
       title={t("editRepo.title")}
       t={t}
       onClose={onClose}
+      onConfirm={() => onSave(fields)}
       actions={
         <>
           <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>

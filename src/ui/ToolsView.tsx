@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../gedcom/types";
 import type { CandidateDecision } from "../review/types";
@@ -197,12 +198,13 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
           <div className="tools-summary-slot" ref={setSummarySlot} />
         </div>
       ) : (
-      <div className="tools-subtabs" role="tablist">
+      <div className="tools-subtabs" role="tablist" onKeyDown={tablistKeyDown}>
         {TOOLS.map((id) => (
           <button
             key={id}
             role="tab"
             aria-selected={tool === id}
+            tabIndex={tabIndexFor(tool === id)}
             className={`tools-tab ${tool === id ? "active" : ""}`}
             onClick={() => onToolChange(id)}
           >

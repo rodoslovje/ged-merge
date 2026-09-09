@@ -30,7 +30,7 @@ interface Props {
 
 export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, defaultConfirm, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
   const { t } = useTranslation();
-  const ref = useModalKeyboard(true, onCancel);
+  const ref = useModalKeyboard(true, onCancel, { onConfirm });
   // The trap parks focus on the first focusable control, which the optional
   // checkbox would win — leaving Enter doing nothing. Hand it to the button
   // that answers the question: the confirm when the caller says Enter should

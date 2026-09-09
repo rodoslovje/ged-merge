@@ -1,7 +1,7 @@
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { AddEventSelect } from "./AddEventSelect";
-import { altShiftLabel } from "../../keyboard/shortcuts";
+import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 
 /**
  * The row that adds an event, sitting under the event list it adds to — the way
@@ -38,7 +38,7 @@ export function EventAddRow({
       <AddEventSelect
         groups={groups}
         label={t("edit.addEvent")}
-        tooltip={t("edit.addEventTooltip")}
+        tooltip={keyHint(t("edit.addEventTooltip"), altShiftLabel("E"))}
         t={t}
         onAdd={onAddEvent}
         className="edit-name-chip edit-name-chip-add"

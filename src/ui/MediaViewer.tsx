@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { Dataset, GedDate, GedNode, Individual } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { collectMediaRefs, type MediaAddress } from "../gedcom/media";
@@ -650,10 +651,11 @@ function MediaViewerOverlay({
   const [allowFocus, setAllowFocus] = useState(focusEdit);
   useEffect(() => { if (allowFocus) setAllowFocus(false); }, [allowFocus]);
 
-  // Esc closes; arrows step (with wraparound) when there's more than one photo.
+  // Esc closes and Tab stays inside, like every dialog; arrows step (with
+  // wraparound) when there's more than one photo.
+  const overlayRef = useModalKeyboard<HTMLDivElement>(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
       // Don't hijack arrow keys while typing in the edit form — let them move
       // the text cursor instead of stepping photos.
       const el = document.activeElement;
@@ -663,7 +665,7 @@ function MediaViewerOverlay({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [items.length, onClose]);
+  }, [items.length]);
 
   // A title with nothing else to show (no meta rows, details or edit form)
   // reads as a photo caption — shown under the image instead of opening the
@@ -681,6 +683,8 @@ function MediaViewerOverlay({
   return (
     <div
       className={`person-media-overlay ${multiple && !hideTray ? "has-tray" : ""}${captionOnly ? " caption-only" : ""}`}
+      ref={overlayRef}
+      tabIndex={-1}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

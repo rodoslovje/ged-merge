@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { type GeoAssignment, type OfficialRename } from "../../tools/geocode";
@@ -231,10 +232,11 @@ export function RegisterPanel({
           section renders on. */}
       {addrCheckable > 0 && (
         <div className="tools-geo-tabs-row">
-          <div className="tools-geo-tabs" role="tablist">
+          <div className="tools-geo-tabs" role="tablist" onKeyDown={tablistKeyDown}>
             <button
               role="tab"
               aria-selected={shown === "places"}
+              tabIndex={tabIndexFor(shown === "places")}
               className={shown === "places" ? "active" : ""}
               onClick={() => setTab("places")}
             >
@@ -249,6 +251,7 @@ export function RegisterPanel({
             <button
               role="tab"
               aria-selected={shown === "addresses"}
+              tabIndex={tabIndexFor(shown === "addresses")}
               className={shown === "addresses" ? "active" : ""}
               onClick={() => setTab("addresses")}
             >

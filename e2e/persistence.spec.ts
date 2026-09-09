@@ -63,8 +63,10 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
   await waitForCache(page, { mainContains: "Kukic", decisions: true, compare: true });
   await page.reload();
 
-  // Merge mode is restored from localStorage; the files + match recompute, and
-  // the confirmed decision comes back — so the Save button reappears.
+  // Every session starts in Edit; the files, the match and the confirmed
+  // decision come back, so Merge shows the candidate and the Save button.
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+  await page.getByRole("button", { name: "Merge", exact: true }).click();
   await page.locator(".candidate").first().waitFor({ timeout: 30000 });
   await expect(saveBtn(page)).toBeVisible({ timeout: 15000 });
 

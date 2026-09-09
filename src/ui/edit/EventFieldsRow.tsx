@@ -53,6 +53,7 @@ export function EventFieldsRow({
   onOpenMediaLink,
   autoFocusLead,
   focusLeadNonce,
+  openDetailMenuNonce,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
@@ -105,6 +106,9 @@ export function EventFieldsRow({
    * always-present Birth row, which quick-add targets instead of duplicating
    * (autoFocusLead only fires on mount). */
   focusLeadNonce?: number;
+  /** Increment to open this row's "+ Detail" menu from outside it — ⌥⇧D
+   * pressed with the keyboard in no event row lands on the first one. */
+  openDetailMenuNonce?: number;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -378,6 +382,12 @@ export function EventFieldsRow({
   const [noteAddTrigger, setNoteAddTrigger] = useState(0);
   // Bumped by ⌥⇧D to open the "+ Detail" menu from wherever the keyboard is.
   const [addDetailNonce, setAddDetailNonce] = useState(0);
+  const lastOpenDetailNonce = useRef(openDetailMenuNonce);
+  useEffect(() => {
+    if (openDetailMenuNonce === undefined || openDetailMenuNonce === lastOpenDetailNonce.current) return;
+    lastOpenDetailNonce.current = openDetailMenuNonce;
+    setAddDetailNonce((n) => n + 1);
+  }, [openDetailMenuNonce]);
   /** True while "+ Add › Association" has this row's person picker open. */
   const [assocPicking, setAssocPicking] = useState(false);
   // Editing the people an event names needs the Edit view's file and dialect

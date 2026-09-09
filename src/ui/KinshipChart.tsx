@@ -284,7 +284,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       : { root: { ...rootNode, x: 0 }, width: bars.width + 2 * PAD, height: bars.height + 2 * PAD };
   }, [layout, nodesByKey, currentRootId, wheel, bars]);
 
-  const { canvasRef, zoomLayerRef, viewport, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", layout === "wheel", 24, `${currentRootId}:${layout}:${scope}:${settings.maxGenerations ?? "all"}`);
 
   const findSources = useMemo(
@@ -293,9 +293,13 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   );
   const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
 
   const selected = people.find((p) => p.id === selectedKey);
+  useChartShortcuts({
+    zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
+    onEdit: selected && onNavigate ? () => onNavigate(selected.id) : undefined,
+    onLeave: onBack,
+  });
   const selectedRows = useMemo(
     () => (selected ? individualFieldRows(t, selected.indi, undefined, mainDs) : []),
     [t, selected, mainDs],
@@ -371,7 +375,19 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         const label = barNameText({ ...r.person, name: nameFor(r.person) }, font);
         const showName = settings.kinNames && r.named && lit(r.person);
         return (
-          <g key={r.person.id} onClick={() => selectNode(r.person.id)}>
+          <g
+            key={r.person.id}
+            data-key={r.person.id}
+            tabIndex={0}
+            role="button"
+            aria-pressed={r.person.id === selectedKey}
+            onClick={() => selectNode(r.person.id)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              selectNode(r.person.id);
+            }}
+          >
             <rect
               className={`kin-bar${lit(r.person) ? "" : " dim"}${r.person.id === selectedKey ? " selected" : ""}${r.person.id === find.hitKey ? " find-hit" : ""}`}
               x={r.x0}

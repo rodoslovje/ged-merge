@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
+import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
@@ -289,6 +291,44 @@ export function ValidatePanel({
   // `.tools-view`, which the hook discovers on its own.
   const virtual = useVirtualList({ count: shown.length, estimate: 34, itemsKey: shown });
 
+  // The highlighted finding: ↑/↓ and Home/End step it, Enter opens its
+  // record. Scrolled into view only when a key moved it — the list sits
+  // under the summary, and a mount-time scroll would jump past that.
+  const [selected, setSelected] = useState(0);
+  const listRef = useListFocusKeeper<HTMLUListElement>();
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const keyMoved = useRef(false);
+  useEffect(() => { setSelected((s) => Math.min(s, Math.max(0, shown.length - 1))); }, [shown.length]);
+  const { scrollToIndex } = virtual;
+  useEffect(() => {
+    if (!keyMoved.current) return;
+    keyMoved.current = false;
+    scrollToIndex(selected);
+  }, [selected, scrollToIndex]);
+  useEffect(() => {
+    if (!active) return;
+    function onKey(e: KeyboardEvent) {
+      if (isEditableTarget(e.target) || isModalOpen() || e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const rows = shownRef.current;
+      handleListKey(e, {
+        count: rows.length,
+        index: selectedRef.current,
+        setIndex: (i) => { keyMoved.current = true; setSelected(i); },
+        onEnter: (i) => {
+          const row = rows[i];
+          const id = row?.kind === "record" ? row.issue.id : row?.issue.recordId;
+          if (id) onNavigate(id);
+        },
+      });
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, onNavigate]);
+
   // The "No sex" records a family role settles, and what it settles them to (a
   // subset of the missingSex findings). Recomputed when the report changes (e.g.
   // after a fix). The same map drives the button's count and the rows' marks, so
@@ -577,13 +617,14 @@ export function ValidatePanel({
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
-            <ul className="tools-issues">
+            <ul className="tools-issues" ref={listRef} tabIndex={-1}>
               <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
               {shown.slice(virtual.start, virtual.end).map((row, j) => {
                 const i = virtual.start + j;
-                const zebra = i % 2 ? " zebra" : "";
+                const zebra = (i % 2 ? " zebra" : "") + (i === selected ? " selected" : "");
+                const current = i === selected ? "true" : undefined;
                 return row.kind === "record" ? (
-                  <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`}>
+                  <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
                     <span className="tools-issue-msg">{t(row.issue.messageKey, issueVars(row.issue))}</span>
                     <RowFixButton
@@ -596,7 +637,8 @@ export function ValidatePanel({
                   <StructRow
                     key={`s-${row.issue.category}-${i}`}
                     issue={row.issue}
-                    zebra={!!zebra}
+                    zebra={zebra}
+                    current={current}
                     dataset={dataset}
                     onNavigate={onNavigate}
                     fix={structRowFix(row.issue)}
@@ -694,6 +736,7 @@ function RecordRef({
 function StructRow({
   issue,
   zebra,
+  current,
   dataset,
   onNavigate,
   fix,
@@ -701,7 +744,10 @@ function StructRow({
   onRun,
 }: {
   issue: StructIssue;
-  zebra?: boolean;
+  /** Class suffix from the list — " zebra", " selected", or both. */
+  zebra?: string;
+  /** The list's highlighted row. */
+  current?: "true";
   dataset: Dataset;
   onNavigate: (id: string) => void;
   fix: RowFix | null;
@@ -710,7 +756,7 @@ function StructRow({
 }) {
   const { t } = useTranslation();
   return (
-    <li className={`tools-issue sev-${issue.severity}${zebra ? " zebra" : ""}`} title={issue.tooltip}>
+    <li className={`tools-issue sev-${issue.severity}${zebra ?? ""}`} title={issue.tooltip} aria-current={current}>
       {issue.recordTag ? (
         <RecordRef dataset={dataset} id={issue.recordId} tag={issue.recordTag} onNavigate={onNavigate} />
       ) : issue.line != null ? (

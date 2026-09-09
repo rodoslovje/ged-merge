@@ -7,6 +7,7 @@ import { xrefLabel } from "../../gedcom/nameDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
+import { handleListKey } from "../../keyboard/useListKeyboard";
 
 /** The preferences the rows read — the same ones the person cards honour, so a
  *  name reads identically whether it sits on a card or in this list. */
@@ -117,16 +118,18 @@ export function RelativePickerCard({
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") { onCancel(); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, totalItems - 1)); }
-    if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (onAddNew && activeIdx === 0) onAddNew(query.trim());
-      else {
-        const picked = options[activeIdx - offset];
-        if (picked) onPickExisting(picked.id);
-      }
-    }
+    handleListKey(e, {
+      count: totalItems,
+      index: activeIdx,
+      setIndex: setActiveIdx,
+      onEnter: (i) => {
+        if (onAddNew && i === 0) onAddNew(query.trim());
+        else {
+          const picked = options[i - offset];
+          if (picked) onPickExisting(picked.id);
+        }
+      },
+    });
   }
 
   return (
@@ -145,9 +148,14 @@ export function RelativePickerCard({
           {onAddNew && (
             <li>
               <button
+                type="button"
                 className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
                 onMouseEnter={() => setActiveIdx(0)}
-                onMouseDown={(e) => { e.preventDefault(); onAddNew(query.trim()); }}
+                onFocus={() => setActiveIdx(0)}
+                // mousedown only keeps the search box's focus; the pick is the
+                // click, so Enter on a row reached with Tab picks it too.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onAddNew(query.trim())}
               >
                 + {newLabel ?? t("edit.addNewPerson")}
               </button>
@@ -156,10 +164,13 @@ export function RelativePickerCard({
           {options.map((o, i) => (
             <li key={o.id}>
               <button
+                type="button"
                 className={`relative-picker-option${i + offset === activeIdx ? " highlighted" : ""}`}
                 title={lifespanTooltipOf(o.indi, settings.showAge, t)}
                 onMouseEnter={() => setActiveIdx(i + offset)}
-                onMouseDown={(e) => { e.preventDefault(); onPickExisting(o.id); }}
+                onFocus={() => setActiveIdx(i + offset)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onPickExisting(o.id)}
               >
                 <span className={`person-label ${sexClass(o.sex)}`}>
                   <span className="person-name">{o.name}</span>

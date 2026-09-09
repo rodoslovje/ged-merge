@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import type { NormalizeOptions } from "../../normalize/types";
@@ -38,12 +39,13 @@ export function NormalizePanel({
   const [section, setSection] = useState<"batch" | "normalize">("batch");
   return (
     <>
-      <div className="batch-section-toggle" role="tablist">
+      <div className="batch-section-toggle" role="tablist" onKeyDown={tablistKeyDown}>
         {(["batch", "normalize"] as const).map((s) => (
           <button
             key={s}
             role="tab"
             aria-selected={section === s}
+            tabIndex={tabIndexFor(section === s)}
             className={`batch-section-tab ${section === s ? "active" : ""}`}
             onClick={() => setSection(s)}
           >

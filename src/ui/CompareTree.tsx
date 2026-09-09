@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { STATUS_KEY } from "../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
@@ -421,7 +422,7 @@ export function CompareTree({
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
@@ -444,6 +445,7 @@ export function CompareTree({
 
   // +/− zoom, 0 reset, F fit, A/D direction, digits 1–4 for the chart kind.
   useChartShortcuts({
+    scrollBy,
     zoomIn,
     zoomOut,
     resetZoom,
@@ -826,6 +828,7 @@ function NodeCompare({
         <button
           key={s}
           className={status === s ? `decision ${s} active` : "decision"}
+          title={t("compare.decisionTooltip", { action: t(`status.action.${s}`), key: STATUS_KEY[s].toUpperCase() })}
           onClick={() => onDecide(s)}
         >
           {t(status === s ? `status.${s}` : `status.action.${s}`)}

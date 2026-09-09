@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { DownloadIcon } from "./icons/DownloadIcon";
 
 // The chart-toolbar "Export" dropdown: one button for every download format
 // instead of a growing row of per-format buttons. New formats (PNG, reports,
 // branch GEDCOM, …) become new items here, not new toolbar buttons. Mirrors the
-// ChartSettings gear's popover behavior (toggle button + outside-click close).
+// ChartSettings gear's popover behavior (toggle button + outside-click close),
+// with the keyboard of a menu: ↓ opens, ↑/↓ walk the items, Esc closes.
 
 export interface ExportItem {
   key: string;
@@ -20,24 +22,16 @@ export interface ExportItem {
 export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close the menu on an outside click.
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
+  const { containerRef, triggerRef, close, onTriggerKeyDown } = usePopoverKeyboard(open, setOpen, { arrows: true });
 
   return (
-    <div className="export-menu" ref={ref}>
+    <div className="export-menu" ref={containerRef}>
       <button
+        ref={triggerRef}
         className={`tree-open-btn tree-export-btn${open ? " open" : ""}`}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-haspopup="menu"
         aria-expanded={open}
         title={t("export.tooltip")}
@@ -54,7 +48,9 @@ export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?
               className="export-menu-item"
               title={item.title}
               onClick={() => {
-                setOpen(false);
+                // Focus goes back to the trigger before the format's own
+                // dialog opens, so that dialog has somewhere to return it.
+                close();
                 item.onSelect();
               }}
             >

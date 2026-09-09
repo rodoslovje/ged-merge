@@ -611,10 +611,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
    * A menu's own Enter (the Repository dropdown) is left alone.
    */
   function onDialogKeyDown(e: ReactKeyboardEvent) {
-    if (e.key !== "Enter" || e.defaultPrevented || e.altKey || e.shiftKey) return;
-    const chord = e.metaKey || e.ctrlKey;
+    if (e.key !== "Enter" || e.defaultPrevented || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
     const el = e.target as HTMLElement;
-    if (!chord && (el.tagName !== "INPUT" || (el as HTMLInputElement).type !== "text")) return;
+    if (el.tagName !== "INPUT" || (el as HTMLInputElement).type !== "text") return;
     if (editing) {
       e.preventDefault();
       handleSave();
@@ -630,6 +629,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       t={t}
       onClose={handleClose}
       onKeyDown={onDialogKeyDown}
+      onConfirm={editing ? handleSave : canAdd ? handleAdd : undefined}
       actions={
         <>
           {editing?.onRemove && (

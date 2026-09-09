@@ -1993,6 +1993,16 @@ button:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
+/* The lists park the keyboard on themselves (see useListFocusKeeper); the
+   ring then goes to the highlighted row, where the keys act, not the list. */
+.candidate-list:focus, .tools-pairs:focus, .tools-issues:focus, .compare-panel:focus { outline: none; }
+.candidate-list:focus-visible .candidate.selected { box-shadow: 0 0 0 2px var(--accent) inset; }
+.tools-pairs:focus-visible .tools-pair.selected,
+.tools-pairs:focus-visible .tools-dup-cluster-head.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.tools-issue.selected { box-shadow: inset 0 0 0 1px var(--accent); }
+.tools-issues:focus-visible .tools-issue.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.compare tr.kbd-active > td { background: var(--accent-soft); }
+.compare-panel:focus-visible tr.kbd-active > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .candidate-head {
   display: flex;
@@ -2462,7 +2472,9 @@ button:focus-visible {
   opacity: 0;
   transition: opacity 0.1s;
 }
-.person-media-item:hover .person-media-delete { opacity: 1; }
+.person-media-item:hover .person-media-delete,
+.person-media-item:focus-within .person-media-delete,
+.person-media-delete:focus-visible { opacity: 1; }
 .person-media-add {
   width: 64px;
   height: 64px;
@@ -3805,7 +3817,8 @@ button:focus-visible {
   line-height: 1;
   cursor: pointer;
 }
-.note-tool:hover { color: var(--text); background: var(--border); }
+.note-tool:hover,
+.note-tool:focus-visible { color: var(--text); background: var(--border); }
 .note-tool--b { font-weight: 700; }
 .note-tool--i { font-style: italic; }
 .note-tool--u { text-decoration: underline; }
@@ -5711,6 +5724,10 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .fan-sector { transition: stroke-width 0.1s ease; }
 .fan-node:hover .fan-sector { stroke-width: 2.5; }
 .fan-node.selected .fan-sector { stroke: var(--accent); }
+/* A chart's person is a Tab stop: the ring is the node's own outline. */
+.tree-node:focus, .fan-node:focus { outline: none; }
+.tree-node:focus-visible > rect:first-of-type { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 3; }
+.fan-node:focus-visible .fan-sector { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 3; }
 /* Font size is set per-generation on the element (shrinks outward); keep it off
    the class so the attribute wins. */
 .fan-label-name { fill: var(--text); font-weight: 600; }
@@ -6413,21 +6430,25 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 .settings-radio input { flex: none; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
-.shortcuts-modal { max-width: 720px; height: auto; max-height: 88dvh; }
+.shortcuts-modal { max-width: 1120px; height: auto; max-height: 88dvh; }
+.shortcuts-print-btn { margin-left: auto; margin-right: 8px; }
 
+/* Heads the first column: two short lines, not a row across all three. */
 .shortcuts-legend {
-  display: flex; flex-wrap: wrap; gap: 8px 24px;
-  margin: 0 0 8px; padding: 12px 0; color: var(--muted); font-size: 0.95rem;
+  display: flex; flex-direction: column; gap: 6px; break-inside: avoid;
+  margin: 0 0 14px; padding: 0 0 10px; color: var(--muted); font-size: 0.9rem;
   border-bottom: 1px solid var(--border);
 }
 .shortcuts-legend-item { display: inline-flex; align-items: center; gap: 8px; }
 
-.shortcuts-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start; gap: 8px 32px; margin-top: 16px;
-}
-.shortcuts-col { min-width: 0; }
-.shortcuts-group { break-inside: avoid; }
+/* Three columns the groups flow into, each kept whole (see SHORTCUT_GROUPS
+   for the order that balances them); two on a narrower window, one on a phone. */
+.shortcuts-grid { column-count: 3; column-gap: 32px; column-rule: 1px solid var(--border); margin-top: 12px; }
+.shortcuts-group { break-inside: avoid; margin-bottom: 14px; }
+/* No top margin on a heading: at the start of the second and third columns
+   it is truncated, so with one the first column began lower than the rest. */
+.shortcuts-group h3 { margin-top: 0; }
+.shortcuts-print { display: none; }
 .shortcuts-group h3 {
   font-size: 1.05rem; margin: 10px 0 4px; padding-bottom: 4px;
   color: var(--accent); border-bottom: 1px solid var(--border);
@@ -6466,8 +6487,29 @@ kbd {
   border-radius: var(--radius-sm); box-shadow: 0 1px 0 var(--border-2);
 }
 
+/* The sheet's "Here" / "Elsewhere" headings, when it knows where the user is. */
+.shortcuts-section {
+  margin: 14px 0 4px; font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+}
+/* Keycaps beside a list's controls — the keys that drive that list. */
+.key-hint { display: inline-flex; gap: 3px; align-items: center; margin-left: 6px; opacity: 0.75; }
+.key-hint kbd { min-width: 1.3em; padding: 0 5px; font-size: 0.72rem; line-height: 1.5; }
+/* The landing page's one line about the keyboard. */
+.lb-kbd-hint { margin: 18px 0 0; font-size: 0.85rem; color: var(--muted); }
+/* The keycap is the button: it opens the sheet it names. */
+.lb-kbd-btn { border: none; background: none; padding: 0; margin-right: 2px; cursor: pointer; font: inherit; }
+.lb-kbd-btn kbd { transition: background 0.1s; }
+.lb-kbd-btn:hover kbd, .lb-kbd-btn:focus-visible kbd { background: var(--accent-soft); border-color: var(--accent); }
+@media (max-width: 880px) {
+  .key-hint { display: none; }
+}
+
+@media (max-width: 1100px) {
+  .shortcuts-grid { column-count: 2; }
+}
 @media (max-width: 720px) {
-  .shortcuts-grid { grid-template-columns: 1fr; }
+  .shortcuts-grid { column-count: 1; }
   /* Narrow: the coordinate popover stacks map over candidates again. */
   .edit-coord-pop { width: min(420px, 92vw); }
   .edit-coord-body { flex-direction: column; }
@@ -8726,6 +8768,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The group's citing-persons list, sized like the member rows above it. */
 .tools-dup-uses { font-size: 0.9rem; }
 .tools-dup-title { color: var(--text); }
+/* The regrouped source's title opens its record — a button, so Tab reaches it. */
+.tools-dup-title-btn {
+  border: none; background: none; padding: 0;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.tools-dup-title-btn:hover { color: var(--accent); text-decoration: underline; }
 .tools-dup-keep-pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .tools-dup-keep-pick input { cursor: pointer; }
 .tools-dup-keep {
@@ -9996,5 +10044,73 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   .edit-person-map-legend {
     flex: 1 1 auto;
     justify-content: flex-start;
+  }
+}
+
+/* ── Printing the keyboard sheet ─────────────────────────────────────────────
+   While the sheet is open the document carries `printing-shortcuts` and the
+   sheet is portalled beside the app root, so a print — the sheet's own button
+   or the browser's — puts the whole sheet, in its groups, on A4 landscape and
+   nothing else. Paper is one theme: the colours here are the light theme's,
+   spelled out, since a print cannot switch the theme attribute. */
+@media print {
+  @page { size: A4 landscape; margin: 6mm 8mm; }
+  html.printing-shortcuts #root { display: none; }
+  html.printing-shortcuts { background: #fff; }
+  html.printing-shortcuts body { background: #fff; margin: 0; min-height: 0; height: auto; overflow: visible; }
+  html.printing-shortcuts .shortcuts-print-root {
+    position: static; display: block; padding: 0; min-height: 0; height: auto;
+    background: none; backdrop-filter: none;
+  }
+  html.printing-shortcuts .shortcuts-modal {
+    /* The tokens the wordmark and keycaps read, re-set for paper. */
+    --text: #111; --accent: #31715b; --muted: #444; --border: #ccc; --border-2: #bbb; --panel-2: #f2f2f2;
+    max-width: none; max-height: none; height: auto; margin: 0; border: none; border-radius: 0;
+    box-shadow: none; background: #fff; color: #111; font-size: 8.5pt;
+  }
+  /* The dialog's own header gives way to the sheet's: mark, title, address. */
+  html.printing-shortcuts .modal-header { display: none; }
+  html.printing-shortcuts .shortcuts-print-head {
+    display: flex; align-items: center; gap: 10pt;
+    padding: 0 0 3pt; margin: 0 0 2pt; border-bottom: 1px solid #ccc;
+  }
+  html.printing-shortcuts .shortcuts-print-title { font-size: 12pt; font-weight: 600; color: #111; }
+  html.printing-shortcuts .shortcuts-print-url { margin-left: auto; font-size: 9pt; color: #444; }
+  html.printing-shortcuts .modal-body { padding: 0; overflow: visible; max-height: none; background: #fff; }
+  html.printing-shortcuts .modal-close,
+  html.printing-shortcuts .shortcuts-print-btn,
+  html.printing-shortcuts .shortcuts-screen { display: none; }
+  html.printing-shortcuts .shortcuts-print { display: block; }
+  /* The legend is screen chrome: on paper the keycaps speak for themselves. */
+  html.printing-shortcuts .shortcuts-legend { display: none; }
+  /* Three hand-set columns (PRINT_COLUMNS in ShortcutsModal): flowing
+     columns fragment across pages unpredictably and left a blank page behind. */
+  html.printing-shortcuts .shortcuts-grid-print {
+    column-count: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 6mm; align-items: start; margin-top: 4pt;
+  }
+  html.printing-shortcuts .shortcuts-col + .shortcuts-col { border-left: 1px solid #ddd; padding-left: 6mm; }
+  /* A group may run on past a page break — kept whole, one that no longer
+     fits its column jumps to the next page entire, leaving the column short.
+     Rows stay whole, and a heading keeps its first rows. */
+  html.printing-shortcuts .shortcuts-group { margin-bottom: 3pt; break-inside: auto; }
+  html.printing-shortcuts .shortcuts-group h3 { break-after: avoid; }
+  /* Nothing may hang below the last row: a margin past the page edge
+     prints as a blank second sheet. */
+  html.printing-shortcuts .shortcuts-col > .shortcuts-group:last-child { margin-bottom: 0; }
+  html.printing-shortcuts .shortcuts-grid-print { margin-bottom: 0; }
+  html.printing-shortcuts .shortcuts-row dd { line-height: 1.15; }
+  html.printing-shortcuts .shortcuts-group h3 { font-size: 9.5pt; margin: 2pt 0 1pt; padding-bottom: 1pt; color: #31715b; border-color: #ccc; }
+  /* A row is one box on paper, so a column break never parts a key from its
+     line: the group's shared key column gives way to a fixed one. */
+  html.printing-shortcuts .shortcuts-group dl { display: block; }
+  html.printing-shortcuts .shortcuts-row {
+    display: grid; grid-template-columns: 6.6em 1fr; align-items: center; break-inside: avoid;
+  }
+  html.printing-shortcuts .shortcuts-row dt { padding: 0.25pt 5pt 0.25pt 0; }
+  html.printing-shortcuts .shortcuts-row dd { padding: 0.25pt 0; font-size: 8pt; line-height: 1.18; color: #333; }
+  html.printing-shortcuts kbd {
+    min-width: 1.4em; padding: 0 3pt; font-size: 7pt; line-height: 1.4;
+    color: #111; background: #f2f2f2; border: 1px solid #bbb; box-shadow: none;
   }
 }

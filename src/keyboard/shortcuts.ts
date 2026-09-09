@@ -29,6 +29,8 @@ export const KEY = {
   confirm: "c",
   reject: "r",
   defer: "d",
+  /** Merge mode: show or hide the match list's filters. */
+  filter: "f",
 } as const;
 
 /** Bare keys active on the full-page chart overlays (handled by
@@ -42,6 +44,10 @@ export const CHART_KEY = {
   descendants: "d",
   /** Draw the chart for the start person — Edit's "go home", one letter for both. */
   home: KEY.home,
+  /** Open the selected person in Edit — the mode's own letter. */
+  edit: KEY.modeEdit,
+  /** Show or hide the overview map in the corner. */
+  minimap: "o",
 } as const;
 
 /**
@@ -78,13 +84,31 @@ export const KEY_STATUS: Record<string, ActiveStatus> = {
 };
 
 /**
- * True while any modal is mounted — a dialog (`.modal-overlay`) or the photo
- * lightbox (`.person-media-overlay`). Bare-key and undo/redo shortcuts bail on
- * this so they don't act on the app behind an open dialog: with the lightbox
- * open, `e`/`m`/`t` would switch mode, `n` add a person and `c`/`r`/`d` decide
- * a match, all invisibly behind the photo.
+ * The layers open over the page: every dialog (`useModalKeyboard`) and every
+ * popover (`usePopoverKeyboard`) registers itself while it is up. Kept as a
+ * registry rather than a class query so a menu with no overlay element counts
+ * too — the Export menu and the chart gear used to be invisible here, and the
+ * bare keys went on firing behind them.
+ */
+const layers = new Set<symbol>();
+
+/** Hold a layer open; call the returned function to let it go. */
+export function registerLayer(): () => void {
+  const id = Symbol("layer");
+  layers.add(id);
+  return () => { layers.delete(id); };
+}
+
+/**
+ * True while any modal is up — a registered dialog or popover, or (belt and
+ * braces, for an overlay that bypasses the hooks) a dialog (`.modal-overlay`)
+ * or the photo lightbox (`.person-media-overlay`) in the DOM. Bare-key and
+ * undo/redo shortcuts bail on this so they don't act on the app behind an
+ * open dialog: with the lightbox open, `e`/`m`/`t` would switch mode, `n` add
+ * a person and `c`/`r`/`d` decide a match, all invisibly behind the photo.
  */
 export function isModalOpen(): boolean {
+  if (layers.size > 0) return true;
   return typeof document !== "undefined" && document.querySelector(".modal-overlay, .person-media-overlay") != null;
 }
 
@@ -95,6 +119,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 export type ShortcutCategory = "standard" | "app";
+
+/** Where a shortcut works: a mode, or a full-page chart over one. */
+export type ShortcutScope = "edit" | "merge" | "tools" | "chart";
 
 export interface ShortcutItem {
   /**
@@ -108,21 +135,30 @@ export interface ShortcutItem {
   sep?: "or" | "range";
   /** i18n key for the human-readable description. */
   descKey: string;
+  /** Where the keys work. Omitted: the group's scope, and with neither,
+   *  everywhere. The sheet leads with the items that apply where the user is. */
+  scope?: readonly ShortcutScope[];
 }
 
 export interface ShortcutGroup {
   titleKey: string;
   category: ShortcutCategory;
-  /** Which column of the cheat-sheet grid the group renders in. */
-  column: "left" | "right";
+  /** Default scope of the group's items. */
+  scope?: readonly ShortcutScope[];
   items: ShortcutItem[];
 }
 
+/** Where an item works — its own scope, else its group's; undefined = everywhere. */
+export function itemScope(group: ShortcutGroup, item: ShortcutItem): readonly ShortcutScope[] | undefined {
+  return item.scope ?? group.scope;
+}
+
+// In sheet order: the groups flow into three columns top to bottom, each kept
+// whole, so this order is what balances the columns.
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.general",
     category: "standard",
-    column: "left",
     items: [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
@@ -130,14 +166,17 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["mod", "F"]], descKey: "shortcuts.item.find" },
       { keys: [["mod", "Enter"]], descKey: "shortcuts.item.confirmDialog" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
-      { keys: [["?"]], descKey: "shortcuts.item.help" },
+      // F1 also from inside a field, where `?` is the character being typed.
+      { keys: [["?"], ["F1"]], descKey: "shortcuts.item.help" },
       { keys: [["Esc"]], descKey: "shortcuts.item.escape" },
     ],
   },
   {
     titleKey: "shortcuts.group.modes",
     category: "app",
-    column: "right",
+    // Not on a chart page: the letters are held back there, where a mode
+    // switch would happen invisibly behind the overlay.
+    scope: ["edit", "merge", "tools"],
     items: [
       { keys: [[KEY.modeEdit.toUpperCase()]], descKey: "shortcuts.item.modeEdit" },
       { keys: [[KEY.modeMerge.toUpperCase()]], descKey: "shortcuts.item.modeMerge" },
@@ -145,34 +184,47 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    titleKey: "shortcuts.group.decisions",
+    category: "app",
+    scope: ["merge", "tools"],
+    items: [
+      { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
+      { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
+      { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
+      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters", scope: ["merge"] },
+      { keys: [["1"], ["2"], ["3"]], descKey: "shortcuts.item.fieldChoice", scope: ["merge"] },
+    ],
+  },
+  {
     titleKey: "shortcuts.group.navigation",
     category: "app",
-    column: "left",
     items: [
-      { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext" },
-      { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll" },
+      { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll", scope: ["merge", "tools"] },
+      { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext", scope: ["merge", "edit", "tools"] },
+      { keys: [["Home"], ["End"]], descKey: "shortcuts.item.homeEnd", scope: ["merge", "tools"] },
+      { keys: [["PgUp"], ["PgDn"]], descKey: "shortcuts.item.page", scope: ["merge", "tools"] },
       // Edit's family steps. ⌥ alone and not ⌥⇧ (the edit-action family): with
       // arrows there is no menu accelerator to collide with, and the pair leaves
       // ⇧ free to mean "the other one on this axis".
-      { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.item.goParent" },
-      { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling" },
-      { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild" },
-      { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner" },
-      { keys: [["Enter"]], descKey: "shortcuts.item.enter" },
-      { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
-      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
-      { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
+      { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.item.goParent", scope: ["edit", "chart"] },
+      { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling", scope: ["edit", "chart"] },
+      { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild", scope: ["edit", "chart"] },
+      { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner", scope: ["edit", "chart"] },
+      { keys: [["Enter"]], descKey: "shortcuts.item.enter", scope: ["merge", "tools"] },
+      { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree", scope: ["edit", "merge"] },
+      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship", scope: ["edit"] },
+      { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home", scope: ["edit"] },
       // The chord is the same step taken from inside a field, where the bare
       // key belongs to the text being typed.
-      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back" },
+      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back", scope: ["edit", "chart"] },
     ],
   },
   {
     titleKey: "shortcuts.group.editing",
     category: "app",
-    column: "right",
+    scope: ["edit"],
     items: [
-      { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
+      { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson", scope: ["edit", "merge", "tools"] },
       // ⌥⇧, so they fire inside a field too — and clear of the browser's own:
       // ⌥E/⌥S are menu accelerators on Windows and Linux, ⌃⌥ is AltGr, and
       // ⌃⇧N/P/M belong to the browser (see the EditView key handler).
@@ -191,20 +243,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
-    titleKey: "shortcuts.group.decisions",
-    category: "app",
-    // Left, to balance the editing group opposite: it is much the longest.
-    column: "left",
-    items: [
-      { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
-      { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
-      { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
-    ],
-  },
-  {
     titleKey: "shortcuts.group.charts",
     category: "app",
-    column: "right",
+    scope: ["chart"],
     items: [
       { keys: [["1"], ["9"]], sep: "range", descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
@@ -212,9 +253,29 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
       { keys: [[CHART_KEY.fit.toUpperCase()]], descKey: "shortcuts.item.chartFit" },
       { keys: [[CHART_KEY.home.toUpperCase()]], descKey: "shortcuts.item.chartHome" },
+      { keys: [[CHART_KEY.edit.toUpperCase()]], descKey: "shortcuts.item.chartEdit" },
+      { keys: [["Tab"], ["Enter"]], descKey: "shortcuts.item.chartNode" },
+      { keys: [["←"], ["→"], ["↑"], ["↓"]], descKey: "shortcuts.item.chartScroll" },
+      { keys: [[CHART_KEY.minimap.toUpperCase()]], descKey: "shortcuts.item.chartMinimap" },
     ],
   },
 ];
+
+/** A ⌘/Ctrl chord as it reads on this platform: "⌘S" on a Mac, "Ctrl+S" elsewhere. */
+export function modLabel(key: string): string {
+  return isMacKeyboard() ? `⌘${key}` : `Ctrl+${key}`;
+}
+
+/** The ⌘⇧/Ctrl+Shift chord, likewise. */
+export function modShiftLabel(key: string): string {
+  return isMacKeyboard() ? `⌘⇧${key}` : `Ctrl+Shift+${key}`;
+}
+
+/** A tooltip with its shortcut after it: "Undo last change (⌘Z)". One
+ *  helper, so no tooltip spells a key by hand — or for the wrong platform. */
+export function keyHint(label: string, key: string): string {
+  return `${label} (${key})`;
+}
 
 /** Render "mod" for the current platform; pass other tokens through unchanged. */
 export function renderKeyToken(token: string): string {

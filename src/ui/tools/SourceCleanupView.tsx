@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { linkTooltip, safeLinkHref } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
@@ -733,12 +734,13 @@ export function SourceCleanupView({
           ticked across the lists, always within reach of the top of the page. */}
       {openTabs.length > 0 && (
         <div className="tools-geo-tabs-row">
-          <div className="tools-geo-tabs" role="tablist">
+          <div className="tools-geo-tabs" role="tablist" onKeyDown={tablistKeyDown}>
             {openTabs.map((k) => (
               <button
                 key={k}
                 role="tab"
                 aria-selected={activeTab === k}
+                tabIndex={tabIndexFor(activeTab === k)}
                 className={activeTab === k ? "active" : ""}
                 onClick={() => setTab(k)}
               >
@@ -1243,6 +1245,7 @@ function GroupEditDialog({
       title={t("editSource.title")}
       t={t}
       onClose={onClose}
+      onConfirm={save}
       actions={
         <>
           <button className="nav-btn" onClick={onClose}>
@@ -1841,9 +1844,9 @@ function RegroupRow({
           <ul className="tools-dup-members">
             {group.moves.map((move) => (
               <li key={move.sourceXref} className="tools-dup-member">
-                <span className="tools-dup-title clickable" onClick={() => onNavigate(move.sourceXref)}>
+                <button type="button" className="tools-dup-title tools-dup-title-btn" onClick={() => onNavigate(move.sourceXref)}>
                   {move.title}
-                </span>
+                </button>
                 {/* Where it hangs today — which of them the move empties is
                     the header's count, not a mark on every row. */}
                 <span className="tools-tree-meta">{move.fromName ?? t("tools.sources.noRepo")}</span>

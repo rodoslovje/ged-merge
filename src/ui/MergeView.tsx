@@ -4,7 +4,9 @@ import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
-import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
+import { KeyHint } from "./KeyHint";
+import { handleListKey } from "../keyboard/useListKeyboard";
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
@@ -36,6 +38,8 @@ interface Props {
   visibleCount: number;
   onSelectPrev: () => void;
   onSelectNext: () => void;
+  /** Select the visible candidate at this index — Home, End and the arrows. */
+  onSelectIndex: (index: number) => void;
   onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
   /** Main individuals with unsaved edits — the "M" chip on a relative's name. */
@@ -80,6 +84,7 @@ export function MergeView({
   visibleCount,
   onSelectPrev,
   onSelectNext,
+  onSelectIndex,
   onSelect,
   decisions,
   changedPersonIds,
@@ -134,10 +139,11 @@ export function MergeView({
       <span className="muted gm-data">
         {t("list.count", { visible: visible.length, total: matches.individuals.length })}
       </span>
+      <KeyHint keys={["↑", "↓", KEY.confirm.toUpperCase(), KEY.reject.toUpperCase(), KEY.defer.toUpperCase()]} title={t("keys.listHint")} />
       <button
         className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
         onClick={() => setShowFilters((s) => !s)}
-        title={t("filter.title")}
+        title={keyHint(t("filter.title"), KEY.filter.toUpperCase())}
       >
         <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
       </button>
@@ -202,9 +208,10 @@ export function MergeView({
     });
   }
 
-  // ⌘/Ctrl+F does the same as the bare `f`, for anyone who reaches for the
-  // conventional chord. Merge mode is `active` only while it's the visible
-  // mode with no chart over it, so an open chart keeps the chord.
+  // ⌘/Ctrl+F is the conventional chord for the name filter; the bare `f`
+  // below shows and hides the whole filter row. Merge mode is `active` only
+  // while it's the visible mode with no chart over it, so an open chart keeps
+  // the chord.
   useFindShortcut(() => active, focusNameFilter);
 
   useEffect(() => {
@@ -212,28 +219,42 @@ export function MergeView({
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // Left/Right move to the previous/next candidate; Up/Down scroll the
-      // compare panel instead (when it actually has something to scroll) —
-      // freed up rather than also navigating, so a long compare table can be
-      // read with the keyboard without losing your place in the match list.
-      if (e.key === "ArrowLeft") { e.preventDefault(); onSelectPrev(); return; }
-      if (e.key === "ArrowRight") { e.preventDefault(); onSelectNext(); return; }
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      // Already answered where it was pressed — the comparison's own rows.
+      if (e.defaultPrevented) return;
+      // ↑/↓ step the match list, as every list; ←/→ too, the keys Merge
+      // always had. Enter takes the keyboard into the comparison, whose rows
+      // then answer the arrows. PageUp/PageDown scroll the comparison without
+      // leaving the list, so a long table can be read without losing your
+      // place in the matches.
+      if (handleListKey(e, {
+        count: visibleCount,
+        index: visibleIndex,
+        setIndex: onSelectIndex,
+        horizontal: true,
+        onEnter: () => compareBodyRef.current?.querySelector<HTMLElement>(".compare-panel")?.focus(),
+      })) return;
+      if (e.key === "PageUp" || e.key === "PageDown") {
         const el = compareBodyRef.current;
         if (!el || el.scrollHeight <= el.clientHeight) return;
         e.preventDefault();
-        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: "smooth" });
         return;
       }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
+      if (key === KEY.filter) {
+        // The filter row lives in the match section, so showing it opens that too.
+        e.preventDefault();
+        setShowFilters((s) => { if (!s) setOpenMatches(true); return !s; });
+        return;
+      }
       const hit = KEY_STATUS[key];
-      if (hit) toggleStatus(hit);
+      if (hit) { e.preventDefault(); toggleStatus(hit); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
+  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, onSelectIndex, visibleCount, visibleIndex, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
 
   const currentLifespan = current ? candidateLifespan(current, mainDataset, settings.showAge, t) : undefined;
   const compareHeader = current ? (
@@ -263,7 +284,7 @@ export function MergeView({
           className="nav-btn icon-only"
           onClick={onSelectPrev}
           disabled={visibleIndex <= 0}
-          title={t("nav.prev")}
+          title={keyHint(t("nav.prev"), "←")}
         >
           ‹
         </button>
@@ -274,7 +295,7 @@ export function MergeView({
           className="nav-btn icon-only"
           onClick={onSelectNext}
           disabled={visibleIndex < 0 || visibleIndex >= visibleCount - 1}
-          title={t("nav.next")}
+          title={keyHint(t("nav.next"), "→")}
         >
           ›
         </button>
@@ -293,7 +314,7 @@ export function MergeView({
           ))}
         </div>
         <div className="compare-nav-actions">
-          <button className="tree-open-btn" onClick={() => onOpenTree(current.mainId, current.compareId)} title={t("tree.tooltip")}>
+          <button className="tree-open-btn" onClick={() => onOpenTree(current.mainId, current.compareId)} title={keyHint(t("tree.tooltip"), KEY.tree.toUpperCase())}>
             {t("tree.button")}
             {importCounts && (importCounts.ancestors > 0 || importCounts.descendants > 0) && (
               <span
@@ -360,7 +381,8 @@ export function MergeView({
                       onChange={onUpdateDecision}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
-                    />
+                      onLeave={() => document.querySelector<HTMLElement>(".candidate-list")?.focus()}
+              />
                   ) : (
                     <p className="muted">{t("compare.empty")}</p>
                   )}

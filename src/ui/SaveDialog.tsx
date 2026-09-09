@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { isItemizedChange, reportTotals, type ChangeReport, type FieldChange, type GraftJoinPerson } from "../merge/merge";
@@ -100,7 +100,13 @@ export function SaveDialog({
   integrityWarnings,
 }: Props) {
   const { t, i18n } = useTranslation();
-  const modalRef = useModalKeyboard(true, onClose);
+  // Opens on Download: the preview above it can run to hundreds of rows, each
+  // with its own buttons, and the answer to the dialog is the last of them.
+  const downloadBtn = useRef<HTMLButtonElement>(null);
+  const modalRef = useModalKeyboard(true, onClose, {
+    onConfirm: () => { if (groups.length > 0) handleConfirm(); },
+    initialFocus: downloadBtn,
+  });
   const { saveReport } = useSettingsSlice(SAVE_REPORT_KEYS);
   const setSettings = useSetSettings();
 
@@ -505,7 +511,7 @@ export function SaveDialog({
 
         <div className="preview-actions">
           <button className="btn-secondary" onClick={onClose}>{t("preview.cancel")}</button>
-          <button className="export-btn" onClick={handleConfirm} disabled={groups.length === 0}>
+          <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={groups.length === 0}>
             {downloadLabel}
           </button>
         </div>

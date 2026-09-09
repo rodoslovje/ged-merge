@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import type { NoteRef } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { noteToText } from "../../gedcom/noteHtml";
@@ -109,11 +110,11 @@ export function NotesEditor({
               className={`note-chip-lock${note.private ? " is-on" : ""}`}
               title={t(note.private ? "edit.notePrivateOn" : "edit.notePrivateOff")}
               aria-pressed={!!note.private}
-              tabIndex={-1}
-              onMouseDown={(e) => {
-                e.preventDefault(); // keep the box's focus/blur cycle intact
-                commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)));
-              }}
+              // mousedown is swallowed to keep the box's focus/blur cycle
+              // intact; the flip is the click, which Enter on the focused
+              // lock fires too.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)))}
             >
               🔒
             </button>
@@ -147,7 +148,7 @@ export function NotesEditor({
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
-            title={t("edit.addNoteTooltip")}
+            title={keyHint(t("edit.addNoteTooltip"), altShiftLabel("N"))}
             onClick={() => setNotes((prev) => { focusNewRef.current = prev.length; return [...prev, { text: "" }]; })}
           >
             + {t("edit.addNote")}

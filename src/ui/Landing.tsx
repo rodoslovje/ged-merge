@@ -13,6 +13,8 @@ interface Props {
   /** Begin with an empty GEDCOM instead of importing one — for a tree that
    *  doesn't exist anywhere yet. */
   onStartNew: () => void;
+  /** Open the keyboard-shortcut sheet — the `?` in the hint line is a button. */
+  onShortcuts: () => void;
 }
 
 const MAIN_ACCEPT = { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
@@ -122,7 +124,7 @@ function useLatestNews(): News | null {
   return news;
 }
 
-export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Props) {
+export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew, onShortcuts }: Props) {
   const { t, i18n } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -327,6 +329,12 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
               </div>
             </div>
           )}
+          <p className="lb-kbd-hint">
+            <button type="button" className="lb-kbd-btn" onClick={onShortcuts} title={t("shortcuts.title")}>
+              <kbd>?</kbd>
+            </button>{" "}
+            {t("landing.shortcutsHint")}
+          </p>
         </div>
 
         {/* Right: privacy bar, capability grid, proof strip, what's new. */}

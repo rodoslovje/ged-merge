@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { SelectMenu } from "./DropdownMenu";
@@ -382,13 +383,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             ×
           </button>
         </div>
-        <div className="settings-tabs" role="tablist" aria-label={t("settings.title")}>
+        <div className="settings-tabs" role="tablist" aria-label={t("settings.title")} onKeyDown={tablistKeyDown}>
           {SETTINGS_TABS.map((id) => (
             <button
               key={id}
               type="button"
               role="tab"
               aria-selected={tab === id}
+              tabIndex={tabIndexFor(tab === id)}
               className={tab === id ? "active" : ""}
               onClick={() => setTab(id)}
             >

@@ -156,7 +156,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     [chart, nodesByKey],
   );
 
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, alignment, false, nodeH, `${startSel}→${targetSel}:${optionIdx}:${alignment}`);
 
   // Find-in-chart. This diagram only draws one route, so somebody off it is the
@@ -169,9 +169,13 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   const find = useChartFind(findSources, mainDs.individuals, revealNode, retarget);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
 
   const selectedBox = chart?.boxes.find((b) => b.key === selectedKey);
+  useChartShortcuts({
+    zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
+    onEdit: selectedBox ? () => onNavigate(selectedBox.id) : undefined,
+    onLeave: onBack,
+  });
   const selectedIndi = selectedBox ? mainDs.individuals.get(selectedBox.id) : undefined;
   const selectedRows = useMemo(
     () => (selectedIndi ? individualFieldRows(t, selectedIndi, undefined, mainDs) : []),
@@ -305,7 +309,17 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                       key={b.key}
                       transform={`translate(${b.x},${b.y})`}
                       className={`tree-node relchart-node${b.key === selectedKey ? " selected" : ""}${b.key === find.hitKey ? " find-hit" : ""}${b.role ? ` is-${b.role}` : ""}`}
+                      data-key={b.key}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={b.name}
+                      aria-pressed={b.key === selectedKey}
                       onClick={() => selectNode(b.key)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        e.preventDefault();
+                        selectNode(b.key);
+                      }}
                     >
                       <title>{t("tree.node.clickHint")}</title>
                       <TreeNodeBox

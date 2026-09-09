@@ -36,12 +36,14 @@ export function MediaLinkDialog({
     el.scrollLeft = 0;
   }, []);
   const trimmed = value.trim();
+  const save = () => (trimmed === url ? onClose() : onSave(trimmed));
   return (
     <SourceDialogShell
       icon="🔗"
       title={t("mediaLink.title")}
       t={t}
       onClose={onClose}
+      onConfirm={trimmed ? save : undefined}
       className="media-link-dialog"
       actions={
         <>
@@ -50,7 +52,7 @@ export function MediaLinkDialog({
           <button
             className="add-source-submit"
             disabled={!trimmed}
-            onClick={() => (trimmed === url ? onClose() : onSave(trimmed))}
+            onClick={save}
           >
             {t("editSource.save")}
           </button>
