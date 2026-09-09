@@ -3033,14 +3033,26 @@ button:focus-visible {
  * fields) follow and wrap — and because the whole row is one flex-wrap context
  * (the body is `display: contents`), wrapped fields fall back to the full width
  * under the date rather than being trapped in a third column. */
+/* One line of three: the fields (a wrapping group of their own), the note and
+ * the add-detail button. The line itself never wraps — when the fields and the
+ * note don't fit side by side, the group shrinks and folds its fields into a
+ * second line beside the note, instead of the note dropping under them and
+ * adding its whole height to the row. */
 .edit-event {
+  display: flex;
+  column-gap: 14px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.edit-event-main {
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   column-gap: 14px;
   row-gap: 4px;
   align-items: baseline;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--border);
 }
 /* The header row that used to sit above the first event is gone, so give the
  * first event a top border to keep it separated from the content above. */
@@ -3222,6 +3234,14 @@ button:focus-visible {
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* A tall note (the row's direct child — a one-line note stays inside the field
+ * group) keeps its own width beside the folding group, but never more than
+ * half the row: past that its chips narrow and wrap their text, so the group
+ * always has room to fold into. */
+.edit-event > .edit-event-extra--note { flex: 0 0 auto; max-width: 50%; }
+.edit-event > .edit-event-extra--note .edit-notes,
+.edit-event > .edit-event-extra--note .edit-note-item,
+.edit-event > .edit-event-extra--note .clearable-wrap { min-width: 0; max-width: 100%; }
 /* Godparents and witnesses take a line of their own under the event. Each is a
    name, a lifespan and a role — several of them, or one being edited with its
    role dropdown, are far wider than the slots beside the date, and squeezed in
@@ -3925,6 +3945,10 @@ button:focus-visible {
   align-items: flex-start;
   gap: 2px;
 }
+/* The chip's width is set in `ch` from the note's longest line, so the chip
+ * must measure `ch` in the same mono font the note is typed in — in the sans
+ * font it inherits, a line that fits the count wraps. */
+.edit-note-chip { font-family: var(--font-mono); }
 /* The private lock sits inside the box at the LEFT edge — the mirror of the
  * × clear button: invisible at rest, revealed on the chip's hover/focus,
  * always shown (colored) once the note is private. The text clears it via
@@ -7894,12 +7918,16 @@ kbd {
     height: auto;
   }
 
-  /* Event rows: tighter gaps; the flex-wrap already reflows the body as width
-   * shrinks, so no column changes are needed. */
+  /* Event rows: tighter gaps, and the note goes back under the fields — with
+   * the row this narrow there is no room for the two side by side. */
   .edit-event {
+    flex-wrap: wrap;
     column-gap: 12px;
+    row-gap: 4px;
     padding: 10px 0;
   }
+  .edit-event-main { column-gap: 12px; }
+  .edit-event > .edit-event-extra--note { max-width: 100%; }
 }
 
 /* Really narrow: one field per full-width row (label + toggle stay paired on
