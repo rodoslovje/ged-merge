@@ -351,6 +351,20 @@ Same blocking, gates and scoring — with three differences:
 - Output pairs are oriented so the record with more linked relatives leads as
   the merge survivor.
 
+**Where the time goes.** Profiled 2026-09 on Ivanc (52k people) and Hawlina
+(494k): the scoring itself is a small share; the cheap gates dominate because
+they run on every blocked pair, and what they read per pair is per-person
+work — the placeholder-filtered name (`ownComparableName`), the era year
+(`eraYear`), the folded given-name tokens (`givenTokens`) — so all three are
+memoized per individual or per spelling. The blocking loop keeps each person's
+keys and a rank in id order, and dedupes a person's candidates with a stamp
+array rather than a per-person `Set` of ids. The jaro-winkler cache is keyed
+by the two strings (a concatenated key cost more to build and hash than the
+similarity it saved) and capped at a million entries, which held Hawlina's
+heap in check. Ivanc's scan went 6.5 s → 1.8 s with identical output; when
+tuning, re-profile with a bundled `findDuplicates` under `node --cpu-prof`
+rather than through vitest, whose worker exits before writing its profile.
+
 ## Parent bands (shared)
 
 One source of truth in `src/match/similarity.ts` (`parentGivenVerdict`):

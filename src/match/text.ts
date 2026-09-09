@@ -11,12 +11,24 @@
  * jaro-winkler pair cache can't grow without bound over many reloads.
  */
 const foldCache = new Map<string, string>();
-const jaroWinklerCache = new Map<string, number>();
+/** Two-level, keyed by the two strings themselves: a concatenated pair key
+ *  meant building — and hashing — a fresh string per lookup, which cost more
+ *  than the similarity it saved. */
+let jaroWinklerCache = new Map<string, Map<string, number>>();
+let jaroWinklerCacheSize = 0;
+
+/** Entries the jaro-winkler pair cache may hold before it is emptied and
+ *  refilled. A 500k-person duplicate scan compares tens of millions of
+ *  distinct pairs; unbounded, the cache outgrew the dataset itself and the
+ *  collector, not the scorer, set the pace. Hits are overwhelmingly local (a
+ *  surname against its own block), so a refill costs little. */
+const JARO_WINKLER_CACHE_MAX = 1_000_000;
 
 /** Reset the memo caches — called at the start of each match run. */
 export function clearTextCaches(): void {
   foldCache.clear();
-  jaroWinklerCache.clear();
+  jaroWinklerCache = new Map();
+  jaroWinklerCacheSize = 0;
 }
 
 /** Lowercase, strip diacritics, collapse whitespace. Memoized (see above). */
@@ -113,8 +125,8 @@ function jaro(a: string, b: string): number {
 /** Jaro-Winkler similarity (0..1) — rewards a shared prefix (typos/variants).
  *  Memoized by input pair (see {@link clearTextCaches}). */
 export function jaroWinkler(a: string, b: string): number {
-  const key = `${a}\0${b}`; // NUL can't occur in folded names/places, so keys never collide
-  const cached = jaroWinklerCache.get(key);
+  let row = jaroWinklerCache.get(a);
+  const cached = row?.get(b);
   if (cached !== undefined) return cached;
   const j = jaro(a, b);
   let prefix = 0;
@@ -124,7 +136,14 @@ export function jaroWinkler(a: string, b: string): number {
     else break;
   }
   const value = j + prefix * 0.1 * (1 - j);
-  jaroWinklerCache.set(key, value);
+  if (jaroWinklerCacheSize >= JARO_WINKLER_CACHE_MAX) {
+    jaroWinklerCache = new Map();
+    jaroWinklerCacheSize = 0;
+    row = undefined;
+  }
+  if (!row) jaroWinklerCache.set(a, (row = new Map()));
+  row.set(b, value);
+  jaroWinklerCacheSize++;
   return value;
 }
 

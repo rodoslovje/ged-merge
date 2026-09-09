@@ -124,8 +124,12 @@ export function givenVariantKey(token: string): number | undefined {
  * already-folded tokens.
  */
 export function givenTokenSimilarity(a: string, b: string): number {
-  const fa = foldToken(a);
-  const fb = foldToken(b);
+  return foldedGivenTokenSimilarity(foldToken(a), foldToken(b));
+}
+
+/** {@link givenTokenSimilarity} for tokens the caller has already folded —
+ *  the inner loop of every given-name comparison, spared the fold lookups. */
+export function foldedGivenTokenSimilarity(fa: string, fb: string): number {
   if (fa === fb) return 1;
   const ka = givenVariantKey(fa);
   return ka !== undefined && ka === givenVariantKey(fb) ? 1 : jaroWinkler(fa, fb);

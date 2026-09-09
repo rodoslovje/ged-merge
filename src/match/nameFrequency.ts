@@ -1,8 +1,7 @@
 import type { Dataset, Individual, PersonName } from "../gedcom/types";
 import { eraYear } from "./birthEstimate";
 import { givenVariantKey } from "./givenVariants";
-import { primaryName } from "./relatives";
-import { comparableName } from "./similarity";
+import { ownComparableName } from "./similarity";
 import { foldToken } from "./text";
 import { DEFAULT_CONFIG } from "./types";
 
@@ -106,7 +105,7 @@ export function buildNameFrequencies(
   const bearers = new Map<string, Bearers>();
   for (const ds of pools) {
     for (const indi of ds.individuals.values()) {
-      const key = nameKey(comparableName(primaryName(indi)));
+      const key = nameKey(ownComparableName(indi));
       if (key === undefined) continue;
       let b = bearers.get(key);
       if (!b) bearers.set(key, (b = { years: [], undated: 0 }));
@@ -127,7 +126,7 @@ export function buildNameFrequencies(
   const profile = (indi: Individual, ds: Dataset) => {
     let p = memo.get(indi);
     if (!p) {
-      p = { key: nameKey(comparableName(primaryName(indi))), year: eraYear(indi, ds) };
+      p = { key: nameKey(ownComparableName(indi)), year: eraYear(indi, ds) };
       memo.set(indi, p);
     }
     return p;

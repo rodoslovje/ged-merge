@@ -1,17 +1,23 @@
 import type { Dataset, Individual } from "../gedcom/types";
 import { birthYear, deathYear } from "../gedcom/lifespan";
 
+const eraYearCache = new WeakMap<Individual, number | undefined>();
+
 /** A representative year placing the person in time: a recorded date if any,
  *  else a relative-derived estimate, else death/marriage/residence as a last
  *  resort. Shared by the era gate and the namesake count, so the two agree on
- *  who is a candidate. */
+ *  who is a candidate. Memoized per individual (object identity — an edit
+ *  rebuilds the `Individual`): the era gate reads both sides of every blocked
+ *  pair, and the estimate behind it walks the person's families each time. */
 export function eraYear(indi: Individual, ds: Dataset): number | undefined {
-  return (
+  if (eraYearCache.has(indi)) return eraYearCache.get(indi);
+  const year =
     birthYear(indi) ??
     estimatedBirthYear(indi, ds) ??
     deathYear(indi) ??
-    indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year
-  );
+    indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year;
+  eraYearCache.set(indi, year);
+  return year;
 }
 
 /**
