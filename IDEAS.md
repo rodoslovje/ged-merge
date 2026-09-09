@@ -286,6 +286,30 @@ Not yet committed — cull as needed.
 
 ## Performance backlog (as large-file usage grows)
 
+- **Stop cloning the dataset across the worker boundary** — measured
+  2026-09-09 on Hawlina (494k people, 95 MB): the worker's own load is now
+  ~10.5 s (parse 2.6, build 4.0–4.5, profile 1.9, format detection 1.9 — the
+  inference passes count each distinct DATE/PLAC once since this date), but
+  `post({ type: "parsed", dataset })` then costs **~18 s** of structured clone
+  (serialize in the worker, deserialize on the main thread, which blocks the UI
+  for its half). The typed model's shared `.raw` back-references are what make
+  it slow: cloning `records` alone takes 6.5 s, a JSON round trip 9 s. The
+  fix is to have the main thread build its own `Dataset` from the same buffer
+  (`buildDataset(parseGedcom(buffer))`, 7 s, deterministic so ids agree) in
+  parallel with the worker, and let `parsed` carry only the detections; wall
+  time drops from ~28 s to ~11 s and the main thread blocks 7 s instead of
+  ~9 s. The compare side needs the same treatment to help index-scale
+  incoming files: the main thread would run `normalizeDataset` against the
+  posted profile and replay the `incomingDuplicates` consolidation itself
+  instead of receiving the re-emitted dataset. A further step is a chunked,
+  yielding main-thread parse so the spinner keeps moving.
+- **Within `buildDataset`** (4 s on Hawlina): `parseDate` is 0.7 s of it over
+  a million dates of which 10% are distinct — a memo would share `GedDate`
+  objects between events, so first confirm nothing mutates a parsed date in
+  place. `detectFormatDefaults` and `inferMainProfile` each count the same
+  DATE/PLAC values (0.25 s a pass); sharing one `collectLayoutValues` between
+  them saves ~0.5 s. The eight or so single-purpose tree walks in format
+  detection cost ~0.2 s each on Hawlina and could be one walk.
 - ~~**Memoize EditView subsections** (event rows, family grids) so a `tick` bump
   doesn't rebuild the whole subtree.~~ *(done 2026-07-13 — the in-place-mutation
   model is untouched; memo keys off the object identity `rebuildIndividual`/
