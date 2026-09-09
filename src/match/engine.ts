@@ -5,6 +5,7 @@ import {
   scoreIndividualPair,
   sexConflicts,
 } from "./scoreIndividual";
+import { buildNameFrequencies, type NameFrequencies } from "./nameFrequency";
 import { birthYearsApart, differentGiven, parentsVerdict } from "./similarity";
 import { clearTextCaches, soundex } from "./text";
 import {
@@ -49,7 +50,10 @@ function matchIndividuals(
   // regardless of what names/dates say. These pairs bypass blocking and gates,
   // score a flat 100, and are placed first so the greedy 1:1 assignment always
   // keeps them.
-  const uidPairs = matchByUid(mainDs, compareDs, config);
+  // Name counts over both files: a name common in either is ambiguous for a
+  // pair (see nameFrequency.ts). One pass, then every scoring call reads it.
+  const freq = buildNameFrequencies([mainDs, compareDs], config.gates.maxYearGap);
+  const uidPairs = matchByUid(mainDs, compareDs, config, freq);
   const uidMain = new Set(uidPairs.map((p) => p.mainId));
   const uidCompare = new Set(uidPairs.map((p) => p.compareId));
 
@@ -63,13 +67,13 @@ function matchIndividuals(
       // incompatible lifespans => never the same person; skip before scoring.
       if (sexConflicts(main, compare)) continue;
       if (!plausibleIndividualMatch(main, compare, config.gates, mainDs, compareDs)) continue;
-      const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config);
+      const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config, freq);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
     }
   }
-  const linked = linkByRelationships(assignOneToOne(scored), mainDs, compareDs, config, uidMain, uidCompare);
+  const linked = linkByRelationships(assignOneToOne(scored), mainDs, compareDs, config, freq, uidMain, uidCompare);
   const individuals = boostByMatchedRelatives(linked, mainDs, compareDs, config);
-  const incomingDuplicates = findIncomingDuplicateClusters(scored, individuals, compareDs, config);
+  const incomingDuplicates = findIncomingDuplicateClusters(scored, individuals, compareDs, config, freq);
   return incomingDuplicates.length ? { individuals, incomingDuplicates } : { individuals };
 }
 
@@ -133,6 +137,7 @@ function matchByUid(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
+  freq: NameFrequencies,
 ): IndividualCandidate[] {
   const mainByUid = identityIndex(mainDs);
   if (mainByUid.size === 0) return [];
@@ -152,7 +157,7 @@ function matchByUid(
     usedCompare.add(compareId);
     // Score the pair normally so the UI still gets the field-by-field
     // breakdown, then override the verdict: identity is not a probability.
-    const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config);
+    const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config, freq);
     cand.score = 100;
     cand.category = categorize(1, config);
     cand.uidMatched = true;
@@ -187,6 +192,7 @@ function findIncomingDuplicateClusters(
   matches: IndividualCandidate[],
   compareDs: Dataset,
   config: MatchConfig,
+  freq: NameFrequencies,
 ): IncomingDuplicateCluster[] {
   const matchedCompare = new Set(matches.map((m) => m.compareId));
   const winnerOf = new Map(matches.map((m) => [m.mainId, m.compareId]));
@@ -220,7 +226,7 @@ function findIncomingDuplicateClusters(
       if (sexConflicts(keep, cand) || !plausibleIndividualMatch(keep, cand, config.gates, compareDs, compareDs)) continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.
-      if (scoreIndividualPair(keep, cand, compareDs, compareDs, config).score < DUP_PAIR_SCORE) continue;
+      if (scoreIndividualPair(keep, cand, compareDs, compareDs, config, freq).score < DUP_PAIR_SCORE) continue;
       mergeIds.push(s.compareId);
       consumed.add(s.compareId);
     }
@@ -394,6 +400,7 @@ function linkByRelationships(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
+  freq: NameFrequencies | undefined,
   /** Records pre-matched by a shared `_UID` — certain identity a relationship
    *  link must never displace. */
   uidMain: Set<string> = new Set(),
@@ -468,13 +475,13 @@ function linkByRelationships(
     // Skip if either record's current match is at least as corroborated.
     if (oldCompare && corrob(main, oldCompare) >= linkCorrob) return;
     if (oldMain && corrob(oldMain, compare) >= linkCorrob) return;
-    const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config);
+    const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config, freq);
     links.push({ ...cand, relationshipLinked: true });
     usedMain.add(main.id);
     usedCompare.add(compare.id);
   };
   for (const { main, compare } of strongestFirst) tryLink(main, compare);
-  for (const { main, compare } of childrenOfMatchedCouples(mainDs, compareDs, config, mainToCompare, confident)) {
+  for (const { main, compare } of childrenOfMatchedCouples(mainDs, compareDs, config, freq, mainToCompare, confident)) {
     tryLink(main, compare);
   }
   if (links.length === 0) return assigned;
@@ -513,6 +520,7 @@ function childrenOfMatchedCouples(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
+  freq: NameFrequencies | undefined,
   mainToCompare: Map<string, string>,
   confident: (mainId: string) => boolean,
 ): Array<{ main: Individual; compare: Individual; score: number }> {
@@ -548,7 +556,7 @@ function childrenOfMatchedCouples(
           if (!cChild) continue;
           if (sexConflicts(mChild, cChild)) continue;
           if (!plausibleIndividualMatch(mChild, cChild, config.gates, mainDs, compareDs)) continue;
-          const cand = scoreIndividualPair(mChild, cChild, mainDs, compareDs, config);
+          const cand = scoreIndividualPair(mChild, cChild, mainDs, compareDs, config, freq);
           if (cand.score / 100 < config.minScore) continue;
           pairs.push({ main: mChild, compare: cChild, score: cand.score });
         }

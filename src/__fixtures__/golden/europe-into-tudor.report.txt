@@ -1,13 +1,13 @@
 changeReport.title
 ==================
 
-changeReport.stat.records:        202
-changeReport.stat.fields:         162
-changeReport.stat.newFields:      161
-changeReport.stat.added:          151
+changeReport.stat.records:        124
+changeReport.stat.fields:         108
+changeReport.stat.newFields:      107
+changeReport.stat.added:           81
 changeReport.stat.removed:          0
 changeReport.stat.undescribed:      0
-changeReport.stat.deferred:         6
+changeReport.stat.deferred:         7
 
 changeReport.applied
 --------------------
@@ -55,6 +55,17 @@ Henry Tudor  @I14@
 ------------------
   event.TITL: changeReport.verb.added "King of England"
   event.colPlace: changeReport.verb.added "Whitehall,London,England"
+  field.spouseOf: changeReport.verb.added "Henry Tudor + Anne of_Cleves"
+
+Henry Tudor + Catherine of Aragon  @F31@
+----------------------------------------
+  merge.field.child: changeReport.verb.added "Daughter Tudor"
+  merge.field.child: changeReport.verb.added "Henry_(2) Tudor"
+  merge.field.child: changeReport.verb.added "Daughter Tudor"
+
+Henry Tudor + Anne Boleyn  @F32@
+--------------------------------
+  merge.field.child: changeReport.verb.added "Son Tudor"
 
 Henry Tudor + Jane Seymour  @F33@
 ---------------------------------
@@ -111,10 +122,6 @@ Henry Stuart + Mary Stewart  @F94@
 ----------------------------------
   event.colPlace: changeReport.verb.added "Edinburgh,Scotland"
 
-Anne Boleyn  @I16@
-------------------
-  event.BIRT: changeReport.verb.added "ABT 1501 · Blickling Hall,Norfolk,England"
-
 Matthew Stuart  @I222@
 ----------------------
   event.colDate: changeReport.verb.added "1516"
@@ -132,10 +139,6 @@ Charles Stuart  @I224@
   event.TITL: changeReport.verb.added "Earl Lennox 6th"
   event.colDate: changeReport.verb.added "1576"
 
-Thomas Howard  @I38@
---------------------
-  event.TITL: changeReport.verb.added "Duke of Norfolk"
-
 Mary Tudor  @I39@
 -----------------
   event.colPlace: changeReport.verb.added "Richmond Palace,,England"
@@ -151,6 +154,10 @@ Margaret Beaufort  @I4@
 Charles Brandon  @I40@
 ----------------------
   event.TITL: changeReport.verb.added "Duke of Suffolk"
+
+Anne Boleyn  @I16@
+------------------
+  event.BIRT: changeReport.verb.added "ABT 1501 · Blickling Hall,Norfolk,England"
 
 Jane Seymour  @I18@
 -------------------
@@ -170,11 +177,6 @@ John Beaufort  @I272@
 ---------------------
   event.TITL: changeReport.verb.added "Earl Sommerset"
 
-Thomas Boleyn  @I36@
---------------------
-  event.TITL: changeReport.verb.added "Earl"
-  event.colDate: changeReport.verb.added "1536"
-
 Archibald Douglas  @I57@
 ------------------------
   event.TITL: changeReport.verb.added "Earl of Angus VI"
@@ -191,24 +193,6 @@ John Neville + Catherine Parr  @F77@
 ------------------------------------
   event.colDate: changeReport.verb.added "1533"
 
-Thomas Howard + Elizabeth Stafford  @F106@
-------------------------------------------
-  merge.field.child: changeReport.verb.added "Henry Howard"
-  merge.field.child: changeReport.verb.added "Thomas Howard"
-
-Thomas Boleyn + Elizabeth Howard  @F125@
-----------------------------------------
-  merge.field.child: changeReport.verb.added "George Rochford Boleyn"
-  merge.field.child: changeReport.verb.added "Mary Boleyn"
-
-Henry Tudor + Anne Boleyn  @F32@
---------------------------------
-  merge.field.child: changeReport.verb.added "Son Tudor"
-
-Edmund Howard + Joyce Culpeper  @F74@
--------------------------------------
-  merge.field.wife: changeReport.verb.added "Joyce Culpeper"
-
 John Stewart  @I80@
 -------------------
   field.spouseOf: changeReport.verb.added "John Stewart + ..."
@@ -221,264 +205,132 @@ Maredudd ap Tudor  @I317@
 -------------------------
   field.childOf: changeReport.verb.added "Tudor Fychan of_Pemmynydd + Margaret"
 
-Thomas Howard  @I24@
---------------------
-  field.spouseOf: changeReport.verb.added "Thomas Howard + Anne of_York"
-
-William Carey  @I261@
----------------------
-  field.spouseOf: changeReport.verb.added "William Carey + Mary Boleyn"
-
-Anne Morgan  @I268@
--------------------
-  field.spouseOf: changeReport.verb.added "Henry Carey + Anne Morgan"
-
-Edmund Howard  @I195@
----------------------
-  field.spouseOf: changeReport.verb.added "Edmund Howard + Dorothy Troyes"
-
 changeReport.added
 ------------------
-  Elizabeth Tudor  @I55@
-  Katherine Tudor  @I155@
+  Daughter Tudor  @I55@
+  Henry_(2) Tudor  @I155@
+  Daughter Tudor  @I234@
+  Son Tudor  @I351@
+  Elizabeth Tudor  @I352@
+  Katherine Tudor  @I353@
   John Stewart + ...  @F201@
     merge.field.father: changeReport.verb.added "John Stewart"
     merge.field.mother: changeReport.verb.added "..."
-  ...  @I234@
+  ...  @I354@
   Thomas + Margaret de Holland,  @F202@
     merge.field.husband: changeReport.verb.added "Thomas"
     event.colDate: changeReport.verb.added "1412"
-  Thomas  @I351@
+  Thomas  @I355@
   Tudor Fychan of_Pemmynydd + Margaret  @F203@
     merge.field.father: changeReport.verb.added "Tudor Fychan of_Pemmynydd"
     merge.field.mother: changeReport.verb.added "Margaret"
-  Tudor Fychan of_Pemmynydd  @I352@
+  Tudor Fychan of_Pemmynydd  @I356@
   Goronwy_Ap Tudor  @F204@
     merge.field.father: changeReport.verb.added "Goronwy_Ap Tudor"
-  Goronwy_Ap Tudor  @I353@
+  Goronwy_Ap Tudor  @I357@
   Tudor Hen  @F205@
     merge.field.father: changeReport.verb.added "Tudor Hen"
-  Tudor Hen  @I354@
+  Tudor Hen  @I358@
   Goronwy  @F206@
     merge.field.father: changeReport.verb.added "Goronwy"
-  Goronwy  @I355@
+  Goronwy  @I359@
   Ednyfed Fychan + Gwenllian  @F207@
     merge.field.father: changeReport.verb.added "Ednyfed Fychan"
     merge.field.mother: changeReport.verb.added "Gwenllian"
-  Ednyfed Fychan  @I356@
-  Gwenllian  @I357@
+  Ednyfed Fychan  @I360@
+  Gwenllian  @I361@
   Rhys_Ap Gruffydd  @F208@
     merge.field.father: changeReport.verb.added "Rhys_Ap Gruffydd"
-  Rhys_Ap Gruffydd  @I358@
+  Rhys_Ap Gruffydd  @I362@
   Gruffydd  @F209@
     merge.field.father: changeReport.verb.added "Gruffydd"
-  Gruffydd  @I359@
+  Gruffydd  @I363@
   Rhys_Ap Twedwr  @F210@
     merge.field.father: changeReport.verb.added "Rhys_Ap Twedwr"
-  Rhys_Ap Twedwr  @I360@
+  Rhys_Ap Twedwr  @I364@
   Tewdwr Mawr the_Great  @F211@
     merge.field.father: changeReport.verb.added "Tewdwr Mawr the_Great"
-  Tewdwr Mawr the_Great  @I361@
+  Tewdwr Mawr the_Great  @I365@
   Cadell  @F212@
     merge.field.father: changeReport.verb.added "Cadell"
-  Cadell  @I362@
+  Cadell  @I366@
   Einion  @F213@
     merge.field.father: changeReport.verb.added "Einion"
-  Einion  @I363@
+  Einion  @I367@
   Owain  @F214@
     merge.field.father: changeReport.verb.added "Owain"
-  Owain  @I364@
+  Owain  @I368@
   Hywel Dda (the_Good)  @F215@
     merge.field.father: changeReport.verb.added "Hywel Dda (the_Good)"
-  Hywel Dda (the_Good)  @I365@
+  Hywel Dda (the_Good)  @I369@
   Cadell  @F216@
     merge.field.father: changeReport.verb.added "Cadell"
-  Cadell  @I366@
+  Cadell  @I370@
   Rhodri Mawr (the_Great)  @F217@
     merge.field.father: changeReport.verb.added "Rhodri Mawr (the_Great)"
-  Rhodri Mawr (the_Great)  @I367@
-  Margaret  @I368@
+  Rhodri Mawr (the_Great)  @I371@
+  Margaret  @I372@
   Thomas  @F218@
     merge.field.father: changeReport.verb.added "Thomas"
-  Thomas  @I369@
+  Thomas  @I373@
   Llywelyn  @F219@
     merge.field.father: changeReport.verb.added "Llywelyn"
-  Llywelyn  @I370@
+  Llywelyn  @I374@
   Owain  @F220@
     merge.field.father: changeReport.verb.added "Owain"
-  Owain  @I371@
+  Owain  @I375@
   Maredudd Ap_Owain + Eleanor  @F221@
     merge.field.father: changeReport.verb.added "Maredudd Ap_Owain"
     merge.field.mother: changeReport.verb.added "Eleanor"
-  Maredudd Ap_Owain  @I372@
-  Eleanor  @I373@
+  Maredudd Ap_Owain  @I376@
+  Eleanor  @I377@
   Maelgwn Fychan + Angharad  @F222@
     merge.field.father: changeReport.verb.added "Maelgwn Fychan"
     merge.field.mother: changeReport.verb.added "Angharad"
-  Maelgwn Fychan  @I374@
-  Angharad  @I375@
+  Maelgwn Fychan  @I378@
+  Angharad  @I379@
   Llywelyn Fawr the_Great + ...  @F223@
     merge.field.father: changeReport.verb.added "Llywelyn Fawr the_Great"
     merge.field.mother: changeReport.verb.added "..."
-  Llywelyn Fawr the_Great  @I376@
+  Llywelyn Fawr the_Great  @I380@
   Iorwerth Drwyndwn  @F224@
     merge.field.father: changeReport.verb.added "Iorwerth Drwyndwn"
-  Iorwerth Drwyndwn  @I377@
+  Iorwerth Drwyndwn  @I381@
   Owain Gwynedd + ...  @F225@
     merge.field.father: changeReport.verb.added "Owain Gwynedd"
     merge.field.mother: changeReport.verb.added "..."
-  Owain Gwynedd  @I378@
+  Owain Gwynedd  @I382@
   Gruffydd Ap_Cynan  @F226@
     merge.field.father: changeReport.verb.added "Gruffydd Ap_Cynan"
-  Gruffydd Ap_Cynan  @I379@
+  Gruffydd Ap_Cynan  @I383@
   Cynan  @F227@
     merge.field.father: changeReport.verb.added "Cynan"
-  Cynan  @I380@
+  Cynan  @I384@
   Iago  @F228@
     merge.field.father: changeReport.verb.added "Iago"
-  Iago  @I381@
+  Iago  @I385@
   Idwal  @F229@
     merge.field.father: changeReport.verb.added "Idwal"
-  Idwal  @I382@
+  Idwal  @I386@
   Meurig  @F230@
     merge.field.father: changeReport.verb.added "Meurig"
-  Meurig  @I383@
+  Meurig  @I387@
   Idwal Foel (the_Bald) + ...  @F231@
     merge.field.father: changeReport.verb.added "Idwal Foel (the_Bald)"
     merge.field.mother: changeReport.verb.added "..."
-  Idwal Foel (the_Bald)  @I384@
+  Idwal Foel (the_Bald)  @I388@
   Anarawd  @F232@
     merge.field.father: changeReport.verb.added "Anarawd"
-  Anarawd  @I385@
+  Anarawd  @I389@
   Rhodri Mawr (the_Great)  @F233@
     merge.field.father: changeReport.verb.added "Rhodri Mawr (the_Great)"
-  ...  @I386@
-  ...  @I387@
-  ...  @I388@
-  Thomas Howard + Anne of_York  @F234@
-    merge.field.wife: changeReport.verb.added "Anne of_York"
-  Anne of_York  @I389@
-  Henry Howard  @I390@
-  Thomas Howard  @I391@
-  Henry Howard + Frances de_Vere  @F235@
-    merge.field.wife: changeReport.verb.added "Frances de_Vere"
-    merge.field.child: changeReport.verb.added "Thomas Howard"
-    merge.field.child: changeReport.verb.added "Henry of_Northhampton Howard"
-    merge.field.child: changeReport.verb.added "Catherine Howard"
-    merge.field.child: changeReport.verb.added "Jane Howard"
-    merge.field.child: changeReport.verb.added "Margaret Howard"
-  Frances de_Vere  @I392@
-  Thomas Howard  @I393@
-  Henry of_Northhampton Howard  @I394@
-  Catherine Howard  @I395@
-  Jane Howard  @I396@
-  Margaret Howard  @I397@
-  Thomas Howard + Mary Fitzalan  @F236@
-    merge.field.wife: changeReport.verb.added "Mary Fitzalan"
-    merge.field.child: changeReport.verb.added "Philip Howard"
-  Mary Fitzalan  @I398@
-  Philip Howard  @I399@
-  Philip Howard + Anne Dacre  @F237@
-    merge.field.wife: changeReport.verb.added "Anne Dacre"
-    merge.field.child: changeReport.verb.added "Thomas Howard"
-  Anne Dacre  @I400@
-  Thomas Howard  @I401@
-  Thomas Howard + Aletheia Talbot  @F238@
-    merge.field.wife: changeReport.verb.added "Aletheia Talbot"
-  Aletheia Talbot  @I402@
-  Thomas Howard + Margaret Audley  @F239@
-    merge.field.wife: changeReport.verb.added "Margaret Audley"
-    merge.field.child: changeReport.verb.added "Thomas Howard"
-    merge.field.child: changeReport.verb.added "William Howard"
-  Margaret Audley  @I403@
-  Thomas Howard  @I404@
-  William Howard  @I405@
-  Thomas Howard + Mary Dacre  @F240@
-    merge.field.wife: changeReport.verb.added "Mary Dacre"
-  Mary Dacre  @I406@
-  Thomas Howard + Catherine Knyvett  @F241@
-    merge.field.wife: changeReport.verb.added "Catherine Knyvett"
-    merge.field.child: changeReport.verb.added "Theophilus Howard"
-    merge.field.child: changeReport.verb.added "Thomas of_Berkshire Howard"
-    merge.field.child: changeReport.verb.added "Henry Howard"
-    merge.field.child: changeReport.verb.added "Catherine Howard"
-    merge.field.child: changeReport.verb.added "Frances Howard"
-  Catherine Knyvett  @I407@
-  Theophilus Howard  @I408@
-  Thomas of_Berkshire Howard  @I409@
-  Henry Howard  @I410@
-  Catherine Howard  @I411@
-  Frances Howard  @I412@
-  Theophilus Howard + Elizabeth Dunbar  @F242@
-    merge.field.wife: changeReport.verb.added "Elizabeth Dunbar"
-  Elizabeth Dunbar  @I413@
-  Thomas of_Berkshire Howard + Elizabeth Cecil  @F243@
-    merge.field.wife: changeReport.verb.added "Elizabeth Cecil"
-  Elizabeth Cecil  @I414@
-  Henry Howard + Elizabeth Bassett  @F244@
-    merge.field.wife: changeReport.verb.added "Elizabeth Bassett"
-  Elizabeth Bassett  @I415@
-  William of_Berkshire Cecil + Catherine Howard  @F245@
-    merge.field.husband: changeReport.verb.added "William of_Berkshire Cecil"
-  William of_Berkshire Cecil  @I416@
-  Robert Devereux + Frances Howard  @F246@
-    merge.field.husband: changeReport.verb.added "Robert Devereux"
-  Robert Devereux  @I417@
-  Robert Carr + Frances Howard  @F247@
-    merge.field.husband: changeReport.verb.added "Robert Carr"
-  Robert Carr  @I418@
-  William Howard + Elizabeth Dacre  @F248@
-    merge.field.wife: changeReport.verb.added "Elizabeth Dacre"
-  Elizabeth Dacre  @I419@
-  Thomas Howard + Gertrude Lyte  @F249@
-    merge.field.wife: changeReport.verb.added "Gertrude Lyte"
-  Gertrude Lyte  @I420@
-  George Rochford Boleyn  @I421@
-  Mary Boleyn  @I422@
-  William Carey + Mary Boleyn  @F250@
-    merge.field.husband: changeReport.verb.added "William Carey"
-    merge.field.child: changeReport.verb.added "Henry Carey"
-    merge.field.child: changeReport.verb.added "Catherine Carey"
-  Henry Carey  @I423@
-  Catherine Carey  @I424@
-  Henry Carey + Anne Morgan  @F251@
-    merge.field.wife: changeReport.verb.added "Anne Morgan"
-  Francis Knollys + Catherine Carey  @F252@
-    merge.field.husband: changeReport.verb.added "Francis Knollys"
-    merge.field.child: changeReport.verb.added "Henry Knollys"
-    merge.field.child: changeReport.verb.added "William Knollys"
-    merge.field.child: changeReport.verb.added "Lettice Knollys"
-    merge.field.child: changeReport.verb.added "Anne Knollys"
-    merge.field.child: changeReport.verb.added "Catherine Knollys"
-  Francis Knollys  @I425@
-  Henry Knollys  @I426@
-  William Knollys  @I427@
-  Lettice Knollys  @I428@
-  Anne Knollys  @I429@
-  Catherine Knollys  @I430@
-  Henry Knollys + Margaret Cave  @F253@
-    merge.field.wife: changeReport.verb.added "Margaret Cave"
-  Margaret Cave  @I431@
-  Walter Devereux + Lettice Knollys  @F254@
-    merge.field.husband: changeReport.verb.added "Walter Devereux"
-  Walter Devereux  @I432@
-  Robert of_Leicester Dudley + Lettice Knollys  @F255@
-    merge.field.husband: changeReport.verb.added "Robert of_Leicester Dudley"
-  Robert of_Leicester Dudley  @I433@
-  Christopher Blount + Lettice Knollys  @F256@
-    merge.field.husband: changeReport.verb.added "Christopher Blount"
-  Christopher Blount  @I434@
-  Thomas Leighton + Anne Knollys  @F257@
-    merge.field.husband: changeReport.verb.added "Thomas Leighton"
-  Thomas Leighton  @I435@
-  Gerald Fitzgerald + Catherine Knollys  @F258@
-    merge.field.husband: changeReport.verb.added "Gerald Fitzgerald"
-  Gerald Fitzgerald  @I436@
-  Son Tudor  @I437@
-  Joyce Culpeper  @I438@
-  Edmund Howard + Dorothy Troyes  @F259@
-    merge.field.wife: changeReport.verb.added "Dorothy Troyes"
-  Dorothy Troyes  @I439@
+  ...  @I390@
+  ...  @I391@
+  ...  @I392@
+  Philip_II  @I393@
+  Henry Tudor + Anne of_Cleves  @F234@
+    merge.field.wife: changeReport.verb.added "Anne of_Cleves"
+  Anne of_Cleves  @I394@
 
 changeReport.kept
 -----------------
@@ -497,19 +349,17 @@ Thomas Holland + Alice FitzAlan  @F194@
   merge.field.father: merge.reason.parentKept
   merge.field.mother: merge.reason.parentKeptAncestors
 
+Philip of Hapsburg + Mary Tudor  @F121@
+---------------------------------------
+  merge.field.husband: merge.reason.mainHasSpouse
+
 changeReport.grafted
 --------------------
+  Henry_(1) Tudor 1511–1511  ->  Henry Tudor  @I32@
+  Son Tudor 1514–1514  ->  ... Tudor 1514–1514  @I33@
   Edmund Tudor 1499–1500  ->  Edmund Tudor –1500  @I27@
   John Stewart  ->  John Stewart  @I80@
-  Thomas Howard  ->  Thomas Howard 1473–1554  @I24@
-  Elizabeth Howard –1512  ->  Elizabeth Howard  @I37@
-  Edmund Howard –1513  ->  Edmund Howard –1538  @I195@
   Owen Tudor –1461  ->  Owen Tudor 1400–1461  @I315@
   Maredudd (Meredith) Tudor  ->  Maredudd ap Tudor 1370–1406  @I317@
   Catherine of_Valois 1401–1437  ->  Catherine of Valois 1401–1437  @I316@
-  Mary Howard  ->  Mary Howard –1557  @I23@
-  Frances Howard  ->  Frances Howard –1639  @I203@
-  Henry Fitzroy –1533  ->  Henry Fitzroy 1519–1536  @I22@
-  William Carey –1528  ->  William Carey –1528  @I261@
-  Anne Morgan  ->  Anne Morgan  @I268@
   Catherine Howard 1520–1542  ->  Catherine Howard –1542  @I19@
