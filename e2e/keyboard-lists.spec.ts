@@ -116,7 +116,7 @@ test("a chart's person is a button, and ⌥↑ walks to a parent", async ({ page
   await root.focus();
   await page.keyboard.press("Enter");
   await expect(root).toHaveClass(/selected/);
-  await expect(page.getByRole("button", { name: "Root person" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Root", exact: true })).toBeVisible();
 
   // ⌥↑ moves the selection and the focus to the father.
   await page.keyboard.press("Alt+ArrowUp");

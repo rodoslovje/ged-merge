@@ -96,5 +96,5 @@ test("a grab-pan moves the chart and still leaves nodes clickable", async ({ pag
   // The click the drag would have emitted is swallowed, but the next real one
   // still selects — a pan must not disarm the chart.
   await page.locator("svg.tree-svg g.tree-node").first().click();
-  await expect(page.getByRole("button", { name: "Root person" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Root", exact: true })).toBeVisible();
 });

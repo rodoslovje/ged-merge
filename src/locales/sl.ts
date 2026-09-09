@@ -2722,7 +2722,7 @@ export const sl = {
   "charts.back.merge": "Nazaj na združevanje",
   "charts.back.tools": "Nazaj na orodja",
   "edit.tree.modified": "Spremenjeno",
-  "edit.tree.reroot": "Izhodiščna oseba",
+  "edit.tree.reroot": "Koren",
   "undo": "Razveljavi",
   "redo": "Ponovi",
   "undo.tooltip": "Razveljavi zadnjo spremembo",

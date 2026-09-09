@@ -2416,7 +2416,7 @@ export const en = {
   "charts.back.merge": "Back to Merge",
   "charts.back.tools": "Back to Tools",
   "edit.tree.modified": "Modified",
-  "edit.tree.reroot": "Root person",
+  "edit.tree.reroot": "Root",
   "undo": "Undo",
   "redo": "Redo",
   "undo.tooltip": "Undo last change",
