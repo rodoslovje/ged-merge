@@ -129,6 +129,25 @@ describe("a gazetteer entry as a place", () => {
     expect(proposalFromGazEntry(ZABUKOVJE, style({ depth: 2 }))!.plac).toBe("Zabukovje,Slovenija");
   });
 
+  it("does not let the file's own chain for the place deepen the register's answer", () => {
+    // The file writes Jelovec once, one level too deep — the value the register
+    // check is about to correct. Learned as the locality's chain, that value
+    // would refill the register's three-part answer to the four-part original.
+    const jelovec: GazEntry = { ...ZABUKOVJE, name: "Jelovec", admin: "Sodražica" };
+    const hierarchy = {
+      parentOf: new Map([["jelovec", ["Sodražica", "Sodražica", "Slovenija"]]]),
+      localityOfStreet: new Map<string, string>(),
+      knownNames: new Set(["jelovec", "sodražica", "slovenija"]),
+    };
+    expect(proposalFromGazEntry(jelovec, style({}, { hierarchy }))!.plac).toBe("Jelovec,Sodražica,Slovenija");
+    // A file that writes four levels still gets the level the register did not
+    // name filled in from its own places.
+    const deeper = { ...hierarchy, parentOf: new Map([["jelovec", ["Sodražica", "Ribnica", "Slovenija"]]]) };
+    expect(proposalFromGazEntry(jelovec, style({ depth: 4 }, { hierarchy: deeper }))!.plac).toBe(
+      "Jelovec,Sodražica,Ribnica,Slovenija",
+    );
+  });
+
   it("keeps a locality named with a facility word ('Bela Cerkev') in its own proposal", () => {
     // The reformatter's heuristics read a leading "… cerkev/grad/…" segment as
     // a church or castle detail — right for "Mestno pokopališče Kranj", wrong
