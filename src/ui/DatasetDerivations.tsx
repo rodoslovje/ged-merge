@@ -184,18 +184,21 @@ function useRegisterHomeCountry(derivations: DatasetDerivations | null, wanted: 
  * from — the reader's setting over the file's own words, and those over the
  * directories' vote for a file that writes no country at all.
  */
-export function useHomeCountryDetection({ evenWhenUnused = false } = {}): HomeCountryAnswer {
+export function useHomeCountryDetection({ evenWhenUnused = false, enabled = true } = {}): HomeCountryAnswer {
   const { homeCountry } = useSettingsSlice(HOME_KEYS);
   const derivations = useDatasetDerivations();
   // Detection is lazy and cached per dataset version, so asking on every render
   // costs a map lookup — but only where the setting actually follows the file.
+  // A caller that is mounted but not on screen (the Settings modal) passes
+  // `enabled: false` until it is, so the first ask — a walk over every place
+  // in the file — is not paid at load.
   const auto = homeCountry === HOME_COUNTRY_AUTO;
-  const detection = derivations?.homeCountry() ?? NO_DETECTION;
+  const detection = (enabled ? derivations?.homeCountry() : undefined) ?? NO_DETECTION;
   // The file's own words come first and are cheap; the directories are only
   // asked where the file itself said nothing — and, unless Settings is on
   // screen to report what following the file would give, only where the reader
   // is actually following it.
-  const register = useRegisterHomeCountry(derivations, (auto || evenWhenUnused) && !detection.code);
+  const register = useRegisterHomeCountry(derivations, enabled && (auto || evenWhenUnused) && !detection.code);
   const detected = detection.code || register.code;
   return {
     code: auto ? detected : "",

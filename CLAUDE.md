@@ -81,7 +81,7 @@ The user reads the Slovenian pages closely and judges them **as Slovenian, not a
 
 All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The worker owns the parse → normalize → match pipeline and communicates via typed messages (`src/worker/messages.ts`):
 
-- `parse` → emits `parsed` (with `Dataset`) and then `matching`/`matched`
+- `parse` → emits `parsed` (detections and, for the main, the inferred profile — **never the `Dataset`**: the main thread builds its own copy from the same bytes in `src/state/localLoad.ts`, because cloning a typed dataset across the boundary cost ~18 s on a 500k-person file; only a table-built compare travels) and then `matching`/`matched`. The compare's consolidation of incoming duplicates is announced as clusters the main thread replays.
 - `parseCsv` → loads a CSV or spreadsheet into the compare slot: a genealogical-index matches export (indeks.rodoslovje.si), matched pair by pair, or a Slovenian parish-register index (Matricula P/K sheets), matched by the ordinary engine. **Answers asynchronously** (a workbook must be inflated), guarded by a compare generation so a superseded file cannot land
 - `setHome` → re-ranks the last match result by kinship distance; emits `matching`/`matched`
 

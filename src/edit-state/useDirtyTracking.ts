@@ -43,6 +43,8 @@ export function useDirtyTracking() {
   // see `gedcom/fingerprint.ts`. Held alongside the dirty state because it is
   // reset by exactly the same events.
   const baseline = useRef<SaveBaseline>(new Map());
+  /** The dataset whose fingerprint pass is still owed (see takeBaseline). */
+  const pendingBaseline = useRef<Dataset | null>(null);
 
   // Raw-node snapshots taken at first-dirty time, used to detect when a record
   // has returned to its pre-edit state and to revert Remove from save.
@@ -108,10 +110,40 @@ export function useDirtyTracking() {
     }
   }
 
+  /** Run `cb` once the browser is idle — after the load's first paint — or
+   *  shortly after where the browser has no idle callback (tests, Safari). */
+  function whenIdle(cb: () => void) {
+    // A long timeout: with the edit paths guarding the baseline themselves,
+    // the pass may wait out the whole first render of a big file rather than
+    // land in the middle of it.
+    if (typeof requestIdleCallback === "function") requestIdleCallback(() => cb(), { timeout: 20000 });
+    else setTimeout(cb, 100);
+  }
+
   /** Re-fingerprint the whole file as the baseline every later save is audited
    *  against. One pass over the records, at the three moments the baseline
-   *  really moves: a file loads, a save lands, a cached session is restored. */
+   *  really moves: a file loads, a save lands, a cached session is restored.
+   *
+   *  Taken lazily: the pass hashes every character of the file (1.6 s of a
+   *  500k-person load, on the main thread, before the first person could
+   *  paint), and nothing reads the baseline until the first edit or the save.
+   *  So the load only notes which dataset to fingerprint and asks for an idle
+   *  moment; {@link ensureBaseline} runs the pass then, or sooner from the
+   *  first entry point that needs it — always before the records change,
+   *  since every edit path snapshots through {@link captureSnapshotsForPush}. */
   function takeBaseline(dataset: Dataset) {
+    pendingBaseline.current = dataset;
+    baseline.current = new Map();
+    whenIdle(() => {
+      if (pendingBaseline.current === dataset) ensureBaseline();
+    });
+  }
+
+  /** The baseline, fingerprinted now if the load left it pending. */
+  function ensureBaseline(): SaveBaseline {
+    const dataset = pendingBaseline.current;
+    if (!dataset) return baseline.current;
+    pendingBaseline.current = null;
     const nameOf = (id: string | undefined) => {
       const indi = id ? dataset.individuals.get(id) : undefined;
       return indi ? displayName(indi.names[0]) : undefined;
@@ -121,6 +153,7 @@ export function useDirtyTracking() {
       if (!fam) return undefined;
       return [nameOf(fam.husband), nameOf(fam.wife)].filter(Boolean).join(" + ") || undefined;
     });
+    return baseline.current;
   }
 
   // ── public API ────────────────────────────────────────────────────────────
@@ -149,6 +182,7 @@ export function useDirtyTracking() {
    *  say) as their own dirty subject — the flag, not the audit, is what keeps
    *  them in the save report across a cached-session restore. */
   function captureSnapshotsForPush(patches: RecordPatch[]) {
+    ensureBaseline(); // before any record changes, and the ownership check below reads it
     bumpSubstantiveCounts(substantiveCounts.current, patches, 1);
     const ops = computePushCaptureOps(patches, hasSnapshot);
     for (const op of ops) {
@@ -171,6 +205,7 @@ export function useDirtyTracking() {
     direction: "undo" | "redo",
     dataset: Dataset,
   ) {
+    ensureBaseline();
     bumpSubstantiveCounts(substantiveCounts.current, patches, direction === "undo" ? -1 : 1);
     const { dirty, snapshots } = computePatchApplyOps(
       patches,
@@ -256,6 +291,7 @@ export function useDirtyTracking() {
     loadedPersonIds.current = new Set();
     loadedFamilyIds.current = new Set();
     baseline.current = new Map();
+    pendingBaseline.current = null;
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
@@ -361,6 +397,7 @@ export function useDirtyTracking() {
     loadedPersonIds,
     loadedFamilyIds,
     baseline,
+    ensureBaseline,
     personSnapshots,
     familySnapshots,
     recordSnapshots,

@@ -69,16 +69,34 @@ describe("gedcom.worker pipeline", () => {
   });
 
   it("a compare that fails to normalize against a new main fails the compare slot, not the main", async () => {
+    // A table compare, because its announced dataset is the worker's own
+    // object (a GEDCOM compare's never travels): breaking it breaks the kept
+    // compare, so its re-normalization throws once the main lands.
+    const index =
+      "zp. št.;župnija;datum poroke;naslov;ime ženina;priimek ženina;ime neveste;priimek neveste;opombe\r\n" +
+      "1;Trbovlje;1875-04-11;Dol 3;Janez;Novak;Marija;Kralj;\r\n";
     const send = await freshWorker();
-    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
-    // Break the kept compare so its re-normalization throws once the main lands.
+    send({ type: "parseCsv", fileName: "b.csv", buffer: enc(index) });
+    await flush();
     const parsedCompare = posted[0];
-    if (parsedCompare.type !== "parsed") throw new Error("expected parsed");
+    if (parsedCompare.type !== "parsed" || !parsedCompare.dataset) throw new Error("expected a parsed table compare");
     Object.defineProperty(parsedCompare.dataset, "records", { get() { throw new Error("boom"); } });
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
     expect(types()).toEqual(["parsed", "parsed", "error"]);
     expect(posted[1]).toMatchObject({ type: "parsed", role: "main", fileName: "a.ged" });
-    expect(posted[2]).toMatchObject({ type: "error", role: "compare", fileName: "b.ged" });
+    expect(posted[2]).toMatchObject({ type: "error", role: "compare", fileName: "b.csv" });
+  });
+
+  it("a GEDCOM dataset never travels; the main's profile and the compare's consolidation do", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    const [main, compare] = posted;
+    if (main.type !== "parsed" || compare.type !== "parsed") throw new Error("expected two parsed");
+    expect(main.dataset).toBeUndefined();
+    expect(main.profile).toBeDefined();
+    expect(compare.dataset).toBeUndefined();
+    expect(compare.report).toBeDefined();
   });
 
   it("replacing the main re-matches the kept compare against the new file", async () => {
@@ -145,14 +163,13 @@ describe("gedcom.worker pipeline", () => {
     const reEmit = posted[3];
     if (reEmit.type !== "parsed") throw new Error("expected a parsed re-emit");
     expect(reEmit.report?.consolidatedDuplicates).toBe(1);
-    // One survivor carrying the merged data; no pair references the merged-away id.
+    // The re-announcement carries the clusters for the main thread to replay
+    // on its own copy (see localLoad.test.ts), never the dataset itself.
+    expect(reEmit.dataset).toBeUndefined();
     const pairs = lastMatched()!.individuals;
     expect(pairs).toHaveLength(1);
     const survivor = pairs[0].compareId;
-    expect(reEmit.dataset.individuals.has(survivor)).toBe(true);
-    expect(reEmit.dataset.individuals.size).toBe(1);
-    // The merged-away record's own facts travelled onto the survivor.
-    expect(reEmit.dataset.individuals.get(survivor)!.events.some((e) => e.tag === "DEAT")).toBe(true);
+    expect(reEmit.consolidated).toEqual([{ keepId: survivor, mergeIds: [survivor === "@P1@" ? "@P2@" : "@P1@"] }]);
   });
 
   it("a parish-register index CSV goes through the ordinary matching engine", async () => {
@@ -172,8 +189,9 @@ describe("gedcom.worker pipeline", () => {
     expect(types()).toEqual(["parsed", "matching", "matched"]);
     const compare = posted[0];
     if (compare.type !== "parsed") throw new Error("expected the compare slot to parse");
-    // Groom, bride and the two parents his note names.
-    expect(compare.dataset.individuals.size).toBe(4);
+    // Groom, bride and the two parents his note names — and the dataset
+    // itself travels, since only the worker can build one from a table.
+    expect(compare.dataset!.individuals.size).toBe(4);
     expect(lastMatched()?.individuals[0]).toMatchObject({ mainId: "@I1@" });
   });
 
@@ -195,7 +213,7 @@ describe("gedcom.worker pipeline", () => {
     expect(parsed).toHaveLength(1);
     if (parsed[0].type !== "parsed") throw new Error("expected a parsed compare");
     expect(parsed[0].fileName).toBe("second.csv");
-    const names = [...parsed[0].dataset.individuals.values()].map((i) => i.names[0]?.given);
+    const names = [...parsed[0].dataset!.individuals.values()].map((i) => i.names[0]?.given);
     expect(names).toContain("Peter");
     expect(names).not.toContain("Janez");
   });

@@ -286,6 +286,37 @@ Not yet committed — cull as needed.
 
 ## Performance backlog (as large-file usage grows)
 
+- ~~**Stop cloning the dataset across the worker boundary**~~ *(done
+  2026-09-09 — `src/state/localLoad.ts`: the main thread builds its own
+  `Dataset` from the same bytes in parallel with the worker, normalizes an
+  incoming GEDCOM against the posted profile and replays the announced
+  consolidation; only a table-built compare travels. The clone had cost ~18 s
+  under node on Hawlina — the typed model's shared `.raw` back-references;
+  `records` alone cloned in 6.5 s, a JSON round trip 9 s — and less in
+  Chromium: measured in the production build with Playwright, Hawlina's
+  click-to-first-person went from 26–29 s to 16–20 s. Note the node
+  `structuredClone` overstates the browser's cost; measure load changes in the
+  browser, three runs each, the numbers swing by ±3 s.)* **Still open on the
+  load path:** a chunked, yielding main-thread parse so the spinner keeps moving
+  during the ~5 s local build. *(The work between the dataset landing in
+  state and the first person rendering was cut the same day: the save-report
+  fingerprint baseline is taken lazily — on idle, or from the first edit path
+  — the Add Source dialog, the Settings modal's home-country detection, the
+  Tools header counts and the merge overlay's page-media scan wait until
+  they are on screen or have an incoming file, and the worker posts its
+  place-export format so the first place field does not walk the file.
+  Hawlina click-to-first-person: 16–20 s → 11–13 s. What still runs at load:
+  `buildPlaceSuggestions` (~0.8 s, the Edit fields' datalist — lazy on
+  focus would be the next step), `detectPrivacyStyle` in EditView (~0.3 s,
+  though the worker's `detectedFormats.privacy` already knows), and the
+  place-style depth pass (~0.3 s).)*
+- **Within `buildDataset`** (4 s on Hawlina): `parseDate` is 0.7 s of it over
+  a million dates of which 10% are distinct — a memo would share `GedDate`
+  objects between events, so first confirm nothing mutates a parsed date in
+  place. `detectFormatDefaults` and `inferMainProfile` each count the same
+  DATE/PLAC values (0.25 s a pass); sharing one `collectLayoutValues` between
+  them saves ~0.5 s. The eight or so single-purpose tree walks in format
+  detection cost ~0.2 s each on Hawlina and could be one walk.
 - ~~**Memoize EditView subsections** (event rows, family grids) so a `tick` bump
   doesn't rebuild the whole subtree.~~ *(done 2026-07-13 — the in-place-mutation
   model is untouched; memo keys off the object identity `rebuildIndividual`/

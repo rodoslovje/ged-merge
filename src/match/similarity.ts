@@ -6,7 +6,7 @@ import { canonicalPlaceToken } from "./place";
 import { cachedFatherName, cachedMotherName } from "./profileCache";
 import { primaryName } from "./relatives";
 import { compareKey, foldToken, isPlaceholderName, jaroWinkler } from "./text";
-import { givenTokenSimilarity } from "./givenVariants";
+import { foldedGivenTokenSimilarity, givenTokenSimilarity } from "./givenVariants";
 
 /**
  * Field-level similarity functions. Each returns a score in 0..1, or
@@ -31,6 +31,23 @@ export function comparableName(n: PersonName | undefined): PersonName | undefine
   if (given === n.given && surname === n.surname && full === n.full) return n;
   if (!given && !surname && !full) return undefined;
   return { ...n, given, surname, full };
+}
+
+const ownNameCache = new WeakMap<Individual, PersonName | undefined>();
+
+/**
+ * {@link comparableName} of the person's primary name, memoized per
+ * individual. The placeholder test behind it runs a Unicode regex over each
+ * name part, and every gate, veto and score reads both sides' names — on a
+ * 50k-person scan that was a fifth of the whole run spent re-deriving the
+ * same answer. Keyed by object identity like `profileCache`: an edit rebuilds
+ * the `Individual`, so a stale entry is orphaned, never wrong.
+ */
+export function ownComparableName(indi: Individual): PersonName | undefined {
+  if (ownNameCache.has(indi)) return ownNameCache.get(indi);
+  const n = comparableName(primaryName(indi));
+  ownNameCache.set(indi, n);
+  return n;
 }
 
 /**
@@ -79,8 +96,8 @@ export const SAME_PERSON_GIVEN = 0.85;
  *  a separate hard veto, because the weighted-average pair score lets
  *  surname/birth/place drown out a clear given-name conflict. */
 export function differentGiven(a: Individual, b: Individual): boolean {
-  const ga = comparableName(primaryName(a))?.given;
-  const gb = comparableName(primaryName(b))?.given;
+  const ga = ownComparableName(a)?.given;
+  const gb = ownComparableName(b)?.given;
   if (!ga || !gb) return false;
   return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
 }
@@ -102,8 +119,8 @@ const GIVEN_PARTICLE_MAX = 2;
  * enough to keep the pair alive; none is the evidence that they are two people.
  */
 export function noGivenNameInCommon(a: Individual, b: Individual): boolean {
-  const ga = comparableName(primaryName(a))?.given;
-  const gb = comparableName(primaryName(b))?.given;
+  const ga = ownComparableName(a)?.given;
+  const gb = ownComparableName(b)?.given;
   if (!ga || !gb) return false;
   const names = (given: string) =>
     foldToken(given).split(" ").filter((tok) => tok.length > GIVEN_PARTICLE_MAX);
@@ -129,8 +146,8 @@ export const SAME_PERSON_YEAR_GAP = 3;
  * that absence must not count as agreement when nobody confirmed the match.
  */
 export function identityEvidence(a: Individual, b: Individual): boolean {
-  const ga = comparableName(primaryName(a))?.given;
-  const gb = comparableName(primaryName(b))?.given;
+  const ga = ownComparableName(a)?.given;
+  const gb = ownComparableName(b)?.given;
   if (ga && gb) return true;
   return birthYear(a) !== undefined && birthYear(b) !== undefined;
 }
@@ -200,7 +217,7 @@ export function motherVerdict(
 function maidenSurname(mother: PersonName | undefined, child: Individual): string | undefined {
   const surname = mother?.surname;
   if (!surname) return undefined;
-  const own = comparableName(primaryName(child))?.surname;
+  const own = ownComparableName(child)?.surname;
   if (own && jaroWinkler(foldToken(surname), foldToken(own)) >= 0.9) return undefined;
   return surname;
 }
@@ -254,16 +271,35 @@ export function nameSimilarity(a: PersonName, b: PersonName): number | undefined
  *  Latin on one side and Slovenian on the other ("Bartholomeus"/"Jernej")
  *  counts as the same name rather than as two. */
 export function givenSimilarity(a: string, b: string): number {
-  const at = foldToken(a).split(" ").filter(Boolean);
-  const bt = foldToken(b).split(" ").filter(Boolean);
+  const at = givenTokens(a);
+  const bt = givenTokens(b);
   if (at.length === 0 || bt.length === 0) return givenTokenSimilarity(a, b);
   // Best-match average from the shorter set into the longer set.
   const [small, large] = at.length <= bt.length ? [at, bt] : [bt, at];
-  const total = small.reduce(
-    (s, x) => s + Math.max(...large.map((y) => givenTokenSimilarity(x, y))),
-    0,
-  );
+  let total = 0;
+  for (const x of small) {
+    let best = 0;
+    for (const y of large) {
+      const s = foldedGivenTokenSimilarity(x, y);
+      if (s > best) best = s;
+    }
+    total += best;
+  }
   return total / small.length;
+}
+
+const givenTokenCache = new Map<string, string[]>();
+
+/** The folded tokens of a given name, memoized by the name as written: a
+ *  file has a few thousand distinct given names and compares them millions
+ *  of times, so the split is paid once per spelling, not once per pair. */
+function givenTokens(given: string): string[] {
+  let tokens = givenTokenCache.get(given);
+  if (!tokens) {
+    tokens = foldToken(given).split(" ").filter(Boolean);
+    givenTokenCache.set(given, tokens);
+  }
+  return tokens;
 }
 
 export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): number | undefined {

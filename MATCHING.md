@@ -217,11 +217,14 @@ named after one grandfather — nothing changes. From four (`UBIQUITOUS_NAMESAKE
 
 - **the name never makes a pair strong on its own** — a pair anchored by
   nothing but a crowd name (no day-precision date agreement, no comparable
-  relatives) is held one point under the strong threshold (0.84). Not the 0.6
-  no-evidence ceiling: that would drop it from the within-file list, and
-  "Ana Simonič ~1805" against the christening record "Ana Simonič 19 Mar 1806"
-  is the stub-and-record pair a curated tree most wants reviewed — it just
-  must not be called certain;
+  relatives) is held under the strong threshold: everything it scores above
+  0.8 (`UBIQUITOUS_NAME_KNEE`) is squeezed linearly into 0.80–0.84, so a 96.8
+  pair lands at 83.4 and an 85.9 one at 81.2 — held pairs keep their order in
+  the list instead of piling up on one value. Not the 0.6 no-evidence ceiling:
+  that would drop them from the within-file list, and "Ana Simonič ~1805"
+  against the christening record "Ana Simonič 19 Mar 1806" is the
+  stub-and-record pair a curated tree most wants reviewed — it just must not
+  be called certain;
 - **the surname and given weights shrink** logarithmically past the threshold
   (`nameEvidenceFactor`: ~0.8 at four, ~0.6 at ten, floor 0.5 at ~23), so the
   average leans on dates, places and relatives, and the missing-key charge on
@@ -240,7 +243,7 @@ and moved the bare-year same-name pairs (`Anton Gregorec 1852` × `Anton
 Gregorec 1852`, 97 → 84) into the probable band. Hawlina (493k people): 134 232
 → 112 552 pairs — the 21 680 dropped are all ≤78, crowd names years apart —
 and strong 7 778 → 5 198, the 2 580 moved being same-name bare-year pairs now
-held at 84.9; the scan's one extra pass over the file is not measurable
+held in the low 80s; the scan's one extra pass over the file is not measurable
 against its five minutes.
 
 Finally:
@@ -347,6 +350,20 @@ Same blocking, gates and scoring — with three differences:
   - otherwise, some parent role conflicting with none agreeing → cousins.
 - Output pairs are oriented so the record with more linked relatives leads as
   the merge survivor.
+
+**Where the time goes.** Profiled 2026-09 on Ivanc (52k people) and Hawlina
+(494k): the scoring itself is a small share; the cheap gates dominate because
+they run on every blocked pair, and what they read per pair is per-person
+work — the placeholder-filtered name (`ownComparableName`), the era year
+(`eraYear`), the folded given-name tokens (`givenTokens`) — so all three are
+memoized per individual or per spelling. The blocking loop keeps each person's
+keys and a rank in id order, and dedupes a person's candidates with a stamp
+array rather than a per-person `Set` of ids. The jaro-winkler cache is keyed
+by the two strings (a concatenated key cost more to build and hash than the
+similarity it saved) and capped at a million entries, which held Hawlina's
+heap in check. Ivanc's scan went 6.5 s → 1.8 s with identical output; when
+tuning, re-profile with a bundled `findDuplicates` under `node --cpu-prof`
+rather than through vitest, whose worker exits before writing its profile.
 
 ## Parent bands (shared)
 
@@ -477,7 +494,7 @@ nothing either way and is settled, as before, by listing order.
 |---|---|
 | Weights, gates, `missingKeyScore`, bonuses, category thresholds | `DEFAULT_CONFIG` in `src/match/types.ts` |
 | Given-conflict penalty (0.7 / ×0.8), parent-conflict penalty (×0.8), no-evidence ceiling (0.6), marriage-age range | module constants in `src/match/scoreIndividual.ts` |
-| Crowd names: ubiquity threshold (4 namesakes), the one-point hold under strong, the weight halving (20 past the threshold, floor 0.5), the relative span (±60) | `UBIQUITOUS_NAMESAKES`, `UBIQUITOUS_NAME_MARGIN`, `NAME_WEIGHT_HALVING`, `NAME_WEIGHT_FLOOR`, `RELATIVE_NAMESAKE_SPAN` in `src/match/scoreIndividual.ts`; the count itself in `src/match/nameFrequency.ts` |
+| Crowd names: ubiquity threshold (4 namesakes), the hold under strong (one point) and its squeeze knee (0.8), the weight halving (20 past the threshold, floor 0.5), the relative span (±60) | `UBIQUITOUS_NAMESAKES`, `UBIQUITOUS_NAME_MARGIN`, `UBIQUITOUS_NAME_KNEE`, `NAME_WEIGHT_HALVING`, `NAME_WEIGHT_FLOOR`, `RELATIVE_NAMESAKE_SPAN` in `src/match/scoreIndividual.ts`; the count itself in `src/match/nameFrequency.ts` |
 | Parent bands (0.75 / 0.65, mother surname 0.7) | `src/match/similarity.ts` |
 | Consolidation vetoes (0.85 given, ±3 years, ≥85 pair score) | `src/match/engine.ts` |
 | Within-file vetoes (0.85 given, cutoff 0.70) | `src/tools/duplicates.ts` |

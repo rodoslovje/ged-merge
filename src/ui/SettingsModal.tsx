@@ -304,8 +304,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // Asked for even where the reader has chosen a country by hand: this row is
   // where "follow the file" is read, and an option that could not say what it
   // would do cannot be chosen with open eyes.
-  const answer = useHomeCountryDetection({ evenWhenUnused: true });
-  const detection = derivations?.homeCountry();
+  // The modal stays mounted shut; the detection walks every place in the
+  // file, so it waits for the modal to open.
+  const answer = useHomeCountryDetection({ evenWhenUnused: true, enabled: isOpen });
+  const detection = isOpen ? derivations?.homeCountry() : undefined;
   const homeCountryOptions = useMemo(() => {
     const named = (code: string) => countryFacetLabel(code, i18n.language);
     const detectedCode = detection?.code || answer.register.code;

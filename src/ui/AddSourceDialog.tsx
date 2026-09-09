@@ -97,6 +97,9 @@ function extractPage(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
 }
 
+/** No link language known while the dialog is shut (nothing is rewritten). */
+const CLOSED_LINK_LANGS = { matricula: undefined, geneanet: undefined };
+
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   const rec = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
@@ -126,10 +129,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const { settings } = useSettings();
   const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
 
-  const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
+  // Both derivations walk the whole file, and the dialog is mounted shut on
+  // every Edit page — so they wait for it to open (a second each on a
+  // 500k-person file, once per file).
+  const mainLinkLangs = useMemo(
+    () => (isOpen ? inferMainProfile(dataset).linkLangs : CLOSED_LINK_LANGS),
+    [dataset, isOpen],
+  );
   // Places shown in the dialog already match the file's own place format —
   // the same resolution commit applies, so what you see is what gets saved.
-  const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
+  const resolvePlace = useMemo(
+    () => (isOpen ? makePlaceResolver(dataset.records) : (place: string | undefined) => place),
+    [dataset, isOpen],
+  );
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
     // A FamilySearch link keeps its ark, the image it was copied at and the

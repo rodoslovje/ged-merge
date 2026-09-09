@@ -20,6 +20,7 @@ import {
   motherVerdict,
   nameSetSimilarity,
   nameSimilarity,
+  ownComparableName,
   placeSimilarity,
 } from "./similarity";
 import { foldToken, jaroWinkler } from "./text";
@@ -53,8 +54,8 @@ export function scoreIndividualPair(
   // Placeholder name parts ("Living", "NN", "?Ime?") are treated as missing —
   // see comparableName — so they earn the missing-key penalty instead of a
   // perfect placeholder-to-placeholder match.
-  const mn = comparableName(primaryName(main));
-  const cn = comparableName(primaryName(compare));
+  const mn = ownComparableName(main);
+  const cn = ownComparableName(compare);
 
   // How many other people in the pool the name could be (see `pairNamesakes`).
   const namesakes = freq ? freq.pairNamesakes(main, mainDs, compare, compareDs) : 0;
@@ -171,8 +172,14 @@ export function scoreIndividualPair(
     // pair stays listed — it may well be the stub and the record of one
     // woman, which is what a reviewer is there to decide — but a name that
     // identifies nobody in particular never makes a pair *strong* on its
-    // own; that takes a day-precision date or a relative in common.
-    score01 = Math.min(score01, config.strongThreshold - UBIQUITOUS_NAME_MARGIN);
+    // own; that takes a day-precision date or a relative in common. Squeezed
+    // rather than clamped, so the held pairs keep their order in the list
+    // (see UBIQUITOUS_NAME_KNEE).
+    const ceiling = config.strongThreshold - UBIQUITOUS_NAME_MARGIN;
+    if (score01 > UBIQUITOUS_NAME_KNEE) {
+      score01 = UBIQUITOUS_NAME_KNEE +
+        ((score01 - UBIQUITOUS_NAME_KNEE) * (ceiling - UBIQUITOUS_NAME_KNEE)) / (1 - UBIQUITOUS_NAME_KNEE);
+    }
   }
 
   // The identity key — surname, given name and birth date — is conclusive: when
@@ -307,6 +314,16 @@ const UBIQUITOUS_NAMESAKES = 4;
  * duplicate finder's score picker drops below strong.
  */
 const UBIQUITOUS_NAME_MARGIN = 0.01;
+
+/**
+ * Score (0..1) above which a held pair is squeezed instead of clamped: the
+ * range from here to 1 maps linearly onto the range from here to the hold
+ * ceiling, so a 96.8 stub-and-record pair (→ 83.4) still lists ahead of an
+ * 85.9 near-miss (→ 81.2) instead of both landing on 84.0. Below the knee a
+ * held pair scores as it is, so the map is monotonic across the whole crowd
+ * population and the within-file cutoff (0.7) is untouched.
+ */
+const UBIQUITOUS_NAME_KNEE = 0.8;
 
 /**
  * Namesakes *beyond* the ubiquity threshold at which the surname and
@@ -600,8 +617,8 @@ export function plausibleIndividualMatch(
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {
-  const an = comparableName(primaryName(a));
-  const bn = comparableName(primaryName(b));
+  const an = ownComparableName(a);
+  const bn = ownComparableName(b);
   const surname =
     an?.surname && bn?.surname
       ? jaroWinkler(foldToken(an.surname), foldToken(bn.surname))
@@ -677,7 +694,7 @@ export function individualBlockKeys(
   // A record whose only name parts are placeholders gets no blocking key at
   // all — it can't be meaningfully matched by name. (Relationship linking can
   // still connect it through matched relatives, which needs no name.)
-  const n = comparableName(primaryName(indi));
+  const n = ownComparableName(indi);
   const surname = n?.surname;
   const given = n?.given;
   const sdx = soundex(surname ?? given ?? "");

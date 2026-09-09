@@ -159,12 +159,22 @@ export function findDuplicates(
 ): DuplicatePair[] {
   // Blocking: bucket individuals by phonetic/decade keys so only plausible
   // pairs reach the expensive scoring pass.
-  const index = new Map<string, Individual[]>();
+  // Each person's keys are computed once and kept for the query pass; each
+  // person also gets a rank in id order, so "lower-id side" below is an
+  // integer comparison rather than a string one.
+  const index = new Map<string, number[]>();
+  const keysOf = new Map<Individual, string[]>();
+  const rank = new Map<Individual, number>();
+  const byRank = [...ds.individuals.values()].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+  byRank.forEach((indi, i) => rank.set(indi, i));
   for (const indi of ds.individuals.values()) {
-    for (const key of individualBlockKeys(indi, soundex, ds)) {
+    const keys = individualBlockKeys(indi, soundex, ds);
+    keysOf.set(indi, keys);
+    const r = rank.get(indi)!;
+    for (const key of keys) {
       let bucket = index.get(key);
       if (!bucket) index.set(key, (bucket = []));
-      bucket.push(indi);
+      bucket.push(r);
     }
   }
 
@@ -175,40 +185,45 @@ export function findDuplicates(
   const total = ds.individuals.size;
   let done = 0;
 
+  // A person met through several of `a`'s keys is scored once: the stamp
+  // marks whom this `a` has already seen. No per-`a` Set of ids (whose
+  // building dominated the scan's own time on dense blocks) and no global
+  // seen-pairs set — on a 500k-person file such a set exceeded V8's ~16.7M-
+  // entry Set limit and crashed the whole scan.
+  const seen = new Uint32Array(total);
   for (const a of ds.individuals.values()) {
     if (onProgress && ++done % PROGRESS_EVERY === 0) onProgress(done, total);
-    const candidates = new Set<string>();
-    for (const key of individualBlockKeys(a, soundex, ds)) {
+    const ra = rank.get(a)!;
+    const stamp = ra + 1;
+
+    for (const key of keysOf.get(a)!) {
       const bucket = index.get(key);
-      if (bucket) for (const b of bucket) candidates.add(b.id);
-    }
+      if (!bucket) continue;
+      for (const rb of bucket) {
+        // Each unordered pair is scored once: only from its lower-id side.
+        if (rb <= ra || seen[rb] === stamp) continue;
+        seen[rb] = stamp;
+        const b = byRank[rb];
 
-    for (const bId of candidates) {
-      // Each unordered pair is scored once: only from its lower-id side. (The
-      // per-individual `candidates` set already dedups multi-key hits, so no
-      // global seen-pairs set is needed — on a 500k-person file such a set
-      // exceeded V8's ~16.7M-entry Set limit and crashed the whole scan.)
-      if (bId <= a.id) continue;
+        if (sexConflicts(a, b)) continue;
+        if (!plausibleIndividualMatch(a, b, config.gates, ds, ds)) continue;
+        if (distinctRelatives(a, b, ds)) continue;
+        const cand = scoreIndividualPair(a, b, ds, ds, config, freq);
+        if (cand.score / 100 < minScore) continue;
 
-      const b = ds.individuals.get(bId)!;
-      if (sexConflicts(a, b)) continue;
-      if (!plausibleIndividualMatch(a, b, config.gates, ds, ds)) continue;
-      if (distinctRelatives(a, b, ds)) continue;
-      const cand = scoreIndividualPair(a, b, ds, ds, config, freq);
-      if (cand.score / 100 < minScore) continue;
-
-      // Orient the pair so the left/survivor is the record with more linked
-      // relatives. Merging keeps the left record and re-points the right's links
-      // onto it, so leading with the richer record minimizes the changes.
-      const [left, right] = relationshipCount(b, ds) > relationshipCount(a, ds) ? [b, a] : [a, b];
-      out.push({
-        aId: left.id,
-        bId: right.id,
-        aLabel: label(left),
-        bLabel: label(right),
-        score: cand.score,
-        category: cand.category,
-      });
+        // Orient the pair so the left/survivor is the record with more linked
+        // relatives. Merging keeps the left record and re-points the right's
+        // links onto it, so leading with the richer record minimizes the changes.
+        const [left, right] = relationshipCount(b, ds) > relationshipCount(a, ds) ? [b, a] : [a, b];
+        out.push({
+          aId: left.id,
+          bId: right.id,
+          aLabel: label(left),
+          bLabel: label(right),
+          score: cand.score,
+          category: cand.category,
+        });
+      }
     }
   }
 

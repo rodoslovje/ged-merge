@@ -16,20 +16,22 @@ const parsed = (over: Partial<ParsedMessage> = {}): ParsedMessage => ({
   type: "parsed",
   role: "main",
   fileName: "rodovnik.ged",
-  dataset,
   ...over,
 });
 
+/** The message stands for the main thread's own dataset (see LocalLoads). */
+const load = (over: Partial<ParsedMessage> = {}) => loadedFileFromParsed(parsed(over), dataset);
+
 describe("loadedFileFromParsed", () => {
   it("always carries the file name and dataset", () => {
-    const file = loadedFileFromParsed(parsed());
+    const file = load();
     expect(file.fileName).toBe("rodovnik.ged");
     expect(file.dataset).toBe(dataset);
   });
 
   it("carries every detection the message reported", () => {
-    const file = loadedFileFromParsed(
-      parsed({
+    const file = load(
+      ({
         placeLayout: "structured-addr",
         dateFormat: "DD.MM.YYYY",
         datePlaceholder: "_",
@@ -58,7 +60,7 @@ describe("loadedFileFromParsed", () => {
   it("omits absent detections entirely, rather than setting them undefined", () => {
     // The UI tests these for presence; an explicit undefined key would make
     // `"dateFormat" in file` true and read as "detected nothing".
-    const file = loadedFileFromParsed(parsed());
+    const file = load();
 
     expect("dateFormat" in file).toBe(false);
     expect("placeLayout" in file).toBe(false);
@@ -67,19 +69,19 @@ describe("loadedFileFromParsed", () => {
   });
 
   it("omits a falsy detection, which the worker uses for 'none'", () => {
-    const file = loadedFileFromParsed(parsed({ marriedNameTag: false, unknownNameStyle: "" }));
+    const file = load(({ marriedNameTag: false, unknownNameStyle: "" }));
     expect("marriedNameTag" in file).toBe(false);
     expect("unknownNameStyle" in file).toBe(false);
   });
 
   it("keeps a zero-coordinate usage report, which is meaningful", () => {
-    const file = loadedFileFromParsed(parsed({ coordUsage: { withCoord: 0, total: 42 } }));
+    const file = load(({ coordUsage: { withCoord: 0, total: 42 } }));
     expect(file.coordUsage).toEqual({ withCoord: 0, total: 42 });
   });
 
   it("builds a fresh object each time, sharing no state between slots", () => {
-    const a = loadedFileFromParsed(parsed({ dateFormat: "DD.MM.YYYY" }));
-    const b = loadedFileFromParsed(parsed({ role: "compare" }));
+    const a = load(({ dateFormat: "DD.MM.YYYY" }));
+    const b = load(({ role: "compare" }));
     expect(a).not.toBe(b);
     expect("dateFormat" in b).toBe(false);
   });

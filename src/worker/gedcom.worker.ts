@@ -118,7 +118,11 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           type: "parsed",
           role: "main",
           fileName: req.fileName,
-          dataset,
+          // No dataset: the main thread builds its own from the same bytes
+          // (see ParseSuccess.dataset). The profile travels so it can
+          // normalize an incoming file the same way this worker does.
+          profile,
+          placeFmt: inferPlaceExportFormat(dataset), // cached from the profile inference above
           detectedFormats,
           placeLayout: (detectedFormats.place as PlaceLayout | undefined) ?? "unknown",
           dateFormat: detectedFormats.date,
@@ -136,7 +140,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       compareGeneration++;
       compareRaw = { fileName: req.fileName, dataset };
       compareCsvPairs = undefined;
-      emitCompare(req.fileName, dataset);
+      emitCompare(req.fileName, dataset, false);
     }
   } catch (err) {
     post({
@@ -155,7 +159,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (req.role === "main" && compareRaw) {
     const { fileName } = compareRaw;
     try {
-      emitCompare(fileName, compareRaw.dataset);
+      emitCompare(fileName, compareRaw.dataset, compareCsvPairs !== undefined);
     } catch (err) {
       compareRaw = undefined;
       post({ type: "error", role: "compare", fileName, message: errorMessage(err) });
@@ -197,7 +201,7 @@ async function loadCompareTable(fileName: string, buffer: ArrayBuffer, generatio
     if (generation !== compareGeneration) return; // another file claimed the slot
     compareCsvPairs = pairs;
     compareRaw = { fileName, dataset };
-    emitCompare(fileName, dataset);
+    emitCompare(fileName, dataset, true);
   } catch (err) {
     // A superseded file's failure is not this slot's problem: erroring here
     // would fail the file the reader actually chose.
@@ -209,8 +213,11 @@ async function loadCompareTable(fileName: string, buffer: ArrayBuffer, generatio
   tryMatch();
 }
 
-/** Emit the compare slot, normalized to the main profile when available. */
-function emitCompare(fileName: string, rawDataset: Dataset): void {
+/** Emit the compare slot, normalized to the main profile when available.
+ *  `withDataset` sends the dataset itself — only for a table-built compare,
+ *  which the main thread cannot build; a GEDCOM compare is rebuilt there
+ *  from the file's bytes (see ParseSuccess.dataset). */
+function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean): void {
   // One walk collects DATE and PLAC/ADDR values together, shared below by the
   // place/date layout reports and (when normalizing) the source date order —
   // instead of each walking the record tree on its own.
@@ -232,13 +239,13 @@ function emitCompare(fileName: string, rawDataset: Dataset): void {
   if (!profile) {
     compareNormalized = rawDataset;
     lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage };
-    post({ type: "parsed", role: "compare", dataset: rawDataset, ...lastCompareMeta });
+    post({ type: "parsed", role: "compare", ...(withDataset ? { dataset: rawDataset } : {}), ...lastCompareMeta });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
   lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage };
-  post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
+  post({ type: "parsed", role: "compare", ...(withDataset ? { dataset } : {}), ...lastCompareMeta });
 }
 
 /** Run matching once both sides are available, ranked if a start person is set. */
@@ -252,15 +259,18 @@ function maybeMatch(): void {
   // (detected by matching the same main) into one, then re-emit the cleaned
   // compare so the merge and tree see a single record carrying all the data.
   if (result.incomingDuplicates?.length) {
-    for (const { keepId, mergeIds } of result.incomingDuplicates) {
+    const clusters = result.incomingDuplicates;
+    for (const { keepId, mergeIds } of clusters) {
       for (const id of mergeIds) {
         mergeDuplicate(compareNormalized, keepId, id, { status: "confirmed", fields: {} }, rawLabel);
       }
     }
-    const consolidated = result.incomingDuplicates.reduce((n, c) => n + c.mergeIds.length, 0);
+    const consolidated = clusters.reduce((n, c) => n + c.mergeIds.length, 0);
     result = { individuals: result.individuals };
     if (lastCompareMeta?.report) lastCompareMeta.report.consolidatedDuplicates = consolidated;
-    if (lastCompareMeta) post({ type: "parsed", role: "compare", dataset: compareNormalized, ...lastCompareMeta });
+    // The clusters travel, not the dataset: the main thread replays the same
+    // merges on its own copy (see ParseSuccess.consolidated).
+    if (lastCompareMeta) post({ type: "parsed", role: "compare", consolidated: clusters, ...lastCompareMeta });
   }
   result = annotateCounts(result, mainDataset, compareNormalized);
   if (startId) result = applyDistanceRanking(result, mainDataset, startId);
