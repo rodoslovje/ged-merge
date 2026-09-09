@@ -30,6 +30,10 @@ import { linkKey } from "../../normalize/links";
 const COPY_OPTION = "__copy_event__";
 const REMOVE_OPTION = "__remove_event__";
 
+/** The widest a note chip grows (see NotesEditor): a longer line wraps inside
+ *  the chip, so the note stands more than a line tall. */
+const NOTE_CHIP_CH = 48;
+
 /** Editable date/place/address/links for a single event (individual or
  * family), e.g. `1 BIRT` or `1 MARR`. */
 export function EventFieldsRow({
@@ -774,8 +778,63 @@ export function EventFieldsRow({
     if (key && advanceEntry(key)) e.preventDefault();
   }
 
+  /* A note that stands more than a line tall — several notes, a note of
+   * several lines, or one too long for its chip — goes beside the field
+   * group rather than into its wrapping flow: under the fields it added its
+   * whole height to the row, while beside them the fields fold at no cost. A
+   * one-line note stays in the flow, where it reads on after the fields.
+   * Judged on the committed notes, not the draft being typed, so a row does
+   * not re-lay itself out under the cursor. */
+  const noteTall = noteField.isMerge
+    ? noteField.value.includes("\n") || noteField.value.length > NOTE_CHIP_CH
+    : (ev?.noteRefs?.length ?? 0) > 1 ||
+      (ev?.noteRefs ?? []).some((r) => {
+        const text = r.text.replace(/^\n+/, "");
+        return text.includes("\n") || text.length > NOTE_CHIP_CH;
+      });
+  const noteEl = (
+      <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
+        <span className="edit-event-extra-label">{t("event.colNote")}</span>
+        {/* An event may carry any number of notes, and one the editor cannot
+            see is one it can lose. They read as chips, each with its own 🔒,
+            exactly like a person's own notes.
+
+            The single field stays for the one case the list cannot serve: a
+            merge proposing a note. That value is a suggestion attached to
+            this field — accepted by committing, discarded by clearing — and
+            the list has no such state. Once the merge is resolved the row is
+            rebuilt from the record and the list takes over again. */}
+        {noteField.isMerge ? (
+          <ClearableTextarea
+            wrapClassName="edit-event-extra-field"
+            wrapStyle={noteW(noteField.value)}
+            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
+            value={noteField.value}
+            title={t("event.note", { event: label })}
+            rows={1}
+            onChange={noteField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+          />
+        ) : (
+          <NotesEditor
+            key={noteEditorKey}
+            notes={ev?.noteRefs ?? []}
+            addTrigger={noteAddTrigger}
+            t={t}
+            onCommit={(refs) => commitAll({ noteRefs: refs })}
+          />
+        )}
+      </span>
+  );
+
   return (
     <div className="edit-event" ref={rootRef} onKeyDown={onRowKeyDown}>
+      {/* The fields wrap among themselves inside this group, and the note stands
+          beside the group rather than under it: a note of seven lines used to
+          push the whole event a line down and then sit alone below the fields,
+          where the fields folding into two lines beside it cost nothing. */}
+      <div className="edit-event-main">
       {/* Column 1: event-type label with the expand toggle beside it. When the
        * tag can be reassigned and/or the event removed, the label becomes an
        * app-styled menu — type choices (if any) plus "Copy event to…" /
@@ -1066,39 +1125,7 @@ export function EventFieldsRow({
             />
           </span>
         )}
-        <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
-          <span className="edit-event-extra-label">{t("event.colNote")}</span>
-          {/* An event may carry any number of notes, and one the editor cannot
-              see is one it can lose. They read as chips, each with its own 🔒,
-              exactly like a person's own notes.
-
-              The single field stays for the one case the list cannot serve: a
-              merge proposing a note. That value is a suggestion attached to
-              this field — accepted by committing, discarded by clearing — and
-              the list has no such state. Once the merge is resolved the row is
-              rebuilt from the record and the list takes over again. */}
-          {noteField.isMerge ? (
-            <ClearableTextarea
-              wrapClassName="edit-event-extra-field"
-              wrapStyle={noteW(noteField.value)}
-              className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
-              value={noteField.value}
-              title={t("event.note", { event: label })}
-              rows={1}
-              onChange={noteField.onChange}
-              onBlur={() => commitAll({})}
-              onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
-            />
-          ) : (
-            <NotesEditor
-              key={noteEditorKey}
-              notes={ev?.noteRefs ?? []}
-              addTrigger={noteAddTrigger}
-              t={t}
-              onCommit={(refs) => commitAll({ noteRefs: refs })}
-            />
-          )}
-        </span>
+        {!noteTall && noteEl}
         {/* Add a source / place / note / other detail without keeping every empty
          * field on screen — the menu offers only the ones not already shown. */}
         {addable.length > 0 && (
@@ -1112,6 +1139,8 @@ export function EventFieldsRow({
           />
         )}
       </div>
+      </div>
+      {noteTall && noteEl}
     </div>
   );
 }
