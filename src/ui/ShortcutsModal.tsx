@@ -110,8 +110,8 @@ function Columns({ shown, legend }: { shown: Shown[]; legend?: React.ReactNode }
 /** On paper the columns are set by hand — flowing columns fragment across
  *  pages unpredictably — so the three fill one A4 landscape page evenly. */
 const PRINT_COLUMNS = [
-  ["shortcuts.group.general", "shortcuts.group.modes", "shortcuts.group.charts"],
-  ["shortcuts.group.navigation"],
+  ["shortcuts.group.general", "shortcuts.group.charts"],
+  ["shortcuts.group.modes", "shortcuts.group.navigation"],
   ["shortcuts.group.editing", "shortcuts.group.decisions"],
 ];
 

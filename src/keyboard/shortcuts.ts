@@ -46,6 +46,8 @@ export const CHART_KEY = {
   home: KEY.home,
   /** Open the selected person in Edit — the mode's own letter. */
   edit: KEY.modeEdit,
+  /** Show or hide the overview map in the corner. */
+  minimap: "o",
 } as const;
 
 /**
@@ -254,6 +256,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[CHART_KEY.edit.toUpperCase()]], descKey: "shortcuts.item.chartEdit" },
       { keys: [["Tab"], ["Enter"]], descKey: "shortcuts.item.chartNode" },
       { keys: [["←"], ["→"], ["↑"], ["↓"]], descKey: "shortcuts.item.chartScroll" },
+      { keys: [[CHART_KEY.minimap.toUpperCase()]], descKey: "shortcuts.item.chartMinimap" },
     ],
   },
 ];
