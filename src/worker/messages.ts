@@ -1,5 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import type { MainProfile, NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
+import type { PlaceExportFormat } from "../normalize/profile";
 import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
 import type { IncomingDuplicateCluster, MatchResult } from "../match/types";
 
@@ -62,6 +63,11 @@ export interface ParseSuccess {
   /** Main only: the inferred profile with the user's overrides applied — what
    *  the main thread normalizes an incoming GEDCOM against. */
   profile?: MainProfile;
+  /** Main only: how the file itself writes places (no overrides), as
+   *  `inferPlaceExportFormat` would answer — computed here anyway for the
+   *  profile, and posted so the main thread's place fields need not walk the
+   *  file again for it. */
+  placeFmt?: PlaceExportFormat;
   /**
    * Compare only, on the re-announcement after matching: incoming records the
    * engine found to be one person split across duplicates, which the worker

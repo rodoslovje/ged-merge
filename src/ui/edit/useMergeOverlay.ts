@@ -126,10 +126,12 @@ export function useMergeOverlay({
 
   /** Whether this file keeps a cited page's image beside the citation — the
    *  question `linkPageMedia` asks when the merge writes one. Read once per
-   *  file: it scans every record, and the preview asks it of link after link. */
+   *  file: it scans every record, and the preview asks it of link after link.
+   *  Not before an incoming file is loaded, though: nothing merges without
+   *  one, and the scan would otherwise sit on every load's critical path. */
   const pageMediaStyle = useMemo(
-    () => formatOverrides?.pageMedia ?? detectPageMediaStyle(dataset.records),
-    [dataset, formatOverrides],
+    () => formatOverrides?.pageMedia ?? (compareDataset ? detectPageMediaStyle(dataset.records) : undefined),
+    [dataset, formatOverrides, compareDataset],
   );
 
   /** Merge preview data for the currently selected person's confirmed match. */
@@ -330,7 +332,8 @@ export function useMergeOverlay({
     // it would have become there, rather than being left behind.
     const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent, {
       ...linkPlacementFor(dataset, formatOverrides),
-      pageMedia: pageMediaStyle,
+      // Known by now — an incoming file is loaded — the fallback only narrows the type.
+      pageMedia: pageMediaStyle ?? detectPageMediaStyle(dataset.records),
     });
     return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
   });

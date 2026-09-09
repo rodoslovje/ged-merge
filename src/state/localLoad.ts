@@ -2,7 +2,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Dataset } from "../gedcom/types";
 import { normalizeDataset } from "../normalize/normalize";
-import { collectLayoutValues } from "../normalize/profile";
+import { collectLayoutValues, primePlaceExportFormat } from "../normalize/profile";
 import type { MainProfile } from "../normalize/types";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "../worker/messages";
@@ -79,7 +79,11 @@ export class LocalLoads {
     if (msg.role === "main") {
       this.profile = msg.profile;
       if (msg.dataset) return msg.dataset;
-      return this.main?.fileName === msg.fileName ? this.main.dataset : undefined;
+      const main = this.main?.fileName === msg.fileName ? this.main.dataset : undefined;
+      // The worker already walked the file for its place format; hand the
+      // answer to this side's copy so the first place field need not.
+      if (main && msg.placeFmt) primePlaceExportFormat(main, msg.placeFmt);
+      return main;
     }
     if (msg.consolidated) {
       if (!currentCompare) return undefined;

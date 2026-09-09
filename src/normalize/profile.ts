@@ -427,7 +427,7 @@ export function placeSeparatorText(kind: "comma" | "comma-space"): string {
   return kind === "comma" ? "," : ", ";
 }
 
-type PlaceExportFormat = {
+export type PlaceExportFormat = {
   layout: PlaceLayout;
   separator: string;
   countryPreferred?: Map<string, string>;
@@ -435,6 +435,13 @@ type PlaceExportFormat = {
   forms?: PlaceFormVocabulary;
 };
 const placeExportFormatCache = new WeakMap<Dataset, PlaceExportFormat>();
+
+/** Seed {@link inferPlaceExportFormat}'s answer for a dataset — the worker
+ *  computes it during the load and posts it, so the main thread's first
+ *  place field does not walk the whole file again. */
+export function primePlaceExportFormat(dataset: Dataset, fmt: PlaceExportFormat): void {
+  placeExportFormatCache.set(dataset, fmt);
+}
 
 /**
  * The main's place layout plus its PLAC part separator ("," vs ", "), used at

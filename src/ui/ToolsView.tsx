@@ -159,14 +159,16 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
   // neither restarts a scan nor loses a finished one.
   const scans = useToolsScans(dataset, editVersionRef);
 
-  // Cheap whole-file counts for the header overview; recomputed only per dataset.
-  const stats = useMemo(() => ({
+  // Whole-file counts for the header overview; recomputed only per dataset,
+  // and only once Tools is on screen — the view stays mounted behind Edit,
+  // and the distinct-place count walks every record.
+  const stats = useMemo(() => (active ? {
     indi: dataset.individuals.size,
     fam: dataset.families.size,
     sources: dataset.records.filter((r) => r.tag === "SOUR" && r.xref).length,
     media: dataset.records.filter((r) => r.tag === "OBJE" && r.xref).length,
     places: countDistinctPlaces(dataset),
-  }), [dataset]);
+  } : undefined), [dataset, active]);
 
   return (
     <div className="tools-view">
@@ -175,7 +177,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
             — so each needs its own plural form, and Slovenian needs four per
             noun. One key apiece, joined here. */}
         <p className="tools-stats">
-          {(["indi", "fam", "places", "sources", "media"] as const)
+          {stats && (["indi", "fam", "places", "sources", "media"] as const)
             .map((k) => t(`tools.stats.${k}`, { count: stats[k] }))
             .join(" · ")}
         </p>

@@ -298,13 +298,18 @@ Not yet committed — cull as needed.
   `structuredClone` overstates the browser's cost; measure load changes in the
   browser, three runs each, the numbers swing by ±3 s.)* **Still open on the
   load path:** a chunked, yielding main-thread parse so the spinner keeps moving
-  during the ~5 s local build; and the work between the dataset landing in
-  state and the first person rendering — a browser profile on Hawlina shows
-  the save-report fingerprinting (`gedcom/fingerprint.ts`, ~1.3 s), dirty
-  tracking's `nameOf`, the Organize-sources walk (`tools/sourceReshape.ts`),
-  place suggestions, the places/geocode collectors — several seconds of
-  derivations for panels that are not open, because both mode views stay
-  mounted.
+  during the ~5 s local build. *(The work between the dataset landing in
+  state and the first person rendering was cut the same day: the save-report
+  fingerprint baseline is taken lazily — on idle, or from the first edit path
+  — the Add Source dialog, the Settings modal's home-country detection, the
+  Tools header counts and the merge overlay's page-media scan wait until
+  they are on screen or have an incoming file, and the worker posts its
+  place-export format so the first place field does not walk the file.
+  Hawlina click-to-first-person: 16–20 s → 11–13 s. What still runs at load:
+  `buildPlaceSuggestions` (~0.8 s, the Edit fields' datalist — lazy on
+  focus would be the next step), `detectPrivacyStyle` in EditView (~0.3 s,
+  though the worker's `detectedFormats.privacy` already knows), and the
+  place-style depth pass (~0.3 s).)*
 - **Within `buildDataset`** (4 s on Hawlina): `parseDate` is 0.7 s of it over
   a million dates of which 10% are distinct — a memo would share `GedDate`
   objects between events, so first confirm nothing mutates a parsed date in

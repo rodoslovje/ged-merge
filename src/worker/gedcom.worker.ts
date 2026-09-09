@@ -122,6 +122,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           // (see ParseSuccess.dataset). The profile travels so it can
           // normalize an incoming file the same way this worker does.
           profile,
+          placeFmt: inferPlaceExportFormat(dataset), // cached from the profile inference above
           detectedFormats,
           placeLayout: (detectedFormats.place as PlaceLayout | undefined) ?? "unknown",
           dateFormat: detectedFormats.date,

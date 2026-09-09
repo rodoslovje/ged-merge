@@ -1456,7 +1456,7 @@ function AppContent() {
       changedRecordIds,
       loadedPersonIds: dirty.loadedPersonIds.current,
       loadedFamilyIds: dirty.loadedFamilyIds.current,
-      baseline: dirty.baseline.current,
+      baseline: dirty.ensureBaseline(),
       personSnapshots: dirty.personSnapshots.current,
       familySnapshots: dirty.familySnapshots.current,
       recordSnapshots: dirty.recordSnapshots.current,
