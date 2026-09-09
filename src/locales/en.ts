@@ -2326,7 +2326,6 @@ export const en = {
   "shortcuts.section.here": "Here — {{where}}",
   "shortcuts.print": "Print this sheet — one A4 page, landscape",
   "shortcuts.section.elsewhere": "Elsewhere in the app",
-  "keys.listHint": "The keys of this list",
   "landing.shortcutsHint": "opens the list of keyboard shortcuts, anywhere in the app.",
   "shortcuts.group.general": "General",
   "shortcuts.group.modes": "Switch mode",

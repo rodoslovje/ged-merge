@@ -6492,19 +6492,12 @@ kbd {
   margin: 14px 0 4px; font-size: 0.78rem; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
 }
-/* Keycaps beside a list's controls — the keys that drive that list. */
-.key-hint { display: inline-flex; gap: 3px; align-items: center; margin-left: 6px; opacity: 0.75; }
-.key-hint kbd { min-width: 1.3em; padding: 0 5px; font-size: 0.72rem; line-height: 1.5; }
 /* The landing page's one line about the keyboard. */
 .lb-kbd-hint { margin: 18px 0 0; font-size: 0.85rem; color: var(--muted); }
 /* The keycap is the button: it opens the sheet it names. */
 .lb-kbd-btn { border: none; background: none; padding: 0; margin-right: 2px; cursor: pointer; font: inherit; }
 .lb-kbd-btn kbd { transition: background 0.1s; }
 .lb-kbd-btn:hover kbd, .lb-kbd-btn:focus-visible kbd { background: var(--accent-soft); border-color: var(--accent); }
-@media (max-width: 880px) {
-  .key-hint { display: none; }
-}
-
 @media (max-width: 1100px) {
   .shortcuts-grid { column-count: 2; }
 }

@@ -5,7 +5,6 @@ import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
-import { KeyHint } from "./KeyHint";
 import { handleListKey } from "../keyboard/useListKeyboard";
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
@@ -139,7 +138,6 @@ export function MergeView({
       <span className="muted gm-data">
         {t("list.count", { visible: visible.length, total: matches.individuals.length })}
       </span>
-      <KeyHint keys={["↑", "↓", KEY.confirm.toUpperCase(), KEY.reject.toUpperCase(), KEY.defer.toUpperCase()]} title={t("keys.listHint")} />
       <button
         className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
         onClick={() => setShowFilters((s) => !s)}

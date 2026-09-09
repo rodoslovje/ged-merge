@@ -2630,7 +2630,6 @@ export const sl = {
   "shortcuts.section.here": "Tukaj — {{where}}",
   "shortcuts.print": "Natisni ta seznam — ena stran A4, ležeče",
   "shortcuts.section.elsewhere": "Drugod v aplikaciji",
-  "keys.listHint": "Tipke tega seznama",
   "landing.shortcutsHint": "odpre seznam bližnjic na tipkovnici, kjer koli v aplikaciji.",
   "shortcuts.group.general": "Splošno",
   "shortcuts.group.modes": "Preklop načina",

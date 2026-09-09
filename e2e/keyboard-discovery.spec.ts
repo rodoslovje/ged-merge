@@ -42,17 +42,13 @@ async function openEdit(page: Page) {
   await page.locator(".edit-person").waitFor();
 }
 
-test("C and D decide the highlighted match, and the list shows its keys", async ({ page }) => {
+test("C and D decide the highlighted match", async ({ page }) => {
   await openMerge(page);
   const first = page.locator(".candidate").first();
   await page.keyboard.press("c");
   await expect(first.locator(".status-chip.confirmed")).toBeVisible();
   await page.keyboard.press("d");
   await expect(first.locator(".status-chip.deferred")).toBeVisible();
-  // The keycaps beside the filter button name these keys.
-  const caps = page.locator(".matches-actions .key-hint kbd");
-  await expect(caps).toHaveCount(5);
-  await expect(caps.nth(2)).toHaveText("C");
 });
 
 test("? opens the sheet with the keys for Merge first, and the header button does too", async ({ page }) => {
