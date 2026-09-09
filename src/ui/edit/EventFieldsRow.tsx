@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { noteToText } from "../../gedcom/noteHtml";
 import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
