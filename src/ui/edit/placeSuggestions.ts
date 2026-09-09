@@ -1,5 +1,6 @@
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { placeCollator } from "../../gedcom/place";
+import { matchesTerms, queryTerms } from "../globalSearch";
 
 export interface PlaceSuggestions {
   placeSuggestions: string[];
@@ -204,6 +205,28 @@ export function placeCombosOf(
   }
   combosCache.set(placeToAddrs, out);
   return out;
+}
+
+/**
+ * How the place and address dropdown reads what was typed: the same folded,
+ * independent terms every name box uses (`queryTerms`), so a part of each word
+ * is enough, in any order and without accents — "Zg Bitnj" finds Zgornje Bitnje
+ * and "pok Zg" finds Pokopališče Zgornje Bitnje. Both tests take text already
+ * run through `foldSearch`; `leads` marks a text that opens with the first term
+ * typed, which the dropdown lists ahead of the hits buried inside a longer name.
+ */
+export interface PlaceQuery {
+  terms: string[];
+  hits(folded: string): boolean;
+  leads(folded: string): boolean;
+}
+export function placeQuery(raw: string): PlaceQuery {
+  const terms = queryTerms(raw);
+  return {
+    terms,
+    hits: (folded) => matchesTerms(folded, terms),
+    leads: (folded) => terms.length > 0 && folded.startsWith(terms[0]),
+  };
 }
 
 /** Canonical lookup: given raw user input, return the canonical casing form if

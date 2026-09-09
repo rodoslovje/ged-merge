@@ -1,11 +1,36 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../../gedcom/builder";
 import { parseGedcom } from "../../gedcom/parser";
-import { buildPlaceSuggestions, placeAddrCoordKey, placeKey } from "./placeSuggestions";
+import { buildPlaceSuggestions, placeAddrCoordKey, placeKey, placeQuery } from "./placeSuggestions";
+import { foldSearch } from "../globalSearch";
 
 function build(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
+
+describe("placeQuery", () => {
+  const hits = (query: string, text: string) => placeQuery(query).hits(foldSearch(text));
+  const leads = (query: string, text: string) => placeQuery(query).leads(foldSearch(text));
+
+  it("matches a part of each word, in any order and without accents", () => {
+    expect(hits("Zg Bitnj", "Zgornje Bitnje")).toBe(true);
+    expect(hits("pok Zg", "Pokopališče Zgornje Bitnje")).toBe(true);
+    expect(hits("bitnje zgornje", "Zgornje Bitnje")).toBe(true);
+    expect(hits("skofja", "Škofja Loka")).toBe(true);
+    expect(hits("Zg Bitnj", "Spodnje Bitnje")).toBe(false);
+  });
+
+  it("leads with the texts that open with the first term", () => {
+    expect(leads("Zg Bitnj", "Zgornje Bitnje")).toBe(true);
+    expect(leads("pok Zg", "Pokopališče Zgornje Bitnje")).toBe(true);
+    expect(leads("Bitnj Zg", "Zgornje Bitnje")).toBe(false);
+  });
+
+  it("matches nothing for a blank query", () => {
+    expect(placeQuery("   ").terms).toEqual([]);
+    expect(leads("  ", "Kranj")).toBe(false);
+  });
+});
 
 // Two Kranj events: one plain (the settlement's own coordinate), one at a house
 // with its own. Plus a second event at that same house, uncoordinated.

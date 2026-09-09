@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
-import { applyCanonical } from "./placeSuggestions";
+import { applyCanonical, placeQuery } from "./placeSuggestions";
+import { foldSearch } from "../globalSearch";
 import { placeCollator } from "../../gedcom/place";
 import { proposalKey, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCompareKey } from "../../match/place";
@@ -19,6 +20,9 @@ interface Item {
    *  place's name into the field the user is typing in. */
   movesPlace?: boolean;
 }
+
+/** A known place+address pair with its search text folded once, not per keystroke. */
+type ComboRow = { place: string; addr: string; placeFold: string; addrFold: string };
 
 type SearchState = { state: "idle" | "loading" | "error" | "done"; query: string; results: PlaceProposal[] };
 
@@ -104,30 +108,38 @@ export function PlaceAutocomplete({
    *  — the register's coordinate, its municipality, its official spelling. */
   const canSearch = !!onPickProposal && (!!onLookup || !!lookupNote) && value.trim().length >= 2;
 
+  // Folded once per list rather than per keystroke: a large file's pair list
+  // runs to tens of thousands of houses.
+  const plainRows = useMemo(() => suggestions.map((place) => ({ place, fold: foldSearch(place) })), [suggestions]);
+  const comboRows = useMemo(
+    (): ComboRow[] =>
+      (combos ?? []).map((cb) => ({ place: cb.place, addr: cb.addr, placeFold: foldSearch(cb.place), addrFold: foldSearch(cb.addr) })),
+    [combos],
+  );
+
   const filtered = useMemo((): Item[] => {
-    const q = value.trim().toLowerCase();
-    if (!q) return [];
+    // The query is read like a name: each typed part matches on its own, in
+    // any order and accent-blind — "Zg Bitnj" reaches Zgornje Bitnje.
+    const q = placeQuery(value);
+    if (!q.terms.length) return [];
     // A match at the start of the text reads as "the one you meant" more than
     // a hit buried inside a longer name ("Sv. Peter" before "Pokopališče ob
-    // cerkvi sv. Martin"), so starts-with matches lead, list order otherwise.
+    // cerkvi sv. Martin"), so texts opening with the first term lead, list
+    // order otherwise. `text` returns the item's folded search text.
     const byPrefix = <T,>(items: T[], text: (item: T) => string): T[] => [
-      ...items.filter((item) => text(item).toLowerCase().startsWith(q)),
-      ...items.filter((item) => !text(item).toLowerCase().startsWith(q)),
+      ...items.filter((item) => q.leads(text(item))),
+      ...items.filter((item) => !q.leads(text(item))),
     ];
     const plain: Item[] = byPrefix(
-      suggestions.filter((s) => s.toLowerCase().includes(q)),
-      (s) => s,
-    ).map((s) => ({ place: s }));
+      plainRows.filter((r) => q.hits(r.fold)),
+      (r) => r.fold,
+    ).map((r) => ({ place: r.place }));
     // Combos when the query matches the address text (or, where the host
     // opted in, the place text — see matchCombosByPlace).
     const comboHits = onPickCombo
       ? byPrefix(
-          (combos ?? []).filter(
-            (cb) =>
-              cb.addr.toLowerCase().includes(q) ||
-              (matchCombosByPlace && cb.place.toLowerCase().includes(q)),
-          ),
-          (cb) => cb.addr,
+          comboRows.filter((cb) => q.hits(cb.addrFold) || (matchCombosByPlace && q.hits(cb.placeFold))),
+          (cb) => cb.addrFold,
         )
       : [];
     // Naming a place here means the place itself, so offer it plainly before
@@ -138,8 +150,8 @@ export function PlaceAutocomplete({
     if (matchCombosByPlace && onPickCombo) {
       const seen = new Set(plain.map((item) => placeCompareKey(item.place)));
       for (const cb of byPrefix(
-        comboHits.filter((cb) => cb.place.toLowerCase().includes(q)),
-        (cb) => cb.place,
+        comboHits.filter((cb) => q.hits(cb.placeFold)),
+        (cb) => cb.placeFold,
       )) {
         const key = placeCompareKey(cb.place);
         if (seen.has(key)) continue;
@@ -148,7 +160,7 @@ export function PlaceAutocomplete({
       }
       barePlaces.sort(
         (a, b) =>
-          Number(b.place.toLowerCase().startsWith(q)) - Number(a.place.toLowerCase().startsWith(q)) ||
+          Number(q.leads(foldSearch(b.place))) - Number(q.leads(foldSearch(a.place))) ||
           placeCollator.compare(a.place, b.place),
       );
     }
@@ -156,14 +168,14 @@ export function PlaceAutocomplete({
     // place with many matching houses (Breg ob Savi's "Breg 2…22") would
     // otherwise crowd every other matching place (Breg ob Kokri's) out of the
     // capped list below.
-    const byPlace = new Map<string, { place: string; addr: string }[]>();
+    const byPlace = new Map<string, ComboRow[]>();
     for (const cb of comboHits) {
       const bucket = byPlace.get(cb.place);
       if (bucket) bucket.push(cb);
       else byPlace.set(cb.place, [cb]);
     }
     const buckets = [...byPlace.values()];
-    const picked: { place: string; addr: string }[] = [];
+    const picked: ComboRow[] = [];
     const rounds = buckets.length ? Math.max(...buckets.map((b) => b.length)) : 0;
     for (let i = 0; i < rounds; i++) {
       for (const b of buckets) {
@@ -174,8 +186,8 @@ export function PlaceAutocomplete({
     // order ("Breg 2" before "Breg 11"), and the places named by what was typed
     // — or holding a house named by it — lead. Round-robin decides *which* pairs
     // fit the cap; it is no order to read a list in.
-    const shownOrder = (pairs: { place: string; addr: string }[]): Item[] => {
-      const groups = new Map<string, { place: string; addr: string }[]>();
+    const shownOrder = (pairs: ComboRow[]): Item[] => {
+      const groups = new Map<string, ComboRow[]>();
       for (const cb of pairs) {
         const bucket = groups.get(cb.place);
         if (bucket) bucket.push(cb);
@@ -184,11 +196,7 @@ export function PlaceAutocomplete({
       return [...groups.values()]
         .map((items) => ({
           items: [...items].sort((a, b) => placeCollator.compare(a.addr, b.addr)),
-          lead:
-            items[0].place.toLowerCase().startsWith(q) ||
-            items.some((cb) => cb.addr.toLowerCase().startsWith(q))
-              ? 0
-              : 1,
+          lead: q.leads(items[0].placeFold) || items.some((cb) => q.leads(cb.addrFold)) ? 0 : 1,
         }))
         .sort((a, b) => a.lead - b.lead || placeCollator.compare(a.items[0].place, b.items[0].place))
         .flatMap((g) => g.items.map((cb) => ({ place: cb.place, addr: cb.addr })));
@@ -214,7 +222,7 @@ export function PlaceAutocomplete({
         ? search.results.map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
         : [];
     return [...fromFile, ...offers];
-  }, [value, suggestions, combos, matchCombosByPlace, onPickCombo, search]);
+  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, search]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
 
