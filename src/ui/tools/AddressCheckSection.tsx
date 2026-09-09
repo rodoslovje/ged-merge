@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { searchLocalAddress } from "../../geo/addressLookup";
 import type { AddressHit } from "../../geo/addressRegister";
 import { isOfflineQuery } from "../../geo/rn";
-import { foldSearch } from "../globalSearch";
+import { matchesQuery } from "../globalSearch";
+import { useQueryTerms } from "../useQueryTerms";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
 import { setDismissed, type GeocodeDecision } from "../../persist/geoDb";
@@ -313,6 +314,7 @@ export function AddressCheckSection({
     onCount(findingCount);
   }, [findingCount, onCount]);
 
+  const terms = useQueryTerms(query);
   const view = useMemo(() => {
     if (!report) return null;
     // The aside verdict is off the default list on purpose — see addressCheck.
@@ -322,9 +324,10 @@ export function AddressCheckSection({
         (showDismissed || !f.dismissed) &&
         (verdictFilter === ADDRESS_ASIDE ? f.verdict === ADDRESS_ASIDE : f.verdict !== ADDRESS_ASIDE),
     );
-    const matched = query
-      ? pool.filter((f) => foldSearch(f.place).includes(query) || foldSearch(f.written).includes(query))
-      : pool;
+    // The place and the address as written are one haystack, read the way the
+    // place field reads a query — each typed part on its own, in any order —
+    // so "Zg Bitnj 266" finds the house as well as "Bitnje" finds the village.
+    const matched = query ? pool.filter((f) => matchesQuery(`${f.place} ${f.written}`, terms)) : pool;
     const inVerdict = (f: AddressFinding) =>
       verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE || f.verdict === verdictFilter;
 
@@ -388,7 +391,7 @@ export function AddressCheckSection({
       activeCountry,
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
     };
-  }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
+  }, [report, query, terms, verdictFilter, countryFilter, showDismissed, home]);
 
   /**
    * Only the places near the viewport are mounted — the windowing the geocoding

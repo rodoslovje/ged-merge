@@ -16,7 +16,8 @@ import {
   type RegisterFinding,
   type RegisterVerdict,
 } from "../../tools/registerCheck";
-import { foldSearch } from "../globalSearch";
+import { matchesQuery } from "../globalSearch";
+import { useQueryTerms } from "../useQueryTerms";
 import { decomposePlace } from "../../gedcom/place";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { useVirtualList } from "../useVirtualList";
@@ -369,13 +370,16 @@ export function RegisterCheckSection({
     setAppliedKeys(new Set());
   }, [report]);
 
+  // The search reads a place the way the place field does: each typed part on
+  // its own, in any order, so "Zg Bitnj" finds Zgornje Bitnje.
+  const terms = useQueryTerms(query);
   // Two chip rows, faceted the way the places list's are: a chip's count
   // respects every filter except its own row's, so the number on it is exactly
   // how many rows clicking it puts on screen.
   const view = useMemo(() => {
     if (!report) return null;
     const pool = report.findings.filter((f) => showDismissed || !f.dismissed);
-    const searched = query ? pool.filter((f) => foldSearch(f.key).includes(query)) : pool;
+    const searched = query ? pool.filter((f) => matchesQuery(f.key, terms)) : pool;
 
     // One chip per country, read off the place value itself, exactly as the
     // geocoding lists read their own country buttons, so every row of chips says
@@ -406,7 +410,7 @@ export function RegisterCheckSection({
       activeCountry,
       dismissedTotal,
     };
-  }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
+  }, [report, query, terms, verdictFilter, countryFilter, showDismissed, home]);
 
   /** Only the rows near the viewport are mounted, the same windowing the
    *  geocoding lists and the health check use. This list used to paint 300 and

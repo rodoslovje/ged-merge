@@ -12,7 +12,8 @@ import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRename, type AddressRow } from "../../tools/addresses";
 import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
-import { foldSearch, queryTerms } from "../globalSearch";
+import { foldSearch, matchesQuery } from "../globalSearch";
+import { useQueryTerms } from "../useQueryTerms";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
@@ -340,18 +341,19 @@ export function AddressCoordsSection({
   /** The registers the place rename's field completes from, where the file
    *  writes a village only here — the move panel's own lookup. */
   const lookup = usePlaceLookup();
-  const terms = useMemo(() => queryTerms(query), [query]);
+  const terms = useQueryTerms(query);
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
   // Matching on the address alone would drop the settlement a search like
   // "Kranj" is really about, and matching on the place alone would hide the one
-  // house someone typed a number for — so a row matches on either.
+  // house someone typed a number for — so a row matches on the two together,
+  // each typed part on its own and in any order, as the place field reads a
+  // query: "Zg Bitnj 266" finds the house, "Bitnje" the village.
   const rows = useMemo(
     () =>
       query
         ? all.filter(
             (row) =>
-              foldSearch(row.place).includes(query) ||
-              foldSearch(row.address).includes(query) ||
+              matchesQuery(`${row.place} ${row.address}`, terms) ||
               // …or the name of someone whose events are at this house: a
               // reader looking for one person's addresses has no house number
               // to type.
@@ -466,7 +468,7 @@ export function AddressCoordsSection({
       for (const row of visibleRows) {
         // A name is as good a reason to open the group as a house number: it
         // is what the reader typed, and the row they want is inside.
-        if (foldSearch(row.address).includes(query) || personMatches(row.people, personNames, terms)) {
+        if (matchesQuery(row.address, terms) || personMatches(row.people, personNames, terms)) {
           found.add(row.place);
         }
       }

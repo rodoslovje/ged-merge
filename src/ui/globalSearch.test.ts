@@ -5,6 +5,7 @@ import {
   buildSearchRows,
   searchPeople,
   hasActiveFilters,
+  matchesQuery,
   matchesTerms,
   queryTerms,
   NO_FILTERS,
@@ -190,6 +191,13 @@ describe("queryTerms / matchesTerms", () => {
   it("treats a blank query as no restriction", () => {
     expect(queryTerms("   ")).toEqual([]);
     expect(matchesTerms(hay, queryTerms("   "))).toBe(true);
+  });
+
+  it("matchesQuery folds raw text, so a place list reads like a name box", () => {
+    expect(matchesQuery("Zgornje Bitnje, Kranj, Slovenija", queryTerms("Zg Bitnj"))).toBe(true);
+    expect(matchesQuery("Pokopališče Zgornje Bitnje", queryTerms("pok zg"))).toBe(true);
+    expect(matchesQuery("Škofja Loka", queryTerms("skofja"))).toBe(true);
+    expect(matchesQuery("Spodnje Bitnje", queryTerms("Zg Bitnj"))).toBe(false);
   });
 });
 
