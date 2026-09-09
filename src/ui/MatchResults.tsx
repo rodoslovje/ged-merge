@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   categorize,
@@ -108,6 +108,37 @@ export function MatchResults({
     if (window.innerWidth > 880) scrollToIndex(selectedIndex);
   }, [selectedIndex, list, scrollToIndex]);
 
+  // Below 600px the list's container query puts the status column last, after
+  // the metrics (see `.candidate-list-head .status-h` in index.css); on a wide
+  // list it sits second, beside Person. The header's sort buttons are rendered
+  // in the order they show, so Tab walks them left to right in either layout
+  // instead of following a DOM order the CSS has rearranged.
+  const [narrow, setNarrow] = useState(true);
+  const empty = list.length === 0;
+  useEffect(() => {
+    const node = listRef.current;
+    if (!node) return;
+    const ro = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width <= 600));
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [listRef, empty]);
+
+  // Decision status: confirmed / rejected / deferred. Sorting groups rows by
+  // status. Beside Person on a wide list, last on a narrow one (above).
+  const statusHead = (
+    <button
+      className={cls("status", "status-h")}
+      title={t("list.statusTooltip")}
+      onClick={() => onToggleSort("status")}
+    >
+      <svg {...ICON_PROPS}>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+      </svg>
+      {arrow("status")}
+    </button>
+  );
+
   return (
     <div className="results">
       {showFilters && (
@@ -196,19 +227,7 @@ export function MatchResults({
             <button className={cls("label", "person-col")} onClick={() => onToggleSort("label")}>
               {t("list.person")}{arrow("label")}
             </button>
-            {/* Decision status: confirmed / rejected / deferred. Sorting groups
-               rows by status. Kept next to Person, the row it judges. */}
-            <button
-              className={cls("status", "status-h")}
-              title={t("list.statusTooltip")}
-              onClick={() => onToggleSort("status")}
-            >
-              <svg {...ICON_PROPS}>
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              {arrow("status")}
-            </button>
+            {!narrow && statusHead}
             <span className="candidate-metrics">
               <button
                 className={cls("score", "badge-h")}
@@ -291,6 +310,7 @@ export function MatchResults({
                 {arrow("diffCount")}
               </button>
             </span>
+            {narrow && statusHead}
           </li>
           <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
           {list.slice(virtual.start, virtual.end).map((c, j) => {
