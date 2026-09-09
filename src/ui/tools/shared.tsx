@@ -708,6 +708,7 @@ export function AddressSplitField({
         // The pair list is this field's only route to another settlement, so a
         // typed place name matches too (as in the Edit row).
         matchCombosByPlace
+        addresses
         isDirty={false}
         className="tools-geo-addr-chip-input"
         wrapClassName="tools-geo-addr-chip-auto"

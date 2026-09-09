@@ -41,6 +41,7 @@ export function PlaceAutocomplete({
   canonical,
   combos,
   matchCombosByPlace,
+  addresses,
   isDirty,
   isMerge,
   className,
@@ -69,6 +70,10 @@ export function PlaceAutocomplete({
    *  no address text contains it. The place field keeps this off — there a
    *  plain place query should list places, not every known address at them. */
   matchCombosByPlace?: boolean;
+  /** The plain suggestions are addresses — the houses at the field's own
+   *  place — and are shown in the address style, so an address reads the same
+   *  whether it stands alone or beside the other place it would move to. */
+  addresses?: boolean;
   isDirty: boolean;
   isMerge?: boolean;
   className?: string;
@@ -317,7 +322,11 @@ export function PlaceAutocomplete({
               }
               onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
             >
-              {s.place}
+              {addresses && !s.addr && !s.movesPlace && !s.proposal ? (
+                <span className="place-suggestion-addr">{s.place}</span>
+              ) : (
+                s.place
+              )}
               {s.addr && <span className="place-suggestion-addr"> · {s.addr}</span>}
               {s.proposal && (
                 <span className={`tools-reshape-badge ${s.proposal.official ? "official" : "reuse"}`}>

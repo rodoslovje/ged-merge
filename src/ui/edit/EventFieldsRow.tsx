@@ -720,6 +720,7 @@ export function EventFieldsRow({
           // settlement, matches a typed place name too. A field with no pairs
           // at all (the agency) has nothing to match that way.
           matchCombosByPlace={!!combos}
+          addresses={!!combos}
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
           className={"edit-input " + cls}
