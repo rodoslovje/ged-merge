@@ -2001,7 +2001,7 @@ button:focus-visible {
 .tools-pairs:focus-visible .tools-dup-cluster-head.selected { box-shadow: inset 0 0 0 2px var(--accent); }
 .tools-issue.selected { box-shadow: inset 0 0 0 1px var(--accent); }
 .tools-issues:focus-visible .tools-issue.selected { box-shadow: inset 0 0 0 2px var(--accent); }
-.compare tr.kbd-active > td { background: var(--accent-soft); }
+.compare-panel:focus-visible tr.kbd-active > td { background: var(--accent-soft); }
 .compare-panel:focus-visible tr.kbd-active > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .candidate-head {
