@@ -2324,6 +2324,7 @@ export const en = {
   "shortcuts.legend.standard": "Standard — used with Ctrl/⌘",
   "shortcuts.legend.app": "App-specific — a single key",
   "shortcuts.section.here": "Here — {{where}}",
+  "shortcuts.print": "Print this sheet — one A4 page, landscape",
   "shortcuts.section.elsewhere": "Elsewhere in the app",
   "keys.listHint": "The keys of this list",
   "landing.shortcutsHint": "opens the list of keyboard shortcuts, anywhere in the app.",

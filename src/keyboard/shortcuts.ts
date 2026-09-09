@@ -141,8 +141,6 @@ export interface ShortcutItem {
 export interface ShortcutGroup {
   titleKey: string;
   category: ShortcutCategory;
-  /** Which column of the cheat-sheet grid the group renders in. */
-  column: "left" | "right";
   /** Default scope of the group's items. */
   scope?: readonly ShortcutScope[];
   items: ShortcutItem[];
@@ -153,11 +151,12 @@ export function itemScope(group: ShortcutGroup, item: ShortcutItem): readonly Sh
   return item.scope ?? group.scope;
 }
 
+// In sheet order: the groups flow into three columns top to bottom, each kept
+// whole, so this order is what balances the columns.
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.general",
     category: "standard",
-    column: "left",
     items: [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
@@ -173,7 +172,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.modes",
     category: "app",
-    column: "right",
     // Not on a chart page: the letters are held back there, where a mode
     // switch would happen invisibly behind the overlay.
     scope: ["edit", "merge", "tools"],
@@ -184,9 +182,20 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    titleKey: "shortcuts.group.decisions",
+    category: "app",
+    scope: ["merge", "tools"],
+    items: [
+      { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
+      { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
+      { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
+      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters", scope: ["merge"] },
+      { keys: [["1"], ["2"], ["3"]], descKey: "shortcuts.item.fieldChoice", scope: ["merge"] },
+    ],
+  },
+  {
     titleKey: "shortcuts.group.navigation",
     category: "app",
-    column: "left",
     items: [
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll", scope: ["merge", "tools"] },
       { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext", scope: ["merge", "edit", "tools"] },
@@ -211,7 +220,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.editing",
     category: "app",
-    column: "right",
     scope: ["edit"],
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson", scope: ["edit", "merge", "tools"] },
@@ -233,23 +241,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
-    titleKey: "shortcuts.group.decisions",
-    category: "app",
-    // Left, to balance the editing group opposite: it is much the longest.
-    column: "left",
-    scope: ["merge", "tools"],
-    items: [
-      { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
-      { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
-      { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
-      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters", scope: ["merge"] },
-      { keys: [["1"], ["2"], ["3"]], descKey: "shortcuts.item.fieldChoice", scope: ["merge"] },
-    ],
-  },
-  {
     titleKey: "shortcuts.group.charts",
     category: "app",
-    column: "right",
     scope: ["chart"],
     items: [
       { keys: [["1"], ["9"]], sep: "range", descKey: "shortcuts.item.chartKind" },

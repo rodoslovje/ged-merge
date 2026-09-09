@@ -2628,6 +2628,7 @@ export const sl = {
   "shortcuts.legend.standard": "Standardne — s tipko Ctrl/⌘",
   "shortcuts.legend.app": "Posebne za aplikacijo — ena tipka",
   "shortcuts.section.here": "Tukaj — {{where}}",
+  "shortcuts.print": "Natisni ta seznam — ena stran A4, ležeče",
   "shortcuts.section.elsewhere": "Drugod v aplikaciji",
   "keys.listHint": "Tipke tega seznama",
   "landing.shortcutsHint": "odpre seznam bližnjic na tipkovnici, kjer koli v aplikaciji.",

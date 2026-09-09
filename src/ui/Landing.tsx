@@ -200,7 +200,6 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             </Trans>
           </h1>
           <p className="lb-sub">{t("landing.sub")}</p>
-          <p className="lb-kbd-hint"><kbd>?</kbd> {t("landing.shortcutsHint")}</p>
 
           {/* Dropzone */}
           {loading ? (
@@ -328,6 +327,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
               </div>
             </div>
           )}
+          <p className="lb-kbd-hint"><kbd>?</kbd> {t("landing.shortcutsHint")}</p>
         </div>
 
         {/* Right: privacy bar, capability grid, proof strip, what's new. */}

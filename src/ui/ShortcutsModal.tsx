@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   SHORTCUT_GROUPS,
@@ -87,14 +89,32 @@ function ShortcutsGroup({ group, items }: Shown) {
   );
 }
 
-/** The two-column cheat-sheet grid, each group in the column it asks for. */
+/** The cheat sheet's columns: the groups flow into three, each kept whole. */
 function Columns({ shown }: { shown: Shown[] }) {
   return (
     <div className="shortcuts-grid">
-      {(["left", "right"] as const).map((column) => (
-        <div key={column} className="shortcuts-col">
+      {shown.map((s) => (
+        <ShortcutsGroup key={s.group.titleKey} {...s} />
+      ))}
+    </div>
+  );
+}
+
+/** On paper the columns are set by hand — flowing columns fragment across
+ *  pages unpredictably — so the three fill one A4 landscape page evenly. */
+const PRINT_COLUMNS = [
+  ["shortcuts.group.general", "shortcuts.group.modes", "shortcuts.group.charts"],
+  ["shortcuts.group.navigation", "shortcuts.group.decisions"],
+  ["shortcuts.group.editing"],
+];
+
+function PrintColumns({ shown }: { shown: Shown[] }) {
+  return (
+    <div className="shortcuts-grid shortcuts-grid-print">
+      {PRINT_COLUMNS.map((titles, i) => (
+        <div key={i} className="shortcuts-col">
           {shown
-            .filter(({ group }) => group.column === column)
+            .filter((s) => titles.includes(s.group.titleKey))
             .map((s) => (
               <ShortcutsGroup key={s.group.titleKey} {...s} />
             ))}
@@ -111,32 +131,42 @@ function Columns({ shown }: { shown: Shown[] }) {
  * app-specific (bare-key) groups are split with a legend so the two kinds
  * stay visually distinct. Given where the user is, the keys that work there
  * come first, under "Here", and the rest under "Elsewhere".
+ *
+ * Printing (the Print button, or the browser's own) yields the whole sheet
+ * on A4 landscape, in its natural groups: the dialog is portalled beside the
+ * app root, which the print stylesheet hides, and marks the document while
+ * it is open so that stylesheet knows what to print.
  */
 export function ShortcutsModal({ isOpen, onClose, context }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(isOpen, onClose);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    document.documentElement.classList.add("printing-shortcuts");
+    return () => document.documentElement.classList.remove("printing-shortcuts");
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
+  const all: Shown[] = SHORTCUT_GROUPS.map((group) => ({ group, items: group.items }));
   const here: Shown[] = [];
   const elsewhere: Shown[] = [];
-  for (const group of SHORTCUT_GROUPS) {
-    if (!context) {
-      here.push({ group, items: group.items });
-      continue;
+  if (context) {
+    for (const group of SHORTCUT_GROUPS) {
+      const near = group.items.filter((item) => {
+        const scope = itemScope(group, item);
+        return !scope || scope.includes(context);
+      });
+      const far = group.items.filter((item) => !near.includes(item));
+      if (near.length) here.push({ group, items: near });
+      if (far.length) elsewhere.push({ group, items: far });
     }
-    const near = group.items.filter((item) => {
-      const scope = itemScope(group, item);
-      return !scope || scope.includes(context);
-    });
-    const far = group.items.filter((item) => !near.includes(item));
-    if (near.length) here.push({ group, items: near });
-    if (far.length) elsewhere.push({ group, items: far });
   }
   const where = context === "chart" ? t("edit.charts.button") : context ? t(`mode.${context}`) : "";
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  return createPortal(
+    <div className="modal-overlay shortcuts-print-root" onClick={onClose}>
       <div
         className="modal shortcuts-modal"
         ref={ref}
@@ -148,6 +178,9 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
       >
         <div className="modal-header">
           <h2>{t("shortcuts.title")}</h2>
+          <button className="tree-open-btn shortcuts-print-btn" onClick={() => window.print()} title={t("shortcuts.print")}>
+            {t("sheets.print")}
+          </button>
           <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>
             ×
           </button>
@@ -163,16 +196,30 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
               <span>{t("shortcuts.legend.app")}</span>
             </span>
           </p>
-          {context && <h3 className="shortcuts-section">{t("shortcuts.section.here", { where })}</h3>}
-          <Columns shown={here} />
-          {context && elsewhere.length > 0 && (
-            <>
-              <h3 className="shortcuts-section">{t("shortcuts.section.elsewhere")}</h3>
-              <Columns shown={elsewhere} />
-            </>
-          )}
+          {/* On screen: the keys for where the user is, then the rest. */}
+          <div className="shortcuts-screen">
+            {context ? (
+              <>
+                <h3 className="shortcuts-section">{t("shortcuts.section.here", { where })}</h3>
+                <Columns shown={here} />
+                {elsewhere.length > 0 && (
+                  <>
+                    <h3 className="shortcuts-section">{t("shortcuts.section.elsewhere")}</h3>
+                    <Columns shown={elsewhere} />
+                  </>
+                )}
+              </>
+            ) : (
+              <Columns shown={all} />
+            )}
+          </div>
+          {/* On paper: the whole sheet, in its groups — a reference card. */}
+          <div className="shortcuts-print">
+            <PrintColumns shown={all} />
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -6430,7 +6430,8 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 .settings-radio input { flex: none; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
-.shortcuts-modal { max-width: 720px; height: auto; max-height: 88dvh; }
+.shortcuts-modal { max-width: 1120px; height: auto; max-height: 88dvh; }
+.shortcuts-print-btn { margin-left: auto; margin-right: 8px; }
 
 .shortcuts-legend {
   display: flex; flex-wrap: wrap; gap: 8px 24px;
@@ -6439,12 +6440,11 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 }
 .shortcuts-legend-item { display: inline-flex; align-items: center; gap: 8px; }
 
-.shortcuts-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start; gap: 8px 32px; margin-top: 16px;
-}
-.shortcuts-col { min-width: 0; }
-.shortcuts-group { break-inside: avoid; }
+/* Three columns the groups flow into, each kept whole (see SHORTCUT_GROUPS
+   for the order that balances them); two on a narrower window, one on a phone. */
+.shortcuts-grid { column-count: 3; column-gap: 32px; margin-top: 8px; }
+.shortcuts-group { break-inside: avoid; margin-bottom: 14px; }
+.shortcuts-print { display: none; }
 .shortcuts-group h3 {
   font-size: 1.05rem; margin: 10px 0 4px; padding-bottom: 4px;
   color: var(--accent); border-bottom: 1px solid var(--border);
@@ -6492,14 +6492,17 @@ kbd {
 .key-hint { display: inline-flex; gap: 3px; align-items: center; margin-left: 6px; opacity: 0.75; }
 .key-hint kbd { min-width: 1.3em; padding: 0 5px; font-size: 0.72rem; line-height: 1.5; }
 /* The landing page's one line about the keyboard. */
-.lb-kbd-hint { margin: 6px 0 0; font-size: 0.85rem; color: var(--muted); }
+.lb-kbd-hint { margin: 18px 0 0; font-size: 0.85rem; color: var(--muted); }
 .lb-kbd-hint kbd { margin-right: 2px; }
 @media (max-width: 880px) {
   .key-hint { display: none; }
 }
 
+@media (max-width: 1100px) {
+  .shortcuts-grid { column-count: 2; }
+}
 @media (max-width: 720px) {
-  .shortcuts-grid { grid-template-columns: 1fr; }
+  .shortcuts-grid { column-count: 1; }
   /* Narrow: the coordinate popover stacks map over candidates again. */
   .edit-coord-pop { width: min(420px, 92vw); }
   .edit-coord-body { flex-direction: column; }
@@ -10034,5 +10037,64 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   .edit-person-map-legend {
     flex: 1 1 auto;
     justify-content: flex-start;
+  }
+}
+
+/* ── Printing the keyboard sheet ─────────────────────────────────────────────
+   While the sheet is open the document carries `printing-shortcuts` and the
+   sheet is portalled beside the app root, so a print — the sheet's own button
+   or the browser's — puts the whole sheet, in its groups, on A4 landscape and
+   nothing else. Paper is one theme: the colours here are the light theme's,
+   spelled out, since a print cannot switch the theme attribute. */
+@media print {
+  @page { size: A4 landscape; margin: 6mm 8mm; }
+  html.printing-shortcuts #root { display: none; }
+  html.printing-shortcuts { background: #fff; }
+  html.printing-shortcuts body { background: #fff; margin: 0; min-height: 0; height: auto; overflow: visible; }
+  html.printing-shortcuts .shortcuts-print-root {
+    position: static; display: block; padding: 0; min-height: 0; height: auto;
+    background: none; backdrop-filter: none;
+  }
+  html.printing-shortcuts .shortcuts-modal {
+    max-width: none; max-height: none; height: auto; margin: 0; border: none; border-radius: 0;
+    box-shadow: none; background: #fff; color: #111; font-size: 8.5pt;
+  }
+  html.printing-shortcuts .modal-header { padding: 0 0 2pt; border: none; background: none; }
+  html.printing-shortcuts .modal-header h2 { font-size: 13pt; margin: 0; color: #111; }
+  html.printing-shortcuts .modal-body { padding: 0; overflow: visible; max-height: none; background: #fff; }
+  html.printing-shortcuts .modal-close,
+  html.printing-shortcuts .shortcuts-print-btn,
+  html.printing-shortcuts .shortcuts-screen { display: none; }
+  html.printing-shortcuts .shortcuts-print { display: block; }
+  /* The legend is screen chrome: on paper the keycaps speak for themselves. */
+  html.printing-shortcuts .shortcuts-legend { display: none; }
+  /* Three hand-set columns (PRINT_COLUMNS in ShortcutsModal): flowing
+     columns fragment across pages unpredictably and left a blank page behind. */
+  html.printing-shortcuts .shortcuts-grid-print {
+    column-count: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 8mm; align-items: start; margin-top: 4pt;
+  }
+  /* A group may run on past a page break — kept whole, one that no longer
+     fits its column jumps to the next page entire, leaving the column short.
+     Rows stay whole, and a heading keeps its first rows. */
+  html.printing-shortcuts .shortcuts-group { margin-bottom: 3pt; break-inside: auto; }
+  html.printing-shortcuts .shortcuts-group h3 { break-after: avoid; }
+  /* Nothing may hang below the last row: a margin past the page edge
+     prints as a blank second sheet. */
+  html.printing-shortcuts .shortcuts-col > .shortcuts-group:last-child { margin-bottom: 0; }
+  html.printing-shortcuts .shortcuts-grid-print { margin-bottom: 0; }
+  html.printing-shortcuts .shortcuts-row dd { line-height: 1.15; }
+  html.printing-shortcuts .shortcuts-group h3 { font-size: 9.5pt; margin: 2pt 0 1pt; padding-bottom: 1pt; color: #31715b; border-color: #ccc; }
+  /* A row is one box on paper, so a column break never parts a key from its
+     line: the group's shared key column gives way to a fixed one. */
+  html.printing-shortcuts .shortcuts-group dl { display: block; }
+  html.printing-shortcuts .shortcuts-row {
+    display: grid; grid-template-columns: 6.6em 1fr; align-items: center; break-inside: avoid;
+  }
+  html.printing-shortcuts .shortcuts-row dt { padding: 0.25pt 5pt 0.25pt 0; }
+  html.printing-shortcuts .shortcuts-row dd { padding: 0.25pt 0; font-size: 8pt; line-height: 1.18; color: #333; }
+  html.printing-shortcuts kbd {
+    min-width: 1.4em; padding: 0 3pt; font-size: 7pt; line-height: 1.4;
+    color: #111; background: #f2f2f2; border: 1px solid #bbb; box-shadow: none;
   }
 }

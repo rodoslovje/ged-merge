@@ -172,7 +172,7 @@ describe("the sheet covers the bindings", () => {
 
   it("lists every lettered chart key", () => {
     for (const key of Object.values(CHART_KEY)) {
-      if (Array.isArray(key)) continue; // + and − are drawn with their own glyphs
+      if (typeof key !== "string") continue; // + and − are drawn with their own glyphs
       expect(chords).toContain(/[a-z]/.test(key) ? key.toUpperCase() : key);
     }
   });
