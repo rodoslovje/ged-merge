@@ -1,7 +1,7 @@
 import type { Dataset } from "../gedcom/types";
-import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
+import type { MainProfile, NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
-import type { MatchResult } from "../match/types";
+import type { IncomingDuplicateCluster, MatchResult } from "../match/types";
 
 /** Which slot a loaded file occupies. */
 export type DatasetRole = "main" | "compare";
@@ -48,7 +48,28 @@ export interface ParseSuccess {
   type: "parsed";
   role: DatasetRole;
   fileName: string;
-  dataset: Dataset;
+  /**
+   * The slot's dataset — only for a compare loaded from a table (CSV or
+   * spreadsheet), which the worker alone knows how to build. A GEDCOM file's
+   * dataset never crosses the worker boundary: the main thread builds its own
+   * from the same bytes (`src/state/localLoad.ts`), because the structured
+   * clone of a typed dataset — every record's `.raw` back-reference makes the
+   * serializer track ten million shared objects — cost ~18 s on a 500k-person
+   * file, more than parsing it twice. The two builds are deterministic, so
+   * the ids and records agree on both sides.
+   */
+  dataset?: Dataset;
+  /** Main only: the inferred profile with the user's overrides applied — what
+   *  the main thread normalizes an incoming GEDCOM against. */
+  profile?: MainProfile;
+  /**
+   * Compare only, on the re-announcement after matching: incoming records the
+   * engine found to be one person split across duplicates, which the worker
+   * has merged into its own copy of the compare. The main thread replays the
+   * same merges on its copy (`mergeDuplicate`, confirmed, default fields —
+   * deterministic), so the two stay identical without the dataset travelling.
+   */
+  consolidated?: IncomingDuplicateCluster[];
   /** Present for the compare slot once it has been normalized to the main. */
   report?: NormalizationReport;
   /** Detected place-formatting convention of this file. */

@@ -1,4 +1,5 @@
 import type { LoadedFile } from "./workspace";
+import type { Dataset } from "../gedcom/types";
 import type { WorkerResponse } from "../worker/messages";
 
 /** The worker's `parsed` message. */
@@ -31,11 +32,13 @@ const CARRIED_FIELDS = [
 ] as const satisfies readonly (keyof LoadedFile & keyof ParsedMessage)[];
 
 /**
- * Build the workspace's `LoadedFile` from a worker `parsed` message, carrying
- * across every detection the message actually reported and omitting the rest.
+ * Build the workspace's `LoadedFile` from a worker `parsed` message and the
+ * dataset it stands for (the main thread's own copy — see `LocalLoads`),
+ * carrying across every detection the message actually reported and
+ * omitting the rest.
  */
-export function loadedFileFromParsed(msg: ParsedMessage): LoadedFile {
-  const file: LoadedFile = { fileName: msg.fileName, dataset: msg.dataset };
+export function loadedFileFromParsed(msg: ParsedMessage, dataset: Dataset): LoadedFile {
+  const file: LoadedFile = { fileName: msg.fileName, dataset };
   for (const key of CARRIED_FIELDS) {
     const value = msg[key];
     // Falsy detections are omitted deliberately: the worker sends "" / false /

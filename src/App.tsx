@@ -69,6 +69,7 @@ import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider, useMediaFolder } from "./ui/MediaFolderContext";
 import { saveFile, deleteFile } from "./persist/idb";
+import { LocalLoads } from "./state/localLoad";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
@@ -313,6 +314,11 @@ function AppContent() {
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
 
+  // The main thread's own copies of the GEDCOM datasets, built from the same
+  // bytes the worker parses — no dataset crosses the worker boundary (see
+  // ParseSuccess.dataset). Lives for the app's lifetime, like the worker's state.
+  const localLoads = useRef(new LocalLoads()).current;
+
   // Dispatch a message from the GEDCOM worker to the right state. Invoked on
   // every worker message via useGedcomWorker's latest-handler ref.
   const handleWorkerMessage = (msg: WorkerResponse) => {
@@ -381,7 +387,18 @@ function AppContent() {
         if (slot.status === "loading" && slot.fileName !== msg.fileName) return;
       }
       if (msg.type === "parsed") {
-        const file = loadedFileFromParsed(msg);
+        // The dataset the message stands for is this side's own copy (or, for
+        // a table compare, the one the message carries); a copy this side
+        // failed to build while the worker succeeded is reported as a failed
+        // slot rather than left spinning.
+        const dataset = localLoads.resolve(msg, compare.status === "loaded" ? compare.file.dataset : undefined);
+        if (!dataset) {
+          dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: t("load.unreadable") });
+          void deleteFile(msg.role);
+          persistence.hydratedRef.current = true;
+          return;
+        }
+        const file = loadedFileFromParsed(msg, dataset);
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
@@ -446,6 +463,12 @@ function AppContent() {
   };
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
   const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage, handleWorkerFailure);
+  // Every load goes through here: the worker gets the bytes, and this side
+  // builds the same dataset from a copy before the worker can answer.
+  const feed = useCallback(
+    (msg: WorkerRequest, transfer?: Transferable[]) => localLoads.feed(post, msg, transfer),
+    [localLoads, post],
+  );
 
   // The media folder's remembered handle lives in its own IndexedDB; clearing
   // locally stored data has to drop it along with the workspace.
@@ -458,7 +481,7 @@ function AppContent() {
   const persistence = useWorkspacePersistence({
     persistEnabled: settings.persistWorkspace,
     workspace, mainDataset, editVersion, cleanEditVersionRef, dirty, undoRedo,
-    sortEligiblePersonIdsRef, post, dispatch, autoStartRef,
+    sortEligiblePersonIdsRef, post: feed, dispatch, autoStartRef,
     loadFile, confirmDialog, setSaveToast, clearMediaFolder,
   });
   const { persistEnabled, mainHandle, compareHandle } = persistence;
@@ -581,7 +604,7 @@ function AppContent() {
       // Always feed main before compare so the compare normalizes against the
       // main's profile.
       if (role === "main") {
-        post(newMsg, [buffer]); // new main first
+        feed(newMsg, [buffer]); // new main first
         await refeedCompare(); // kept compare second (re-parsed from its raw bytes)
       } else if (keptMain) {
         // Silent re-feed rebuilds the worker's main without touching the main
@@ -596,11 +619,11 @@ function AppContent() {
           [mainBuf],
         );
         if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
-        post(newMsg, [buffer]); // new compare last
+        feed(newMsg, [buffer]); // new compare last
       }
       return;
     }
-    post(newMsg, [buffer]); // transfer ownership — avoids copying large files
+    feed(newMsg, [buffer]); // transfer ownership — avoids copying large files
   }
 
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
@@ -611,7 +634,7 @@ function AppContent() {
     const fileName = compare.file.fileName;
     const isCsv = isTableFile(fileName);
     const buffer = await blob.arrayBuffer();
-    post(
+    feed(
       isCsv ? { type: "parseCsv", fileName, buffer } : { type: "parse", role: "compare", fileName, buffer },
       [buffer],
     );
@@ -635,7 +658,7 @@ function AppContent() {
     dispatch({ type: "slotCleared", role: "compare" });
     clearMatchState();
     setSelectedId(null);
-    post({ type: "clearCompare" });
+    feed({ type: "clearCompare" });
   }
 
   /**
