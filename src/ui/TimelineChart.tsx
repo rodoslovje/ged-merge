@@ -240,7 +240,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, zoomLayerRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
@@ -252,7 +252,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy, onLeave: onBack });
 
   const selectedRow = rows.find((r) => r.key === selectedKey);
   const selectedIndi = selectedRow ? mainDs.individuals.get(selectedRow.id) : undefined;

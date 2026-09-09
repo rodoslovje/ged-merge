@@ -156,7 +156,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     [chart, nodesByKey],
   );
 
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, alignment, false, nodeH, `${startSel}→${targetSel}:${optionIdx}:${alignment}`);
 
   // Find-in-chart. This diagram only draws one route, so somebody off it is the
@@ -169,7 +169,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   const find = useChartFind(findSources, mainDs.individuals, revealNode, retarget);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy, onLeave: onBack });
 
   const selectedBox = chart?.boxes.find((b) => b.key === selectedKey);
   const selectedIndi = selectedBox ? mainDs.individuals.get(selectedBox.id) : undefined;

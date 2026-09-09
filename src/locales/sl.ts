@@ -2680,6 +2680,7 @@ export const sl = {
   "shortcuts.item.chartHome": "Nariši diagram za izhodiščno osebo",
   "shortcuts.item.chartEdit": "Odpri izbrano osebo v Urejanju",
   "shortcuts.item.chartNode": "Pridi do osebe na diagramu · izberi jo; ⌥ in puščice nato vodijo po njeni družini",
+  "shortcuts.item.chartScroll": "Pomakni diagram — s ⇧ v večjih korakih; PgUp / PgDn za skoraj cel zaslon",
   "shortcuts.item.relationship": "Odpri diagram sorodstva",
   "shortcuts.item.confirm": "Potrdi ujemanje",
   "shortcuts.item.reject": "Zavrni ujemanje",

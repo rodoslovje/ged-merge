@@ -284,7 +284,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       : { root: { ...rootNode, x: 0 }, width: bars.width + 2 * PAD, height: bars.height + 2 * PAD };
   }, [layout, nodesByKey, currentRootId, wheel, bars]);
 
-  const { canvasRef, zoomLayerRef, viewport, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", layout === "wheel", 24, `${currentRootId}:${layout}:${scope}:${settings.maxGenerations ?? "all"}`);
 
   const findSources = useMemo(
@@ -293,7 +293,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   );
   const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy, onLeave: onBack });
 
   const selected = people.find((p) => p.id === selectedKey);
   const selectedRows = useMemo(

@@ -267,7 +267,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
@@ -293,7 +293,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // E the selected person in Edit, Esc leaves the page.
   const selectedMainId = selected?.main?.id;
   useChartShortcuts({
-    zoomIn, zoomOut, resetZoom, fitToScreen,
+    zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
     onMode: onModeChange,
     allowDescendants: !radial,
     onEdit: selectedMainId && onNavigate ? () => onNavigate(selectedMainId) : undefined,

@@ -2376,6 +2376,7 @@ export const en = {
   "shortcuts.item.chartHome": "Draw the chart for the start person",
   "shortcuts.item.chartEdit": "Open the selected person in Edit",
   "shortcuts.item.chartNode": "Reach a person on the chart · select them; ⌥ + arrows then walk their family",
+  "shortcuts.item.chartScroll": "Scroll the chart — with ⇧ in bigger steps; PgUp / PgDn most of a screen",
   "shortcuts.item.relationship": "Open the relationship diagram",
   "shortcuts.item.confirm": "Confirm match",
   "shortcuts.item.reject": "Reject match",

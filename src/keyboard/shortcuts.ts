@@ -253,6 +253,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[CHART_KEY.home.toUpperCase()]], descKey: "shortcuts.item.chartHome" },
       { keys: [[CHART_KEY.edit.toUpperCase()]], descKey: "shortcuts.item.chartEdit" },
       { keys: [["Tab"], ["Enter"]], descKey: "shortcuts.item.chartNode" },
+      { keys: [["←"], ["→"], ["↑"], ["↓"]], descKey: "shortcuts.item.chartScroll" },
     ],
   },
 ];
