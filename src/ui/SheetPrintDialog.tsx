@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import {
@@ -64,7 +64,6 @@ function mmInRange(mm: number): boolean {
 
 export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const { t } = useTranslation();
-  const ref = useModalKeyboard(true, onClose);
   const [choice, setChoice] = useState<PaperName | "custom">("a4");
   const [orientation, setOrientation] = useState<Orientation>("landscape");
   const [size, setSize] = useState<PrintSize>("medium");
@@ -123,6 +122,10 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
       },
     });
   };
+  // Opens on Print, so Enter prints; ⌘/Ctrl+Enter does the same from the
+  // custom-size fields.
+  const printBtn = useRef<HTMLButtonElement>(null);
+  const ref = useModalKeyboard(true, onClose, { onConfirm: paper ? print : undefined, initialFocus: printBtn });
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -239,6 +242,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
             {t("confirm.cancel")}
           </button>
           <button
+            ref={printBtn}
             type="button"
             className="confirm-dialog-confirm"
             disabled={!paper}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { objeInfoOf } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -126,23 +127,6 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
     return () => { cancelled = true; };
   }, [isOpen, listMediaFiles, resolveFile, dataset.records, reloadKey]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const toggle = (path: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-
   const handleAdd = () => {
     const byPath = new Map(images.map((im) => [im.path, im] as const));
     const picked: PickedMedia[] = [...selected]
@@ -176,6 +160,22 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
     if (failed) setImportError(true);
     else onClose();
   };
+
+  // Escape, the focus trap and ⌘/Ctrl+Enter for Add, like every dialog; the
+  // search box takes the caret on open.
+  const modalRef = useModalKeyboard<HTMLDivElement>(isOpen, onClose, {
+    onConfirm: selected.size > 0 ? handleAdd : undefined,
+  });
+
+  if (!isOpen) return null;
+
+  const toggle = (path: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
 
   const q = query.trim().toLowerCase();
   const matches = (im: FolderImage) => !q || im.searchText.includes(q);
@@ -219,7 +219,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal add-media-dialog" role="dialog" aria-modal="true" aria-label={t("addMedia.title")} onClick={(e) => e.stopPropagation()}>
+      <div className="modal add-media-dialog" ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t("addMedia.title")} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{t("addMedia.title")}</h2>
           <div className="name-search-wrap add-media-search">
@@ -228,6 +228,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
               className="name-search"
               placeholder={t("addMedia.search")}
               title={t("addMedia.searchTooltip")}
+              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />

@@ -59,6 +59,7 @@ export const EventList = memo(function EventList({
   onMaterializeEventNode,
   pendingFocusNodeId,
   birtFocusNonce,
+  birtDetailMenuNonce,
   focusBirthOnMount,
   rowFocus,
   undoVersion,
@@ -128,6 +129,9 @@ export const EventList = memo(function EventList({
   /** Bumped by quick-add "Birth": focuses the always-present Birth row's lead
    * input instead of adding a duplicate BIRT event. */
   birtFocusNonce?: number;
+  /** Bumped by ⌥⇧D outside any event row: opens the Birth row's + Detail
+   * menu, the first event's, so the chord answers from anywhere in Edit. */
+  birtDetailMenuNonce?: number;
   /** True while opening a person whose name arrived complete (typed into the
    *  picker): the birth date is where the typing carries on, so the row takes
    *  the keyboard as it mounts. */
@@ -248,6 +252,7 @@ export const EventList = memo(function EventList({
         onOpenMediaLink={birtOriginalIdx >= 0 ? (url) => openMediaLink(rawEventNodes[birtOriginalIdx], { kind: "individual", indi: person }, url) : undefined}
         onOpenSourceDialog={onOpenSourceDialog}
         focusLeadNonce={birtFocusNonce}
+        openDetailMenuNonce={birtDetailMenuNonce}
         autoFocusLead={focusBirthOnMount}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}

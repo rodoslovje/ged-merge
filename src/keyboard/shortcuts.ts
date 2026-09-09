@@ -29,6 +29,8 @@ export const KEY = {
   confirm: "c",
   reject: "r",
   defer: "d",
+  /** Merge mode: show or hide the match list's filters. */
+  filter: "f",
 } as const;
 
 /** Bare keys active on the full-page chart overlays (handled by
@@ -78,13 +80,31 @@ export const KEY_STATUS: Record<string, ActiveStatus> = {
 };
 
 /**
- * True while any modal is mounted — a dialog (`.modal-overlay`) or the photo
- * lightbox (`.person-media-overlay`). Bare-key and undo/redo shortcuts bail on
- * this so they don't act on the app behind an open dialog: with the lightbox
- * open, `e`/`m`/`t` would switch mode, `n` add a person and `c`/`r`/`d` decide
- * a match, all invisibly behind the photo.
+ * The layers open over the page: every dialog (`useModalKeyboard`) and every
+ * popover (`usePopoverKeyboard`) registers itself while it is up. Kept as a
+ * registry rather than a class query so a menu with no overlay element counts
+ * too — the Export menu and the chart gear used to be invisible here, and the
+ * bare keys went on firing behind them.
+ */
+const layers = new Set<symbol>();
+
+/** Hold a layer open; call the returned function to let it go. */
+export function registerLayer(): () => void {
+  const id = Symbol("layer");
+  layers.add(id);
+  return () => { layers.delete(id); };
+}
+
+/**
+ * True while any modal is up — a registered dialog or popover, or (belt and
+ * braces, for an overlay that bypasses the hooks) a dialog (`.modal-overlay`)
+ * or the photo lightbox (`.person-media-overlay`) in the DOM. Bare-key and
+ * undo/redo shortcuts bail on this so they don't act on the app behind an
+ * open dialog: with the lightbox open, `e`/`m`/`t` would switch mode, `n` add
+ * a person and `c`/`r`/`d` decide a match, all invisibly behind the photo.
  */
 export function isModalOpen(): boolean {
+  if (layers.size > 0) return true;
   return typeof document !== "undefined" && document.querySelector(".modal-overlay, .person-media-overlay") != null;
 }
 
@@ -130,7 +150,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["mod", "F"]], descKey: "shortcuts.item.find" },
       { keys: [["mod", "Enter"]], descKey: "shortcuts.item.confirmDialog" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
-      { keys: [["?"]], descKey: "shortcuts.item.help" },
+      // F1 also from inside a field, where `?` is the character being typed.
+      { keys: [["?"], ["F1"]], descKey: "shortcuts.item.help" },
       { keys: [["Esc"]], descKey: "shortcuts.item.escape" },
     ],
   },
@@ -199,6 +220,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
       { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
       { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
+      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters" },
     ],
   },
   {

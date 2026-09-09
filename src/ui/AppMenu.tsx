@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { GearIcon } from "./icons/GearIcon";
@@ -11,9 +11,10 @@ import { SearchIcon } from "./icons/SearchIcon";
 // panel, rather than being hidden: the file pills used to be `display: none`
 // below 880px, which left no way at all to see or change the loaded files.
 //
-// Toggle-button + outside-click popover, like ExportMenu / ChartSettings. Open
-// state is owned by the caller so it can open the panel by itself (the app pops
-// it when no start person could be picked automatically).
+// Toggle-button + outside-click popover, like ExportMenu / ChartSettings, with
+// the same menu keyboard. Open state is owned by the caller so it can open the
+// panel by itself (the app pops it when no start person could be picked
+// automatically).
 
 export interface AppMenuFile {
   /** "Main" / "Incoming". */
@@ -48,36 +49,21 @@ export function AppMenu({
   onSettings,
 }: Props) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close on an outside tap or on Escape.
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onOpenChange(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onOpenChange(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, onOpenChange]);
+  const { containerRef, triggerRef, close, onTriggerKeyDown } = usePopoverKeyboard(open, onOpenChange, { arrows: true });
 
   /** Run an action and close the panel behind it. */
   function pick(run: () => void) {
-    onOpenChange(false);
+    close();
     run();
   }
 
   return (
-    <div className="app-menu" ref={ref}>
+    <div className="app-menu" ref={containerRef}>
       <button
+        ref={triggerRef}
         className={`nav-btn icon-only app-menu-btn${open ? " open" : ""}`}
         onClick={() => onOpenChange(!open)}
+        onKeyDown={onTriggerKeyDown}
         aria-haspopup="menu"
         aria-expanded={open}
         title={t("menu.title")}

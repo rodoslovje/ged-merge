@@ -80,15 +80,29 @@ export const RichNoteInput = forwardRef<
     else exec("createLink", linkHref(href));
   }
 
-  const tool = (label: string, key: string, run: () => void, cls?: string) => (
+  // One Tab stop for the whole toolbar — the first tool — and ←/→ between the
+  // tools, so leaving a note by Tab is not six presses longer than it was.
+  const tool = (label: string, key: string, run: () => void, cls?: string, first = false) => (
     <button
       type="button"
       className={`note-tool${cls ? ` ${cls}` : ""}`}
       title={t(key)}
-      tabIndex={-1}
-      onMouseDown={(e) => {
-        e.preventDefault(); // keep the box's selection and focus
-        run();
+      tabIndex={first ? 0 : -1}
+      // mousedown is swallowed to keep the box's selection and focus; the
+      // action is the click, so Enter on a focused tool applies it too (exec
+      // refocuses the box, which brings its last selection back).
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={run}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        const tools = Array.from(
+          (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(".note-tool")) ?? [],
+        );
+        const at = tools.indexOf(e.currentTarget);
+        const next = tools[at + (e.key === "ArrowRight" ? 1 : -1)];
+        if (!next) return;
+        e.preventDefault();
+        next.focus();
       }}
     >
       {label}
@@ -143,7 +157,7 @@ export const RichNoteInput = forwardRef<
         </button>
       ) : null}
       <span className="note-toolbar" role="toolbar">
-        {tool("B", "edit.noteBold", () => exec("bold"), "note-tool--b")}
+        {tool("B", "edit.noteBold", () => exec("bold"), "note-tool--b", true)}
         {tool("I", "edit.noteItalic", () => exec("italic"), "note-tool--i")}
         {tool("U", "edit.noteUnderline", () => exec("underline"), "note-tool--u")}
         {tool("•", "edit.noteList", () => exec("insertUnorderedList"))}

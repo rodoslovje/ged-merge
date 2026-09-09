@@ -2462,7 +2462,9 @@ button:focus-visible {
   opacity: 0;
   transition: opacity 0.1s;
 }
-.person-media-item:hover .person-media-delete { opacity: 1; }
+.person-media-item:hover .person-media-delete,
+.person-media-item:focus-within .person-media-delete,
+.person-media-delete:focus-visible { opacity: 1; }
 .person-media-add {
   width: 64px;
   height: 64px;
@@ -3805,7 +3807,8 @@ button:focus-visible {
   line-height: 1;
   cursor: pointer;
 }
-.note-tool:hover { color: var(--text); background: var(--border); }
+.note-tool:hover,
+.note-tool:focus-visible { color: var(--text); background: var(--border); }
 .note-tool--b { font-weight: 700; }
 .note-tool--i { font-style: italic; }
 .note-tool--u { text-decoration: underline; }
@@ -8726,6 +8729,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The group's citing-persons list, sized like the member rows above it. */
 .tools-dup-uses { font-size: 0.9rem; }
 .tools-dup-title { color: var(--text); }
+/* The regrouped source's title opens its record — a button, so Tab reaches it. */
+.tools-dup-title-btn {
+  border: none; background: none; padding: 0;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.tools-dup-title-btn:hover { color: var(--accent); text-decoration: underline; }
 .tools-dup-keep-pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .tools-dup-keep-pick input { cursor: pointer; }
 .tools-dup-keep {

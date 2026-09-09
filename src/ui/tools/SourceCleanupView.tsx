@@ -1243,6 +1243,7 @@ function GroupEditDialog({
       title={t("editSource.title")}
       t={t}
       onClose={onClose}
+      onConfirm={save}
       actions={
         <>
           <button className="nav-btn" onClick={onClose}>
@@ -1841,9 +1842,9 @@ function RegroupRow({
           <ul className="tools-dup-members">
             {group.moves.map((move) => (
               <li key={move.sourceXref} className="tools-dup-member">
-                <span className="tools-dup-title clickable" onClick={() => onNavigate(move.sourceXref)}>
+                <button type="button" className="tools-dup-title tools-dup-title-btn" onClick={() => onNavigate(move.sourceXref)}>
                   {move.title}
-                </span>
+                </button>
                 {/* Where it hangs today — which of them the move empties is
                     the header's count, not a mark on every row. */}
                 <span className="tools-tree-meta">{move.fromName ?? t("tools.sources.noRepo")}</span>

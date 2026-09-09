@@ -965,15 +965,17 @@ function AppContent() {
         return;
       }
 
-      if (editable) return;
-
       // `?` / F1 toggle the shortcut cheat sheet. Allowed even with the sheet
       // itself open (so it toggles closed), but not stacked over another modal.
-      if (e.key === "?" || e.key === "F1") {
+      // F1 works from inside a field too — where `?` is the character being
+      // typed, and where an Edit user most wants to look a chord up.
+      if (e.key === "F1" || (e.key === "?" && !editable)) {
         e.preventDefault();
         setShowShortcuts((v) => (!v && isModalOpen() ? v : !v));
         return;
       }
+
+      if (editable) return;
       if (isModalOpen()) return;
 
       if (mod) {

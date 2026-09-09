@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -58,7 +59,7 @@ export function ChartSettings({
   // folder).
   const { folderName } = useMediaFolder();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const { containerRef, triggerRef, onTriggerKeyDown } = usePopoverKeyboard(open, setOpen);
   // The effective type drives which extra rows show; with a locked type it wins
   // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
@@ -67,21 +68,13 @@ export function ChartSettings({
   // one generation shallower than the tree in front of them.
   const shownGenerations = settings.maxGenerations ?? (availableGenerations ?? 1);
 
-  // Close the popover on an outside click.
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
   return (
-    <div className="chart-settings" ref={ref}>
+    <div className="chart-settings" ref={containerRef}>
       <button
+        ref={triggerRef}
         className={`tree-open-btn chart-settings-btn${open ? " open" : ""}`}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         title={t("tree.settings.tooltip")}
         aria-label={t("tree.settings.button")}
         aria-expanded={open}

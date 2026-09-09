@@ -277,6 +277,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   useEffect(() => { if (pendingFocusFamEventKey) setPendingFocusFamEventKey(null); }, [pendingFocusFamEventKey]);
   // Tracks which individual-event row should auto-focus its date field on mount.
   const [pendingFocusEventNodeId, setPendingFocusEventNodeId] = useState<number | null>(null);
+  // Bumped by ⌥⇧D pressed outside any event row: the first event's + Detail
+  // menu opens, as the row's own would have for the row the keyboard is in.
+  const [detailMenuNonce, setDetailMenuNonce] = useState(0);
   useEffect(() => { if (pendingFocusEventNodeId !== null) setPendingFocusEventNodeId(null); }, [pendingFocusEventNodeId]);
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void; danger?: boolean } | null>(null);
   // The event whose "Copy event to…" picker is open (null = closed).
@@ -764,6 +767,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   editActionRef.current = {
     KeyE: () => setAddEventMenuNonce((n) => n + 1),
     KeyN: () => setNotesAdded(true),
+    KeyD: () => setDetailMenuNonce((n) => n + 1),
     KeyA: () => setAddNameNonce((n) => n + 1),
     KeyS: () => setSourceDialogTarget({ kind: "individual" }),
     // Media is I for image and privacy L for the lock it shows: M and P belong
@@ -2140,6 +2144,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
             birtFocusNonce={birtFocusNonce}
+            birtDetailMenuNonce={detailMenuNonce}
             focusBirthOnMount={focusNextField.current === "birth"}
             rowFocus={rowFocus}
             undoVersion={undoVersion}

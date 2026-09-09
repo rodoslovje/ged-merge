@@ -392,7 +392,9 @@ export function DuplicatesPanel({
 
   // Left/Right step the highlight between rows; Enter toggles the selected row
   // (unfold a cluster, or open/close a pair's comparison); Up/Down scroll the
-  // surrounding list. Mirrors the Merge view's compare-panel shortcuts.
+  // surrounding list. Mirrors the Merge view's compare-panel shortcuts — and
+  // Merge's D, "decide later", is the step to the next row here: a pair
+  // needs no deferred state to be passed over.
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
@@ -400,7 +402,7 @@ export function DuplicatesPanel({
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const list = rowsRef.current;
       if (list.length === 0) return;
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key.toLowerCase() === KEY.defer) {
         e.preventDefault();
         const next = e.key === "ArrowLeft"
           ? Math.max(0, selectedRef.current - 1)

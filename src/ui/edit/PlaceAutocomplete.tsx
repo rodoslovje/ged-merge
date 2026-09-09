@@ -345,9 +345,12 @@ export function PlaceAutocomplete({
                   type="button"
                   className="tools-issue-link"
                   disabled={search.state === "loading"}
-                  // mousedown, not click: a click blurs the input first, and the
-                  // wrapper's blur handler would have closed the dropdown.
-                  onMouseDown={(e) => { e.preventDefault(); runSearch(); }}
+                  // The mousedown is swallowed so the input keeps focus — a
+                  // click would blur it first, and the wrapper's blur handler
+                  // would have closed the dropdown. The search itself is the
+                  // click, so the row reached with Tab runs it on Enter too.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={runSearch}
                 >
                   {search.state === "loading" && searchedThis
                     ? t("event.place.lookup.searching")

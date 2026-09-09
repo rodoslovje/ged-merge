@@ -202,9 +202,10 @@ export function MergeView({
     });
   }
 
-  // ⌘/Ctrl+F does the same as the bare `f`, for anyone who reaches for the
-  // conventional chord. Merge mode is `active` only while it's the visible
-  // mode with no chart over it, so an open chart keeps the chord.
+  // ⌘/Ctrl+F is the conventional chord for the name filter; the bare `f`
+  // below shows and hides the whole filter row. Merge mode is `active` only
+  // while it's the visible mode with no chart over it, so an open chart keeps
+  // the chord.
   useFindShortcut(() => active, focusNameFilter);
 
   useEffect(() => {
@@ -227,8 +228,14 @@ export function MergeView({
       }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
+      if (key === KEY.filter) {
+        // The filter row lives in the match section, so showing it opens that too.
+        e.preventDefault();
+        setShowFilters((s) => { if (!s) setOpenMatches(true); return !s; });
+        return;
+      }
       const hit = KEY_STATUS[key];
-      if (hit) toggleStatus(hit);
+      if (hit) { e.preventDefault(); toggleStatus(hit); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

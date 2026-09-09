@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Dataset, GedNode, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
+import { useModalKeyboard } from "../../keyboard/useModalKeyboard";
 import { childValue } from "../../gedcom/node";
 import { lifespanOf } from "../../gedcom/lifespan";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
@@ -91,12 +92,9 @@ export function CopyEventDialog({
   const nameOf = useNameOf();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  const modalRef = useModalKeyboard(true, onCancel, {
+    onConfirm: selected.size > 0 ? () => onConfirm([...selected]) : undefined,
+  });
 
   const { kind, node, sourceId } = request;
 
@@ -180,6 +178,8 @@ export function CopyEventDialog({
     <div className="modal-overlay" onClick={onCancel}>
       <div
         className="modal copy-event-dialog"
+        ref={modalRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={t("copyEvent.title", { event: request.label })}

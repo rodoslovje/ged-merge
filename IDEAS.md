@@ -272,9 +272,6 @@ Not yet committed — cull as needed.
   `api.allorigins.win` CORS relay; a single third-party point of failure for the
   opt-in link-fetch feature. Allow a user-supplied relay URL (or document
   self-hosting one).
-- **Keyboard-shortcut cheat sheet** — a `?` overlay listing the chart/edit/merge
-  shortcuts that already exist in `src/keyboard/`; today they're only
-  discoverable from the guide.
 - **File statistics panel** — a cheap Tools panel over data already computed:
   person/family/source counts, date coverage, surname frequency, lifespan
   distribution. (The matcher's name-frequency pass, `src/match/nameFrequency.ts`,

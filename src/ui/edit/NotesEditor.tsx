@@ -109,11 +109,11 @@ export function NotesEditor({
               className={`note-chip-lock${note.private ? " is-on" : ""}`}
               title={t(note.private ? "edit.notePrivateOn" : "edit.notePrivateOff")}
               aria-pressed={!!note.private}
-              tabIndex={-1}
-              onMouseDown={(e) => {
-                e.preventDefault(); // keep the box's focus/blur cycle intact
-                commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)));
-              }}
+              // mousedown is swallowed to keep the box's focus/blur cycle
+              // intact; the flip is the click, which Enter on the focused
+              // lock fires too.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)))}
             >
               🔒
             </button>

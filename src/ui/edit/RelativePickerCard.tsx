@@ -145,9 +145,14 @@ export function RelativePickerCard({
           {onAddNew && (
             <li>
               <button
+                type="button"
                 className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
                 onMouseEnter={() => setActiveIdx(0)}
-                onMouseDown={(e) => { e.preventDefault(); onAddNew(query.trim()); }}
+                onFocus={() => setActiveIdx(0)}
+                // mousedown only keeps the search box's focus; the pick is the
+                // click, so Enter on a row reached with Tab picks it too.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onAddNew(query.trim())}
               >
                 + {newLabel ?? t("edit.addNewPerson")}
               </button>
@@ -156,10 +161,13 @@ export function RelativePickerCard({
           {options.map((o, i) => (
             <li key={o.id}>
               <button
+                type="button"
                 className={`relative-picker-option${i + offset === activeIdx ? " highlighted" : ""}`}
                 title={lifespanTooltipOf(o.indi, settings.showAge, t)}
                 onMouseEnter={() => setActiveIdx(i + offset)}
-                onMouseDown={(e) => { e.preventDefault(); onPickExisting(o.id); }}
+                onFocus={() => setActiveIdx(i + offset)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onPickExisting(o.id)}
               >
                 <span className={`person-label ${sexClass(o.sex)}`}>
                   <span className="person-name">{o.name}</span>
