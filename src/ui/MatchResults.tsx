@@ -13,6 +13,7 @@ import {
   type MatchDecisionStatus,
 } from "../review/types";
 import { renderKeyToken } from "../keyboard/shortcuts";
+import { useListFocusKeeper } from "../keyboard/useListKeyboard";
 import { SelectMenu } from "./DropdownMenu";
 import { formatFieldLabel } from "../review/fields";
 import type { Dataset } from "../gedcom/types";
@@ -97,6 +98,9 @@ export function MatchResults({
   // yields tens of thousands of candidates. scrollMargin mirrors the rows'
   // scroll-margin-top, so auto-scrolls clear the sticky header row.
   const virtual = useVirtualList({ count: list.length, estimate: 40, itemsKey: list, scrollMargin: 40 });
+  // Where the keyboard parks when a row it was in is decided away or scrolled
+  // out of the virtual window.
+  const listRef = useListFocusKeeper<HTMLUListElement>();
 
   // Keep the selected row visible as the user pages with Prev/Next or arrows.
   const { scrollToIndex } = virtual;
@@ -187,7 +191,7 @@ export function MatchResults({
             : t("filter.noPassFilter")}
         </p>
       ) : (
-        <ul className="candidate-list">
+        <ul className="candidate-list" ref={listRef} tabIndex={-1}>
           <li className="candidate-list-head">
             <button className={cls("label", "person-col")} onClick={() => onToggleSort("label")}>
               {t("list.person")}{arrow("label")}
@@ -357,7 +361,7 @@ const CandidateRow = memo(function CandidateRow({
   );
 
   return (
-    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`}>
+    <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`} aria-current={selected ? "true" : undefined}>
       <div className="candidate-head">
         <button className="candidate-main" onClick={() => onSelect(index)}>
           <span className={`person-label ${sexClass(candidate.sex)}`}>

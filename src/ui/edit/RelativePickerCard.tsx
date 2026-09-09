@@ -7,6 +7,7 @@ import { xrefLabel } from "../../gedcom/nameDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
+import { handleListKey } from "../../keyboard/useListKeyboard";
 
 /** The preferences the rows read — the same ones the person cards honour, so a
  *  name reads identically whether it sits on a card or in this list. */
@@ -117,16 +118,18 @@ export function RelativePickerCard({
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") { onCancel(); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, totalItems - 1)); }
-    if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (onAddNew && activeIdx === 0) onAddNew(query.trim());
-      else {
-        const picked = options[activeIdx - offset];
-        if (picked) onPickExisting(picked.id);
-      }
-    }
+    handleListKey(e, {
+      count: totalItems,
+      index: activeIdx,
+      setIndex: setActiveIdx,
+      onEnter: (i) => {
+        if (onAddNew && i === 0) onAddNew(query.trim());
+        else {
+          const picked = options[i - offset];
+          if (picked) onPickExisting(picked.id);
+        }
+      },
+    });
   }
 
   return (

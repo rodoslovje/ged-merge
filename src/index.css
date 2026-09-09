@@ -1993,6 +1993,16 @@ button:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
+/* The lists park the keyboard on themselves (see useListFocusKeeper); the
+   ring then goes to the highlighted row, where the keys act, not the list. */
+.candidate-list:focus, .tools-pairs:focus, .tools-issues:focus, .compare-panel:focus { outline: none; }
+.candidate-list:focus-visible .candidate.selected { box-shadow: 0 0 0 2px var(--accent) inset; }
+.tools-pairs:focus-visible .tools-pair.selected,
+.tools-pairs:focus-visible .tools-dup-cluster-head.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.tools-issue.selected { box-shadow: inset 0 0 0 1px var(--accent); }
+.tools-issues:focus-visible .tools-issue.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+.compare tr.kbd-active > td { background: var(--accent-soft); }
+.compare-panel:focus-visible tr.kbd-active > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .candidate-head {
   display: flex;
@@ -5714,6 +5724,10 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .fan-sector { transition: stroke-width 0.1s ease; }
 .fan-node:hover .fan-sector { stroke-width: 2.5; }
 .fan-node.selected .fan-sector { stroke: var(--accent); }
+/* A chart's person is a Tab stop: the ring is the node's own outline. */
+.tree-node:focus, .fan-node:focus { outline: none; }
+.tree-node:focus-visible > rect:first-of-type { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 3; }
+.fan-node:focus-visible .fan-sector { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 4 3; }
 /* Font size is set per-generation on the element (shrinks outward); keep it off
    the class so the attribute wins. */
 .fan-label-name { fill: var(--text); font-weight: 600; }

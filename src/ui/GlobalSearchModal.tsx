@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+import { handleListKey } from "../keyboard/useListKeyboard";
 import type { Sex } from "../gedcom/types";
 import type { MatchDecisionStatus } from "../review/types";
 import { SelectMenu } from "./DropdownMenu";
@@ -164,18 +165,14 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
   }
 
   function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(results.length - 1, i + 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(0, i - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      // With no results, Enter takes the only action left: create the person.
-      if (canCreate) create();
-      else choose(results[activeIndex], e.shiftKey ? "tree" : "open");
-    }
+    // With no results, Enter takes the only action left: create the person.
+    if (e.key === "Enter" && canCreate) { e.preventDefault(); create(); return; }
+    handleListKey(e, {
+      count: results.length,
+      index: activeIndex,
+      setIndex: setActiveIndex,
+      onEnter: (i) => choose(results[i], e.shiftKey ? "tree" : "open"),
+    });
   }
 
   const setSex = (sex: Sex | undefined) => setFilters((f) => ({ ...f, sex: f.sex === sex ? undefined : sex }));

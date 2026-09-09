@@ -5,6 +5,7 @@ import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { handleListKey } from "../keyboard/useListKeyboard";
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
@@ -36,6 +37,8 @@ interface Props {
   visibleCount: number;
   onSelectPrev: () => void;
   onSelectNext: () => void;
+  /** Select the visible candidate at this index — Home, End and the arrows. */
+  onSelectIndex: (index: number) => void;
   onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
   /** Main individuals with unsaved edits — the "M" chip on a relative's name. */
@@ -80,6 +83,7 @@ export function MergeView({
   visibleCount,
   onSelectPrev,
   onSelectNext,
+  onSelectIndex,
   onSelect,
   decisions,
   changedPersonIds,
@@ -213,17 +217,25 @@ export function MergeView({
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // Left/Right move to the previous/next candidate; Up/Down scroll the
-      // compare panel instead (when it actually has something to scroll) —
-      // freed up rather than also navigating, so a long compare table can be
-      // read with the keyboard without losing your place in the match list.
-      if (e.key === "ArrowLeft") { e.preventDefault(); onSelectPrev(); return; }
-      if (e.key === "ArrowRight") { e.preventDefault(); onSelectNext(); return; }
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      // Already answered where it was pressed — the comparison's own rows.
+      if (e.defaultPrevented) return;
+      // ↑/↓ step the match list, as every list; ←/→ too, the keys Merge
+      // always had. Enter takes the keyboard into the comparison, whose rows
+      // then answer the arrows. PageUp/PageDown scroll the comparison without
+      // leaving the list, so a long table can be read without losing your
+      // place in the matches.
+      if (handleListKey(e, {
+        count: visibleCount,
+        index: visibleIndex,
+        setIndex: onSelectIndex,
+        horizontal: true,
+        onEnter: () => compareBodyRef.current?.querySelector<HTMLElement>(".compare-panel")?.focus(),
+      })) return;
+      if (e.key === "PageUp" || e.key === "PageDown") {
         const el = compareBodyRef.current;
         if (!el || el.scrollHeight <= el.clientHeight) return;
         e.preventDefault();
-        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: "smooth" });
         return;
       }
       const key = e.key.toLowerCase();
@@ -240,7 +252,7 @@ export function MergeView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
+  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, onSelectIndex, visibleCount, visibleIndex, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
 
   const currentLifespan = current ? candidateLifespan(current, mainDataset, settings.showAge, t) : undefined;
   const compareHeader = current ? (
@@ -367,7 +379,8 @@ export function MergeView({
                       onChange={onUpdateDecision}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
-                    />
+                      onLeave={() => document.querySelector<HTMLElement>(".candidate-list")?.focus()}
+              />
                   ) : (
                     <p className="muted">{t("compare.empty")}</p>
                   )}

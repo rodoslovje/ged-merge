@@ -217,7 +217,20 @@ function Segment({
           style: { fill: nameFill, ...(seg.light ? { fontWeight: 400 } : null) },
         };
   return (
-    <g className={`fan-node${selected ? " selected" : ""}${flashed ? " find-hit" : ""}`} onClick={() => onSelect(seg.key)}>
+    <g
+      className={`fan-node${selected ? " selected" : ""}${flashed ? " find-hit" : ""}`}
+      data-key={seg.key}
+      tabIndex={0}
+      role="button"
+      aria-label={node.years ? `${node.name}, ${node.years}` : node.name}
+      aria-pressed={selected}
+      onClick={() => onSelect(seg.key)}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        onSelect(seg.key);
+      }}
+    >
       <title>{clickHint}</title>
       <path
         className="fan-sector"

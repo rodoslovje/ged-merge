@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import {
@@ -621,12 +622,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           say what and how much, so a heading line per section would repeat it. */}
       {hasTabs && (
         <div className="tools-geo-tabs-row">
-          <div className="tools-geo-tabs" role="tablist">
-            <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
+          <div className="tools-geo-tabs" role="tablist" onKeyDown={tablistKeyDown}>
+            <button role="tab" aria-selected={tab === "places"} tabIndex={tabIndexFor(tab === "places")} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
               {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
             </button>
             {addrRows.length > 0 && (
-              <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+              <button role="tab" aria-selected={tab === "addresses"} tabIndex={tabIndexFor(tab === "addresses")} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
                 {/* The worklist count: placed rows are in addrRows but hidden by
                     default, so counting them would promise more than the tab shows. */}
                 {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>

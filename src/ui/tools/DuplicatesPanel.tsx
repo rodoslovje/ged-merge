@@ -24,6 +24,7 @@ import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow 
 import { rowCanKeepBoth } from "../../merge/applyFields";
 import { type PersonNav } from "../ReadOnlyCompare";
 import { KEY, isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
+import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useStickyHeaderInset } from "../usePhone";
 import { FieldValue, LinkIcons, RelativeGrid } from "../FieldValue";
 import { SourceRefs } from "../SourceRef";
@@ -116,7 +117,7 @@ export function DuplicatesPanel({
   const [selected, setSelected] = useState(0);
   const selectedRef = useRef(0);
   selectedRef.current = selected;
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useListFocusKeeper<HTMLUListElement>(useRef<HTMLUListElement>(null));
   // Mirror `expanded` so the keydown handler (which doesn't re-subscribe on
   // every open/close) can read the live value.
   const expandedRef = useRef<string | null>(null);
@@ -390,47 +391,52 @@ export function DuplicatesPanel({
     pinRowToTop(idx);
   }, [rows, pinRowToTop]);
 
-  // Left/Right step the highlight between rows; Enter toggles the selected row
-  // (unfold a cluster, or open/close a pair's comparison); Up/Down scroll the
-  // surrounding list. Mirrors the Merge view's compare-panel shortcuts — and
-  // Merge's D, "decide later", is the step to the next row here: a pair
-  // needs no deferred state to be passed over.
+  // ↑/↓ step the highlight between rows, as in every list — and ←/→ too,
+  // the keys this list had first; Home/End go to the ends; Enter toggles the
+  // selected row (unfold a cluster, or open/close a pair's comparison);
+  // PageUp/PageDown scroll the surrounding list. Merge's D, "decide later",
+  // is the step to the next row here: a pair needs no deferred state to be
+  // passed over.
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen()) return;
+      if (isEditableTarget(e.target) || isModalOpen() || e.defaultPrevented) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const list = rowsRef.current;
       if (list.length === 0) return;
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key.toLowerCase() === KEY.defer) {
-        e.preventDefault();
-        const next = e.key === "ArrowLeft"
-          ? Math.max(0, selectedRef.current - 1)
-          : Math.min(list.length - 1, selectedRef.current + 1);
+      const step = (next: number) => {
         setSelected(next);
         // If a comparison is already open, stick it to the pair we land on.
         const row = list[next];
         if (expandedRef.current !== null && row?.kind === "pair") setExpanded(row.key);
-        return;
-      }
-      if (e.key === "Enter") {
-        const row = list[selectedRef.current];
-        if (!row) return;
+      };
+      if (e.key.toLowerCase() === KEY.defer) {
         e.preventDefault();
-        if (row.kind === "cluster") toggleCluster(row.cluster.id, selectedRef.current);
-        else togglePair(row.key, selectedRef.current);
+        step(Math.min(list.length - 1, selectedRef.current + 1));
         return;
       }
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      if (handleListKey(e, {
+        count: list.length,
+        index: selectedRef.current,
+        setIndex: step,
+        horizontal: true,
+        onEnter: (i) => {
+          const row = list[i];
+          if (!row) return;
+          if (row.kind === "cluster") toggleCluster(row.cluster.id, i);
+          else togglePair(row.key, i);
+        },
+      })) return;
+      if (e.key === "PageUp" || e.key === "PageDown") {
         const el = listRef.current?.closest(".tools-view") as HTMLElement | null;
         if (!el || el.scrollHeight <= el.clientHeight) return;
         e.preventDefault();
-        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, toggleCluster, togglePair]);
+  }, [active, toggleCluster, togglePair, listRef]);
 
   if (state.status === "error") return <ToolsError message={state.message} />;
   if (state.status === "cancelled") {
@@ -524,7 +530,7 @@ export function DuplicatesPanel({
                   : t("tools.duplicates.allRejected")}
             </p>
           ) : (
-            <ul className="tools-pairs" ref={listRef}>
+            <ul className="tools-pairs" ref={listRef} tabIndex={-1}>
               <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
               {rows.slice(virtual.start, virtual.end).map((row, j) => {
                 const i = virtual.start + j;
@@ -532,7 +538,7 @@ export function DuplicatesPanel({
                   const c = row.cluster;
                   const unfolded = expandedClusters.has(c.id);
                   return (
-                    <li key={row.key} className={`tools-dup-cluster-head ${i === selected ? "selected" : ""}`}>
+                    <li key={row.key} className={`tools-dup-cluster-head ${i === selected ? "selected" : ""}`} aria-current={i === selected ? "true" : undefined}>
                       <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
                         <button
                           className={`tools-pair-toggle ${unfolded ? "open" : ""}`}
@@ -592,6 +598,7 @@ export function DuplicatesPanel({
                   <li
                     key={key}
                     className={`tools-pair ${row.clustered ? "tools-pair-clustered" : ""} ${i === selected ? "selected" : ""}${i % 2 ? " zebra" : ""}`}
+                    aria-current={i === selected ? "true" : undefined}
                   >
                     <div className="tools-pair-row" onMouseDown={() => setSelected(i)}>
                       {showRejected ? (

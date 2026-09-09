@@ -833,7 +833,12 @@ function AppContent() {
     }
   }, []);
 
-  // Prev/Next navigate within the filtered visible list.
+  // Prev/Next navigate within the filtered visible list; the index form is
+  // what the list keys (Home, End, a step) ask for.
+  const onSelectIndex = useCallback((idx: number) => {
+    const c = visibleRef.current[Math.max(0, Math.min(visibleRef.current.length - 1, idx))];
+    if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
+  }, []);
   const onSelectPrev = useCallback(() => {
     const idx = Math.max(0, visibleIndexRef.current - 1);
     const c = visibleRef.current[idx];
@@ -2222,6 +2227,7 @@ function AppContent() {
               visibleCount={visible.length}
               onSelectPrev={onSelectPrev}
               onSelectNext={onSelectNext}
+              onSelectIndex={onSelectIndex}
               onSelect={select}
               decisions={decisions}
               changedPersonIds={changedPersonIds}

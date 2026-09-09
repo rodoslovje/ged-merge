@@ -23,6 +23,9 @@ interface Handlers {
   /** H re-draws the chart for the start ("home") person. Omitted when there is
    *  no start person, or the chart already stands on them. */
   onHome?: () => void;
+  /** E opens the selected person in Edit. Omitted while nobody is selected,
+   *  or where the page has no Edit to open into. */
+  onEdit?: () => void;
   /** Escape / Backspace leave the page (each chart registers its own — never
    *  the hub too, or one keypress would pop two history entries). Backspace
    *  mirrors "back to the previous person" in Edit: the overlays are history
@@ -64,6 +67,10 @@ export function useChartShortcuts(handlers: Handlers) {
       }
       if (lower === CHART_KEY.home) {
         if (h.onHome) { e.preventDefault(); h.onHome(); }
+        return;
+      }
+      if (lower === CHART_KEY.edit) {
+        if (h.onEdit) { e.preventDefault(); h.onEdit(); }
         return;
       }
       if (lower === CHART_KEY.ancestors) {

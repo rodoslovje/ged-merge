@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { ChartKind } from "./ChartSettingsContext";
 import { PickerMenu } from "./PickerMenu";
@@ -51,13 +52,14 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
     );
   }
   return (
-    <div className="tree-mode charts-kind" role="tablist" aria-label={t("charts.kind.label")}>
+    <div className="tree-mode charts-kind" role="tablist" aria-label={t("charts.kind.label")} onKeyDown={tablistKeyDown}>
       {kinds.map((k) => (
         <button
           key={k}
           ref={value === k ? activeRef : undefined}
           role="tab"
           aria-selected={value === k}
+          tabIndex={tabIndexFor(value === k)}
           className={value === k ? "active" : ""}
           title={hint(k)}
           onClick={() => { if (value !== k) onChange(k); }}

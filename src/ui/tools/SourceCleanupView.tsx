@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { linkTooltip, safeLinkHref } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
@@ -733,12 +734,13 @@ export function SourceCleanupView({
           ticked across the lists, always within reach of the top of the page. */}
       {openTabs.length > 0 && (
         <div className="tools-geo-tabs-row">
-          <div className="tools-geo-tabs" role="tablist">
+          <div className="tools-geo-tabs" role="tablist" onKeyDown={tablistKeyDown}>
             {openTabs.map((k) => (
               <button
                 key={k}
                 role="tab"
                 aria-selected={activeTab === k}
+                tabIndex={tabIndexFor(activeTab === k)}
                 className={activeTab === k ? "active" : ""}
                 onClick={() => setTab(k)}
               >

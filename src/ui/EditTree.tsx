@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
@@ -36,6 +36,8 @@ import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { familyStepTarget } from "../gedcom/familyNav";
 
 // Color for unmodified nodes (main pine green) and modified (amber/minor).
 /** The preferences this file reads — subscribed field by field, so an
@@ -279,10 +281,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   );
   const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
-  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts),
-  // Esc leaves the page.
-  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onMode: onModeChange, allowDescendants: !radial, onLeave: onBack });
-
   // The selected person — a laid tree node, or a fan segment's ancestor node.
   // Both are `TreeNode`s (Placed extends TreeNode), so the panel reads them alike.
   const selected: TreeNode | undefined = radial
@@ -290,6 +288,57 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     : selectedKey
       ? nodesByKey.get(selectedKey)
       : undefined;
+
+  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts),
+  // E the selected person in Edit, Esc leaves the page.
+  const selectedMainId = selected?.main?.id;
+  useChartShortcuts({
+    zoomIn, zoomOut, resetZoom, fitToScreen,
+    onMode: onModeChange,
+    allowDescendants: !radial,
+    onEdit: selectedMainId && onNavigate ? () => onNavigate(selectedMainId) : undefined,
+    onLeave: onBack,
+  });
+
+  // ⌥ + arrows walk the family on the chart as they do in Edit — a parent up,
+  // a child down, a sibling sideways, Shift for the other one on that axis —
+  // from the person focused or selected, to the first position that draws
+  // the relative. The step is a reveal (selected and centred) and the focus
+  // moves with it, so the next step starts from there.
+  const keyByPerson = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of findSources) {
+      const id = s.people[0]?.id;
+      if (id && !m.has(id)) m.set(id, s.key);
+    }
+    return m;
+  }, [findSources]);
+  const walkRef = useRef({ selectedKey, activeNodes, keyByPerson, revealNode, mainDs });
+  walkRef.current = { selectedKey, activeNodes, keyByPerson, revealNode, mainDs };
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!e.altKey || e.metaKey || e.ctrlKey || e.defaultPrevented || isModalOpen() || isEditableTarget(e.target)) return;
+      const step = familyStepFor(e.key, e.shiftKey);
+      if (!step) return;
+      const { selectedKey: sel, activeNodes: nodes, keyByPerson: keys, revealNode: reveal, mainDs: ds } = walkRef.current;
+      const focusedKey = (document.activeElement as HTMLElement | null)?.closest?.("[data-key]")?.getAttribute("data-key");
+      const fromKey = focusedKey ?? sel;
+      const from = fromKey ? nodes.get(fromKey) : undefined;
+      // A fan segment wraps its TreeNode; a laid node is one.
+      const fromId = from ? ("node" in from ? from.node.main?.id : from.main?.id) : undefined;
+      if (!fromId) return;
+      const target = familyStepTarget(ds, fromId, step);
+      const key = target ? keys.get(target) : undefined;
+      if (!key) return;
+      e.preventDefault();
+      reveal(key);
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
+      });
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Main-only field rows for the selected person's detail panel; clicking a
   // relative re-roots the tree on them.

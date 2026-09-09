@@ -115,7 +115,18 @@ export const TreeSvg = memo(function TreeSvg({
               data-key={n.key}
               transform={`translate(${n.x},${n.y})`}
               className={`tree-node${n.key === selectedKey ? " selected" : ""}${n.key === flashKey ? " find-hit" : ""}`}
+              // A person on the chart is reached with Tab and taken with Enter,
+              // like a button; the ⌥+arrow family walk starts from the one focused.
+              tabIndex={0}
+              role="button"
+              aria-label={n.years ? `${n.name}, ${n.years}` : n.name}
+              aria-pressed={n.key === selectedKey}
               onClick={() => onSelect(n.key)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                onSelect(n.key);
+              }}
             >
               <title>{t("tree.node.clickHint")}</title>
               <TreeNodeBox

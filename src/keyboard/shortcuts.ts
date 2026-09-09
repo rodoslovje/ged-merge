@@ -44,6 +44,8 @@ export const CHART_KEY = {
   descendants: "d",
   /** Draw the chart for the start person — Edit's "go home", one letter for both. */
   home: KEY.home,
+  /** Open the selected person in Edit — the mode's own letter. */
+  edit: KEY.modeEdit,
 } as const;
 
 /**
@@ -170,8 +172,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     column: "left",
     items: [
-      { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext" },
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll" },
+      { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext" },
+      { keys: [["Home"], ["End"]], descKey: "shortcuts.item.homeEnd" },
+      { keys: [["PgUp"], ["PgDn"]], descKey: "shortcuts.item.page" },
       // Edit's family steps. ⌥ alone and not ⌥⇧ (the edit-action family): with
       // arrows there is no menu accelerator to collide with, and the pair leaves
       // ⇧ free to mean "the other one on this axis".
@@ -221,6 +225,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
       { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
       { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters" },
+      { keys: [["1"], ["2"], ["3"]], descKey: "shortcuts.item.fieldChoice" },
     ],
   },
   {
@@ -234,6 +239,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
       { keys: [[CHART_KEY.fit.toUpperCase()]], descKey: "shortcuts.item.chartFit" },
       { keys: [[CHART_KEY.home.toUpperCase()]], descKey: "shortcuts.item.chartHome" },
+      { keys: [[CHART_KEY.edit.toUpperCase()]], descKey: "shortcuts.item.chartEdit" },
+      { keys: [["Tab"], ["Enter"]], descKey: "shortcuts.item.chartNode" },
     ],
   },
 ];
