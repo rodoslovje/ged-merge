@@ -176,6 +176,11 @@ function preferredCountry(name: string | undefined, fmt: PlaceTargetFormat): str
   return fmt.countryPreferred.get(canonicalPlaceToken(name)) ?? name;
 }
 
+/** How many non-empty comma parts a place value carries. */
+function nonEmptyParts(value: string): number {
+  return value.split(",").filter((s) => s.trim()).length;
+}
+
 /**
  * Compose the register's levels into a raw place string and reshape it into the
  * file's layout. The chain is locality → administrative parents (smallest
@@ -236,7 +241,17 @@ function shape(
   else chain = [locality, ...admins.slice(-(depth - (country ? 2 : 1))), country].filter(Boolean) as string[];
 
   const raw = chain.join(style.fmt.separator);
-  const out = reformatPlace(raw, addrRaw, style.fmt);
+  // The reformatter fills in the levels this file's own places write above the
+  // locality — meant for an incoming file that omits a municipality. A register
+  // names its whole chain, and the file's chain for the place may be the very
+  // error under review: one value writing "Jelovec, Sodražica, Sodražica"
+  // taught it that Jelovec wants two parents, so the register's three-part
+  // answer came back as the four-part value it was to correct. A fill that
+  // carries the answer past the depth it was just cut to is refused, and the
+  // chain is reshaped without the file's hints.
+  let out = reformatPlace(raw, addrRaw, style.fmt);
+  if (out.plac && style.fmt.hierarchy && nonEmptyParts(out.plac) > depth)
+    out = reformatPlace(raw, addrRaw, { ...style.fmt, hierarchy: undefined });
   if (!out.plac) return undefined;
   // The reformatter re-parses the composed text with the file's heuristics —
   // and a real village named with a facility word ("Bela Cerkev", "Grad",
