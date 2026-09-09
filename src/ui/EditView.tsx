@@ -2258,9 +2258,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               openMediaLink={openMediaLink}
               onOpenSourceDialog={setSourceDialogTarget}
               onAddFamNote={onAddFamNote}
-              handleAddMedia={handleAddMedia}
-              handleDeleteMedia={handleDeleteMedia}
-              mediaCtxFor={mediaCtxFor}
               markFamilyTagRetagged={markFamilyTagRetagged}
               dismissExtraEvent={dismissExtraEvent}
               onCopyFamilyEvent={onCopyFamilyEvent}
@@ -2283,7 +2280,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               setPendingFocusFamEventKey={setPendingFocusFamEventKey}
               famNoteAddCount={fam ? famNoteAdd[fam.id] : undefined}
               mergeGen={mergeGen}
-              mediaGen={mediaGenRef.current}
             />
           ))}
           {spouseFamilies.length > 0 &&
