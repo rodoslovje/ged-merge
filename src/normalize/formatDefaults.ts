@@ -15,6 +15,7 @@ import { detectNoteShapesIfAny } from "../tools/noteReshape";
 import { detectLinkLangs } from "./links";
 import {
   collectLayoutValues,
+  countValues,
   dateLayoutFromValues,
   detectDatePlaceholder,
   detectPlaceLayout,
@@ -32,20 +33,23 @@ import type { DetectedFormats, FormatOverrides } from "./formatOverrides";
  */
 export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
   const { dateValues, placeValues, addrCount } = collectLayoutValues(dataset);
+  // Counted once; every detector below weighs the distinct values.
+  const dates = countValues(dateValues);
+  const places = countValues(placeValues);
   const links: string[] = [];
   walkNodes(dataset.records, (node) => {
     if (node.value !== undefined && LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) links.push(node.value);
   });
   const linkLangs = detectLinkLangs(links);
-  const placeLayout = detectPlaceLayout(placeValues, addrCount);
+  const placeLayout = detectPlaceLayout(places, addrCount);
   const nameLayout = inferNameLayout(dataset);
   const sourceLayout = inferSourceFormat(dataset.records).layout;
   const noteShapes = detectNoteShapesIfAny(dataset.records);
   const out: DetectedFormats = {
-    date: dateLayoutFromValues(dateValues),
-    datePlaceholder: dateValues.length ? (detectDatePlaceholder(dateValues) ?? "none") : undefined,
+    date: dateLayoutFromValues(dates),
+    datePlaceholder: dateValues.length ? (detectDatePlaceholder(dates) ?? "none") : undefined,
     place: placeLayout === "unknown" ? undefined : placeLayout,
-    placeSeparator: detectPlaceSeparator(placeValues),
+    placeSeparator: detectPlaceSeparator(places),
     names: nameLayout === "none" ? undefined : nameLayout,
     unknownName: detectUnknownNameToken(dataset) ?? "blank",
     sourceLayout: sourceLayout === "unknown" ? undefined : sourceLayout,

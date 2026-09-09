@@ -81,8 +81,8 @@ export function inferMainProfile(main: Dataset): MainProfile {
 
   return {
     version: main.version,
-    date: inferDateProfile(dateValues),
-    place: inferPlaceProfile(placeValues, addrCount),
+    date: inferDateProfile(countValues(dateValues)),
+    place: inferPlaceProfile(countValues(placeValues), addrCount),
     linkLangs: detectLinkLangs(links),
     placeFmt: inferPlaceExportFormat(main),
     nameVariants: inferNameVariants(main),
@@ -91,7 +91,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
   };
 }
 
-export function inferDateProfile(values: string[]): DateFormatProfile {
+export function inferDateProfile(values: Values): DateFormatProfile {
   let upper = 0;
   let lower = 0;
   let title = 0;
@@ -103,29 +103,29 @@ export function inferDateProfile(values: string[]): DateFormatProfile {
   let monthWordValues = 0;
   const numeric = new NumericTally();
 
-  for (const v of values) {
+  for (const [v, n] of countValues(values)) {
     let hasMonthWord = false;
     for (const token of v.match(/[A-Za-z]{3,}/g) ?? []) {
       if (!isMonthWord(token)) continue;
       hasMonthWord = true;
-      if (token.length > 3) full++;
-      else abbr++;
+      if (token.length > 3) full += n;
+      else abbr += n;
       switch (casingOf(token)) {
-        case "upper": upper++; break;
-        case "lower": lower++; break;
-        case "title": title++; break;
+        case "upper": upper += n; break;
+        case "lower": lower += n; break;
+        case "title": title += n; break;
       }
     }
     if (hasMonthWord) {
-      monthWordValues++;
+      monthWordValues += n;
       // Day token: 1-2 digits immediately before a month word.
       const m = v.match(/(?:^|\s)(\d{1,2})\s+[A-Za-z]{3,}/);
       if (m) {
-        dayCount++;
-        if (/^0\d$/.test(m[1])) paddedDay++;
+        dayCount += n;
+        if (/^0\d$/.test(m[1])) paddedDay += n;
       }
     } else {
-      numeric.observe(v);
+      numeric.observe(v, n);
     }
   }
 
@@ -157,13 +157,13 @@ export function inferDateProfile(values: string[]): DateFormatProfile {
  * ends), e.g. "__.05.1900" or ".__.____". Requires at least two such values so a
  * single stray entry isn't mistaken for a house convention.
  */
-export function detectDatePlaceholder(values: string[]): string | undefined {
+export function detectDatePlaceholder(values: Values): string | undefined {
   let underscore = 0;
   let question = 0;
-  for (const v of values) {
+  for (const [v, n] of countValues(values)) {
     if (!/(?:^|[./-])\s*[_?]{1,4}\s*(?:[./-]|$)/.test(v)) continue;
-    if (v.includes("_")) underscore++;
-    else question++;
+    if (v.includes("_")) underscore += n;
+    else question += n;
   }
   if (underscore + question < 2) return undefined;
   return underscore >= question ? "_" : "?";
@@ -230,8 +230,9 @@ export function detectCoordUsage(dataset: Dataset): CoordUsage {
 }
 
 /** Pure: describe a date layout from already-collected DATE values (undefined when there are none). */
-export function dateLayoutFromValues(values: string[]): string | undefined {
-  return values.length === 0 ? undefined : describeDateFormat(inferDateProfile(values));
+export function dateLayoutFromValues(values: Values): string | undefined {
+  const counted = countValues(values);
+  return counted.size === 0 ? undefined : describeDateFormat(inferDateProfile(counted));
 }
 
 function collectDateValues(dataset: Dataset): string[] {
@@ -282,30 +283,31 @@ class NumericTally {
   private padFields = 0;
   private fieldCount = 0;
 
-  observe(value: string): void {
+  /** Observe a value seen `by` times. */
+  observe(value: string, by = 1): void {
     const m = value.trim().match(/^(\d{1,4})([./-])(\d{1,4})\2(\d{1,4})$/);
     if (!m) return;
     const [, g1, separator, g2, g3] = m;
     let dayMonth: [string, string];
     if (isYearField(g1)) {
-      this.yearFirst++;
+      this.yearFirst += by;
       dayMonth = [g2, g3];
     } else if (isYearField(g3)) {
-      this.yearLast++;
+      this.yearLast += by;
       dayMonth = [g1, g2];
-      if (+g1 > 12 && +g2 <= 12) this.dmyVotes++;
-      else if (+g2 > 12 && +g1 <= 12) this.mdyVotes++;
+      if (+g1 > 12 && +g2 <= 12) this.dmyVotes += by;
+      else if (+g2 > 12 && +g1 <= 12) this.mdyVotes += by;
     } else {
       return; // No identifiable year — not usable evidence.
     }
-    this.count++;
-    bumpStr(this.sep, separator);
+    this.count += by;
+    bumpStr(this.sep, separator, by);
     // Only single-digit values carry padding signal: "05" is padded, "5" is
     // not; a value like "20" is intrinsically two digits and tells us nothing.
     for (const g of dayMonth) {
       if (+g >= 10) continue;
-      this.fieldCount++;
-      if (g.length === 2) this.padFields++;
+      this.fieldCount += by;
+      if (g.length === 2) this.padFields += by;
     }
   }
 
@@ -326,27 +328,27 @@ function isYearField(g: string): boolean {
   return g.length >= 3 || +g > 31;
 }
 
-function inferPlaceProfile(values: string[], addrCount: number): PlaceFormatProfile {
+function inferPlaceProfile(values: Values, addrCount: number): PlaceFormatProfile {
   const depthCounts = new Map<number, number>();
   // part -> casing form -> count
   const partForms = new Map<string, Map<string, number>>();
   const fullForms = new Map<string, Map<string, number>>();
 
-  for (const v of values) {
+  for (const [v, n] of countValues(values)) {
     const { parts, raw } = parsePlace(v);
     if (parts.length === 0) continue;
-    bump(depthCounts, parts.length);
+    bump(depthCounts, parts.length, n);
 
     for (const part of parts) {
       const key = part.toLowerCase();
       const forms = partForms.get(key) ?? new Map<string, number>();
-      bumpStr(forms, part);
+      bumpStr(forms, part, n);
       partForms.set(key, forms);
     }
 
     const fullKey = parts.map((p) => p.toLowerCase()).join("|");
     const forms = fullForms.get(fullKey) ?? new Map<string, number>();
-    bumpStr(forms, raw);
+    bumpStr(forms, raw, n);
     fullForms.set(fullKey, forms);
   }
 
@@ -368,26 +370,26 @@ const PAREN_ON_FIRST = /^[^,]*(?:\([^)]+\)|\[[^\]]+\])/;
  * Classify a file's place-formatting convention from its PLAC values and how
  * many ADDR lines accompany them. See {@link PlaceLayout} for the categories.
  */
-export function detectPlaceLayout(values: string[], addrCount: number): PlaceLayout {
+export function detectPlaceLayout(values: Values, addrCount: number): PlaceLayout {
   // A value standing in for an unknown place ("____") says nothing about how
   // this file writes the places it does know, and there can be a great many of
   // them: one parish file writes it on 41% of its events. Counted in, they
   // drowned the evidence — that file's "Name 52" share read 28% instead of 47%,
   // under every bar here, and the file came out with no layout at all.
-  const real = values.filter((v) => !isUnknownPlaceValue(v));
-  const n = real.length;
-  if (n === 0) return "unknown";
-
+  let n = 0;
   let parenCountry = 0;
   let parish = 0;
   let withNumber = 0;
   let multiPart = 0;
-  for (const v of real) {
-    if (PAREN_ON_FIRST.test(v)) parenCountry++;
-    if (PARISH_MARK.test(v)) parish++;
-    if (/\d/.test(v)) withNumber++;
-    if (v.split(",").filter((p) => p.trim()).length >= 2) multiPart++;
+  for (const [v, count] of countValues(values)) {
+    if (isUnknownPlaceValue(v)) continue;
+    n += count;
+    if (PAREN_ON_FIRST.test(v)) parenCountry += count;
+    if (PARISH_MARK.test(v)) parish += count;
+    if (/\d/.test(v)) withNumber += count;
+    if (v.split(",").filter((p) => p.trim()).length >= 2) multiPart += count;
   }
+  if (n === 0) return "unknown";
   const frac = (x: number) => x / n;
 
   // Brother's Keeper packed form: country in parentheses and/or parish markers.
@@ -407,13 +409,13 @@ export function detectPlaceLayout(values: string[], addrCount: number): PlaceLay
  * use), `"comma"` for the packed `Kranj,Slovenija`. Majority wins, ties go to
  * the spec form. Undefined when no place has a comma at all: no signal.
  */
-export function detectPlaceSeparator(values: string[]): "comma" | "comma-space" | undefined {
+export function detectPlaceSeparator(values: Values): "comma" | "comma-space" | undefined {
   let withSpace = 0;
   let withoutSpace = 0;
-  for (const v of values) {
+  for (const [v, n] of countValues(values)) {
     for (const m of v.matchAll(/,(\s?)/g)) {
-      if (m[1]) withSpace++;
-      else withoutSpace++;
+      if (m[1]) withSpace += n;
+      else withoutSpace += n;
     }
   }
   if (withSpace + withoutSpace === 0) return undefined;
@@ -453,13 +455,14 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
     }
   });
   // Build preferred country form map: canonical-key → most-used display form in main.
+  const counted = countValues(values);
   const countryForms = new Map<string, Map<string, number>>();
-  for (const v of values) {
-    const country = decomposePlace(v).country;
+  for (const [v, n] of counted) {
+    const country = decomposeCached(v).country;
     if (!country) continue;
     const canonical = canonicalPlaceToken(country);
     const forms = countryForms.get(canonical) ?? new Map<string, number>();
-    bumpStr(forms, country);
+    bumpStr(forms, country, n);
     countryForms.set(canonical, forms);
   }
   const countryPreferred = new Map<string, string>();
@@ -470,8 +473,8 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
 
   const forms = resolvePlaceForms(formTally);
   const result: PlaceExportFormat = {
-    layout: detectPlaceLayout(values, addrCount),
-    separator: placeSeparatorText(detectPlaceSeparator(values) ?? "comma-space"),
+    layout: detectPlaceLayout(counted, addrCount),
+    separator: placeSeparatorText(detectPlaceSeparator(counted) ?? "comma-space"),
     ...(countryPreferred.size > 0 ? { countryPreferred } : {}),
     hierarchy: inferPlaceHierarchy(dataset),
     ...(forms.size > 0 ? { forms } : {}),
@@ -504,7 +507,7 @@ function tallyPlaceForm(
   // neither reliably ("Slovenia,Slovenia" under three labels) — learning from
   // it would spread one file's mistake onto every place we write next.
   if (parts === 0 || parts !== placeParts(form)) return;
-  const country = decomposePlace(place).country;
+  const country = decomposeCached(place).country;
   for (const key of [placeFormKey(country, parts), placeFormKey(undefined, parts)]) {
     const forms = tally.get(key) ?? new Map<string, number>();
     bumpStr(forms, form.trim());
@@ -558,7 +561,7 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     const placNode = firstChild(node, "PLAC");
     if (!placNode?.value) return;
     const addrNode = firstChild(node, "ADDR");
-    const p = decomposePlace(placNode.value);
+    const p = decomposeCached(placNode.value);
     if (!p.locality) return;
 
     // Every rung of a value that names more than one is a place this file
@@ -639,11 +642,47 @@ function applyCasing(token: string, casing: Casing): string {
   }
 }
 
-function bump(map: Map<number, number>, key: number): void {
-  map.set(key, (map.get(key) ?? 0) + 1);
+function bump(map: Map<number, number>, key: number, by = 1): void {
+  map.set(key, (map.get(key) ?? 0) + by);
 }
-function bumpStr(map: Map<string, number>, key: string): void {
-  map.set(key, (map.get(key) ?? 0) + 1);
+function bumpStr(map: Map<string, number>, key: string, by = 1): void {
+  map.set(key, (map.get(key) ?? 0) + by);
+}
+
+/**
+ * The distinct values of a list with their multiplicities, in first-occurrence
+ * order. The inference passes tally every DATE and PLAC of a file, and a file
+ * repeats its values — Hawlina writes a million places but only 44k distinct
+ * ones, a million dates but 100k distinct — so each pass reads a value once and
+ * weighs it by its count. First-occurrence order keeps every tally map's
+ * insertion order, and with it every most-frequent tie, exactly as a walk over
+ * the occurrences would have left them.
+ */
+export type ValueCounts = Map<string, number>;
+/** Values as a plain list, or already counted (see {@link countValues}). */
+export type Values = readonly string[] | ValueCounts;
+
+export function countValues(values: Values): ValueCounts {
+  if (values instanceof Map) return values;
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  return counts;
+}
+
+/** {@link decomposePlace} memoized by value for the read-only passes here —
+ *  the hierarchy and export-format passes decompose every PLAC in the file,
+ *  and the result is never written to. Bounded so many files in one session
+ *  don't accumulate. */
+const decomposeCache = new Map<string, ReturnType<typeof decomposePlace>>();
+const DECOMPOSE_CACHE_MAX = 200_000;
+function decomposeCached(raw: string): ReturnType<typeof decomposePlace> {
+  let p = decomposeCache.get(raw);
+  if (!p) {
+    if (decomposeCache.size >= DECOMPOSE_CACHE_MAX) decomposeCache.clear();
+    p = decomposePlace(raw);
+    decomposeCache.set(raw, p);
+  }
+  return p;
 }
 
 function mostFrequentKey(map: Map<number, number>): number | undefined {
