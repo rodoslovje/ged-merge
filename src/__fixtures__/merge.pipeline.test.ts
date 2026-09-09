@@ -171,7 +171,11 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   it("exercises the mechanics it claims to (guard against a silent no-op)", () => {
     expect(picked.length).toBeGreaterThanOrEqual(20);
     expect(rejected).toBeDefined();
-    expect(report.newPersons).toBeGreaterThan(50); // the grafts really ran
+    // The grafts really ran. (47 since frequency-aware name evidence, 2026-09:
+    // the Howard dukes' pairs — a name a crowd of undated royals carries —
+    // fell just under the confident band, so the anchors chosen by id order
+    // graft a different branch.)
+    expect(report.newPersons).toBeGreaterThan(40);
     expect(report.deferred.length).toBeGreaterThan(0); // spouse-slot conflicts surfaced
   });
 

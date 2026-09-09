@@ -17,21 +17,12 @@ The items most worth doing next, in rough order of payoff for real usage
    index-scale files want 0.85+). *(The worker offload half of the original item
    shipped 2026-07-13: scans run in `tools.worker.ts` with progress + cancel,
    and the results list is virtualized with no top-200 cap.)*
-2. **Frequency-aware name evidence** — the last big scoring lever. A "Svitoslav
-   Peruzzi" full-name match is near-conclusive; a "Janez Novak" one is barely
-   evidence, yet the scorer weighs them identically — ubiquitous full names
-   anchor tens of thousands of `Janez Novak (~1900)` × `Janez Novak (~1905)`
-   pairs in big files. Compute per-file name frequencies at match time (one
-   cheap pass) and require corroboration (dates/parents) before a ubiquitous
-   full name counts as an anchor, and/or scale the name components by rarity.
-   Needs the same corpus benchmarking discipline as the 2026-07 changes
-   (Renko↔Renko-Rakar must lose nothing; see MATCHING.md "Verifying changes").
-3. **Living persons privacy (global setting)** — one Settings toggle that hides
+2. **Living persons privacy (global setting)** — one Settings toggle that hides
    data of living persons throughout the app and in matching. *(The building
    blocks exist: a Tools-tab privacy action that strips living persons
    (`tools/privacy.ts`) and a per-chart/report "hide living people" display
    toggle; this folds them into one global setting that also reaches matching.)*
-4. **Merge mode: media/photo field** — the deferred Phase C of the media
+3. **Merge mode: media/photo field** — the deferred Phase C of the media
    feature: compare and merge each person's media links (OBJE) like other
    fields. `review/fields.ts` currently produces no media rows at all, so
    compare-file photos can only arrive via whole-person import.
@@ -286,7 +277,8 @@ Not yet committed — cull as needed.
   discoverable from the guide.
 - **File statistics panel** — a cheap Tools panel over data already computed:
   person/family/source counts, date coverage, surname frequency, lifespan
-  distribution. (The name-frequency pass from priority #2 could feed it.)
+  distribution. (The matcher's name-frequency pass, `src/match/nameFrequency.ts`,
+  could feed it.)
 - **Edit diff gap: INDI-level `MARR`** — the Edit view shows an INDI-level MARR
   (`INDI_EVENT_TAGS` includes it) but `editReport.ts` doesn't diff it, so such
   an edit saves without appearing in the report. Small pre-existing

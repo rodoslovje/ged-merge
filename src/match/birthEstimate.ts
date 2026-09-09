@@ -1,5 +1,18 @@
 import type { Dataset, Individual } from "../gedcom/types";
-import { birthYear } from "../gedcom/lifespan";
+import { birthYear, deathYear } from "../gedcom/lifespan";
+
+/** A representative year placing the person in time: a recorded date if any,
+ *  else a relative-derived estimate, else death/marriage/residence as a last
+ *  resort. Shared by the era gate and the namesake count, so the two agree on
+ *  who is a candidate. */
+export function eraYear(indi: Individual, ds: Dataset): number | undefined {
+  return (
+    birthYear(indi) ??
+    estimatedBirthYear(indi, ds) ??
+    deathYear(indi) ??
+    indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year
+  );
+}
 
 /**
  * Estimate a birth year for an individual that has none recorded, from the

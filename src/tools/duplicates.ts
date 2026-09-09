@@ -5,6 +5,7 @@ import {
   scoreIndividualPair,
   sexConflicts,
 } from "../match/scoreIndividual";
+import { nameFrequenciesFor } from "../match/nameFrequency";
 import { cachedFindEvent } from "../match/profileCache";
 import { differentGiven, fatherGivenVerdict, parentsVerdict } from "../match/similarity";
 import { soundex } from "../match/text";
@@ -167,6 +168,9 @@ export function findDuplicates(
     }
   }
 
+  // The file's own name counts: a full name many people in the era carry is
+  // no evidence of identity between two of them (see nameFrequency.ts).
+  const freq = nameFrequenciesFor(ds, config.gates.maxYearGap);
   const out: DuplicatePair[] = [];
   const total = ds.individuals.size;
   let done = 0;
@@ -190,7 +194,7 @@ export function findDuplicates(
       if (sexConflicts(a, b)) continue;
       if (!plausibleIndividualMatch(a, b, config.gates, ds, ds)) continue;
       if (distinctRelatives(a, b, ds)) continue;
-      const cand = scoreIndividualPair(a, b, ds, ds, config);
+      const cand = scoreIndividualPair(a, b, ds, ds, config, freq);
       if (cand.score / 100 < minScore) continue;
 
       // Orient the pair so the left/survivor is the record with more linked
@@ -229,7 +233,8 @@ export function makeDuplicatePair(
   const a = ds.individuals.get(aId);
   const b = ds.individuals.get(bId);
   if (!a || !b || aId === bId) return undefined;
-  const cand = scoreIndividualPair(a, b, ds, ds, config);
+  // The same counts the scan used, so the ad-hoc pair scores like a listed one.
+  const cand = scoreIndividualPair(a, b, ds, ds, config, nameFrequenciesFor(ds, config.gates.maxYearGap));
   const [left, right] = relationshipCount(b, ds) > relationshipCount(a, ds) ? [b, a] : [a, b];
   return {
     aId: left.id,

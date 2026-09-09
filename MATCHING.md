@@ -40,7 +40,8 @@ parse → normalize (compare reshaped to main's conventions, see src/normalize/)
   → ½ uid pre-match     shared _UID/UID = certain identity, score 100
   → 1 blocking          only plausible pairs are ever scored
   → 2 hard gates        sex / name / era vetoes
-  → 3 scoring           weighted components + penalties + ceiling
+  → 3 scoring           weighted components + penalties + ceiling,
+                        name evidence weighed by how many people carry the name
   → 4 1:1 assignment    greedy by score
   → 5 relationship link co-parents of matched children, and children of
                         matched couples, override name/date
@@ -195,6 +196,52 @@ After combining, three multiplicative corrections:
   pairs multiply quadratically in big files (Hawlina: ~977-person
   same-surname clusters). The ceiling keeps them below the duplicate-list
   cutoff (0.70) and the probable band (0.65).
+
+**Name evidence is frequency-aware** (`src/match/nameFrequency.ts`, 2026-09).
+A full-name match on "Svitoslav Peruzzi" is near-conclusive; one on "Janez
+Novak" is barely evidence, and a scorer that weighed them alike anchored tens
+of thousands of `Janez Novak (~1900)` × `Janez Novak (~1905)` pairs in
+index-scale files. The quantity that tells them apart is the name's
+**namesake count in the pool** — not its share of the file (a family tree is
+about its own surname) but the number of *other* records carrying an
+equivalent full name (surname folded, first given token through the
+cross-language table) within the era gate's ±30-year window: literally how
+many people the record could be. The window is centred on the pair's dated
+side, so an undated record is counted in the era its counterpart places it in
+rather than against every bearer in three centuries; the two records of the
+pair are left out, so a rare name present once in each file is unique, not
+"one namesake". Counts come from one pass over both files (cross-file) or the
+file (duplicates) at the start of a run; a scorer called without them treats
+every name as unique. Up to three namesakes — a family's worth of cousins
+named after one grandfather — nothing changes. From four (`UBIQUITOUS_NAMESAKES`):
+
+- **the name never makes a pair strong on its own** — a pair anchored by
+  nothing but a crowd name (no day-precision date agreement, no comparable
+  relatives) is held one point under the strong threshold (0.84). Not the 0.6
+  no-evidence ceiling: that would drop it from the within-file list, and
+  "Ana Simonič ~1805" against the christening record "Ana Simonič 19 Mar 1806"
+  is the stub-and-record pair a curated tree most wants reviewed — it just
+  must not be called certain;
+- **the surname and given weights shrink** logarithmically past the threshold
+  (`nameEvidenceFactor`: ~0.8 at four, ~0.6 at ten, floor 0.5 at ~23), so the
+  average leans on dates, places and relatives, and the missing-key charge on
+  an absent birth date bites harder. A missing name part keeps its full weight:
+  a gap is no less of a gap because the other side's name is common;
+- **a relative with a crowd name earns no full-name bonus** — a father "Janez
+  Novak" agrees with half the parish. The relative's count is taken over ±60
+  years of the person's own year, since the relative's record is not at hand.
+
+Measured when this landed (`scripts/match-bench.ts`): Renko ↔ Renko-Rakar
+kept all 8978 pairs, one same-record pair (a Marija Hafner with a bare year and
+no relatives, in a crowd of Marija Hafners) moved strong → probable; the Trobec
+canary was unchanged; within-file lists lost only far-apart crowd-name pairs
+(Renko 5 of 250, all 71–72 with years 6–28 apart; Ivanc 251 of 1950, all ≤78)
+and moved the bare-year same-name pairs (`Anton Gregorec 1852` × `Anton
+Gregorec 1852`, 97 → 84) into the probable band. Hawlina (493k people): 134 232
+→ 112 552 pairs — the 21 680 dropped are all ≤78, crowd names years apart —
+and strong 7 778 → 5 198, the 2 580 moved being same-name bare-year pairs now
+held at 84.9; the scan's one extra pass over the file is not measurable
+against its five minutes.
 
 Finally:
 
@@ -430,6 +477,7 @@ nothing either way and is settled, as before, by listing order.
 |---|---|
 | Weights, gates, `missingKeyScore`, bonuses, category thresholds | `DEFAULT_CONFIG` in `src/match/types.ts` |
 | Given-conflict penalty (0.7 / ×0.8), parent-conflict penalty (×0.8), no-evidence ceiling (0.6), marriage-age range | module constants in `src/match/scoreIndividual.ts` |
+| Crowd names: ubiquity threshold (4 namesakes), the one-point hold under strong, the weight halving (20 past the threshold, floor 0.5), the relative span (±60) | `UBIQUITOUS_NAMESAKES`, `UBIQUITOUS_NAME_MARGIN`, `NAME_WEIGHT_HALVING`, `NAME_WEIGHT_FLOOR`, `RELATIVE_NAMESAKE_SPAN` in `src/match/scoreIndividual.ts`; the count itself in `src/match/nameFrequency.ts` |
 | Parent bands (0.75 / 0.65, mother surname 0.7) | `src/match/similarity.ts` |
 | Consolidation vetoes (0.85 given, ±3 years, ≥85 pair score) | `src/match/engine.ts` |
 | Within-file vetoes (0.85 given, cutoff 0.70) | `src/tools/duplicates.ts` |
@@ -441,10 +489,22 @@ nothing either way and is settled, as before, by listing order.
 
 Behavior is pinned by `src/match/match.test.ts` (gates, penalties, ceiling,
 key rules, relationship passes), `src/match/similarity.test.ts`,
-`src/tools/tools.test.ts` (within-file vetoes) and the end-to-end golden
-merge suite in `src/__fixtures__/merge.pipeline.test.ts`. When tuning
-scoring, also sweep real files: run `findDuplicates` over `test-data/*.ged`
-and cross-match known pairs (Renko ↔ Renko-Rakar must stay ~8.9k strong with
-no losses; Renko ↔ Trobec shares only the Okorn family and is a false-positive
-canary). The genealogical-index corpus (`~/rodoslovje/srd-data/index/input`,
-271 files up to 500k individuals) is the scale/robustness benchmark.
+`src/tools/tools.test.ts` (within-file vetoes), `src/match/nameFrequency.test.ts`
+(crowd names) and the end-to-end golden merge suite in
+`src/__fixtures__/merge.pipeline.test.ts`. When tuning scoring, also sweep the
+real files with the benchmark:
+
+```bash
+npx vitest run --config scripts/match-bench.config.ts --reporter=verbose
+```
+
+It cross-matches Renko ↔ Renko-Rakar (must stay ~8.9k strong with no losses)
+and Renko ↔ Trobec (shares only the Okorn family — a false-positive canary),
+and runs `findDuplicates` over Renko, Renko-Rakar, Trobec, Ivanc and Pratnekar
+(`MATCH_BENCH_DUP=Hawlina` for the 500k-person scale check, ~5 min). The first
+run stores every scenario's pair set as a baseline beside the data
+(`test-data/match-bench.baseline.json`); later runs list each pair gained, lost
+or re-categorized, with names, so a change is judged pair by pair
+(`MATCH_BENCH_BASELINE=write` adopts the current run as the new baseline once
+it is). The genealogical-index corpus (`~/rodoslovje/srd-data/index/input`,
+271 files up to 500k individuals) is the wider scale/robustness benchmark.

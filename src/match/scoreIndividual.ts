@@ -1,6 +1,7 @@
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
 import { BIRTH_TAGS, DEATH_TAGS, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
-import { estimatedBirthYear } from "./birthEstimate";
+import { eraYear, estimatedBirthYear } from "./birthEstimate";
+import type { NameFrequencies } from "./nameFrequency";
 import { displayName, pairTitle, primaryName } from "./relatives";
 import {
   cachedChildrenNames,
@@ -33,6 +34,11 @@ import {
 /**
  * Score a main/compare individual pair. Components that can't be compared
  * (data missing on either side) are omitted so they neither help nor hurt.
+ *
+ * `freq` — the pool's name counts (see `nameFrequency.ts`) — makes the name
+ * evidence frequency-aware: a full name shared by many people in the era
+ * weighs less and does not anchor a pair on its own. Without it every name is
+ * treated as unique.
  */
 export function scoreIndividualPair(
   main: Individual,
@@ -40,6 +46,7 @@ export function scoreIndividualPair(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
+  freq?: NameFrequencies,
 ): IndividualCandidate {
   const w = config.individualWeights;
   const components: ScoreComponent[] = [];
@@ -49,17 +56,24 @@ export function scoreIndividualPair(
   const mn = comparableName(primaryName(main));
   const cn = comparableName(primaryName(compare));
 
+  // How many other people in the pool the name could be (see `pairNamesakes`).
+  const namesakes = freq ? freq.pairNamesakes(main, mainDs, compare, compareDs) : 0;
+  const nameWeight = nameEvidenceFactor(namesakes);
+
   // Surname, given name and birth year form the identity key: each is always
   // scored, and a side that's missing the field is charged `missingKeyScore`
   // (penalized rather than ignored) so an incomplete record can't reach 100%.
+  // A comparison on a ubiquitous name counts for less (`nameWeight`); the
+  // missing-key charge keeps its full weight — a gap is no less of a gap
+  // because the other side's name is common.
   const surnameSim =
     mn?.surname && cn?.surname
       ? jaroWinkler(foldToken(mn.surname), foldToken(cn.surname))
       : undefined;
-  addKey(components, "surname", w.surname, surnameSim, config.missingKeyScore, `${mn?.surname ?? "—"} ~ ${cn?.surname ?? "—"}`);
+  addKey(components, "surname", w.surname, surnameSim, config.missingKeyScore, `${mn?.surname ?? "—"} ~ ${cn?.surname ?? "—"}`, nameWeight);
 
   const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
-  addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`);
+  addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`, nameWeight);
 
   const mb = keyEvent(main, BIRTH_TAGS);
   const cb = keyEvent(compare, BIRTH_TAGS);
@@ -144,12 +158,22 @@ export function scoreIndividualPair(
   // part plus an estimated "~1900" year — and shared surname + approximate-
   // year proximity alone scores into the high 70s; in a big file every
   // same-surname skeleton pairs with every other one, quadratically.
-  const anchored =
-    Boolean(mn?.given && cn?.given && mn?.surname && cn?.surname) ||
+  const fullName = Boolean(mn?.given && cn?.given && mn?.surname && cn?.surname);
+  const evidenceAnchored =
     anchoringDate(birthSim, mb?.date, cb?.date) ||
     anchoringDate(deathSim, md?.date, cd?.date) ||
     components.some((c) => c.key === "parents" || c.key === "partners" || c.key === "children");
-  if (!anchored) score01 = Math.min(score01, UNANCHORED_CEILING);
+  if (!fullName && !evidenceAnchored) {
+    score01 = Math.min(score01, UNANCHORED_CEILING);
+  } else if (!evidenceAnchored && namesakes >= UBIQUITOUS_NAMESAKES) {
+    // Anchored by the full name alone, and the name is one a crowd carries:
+    // "Janez Novak ~1900" against "Janez Novak ~1905" names any of them. The
+    // pair stays listed — it may well be the stub and the record of one
+    // woman, which is what a reviewer is there to decide — but a name that
+    // identifies nobody in particular never makes a pair *strong* on its
+    // own; that takes a day-precision date or a relative in common.
+    score01 = Math.min(score01, config.strongThreshold - UBIQUITOUS_NAME_MARGIN);
+  }
 
   // The identity key — surname, given name and birth date — is conclusive: when
   // all three are present and an exact match the pair is the same person and
@@ -169,7 +193,7 @@ export function scoreIndividualPair(
   // capped just below 100 so it never reaches a perfect score on its own — 100
   // stays reserved for a perfect identity key.
   if (!keyPerfect) {
-    const bonus = relativeMatchBonus(main, compare, mainDs, compareDs, config);
+    const bonus = relativeMatchBonus(main, compare, mainDs, compareDs, config, freq);
     if (bonus > 0) score = Math.min(99.9, Math.round((score + bonus) * 10) / 10);
   }
 
@@ -259,6 +283,60 @@ const PARENT_CONFLICT_PENALTY = 0.8;
  * recovers any that turn out to be corroborated by matched relatives.
  */
 const UNANCHORED_CEILING = 0.6;
+
+/**
+ * Other bearers of a full name in the era window from which the name is
+ * *ubiquitous*: a pair anchored by nothing but such a name is held just
+ * under the strong band (see UBIQUITOUS_NAME_MARGIN), the name's weights
+ * shrink (see NAME_WEIGHT_HALVING), and a relative carrying it earns no
+ * full-name bonus. Three namesakes is a family's worth — the cousins named
+ * after one grandfather — and still leaves the name telling them apart from
+ * the rest of the parish; four and up is the crowd that index-scale files
+ * pair quadratically. Counts come from `nameFrequency.ts`; without a
+ * frequency index every name counts as unique.
+ */
+const UBIQUITOUS_NAMESAKES = 4;
+
+/**
+ * How far under `strongThreshold` a pair anchored only by a ubiquitous name
+ * is held. Not the 0.6 no-evidence ceiling: that would drop the pair from
+ * the within-file list (cutoff 0.7), and "Ana Simonič ~1805" against the
+ * christening record "Ana Simonič 19 Mar 1806" is the stub-and-record pair a
+ * curated tree most wants to review — it just must not be called certain.
+ * One point keeps it the top of the probable band, visible the moment the
+ * duplicate finder's score picker drops below strong.
+ */
+const UBIQUITOUS_NAME_MARGIN = 0.01;
+
+/**
+ * Namesakes *beyond* the ubiquity threshold at which the surname and
+ * given-name weights are halved. Up to UBIQUITOUS_NAMESAKES − 1 the name
+ * keeps its full weight — a handful of namesakes is the normal state of a
+ * parish, and thinning the name there demoted real matches (two copies of a
+ * split incoming record, born two years apart, fell under the consolidation
+ * gate over a single namesake). From the threshold on the factor falls
+ * logarithmically — ~0.8 at the threshold, ~0.6 ten past it, 0.5 at this
+ * many past it — and never below NAME_WEIGHT_FLOOR, so a common name still
+ * counts, it just cannot carry the pair by itself: the average leans on
+ * dates, places and relatives instead, and the missing-key charge on an
+ * absent birth date bites harder.
+ */
+const NAME_WEIGHT_HALVING = 20;
+const NAME_WEIGHT_FLOOR = 0.5;
+
+/** Multiplier for the name weights given the pool's namesake count. */
+export function nameEvidenceFactor(namesakes: number): number {
+  const excess = namesakes - UBIQUITOUS_NAMESAKES + 1;
+  if (excess <= 0) return 1;
+  return Math.max(NAME_WEIGHT_FLOOR, 1 / (1 + Math.log1p(excess) / Math.log1p(NAME_WEIGHT_HALVING)));
+}
+
+/**
+ * Half-width of the era window used to count a *relative's* namesakes: the
+ * relative's own record is not at hand, so the count is centred on the
+ * person's year and widened to cover a parent's or partner's generation.
+ */
+const RELATIVE_NAMESAKE_SPAN = 60;
 
 /** True when a date pair anchors the identity: both sides assert an exact
  *  date with at least month precision and they agree (>= 0.9 — same month, at
@@ -415,33 +493,49 @@ function relativeMatchBonus(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
+  freq: NameFrequencies | undefined,
 ): number {
+  // A relative's full name corroborates only when it is distinctive: a father
+  // "Janez Novak" agrees with half the parish. The count is centred on the
+  // person's own year, widened to reach the relative's generation.
+  const year = eraYear(main, mainDs) ?? eraYear(compare, compareDs);
+  const distinctive = (name: PersonName | undefined): boolean =>
+    !freq || freq.namesakesOf(name, year, RELATIVE_NAMESAKE_SPAN) < UBIQUITOUS_NAMESAKES;
   let bonus = 0;
-  if (fullNameMatch(comparableName(cachedFatherName(main, mainDs)), comparableName(cachedFatherName(compare, compareDs)))) {
+  if (fullNameMatch(comparableName(cachedFatherName(main, mainDs)), comparableName(cachedFatherName(compare, compareDs)), distinctive)) {
     bonus += config.parentMatchBonus;
   }
-  if (fullNameMatch(comparableName(cachedMotherName(main, mainDs)), comparableName(cachedMotherName(compare, compareDs)))) {
+  if (fullNameMatch(comparableName(cachedMotherName(main, mainDs)), comparableName(cachedMotherName(compare, compareDs)), distinctive)) {
     bonus += config.parentMatchBonus;
   }
-  if (anyFullNameMatch(cachedPartnerNames(main, mainDs), cachedPartnerNames(compare, compareDs))) {
+  if (anyFullNameMatch(cachedPartnerNames(main, mainDs), cachedPartnerNames(compare, compareDs), distinctive)) {
     bonus += config.partnerMatchBonus;
   }
   return bonus;
 }
 
 /** True when some name on each side is a confident full match with the other. */
-function anyFullNameMatch(as: PersonName[], bs: PersonName[]): boolean {
-  return as.some((a) => bs.some((b) => fullNameMatch(a, b)));
+function anyFullNameMatch(
+  as: PersonName[],
+  bs: PersonName[],
+  distinctive: (name: PersonName) => boolean,
+): boolean {
+  return as.some((a) => bs.some((b) => fullNameMatch(a, b, distinctive)));
 }
 
 /**
- * A confident full match: both sides have a given name *and* a surname, and the
- * two names are identical. Requiring both parts avoids treating a shared family
- * surname (with no given name) as corroboration.
+ * A confident full match: both sides have a given name *and* a surname, the
+ * two names are identical, and the name is distinctive enough to identify a
+ * person. Requiring both parts avoids treating a shared family surname (with
+ * no given name) as corroboration.
  */
-function fullNameMatch(a: PersonName | undefined, b: PersonName | undefined): boolean {
+function fullNameMatch(
+  a: PersonName | undefined,
+  b: PersonName | undefined,
+  distinctive: (name: PersonName) => boolean,
+): boolean {
   if (!a?.given || !b?.given || !a?.surname || !b?.surname) return false;
-  return nameSimilarity(a, b) === 1;
+  return nameSimilarity(a, b) === 1 && distinctive(a);
 }
 
 function add(
@@ -467,9 +561,12 @@ function addKey(
   similarity: number | undefined,
   missingScore: number,
   detail: string,
+  /** Weight multiplier for a real comparison (the frequency factor); a
+   *  missing field keeps the full weight. */
+  comparedWeight = 1,
 ): void {
   const missing = similarity === undefined;
-  into.push({ key, weight, score: missing ? missingScore : similarity, detail, missing });
+  into.push({ key, weight: missing ? weight : weight * comparedWeight, score: missing ? missingScore : similarity, detail, missing });
 }
 
 /**
@@ -560,17 +657,6 @@ function temporalGate(
  *  alone: a widow(er)'s year of death and a wedding can share one. */
 function marriedAfter(deathYear: number, indi: Individual, ds: Dataset): boolean {
   return cachedMarriageEvents(indi, ds).some((e) => e.date?.year !== undefined && e.date.year > deathYear);
-}
-
-/** A representative year placing the person in time: a recorded date if any,
- *  else a relative-derived estimate, else death/marriage/residence as a last resort. */
-function eraYear(indi: Individual, ds: Dataset): number | undefined {
-  return (
-    birthYear(indi) ??
-    estimatedBirthYear(indi, ds) ??
-    deathYear(indi) ??
-    indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year
-  );
 }
 
 /**
