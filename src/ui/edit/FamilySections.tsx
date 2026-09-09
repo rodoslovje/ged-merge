@@ -7,7 +7,6 @@ import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
 import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
-import { collectMediaRefs } from "../../gedcom/media";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
@@ -16,16 +15,13 @@ import {
   linkPageMedia,
   FAM_CHILD_ORDER,
   removeFamilyEvent,
-  reorderMedia,
   setFamilyLinks,
   setFamilyNotes,
 } from "../../gedcom/edit";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { PersonCard } from "../PersonCard";
-import { PersonMedia } from "../PersonMedia";
 import type { MediaRefContext } from "../MediaViewer";
-import type { MediaAddress } from "../../gedcom/media";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { AddEventSelect } from "./AddEventSelect";
 import { PrivateToggle } from "./PrivateToggle";
@@ -35,7 +31,7 @@ import { NotesEditor } from "./NotesEditor";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
-import type { FamilyCommit, MediaOwner, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
+import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /**
  * The two relative bands of the Edit view — a parents group (top) and a
@@ -341,9 +337,6 @@ interface FamilySectionProps extends SharedSectionProps {
   openMediaLink: OpenMediaLink;
   onOpenSourceDialog: (target: SourceDialogTarget | null) => void;
   onAddFamNote: (famId: string) => void;
-  handleAddMedia: (owner: MediaOwner) => void;
-  handleDeleteMedia: (owner: MediaOwner, addr: MediaAddress) => void;
-  mediaCtxFor: (owner: MediaOwner) => MediaRefContext;
   markFamilyTagRetagged: (keyBase: string, newTag: string) => void;
   dismissExtraEvent: (keyBase: string) => void;
   /** Open the "Copy event to…" picker for one of this family's events. */
@@ -374,7 +367,6 @@ interface FamilySectionProps extends SharedSectionProps {
   mergeGen: number;
   /** Bumped when a shared top-level SOUR/OBJE record changes via another
    *  owner's edit — folded into the media tray's key so it re-reads metadata. */
-  mediaGen: number;
 }
 
 export const FamilySection = memo(function FamilySection({
@@ -401,9 +393,6 @@ export const FamilySection = memo(function FamilySection({
   openMediaLink,
   onOpenSourceDialog,
   onAddFamNote,
-  handleAddMedia,
-  handleDeleteMedia,
-  mediaCtxFor,
   markFamilyTagRetagged,
   dismissExtraEvent,
   onCopyFamilyEvent,
@@ -426,7 +415,6 @@ export const FamilySection = memo(function FamilySection({
   setPendingFocusFamEventKey,
   famNoteAddCount,
   mergeGen,
-  mediaGen,
 }: FamilySectionProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatName = useNameOf();
@@ -527,35 +515,8 @@ export const FamilySection = memo(function FamilySection({
               + {t("edit.addLink")}
             </button>
           )}
-          {fam && collectMediaRefs(fam.raw, dataset.records).length === 0 && (
-            <button
-              type="button"
-              className="edit-name-chip edit-name-chip-add"
-              title={t("media.add")}
-              onClick={() => handleAddMedia({ kind: "family", fam })}
-            >
-              + {t("media.add")}
-            </button>
-          )}
         </div>
       </div>
-      {fam && (
-        <PersonMedia
-          // fam.raw is mutated in place, so remount whenever this family was
-          // rebuilt (fresh `Family` identity → fresh nodeId) or a shared OBJE
-          // record changed via another owner's edit (mediaGen), to re-read the
-          // OBJE children (resolved files are blob-cached).
-          key={`fam-media-${fam.id}-${nodeId(fam)}-${mediaGen}-${undoVersion}`}
-          raw={fam.raw}
-          records={dataset.records}
-          refCtx={mediaCtxFor({ kind: "family", fam })}
-          editable={{
-            onAdd: () => handleAddMedia({ kind: "family", fam }),
-            onDelete: (addr) => handleDeleteMedia({ kind: "family", fam }, addr),
-            onReorder: (from, to) => commitFamily(fam, (f) => reorderMedia(f.raw, from, to)),
-          }}
-        />
-      )}
       {fam && shownFamilyTags.map((tag) => {
         const eventNode = firstChild(fam.raw, tag);
         const hasRealEvent = eventNode !== undefined;
