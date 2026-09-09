@@ -546,7 +546,7 @@ export function EventFieldsRow({
   useEffect(() => {
     if (!focusKey) return;
     const el = rootRef.current?.querySelector<HTMLElement>(
-      `[data-detail="${focusKey}"] input, [data-detail="${focusKey}"] textarea, input[data-detail="${focusKey}"]`,
+      `[data-detail="${focusKey}"] input, [data-detail="${focusKey}"] textarea, [data-detail="${focusKey}"] [contenteditable], input[data-detail="${focusKey}"]`,
     );
     el?.focus();
     setFocusKey(null);
@@ -789,7 +789,7 @@ export function EventFieldsRow({
     ? noteField.value.includes("\n") || noteField.value.length > NOTE_CHIP_CH
     : (ev?.noteRefs?.length ?? 0) > 1 ||
       (ev?.noteRefs ?? []).some((r) => {
-        const text = r.text.replace(/^\n+/, "");
+        const text = noteToText(r.text).replace(/^\n+/, "");
         return text.includes("\n") || text.length > NOTE_CHIP_CH;
       });
   const noteEl = (

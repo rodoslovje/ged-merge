@@ -65,8 +65,8 @@ export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
   return detectPrivacyStyleIfAny(records) ?? "RESN";
 }
 
-/** GEDCOM version of the file, for RESN's enum casing (7.0 is upper-case). */
-function isV7(records: GedNode[]): boolean {
+/** Whether the file is GEDCOM 7 (RESN's enum casing, a note's MIME line). */
+export function isV7(records: GedNode[]): boolean {
   const head = records.find((r) => r.tag === "HEAD");
   const vers = head?.children.find((c) => c.tag === "GEDC")?.children.find((c) => c.tag === "VERS")?.value;
   return !!vers?.trim().startsWith("7");

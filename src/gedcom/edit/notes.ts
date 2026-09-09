@@ -1,6 +1,7 @@
 import { cloneNode, removeChildren } from "../node";
 import { isPointer } from "../uri";
-import { detectPrivacyStyle, isPrivateNode, setPrivateFlag, type PrivacyTagStyle } from "../private";
+import { detectPrivacyStyle, isPrivateNode, isV7, setPrivateFlag, type PrivacyTagStyle } from "../private";
+import { isHtmlNote } from "../noteHtml";
 import type { Dataset, GedNode, NoteRef } from "../types";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { insertOrdered, insertRecord, nextXref } from "./shared";
@@ -98,10 +99,22 @@ function noteStyleOf(ctx: SharedNoteCtx): NoteStyle {
 function createNoteRecord(ctx: SharedNoteCtx, text: string): string {
   const xref = nextXref(ctx.records, "N");
   const rec: GedNode = { level: 0, xref, tag: "NOTE", value: text, children: [] };
+  syncNoteMime(rec, ctx.records);
   insertRecord(ctx.records, rec);
   bumpSourceCacheVersion(ctx.records);
   ctx.changes.push({ xref, before: null, after: cloneNode(rec) });
   return xref;
+}
+
+/** GEDCOM 7 names a note's markup on a `MIME text/html` line; 5.5.1 has no
+ *  such line and the markup is recognized from the text. Kept in step with
+ *  the text this app writes: a rich-text note gets the line, a note edited
+ *  back to plain text loses it. */
+function syncNoteMime(node: GedNode, records: GedNode[]): void {
+  const idx = node.children.findIndex((c) => c.tag === "MIME");
+  const html = isV7(records) && isHtmlNote(node.value ?? "");
+  if (html && idx === -1) node.children.unshift({ level: node.level + 1, tag: "MIME", value: "text/html", children: [] });
+  else if (!html && idx !== -1 && node.children[idx].value?.trim().toLowerCase() === "text/html") node.children.splice(idx, 1);
 }
 
 function findNoteRecord(records: GedNode[], xref: string): GedNode | undefined {
@@ -132,6 +145,7 @@ export function setSharedNoteText(ctx: SharedNoteCtx, xref: string, text: string
   if (!rec || (rec.value ?? "").trim() === text.trim()) return;
   const before = cloneNode(rec);
   rec.value = text;
+  syncNoteMime(rec, ctx.records);
   // The note index caches record *values*, so an in-place text edit goes stale.
   bumpSourceCacheVersion(ctx.records);
   ctx.changes.push({ xref, before, after: cloneNode(rec) });
@@ -236,6 +250,7 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     // its record text is empty (the record may carry sub-structure).
     if (!value) continue;
     const node: GedNode = { level: ownerRaw.level + 1, tag: "NOTE", value, children: [] };
+    if (!xref) syncNoteMime(node, ctx.records);
     // An inline note carries its own private marker; a pointer's lives in the
     // shared record (set above).
     if (!xref && ref.private) setPrivateFlag(node, true, privacyStyleOf(ctx), ctx.records);

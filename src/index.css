@@ -3743,6 +3743,73 @@ button:focus-visible {
 .clearable-wrap--textarea .edit-event-note { font-family: var(--font-mono); }
 .clearable-wrap--textarea .input-clear { top: 4px; transform: none; }
 
+/* A note chip that shows its formatting: paragraphs, links, a pasted register
+ * table. The box is editable in place; the toolbar below it appears while the
+ * box has focus. */
+.clearable-wrap--textarea > .note-rich { padding-right: 18px; }
+.clearable-wrap--rich { flex-wrap: wrap; }
+.note-rich {
+  flex: 1 1 100%;
+  min-height: 1.4em;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.note-rich:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.note-rich:hover:empty::before,
+.note-rich:focus:empty::before { opacity: 1; }
+.note-rich p,
+.note-rich h1, .note-rich h2, .note-rich h3, .note-rich h4, .note-rich h5, .note-rich h6 { margin: 0; }
+.note-rich p + p, .note-rich p + h2, .note-rich h2 + p { margin-top: 0.3em; }
+.note-rich h1, .note-rich h2, .note-rich h3, .note-rich h4, .note-rich h5, .note-rich h6 { font-size: 1em; font-weight: 700; }
+.note-rich ul, .note-rich ol { margin: 0.2em 0; padding-left: 1.4em; }
+.note-rich a { color: var(--accent); text-decoration: underline; }
+.note-rich table {
+  border-collapse: collapse;
+  margin: 0.3em 0;
+  font-size: 0.92em;
+  max-width: 100%;
+}
+.note-rich th, .note-rich td {
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+.note-rich th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+.note-toolbar {
+  display: none;
+  flex: 1 1 100%;
+  gap: 2px;
+  padding: 2px 2px 1px;
+  border-top: 1px solid var(--border);
+}
+.clearable-wrap--rich:focus-within .note-toolbar { display: flex; }
+.note-tool {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.note-tool:hover { color: var(--text); background: var(--border); }
+.note-tool--b { font-weight: 700; }
+.note-tool--i { font-style: italic; }
+.note-tool--u { text-decoration: underline; }
+
 /* Place / address autocomplete dropdown */
 .place-autocomplete-wrap {
   position: relative;

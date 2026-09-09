@@ -48,7 +48,7 @@ test("edit mode: a note marked private stays private across navigation and save"
 
   // Add a note and mark it private.
   await page.getByRole("button", { name: "+ Add Note" }).first().click();
-  const noteBox = page.locator(".edit-note-chip textarea").first();
+  const noteBox = page.locator(".edit-note-chip [contenteditable]").first();
   await noteBox.fill("https://web.facebook.com/tatjana.dolenc");
   const lock = page.locator(".edit-note-chip .note-chip-lock").first();
   await lock.click();
