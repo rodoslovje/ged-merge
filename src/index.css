@@ -3328,7 +3328,10 @@ button:focus-visible {
 .edit-input:focus::placeholder { opacity: 1; }
 .edit-input--dirty { font-weight: 600; }
 /* Incoming merge value in an editable field — turns to --dirty style once the user edits it */
-.edit-input--merge { font-weight: 700; color: var(--state-incoming); }
+.edit-input--merge,
+.edit-name-chip--merge { font-weight: 700; color: var(--state-incoming); }
+/* The person's own extra names a confirmed merge will replace. */
+.edit-name-chip--replaced { text-decoration: line-through; color: var(--muted); }
 
 .edit-person-header {
   display: flex;

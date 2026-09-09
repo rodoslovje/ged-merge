@@ -39,6 +39,7 @@ export {
   combineEventEdits,
   type EventSubEdit,
   type LinkFormat,
+  materializeAdditionalNames,
   materializeEventSources,
   SUB_JOIN_ORDER,
   SUB_LABEL_KEY,

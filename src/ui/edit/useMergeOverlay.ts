@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { childrenByTag } from "../../gedcom/node";
-import type { Dataset, GedNode, Individual, SourceCitation } from "../../gedcom/types";
+import type { Dataset, GedNode, Individual, PersonName, SourceCitation } from "../../gedcom/types";
 import type { FormatOverrides } from "../../normalize/formatOverrides";
 import type { Translate } from "../../locales/i18n";
-import { materializeEventSources } from "../../merge/merge";
+import { materializeAdditionalNames, materializeEventSources } from "../../merge/merge";
 import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacement";
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
-import { defaultChoice, findConfirmedDecision, type CandidateDecision } from "../../review/types";
+import { defaultChoice, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
 import { useStableHandler } from "./useStableHandler";
 
@@ -36,6 +36,10 @@ const EMPTY_MERGE_DATA = Object.freeze({
   /** main family id -> the `fam.<id>` key base used for that family's rows
    * in `mergeHighlight`/`mergeIncomingSources` (see `familyMergeKeyBases`). */
   familyMergeKeyBases: new Map<string, string>(),
+  /** The incoming person's additional names the merge will write (its second
+   * and later `NAME` records), with the review's choice for that row: `both`
+   * keeps the main's own extra names beside them, anything else replaces them. */
+  mergeAdditionalNames: undefined as { names: PersonName[]; choice: FieldChoice } | undefined,
   /** Whether the current person still has a confirmed merge decision. */
   hasMergeDecision: false,
 });
@@ -153,12 +157,14 @@ export function useMergeOverlay({
         if (!list.includes(value)) list.push(value);
         map.set(key, list);
       };
+      let namesChoice: FieldChoice | undefined;
       for (const row of rows) {
         if (row.isGroupHeader) continue;
         if (row.state === "agree" || row.state === "main-only") continue;
         const choice = dec.fields[row.key] ?? defaultChoice(row);
         if (choice === "main") continue;
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
+        if (row.key === "additionalNames") namesChoice = choice;
         // The record-level "Sources" row carries plain links as `incomingLinkIcons`
         // (other rows, if any, as `incomingLinks`); both preview the same way.
         // Each is previewed as what the save will write for it — a citation of
@@ -242,15 +248,18 @@ export function useMergeOverlay({
       }
 
       const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
+      const mergeAdditionalNames = namesChoice && incoming.names.length > 1
+        ? { names: incoming.names.slice(1), choice: namesChoice }
+        : undefined;
 
-      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
+      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, mergeAdditionalNames, hasMergeDecision: true };
     }
     return EMPTY_MERGE_DATA;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, compareDataset, person, dataset, formatOverrides, pageMediaStyle, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
   // Only the pieces the handlers below read; the rest is spread to the caller.
-  const { mergeHighlight, mergeIncomingSources, hasMergeDecision } = mergeData;
+  const { mergeHighlight, mergeIncomingSources, mergeAdditionalNames, hasMergeDecision } = mergeData;
 
   /**
    * `resolvedSessionFields` deliberately survives the remount that fires when
@@ -323,6 +332,25 @@ export function useMergeOverlay({
       ...linkPlacementFor(dataset, formatOverrides),
       pageMedia: pageMediaStyle,
     });
+    return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
+  });
+
+  /**
+   * Write the incoming additional names into `raw` — the selected person's
+   * record, inside a commit — exactly as the save would, and resolve the
+   * "Additional names" row to "main" so the save does not write them again.
+   * Returns undo patches for any `SOUR`/`REPO` records the names brought
+   * along. Called when the user takes over an incoming name chip to edit or
+   * drop it: from then on the names are the record's own.
+   */
+  const materializeIncomingNames = useStableHandler((raw: GedNode): RecordPatch[] => {
+    if (!compareDataset || !mergeAdditionalNames) return [];
+    const found = confirmedFor();
+    if (!found) return [];
+    const incoming = compareDataset.individuals.get(found.compareId);
+    if (!incoming) return [];
+    const imported = materializeAdditionalNames(dataset, compareDataset, raw, incoming.raw, mergeAdditionalNames.choice);
+    onUpdateDecision?.(found.key, { ...found.decision, fields: { ...found.decision.fields, additionalNames: "main" } });
     return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
   });
 
@@ -412,6 +440,7 @@ export function useMergeOverlay({
     markMaterializedEvent,
     rejectIncomingEvent,
     materializeMergeEventSources,
+    materializeIncomingNames,
     dismissExtraEvent,
     resolveMergeFields,
     markFamilyTagRetagged,

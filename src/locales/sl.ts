@@ -1223,6 +1223,8 @@ export const sl = {
   "edit.addFamilyEvent": "Dodaj družinski dogodek",
   "edit.addFamilyEventTooltip": "Dodaj nov dogodek tej družini",
   "edit.removeName": "Odstrani ime",
+  "edit.mergeNameTooltip": "Ime iz vhodne datoteke — kliknite, da ga obdržite in uredite",
+  "edit.skipMergeName": "Izpusti to ime",
   "edit.addNote": "Dodaj opombo",
   "edit.addNoteTooltip": "Dodaj besedilno opombo k temu zapisu",
   "edit.addFsId": "FamilySearch ID",

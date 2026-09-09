@@ -6,7 +6,7 @@ import { decisionKey, type CandidateDecision } from "../review/types";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { formatReport, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
+import { formatReport, materializeAdditionalNames, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
 import { readBookPages } from "../tools/sourceReshape";
 
@@ -3063,3 +3063,41 @@ function lineDiff(before: string, after: string): { added: string[]; removed: st
   for (const [l, n] of b) if (l && n > (a.get(l) ?? 0)) removed.push(l);
   return { added, removed };
 }
+
+describe("materializeAdditionalNames", () => {
+  // Mirrors Edit mode taking over a confirmed match's incoming name chips:
+  // the names are written the way the save would write them, right now.
+  const COMPARE_NAMES = wrap(
+    "0 @P1@ INDI\n1 NAME Ana /Kos/\n1 NAME Ana /Novak/\n2 TYPE married\n2 SOUR @CS1@\n1 SEX F\n" +
+      "0 @CS1@ SOUR\n1 TITL Poročna knjiga Kranj\n",
+  );
+  const namesOf = (rec: GedNode) => rec.children.filter((c) => c.tag === "NAME").map((n) => n.value);
+
+  it("writes the incoming extra NAME records into the main record and imports the cited SOUR", () => {
+    const mainDs = dataset(wrap("0 @I1@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n"));
+    const compareDs = dataset(COMPARE_NAMES);
+    const target = mainDs.records.find((r) => r.xref === "@I1@")!;
+
+    const imported = materializeAdditionalNames(mainDs, compareDs, target, compareDs.individuals.get("@P1@")!.raw, "incoming");
+
+    expect(namesOf(target)).toEqual(["Ana /Kos/", "Ana /Novak/"]);
+    const married = target.children.filter((c) => c.tag === "NAME")[1];
+    expect(married.children.some((c) => c.tag === "SOUR" && c.value === "@CS1@")).toBe(true);
+    expect(mainDs.records.some((r) => r.tag === "SOUR" && r.xref === "@CS1@")).toBe(true);
+    expect(imported.map((r) => r.xref)).toEqual(["@CS1@"]);
+  });
+
+  it("keeps the main's own extra names only under the \"both\" choice", () => {
+    const MAIN_NAMES = wrap("0 @I1@ INDI\n1 NAME Ana /Kos/\n1 NAME Ana /Kralj/\n2 TYPE aka\n1 SEX F\n");
+    const compareDs = dataset(COMPARE_NAMES);
+    const incoming = compareDs.individuals.get("@P1@")!.raw;
+
+    const replaced = dataset(MAIN_NAMES);
+    materializeAdditionalNames(replaced, compareDs, replaced.records.find((r) => r.xref === "@I1@")!, incoming, "incoming");
+    expect(namesOf(replaced.records.find((r) => r.xref === "@I1@")!)).toEqual(["Ana /Kos/", "Ana /Novak/"]);
+
+    const kept = dataset(MAIN_NAMES);
+    materializeAdditionalNames(kept, compareDs, kept.records.find((r) => r.xref === "@I1@")!, incoming, "both");
+    expect(namesOf(kept.records.find((r) => r.xref === "@I1@")!)).toEqual(["Ana /Kos/", "Ana /Kralj/", "Ana /Novak/"]);
+  });
+});

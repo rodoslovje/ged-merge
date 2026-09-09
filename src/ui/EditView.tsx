@@ -628,7 +628,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys,
     extraMergeEvents, familyMergeKeyBases: familyKeyBaseById,
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
-    rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent,
+    rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent, mergeAdditionalNames, materializeIncomingNames,
     resolveMergeFields, markFamilyTagRetagged,
   } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: settings.formatOverrides, tick, t });
 
@@ -2028,6 +2028,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             showAddFsId={!fsIdAdded && !(person.fsids ?? []).length}
             onAddFsId={() => setFsIdAdded(true)}
             marriedNameTag={marriedNameTag}
+            mergeNames={mergeAdditionalNames}
+            onTakeMergeNames={(then) => {
+              const patches: RecordPatch[] = [];
+              commit((indi) => {
+                patches.push(...materializeIncomingNames(indi.raw));
+                then?.(indi);
+              }, patches);
+            }}
             leadingControl={
               <>
                 <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />

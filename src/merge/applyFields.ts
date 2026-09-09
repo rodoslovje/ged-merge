@@ -1285,3 +1285,31 @@ export function materializeEventSources(
   if (added.length) bumpSourceCacheVersion(dataset.records);
   return added;
 }
+
+/**
+ * Bring a confirmed match's additional names into `target` now, the way the
+ * save would write them: {@link applyAdditionalNames} under the reviewer's
+ * `choice` for the "Additional names" row (`both` keeps the main's own extra
+ * names, anything else replaces them), with any `SOUR`/`REPO` records the
+ * names cite imported from `compare`. Returns every top-level record that
+ * appeared, for the caller to build undo patches from.
+ *
+ * Used by Edit mode when the user takes over an incoming alternative name to
+ * edit it: once that happens the row is resolved to "main" (see EditView's
+ * `resolveRecordField`), so the names must be in the record already.
+ */
+export function materializeAdditionalNames(
+  dataset: Dataset,
+  compare: Dataset,
+  target: GedNode,
+  incoming: GedNode,
+  choice: FieldChoice,
+): GedNode[] {
+  const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
+  const sourMap = buildSourXrefMap(compare.records, dataset.records);
+  if (!applyAdditionalNames(target, incoming, choice, sourMap, {})) return [];
+  importSourRecords(dataset.records, compare, sourMap, {});
+  const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
+  if (added.length) bumpSourceCacheVersion(dataset.records);
+  return added;
+}

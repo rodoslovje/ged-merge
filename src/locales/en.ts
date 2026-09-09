@@ -1040,6 +1040,8 @@ export const en = {
   "edit.collapseEvent": "Hide note, agency, type, cause and sources",
   "edit.addName": "Add Name",
   "edit.removeName": "Remove Name",
+  "edit.mergeNameTooltip": "From the incoming file — click to keep this name and edit it",
+  "edit.skipMergeName": "Leave this name out",
   "edit.addNote": "Add Note",
   "edit.addNoteTooltip": "Add a free-text note to this record",
   "edit.addFsId": "FamilySearch ID",

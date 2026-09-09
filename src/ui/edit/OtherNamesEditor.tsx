@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Individual } from "../../gedcom/types";
+import type { Individual, PersonName } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
+import type { FieldChoice } from "../../review/types";
 import { addAdditionalName, removeAdditionalName, setNickname, setMarriedName } from "../../gedcom/edit";
 import { primaryName, displayName, nameTypeLabel } from "../../match/relatives";
 import { NicknameEditor } from "./NicknameEditor";
@@ -26,6 +27,8 @@ export function OtherNamesEditor({
   addNameNonce,
   marriedNameTag,
   leadingControl,
+  mergeNames,
+  onTakeMergeNames,
 }: {
   person: Individual;
   t: Translate;
@@ -50,11 +53,22 @@ export function OtherNamesEditor({
   marriedNameTag?: boolean;
   /** Rendered at the start of the actions row, before "+ Add event" (the sex picker). */
   leadingControl?: ReactNode;
+  /** A confirmed match's incoming additional names, previewed as chips the way
+   * the merge will write them (see `useMergeOverlay`); `choice` says whether
+   * the person's own extra names stay beside them (`both`) or give way. */
+  mergeNames?: { names: PersonName[]; choice: FieldChoice };
+  /** Write `mergeNames` into the record now, in one step with `then` — the
+   * chips become the person's own names, ready to edit or remove. */
+  onTakeMergeNames?: (then?: (indi: Individual) => void) => void;
 }) {
   const [editing, setEditing] = useState<"nick" | "married" | number | null>(null);
   const primary = primaryName(person);
   const extraNames = person.names.slice(1);
-  const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0;
+  const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0 || !!mergeNames;
+  /** The person's own extra names the merge will replace — shown struck through. */
+  const replaced = !!mergeNames && mergeNames.choice !== "both";
+  /** Where the `i`th incoming name lands in `extraNames` once taken over. */
+  const takenIndex = (i: number) => (replaced ? i : extraNames.length + i);
 
   // ⌥⇧A does what the "+ Add Name" chip does. The ref guard skips the value
   // seen at mount, so a remount on person switch adds nothing by itself.
@@ -126,7 +140,7 @@ export function OtherNamesEditor({
               <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} marriedNameTag={marriedNameTag} onDone={() => setEditing(null)} />
             ) : (
               <span className="edit-name-chip-wrap" key={i}>
-                <button type="button" className="edit-name-chip" onClick={() => setEditing(i)}>
+                <button type="button" className={`edit-name-chip${replaced ? " edit-name-chip--replaced" : ""}`} onClick={() => setEditing(i)}>
                   {displayName(n)}
                   {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
                 </button>
@@ -141,6 +155,29 @@ export function OtherNamesEditor({
               </span>
             ),
           )}
+          {/* Incoming names a confirmed merge will add: a click takes them into
+              the record and opens the clicked one; × takes them and drops it. */}
+          {mergeNames?.names.map((n, i) => (
+            <span className="edit-name-chip-wrap" key={`merge-${i}`}>
+              <button
+                type="button"
+                className="edit-name-chip edit-name-chip--merge"
+                title={t("edit.mergeNameTooltip")}
+                onClick={() => { onTakeMergeNames?.(); setEditing(takenIndex(i)); }}
+              >
+                {displayName(n)}
+                {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
+              </button>
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.skipMergeName")}
+                onClick={() => onTakeMergeNames?.((indi) => removeAdditionalName(indi, takenIndex(i)))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
           {addNameBtn}
         </div>
       )}
