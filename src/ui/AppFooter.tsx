@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { keyHint } from "../keyboard/shortcuts";
 
 interface Props {
   onShortcuts: () => void;
@@ -57,7 +58,7 @@ export function AppFooter({ onShortcuts }: Props) {
         {t("help.title")}
       </a>
       <Sep />
-      <button className="app-footer-link" onClick={onShortcuts}>
+      <button className="app-footer-link" onClick={onShortcuts} title={keyHint(t("shortcuts.title"), "?")}>
         {t("shortcuts.title")}
       </button>
       <Sep />

@@ -1,10 +1,20 @@
 import { useTranslation } from "react-i18next";
-import { SHORTCUT_GROUPS, renderKeyToken, type ShortcutGroup, type ShortcutItem } from "../keyboard/shortcuts";
+import {
+  SHORTCUT_GROUPS,
+  itemScope,
+  renderKeyToken,
+  type ShortcutGroup,
+  type ShortcutItem,
+  type ShortcutScope,
+} from "../keyboard/shortcuts";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /** Where the user is. The sheet then leads with the keys that work there
+   *  and lists the rest under "Elsewhere". Omitted on the landing page. */
+  context?: ShortcutScope;
 }
 
 /**
@@ -52,13 +62,19 @@ function Combo({ item }: { item: ShortcutItem }) {
 
 const MODIFIERS = new Set(["mod", "alt", "shift"]);
 
-function ShortcutsGroup({ group }: { group: ShortcutGroup }) {
+/** A group with the subset of its items a section shows. */
+interface Shown {
+  group: ShortcutGroup;
+  items: ShortcutItem[];
+}
+
+function ShortcutsGroup({ group, items }: Shown) {
   const { t } = useTranslation();
   return (
     <section className="shortcuts-group">
       <h3>{t(group.titleKey)}</h3>
       <dl>
-        {group.items.map((item) => (
+        {items.map((item) => (
           <div className="shortcuts-row" key={item.descKey}>
             <dt>
               <Combo item={item} />
@@ -71,17 +87,53 @@ function ShortcutsGroup({ group }: { group: ShortcutGroup }) {
   );
 }
 
+/** The two-column cheat-sheet grid, each group in the column it asks for. */
+function Columns({ shown }: { shown: Shown[] }) {
+  return (
+    <div className="shortcuts-grid">
+      {(["left", "right"] as const).map((column) => (
+        <div key={column} className="shortcuts-col">
+          {shown
+            .filter(({ group }) => group.column === column)
+            .map((s) => (
+              <ShortcutsGroup key={s.group.titleKey} {...s} />
+            ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * The keyboard cheat sheet — opened with `?` / F1, or from the User's Guide and
- * footer. Renders straight from `SHORTCUT_GROUPS`, so it always matches the
- * live bindings. Standard (modifier) and app-specific (bare-key) groups are
- * split with a legend so the two kinds stay visually distinct.
+ * The keyboard cheat sheet — opened with `?` / F1, the header's ? button, or
+ * from the User's Guide and footer. Renders straight from `SHORTCUT_GROUPS`,
+ * so it always matches the live bindings. Standard (modifier) and
+ * app-specific (bare-key) groups are split with a legend so the two kinds
+ * stay visually distinct. Given where the user is, the keys that work there
+ * come first, under "Here", and the rest under "Elsewhere".
  */
-export function ShortcutsModal({ isOpen, onClose }: Props) {
+export function ShortcutsModal({ isOpen, onClose, context }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(isOpen, onClose);
 
   if (!isOpen) return null;
+
+  const here: Shown[] = [];
+  const elsewhere: Shown[] = [];
+  for (const group of SHORTCUT_GROUPS) {
+    if (!context) {
+      here.push({ group, items: group.items });
+      continue;
+    }
+    const near = group.items.filter((item) => {
+      const scope = itemScope(group, item);
+      return !scope || scope.includes(context);
+    });
+    const far = group.items.filter((item) => !near.includes(item));
+    if (near.length) here.push({ group, items: near });
+    if (far.length) elsewhere.push({ group, items: far });
+  }
+  const where = context === "chart" ? t("edit.charts.button") : context ? t(`mode.${context}`) : "";
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -111,15 +163,14 @@ export function ShortcutsModal({ isOpen, onClose }: Props) {
               <span>{t("shortcuts.legend.app")}</span>
             </span>
           </p>
-          <div className="shortcuts-grid">
-            {(["left", "right"] as const).map((column) => (
-              <div key={column} className="shortcuts-col">
-                {SHORTCUT_GROUPS.filter((group) => group.column === column).map((group) => (
-                  <ShortcutsGroup key={group.titleKey} group={group} />
-                ))}
-              </div>
-            ))}
-          </div>
+          {context && <h3 className="shortcuts-section">{t("shortcuts.section.here", { where })}</h3>}
+          <Columns shown={here} />
+          {context && elsewhere.length > 0 && (
+            <>
+              <h3 className="shortcuts-section">{t("shortcuts.section.elsewhere")}</h3>
+              <Columns shown={elsewhere} />
+            </>
+          )}
         </div>
       </div>
     </div>

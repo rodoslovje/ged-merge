@@ -35,7 +35,8 @@ import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
 import { SettingsModal } from "./ui/SettingsModal";
-import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
+import { KEY, isModalOpen, isEditableTarget, keyHint, modLabel, modShiftLabel } from "./keyboard/shortcuts";
+import { HelpIcon } from "./ui/icons/HelpIcon";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
 import { ToolsView, type Tool, type ToolView } from "./ui/ToolsView";
@@ -1805,7 +1806,11 @@ function AppContent() {
   // not in-app modals.
   const appModals = (
     <>
-      <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <ShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+        context={overlayOpen ? "chart" : mainDataset ? mode : undefined}
+      />
       <GlobalSearchModal
         isOpen={showGlobalSearch}
         onClose={() => setShowGlobalSearch(false)}
@@ -1865,7 +1870,7 @@ function AppContent() {
             <button
               className="nav-btn icon-only"
               onClick={() => setShowGlobalSearch(true)}
-              title={t("globalSearch.tooltip")}
+              title={keyHint(t("globalSearch.tooltip"), "/")}
               aria-label={t("globalSearch.title")}
             >
               <SearchIcon size={18} />
@@ -1962,21 +1967,21 @@ function AppContent() {
       <button
         className={`seg-btn ${mode === "edit" ? "active" : ""}`}
         onClick={() => { if (mode !== "edit") switchToEdit(); }}
-        title={t("mode.edit.tooltip")}
+        title={keyHint(t("mode.edit.tooltip"), KEY.modeEdit.toUpperCase())}
       >
         {t("mode.edit")}
       </button>
       <button
         className={`seg-btn ${mode === "merge" ? "active" : ""}`}
         onClick={() => { if (mode !== "merge") switchToMerge(); }}
-        title={t("mode.merge.tooltip")}
+        title={keyHint(t("mode.merge.tooltip"), KEY.modeMerge.toUpperCase())}
       >
         {t("mode.merge")}
       </button>
       <button
         className={`seg-btn ${mode === "tools" ? "active" : ""}`}
         onClick={() => { if (mode !== "tools") switchToTools(); }}
-        title={t("mode.tools.tooltip")}
+        title={keyHint(t("mode.tools.tooltip"), KEY.modeTools.toUpperCase())}
       >
         {t("mode.tools")}
       </button>
@@ -2054,7 +2059,7 @@ function AppContent() {
               <button
                 className="nav-btn icon-only"
                 onClick={() => setShowGlobalSearch(true)}
-                title={t("globalSearch.tooltip")}
+                title={keyHint(t("globalSearch.tooltip"), "/")}
                 aria-label={t("globalSearch.title")}
               >
                 <SearchIcon size={18} />
@@ -2064,7 +2069,7 @@ function AppContent() {
               <button
                 className="nav-btn icon-only"
                 onClick={() => requestAddPerson()}
-                title={t("edit.addNewPerson.tooltip")}
+                title={keyHint(t("edit.addNewPerson.tooltip"), KEY.addPerson.toUpperCase())}
                 aria-label={t("edit.addNewPerson")}
               >
                 <AddPersonIcon size={18} />
@@ -2078,6 +2083,16 @@ function AppContent() {
                 aria-label={t("settings.title")}
               >
                 <GearIcon size={18} />
+              </button>
+            )}
+            {!phone && (
+              <button
+                className="nav-btn icon-only shortcuts-btn"
+                onClick={() => setShowShortcuts(true)}
+                title={keyHint(t("shortcuts.title"), "?")}
+                aria-label={t("shortcuts.title")}
+              >
+                <HelpIcon size={18} />
               </button>
             )}
             {/* The ☰ is the phone header's one button from the landing page on,
@@ -2094,6 +2109,7 @@ function AppContent() {
                 onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
                 onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
                 onSettings={() => setShowSettings(true)}
+                onShortcuts={() => setShowShortcuts(true)}
               />
             )}
           </div>
@@ -2107,7 +2123,7 @@ function AppContent() {
                   className="export-btn"
                   onClick={() => void handleSave()}
                   disabled={readingSources}
-                  title={readingSources ? t("save.readingSources") : t("save.gedcom.tooltip")}
+                  title={readingSources ? t("save.readingSources") : keyHint(t("save.gedcom.tooltip"), modLabel("S"))}
                 >
                   {readingSources ? (
                     <span>{t("save.readingSources")}</span>
@@ -2122,10 +2138,10 @@ function AppContent() {
               )}
               {hasHistoryAction && (
                 <>
-                  <button className="tree-open-btn undo-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")} aria-label={t("undo")}>
+                  <button className="tree-open-btn undo-btn" onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
                     ↩ <span className="undo-btn-label">{t("undo")}</span>
                   </button>
-                  <button className="tree-open-btn undo-btn" onClick={handleRedo} disabled={!canRedo} title={t("redo.tooltip")} aria-label={t("redo")}>
+                  <button className="tree-open-btn undo-btn" onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
                     <span className="undo-btn-label">{t("redo")}</span> ↪
                   </button>
                 </>

@@ -6483,6 +6483,21 @@ kbd {
   border-radius: var(--radius-sm); box-shadow: 0 1px 0 var(--border-2);
 }
 
+/* The sheet's "Here" / "Elsewhere" headings, when it knows where the user is. */
+.shortcuts-section {
+  margin: 14px 0 4px; font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+}
+/* Keycaps beside a list's controls — the keys that drive that list. */
+.key-hint { display: inline-flex; gap: 3px; align-items: center; margin-left: 6px; opacity: 0.75; }
+.key-hint kbd { min-width: 1.3em; padding: 0 5px; font-size: 0.72rem; line-height: 1.5; }
+/* The landing page's one line about the keyboard. */
+.lb-kbd-hint { margin: 6px 0 0; font-size: 0.85rem; color: var(--muted); }
+.lb-kbd-hint kbd { margin-right: 2px; }
+@media (max-width: 880px) {
+  .key-hint { display: none; }
+}
+
 @media (max-width: 720px) {
   .shortcuts-grid { grid-template-columns: 1fr; }
   /* Narrow: the coordinate popover stacks map over candidates again. */

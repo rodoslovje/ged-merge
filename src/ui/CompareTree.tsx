@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { STATUS_KEY } from "../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
@@ -826,6 +827,7 @@ function NodeCompare({
         <button
           key={s}
           className={status === s ? `decision ${s} active` : "decision"}
+          title={t("compare.decisionTooltip", { action: t(`status.action.${s}`), key: STATUS_KEY[s].toUpperCase() })}
           onClick={() => onDecide(s)}
         >
           {t(status === s ? `status.${s}` : `status.action.${s}`)}

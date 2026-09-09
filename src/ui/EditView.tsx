@@ -93,7 +93,7 @@ import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
-import { KEY, KEY_STATUS, familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, keyHint, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
@@ -1661,7 +1661,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     if (!person) return;
     const name = formatName(person);
     setPendingConfirm({
-      message: t("edit.deletePersonConfirm", { name }),
+      message: t("edit.deletePersonConfirm", { name, key: modLabel("Z") }),
       confirmLabel: t("confirm.delete"),
       action: () => {
         const personId = person.id;
@@ -1951,7 +1951,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               className="tree-open-btn charts-open-btn"
               onClick={() => selectedId && onShowCharts(selectedId)}
               disabled={!selectedId}
-              title={t("edit.charts.tooltip")}
+              title={keyHint(t("edit.charts.tooltip"), KEY.tree.toUpperCase())}
             >
               <ChartIcon size={14} /> {t("edit.charts.button")}
             </button>
@@ -2044,6 +2044,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               <>
                 <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
                 <PrivateToggle
+                  hint={altShiftLabel("L")}
                   on={!!person.private}
                   t={t}
                   target={t("edit.privateTarget.individual")}

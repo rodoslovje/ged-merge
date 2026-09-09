@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { keyHint } from "../keyboard/shortcuts";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { ChartKind } from "./ChartSettingsContext";
@@ -53,7 +54,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
   }
   return (
     <div className="tree-mode charts-kind" role="tablist" aria-label={t("charts.kind.label")} onKeyDown={tablistKeyDown}>
-      {kinds.map((k) => (
+      {kinds.map((k, i) => (
         <button
           key={k}
           ref={value === k ? activeRef : undefined}
@@ -61,7 +62,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
           aria-selected={value === k}
           tabIndex={tabIndexFor(value === k)}
           className={value === k ? "active" : ""}
-          title={hint(k)}
+          title={keyHint(hint(k) ?? label(k), String(i + 1))}
           onClick={() => { if (value !== k) onChange(k); }}
         >
           {label(k)}

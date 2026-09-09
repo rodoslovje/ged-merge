@@ -5,12 +5,13 @@ import type { Translate } from "../../locales/i18n";
  *  dialect). Sits with the other action chips; filled when on. `target` names
  *  the record kind (person / family / …) so the "mark as private" tooltip can
  *  say what it affects. */
-export function PrivateToggle({ on, t, onToggle, target }: { on: boolean; t: Translate; onToggle: () => void; target: string }) {
+export function PrivateToggle({ on, t, onToggle, target, hint }: { on: boolean; t: Translate; onToggle: () => void; target: string; /** The shortcut, where one flips this lock. */ hint?: string }) {
+  const title = on ? t("edit.privateOn") : t("edit.privateOff", { target });
   return (
     <button
       type="button"
       className={`edit-name-chip private-toggle${on ? " is-on" : ""}`}
-      title={on ? t("edit.privateOn") : t("edit.privateOff", { target })}
+      title={hint ? `${title} (${hint})` : title}
       aria-pressed={on}
       onClick={onToggle}
     >

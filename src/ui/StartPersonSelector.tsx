@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { KEY, keyHint } from "../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
 import { nameSearchText } from "../match/relatives";
@@ -201,7 +202,7 @@ export function StartPersonSelector({
     <div className={startId ? "start-selector" : "start-selector unset"}>
       <div className="start-control">
         {clickableStart ? (
-          <button type="button" className="start-icon start-icon-btn" title={t("start.goto")} onClick={onStartClick}>
+          <button type="button" className="start-icon start-icon-btn" title={keyHint(t("start.goto"), KEY.home.toUpperCase())} onClick={onStartClick}>
             {glyph}
           </button>
         ) : (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import type { NoteRef } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { noteToText } from "../../gedcom/noteHtml";
@@ -147,7 +148,7 @@ export function NotesEditor({
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
-            title={t("edit.addNoteTooltip")}
+            title={keyHint(t("edit.addNoteTooltip"), altShiftLabel("N"))}
             onClick={() => setNotes((prev) => { focusNewRef.current = prev.length; return [...prev, { text: "" }]; })}
           >
             + {t("edit.addNote")}

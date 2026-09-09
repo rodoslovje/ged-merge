@@ -32,6 +32,8 @@ interface Props {
   decisionLetter?: string;
   /** Tooltip for the status chip, e.g. "Confirmed". */
   decisionTooltip?: string;
+  /** Tooltip of the empty slot's "+ Add …" button — the shortcut that fills it. */
+  addTitle?: string;
   /** True when this relative's main record has unsaved edits — shows a "modified" chip. */
   modified?: boolean;
   /** Single letter shown in the modified chip, e.g. "M" / "S" (already localized). */
@@ -50,7 +52,7 @@ interface Props {
 const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, addTitle, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
   const nameOf = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const { t } = useTranslation();
@@ -59,7 +61,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
       <div className="person-card-wrap">
         {roleLabel && <div className="person-card-role">{roleLabel}</div>}
         {onAdd ? (
-          <button className="person-card empty person-card-add" onClick={onAdd}>
+          <button className="person-card empty person-card-add" onClick={onAdd} title={addTitle}>
             <span className="muted">{placeholder}</span>
           </button>
         ) : (

@@ -3,6 +3,7 @@ import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { GearIcon } from "./icons/GearIcon";
+import { HelpIcon } from "./icons/HelpIcon";
 import { SearchIcon } from "./icons/SearchIcon";
 
 // The phone header's ☰ menu. On a narrow screen the header can hold the brand,
@@ -35,6 +36,8 @@ interface Props {
   onSearch?: () => void;
   onAddPerson?: () => void;
   onSettings: () => void;
+  /** The keyboard-shortcut sheet — a phone has no `?` key to press. */
+  onShortcuts: () => void;
 }
 
 export function AppMenu({
@@ -47,6 +50,7 @@ export function AppMenu({
   onSearch,
   onAddPerson,
   onSettings,
+  onShortcuts,
 }: Props) {
   const { t } = useTranslation();
   const { containerRef, triggerRef, close, onTriggerKeyDown } = usePopoverKeyboard(open, onOpenChange, { arrows: true });
@@ -116,6 +120,9 @@ export function AppMenu({
             )}
             <button role="menuitem" className="app-menu-item" onClick={() => pick(onSettings)}>
               <GearIcon size={17} /> {t("settings.title")}
+            </button>
+            <button role="menuitem" className="app-menu-item" onClick={() => pick(onShortcuts)}>
+              <HelpIcon size={17} /> {t("shortcuts.title")}
             </button>
           </div>
         </div>

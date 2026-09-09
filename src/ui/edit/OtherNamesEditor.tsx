@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import type { Individual, PersonName } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { FieldChoice } from "../../review/types";
@@ -84,7 +85,7 @@ export function OtherNamesEditor({
     <button
       type="button"
       className="edit-name-chip edit-name-chip-add"
-      title={t("edit.addNameTooltip")}
+      title={keyHint(t("edit.addNameTooltip"), altShiftLabel("A"))}
       onClick={() => {
         commit((indi) => addAdditionalName(indi, "aka"));
         setEditing(extraNames.length);
@@ -188,7 +189,7 @@ export function OtherNamesEditor({
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
-            title={t("media.add")}
+            title={keyHint(t("media.add"), altShiftLabel("I"))}
             onClick={onAddMedia}
           >
             + {t("media.add")}
@@ -208,7 +209,7 @@ export function OtherNamesEditor({
           <button
             type="button"
             className="edit-name-chip edit-name-chip-add"
-            title={t("edit.addNoteTooltip")}
+            title={keyHint(t("edit.addNoteTooltip"), altShiftLabel("N"))}
             onClick={onAddNote}
           >
             + {t("edit.addNote")}

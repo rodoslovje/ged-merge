@@ -118,6 +118,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
 export type ShortcutCategory = "standard" | "app";
 
+/** Where a shortcut works: a mode, or a full-page chart over one. */
+export type ShortcutScope = "edit" | "merge" | "tools" | "chart";
+
 export interface ShortcutItem {
   /**
    * Key combos to render as <kbd>. Each inner array is one chord ("mod" + "s");
@@ -130,6 +133,9 @@ export interface ShortcutItem {
   sep?: "or" | "range";
   /** i18n key for the human-readable description. */
   descKey: string;
+  /** Where the keys work. Omitted: the group's scope, and with neither,
+   *  everywhere. The sheet leads with the items that apply where the user is. */
+  scope?: readonly ShortcutScope[];
 }
 
 export interface ShortcutGroup {
@@ -137,7 +143,14 @@ export interface ShortcutGroup {
   category: ShortcutCategory;
   /** Which column of the cheat-sheet grid the group renders in. */
   column: "left" | "right";
+  /** Default scope of the group's items. */
+  scope?: readonly ShortcutScope[];
   items: ShortcutItem[];
+}
+
+/** Where an item works — its own scope, else its group's; undefined = everywhere. */
+export function itemScope(group: ShortcutGroup, item: ShortcutItem): readonly ShortcutScope[] | undefined {
+  return item.scope ?? group.scope;
 }
 
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
@@ -161,6 +174,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     titleKey: "shortcuts.group.modes",
     category: "app",
     column: "right",
+    // Not on a chart page: the letters are held back there, where a mode
+    // switch would happen invisibly behind the overlay.
+    scope: ["edit", "merge", "tools"],
     items: [
       { keys: [[KEY.modeEdit.toUpperCase()]], descKey: "shortcuts.item.modeEdit" },
       { keys: [[KEY.modeMerge.toUpperCase()]], descKey: "shortcuts.item.modeMerge" },
@@ -172,32 +188,33 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     column: "left",
     items: [
-      { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll" },
-      { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext" },
-      { keys: [["Home"], ["End"]], descKey: "shortcuts.item.homeEnd" },
-      { keys: [["PgUp"], ["PgDn"]], descKey: "shortcuts.item.page" },
+      { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll", scope: ["merge", "tools"] },
+      { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext", scope: ["merge", "edit", "tools"] },
+      { keys: [["Home"], ["End"]], descKey: "shortcuts.item.homeEnd", scope: ["merge", "tools"] },
+      { keys: [["PgUp"], ["PgDn"]], descKey: "shortcuts.item.page", scope: ["merge", "tools"] },
       // Edit's family steps. ⌥ alone and not ⌥⇧ (the edit-action family): with
       // arrows there is no menu accelerator to collide with, and the pair leaves
       // ⇧ free to mean "the other one on this axis".
-      { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.item.goParent" },
-      { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling" },
-      { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild" },
-      { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner" },
-      { keys: [["Enter"]], descKey: "shortcuts.item.enter" },
-      { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
-      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
-      { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
+      { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.item.goParent", scope: ["edit", "chart"] },
+      { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling", scope: ["edit", "chart"] },
+      { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild", scope: ["edit", "chart"] },
+      { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner", scope: ["edit", "chart"] },
+      { keys: [["Enter"]], descKey: "shortcuts.item.enter", scope: ["merge", "tools"] },
+      { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree", scope: ["edit", "merge"] },
+      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship", scope: ["edit"] },
+      { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home", scope: ["edit"] },
       // The chord is the same step taken from inside a field, where the bare
       // key belongs to the text being typed.
-      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back" },
+      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back", scope: ["edit", "chart"] },
     ],
   },
   {
     titleKey: "shortcuts.group.editing",
     category: "app",
     column: "right",
+    scope: ["edit"],
     items: [
-      { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
+      { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson", scope: ["edit", "merge", "tools"] },
       // ⌥⇧, so they fire inside a field too — and clear of the browser's own:
       // ⌥E/⌥S are menu accelerators on Windows and Linux, ⌃⌥ is AltGr, and
       // ⌃⇧N/P/M belong to the browser (see the EditView key handler).
@@ -220,18 +237,20 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     // Left, to balance the editing group opposite: it is much the longest.
     column: "left",
+    scope: ["merge", "tools"],
     items: [
       { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
       { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
       { keys: [[KEY.defer.toUpperCase()]], descKey: "shortcuts.item.defer" },
-      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters" },
-      { keys: [["1"], ["2"], ["3"]], descKey: "shortcuts.item.fieldChoice" },
+      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filters", scope: ["merge"] },
+      { keys: [["1"], ["2"], ["3"]], descKey: "shortcuts.item.fieldChoice", scope: ["merge"] },
     ],
   },
   {
     titleKey: "shortcuts.group.charts",
     category: "app",
     column: "right",
+    scope: ["chart"],
     items: [
       { keys: [["1"], ["9"]], sep: "range", descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
@@ -244,6 +263,22 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
 ];
+
+/** A ⌘/Ctrl chord as it reads on this platform: "⌘S" on a Mac, "Ctrl+S" elsewhere. */
+export function modLabel(key: string): string {
+  return isMacKeyboard() ? `⌘${key}` : `Ctrl+${key}`;
+}
+
+/** The ⌘⇧/Ctrl+Shift chord, likewise. */
+export function modShiftLabel(key: string): string {
+  return isMacKeyboard() ? `⌘⇧${key}` : `Ctrl+Shift+${key}`;
+}
+
+/** A tooltip with its shortcut after it: "Undo last change (⌘Z)". One
+ *  helper, so no tooltip spells a key by hand — or for the wrong platform. */
+export function keyHint(label: string, key: string): string {
+  return `${label} (${key})`;
+}
 
 /** Render "mod" for the current platform; pass other tokens through unchanged. */
 export function renderKeyToken(token: string): string {

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
@@ -82,7 +83,7 @@ export function NewUnionSection({
               t={t}
             />
           ) : (
-            <PersonCard placeholder={t("edit.addPartner")} onAdd={() => setPickingSlot({ kind: "partner", fam: undefined })} />
+            <PersonCard placeholder={t("edit.addPartner")} addTitle={keyHint(t("edit.addPartner"), altShiftLabel("P"))} onAdd={() => setPickingSlot({ kind: "partner", fam: undefined })} />
           )}
         </div>
       </div>
@@ -251,7 +252,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
         <PersonCard
           individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
           roleLabel={fatherLabel}
-          placeholder={t("edit.addFather")}
+          placeholder={t("edit.addFather")} addTitle={keyHint(t("edit.addFather"), altShiftLabel("F"))}
           onSelect={navigate}
           onAdd={() => setPickingSlot({ kind: "father", fam })}
           onRemove={fam?.husband ? () => handleDetachSpouseRole(fam, "HUSB", t("edit.detachRoleConfirm", { name: fatherName, role: fatherLabel })) : undefined}
@@ -297,7 +298,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
         <PersonCard
           individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
           roleLabel={motherLabel}
-          placeholder={t("edit.addMother")}
+          placeholder={t("edit.addMother")} addTitle={keyHint(t("edit.addMother"), altShiftLabel("M"))}
           onSelect={navigate}
           onAdd={() => setPickingSlot({ kind: "mother", fam })}
           onRemove={fam?.wife ? () => handleDetachSpouseRole(fam, "WIFE", t("edit.detachRoleConfirm", { name: motherName, role: motherLabel })) : undefined}
@@ -466,7 +467,7 @@ export const FamilySection = memo(function FamilySection({
           ) : (
             <PersonCard
               individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
-              placeholder={t("edit.addPartner")}
+              placeholder={t("edit.addPartner")} addTitle={keyHint(t("edit.addPartner"), altShiftLabel("P"))}
               onSelect={navigate}
               onAdd={() => setPickingSlot({ kind: "partner", fam })}
               onRemove={fam && partnerId && partnerRole ? () => handleDetachSpouseRole(fam, partnerRole, t("edit.detachPartnerConfirm", { name: partnerName })) : undefined}
@@ -586,7 +587,7 @@ export const FamilySection = memo(function FamilySection({
               t={t}
             />
           ) : (
-            <PersonCard placeholder={t("edit.addChild")} onAdd={() => setPickingSlot({ kind: "child", fam })} />
+            <PersonCard placeholder={t("edit.addChild")} addTitle={keyHint(t("edit.addChild"), altShiftLabel("C"))} onAdd={() => setPickingSlot({ kind: "child", fam })} />
           )}
         </div>
       </div>

@@ -4,7 +4,8 @@ import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
-import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
+import { KeyHint } from "./KeyHint";
 import { handleListKey } from "../keyboard/useListKeyboard";
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
@@ -138,10 +139,11 @@ export function MergeView({
       <span className="muted gm-data">
         {t("list.count", { visible: visible.length, total: matches.individuals.length })}
       </span>
+      <KeyHint keys={["↑", "↓", KEY.confirm.toUpperCase(), KEY.reject.toUpperCase(), KEY.defer.toUpperCase()]} title={t("keys.listHint")} />
       <button
         className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
         onClick={() => setShowFilters((s) => !s)}
-        title={t("filter.title")}
+        title={keyHint(t("filter.title"), KEY.filter.toUpperCase())}
       >
         <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
       </button>
@@ -282,7 +284,7 @@ export function MergeView({
           className="nav-btn icon-only"
           onClick={onSelectPrev}
           disabled={visibleIndex <= 0}
-          title={t("nav.prev")}
+          title={keyHint(t("nav.prev"), "←")}
         >
           ‹
         </button>
@@ -293,7 +295,7 @@ export function MergeView({
           className="nav-btn icon-only"
           onClick={onSelectNext}
           disabled={visibleIndex < 0 || visibleIndex >= visibleCount - 1}
-          title={t("nav.next")}
+          title={keyHint(t("nav.next"), "→")}
         >
           ›
         </button>
@@ -312,7 +314,7 @@ export function MergeView({
           ))}
         </div>
         <div className="compare-nav-actions">
-          <button className="tree-open-btn" onClick={() => onOpenTree(current.mainId, current.compareId)} title={t("tree.tooltip")}>
+          <button className="tree-open-btn" onClick={() => onOpenTree(current.mainId, current.compareId)} title={keyHint(t("tree.tooltip"), KEY.tree.toUpperCase())}>
             {t("tree.button")}
             {importCounts && (importCounts.ancestors > 0 || importCounts.descendants > 0) && (
               <span

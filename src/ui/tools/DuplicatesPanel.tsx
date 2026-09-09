@@ -32,6 +32,7 @@ import { SelectMenu } from "../DropdownMenu";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { ClusterMergeDialog } from "./ClusterMergeDialog";
 import { PersonLink } from "../PersonLink";
+import { KeyHint } from "../KeyHint";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, someMatch, useDebounced } from "./shared";
@@ -482,6 +483,7 @@ export function DuplicatesPanel({
         <>
           <div className="tools-filter-row">
             <TreeSearch value={query} onChange={setQuery} />
+            <KeyHint keys={["↑", "↓", "Enter", KEY.confirm.toUpperCase(), KEY.reject.toUpperCase(), KEY.defer.toUpperCase()]} title={t("keys.listHint")} />
             {!showRejected && (
               <label className="tools-dup-score" title={t("tools.duplicates.scoreFilter")}>
                 <SelectMenu

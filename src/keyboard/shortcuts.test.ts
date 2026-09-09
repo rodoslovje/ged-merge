@@ -6,8 +6,12 @@ import {
   CHART_KEY,
   isEditableTarget,
   isModalOpen,
+  itemScope,
   KEY,
   KEY_STATUS,
+  keyHint,
+  modLabel,
+  modShiftLabel,
   renderKeyToken,
   SHORTCUT_GROUPS,
   STATUS_KEY,
@@ -156,5 +160,39 @@ describe("platform labels", () => {
     vi.stubGlobal("navigator", undefined);
     expect(renderKeyToken("mod")).toBe("Ctrl");
     expect(altShiftLabel("X")).toBe("Alt+Shift+X");
+  });
+});
+
+describe("the sheet covers the bindings", () => {
+  const chords = SHORTCUT_GROUPS.flatMap((g) => g.items.flatMap((i) => i.keys.map((c) => c.join("+"))));
+
+  it("lists every bare app key", () => {
+    for (const key of Object.values(KEY)) expect(chords).toContain(key.toUpperCase());
+  });
+
+  it("lists every lettered chart key", () => {
+    for (const key of Object.values(CHART_KEY)) {
+      if (Array.isArray(key)) continue; // + and − are drawn with their own glyphs
+      expect(chords).toContain(/[a-z]/.test(key) ? key.toUpperCase() : key);
+    }
+  });
+
+  it("scopes items to known places, and a chart key never claims a mode", () => {
+    const known = new Set(["edit", "merge", "tools", "chart"]);
+    for (const group of SHORTCUT_GROUPS) {
+      for (const item of group.items) {
+        for (const s of itemScope(group, item) ?? []) expect(known.has(s)).toBe(true);
+      }
+    }
+    const charts = SHORTCUT_GROUPS.find((g) => g.titleKey === "shortcuts.group.charts")!;
+    for (const item of charts.items) expect(itemScope(charts, item)).toEqual(["chart"]);
+  });
+});
+
+describe("tooltip key labels", () => {
+  it("put the key after the label, spelled for the platform", () => {
+    const mac = renderKeyToken("mod") === "⌘";
+    expect(keyHint("Undo", modLabel("Z"))).toBe(`Undo (${mac ? "⌘Z" : "Ctrl+Z"})`);
+    expect(modShiftLabel("Z")).toBe(mac ? "⌘⇧Z" : "Ctrl+Shift+Z");
   });
 });
