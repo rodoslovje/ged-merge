@@ -286,23 +286,25 @@ Not yet committed — cull as needed.
 
 ## Performance backlog (as large-file usage grows)
 
-- **Stop cloning the dataset across the worker boundary** — measured
-  2026-09-09 on Hawlina (494k people, 95 MB): the worker's own load is now
-  ~10.5 s (parse 2.6, build 4.0–4.5, profile 1.9, format detection 1.9 — the
-  inference passes count each distinct DATE/PLAC once since this date), but
-  `post({ type: "parsed", dataset })` then costs **~18 s** of structured clone
-  (serialize in the worker, deserialize on the main thread, which blocks the UI
-  for its half). The typed model's shared `.raw` back-references are what make
-  it slow: cloning `records` alone takes 6.5 s, a JSON round trip 9 s. The
-  fix is to have the main thread build its own `Dataset` from the same buffer
-  (`buildDataset(parseGedcom(buffer))`, 7 s, deterministic so ids agree) in
-  parallel with the worker, and let `parsed` carry only the detections; wall
-  time drops from ~28 s to ~11 s and the main thread blocks 7 s instead of
-  ~9 s. The compare side needs the same treatment to help index-scale
-  incoming files: the main thread would run `normalizeDataset` against the
-  posted profile and replay the `incomingDuplicates` consolidation itself
-  instead of receiving the re-emitted dataset. A further step is a chunked,
-  yielding main-thread parse so the spinner keeps moving.
+- ~~**Stop cloning the dataset across the worker boundary**~~ *(done
+  2026-09-09 — `src/state/localLoad.ts`: the main thread builds its own
+  `Dataset` from the same bytes in parallel with the worker, normalizes an
+  incoming GEDCOM against the posted profile and replays the announced
+  consolidation; only a table-built compare travels. The clone had cost ~18 s
+  under node on Hawlina — the typed model's shared `.raw` back-references;
+  `records` alone cloned in 6.5 s, a JSON round trip 9 s — and less in
+  Chromium: measured in the production build with Playwright, Hawlina's
+  click-to-first-person went from 26–29 s to 16–20 s. Note the node
+  `structuredClone` overstates the browser's cost; measure load changes in the
+  browser, three runs each, the numbers swing by ±3 s.)* **Still open on the
+  load path:** a chunked, yielding main-thread parse so the spinner keeps moving
+  during the ~5 s local build; and the work between the dataset landing in
+  state and the first person rendering — a browser profile on Hawlina shows
+  the save-report fingerprinting (`gedcom/fingerprint.ts`, ~1.3 s), dirty
+  tracking's `nameOf`, the Organize-sources walk (`tools/sourceReshape.ts`),
+  place suggestions, the places/geocode collectors — several seconds of
+  derivations for panels that are not open, because both mode views stay
+  mounted.
 - **Within `buildDataset`** (4 s on Hawlina): `parseDate` is 0.7 s of it over
   a million dates of which 10% are distinct — a memo would share `GedDate`
   objects between events, so first confirm nothing mutates a parsed date in
