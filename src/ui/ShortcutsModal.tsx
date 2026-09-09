@@ -89,10 +89,13 @@ function ShortcutsGroup({ group, items }: Shown) {
   );
 }
 
-/** The cheat sheet's columns: the groups flow into three, each kept whole. */
-function Columns({ shown }: { shown: Shown[] }) {
+/** The cheat sheet's columns: the groups flow into three, each kept whole.
+ *  The legend, where the grid carries it, heads the first column rather
+ *  than taking a row of its own above all three. */
+function Columns({ shown, legend }: { shown: Shown[]; legend?: React.ReactNode }) {
   return (
     <div className="shortcuts-grid">
+      {legend}
       {shown.map((s) => (
         <ShortcutsGroup key={s.group.titleKey} {...s} />
       ))}
@@ -164,6 +167,18 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
     }
   }
   const where = context === "chart" ? t("edit.charts.button") : context ? t(`mode.${context}`) : "";
+  const legend = (
+    <p className="shortcuts-legend">
+      <span className="shortcuts-legend-item">
+        <kbd>{renderKeyToken("mod")}</kbd>
+        <span>{t("shortcuts.legend.standard")}</span>
+      </span>
+      <span className="shortcuts-legend-item">
+        <kbd>A</kbd>
+        <span>{t("shortcuts.legend.app")}</span>
+      </span>
+    </p>
+  );
 
   return createPortal(
     <div className="modal-overlay shortcuts-print-root" onClick={onClose}>
@@ -186,22 +201,12 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
           </button>
         </div>
         <div className="modal-body">
-          <p className="shortcuts-legend">
-            <span className="shortcuts-legend-item">
-              <kbd>{renderKeyToken("mod")}</kbd>
-              <span>{t("shortcuts.legend.standard")}</span>
-            </span>
-            <span className="shortcuts-legend-item">
-              <kbd>A</kbd>
-              <span>{t("shortcuts.legend.app")}</span>
-            </span>
-          </p>
           {/* On screen: the keys for where the user is, then the rest. */}
           <div className="shortcuts-screen">
             {context ? (
               <>
                 <h3 className="shortcuts-section">{t("shortcuts.section.here", { where })}</h3>
-                <Columns shown={here} />
+                <Columns shown={here} legend={legend} />
                 {elsewhere.length > 0 && (
                   <>
                     <h3 className="shortcuts-section">{t("shortcuts.section.elsewhere")}</h3>
@@ -210,7 +215,7 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
                 )}
               </>
             ) : (
-              <Columns shown={all} />
+              <Columns shown={all} legend={legend} />
             )}
           </div>
           {/* On paper: the whole sheet, in its groups — a reference card. */}
