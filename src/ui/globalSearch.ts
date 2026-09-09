@@ -70,8 +70,18 @@ export function queryTerms(query: string): string[] {
  * any order — so "sebas kala" finds "Sebastjan Kalan" and "kov marija" finds
  * "Marija Kovačič". No terms means no restriction.
  */
-export function matchesTerms(text: string, terms: string[]): boolean {
+export function matchesTerms(text: string, terms: readonly string[]): boolean {
   return terms.every((term) => text.includes(term));
+}
+
+/**
+ * `matchesTerms` over text that is still raw — folded here, per call. The
+ * list filters (places, addresses, sources, the places tree) read a row's own
+ * text this way; an index built once up front (the search rows, the place
+ * dropdown's lists) folds ahead of time and calls `matchesTerms` directly.
+ */
+export function matchesQuery(text: string, terms: readonly string[]): boolean {
+  return matchesTerms(foldSearch(text), terms);
 }
 
 /** True when the individual carries a URL on the record or any of its events. */

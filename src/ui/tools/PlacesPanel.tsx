@@ -20,6 +20,8 @@ import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { renameInValue } from "../../tools/placeEdit";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { PinIcon } from "../icons/PinIcon";
+import { matchesQuery } from "../globalSearch";
+import { useQueryTerms } from "../useQueryTerms";
 
 /** What a rename in the tree comes to: one whole value rewritten (with, where
  *  it says so, a house taken out onto the event's own ADDR line), or one level
@@ -44,19 +46,20 @@ const TOWN_ZOOM = 13;
  *  everywhere else. */
 const HOUSE_ZOOM = 17;
 
-/** Prune a place node to those whose name matches `q` (already lower-cased)
- * anywhere in the subtree. A node matching by name keeps its whole subtree;
+/** Prune a place node to those whose name carries every search term — each
+ * typed part on its own, in any order and accent-blind, as the place field
+ * reads a query — anywhere in the subtree. A node matching by name keeps its whole subtree;
  * otherwise only matching descendant branches are retained — including the
  * node's own uses, which name the ancestor and not the match, and would
  * otherwise list a town's every person under one matching address. Paths of
  * nodes that survive solely as ancestors of a match are collected in
  * `autoOpen` so they can be expanded down to (but not past) the matching
  * entries. */
-function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set<string>): PlaceNode | null {
-  if (node.name.toLowerCase().includes(q)) return node;
+function filterPlaceNode(node: PlaceNode, terms: string[], path: string, autoOpen: Set<string>): PlaceNode | null {
+  if (matchesQuery(node.name, terms)) return node;
   const children: PlaceNode[] = [];
   for (const child of node.children) {
-    const kept = filterPlaceNode(child, q, `${path}/${child.name}`, autoOpen);
+    const kept = filterPlaceNode(child, terms, `${path}/${child.name}`, autoOpen);
     if (kept) children.push(kept);
   }
   if (children.length === 0) return null;
@@ -199,18 +202,19 @@ export function PlacesPanel({
       return next;
     });
 
-  const q = useDebounced(query).trim().toLowerCase();
-  const filtering = q.length > 0;
+  const debouncedQuery = useDebounced(query);
+  const terms = useQueryTerms(debouncedQuery);
+  const filtering = terms.length > 0;
 
   const { roots, autoOpen } = useMemo(() => {
     const ao = new Set<string>();
     if (!tree) return { roots: [] as PlaceNode[], autoOpen: ao };
     if (!filtering) return { roots: tree.roots, autoOpen: ao };
     const r = tree.roots
-      .map((node) => filterPlaceNode(node, q, node.name, ao))
+      .map((node) => filterPlaceNode(node, terms, node.name, ao))
       .filter((n): n is PlaceNode => n !== null);
     return { roots: r, autoOpen: ao };
-  }, [tree, filtering, q]);
+  }, [tree, filtering, terms]);
 
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => autoOpen.has(key) || open.has(key);

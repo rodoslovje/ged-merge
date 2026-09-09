@@ -30,7 +30,8 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
 import { ExpandAllToggle, personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
-import { foldSearch, queryTerms } from "../globalSearch";
+import { foldSearch, matchesQuery } from "../globalSearch";
+import { useQueryTerms } from "../useQueryTerms";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
 import { idField } from "../source/standardFields";
@@ -206,7 +207,7 @@ export function SourceCleanupView({
   const [tab, setTab] = useState<CleanupTab | null>(null);
   const [search, setSearch] = useState("");
   const query = foldSearch(useDebounced(search.trim()));
-  const terms = useMemo(() => queryTerms(query), [query]);
+  const terms = useQueryTerms(query);
   const personNames = usePersonNameIndex(dataset);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -285,12 +286,14 @@ export function SourceCleanupView({
   // The receipt outlives the re-scan the apply itself starts — that scan is
   // how the rows it rewrote leave the page, and the receipt is the only thing
   // left saying what happened. It is cleared when the next run begins.
-  /** Whether a row survives the filter box: any of the words it shows, or the
-   *  name of a person it concerns. A blank box keeps everything. */
+  /** Whether a row survives the filter box: any of the words it shows — read
+   *  as terms, each typed part on its own and in any order, like every other
+   *  list here — or the name of a person it concerns. A blank box keeps
+   *  everything. */
   const matches = useCallback(
     (people: readonly string[] | undefined, ...text: (string | undefined)[]) => {
       if (!query) return true;
-      if (text.some((v) => v && foldSearch(v).includes(query))) return true;
+      if (text.some((v) => v && matchesQuery(v, terms))) return true;
       return personMatches(people, personNames, terms);
     },
     [query, terms, personNames],

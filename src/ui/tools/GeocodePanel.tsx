@@ -23,7 +23,8 @@ import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, 
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
-import { foldSearch, queryTerms } from "../globalSearch";
+import { foldSearch, matchesQuery } from "../globalSearch";
+import { useQueryTerms } from "../useQueryTerms";
 import { PlaceLookupProvider } from "../edit/PlaceLookupContext";
 import { usePlaceFields } from "../edit/usePlaceFields";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
@@ -266,9 +267,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const query = foldSearch(useDebounced(search.trim()));
   // The same box finds a person: a reader looking for "the entries for Marija
   // Kovačič" has no place name to type, and the rows do know whose events they
-  // stand for. Terms match in any order, as in every other name box here.
+  // stand for. Terms match in any order, as in every other name box here — and
+  // a place is read the same way, so "Zg Bitnj" finds Zgornje Bitnje.
   const personNames = usePersonNameIndex(dataset);
-  const terms = useMemo(() => queryTerms(query), [query]);
+  const terms = useQueryTerms(query);
   // Which kind of work is on screen, and which country — two chip rows above
   // the list. Both narrow only the place list; the search box stays the
   // page-wide filter. `null` country = all of them.
@@ -306,7 +308,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // never hidden.
     const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => chosen.has(r.key))];
     const searched = query
-      ? pool.filter((r) => foldSearch(r.key).includes(query) || personMatches(r.missingIn, personNames, terms))
+      ? pool.filter((r) => matchesQuery(r.key, terms) || personMatches(r.missingIn, personNames, terms))
       : pool;
 
     // One chip per country the pending list's places stand in; a country the
@@ -333,7 +335,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // leaves, minus those already on the list because work is staged on them.
     const placedTotal = (
       query
-        ? scan.placed.filter((r) => foldSearch(r.key).includes(query) || personMatches(r.missingIn, personNames, terms))
+        ? scan.placed.filter((r) => matchesQuery(r.key, terms) || personMatches(r.missingIn, personNames, terms))
         : scan.placed
     ).filter(
       (r) => !chosen.has(r.key),

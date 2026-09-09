@@ -9,7 +9,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
-import { foldSearch } from "../globalSearch";
+import { foldSearch, matchesTerms } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
@@ -250,7 +250,7 @@ export function personMatches(
   if (!ids?.length || !terms.length) return false;
   return ids.some((id) => {
     const name = names.get(id);
-    return !!name && terms.every((term) => name.includes(term));
+    return !!name && matchesTerms(name, terms);
   });
 }
 
