@@ -237,7 +237,11 @@ no relatives, in a crowd of Marija Hafners) moved strong → probable; the Trobe
 canary was unchanged; within-file lists lost only far-apart crowd-name pairs
 (Renko 5 of 250, all 71–72 with years 6–28 apart; Ivanc 251 of 1950, all ≤78)
 and moved the bare-year same-name pairs (`Anton Gregorec 1852` × `Anton
-Gregorec 1852`, 97 → 84) into the probable band.
+Gregorec 1852`, 97 → 84) into the probable band. Hawlina (493k people): 134 232
+→ 112 552 pairs — the 21 680 dropped are all ≤78, crowd names years apart —
+and strong 7 778 → 5 198, the 2 580 moved being same-name bare-year pairs now
+held at 84.9; the scan's one extra pass over the file is not measurable
+against its five minutes.
 
 Finally:
 
