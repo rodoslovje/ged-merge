@@ -2218,6 +2218,7 @@ function AppContent() {
           onLoadFile={(f, h) => loadFile("main", f, h)}
           onLoadSample={(fileName) => loadSample("main", fileName)}
           onStartNew={startNewFile}
+          onShortcuts={() => setShowShortcuts(true)}
         />
       )}
 

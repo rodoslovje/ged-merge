@@ -10,6 +10,10 @@ import {
   type ShortcutScope,
 } from "../keyboard/shortcuts";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+import { Wordmark } from "./icons/LogoMark";
+
+/** Where the printed sheet says it came from. */
+const SITE_URL = "gedmerge.com";
 
 interface Props {
   isOpen: boolean;
@@ -107,8 +111,8 @@ function Columns({ shown, legend }: { shown: Shown[]; legend?: React.ReactNode }
  *  pages unpredictably — so the three fill one A4 landscape page evenly. */
 const PRINT_COLUMNS = [
   ["shortcuts.group.general", "shortcuts.group.modes", "shortcuts.group.charts"],
-  ["shortcuts.group.navigation", "shortcuts.group.decisions"],
-  ["shortcuts.group.editing"],
+  ["shortcuts.group.navigation"],
+  ["shortcuts.group.editing", "shortcuts.group.decisions"],
 ];
 
 function PrintColumns({ shown }: { shown: Shown[] }) {
@@ -116,8 +120,9 @@ function PrintColumns({ shown }: { shown: Shown[] }) {
     <div className="shortcuts-grid shortcuts-grid-print">
       {PRINT_COLUMNS.map((titles, i) => (
         <div key={i} className="shortcuts-col">
-          {shown
-            .filter((s) => titles.includes(s.group.titleKey))
+          {titles
+            .map((title) => shown.find((s) => s.group.titleKey === title))
+            .filter((s): s is Shown => !!s)
             .map((s) => (
               <ShortcutsGroup key={s.group.titleKey} {...s} />
             ))}
@@ -218,8 +223,14 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
               <Columns shown={all} legend={legend} />
             )}
           </div>
-          {/* On paper: the whole sheet, in its groups — a reference card. */}
+          {/* On paper: the whole sheet, in its groups — a reference card,
+              headed by the mark and the address it came from. */}
           <div className="shortcuts-print">
+            <div className="shortcuts-print-head">
+              <Wordmark size={13} />
+              <span className="shortcuts-print-title">{t("shortcuts.title")}</span>
+              <span className="shortcuts-print-url">{SITE_URL}</span>
+            </div>
             <PrintColumns shown={all} />
           </div>
         </div>

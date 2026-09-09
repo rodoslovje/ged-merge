@@ -6443,7 +6443,7 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 
 /* Three columns the groups flow into, each kept whole (see SHORTCUT_GROUPS
    for the order that balances them); two on a narrower window, one on a phone. */
-.shortcuts-grid { column-count: 3; column-gap: 32px; margin-top: 12px; }
+.shortcuts-grid { column-count: 3; column-gap: 32px; column-rule: 1px solid var(--border); margin-top: 12px; }
 .shortcuts-group { break-inside: avoid; margin-bottom: 14px; }
 /* No top margin on a heading: at the start of the second and third columns
    it is truncated, so with one the first column began lower than the rest. */
@@ -6497,7 +6497,10 @@ kbd {
 .key-hint kbd { min-width: 1.3em; padding: 0 5px; font-size: 0.72rem; line-height: 1.5; }
 /* The landing page's one line about the keyboard. */
 .lb-kbd-hint { margin: 18px 0 0; font-size: 0.85rem; color: var(--muted); }
-.lb-kbd-hint kbd { margin-right: 2px; }
+/* The keycap is the button: it opens the sheet it names. */
+.lb-kbd-btn { border: none; background: none; padding: 0; margin-right: 2px; cursor: pointer; font: inherit; }
+.lb-kbd-btn kbd { transition: background 0.1s; }
+.lb-kbd-btn:hover kbd, .lb-kbd-btn:focus-visible kbd { background: var(--accent-soft); border-color: var(--accent); }
 @media (max-width: 880px) {
   .key-hint { display: none; }
 }
@@ -10060,11 +10063,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
     background: none; backdrop-filter: none;
   }
   html.printing-shortcuts .shortcuts-modal {
+    /* The tokens the wordmark and keycaps read, re-set for paper. */
+    --text: #111; --accent: #31715b; --muted: #444; --border: #ccc; --border-2: #bbb; --panel-2: #f2f2f2;
     max-width: none; max-height: none; height: auto; margin: 0; border: none; border-radius: 0;
     box-shadow: none; background: #fff; color: #111; font-size: 8.5pt;
   }
-  html.printing-shortcuts .modal-header { padding: 0 0 2pt; border: none; background: none; }
-  html.printing-shortcuts .modal-header h2 { font-size: 13pt; margin: 0; color: #111; }
+  /* The dialog's own header gives way to the sheet's: mark, title, address. */
+  html.printing-shortcuts .modal-header { display: none; }
+  html.printing-shortcuts .shortcuts-print-head {
+    display: flex; align-items: center; gap: 10pt;
+    padding: 0 0 3pt; margin: 0 0 2pt; border-bottom: 1px solid #ccc;
+  }
+  html.printing-shortcuts .shortcuts-print-title { font-size: 12pt; font-weight: 600; color: #111; }
+  html.printing-shortcuts .shortcuts-print-url { margin-left: auto; font-size: 9pt; color: #444; }
   html.printing-shortcuts .modal-body { padding: 0; overflow: visible; max-height: none; background: #fff; }
   html.printing-shortcuts .modal-close,
   html.printing-shortcuts .shortcuts-print-btn,
@@ -10076,8 +10087,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
      columns fragment across pages unpredictably and left a blank page behind. */
   html.printing-shortcuts .shortcuts-grid-print {
     column-count: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0 8mm; align-items: start; margin-top: 4pt;
+    gap: 0 6mm; align-items: start; margin-top: 4pt;
   }
+  html.printing-shortcuts .shortcuts-col + .shortcuts-col { border-left: 1px solid #ddd; padding-left: 6mm; }
   /* A group may run on past a page break — kept whole, one that no longer
      fits its column jumps to the next page entire, leaving the column short.
      Rows stay whole, and a heading keeps its first rows. */
