@@ -80,10 +80,14 @@ export function NotesEditor({
   // Size each note to its widest line (not its total length — a multi-line note
   // is only as wide as its longest line) so short notes sit next to each other
   // and flow to the next line only when they don't fit. The floor is generous:
-  // a freshly added note should offer a sentence's worth of typing room.
+  // a freshly added note should offer a sentence's worth of typing room. The
+  // chip's chrome — the lock's 22px on the left, the × button's 18px on the
+  // right, the border — is added in px on top of the text's own width, so a
+  // line that fits the count does not wrap on the padding (`ch` is measured in
+  // the chip's mono font, see `.edit-note-chip`).
   const noteWidth = (v: string) => {
     const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
-    return { width: `${Math.min(48, Math.max(18, longest + 2))}ch` };
+    return { width: `calc(${Math.min(48, Math.max(18, longest))}ch + 42px)` };
   };
 
   const noteFields = notes.map((note, i) => {

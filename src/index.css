@@ -3945,6 +3945,10 @@ button:focus-visible {
   align-items: flex-start;
   gap: 2px;
 }
+/* The chip's width is set in `ch` from the note's longest line, so the chip
+ * must measure `ch` in the same mono font the note is typed in — in the sans
+ * font it inherits, a line that fits the count wraps. */
+.edit-note-chip { font-family: var(--font-mono); }
 /* The private lock sits inside the box at the LEFT edge — the mirror of the
  * × clear button: invisible at rest, revealed on the chip's hover/focus,
  * always shown (colored) once the note is private. The text clears it via
