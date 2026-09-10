@@ -12,10 +12,11 @@ import {
   insertOrdered,
   linkPageMedia,
   markEventTouched,
+  setCitationQuay,
   sourceCitationNodes,
 } from "../gedcom/edit";
 import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceCitation, sourceTitle } from "../gedcom/source";
-import { looksLikeUrl } from "../gedcom/builder";
+import { looksLikeUrl, stripTrailingPunct, URL_RE } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
@@ -198,6 +199,89 @@ export function placeEventLink(
   return attach(event, url, records, source, placement);
 }
 
+/**
+ * The address a citation names its page by, where it does — a file that keeps
+ * `PAGE https://data.matricula-online.eu/…/03176/?pg=86` instead of the page's
+ * number (the Organize sources tool's `pageUrl` shape). Nothing for a numeric
+ * or prose `PAGE`.
+ */
+export function citationPageUrl(citation: GedNode): string | undefined {
+  return pageTextUrl(childText(citation, "PAGE"));
+}
+
+/** The first address in a citation's `PAGE` text, if any. */
+function pageTextUrl(page: string | undefined): string | undefined {
+  const found = page?.match(URL_RE)?.[0];
+  return found ? stripTrailingPunct(found) : undefined;
+}
+
+/**
+ * Write an incoming citation that names its page by address the way this file
+ * cites that page — the same ladder {@link placeEventLink} climbs for a bare
+ * link: the main's own source for the book, else one minted for a recognized
+ * site, with the page's number in `PAGE`, the page image where the file keeps
+ * one beside the citation, and the site's `QUAY`. The citation's own words
+ * come along: the prose beside the address, its `DATA`/`NOTE`, and its `QUAY`
+ * where the incoming file graded the evidence itself. Returns nothing, and
+ * writes nothing, for an address nothing can be named from that the main has
+ * no source for either — the caller then copies the citation as it is.
+ *
+ * `citation` is the incoming node already cloned for the main file (pointers
+ * remapped); its children are moved, not copied, onto the written citation.
+ */
+export function placeCitation(
+  container: GedNode,
+  citation: GedNode,
+  url: string,
+  records: GedNode[],
+  placement: LinkPlacement,
+  reserved?: ReadonlySet<string>,
+): PlacedLink | undefined {
+  const source = resolveSource(records, url, recognizeSourceUrl(url), placement, reserved);
+  if (!source) return undefined;
+  const page = carriedPageText(childText(citation, "PAGE") ?? "", url, source.page) || source.page;
+  const onEvent = container.tag !== "INDI" && container.tag !== "FAM";
+  // The same page of the same book cited on this container already — the
+  // main's own citation, kept under "both" — is not cited a second time.
+  const twin = sourceCitationNodes(container).find(
+    (c) => c.value?.trim() === source.sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+  );
+  if (twin) {
+    return {
+      url,
+      event: onEvent ? container : undefined,
+      citation: resolveSourceCitation(twin, getMediaAndSourceCtx(records).sourceCtx),
+      createdSource: source.createdSource,
+    };
+  }
+  const placed = attach(container, url, records, { ...source, page }, placement);
+  const nodes = sourceCitationNodes(container);
+  const written = nodes[nodes.length - 1];
+  // Everything the citation said beyond the address goes on the written one,
+  // ahead of the QUAY the site proposed; a page image the incoming file linked
+  // on the citation is left behind — the page's image is written the main's
+  // way above. The incoming file's own grade of the evidence wins over the
+  // site's proposal.
+  const carried = citation.children.filter((c) => c.tag !== "PAGE" && c.tag !== "OBJE" && c.tag !== "QUAY");
+  const quay = firstChild(written, "QUAY");
+  written.children.splice(quay ? written.children.indexOf(quay) : written.children.length, 0, ...carried);
+  const ownQuay = childText(citation, "QUAY");
+  if (ownQuay) setCitationQuay(written, ownQuay);
+  return { ...placed, citation: resolveSourceCitation(written, getMediaAndSourceCtx(records).sourceCtx) };
+}
+
+/** A `PAGE` text with its address swapped for the page's number — "fol. 23,
+ *  <url>" → "fol. 23, 5" — or removed where the address names no page; empty
+ *  when nothing but separators remains. */
+function carriedPageText(text: string, url: string, page: string | undefined): string {
+  const out = text
+    .replace(url, page ?? "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^[\s:–—,-]+|[\s:–—,-]+$/g, "");
+  return /[\p{L}\p{N}]/u.test(out) ? out : "";
+}
+
 /** The source a link is cited from, and everything written alongside that
  *  citation: which page of it (`PAGE`), that page's image, and how good the
  *  site's evidence is (`QUAY`) — the Add Source dialog's own proposals. */
@@ -244,6 +328,8 @@ function resolveSource(
  * early enough to be answered before the save needs it (see `queueBookPages`).
  *
  * A link the main already cites needs no page: the source is already named.
+ * A citation that names its page by address counts as a link of that page,
+ * since the merge writes it as one (see {@link placeCitation}).
  */
 export function pendingBookLookups(
   records: GedNode[],
@@ -252,7 +338,13 @@ export function pendingBookLookups(
   const books: string[] = [];
   const seen = new Set<string>();
   const lookup = getSourceLookup(records);
-  const links = from.flatMap((r) => [...(r.links ?? []), ...r.events.flatMap((e) => e.links ?? [])]);
+  const citedUrls = (sources: SourceCitation[] | undefined): string[] =>
+    (sources ?? []).map((c) => pageTextUrl(c.page)).filter((u): u is string => !!u);
+  const links = from.flatMap((r) => [
+    ...(r.links ?? []),
+    ...citedUrls(r.sources),
+    ...r.events.flatMap((e) => [...(e.links ?? []), ...citedUrls(e.sources)]),
+  ]);
   for (const url of links) {
     const recognized = recognizeSourceUrl(url);
     if (!recognized) continue;

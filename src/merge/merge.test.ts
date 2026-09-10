@@ -3101,3 +3101,90 @@ describe("materializeAdditionalNames", () => {
     expect(namesOf(kept.records.find((r) => r.xref === "@I1@")!)).toEqual(["Ana /Kos/", "Ana /Kralj/", "Ana /Novak/"]);
   });
 });
+
+describe("an incoming citation that names its page by address", () => {
+  // The incoming file cites the register page by its address —
+  // `PAGE https://…/03173/?pg=58` — where this file cites it by number, with
+  // the page's image beside the citation. The merge must write it the main's
+  // way, as it does a bare link of the same page, not copy the shape across.
+  const PAGE_58 = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58";
+  const MAIN_BOOK = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" +
+      "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+      "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+  );
+  const citing = (page: string, extra = "") =>
+    wrap(
+      `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @CS1@\n3 PAGE ${page}\n${extra}` +
+        "0 @CS1@ SOUR\n1 TITL Šenčur, krstna knjiga 1850–1860\n",
+    );
+
+  it("is written as the main's own citation of that page, its words carried along", () => {
+    const main = dataset(MAIN_BOOK);
+    const compare = dataset(citing(PAGE_58, "3 DATA\n4 TEXT 4. zapis na levi\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // The main's book, the page's number, the incoming citation's own text,
+    // and the site's evidence grade — in the citation's field order.
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 DATA\n4 TEXT 4. zapis na levi\n3 QUAY 3");
+    expect(out).not.toContain("PAGE https://");
+    // The page's image joins the book and sits beside the citation, as the
+    // file keeps them.
+    expect(out).toMatch(/1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 OBJE @O2@\n2 SOUR @S1@\n3 PAGE 56\n2 SOUR @S1@\n3 PAGE 58/);
+    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}\n1 TITL #58 - Krstna knjiga - Šenčur`);
+    // The incoming file's own record of the book is not imported: nothing
+    // cites it any more.
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("keeps the prose beside the address and the incoming file's own grade of the evidence", () => {
+    const main = dataset(MAIN_BOOK);
+    const compare = dataset(citing(`fol. 3, ${PAGE_58}`, "3 QUAY 2\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE fol. 3, 58\n3 QUAY 2");
+  });
+
+  it("does not cite a page the main already cites a second time", () => {
+    const main = dataset(MAIN_BOOK.replace("3 PAGE 56", "3 PAGE 58"));
+    const compare = dataset(citing(PAGE_58));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/3 PAGE 58/g)).toHaveLength(1);
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("mints the book's source for a recognized site the main has no source for", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(citing(PAGE_58));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    const citation = /2 SOUR (@S\d+@)\n3 PAGE 58\n/.exec(out);
+    expect(citation).not.toBeNull();
+    expect(out).toContain(`0 ${citation![1]} SOUR\n1 TITL`);
+    expect(out).not.toContain("0 @CS1@ SOUR");
+  });
+
+  it("copies a citation of an unknown site as it is, its source imported", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(citing("https://example.com/records/17"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR @CS1@\n3 PAGE https://example.com/records/17");
+    expect(out).toContain("0 @CS1@ SOUR\n1 TITL Šenčur, krstna knjiga 1850–1860");
+  });
+
+  it("is written the same way when Edit materializes the event", () => {
+    const mainDs = dataset(MAIN_BOOK);
+    const compareDs = dataset(citing(PAGE_58).replace("1 BIRT", "1 BAPM"));
+    const eventNode: GedNode = { level: 1, tag: "BAPM", children: [{ level: 2, tag: "DATE", value: "1850", children: [] }] };
+    mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, { linkFormat: "WWW", pageMedia: "event" });
+    const out = serializeGedcom(mainDs.records);
+    expect(out).toContain("1 BAPM\n2 DATE 1850\n2 OBJE @O2@\n2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
+    expect(mainDs.records.some((r) => r.xref === "@CS1@")).toBe(false);
+    // The page image it minted comes back for undo.
+    expect(imported.map((r) => r.xref)).toEqual(["@O2@"]);
+  });
+});

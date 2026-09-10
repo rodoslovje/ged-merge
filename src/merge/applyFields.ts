@@ -22,7 +22,7 @@ import { parseName } from "../gedcom/name";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
-import { placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
+import { citationPageUrl, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
 // The link-format detection lives with the placement rules that consume it;
@@ -265,7 +265,7 @@ export function applyRows(
     if (row.key === "links") {
       // The record-level "Sources" row carries both SOUR citations and plain
       // link icons (same shape as an event's sources row), so apply each.
-      if (applyRecordSources(target, incomingRecord, choice, INDI_CHILD_ORDER, sourMap, report.customTags)) {
+      if (applyRecordSources(target, incomingRecord, choice, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags)) {
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
         touched.add(recordId);
       }
@@ -735,17 +735,36 @@ export function applyRecordSources(
   choice: FieldChoice,
   order: string[],
   sourMap: SourXrefMap,
+  records: GedNode[],
+  placement: LinkPlacement,
   customTags: Record<string, CustomTagNode[]> = {},
 ): boolean {
   const incSours = childrenByTag(incomingRecord, "SOUR");
   if (incSours.length === 0) return false;
   if (choice !== "both") removeChildren(target, "SOUR");
-  for (const s of incSours) {
-    const clone = cloneNodeRemapped(s, sourMap);
-    collectCustomTags(clone, customTags);
-    insertOrdered(target, clone, order);
-  }
+  for (const s of incSours) copyCitation(target, s, order, sourMap, records, placement, customTags);
   return true;
+}
+
+/**
+ * Write one incoming citation onto `container`: one that names its page by
+ * address is written the way this file cites that page (see `placeCitation`),
+ * any other is copied as it is, pointers remapped.
+ */
+function copyCitation(
+  container: GedNode,
+  citation: GedNode,
+  order: string[],
+  sourMap: SourXrefMap,
+  records: GedNode[],
+  placement: LinkPlacement | undefined,
+  customTags: Record<string, CustomTagNode[]>,
+): void {
+  const clone = cloneNodeRemapped(citation, sourMap);
+  collectCustomTags(clone, customTags);
+  const url = placement && citationPageUrl(clone);
+  if (url && placeCitation(container, clone, url, records, placement, reservedXrefs(sourMap))) return;
+  insertOrdered(container, clone, order);
 }
 
 /** Tags an event's own attached link can use (besides a `SOUR` citation) —
@@ -793,11 +812,7 @@ export function applyEventSources(
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
     if (choice !== "both") removeChildren(event, "SOUR");
-    for (const s of incSours) {
-      const clone = cloneNodeRemapped(s, sourMap);
-      collectCustomTags(clone, customTags);
-      insertOrdered(event, clone, EVENT_CHILD_ORDER);
-    }
+    for (const s of incSours) copyCitation(event, s, EVENT_CHILD_ORDER, sourMap, records, placement, customTags);
   }
   if (incLinks.length) {
     const existing = new Set(eventLinkUrls(event).map(linkKey));
@@ -1267,7 +1282,7 @@ export function materializeEventSources(
   if (!incSours.length && !incLinks.length) return [];
   const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
   const sourMap = buildSourXrefMap(compare.records, dataset.records);
-  for (const s of incSours) insertOrdered(eventNode, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
+  for (const s of incSours) copyCitation(eventNode, s, EVENT_CHILD_ORDER, sourMap, dataset.records, placement, {});
   importSourRecords(dataset.records, compare, sourMap, {});
   if (incLinks.length) {
     const existing = new Set(eventLinkUrls(eventNode).map(linkKey));

@@ -696,7 +696,7 @@ export function applyIndividualFamilies(
     const famLinksRow = rows.find((r) => r.key === famLinksKey);
     if (famLinksRow && wantsIncoming(rows, fields, famLinksKey)) {
       const choice = fields[famLinksKey] ?? defaultChoice(famLinksRow as never);
-      if (applyRecordSources(famNode, incFam.raw, choice, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+      if (applyRecordSources(famNode, incFam.raw, choice, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags)) {
         ctx.report.changes.push({ recordId: famNode.xref!, field: famLinksRow.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(famLinksRow.mainSources, famLinksRow.incomingSources) });
         ctx.touched.add(famNode.xref!);
       }
