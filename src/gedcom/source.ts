@@ -2,7 +2,7 @@ import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
 import { familySearchImageNumber, linkKey, parseFamilySearchUrl } from "../normalize/links";
 import { childText, childValue, childrenByTag, firstChild, hasChild } from "./node";
-import { isPointer, isWebAddress, looksLikeUrl } from "./uri";
+import { isPointer, isWebAddress, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 
 // Re-exported: callers across the app import these from the source module.
 // `childText` now lives in ./node; keep re-exporting it here for existing callers.
@@ -308,14 +308,17 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
   const value = citationNode.value?.trim();
   if (!value) return undefined;
   const page = childText(citationNode, "PAGE");
+  // A citation naming its page by address — `PAGE https://…/?pg=86`, the
+  // shape a file without page images writes — links the page itself.
+  const pageUrl = pageTextUrl(page);
 
   if (!isPointer(value)) {
     // Inline citation: the SOUR value itself is the bibliographic text.
-    return { sourceId: value, title: value, page, exact: false };
+    return { sourceId: value, title: value, page, url: pageUrl, exact: !!pageUrl };
   }
 
   const sourceNode = ctx.sourceIndex.get(value);
-  if (!sourceNode) return { sourceId: value, page, exact: false };
+  if (!sourceNode) return { sourceId: value, page, url: pageUrl, exact: !!pageUrl };
 
   const title = sourceTitle(sourceNode);
   const agency = childText(sourceNode, "AGNC");
@@ -338,6 +341,10 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
     exact = true;
     objeXref = candidates[0].xref;
   }
+  if (!url && pageUrl) {
+    url = pageUrl;
+    exact = true;
+  }
   if (!url) {
     const repoXref = sourceNode.children.find((c) => c.tag === "REPO" && c.value)?.value?.trim();
     const repo = repoXref ? ctx.repoIndex.get(repoXref) : undefined;
@@ -345,6 +352,13 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
   }
 
   return { sourceId: value, title, agency, filingNumber, page, url, exact, objeXref };
+}
+
+/** The first address in a citation's `PAGE` text, if any — the page a file
+ *  that keeps no page images cites by its link (`PAGE https://…/?pg=86`). */
+export function pageTextUrl(page: string | undefined): string | undefined {
+  const found = page?.match(URL_RE)?.[0];
+  return found ? stripTrailingPunct(found) : undefined;
 }
 
 /**

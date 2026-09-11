@@ -15,8 +15,8 @@ import {
   setCitationQuay,
   sourceCitationNodes,
 } from "../gedcom/edit";
-import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceCitation, sourceTitle } from "../gedcom/source";
-import { looksLikeUrl, stripTrailingPunct, URL_RE } from "../gedcom/builder";
+import { childText, findExistingSource, objeInfoOf, objeNodesFor, pageTextUrl, resolveSourceCitation, sourceTitle } from "../gedcom/source";
+import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
@@ -207,12 +207,6 @@ export function placeEventLink(
  */
 export function citationPageUrl(citation: GedNode): string | undefined {
   return pageTextUrl(childText(citation, "PAGE"));
-}
-
-/** The first address in a citation's `PAGE` text, if any. */
-function pageTextUrl(page: string | undefined): string | undefined {
-  const found = page?.match(URL_RE)?.[0];
-  return found ? stripTrailingPunct(found) : undefined;
 }
 
 /**

@@ -3,7 +3,7 @@ import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childrenByTag, firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
-import { isPointer, looksLikeUrl } from "./uri";
+import { isPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 
@@ -360,9 +360,9 @@ export type NoteIndex = Map<string, NoteIndexEntry>;
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
 export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
 
-/** Matches one or more http(s) URLs embedded anywhere in a line value.
- *  Shared with citationParse — one spelling of "what counts as a URL". */
-export const URL_RE = /https?:\/\/[^\s<>"]+/gi;
+// `URL_RE` and `stripTrailingPunct` live in `uri.ts` (the source resolver needs
+// them too) and are re-exported here for their callers.
+export { stripTrailingPunct, URL_RE } from "./uri";
 
 /** Trim and tidy the lines of a note already reduced to plain text. */
 function tidyLines(text: string): string {
@@ -545,30 +545,6 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
     // harvesting it hung a 🔗 on the person and offered it as a source to merge.
     if (node.tag === "EXID" && child.tag === "TYPE") continue;
     collectLinks(child, media, out);
-  }
-  return out;
-}
-
-/**
- * Drop trailing punctuation a URL regex may swallow from surrounding prose —
- * the one spelling of this rule, shared by the note-link harvester,
- * `citationParse` and the reshape scan, so every path sees the same URL in
- * the same note. Slovenian »…« quotes are prose too. A trailing `)` is only
- * prose when the URL doesn't open it: `…/wiki/Ljubljana_(city)` keeps its
- * paren, `(see https://example.com/a)` loses it.
- */
-export function stripTrailingPunct(url: string): string {
-  let out = url;
-  for (;;) {
-    if (/[.,;:!?»«"'\]}>]$/.test(out)) {
-      out = out.slice(0, -1);
-      continue;
-    }
-    if (out.endsWith(")") && (out.match(/\(/g)?.length ?? 0) < (out.match(/\)/g)?.length ?? 0)) {
-      out = out.slice(0, -1);
-      continue;
-    }
-    break;
   }
   return out;
 }

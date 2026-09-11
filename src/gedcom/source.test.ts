@@ -47,6 +47,30 @@ describe("resolveSourceCitation via buildDataset", () => {
     });
   });
 
+  it("links the page a citation names by address, where the source holds no image of it", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 DEAT
+2 SOUR @S1@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03176/?pg=86
+0 @S1@ SOUR
+1 TITL Mrliška knjiga - Šenčur
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const sources = ds.individuals.get("@I1@")!.events[0].sources;
+    expect(sources![0]).toMatchObject({
+      sourceId: "@S1@",
+      page: "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03176/?pg=86",
+      url: "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03176/?pg=86",
+      exact: true,
+    });
+    expect(sources![0].objeXref).toBeUndefined();
+  });
+
   it("matches the cited page by a #NNN marker in the OBJE title when there is no ?pg= param", () => {
     const text = `0 HEAD
 1 GEDC
