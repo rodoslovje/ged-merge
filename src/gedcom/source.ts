@@ -372,6 +372,14 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
   let repository = 0;
   let literature = 0;
   let total = 0;
+  // A file that cites pages by their link keeps the book's page links in the
+  // citations rather than under the source: each such citation is one page
+  // link of its book, as an `OBJE` page image would be.
+  const citedLinks = new Map<string, number>();
+  forEachCitationNode(records, (node) => {
+    const value = node.value!.trim();
+    if (isPointer(value) && pageTextUrl(childText(node, "PAGE"))) citedLinks.set(value, (citedLinks.get(value) ?? 0) + 1);
+  });
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     total++;
@@ -381,9 +389,10 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
     // locally-cached filename isn't a page link), and a repo-only source
     // counts the one link it reaches through its repository's WWW.
     const objeCount = childrenByTag(rec, "OBJE").filter((c) => c.value && objeIndex.get(c.value.trim())?.url).length;
+    const pageLinks = objeCount + (citedLinks.get(rec.xref) ?? 0);
     const hasRepo = hasChild(rec, "REPO");
     const hasBiblio = hasChild(rec, ["TEXT", "AUTH", "PUBL", "PERI"]);
-    if (objeCount >= 1) paginated += objeCount;
+    if (pageLinks >= 1) paginated += pageLinks;
     else if (hasRepo) repository++;
     else if (hasBiblio) literature++;
   }

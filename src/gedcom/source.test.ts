@@ -334,6 +334,33 @@ describe("inferSourceFormat", () => {
     expect(inferSourceFormat(ds.records).layout).toBe("paginated");
   });
 
+  it("reads a file that cites pages by their link as paginated too — the links sit in the citations", () => {
+    // webtrees-style: bibliographic-looking source records, the page links in
+    // the citations, and only local scans as media. Its shape is the same as
+    // a page-image file's, with the links kept in the other place.
+    const ds = buildFromText(`0 HEAD
+0 @I1@ INDI
+1 NAME A /B/
+1 BIRT
+2 SOUR @S1@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=107
+1 DEAT
+2 SOUR @S1@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=210
+0 @S1@ SOUR
+1 TITL Matična knjiga krščenih Biljana 1834-1904
+1 AUTH Župnija Biljana
+1 OBJE @M1@
+0 @S2@ SOUR
+1 TITL Osmrtnica
+1 PUBL Delo, 3. 5. 1980
+0 @M1@ OBJE
+1 FILE Mihael-Korenjak-rojstvo.png
+0 TRLR
+`);
+    expect(inferSourceFormat(ds.records).layout).toBe("paginated");
+  });
+
   it("classifies a single real page link as paginated (local filenames still don't count)", () => {
     const text = `0 HEAD
 0 @S1@ SOUR

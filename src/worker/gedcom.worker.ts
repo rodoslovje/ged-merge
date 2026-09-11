@@ -229,8 +229,11 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   const dateFormat = dateLayoutFromValues(dateValues);
   const datePlaceholder = detectDatePlaceholder(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
-  const pageMediaStyle = hasSourcePageMedia(rawDataset.records) ? detectPageMediaStyle(rawDataset.records) : undefined;
   const citationPageStyle = detectCitationPageStyle(rawDataset.records);
+  // Same rule as `detectFormatDefaults`: a file that cites pages by their
+  // link has no page-image habit to report.
+  const pageMediaStyle =
+    citationPageStyle !== "url" && hasSourcePageMedia(rawDataset.records) ? detectPageMediaStyle(rawDataset.records) : undefined;
   const nameLayout = inferNameLayout(rawDataset);
   // Detected on the raw file, so the summary reports the placeholder the incoming
   // file actually used (before it's reshaped to the main's convention).

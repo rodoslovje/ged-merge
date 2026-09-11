@@ -44,6 +44,11 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
   const placeLayout = detectPlaceLayout(places, addrCount);
   const nameLayout = inferNameLayout(dataset);
   const sourceLayout = inferSourceFormat(dataset.records).layout;
+  const citationPage = detectCitationPageStyle(dataset.records);
+  // Where a cited page's image is linked is a question only for a file whose
+  // citations name pages by number: one that cites pages by their link keeps
+  // no page images, and a stray linked document under a source is no habit.
+  const pageMedia = citationPage !== "url" && hasSourcePageMedia(dataset.records) ? detectPageMediaStyle(dataset.records) : undefined;
   const noteShapes = detectNoteShapesIfAny(dataset.records);
   const out: DetectedFormats = {
     date: dateLayoutFromValues(dates),
@@ -54,8 +59,8 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
     unknownName: detectUnknownNameToken(dataset) ?? "blank",
     sourceLayout: sourceLayout === "unknown" ? undefined : sourceLayout,
     citations: detectCitationPlacement(dataset.records),
-    pageMedia: hasSourcePageMedia(dataset.records) ? detectPageMediaStyle(dataset.records) : undefined,
-    citationPage: detectCitationPageStyle(dataset.records),
+    pageMedia,
+    citationPage,
     baptism: baptismTargetTag(dataset.records),
     sourceCoverage: hasSourceCoverage(dataset.records) ? detectSourceCoverage(dataset.records) : undefined,
     doubledLinks: prefersDoubledLinks(dataset.records) ? "keep" : "fold",
