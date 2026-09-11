@@ -22,7 +22,7 @@ import { parseName } from "../gedcom/name";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
-import { citationPageUrl, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
+import { incomingCitationPage, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
 // The link-format detection lives with the placement rules that consume it;
@@ -747,9 +747,10 @@ export function applyRecordSources(
 }
 
 /**
- * Write one incoming citation onto `container`: one that names its page by
- * address is written the way this file cites that page (see `placeCitation`),
- * any other is copied as it is, pointers remapped.
+ * Write one incoming citation onto `container`: one that names its page — by
+ * an address in its `PAGE`, or by the page image its own source keeps — is
+ * written the way this file cites that page (see `placeCitation`); any other
+ * is copied as it is, pointers remapped.
  */
 function copyCitation(
   container: GedNode,
@@ -762,8 +763,8 @@ function copyCitation(
 ): void {
   const clone = cloneNodeRemapped(citation, sourMap);
   collectCustomTags(clone, customTags);
-  const url = placement && citationPageUrl(clone);
-  if (url && placeCitation(container, clone, url, records, placement, reservedXrefs(sourMap))) return;
+  const page = placement && incomingCitationPage(citation, placement);
+  if (page && placeCitation(container, clone, page.url, records, placement, reservedXrefs(sourMap), page.source)) return;
   insertOrdered(container, clone, order);
 }
 

@@ -248,7 +248,7 @@ function renderSummary(
   if (state.status === "error") {
     return <span className="error">{t("loader.error", { fileName: state.fileName, message: state.message })}</span>;
   }
-  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage } = state.file;
+  const { dataset, fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage } = state.file;
   // Each row is one "Label: value" line; format rows carry a tooltip explaining
   // the (deliberately short) format label in detail.
   const info: { text: string; tooltip?: string }[] = [
@@ -297,11 +297,21 @@ function renderSummary(
   }
   if (sourceLayout && sourceLayout !== "unknown") {
     // The page-media placement rides along when the file has page images at
-    // all — "repository links · page images on events".
-    const format = [t(`settings.format.sourceLayout.${sourceLayout}`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}`)]
+    // all — "repository links · page images on events" — and so does a file's
+    // habit of citing a page by its link rather than its number.
+    const byLink = citationPageStyle === "url";
+    const format = [
+      t(`settings.format.sourceLayout.${sourceLayout}`),
+      pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}`),
+      byLink && t("sourceLayout.citationPage.url"),
+    ]
       .filter(Boolean)
       .join(" · ");
-    const tooltip = [t(`sourceLayout.${sourceLayout}.tip`), pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}.tip`)]
+    const tooltip = [
+      t(`sourceLayout.${sourceLayout}.tip`),
+      pageMediaStyle && t(`sourceLayout.pageMedia.${pageMediaStyle}.tip`),
+      byLink && t("sourceLayout.citationPage.url.tip"),
+    ]
       .filter(Boolean)
       .join("\n");
     info.push({ text: t("loader.sourceFormat", { format }), tooltip });

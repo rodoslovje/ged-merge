@@ -358,7 +358,7 @@ export function mergeDecisions(
   // this merge writes lands in the shape the file already keeps (a plain WWW
   // line, Family Historian's _WEBTAG block, an OBJE/FILE record; a page image
   // beside the citation or only under its source).
-  const placement = linkPlacementFor(main, overrides);
+  const placement = linkPlacementFor(main, overrides, compare);
   // Matches the user explicitly rejected: dropped from the merge's identity map
   // so a rejected pair is never reused to stitch relationships — the incoming
   // person is imported as a new record instead of folded into the wrong main.

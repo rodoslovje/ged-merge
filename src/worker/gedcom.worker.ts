@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { inferSourceFormat } from "../gedcom/source";
+import { detectCitationPageStyle, inferSourceFormat, type CitationPageStyle } from "../gedcom/source";
 import { applyFormatOverrides, applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
 import { detectFormatDefaults } from "../normalize/formatDefaults";
@@ -129,6 +129,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
           datePlaceholder: detectedFormats.datePlaceholder === "none" ? undefined : detectedFormats.datePlaceholder,
           sourceLayout: (detectedFormats.sourceLayout as SourceLayout | undefined) ?? "unknown",
           pageMediaStyle: detectedFormats.pageMedia as "event" | "source" | undefined,
+          citationPageStyle: detectedFormats.citationPage as CitationPageStyle | undefined,
           nameLayout: (detectedFormats.names as NameLayout | undefined) ?? "none",
           unknownNameStyle: detectedFormats.unknownName === "blank" ? undefined : detectedFormats.unknownName,
           marriedNameTag: profile.nameVariants.married.form === "tag",
@@ -229,6 +230,7 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   const datePlaceholder = detectDatePlaceholder(dateValues);
   const sourceLayout = inferSourceFormat(rawDataset.records).layout;
   const pageMediaStyle = hasSourcePageMedia(rawDataset.records) ? detectPageMediaStyle(rawDataset.records) : undefined;
+  const citationPageStyle = detectCitationPageStyle(rawDataset.records);
   const nameLayout = inferNameLayout(rawDataset);
   // Detected on the raw file, so the summary reports the placeholder the incoming
   // file actually used (before it's reshaped to the main's convention).
@@ -238,13 +240,13 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   const coordUsage = detectCoordUsage(rawDataset);
   if (!profile) {
     compareNormalized = rawDataset;
-    lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage };
+    lastCompareMeta = { fileName, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage };
     post({ type: "parsed", role: "compare", ...(withDataset ? { dataset: rawDataset } : {}), ...lastCompareMeta });
     return;
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
-  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, nameLayout, unknownNameStyle, coordUsage };
+  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage };
   post({ type: "parsed", role: "compare", ...(withDataset ? { dataset } : {}), ...lastCompareMeta });
 }
 

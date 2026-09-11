@@ -299,3 +299,20 @@ describe("repoXref on setSourceRecordFields / setRepoRecordFields", () => {
     expect(firstChild(repoLink, "CALN")).toBeUndefined();
   });
 });
+
+describe("createStandaloneSource in a file that cites pages by their link", () => {
+  it("writes no page image and hands the link back as the citation's page", () => {
+    const ds = buildFromText(BASE);
+    const { sourceXref, page, pageObjeXref } = createStandaloneSource(
+      ds.records,
+      { title: "Krstna knjiga", url: "https://example.com/book/?pg=11", page: "11" },
+      { sourceLayout: "auto", citationPage: "url" },
+    );
+    const source = ds.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref)!;
+    expect(childText(source, "TITL")).toBe("Krstna knjiga");
+    expect(firstChild(source, "OBJE")).toBeUndefined();
+    expect(pageObjeXref).toBeUndefined();
+    expect(page).toBe("https://example.com/book/?pg=11");
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+});

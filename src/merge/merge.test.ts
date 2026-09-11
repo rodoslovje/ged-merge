@@ -2007,6 +2007,7 @@ describe("materializeEventSources", () => {
     const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, {
       linkFormat: "WWW",
       pageMedia: "source",
+      citationPage: "number",
     });
 
     // A citation of a minted source, not a bare link left on the event.
@@ -3154,15 +3155,37 @@ describe("an incoming citation that names its page by address", () => {
     expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
   });
 
-  it("mints the book's source for a recognized site the main has no source for", () => {
+  it("mints the book's source for a recognized site the main has no source for, named by the incoming file's own record", () => {
     const main = dataset(MAIN);
     const compare = dataset(citing(PAGE_58));
     const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     const citation = /2 SOUR (@S\d+@)\n3 PAGE 58\n/.exec(out);
     expect(citation).not.toBeNull();
-    expect(out).toContain(`0 ${citation![1]} SOUR\n1 TITL`);
+    // The incoming file's title for the book beats the address's offline
+    // proposal; the shape is still the main's — a page image under the source.
+    expect(out).toContain(`0 ${citation![1]} SOUR\n1 TITL Šenčur, krstna knjiga 1850–1860\n`);
+    expect(out).toMatch(new RegExp(`0 ${citation![1]} SOUR\\n(?:1 .*\\n)*?1 OBJE @O\\d+@`));
     expect(out).not.toContain("0 @CS1@ SOUR");
+  });
+
+  it("re-points a citation naming its page by the incoming source's page image at the main's own book", () => {
+    // The incoming file cites by number with the page's image under its
+    // source — the shape the main keeps too — so the book is the same and the
+    // page is known: it joins the main's source instead of importing a twin.
+    const main = dataset(MAIN_BOOK);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @CS1@\n3 PAGE 58\n" +
+          "0 @CS1@ SOUR\n1 TITL Šenčur krsti\n1 OBJE @CO1@\n" +
+          `0 @CO1@ OBJE\n1 FILE ${PAGE_58}\n`,
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
+    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}`);
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
   });
 
   it("copies a citation of an unknown site as it is, its source imported", () => {
@@ -3180,11 +3203,69 @@ describe("an incoming citation that names its page by address", () => {
     const eventNode: GedNode = { level: 1, tag: "BAPM", children: [{ level: 2, tag: "DATE", value: "1850", children: [] }] };
     mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
     const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
-    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, { linkFormat: "WWW", pageMedia: "event" });
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, { linkFormat: "WWW", pageMedia: "event", citationPage: "number" });
     const out = serializeGedcom(mainDs.records);
     expect(out).toContain("1 BAPM\n2 DATE 1850\n2 OBJE @O2@\n2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
     expect(mainDs.records.some((r) => r.xref === "@CS1@")).toBe(false);
     // The page image it minted comes back for undo.
     expect(imported.map((r) => r.xref)).toEqual(["@O2@"]);
+  });
+});
+
+describe("a main file that cites pages by their link", () => {
+  // webtrees-style (Sajovic.ged): no page images anywhere; a citation's PAGE
+  // is the register page's own address. Whatever an incoming file brings —
+  // a bare link, a citation by number with the page's image, a citation by
+  // address — is written that way, and no image record is minted.
+  const BOOK = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/";
+  const MAIN_BY_LINK = wrap(
+    `0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE ${BOOK}?pg=56\n` +
+      "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n",
+  );
+
+  it("writes an incoming citation by number and image as the main's citation by link", () => {
+    const main = dataset(MAIN_BY_LINK);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @CS1@\n3 PAGE 58\n3 DATA\n4 TEXT 4. zapis\n" +
+          "0 @CS1@ SOUR\n1 TITL Šenčur krsti\n1 OBJE @CO1@\n" +
+          `0 @CO1@ OBJE\n1 FILE ${BOOK}?pg=58\n`,
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain(`2 SOUR @S1@\n3 PAGE ${BOOK}?pg=58\n3 DATA\n4 TEXT 4. zapis\n3 QUAY 3`);
+    expect(out).not.toMatch(/^0 @\w+@ OBJE/m);
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("writes an incoming bare link of the book as a citation by link", () => {
+    const main = dataset(MAIN_BY_LINK);
+    const compare = dataset(wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW ${BOOK}?pg=58\n`));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain(`2 SOUR @S1@\n3 PAGE ${BOOK}?pg=58`);
+    expect(out).not.toMatch(/^2 WWW/m);
+    expect(out).not.toMatch(/^0 @\w+@ OBJE/m);
+  });
+
+  it("mints a source without a page image for a book the main lacks, named by the incoming record", () => {
+    const main = dataset(MAIN_BY_LINK);
+    const other = "https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=107";
+    const compare = dataset(
+      wrap(
+        `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @X162@\n3 PAGE ${other}\n` +
+          "0 @X162@ SOUR\n1 TITL Matična knjiga krščenih Biljana 1834-1904\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    const citation = /2 SOUR (@S\d+@)\n3 PAGE (\S+)\n/.exec(out.split("0 @S1@")[0].split("2 SOUR @S1@")[1] ?? "");
+    expect(citation?.[2]).toBe(other);
+    const minted = citation![1];
+    expect(minted).not.toBe("@S1@");
+    expect(out).toContain(`0 ${minted} SOUR\n1 TITL Matična knjiga krščenih Biljana 1834-1904\n`);
+    expect(out).not.toMatch(/^0 @\w+@ OBJE/m);
+    expect(out).not.toContain("0 @X162@ SOUR");
   });
 });

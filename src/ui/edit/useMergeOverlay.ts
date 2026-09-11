@@ -331,7 +331,7 @@ export function useMergeOverlay({
     // the incoming event (a cemetery page on its burial) becomes the citation
     // it would have become there, rather than being left behind.
     const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent, {
-      ...linkPlacementFor(dataset, formatOverrides),
+      ...linkPlacementFor(dataset, formatOverrides, compareDataset),
       // Known by now — an incoming file is loaded — the fallback only narrows the type.
       pageMedia: pageMediaStyle ?? detectPageMediaStyle(dataset.records),
     });

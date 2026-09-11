@@ -116,7 +116,7 @@ export function makeContext(
   /** `${mainId}|${compareId}` pairs the user confirmed — the only identities the
    *  merge trusts over the files' own evidence (see `confirmedPair`). */
   confirmedPairs: Set<string> = new Set(),
-  linkPlacement: LinkPlacement = { linkFormat: "WWW", pageMedia: "source" },
+  linkPlacement: LinkPlacement = { linkFormat: "WWW", pageMedia: "source", citationPage: "number" },
 ): MergeContext {
   const incToMain = new Map<string, string>();
   for (const c of matches.individuals) {
