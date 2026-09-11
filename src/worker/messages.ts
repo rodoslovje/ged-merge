@@ -1,4 +1,5 @@
 import type { Dataset } from "../gedcom/types";
+import type { CitationPageStyle } from "../gedcom/source";
 import type { MainProfile, NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { PlaceExportFormat } from "../normalize/profile";
 import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
@@ -92,6 +93,9 @@ export interface ParseSuccess {
   /** Where the file keeps cited page images, when it has any: on the person/
    * event beside citations, or only under the source records. */
   pageMediaStyle?: "event" | "source";
+  /** How the file's citations name their page, when they say: by number with
+   * the page's image, or by the page's own link. */
+  citationPageStyle?: CitationPageStyle;
   /** Detected name-storage style of this file. */
   nameLayout?: NameLayout;
   /** Placeholder token this file uses for unknown names (e.g. "NN"); absent when

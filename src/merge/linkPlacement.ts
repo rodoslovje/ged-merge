@@ -12,11 +12,25 @@ import {
   insertOrdered,
   linkPageMedia,
   markEventTouched,
+  setCitationQuay,
   sourceCitationNodes,
 } from "../gedcom/edit";
-import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceCitation, sourceTitle } from "../gedcom/source";
+import {
+  buildSourceContext,
+  childText,
+  detectCitationPageStyle,
+  findExistingSource,
+  objeInfoOf,
+  objeNodesFor,
+  pageTextUrl,
+  resolveSourceCitation,
+  sourceTitle,
+  type CitationPageStyle,
+  type SourceContext,
+} from "../gedcom/source";
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
+import { isPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import {
@@ -55,9 +69,19 @@ export interface LinkPlacement {
   /** "event": the cited page's image is linked beside the citation as well as
    *  under the source record — the file's own habit (Settings → Page links). */
   pageMedia: PageMediaStyle;
+  /** How a citation names its page: by number, the page's image minted under
+   *  the source, or by the page's own link in `PAGE` with no image record
+   *  (Settings → Cited page; the file's own habit by default, number where
+   *  it has none). */
+  citationPage: CitationPageStyle;
   /** Settings → GEDCOM, for the citation-placement questions the file's own
    *  habit would otherwise answer. */
   overrides?: FormatOverrides;
+  /** The incoming file's own records, for what an incoming citation says
+   *  beyond its `PAGE`: the page image its source keeps (which names the page
+   *  when the citation does not), and the source record itself, whose title
+   *  names a book the main has no source for. */
+  incoming?: { records: GedNode[]; sourceCtx: SourceContext };
   /** Book URLs whose source this merge minted from the offline proposal alone,
    *  and which a lookup could still name properly. The save reads these pages
    *  before it writes, when the reader has allowed link lookups; each is listed
@@ -69,13 +93,36 @@ export interface LinkPlacement {
  *  writes plain links, and whether it keeps a cited page's image beside the
  *  citation. `overrides` (Settings → GEDCOM) wins over the file's own habit,
  *  exactly as it does in the Add Source dialog. */
-export function linkPlacementFor(main: Dataset, overrides?: FormatOverrides): LinkPlacement {
+export function linkPlacementFor(main: Dataset, overrides?: FormatOverrides, compare?: Dataset): LinkPlacement {
   return {
     linkFormat: detectLinkFormat(main),
     pageMedia: overrides?.pageMedia ?? detectPageMediaStyle(main.records),
+    citationPage: overrides?.citationPage ?? detectCitationPageStyle(main.records) ?? "number",
     overrides,
+    incoming: compare && { records: compare.records, sourceCtx: buildSourceContext(compare.records) },
     pendingLookups: [],
   };
+}
+
+/**
+ * What an incoming citation, as the incoming file wrote it, says about the
+ * page it cites: the page's address — in its `PAGE`, or behind the page image
+ * its own source keeps — and that source record, for a book the main has no
+ * source of its own for. Undefined where the citation names no page address
+ * either way; the caller then copies it as it is.
+ */
+export function incomingCitationPage(
+  citation: GedNode,
+  placement: LinkPlacement,
+): { url: string; source?: GedNode } | undefined {
+  const value = citation.value?.trim();
+  const source =
+    value && isPointer(value) ? placement.incoming?.records.find((r) => r.tag === "SOUR" && r.xref === value) : undefined;
+  const own = pageTextUrl(childText(citation, "PAGE"));
+  if (own) return { url: own, source };
+  if (!placement.incoming) return undefined;
+  const resolved = resolveSourceCitation(citation, placement.incoming.sourceCtx);
+  return resolved?.exact && resolved.url ? { url: resolved.url, source } : undefined;
 }
 
 /**
@@ -198,6 +245,96 @@ export function placeEventLink(
   return attach(event, url, records, source, placement);
 }
 
+/**
+ * The address a citation names its page by, where it does — a file that keeps
+ * `PAGE https://data.matricula-online.eu/…/03176/?pg=86` instead of the page's
+ * number (the Organize sources tool's `pageUrl` shape). Nothing for a numeric
+ * or prose `PAGE`.
+ */
+export function citationPageUrl(citation: GedNode): string | undefined {
+  return pageTextUrl(childText(citation, "PAGE"));
+}
+
+/**
+ * Write an incoming citation that names its page by address the way this file
+ * cites that page — the same ladder {@link placeEventLink} climbs for a bare
+ * link: the main's own source for the book, else one minted for a recognized
+ * site, with the page's number in `PAGE`, the page image where the file keeps
+ * one beside the citation, and the site's `QUAY`. The citation's own words
+ * come along: the prose beside the address, its `DATA`/`NOTE`, and its `QUAY`
+ * where the incoming file graded the evidence itself. Returns nothing, and
+ * writes nothing, for an address nothing can be named from that the main has
+ * no source for either — the caller then copies the citation as it is.
+ *
+ * `citation` is the incoming node already cloned for the main file (pointers
+ * remapped); its children are moved, not copied, onto the written citation.
+ */
+export function placeCitation(
+  container: GedNode,
+  citation: GedNode,
+  url: string,
+  records: GedNode[],
+  placement: LinkPlacement,
+  reserved?: ReadonlySet<string>,
+  /** The incoming file's own record of the book, which names a source minted
+   *  for it ahead of the address's offline proposal. */
+  incomingSource?: GedNode,
+): PlacedLink | undefined {
+  const source = resolveSource(records, url, recognizeSourceUrl(url), placement, reserved, incomingSource);
+  if (!source) return undefined;
+  // The page as this file writes it: a `PAGE` holding the address keeps its
+  // prose with the address swapped for what the file writes; one naming the
+  // page by number is kept in a file that does the same, and gives way to
+  // the link in a file that cites by link.
+  const pageText = childText(citation, "PAGE") ?? "";
+  const ownUrl = pageTextUrl(pageText);
+  const page = ownUrl
+    ? carriedPageText(pageText, ownUrl, source.page) || source.page
+    : placement.citationPage === "url"
+      ? source.page
+      : pageText || source.page;
+  const onEvent = container.tag !== "INDI" && container.tag !== "FAM";
+  // The same page of the same book cited on this container already — the
+  // main's own citation, kept under "both" — is not cited a second time.
+  const twin = sourceCitationNodes(container).find(
+    (c) => c.value?.trim() === source.sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+  );
+  if (twin) {
+    return {
+      url,
+      event: onEvent ? container : undefined,
+      citation: resolveSourceCitation(twin, getMediaAndSourceCtx(records).sourceCtx),
+      createdSource: source.createdSource,
+    };
+  }
+  const placed = attach(container, url, records, { ...source, page }, placement);
+  const nodes = sourceCitationNodes(container);
+  const written = nodes[nodes.length - 1];
+  // Everything the citation said beyond the address goes on the written one,
+  // ahead of the QUAY the site proposed; a page image the incoming file linked
+  // on the citation is left behind — the page's image is written the main's
+  // way above. The incoming file's own grade of the evidence wins over the
+  // site's proposal.
+  const carried = citation.children.filter((c) => c.tag !== "PAGE" && c.tag !== "OBJE" && c.tag !== "QUAY");
+  const quay = firstChild(written, "QUAY");
+  written.children.splice(quay ? written.children.indexOf(quay) : written.children.length, 0, ...carried);
+  const ownQuay = childText(citation, "QUAY");
+  if (ownQuay) setCitationQuay(written, ownQuay);
+  return { ...placed, citation: resolveSourceCitation(written, getMediaAndSourceCtx(records).sourceCtx) };
+}
+
+/** A `PAGE` text with its address swapped for the page's number — "fol. 23,
+ *  <url>" → "fol. 23, 5" — or removed where the address names no page; empty
+ *  when nothing but separators remains. */
+function carriedPageText(text: string, url: string, page: string | undefined): string {
+  const out = text
+    .replace(url, page ?? "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^[\s:–—,-]+|[\s:–—,-]+$/g, "");
+  return /[\p{L}\p{N}]/u.test(out) ? out : "";
+}
+
 /** The source a link is cited from, and everything written alongside that
  *  citation: which page of it (`PAGE`), that page's image, and how good the
  *  site's evidence is (`QUAY`) — the Add Source dialog's own proposals. */
@@ -218,13 +355,18 @@ function resolveSource(
   recognized: RecognizedSourceUrl | undefined,
   placement: LinkPlacement,
   reserved: ReadonlySet<string> | undefined,
+  incomingSource?: GedNode,
 ): ResolvedSource | undefined {
   const quay = recognized && siteQuay(recognized.site, url);
+  // A file that cites a page by its link writes the link itself as the page
+  // and keeps no image record of it.
+  const byLink = placement.citationPage === "url";
   // The cached lookup makes this O(1) per link instead of a full-forest scan;
   // every record-minting helper bumps the cache version, so a source or page
   // OBJE created for one link is visible to the next link's lookup.
   const existing = findExistingSource(records, url, undefined, getSourceLookup(records));
   if (existing) {
+    if (byLink) return { sourceXref: existing.sourceXref, page: url, quay };
     const pageObje =
       existing.objeXref ??
       addObjeToSource(records, existing.sourceXref, url, pageTitleFor(records, existing.sourceXref, recognized), reserved)
@@ -233,8 +375,8 @@ function resolveSource(
     return { sourceXref: existing.sourceXref, page: existing.page, pageObje, quay };
   }
   if (!recognized) return undefined;
-  const source = mintSource(records, recognized, url, placement, reserved);
-  return { ...source, page: recognized.page, quay, createdSource: true };
+  const source = mintSource(records, recognized, url, placement, reserved, incomingSource);
+  return { ...source, page: byLink ? url : recognized.page, quay, createdSource: true };
 }
 
 /**
@@ -244,6 +386,8 @@ function resolveSource(
  * early enough to be answered before the save needs it (see `queueBookPages`).
  *
  * A link the main already cites needs no page: the source is already named.
+ * A citation that names its page by address counts as a link of that page,
+ * since the merge writes it as one (see {@link placeCitation}).
  */
 export function pendingBookLookups(
   records: GedNode[],
@@ -252,7 +396,13 @@ export function pendingBookLookups(
   const books: string[] = [];
   const seen = new Set<string>();
   const lookup = getSourceLookup(records);
-  const links = from.flatMap((r) => [...(r.links ?? []), ...r.events.flatMap((e) => e.links ?? [])]);
+  const citedUrls = (sources: SourceCitation[] | undefined): string[] =>
+    (sources ?? []).map((c) => pageTextUrl(c.page)).filter((u): u is string => !!u);
+  const links = from.flatMap((r) => [
+    ...(r.links ?? []),
+    ...citedUrls(r.sources),
+    ...r.events.flatMap((e) => [...(e.links ?? []), ...citedUrls(e.sources)]),
+  ]);
   for (const url of links) {
     const recognized = recognizeSourceUrl(url);
     if (!recognized) continue;
@@ -445,6 +595,12 @@ function citationEventTag(
  * pass, an earlier Add Source, the Organize sources tool), what it said names
  * the source; where it has not, the link's own offline proposal does and the
  * book joins {@link LinkPlacement.pendingLookups} for the save to read.
+ * Between the two, the incoming file's own record of the book: its title and
+ * fields name the source better than the address does, though the book's
+ * own page still wins where it has been read.
+ *
+ * A file that cites pages by their link gets a source with no page image:
+ * the link goes in the citation's `PAGE` instead.
  */
 function mintSource(
   records: GedNode[],
@@ -452,6 +608,7 @@ function mintSource(
   url: string,
   placement: LinkPlacement,
   reserved: ReadonlySet<string> | undefined,
+  incomingSource?: GedNode,
 ): { sourceXref: string; pageObje?: string } {
   const p = recognized.proposed;
   const bookUrl = recognized.bookUrl ?? url;
@@ -459,18 +616,22 @@ function mintSource(
   if (!fetched && isFetchableSite(recognized.site, bookUrl) && !placement.pendingLookups?.includes(bookUrl)) {
     placement.pendingLookups?.push(bookUrl);
   }
-  const filingNumber = fetched?.filingNumber || p.filingNumber;
-  const title = siteSourceTitle(recognized.site, fetched?.title ?? p.title, filingNumber) ?? p.title;
+  const own = (tag: string) => (incomingSource ? childText(incomingSource, tag) : undefined);
+  const ownTitle = incomingSource && sourceTitle(incomingSource);
+  const filingNumber = fetched?.filingNumber || own("FILN") || p.filingNumber;
+  const title = fetched?.title
+    ? (siteSourceTitle(recognized.site, fetched.title, filingNumber) ?? fetched.title)
+    : ownTitle || (siteSourceTitle(recognized.site, p.title, filingNumber) ?? p.title);
   const source = createSourceRecord(
     records,
     {
       title,
-      author: fetched?.author ?? p.author,
-      periodical: fetched?.periodical,
-      publisher: fetched?.publisher,
-      agency: fetched?.agency ?? p.agency,
+      author: fetched?.author ?? own("AUTH") ?? p.author,
+      periodical: fetched?.periodical ?? own("PERI"),
+      publisher: fetched?.publisher ?? own("PUBL"),
+      agency: fetched?.agency ?? own("AGNC") ?? p.agency,
       filingNumber,
-      url,
+      url: placement.citationPage === "url" ? undefined : url,
     },
     reserved,
   );

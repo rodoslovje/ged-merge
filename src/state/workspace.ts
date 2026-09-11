@@ -1,4 +1,5 @@
 import type { Dataset } from "../gedcom/types";
+import type { CitationPageStyle } from "../gedcom/source";
 import type { DetectedFormats } from "../normalize/formatOverrides";
 import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { MatchResult } from "../match/types";
@@ -29,6 +30,8 @@ export interface LoadedFile {
   detectedFormats?: DetectedFormats;
   /** Where the file keeps cited page images (when it has any). */
   pageMediaStyle?: "event" | "source";
+  /** How the file's citations name their page (when they say). */
+  citationPageStyle?: CitationPageStyle;
   nameLayout?: NameLayout;
   unknownNameStyle?: string;
   marriedNameTag?: boolean;

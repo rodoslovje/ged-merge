@@ -1145,10 +1145,20 @@ function sourReferencedObjeXrefs(records: GedNode[]): Map<string, string> {
   return map;
 }
 
-/** Whether any source in the file organizes page images at all — without
+/** Of the media a source keeps, the linked page images only — a scan stored
+ *  as a local file under a source is an attachment, not a page link, so it
+ *  says nothing about where the file keeps page links. */
+function sourPageLinkXrefs(records: GedNode[]): Map<string, string> {
+  const objeIndex = buildObjeIndex(records);
+  const owners = sourReferencedObjeXrefs(records);
+  for (const xref of [...owners.keys()]) if (!objeIndex.get(xref)?.url) owners.delete(xref);
+  return owners;
+}
+
+/** Whether any source in the file keeps linked page images at all — without
  *  them the page-media style is moot (don't show/act on a trivial answer). */
 export function hasSourcePageMedia(records: GedNode[]): boolean {
-  return sourReferencedObjeXrefs(records).size > 0;
+  return sourPageLinkXrefs(records).size > 0;
 }
 
 /**
@@ -1161,7 +1171,7 @@ export function hasSourcePageMedia(records: GedNode[]): boolean {
  * page visible on the person/fact, not only behind the source.
  */
 export function detectPageMediaStyle(records: GedNode[]): PageMediaStyle {
-  const owners = sourReferencedObjeXrefs(records);
+  const owners = sourPageLinkXrefs(records);
   const paginated = new Set(owners.values());
   let paired = 0;
   let plain = 0;

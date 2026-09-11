@@ -2,7 +2,7 @@ import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
 import { familySearchImageNumber, linkKey, parseFamilySearchUrl } from "../normalize/links";
 import { childText, childValue, childrenByTag, firstChild, hasChild } from "./node";
-import { isPointer, isWebAddress, looksLikeUrl } from "./uri";
+import { isPointer, isWebAddress, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 
 // Re-exported: callers across the app import these from the source module.
 // `childText` now lives in ./node; keep re-exporting it here for existing callers.
@@ -308,14 +308,17 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
   const value = citationNode.value?.trim();
   if (!value) return undefined;
   const page = childText(citationNode, "PAGE");
+  // A citation naming its page by address — `PAGE https://…/?pg=86`, the
+  // shape a file without page images writes — links the page itself.
+  const pageUrl = pageTextUrl(page);
 
   if (!isPointer(value)) {
     // Inline citation: the SOUR value itself is the bibliographic text.
-    return { sourceId: value, title: value, page, exact: false };
+    return { sourceId: value, title: value, page, url: pageUrl, exact: !!pageUrl };
   }
 
   const sourceNode = ctx.sourceIndex.get(value);
-  if (!sourceNode) return { sourceId: value, page, exact: false };
+  if (!sourceNode) return { sourceId: value, page, url: pageUrl, exact: !!pageUrl };
 
   const title = sourceTitle(sourceNode);
   const agency = childText(sourceNode, "AGNC");
@@ -338,6 +341,10 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
     exact = true;
     objeXref = candidates[0].xref;
   }
+  if (!url && pageUrl) {
+    url = pageUrl;
+    exact = true;
+  }
   if (!url) {
     const repoXref = sourceNode.children.find((c) => c.tag === "REPO" && c.value)?.value?.trim();
     const repo = repoXref ? ctx.repoIndex.get(repoXref) : undefined;
@@ -345,6 +352,13 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
   }
 
   return { sourceId: value, title, agency, filingNumber, page, url, exact, objeXref };
+}
+
+/** The first address in a citation's `PAGE` text, if any — the page a file
+ *  that keeps no page images cites by its link (`PAGE https://…/?pg=86`). */
+export function pageTextUrl(page: string | undefined): string | undefined {
+  const found = page?.match(URL_RE)?.[0];
+  return found ? stripTrailingPunct(found) : undefined;
 }
 
 /**
@@ -358,6 +372,14 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
   let repository = 0;
   let literature = 0;
   let total = 0;
+  // A file that cites pages by their link keeps the book's page links in the
+  // citations rather than under the source: each such citation is one page
+  // link of its book, as an `OBJE` page image would be.
+  const citedLinks = new Map<string, number>();
+  forEachCitationNode(records, (node) => {
+    const value = node.value!.trim();
+    if (isPointer(value) && pageTextUrl(childText(node, "PAGE"))) citedLinks.set(value, (citedLinks.get(value) ?? 0) + 1);
+  });
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     total++;
@@ -367,9 +389,10 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
     // locally-cached filename isn't a page link), and a repo-only source
     // counts the one link it reaches through its repository's WWW.
     const objeCount = childrenByTag(rec, "OBJE").filter((c) => c.value && objeIndex.get(c.value.trim())?.url).length;
+    const pageLinks = objeCount + (citedLinks.get(rec.xref) ?? 0);
     const hasRepo = hasChild(rec, "REPO");
     const hasBiblio = hasChild(rec, ["TEXT", "AUTH", "PUBL", "PERI"]);
-    if (objeCount >= 1) paginated += objeCount;
+    if (pageLinks >= 1) paginated += pageLinks;
     else if (hasRepo) repository++;
     else if (hasBiblio) literature++;
   }
@@ -630,7 +653,9 @@ export function findExistingSource(
  *  old per-call scan gave). Build once per (records, source-cache version):
  *  `getSourceLookup` in `edit/cache` does exactly that. */
 export interface SourceLookup {
-  byLinkKey: Map<string, { sourceXref: string; objeXref: string }>;
+  /** A page's link → the source holding it, and the page's image record where
+   *  the source keeps one (a page cited by its link alone has none). */
+  byLinkKey: Map<string, { sourceXref: string; objeXref?: string }>;
   byBookKey: Map<string, string>;
   byFilm: Map<string, GedNode>;
   byLooseTitle: Map<string, GedNode>;
@@ -639,7 +664,7 @@ export interface SourceLookup {
 
 export function buildSourceLookup(records: GedNode[]): SourceLookup {
   const objeIndex = buildObjeIndex(records);
-  const byLinkKey = new Map<string, { sourceXref: string; objeXref: string }>();
+  const byLinkKey = new Map<string, { sourceXref: string; objeXref?: string }>();
   const byBookKey = new Map<string, string>();
   const byFilm = new Map<string, GedNode>();
   const byLooseTitle = new Map<string, GedNode>();
@@ -661,6 +686,18 @@ export function buildSourceLookup(records: GedNode[]): SourceLookup {
     const titleKey = looseKey(childText(rec, "TITL"));
     if (!byLooseTitle.has(titleKey)) byLooseTitle.set(titleKey, rec);
   }
+  // A file that cites pages by their link (`3 PAGE https://…/?pg=56`) names
+  // its books nowhere else: the citations are where the book's address lives.
+  forEachCitationNode(records, (node) => {
+    const value = node.value!.trim();
+    if (!isPointer(value)) return;
+    const url = pageTextUrl(childText(node, "PAGE"));
+    if (!url) return;
+    const key = linkKey(url);
+    if (!byLinkKey.has(key)) byLinkKey.set(key, { sourceXref: value });
+    const bookKey = bookKeyOf(url);
+    if (!byBookKey.has(bookKey)) byBookKey.set(bookKey, value);
+  });
   return { byLinkKey, byBookKey, byFilm, byLooseTitle, objeIndex };
 }
 
@@ -712,10 +749,48 @@ export function sourceContentKey(node: GedNode): string {
 
 /** Depth-first visit of every sub-record `SOUR` citation's value (skips top-level `SOUR` records, which have an xref). */
 function forEachCitationValue(records: GedNode[], visit: (value: string) => void): void {
+  forEachCitationNode(records, (node) => visit(node.value!.trim()));
+}
+
+/** Depth-first visit of every sub-record `SOUR` citation node with a value
+ *  (skips top-level `SOUR` records, which have an xref). */
+function forEachCitationNode(records: GedNode[], visit: (node: GedNode) => void): void {
   const stack: GedNode[] = [...records];
   while (stack.length) {
     const node = stack.pop()!;
-    if (node.tag === "SOUR" && !node.xref && node.value?.trim()) visit(node.value.trim());
+    if (node.tag === "SOUR" && !node.xref && node.value?.trim()) visit(node);
     for (const child of node.children) stack.push(child);
   }
+}
+
+/** How a file's citations say which page of a register they mean: by its
+ *  number, with the page's image under the source (`3 PAGE 56` beside
+ *  `0 SOUR › 1 OBJE`), or by the page's own link (`3 PAGE https://…/?pg=56`,
+ *  webtrees-style, no image record at all). */
+export type CitationPageStyle = "number" | "url";
+
+/**
+ * The file's own habit for naming a cited page — see {@link CitationPageStyle}.
+ * Counts every citation that says so either way: a `PAGE` holding an address
+ * votes "url", a `PAGE` without one on a source that keeps page images votes
+ * "number". Undefined for a file whose citations say neither (a bibliographic
+ * or repository-only file), so a caller can fall back to its own default.
+ */
+export function detectCitationPageStyle(records: GedNode[]): CitationPageStyle | undefined {
+  const objeIndex = buildObjeIndex(records);
+  const paginated = new Set<string>();
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    if (childrenByTag(rec, "OBJE").some((c) => c.value && objeIndex.get(c.value.trim())?.url)) paginated.add(rec.xref);
+  }
+  let url = 0;
+  let number = 0;
+  forEachCitationNode(records, (node) => {
+    const page = childText(node, "PAGE");
+    if (!page) return;
+    if (pageTextUrl(page)) url++;
+    else if (paginated.has(node.value!.trim())) number++;
+  });
+  if (url === 0 && number === 0) return undefined;
+  return url > number ? "url" : "number";
 }

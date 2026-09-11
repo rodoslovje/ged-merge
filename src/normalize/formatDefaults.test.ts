@@ -62,6 +62,7 @@ describe("detectFormatDefaults", () => {
     expect(out.place).toBeUndefined();
     expect(out.names).toBeUndefined();
     expect(out.pageMedia).toBeUndefined();
+    expect(out.citationPage).toBeUndefined();
   });
 
   it("never carries an explicitly-undefined key, so callers can use `in`", () => {

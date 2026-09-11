@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { buildObjeIndex, buildSourceLookup, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor, sourceContentKey, type FsSourceHint } from "./source";
+import { buildObjeIndex, buildSourceLookup, cropOf, detectCitationPageStyle, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor, sourceContentKey, type FsSourceHint } from "./source";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -45,6 +45,30 @@ describe("resolveSourceCitation via buildDataset", () => {
       url: "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56",
       exact: true,
     });
+  });
+
+  it("links the page a citation names by address, where the source holds no image of it", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 DEAT
+2 SOUR @S1@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03176/?pg=86
+0 @S1@ SOUR
+1 TITL Mrliška knjiga - Šenčur
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const sources = ds.individuals.get("@I1@")!.events[0].sources;
+    expect(sources![0]).toMatchObject({
+      sourceId: "@S1@",
+      page: "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03176/?pg=86",
+      url: "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03176/?pg=86",
+      exact: true,
+    });
+    expect(sources![0].objeXref).toBeUndefined();
   });
 
   it("matches the cited page by a #NNN marker in the OBJE title when there is no ?pg= param", () => {
@@ -307,6 +331,33 @@ describe("inferSourceFormat", () => {
 `;
     const buf = new TextEncoder().encode(text);
     const ds = buildDataset(parseGedcom(buf.buffer));
+    expect(inferSourceFormat(ds.records).layout).toBe("paginated");
+  });
+
+  it("reads a file that cites pages by their link as paginated too — the links sit in the citations", () => {
+    // webtrees-style: bibliographic-looking source records, the page links in
+    // the citations, and only local scans as media. Its shape is the same as
+    // a page-image file's, with the links kept in the other place.
+    const ds = buildFromText(`0 HEAD
+0 @I1@ INDI
+1 NAME A /B/
+1 BIRT
+2 SOUR @S1@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=107
+1 DEAT
+2 SOUR @S1@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=210
+0 @S1@ SOUR
+1 TITL Matična knjiga krščenih Biljana 1834-1904
+1 AUTH Župnija Biljana
+1 OBJE @M1@
+0 @S2@ SOUR
+1 TITL Osmrtnica
+1 PUBL Delo, 3. 5. 1980
+0 @M1@ OBJE
+1 FILE Mihael-Korenjak-rojstvo.png
+0 TRLR
+`);
     expect(inferSourceFormat(ds.records).layout).toBe("paginated");
   });
 
@@ -809,5 +860,58 @@ describe("sourceContentKey", () => {
 0 TRLR
 `, "@S1@");
     expect(sourceContentKey(rec)).toBe("");
+  });
+});
+
+describe("a file that cites pages by their link", () => {
+  // webtrees-style: the source record has no page images at all; each
+  // citation's PAGE is the register page's own address.
+  const BY_LINK = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 SOUR @X162@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=107
+1 DEAT
+2 SOUR @X162@
+3 PAGE https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=210
+0 @X162@ SOUR
+1 TITL Matična knjiga krščenih Biljana 1834-1904
+0 TRLR
+`;
+  const BY_NUMBER = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 56
+0 @S1@ SOUR
+1 TITL Krstna knjiga - Šenčur
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56
+0 TRLR
+`;
+
+  it("is detected as citing by link; a page-image file as citing by number; a bibliographic file as neither", () => {
+    expect(detectCitationPageStyle(buildFromText(BY_LINK).records)).toBe("url");
+    expect(detectCitationPageStyle(buildFromText(BY_NUMBER).records)).toBe("number");
+    const biblio = buildFromText(
+      "0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 SOUR @S1@\n2 PAGE p. 12\n0 @S1@ SOUR\n1 TITL Rodbinska kronika\n1 AUTH J. N.\n0 TRLR\n",
+    );
+    expect(detectCitationPageStyle(biblio.records)).toBeUndefined();
+  });
+
+  it("finds the book's source by a page link, exact or another page of the same book", () => {
+    const records = buildFromText(BY_LINK).records;
+    const lookup = buildSourceLookup(records);
+    const samePage = findExistingSource(records, "https://data.matricula-online.eu/de/slovenia/koper/Biljana/MKK+6/?pg=107", undefined, lookup);
+    expect(samePage).toEqual({ sourceXref: "@X162@", objeXref: undefined, page: "107" });
+    const otherPage = findExistingSource(records, "https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=33", undefined, lookup);
+    expect(otherPage).toEqual({ sourceXref: "@X162@", page: "33" });
   });
 });

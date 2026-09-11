@@ -1213,7 +1213,11 @@ function pushSourcesRow(
   incomingPool: SourceCitation[] = [],
 ): void {
   const mBase = main ?? [];
-  const iBase = incoming ?? [];
+  // An incoming citation of the very page the main cites — named by its
+  // address where the main names it by number — is shown as the main's own
+  // citation, which is what the merge would write for it.
+  const iCit = citedAsMain(incoming ?? [], [...mBase, ...mainPool]);
+  const iBase = iCit.sources;
   // A plain link that resolves to the exact same archival page as a citation
   // already on the other side is the same record, just not yet itself a
   // citation on this side — show it as that citation (with the other side's
@@ -1228,7 +1232,7 @@ function pushSourcesRow(
   // person), it isn't in this row's other column yet — put it there too, so the
   // row reads as agreement instead of offering to import a page the other file
   // already cites.
-  const m = withCitations(mRec.sources, iRec.matched);
+  const m = withCitations(withCitations(mRec.sources, iRec.matched), iCit.matched);
   const i = withCitations(iRec.sources, mRec.matched);
   const mIcons = linksNotCitedAsSource(mRemainingLinks, m);
   const iIcons = linksNotCitedAsSource(iRemainingLinks, i);
@@ -1247,6 +1251,37 @@ function pushSourcesRow(
     mainLinkIcons: mIcons.length ? mIcons : undefined,
     incomingLinkIcons: iIcons.length ? iIcons : undefined,
   });
+}
+
+/**
+ * Incoming citations, each shown as the main's citation of the same page where
+ * the main has one: a citation naming its page by address
+ * (`PAGE https://…/?pg=86`) and the main's citation of that page by number,
+ * with its image, are the same archival record — and the merge writes the
+ * incoming one as the main's (see `placeCitation`) — so the two must read as
+ * agreement, not as a second source to add. `matched` is the subset of
+ * `mainSources` hit, for the caller to surface in the main column when it
+ * came from elsewhere on the record.
+ */
+function citedAsMain(
+  incoming: SourceCitation[],
+  mainSources: SourceCitation[],
+): { sources: SourceCitation[]; matched: SourceCitation[] } {
+  if (!incoming.length || !mainSources.length) return { sources: incoming, matched: [] };
+  const matched: SourceCitation[] = [];
+  const seen = new Set<string>();
+  const sources: SourceCitation[] = [];
+  for (const c of incoming) {
+    const key = c.exact && c.url ? linkKey(c.url) : undefined;
+    const match = key ? mainSources.find((mc) => mc.exact && mc.url && linkKey(mc.url) === key) : undefined;
+    if (match) matched.push(match);
+    const shown = match ?? c;
+    const shownKey = sourceCitationKey(shown);
+    if (seen.has(shownKey)) continue;
+    seen.add(shownKey);
+    sources.push(shown);
+  }
+  return { sources, matched };
 }
 
 /** An event's own links, minus any already reachable via one of its source citations' URLs. */
@@ -1283,7 +1318,9 @@ function reconcileLinksAsCitations(
     if (match) matched.push(match);
     else remainingLinks.push(url);
   }
-  return { sources: matched.length ? [...ownSources, ...matched] : ownSources, matched, remainingLinks };
+  // A link the side's own citation already covers (the address a citation
+  // names its page by is harvested as a link too) adds nothing.
+  return { sources: withCitations(ownSources, matched), matched, remainingLinks };
 }
 
 /** `sources` plus any of `extra` it doesn't already carry (by citation identity). */

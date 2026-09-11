@@ -76,7 +76,7 @@ import {
   type SharedNoteChange,
   type SharedNoteCtx,
 } from "../gedcom/edit";
-import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
+import { childText, clearObjeNodeCache, detectCitationPageStyle, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CitationPageStyle, type CropRegion } from "../gedcom/source";
 import { detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
 import { createStandaloneSource, pageObjeTitle } from "./edit/standaloneSource";
 import { detectMediaMode } from "../gedcom/media";
@@ -1086,6 +1086,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }, getSourceLookup(dataset.records));
       if (match) {
         const extraPatches: RecordPatch[] = [];
+        // A file that cites a page by its link needs no image record of it:
+        // the link itself is the citation's page.
+        if (citationPageStyle() === "url") return { sourceXref: match.sourceXref, page: fields.url, extraPatches };
         let pageObjeXref = match.objeXref;
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
@@ -1103,7 +1106,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
       sourceCoverage: settings.formatOverrides.sourceCoverage ?? "auto",
       baptism: settings.formatOverrides.baptism ?? "auto",
+      citationPage: citationPageStyle(),
     });
+  }
+
+  /** How this file names a cited page — Settings → Cited page, whose "auto"
+   *  follows the file's own habit; by number where it has none. */
+  function citationPageStyle(): CitationPageStyle {
+    return settings.formatOverrides.citationPage ?? detectCitationPageStyle(dataset.records) ?? "number";
   }
 
   /** The cited page's image to link beside the citation, or undefined when
