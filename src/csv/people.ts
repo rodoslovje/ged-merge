@@ -66,6 +66,32 @@ export function addSex(people: People, id: string, sex: Sex | undefined): void {
   record.children.push(node(1, "SEX", sex));
 }
 
+/**
+ * Hang a link on a person's event of `tag`, creating the event when the record
+ * has none — a family row's cemetery link is evidence of each spouse's burial,
+ * which the row itself never dates. Once per URL, so a couple listed twice
+ * doesn't cite the grave twice.
+ */
+export function addEventLink(people: People, id: string, tag: string, url: string): void {
+  const record = people.indi.get(id);
+  if (!record) return;
+  let event = record.children.find((c) => c.tag === tag);
+  if (!event) {
+    event = { level: 1, tag, children: [] };
+    record.children.push(event);
+  }
+  if (event.children.some((c) => c.tag === "WWW" && c.value === url)) return;
+  event.children.push(node(2, "WWW", url));
+}
+
+/** A link on the person themself, once — for a page that documents no
+ *  particular event. */
+export function addRecordLink(people: People, id: string, url: string): void {
+  const record = people.indi.get(id);
+  if (!record || record.children.some((c) => c.tag === "WWW" && c.value === url)) return;
+  record.children.push(node(1, "WWW", url));
+}
+
 /** Add a child to a family, once. */
 export function addChild(fam: GedNode, childId: string): void {
   if (fam.children.some((c) => c.tag === "CHIL" && c.value === childId)) return;

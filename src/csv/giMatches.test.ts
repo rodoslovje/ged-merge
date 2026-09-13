@@ -713,13 +713,18 @@ describe("parseGiMatchesCsv", () => {
     expect(husband.notes).toBeUndefined();
     expect(wife.notes).toBeUndefined();
 
-    // The shared family carries the marriage event (with its link) and children.
+    // The shared family carries the marriage event and children; the row's
+    // cemetery link is evidence of each spouse's burial, not of the wedding.
     const fam = dataset.families.get("@SGIFAM1@")!;
     expect(fam.husband).toBe("@SGI1@");
     expect(fam.wife).toBe("@SGI2@");
     const marr = fam.events.find((e) => e.tag === "MARR");
-    expect(marr?.links).toContain("https://en.geneanet.org/cemetery/view/8419923");
+    expect(marr?.links ?? []).toEqual([]);
     expect(marr?.place?.raw).toBe("Stražišče, Kranj");
+    for (const spouse of [husband, wife]) {
+      expect(spouse.events.find((e) => e.tag === "BURI")?.links).toEqual(["https://en.geneanet.org/cemetery/view/8419923"]);
+      expect(spouse.links ?? []).toEqual([]);
+    }
 
     const children = childrenNames(husband, dataset);
     expect(children).toEqual([
@@ -872,6 +877,13 @@ describe("parseGiMatchesCsv", () => {
       expect(franc.spouseOf).toHaveLength(1);
       expect(franc.sex).toBe("M");
       expect(partnerNames(franc, dataset)).toEqual([expect.objectContaining({ given: "Alojzija", surname: "Rakar" })]);
+      // The grave's link is cited on each spouse's burial, once each however
+      // often the couple is listed — and there is no marriage to hang it on.
+      const alojzija = [...dataset.individuals.values()].find((i) => i.names[0]?.given === "Alojzija")!;
+      for (const spouse of [franc, alojzija]) {
+        expect(spouse.events.find((e) => e.tag === "BURI")?.links).toEqual(["https://en.geneanet.org/cemetery/view/13236020"]);
+      }
+      expect(dataset.families.get(franc.spouseOf[0])!.events.find((e) => e.tag === "MARR")).toBeUndefined();
       const other = [...dataset.individuals.values()].find((i) => i.names[0]?.given === "Franc" && i !== franc)!;
       expect(partnerNames(other, dataset)).toEqual([expect.objectContaining({ given: "Neža", surname: "Starašinič" })]);
     });

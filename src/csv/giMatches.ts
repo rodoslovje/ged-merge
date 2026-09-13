@@ -2,12 +2,14 @@ import { buildDataset } from "../gedcom/builder";
 import { parseDate } from "../gedcom/date";
 import type { Dataset, GedNode, ParseResult, Sex } from "../gedcom/types";
 import { foldToken } from "../match/text";
-import { recognizeSourceUrl, siteEventTag } from "../tools/sourceReshape";
+import { classifyBookType, recognizeSourceUrl, siteEventTag } from "../tools/sourceReshape";
 import { parseCsvText } from "./csvText";
 import {
   addChild,
+  addEventLink,
   addPerson,
   addPointer,
+  addRecordLink,
   addSex,
   coupleFam,
   inferSexFromNames,
@@ -689,6 +691,34 @@ function splitRowLinks(
 }
 
 /**
+ * Where a family row's links belong. The row is about a couple, but its links
+ * are rarely about the wedding: the index's family rows come from graves as
+ * often as from marriage books, and a grave photograph is evidence of the
+ * burial of each spouse on it — never of the marriage, which the row may not
+ * even date. So a link goes by what its site documents: a cemetery (or
+ * obituary) page onto that event of each spouse, a page recognised as a
+ * marriage book onto the marriage, and a page that says nothing about itself
+ * onto both spouses as their own link, where the reader can still find it.
+ */
+function splitFamilyLinks(linksCell: string): {
+  marriage: string[];
+  bySpouseTag: Map<string, string[]>;
+  spouseRecord: string[];
+} {
+  const marriage: string[] = [];
+  const bySpouseTag = new Map<string, string[]>();
+  const spouseRecord: string[] = [];
+  for (const url of linksCell.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const site = recognizeSourceUrl(url);
+    const tag = site && siteEventTag(site.site);
+    if (tag) bySpouseTag.set(tag, [...(bySpouseTag.get(tag) ?? []), url]);
+    else if (site && classifyBookType([site.proposed.title, site.collection]) === "marriage") marriage.push(url);
+    else spouseRecord.push(url);
+  }
+  return { marriage, bySpouseTag, spouseRecord };
+}
+
+/**
  * Wire one CSV row's parents and partners into the shared registry: each becomes
  * a real family relationship, on the record the CSV already has for that person
  * where there is one.
@@ -884,10 +914,17 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   // ── Pass 5: marriages and the relatives named around them ────────────────
   for (const { famIdx, incomingRow, husbandKey, wifeKey } of entries) {
     // A family row names its two columns, so the spouse slots are asserted.
-    const fam = coupleFam(people, getPersonId(husbandKey), getPersonId(wifeKey), `@${ID_PREFIX}FAM${famIdx}@`, true);
+    const husbId = getPersonId(husbandKey);
+    const wifeId = getPersonId(wifeKey);
+    const fam = coupleFam(people, husbId, wifeId, `@${ID_PREFIX}FAM${famIdx}@`, true);
+    const links = splitFamilyLinks(col(incomingRow, "links"));
     if (fam.fresh) {
-      const marriageLinks = col(incomingRow, "links").split(",").map((s) => s.trim()).filter(Boolean);
-      pushEvent(fam.node.children, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"), marriageLinks);
+      pushEvent(fam.node.children, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"), links.marriage);
+    }
+    for (const id of [husbId, wifeId]) {
+      if (!id) continue;
+      for (const [tag, urls] of links.bySpouseTag) for (const url of urls) addEventLink(people, id, tag, url);
+      for (const url of links.spouseRecord) addRecordLink(people, id, url);
     }
     parseRelativeList(col(incomingRow, "children")).forEach((child, i) => {
       const childId = resolveRelative(people, child, `@${ID_PREFIX}FAM${famIdx}C${i + 1}@`);
