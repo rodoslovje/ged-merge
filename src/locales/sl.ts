@@ -1370,6 +1370,7 @@ export const sl = {
   "globalSearch.tooltip": "Poišči kogar koli v datoteki",
   "globalSearch.placeholder": "Poišči osebo…",
   "globalSearch.empty": "Ni najdenih oseb",
+  "globalSearch.indexing": "Iskanje se pripravlja ({{percent}} %)",
   "globalSearch.count_one": "{{count}} oseba",
   "globalSearch.count_two": "{{count}} osebi",
   "globalSearch.count_few": "{{count}} osebe",

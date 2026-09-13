@@ -78,7 +78,8 @@ import { DatasetProvider, SettingsProvider, useSettingsSlice, useNameOf } from "
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
-import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
+import type { FilterContext } from "./ui/globalSearch";
+import { useSearchIndex } from "./ui/useSearchIndex";
 import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
 import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
@@ -1246,18 +1247,14 @@ function AppContent() {
     if (id) openCharts(id);
   }
 
-  // Whole-file search index for the global search dialog. Rebuilt when the
-  // dataset is (re)loaded, edited (editVersion), or the name-display settings
-  // change — the same triggers that alter a person's displayed name. Only
-  // built while the dialog is open: it costs a full scan and sort of every
-  // individual, which used to run on every Edit-mode commit (each one bumps
-  // editVersion) and made a simple field blur stall for hundreds of ms on a
-  // large file — all for a dialog that was closed.
-  const searchRows = useMemo(
-    () => (showGlobalSearch && mainDataset ? buildSearchRows(mainDataset.individuals, nameOf, mainDataset.records) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mainDataset, nameOf, editVersion, showGlobalSearch],
-  );
+  // Whole-file search index for the global search dialog, built in the
+  // background in idle slices: right after a load, and again after a pause in
+  // editing (editVersion) or a change of the name-display settings (nameOf).
+  // It never runs inside a render or an edit commit — on a file of half a
+  // million people it costs seconds — and the finished rows stay put, so
+  // opening the dialog is free once it is ready and shows the build's
+  // progress when it is not.
+  const searchIndex = useSearchIndex(mainDataset, nameOf, editVersion, showGlobalSearch);
 
   // Main id → its merge decision (confirmed/deferred/rejected), for the global
   // search "decision" facet. Undecided candidates carry no entry.
@@ -1272,27 +1269,23 @@ function AppContent() {
     return m;
   }, [decisions]);
 
-  // Relationship hops from the start person to every reachable individual, for
-  // the kinship facet. One BFS, recomputed only when the start person or the
-  // dataset (via edits) changes. Empty when no start person is set. Like
-  // `searchRows` above, its only reader is the search dialog, so it is only
-  // computed while that dialog is open rather than on every edit.
-  const kinshipDistances = useMemo(
-    () => (showGlobalSearch && startId && mainDataset ? computeDistances(mainDataset, startId) : new Map<string, number>()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [startId, mainDataset, editVersion, showGlobalSearch],
-  );
-
   // Cross-cutting lookups the search facets need but that aren't baked into the
-  // (dataset-derived) rows: unsaved-edit, merge-decision, and kinship-hop per person.
-  const searchFilterContext = useMemo<FilterContext>(
-    () => ({
+  // (dataset-derived) rows: unsaved-edit, merge-decision, and kinship-hop per
+  // person. The kinship hops are one BFS from the start person over the whole
+  // file — a second on a very large one — so it runs only when a kinship facet
+  // first asks, and is then kept until the start person or the dataset (via
+  // edits) changes.
+  const searchFilterContext = useMemo<FilterContext>(() => {
+    let distances: Map<string, number> | undefined;
+    const hops = () =>
+      (distances ??= startId && mainDataset ? computeDistances(mainDataset, startId) : new Map<string, number>());
+    return {
       isEdited: (id) => changedPersonIds.has(id),
       decisionOf: (id) => decisionByMain.get(id),
-      kinshipHops: (id) => kinshipDistances.get(id),
-    }),
-    [changedPersonIds, decisionByMain, kinshipDistances],
-  );
+      kinshipHops: (id) => hops().get(id),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changedPersonIds, decisionByMain, startId, mainDataset, editVersion]);
 
   // Per-row record-id / kinship extras for the search results, honouring the
   // "show record ids" and "show kinship" settings. Kinship is computed lazily
@@ -1814,7 +1807,8 @@ function AppContent() {
       <GlobalSearchModal
         isOpen={showGlobalSearch}
         onClose={() => setShowGlobalSearch(false)}
-        rows={searchRows}
+        rows={searchIndex.rows}
+        indexProgress={searchIndex.ready ? undefined : searchIndex.progress}
         onOpen={openSearchResult}
         filterContext={searchFilterContext}
         metaOf={searchMetaOf}

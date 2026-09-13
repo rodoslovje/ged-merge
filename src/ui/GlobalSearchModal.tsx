@@ -35,8 +35,11 @@ export interface SearchRowMeta {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  /** Precomputed search index for the whole main (see {@link buildSearchRows}). */
+  /** Precomputed search index for the whole main (see `useSearchIndex`). */
   rows: SearchRow[];
+  /** Set (0…1) while the index is still being built — the dialog then shows
+   *  the progress in place of results; undefined once `rows` is complete. */
+  indexProgress?: number;
   /** Open a chosen person in the requested way (open in Merge/Edit, tree, or relationship). */
   onOpen: (id: string, how: OpenHow) => void;
   /** Cross-cutting edit/decision lookups for the attribute facets. */
@@ -107,7 +110,7 @@ function SearchThumb({ photo }: { photo?: SearchRow["photo"] }) {
  * the host, which decides whether to land it in Merge (a match candidate) or
  * Edit. Enter opens; Shift+Enter opens the tree.
  */
-export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext, metaOf, startId, hasDecisions, onCreatePerson }: Props) {
+export function GlobalSearchModal({ isOpen, onClose, rows, indexProgress, onOpen, filterContext, metaOf, startId, hasDecisions, onCreatePerson }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(isOpen, onClose);
   // Thumbnails only make sense once a media folder is loaded; without one the
@@ -153,10 +156,12 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
     onClose();
   }
 
+  const indexing = indexProgress !== undefined;
   // Nothing found and something typed to name them by: the search doubles as
-  // the way to add the person who turned out to be missing.
+  // the way to add the person who turned out to be missing. Not while the
+  // index is still building — an empty list then says nothing about the file.
   const createName = query.trim();
-  const canCreate = results.length === 0 && createName.length > 0;
+  const canCreate = !indexing && results.length === 0 && createName.length > 0;
 
   function create() {
     if (!canCreate) return;
@@ -360,7 +365,12 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
               </li>
             );
           })}
-          {results.length === 0 && (
+          {indexing && (
+            <li className="global-search-empty">
+              <span className="muted">{t("globalSearch.indexing", { percent: Math.floor(indexProgress * 100) })}</span>
+            </li>
+          )}
+          {!indexing && results.length === 0 && (
             <li className="global-search-empty">
               <span className="muted">{t("globalSearch.empty")}</span>
               {canCreate && (
@@ -373,7 +383,7 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
           )}
         </ul>
         <div className="global-search-footer">
-          <span>{t("globalSearch.count", { count: results.length })}</span>
+          <span>{indexing ? "" : t("globalSearch.count", { count: results.length })}</span>
           <span className="global-search-hints">{canCreate ? t("globalSearch.hints.create") : t("globalSearch.hints")}</span>
         </div>
       </div>

@@ -121,49 +121,205 @@ function placeText(indi: Individual): string {
  *  on a sort over tens of thousands of rows is most of the sort's cost. */
 export const nameCollator = new Intl.Collator();
 
+/** One projected row; the sort happens afterwards in {@link startSearchIndex}. */
+function rowOf(indi: Individual, nameOf: (indi: Individual) => string, records?: GedNode[]): SearchRow {
+  const span = lifespanOf(indi);
+  const searchText = foldSearch(span ? `${nameSearchText(indi)} ${span}` : nameSearchText(indi));
+  return {
+    id: indi.id,
+    name: nameOf(indi),
+    span,
+    searchText,
+    sex: indi.sex,
+    birthYear: birthYear(indi),
+    birthKey: birthSortKey(indi),
+    deathKey: deathYear(indi) ?? Infinity,
+    placeText: placeText(indi),
+    noteText: noteText(indi),
+    hasLinks: anyLinks(indi),
+    hasNotes: anyNotes(indi),
+    hasSources: anySources(indi),
+    photo: records ? collectFirstImage(indi.raw, records) ?? undefined : undefined,
+  };
+}
+
+/** Display name, then birth date, then death year (both `Infinity` when
+ *  unknown, so undated namesakes come last), then the record id so the order
+ *  is total. The id compares as a plain string: the collator's locale rules
+ *  add nothing to `@I123@` and cost most of a large file's sort. */
+function compareRows(a: SearchRow, b: SearchRow): number {
+  return (
+    (a.name === b.name ? 0 : nameCollator.compare(a.name, b.name)) ||
+    a.birthKey - b.birthKey ||
+    a.deathKey - b.deathKey ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  );
+}
+
+/** Individuals projected per clock check while building rows. */
+const ROW_BATCH = 256;
+/** Rows dealt into buckets per clock check while splitting a large bucket. */
+const SPLIT_BATCH = 4096;
+/** A bucket of more rows than this is split by a longer name prefix before
+ *  it is sorted, so no single step sorts more than a couple of thousand rows. */
+const BUCKET_LIMIT = 2000;
+/** Prefix length the split starts at, and how much longer each further split
+ *  looks. */
+const PREFIX_START = 2;
+const PREFIX_STEP = 2;
+
 /**
- * Build the search index for a dataset. `nameOf` is the caller's name-display
- * formatter (from `useNameOf`) so results read the same as everywhere else; the
- * rows are re-sorted by display name and then by birth date (death year as a
- * fallback) so namesakes read oldest-first instead of in file order.
+ * An index build that runs in slices — see {@link startSearchIndex}.
+ * `step` does about `budgetMs` of work and says whether the build finished;
+ * `progress` runs 0…1 and `rows` is empty until the build is complete.
  */
-export function buildSearchRows(
+export interface SearchIndexBuild {
+  step(budgetMs: number): boolean;
+  readonly progress: number;
+  readonly rows: SearchRow[];
+}
+
+/** Rows still to sort: a bucket of rows sharing the first `depth` characters
+ *  of their lower-cased display name (`depth` 0 = everything). */
+interface Bucket {
+  rows: SearchRow[];
+  depth: number;
+}
+
+/** A large bucket part-way through being dealt into sub-buckets by a longer
+ *  prefix — the whole list is one such bucket at first, and dealing half a
+ *  million rows takes longer than a slice. */
+interface Splitting extends Bucket {
+  buckets: Map<string, SearchRow[]>;
+  next: number;
+}
+
+/**
+ * Start building the search index for a dataset, to be driven by `step` in
+ * time-bounded slices so a file of half a million people can be indexed in
+ * idle moments without stalling the page. `nameOf` is the caller's
+ * name-display formatter (from `useNameOf`) so results read the same as
+ * everywhere else. The rows come out sorted by display name and then by birth
+ * date (death year as a fallback), so namesakes read oldest-first instead of
+ * in file order.
+ *
+ * The sort is bucketed so it too can be sliced: rows are grouped by a prefix
+ * of the lower-cased name, the buckets are ordered by the collator on their
+ * prefix, and each bucket is sorted on its own — a bucket still too large is
+ * split again by a longer prefix. Within a bucket the comparison is the full
+ * one, so the result is the collator's order of the whole list, reached in
+ * many small sorts instead of one that would hold the page for seconds.
+ */
+export function startSearchIndex(
   individuals: Map<string, Individual>,
   nameOf: (indi: Individual) => string,
   /** The dataset's records, for resolving shared-`OBJE` profile photos into
    *  `photo`. Callers that never show thumbnails (batch tool) may omit it. */
   records?: GedNode[],
+): SearchIndexBuild {
+  const total = individuals.size;
+  const source = individuals.values();
+  const unsorted: SearchRow[] = [];
+  const sorted: SearchRow[] = [];
+  // Set once every individual has a row; the sort phase then works it down.
+  let pending: Bucket[] | undefined;
+  let splitting: Splitting | undefined;
+  let done = total === 0;
+
+  const sortInto = (rows: SearchRow[]) => {
+    rows.sort(compareRows);
+    for (const row of rows) sorted.push(row);
+  };
+
+  /** Deal the next batch of a large bucket into sub-buckets; true when dealt. */
+  const dealSome = (s: Splitting): boolean => {
+    const { rows, depth, buckets } = s;
+    const end = Math.min(rows.length, s.next + SPLIT_BATCH);
+    for (; s.next < end; s.next++) {
+      const row = rows[s.next];
+      const key = row.name.slice(0, depth).toLowerCase();
+      const list = buckets.get(key);
+      if (list) list.push(row);
+      else buckets.set(key, [row]);
+    }
+    return s.next >= rows.length;
+  };
+
+  const finishSplit = ({ rows, depth, buckets }: Splitting, stack: Bucket[]) => {
+    if (buckets.size === 1) {
+      // Everyone shares this prefix: look further along the name, unless the
+      // names end here — then they are equal and only the full sort orders them.
+      if (rows.some((row) => row.name.length > depth)) stack.push({ rows, depth: depth + PREFIX_STEP });
+      else sortInto(rows);
+      return;
+    }
+    // Pushed in reverse so the buckets pop, and land in `sorted`, in order.
+    const keys = [...buckets.keys()].sort(nameCollator.compare);
+    for (let i = keys.length - 1; i >= 0; i--) {
+      stack.push({ rows: buckets.get(keys[i])!, depth: depth + PREFIX_STEP });
+    }
+  };
+
+  return {
+    get progress() {
+      if (done) return 1;
+      // The projection and the sort take about the same time on a large file.
+      return (unsorted.length + sorted.length) / (2 * total);
+    },
+    get rows() {
+      return done ? sorted : [];
+    },
+    step(budgetMs: number): boolean {
+      if (done) return true;
+      const deadline = performance.now() + budgetMs;
+      if (!pending) {
+        do {
+          for (let i = 0; i < ROW_BATCH; i++) {
+            const next = source.next();
+            if (next.done) {
+              pending = [{ rows: unsorted, depth: PREFIX_START }];
+              break;
+            }
+            unsorted.push(rowOf(next.value, nameOf, records));
+          }
+        } while (!pending && performance.now() < deadline);
+        if (!pending) return false;
+      }
+      for (;;) {
+        if (splitting) {
+          while (!dealSome(splitting)) {
+            if (performance.now() >= deadline) return false;
+          }
+          finishSplit(splitting, pending);
+          splitting = undefined;
+        } else if (pending.length === 0) {
+          break;
+        } else {
+          const bucket = pending.pop()!;
+          if (bucket.rows.length > BUCKET_LIMIT) splitting = { ...bucket, buckets: new Map(), next: 0 };
+          else sortInto(bucket.rows);
+        }
+        if (performance.now() >= deadline) return splitting === undefined && pending.length === 0 && (done = true);
+      }
+      done = true;
+      return true;
+    },
+  };
+}
+
+/**
+ * Build the whole search index at once — {@link startSearchIndex} run to the
+ * end. For callers that need the rows now (the batch tool, tests); the search
+ * dialog's index is built in slices by `useSearchIndex`.
+ */
+export function buildSearchRows(
+  individuals: Map<string, Individual>,
+  nameOf: (indi: Individual) => string,
+  records?: GedNode[],
 ): SearchRow[] {
-  const rows: SearchRow[] = [];
-  for (const indi of individuals.values()) {
-    const span = lifespanOf(indi);
-    const name = nameOf(indi);
-    const searchText = foldSearch(span ? `${nameSearchText(indi)} ${span}` : nameSearchText(indi));
-    rows.push({
-      id: indi.id,
-      name,
-      span,
-      searchText,
-      sex: indi.sex,
-      birthYear: birthYear(indi),
-      birthKey: birthSortKey(indi),
-      deathKey: deathYear(indi) ?? Infinity,
-      placeText: placeText(indi),
-      noteText: noteText(indi),
-      hasLinks: anyLinks(indi),
-      hasNotes: anyNotes(indi),
-      hasSources: anySources(indi),
-      photo: records ? collectFirstImage(indi.raw, records) ?? undefined : undefined,
-    });
-  }
-  rows.sort(
-    (a, b) =>
-      nameCollator.compare(a.name, b.name) ||
-      a.birthKey - b.birthKey ||
-      a.deathKey - b.deathKey ||
-      nameCollator.compare(a.id, b.id),
-  );
-  return rows;
+  const build = startSearchIndex(individuals, nameOf, records);
+  while (!build.step(Infinity)) { /* one slice with no budget finishes it */ }
+  return build.rows;
 }
 
 /** Active attribute facets layered on top of the free-text query. */
