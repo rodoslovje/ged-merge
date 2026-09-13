@@ -2213,6 +2213,23 @@ describe("individual media", () => {
     expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
   });
 
+  it("removes every link a collapsed ref stands for, then prunes the shared record", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const rec = createMediaRecord(ds.records, "scan.jpg");
+    attachMediaPointer(indi.raw, rec.xref!);
+    attachMediaPointer(indi.raw, rec.xref!);
+    const birt = { level: 1, tag: "BIRT", children: [{ level: 2, tag: "OBJE", value: rec.xref, children: [] }] };
+    indi.raw.children.push(birt);
+    removeMediaAt(ds, indi.raw, {
+      objeIndex: 0,
+      alsoAt: [{ objeIndex: 1 }, { eventTag: "BIRT", eventIndex: 0, objeIndex: 0 }],
+    });
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(birt.children).toHaveLength(0);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
   it("keeps a shared OBJE still referenced by another person", () => {
     const ds = buildFromText(FAM_BASE);
     const i1 = ds.individuals.get("@I1@")!;

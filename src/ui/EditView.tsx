@@ -122,7 +122,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { mediaKindOf } from "./mediaPath";
-import { collectMediaRefs, mediaNodeAt, type MediaAddress } from "../gedcom/media";
+import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
 
 
 interface Props {
@@ -980,7 +980,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   /** Remove the owner's media at `addr`. Mirrors `commitRemoveSource`:
    *  snapshots the shared OBJE first so undo can restore it if the delete
    *  pruned it as now-unreferenced. */
-  function deleteMediaOn(owner: MediaOwner, addr: MediaAddress) {
+  function deleteMediaOn(owner: MediaOwner, addr: MediaAddress & Pick<MediaRef, "alsoAt">) {
     const raw = ownerRaw(owner);
     if (!raw) return;
     const objeChild = mediaNodeAt(raw, addr);
@@ -1011,7 +1011,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     setTick((v) => v + 1);
   }
 
-  const handleDeleteMedia = useStableHandler((owner: MediaOwner, addr: MediaAddress) => {
+  const handleDeleteMedia = useStableHandler((owner: MediaOwner, addr: MediaAddress & Pick<MediaRef, "alsoAt">) => {
     setPendingConfirm({
       message: t("media.deleteConfirm"),
       confirmLabel: t("confirm.delete"),

@@ -15,7 +15,7 @@ export interface MediaEditControls {
   /** Add a new photo (open the picker / prompt for a media folder). */
   onAdd: () => void;
   /** Delete the media at this address (record- or event-level `OBJE`). */
-  onDelete: (addr: MediaAddress) => void;
+  onDelete: (addr: MediaAddress & Pick<MediaRef, "alsoAt">) => void;
   /** Move a record-level photo from one `OBJE` child index to another.
    *  Event-level media keep their event's position and aren't reorderable. */
   onReorder: (fromObjeIndex: number, toObjeIndex: number) => void;

@@ -118,6 +118,59 @@ describe("collectMediaRefs", () => {
     expect(mediaNodeAt(indi, { eventTag: "DEAT", eventIndex: 0, objeIndex: 0 })).toBeUndefined();
   });
 
+  it("collapses the same media linked on the person and on one of their events into one ref", () => {
+    const recs = records([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 OBJE @O1@",
+      "1 OBJE @O2@",
+      "1 OBJE @O1@",
+      "1 DEAT",
+      "2 OBJE @O1@",
+      "0 @O1@ OBJE",
+      "1 FILE scan.jpg",
+      "0 @O2@ OBJE",
+      "1 FILE portrait.jpg",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = recs.find((r) => r.xref === "@I1@")!;
+    const refs = collectMediaRefs(indi, recs);
+    expect(refs.map((r) => r.file)).toEqual(["portrait.jpg", "scan.jpg"]);
+    // The person-level link is the one kept; the event links fold into it.
+    expect(refs[1]).toMatchObject({ xref: "@O1@", objeIndex: 1 });
+    expect(refs[1].eventTag).toBeUndefined();
+    expect(refs[1].alsoAt).toEqual([
+      { eventTag: "BIRT", eventIndex: 0, objeIndex: 0 },
+      { eventTag: "DEAT", eventIndex: 0, objeIndex: 0 },
+    ]);
+    expect(refs[0].alsoAt).toBeUndefined();
+  });
+
+  it("keeps two links to one photo apart when they crop different regions", () => {
+    const recs = records([
+      ...HEAD,
+      "0 @I1@ INDI",
+      "1 OBJE @O1@",
+      "2 CROP",
+      "3 TOP 0",
+      "3 LEFT 0",
+      "3 WIDTH 100",
+      "3 HEIGHT 100",
+      "1 BIRT",
+      "2 OBJE @O1@",
+      "0 @O1@ OBJE",
+      "1 FILE group.jpg",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = recs.find((r) => r.xref === "@I1@")!;
+    const refs = collectMediaRefs(indi, recs);
+    expect(refs).toHaveLength(2);
+    expect(refs.every((r) => !r.alsoAt)).toBe(true);
+  });
+
   it("collects media on a FAM record and its MARR event", () => {
     const recs = records([
       ...HEAD,
