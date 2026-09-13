@@ -1198,6 +1198,7 @@ export const en = {
   "globalSearch.tooltip": "Search everyone in the file",
   "globalSearch.placeholder": "Search everyone…",
   "globalSearch.empty": "No people found",
+  "globalSearch.indexing": "Preparing the search ({{percent}}%)",
   "globalSearch.count_one": "{{count}} person",
   "globalSearch.count_other": "{{count}} people",
   "globalSearch.hints": "↵ open · ⇧↵ charts",
