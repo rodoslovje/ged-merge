@@ -4,10 +4,10 @@
  *
  * They are read differently on purpose. A genealogical-index *matches* export
  * already says which of the reader's people each row concerns, so it is matched
- * pair by pair; a parish-register *index* is a whole book and says nothing about
- * the reader's tree, so it goes through the ordinary matching engine exactly as
- * a GEDCOM compare file does — which is what `pairs` being absent means to the
- * worker.
+ * pair by pair; the index's *search-results* export and a parish-register
+ * *index* say nothing about the reader's tree, so they go through the ordinary
+ * matching engine exactly as a GEDCOM compare file does — which is what `pairs`
+ * being absent means to the worker.
  */
 import type { Dataset } from "../gedcom/types";
 import { parseGiMatchesCsv, type GiPair } from "./giMatches";
@@ -31,9 +31,9 @@ export interface CompareCsvImport {
 
 /**
  * Parse an incoming CSV into a compare dataset. The parish index is tried first
- * because it recognises itself and declines quietly; the matches import throws
- * on a header it doesn't know, and that message is what the reader should see
- * when a CSV is neither.
+ * because it recognises itself and declines quietly; the index import (matches
+ * or search results) throws on a header it doesn't know, and that message is
+ * what the reader should see when a CSV is neither.
  */
 export function parseCompareCsv(text: string): CompareCsvImport {
   const parish = parseParishIndexCsv(text);

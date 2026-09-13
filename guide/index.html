@@ -332,8 +332,8 @@
               <li><strong>Main file</strong> — your primary family tree, the one you own and maintain. Load it first;
                 <span class="gm-pill">Edit</span> and <span class="gm-pill">Tools</span> always work on it.</li>
               <li><strong>Incoming</strong> — what you compare the main file against, loaded only in
-                <span class="gm-pill">Merge</span> mode: a second <em>.ged</em>, a <strong>matches CSV</strong>
-                exported from
+                <span class="gm-pill">Merge</span> mode: a second <em>.ged</em>, a <strong>matches or search-results
+                CSV</strong> exported from
                 <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
                 (the Slovenian genealogical index), or an <strong>index of a parish register</strong> read on
                 Matricula Online — the spreadsheet itself (<em>.xlsx</em>, <em>.xlsm</em>) or a CSV saved from it
@@ -825,6 +825,14 @@
               file holds someone of that name and birth year. Such a person is one record however often the CSV names
               them — as a match of their own in one row, as somebody's partner in the next — so the incoming side
               arrives as a connected tree rather than a row of separate couples.
+            </p>
+            <p>
+              A <strong>search-results CSV</strong> — the persons or the families table the index exports from a
+              search — names nobody in your file, so it is matched the way a second GEDCOM is: every row becomes an
+              incoming person (or couple) with the partners and parents it names beside them, the burial and its
+              cemetery link included, and the match list shows whoever in your file scores as the same person. The
+              one column that tells the two exports apart is the match's confidence, which only a matches export
+              carries, so a search export is recognised on its own and there is nothing to choose.
             </p>
             <p>
               The index export has no sex column, so a person's sex is read from the columns that state it outright

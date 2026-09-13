@@ -24,13 +24,23 @@ import {
 export { parseCsvText } from "./csvText";
 
 /**
- * Import for the "matches" CSV exported by a genealogical index site such as
- * indeks.rodoslovje.si (the Slovenian Genealogical Index): a list of person
- * pairs, two rows per match — the first row is the person as recorded by the
- * main tree's own contributor, the second is the corresponding record from
- * another source (e.g. a cemetery index). We resolve the first row against
- * the main dataset by exact name + birth year, and present the second row
- * as a synthetic "incoming" individual for review/merge.
+ * Import for the CSV tables exported by a genealogical index site such as
+ * indeks.rodoslovje.si (the Slovenian Genealogical Index). Two exports share
+ * one set of columns and differ in what a row is:
+ *
+ *  - The **matches** export is a list of person pairs, two rows per match —
+ *    the first row is the person as recorded by the main tree's own
+ *    contributor, the second the corresponding record from another source
+ *    (e.g. a cemetery index). We resolve the first row against the main
+ *    dataset by exact name + birth year, and present the second row as a
+ *    synthetic "incoming" individual for review/merge.
+ *  - The **search** export is the result list of a search on the index — one
+ *    row per person (or per family), with nothing said about the reader's own
+ *    tree. Every row becomes an incoming record and the ordinary matching
+ *    engine finds its counterpart, as it does for a GEDCOM compare file.
+ *
+ * The one column that tells the two apart is the confidence of a match
+ * ("Zaupanje"/"Confidence"), which only the matches export carries.
  *
  * The site's column headers are translated per UI language; `COLUMN_SETS`
  * lists the translations we know about so a CSV exported in any of those
@@ -64,6 +74,8 @@ interface ColumnSet {
   /** Separate parent columns (newer export format), replacing `parents`. */
   father: string;
   mother: string;
+  /** The match's confidence — present in the matches export only, so its
+   *  header is what tells a matches export from a search export. */
   confidence: string;
 }
 
@@ -197,11 +209,14 @@ export interface GiPair {
 
 export interface GiMatchesImport {
   dataset: Dataset;
-  pairs: GiPair[];
+  /** The main-side keys of a matches export; absent for a search export, whose
+   *  rows name nobody in the main file and go through the matching engine. */
+  pairs?: GiPair[];
 }
 
-/** Column fields every export includes, regardless of which "parents" shape it uses. */
-type RequiredField = Exclude<keyof ColumnSet, "parents" | "father" | "mother">;
+/** Column fields every export includes, regardless of which "parents" shape it
+ *  uses — and whichever of the two exports it is. */
+type RequiredField = Exclude<keyof ColumnSet, "parents" | "father" | "mother" | "confidence">;
 
 /** Resolved column layout for one CSV: which header row index has which field. */
 interface ColumnLayout {
@@ -210,6 +225,18 @@ interface ColumnLayout {
   parentsIndex?: number;
   fatherIndex?: number;
   motherIndex?: number;
+  /** Rows come in main/incoming pairs (a matches export) rather than one
+   *  record per row (a search export). */
+  paired: boolean;
+}
+
+/** The confidence column's header in every language: the matches export's
+ *  signature, in the person and the family shape alike. */
+const CONFIDENCE_HEADERS = new Set(Object.values(COLUMN_SETS).map((c) => c.confidence));
+
+/** Whether a header is a matches export's — see {@link CONFIDENCE_HEADERS}. */
+function isPairedHeader(header: string[]): boolean {
+  return header.some((h) => CONFIDENCE_HEADERS.has(h));
 }
 
 /** Match the header row against each known language's column set. */
@@ -218,7 +245,7 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
     const index: Partial<Record<RequiredField, number>> = {};
     let ok = true;
     for (const [field, name] of Object.entries(columns) as [keyof ColumnSet, string][]) {
-      if (field === "parents" || field === "father" || field === "mother") continue;
+      if (field === "parents" || field === "father" || field === "mother" || field === "confidence") continue;
       const idx = header.indexOf(name);
       if (idx < 0) {
         ok = false;
@@ -236,6 +263,7 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
       parentsIndex: parentsIndex >= 0 ? parentsIndex : undefined,
       fatherIndex: fatherIndex >= 0 ? fatherIndex : undefined,
       motherIndex: motherIndex >= 0 ? motherIndex : undefined,
+      paired: isPairedHeader(header),
     };
   }
   return undefined;
@@ -380,10 +408,10 @@ function detectFamilyColumns(header: string[]): Record<FamilyField, number> | un
 }
 
 /**
- * Parse a genealogical index matches CSV into a synthetic compare `Dataset`
- * plus the main-side keys needed to resolve each pair to a main
- * individual. Two CSV shapes are recognised: per-person matches (one
- * individual per pair) and per-family matches (one couple per pair, yielding
+ * Parse a genealogical index CSV into a synthetic compare `Dataset` — plus,
+ * for a matches export, the main-side keys needed to resolve each pair to a
+ * main individual. Two CSV shapes are recognised: per-person (one individual
+ * per pair, or per row) and per-family (one couple per pair or row, yielding
  * up to two pairs — husband and wife).
  *
  * Throws if the header doesn't match either known shape.
@@ -409,12 +437,12 @@ export function parseGiMatchesCsv(text: string): GiMatchesImport {
   if (layout) return parsePersonMatches(dataRows, layout);
 
   const familyIndex = detectFamilyColumns(header);
-  if (familyIndex) return parseFamilyMatches(dataRows, familyIndex);
+  if (familyIndex) return parseFamilyMatches(dataRows, familyIndex, isPairedHeader(header));
 
-  throw new Error("Unrecognized matches CSV: unknown column headers");
+  throw new Error("Unrecognized index CSV: unknown column headers");
 }
 
-function finish(records: GedNode[], pairs: GiPair[]): GiMatchesImport {
+function finish(records: GedNode[], pairs: GiPair[] | undefined): GiMatchesImport {
   const parsed: ParseResult = {
     version: "5.5.1",
     charset: "UTF-8",
@@ -437,27 +465,35 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
     idx === undefined ? "" : (row[idx] ?? "").trim();
 
   interface Row {
-    mainKey: GiMainKey;
+    /** Who the row concerns in the main file — a matches export only. */
+    mainKey?: GiMainKey;
     incomingRow: string[];
     compareId: string;
   }
   const rows: Row[] = [];
   const people = newPeople();
 
-  // Pass 1: one compare id per CSV row-pair, registered under the incoming
-  // person's own name + birth year *before* any relative is built — so a row
-  // that names this person as someone else's partner or parent lands on this
-  // record instead of minting a stand-in for them.
+  // Pass 1: one compare id per CSV row-pair (or per row, in a search export),
+  // registered under the incoming person's own name + birth year *before* any
+  // relative is built — so a row that names this person as someone else's
+  // partner or parent lands on this record instead of minting a stand-in for
+  // them.
+  const step = layout.paired ? 2 : 1;
   let n = 0;
-  for (let i = 0; i + 1 < dataRows.length; i += 2) {
-    const mainRow = dataRows[i];
-    const incomingRow = dataRows[i + 1];
-    const mainKey: GiMainKey = {
-      given: col(mainRow, "given"),
-      surname: stripSurnameAnnotation(col(mainRow, "surname")),
-      birthYear: parseDate(withoutAnnotation(col(mainRow, "birthDate"))).year,
-    };
-    if (!mainKey.given || !mainKey.surname) continue;
+  for (let i = 0; i + step - 1 < dataRows.length; i += step) {
+    const incomingRow = dataRows[i + step - 1];
+    let mainKey: GiMainKey | undefined;
+    if (layout.paired) {
+      const mainRow = dataRows[i];
+      mainKey = {
+        given: col(mainRow, "given"),
+        surname: stripSurnameAnnotation(col(mainRow, "surname")),
+        birthYear: parseDate(withoutAnnotation(col(mainRow, "birthDate"))).year,
+      };
+      if (!mainKey.given || !mainKey.surname) continue;
+    } else if (!col(incomingRow, "given") && !col(incomingRow, "surname")) {
+      continue; // a row with no name at all says nothing worth matching
+    }
 
     n++;
     const compareId = `@${ID_PREFIX}${n}@`;
@@ -484,11 +520,13 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
     buildPairRelatives(people, compareId, incomingRow, col, colAt, layout);
   }
 
-  // The CSV's own rows first: they carry the index's main-side key, and a
-  // relative that resolves to the same main individual is dropped as a duplicate.
   inferSexFromNames(people);
   settleGuessedRoles(people);
-  const pairs: GiPair[] = rows.map(({ mainKey, compareId }) => ({ mainKey, compareId }));
+  if (!layout.paired) return finish(people.records, undefined);
+
+  // The CSV's own rows first: they carry the index's main-side key, and a
+  // relative that resolves to the same main individual is dropped as a duplicate.
+  const pairs: GiPair[] = rows.map(({ mainKey, compareId }) => ({ mainKey: mainKey!, compareId }));
   for (const [compareId, mainKey] of people.relativeKeys) pairs.push({ mainKey, compareId });
 
   return finish(people.records, pairs);
@@ -698,42 +736,59 @@ function buildPairRelatives(
 }
 
 /**
- * Parse family match rows, merging multiple rows for the same person into one
+ * Parse family rows, merging multiple rows for the same person into one
  * compare individual with multiple FAMS pointers (one per marriage). This way
  * a person who married more than once appears as a single match entry rather
  * than one per marriage.
+ *
+ * In a matches export (`paired`) a person is recognised across rows by the
+ * main-side key, which names one person in the reader's file by definition. A
+ * search export has only the incoming spelling to go by, and there a name
+ * without a birth year is as likely two people as one — the rule the person
+ * rows' relatives follow (see `dedupKey`) — so such a spouse stays their row's
+ * own.
  */
-function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, number>): GiMatchesImport {
+function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, number>, paired: boolean): GiMatchesImport {
   const col = (row: string[], field: FamilyField): string => (row[index[field]] ?? "").trim();
 
+  /** A person's identity across rows: the main-side key, or in a search export
+   *  the incoming one, tagged with its row when no birth year backs it. */
+  interface PersonKey extends GiMainKey {
+    rowTag?: string;
+  }
   /** Normalised dedup key: used to recognise the same person across rows. */
-  const keyStr = giPersonKey;
+  const keyStr = (key: PersonKey): string => giPersonKey(key) + (key.rowTag ?? "");
 
-  // ── Pass 1: collect all valid family row-pairs ──────────────────────────
+  // ── Pass 1: collect all valid family row-pairs (or rows) ────────────────
   interface FamilyEntry {
     famIdx: number;
     incomingRow: string[];
-    husbandKey: GiMainKey;
-    wifeKey: GiMainKey;
+    husbandKey: PersonKey;
+    wifeKey: PersonKey;
   }
   const entries: FamilyEntry[] = [];
   let famCounter = 0;
 
-  for (let i = 0; i + 1 < dataRows.length; i += 2) {
-    const mainRow = dataRows[i];
-    const incomingRow = dataRows[i + 1];
-    const husbandKey: GiMainKey = {
-      given: col(mainRow, "husbandName"),
-      surname: stripSurnameAnnotation(col(mainRow, "husbandSurname")),
-      birthYear: parseDate(withoutAnnotation(col(mainRow, "husbandBirth"))).year,
+  const step = paired ? 2 : 1;
+  for (let i = 0; i + step - 1 < dataRows.length; i += step) {
+    const keyRow = dataRows[i];
+    const incomingRow = dataRows[i + step - 1];
+    const husbandKey: PersonKey = {
+      given: col(keyRow, "husbandName"),
+      surname: stripSurnameAnnotation(col(keyRow, "husbandSurname")),
+      birthYear: parseDate(withoutAnnotation(col(keyRow, "husbandBirth"))).year,
     };
-    const wifeKey: GiMainKey = {
-      given: col(mainRow, "wifeName"),
-      surname: stripSurnameAnnotation(col(mainRow, "wifeSurname")),
-      birthYear: parseDate(withoutAnnotation(col(mainRow, "wifeBirth"))).year,
+    const wifeKey: PersonKey = {
+      given: col(keyRow, "wifeName"),
+      surname: stripSurnameAnnotation(col(keyRow, "wifeSurname")),
+      birthYear: parseDate(withoutAnnotation(col(keyRow, "wifeBirth"))).year,
     };
     if (!husbandKey.given && !husbandKey.surname && !wifeKey.given && !wifeKey.surname) continue;
     famCounter++;
+    if (!paired) {
+      if (husbandKey.birthYear === undefined) husbandKey.rowTag = `#${famCounter}h`;
+      if (wifeKey.birthYear === undefined) wifeKey.rowTag = `#${famCounter}w`;
+    }
     entries.push({ famIdx: famCounter, incomingRow, husbandKey, wifeKey });
   }
 
@@ -742,7 +797,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   const personIdByKey = new Map<string, string>();
   const personMainKeyByKey = new Map<string, GiMainKey>();
 
-  function getPersonId(key: GiMainKey): string | undefined {
+  function getPersonId(key: PersonKey): string | undefined {
     if (!key.given && !key.surname) return undefined;
     const k = keyStr(key);
     if (!personIdByKey.has(k)) {
@@ -774,7 +829,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   const personAccs = new Map<string, PersonAcc>(); // compareId → acc
 
   function getAcc(
-    key: GiMainKey,
+    key: PersonKey,
     given: string,
     surname: string,
     birth: string,
@@ -853,6 +908,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
 
   inferSexFromNames(people);
   settleGuessedRoles(people);
+  if (!paired) return finish(people.records, undefined);
   for (const [compareId, mainKey] of people.relativeKeys) pairs.push({ mainKey, compareId });
   return finish(people.records, pairs);
 }
