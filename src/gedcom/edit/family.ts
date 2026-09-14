@@ -1,5 +1,6 @@
 import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
+import { cloneNode } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { rebuildFamily, rebuildIndividual } from "./cache";
@@ -379,4 +380,63 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
   const ri = dataset.records.findIndex((r) => r.xref === fam.id);
   if (ri !== -1) dataset.records.splice(ri, 1);
   dataset.families.delete(fam.id);
+}
+
+/** Lines that belong to the record they sit on, not to the family it describes:
+ *  change stamps and record identifiers. A fold leaves the kept record's own
+ *  and does not carry the dropped record's over. */
+const RECORD_OWN_TAGS = new Set(["CHAN", "CREA", "_UPD", "RIN", "_UID", "UID"]);
+
+/**
+ * Merge family `dropId` into family `keepId` and remove it — for two records
+ * of the same couple, whichever way they came about (a duplicate person
+ * merged, or a partner added twice by hand).
+ *
+ * Nothing recorded is lost: the dropped family's children join the kept one in
+ * birth order, an empty spouse slot is filled from it, and every other line —
+ * marriage and other events, notes, sources, media, custom tags — moves across
+ * unless the kept record already holds an identical line, or holds the tag and
+ * the line is an empty stub (`1 MARR` with nothing under it). Only the dropped
+ * record's own change stamps and identifiers stay behind. Every member's
+ * `FAMS`/`FAMC` pointers end up on the kept family alone.
+ */
+export function foldFamily(dataset: Dataset, keepId: string, dropId: string): void {
+  const keep = dataset.families.get(keepId);
+  const drop = dataset.families.get(dropId);
+  if (!keep || !drop || keepId === dropId) return;
+
+  for (const childId of [...drop.children]) {
+    if (keep.children.includes(childId)) continue;
+    addFamilyChild(dataset, keep, childId);
+    const child = dataset.individuals.get(childId);
+    if (child && !child.raw.children.some((c) => c.tag === "FAMC" && c.value === keepId)) {
+      addFamilyLink(child, "FAMC", keepId);
+      rebuildIndividual(dataset, child);
+    }
+  }
+
+  for (const role of ["HUSB", "WIFE"] as const) {
+    if (keep.raw.children.some((c) => c.tag === role)) continue;
+    const spouseId = drop.raw.children.find((c) => c.tag === role)?.value;
+    if (!spouseId) continue;
+    setFamilySpouse(keep, role, spouseId);
+    const spouse = dataset.individuals.get(spouseId);
+    if (spouse && !spouse.raw.children.some((c) => c.tag === "FAMS" && c.value === keepId)) {
+      addFamilyLink(spouse, "FAMS", keepId);
+      rebuildIndividual(dataset, spouse);
+    }
+  }
+
+  const have = new Set(keep.raw.children.map((c) => JSON.stringify(c)));
+  for (const line of drop.raw.children) {
+    if (line.tag === "HUSB" || line.tag === "WIFE" || line.tag === "CHIL") continue;
+    if (RECORD_OWN_TAGS.has(line.tag)) continue;
+    if (have.has(JSON.stringify(line))) continue;
+    const stub = !line.value && line.children.length === 0;
+    if (stub && keep.raw.children.some((c) => c.tag === line.tag)) continue;
+    insertOrdered(keep.raw, cloneNode(line), FAM_CHILD_ORDER);
+  }
+
+  rebuildFamily(dataset, keep);
+  removeFamily(dataset, drop); // unlinks every member's FAMS/FAMC to the dropped record
 }

@@ -12,6 +12,7 @@ import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
 import { countSwappedRoles, fixSwappedRoles } from "./fixRoleSwap";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
+import { fixDuplicateFamilies } from "./fixDuplicateFamilies";
 import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 import { serializeGedcom } from "../gedcom/serialize";
@@ -2643,5 +2644,186 @@ describe("bulkNormalize vendor-tag dialect", () => {
     const raw = out.families.get("@F1@")!.raw;
     expect(raw.children.some((c) => c.tag === "_SEPR")).toBe(true);
     expect(report.vendorTagsRenamed).toBe(0);
+  });
+});
+
+describe("burial before death", () => {
+  const person = (death: string, burial: string) => dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jan /Kos/
+1 SEX M
+1 BIRT
+2 DATE 1900
+1 DEAT
+2 DATE ${death}
+1 BURI
+2 DATE ${burial}
+0 TRLR`);
+  const buried = (death: string, burial: string) =>
+    validateDataset(person(death, burial), 2026).issues.filter((i) => i.messageKey.endsWith("buriedBeforeDeath"));
+
+  it("flags a burial dated before the death, to the day", () => {
+    const hits = buried("5 MAR 1950", "3 MAR 1950");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].category).toBe("eventOrder");
+    expect(hits[0].messageVars).toEqual({ tag: "BURI", date: "3 MAR 1950", death: "5 MAR 1950" });
+  });
+
+  it("flags it by year alone, which the lifespan bounds cannot see", () => {
+    expect(buried("12 JAN 1951", "1950")).toHaveLength(1);
+    // The lifespan check spares a burial in the death year, and stays quiet.
+    const report = validateDataset(person("12 JAN 1951", "1950"), 2026);
+    expect(report.issues.filter((i) => i.category === "eventOrder")).toHaveLength(1);
+  });
+
+  it("compares at the coarser precision and leaves open-ended dates alone", () => {
+    expect(buried("1950", "3 MAR 1950")).toHaveLength(0); // same year, one is year-only
+    expect(buried("MAR 1950", "3 MAR 1950")).toHaveLength(0); // same month, one is month-only
+    expect(buried("BEF 1950", "1949")).toHaveLength(0);
+    expect(buried("5 MAR 1950", "AFT 1949")).toHaveLength(0);
+    expect(buried("3 MAR 1950", "5 MAR 1950")).toHaveLength(0); // the right way round
+  });
+});
+
+describe("fixDuplicateFamilies", () => {
+  // Luka and Ana as a couple twice: F1 holds the marriage and Maja, F2 holds
+  // Tine, an empty MARR stub and a note of its own.
+  const twice = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Luka /Renko/
+1 SEX M
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Ana /Štetulj/
+1 SEX F
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Maja /Renko/
+1 SEX F
+1 BIRT
+2 DATE 1980
+1 FAMC @F1@
+0 @I4@ INDI
+1 NAME Tine /Renko/
+1 SEX M
+1 BIRT
+2 DATE 1978
+1 FAMC @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 MARR
+2 DATE 1975
+1 NOTE First record
+1 CHAN
+2 DATE 1 JAN 2020
+0 @F2@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I4@
+1 MARR
+1 NOTE Second record
+1 CHAN
+2 DATE 2 JAN 2020
+0 TRLR`;
+
+  it("is reported once per couple, on the husband, naming the partner and the records", () => {
+    const report = validateDataset(dataset(twice), 2026);
+    const hits = report.issues.filter((i) => i.category === "duplicateFamily");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].id).toBe("@I1@");
+    expect(hits[0].sexContext).toBe("M");
+    expect(hits[0].messageVars).toEqual({ partner: "Ana Štetulj", families: "@F1@, @F2@" });
+  });
+
+  it("folds the records into the fullest one without losing a child, event or note", () => {
+    const ds = dataset(twice);
+    const patches = fixDuplicateFamilies(ds);
+
+    expect(ds.families.size).toBe(1);
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.husband).toBe("@I1@");
+    expect(fam.wife).toBe("@I2@");
+    expect(fam.children).toEqual(["@I4@", "@I3@"]); // birth order: Tine 1978, Maja 1980
+    // One marriage (F2's empty stub adds nothing), both notes, only F1's own stamp.
+    const tags = fam.raw.children.map((c) => c.tag);
+    expect(tags.filter((t) => t === "MARR")).toHaveLength(1);
+    expect(fam.raw.children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual(["First record", "Second record"]);
+    expect(fam.raw.children.filter((c) => c.tag === "CHAN")).toHaveLength(1);
+    // Every member points at the one family and nowhere else.
+    expect(ds.individuals.get("@I1@")!.spouseOf).toEqual(["@F1@"]);
+    expect(ds.individuals.get("@I2@")!.spouseOf).toEqual(["@F1@"]);
+    expect(ds.individuals.get("@I4@")!.childOf).toEqual(["@F1@"]);
+    expect(ds.records.some((r) => r.xref === "@F2@")).toBe(false);
+
+    const after = validateDataset(ds, 2026);
+    expect(after.counts.duplicateFamily).toBe(0);
+    expect(after.counts.brokenLink).toBe(0);
+
+    // Undo material: the dropped record (with its position — HEAD, four people,
+    // F1, then F2), the kept one, and the members whose pointers moved — Maja's
+    // did not, so she has no patch.
+    const byId = new Map(patches.map((p) => [p.id, p]));
+    expect(byId.get("@F2@")).toMatchObject({ type: "family", after: null, index: 6 });
+    expect(byId.get("@F1@")?.after).not.toBeNull();
+    expect([...byId.keys()].sort()).toEqual(["@F1@", "@F2@", "@I1@", "@I2@", "@I4@"]);
+  });
+
+  it("folds only the families of the person a single row names", () => {
+    const other = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I5@ INDI
+1 NAME Bo /Horvat/
+1 SEX M
+1 FAMS @F3@
+1 FAMS @F4@
+0 @I6@ INDI
+1 NAME Eva /Horvat/
+1 SEX F
+1 FAMS @F3@
+1 FAMS @F4@
+0 @F3@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+0 @F4@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+0 TRLR`);
+    expect(validateDataset(other, 2026).counts.duplicateFamily).toBe(1);
+    expect(fixDuplicateFamilies(other, "@I1@")).toHaveLength(0); // not their row
+    expect(fixDuplicateFamilies(other, "@I6@").length).toBeGreaterThan(0); // either spouse's row
+    expect(other.families.size).toBe(1);
+  });
+
+  it("leaves a lone parent's separate families alone — the other partner may differ", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 SEX F
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Jan /Kos/
+1 SEX M
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Tea /Kos/
+1 SEX F
+1 FAMC @F2@
+0 @F1@ FAM
+1 WIFE @I1@
+1 CHIL @I2@
+0 @F2@ FAM
+1 WIFE @I1@
+1 CHIL @I3@
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.duplicateFamily).toBe(0);
+    expect(fixDuplicateFamilies(ds)).toHaveLength(0);
   });
 });

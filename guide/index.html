@@ -1068,7 +1068,9 @@
             <h3 id="validate">Health check</h3>
             <p>
               Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
-              dates, disconnected records, broken or one-way family links, duplicate pointers, <strong>pedigree
+              dates, disconnected records, broken or one-way family links, duplicate pointers, the <strong>same couple
+              twice</strong> (the same two people recorded as a couple in more than one family — the children, marriage
+              and notes may be split between the records; the finding names the partner and the records), <strong>pedigree
               loops</strong> (a person who is their own ancestor), <strong>sex vs. role</strong> conflicts (a female
               recorded as a husband, or a male as a wife — a genuine same-sex couple, one partner in each role, is
               <em>not</em> flagged), <strong>two spouses in one role</strong> (a family that packs two different people
@@ -1080,7 +1082,7 @@
               on that parent block in <span class="gm-pill">Edit</span>), future-dated events,
               death before birth, <strong>events outside the lifespan</strong> (an occupation dated before the birth, a
               residence or marriage after the death — burial, cremation and probate may follow a death and are not
-              flagged), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
+              flagged, though a burial or cremation dated <em>before</em> the death is, compared to the day), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
               plausible lifespan today — almost always a missing death record; the batch <em>mark as deceased</em>
               action closes them in one step), implausible ages
               (at death, at marriage, parent's age, spouse age gap), <strong>born after a parent's death</strong>
@@ -1109,7 +1111,9 @@
               in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers between people
               and families, <strong>Remove dangling references</strong> clears every other pointer whose target record is
               missing — source, note and media citations, associations, and family links nested inside an event —
-              <strong>Remove duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on
+              <strong>Remove duplicate pointers</strong> de-duplicates repeated links, <strong>Join same-couple
+              families</strong> folds a couple's family records into one, carrying every child, event, note and source
+              across, a sex fix sets the sex on
               unspecified spouses (husband → male, wife → female), <strong>Put the switched spouses back</strong> returns
               both partners to their own role in a family that holds the man as the wife and the woman as the husband
               (only that mutual swap — where a single spouse contradicts their role, the recorded sex may be the mistake
@@ -1120,7 +1124,8 @@
             <p>
               Every one of those repairs is also offered one finding at a time, on the row that raised it: the affected
               rows carry their own button — <strong>Remove link</strong>, <strong>Remove duplicate</strong>,
-              <strong>Remove reference</strong>, or, for a value being set rather than dropped, the result itself
+              <strong>Join into one</strong>, <strong>Remove reference</strong>, or, for a value being set rather than
+              dropped, the result itself
               (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>). Use them when you
               agree with some findings and not others: each acts on that record alone. The buttons double as a map of what the batch fix above would touch — where a category holds more
               findings than the fix can settle (three no-sex spouses among eight records with no sex), only the rows it

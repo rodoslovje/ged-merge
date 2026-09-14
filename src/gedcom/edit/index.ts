@@ -37,7 +37,7 @@ export {
   addIndividual, addFamily, addParent, addPartner, addChild,
   connectExistingParent, connectExistingPartner, connectExistingChild,
   pruneDegenerateFamily, detachSpouseRole, detachChildFromFamily,
-  removeIndividual, removeFamily,
+  removeIndividual, removeFamily, foldFamily,
 } from "./family";
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";

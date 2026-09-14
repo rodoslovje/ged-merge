@@ -103,6 +103,10 @@ interface Props {
   /** Remove redundant duplicate CHIL/FAMS/FAMC pointer lines and push to the undo
    *  stack. Returns the number of records changed, so the panel can re-validate. */
   onFixDuplicatePointers: (only?: string) => number;
+  /** Fold the family records of a couple recorded more than once into one and
+   *  push to the undo stack. Returns the number of records changed, so the
+   *  panel can re-validate. */
+  onFixDuplicateFamilies: (only?: string) => number;
   /** Remove pointer lines whose target record is missing (citations, notes,
    *  media, nested family links) and push to the undo stack. Returns the number
    *  of records changed, so the panel can re-validate. */
@@ -146,7 +150,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Places leads the tabs and is where most work starts,
@@ -217,7 +221,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDanglingRefs={onFixDanglingRefs} onFillPlaceCoords={onFillPlaceCoords} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFillPlaceCoords={onFillPlaceCoords} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />

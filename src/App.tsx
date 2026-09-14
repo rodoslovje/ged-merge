@@ -50,6 +50,7 @@ import { fixSexFromRole } from "./tools/fixSex";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
+import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
@@ -2413,6 +2414,7 @@ function AppContent() {
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
+              onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}

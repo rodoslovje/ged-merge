@@ -23,14 +23,15 @@ import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
-type FixKind = "links" | "sex" | "roles" | "dates" | "dups" | "dangling";
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", dups: "DupPointers", dangling: "Dangling" };
+type FixKind = "links" | "sex" | "roles" | "dates" | "dups" | "families" | "dangling";
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
 const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   links: "brokenLink",
   dups: "duplicatePointer",
+  families: "duplicateFamily",
   sex: "missingSex",
   roles: "roleSexConflict",
   dates: "badDate",
@@ -40,6 +41,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
   "duplicatePointer",
+  "duplicateFamily",
   "pedigreeLoop",
   "roleSexConflict",
   "multiSpouseSlot",
@@ -109,6 +111,7 @@ export function ValidatePanel({
   onFixSwappedRoles,
   onFixDates,
   onFixDuplicatePointers,
+  onFixDuplicateFamilies,
   onFixDanglingRefs,
   onFillPlaceCoords,
 }: {
@@ -121,6 +124,7 @@ export function ValidatePanel({
   onFixSwappedRoles: (only?: string) => number;
   onFixDates: (only?: BadDateRef) => number;
   onFixDuplicatePointers: (only?: string) => number;
+  onFixDuplicateFamilies: (only?: string) => number;
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFillPlaceCoords: () => number;
 }) {
@@ -227,6 +231,7 @@ export function ValidatePanel({
       : kind === "roles" ? onFixSwappedRoles()
       : kind === "dates" ? onFixDates()
       : kind === "dangling" ? onFixDanglingRefs()
+      : kind === "families" ? onFixDuplicateFamilies()
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -369,6 +374,12 @@ export function ValidatePanel({
           removes: true,
           run: () => onFixDuplicatePointers(issue.id),
         };
+      case "duplicateFamily":
+        return {
+          label: t("tools.validate.fixOneDupFamily"),
+          hint: t("tools.validate.fixOneDupFamilyHint"),
+          run: () => onFixDuplicateFamilies(issue.id),
+        };
       case "missingSex": {
         const sex = inferableSex.get(issue.id);
         if (!sex) return null;
@@ -439,6 +450,7 @@ export function ValidatePanel({
   const fixActions: { kind: FixKind; count: number }[] = [];
   if (report.counts.brokenLink > 0) fixActions.push({ kind: "links", count: report.counts.brokenLink });
   if (report.counts.duplicatePointer > 0) fixActions.push({ kind: "dups", count: report.counts.duplicatePointer });
+  if (report.counts.duplicateFamily > 0) fixActions.push({ kind: "families", count: report.counts.duplicateFamily });
   if (fixableDangling > 0) fixActions.push({ kind: "dangling", count: fixableDangling });
   if (swappedRoleFams > 0) fixActions.push({ kind: "roles", count: swappedRoleFams });
   if (inferableSex.size > 0) fixActions.push({ kind: "sex", count: inferableSex.size });
