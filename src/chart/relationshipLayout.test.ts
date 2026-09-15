@@ -141,6 +141,14 @@ describe("relationshipChartLayout", () => {
 
     expect(box("@I1@").role).toBe("start");
     expect(box("@I8@").role).toBe("target");
+    // Generations count from the start person as the rows draw them: the
+    // parents one up, the common grandparents two, the cousin level with ego.
+    expect(box("@I1@").gen).toBe(0);
+    expect(box("@I2@").gen).toBe(1);
+    expect(box("@I3@").gen).toBe(1);
+    expect(box("@I4@").gen).toBe(2);
+    expect(box("@I6@").gen).toBe(1);
+    expect(box("@I8@").gen).toBe(0);
 
     // Three couples (I2/I3, I4/I5, I6/I7) → 3 partner lines; 4 parent drops.
     expect(chart.links.filter((l) => l.kind === "partner")).toHaveLength(3);

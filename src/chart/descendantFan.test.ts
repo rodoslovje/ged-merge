@@ -139,7 +139,7 @@ describe("buildDescendantFanChart", () => {
     expect(nameForms(structured, structured.name)).toEqual(["Novak Janez", "Janez"]);
   });
 
-  it("keeps a sliver for a childless marriage", () => {
+  it("gives a childless marriage a band that names the spouse, narrower than a line with children", () => {
     const root = person("M", "root", {
       partners: [
         spouse("F", "first", [family("x", 3), family("y", 3)]),
@@ -152,6 +152,16 @@ describe("buildDescendantFanChart", () => {
     const first = chart.segments.find((s) => s.node.name === "first")!;
     expect(wedgeAngle(first.d, chart.cx, chart.cy)).toBeGreaterThan(wedgeAngle(second.d, chart.cx, chart.cy));
     expect(wedgeAngle(second.d, chart.cx, chart.cy)).toBeGreaterThan(0);
+    // The band fits the given name: it is written, not reduced to the glyph.
+    expect(second.lines.map((l) => l.text)).toEqual(["second"]);
+    // A longer given name earns a wider band; an absurd one is capped.
+    const wide = person("M", "root", {
+      partners: [spouse("F", "first", [family("x", 3)]), spouse("F", "Maximiliana Theresia", [])],
+    });
+    const wideChart = buildDescendantFanChart(wide, "fan");
+    const wideBand = wideChart.segments.find((s) => s.node.name === "Maximiliana Theresia")!;
+    expect(wedgeAngle(wideBand.d, wideChart.cx, wideChart.cy)).toBeGreaterThan(wedgeAngle(second.d, chart.cx, chart.cy));
+    expect(wedgeAngle(wideBand.d, wideChart.cx, wideChart.cy)).toBeLessThan(wedgeAngle(first.d, chart.cx, chart.cy));
   });
 
   it("splits a person's wedge between two marriages by their children", () => {

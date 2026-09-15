@@ -30,6 +30,7 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
+import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { useChartHover, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 
@@ -144,11 +145,16 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   // The shared Color axis over everyone drawn; on the plain axis the path
   // keeps its spine / context colours (the stroke width tells them apart on
   // any axis).
-  const subjects = useMemo(() => (chart?.boxes ?? []).map((b) => ({ indi: mainDs.individuals.get(b.id) })), [chart, mainDs]);
+  // Each box with its generation from the start person, as the rows draw it,
+  // so the Generation axis reads the chart the way the eye does.
+  const subjects = useMemo(
+    () => (chart?.boxes ?? []).map((b) => ({ indi: mainDs.individuals.get(b.id), pos: { gen: b.gen, branch: OWN_BRANCH } })),
+    [chart, mainDs],
+  );
   const colorer = useNodeColorer(mainDs, subjects);
   const colorFor = useMemo(
-    () => (b: { id: string; onSpine: boolean }) =>
-      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id))) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
+    () => (b: { id: string; onSpine: boolean; gen: number }) =>
+      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id), { gen: b.gen, branch: OWN_BRANCH })) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
     [colorer, mainDs],
   );
   const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
@@ -262,6 +268,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
             disabled={!chart}
             slug={relchartSlug}
             title={relchartTitle}
+            legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: chart?.boxes.map((b) => b.id) ?? [] }}
             canvasRef={canvasRef}
           />
