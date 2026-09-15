@@ -57,8 +57,12 @@ import {
 } from "./fanLayout";
 
 /** A childless marriage's band, as a share of the floor a child of that
- *  generation would get — enough for the ⚭ glyph, not for a child's name. */
+ *  generation would get — enough for the ⚭ glyph — unless the spouse's given
+ *  name asks for more (see bandFloorOf). */
 const CHILDLESS_UNION = 0.6;
+/** How many children's floors a childless band may take to fit the spouse's
+ *  given name along its lane, before the name gives way to the glyph. */
+const BAND_NAME_MAX_FLOORS = 3;
 
 /** Fill strength by generation: the children's ring strongest, then paler
  *  outward, so the depth reads from the tint and the branch from the hue. */
@@ -202,19 +206,29 @@ export function buildDescendantFanChart(
   const cy = rMax;
 
   // 4. Weights, in end-line units. A childless person is one line; a person with
-  //    children is the sum of their unions'; a childless union keeps a sliver.
-  //    Then the floor: a wedge on ring g may not be narrower along its inner
-  //    edge than one name line, so its weight is raised to that many units —
-  //    which grows the total, so two more passes settle it.
+  //    children is the sum of their unions'; a childless union (or one whose
+  //    children lie past the ring cap) keeps a band just wide enough to name
+  //    the spouse — their given name along the lane, up to a few children's
+  //    worth, else the glyph's sliver. Then the floor: a wedge on ring g may
+  //    not be narrower along its inner edge than one name line, so its weight
+  //    is raised to that many units — which grows the total, so two more
+  //    passes settle it.
   const valueOf = new Map<TreeNode, number>();
   const unionValue = new Map<TreeNode, number[]>();
-  const weigh = (n: TreeNode, gen: number, floorOf: (gen: number) => number): number => {
+  const weigh = (
+    n: TreeNode,
+    gen: number,
+    floorOf: (gen: number) => number,
+    bandFloorOf: (gen: number, partner: TreeNode) => number,
+  ): number => {
     const unions = unionsOf(n);
     const drawn = gen < cap;
     const uv = unions.map((u) => {
-      if (!drawn || !u.children.length) return floorOf(gen + 1) * CHILDLESS_UNION;
+      if (!drawn || !u.children.length) {
+        return Math.max(floorOf(gen + 1) * CHILDLESS_UNION, u.partner ? bandFloorOf(gen, u.partner) : 0);
+      }
       let s = 0;
-      for (const c of u.children) s += weigh(c, gen + 1, floorOf);
+      for (const c of u.children) s += weigh(c, gen + 1, floorOf, bandFloorOf);
       return s;
     });
     unionValue.set(n, uv);
@@ -224,11 +238,20 @@ export function buildDescendantFanChart(
     valueOf.set(n, v);
     return v;
   };
-  let total = weigh(root, 0, () => 0);
+  let total = weigh(root, 0, () => 0, () => 0);
   for (let pass = 0; pass < 2; pass++) {
     const unit = sweep / Math.max(total, 1e-9);
     const floorOf = (g: number) => (g > cap ? 0 : labelArc(g) / ringOf[g][0] / unit);
-    total = weigh(root, 0, floorOf);
+    // The arc the spouse's shortest name form needs at the band's lane, in
+    // weight units, capped so a long name never crowds the siblings.
+    const bandFloorOf = (g: number, partner: TreeNode) => {
+      const lane = laneOf[g];
+      if (!lane || g > cap) return 0;
+      const forms = nameForms(partner, dispOf(partner).name);
+      const px = forms[forms.length - 1].length * bandFont(g) * 0.5 + 10;
+      return Math.min(px / lane[0] / unit, (BAND_NAME_MAX_FLOORS * labelArc(g + 1)) / lane[0] / unit);
+    };
+    total = weigh(root, 0, floorOf, bandFloorOf);
   }
 
   // 5. Partition the sweep. A person's unions share the wedge by weight (centred
