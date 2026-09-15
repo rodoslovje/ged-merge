@@ -185,21 +185,9 @@ describe("buildDescendantFanChart", () => {
     expect(band.lines[0].arc!.match(/A/g)?.length).toBe(2);
   });
 
-  it("colours every line by the child of the root it descends from", () => {
-    const root = person("M", "root", {
-      partners: [spouse("F", "wife", [family("a", 2), family("b", 1)])],
-    });
-    const chart = buildDescendantFanChart(root, "fan");
-    const branch = (name: string) => chart.segments.find((s) => s.node.name === name)!.branch;
-    expect(branch("root")).toBeUndefined();
-    expect(branch("wife")).toBeUndefined();
-    expect(branch("a")).toBe(0);
-    expect(branch("a-wife")).toBe(0);
-    expect(branch("a-1")).toBe(0);
-    expect(branch("b")).toBe(1);
-    expect(branch("b-0")).toBe(1);
-    expect(chart.branches).toBe(2);
-  });
+  // Which line a person descends from is read off the tree, not off the
+  // segment — see indexPositions in nodeColor.test.ts, which the Family line
+  // colour axis uses for every pedigree chart alike.
 
   it("pales the fill outward, ring by ring", () => {
     const root = person("M", "root", { partners: [spouse("F", "w", [family("a", 1)])] });

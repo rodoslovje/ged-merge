@@ -224,7 +224,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const colorer = useNodeColorer(mainDs, subjects, undefined, "noBranch");
   const colorFor = useMemo(
     () => (row: (typeof rows)[number]) =>
-      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(row.id), { gen: row.gen, branch: OWN_BRANCH })) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
+      colorer.colorFor(mainDs.individuals.get(row.id), { gen: row.gen, branch: OWN_BRANCH }) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
     [colorer, mainDs],
   );
   const nodesByKey = useMemo(() => {

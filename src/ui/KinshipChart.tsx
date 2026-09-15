@@ -32,6 +32,7 @@ import { ZoomControls } from "./ZoomControls";
 import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
+import { Segmented } from "./Segmented";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
@@ -442,34 +443,20 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       controlsLeft={
         <>
           {kindSwitcher}
-          <div className="tree-mode" role="tablist" aria-label={t("kin.layout")}>
-          {(["wheel", "bars", "map"] as const).map((l) => (
-            <button
-              key={l}
-              role="tab"
-              aria-selected={layout === l}
-              className={layout === l ? "active" : ""}
-              onClick={() => set({ kinLayout: l })}
-            >
-              {t(`kin.layout.${l}`)}
-            </button>
-          ))}
-        </div>
-        {window && (
-          <div className="tree-mode" role="tablist" aria-label={t("kin.scope")}>
-            {(["contemporaries", "all"] as const).map((sc) => (
-              <button
-                key={sc}
-                role="tab"
-                aria-selected={scope === sc}
-                className={scope === sc ? "active" : ""}
-                onClick={() => set({ kinScope: sc })}
-              >
-                {t(`kin.scope.${sc}`)}
-              </button>
-            ))}
-          </div>
-        )}
+          <Segmented
+            label={t("kin.layout")}
+            value={layout}
+            onChange={(kinLayout) => set({ kinLayout })}
+            items={(["wheel", "bars", "map"] as const).map((l) => ({ key: l, label: t(`kin.layout.${l}`) }))}
+          />
+          {window && (
+            <Segmented
+              label={t("kin.scope")}
+              value={scope}
+              onChange={(kinScope) => set({ kinScope })}
+              items={(["contemporaries", "all"] as const).map((sc) => ({ key: sc, label: t(`kin.scope.${sc}`) }))}
+            />
+          )}
         <label className="kin-year">
           <input type="checkbox" checked={yearOn} onChange={(e) => setYearOn(e.target.checked)} />
           <span>{t("kin.aliveIn")}</span>

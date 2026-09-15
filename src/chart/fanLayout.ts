@@ -122,10 +122,6 @@ export interface FanSegment {
   /** Fill strength (percent of the state colour mixed into the panel); the
    *  descendant chart pales each generation outward. Default 16. */
   tint?: number;
-  /** Descendant charts: which child of the root this line descends from
-   *  (0-based, in drawing order), for the per-branch colouring. Absent on the
-   *  root and their spouses. */
-  branch?: number;
   /** The ring cap of the half this segment belongs to, when the chart joins
    *  two halves with caps of their own (the radial bowtie); else the chart's
    *  {@link FanChart.maxGen} applies. */
@@ -158,10 +154,6 @@ export interface FanChart {
   maxGen: number;
   /** How many rings the chart actually drew. */
   rings: number;
-  /** Descendant charts: how many children of the root head a line (the range
-   *  {@link FanSegment.branch} runs over), so a host can space the branch hues
-   *  evenly around the colour wheel. */
-  branches?: number;
   width: number;
   height: number;
 }

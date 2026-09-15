@@ -120,6 +120,10 @@ export interface NodeColorer {
   /** The category's colour; undefined on the plain axis, so the host keeps
    *  its own default. */
   colorOf: (category: string) => string | undefined;
+  /** A person's colour, the whole way from the record — what every host
+   *  actually wants. Undefined on the plain axis, so `?? own default` reads
+   *  as "the chart's own colouring". */
+  colorFor: (indi: Individual | undefined, pos?: NodePosition) => string | undefined;
   legend: LegendEntry[];
 }
 
@@ -394,13 +398,17 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   const legend: LegendEntry[] = kept.map((k) => ({ key: k, label: label(k), color: colors.get(k)!, count: counts.get(k)! }));
   if (otherCount) legend.push({ key: OTHER, label: t("chartColor.other"), color: UNKNOWN_COLOR, count: otherCount });
 
+  const categoryFolded = (indi: Individual | undefined, pos?: NodePosition): string => {
+    const k = categoryOf(indi, pos);
+    return folded.has(k) ? OTHER : k;
+  };
+  const colorOf = (k: string) => (axis === "plain" ? undefined : colors.get(k) ?? UNKNOWN_COLOR);
+
   return {
     axis,
-    categoryOf: (indi, pos) => {
-      const k = categoryOf(indi, pos);
-      return folded.has(k) ? OTHER : k;
-    },
-    colorOf: (k) => (axis === "plain" ? undefined : colors.get(k) ?? UNKNOWN_COLOR),
+    categoryOf: categoryFolded,
+    colorOf,
+    colorFor: (indi, pos) => colorOf(categoryFolded(indi, pos)),
     legend,
   };
 }

@@ -167,14 +167,41 @@ function bakeColorMix(value: string, ctx: ColorCtx): string {
   return out;
 }
 
-function inlineComputedStyles(live: Element, clone: Element): void {
-  // A probe in the live document inherits the theme's custom properties (defined
-  // on :root), so `var(--…)` resolves to the colours currently on screen.
+/**
+ * Run `fn` with the light palette forced on the document, then put the theme
+ * back — an export looks the same whichever scheme the UI is in. Everything
+ * inside must be synchronous, or the page paints a frame in the wrong theme.
+ */
+function withLightPalette<T>(fn: () => T): T {
+  const root = document.documentElement;
+  const prev = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "light");
+  try {
+    return fn();
+  } finally {
+    if (prev === null) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", prev);
+  }
+}
+
+/**
+ * Run `fn` with a hidden probe in the live document. The probe inherits the
+ * theme's custom properties (defined on :root), so `var(--…)` resolves through
+ * it to the colours in force; it is taken out again however `fn` ends.
+ */
+function withColorCtx<T>(fn: (ctx: ColorCtx) => T): T {
   const probe = document.createElement("span");
   probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
   document.body.appendChild(probe);
-  const ctx: ColorCtx = { probe, cache: new Map() };
   try {
+    return fn({ probe, cache: new Map() });
+  } finally {
+    probe.remove();
+  }
+}
+
+function inlineComputedStyles(live: Element, clone: Element): void {
+  withColorCtx((ctx) => {
     // The clone is a deep copy of `live`, so a flat walk over both lists stays in
     // lockstep (same elements, same order, including foreignObject HTML).
     const liveEls = [live, ...live.querySelectorAll("*")];
@@ -203,9 +230,7 @@ function inlineComputedStyles(live: Element, clone: Element): void {
       }
       out.setAttribute("style", decl);
     }
-  } finally {
-    probe.remove();
-  }
+  });
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -389,21 +414,13 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
   const clone = live.cloneNode(true) as SVGSVGElement;
 
   // Resolve every colour with the light palette forced, so the export looks the
-  // same whichever scheme the UI is in. The attribute flip, the style reads and
-  // the restore all happen synchronously (before any await), so the page never
-  // paints a frame in the wrong theme.
-  const root = document.documentElement;
-  const prevTheme = root.getAttribute("data-theme");
-  root.setAttribute("data-theme", "light");
-  let foreground: string;
-  try {
+  // same whichever scheme the UI is in — all of it before any await, so the
+  // page never paints a frame in the wrong theme.
+  const foreground = withLightPalette(() => {
     inlineComputedStyles(live, clone);
     // Header/footer ink: the canvas text colour as the light theme resolves it.
-    foreground = getComputedStyle(live).color || "#000000";
-  } finally {
-    if (prevTheme === null) root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", prevTheme);
-  }
+    return getComputedStyle(live).color || "#000000";
+  });
 
   // SVG <title> children surface as hover tooltips (the on-screen nodes carry a
   // "click to…" hint). In a static export they're useless and misleading, so
@@ -432,13 +449,6 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
  *  through a canvas so even a colour space an external renderer lacks lands
  *  as rgb. */
 function bakeLegend(legend: { label: string; color: string }[]): { label: string; color: string }[] {
-  const root = document.documentElement;
-  const prevTheme = root.getAttribute("data-theme");
-  root.setAttribute("data-theme", "light");
-  const probe = document.createElement("span");
-  probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
-  document.body.appendChild(probe);
-  const ctx: ColorCtx = { probe, cache: new Map() };
   const pixel = document.createElement("canvas");
   pixel.width = pixel.height = 1;
   const g = pixel.getContext("2d");
@@ -451,13 +461,9 @@ function bakeLegend(legend: { label: string; color: string }[]): { label: string
     const [r, gg, b, a] = g.getImageData(0, 0, 1, 1).data;
     return a === 255 ? `rgb(${r}, ${gg}, ${b})` : `rgba(${r}, ${gg}, ${b}, ${(a / 255).toFixed(3)})`;
   };
-  try {
-    return legend.map((e) => ({ label: e.label, color: toRgb(resolveColorExpr(e.color, ctx)) }));
-  } finally {
-    probe.remove();
-    if (prevTheme === null) root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", prevTheme);
-  }
+  return withLightPalette(() =>
+    withColorCtx((ctx) => legend.map((e) => ({ label: e.label, color: toRgb(resolveColorExpr(e.color, ctx)) }))),
+  );
 }
 
 /** Lay the key's chips out in rows no wider than `width`: each chip a dot,

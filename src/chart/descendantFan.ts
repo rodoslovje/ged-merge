@@ -257,13 +257,11 @@ export function buildDescendantFanChart(
   // 5. Partition the sweep. A person's unions share the wedge by weight (centred
   //    when the floor made the wedge wider than its lines need); each union's
   //    children share its span by weight, in the tree's own order.
-  interface PlacedPerson { node: TreeNode; gen: number; a0: number; a1: number; branch?: number }
-  interface PlacedBand { node: TreeNode; gen: number; a0: number; a1: number; branch?: number }
-  const persons: PlacedPerson[] = [];
-  const bands: PlacedBand[] = [];
-  let rootBranches = 0;
-  const place = (n: TreeNode, gen: number, a0: number, a1: number, branch: number | undefined) => {
-    persons.push({ node: n, gen, a0, a1, branch });
+  interface Placed { node: TreeNode; gen: number; a0: number; a1: number }
+  const persons: Placed[] = [];
+  const bands: Placed[] = [];
+  const place = (n: TreeNode, gen: number, a0: number, a1: number) => {
+    persons.push({ node: n, gen, a0, a1 });
     const unions = unionsOf(n);
     if (!unions.length) return;
     const uv = unionValue.get(n)!;
@@ -273,20 +271,19 @@ export function buildDescendantFanChart(
     unions.forEach((u, i) => {
       const ua0 = a;
       const ua1 = a + uv[i] * scale;
-      if (u.partner) bands.push({ node: u.partner, gen, a0: ua0, a1: ua1, branch });
+      if (u.partner) bands.push({ node: u.partner, gen, a0: ua0, a1: ua1 });
       if (gen < cap) {
         let ca = ua0;
         for (const c of u.children) {
           const cv = valueOf.get(c)!;
-          const cb = gen === 0 ? rootBranches++ : branch;
-          place(c, gen + 1, ca, ca + cv * scale, cb);
+          place(c, gen + 1, ca, ca + cv * scale);
           ca += cv * scale;
         }
       }
       a = ua1;
     });
   };
-  place(root, 0, start, start + sweep, undefined);
+  place(root, 0, start, start + sweep);
 
   // Each generation numbers its segments (people and bands alike) in drawing
   // order, so `gen:slot` stays unique per position and the label arcs' ids too.
@@ -295,7 +292,7 @@ export function buildDescendantFanChart(
 
   const segments: FanSegment[] = [];
 
-  for (const { node, gen, a0, a1, branch } of persons) {
+  for (const { node, gen, a0, a1 } of persons) {
     const slot = nextSlot(gen);
     const light = gen > 0 && (gen >= LIGHT_FROM || gen >= fontRings - 1);
     const fontScale = gen > 0 && gen === fontRings ? 0.7 : light ? 0.82 : 1;
@@ -366,7 +363,6 @@ export function buildDescendantFanChart(
       outerBadge: { x: round(cx + rBadge * Math.cos(badgeMid)), y: round(cy + rBadge * Math.sin(badgeMid)) },
       hidden: cut > 0 ? cut : undefined,
       tint: Math.max(TINT_MIN, TINT_GEN_1 - (gen - 1) * TINT_STEP),
-      branch,
     };
 
     if (curved) {
@@ -420,7 +416,7 @@ export function buildDescendantFanChart(
   // and, when a marriage field is shown and recorded, the year / place on a
   // second concentric line. The root's only marriage in a circle spans the whole
   // 360°, where a sector degenerates — that one is a full ring.
-  for (const { node, gen, a0, a1, branch } of bands) {
+  for (const { node, gen, a0, a1 } of bands) {
     const lane = laneOf[gen];
     if (!lane) continue;
     const slot = nextSlot(gen);
@@ -468,7 +464,6 @@ export function buildDescendantFanChart(
       outerBadge: { x: round(cx + rMid * Math.cos(aOuter)), y: round(cy + rMid * Math.sin(aOuter)) },
       band: true,
       tint: TINT_BAND,
-      branch,
     });
   }
 
@@ -481,7 +476,6 @@ export function buildDescendantFanChart(
     rootKey: "0:0",
     maxGen: cap,
     rings: usedMaxGen,
-    branches: rootBranches,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
   };

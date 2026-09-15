@@ -19,11 +19,11 @@ import { Segmented, type SegmentedItem } from "./Segmented";
 import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { useChartHover, type HoverInfo } from "./useChartHover";
+import { hoverInfoFrom, useChartHover, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHover } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -340,7 +340,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode, seg?: FanSegment) => {
       if (seg?.band && CHART_AXES.has(colorer.axis) && !isModified(n)) return COLOR_SPOUSE_BAND;
       const pos = positionOf(n, seg);
-      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, pos)) ?? COLOR_NORMAL;
+      if (colorer.axis !== "plain") return colorer.colorFor(n.main, pos) ?? COLOR_NORMAL;
       return isModified(n) ? COLOR_MODIFIED : (pos?.gen ?? 0) < 0 ? COLOR_DESCENDANT : COLOR_NORMAL;
     },
     [colorer, positionOf, isModified],
@@ -379,18 +379,22 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (key: string): HoverInfo | undefined => {
       const n: TreeNode | undefined = radial ? fanNodes.get(key)?.node : nodesByKey.get(key);
       if (!n) return undefined;
-      const h = nodeHover(display, {
-        name: n.name,
-        years: n.years,
-        age: n.age,
-        ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
-        place: n.place,
-        kinship: fanKinshipOf(n),
-        kinshipLineage: lineageOf(n),
-        living: n.living,
-        livingLabel: livingLabelFor(t, n.sex),
-      });
-      return { ...h, sex: h.redacted ? undefined : n.sex, hint: t("tree.node.clickHint") };
+      return hoverInfoFrom(
+        display,
+        {
+          name: n.name,
+          years: n.years,
+          age: n.age,
+          ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
+          place: n.place,
+          kinship: fanKinshipOf(n),
+          kinshipLineage: lineageOf(n),
+          living: n.living,
+          livingLabel: livingLabelFor(t, n.sex),
+        },
+        n.sex,
+        t("tree.node.clickHint"),
+      );
     },
     [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
   );

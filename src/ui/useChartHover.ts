@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Sex } from "../gedcom/types";
+import { nodeHover, type NodeDisplayInput, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 
 // The chart hover card's engine: one delegated pointer listener on the canvas
@@ -20,6 +21,23 @@ export interface HoverInfo {
   kinshipLineage?: Lineage;
   /** A muted last line ("Click to see full details"). */
   hint?: string;
+}
+
+/**
+ * What a chart's hover card says about one node: everything
+ * {@link nodeHover} reads off the record, plus the two things the card itself
+ * adds — the sex that colours the name, which a redacted person does not give
+ * away, and the muted hint on the last line. Every chart with a card builds it
+ * this way; only the fields it reads a node by are its own.
+ */
+export function hoverInfoFrom(
+  display: NodeDisplayOptions,
+  input: NodeDisplayInput,
+  sex: Sex | undefined,
+  hint: string,
+): HoverInfo {
+  const h = nodeHover(display, input);
+  return { ...h, sex: h.redacted ? undefined : sex, hint };
 }
 
 export interface ChartHover {
