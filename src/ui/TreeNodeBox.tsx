@@ -110,6 +110,9 @@ interface Props {
   /** State colour for the border and the tinted fill. */
   color: string;
   strokeWidth?: number;
+  /** Fill strength (percent of the colour in the panel); a Color axis in
+   *  force asks for more than the plain chart's 16. */
+  tint?: number;
   /** Kinship label; shown on its own row beneath the lifespan and place. */
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
@@ -147,6 +150,7 @@ export function TreeNodeBox({
   sex,
   color,
   strokeWidth = 2.5,
+  tint = 16,
   kinship,
   kinshipLineage,
   photo,
@@ -180,7 +184,7 @@ export function TreeNodeBox({
         height={nodeH}
         rx={10}
         ry={10}
-        fill={`color-mix(in srgb, ${color} 16%, var(--panel))`}
+        fill={`color-mix(in srgb, ${color} ${tint}%, var(--panel))`}
         stroke={color}
         strokeWidth={strokeWidth}
       />

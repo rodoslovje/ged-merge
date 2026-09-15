@@ -16,7 +16,7 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { Segmented, type SegmentedItem } from "./Segmented";
-import { fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { AXIS_TINT, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { useFanChart } from "./useFanChart";
@@ -325,6 +325,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // everyone else the main one, and an edited person shows the modified amber
   // wherever they are drawn. On any other axis the colorer decides and an
   // edit is the badge alone.
+  const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
   const colorOf = useCallback(
     (n: TreeNode, seg?: FanSegment) => {
       const pos = positionOf(n, seg);
@@ -535,6 +536,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 <FanChartBody
                   chart={fan}
                   colorOf={colorOf}
+                  tint={tint}
                   selectedKey={selectedKey}
                   flashKey={find.hitKey}
                   onSelect={selectNode}
@@ -559,6 +561,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 flashKey={find.hitKey}
                 onSelect={selectNode}
                 colorOf={colorOf}
+                tint={tint}
                 showRepeat
                 onRepeatJump={find.jumpTo}
                 hiddenTitle={treeHiddenTitle}

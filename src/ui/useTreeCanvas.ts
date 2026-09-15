@@ -439,8 +439,11 @@ export function useTreeCanvas(
       // Fast path: paint the run of wheel events as one gesture and commit
       // when it goes idle. Without a ChartZoom layer, commit per event.
       if (gestureZoom(factor, e.clientX, e.clientY)) {
+        // A mouse wheel's notches come 100–200 ms apart; the window must
+        // outlast that gap, or every notch commits on its own and a big chart
+        // (a fan's curved text) re-rasterises per notch.
         if (wheelIdle.current) clearTimeout(wheelIdle.current);
-        wheelIdle.current = window.setTimeout(commitGesture, 140);
+        wheelIdle.current = window.setTimeout(commitGesture, 260);
         return;
       }
       const rect = el.getBoundingClientRect();

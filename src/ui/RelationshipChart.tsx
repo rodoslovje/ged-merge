@@ -29,6 +29,7 @@ import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
+import { AXIS_TINT } from "../chart/nodeColor";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -148,6 +149,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id))) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
     [colorer, mainDs],
   );
+  const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
   // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
   // structurally). The start box pins the initial scroll.
   const nodesByKey = useMemo(() => {
@@ -331,6 +333,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                     >
                       <title>{t("tree.node.clickHint")}</title>
                       <TreeNodeBox
+                        tint={tint}
                         name={b.name}
                         years={b.years}
                         age={lifespanAge(indi)}

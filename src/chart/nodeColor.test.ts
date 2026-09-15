@@ -149,14 +149,17 @@ describe("createNodeColorer", () => {
     expect(c.categoryOf(many[0].indi)).toBe("S0");
   });
 
-  it("buckets a parent's age at birth and the sourced share", () => {
-    const mother = createNodeColorer("motherAge", ctx, subjects);
-    // Ana (1925) was 25 at Janez's birth (1950); Maja's mother has no birth date.
-    expect(mother.categoryOf(indi("I1"))).toBe("25");
-    expect(mother.categoryOf(indi("I4"))).toBe("");
-    expect(mother.legend.map((e) => e.label)).toEqual(["25–29"]);
-    const father = createNodeColorer("fatherAge", ctx, subjects);
-    expect(father.categoryOf(indi("I1"))).toBe("30");
+  it("buckets the parents' average age at birth and the sourced share", () => {
+    const parents = createNodeColorer("parentAge", ctx, subjects);
+    // Franc (1920) was 30 and Ana (1925) 25 at Janez's birth: 27.5 → the 25–29
+    // bucket. Maja's mother has no birth date, so her father's 30 stands alone.
+    expect(parents.categoryOf(indi("I1"))).toBe("25");
+    expect(parents.categoryOf(indi("I4"))).toBe("30");
+    expect(parents.categoryOf(indi("I2"))).toBe("");
+    expect(parents.legend.map((e) => e.label)).toEqual(["25–29", "30–34"]);
+    // Buckets take hues in value order.
+    expect(parents.colorOf("25")).not.toBe(parents.colorOf("30"));
+    expect(parents.colorOf("25")).toContain("oklch(");
     const sources = createNodeColorer("sources", ctx, subjects);
     // Janez: birth cited, marriage F2 has no MARR → 1 of 1; Franc: birth, death
     // uncited, marriage F1 cited → 1 of 3.
@@ -183,5 +186,6 @@ describe("createNodeColorer", () => {
   it("sanitizes a stored axis", () => {
     expect(sanitizeColorAxis("country")).toBe("country");
     expect(sanitizeColorAxis("nope")).toBe("plain");
+    expect(sanitizeColorAxis("motherAge")).toBe("parentAge");
   });
 });

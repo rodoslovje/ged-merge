@@ -30,8 +30,7 @@ export type ColorAxis =
   | "country"
   | "birthPlace"
   | "surname"
-  | "motherAge"
-  | "fatherAge"
+  | "parentAge"
   | "lifespan"
   | "century"
   | "sources";
@@ -40,13 +39,20 @@ export type ColorAxis =
 export const COLOR_AXES: ColorAxis[] = [
   "plain", "living", "generation", "branch", "sex",
   "country", "birthPlace", "surname",
-  "motherAge", "fatherAge", "lifespan", "century", "sources",
+  "parentAge", "lifespan", "century", "sources",
 ];
 
 /** A stored axis, or "plain" for anything else. */
 export function sanitizeColorAxis(v: unknown): ColorAxis {
+  // The two parents' ages were separate axes for a day.
+  if (v === "motherAge" || v === "fatherAge") return "parentAge";
   return (COLOR_AXES as readonly unknown[]).includes(v) ? (v as ColorAxis) : "plain";
 }
+
+/** How strongly a person's colour tints their box or wedge while a Color
+ *  axis is in force — well past the plain chart's 16 %, so the categories
+ *  read apart at a glance and the names still read on top. */
+export const AXIS_TINT = 38;
 
 /** Where a person sits on the chart: generations above (+) or below (−) the
  *  root, and the line they belong to — a grandparent's id above, a child of
@@ -145,8 +151,6 @@ function ramp(t: number, lo: string, hi: string): string {
     : `color-mix(in oklch, ${hi} ${((x - 0.5) * 200).toFixed(1)}%, var(--kin-gen-0))`;
 }
 
-const COOL = "var(--kin-desc-far)";
-const WARM = "var(--kin-anc-far)";
 const BAD = "var(--danger)";
 const GOOD = "var(--accent)";
 
@@ -181,11 +185,18 @@ function surnameOf(indi: Individual): string {
   return primaryName(indi)?.surname?.trim() ?? "";
 }
 
-/** The parent's age when this person was born, from the first birth family. */
-function parentAgeOf(indi: Individual, ds: Dataset, which: "husband" | "wife"): number | undefined {
+/** The parents' age when this person was born — the average of the two, or
+ *  whichever one is known — from the first birth family. */
+function parentAgeOf(indi: Individual, ds: Dataset): number | undefined {
   const fam = indi.childOf.length ? ds.families.get(indi.childOf[0]) : undefined;
-  const parent = fam?.[which] ? ds.individuals.get(fam[which]!) : undefined;
-  return parent ? ageBetween(birthDateOf(parent), birthDateOf(indi)) : undefined;
+  if (!fam) return undefined;
+  const ages: number[] = [];
+  for (const id of [fam.husband, fam.wife]) {
+    const parent = id ? ds.individuals.get(id) : undefined;
+    const age = parent ? ageBetween(birthDateOf(parent), birthDateOf(indi)) : undefined;
+    if (age !== undefined) ages.push(age);
+  }
+  return ages.length ? ages.reduce((a, b) => a + b, 0) / ages.length : undefined;
 }
 
 /** How much of the person's life is sourced: the share of their recorded
@@ -210,29 +221,18 @@ function sourcedShareOf(indi: Individual, ds: Dataset): number | undefined {
 
 // ─── Buckets for the numeric axes ────────────────────────────────────────────
 
-interface Bucket {
-  /** Bucket width in the value's unit. */
-  step: number;
-  /** The value range the ramp spans. */
-  lo: number;
-  hi: number;
-  colors: [string, string];
-}
-
-const NUMERIC: Partial<Record<ColorAxis, Bucket>> = {
-  motherAge: { step: 5, lo: 15, hi: 50, colors: [COOL, WARM] },
-  fatherAge: { step: 5, lo: 15, hi: 65, colors: [COOL, WARM] },
-  lifespan: { step: 10, lo: 0, hi: 90, colors: [BAD, GOOD] },
-  century: { step: 100, lo: 1500, hi: 2000, colors: [WARM, COOL] },
+/** Bucket width per numeric axis, in the value's unit. The buckets present
+ *  on a chart take evenly spaced hues in value order — a sweep round the
+ *  wheel keeps the order legible and tells neighbours apart far better than
+ *  a two-colour ramp did. */
+const NUMERIC: Partial<Record<ColorAxis, number>> = {
+  parentAge: 5,
+  lifespan: 10,
+  century: 100,
 };
 
-function bucketKey(value: number, b: Bucket): string {
-  return String(Math.floor(value / b.step) * b.step);
-}
-
-function bucketColor(key: string, b: Bucket): string {
-  const mid = Number(key) + b.step / 2;
-  return ramp((mid - b.lo) / (b.hi - b.lo), b.colors[0], b.colors[1]);
+function bucketKey(value: number, step: number): string {
+  return String(Math.floor(value / step) * step);
 }
 
 // ─── The colorer ─────────────────────────────────────────────────────────────
@@ -259,10 +259,9 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
       default: {
         if (!indi || !numeric) return "";
         const v =
-          axis === "motherAge" ? parentAgeOf(indi, ds, "wife")
-            : axis === "fatherAge" ? parentAgeOf(indi, ds, "husband")
-              : axis === "lifespan" ? (isDeceased(indi) ? lifespanAge(indi) : undefined)
-                : birthYear(indi);
+          axis === "parentAge" ? parentAgeOf(indi, ds)
+            : axis === "lifespan" ? (isDeceased(indi) ? lifespanAge(indi) : undefined)
+              : birthYear(indi);
         return v === undefined ? "" : bucketKey(v, numeric);
       }
     }
@@ -312,7 +311,7 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
       case "sex": c = SEX_COLOR[k as Sex] ?? UNKNOWN_COLOR; break;
       case "living": c = k === "living" ? OWN_COLOR : "var(--kin-deceased)"; break;
       case "sources": c = ramp(k === "none" ? 0 : k === "some" ? 0.5 : 1, BAD, GOOD); break;
-      default: c = numeric ? bucketColor(k, numeric) : categoryColor(i, kept.length);
+      default: c = categoryColor(i, kept.length);
     }
     colors.set(k, c);
   });
@@ -333,7 +332,7 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
       case "country": return countryFacetLabel(k, lang);
       case "sources": return t(`chartColor.sources.${k}`);
       case "century": return `${k}–${Number(k) + 99}`;
-      default: return numeric ? `${k}–${Number(k) + numeric.step - 1}` : k;
+      default: return numeric ? `${k}–${Number(k) + numeric - 1}` : k;
     }
   };
 

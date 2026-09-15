@@ -46,6 +46,9 @@ interface Props {
   compareRefCtx?: MediaRefContext;
   display: NodeDisplayOptions;
   nodeH: number;
+  /** Fill strength for every box (see TreeNodeBox); a Color axis in force
+   *  asks for more than the plain chart's. */
+  tint?: number;
 }
 
 // Memoized: the canvas re-renders on every scroll/zoom tick (viewport state),
@@ -73,6 +76,7 @@ export const TreeSvg = memo(function TreeSvg({
   compareRefCtx,
   display,
   nodeH,
+  tint,
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
@@ -130,6 +134,7 @@ export const TreeSvg = memo(function TreeSvg({
             >
               <title>{t("tree.node.clickHint")}</title>
               <TreeNodeBox
+                tint={tint}
                 name={n.name}
                 years={n.years}
                 age={n.age}
