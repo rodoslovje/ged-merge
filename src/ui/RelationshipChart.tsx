@@ -268,6 +268,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
             disabled={!chart}
             slug={relchartSlug}
             title={relchartTitle}
+            legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: chart?.boxes.map((b) => b.id) ?? [] }}
             canvasRef={canvasRef}
           />

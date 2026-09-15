@@ -355,6 +355,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}
             title={exportTitle}
+            legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: rows.map((r) => r.id) }}
             canvasRef={canvasRef}
           />

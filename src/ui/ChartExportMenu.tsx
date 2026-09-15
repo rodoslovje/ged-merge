@@ -27,6 +27,9 @@ interface Props {
   slug: string;
   /** Header title baked into the SVG / print-PDF export. */
   title?: string;
+  /** The chart's colour key, drawn under the diagram in the SVG / print-PDF
+   *  export when the Color axis hands colours out. */
+  legend?: { label: string; color: string }[];
   /** Branch-GEDCOM export: the main dataset + the chart's people. */
   gedcom?: { ds: Dataset; personIds: string[] };
   /** The `.tree-canvas` element hosting the diagram SVG, for SVG/PDF export. */
@@ -39,7 +42,7 @@ interface Props {
   extraItems?: ExportItem[];
 }
 
-export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef, sheets, extraItems }: Props) {
+export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, canvasRef, sheets, extraItems }: Props) {
   const { t } = useTranslation();
   const [sheetDialog, setSheetDialog] = useState(false);
   const items: ExportItem[] = [];
@@ -59,7 +62,7 @@ export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef,
         icon: <ImageIcon />,
         label: t("export.svg"),
         title: t("tree.export.tooltip"),
-        onSelect: () => exportCanvasSvg(canvasRef.current, slug, title),
+        onSelect: () => exportCanvasSvg(canvasRef.current, slug, title, legend),
       },
       {
         key: "pdf",
@@ -78,7 +81,7 @@ export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef,
         <SheetPrintDialog
           source={sheets}
           canvasRef={canvasRef}
-          opts={{ title, fileName: slug }}
+          opts={{ title, fileName: slug, legend }}
           onClose={() => setSheetDialog(false)}
         />
       )}
