@@ -4719,11 +4719,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  /* Only the width the left cluster leaves over: a key at its natural width
-     pushed the kind tabs onto a second line, and the row's height with them. */
-  flex: 1 1 0;
-  min-width: 0;
 }
 /* Find-in-chart: type a name and ⌕ (or Enter) moves the canvas to that person,
    cycling through every place the chart draws them. */
@@ -5411,20 +5408,25 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
-/* In the controls row's right cluster, before the find box (see ChartLegend):
-   one line that never wraps and scrolls sideways when long, so the row keeps
-   its height whether a key is showing or not — a row that grew or shrank
-   moved the whole chart, and a key laid over the canvas covered it. */
-.tree-controls-right > .chart-legend {
-  flex: 0 1 auto;
-  min-width: 0;
+/* A band along the bottom of the canvas wrap (see ChartLegend): laid over
+   the wrap so its size never changes, while the scrolling canvas above ends
+   at the band's top edge, so no part of the chart is ever under it. One line
+   that scrolls sideways when long; the zoom controls keep the corner to its
+   right. */
+.tree-canvas-wrap > .chart-legend {
+  position: absolute;
+  left: 10px;
+  right: 64px;
+  bottom: 8px;
+  z-index: 3;
   margin: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: thin;
   padding-bottom: 2px;
 }
-.tree-controls-right > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
+.tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
+.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: 44px; }
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;

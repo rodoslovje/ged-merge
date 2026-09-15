@@ -274,12 +274,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         </>
       }
       controlsLeft={kindSwitcher}
-      controlsRight={
-        <div className="tree-controls-right">
-          <ChartLegend entries={colorer.legend} />
-          <ChartFindBox find={find} />
-        </div>
-      }
+      controlsRight={<ChartFindBox find={find} />}
     >
       {picking && (
         <div className="tree-controls relchart-picker-bar">
@@ -322,6 +317,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       )}
 
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={colorer.legend} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
             <ChartZoom width={chart.width} height={chart.height} zoom={zoom} layerRef={zoomLayerRef}>

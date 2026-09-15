@@ -439,7 +439,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       }
       controlsRight={
         <div className="tree-controls-right">
-          <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
           <span className="kin-count">
             {yearOn
               ? t("kin.countInYear", { n: litCount, year })
@@ -450,6 +449,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       }
     >
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
