@@ -19,9 +19,11 @@ import { Segmented, type SegmentedItem } from "./Segmented";
 import { AXIS_TINT, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
+import { useChartHover, type HoverInfo } from "./useChartHover";
+import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
-import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHoverLines } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -361,6 +363,29 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       ? nodesByKey.get(selectedKey)
       : undefined;
 
+  // The hover card: the person under the pointer, in full, plus the fields
+  // the options show — the same lines the native tooltip carried, in the sex
+  // colour and without the browser's delay and truncation.
+  const hoverInfoFor = useCallback(
+    (key: string): HoverInfo | undefined => {
+      const n: TreeNode | undefined = radial ? fanNodes.get(key)?.node : nodesByKey.get(key);
+      if (!n) return undefined;
+      const { name, lines, redacted } = nodeHoverLines(display, {
+        name: n.name,
+        years: n.years,
+        age: n.age,
+        ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
+        place: n.place,
+        kinship: fanKinshipOf(n),
+        living: n.living,
+        livingLabel: livingLabelFor(t, n.sex),
+      });
+      return { name, sex: redacted ? undefined : n.sex, lines, hint: t("tree.node.clickHint") };
+    },
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf],
+  );
+  const hover = useChartHover(canvasRef, hoverInfoFor);
+
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
   // Esc leaves the page.
   const selectedMainId = selected?.main?.id;
@@ -546,6 +571,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                   onRepeatJump={find.jumpTo}
                   hiddenTitle={hiddenTitle}
                   onHiddenJump={hiddenJump}
+                  nativeTooltip={false}
                 />
               </ChartZoom>
             ) : (
@@ -572,12 +598,15 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 mainRefCtx={mainRefCtx}
                 display={display}
                 nodeH={nodeH}
+                nativeTooltip={false}
               />
             </ChartZoom>
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}
         </div>
+
+        <ChartHoverCard hover={hover} />
 
         {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
         {!radial && laid && flat && (

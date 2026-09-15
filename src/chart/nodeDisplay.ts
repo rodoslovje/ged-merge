@@ -201,11 +201,18 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
  * stays hidden here too.
  */
 export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): string {
+  const { name, lines } = nodeHoverLines(opts, input);
+  return [name, ...lines].join("\n");
+}
+
+/** The same, split for the hover card: the name (with the lifespan, or the
+ *  placeholder for a redacted living person) and the lines beneath it. */
+export function nodeHoverLines(opts: NodeDisplayOptions, input: NodeDisplayInput): { name: string; lines: string[]; redacted: boolean } {
   const disp = nodeDisplay(opts, input);
-  if (opts.privacyLiving && input.living) return disp.name;
+  if (opts.privacyLiving && input.living) return { name: disp.name, lines: [], redacted: true };
   const years = lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age });
-  const lines = [years ? `${input.name}, ${years}` : input.name];
+  const lines: string[] = [];
   if (disp.place) lines.push(disp.place);
   if (disp.kinship) lines.push(disp.kinship);
-  return lines.join("\n");
+  return { name: years ? `${input.name}, ${years}` : input.name, lines, redacted: false };
 }

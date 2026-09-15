@@ -31,6 +31,9 @@ interface Props {
    *  overriding the segments' own; a Color axis in force asks for a stronger
    *  one than the plain chart's. */
   tint?: number;
+  /** Give each wedge a native `<title>` tooltip; off where the host shows its
+   *  own hover card (see ChartHoverCard). */
+  nativeTooltip?: boolean;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Segment just jumped to by find-in-chart; flashes so it's spotted at a glance. */
@@ -97,6 +100,7 @@ export const FanChartBody = memo(function FanChartBody({
   hiddenTitle,
   onHiddenJump,
   tint,
+  nativeTooltip = true,
 }: Props) {
   const { t } = useTranslation();
   const curved = chart.segments.filter((s) => s.curved);
@@ -154,6 +158,7 @@ export const FanChartBody = memo(function FanChartBody({
             seg={seg}
             color={colorOf(seg.node, seg)}
             tint={tint}
+            nativeTooltip={nativeTooltip}
             selected={seg.key === selectedKey}
             flashed={seg.key === flashKey}
             onSelect={onSelect}
@@ -204,10 +209,12 @@ function Segment({
   badge,
   outer,
   tint,
+  nativeTooltip,
 }: {
   seg: FanSegment;
   color: string;
   tint?: number;
+  nativeTooltip: boolean;
   selected: boolean;
   flashed: boolean;
   onSelect: (key: string) => void;
@@ -245,7 +252,7 @@ function Segment({
       }}
     >
       {/* Who this is, whatever the wedge had room to write, then the hint. */}
-      <title>{`${seg.title}\n${clickHint}`}</title>
+      {nativeTooltip && <title>{`${seg.title}\n${clickHint}`}</title>}
       <path
         className="fan-sector"
         d={seg.d}

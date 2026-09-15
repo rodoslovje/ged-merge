@@ -5157,6 +5157,26 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
+/* The hover card beside the pointer (ChartHoverCard): anchored at the pointer
+   in the canvas wrap and pushed off it by its transform, so it never sits
+   under the pointer and steals the hover it is describing. */
+.chart-hover-card {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  max-width: 300px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.chart-hover-name { font-weight: 600; color: var(--text); }
+.chart-hover-line { color: var(--muted); }
+.chart-hover-hint { color: var(--faint); font-size: 0.75rem; margin-top: 2px; }
 .tree-edge {
   fill: none;
   stroke: var(--border);

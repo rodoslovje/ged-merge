@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeTooltip, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeHoverLines, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -30,6 +30,8 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
+import { useChartHover, type HoverInfo } from "./useChartHover";
+import { ChartHoverCard } from "./ChartHoverCard";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -194,6 +196,28 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching
   // (every box on the chart carries a kinship label).
   const kinshipOf = useMemo(() => createKinshipResolver(mainDs, startSel, t), [mainDs, startSel, t]);
+  // The hover card for the box under the pointer (see EditTree's twin).
+  const hoverInfoFor = useCallback(
+    (key: string): HoverInfo | undefined => {
+      const b = nodesByKey.get(key);
+      if (!b) return undefined;
+      const indi = mainDs.individuals.get(b.id);
+      const age = lifespanAge(indi);
+      const { name, lines, redacted } = nodeHoverLines(settings, {
+        name: b.name,
+        years: b.years,
+        age,
+        ageText: age !== undefined ? ageStandalone(t, b.sex, age) : undefined,
+        place: placeLabel(indi),
+        kinship: kinshipOf.label(b.id),
+        living: isPresumedLiving(indi, mainDs) || !!indi?.private,
+        livingLabel: livingLabelFor(t, b.sex),
+      });
+      return { name, sex: redacted ? undefined : b.sex, lines, hint: t("tree.node.clickHint") };
+    },
+    [nodesByKey, mainDs, settings, t, kinshipOf],
+  );
+  const hover = useChartHover(canvasRef, hoverInfoFor);
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
@@ -331,18 +355,6 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         selectNode(b.key);
                       }}
                     >
-                      <title>
-                        {`${nodeTooltip(settings, {
-                          name: b.name,
-                          years: b.years,
-                          age: lifespanAge(indi),
-                          ageText: lifespanAge(indi) !== undefined ? ageStandalone(t, b.sex, lifespanAge(indi)!) : undefined,
-                          place: placeLabel(indi),
-                          kinship: kinshipOf.label(b.id),
-                          living: isPresumedLiving(indi, mainDs) || !!indi?.private,
-                          livingLabel: livingLabelFor(t, b.sex),
-                        })}\n${t("tree.node.clickHint")}`}
-                      </title>
                       <TreeNodeBox
                         tint={tint}
                         name={b.name}
@@ -370,6 +382,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           )}
         </div>
 
+        <ChartHoverCard hover={hover} />
         {chart && (
           <ChartMinimap
             contentW={chart.width}
