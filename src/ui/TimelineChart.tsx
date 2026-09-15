@@ -25,6 +25,8 @@ import { ChartSettings } from "./ChartSettings";
 import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
 
 // Full-page family Timeline: the root person and their immediate family
 // (parents, siblings, spouses, children) as horizontal lifespan bars on a
@@ -212,6 +214,15 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   // Position each row for useTreeCanvas (rows satisfy ChartNode once they get
   // an x/y); the root person's row pins the initial scroll.
   const rows = useMemo(() => data?.rows ?? [], [data]);
+  // The shared Color axis over everyone on the chart; on the plain axis the
+  // root's bar keeps the accent and the family the muted green.
+  const subjects = useMemo(() => rows.map((r) => ({ indi: mainDs.individuals.get(r.id) })), [rows, mainDs]);
+  const colorer = useNodeColorer(mainDs, subjects);
+  const colorFor = useMemo(
+    () => (row: (typeof rows)[number]) =>
+      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(row.id))) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
+    [colorer, mainDs],
+  );
   const nodesByKey = useMemo(() => {
     const m = new Map<string, TimelineRow & ChartNode>();
     rows.forEach((r, i) => {
@@ -348,6 +359,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       controlsLeft={kindSwitcher}
       controlsRight={<ChartFindBox find={find} />}
     >
+      <ChartLegend entries={colorer.legend} />
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
@@ -373,7 +385,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   const hidden = redacted(row);
                   const meta = rowMeta(row);
                   const role = rowRole(row);
-                  const color = row.role === "person" ? COLOR_PERSON : COLOR_FAMILY;
+                  const color = colorFor(row);
                   const barX = row.from !== undefined ? geom.xOf(row.from) : 0;
                   const barW = row.from !== undefined && row.to !== undefined
                     ? Math.max(3, (row.to - row.from) * PX_PER_YEAR)
@@ -586,7 +598,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
         {selectedRow && selectedIndi && (
           <TreeNodePanel
             node={selectedRow}
-            swatch={selectedRow.role === "person" ? COLOR_PERSON : COLOR_FAMILY}
+            swatch={colorFor(selectedRow)}
             rows={selectedRows}
             mainPerson={mainNav}
             mainLabel={t("tree.main")}

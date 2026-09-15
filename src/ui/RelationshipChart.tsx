@@ -27,6 +27,8 @@ import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
 import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -136,6 +138,16 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     [mainDs, current, alignment, nodeH, formatName],
   );
 
+  // The shared Color axis over everyone drawn; on the plain axis the path
+  // keeps its spine / context colours (the stroke width tells them apart on
+  // any axis).
+  const subjects = useMemo(() => (chart?.boxes ?? []).map((b) => ({ indi: mainDs.individuals.get(b.id) })), [chart, mainDs]);
+  const colorer = useNodeColorer(mainDs, subjects);
+  const colorFor = useMemo(
+    () => (b: { id: string; onSpine: boolean }) =>
+      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id))) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
+    [colorer, mainDs],
+  );
   // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
   // structurally). The start box pins the initial scroll.
   const nodesByKey = useMemo(() => {
@@ -271,6 +283,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         </div>
       )}
 
+      <ChartLegend entries={colorer.legend} />
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
@@ -297,7 +310,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                     ) : null;
                   })}
                 {chart.boxes.map((b) => {
-                  const color = b.onSpine ? COLOR_SPINE : COLOR_CONTEXT;
+                  const color = colorFor(b);
                   const indi = mainDs.individuals.get(b.id);
                   return (
                     <g
@@ -350,7 +363,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
             viewport={viewport}
             zoom={zoom}
             nodes={chart.boxes}
-            fill={(b) => (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
+            fill={colorFor}
             nodeH={nodeH}
             onScrollTo={scrollTo}
           />
@@ -363,7 +376,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         {selectedBox && selectedIndi && (
           <TreeNodePanel
             node={selectedBox}
-            swatch={selectedBox.onSpine ? COLOR_SPINE : COLOR_CONTEXT}
+            swatch={colorFor(selectedBox)}
             rows={selectedRows}
             mainPerson={{ linkable: (id) => mainDs.individuals.has(id), onNavigate }}
             mainLabel={t("tree.main")}
