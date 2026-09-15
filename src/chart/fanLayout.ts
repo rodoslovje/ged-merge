@@ -19,7 +19,7 @@
 
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
-import { ALL_DISPLAY, formatMarriage, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 
 export type FanShape = "fan" | "circle";
 
@@ -261,13 +261,20 @@ export function fanResolvers(opts: FanChartOptions): {
       livingLabel: livingLabelOf(node),
     });
   };
-  /** The hover text: full name + lifespan regardless of what the wedge could
-   *  fit or which fields are toggled on — but never more than the redaction
-   *  allows for a living person. */
-  const titleOf = (node: TreeNode): string => {
-    if (display.privacyLiving && node.living) return dispOf(node).name;
-    return node.years ? `${node.name}, ${node.years}` : node.name;
-  };
+  /** The hover text: the full name and lifespan regardless of what the wedge
+   *  could fit, then the fields the settings show (see nodeTooltip) — the
+   *  kinship among them, which the wedge itself never draws. */
+  const titleOf = (node: TreeNode): string =>
+    nodeTooltip(display, {
+      name: node.name,
+      years: node.years,
+      age: node.age,
+      ageText: ageTextOf(node),
+      place: node.place,
+      kinship: opts.kinshipOf?.(node),
+      living: node.living,
+      livingLabel: livingLabelOf(node),
+    });
   return { display, hasPhoto, dispOf, titleOf };
 }
 

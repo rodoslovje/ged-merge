@@ -93,23 +93,20 @@ function fontOf(gen: number): number {
 
 /** The forms a descendant's name is tried in, longest first, where the wedge
  *  or band has no room for all of it: the name as displayed, then without the
- *  parenthesised married surname, then one name alone — the given name for a
- *  person or a wife (the surname repeats down a line), the surname for a
- *  husband (it is what his descendants carry). Read from the record's own
- *  name parts where there are any, so a surname-first display order cannot
- *  mislead; a redacted living person has only their placeholder. Never an
- *  initial or an ellipsis: a name that fits in no form is left off, and the
- *  wedge stays. */
-export function nameForms(node: TreeNode, shown: string, role: "person" | "husband" | "wife"): string[] {
+ *  parenthesised married surname, then the given name alone — the surname
+ *  repeats down a line, and a spouse's band reads like everyone else's wedge.
+ *  Read from the record's own name parts where there are any, so a
+ *  surname-first display order cannot mislead; a redacted living person has
+ *  only their placeholder. Never an initial or an ellipsis: a name that fits
+ *  in no form is left off, and the wedge stays. */
+export function nameForms(node: TreeNode, shown: string): string[] {
   if (shown !== node.name) return [shown];
   const full = shown.trim();
   const bare = full.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
   const primary = node.main?.names[0] ?? node.incoming?.names[0];
   const tokens = bare.split(" ").filter(Boolean);
   const given = primary?.given?.trim() || (tokens.length > 1 ? tokens.slice(0, -1).join(" ") : "");
-  const surname = primary?.surname?.trim() || (tokens.length > 1 ? tokens[tokens.length - 1] : "");
-  const forms = [full, bare, role === "husband" ? surname : given];
-  return [...new Set(forms.map((f) => f.trim()).filter(Boolean))];
+  return [...new Set([full, bare, given].map((f) => f.trim()).filter(Boolean))];
 }
 
 /** The name lines of a radial (outward-reading) label: the first form that
@@ -311,7 +308,7 @@ export function buildDescendantFanChart(
     // Names alone on every ring (see the header).
     const disp = dispOf(node);
     const genDisp: NodeDisplay = { ...disp, years: undefined, place: undefined };
-    const forms = nameForms(node, disp.name, "person");
+    const forms = nameForms(node, disp.name);
 
     const delta = a1 - a0;
     const mid = (a0 + a1) / 2;
@@ -417,10 +414,9 @@ export function buildDescendantFanChart(
     const disp = dispOf(node);
 
     // The name line: the longest form of the spouse's name that fits the arc
-    // (see nameForms — a husband keeps his surname, a wife her given name),
-    // else the marriage glyph alone, else nothing.
+    // (see nameForms), else the marriage glyph alone, else nothing.
     let nameText: string | undefined;
-    for (const cand of [...nameForms(node, disp.name, node.sex === "M" ? "husband" : "wife"), MARRIAGE_SYMBOL]) {
+    for (const cand of [...nameForms(node, disp.name), MARRIAGE_SYMBOL]) {
       if (fits(cand, fontPx)) { nameText = cand; break; }
     }
     const lines: FanLine[] = nameText

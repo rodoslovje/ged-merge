@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeTooltip, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -331,7 +331,18 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         selectNode(b.key);
                       }}
                     >
-                      <title>{t("tree.node.clickHint")}</title>
+                      <title>
+                        {`${nodeTooltip(settings, {
+                          name: b.name,
+                          years: b.years,
+                          age: lifespanAge(indi),
+                          ageText: lifespanAge(indi) !== undefined ? ageStandalone(t, b.sex, lifespanAge(indi)!) : undefined,
+                          place: placeLabel(indi),
+                          kinship: kinshipOf.label(b.id),
+                          living: isPresumedLiving(indi, mainDs) || !!indi?.private,
+                          livingLabel: livingLabelFor(t, b.sex),
+                        })}\n${t("tree.node.clickHint")}`}
+                      </title>
                       <TreeNodeBox
                         tint={tint}
                         name={b.name}

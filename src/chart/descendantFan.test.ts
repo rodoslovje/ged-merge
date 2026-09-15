@@ -125,20 +125,18 @@ describe("buildDescendantFanChart", () => {
 
   it("shortens a name by dropping parts, never by an initial or an ellipsis", () => {
     const wife = person("F", "Ana Novak (Kovač)");
-    expect(nameForms(wife, wife.name, "wife")).toEqual(["Ana Novak (Kovač)", "Ana Novak", "Ana"]);
+    expect(nameForms(wife, wife.name)).toEqual(["Ana Novak (Kovač)", "Ana Novak", "Ana"]);
     const husband = person("M", "Janez Peter Novak");
-    expect(nameForms(husband, husband.name, "husband")).toEqual(["Janez Peter Novak", "Novak"]);
-    expect(nameForms(husband, husband.name, "person")).toEqual(["Janez Peter Novak", "Janez Peter"]);
+    expect(nameForms(husband, husband.name)).toEqual(["Janez Peter Novak", "Janez Peter"]);
     // A redacted living person has only their placeholder.
-    expect(nameForms(husband, "Living", "person")).toEqual(["Living"]);
+    expect(nameForms(husband, "Living")).toEqual(["Living"]);
     // The record's own name parts win over the displayed order.
     const structured: TreeNode = {
       ...husband,
       name: "Novak Janez",
       main: { id: "@I1@", names: [{ given: "Janez", surname: "Novak", full: "Janez /Novak/" }], sex: "M", events: [], childOf: [], spouseOf: [], raw: { level: 0, tag: "INDI", children: [] } } as unknown as TreeNode["main"],
     };
-    expect(nameForms(structured, structured.name, "wife")).toEqual(["Novak Janez", "Janez"]);
-    expect(nameForms(structured, structured.name, "husband")).toEqual(["Novak Janez", "Novak"]);
+    expect(nameForms(structured, structured.name)).toEqual(["Novak Janez", "Janez"]);
   });
 
   it("keeps a sliver for a childless marriage", () => {

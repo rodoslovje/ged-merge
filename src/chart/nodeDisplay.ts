@@ -191,3 +191,21 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     showPhoto: opts.showPhoto,
   };
 }
+
+/**
+ * The hover text for a chart node: the full name with the lifespan (and the
+ * age, when shown) on the first line — whatever the box or wedge had room to
+ * draw — then each further field the chart options show on a line of its
+ * own: the place and the kinship to the start person. A redacted living
+ * person shows only their placeholder, and every line the redaction hides
+ * stays hidden here too.
+ */
+export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): string {
+  const disp = nodeDisplay(opts, input);
+  if (opts.privacyLiving && input.living) return disp.name;
+  const years = lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age });
+  const lines = [years ? `${input.name}, ${years}` : input.name];
+  if (disp.place) lines.push(disp.place);
+  if (disp.kinship) lines.push(disp.kinship);
+  return lines.join("\n");
+}
