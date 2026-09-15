@@ -5458,6 +5458,26 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-map-wrap > .tree-compare {
   z-index: 1100;
 }
+/* On the map the colour key sits along the bottom edge, centred, above the
+   band the scale bar (left) and the credit (right) occupy — the top corners
+   belong to the zoom bar and the panels. The tiles notice, which shares that
+   bottom centre elsewhere, moves to the top centre here. */
+.kin-map-wrap > .chart-legend {
+  top: auto;
+  bottom: 30px;
+  left: 20px;
+  right: 20px;
+  /* Shrink to the chips and centre in the full span: anchored at left:50%
+     the box would only ever get half the width to wrap in. */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  justify-content: center;
+}
+.kin-map-wrap .map-tiles-notice {
+  bottom: auto;
+  top: 12px;
+}
 /* The wheel's canvas stays mounted under the map (its zoom hook owns it and
    must find it again when the layout switches back), but it has to be gone
    from the page, not merely empty: `.tree-canvas` sets display:flex, which
