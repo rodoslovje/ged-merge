@@ -45,8 +45,8 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings, type PedigreeType } from "./ChartSettingsContext";
-import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
+import { pedigreeVariant, useChartSettings, type PedigreeType } from "./ChartSettingsContext";
+import { ChartKindTabs, PEDIGREE_KINDS, PedigreeVariantTabs } from "./ChartKindTabs";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
@@ -227,8 +227,9 @@ export function CompareTree({
   const { settings, setType } = useChartSettings();
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
-  const radial = settings.type === "fan" || settings.type === "circle";
-  const isGrid = settings.type === "grid";
+  const radial = settings.type === "fan";
+  const isGrid = !radial && settings.treeLayout === "grid";
+  const variant = pedigreeVariant(settings);
 
   // Both directions build once per root/dataset/decisions: they feed the
   // mode-button counts and the current direction's chart, layered or radial —
@@ -346,7 +347,7 @@ export function CompareTree({
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? tree : undefined,
-    settings.type === "circle" ? "circle" : "fan",
+    settings.fanShape,
     { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
@@ -420,7 +421,7 @@ export function CompareTree({
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${mode}:${settings.type}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${mode}:${variant}:${alignment}`);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
   // searchable — the incoming spelling of a name finds the node just as well.
@@ -502,6 +503,7 @@ export function CompareTree({
             value={settings.type}
             onChange={(k) => setType(k as PedigreeType)}
           />
+          <PedigreeVariantTabs />
           <div className="tree-mode">
             <button
               className={mode === "ancestors" ? "active" : ""}

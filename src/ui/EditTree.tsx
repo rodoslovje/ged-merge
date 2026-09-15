@@ -34,7 +34,8 @@ import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
-import { useChartSettings } from "./ChartSettingsContext";
+import { pedigreeVariant, useChartSettings } from "./ChartSettingsContext";
+import { PedigreeVariantTabs } from "./ChartKindTabs";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
@@ -109,10 +110,11 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // the same formatter the lists, the timeline and the reports use.
   const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
   const { alignment } = settings;
-  // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
-  // are radial.
-  const radial = settings.type === "fan" || settings.type === "circle";
-  const isGrid = settings.type === "grid";
+  // Grid is a layered chart (it reuses the tidy-tree SVG path); only the fan
+  // kind (fan / circle) is radial.
+  const radial = settings.type === "fan";
+  const isGrid = !radial && settings.treeLayout === "grid";
+  const variant = pedigreeVariant(settings);
   // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
@@ -260,7 +262,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? tree : undefined,
-    settings.type === "circle" ? "circle" : "fan",
+    settings.fanShape,
     { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
@@ -279,7 +281,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${mode}:${settings.type}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${mode}:${variant}:${alignment}`);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).
@@ -374,7 +376,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // plus "4 of 9 generations" while the limit is cutting — on the page and in
   // every export header, so a partial chart never passes for a whole one.
   const chartKind =
-    `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}` +
+    `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${variant}`)}` +
     (limited ? ` · ${t("tree.gen.shown", { n: limit, of: depths[mode] })}` : "");
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
@@ -430,6 +432,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       controlsLeft={
         <>
           {kindSwitcher}
+          <PedigreeVariantTabs />
           <div className="tree-mode">
             <button
               className={mode === "ancestors" ? "active" : ""}

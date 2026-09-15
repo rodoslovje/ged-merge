@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ChartAlignment } from "../chart/treeLayout";
+import type { FanShape } from "../chart/fanLayout";
 import { useSettingsSlice } from "./SettingsContext";
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
@@ -7,10 +8,26 @@ import { useSettingsSlice } from "./SettingsContext";
 // applies live everywhere; the choice is saved to localStorage so it sticks
 // across sessions.
 
-/** Diagram rendering style. "tree" (tidy layered), "grid" (aligned columns —
- *  a pedigree grid for ancestors, an indented outline for descendants), and
- *  "fan"/"circle" (radial, curved-text ancestor charts) are all implemented. */
-export type PedigreeType = "tree" | "grid" | "fan" | "circle";
+/** The two pedigree diagrams: "tree" (layered — the tidy tree or the grid of
+ *  aligned columns, per `treeLayout`) and "fan" (radial — a fan or a full
+ *  circle, per `fanShape`). */
+export type PedigreeType = "tree" | "fan";
+
+/** How the layered chart places its boxes: the tidy tree, or the grid of
+ *  aligned columns (a pedigree grid for ancestors, an indented outline for
+ *  descendants). */
+export type TreeLayout = "tidy" | "grid";
+
+export type { FanShape };
+
+/** The look a pedigree page is actually drawing — the four the user can tell
+ *  apart; keys the chart-kind title strings (`tree.kind.*`). */
+export type PedigreeVariant = "tree" | "grid" | "fan" | "circle";
+
+/** The variant these settings draw. */
+export function pedigreeVariant(s: Pick<ChartSettings, "type" | "treeLayout" | "fanShape">): PedigreeVariant {
+  return s.type === "fan" ? s.fanShape : s.treeLayout === "grid" ? "grid" : "tree";
+}
 
 /** What the Charts hub is showing: one of the pedigree chart types, the
  *  relationship-to-start diagram, the family timeline, the places map, or the
@@ -46,6 +63,10 @@ export type KinColour = "generation" | "branch" | "living";
 
 export interface ChartSettings {
   type: PedigreeType;
+  /** Tree kind: the tidy tree or the grid. */
+  treeLayout: TreeLayout;
+  /** Fan kind: the 230° fan or the full circle. */
+  fanShape: FanShape;
   /** Last-used hub view; also decides what the Edit "Charts" button reopens. */
   kind: ChartKind;
   alignment: ChartAlignment;
@@ -104,6 +125,8 @@ export interface ChartSettings {
 
 const DEFAULTS: ChartSettings = {
   type: "tree",
+  treeLayout: "tidy",
+  fanShape: "fan",
   kind: "tree",
   alignment: "lr",
   showKinship: true,
@@ -179,12 +202,20 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
     // Each field falls back to its default, so older saved blobs (which lack the
     // newer display/privacy flags) load cleanly.
     const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
-    const type =
-      parsed.type === "grid" || parsed.type === "fan" || parsed.type === "circle"
-        ? parsed.type
-        : DEFAULTS.type;
+    // Grid and Circle were kinds of their own once: a blob from then carries
+    // them in `type` (and `kind`), and they land on the kind that hosts them
+    // now, with the layout / shape they meant.
+    const legacy = parsed as { type?: string; kind?: string };
+    const stored = legacy.kind === "grid" || legacy.kind === "circle" ? legacy.kind : legacy.type;
+    const type: PedigreeType = stored === "fan" || stored === "circle" ? "fan" : DEFAULTS.type;
+    const treeLayout: TreeLayout =
+      parsed.treeLayout === "grid" || (parsed.treeLayout === undefined && stored === "grid") ? "grid" : "tidy";
+    const fanShape: FanShape =
+      parsed.fanShape === "circle" || (parsed.fanShape === undefined && stored === "circle") ? "circle" : "fan";
     return {
       type,
+      treeLayout,
+      fanShape,
       // Older saved blobs lack `kind`; fall back to the chart type they saved.
       kind: (NON_PEDIGREE_KINDS as readonly string[]).includes(parsed.kind as string) ? parsed.kind! : type,
       alignment: parsed.alignment === "tb" ? "tb" : DEFAULTS.alignment,
