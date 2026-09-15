@@ -449,7 +449,11 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       label: <>{t("tree.descendants")}<span className="tree-mode-count">{peopleCounts.descendants}</span></>,
       title: modeSummary(t, peopleCounts.descendants, depths.descendants),
     },
-    { key: "both", label: t("tree.both"), title: t("tree.both.tooltip") },
+    {
+      key: "both",
+      label: <>{t("tree.both")}<span className="tree-mode-count">{peopleCounts.ancestors + peopleCounts.descendants}</span></>,
+      title: t("tree.both.tooltip"),
+    },
   ];
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).

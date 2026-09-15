@@ -156,6 +156,8 @@ export interface FanChart {
   /** How many rings the chart drew at most — the cap behind {@link FanSegment.hidden},
    *  named in that marker's tooltip. */
   maxGen: number;
+  /** How many rings the chart actually drew. */
+  rings: number;
   /** Descendant charts: how many children of the root head a line (the range
    *  {@link FanSegment.branch} runs over), so a host can space the branch hues
    *  evenly around the colour wheel. */
@@ -207,6 +209,10 @@ export interface FanChartOptions {
   /** Centre the chart as if its outer radius were at least this — so two
    *  halves of different depth share one centre. */
   radius?: number;
+  /** Size and weight the labels as if the chart had this many rings — so
+   *  two halves of different depth read alike ring for ring. Defaults to the
+   *  rings actually drawn. */
+  fontRings?: number;
   hasPhoto?: (node: TreeNode) => boolean;
   /** Which fields to show (and whether to redact living people). */
   display?: NodeDisplayOptions;
@@ -294,6 +300,7 @@ export function buildFanChart(
     if (mother) walk(mother, gen + 1, slot * 2 + 1);
   })(root, 0, 0);
   const usedMaxGen = placed.reduce((m, p) => Math.max(m, p.gen), 0);
+  const fontRings = opts.fontRings ?? usedMaxGen;
 
   // 2. Inner radius per generation (root disk + cumulative ring widths; the
   //    outermost ring is deepened for its radial labels). Text-only rings taper
@@ -329,8 +336,8 @@ export function buildFanChart(
     // Deep rings get a smaller, lighter-weight label so the cramped deep rings stay
     // legible without dominating: from LIGHT_FROM outward, plus the outermost two
     // rings of any chart; the very last ring is smaller still.
-    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= usedMaxGen - 1);
-    const fontScale = gen > 0 && gen === usedMaxGen ? 0.7 : light ? 0.82 : 1;
+    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= fontRings - 1);
+    const fontScale = gen > 0 && gen === fontRings ? 0.7 : light ? 0.82 : 1;
     const fontPx = (FONT_BY_GEN[Math.min(gen, FONT_BY_GEN.length - 1)] ?? 6.5) * fontScale;
     const lineGap = round(fontPx * 1.22);
 
@@ -550,6 +557,7 @@ export function buildFanChart(
     r0: ROOT_R,
     rootKey: "0:0",
     maxGen,
+    rings: usedMaxGen,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
   };

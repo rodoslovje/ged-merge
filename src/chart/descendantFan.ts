@@ -13,14 +13,19 @@
 //
 // Labels, fonts, photos, the marker anchors and the sweep geometry follow the
 // ancestor fan (fanLayout.ts), whose helpers this reuses; the output is the same
-// `FanChart`, so FanChartBody draws both directions unchanged. Input is the
+// `FanChart`, so FanChartBody draws both directions unchanged. The wedges carry
+// names alone — a descendant wedge is as narrow as the lines under it, and a
+// lifespan or a place fits so seldom that showing them where they happen to
+// fit only made the ring read unevenly — and a name that is too long is
+// shortened by dropping parts (see nameForms), never by an initial or an
+// ellipsis. Input is the
 // descendant `TreeNode` from `buildPersonTree(..., "descendants")`: a person's
 // `partners` each carry that union's children, and children of a union with no
 // recorded spouse hang off the person's own `children`.
 
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
-import { MARRIAGE_SYMBOL, formatMarriage, type NodeDisplay } from "./nodeDisplay";
+import { MARRIAGE_SYMBOL, type NodeDisplay } from "./nodeDisplay";
 import {
   BADGE_HALF_W,
   DEFAULT_MAX_GEN,
@@ -30,12 +35,10 @@ import {
   HALF,
   LAST_RING_EXTRA,
   LIGHT_FROM,
-  NAME_ONLY_FROM,
   PHOTO_RING_W,
   RING_W,
   ROOT_R,
   TAU,
-  TWO_LINE_FROM,
   arcPath,
   circleBaseline,
   circlePath,
@@ -88,24 +91,43 @@ function fontOf(gen: number): number {
   return FONT_BY_GEN[Math.min(gen, FONT_BY_GEN.length - 1)] ?? 6.5;
 }
 
-/** A name that fits `maxW` at `fontPx` (estimated at half an em per character):
- *  the full name, else given name + surname initial, else the given name alone,
- *  else that cut with an ellipsis. */
-function fitName(name: string, maxW: number, fontPx: number): string {
-  const charPx = fontPx * 0.5;
-  const fits = (s: string) => s.length * charPx <= maxW;
-  if (fits(name)) return name;
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length > 1) {
-    const surname = parts[parts.length - 1];
-    const given = parts.slice(0, -1).join(" ");
-    const short = `${given} ${surname[0]}.`;
-    if (fits(short)) return short;
-    if (fits(given)) return given;
-    name = given;
+/** The forms a descendant's name is tried in, longest first, where the wedge
+ *  or band has no room for all of it: the name as displayed, then without the
+ *  parenthesised married surname, then one name alone — the given name for a
+ *  person or a wife (the surname repeats down a line), the surname for a
+ *  husband (it is what his descendants carry). Read from the record's own
+ *  name parts where there are any, so a surname-first display order cannot
+ *  mislead; a redacted living person has only their placeholder. Never an
+ *  initial or an ellipsis: a name that fits in no form is left off, and the
+ *  wedge stays. */
+export function nameForms(node: TreeNode, shown: string, role: "person" | "husband" | "wife"): string[] {
+  if (shown !== node.name) return [shown];
+  const full = shown.trim();
+  const bare = full.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+  const primary = node.main?.names[0] ?? node.incoming?.names[0];
+  const tokens = bare.split(" ").filter(Boolean);
+  const given = primary?.given?.trim() || (tokens.length > 1 ? tokens.slice(0, -1).join(" ") : "");
+  const surname = primary?.surname?.trim() || (tokens.length > 1 ? tokens[tokens.length - 1] : "");
+  const forms = [full, bare, role === "husband" ? surname : given];
+  return [...new Set(forms.map((f) => f.trim()).filter(Boolean))];
+}
+
+/** The name lines of a radial (outward-reading) label: the first form that
+ *  fits the ring depth on one line, or — with two lines of room — as a
+ *  given-name line over a surname line; none when no form fits. */
+function radialNameLines(forms: string[], maxLines: number, depth: number, fontPx: number): { text: string; kind: FanLine["kind"] }[] {
+  const fits = (s: string) => s.length * fontPx * 0.5 <= depth;
+  for (const form of forms) {
+    if (fits(form)) return [{ text: form, kind: "name" }];
+    if (maxLines >= 2) {
+      const parts = form.split(/\s+/).filter(Boolean);
+      if (parts.length > 1) {
+        const lines = [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
+        if (lines.every(fits)) return lines.map((text) => ({ text, kind: "name" as const }));
+      }
+    }
   }
-  const n = Math.max(1, Math.floor(maxW / charPx) - 1);
-  return name.length > n ? `${name.slice(0, n)}…` : name;
+  return [];
 }
 
 export function buildDescendantFanChart(
@@ -115,9 +137,7 @@ export function buildDescendantFanChart(
 ): FanChart {
   const maxGen = opts.maxGen ?? DEFAULT_MAX_GEN;
   const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
-  const { display, hasPhoto, dispOf, titleOf } = fanResolvers(opts);
-  const showMarriage = display.showMarriageDate || display.showMarriagePlace;
-  const marriageFields = { date: display.showMarriageDate, place: display.showMarriagePlace };
+  const { hasPhoto, dispOf, titleOf } = fanResolvers(opts);
 
   const sweep = opts.arc?.sweep ?? (shape === "circle" ? TAU : (FAN_DEG / 360) * TAU);
   const start = opts.arc?.start ?? -HALF - sweep / 2;
@@ -137,7 +157,7 @@ export function buildDescendantFanChart(
   // that generation's ring): one curved line for the spouse's name, two when
   // a marriage field is shown as well.
   const bandFont = (gen: number) => round(fontOf(gen) * 0.9);
-  const bandW = (gen: number) => round(bandFont(gen) * (showMarriage ? 3.1 : 1.9));
+  const bandW = (gen: number) => round(bandFont(gen) * 1.9);
 
   // 2. Where the rings run out: a ring is drawn only while it has an inner-edge
   //    arc per person for at least a name line (the floor below hands the
@@ -157,6 +177,7 @@ export function buildDescendantFanChart(
     }
   }
   const usedMaxGen = cap;
+  const fontRings = opts.fontRings ?? usedMaxGen;
 
   // 3. Radii. Person ring `g` and, when that generation has spouses, the band
   //    lane just outside it. The outermost two text-only rings are deepened for
@@ -256,8 +277,8 @@ export function buildDescendantFanChart(
 
   for (const { node, gen, a0, a1, branch } of persons) {
     const slot = nextSlot(gen);
-    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= usedMaxGen - 1);
-    const fontScale = gen > 0 && gen === usedMaxGen ? 0.7 : light ? 0.82 : 1;
+    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= fontRings - 1);
+    const fontScale = gen > 0 && gen === fontRings ? 0.7 : light ? 0.82 : 1;
     const fontPx = fontOf(gen) * fontScale;
     const lineGap = round(fontPx * 1.22);
 
@@ -287,13 +308,10 @@ export function buildDescendantFanChart(
       continue;
     }
 
+    // Names alone on every ring (see the header).
     const disp = dispOf(node);
-    const genDisp: NodeDisplay =
-      gen >= NAME_ONLY_FROM
-        ? { ...disp, years: undefined, place: undefined }
-        : gen >= TWO_LINE_FROM
-          ? { ...disp, place: undefined }
-          : disp;
+    const genDisp: NodeDisplay = { ...disp, years: undefined, place: undefined };
+    const forms = nameForms(node, disp.name, "person");
 
     const delta = a1 - a0;
     const mid = (a0 + a1) / 2;
@@ -335,8 +353,13 @@ export function buildDescendantFanChart(
       const bandLo = photo ? rIn + photo.size + 14 : rIn + 8;
       const bandHi = rOut - 8;
       const centre = (bandLo + bandHi) / 2;
-      const splitName = !(gen <= 3 && !!genDisp.years && !!genDisp.place);
-      const texts = curvedTexts(genDisp, centre * delta, fontPx, splitName);
+      // The longest form whose wrapped lines fit the ring's depth; none when
+      // even one name alone would not.
+      let texts: { text: string; kind: FanLine["kind"] }[] = [];
+      for (const form of forms) {
+        const lines = curvedTexts({ ...genDisp, name: form }, centre * delta, fontPx, true);
+        if (lines.length * lineGap <= bandHi - bandLo) { texts = lines; break; }
+      }
       const n = texts.length;
       const gap = Math.min(lineGap, (bandHi - bandLo - 2) / Math.max(n, 1));
       segments.push({
@@ -357,17 +380,7 @@ export function buildDescendantFanChart(
     // and clickable; the panel names the person).
     const arcIn = rIn * delta;
     const maxLines = Math.floor(arcIn / (fontPx * 1.05));
-    let texts: { text: string; kind: FanLine["kind"] }[] = [];
-    if (maxLines >= 1) {
-      const tooLong = genDisp.name.length * fontPx * 0.5 > w - 16;
-      texts = labelTexts(genDisp, tooLong && maxLines >= 2);
-      if (texts.length > maxLines) {
-        texts =
-          maxLines === 1
-            ? [{ text: fitName(genDisp.name, w - 16, fontPx), kind: "name" }]
-            : texts.slice(0, maxLines);
-      }
-    }
+    const texts = maxLines >= 1 ? radialNameLines(forms, maxLines, w - 16, fontPx) : [];
     const n = texts.length;
     const gap = Math.min(lineGap, Math.max(1, (rMid * delta - 2) / Math.max(n, 1)));
     let deg = (mid * 180) / Math.PI;
@@ -397,47 +410,22 @@ export function buildDescendantFanChart(
     const mid = (a0 + a1) / 2;
     const full = delta >= TAU - 1e-6;
     const flip = shape === "circle" && Math.sin(mid) > 0;
-    const light = gen >= LIGHT_FROM || gen >= usedMaxGen - 1;
+    const light = gen >= LIGHT_FROM || gen >= fontRings - 1;
     const fontPx = bandFont(gen) * (light ? 0.82 : 1);
     const arcLen = (full ? TAU : delta) * rMid;
     const fits = (s: string, f: number) => s.length * f * 0.5 <= arcLen - 6;
     const disp = dispOf(node);
 
-    // The name line: full → "Given S." → given → the glyph → nothing.
+    // The name line: the longest form of the spouse's name that fits the arc
+    // (see nameForms — a husband keeps his surname, a wife her given name),
+    // else the marriage glyph alone, else nothing.
     let nameText: string | undefined;
-    for (const cand of [disp.name, fitName(disp.name, arcLen - 6, fontPx), MARRIAGE_SYMBOL]) {
+    for (const cand of [...nameForms(node, disp.name, node.sex === "M" ? "husband" : "wife"), MARRIAGE_SYMBOL]) {
       if (fits(cand, fontPx)) { nameText = cand; break; }
     }
-    // The marriage line, in the muted lifespan style: year + place, falling
-    // back to the year alone, and dropped when even that overflows or the
-    // couple is redacted.
-    let marriageText: string | undefined;
-    if (showMarriage && node.marriage) {
-      const redact = display.privacyLiving && (node.living || !!node.marriage.living);
-      let text = redact ? undefined : formatMarriage(node.marriage, marriageFields, display.privacyLiving);
-      if (text && !fits(text, fontPx * 0.85) && marriageFields.date && marriageFields.place) {
-        text = formatMarriage(node.marriage, { date: true, place: false }, display.privacyLiving);
-      }
-      if (text && fits(text, fontPx * 0.85)) marriageText = text;
-    }
-
-    const lineAt = (text: string, kind: FanLine["kind"], r: number): FanLine => ({
-      text,
-      kind,
-      arc: full ? circleBaseline(cx, cy, r) : arcPath(cx, cy, r, a0, a1, flip),
-    });
-    const lines: FanLine[] = [];
-    if (nameText && marriageText) {
-      // Name outer, marriage inner — reversed in the circle's bottom half so the
-      // name stays visually on top.
-      const gap = fontPx * 1.15;
-      const ord = flip ? -1 : 1;
-      lines.push(lineAt(nameText, "name", rMid + (ord * gap) / 2), lineAt(marriageText, "years", rMid - (ord * gap) / 2));
-    } else if (nameText) {
-      lines.push(lineAt(nameText, "name", rMid));
-    } else if (marriageText) {
-      lines.push(lineAt(marriageText, "years", rMid));
-    }
+    const lines: FanLine[] = nameText
+      ? [{ text: nameText, kind: "name", arc: full ? circleBaseline(cx, cy, rMid) : arcPath(cx, cy, rMid, a0, a1, flip) }]
+      : [];
 
     // Markers sit at the band's two ends, clear of the centred label: the
     // status badge at the start, the repeat arrow at the end.
@@ -473,6 +461,7 @@ export function buildDescendantFanChart(
     r0: ROOT_R,
     rootKey: "0:0",
     maxGen: cap,
+    rings: usedMaxGen,
     branches: rootBranches,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
