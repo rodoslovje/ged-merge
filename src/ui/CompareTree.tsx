@@ -275,6 +275,9 @@ export function CompareTree({
       }),
     [t, mode, limit],
   );
+  // The layered body hands its node along; this chart has no bowtie, so the
+  // node says nothing the direction doesn't.
+  const treeHiddenTitle = useCallback((count: number) => hiddenTitle(count), [hiddenTitle]);
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
   // the same counts the Compare Tree button surfaces in Merge mode.
@@ -580,7 +583,7 @@ export function CompareTree({
                 modifiedOf={isModified}
                 showRepeat
                 onRepeatJump={find.jumpTo}
-                hiddenTitle={hiddenTitle}
+                hiddenTitle={treeHiddenTitle}
                 onHiddenJump={hiddenJump}
                 kinshipOf={kinshipOf}
                 lineageOf={lineageOf}

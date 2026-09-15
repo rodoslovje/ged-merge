@@ -34,7 +34,7 @@ interface Props {
   /** Tooltip for the "+N, not shown" marker a generation-limited chart puts on
    *  its last drawn generation (`TreeNode.hidden`). Without it the marker is
    *  skipped — a view that never limits draws no markers. */
-  hiddenTitle?: (count: number) => string;
+  hiddenTitle?: (count: number, node: Placed) => string;
   /** Continue from a cut-off person: re-roots the chart on them. */
   onHiddenJump?: (n: Placed) => void;
   kinshipOf?: (n: Placed) => string | undefined;
@@ -170,7 +170,7 @@ export const TreeSvg = memo(function TreeSvg({
                     y={nodeH - 12}
                     letter={`+${n.hidden}`}
                     cls="tree-node-repeat-badge tree-node-hidden-badge"
-                    title={hiddenTitle(n.hidden)}
+                    title={hiddenTitle(n.hidden, n)}
                   />
                 </g>
               )}

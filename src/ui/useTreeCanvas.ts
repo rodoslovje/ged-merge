@@ -383,9 +383,11 @@ export function useTreeCanvas(
   }, [laid, commitGesture]);
 
   // On a new chart — initial load, a re-root, mode switches, alignment flips —
-  // scroll so the starting person (the tree root) is in view. The root sits at
-  // the leading edge of the depth axis, so pin it there (left in LR, top in TB)
-  // and centre it on the breadth axis. Then re-measure for the minimap.
+  // scroll so the starting person (the tree root) is in view. A direction
+  // chart's root sits at the leading edge of the depth axis, so it is pinned
+  // there (left in LR, top in TB); a bowtie's root sits in the middle, with
+  // the ancestors before it, so it is centred instead. The breadth axis always
+  // centres on the root. Then re-measure for the minimap.
   // (Defined after fitToScreen: the dependency array reads it during render.)
   const homedFor = useRef<string | null>(null);
   useEffect(() => {
@@ -402,12 +404,16 @@ export function useTreeCanvas(
         // 1×) and centred — rather than showing just the middle rings at the
         // zoom left over from the previous chart.
         fitToScreen();
-      } else if (alignment === "tb") {
-        el.scrollTop = Math.max(0, laid.root.y * z);
-        el.scrollLeft = Math.max(0, (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2);
       } else {
-        el.scrollLeft = Math.max(0, laid.root.x * z);
-        el.scrollTop = Math.max(0, (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2);
+        const centreX = (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2;
+        const centreY = (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2;
+        if (alignment === "tb") {
+          el.scrollTop = Math.max(0, laid.root.y === 0 ? 0 : centreY);
+          el.scrollLeft = Math.max(0, centreX);
+        } else {
+          el.scrollLeft = Math.max(0, laid.root.x === 0 ? 0 : centreX);
+          el.scrollTop = Math.max(0, centreY);
+        }
       }
     }
     syncViewport();

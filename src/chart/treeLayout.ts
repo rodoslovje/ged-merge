@@ -287,6 +287,11 @@ export interface BowtieLaid {
   height: number;
 }
 
+/** Whether a laid chart is a bowtie (carries the mirrored ancestor half). */
+export function isBowtie(laid: { root: Placed }): laid is BowtieLaid {
+  return "ancestors" in laid;
+}
+
 /**
  * Bowtie layout: the descendants lay out as usual from the root, the ancestors
  * lay out the same way and are then flipped along the depth axis, so they sit
