@@ -175,3 +175,18 @@ describe("buildFanChart", () => {
     expect(chart.marriages).toHaveLength(0);
   });
 });
+
+describe("privacy and the marriage collar", () => {
+  it("keeps the parents' wedding of a living child, and hides a living couple's", () => {
+    const parents = [person("M", [], "dad"), person("F", [], "mum")];
+    const root: TreeNode = { ...person("M", parents, "child"), living: true, marriage: { year: "1900", place: "Kranj" } };
+    const display = { ...ALL_DISPLAY, showMarriageDate: true, showMarriagePlace: false, privacyLiving: true };
+    const shown = buildFanChart(root, "fan", { display });
+    expect(shown.marriages).toHaveLength(1);
+    expect(shown.marriages[0].lines.map((l) => l.text)).toEqual(["⚭ 1900"]);
+
+    const livingCouple: TreeNode = { ...root, living: false, marriage: { year: "1990", living: true } };
+    const hidden = buildFanChart(livingCouple, "fan", { display });
+    expect(hidden.marriages[0].lines).toEqual([]);
+  });
+});

@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeHover, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -27,6 +27,11 @@ import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
 import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
+import { AXIS_TINT } from "../chart/nodeColor";
+import { useChartHover, type HoverInfo } from "./useChartHover";
+import { ChartHoverCard } from "./ChartHoverCard";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -136,6 +141,17 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     [mainDs, current, alignment, nodeH, formatName],
   );
 
+  // The shared Color axis over everyone drawn; on the plain axis the path
+  // keeps its spine / context colours (the stroke width tells them apart on
+  // any axis).
+  const subjects = useMemo(() => (chart?.boxes ?? []).map((b) => ({ indi: mainDs.individuals.get(b.id) })), [chart, mainDs]);
+  const colorer = useNodeColorer(mainDs, subjects);
+  const colorFor = useMemo(
+    () => (b: { id: string; onSpine: boolean }) =>
+      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id))) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
+    [colorer, mainDs],
+  );
+  const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
   // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
   // structurally). The start box pins the initial scroll.
   const nodesByKey = useMemo(() => {
@@ -180,6 +196,29 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching
   // (every box on the chart carries a kinship label).
   const kinshipOf = useMemo(() => createKinshipResolver(mainDs, startSel, t), [mainDs, startSel, t]);
+  // The hover card for the box under the pointer (see EditTree's twin).
+  const hoverInfoFor = useCallback(
+    (key: string): HoverInfo | undefined => {
+      const b = nodesByKey.get(key);
+      if (!b) return undefined;
+      const indi = mainDs.individuals.get(b.id);
+      const age = lifespanAge(indi);
+      const h = nodeHover(settings, {
+        name: b.name,
+        years: b.years,
+        age,
+        ageText: age !== undefined ? ageStandalone(t, b.sex, age) : undefined,
+        place: placeLabel(indi),
+        kinship: kinshipOf.label(b.id),
+        kinshipLineage: kinshipOf.lineage(b.id),
+        living: isPresumedLiving(indi, mainDs) || !!indi?.private,
+        livingLabel: livingLabelFor(t, b.sex),
+      });
+      return { ...h, sex: h.redacted ? undefined : b.sex, hint: t("tree.node.clickHint") };
+    },
+    [nodesByKey, mainDs, settings, t, kinshipOf],
+  );
+  const hover = useChartHover(canvasRef, hoverInfoFor);
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
@@ -272,6 +311,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       )}
 
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={colorer.legend} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
             <ChartZoom width={chart.width} height={chart.height} zoom={zoom} layerRef={zoomLayerRef}>
@@ -297,7 +337,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                     ) : null;
                   })}
                 {chart.boxes.map((b) => {
-                  const color = b.onSpine ? COLOR_SPINE : COLOR_CONTEXT;
+                  const color = colorFor(b);
                   const indi = mainDs.individuals.get(b.id);
                   return (
                     <g
@@ -316,8 +356,8 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         selectNode(b.key);
                       }}
                     >
-                      <title>{t("tree.node.clickHint")}</title>
                       <TreeNodeBox
+                        tint={tint}
                         name={b.name}
                         years={b.years}
                         age={lifespanAge(indi)}
@@ -343,6 +383,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           )}
         </div>
 
+        <ChartHoverCard hover={hover} />
         {chart && (
           <ChartMinimap
             contentW={chart.width}
@@ -350,7 +391,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
             viewport={viewport}
             zoom={zoom}
             nodes={chart.boxes}
-            fill={(b) => (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT)}
+            fill={colorFor}
             nodeH={nodeH}
             onScrollTo={scrollTo}
           />
@@ -363,7 +404,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         {selectedBox && selectedIndi && (
           <TreeNodePanel
             node={selectedBox}
-            swatch={selectedBox.onSpine ? COLOR_SPINE : COLOR_CONTEXT}
+            swatch={colorFor(selectedBox)}
             rows={selectedRows}
             mainPerson={{ linkable: (id) => mainDs.individuals.has(id), onNavigate }}
             mainLabel={t("tree.main")}

@@ -57,10 +57,6 @@
   /* The four grandparent lines. Kin to the lineage pair and ordered like the
      wedges themselves — father's blood in blues on the left, mother's in
      purples on the right — so a wedge's colour and its side agree. */
-  --kin-line-f1: #5a8df0;
-  --kin-line-f2: #56b8d8;
-  --kin-line-m1: #c061f0;
-  --kin-line-m2: #ee7ab4;
 
   /* ---- Fan / Circle descendants ----
      One hue per child of the root, inherited down that child's whole line and
@@ -87,6 +83,7 @@
   --node-minor:    #a2702b;
   --node-major:    #b63b39;
   --node-main:   #286853;
+  --node-desc:   #2b6b7d;   /* the descendants' side on the plain Color axis */
   --node-incoming: #7846a9;
 
   /* ---- Map chart: marker colour per event kind + offline-outline land ---- */
@@ -153,10 +150,6 @@
   --kin-desc-near: #0f8a6a;
   --kin-desc-far:  #1a2f9e;
   --kin-deceased:  #8d857b;
-  --kin-line-f1: #2f5fcf;
-  --kin-line-f2: #1a7392;
-  --kin-line-m1: #8e24c9;
-  --kin-line-m2: #b73c7c;
 
   /* Darker, fuller hues on paper: the tints are mixed into a light panel. */
   --fan-branch-l: 0.56;

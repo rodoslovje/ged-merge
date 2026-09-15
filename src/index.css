@@ -5154,9 +5154,38 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    corner because the in-flight pinch transform useTreeCanvas paints here is
    solved for that corner — a centred origin would offset every gesture by half
    the chart. (`.tree-zoom` is the zoom toolbar.) */
-.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
+/* Always a compositor layer of its own: a pinch or wheel zoom paints its
+   transform straight onto it (useTreeCanvas), and promoting it only for the
+   gesture made Chromium rasterise the whole chart at the gesture's start and
+   again at its end — a big fan's curved text, twice per pinch. Kept promoted,
+   the gesture scales the existing raster, as Safari and Firefox do anyway. */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; will-change: transform; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
+/* The hover card beside the pointer (ChartHoverCard): anchored at the pointer
+   in the canvas wrap and pushed off it by its transform, so it never sits
+   under the pointer and steals the hover it is describing. */
+.chart-hover-card {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  max-width: 300px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+/* Head: the name and the lifespan side by side, as a person card writes them. */
+.chart-hover-head { display: flex; align-items: baseline; gap: 8px; font-weight: 600; color: var(--text); }
+.chart-hover-line { color: var(--muted); }
+.chart-hover-kin { color: var(--accent); font-size: 0.8rem; }
+.chart-hover-kin.lineage-paternal { color: var(--lineage-paternal); }
+.chart-hover-kin.lineage-maternal { color: var(--lineage-maternal); }
+.chart-hover-hint { color: var(--faint); font-size: 0.75rem; margin-top: 2px; }
 .tree-edge {
   fill: none;
   stroke: var(--border);
@@ -5379,6 +5408,20 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
+/* Laid over the canvas (see ChartLegend): the top-right corner on every
+   chart, so it is found in the same place whichever kind is open — the
+   overview map owns the top-left, and a key that moved between corners with
+   the kind was worse than one that shares a corner with the selected
+   person's panel. Above the SVG. */
+.tree-canvas-wrap > .chart-legend {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  margin: 0;
+  max-width: calc(100% - 140px);
+  justify-content: flex-end;
+}
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
@@ -5442,7 +5485,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.85rem;
   color: var(--muted);
 }
-.report-page section:first-child .report-gen-head { margin-top: 0; }
+.report-page section:first-of-type .report-gen-head { margin-top: 0; }
+/* The bowtie's two reports on one page: each under its own title, the second
+   ruled off from the first. */
+.report-part-head { font-size: 1.05rem; margin: 0 0 14px; color: var(--text); }
+.report-page + .report-page { border-top: 1px solid var(--border); }
 /* Register: the "Children of no. X" group heading inside a generation. */
 .report-family-head {
   margin: 12px 0 2px;

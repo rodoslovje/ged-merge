@@ -27,6 +27,13 @@ interface Props {
    *  The segment is handed along so a host can colour a descendant chart by
    *  branch (`FanSegment.branch`). */
   colorOf: (node: TreeNode, seg: FanSegment) => string;
+  /** Fill strength (percent of the colour in the panel) for every wedge,
+   *  overriding the segments' own; a Color axis in force asks for a stronger
+   *  one than the plain chart's. */
+  tint?: number;
+  /** Give each wedge a native `<title>` tooltip; off where the host shows its
+   *  own hover card (see ChartHoverCard). */
+  nativeTooltip?: boolean;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Segment just jumped to by find-in-chart; flashes so it's spotted at a glance. */
@@ -61,7 +68,10 @@ interface OuterMarker {
   onClick: () => void;
 }
 
-const arcId = (seg: FanSegment, i: number) => `fa-${seg.gen}-${seg.slot}-${i}`;
+// Keyed on the segment's key, not its ring and slot: the radial bowtie draws
+// two halves whose rings and slots coincide, and a shared id sent one half's
+// curved lines down the other half's arcs.
+const arcId = (seg: FanSegment, i: number) => `fa-${seg.key.replace(/[^\w-]/g, "_")}-${i}`;
 
 /**
  * The radial body for the Fan / Circle ancestor charts. Renders the same
@@ -89,6 +99,8 @@ export const FanChartBody = memo(function FanChartBody({
   onRepeatJump,
   hiddenTitle,
   onHiddenJump,
+  tint,
+  nativeTooltip = true,
 }: Props) {
   const { t } = useTranslation();
   const curved = chart.segments.filter((s) => s.curved);
@@ -145,6 +157,8 @@ export const FanChartBody = memo(function FanChartBody({
             key={seg.key}
             seg={seg}
             color={colorOf(seg.node, seg)}
+            tint={tint}
+            nativeTooltip={nativeTooltip}
             selected={seg.key === selectedKey}
             flashed={seg.key === flashKey}
             onSelect={onSelect}
@@ -194,9 +208,13 @@ function Segment({
   compareRefCtx,
   badge,
   outer,
+  tint,
+  nativeTooltip,
 }: {
   seg: FanSegment;
   color: string;
+  tint?: number;
+  nativeTooltip: boolean;
   selected: boolean;
   flashed: boolean;
   onSelect: (key: string) => void;
@@ -234,11 +252,11 @@ function Segment({
       }}
     >
       {/* Who this is, whatever the wedge had room to write, then the hint. */}
-      <title>{`${seg.title}\n${clickHint}`}</title>
+      {nativeTooltip && <title>{`${seg.title}\n${clickHint}`}</title>}
       <path
         className="fan-sector"
         d={seg.d}
-        fill={`color-mix(in srgb, ${color} ${seg.tint ?? 16}%, var(--panel))`}
+        fill={`color-mix(in srgb, ${color} ${tint ?? seg.tint ?? 16}%, var(--panel))`}
         stroke={selected ? color : `color-mix(in srgb, ${color} 50%, var(--panel))`}
         strokeWidth={selected ? 2.5 : 0.75}
       />

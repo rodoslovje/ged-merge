@@ -19,7 +19,7 @@
 
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
-import { ALL_DISPLAY, formatMarriage, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 
 export type FanShape = "fan" | "circle";
 
@@ -156,6 +156,8 @@ export interface FanChart {
   /** How many rings the chart drew at most — the cap behind {@link FanSegment.hidden},
    *  named in that marker's tooltip. */
   maxGen: number;
+  /** How many rings the chart actually drew. */
+  rings: number;
   /** Descendant charts: how many children of the root head a line (the range
    *  {@link FanSegment.branch} runs over), so a host can space the branch hues
    *  evenly around the colour wheel. */
@@ -173,7 +175,7 @@ interface Placed {
 /** Father/mother for the next ring: slot bit 0 = father, 1 = mother. Assign by
  *  sex first (so a lone parent stays in their half), then by order for any
  *  ambiguous remainder. */
-function splitParents(kids: TreeNode[]): [TreeNode | undefined, TreeNode | undefined] {
+export function splitParents(kids: TreeNode[]): [TreeNode | undefined, TreeNode | undefined] {
   let father: TreeNode | undefined;
   let mother: TreeNode | undefined;
   for (const k of kids) {
@@ -207,6 +209,10 @@ export interface FanChartOptions {
   /** Centre the chart as if its outer radius were at least this — so two
    *  halves of different depth share one centre. */
   radius?: number;
+  /** Size and weight the labels as if the chart had this many rings — so
+   *  two halves of different depth read alike ring for ring. Defaults to the
+   *  rings actually drawn. */
+  fontRings?: number;
   hasPhoto?: (node: TreeNode) => boolean;
   /** Which fields to show (and whether to redact living people). */
   display?: NodeDisplayOptions;
@@ -255,13 +261,20 @@ export function fanResolvers(opts: FanChartOptions): {
       livingLabel: livingLabelOf(node),
     });
   };
-  /** The hover text: full name + lifespan regardless of what the wedge could
-   *  fit or which fields are toggled on — but never more than the redaction
-   *  allows for a living person. */
-  const titleOf = (node: TreeNode): string => {
-    if (display.privacyLiving && node.living) return dispOf(node).name;
-    return node.years ? `${node.name}, ${node.years}` : node.name;
-  };
+  /** The hover text: the full name and lifespan regardless of what the wedge
+   *  could fit, then the fields the settings show (see nodeTooltip) — the
+   *  kinship among them, which the wedge itself never draws. */
+  const titleOf = (node: TreeNode): string =>
+    nodeTooltip(display, {
+      name: node.name,
+      years: node.years,
+      age: node.age,
+      ageText: ageTextOf(node),
+      place: node.place,
+      kinship: opts.kinshipOf?.(node),
+      living: node.living,
+      livingLabel: livingLabelOf(node),
+    });
   return { display, hasPhoto, dispOf, titleOf };
 }
 
@@ -294,6 +307,7 @@ export function buildFanChart(
     if (mother) walk(mother, gen + 1, slot * 2 + 1);
   })(root, 0, 0);
   const usedMaxGen = placed.reduce((m, p) => Math.max(m, p.gen), 0);
+  const fontRings = opts.fontRings ?? usedMaxGen;
 
   // 2. Inner radius per generation (root disk + cumulative ring widths; the
   //    outermost ring is deepened for its radial labels). Text-only rings taper
@@ -329,8 +343,8 @@ export function buildFanChart(
     // Deep rings get a smaller, lighter-weight label so the cramped deep rings stay
     // legible without dominating: from LIGHT_FROM outward, plus the outermost two
     // rings of any chart; the very last ring is smaller still.
-    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= usedMaxGen - 1);
-    const fontScale = gen > 0 && gen === usedMaxGen ? 0.7 : light ? 0.82 : 1;
+    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= fontRings - 1);
+    const fontScale = gen > 0 && gen === fontRings ? 0.7 : light ? 0.82 : 1;
     const fontPx = (FONT_BY_GEN[Math.min(gen, FONT_BY_GEN.length - 1)] ?? 6.5) * fontScale;
     const lineGap = round(fontPx * 1.22);
 
@@ -506,10 +520,12 @@ export function buildFanChart(
       let lines: { text: string; arc: string }[] = [];
       let fontPx = round(Math.min(baseFont * 0.82, collarW * 0.55));
 
-      // Redacting the living hides the couple's own label too — see
-      // MarriageInfo.living. The collar band still draws, blank, so the ring
-      // spacing doesn't shift between a private couple and a known one.
-      const redactMarriage = display.privacyLiving && (node.living || !!node.marriage?.living);
+      // Redacting the living hides a couple's own label when one of them is
+      // living — see MarriageInfo.living — and only then: the collar is the
+      // parents' wedding, and a living child is no reason to hide it. The band
+      // still draws, blank, so the ring spacing doesn't shift between a
+      // private couple and a known one.
+      const redactMarriage = display.privacyLiving && !!node.marriage?.living;
       if (node.marriage && !redactMarriage) {
         const { year, place } = node.marriage;
         // Deep rings stack the year over the place on two concentric lines (the arc
@@ -550,6 +566,7 @@ export function buildFanChart(
     r0: ROOT_R,
     rootKey: "0:0",
     maxGen,
+    rings: usedMaxGen,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
   };

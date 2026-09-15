@@ -29,6 +29,41 @@ export function reportToRtf(
   title: string,
   opts: ReportTextOptions = {},
 ): string {
+  return reportsToRtf(t, [{ data, direction, title, opts }]);
+}
+
+/** One report of a document that holds several, one after the other — the
+ *  bowtie's Ahnentafel and register. */
+export interface RtfReport {
+  data: ReportData;
+  direction: "ancestors" | "descendants";
+  title: string;
+  opts?: ReportTextOptions;
+}
+
+export function reportsToRtf(t: Translate, reports: RtfReport[]): string {
+  const parts = reports.flatMap((r) => rtfBody(t, r.data, r.direction, r.title, r.opts ?? {}));
+  // \uc1: one fallback char ("?") follows each \uN escape. Newlines between
+  // paragraphs are ignored by RTF readers — kept for readability.
+  return (
+    "{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1\n" +
+    "{\\fonttbl{\\f0\\froman\\fcharset0 Georgia;}}\n" +
+    "{\\colortbl;\\red34\\green34\\blue34;\\red68\\green68\\blue68;\\red85\\green85\\blue85;\\red26\\green75\\blue122;}\n" +
+    "\\f0\\fs22\n" +
+    parts.join("\n") +
+    "\n}"
+  );
+}
+
+/** One report's paragraphs: its title, table of contents, generations and
+ *  closing note. */
+function rtfBody(
+  t: Translate,
+  data: ReportData,
+  direction: "ancestors" | "descendants",
+  title: string,
+  opts: ReportTextOptions,
+): string[] {
   const parts: string[] = [para("\\sa240\\b\\fs30", esc(title))];
   if (opts.toc) {
     // Each row jumps to its generation heading's bookmark (see genBookmark).
@@ -37,7 +72,7 @@ export function reportToRtf(
       parts.push(
         para(
           `\\li${INDENT}\\sa20\\cf${CF_FACT}`,
-          `{\\field{\\*\\fldinst{HYPERLINK \\\\l "${genBookmark(row.gen)}"}}{\\fldrslt ${esc(row.label)}}}`,
+          `{\\field{\\*\\fldinst{HYPERLINK \\\\l "${genBookmark(row.gen, direction)}"}}{\\fldrslt ${esc(row.label)}}}`,
         ),
       );
     }
@@ -45,7 +80,7 @@ export function reportToRtf(
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
     const meta = [h.range, h.coverage].filter(Boolean).map((s) => `· ${s}`).join(" ");
-    const mark = opts.toc ? `{\\*\\bkmkstart ${genBookmark(g.gen)}}{\\*\\bkmkend ${genBookmark(g.gen)}}` : "";
+    const mark = opts.toc ? `{\\*\\bkmkstart ${genBookmark(g.gen, direction)}}{\\*\\bkmkend ${genBookmark(g.gen, direction)}}` : "";
     parts.push(
       para(
         "\\sb240\\sa100\\brdrb\\brdrs\\brdrw15\\brsp60\\b\\fs24",
@@ -64,16 +99,7 @@ export function reportToRtf(
   }
   const note = truncationNote(t, data);
   if (note) parts.push(para(`\\sb240\\sa100\\i\\cf${CF_MUTED}`, esc(note)));
-  // \uc1: one fallback char ("?") follows each \uN escape. Newlines between
-  // paragraphs are ignored by RTF readers — kept for readability.
-  return (
-    "{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1\n" +
-    "{\\fonttbl{\\f0\\froman\\fcharset0 Georgia;}}\n" +
-    "{\\colortbl;\\red34\\green34\\blue34;\\red68\\green68\\blue68;\\red85\\green85\\blue85;\\red26\\green75\\blue122;}\n" +
-    "\\f0\\fs22\n" +
-    parts.join("\n") +
-    "\n}"
-  );
+  return parts;
 }
 
 function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): string[] {
@@ -121,8 +147,10 @@ function para(fmt: string, text: string): string {
 }
 
 /** A generation heading's bookmark name — the TOC's HYPERLINK \l target. */
-function genBookmark(gen: number): string {
-  return `gen${gen}`;
+/** Bookmark names must be unique across the document: a document of two
+ *  reports numbers its generations twice. */
+function genBookmark(gen: number, direction: string): string {
+  return `${direction}gen${gen}`;
 }
 
 /** An italic note paragraph (notes may span several lines → \line breaks). */

@@ -1996,7 +1996,8 @@
               zapomni nazadnje uporabljeno. Vsaka zamenjava korena — <strong>Koren</strong> v podoknu
               vozlišča, značka <span class="gm-badge rep">+7</span>, zadetek iskanja zunaj diagrama — šteje kot korak,
               zato se <strong>Nazaj</strong> (gumb ali brskalnikov) vrača po osebah, na katere ste diagram postavili,
-              in šele nato zapusti stran:
+              in šele nato zapusti stran. Če se z miško ustavite na osebi, se pokaže kartica s polnim imenom,
+              življenjsko dobo in polji, ki jih kažejo nastavitve diagrama:
             </p>
             <ul>
               <li><strong>Drevo</strong> in <strong>Pahljača</strong> — dve vrsti rodovniškega diagrama, vsaka v dveh
@@ -2009,9 +2010,12 @@
                 Pri potomcih je vsak obroč en rod otrok, širina izseka osebe pa sledi številu družinskih linij, ki se
                 pod njo končajo — veja, ki je rod nadaljevala, zavzame večino loka, brat ali sestra brez otrok pa obdrži
                 ozek izsek, v katerega se ime še vedno izpiše. Vsaka poroka je tanek pas ob zunanjem robu izseka z imenom
-                zakonca, otroci te poroke pa so izrisani ob njem; linija vsakega otroka izhodiščne osebe dobi svojo
-                barvo, ki z vsakim rodom zbledi. Obroči se končajo tam, kjer v rodu zmanjka prostora za ime vsake osebe;
-                oznaka <span class="gm-badge rep">+7</span> na zadnjem obroču prešteje preostale.</li>
+                zakonca, otroci te poroke pa so izrisani ob njem; potomci so v svoji barvi, korak stran od zelene
+                prednikov, ki z vsakim rodom zbledi (na barvni osi <em>Družinska veja</em> dobi linija vsakega otroka
+                izhodiščne osebe svoj odtenek). Obroči se končajo tam, kjer v rodu zmanjka prostora za ime vsake osebe;
+                oznaka <span class="gm-badge rep">+7</span> na zadnjem obroču prešteje preostale. Izseki potomcev in
+                pasovi zakoncev nosijo samo imena: imenu, ki je za svoj izsek predolgo, se najprej umakne poročni
+                priimek, nato priimek, sicer se izpusti, ne pa skrajša.</li>
               <li><strong>Časovnica</strong> — najbližja družina kot časovni trakovi na skupni letni osi; glejte
                 spodaj.</li>
               <li><strong>Sorodstvo</strong> (<span class="gm-key">S</span>) — prikaže, kako je izbrana oseba v sorodu z
@@ -2032,10 +2036,12 @@
             </ul>
             <p>
               Rodovniška diagrama, Zemljevid in Poročilo imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka
-              izbira pokaže trenutno število), rodovniška diagrama pa še tretjo izbiro <strong>Oboje</strong>, ki
-              izriše prednike in potomce hkrati. Pri Drevesu so predniki na eni strani osebe in potomci na drugi, v
-              obeh izvedbah. Pri Pahljači si obe smeri delita en poln krog, predniki zgoraj in potomci spodaj. Krog se
-              razdeli v razmerju s številom oseb na vsaki strani, obe polovici pa loči zareza na vsakem boku. Gumb
+              izbira pokaže trenutno število), rodovniška diagrama in Zemljevid pa še tretjo izbiro
+              <strong>Oboje</strong>, ki izriše prednike in potomce hkrati. Pri Drevesu so predniki na eni strani osebe
+              in potomci na drugi, v obeh izvedbah. Pri Pahljači si obe smeri delita en poln krog, predniki zgoraj in
+              potomci spodaj. Krog se razdeli v razmerju s številom oseb na vsaki strani, obe polovici pa loči zareza
+              na vsakem boku. Zemljevid pokaže kraje obeh vej skupaj, Poročilo pa izpiše obe poročili, o prednikih in o
+              potomcih, eno za drugim. Gumb
               <strong>Diagram</strong> (zobnik <span class="gm-glyph">⚙</span>) odpre okno z
               nastavitvami, ki se prilagodijo odprti vrsti; vse izbire se ohranijo med sejami:
             </p>
@@ -2064,9 +2070,17 @@
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
                 piko) in skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj).</li>
-              <li><strong>Barva</strong> in <strong>Imena</strong> (samo Sodobniki) — kaj pove barva osebe
-                (<em>Rod</em>, <em>Družinska veja</em> ali <em>Živi</em>) in ali so najbližji sorodniki na diagramu
-                poimenovani; glejte <a href="#contemporaries">spodaj</a>.</li>
+              <li><strong>Barva</strong> (vse vrste razen Poročila in Zemljevida) — kaj pove barva osebe.
+                <em>Enobarvno</em> je lastno barvanje diagrama; <em>Rod</em> in <em>Družinska veja</em> bereta mesto
+                osebe na diagramu, zato obarvata rodovniška diagrama in Sodobnike; <em>Spol</em>, <em>Živi</em>,
+                <em>Država</em> (kraja rojstva, bivanja ali smrti, prvega, ki je zapisan), <em>Kraj rojstva</em>,
+                <em>Priimek</em>, <em>Starost staršev</em> ob rojstvu osebe (povprečje obeh),
+                <em>Življenjska doba</em>, <em>Stoletje</em> rojstva in <em>Viri</em> (kolikšen del rojstva, smrti in
+                porok ima naveden vir) berejo zapis. Ključ nad diagramom poimenuje vsako barvo s številom oseb;
+                dvanajst najpogostejših krajev ali priimkov dobi vsak svojo barvo, preostali se združijo pod
+                <em>Drugo</em>, oseba, ki je os ne more uvrstiti, pa ostane siva.</li>
+              <li><strong>Imena</strong> (samo Sodobniki) — ali so najbližji sorodniki na diagramu poimenovani;
+                glejte <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Dejstva</strong> in <strong>Zgradba</strong> (samo Poročilo) — glejte
                 <a href="#reports">spodaj</a>.</li>
               <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
@@ -2201,9 +2215,9 @@
               vsak drug trak bere prav v razmerju do tega življenja.
             </p>
             <p>
-              Pod krmilnimi gumbi je <strong>barvni ključ</strong> z eno postavko za vsako skupino na trenutni
-              barvni osi in z njenim številom, vsaka postavka pa je hkrati njeno stikalo: s klikom nanjo tisti
-              rod, družinsko vejo ali stanje odstranite z diagrama. Postavitev se izriše iz vseh oseb, zato
+              <strong>Barvni ključ</strong> pod krmilnimi gumbi — isti, kot ga za nastavitev <em>Barva</em> pokaže
+              vsak diagram (<a href="#charts">§11</a>) — ima po eno postavko za vsako skupino z njenim številom, tu
+              pa je vsaka postavka hkrati njeno stikalo: s klikom nanjo tisto skupino odstranite z diagrama. Postavitev se izriše iz vseh oseb, zato
               skrivanje ene veje ne premakne izsekov okoli nje. V kolesu so oznake obročev napisane kar po
               obročih; obroč, ki je preblizu središča, da bi bilo prostora za besede, pokaže samo svojo
               številko — z miško nad njo se izpiše celotno sorodstvo.

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { NODE_W, PAD, type Flat, type Placed } from "../chart/treeLayout";
-import type { NodeDisplayOptions } from "../chart/nodeDisplay";
+import { ageStandalone, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge, nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
@@ -46,6 +46,12 @@ interface Props {
   compareRefCtx?: MediaRefContext;
   display: NodeDisplayOptions;
   nodeH: number;
+  /** Fill strength for every box (see TreeNodeBox); a Color axis in force
+   *  asks for more than the plain chart's. */
+  tint?: number;
+  /** Give each node a native `<title>` tooltip; off where the host shows its
+   *  own hover card (see ChartHoverCard), which would otherwise double it. */
+  nativeTooltip?: boolean;
 }
 
 // Memoized: the canvas re-renders on every scroll/zoom tick (viewport state),
@@ -73,6 +79,8 @@ export const TreeSvg = memo(function TreeSvg({
   compareRefCtx,
   display,
   nodeH,
+  tint,
+  nativeTooltip = true,
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
@@ -128,8 +136,22 @@ export const TreeSvg = memo(function TreeSvg({
                 onSelect(n.key);
               }}
             >
-              <title>{t("tree.node.clickHint")}</title>
+              {nativeTooltip && (
+                <title>
+                  {`${nodeTooltip(display, {
+                    name: n.name,
+                    years: n.years,
+                    age: n.age,
+                    ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
+                    place: n.place,
+                    kinship: kinshipOf?.(n),
+                    living: n.living,
+                    livingLabel: livingLabelFor(t, n.sex),
+                  })}\n${t("tree.node.clickHint")}`}
+                </title>
+              )}
               <TreeNodeBox
+                tint={tint}
                 name={n.name}
                 years={n.years}
                 age={n.age}

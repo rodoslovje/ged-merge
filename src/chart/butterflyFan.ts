@@ -37,10 +37,14 @@ export function buildButterflyChart(ancestors: TreeNode, descendants: TreeNode, 
   // The "circle" shape, so labels in the lower half flip upright as on a circle.
   let a = buildFanChart(ancestors, "circle", { ...opts, arc: arcA });
   let d = buildDescendantFanChart(descendants, "circle", { ...opts, arc: arcD });
-  // The deeper half sets the radius; the shallower one is rebuilt around it.
+  // The deeper half sets the radius and the font rules: both are rebuilt
+  // around one centre, and ring for ring their labels are sized and weighted
+  // alike, so a descendant never reads larger or bolder than an ancestor at
+  // the same remove.
   const r = Math.max(a.cx, d.cx);
-  if (a.cx < r) a = buildFanChart(ancestors, "circle", { ...opts, arc: arcA, radius: r });
-  if (d.cx < r) d = buildDescendantFanChart(descendants, "circle", { ...opts, arc: arcD, radius: r });
+  const rings = Math.max(a.rings, d.rings);
+  a = buildFanChart(ancestors, "circle", { ...opts, arc: arcA, radius: r, fontRings: rings });
+  d = buildDescendantFanChart(descendants, "circle", { ...opts, arc: arcD, radius: r, fontRings: rings });
   // The root disk comes from the descendant half (its spouse bands ride there);
   // the ancestor half's positions are prefixed so no key meets its twin.
   return {
@@ -54,6 +58,7 @@ export function buildButterflyChart(ancestors: TreeNode, descendants: TreeNode, 
     r0: d.r0,
     rootKey: d.rootKey,
     maxGen: Math.max(a.maxGen, d.maxGen),
+    rings,
     branches: d.branches,
     width: 2 * r + PAD * 2,
     height: 2 * r + PAD * 2,

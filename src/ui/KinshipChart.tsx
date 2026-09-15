@@ -31,6 +31,9 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
+import { lineColor, type BranchInfo } from "../chart/nodeColor";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { sexClass } from "./sex";
@@ -44,28 +47,6 @@ import { sexClass } from "./sex";
 // grandparent line; and the bars, the same people on a year axis banded by
 // blood distance. The wheel answers "who are they and how close", the bars
 // "who was here at the same time".
-
-/** Wedge colours per side, in the order the wedges themselves run: the
- *  grandfather's line first, the grandmother's second. Keyed by side rather than
- *  by position in the list — indexing the flat list handed the father's lines
- *  the maternal purple. */
-const BRANCH_COLORS: Record<"father" | "mother", string[]> = {
-  father: ["var(--kin-line-f1)", "var(--kin-line-f2)"],
-  mother: ["var(--kin-line-m1)", "var(--kin-line-m2)"],
-};
-
-/** Generation colour, mixed between the theme's two ramp ends so it reads on
- *  paper as well as on the dark. Each direction is scaled to the range actually
- *  on screen — a tree can reach twelve generations up and three down, and one
- *  shared span squeezes every descendant step into a few degrees of hue. Eased,
- *  so the crowded first steps still separate. */
-function generationColor(g: number, up: number, down: number): string {
-  if (g === 0) return "var(--kin-gen-0)";
-  const n = g > 0 ? up : down;
-  const t = n <= 1 ? 0 : Math.pow(Math.min(1, (Math.abs(g) - 1) / (n - 1)), 0.7);
-  const [near, far] = g > 0 ? ["--kin-anc-near", "--kin-anc-far"] : ["--kin-desc-near", "--kin-desc-far"];
-  return `color-mix(in oklch, var(${far}) ${(t * 100).toFixed(1)}%, var(${near}))`;
-}
 
 interface Props {
   mainDs: Dataset;
@@ -131,43 +112,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const people = useMemo(() => collectKin(input), [input]);
   const wheel = useMemo(() => buildKinshipWheel({ ...input, people }), [input, people]);
 
-  // Colour needs the range on screen, not the tree's full depth.
-  const [genUp, genDown] = useMemo(() => {
-    let up = 1;
-    let down = 1;
-    for (const p of people) {
-      if (p.generation > up) up = p.generation;
-      if (-p.generation > down) down = -p.generation;
-    }
-    return [up, down];
-  }, [people]);
-
-  const branchColor = useMemo(() => {
-    const map = new Map<string, string>([[OWN_BRANCH, "var(--accent)"]]);
-    const seen = { father: 0, mother: 0 };
-    for (const w of wheel.wedges) {
-      if (w.key === OWN_BRANCH || w.side === "own") continue;
-      const palette = BRANCH_COLORS[w.side];
-      map.set(w.key, palette[seen[w.side]++] ?? "var(--faint)");
-    }
-    return map;
-  }, [wheel.wedges]);
-
-  const alive = useCallback(
-    (p: KinPerson) => (p.span.to ?? p.span.from ?? -Infinity) >= year && (p.span.from ?? Infinity) <= year,
-    [year],
-  );
-  const lit = useCallback((p: KinPerson) => !yearOn || alive(p), [yearOn, alive]);
-
-  const colorOf = useCallback(
-    (p: KinPerson) => {
-      if (settings.kinColour === "branch") return branchColor.get(p.branch) ?? "var(--faint)";
-      if (settings.kinColour === "living") return p.span.living ? "var(--accent)" : "var(--kin-deceased)";
-      return generationColor(p.generation, genUp, genDown);
-    },
-    [settings.kinColour, branchColor, genUp, genDown],
-  );
-
   const wedgeLabel = useCallback(
     (key: string, ancestorId?: string) => {
       if (key === OWN_BRANCH) return t("kin.wedge.own");
@@ -176,19 +120,44 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     },
     [t, mainDs, nameOf],
   );
+  // The wedges' colours and names, in the order the wedges themselves run:
+  // the grandfather's line first, the grandmother's second — keyed by side,
+  // so the father's lines take the first half of the ancestor ramp and the
+  // mother's the second, as on the pedigree charts.
+  const branches = useMemo(() => {
+    const map = new Map<string, BranchInfo>();
+    const seen = { father: 0, mother: 0 };
+    for (const w of wheel.wedges) {
+      if (w.key === OWN_BRANCH || w.side === "own") continue;
+      const i = (w.side === "father" ? 0 : 2) + Math.min(seen[w.side]++, 1);
+      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: lineColor(i, 4, "ancestors") });
+    }
+    return map;
+  }, [wheel.wedges, wedgeLabel]);
+  // The shared Color axis, over everyone but the root (whose dot is the centre).
+  const subjects = useMemo(
+    () => people.filter((p) => p.distance > 0).map((p) => ({ indi: p.indi, pos: { gen: p.generation, branch: p.branch } })),
+    [people],
+  );
+  const colorer = useNodeColorer(mainDs, subjects, branches);
+
+  const alive = useCallback(
+    (p: KinPerson) => (p.span.to ?? p.span.from ?? -Infinity) >= year && (p.span.from ?? Infinity) <= year,
+    [year],
+  );
+  const lit = useCallback((p: KinPerson) => !yearOn || alive(p), [yearOn, alive]);
+
+  const categoryOf = useCallback(
+    (p: KinPerson) => colorer.categoryOf(p.indi, { gen: p.generation, branch: p.branch }),
+    [colorer],
+  );
+  const colorOf = useCallback((p: KinPerson) => colorer.colorOf(categoryOf(p)) ?? "var(--accent)", [colorer, categoryOf]);
 
   // The colour key doubles as a filter, like the Map's event-kind chips: each
   // entry hides its own group. The layout is built from everyone regardless, so
   // hiding a family line never reshuffles the wedges around it.
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
-  useEffect(() => setHidden(new Set()), [settings.kinColour]);
-  const categoryOf = useCallback(
-    (p: KinPerson) =>
-      settings.kinColour === "branch" ? p.branch
-        : settings.kinColour === "living" ? (p.span.living ? "living" : "deceased")
-          : String(p.generation),
-    [settings.kinColour],
-  );
+  useEffect(() => setHidden(new Set()), [colorer.axis]);
   const shown = useCallback((p: KinPerson) => !hidden.has(categoryOf(p)), [hidden, categoryOf]);
 
   // The bars are a list: hiding a group has to close the gap it leaves, or the
@@ -207,34 +176,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       return next;
     });
 
-  /** The key's entries for the colour axis in force, each with its own count. */
-  const legend = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of people) {
-      if (p.distance === 0) continue;
-      const k = categoryOf(p);
-      counts.set(k, (counts.get(k) ?? 0) + 1);
-    }
-    const label = (key: string): string => {
-      if (settings.kinColour === "branch") {
-        const w = wheel.wedges.find((x) => x.key === key);
-        return wedgeLabel(key, w?.ancestorId);
-      }
-      if (settings.kinColour === "living") return t(`kin.living.${key}`);
-      const g = Number(key);
-      if (g === 0) return t("kin.gen.0");
-      const n = Math.abs(g);
-      const dir = g > 0 ? "up" : "down";
-      return n <= 3 ? t(`kin.gen.${dir}.${n}`) : t(`kin.gen.${dir}.n`, { n });
-    };
-    const keys = [...counts.keys()].sort((a, b) =>
-      settings.kinColour === "generation" ? Number(b) - Number(a) : (counts.get(b)! - counts.get(a)!),
-    );
-    return keys.map((key) => {
-      const sample = people.find((p) => p.distance > 0 && categoryOf(p) === key)!;
-      return { key, label: label(key), colour: colorOf(sample), count: counts.get(key)! };
-    });
-  }, [people, categoryOf, settings.kinColour, colorOf, wheel.wedges, wedgeLabel, t]);
+  const legend = colorer.legend;
 
   // Redact people inferred to be living, as the other charts do: the name goes,
   // the dot stays — its ring and wedge are the point, and they give nothing away.
@@ -506,25 +448,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         </div>
       }
     >
-      {legend.length > 1 && (
-        <div className="kin-legend" role="group" aria-label={t("kin.legend")}>
-          {legend.map((e) => (
-            <button
-              key={e.key}
-              type="button"
-              className={`map-kind-chip${hidden.has(e.key) ? "" : " active"}`}
-              aria-pressed={!hidden.has(e.key)}
-              title={t("kin.legend.toggle")}
-              onClick={() => toggle(e.key)}
-            >
-              <span className="map-kind-dot" style={{ background: e.colour }} />
-              {e.label} <span className="kin-legend-count">{e.count}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
@@ -550,7 +475,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                               />
                             );
                           })}
-                          <text className="kin-wedge-label" x={w.labelX} y={w.labelY} textAnchor={w.labelAnchor} fill={branchColor.get(w.key)}>
+                          <text className="kin-wedge-label" x={w.labelX} y={w.labelY} textAnchor={w.labelAnchor} fill={branches.get(w.key)?.color ?? "var(--accent)"}>
                             {wedgeLabel(w.key, w.ancestorId)} <tspan className="kin-wedge-count">{w.count}</tspan>
                           </text>
                         </g>

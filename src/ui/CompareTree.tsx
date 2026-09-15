@@ -305,10 +305,9 @@ export function CompareTree({
   const marriageLabel = useMemo(() => {
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
-    return (node: TreeNode) =>
-      display.privacyLiving && node.living
-        ? undefined
-        : formatMarriage(node.marriage, fields, display.privacyLiving);
+    // formatMarriage redacts a couple with a living partner itself; the node
+    // being living says nothing about its parents' wedding.
+    return (node: TreeNode) => formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>

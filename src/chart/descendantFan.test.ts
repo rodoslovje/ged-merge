@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDescendantFanChart } from "./descendantFan";
+import { buildDescendantFanChart, nameForms } from "./descendantFan";
 import { ALL_DISPLAY } from "./nodeDisplay";
 import type { TreeNode } from "./personTree";
 import type { Sex } from "../gedcom/types";
@@ -102,7 +102,7 @@ describe("buildDescendantFanChart", () => {
     expect(solo.lines[0].text).toContain("Marija");
   });
 
-  it("names the spouse on the band, with the marriage on a second line when shown", () => {
+  it("names the spouse on the band and never draws the marriage there", () => {
     const root = person("M", "root", {
       partners: [spouse("F", "Ana Novak", [person("M", "kid")], { year: "1900", place: "Ljubljana" })],
     });
@@ -115,12 +115,28 @@ describe("buildDescendantFanChart", () => {
     expect(band.lines[0].kind).toBe("name");
     expect(band.curved).toBe(true);
 
+    // The marriage toggles apply to the other charts; a band carries the name
+    // alone, and the lane is no deeper for them.
     const withMarriage = buildDescendantFanChart(root, "fan");
     const band2 = withMarriage.segments.find((s) => s.band)!;
-    expect(band2.lines.map((l) => l.text)).toEqual(["Ana Novak", "⚭ 1900 Ljubljana"]);
-    expect(band2.lines[1].kind).toBe("years");
-    // The marriage line costs the lane depth: the chart grows.
-    expect(withMarriage.width).toBeGreaterThan(plain.width);
+    expect(band2.lines.map((l) => l.text)).toEqual(["Ana Novak"]);
+    expect(withMarriage.width).toBe(plain.width);
+  });
+
+  it("shortens a name by dropping parts, never by an initial or an ellipsis", () => {
+    const wife = person("F", "Ana Novak (Kovač)");
+    expect(nameForms(wife, wife.name)).toEqual(["Ana Novak (Kovač)", "Ana Novak", "Ana"]);
+    const husband = person("M", "Janez Peter Novak");
+    expect(nameForms(husband, husband.name)).toEqual(["Janez Peter Novak", "Janez Peter"]);
+    // A redacted living person has only their placeholder.
+    expect(nameForms(husband, "Living")).toEqual(["Living"]);
+    // The record's own name parts win over the displayed order.
+    const structured: TreeNode = {
+      ...husband,
+      name: "Novak Janez",
+      main: { id: "@I1@", names: [{ given: "Janez", surname: "Novak", full: "Janez /Novak/" }], sex: "M", events: [], childOf: [], spouseOf: [], raw: { level: 0, tag: "INDI", children: [] } } as unknown as TreeNode["main"],
+    };
+    expect(nameForms(structured, structured.name)).toEqual(["Novak Janez", "Janez"]);
   });
 
   it("keeps a sliver for a childless marriage", () => {

@@ -16,9 +16,14 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { Segmented, type SegmentedItem } from "./Segmented";
+import { AXIS_TINT, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
+import { useChartHover, type HoverInfo } from "./useChartHover";
+import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
-import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHover } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -47,22 +52,17 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 
-// Color for unmodified nodes (main pine green) and modified (amber/minor).
+// Colors on the plain Color axis: the ancestors' side (main pine green), the
+// descendants' side (a step away from it, so a bowtie's two halves read
+// apart), and modified (amber/minor). Any other axis colours by the shared
+// colorer, and an edit shows as the "modified" badge alone.
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
 
 const COLOR_NORMAL = "var(--node-main)";
+const COLOR_DESCENDANT = "var(--node-desc)";
 const COLOR_MODIFIED = "var(--node-minor)";
-/** Descendant fan / circle: one hue per child of the root, in drawing order —
- *  spaced evenly around the colour wheel for however many there are, so the
- *  ring reads as one progression rather than a deck of unrelated colours. The
- *  sweep stops short of a full turn so the last child never matches the first;
- *  lightness and chroma come from the theme. */
-function branchColor(branch: number, branches: number): string {
-  const hue = Math.round(25 + (branch * 320) / Math.max(branches, 1));
-  return `oklch(var(--fan-branch-l) var(--fan-branch-c) ${hue})`;
-}
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -213,10 +213,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const marriageLabel = useMemo(() => {
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
-    return (node: TreeNode) =>
-      display.privacyLiving && node.living
-        ? undefined
-        : formatMarriage(node.marriage, fields, display.privacyLiving);
+    // formatMarriage redacts a couple with a living partner itself; the node
+    // being living says nothing about its parents' wedding.
+    return (node: TreeNode) => formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>
@@ -299,14 +298,42 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
-  // A descendant fan / circle colours each child of the root's line by its own
-  // hue (the segment says which branch a wedge is on); an edited person keeps
-  // the modified amber wherever they are drawn.
-  const branches = fan?.branches ?? 0;
+  // Where every drawn person sits (generation, family line), for the Color
+  // axes that read the chart rather than the record. The layered bowtie's
+  // ancestor half carries prefixed keys; the fan's segments resolve through
+  // their tree node.
+  const { positions, branchInfo } = useMemo(() => {
+    const anc = bowtie || mode === "ancestors" ? shown.ancestors : undefined;
+    const desc = bowtie || mode === "descendants" ? shown.descendants : undefined;
+    const a = indexPositions(anc, "ancestors", bowtie && !radial ? "a:" : "");
+    const d = indexPositions(desc, "descendants", "", a.positions, a.branches);
+    return { positions: d.positions, branchInfo: d.branches };
+  }, [bowtie, mode, radial, shown]);
+  const positionOf = useCallback(
+    (n: TreeNode, seg?: FanSegment): NodePosition | undefined =>
+      seg ? fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions) : positions.get(n.key),
+    [positions, bowtie, mode],
+  );
+  const subjects = useMemo(
+    () =>
+      radial
+        ? (fan?.segments ?? []).map((s) => ({ indi: s.node.main, pos: positionOf(s.node, s) }))
+        : (flat?.nodes ?? []).map((n) => ({ indi: n.main, pos: positionOf(n) })),
+    [radial, fan, flat, positionOf],
+  );
+  const colorer = useNodeColorer(mainDs, subjects, branchInfo);
+  // On the plain axis everyone below the root takes the descendants' colour,
+  // everyone else the main one, and an edited person shows the modified amber
+  // wherever they are drawn. On any other axis the colorer decides and an
+  // edit is the badge alone.
+  const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
   const colorOf = useCallback(
-    (n: TreeNode, seg?: FanSegment) =>
-      isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? branchColor(seg.branch, branches) : COLOR_NORMAL,
-    [isModified, branches],
+    (n: TreeNode, seg?: FanSegment) => {
+      const pos = positionOf(n, seg);
+      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, pos)) ?? COLOR_NORMAL;
+      return isModified(n) ? COLOR_MODIFIED : (pos?.gen ?? 0) < 0 ? COLOR_DESCENDANT : COLOR_NORMAL;
+    },
+    [colorer, positionOf, isModified],
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -334,6 +361,30 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     : selectedKey
       ? nodesByKey.get(selectedKey)
       : undefined;
+
+  // The hover card: the person under the pointer, in full, plus the fields
+  // the options show — the same lines the native tooltip carried, in the sex
+  // colour and without the browser's delay and truncation.
+  const hoverInfoFor = useCallback(
+    (key: string): HoverInfo | undefined => {
+      const n: TreeNode | undefined = radial ? fanNodes.get(key)?.node : nodesByKey.get(key);
+      if (!n) return undefined;
+      const h = nodeHover(display, {
+        name: n.name,
+        years: n.years,
+        age: n.age,
+        ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
+        place: n.place,
+        kinship: fanKinshipOf(n),
+        kinshipLineage: lineageOf(n),
+        living: n.living,
+        livingLabel: livingLabelFor(t, n.sex),
+      });
+      return { ...h, sex: h.redacted ? undefined : n.sex, hint: t("tree.node.clickHint") };
+    },
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
+  );
+  const hover = useChartHover(canvasRef, hoverInfoFor);
 
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
   // Esc leaves the page.
@@ -426,7 +477,11 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       label: <>{t("tree.descendants")}<span className="tree-mode-count">{peopleCounts.descendants}</span></>,
       title: modeSummary(t, peopleCounts.descendants, depths.descendants),
     },
-    { key: "both", label: t("tree.both"), title: t("tree.both.tooltip") },
+    {
+      key: "both",
+      label: <>{t("tree.both")}<span className="tree-mode-count">{peopleCounts.ancestors + peopleCounts.descendants}</span></>,
+      title: t("tree.both.tooltip"),
+    },
   ];
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
@@ -494,6 +549,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={colorer.legend} />
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
           ref={canvasRef}
@@ -505,6 +561,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 <FanChartBody
                   chart={fan}
                   colorOf={colorOf}
+                  tint={tint}
                   selectedKey={selectedKey}
                   flashKey={find.hitKey}
                   onSelect={selectNode}
@@ -514,6 +571,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                   onRepeatJump={find.jumpTo}
                   hiddenTitle={hiddenTitle}
                   onHiddenJump={hiddenJump}
+                  nativeTooltip={false}
                 />
               </ChartZoom>
             ) : (
@@ -529,6 +587,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 flashKey={find.hitKey}
                 onSelect={selectNode}
                 colorOf={colorOf}
+                tint={tint}
                 showRepeat
                 onRepeatJump={find.jumpTo}
                 hiddenTitle={treeHiddenTitle}
@@ -539,12 +598,15 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 mainRefCtx={mainRefCtx}
                 display={display}
                 nodeH={nodeH}
+                nativeTooltip={false}
               />
             </ChartZoom>
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}
         </div>
+
+        <ChartHoverCard hover={hover} />
 
         {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
         {!radial && laid && flat && (
