@@ -95,6 +95,9 @@ export interface FanSegment {
   fontPx: number;
   /** Lighter-weight label (the two outermost rings). */
   light?: boolean;
+  /** Hover text: the full name and lifespan (a redacted living person shows
+   *  only their placeholder), whatever the wedge itself had room for. */
+  title: string;
   /** True when the lines ride curved arcs; false for straight radial / centre. */
   curved: boolean;
   /** `translate(anchor) rotate(deg)` for straight (radial / centre) labels. */
@@ -208,6 +211,7 @@ export function fanResolvers(opts: FanChartOptions): {
   display: NodeDisplayOptions;
   hasPhoto: (node: TreeNode) => boolean;
   dispOf: (node: TreeNode) => NodeDisplay;
+  titleOf: (node: TreeNode) => string;
 } {
   const display = opts.display ?? ALL_DISPLAY;
   const livingLabelOf = opts.livingLabelOf ?? (() => "Living");
@@ -235,7 +239,14 @@ export function fanResolvers(opts: FanChartOptions): {
       livingLabel: livingLabelOf(node),
     });
   };
-  return { display, hasPhoto, dispOf };
+  /** The hover text: full name + lifespan regardless of what the wedge could
+   *  fit or which fields are toggled on — but never more than the redaction
+   *  allows for a living person. */
+  const titleOf = (node: TreeNode): string => {
+    if (display.privacyLiving && node.living) return dispOf(node).name;
+    return node.years ? `${node.name}, ${node.years}` : node.name;
+  };
+  return { display, hasPhoto, dispOf, titleOf };
 }
 
 export function buildFanChart(
@@ -245,7 +256,7 @@ export function buildFanChart(
 ): FanChart {
   const maxGen = opts.maxGen ?? DEFAULT_MAX_GEN;
   const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
-  const { display, hasPhoto, dispOf } = fanResolvers(opts);
+  const { display, hasPhoto, dispOf, titleOf } = fanResolvers(opts);
 
   // 1. Walk ancestors into positioned slots (positions are unique, so pedigree
   //    collapse repeats a person rather than being deduped).
@@ -317,6 +328,7 @@ export function buildFanChart(
         node,
         gen,
         slot,
+        title: titleOf(node),
         d: circlePath(cx, cy, ROOT_R),
         x: cx,
         y: cy,
@@ -375,11 +387,12 @@ export function buildFanChart(
     const off = Math.max(0, delta / 2 - BADGE_HALF_W / rBadge);
     const badgeMid = mid + (flip ? -off : off);
 
-    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "hidden" | "fontPx" | "light"> = {
+    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "title" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "hidden" | "fontPx" | "light"> = {
       key: `${gen}:${slot}`,
       node,
       gen,
       slot,
+      title: titleOf(node),
       d: sectorPath(cx, cy, rIn, rOut, a0, a1),
       x: cx + rMid * Math.cos(mid),
       y: cy + rMid * Math.sin(mid),

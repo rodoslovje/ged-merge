@@ -224,7 +224,7 @@ function Segment({
       data-key={seg.key}
       tabIndex={0}
       role="button"
-      aria-label={node.years ? `${node.name}, ${node.years}` : node.name}
+      aria-label={seg.title}
       aria-pressed={selected}
       onClick={() => onSelect(seg.key)}
       onKeyDown={(e) => {
@@ -233,7 +233,8 @@ function Segment({
         onSelect(seg.key);
       }}
     >
-      <title>{clickHint}</title>
+      {/* Who this is, whatever the wedge had room to write, then the hint. */}
+      <title>{`${seg.title}\n${clickHint}`}</title>
       <path
         className="fan-sector"
         d={seg.d}

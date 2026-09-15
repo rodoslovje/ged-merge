@@ -115,7 +115,7 @@ export function buildDescendantFanChart(
 ): FanChart {
   const maxGen = opts.maxGen ?? DEFAULT_MAX_GEN;
   const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
-  const { display, hasPhoto, dispOf } = fanResolvers(opts);
+  const { display, hasPhoto, dispOf, titleOf } = fanResolvers(opts);
   const showMarriage = display.showMarriageDate || display.showMarriagePlace;
   const marriageFields = { date: display.showMarriageDate, place: display.showMarriagePlace };
 
@@ -270,6 +270,7 @@ export function buildDescendantFanChart(
         node,
         gen,
         slot,
+        title: titleOf(node),
         d: circlePath(cx, cy, ROOT_R),
         x: cx,
         y: cy,
@@ -316,6 +317,7 @@ export function buildDescendantFanChart(
       node,
       gen,
       slot,
+      title: titleOf(node),
       d: sectorPath(cx, cy, rIn, rOut, a0, a1),
       x: cx + rMid * Math.cos(mid),
       y: cy + rMid * Math.sin(mid),
@@ -447,6 +449,7 @@ export function buildDescendantFanChart(
       node,
       gen,
       slot,
+      title: titleOf(node),
       d: full ? donutPath(cx, cy, rIn, rOut) : sectorPath(cx, cy, rIn, rOut, a0, a1),
       x: cx + rMid * Math.cos(mid),
       y: cy + rMid * Math.sin(mid),
