@@ -1932,6 +1932,7 @@ function AppContent() {
         onBack={goBackPage}
         onNavigate={navigateFromOverlay}
         onPickStart={changeStart}
+        onOpenGeocode={() => goToPage({ mode: "tools", tool: "places", toolView: "geocode" })}
       />
     );
   }

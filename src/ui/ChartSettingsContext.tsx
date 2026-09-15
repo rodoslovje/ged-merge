@@ -65,7 +65,7 @@ export type TimelineEventScope = "person" | "all" | "off";
 
 /** Contemporaries: the wheel of blood distance, or the same people as bars on a
  *  year axis. */
-export type KinLayout = "wheel" | "bars";
+export type KinLayout = "wheel" | "bars" | "map";
 
 /** Contemporaries: which blood relatives are drawn — the ones whose life
  *  overlapped the root's, or every one of them. */
@@ -255,7 +255,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       showEducation: bool(parsed.showEducation, DEFAULTS.showEducation),
       showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
       showSources: bool(parsed.showSources, DEFAULTS.showSources),
-      kinLayout: parsed.kinLayout === "bars" ? "bars" : DEFAULTS.kinLayout,
+      kinLayout: parsed.kinLayout === "bars" || parsed.kinLayout === "map" ? parsed.kinLayout : DEFAULTS.kinLayout,
       kinScope: parsed.kinScope === "all" ? "all" : DEFAULTS.kinScope,
       // The Contemporaries' own colour axis became the shared one; a blob from
       // then carries it as `kinColour`.

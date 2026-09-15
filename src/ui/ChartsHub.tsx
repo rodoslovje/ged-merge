@@ -48,9 +48,11 @@ interface Props {
   onNavigate: (id: string) => void;
   /** Set the app-wide start person (from the relationship kind's inline prompt). */
   onPickStart?: (id: string) => void;
+  /** Open Tools → Places → Geocode places (the Contemporaries map's unplaced list). */
+  onOpenGeocode?: () => void;
 }
 
-export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
   // The user's ancestors/descendants/both choice — owned here (not by
@@ -112,6 +114,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         onNavigate={onNavigate}
         onRootChange={onRootChange}
         kindSwitcher={kindSwitcher}
+        onOpenGeocode={onOpenGeocode}
       />
     );
   }
