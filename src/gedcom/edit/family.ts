@@ -1,6 +1,6 @@
 import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
-import { cloneNode } from "../node";
+import { cloneNode, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { rebuildFamily, rebuildIndividual } from "./cache";
@@ -406,7 +406,10 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
   if (!keep || !drop || keepId === dropId) return;
 
   for (const childId of [...drop.children]) {
-    if (keep.children.includes(childId)) continue;
+    // Asked of the record, not of the typed list: the list is rebuilt only
+    // after the loop, so a child listed twice in the dropped family would
+    // otherwise be written twice into the kept one.
+    if (keep.raw.children.some((c) => c.tag === "CHIL" && c.value === childId)) continue;
     addFamilyChild(dataset, keep, childId);
     const child = dataset.individuals.get(childId);
     if (child && !child.raw.children.some((c) => c.tag === "FAMC" && c.value === keepId)) {
@@ -427,11 +430,15 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     }
   }
 
-  const have = new Set(keep.raw.children.map((c) => JSON.stringify(c)));
+  // Compared on what the line says, not on the object: a node also carries
+  // this session's own annotations (an edit stamp, a note of what the line was
+  // reshaped from), and a marriage the user happened to edit before merging is
+  // the same marriage the other record holds.
+  const have = new Set(keep.raw.children.map(nodeFingerprint));
   for (const line of drop.raw.children) {
     if (line.tag === "HUSB" || line.tag === "WIFE" || line.tag === "CHIL") continue;
     if (RECORD_OWN_TAGS.has(line.tag)) continue;
-    if (have.has(JSON.stringify(line))) continue;
+    if (have.has(nodeFingerprint(line))) continue;
     const stub = !line.value && line.children.length === 0;
     if (stub && keep.raw.children.some((c) => c.tag === line.tag)) continue;
     insertOrdered(keep.raw, cloneNode(line), FAM_CHILD_ORDER);

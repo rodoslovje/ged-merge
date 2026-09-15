@@ -2684,6 +2684,14 @@ describe("burial before death", () => {
     expect(buried("5 MAR 1950", "AFT 1949")).toHaveLength(0);
     expect(buried("3 MAR 1950", "5 MAR 1950")).toHaveLength(0); // the right way round
   });
+
+  it("leaves an estimated date alone — it names a neighbourhood, not a day", () => {
+    expect(buried("1950", "ABT 1949")).toHaveLength(0);
+    expect(buried("EST 1950", "1949")).toHaveLength(0);
+    expect(buried("CAL 5 MAR 1950", "3 MAR 1950")).toHaveLength(0);
+    // Two exact dates still contradict each other.
+    expect(buried("1950", "1949")).toHaveLength(1);
+  });
 });
 
 describe("fixDuplicateFamilies", () => {
@@ -2772,6 +2780,53 @@ describe("fixDuplicateFamilies", () => {
     expect(byId.get("@F2@")).toMatchObject({ type: "family", after: null, index: 6 });
     expect(byId.get("@F1@")?.after).not.toBeNull();
     expect([...byId.keys()].sort()).toEqual(["@F1@", "@F2@", "@I1@", "@I2@", "@I4@"]);
+  });
+
+  it("knows a line it already holds after this session stamped it, and never doubles a pointer", () => {
+    // Both records hold the same marriage; F2 lists the one child twice.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Luka /Renko/
+1 SEX M
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Ana /Štetulj/
+1 SEX F
+1 FAMS @F1@
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Maja /Renko/
+1 SEX F
+1 FAMC @F1@
+1 FAMC @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 MARR
+2 DATE 1975
+1 NOTE First record
+0 @F2@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 CHIL @I3@
+1 MARR
+2 DATE 1975
+0 TRLR`);
+    // The user edited the kept record's marriage earlier this session, which
+    // leaves an edit stamp on the line. It is still the same marriage.
+    ds.families.get("@F1@")!.raw.children.find((c) => c.tag === "MARR")!.auditStamp = "changed";
+
+    fixDuplicateFamilies(ds);
+
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.raw.children.filter((c) => c.tag === "MARR")).toHaveLength(1);
+    expect(fam.raw.children.filter((c) => c.tag === "CHIL")).toHaveLength(1);
+    expect(fam.children).toEqual(["@I3@"]);
+    expect(ds.individuals.get("@I3@")!.childOf).toEqual(["@F1@"]);
   });
 
   it("folds only the families of the person a single row names", () => {
