@@ -46,7 +46,7 @@ interface Props {
   /** Tooltip for the "+N above this person isn't drawn" marker; omit to leave
    *  the count off. `limit` is the cap that hid them — the chart's own ring
    *  count when the rings, rather than the generation setting, ran out. */
-  hiddenTitle?: (count: number, limit?: number) => string;
+  hiddenTitle?: (count: number, limit: number | undefined, key: string) => string;
   /** Continue the chart from a person the generation limit cut above. */
   onHiddenJump?: (node: TreeNode) => void;
 }
@@ -119,7 +119,7 @@ export const FanChartBody = memo(function FanChartBody({
       return {
         letter: `+${cut}`,
         cls: "tree-node-repeat-badge tree-node-hidden-badge",
-        title: hiddenTitle(cut, node.hidden !== undefined ? undefined : chart.maxGen),
+        title: hiddenTitle(cut, node.hidden !== undefined ? undefined : seg.cap ?? chart.maxGen, seg.key),
         onClick: () => onHiddenJump?.(node),
       };
     }

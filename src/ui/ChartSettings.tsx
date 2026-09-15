@@ -86,7 +86,7 @@ export function ChartSettings({
           {/* Alignment applies to every layered chart — the tidy tree, the grid
               that shares its layout axes, and the relationship diagram (which
               reaches here as a locked "tree"); radial charts ignore it. */}
-          {(effectiveType === "tree" || effectiveType === "grid") && (
+          {effectiveType === "tree" && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.alignment")}</span>
               <div className="chart-settings-segmented">
@@ -148,7 +148,7 @@ export function ChartSettings({
             <div className="chart-settings-segmented chart-settings-toggles">
               {DISPLAY_FIELDS.filter(({ key }) => key !== "showPhoto" || folderName).map(({ key, label }) => {
                 // The radial fan / circle charts don't draw a kinship line.
-                const disabled = key === "showKinship" && (effectiveType === "fan" || effectiveType === "circle");
+                const disabled = key === "showKinship" && effectiveType === "fan";
                 return (
                   <button
                     key={key}

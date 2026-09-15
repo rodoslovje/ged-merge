@@ -119,8 +119,8 @@ export function buildDescendantFanChart(
   const showMarriage = display.showMarriageDate || display.showMarriagePlace;
   const marriageFields = { date: display.showMarriageDate, place: display.showMarriagePlace };
 
-  const sweep = shape === "circle" ? TAU : (FAN_DEG / 360) * TAU;
-  const start = -HALF - sweep / 2;
+  const sweep = opts.arc?.sweep ?? (shape === "circle" ? TAU : (FAN_DEG / 360) * TAU);
+  const start = opts.arc?.start ?? -HALF - sweep / 2;
 
   // 1. Ring census, ignoring any cap: how many people each generation holds,
   //    and whether it has spouses (which need a band lane outside its ring).
@@ -179,7 +179,7 @@ export function buildDescendantFanChart(
       acc += bandW(g);
     }
   }
-  const rMax = acc;
+  const rMax = Math.max(acc, opts.radius ?? 0);
   const cx = rMax;
   const cy = rMax;
 

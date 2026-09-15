@@ -2,19 +2,48 @@ import { useEffect, useRef } from "react";
 import { keyHint } from "../keyboard/shortcuts";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
-import type { ChartKind } from "./ChartSettingsContext";
+import { useChartSettings, type ChartKind, type FanShape, type TreeLayout } from "./ChartSettingsContext";
 import { PickerMenu } from "./PickerMenu";
+import { Segmented } from "./Segmented";
 import { usePhone } from "./usePhone";
 
 // The chart-kind switcher shown on the full-page diagram views: a first-class
-// segmented control (Tree / Grid / Fan / Circle / Timeline / Relationship) so
-// every visualization is one click away instead of hiding inside the
-// Chart-settings popover. The Charts hub shows all kinds; the Compare Tree
-// passes only the pedigree kinds (a relationship diagram has no meaning for a
-// main/incoming pair). Future kinds (map, reports) become new entries here.
+// segmented control (Tree / Fan / Timeline / Relationship / …) so every
+// visualization is one click away instead of hiding inside the Chart-settings
+// popover. The Charts hub shows all kinds; the Compare Tree passes only the
+// pedigree kinds (a relationship diagram has no meaning for a main/incoming
+// pair). Each pedigree kind has two looks — the tree is tidy or a grid, the
+// fan a fan or a full circle — chosen on the page by PedigreeVariantTabs.
 
 /** Pedigree chart kinds, in display order. */
-export const PEDIGREE_KINDS: ChartKind[] = ["tree", "grid", "fan", "circle"];
+export const PEDIGREE_KINDS: ChartKind[] = ["tree", "fan"];
+
+const TREE_LAYOUTS: TreeLayout[] = ["tidy", "grid"];
+const FAN_SHAPES: FanShape[] = ["fan", "circle"];
+
+/** The pedigree kind's second row: Tree | Grid for the layered chart, Fan |
+ *  Circle for the radial one — the chart's look, next to its kind. The radial
+ *  bowtie is always a full circle, so its page hides the shape row. */
+export function PedigreeVariantTabs({ hideShape = false }: { hideShape?: boolean } = {}) {
+  const { t } = useTranslation();
+  const { settings, set } = useChartSettings();
+  if (settings.type === "fan" && hideShape) return null;
+  return settings.type === "fan" ? (
+    <Segmented
+      label={t("tree.shape")}
+      value={settings.fanShape}
+      onChange={(fanShape) => set({ fanShape })}
+      items={FAN_SHAPES.map((k) => ({ key: k, label: t(`tree.shape.${k}`) }))}
+    />
+  ) : (
+    <Segmented
+      label={t("tree.layout")}
+      value={settings.treeLayout}
+      onChange={(treeLayout) => set({ treeLayout })}
+      items={TREE_LAYOUTS.map((k) => ({ key: k, label: t(`tree.layout.${k}`) }))}
+    />
+  );
+}
 
 interface Props {
   kinds: ChartKind[];
@@ -38,7 +67,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
           : k === "map" ? t("map.button")
             : k === "report" ? t("report.button")
               : t(`tree.settings.type.${k}`);
-  // Nine kinds never fit across a phone. A dropdown names the one you are on
+  // Seven kinds never fit across a phone. A dropdown names the one you are on
   // and lists the rest, instead of a sideways scroller that hides most of them.
   if (phone) {
     return (

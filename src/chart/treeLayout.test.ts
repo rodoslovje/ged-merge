@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { TreeNode } from "./personTree";
-import { COL_STEP, NODE_H, NODE_W, ROW_STEP, flatten, layout, layoutGrid, minimapFit } from "./treeLayout";
+import {
+  ANCESTOR_KEY_PREFIX,
+  COL_STEP,
+  NODE_H,
+  NODE_W,
+  PAD,
+  ROW_STEP,
+  bowtieHalf,
+  flatten,
+  flattenBowtie,
+  layout,
+  layoutBowtie,
+  layoutGrid,
+  minimapFit,
+} from "./treeLayout";
 
 /** Minimal TreeNode for geometry tests — only the layout-relevant fields matter. */
 function node(key: string, children: TreeNode[] = [], partners: TreeNode[] = []): TreeNode {
@@ -278,5 +292,85 @@ describe("minimap fit", () => {
     const fit = minimapFit(3000, 1000, viewport);
     expect(fit.h).toBeGreaterThan(80);
     expect(fit.scaleX).toBeCloseTo(fit.scaleY, 10); // so no stretch is applied
+  });
+});
+
+describe("layoutBowtie", () => {
+  // The root with two parents (each with two parents of their own) above, and
+  // a spouse with two children below.
+  const ancestors = () => node("R", [node("F", [node("FF"), node("FM")]), node("M", [node("MF"), node("MM")])]);
+  const descendants = () => node("R", [], [node("S", [node("c1"), node("c2")])]);
+  const all = (n: { children: { key: string; x: number; y: number }[]; partners: { key: string; x: number; y: number }[]; key: string; x: number; y: number }): { key: string; x: number; y: number }[] =>
+    [n, ...n.partners.flatMap((p) => all(p as never)), ...n.children.flatMap((c) => all(c as never))];
+
+  it("puts the ancestors before the root and the descendants after it, roots aligned", () => {
+    const lr = layoutBowtie(ancestors(), descendants(), "lr");
+    expect(lr.root.x).toBe(lr.ancestors.x);
+    expect(lr.root.y).toBe(lr.ancestors.y);
+    // Two generations of ancestors: the root sits two columns in.
+    expect(lr.root.x).toBe(2 * COL_STEP);
+    for (const n of all(lr.ancestors).slice(1)) expect(n.x).toBeLessThan(lr.root.x);
+    for (const n of all(lr.root).slice(1)) expect(n.x).toBeGreaterThanOrEqual(lr.root.x);
+    // Parents one column before the root, grandparents two — the mirrored steps.
+    const [f] = lr.ancestors.children;
+    expect(f.x).toBe(COL_STEP);
+    expect(f.children[0].x).toBe(0);
+
+    const tb = layoutBowtie(ancestors(), descendants(), "tb");
+    expect(tb.root.y).toBe(tb.ancestors.y);
+    expect(tb.root.x).toBe(tb.ancestors.x);
+    for (const n of all(tb.ancestors).slice(1)) expect(n.y).toBeLessThan(tb.root.y);
+    for (const n of all(tb.root).slice(1)) expect(n.y).toBeGreaterThanOrEqual(tb.root.y);
+  });
+
+  it("keeps every node inside the padded extents, in both alignments and layouts", () => {
+    for (const alignment of ["lr", "tb"] as const) {
+      for (const grid of [false, true]) {
+        const laid = layoutBowtie(ancestors(), descendants(), alignment, NODE_H, grid);
+        const nodes = [...all(laid.ancestors), ...all(laid.root)];
+        for (const n of nodes) {
+          expect(n.x).toBeGreaterThanOrEqual(0);
+          expect(n.y).toBeGreaterThanOrEqual(0);
+          expect(n.x + NODE_W + PAD * 2).toBeLessThanOrEqual(laid.width);
+          expect(n.y + NODE_H + PAD * 2).toBeLessThanOrEqual(laid.height);
+        }
+        // The extents are tight: something touches the far edge on each axis.
+        expect(Math.max(...nodes.map((n) => n.x)) + NODE_W + PAD * 2).toBe(laid.width);
+        expect(Math.max(...nodes.map((n) => n.y)) + NODE_H + PAD * 2).toBe(laid.height);
+      }
+    }
+  });
+
+  it("prefixes the ancestor half's keys and draws the root once", () => {
+    const laid = layoutBowtie(ancestors(), descendants(), "lr");
+    expect(laid.ancestors.key).toBe(`${ANCESTOR_KEY_PREFIX}R`);
+    expect(laid.root.key).toBe("R");
+    for (const n of all(laid.ancestors)) expect(bowtieHalf(n.key)).toBe("ancestors");
+    for (const n of all(laid.root)) expect(bowtieHalf(n.key)).toBe("descendants");
+
+    const flat = flattenBowtie(laid, "lr");
+    expect(flat.nodes.filter((n) => n.key === "R")).toHaveLength(1);
+    expect(flat.nodes.some((n) => n.key === `${ANCESTOR_KEY_PREFIX}R`)).toBe(false);
+    // Six ancestors + root + spouse + two children.
+    expect(flat.nodes).toHaveLength(10);
+    // Root→parents and parents→grandparents, spouse line, spouse→children.
+    expect(flat.edges).toHaveLength(2 + 4 + 1 + 2);
+  });
+
+  it("runs the ancestor connectors from the ancestor's trailing edge into the root", () => {
+    const laid = layoutBowtie(ancestors(), descendants(), "lr");
+    const flat = flattenBowtie(laid, "lr");
+    const [f] = laid.ancestors.children;
+    const edge = flat.edges.find((e) => e.id === `${laid.ancestors.key}->${f.key}`)!;
+    // Starts at the father's right edge, ends at the root's left edge.
+    expect(edge.d.startsWith(`M${f.x + NODE_W},`)).toBe(true);
+    expect(edge.d.endsWith(` ${laid.root.x},${laid.root.y + NODE_H / 2}`)).toBe(true);
+    // Elbows likewise: the bus sits in the gap, and the path reaches the root.
+    const grid = layoutBowtie(ancestors(), descendants(), "lr", NODE_H, true);
+    const gridFlat = flattenBowtie(grid, "lr", "elbow");
+    const [gf] = grid.ancestors.children;
+    const gridEdge = gridFlat.edges.find((e) => e.id === `${grid.ancestors.key}->${gf.key}`)!;
+    expect(gridEdge.d.startsWith(`M${gf.x + NODE_W},`)).toBe(true);
+    expect(gridEdge.d.endsWith(`H${grid.root.x}`)).toBe(true);
   });
 });
