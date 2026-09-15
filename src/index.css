@@ -5458,6 +5458,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-map-wrap > .tree-compare {
   z-index: 1100;
 }
+/* The wheel's canvas stays mounted under the map (its zoom hook owns it and
+   must find it again when the layout switches back), but it has to be gone
+   from the page, not merely empty: `.tree-canvas` sets display:flex, which
+   beats the `hidden` attribute, and an invisible full-size box over the map
+   swallowed every drag and wheel that started on open water. */
+.kin-map-wrap > .tree-canvas {
+  display: none;
+}
 /* One dot per relative, in the chart's colour; a group of them counted, like
    the map's clusters. The states are the wheel's: dimmed while a year is
    scrubbed, ringed when selected or found. */
@@ -5530,6 +5538,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 8px 12px 2px;
   font-size: 13px;
   font-weight: 600;
+}
+/* The place(s) a cluster stands at, above its people. */
+.kin-map-places {
+  padding: 8px 12px 2px;
+  font-size: 13px;
+  color: var(--muted);
 }
 /* The cluster list: one button per relative, in their colour, that opens
    their panel. */

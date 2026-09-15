@@ -47,6 +47,44 @@ test("the map layout places the coordinated and lists the rest", async ({ page }
   await layouts.getByRole("tab", { name: "Map" }).click();
   // Leaflet arrives lazily; the map, the father's dot and the root's hub follow.
   await expect(page.locator(".kin-map-wrap .map-canvas")).toBeVisible();
+  // The wheel's canvas must be off the page, not just empty: mounted over the
+  // map it swallowed the drags and wheels that started on open water.
+  await expect(page.locator(".kin-map-wrap .tree-canvas")).toBeHidden();
+  // A drag on open water moves the map.
+  const canvas = page.locator(".kin-map-wrap .map-canvas");
+  const centerBefore = await canvas.evaluate((el) =>
+    (el as HTMLDivElement & { _leafletMap?: { getCenter(): { lat: number; lng: number } } })._leafletMap!.getCenter().lng,
+  );
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.8);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.8, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(() =>
+      canvas.evaluate((el) =>
+        (el as HTMLDivElement & { _leafletMap?: { getCenter(): { lat: number; lng: number } } })._leafletMap!.getCenter().lng,
+      ),
+    )
+    .not.toBe(centerBefore);
+  // Let the drag's inertia run out — it can carry the dot clean out of view —
+  // then the fit button brings the dots back before one is clicked.
+  await canvas.evaluate(
+    (el) =>
+      new Promise<void>((resolve) => {
+        const map = (el as HTMLDivElement & { _leafletMap?: { getCenter(): { equals(o: unknown): boolean } } })._leafletMap!;
+        let last = map.getCenter();
+        const timer = setInterval(() => {
+          const now = map.getCenter();
+          if (now.equals(last)) {
+            clearInterval(timer);
+            resolve();
+          }
+          last = now;
+        }, 150);
+      }),
+  );
+  await page.locator(".kin-map-wrap .map-fit-link").click();
   await expect(page.locator(".kin-map-dot")).toHaveCount(1);
   await expect(page.locator(".kin-map-hub-initials")).toHaveText("AK");
   await expect(page.locator(".kin-count")).toContainText("1 on the map");

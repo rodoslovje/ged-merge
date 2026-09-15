@@ -33,6 +33,8 @@ const PANEL_MIN_ZOOM = 13;
 const FIND_ZOOM = 12;
 /** At most this many names in a marker's tooltip. */
 const TOOLTIP_MAX_NAMES = 4;
+/** At most this many place lines at the top of the list panel. */
+const TOOLTIP_MAX_PLACES = 4;
 
 interface Props {
   /** Everyone to draw — already filtered by the colour key, root excluded. */
@@ -285,6 +287,20 @@ export default function KinMapBody({
     if (!panel) return [];
     return panel.points.map((p) => byId.get(p.personIds[0])!).filter(Boolean);
   }, [panel, byId]);
+  /** The place(s) the listed relatives stand at — a marker merges a grid
+   *  cell, so it can be several villages; distinct place + house pairs, in
+   *  the order met. */
+  const panelPlaces = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { place: string; address?: string }[] = [];
+    for (const p of panel?.points ?? []) {
+      const key = `${p.place}\n${p.address ?? ""}`;
+      if (!p.place || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ place: p.place, address: p.address });
+    }
+    return out;
+  }, [panel]);
 
   return (
     <>
@@ -305,6 +321,17 @@ export default function KinMapBody({
               ×
             </button>
           </div>
+          {panelPlaces.length > 0 && (
+            <div className="kin-map-places">
+              {panelPlaces.slice(0, TOOLTIP_MAX_PLACES).map((l) => (
+                <div key={`${l.place}\n${l.address ?? ""}`}>
+                  {l.place}
+                  {l.address && <span className="place-suggestion-addr"> · {l.address}</span>}
+                </div>
+              ))}
+              {panelPlaces.length > TOOLTIP_MAX_PLACES && <div>… +{panelPlaces.length - TOOLTIP_MAX_PLACES}</div>}
+            </div>
+          )}
           <ul className="map-panel-list kin-map-list">
             {panelRows.map((m) => (
               <li key={m.person.id}>
