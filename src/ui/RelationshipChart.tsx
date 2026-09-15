@@ -25,16 +25,11 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings } from "./ChartSettingsContext";
+import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
-
-/** Chart override for the name formatter when the chart's own Married-name
- *  toggle is off; a module-level constant so useNameOf's formatter keeps a
- *  stable identity across renders. */
-const NO_MARRIED_NAME = { marriedSurname: false } as const;
 
 interface Props {
   mainDs: Dataset;
@@ -68,7 +63,7 @@ interface PathOption {
 export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
-  const formatName = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
+  const formatName = useNameOf(marriedNameOverride(settings.showMarriedName));
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.

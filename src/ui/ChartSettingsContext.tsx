@@ -24,6 +24,18 @@ export type { FanShape };
  *  apart; keys the chart-kind title strings (`tree.kind.*`). */
 export type PedigreeVariant = "tree" | "grid" | "fan" | "circle";
 
+/** The name-display override for a chart's own Married-surname toggle. The
+ *  toggle is seeded from the global Name-display setting and independent after,
+ *  so the chart must pin the value both ways — passing nothing when the toggle
+ *  is on would follow the global setting, and a chart could never turn the
+ *  married surname on while that setting was off. Module-level constants, so
+ *  the formatter useNameOf returns keeps a stable identity. */
+const MARRIED_NAME_ON = { marriedSurname: true } as const;
+const MARRIED_NAME_OFF = { marriedSurname: false } as const;
+export function marriedNameOverride(show: boolean): { readonly marriedSurname: boolean } {
+  return show ? MARRIED_NAME_ON : MARRIED_NAME_OFF;
+}
+
 /** The variant these settings draw. */
 export function pedigreeVariant(s: Pick<ChartSettings, "type" | "treeLayout" | "fanShape">): PedigreeVariant {
   return s.type === "fan" ? s.fanShape : s.treeLayout === "grid" ? "grid" : "tree";

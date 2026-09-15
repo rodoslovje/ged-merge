@@ -45,7 +45,7 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
-import { pedigreeVariant, useChartSettings, type PedigreeType } from "./ChartSettingsContext";
+import { marriedNameOverride, pedigreeVariant, useChartSettings, type PedigreeType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS, PedigreeVariantTabs } from "./ChartKindTabs";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -53,11 +53,6 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
-
-/** Chart override for the name formatter when the chart's own Married-name
- *  toggle is off; a module-level constant so useNameOf's formatter keeps a
- *  stable identity across renders. */
-const NO_MARRIED_NAME = { marriedSurname: false } as const;
 
 interface Props {
   mainDs: Dataset;
@@ -148,7 +143,7 @@ export function CompareTree({
   // Names read as the Name-display settings say (married surname, order, …) —
   // the same formatter the lists, the timeline and the reports use.
   const { settings: chartSettings } = useChartSettings();
-  const nameOf = useNameOf(chartSettings.showMarriedName ? undefined : NO_MARRIED_NAME);
+  const nameOf = useNameOf(marriedNameOverride(chartSettings.showMarriedName));
 
   // A node whose main record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.
