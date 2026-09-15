@@ -5625,13 +5625,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* ── Ahnentafel report ────────────────────────────────────────────────────
    The hub's text report: same canvas shell as the charts, but a scrolling
    document instead of a pannable SVG. */
+/* The frame — panel, border, corners — is the wrap's (see .tree-canvas-wrap),
+   as it is for every chart canvas; this only scrolls inside it. */
 .report-scroll {
   position: absolute;
   inset: 0;
   overflow: auto;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
 }
 .report-page {
   padding: 20px 28px 40px;

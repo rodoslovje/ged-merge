@@ -21,6 +21,7 @@ import {
   planPrintScale,
   planSheets,
   printChartSheets,
+  sheetBandsHeight,
   type SheetChartSource,
 } from "./sheetExport";
 import {
@@ -89,9 +90,16 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
 
   // The full plan, not just its length: it is what the print then draws, and
   // planning a chart of any ordinary size is quick enough to redo per change.
+  // The header, footer and — when the chart has one — the colour key, which
+  // every sheet carries: the plan and the preview must count the same bands the
+  // print will draw, or the set comes out smaller than the dialog promised.
+  const bandsH = useMemo(
+    () => (paper ? sheetBandsHeight(opts.legend, { paper, orientation, size }) : HEADER_H + FOOTER_H),
+    [opts.legend, paper, orientation, size],
+  );
   const sheets = useMemo(
-    () => (source && paper ? planSheets(source, { paper, orientation, size }) : []),
-    [source, paper, orientation, size],
+    () => (source && paper ? planSheets(source, { paper, orientation, size }, bandsH) : []),
+    [source, paper, orientation, size, bandsH],
   );
 
   // How much the print will be reduced (or enlarged) to sit on the paper — the
@@ -100,10 +108,10 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const scale = useMemo(() => {
     if (!paper) return 1;
     const box = pageBox(paper, orientation);
-    if (source && sheets.length) return planPrintScale(source, { paper, orientation, size }, sheets);
+    if (source && sheets.length) return planPrintScale(source, { paper, orientation, size }, sheets, bandsH);
     const whole = canvasDiagramSize(canvasRef.current);
-    return whole ? fillScale([{ width: whole.w, height: whole.h + HEADER_H + FOOTER_H }], box) : 1;
-  }, [source, paper, orientation, size, sheets, canvasRef]);
+    return whole ? fillScale([{ width: whole.w, height: whole.h + bandsH }], box) : 1;
+  }, [source, paper, orientation, size, sheets, canvasRef, bandsH]);
 
   const print = () => {
     if (!paper) return;

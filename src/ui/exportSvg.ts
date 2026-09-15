@@ -476,6 +476,23 @@ function layoutLegend(legend: { label: string; color: string }[], width: number)
   return out;
 }
 
+/** The band height a laid-out key takes: its rows, plus the padding above and
+ *  below. Nothing for a chart with no key. */
+function legendBandHeight(laid: { row: number }[]): number {
+  const rows = laid.length ? laid[laid.length - 1].row + 1 : 0;
+  return rows ? LEGEND_PAD_Y * 2 + rows * LEGEND_ROW_H : 0;
+}
+
+/**
+ * How tall the colour key will be in an export frame `width` wide — the same
+ * rule {@link wrapWithBands} draws it by, so the sheet planner and the print
+ * preview can budget for a band they do not draw themselves. Measured off the
+ * labels alone: the colours play no part in how the chips wrap.
+ */
+export function legendHeight(legend: SvgExportOptions["legend"], width: number): number {
+  return legend?.length ? legendBandHeight(layoutLegend(legend, width)) : 0;
+}
+
 /**
  * Wrap a standalone diagram in the export frame: a titled header band above,
  * the colour key (when the chart has one) and a site/timestamp footer below,
@@ -506,8 +523,7 @@ export function wrapWithBands(
   const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
   // The key, between the diagram and the footer, as many rows as it wraps to.
   const legend = opts.legend?.length ? layoutLegend(bakeLegend(opts.legend), totalW) : [];
-  const legendRows = legend.length ? legend[legend.length - 1].row + 1 : 0;
-  const legendH = legendRows ? LEGEND_PAD_Y * 2 + legendRows * LEGEND_ROW_H : 0;
+  const legendH = legendBandHeight(legend);
   const totalH = HEADER_H + bandH + legendH + FOOTER_H;
 
   // Move the diagram into a group shifted below the header band (centred when
@@ -568,7 +584,7 @@ export function wrapWithBands(
   }
 
   // The colour key: a dot and a label per entry, in rows, under the diagram.
-  if (legendRows) {
+  if (legendH) {
     const keyY = HEADER_H + bandH;
     const keyLine = headLine.cloneNode() as SVGLineElement;
     keyLine.setAttribute("y1", String(keyY));
