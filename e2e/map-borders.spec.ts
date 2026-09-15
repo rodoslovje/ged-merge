@@ -13,7 +13,9 @@ import { tmpdir } from "./tmpdir";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TILE = gunzipSync(readFileSync(path.resolve(__dirname, "../src/__fixtures__/ohm/ohm-admin-z10-553-364.mvt.gz")));
 
-const MAP_KEY = "8";
+// Chart kinds in hub order: 1 Tree, 2 Fan, 3 Timeline, 4 Relationship,
+// 5 Contemporaries, 6 Map, 7 Report.
+const MAP_KEY = "6";
 
 // Two placed events, a lifetime apart, so the year filter has a range to move.
 const MAPPED = path.join(tmpdir(), "borders.ged");
