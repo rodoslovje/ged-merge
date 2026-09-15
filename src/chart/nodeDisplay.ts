@@ -201,18 +201,32 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
  * stays hidden here too.
  */
 export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): string {
-  const { name, lines } = nodeHoverLines(opts, input);
-  return [name, ...lines].join("\n");
+  const h = nodeHover(opts, input);
+  return [h.years ? `${h.name}, ${h.years}` : h.name, h.place, h.kinship].filter(Boolean).join("\n");
 }
 
-/** The same, split for the hover card: the name (with the lifespan, or the
- *  placeholder for a redacted living person) and the lines beneath it. */
-export function nodeHoverLines(opts: NodeDisplayOptions, input: NodeDisplayInput): { name: string; lines: string[]; redacted: boolean } {
+/** What the hover card shows for a node, field by field: the name (or the
+ *  placeholder for a redacted living person), the lifespan with the age when
+ *  shown, and the place and kinship lines the settings show. */
+export interface NodeHover {
+  name: string;
+  years?: string;
+  place?: string;
+  kinship?: string;
+  kinshipLineage?: Lineage;
+  /** A redacted living person: the name is the placeholder and nothing else shows. */
+  redacted: boolean;
+}
+
+export function nodeHover(opts: NodeDisplayOptions, input: NodeDisplayInput): NodeHover {
   const disp = nodeDisplay(opts, input);
-  if (opts.privacyLiving && input.living) return { name: disp.name, lines: [], redacted: true };
-  const years = lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age });
-  const lines: string[] = [];
-  if (disp.place) lines.push(disp.place);
-  if (disp.kinship) lines.push(disp.kinship);
-  return { name: years ? `${input.name}, ${years}` : input.name, lines, redacted: false };
+  if (opts.privacyLiving && input.living) return { name: disp.name, redacted: true };
+  return {
+    name: input.name,
+    years: lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age }) || undefined,
+    place: disp.place,
+    kinship: disp.kinship,
+    kinshipLineage: disp.kinshipLineage,
+    redacted: false,
+  };
 }

@@ -5179,8 +5179,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   line-height: 1.35;
   white-space: nowrap;
 }
-.chart-hover-name { font-weight: 600; color: var(--text); }
+/* Head: the name and the lifespan side by side, as a person card writes them. */
+.chart-hover-head { display: flex; align-items: baseline; gap: 8px; font-weight: 600; color: var(--text); }
 .chart-hover-line { color: var(--muted); }
+.chart-hover-kin { color: var(--accent); font-size: 0.8rem; }
+.chart-hover-kin.lineage-paternal { color: var(--lineage-paternal); }
+.chart-hover-kin.lineage-maternal { color: var(--lineage-maternal); }
 .chart-hover-hint { color: var(--faint); font-size: 0.75rem; margin-top: 2px; }
 .tree-edge {
   fill: none;

@@ -23,7 +23,7 @@ import { useChartHover, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHoverLines } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHover } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -369,19 +369,20 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (key: string): HoverInfo | undefined => {
       const n: TreeNode | undefined = radial ? fanNodes.get(key)?.node : nodesByKey.get(key);
       if (!n) return undefined;
-      const { name, lines, redacted } = nodeHoverLines(display, {
+      const h = nodeHover(display, {
         name: n.name,
         years: n.years,
         age: n.age,
         ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
         place: n.place,
         kinship: fanKinshipOf(n),
+        kinshipLineage: lineageOf(n),
         living: n.living,
         livingLabel: livingLabelFor(t, n.sex),
       });
-      return { name, sex: redacted ? undefined : n.sex, lines, hint: t("tree.node.clickHint") };
+      return { ...h, sex: h.redacted ? undefined : n.sex, hint: t("tree.node.clickHint") };
     },
-    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf],
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
   );
   const hover = useChartHover(canvasRef, hoverInfoFor);
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Sex } from "../gedcom/types";
+import type { Lineage } from "../match/kinship";
 
 // The chart hover card's engine: one delegated pointer listener on the canvas
 // resolves the `[data-key]` node under the pointer, waits a beat, and asks the
@@ -11,7 +12,12 @@ export interface HoverInfo {
   name: string;
   /** Colours the name; undefined leaves it plain (a redacted person). */
   sex?: Sex | string;
-  lines: string[];
+  /** The lifespan, with the age when shown — beside the name, as Edit's cards
+   *  and the people list write it. */
+  years?: string;
+  place?: string;
+  kinship?: string;
+  kinshipLineage?: Lineage;
   /** A muted last line ("Click to see full details"). */
   hint?: string;
 }

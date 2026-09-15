@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeHoverLines, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeHover, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -203,17 +203,18 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       if (!b) return undefined;
       const indi = mainDs.individuals.get(b.id);
       const age = lifespanAge(indi);
-      const { name, lines, redacted } = nodeHoverLines(settings, {
+      const h = nodeHover(settings, {
         name: b.name,
         years: b.years,
         age,
         ageText: age !== undefined ? ageStandalone(t, b.sex, age) : undefined,
         place: placeLabel(indi),
         kinship: kinshipOf.label(b.id),
+        kinshipLineage: kinshipOf.lineage(b.id),
         living: isPresumedLiving(indi, mainDs) || !!indi?.private,
         livingLabel: livingLabelFor(t, b.sex),
       });
-      return { name, sex: redacted ? undefined : b.sex, lines, hint: t("tree.node.clickHint") };
+      return { ...h, sex: h.redacted ? undefined : b.sex, hint: t("tree.node.clickHint") };
     },
     [nodesByKey, mainDs, settings, t, kinshipOf],
   );
