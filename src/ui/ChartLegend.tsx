@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type { LegendEntry } from "../chart/nodeColor";
 
-// The colour key above a chart: one chip per category of the Color axis in
-// force, with its head-count. Where the host can hide a group (the
-// Contemporaries chart), the chips are toggles; elsewhere they only name the
-// colours.
+// The colour key on a chart: one chip per category of the Color axis in
+// force, with its head-count, laid over the canvas's bottom-left corner so
+// the canvas keeps its size (a row above it moved the whole chart whenever an
+// axis came or went). Where the host can hide a group (the Contemporaries
+// chart), the chips are toggles; elsewhere they only name the colours.
 
 interface Props {
   entries: LegendEntry[];
@@ -17,7 +18,7 @@ export function ChartLegend({ entries, hidden, onToggle }: Props) {
   const { t } = useTranslation();
   if (entries.length === 0) return null;
   return (
-    <div className="kin-legend" role="group" aria-label={t("kin.legend")}>
+    <div className="kin-legend chart-legend" role="group" aria-label={t("kin.legend")}>
       {entries.map((e) => {
         const off = hidden?.has(e.key) ?? false;
         const body = (

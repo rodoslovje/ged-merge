@@ -5408,6 +5408,16 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
+/* Laid over the canvas (see ChartLegend): bottom-left, clear of the zoom
+   controls on the right, and above the SVG. */
+.tree-canvas-wrap > .chart-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 3;
+  margin: 0;
+  max-width: calc(100% - 140px);
+}
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
@@ -5471,7 +5481,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.85rem;
   color: var(--muted);
 }
-.report-page section:first-child .report-gen-head { margin-top: 0; }
+.report-page section:first-of-type .report-gen-head { margin-top: 0; }
+/* The bowtie's two reports on one page: each under its own title, the second
+   ruled off from the first. */
+.report-part-head { font-size: 1.05rem; margin: 0 0 14px; color: var(--text); }
+.report-page + .report-page { border-top: 1px solid var(--border); }
 /* Register: the "Children of no. X" group heading inside a generation. */
 .report-family-head {
   margin: 12px 0 2px;

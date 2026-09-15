@@ -5,7 +5,7 @@ import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
 import { buildAhnentafel } from "./ahnentafel";
 import { buildDescendants } from "./descendants";
-import { esc, reportToRtf } from "./rtf";
+import { esc, reportToRtf, reportsToRtf } from "./rtf";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -151,9 +151,14 @@ describe("reportToRtf (register / options)", () => {
     expect(rtf).toContain("\\b\\fs24 report.toc\\par");
     // Each TOC row is an internal hyperlink to its generation's bookmark.
     expect(rtf).toContain(
-      '{\\field{\\*\\fldinst{HYPERLINK \\\\l "gen1"}}{\\fldrslt report.gen.n \\u8212? ahnentafel.gen.1 \\u183? report.gen.nos}}',
+      '{\\field{\\*\\fldinst{HYPERLINK \\\\l "ancestorsgen1"}}{\\fldrslt report.gen.n \\u8212? ahnentafel.gen.1 \\u183? report.gen.nos}}',
     );
-    expect(rtf).toContain("{\\*\\bkmkstart gen1}{\\*\\bkmkend gen1}");
+    expect(rtf).toContain("{\\*\\bkmkstart ancestorsgen1}{\\*\\bkmkend ancestorsgen1}");
+    // A document of two reports keeps every bookmark its own: the direction names it.
+    const two = reportsToRtf(tr, [{ data, direction: "ancestors", title: "A", opts: { toc: true } }, { data, direction: "descendants", title: "D", opts: { toc: true } }]);
+    expect(two).toContain("bkmkstart ancestorsgen1");
+    expect(two).toContain("bkmkstart descendantsgen1");
+    expect(two.split("\\rtf1").length).toBe(2);
     // Off by default.
     expect(reportToRtf(tr, data, "ancestors", "T")).not.toContain("bkmkstart");
   });

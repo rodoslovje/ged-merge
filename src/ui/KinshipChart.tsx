@@ -448,9 +448,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         </div>
       }
     >
-      <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
-
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
