@@ -19,7 +19,7 @@ import { Segmented, type SegmentedItem } from "./Segmented";
 import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { hoverInfoFrom, useChartHover, type HoverInfo } from "./useChartHover";
+import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
@@ -398,7 +398,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     },
     [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
   );
-  const hover = useChartHover(canvasRef, hoverInfoFor);
 
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
   // Esc leaves the page.
@@ -621,7 +620,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           )}
         </div>
 
-        <ChartHoverCard hover={hover} />
+        <ChartHoverCard canvasRef={canvasRef} infoFor={hoverInfoFor} />
 
         {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
         {!radial && laid && flat && (

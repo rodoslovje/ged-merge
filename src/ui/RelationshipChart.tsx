@@ -31,7 +31,7 @@ import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
-import { hoverInfoFrom, useChartHover, type HoverInfo } from "./useChartHover";
+import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 
 const COLOR_SPINE = "var(--node-main)";
@@ -228,7 +228,6 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     },
     [nodesByKey, mainDs, settings, t, kinshipOf],
   );
-  const hover = useChartHover(canvasRef, hoverInfoFor);
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
@@ -394,7 +393,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           )}
         </div>
 
-        <ChartHoverCard hover={hover} />
+        <ChartHoverCard canvasRef={canvasRef} infoFor={hoverInfoFor} />
         {chart && (
           <ChartMinimap
             contentW={chart.width}
