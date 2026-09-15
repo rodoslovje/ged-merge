@@ -5408,22 +5408,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
-/* Laid over the canvas (see ChartLegend): top-left, where a key is looked
-   for, and above the SVG. On a chart with an overview map it steps right of
-   the map's collapsed button, and moves to the top-right while the map is
-   open, so the two never share a corner. */
+/* Laid over the canvas (see ChartLegend): the top-right corner on every
+   chart, so it is found in the same place whichever kind is open — the
+   overview map owns the top-left, and a key that moved between corners with
+   the kind was worse than one that shares a corner with the selected
+   person's panel. Above the SVG. */
 .tree-canvas-wrap > .chart-legend {
   position: absolute;
   top: 10px;
-  left: 10px;
+  right: 10px;
   z-index: 3;
   margin: 0;
   max-width: calc(100% - 140px);
-}
-.tree-canvas-wrap:has(.tree-minimap-show) > .chart-legend { left: 54px; }
-.tree-canvas-wrap:has(.tree-minimap-box) > .chart-legend {
-  left: auto;
-  right: 10px;
   justify-content: flex-end;
 }
 .kin-legend-count {

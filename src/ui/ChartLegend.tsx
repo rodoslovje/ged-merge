@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { LegendEntry } from "../chart/nodeColor";
 
 // The colour key on a chart: one chip per category of the Color axis in
-// force, with its head-count, laid over the canvas's top-left corner so
+// force, with its head-count, laid over the canvas's top-right corner so
 // the canvas keeps its size (a row above it moved the whole chart whenever an
 // axis came or went). Where the host can hide a group (the Contemporaries
 // chart), the chips are toggles; elsewhere they only name the colours.
