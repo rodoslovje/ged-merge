@@ -520,10 +520,12 @@ export function buildFanChart(
       let lines: { text: string; arc: string }[] = [];
       let fontPx = round(Math.min(baseFont * 0.82, collarW * 0.55));
 
-      // Redacting the living hides the couple's own label too — see
-      // MarriageInfo.living. The collar band still draws, blank, so the ring
-      // spacing doesn't shift between a private couple and a known one.
-      const redactMarriage = display.privacyLiving && (node.living || !!node.marriage?.living);
+      // Redacting the living hides a couple's own label when one of them is
+      // living — see MarriageInfo.living — and only then: the collar is the
+      // parents' wedding, and a living child is no reason to hide it. The band
+      // still draws, blank, so the ring spacing doesn't shift between a
+      // private couple and a known one.
+      const redactMarriage = display.privacyLiving && !!node.marriage?.living;
       if (node.marriage && !redactMarriage) {
         const { year, place } = node.marriage;
         // Deep rings stack the year over the place on two concentric lines (the arc
