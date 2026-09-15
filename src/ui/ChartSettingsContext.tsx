@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ChartAlignment } from "../chart/treeLayout";
 import type { FanShape } from "../chart/fanLayout";
+import { sanitizeColorAxis, type ColorAxis } from "../chart/nodeColor";
 import { useSettingsSlice } from "./SettingsContext";
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
@@ -70,9 +71,6 @@ export type KinLayout = "wheel" | "bars";
  *  overlapped the root's, or every one of them. */
 export type KinScope = "contemporaries" | "all";
 
-/** Contemporaries: what a dot's colour says. */
-export type KinColour = "generation" | "branch" | "living";
-
 export interface ChartSettings {
   type: PedigreeType;
   /** Tree kind: the tidy tree or the grid. */
@@ -129,8 +127,9 @@ export interface ChartSettings {
   kinLayout: KinLayout;
   /** Contemporaries: the root's contemporaries, or every blood relative. */
   kinScope: KinScope;
-  /** Contemporaries: the colour axis. */
-  kinColour: KinColour;
+  /** What a person's fill says, on every chart that draws people — see
+   *  {@link ColorAxis}. */
+  colorAxis: ColorAxis;
   /** Contemporaries: write names beside the closest kin. */
   kinNames: boolean;
 }
@@ -162,7 +161,7 @@ const DEFAULTS: ChartSettings = {
   reportToc: false,
   kinLayout: "wheel",
   kinScope: "contemporaries",
-  kinColour: "generation",
+  colorAxis: "plain",
   kinNames: true,
 };
 
@@ -258,10 +257,9 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       showSources: bool(parsed.showSources, DEFAULTS.showSources),
       kinLayout: parsed.kinLayout === "bars" ? "bars" : DEFAULTS.kinLayout,
       kinScope: parsed.kinScope === "all" ? "all" : DEFAULTS.kinScope,
-      kinColour:
-        parsed.kinColour === "branch" || parsed.kinColour === "living"
-          ? parsed.kinColour
-          : DEFAULTS.kinColour,
+      // The Contemporaries' own colour axis became the shared one; a blob from
+      // then carries it as `kinColour`.
+      colorAxis: sanitizeColorAxis(parsed.colorAxis ?? (parsed as { kinColour?: unknown }).kinColour),
       kinNames: bool(parsed.kinNames, DEFAULTS.kinNames),
       reportNarrative: bool(parsed.reportNarrative, DEFAULTS.reportNarrative),
       reportToc: bool(parsed.reportToc, DEFAULTS.reportToc),

@@ -173,7 +173,7 @@ interface Placed {
 /** Father/mother for the next ring: slot bit 0 = father, 1 = mother. Assign by
  *  sex first (so a lone parent stays in their half), then by order for any
  *  ambiguous remainder. */
-function splitParents(kids: TreeNode[]): [TreeNode | undefined, TreeNode | undefined] {
+export function splitParents(kids: TreeNode[]): [TreeNode | undefined, TreeNode | undefined] {
   let father: TreeNode | undefined;
   let mother: TreeNode | undefined;
   for (const k of kids) {

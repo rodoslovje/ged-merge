@@ -3,7 +3,8 @@ import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type KinColour, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { COLOR_AXES } from "../chart/nodeColor";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the layered-chart alignment (left→right /
@@ -33,9 +34,6 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
 
 /** Whose bars carry event dots on the Timeline (the timeline-only group). */
 const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
-
-/** What a dot's colour says on the Contemporaries wheel. */
-const KIN_COLOURS: KinColour[] = ["generation", "branch", "living"];
 
 /** `lockedType` pins the effective diagram type (used by the Relationship
  *  chart, which always lays out as a tree, and by the Timeline and the
@@ -217,22 +215,30 @@ export function ChartSettings({
               </div>
             </div>
           )}
-          {/* Contemporaries-only: what a dot's colour says, and whether the
-              closest kin are named on the chart. */}
-          {effectiveType === "kin" && (
+          {/* What a person's fill says — one shared choice for every chart
+              that draws people. The report has no fills and the map colours
+              its markers by event kind. */}
+          {effectiveType !== "report" && effectiveType !== "map" && (
             <div className="chart-settings-group">
-              <span className="chart-settings-heading">{t("kin.settings.colour")}</span>
-              <div className="chart-settings-segmented">
-                {KIN_COLOURS.map((c) => (
+              <span className="chart-settings-heading">{t("chartColor.heading")}</span>
+              <div className="chart-settings-segmented chart-settings-toggles chart-settings-axes">
+                {COLOR_AXES.map((axis) => (
                   <button
-                    key={c}
-                    className={settings.kinColour === c ? "active" : ""}
-                    onClick={() => set({ kinColour: c })}
+                    key={axis}
+                    className={settings.colorAxis === axis ? "active" : ""}
+                    aria-pressed={settings.colorAxis === axis}
+                    title={t(`chartColor.axis.${axis}.tip`)}
+                    onClick={() => set({ colorAxis: axis })}
                   >
-                    {t(`kin.settings.colour.${c}`)}
+                    {t(`chartColor.axis.${axis}`)}
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+          {/* Contemporaries-only: whether the closest kin are named on the chart. */}
+          {effectiveType === "kin" && (
+            <div className="chart-settings-group">
               <div className="chart-settings-segmented chart-settings-toggles">
                 <button
                   className={settings.kinNames ? "active" : ""}

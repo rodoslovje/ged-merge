@@ -16,6 +16,9 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { Segmented, type SegmentedItem } from "./Segmented";
+import { categoryColor, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
 import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
@@ -47,22 +50,15 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 
-// Color for unmodified nodes (main pine green) and modified (amber/minor).
+// Color for unmodified nodes (main pine green) and modified (amber/minor) on
+// the plain Color axis; any other axis colours by the shared colorer, and an
+// edit shows as the "modified" badge alone.
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
 
 const COLOR_NORMAL = "var(--node-main)";
 const COLOR_MODIFIED = "var(--node-minor)";
-/** Descendant fan / circle: one hue per child of the root, in drawing order —
- *  spaced evenly around the colour wheel for however many there are, so the
- *  ring reads as one progression rather than a deck of unrelated colours. The
- *  sweep stops short of a full turn so the last child never matches the first;
- *  lightness and chroma come from the theme. */
-function branchColor(branch: number, branches: number): string {
-  const hue = Math.round(25 + (branch * 320) / Math.max(branches, 1));
-  return `oklch(var(--fan-branch-l) var(--fan-branch-c) ${hue})`;
-}
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -299,14 +295,41 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
-  // A descendant fan / circle colours each child of the root's line by its own
-  // hue (the segment says which branch a wedge is on); an edited person keeps
-  // the modified amber wherever they are drawn.
+  // Where every drawn person sits (generation, family line), for the Color
+  // axes that read the chart rather than the record. The layered bowtie's
+  // ancestor half carries prefixed keys; the fan's segments resolve through
+  // their tree node.
+  const { positions, branchInfo } = useMemo(() => {
+    const anc = bowtie || mode === "ancestors" ? shown.ancestors : undefined;
+    const desc = bowtie || mode === "descendants" ? shown.descendants : undefined;
+    const a = indexPositions(anc, "ancestors", bowtie && !radial ? "a:" : "");
+    const d = indexPositions(desc, "descendants", "", a.positions, a.branches);
+    return { positions: d.positions, branchInfo: d.branches };
+  }, [bowtie, mode, radial, shown]);
+  const positionOf = useCallback(
+    (n: TreeNode, seg?: FanSegment): NodePosition | undefined =>
+      seg ? fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions) : positions.get(n.key),
+    [positions, bowtie, mode],
+  );
+  const subjects = useMemo(
+    () =>
+      radial
+        ? (fan?.segments ?? []).map((s) => ({ indi: s.node.main, pos: positionOf(s.node, s) }))
+        : (flat?.nodes ?? []).map((n) => ({ indi: n.main, pos: positionOf(n) })),
+    [radial, fan, flat, positionOf],
+  );
+  const colorer = useNodeColorer(mainDs, subjects, branchInfo);
+  // On the plain axis a descendant fan / circle colours each child of the
+  // root's line by its own hue (the segment says which branch a wedge is on),
+  // and an edited person shows the modified amber wherever they are drawn. On
+  // any other axis the colorer decides and an edit is the badge alone.
   const branches = fan?.branches ?? 0;
   const colorOf = useCallback(
-    (n: TreeNode, seg?: FanSegment) =>
-      isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? branchColor(seg.branch, branches) : COLOR_NORMAL,
-    [isModified, branches],
+    (n: TreeNode, seg?: FanSegment) => {
+      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, positionOf(n, seg))) ?? COLOR_NORMAL;
+      return isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? categoryColor(seg.branch, branches) : COLOR_NORMAL;
+    },
+    [colorer, positionOf, isModified, branches],
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -493,6 +516,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       }
       controlsRight={<ChartFindBox find={find} />}
     >
+      <ChartLegend entries={colorer.legend} />
       <div className="tree-canvas-wrap">
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
