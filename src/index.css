@@ -5154,7 +5154,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    corner because the in-flight pinch transform useTreeCanvas paints here is
    solved for that corner — a centred origin would offset every gesture by half
    the chart. (`.tree-zoom` is the zoom toolbar.) */
-.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
+/* Always a compositor layer of its own: a pinch or wheel zoom paints its
+   transform straight onto it (useTreeCanvas), and promoting it only for the
+   gesture made Chromium rasterise the whole chart at the gesture's start and
+   again at its end — a big fan's curved text, twice per pinch. Kept promoted,
+   the gesture scales the existing raster, as Safari and Firefox do anyway. */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; will-change: transform; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
 /* The hover card beside the pointer (ChartHoverCard): anchored at the pointer

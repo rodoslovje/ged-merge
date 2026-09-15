@@ -206,10 +206,7 @@ export function useTreeCanvas(
     if (pendingLayerReset.current) {
       pendingLayerReset.current = false;
       const layer = zoomLayerRef.current;
-      if (layer) {
-        layer.style.transform = "";
-        layer.style.willChange = "";
-      }
+      if (layer) layer.style.transform = "";
     }
     syncViewport();
   }, [zoom, syncViewport]);
@@ -241,9 +238,6 @@ export function useTreeCanvas(
         left: el.scrollLeft,
         top: el.scrollTop,
       };
-      // Promote the layer for the duration of the gesture so the per-event
-      // transform stays on the compositor; cleared again on commit.
-      layer.style.willChange = "transform";
     }
     return gesture.current;
   }, [laid]);
@@ -315,7 +309,6 @@ export function useTreeCanvas(
       // Pure pan (or a pinch that cancelled itself out): no re-render is
       // coming, so clear the transform and set the scroll directly.
       layer.style.transform = "";
-      layer.style.willChange = "";
       pendingScroll.current = null;
       el.scrollLeft = g.left;
       el.scrollTop = g.top;
