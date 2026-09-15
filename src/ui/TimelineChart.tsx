@@ -221,7 +221,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     () => rows.map((r) => ({ indi: mainDs.individuals.get(r.id), pos: { gen: r.gen, branch: OWN_BRANCH } })),
     [rows, mainDs],
   );
-  const colorer = useNodeColorer(mainDs, subjects);
+  const colorer = useNodeColorer(mainDs, subjects, undefined, "noBranch");
   const colorFor = useMemo(
     () => (row: (typeof rows)[number]) =>
       colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(row.id), { gen: row.gen, branch: OWN_BRANCH })) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
@@ -350,7 +350,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       }
       actions={
         <>
-          <ChartSettings lockedType="timeline" availableGenerations={depth} />
+          <ChartSettings lockedType="timeline" availableGenerations={depth} colorAxes="noBranch" />
           <ChartExportMenu
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}

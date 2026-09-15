@@ -16,7 +16,7 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { Segmented, type SegmentedItem } from "./Segmented";
-import { AXIS_TINT, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { useChartHover, type HoverInfo } from "./useChartHover";
@@ -67,11 +67,6 @@ const COLOR_MODIFIED = "var(--node-minor)";
  *  marriage collars — the spouse is not of the line, so the line's colour
  *  is not theirs. */
 const COLOR_SPOUSE_BAND = "var(--muted)";
-/** The axes that read a person's place on the chart rather than their
- *  record; a spouse has no place of their own on the line, so their band
- *  stays neutral there. On the record axes the band takes the spouse's own
- *  colour — where they were born is exactly what the axis is for. */
-const CHART_AXES = new Set(["plain", "generation", "branch"]);
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -319,8 +314,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     return { positions: d.positions, branchInfo: d.branches };
   }, [bowtie, mode, radial, shown]);
   const positionOf = useCallback(
-    (n: TreeNode, seg?: FanSegment): NodePosition | undefined =>
-      seg ? fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions) : positions.get(n.key),
+    (n: TreeNode, seg?: FanSegment): NodePosition | undefined => {
+      if (!seg) return positions.get(n.key);
+      const pos = fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions);
+      // A spouse's band rides beside the line, not on it: the chart-reading
+      // axes leave them out, counts and all (see NodePosition.offLine).
+      return seg.band ? { ...pos, offLine: true } : pos;
+    },
     [positions, bowtie, mode],
   );
   const subjects = useMemo(
@@ -351,7 +351,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`, bowtie);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).

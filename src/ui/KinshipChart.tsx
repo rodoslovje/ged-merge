@@ -146,9 +146,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     }
     return map;
   }, [wheel.wedges, wedgeLabel]);
-  // The shared Color axis, over everyone but the root (whose dot is the centre).
+  // The shared Color axis, over everyone the chart draws — the root included:
+  // the wheel keeps them at the centre, but the bars give them a band of their
+  // own, and a root whose category no relative shares (the only living person,
+  // the only one of their generation) has to have a colour of it too.
   const subjects = useMemo(
-    () => people.filter((p) => p.distance > 0).map((p) => ({ indi: p.indi, pos: { gen: p.generation, branch: p.branch } })),
+    () => people.map((p) => ({ indi: p.indi, pos: { gen: p.generation, branch: p.branch } })),
     [people],
   );
   const colorer = useNodeColorer(mainDs, subjects, branches);

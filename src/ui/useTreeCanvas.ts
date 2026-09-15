@@ -128,6 +128,12 @@ export function useTreeCanvas(
    *  the node height), and being thrown back to the root for ticking "Place" is
    *  no way to compare two settings. Omit to scroll home on every relayout. */
   viewKey?: string,
+  /** The root sits in the middle of the depth axis, not at its leading edge
+   *  (the bowtie: ancestors before the root, descendants after), so the view
+   *  opens centred on it. Off for a one-direction chart, whose root anchors
+   *  the leading edge even when the layout gives it a run-up — the Timeline
+   *  starts the axis some years before the root's first event on purpose. */
+  centreRoot = false,
 ): TreeCanvas {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
@@ -379,8 +385,8 @@ export function useTreeCanvas(
   // scroll so the starting person (the tree root) is in view. A direction
   // chart's root sits at the leading edge of the depth axis, so it is pinned
   // there (left in LR, top in TB); a bowtie's root sits in the middle, with
-  // the ancestors before it, so it is centred instead. The breadth axis always
-  // centres on the root. Then re-measure for the minimap.
+  // the ancestors before it, so `centreRoot` centres it instead. The breadth
+  // axis always centres on the root. Then re-measure for the minimap.
   // (Defined after fitToScreen: the dependency array reads it during render.)
   const homedFor = useRef<string | null>(null);
   useEffect(() => {
@@ -401,16 +407,16 @@ export function useTreeCanvas(
         const centreX = (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2;
         const centreY = (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2;
         if (alignment === "tb") {
-          el.scrollTop = Math.max(0, laid.root.y === 0 ? 0 : centreY);
+          el.scrollTop = Math.max(0, centreRoot ? centreY : laid.root.y * z);
           el.scrollLeft = Math.max(0, centreX);
         } else {
-          el.scrollLeft = Math.max(0, laid.root.x === 0 ? 0 : centreX);
+          el.scrollLeft = Math.max(0, centreRoot ? centreX : laid.root.x * z);
           el.scrollTop = Math.max(0, centreY);
         }
       }
     }
     syncViewport();
-  }, [laid, syncViewport, alignment, radial, nodeH, viewKey, fitToScreen]);
+  }, [laid, syncViewport, alignment, radial, nodeH, viewKey, fitToScreen, centreRoot]);
 
   // Ctrl/⌘ + wheel (and touchpad pinch, which the browser delivers as ctrl+wheel)
   // zooms toward the cursor; a plain wheel keeps the canvas's native scrolling.

@@ -15,7 +15,7 @@ import { birthDateOf, birthYear, isDeceased, isPresumedLiving } from "../gedcom/
 import { ageBetween, lifespanAge } from "../gedcom/age";
 import { localityParts } from "../gedcom/place";
 import { placeCountryFacet, countryFacetLabel } from "../geo/placeCountry";
-import { primaryName } from "../match/relatives";
+import { findEvent, primaryName } from "../match/relatives";
 import type { Translate } from "../locales/i18n";
 import type { TreeMode, TreeNode } from "./personTree";
 import { splitParents, type FanSegment } from "./fanLayout";
@@ -42,6 +42,28 @@ export const COLOR_AXES: ColorAxis[] = [
   "parentAge", "lifespan", "century", "sources",
 ];
 
+/**
+ * What a chart can colour its people by. A chart that paints them by something
+ * of its own — the Compare tree's match status — takes `none` and is offered
+ * no Color setting at all. A chart that knows each person's generation but not
+ * the family line they come down through — the Timeline's rows, the
+ * Relationship chart's path — takes `noBranch`: a line axis there would paint
+ * every person the one colour. Everything else offers the lot.
+ */
+export type ColorAxisScope = "all" | "noBranch" | "none";
+
+/** The axes a chart of this scope offers, in popover order. */
+export function colorAxesFor(scope: ColorAxisScope): ColorAxis[] {
+  if (scope === "none") return [];
+  return scope === "noBranch" ? COLOR_AXES.filter((a) => a !== "branch") : COLOR_AXES;
+}
+
+/** The axis to colour by on a chart of this scope: the chosen one, or "plain"
+ *  when that chart cannot honour it (a stored choice made on another chart). */
+export function axisWithin(axis: ColorAxis, scope: ColorAxisScope): ColorAxis {
+  return colorAxesFor(scope).includes(axis) ? axis : "plain";
+}
+
 /** A stored axis, or "plain" for anything else. */
 export function sanitizeColorAxis(v: unknown): ColorAxis {
   // The two parents' ages were separate axes for a day.
@@ -61,7 +83,21 @@ export const AXIS_TINT = 38;
 export interface NodePosition {
   gen: number;
   branch: string;
+  /** The person rides beside the line rather than on it — a spouse's band on
+   *  a descendant fan — so the axes that read the chart have nothing to say
+   *  about them: they are of no generation of the tree and of no line. Such a
+   *  person falls out of those axes' categories (and out of their legend
+   *  counts); the host paints them neutral. */
+  offLine?: boolean;
 }
+
+/** The axes that read where a person sits on the chart rather than what their
+ *  record says. A spouse riding beside the line can answer none of them, so
+ *  these are the axes where their band stays neutral; on a record axis the
+ *  band takes the spouse's own colour — where they were born is exactly what
+ *  the axis is for. ("plain" reads neither, and belongs here for the hosts
+ *  that paint an off-line person neutral on all three.) */
+export const CHART_AXES: ReadonlySet<ColorAxis> = new Set<ColorAxis>(["plain", "generation", "branch"]);
 
 /** A branch's colour and name, resolved by the host that knows the tree. */
 export interface BranchInfo {
@@ -163,21 +199,17 @@ const OTHER = "\u0000other";
 
 const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
 
-function eventOf(indi: Individual, tag: string) {
-  return indi.events.find((e) => e.tag === tag);
-}
-
 /** The country of the first of birth, residence and death that names a place. */
 function countryOf(indi: Individual, home: string): string {
   for (const tag of PLACE_TAGS) {
-    const place = eventOf(indi, tag)?.place;
+    const place = findEvent(indi, tag)?.place;
     if (place?.raw.trim()) return placeCountryFacet(place.raw) || home;
   }
   return "";
 }
 
 function birthPlaceOf(indi: Individual): string {
-  const place = eventOf(indi, "BIRT")?.place;
+  const place = findEvent(indi, "BIRT")?.place;
   return place ? (localityParts(place)[0] ?? "") : "";
 }
 
@@ -210,8 +242,8 @@ function sourcedShareOf(indi: Individual, ds: Dataset): number | undefined {
     total++;
     if (e.sources?.length) cited++;
   };
-  count(eventOf(indi, "BIRT"));
-  count(eventOf(indi, "DEAT"));
+  count(findEvent(indi, "BIRT"));
+  count(findEvent(indi, "DEAT"));
   for (const fid of indi.spouseOf) {
     const fam = ds.families.get(fid);
     if (fam) count(fam.events.find((e) => e.tag === "MARR"));
@@ -242,7 +274,9 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   const now = ctx.now ?? new Date().getFullYear();
   const numeric = NUMERIC[axis];
 
-  const categoryOf = (indi: Individual | undefined, pos?: NodePosition): string => {
+  const readCategory = (indi: Individual | undefined, pos?: NodePosition): string => {
+    // A spouse riding beside the line is of no generation and of no line.
+    if (pos?.offLine && CHART_AXES.has(axis)) return "";
     switch (axis) {
       case "plain": return "";
       case "generation": return pos ? String(pos.gen) : "";
@@ -265,6 +299,27 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
         return v === undefined ? "" : bucketKey(v, numeric);
       }
     }
+  };
+
+  // The record-reading axes cost real work per person — a living check can walk
+  // the family network to estimate a birth year, a country parses a place, the
+  // parents' age resolves a family — and the hosts ask for the same person
+  // again on every render, more than once per drawn node. Their reading depends
+  // on the record alone, never on where the chart puts them, so it is read once
+  // per person and kept. The chart-reading axes are a field read and need no
+  // cache (and must not have one: a repeated ancestor sits at two generations).
+  const perRecord = !CHART_AXES.has(axis);
+  // Keyed by the record itself, not by its id: the charts hand the same
+  // `Individual` object back on every pass, and identity cannot go stale the
+  // way an id shared by two objects could.
+  const cache = new Map<Individual, string>();
+  const categoryOf = (indi: Individual | undefined, pos?: NodePosition): string => {
+    if (!perRecord || !indi) return readCategory(indi, pos);
+    const hit = cache.get(indi);
+    if (hit !== undefined) return hit;
+    const k = readCategory(indi, pos);
+    cache.set(indi, k);
+    return k;
   };
 
   // Count the categories on the chart; the root of the legend and of the
@@ -345,7 +400,7 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
       const k = categoryOf(indi, pos);
       return folded.has(k) ? OTHER : k;
     },
-    colorOf: (k) => (axis === "plain" ? undefined : colors.get(k) ?? (k === "" ? UNKNOWN_COLOR : UNKNOWN_COLOR)),
+    colorOf: (k) => (axis === "plain" ? undefined : colors.get(k) ?? UNKNOWN_COLOR),
     legend,
   };
 }

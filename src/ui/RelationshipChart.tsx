@@ -151,7 +151,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     () => (chart?.boxes ?? []).map((b) => ({ indi: mainDs.individuals.get(b.id), pos: { gen: b.gen, branch: OWN_BRANCH } })),
     [chart, mainDs],
   );
-  const colorer = useNodeColorer(mainDs, subjects);
+  const colorer = useNodeColorer(mainDs, subjects, undefined, "noBranch");
   const colorFor = useMemo(
     () => (b: { id: string; onSpine: boolean; gen: number }) =>
       colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id), { gen: b.gen, branch: OWN_BRANCH })) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
@@ -263,7 +263,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       }
       actions={
         <>
-          <ChartSettings lockedType="tree" />
+          <ChartSettings lockedType="tree" colorAxes="noBranch" />
           <ChartExportMenu
             disabled={!chart}
             slug={relchartSlug}

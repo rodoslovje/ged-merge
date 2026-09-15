@@ -483,7 +483,10 @@ export function CompareTree({
       }
       actions={
         <>
-          <ChartSettings availableGenerations={depths[mode]} />
+          {/* No Color axis here: this chart paints every node by what the
+              merge found — main, incoming, conflict — and that is the whole
+              point of looking at it. */}
+          <ChartSettings availableGenerations={depths[mode]} colorAxes="none" />
           <ChartExportMenu
             disabled={!activeLaid}
             slug={chartSlug(rootName, t(`tree.${mode}`))}
