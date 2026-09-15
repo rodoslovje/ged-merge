@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
+import { placeKin } from "../chart/kinMap";
+import { PersonLink } from "./PersonLink";
 import {
   WHEEL_LABEL_PX,
   barNameFont,
@@ -38,15 +40,22 @@ import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { sexClass } from "./sex";
 
+// Leaflet comes with the layout that needs it, as the Places map's does.
+const KinMapBody = lazy(() => import("./KinMapBody"));
+
 // Full-page **Contemporaries** chart: every blood relative of one person, placed
 // by how closely they are related rather than by pedigree position — and, by
 // default, filtered to those whose life overlapped the root's.
 //
-// Two layouts over one data pass (see `src/chart/kinshipWheel.ts`): the wheel,
-// where the distance from the centre is the blood distance and each wedge is a
-// grandparent line; and the bars, the same people on a year axis banded by
-// blood distance. The wheel answers "who are they and how close", the bars
-// "who was here at the same time".
+// Three layouts over one data pass (see `src/chart/kinshipWheel.ts`): the
+// wheel, where the distance from the centre is the blood distance and each
+// wedge is a grandparent line; the bars, the same people on a year axis banded
+// by blood distance; and the map, the same people each at one place (see
+// `src/chart/kinMap.ts`). The wheel answers "who are they and how close", the
+// bars "who was here at the same time", the map "where did they come from".
+
+/** The unplaced list shows at most this many names per group. */
+const UNPLACED_MAX_ROWS = 150;
 
 interface Props {
   mainDs: Dataset;
@@ -57,9 +66,12 @@ interface Props {
   onNavigate?: (id: string) => void;
   onRootChange: (id: string) => void;
   kindSwitcher?: React.ReactNode;
+  /** Open Tools → Places → Geocode places, from the map layout's list of
+   *  relatives whose place has no coordinates. */
+  onOpenGeocode?: () => void;
 }
 
-export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, onRootChange, kindSwitcher }: Props) {
+export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, onRootChange, kindSwitcher, onOpenGeocode }: Props) {
   const { t } = useTranslation();
   const { settings, set } = useChartSettings();
   const nameOf = useNameOf();
@@ -194,20 +206,38 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
    *  whose kinship line means something else everywhere in the app — the
    *  relationship to your start person. Named from the positions the layout
    *  already knows, so no pedigree is walked per person. */
+  const kinshipOf = useCallback((p: KinPerson) => kinshipLabelFor(p.up, p.down, p.sex, t), [t]);
   const tooltipFor = useCallback(
     (p: KinPerson) => {
-      const rel = kinshipLabelFor(p.up, p.down, p.sex, t);
+      const rel = kinshipOf(p);
       return redacted(p)
         ? [nameFor(p), rel].filter(Boolean).join(" · ")
         : [p.name, rel, p.years].filter(Boolean).join(" · ");
     },
-    [redacted, nameFor, t],
+    [redacted, nameFor, kinshipOf],
   );
+
+  const drawn = useCallback((p: KinPerson) => p.distance > 0 && shown(p), [shown]);
+
+  // The map layout: each relative at their anchor place, the rest listed. Only
+  // built while it is showing — the other two layouts never ask.
+  const mapData = useMemo(() => (layout === "map" ? placeKin(mainDs, people) : undefined), [layout, mainDs, people]);
+  const placedShown = useMemo(() => (mapData ? mapData.placed.filter((x) => drawn(x.person)) : []), [mapData, drawn]);
+  const rootPoint = mapData?.placed.find((x) => x.person.id === currentRootId)?.point;
+  // The unplaced follow the colour key too, and keep the root: a root with no
+  // place is the one absence worth pointing out.
+  const unplacedNoCoords = useMemo(() => (mapData ? mapData.noCoords.filter(shown) : []), [mapData, shown]);
+  const unplacedNoPlace = useMemo(() => (mapData ? mapData.noPlace.filter(shown) : []), [mapData, shown]);
+  const unplacedCount = unplacedNoCoords.length + unplacedNoPlace.length;
+  const [unplacedOpen, setUnplacedOpen] = useState(false);
+  useEffect(() => setUnplacedOpen(false), [layout, currentRootId]);
+  /** The map body's fly-to, for the find box. */
+  const revealRef = useRef<((id: string) => void) | null>(null);
 
   // Position for useTreeCanvas: one node per person so Find can reveal them.
   const nodesByKey = useMemo(() => {
     const m = new Map<string, ChartNode>();
-    if (layout === "wheel") {
+    if (layout !== "bars") {
       m.set(currentRootId, { key: currentRootId, x: wheel.cx, y: wheel.cy });
       for (const d of wheel.dots) m.set(d.person.id, { key: d.person.id, x: d.x, y: d.y });
     } else {
@@ -221,7 +251,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const laid = useMemo(() => {
     const rootNode = nodesByKey.get(currentRootId) ?? [...nodesByKey.values()][0];
     if (!rootNode) return undefined;
-    return layout === "wheel"
+    return layout !== "bars"
       ? { root: rootNode, width: wheel.width + 2 * PAD, height: wheel.height + 2 * PAD }
       : { root: { ...rootNode, x: 0 }, width: bars.width + 2 * PAD, height: bars.height + 2 * PAD };
   }, [layout, nodesByKey, currentRootId, wheel, bars]);
@@ -229,16 +259,31 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", layout === "wheel", 24, `${currentRootId}:${layout}:${scope}:${settings.maxGenerations ?? "all"}`);
 
+  // On the map only the placed can be found; a hit elsewhere is a miss with
+  // the usual re-root offer.
   const findSources = useMemo(
-    () => people.map((p) => ({ key: p.id, people: [p.indi] })),
-    [people],
+    () =>
+      layout === "map"
+        ? placedShown.map((x) => ({ key: x.person.id, people: [x.person.indi] }))
+        : people.map((p) => ({ key: p.id, people: [p.indi] })),
+    [layout, placedShown, people],
   );
-  const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
+  const reveal = useCallback(
+    (key: string) => (layout === "map" ? revealRef.current?.(key) : revealNode(key)),
+    [layout, revealNode],
+  );
+  const find = useChartFind(findSources, mainDs.individuals, reveal, changeRoot);
 
 
   const selected = people.find((p) => p.id === selectedKey);
+  // Leaflet owns +/− on the map; the chart-canvas zoom keys stay off there.
+  const onMap = layout === "map";
   useChartShortcuts({
-    zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
+    zoomIn: onMap ? undefined : zoomIn,
+    zoomOut: onMap ? undefined : zoomOut,
+    resetZoom: onMap ? undefined : resetZoom,
+    fitToScreen: onMap ? undefined : fitToScreen,
+    scrollBy: onMap ? undefined : scrollBy,
     onEdit: selected && onNavigate ? () => onNavigate(selected.id) : undefined,
     onLeave: onBack,
   });
@@ -257,7 +302,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const pageKind = t("kin.pageTitle");
   const rootYears = root ? lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: people[0]?.years, age: lifespanAge(root) }) : undefined;
   const rootName = root ? nameOf(root) : "";
-  const drawn = useCallback((p: KinPerson) => p.distance > 0 && shown(p), [shown]);
   const drawnCount = useMemo(() => people.filter(drawn).length, [people, drawn]);
   const litCount = yearOn ? people.filter((p) => drawn(p) && lit(p)).length : drawnCount;
 
@@ -387,7 +431,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             title={[rootName, rootYears, "—", pageKind].filter(Boolean).join(" ")}
             legend={legend}
             gedcom={{ ds: mainDs, personIds: people.map((p) => p.id) }}
-            canvasRef={canvasRef}
+            // The map is tiles, not an SVG: no image export from it.
+            canvasRef={onMap ? undefined : canvasRef}
           />
         </>
       }
@@ -395,7 +440,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         <>
           {kindSwitcher}
           <div className="tree-mode" role="tablist" aria-label={t("kin.layout")}>
-          {(["wheel", "bars"] as const).map((l) => (
+          {(["wheel", "bars", "map"] as const).map((l) => (
             <button
               key={l}
               role="tab"
@@ -441,18 +486,122 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       controlsRight={
         <div className="tree-controls-right">
           <span className="kin-count">
-            {yearOn
-              ? t("kin.countInYear", { n: litCount, year })
-              : t("kin.count", { count: drawnCount })}
+            {onMap ? (
+              <>
+                {yearOn
+                  ? t("kin.countInYear", { n: placedShown.filter((x) => lit(x.person)).length, year })
+                  : t("kin.map.onMap", { count: placedShown.length })}
+                {unplacedCount > 0 && (
+                  <>
+                    {" · "}
+                    <button
+                      type="button"
+                      className={`kin-unplaced-btn${unplacedOpen ? " active" : ""}`}
+                      aria-pressed={unplacedOpen}
+                      title={t("kin.map.unplaced.tooltip")}
+                      onClick={() => setUnplacedOpen((v) => !v)}
+                    >
+                      {t("kin.map.unplaced", { count: unplacedCount })}
+                    </button>
+                  </>
+                )}
+              </>
+            ) : yearOn ? (
+              t("kin.countInYear", { n: litCount, year })
+            ) : (
+              t("kin.count", { count: drawnCount })
+            )}
           </span>
           <ChartFindBox find={find} />
         </div>
       }
     >
-      <div className="tree-canvas-wrap">
+      <div className={`tree-canvas-wrap${onMap ? " map-canvas-wrap kin-map-wrap" : ""}`}>
         <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
-        <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
-          {laid && (
+        {onMap && (
+          <Suspense fallback={null}>
+            <KinMapBody
+              placed={placedShown}
+              rootPoint={rootPoint}
+              rootLabel={people[0] ? tooltipFor(people[0]) : rootName}
+              rootInitials={initials(rootName)}
+              colorOf={colorOf}
+              categoryOf={categoryOf}
+              lit={lit}
+              nameFor={nameFor}
+              kinshipOf={kinshipOf}
+              redacted={redacted}
+              tooltipFor={tooltipFor}
+              selectedId={selectedKey}
+              findHitId={find.hitKey}
+              onSelect={selectNode}
+              fitKey={`${currentRootId}:${scope}:${settings.maxGenerations ?? "all"}`}
+              revealRef={revealRef}
+            />
+          </Suspense>
+        )}
+        {onMap && mapData && !mapData.placed.length && (
+          <div className="map-empty">
+            <div className="map-empty-card">
+              <p className="map-empty-title">{t("kin.map.empty")}</p>
+              <p className="map-empty-hint">{t("kin.map.emptyHint")}</p>
+            </div>
+          </div>
+        )}
+        {onMap && unplacedOpen && unplacedCount > 0 && (
+          <div className="map-panel kin-unplaced-panel">
+            <div className="map-panel-header">
+              <span className="map-panel-title">{t("kin.map.unplaced.title")}</span>
+              <button className="modal-close" onClick={() => setUnplacedOpen(false)} title={t("help.close")} aria-label={t("help.close")}>
+                ×
+              </button>
+            </div>
+            <div className="kin-unplaced-body">
+              <p className="kin-unplaced-hint">{t("kin.map.unplaced.hint")}</p>
+              {(
+                [
+                  ["noCoords", unplacedNoCoords],
+                  ["noPlace", unplacedNoPlace],
+                ] as const
+              )
+                .filter(([, list]) => list.length)
+                .map(([group, list]) => (
+                  <section key={group}>
+                    <div className="kin-unplaced-group">
+                      <span>{t(`kin.map.unplaced.${group}`, { count: list.length })}</span>
+                      {/* The geocoding tool is the fix for this group — and only this one. */}
+                      {group === "noCoords" && onOpenGeocode && (
+                        <button type="button" className="nav-btn" onClick={onOpenGeocode}>
+                          {t("tools.places.geocodeToggle")}
+                        </button>
+                      )}
+                    </div>
+                    <ul className="map-panel-list kin-map-list">
+                      {list.slice(0, UNPLACED_MAX_ROWS).map((p) => (
+                        <li key={p.id}>
+                          <span className="map-panel-person">
+                            {/* A redacted name is plain text: the link would
+                                name the person its label withholds. */}
+                            {redacted(p) || !onNavigate ? (
+                              <span>{nameFor(p)}</span>
+                            ) : (
+                              <PersonLink dataset={mainDs} id={p.id} fallback={p.id} onNavigate={onNavigate} />
+                            )}
+                            <span className="person-kinship">{kinshipLabelFor(p.up, p.down, p.sex, t)}</span>
+                          </span>
+                        </li>
+                      ))}
+                      {list.length > UNPLACED_MAX_ROWS && (
+                        <li className="map-panel-more">{t("kin.map.more", { count: list.length - UNPLACED_MAX_ROWS })}</li>
+                      )}
+                    </ul>
+                  </section>
+                ))}
+            </div>
+          </div>
+        )}
+        <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps} hidden={onMap}>
+          {laid && !onMap && (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
               <svg className="tree-svg kin-svg" width={laid.width} height={laid.height} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
                 <g transform={`translate(${PAD},${PAD})`}>
@@ -546,7 +695,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
 
         {/* Outside the canvas: an absolute child of a scroller scrolls away with
             the content, and the zoom toolbar has to stay put. */}
-        {laid && (
+        {laid && !onMap && (
           <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} onFit={fitToScreen} />
         )}
         {/* The year ruler and the root's own row ride above the scrolling body:
