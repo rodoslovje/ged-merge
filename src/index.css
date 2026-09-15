@@ -5009,10 +5009,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   flex: 0 0 auto;
 }
 
+/* The chart's frame — panel, border, corners — is the wrap's, so everything
+   laid inside it (the canvas, the overview map, the zoom controls, the colour
+   key along the bottom) shares one container and the canvas can give the
+   key its strip without leaving the frame. */
 .tree-canvas-wrap {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .tree-canvas {
   position: absolute;
@@ -5025,9 +5033,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
      canvas (filling the empty area), yet let it scroll from the top-left without
      clipping when it is larger. */
   display: flex;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
   cursor: grab;
   user-select: none;
 }
@@ -5426,6 +5431,8 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding-bottom: 2px;
 }
 .tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
+/* While a key shows, the canvas ends above the band; the frame is the wrap's
+   (see .tree-canvas-wrap), so the band sits inside it. */
 .tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: 44px; }
 .kin-legend-count {
   color: var(--faint);
