@@ -11,6 +11,7 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { useFanChart } from "./useFanChart";
+import type { FanSegment } from "../chart/fanLayout";
 import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
@@ -46,6 +47,8 @@ const SETTINGS_KEYS = ["showKinship"] as const;
 
 const COLOR_NORMAL = "var(--node-main)";
 const COLOR_MODIFIED = "var(--node-minor)";
+/** Descendant fan / circle: one hue per child of the root, in drawing order. */
+const BRANCH_COLORS = [1, 2, 3, 4, 5, 6].map((i) => `var(--fan-branch-${i})`);
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -113,10 +116,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);
 
-  // A radial chart only draws ancestors — an override on top of the user's
-  // direction, never a change to it, so leaving Fan/Circle restores the choice.
-  const effectiveMode = radial ? "ancestors" : mode;
-
   const rootPerson = mainDs.individuals.get(currentRootId);
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
@@ -127,8 +126,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   );
 
   // Both directions build once per root/dataset: they feed the mode-button
-  // head-counts, the current direction's layered chart, and (ancestors) the
-  // radial chart — so switching direction or chart type never rebuilds a tree.
+  // head-counts and the current direction's chart, layered or radial — so
+  // switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
       ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors", undefined, nameOf) : undefined,
@@ -151,21 +150,21 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     }),
     [trees, limit],
   );
-  const tree = shown[effectiveMode];
+  const tree = shown[mode];
   // Whether the limit actually cuts the direction on screen (a limit deeper than
   // the tree changes nothing, and shouldn't claim to).
-  const limited = limit !== null && limit < depths[effectiveMode];
+  const limited = limit !== null && limit < depths[mode];
   // What the "+N" marker says: the direction decides who is missing, and the
   // tooltip names the limit that hid them.
   const hiddenTitle = useCallback(
     // `atLimit` lets a chart that ran out of room of its own (the radial rings)
     // name its own cap instead of the generation setting's.
     (count: number, atLimit?: number) =>
-      t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
+      t(mode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
         limit: atLimit ?? limit ?? 0,
       }),
-    [t, effectiveMode, limit],
+    [t, mode, limit],
   );
 
   const laid = useMemo(
@@ -183,9 +182,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const flat = useMemo(
     () =>
       laid
-        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, effectiveMode === "ancestors")
+        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
         : undefined,
-    [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // What "print in sheets" splits: the layered charts only — a fan has no
@@ -193,9 +192,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const sheetSource = useMemo(
     () =>
       !radial && tree
-        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: effectiveMode === "ancestors" }
+        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
         : undefined,
-    [radial, tree, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+    [radial, tree, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Ancestor / descendant head-counts for both directions, shown on the mode
@@ -215,8 +214,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode) => !!n.main && changedPersonIds.has(n.main.id),
     [changedPersonIds],
   );
+  // A descendant fan / circle colours each child of the root's line by its own
+  // hue (the segment says which branch a wedge is on); an edited person keeps
+  // the modified amber wherever they are drawn.
   const colorOf = useCallback(
-    (n: TreeNode) => isModified(n) ? COLOR_MODIFIED : COLOR_NORMAL,
+    (n: TreeNode, seg?: FanSegment) =>
+      isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? BRANCH_COLORS[seg.branch % BRANCH_COLORS.length] : COLOR_NORMAL,
     [isModified],
   );
 
@@ -235,8 +238,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [mainDs, changeRoot],
   );
 
-  // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
-  // so it's independent of the (forced-ancestors) mode toggle.
+  // Radial (fan / circle) chart of the current direction — reuses the prebuilt
+  // tree, so switching direction is a re-layout, not a rebuild.
   const { folderName } = useMediaFolder();
   const hasPhoto = useCallback(
     (n: TreeNode) => !!folderName && !!n.main && !!collectFirstFilePath(n.main.raw, mainDs.records),
@@ -258,9 +261,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [changeRoot],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
-    radial ? shown.ancestors : undefined,
+    radial ? tree : undefined,
     settings.type === "circle" ? "circle" : "fan",
-    { hasPhoto, display, kinshipOf: fanKinshipOf },
+    { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -268,7 +271,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${effectiveMode}:${settings.type}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${mode}:${settings.type}:${alignment}`);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).
@@ -289,13 +292,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       ? nodesByKey.get(selectedKey)
       : undefined;
 
-  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts),
-  // E the selected person in Edit, Esc leaves the page.
+  // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
+  // Esc leaves the page.
   const selectedMainId = selected?.main?.id;
   useChartShortcuts({
     zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
     onMode: onModeChange,
-    allowDescendants: !radial,
     onEdit: selectedMainId && onNavigate ? () => onNavigate(selectedMainId) : undefined,
     onLeave: onBack,
   });
@@ -364,8 +366,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // plus "4 of 9 generations" while the limit is cutting — on the page and in
   // every export header, so a partial chart never passes for a whole one.
   const chartKind =
-    `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}` +
-    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: depths[effectiveMode] })}` : "");
+    `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}` +
+    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: depths[mode] })}` : "");
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
   const rootYears = tree
@@ -406,10 +408,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       }
       actions={
         <>
-          <ChartSettings availableGenerations={depths[effectiveMode]} />
+          <ChartSettings availableGenerations={depths[mode]} />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={chartSlug(tree?.name, t(`tree.${effectiveMode}`))}
+            slug={chartSlug(tree?.name, t(`tree.${mode}`))}
             title={editTreeTitle}
             gedcom={{ ds: mainDs, personIds: chartPersonIds }}
             canvasRef={canvasRef}
@@ -422,25 +424,21 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           {kindSwitcher}
           <div className="tree-mode">
             <button
-              className={effectiveMode === "ancestors" ? "active" : ""}
+              className={mode === "ancestors" ? "active" : ""}
               onClick={() => onModeChange("ancestors")}
               title={modeSummary(t, peopleCounts.ancestors, depths.ancestors)}
             >
               {t("tree.ancestors")}
               <span className="tree-mode-count">{peopleCounts.ancestors}</span>
             </button>
-            {/* Radial charts are ancestor-only, so Descendants isn't offered
-                there — the preserved choice reappears on the layered charts. */}
-            {!radial && (
-              <button
-                className={effectiveMode === "descendants" ? "active" : ""}
-                onClick={() => onModeChange("descendants")}
-                title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
-              >
-                {t("tree.descendants")}
-                <span className="tree-mode-count">{peopleCounts.descendants}</span>
-              </button>
-            )}
+            <button
+              className={mode === "descendants" ? "active" : ""}
+              onClick={() => onModeChange("descendants")}
+              title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
+            >
+              {t("tree.descendants")}
+              <span className="tree-mode-count">{peopleCounts.descendants}</span>
+            </button>
           </div>
         </>
       }

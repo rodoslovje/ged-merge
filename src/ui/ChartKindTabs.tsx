@@ -38,7 +38,6 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
           : k === "map" ? t("map.button")
             : k === "report" ? t("report.button")
               : t(`tree.settings.type.${k}`);
-  const hint = (k: ChartKind) => (k === "fan" || k === "circle" ? t("charts.kind.ancestorsOnly") : undefined);
   // Nine kinds never fit across a phone. A dropdown names the one you are on
   // and lists the rest, instead of a sideways scroller that hides most of them.
   if (phone) {
@@ -48,7 +47,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
         label={t("charts.kind.label")}
         value={value}
         onChange={onChange}
-        items={kinds.map((k) => ({ key: k, label: label(k), title: hint(k) }))}
+        items={kinds.map((k) => ({ key: k, label: label(k) }))}
       />
     );
   }
@@ -62,7 +61,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
           aria-selected={value === k}
           tabIndex={tabIndexFor(value === k)}
           className={value === k ? "active" : ""}
-          title={keyHint(hint(k) ?? label(k), String(i + 1))}
+          title={keyHint(label(k), String(i + 1))}
           onClick={() => { if (value !== k) onChange(k); }}
         >
           {label(k)}

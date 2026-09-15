@@ -1486,7 +1486,6 @@ export const en = {
   "tree.settings.privacy.hideLiving": "Hide living people",
   "tree.settings.notForRadial": "Not available on fan / circle charts",
   "charts.kind.label": "Chart kind",
-  "charts.kind.ancestorsOnly": "Shows ancestors only",
   "timeline.button": "Timeline",
   "tree.settings.timeline.events": "Events",
   "tree.settings.timeline.events.person": "This person",

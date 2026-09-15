@@ -62,6 +62,18 @@
   --kin-line-m1: #c061f0;
   --kin-line-m2: #ee7ab4;
 
+  /* ---- Fan / Circle descendants ----
+     One hue per child of the root, inherited down that child's whole line and
+     paler with each generation, so a wedge says which branch it belongs to
+     without a label. Six steps, checked as a set for colour-blind separation
+     between neighbours on both grounds; a seventh branch starts over. */
+  --fan-branch-1: #3987e5;
+  --fan-branch-2: #d95926;
+  --fan-branch-3: #199e70;
+  --fan-branch-4: #c98500;
+  --fan-branch-5: #d55181;
+  --fan-branch-6: #9085e9;
+
   /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
   --danger:      #e74c3c;
   --danger-soft: color-mix(in oklch, var(--danger) 12%, transparent);
@@ -147,6 +159,13 @@
   --kin-line-f2: #1a7392;
   --kin-line-m1: #8e24c9;
   --kin-line-m2: #b73c7c;
+
+  --fan-branch-1: #2a78d6;
+  --fan-branch-2: #eb6834;
+  --fan-branch-3: #1baf7a;
+  --fan-branch-4: #eda100;
+  --fan-branch-5: #e87ba4;
+  --fan-branch-6: #4a3aa7;
 
   --danger:      #c0392b;   /* deeper red reads better on warm paper */
   /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */

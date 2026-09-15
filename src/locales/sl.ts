@@ -1696,7 +1696,6 @@ export const sl = {
   "tree.settings.privacy.hideLiving": "Skrij žive osebe",
   "tree.settings.notForRadial": "Ni na voljo za pahljačo / krog",
   "charts.kind.label": "Vrsta diagrama",
-  "charts.kind.ancestorsOnly": "Prikazuje samo prednike",
   "timeline.button": "Časovnica",
   "tree.settings.timeline.events": "Dogodki",
   "tree.settings.timeline.events.person": "Ta oseba",

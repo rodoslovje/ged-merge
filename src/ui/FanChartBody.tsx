@@ -23,8 +23,10 @@ export interface FanBadge {
 
 interface Props {
   chart: FanChart;
-  /** State colour for a node's wedge border + tinted fill (matches `TreeNodeBox`). */
-  colorOf: (node: TreeNode) => string;
+  /** State colour for a node's wedge border + tinted fill (matches `TreeNodeBox`).
+   *  The segment is handed along so a host can colour a descendant chart by
+   *  branch (`FanSegment.branch`). */
+  colorOf: (node: TreeNode, seg: FanSegment) => string;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Segment just jumped to by find-in-chart; flashes so it's spotted at a glance. */
@@ -142,7 +144,7 @@ export const FanChartBody = memo(function FanChartBody({
           <Segment
             key={seg.key}
             seg={seg}
-            color={colorOf(seg.node)}
+            color={colorOf(seg.node, seg)}
             selected={seg.key === selectedKey}
             flashed={seg.key === flashKey}
             onSelect={onSelect}
@@ -218,7 +220,7 @@ function Segment({
         };
   return (
     <g
-      className={`fan-node${selected ? " selected" : ""}${flashed ? " find-hit" : ""}`}
+      className={`fan-node${seg.band ? " fan-spouse" : ""}${selected ? " selected" : ""}${flashed ? " find-hit" : ""}`}
       data-key={seg.key}
       tabIndex={0}
       role="button"
@@ -235,7 +237,7 @@ function Segment({
       <path
         className="fan-sector"
         d={seg.d}
-        fill={`color-mix(in srgb, ${color} 16%, var(--panel))`}
+        fill={`color-mix(in srgb, ${color} ${seg.tint ?? 16}%, var(--panel))`}
         stroke={selected ? color : `color-mix(in srgb, ${color} 50%, var(--panel))`}
         strokeWidth={selected ? 2.5 : 0.75}
       />
