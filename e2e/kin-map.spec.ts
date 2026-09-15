@@ -100,6 +100,14 @@ test("the map layout places the coordinated and lists the rest", async ({ page }
   await expect(panel.locator(".kin-unplaced-group")).toHaveText([/Place without coordinates: 1/, /No place at all: 1/]);
   await expect(panel.locator(".map-panel-person")).toHaveText([/Marija/, /Peter/]);
   await expect(panel.getByRole("button", { name: "Geocode places" })).toBeVisible();
+  // …and it opens the tool: the chart closes, the geocoding page comes up, and
+  // Back returns to the chart. Then straight back to the map for the rest.
+  await panel.getByRole("button", { name: "Geocode places" }).click();
+  await expect(page.locator(".tools-geocode, .tools-geo-addr-list").first()).toBeVisible();
+  await expect(page.locator(".kin-map-wrap")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.locator(".kin-map-wrap .map-canvas")).toBeVisible();
+  await expect(page.locator(".kin-map-dot")).toHaveCount(1);
 
   // A dot opens the person's panel.
   await page.locator(".kin-map-dot").click();

@@ -335,6 +335,24 @@ export function useAppHistory(opts: AppHistoryOptions) {
   }
 
   /**
+   * Leave a full-page overlay (the Charts hub) for a page of the app — the
+   * Contemporaries map's list of relatives without coordinates opens the
+   * geocoding tool. Like {@link navigateFromOverlay}, the overlay is closed and
+   * the page pushed on top of it, so Back returns to the chart.
+   */
+  function goToPageFromOverlay(next: PageRef) {
+    const mode = next.mode ?? opts.mode;
+    const tool = next.tool ?? opts.tool;
+    const toolView = next.toolView ?? opts.toolView;
+    pushEntry({ ...window.history.state, gedMode: mode, gedTool: tool, gedToolView: toolView, gedTree: undefined, gedChartsId: undefined });
+    setTreeView(null);
+    setChartsRootId(null);
+    opts.setMode(mode);
+    opts.setTool(tool);
+    opts.setToolView(toolView);
+  }
+
+  /**
    * Go to another page of the app — a mode, a tool, a page inside a tool. One
    * step: the entry we are on already describes where we stand (see the sync
    * above), and the new page is pushed on top of it, so Back returns to it.
@@ -478,6 +496,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     openCharts,
     discardAndReload,
     recordEditPerson,
+    goToPageFromOverlay,
     navigateFromOverlay,
     navigateFromPage,
     goToPage,

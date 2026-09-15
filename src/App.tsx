@@ -807,7 +807,7 @@ function AppContent() {
     treeView, chartsRootId, setChartsRootId, chartsBackKey,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
-    discardAndReload, recordEditPerson, navigateFromOverlay,
+    discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
     navigateFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
@@ -1932,7 +1932,7 @@ function AppContent() {
         onBack={goBackPage}
         onNavigate={navigateFromOverlay}
         onPickStart={changeStart}
-        onOpenGeocode={() => goToPage({ mode: "tools", tool: "places", toolView: "geocode" })}
+        onOpenGeocode={() => goToPageFromOverlay({ mode: "tools", tool: "places", toolView: "geocode" })}
       />
     );
   }
