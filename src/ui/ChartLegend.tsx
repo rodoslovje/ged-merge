@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
 import type { LegendEntry } from "../chart/nodeColor";
 
-// The colour key on a chart: one chip per category of the Color axis in
-// force, with its head-count, laid over the canvas's top-right corner so
-// the canvas keeps its size (a row above it moved the whole chart whenever an
-// axis came or went). Where the host can hide a group (the Contemporaries
-// chart), the chips are toggles; elsewhere they only name the colours.
+// The colour key of a chart: one chip per category of the Color axis in
+// force, with its head-count. A band along the bottom of the canvas wrap: the
+// wrap keeps its size (a row above it moved the whole chart whenever an axis
+// came or went), and the scrolling canvas ends above the band, so nothing of
+// the chart is ever under it. Where the host can hide a group (the
+// Contemporaries chart), the chips are toggles; elsewhere they only name the
+// colours.
 
 interface Props {
   entries: LegendEntry[];

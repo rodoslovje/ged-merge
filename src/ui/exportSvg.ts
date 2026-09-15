@@ -262,6 +262,11 @@ export interface SvgExportOptions {
   /** Second, smaller header line under the title — the sheet export's "Sheet 3
    *  of 7 · continues Janez Novak from sheet 1". */
   subtitle?: string;
+  /** The chart's colour key, one entry per colour the Color axis in force
+   *  hands out — drawn as a band of dots and labels between the diagram and
+   *  the footer. Colours may be any CSS expression the chart uses; they are
+   *  baked to plain rgb for the export. */
+  legend?: { label: string; color: string }[];
 }
 
 /** Append the shared `.gedmerge.<ext>` stem so chart exports sit alongside the
@@ -309,6 +314,11 @@ function svgLogoBadge(x: number, y: number, size: number): SVGGElement {
 // Header / footer band geometry and side margin.
 export const HEADER_H = 52;
 export const FOOTER_H = 34;
+/** The colour key's band: one row of chips per line it wraps onto. */
+const LEGEND_ROW_H = 24;
+const LEGEND_PAD_Y = 8;
+const LEGEND_DOT_R = 5;
+const LEGEND_GAP = 22;
 export const MARGIN_X = 20;
 export const BADGE_SIZE = 18;
 // Minimum gap between the footer's site link and timestamp.
@@ -416,10 +426,60 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
   return { clone, foreground, width: diagramW, height: diagramH };
 }
 
+/** A legend colour as a plain rgb(a) string: the chart's `var()` /
+ *  `color-mix()` / `oklch()` expressions resolved with the light palette
+ *  forced (as prepareDiagram does for the diagram's own colours), then drawn
+ *  through a canvas so even a colour space an external renderer lacks lands
+ *  as rgb. */
+function bakeLegend(legend: { label: string; color: string }[]): { label: string; color: string }[] {
+  const root = document.documentElement;
+  const prevTheme = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "light");
+  const probe = document.createElement("span");
+  probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
+  document.body.appendChild(probe);
+  const ctx: ColorCtx = { probe, cache: new Map() };
+  const pixel = document.createElement("canvas");
+  pixel.width = pixel.height = 1;
+  const g = pixel.getContext("2d");
+  const toRgb = (color: string): string => {
+    if (!g) return color;
+    g.clearRect(0, 0, 1, 1);
+    g.fillStyle = "#000";
+    g.fillStyle = color;
+    g.fillRect(0, 0, 1, 1);
+    const [r, gg, b, a] = g.getImageData(0, 0, 1, 1).data;
+    return a === 255 ? `rgb(${r}, ${gg}, ${b})` : `rgba(${r}, ${gg}, ${b}, ${(a / 255).toFixed(3)})`;
+  };
+  try {
+    return legend.map((e) => ({ label: e.label, color: toRgb(resolveColorExpr(e.color, ctx)) }));
+  } finally {
+    probe.remove();
+    if (prevTheme === null) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", prevTheme);
+  }
+}
+
+/** Lay the key's chips out in rows no wider than `width`: each chip a dot,
+ *  a gap and its label, chips a gap apart. Returns the rows as chip x offsets
+ *  with the labels' widths, so the band can be sized before it is drawn. */
+function layoutLegend(legend: { label: string; color: string }[], width: number): { label: string; color: string; x: number; row: number }[] {
+  const out: { label: string; color: string; x: number; row: number }[] = [];
+  let x = MARGIN_X;
+  let row = 0;
+  for (const e of legend) {
+    const w = LEGEND_DOT_R * 2 + 8 + textWidth(e.label, `12px ${SANS}`);
+    if (x > MARGIN_X && x + w > width - MARGIN_X) { x = MARGIN_X; row++; }
+    out.push({ ...e, x, row });
+    x += w + LEGEND_GAP;
+  }
+  return out;
+}
+
 /**
- * Wrap a standalone diagram in the export frame: a titled header band above and
- * a site/timestamp footer below, sized so neither is squeezed by a narrow
- * diagram. `svg`'s existing children become the diagram content, shifted below
+ * Wrap a standalone diagram in the export frame: a titled header band above,
+ * the colour key (when the chart has one) and a site/timestamp footer below,
+ * sized so none is squeezed by a narrow diagram. `svg`'s existing children become the diagram content, shifted below
  * the header — so it takes a whole prepared clone (the `.svg`/PDF exports) or a
  * freshly assembled one (a printed sheet) alike.
  */
@@ -444,7 +504,11 @@ export function wrapWithBands(
     FOOTER_GAP + textWidth(timestamp, `12px ${SANS}`);
   const totalW = Math.ceil(Math.max(diagramW, titleNeeds, footerNeeds));
   const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
-  const totalH = HEADER_H + bandH + FOOTER_H;
+  // The key, between the diagram and the footer, as many rows as it wraps to.
+  const legend = opts.legend?.length ? layoutLegend(bakeLegend(opts.legend), totalW) : [];
+  const legendRows = legend.length ? legend[legend.length - 1].row + 1 : 0;
+  const legendH = legendRows ? LEGEND_PAD_Y * 2 + legendRows * LEGEND_ROW_H : 0;
+  const totalH = HEADER_H + bandH + legendH + FOOTER_H;
 
   // Move the diagram into a group shifted below the header band (centred when
   // the bands force a larger canvas), leaving the root svg free to host the
@@ -503,8 +567,35 @@ export function wrapWithBands(
     );
   }
 
+  // The colour key: a dot and a label per entry, in rows, under the diagram.
+  if (legendRows) {
+    const keyY = HEADER_H + bandH;
+    const keyLine = headLine.cloneNode() as SVGLineElement;
+    keyLine.setAttribute("y1", String(keyY));
+    keyLine.setAttribute("y2", String(keyY));
+    frame.appendChild(keyLine);
+    for (const chip of legend) {
+      const cy = keyY + LEGEND_PAD_Y + chip.row * LEGEND_ROW_H + LEGEND_ROW_H / 2;
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.setAttribute("cx", String(chip.x + LEGEND_DOT_R));
+      dot.setAttribute("cy", String(cy));
+      dot.setAttribute("r", String(LEGEND_DOT_R));
+      dot.setAttribute("fill", chip.color);
+      dot.setAttribute("stroke", foreground);
+      dot.setAttribute("stroke-opacity", "0.25");
+      frame.appendChild(dot);
+      frame.appendChild(
+        svgText(chip.label, chip.x + LEGEND_DOT_R * 2 + 8, cy + 4, {
+          "font-family": SANS,
+          "font-size": "12",
+          fill: foreground,
+        }),
+      );
+    }
+  }
+
   // Footer: hairline divider, site on the left, timestamp on the right.
-  const footY = HEADER_H + bandH;
+  const footY = HEADER_H + bandH + legendH;
   const footLine = headLine.cloneNode() as SVGLineElement;
   footLine.setAttribute("y1", String(footY));
   footLine.setAttribute("y2", String(footY));
@@ -673,10 +764,15 @@ export function escapeHtml(s: string): string {
  * a titled header + site/timestamp footer (light palette on a white sheet).
  * No-op if the SVG is absent.
  */
-export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, title: string): void {
+export function exportCanvasSvg(
+  canvas: HTMLElement | null,
+  fileName: string,
+  title: string,
+  legend?: SvgExportOptions["legend"],
+): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg) return;
-  void downloadSvg(svg, fileName, { title, fileName });
+  void downloadSvg(svg, fileName, { title, fileName, legend });
 }
 
 /**

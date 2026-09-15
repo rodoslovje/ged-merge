@@ -5009,10 +5009,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   flex: 0 0 auto;
 }
 
+/* The chart's frame — panel, border, corners — is the wrap's, so everything
+   laid inside it (the canvas, the overview map, the zoom controls, the colour
+   key along the bottom) shares one container and the canvas can give the
+   key its strip without leaving the frame. */
 .tree-canvas-wrap {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .tree-canvas {
   position: absolute;
@@ -5025,9 +5033,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
      canvas (filling the empty area), yet let it scroll from the top-left without
      clipping when it is larger. */
   display: flex;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
   cursor: grab;
   user-select: none;
 }
@@ -5408,20 +5413,27 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
-/* Laid over the canvas (see ChartLegend): the top-right corner on every
-   chart, so it is found in the same place whichever kind is open — the
-   overview map owns the top-left, and a key that moved between corners with
-   the kind was worse than one that shares a corner with the selected
-   person's panel. Above the SVG. */
+/* A band along the bottom of the canvas wrap (see ChartLegend): laid over
+   the wrap so its size never changes, while the scrolling canvas above ends
+   at the band's top edge, so no part of the chart is ever under it. One line
+   that scrolls sideways when long; the zoom controls keep the corner to its
+   right. */
 .tree-canvas-wrap > .chart-legend {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  left: 10px;
+  right: 64px;
+  bottom: 8px;
   z-index: 3;
   margin: 0;
-  max-width: calc(100% - 140px);
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
 }
+.tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
+/* While a key shows, the canvas ends above the band; the frame is the wrap's
+   (see .tree-canvas-wrap), so the band sits inside it. */
+.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: 44px; }
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;

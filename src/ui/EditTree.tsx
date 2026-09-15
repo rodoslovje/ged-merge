@@ -63,6 +63,15 @@ const SETTINGS_KEYS = ["showKinship"] as const;
 const COLOR_NORMAL = "var(--node-main)";
 const COLOR_DESCENDANT = "var(--node-desc)";
 const COLOR_MODIFIED = "var(--node-minor)";
+/** A spouse's band on the descendant fan: neutral, like the ancestors'
+ *  marriage collars — the spouse is not of the line, so the line's colour
+ *  is not theirs. */
+const COLOR_SPOUSE_BAND = "var(--muted)";
+/** The axes that read a person's place on the chart rather than their
+ *  record; a spouse has no place of their own on the line, so their band
+ *  stays neutral there. On the record axes the band takes the spouse's own
+ *  colour — where they were born is exactly what the axis is for. */
+const CHART_AXES = new Set(["plain", "generation", "branch"]);
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -329,6 +338,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
   const colorOf = useCallback(
     (n: TreeNode, seg?: FanSegment) => {
+      if (seg?.band && CHART_AXES.has(colorer.axis) && !isModified(n)) return COLOR_SPOUSE_BAND;
       const pos = positionOf(n, seg);
       if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, pos)) ?? COLOR_NORMAL;
       return isModified(n) ? COLOR_MODIFIED : (pos?.gen ?? 0) < 0 ? COLOR_DESCENDANT : COLOR_NORMAL;
@@ -528,6 +538,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             disabled={!activeLaid}
             slug={chartSlug(tree?.name, directionLabel)}
             title={editTreeTitle}
+            legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: chartPersonIds }}
             canvasRef={canvasRef}
             sheets={sheetSource}

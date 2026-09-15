@@ -429,6 +429,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             disabled={!laid}
             slug={chartSlug(rootName, pageKind)}
             title={[rootName, rootYears, "—", pageKind].filter(Boolean).join(" ")}
+            legend={legend}
             gedcom={{ ds: mainDs, personIds: people.map((p) => p.id) }}
             // The map is tiles, not an SVG: no image export from it.
             canvasRef={onMap ? undefined : canvasRef}
