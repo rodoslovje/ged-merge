@@ -5408,15 +5408,23 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
-/* Laid over the canvas (see ChartLegend): bottom-left, clear of the zoom
-   controls on the right, and above the SVG. */
+/* Laid over the canvas (see ChartLegend): top-left, where a key is looked
+   for, and above the SVG. On a chart with an overview map it steps right of
+   the map's collapsed button, and moves to the top-right while the map is
+   open, so the two never share a corner. */
 .tree-canvas-wrap > .chart-legend {
   position: absolute;
+  top: 10px;
   left: 10px;
-  bottom: 10px;
   z-index: 3;
   margin: 0;
   max-width: calc(100% - 140px);
+}
+.tree-canvas-wrap:has(.tree-minimap-show) > .chart-legend { left: 54px; }
+.tree-canvas-wrap:has(.tree-minimap-box) > .chart-legend {
+  left: auto;
+  right: 10px;
+  justify-content: flex-end;
 }
 .kin-legend-count {
   color: var(--faint);
