@@ -4719,8 +4719,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  flex-wrap: wrap;
   justify-content: flex-end;
+  /* Only the width the left cluster leaves over: a key at its natural width
+     pushed the kind tabs onto a second line, and the row's height with them. */
+  flex: 1 1 0;
+  min-width: 0;
 }
 /* Find-in-chart: type a name and ⌕ (or Enter) moves the canvas to that person,
    cycling through every place the chart draws them. */
@@ -5408,20 +5411,20 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
-/* Laid over the canvas (see ChartLegend): the top-right corner on every
-   chart, so it is found in the same place whichever kind is open — the
-   overview map owns the top-left, and a key that moved between corners with
-   the kind was worse than one that shares a corner with the selected
-   person's panel. Above the SVG. */
-.tree-canvas-wrap > .chart-legend {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 3;
+/* In the controls row's right cluster, before the find box (see ChartLegend):
+   one line that never wraps and scrolls sideways when long, so the row keeps
+   its height whether a key is showing or not — a row that grew or shrank
+   moved the whole chart, and a key laid over the canvas covered it. */
+.tree-controls-right > .chart-legend {
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
-  max-width: calc(100% - 140px);
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
 }
+.tree-controls-right > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;

@@ -546,10 +546,14 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           />
         </>
       }
-      controlsRight={<ChartFindBox find={find} />}
+      controlsRight={
+        <div className="tree-controls-right">
+          <ChartLegend entries={colorer.legend} />
+          <ChartFindBox find={find} />
+        </div>
+      }
     >
       <div className="tree-canvas-wrap">
-        <ChartLegend entries={colorer.legend} />
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
           ref={canvasRef}

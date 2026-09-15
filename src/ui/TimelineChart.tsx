@@ -361,10 +361,14 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
         </>
       }
       controlsLeft={kindSwitcher}
-      controlsRight={<ChartFindBox find={find} />}
+      controlsRight={
+        <div className="tree-controls-right">
+          <ChartLegend entries={colorer.legend} />
+          <ChartFindBox find={find} />
+        </div>
+      }
     >
       <div className="tree-canvas-wrap">
-        <ChartLegend entries={colorer.legend} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
