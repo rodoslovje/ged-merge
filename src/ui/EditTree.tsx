@@ -116,12 +116,14 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // kind (fan / circle) is radial.
   const radial = settings.type === "fan";
   const isGrid = !radial && settings.treeLayout === "grid";
-  const variant = pedigreeVariant(settings);
   // "Both" is the bowtie: the layered chart draws the ancestors before the
-  // root and the descendants after it. The radial chart has no second side
-  // yet, so there the choice falls back to ancestors until it is changed.
-  const bowtie = direction === "both" && !radial;
+  // root and the descendants after it; the radial chart shares one circle
+  // between the two, ancestors up and descendants down. `mode` is the one
+  // direction the single-direction code paths still read.
+  const bowtie = direction === "both";
   const mode: TreeMode = direction === "both" ? "ancestors" : direction;
+  // The radial bowtie is a full circle whatever the shape setting says.
+  const variant = bowtie && radial ? "circle" : pedigreeVariant(settings);
   // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
@@ -185,9 +187,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       }),
     [t, limit],
   );
+  // The radial body hands the segment's key along, which says which half of
+  // a bowtie the marker is on.
   const hiddenTitle = useCallback(
-    (count: number, atLimit?: number) => hiddenTitleFor(mode, count, atLimit),
-    [hiddenTitleFor, mode],
+    (count: number, atLimit?: number, key?: string) =>
+      hiddenTitleFor(bowtie && key ? bowtieHalf(key) : mode, count, atLimit),
+    [hiddenTitleFor, bowtie, mode],
   );
   // The layered chart's marker knows its node, and so which half of a bowtie
   // it is on.
@@ -291,7 +296,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? tree : undefined,
     settings.fanShape,
-    { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
+    { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   // A descendant fan / circle colours each child of the root's line by its own
@@ -408,8 +413,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const chartKind =
     `${directionLabel} ${t(`tree.kind.${variant}`)}` +
     (limited ? ` · ${t("tree.gen.shown", { n: limit, of: shownDepth })}` : "");
-  // The direction row: the two directions with their head-counts, and — on
-  // the layered chart — both at once.
+  // The direction row: the two directions with their head-counts, and both at
+  // once.
   const directions: SegmentedItem<ChartDirection>[] = [
     {
       key: "ancestors",
@@ -421,7 +426,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       label: <>{t("tree.descendants")}<span className="tree-mode-count">{peopleCounts.descendants}</span></>,
       title: modeSummary(t, peopleCounts.descendants, depths.descendants),
     },
-    ...(radial ? [] : [{ key: "both" as const, label: t("tree.both"), title: t("tree.both.tooltip") }]),
+    { key: "both", label: t("tree.both"), title: t("tree.both.tooltip") },
   ];
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
@@ -477,7 +482,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       controlsLeft={
         <>
           {kindSwitcher}
-          <PedigreeVariantTabs />
+          <PedigreeVariantTabs hideShape={bowtie} />
           <Segmented
             label={t("tree.direction")}
             value={bowtie ? "both" : mode}

@@ -2,7 +2,9 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "../chart/fanLayout";
 import { buildDescendantFanChart } from "../chart/descendantFan";
-import type { TreeMode, TreeNode } from "../chart/personTree";
+import { buildButterflyChart } from "../chart/butterflyFan";
+import type { TreeNode } from "../chart/personTree";
+import type { ChartDirection } from "../chart/treeLayout";
 import { ageStandalone, livingLabelFor, type NodeDisplayOptions } from "../chart/nodeDisplay";
 
 // Shared wiring for the radial (fan / circle) chart type in the Edit and
@@ -20,13 +22,17 @@ export interface FanChartState {
 }
 
 export function useFanChart(
-  /** The tree to draw — ancestors or descendants, as `mode` says; pass
-   *  undefined while the type isn't radial. */
+  /** The tree to draw — ancestors or descendants, as `mode` says (the
+   *  ancestors when `mode` is "both"); pass undefined while the type isn't
+   *  radial. */
   tree: TreeNode | undefined,
   shape: FanShape,
   opts: {
-    /** Which direction `tree` fans out in (defaults to ancestors). */
-    mode?: TreeMode;
+    /** Which direction `tree` fans out in (defaults to ancestors); "both"
+     *  draws the radial bowtie — `tree` above, `other` below. */
+    mode?: ChartDirection;
+    /** The descendants, for "both". */
+    other?: TreeNode;
     /** Whether a node has a photo file (reserves the inner-ring photo slot). */
     hasPhoto: (n: TreeNode) => boolean;
     display: NodeDisplayOptions;
@@ -34,15 +40,17 @@ export function useFanChart(
     kinshipOf?: (n: TreeNode) => string | undefined;
   },
 ): FanChartState {
-  const { mode = "ancestors", hasPhoto, display, kinshipOf } = opts;
+  const { mode = "ancestors", other, hasPhoto, display, kinshipOf } = opts;
   const { t } = useTranslation();
   const livingLabelOf = useCallback((n: TreeNode) => livingLabelFor(t, n.sex), [t]);
   const ageTextOf = useCallback((n: TreeNode) => (n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined), [t]);
   const fan = useMemo(() => {
     if (!tree) return undefined;
+    const o = { hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf };
+    if (mode === "both" && other) return buildButterflyChart(tree, other, o);
     const build = mode === "descendants" ? buildDescendantFanChart : buildFanChart;
-    return build(tree, shape, { hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf });
-  }, [tree, mode, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf]);
+    return build(tree, shape, o);
+  }, [tree, other, mode, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf]);
   const nodes = useMemo(() => {
     const m = new Map<string, FanSegment>();
     for (const s of fan?.segments ?? []) m.set(s.key, s);

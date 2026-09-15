@@ -22,10 +22,12 @@ const TREE_LAYOUTS: TreeLayout[] = ["tidy", "grid"];
 const FAN_SHAPES: FanShape[] = ["fan", "circle"];
 
 /** The pedigree kind's second row: Tree | Grid for the layered chart, Fan |
- *  Circle for the radial one — the chart's look, next to its kind. */
-export function PedigreeVariantTabs() {
+ *  Circle for the radial one — the chart's look, next to its kind. The radial
+ *  bowtie is always a full circle, so its page hides the shape row. */
+export function PedigreeVariantTabs({ hideShape = false }: { hideShape?: boolean } = {}) {
   const { t } = useTranslation();
   const { settings, set } = useChartSettings();
+  if (settings.type === "fan" && hideShape) return null;
   return settings.type === "fan" ? (
     <Segmented
       label={t("tree.shape")}

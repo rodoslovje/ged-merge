@@ -126,6 +126,10 @@ export interface FanSegment {
    *  (0-based, in drawing order), for the per-branch colouring. Absent on the
    *  root and their spouses. */
   branch?: number;
+  /** The ring cap of the half this segment belongs to, when the chart joins
+   *  two halves with caps of their own (the radial bowtie); else the chart's
+   *  {@link FanChart.maxGen} applies. */
+  cap?: number;
 }
 
 /** A marriage "collar": a curved label riding the ring boundary between a child's
@@ -195,6 +199,14 @@ function nameLines(name: string): string[] {
 export interface FanChartOptions {
   maxGen?: number;
   photoRings?: number;
+  /** Draw on this arc (radians, clockwise from 3 o'clock) instead of the
+   *  shape's own sweep — the radial bowtie gives each half its own share of
+   *  one circle. Pass the "circle" shape with it so the lower half's labels
+   *  flip upright. */
+  arc?: { start: number; sweep: number };
+  /** Centre the chart as if its outer radius were at least this — so two
+   *  halves of different depth share one centre. */
+  radius?: number;
   hasPhoto?: (node: TreeNode) => boolean;
   /** Which fields to show (and whether to redact living people). */
   display?: NodeDisplayOptions;
@@ -304,13 +316,14 @@ export function buildFanChart(
     rInnerOf[g] = acc;
     acc += ringW(g);
   }
-  const rMax = usedMaxGen === 0 ? ROOT_R : rInnerOf[usedMaxGen] + ringW(usedMaxGen);
+  const rMax = Math.max(usedMaxGen === 0 ? ROOT_R : rInnerOf[usedMaxGen] + ringW(usedMaxGen), opts.radius ?? 0);
   const cx = rMax;
   const cy = rMax;
 
-  // 3. Sweep geometry, centred on the upward vertical (notch at the bottom).
-  const sweep = shape === "circle" ? TAU : (FAN_DEG / 360) * TAU;
-  const start = -HALF - sweep / 2;
+  // 3. Sweep geometry, centred on the upward vertical (notch at the bottom) —
+  //    or the arc the caller asked for.
+  const sweep = opts.arc?.sweep ?? (shape === "circle" ? TAU : (FAN_DEG / 360) * TAU);
+  const start = opts.arc?.start ?? -HALF - sweep / 2;
 
   const segments: FanSegment[] = placed.map(({ node, gen, slot }) => {
     // Deep rings get a smaller, lighter-weight label so the cramped deep rings stay
