@@ -1679,7 +1679,7 @@ export const en = {
   "report.genLimit_other": "{{count}} more generations are not listed — the report is limited to {{limit}} generations.",
   "tree.settings.report.structure": "Structure",
   "tree.settings.report.toc": "Table of contents",
-  "ahnentafel.pageTitle": "Ahnentafel Report",
+  "ahnentafel.pageTitle": "Ancestors Register (Ahnentafel)",
   "ahnentafel.empty": "No person to report on.",
   "ahnentafel.gen.1": "Parents",
   "ahnentafel.gen.2": "Grandparents",
