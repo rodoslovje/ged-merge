@@ -55,9 +55,9 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
   const { settings, setKind } = useChartSettings();
   // The user's ancestors/descendants/both choice — owned here (not by
   // EditTree) so it survives kind switches, including a relationship
-  // round-trip that remounts the pedigree chart. Only the pedigree chart draws
-  // both at once (the bowtie); the report and the map read "both" as ancestors
-  // and leave the choice in place for the chart.
+  // round-trip that remounts the pedigree chart. The pedigree charts and the
+  // map draw both at once; the report reads "both" as ancestors and leaves
+  // the choice in place for the others.
   // Both to begin with: the bowtie shows the whole picture, and the counts on
   // the direction row say which side is worth opening on its own.
   const [direction, setDirection] = useState<ChartDirection>("both");
@@ -128,7 +128,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
           onBack={onBack}
           onNavigate={onNavigate}
           kindSwitcher={kindSwitcher}
-          mode={treeMode}
+          mode={direction}
           onModeChange={setDirection}
         />
       </Suspense>
