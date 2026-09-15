@@ -60,12 +60,52 @@ interface Props {
   revealRef: React.MutableRefObject<((id: string) => void) | null>;
 }
 
-/** A marker's hover text as DOM (names are file data, never HTML). */
-function tooltipEl(lines: string[], more?: string): HTMLElement {
+/** One place a marker stands at, with the house when there is exactly one. */
+interface PlaceLine {
+  place: string;
+  address?: string;
+}
+
+/** The places a set of points stands at, each once. The house comes along only
+ *  when the points name a single one there: a village of many houses reads as
+ *  the village, not as a list of house numbers. */
+function placeLines(points: readonly MapPoint[]): PlaceLine[] {
+  const byPlace = new Map<string, Set<string>>();
+  for (const p of points) {
+    if (!p.place) continue;
+    let addrs = byPlace.get(p.place);
+    if (!addrs) byPlace.set(p.place, (addrs = new Set()));
+    if (p.address) addrs.add(p.address);
+  }
+  return [...byPlace].map(([place, addrs]) => (addrs.size === 1 ? { place, address: [...addrs][0] } : { place }));
+}
+
+/** The place lines a tooltip opens with, capped like its names. */
+function tooltipPlaces(points: readonly MapPoint[]): (string | PlaceLine)[] {
+  const lines = placeLines(points);
+  const shown: (string | PlaceLine)[] = lines.slice(0, TOOLTIP_MAX_PLACES);
+  if (lines.length > TOOLTIP_MAX_PLACES) shown.push(`… +${lines.length - TOOLTIP_MAX_PLACES}`);
+  return shown;
+}
+
+/** A marker's hover text as DOM (names and places are file data, never HTML).
+ *  A place line writes its house after the name, muted like the place
+ *  picker's suggestions. */
+function tooltipEl(lines: (string | PlaceLine)[], more?: string): HTMLElement {
   const el = document.createElement("div");
   for (const line of lines) {
     const row = document.createElement("div");
-    row.textContent = line;
+    if (typeof line === "string") {
+      row.textContent = line;
+    } else {
+      row.textContent = line.place;
+      if (line.address) {
+        const addr = document.createElement("span");
+        addr.className = "place-suggestion-addr";
+        addr.textContent = ` · ${line.address}`;
+        row.appendChild(addr);
+      }
+    }
     el.appendChild(row);
   }
   if (more) {
@@ -234,18 +274,26 @@ export default function KinMapBody({
         }),
         keyboard: false,
       });
+      // Every tooltip opens with where the marker stands — the place is what a
+      // map is read for — then who is there.
       if (count === 1) {
         const m = members[0];
         marker.on("click", () => onSelect(m.person.id));
         marker.bindTooltip(
-          tooltipEl([tooltipFor(m.person), `${t(`event.${m.point.tag}`, { defaultValue: m.point.tag })} · ${m.point.place}`]),
+          tooltipEl(
+            [...tooltipPlaces([m.point]), tooltipFor(m.person)],
+            t(`event.${m.point.tag}`, { defaultValue: m.point.tag }),
+          ),
           { direction: "top", opacity: 0.9 },
         );
       } else {
         marker.on("click", () => openCluster(cluster));
         const names = members.slice(0, TOOLTIP_MAX_NAMES).map((m) => nameFor(m.person));
         if (count > TOOLTIP_MAX_NAMES) names.push(`… +${count - TOOLTIP_MAX_NAMES}`);
-        marker.bindTooltip(tooltipEl(names, t("kin.map.clusterTooltip", { count })), { direction: "top", opacity: 0.9 });
+        marker.bindTooltip(
+          tooltipEl([...tooltipPlaces(cluster.points), ...names], t("kin.map.clusterTooltip", { count })),
+          { direction: "top", opacity: 0.9 },
+        );
       }
       layer.addLayer(marker);
     }
@@ -288,19 +336,8 @@ export default function KinMapBody({
     return panel.points.map((p) => byId.get(p.personIds[0])!).filter(Boolean);
   }, [panel, byId]);
   /** The place(s) the listed relatives stand at — a marker merges a grid
-   *  cell, so it can be several villages; distinct place + house pairs, in
-   *  the order met. */
-  const panelPlaces = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { place: string; address?: string }[] = [];
-    for (const p of panel?.points ?? []) {
-      const key = `${p.place}\n${p.address ?? ""}`;
-      if (!p.place || seen.has(key)) continue;
-      seen.add(key);
-      out.push({ place: p.place, address: p.address });
-    }
-    return out;
-  }, [panel]);
+   *  cell, so it can be several villages. */
+  const panelPlaces = useMemo(() => (panel ? placeLines(panel.points) : []), [panel]);
 
   return (
     <>
