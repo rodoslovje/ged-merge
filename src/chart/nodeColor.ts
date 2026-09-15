@@ -38,7 +38,7 @@ export type ColorAxis =
 
 /** The axes in popover order. */
 export const COLOR_AXES: ColorAxis[] = [
-  "plain", "generation", "branch", "sex", "living",
+  "plain", "living", "generation", "branch", "sex",
   "country", "birthPlace", "surname",
   "motherAge", "fatherAge", "lifespan", "century", "sources",
 ];
@@ -109,9 +109,16 @@ export function categoryColor(i: number, n: number): string {
   return `oklch(var(--fan-branch-l) var(--fan-branch-c) ${hue})`;
 }
 
-/** The grandparent lines' colours, in pedigree order: father's father,
- *  father's mother, mother's father, mother's mother. */
-export const LINE_COLORS = ["var(--kin-line-f1)", "var(--kin-line-f2)", "var(--kin-line-m1)", "var(--kin-line-m2)"];
+/** Line `i` of `n` on one side of the root, spread evenly along that side's
+ *  generation ramp — the ancestors' lines run from the parents' colour to the
+ *  deepest ancestors', the descendants' from the children's to the furthest
+ *  descendants' — so the Family line axis and the Generation axis share one
+ *  palette per side. */
+export function lineColor(i: number, n: number, direction: TreeMode): string {
+  const t = n <= 1 ? 0 : i / (n - 1);
+  const [near, far] = direction === "ancestors" ? ["--kin-anc-near", "--kin-anc-far"] : ["--kin-desc-near", "--kin-desc-far"];
+  return `color-mix(in oklch, var(${far}) ${(t * 100).toFixed(1)}%, var(${near}))`;
+}
 
 const OWN_COLOR = "var(--accent)";
 const UNKNOWN_COLOR = "var(--faint)";
@@ -382,7 +389,7 @@ export function indexPositions(
       [gf, gm].forEach((gp, j) => {
         if (!gp) return;
         const key = gp.main?.id ?? gp.key;
-        branches.set(key, { label: gp.name, color: LINE_COLORS[side * 2 + j] });
+        branches.set(key, { label: gp.name, color: lineColor(side * 2 + j, 4, "ancestors") });
         (function walk(n: TreeNode, gen: number) {
           set(n, gen, key);
           n.children.forEach((c) => walk(c, gen + 1));
@@ -395,7 +402,7 @@ export function indexPositions(
     const kids = rootChildren(root);
     kids.forEach((child, i) => {
       const key = child.main?.id ?? child.key;
-      branches.set(key, { label: child.name, color: categoryColor(i, kids.length) });
+      branches.set(key, { label: child.name, color: lineColor(i, kids.length, "descendants") });
       (function walk(n: TreeNode, gen: number) {
         set(n, gen, key);
         n.partners.forEach((p) => { set(p, gen, key); p.children.forEach((c) => walk(c, gen + 1)); });

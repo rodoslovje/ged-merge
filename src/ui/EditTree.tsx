@@ -16,7 +16,7 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { Segmented, type SegmentedItem } from "./Segmented";
-import { categoryColor, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { useFanChart } from "./useFanChart";
@@ -50,14 +50,16 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 
-// Color for unmodified nodes (main pine green) and modified (amber/minor) on
-// the plain Color axis; any other axis colours by the shared colorer, and an
-// edit shows as the "modified" badge alone.
+// Colors on the plain Color axis: the ancestors' side (main pine green), the
+// descendants' side (a step away from it, so a bowtie's two halves read
+// apart), and modified (amber/minor). Any other axis colours by the shared
+// colorer, and an edit shows as the "modified" badge alone.
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
 
 const COLOR_NORMAL = "var(--node-main)";
+const COLOR_DESCENDANT = "var(--node-desc)";
 const COLOR_MODIFIED = "var(--node-minor)";
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
@@ -319,17 +321,17 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [radial, fan, flat, positionOf],
   );
   const colorer = useNodeColorer(mainDs, subjects, branchInfo);
-  // On the plain axis a descendant fan / circle colours each child of the
-  // root's line by its own hue (the segment says which branch a wedge is on),
-  // and an edited person shows the modified amber wherever they are drawn. On
-  // any other axis the colorer decides and an edit is the badge alone.
-  const branches = fan?.branches ?? 0;
+  // On the plain axis everyone below the root takes the descendants' colour,
+  // everyone else the main one, and an edited person shows the modified amber
+  // wherever they are drawn. On any other axis the colorer decides and an
+  // edit is the badge alone.
   const colorOf = useCallback(
     (n: TreeNode, seg?: FanSegment) => {
-      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, positionOf(n, seg))) ?? COLOR_NORMAL;
-      return isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? categoryColor(seg.branch, branches) : COLOR_NORMAL;
+      const pos = positionOf(n, seg);
+      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, pos)) ?? COLOR_NORMAL;
+      return isModified(n) ? COLOR_MODIFIED : (pos?.gen ?? 0) < 0 ? COLOR_DESCENDANT : COLOR_NORMAL;
     },
-    [colorer, positionOf, isModified, branches],
+    [colorer, positionOf, isModified],
   );
 
   const activeLaid = radial ? fanLaid : laid;

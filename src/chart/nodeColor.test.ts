@@ -4,7 +4,7 @@ import { buildDataset } from "../gedcom/builder";
 import type { Individual } from "../gedcom/types";
 import type { TreeNode } from "./personTree";
 import { OWN_BRANCH } from "./kinshipWheel";
-import { LINE_COLORS, createNodeColorer, indexPositions, sanitizeColorAxis, type ColorContext } from "./nodeColor";
+import { createNodeColorer, indexPositions, lineColor, sanitizeColorAxis, type ColorContext } from "./nodeColor";
 
 const GED = `0 HEAD
 1 GEDC
@@ -86,9 +86,11 @@ describe("indexPositions", () => {
     expect(positions.get("FFF")).toEqual({ gen: 3, branch: "FF" });
     // A lone grandmother on the mother's side keeps the mother's-mother colour.
     expect(positions.get("MM")).toEqual({ gen: 2, branch: "MM" });
-    expect(branches.get("FF")?.color).toBe(LINE_COLORS[0]);
-    expect(branches.get("FM")?.color).toBe(LINE_COLORS[1]);
-    expect(branches.get("MM")?.color).toBe(LINE_COLORS[3]);
+    expect(branches.get("FF")?.color).toBe(lineColor(0, 4, "ancestors"));
+    expect(branches.get("FM")?.color).toBe(lineColor(1, 4, "ancestors"));
+    expect(branches.get("MM")?.color).toBe(lineColor(3, 4, "ancestors"));
+    expect(lineColor(0, 4, "ancestors")).toContain("--kin-anc-near");
+    expect(lineColor(3, 4, "ancestors")).toContain("100.0%");
     expect(branches.get("FF")?.label).toBe("FF");
 
     // Descendants: root + spouse → child (I4) → grandchild; a spouseless child.
@@ -101,6 +103,8 @@ describe("indexPositions", () => {
     expect(d.positions.get("a:G")).toEqual({ gen: -2, branch: "@I4@" });
     expect(d.positions.get("a:C2")).toEqual({ gen: -1, branch: "C2" });
     expect([...d.branches.keys()]).toEqual(["@I4@", "C2"]);
+    expect(d.branches.get("@I4@")?.color).toBe(lineColor(0, 2, "descendants"));
+    expect(d.branches.get("C2")?.color).toContain("--kin-desc-far");
   });
 });
 

@@ -33,7 +33,7 @@ import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { LINE_COLORS, type BranchInfo } from "../chart/nodeColor";
+import { lineColor, type BranchInfo } from "../chart/nodeColor";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { sexClass } from "./sex";
@@ -122,14 +122,15 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   );
   // The wedges' colours and names, in the order the wedges themselves run:
   // the grandfather's line first, the grandmother's second — keyed by side,
-  // so the father's lines never take the maternal purple.
+  // so the father's lines take the first half of the ancestor ramp and the
+  // mother's the second, as on the pedigree charts.
   const branches = useMemo(() => {
     const map = new Map<string, BranchInfo>();
     const seen = { father: 0, mother: 0 };
     for (const w of wheel.wedges) {
       if (w.key === OWN_BRANCH || w.side === "own") continue;
-      const palette = w.side === "father" ? LINE_COLORS.slice(0, 2) : LINE_COLORS.slice(2);
-      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: palette[seen[w.side]++] ?? "var(--faint)" });
+      const i = (w.side === "father" ? 0 : 2) + Math.min(seen[w.side]++, 1);
+      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: lineColor(i, 4, "ancestors") });
     }
     return map;
   }, [wheel.wedges, wedgeLabel]);
