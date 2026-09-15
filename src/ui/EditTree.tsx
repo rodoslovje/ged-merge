@@ -47,8 +47,15 @@ const SETTINGS_KEYS = ["showKinship"] as const;
 
 const COLOR_NORMAL = "var(--node-main)";
 const COLOR_MODIFIED = "var(--node-minor)";
-/** Descendant fan / circle: one hue per child of the root, in drawing order. */
-const BRANCH_COLORS = [1, 2, 3, 4, 5, 6].map((i) => `var(--fan-branch-${i})`);
+/** Descendant fan / circle: one hue per child of the root, in drawing order —
+ *  spaced evenly around the colour wheel for however many there are, so the
+ *  ring reads as one progression rather than a deck of unrelated colours. The
+ *  sweep stops short of a full turn so the last child never matches the first;
+ *  lightness and chroma come from the theme. */
+function branchColor(branch: number, branches: number): string {
+  const hue = Math.round(25 + (branch * 320) / Math.max(branches, 1));
+  return `oklch(var(--fan-branch-l) var(--fan-branch-c) ${hue})`;
+}
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -214,15 +221,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode) => !!n.main && changedPersonIds.has(n.main.id),
     [changedPersonIds],
   );
-  // A descendant fan / circle colours each child of the root's line by its own
-  // hue (the segment says which branch a wedge is on); an edited person keeps
-  // the modified amber wherever they are drawn.
-  const colorOf = useCallback(
-    (n: TreeNode, seg?: FanSegment) =>
-      isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? BRANCH_COLORS[seg.branch % BRANCH_COLORS.length] : COLOR_NORMAL,
-    [isModified],
-  );
-
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
   const decisionOf = useCallback(
     (n: TreeNode): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
@@ -264,6 +262,16 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     radial ? tree : undefined,
     settings.type === "circle" ? "circle" : "fan",
     { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
+  );
+
+  // A descendant fan / circle colours each child of the root's line by its own
+  // hue (the segment says which branch a wedge is on); an edited person keeps
+  // the modified amber wherever they are drawn.
+  const branches = fan?.branches ?? 0;
+  const colorOf = useCallback(
+    (n: TreeNode, seg?: FanSegment) =>
+      isModified(n) ? COLOR_MODIFIED : seg?.branch !== undefined ? branchColor(seg.branch, branches) : COLOR_NORMAL,
+    [isModified, branches],
   );
 
   const activeLaid = radial ? fanLaid : laid;

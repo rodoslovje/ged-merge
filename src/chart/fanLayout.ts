@@ -152,6 +152,10 @@ export interface FanChart {
   /** How many rings the chart drew at most — the cap behind {@link FanSegment.hidden},
    *  named in that marker's tooltip. */
   maxGen: number;
+  /** Descendant charts: how many children of the root head a line (the range
+   *  {@link FanSegment.branch} runs over), so a host can space the branch hues
+   *  evenly around the colour wheel. */
+  branches?: number;
   width: number;
   height: number;
 }

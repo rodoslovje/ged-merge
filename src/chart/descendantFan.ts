@@ -473,6 +473,7 @@ export function buildDescendantFanChart(
     r0: ROOT_R,
     rootKey: "0:0",
     maxGen: cap,
+    branches: rootBranches,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
   };

@@ -172,6 +172,7 @@ describe("buildDescendantFanChart", () => {
     expect(branch("a-1")).toBe(0);
     expect(branch("b")).toBe(1);
     expect(branch("b-0")).toBe(1);
+    expect(chart.branches).toBe(2);
   });
 
   it("pales the fill outward, ring by ring", () => {
