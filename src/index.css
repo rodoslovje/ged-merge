@@ -5539,6 +5539,26 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 13px;
   font-weight: 600;
 }
+/* The marker hover card: Leaflet's tooltip box dressed as the charts' hover
+   card (.chart-hover-card) — same panel, border, radius, shadow and type —
+   with the card's own row classes inside it. The pointer arrow takes the
+   panel colour, so it does not show up white against a dark card. */
+.map-canvas .leaflet-tooltip.kin-map-tooltip {
+  padding: 6px 10px;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  max-width: 300px;
+  white-space: nowrap;
+}
+.map-canvas .kin-map-tooltip.leaflet-tooltip-top::before {
+  border-top-color: var(--panel);
+}
+.map-canvas .kin-map-tooltip.leaflet-tooltip-bottom::before {
+  border-bottom-color: var(--panel);
+}
 /* The place(s) a cluster stands at, above its people. */
 .kin-map-places {
   padding: 8px 12px 2px;

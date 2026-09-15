@@ -206,14 +206,15 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
    *  whose kinship line means something else everywhere in the app — the
    *  relationship to your start person. Named from the positions the layout
    *  already knows, so no pedigree is walked per person. */
+  const kinshipOf = useCallback((p: KinPerson) => kinshipLabelFor(p.up, p.down, p.sex, t), [t]);
   const tooltipFor = useCallback(
     (p: KinPerson) => {
-      const rel = kinshipLabelFor(p.up, p.down, p.sex, t);
+      const rel = kinshipOf(p);
       return redacted(p)
         ? [nameFor(p), rel].filter(Boolean).join(" · ")
         : [p.name, rel, p.years].filter(Boolean).join(" · ");
     },
-    [redacted, nameFor, t],
+    [redacted, nameFor, kinshipOf],
   );
 
   const drawn = useCallback((p: KinPerson) => p.distance > 0 && shown(p), [shown]);
@@ -527,6 +528,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
               categoryOf={categoryOf}
               lit={lit}
               nameFor={nameFor}
+              kinshipOf={kinshipOf}
+              redacted={redacted}
               tooltipFor={tooltipFor}
               selectedId={selectedKey}
               findHitId={find.hitKey}

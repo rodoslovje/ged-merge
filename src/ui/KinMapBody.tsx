@@ -14,6 +14,7 @@ import { markerSize } from "./map/markerStyle";
 import { resolveOverlay } from "./map/overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./map/overlayLayer";
 import { useDocTheme } from "./map/useDocTheme";
+import { sexClass } from "./sex";
 
 // The Contemporaries chart's Map layout: the wheel's dots on a Leaflet map,
 // one per relative at their anchor place (see `src/chart/kinMap.ts`). Lazy,
@@ -50,6 +51,11 @@ interface Props {
   /** Alive in the scrubbed year (or the scrubber is off). */
   lit: (p: KinPerson) => boolean;
   nameFor: (p: KinPerson) => string;
+  /** How they are related to the chart's root, in words. */
+  kinshipOf: (p: KinPerson) => string | undefined;
+  /** Presumed living and hidden: the name is a stand-in and the years stay off. */
+  redacted: (p: KinPerson) => boolean;
+  /** One-line hover text, for the list panel's rows. */
   tooltipFor: (p: KinPerson) => string;
   selectedId: string | null;
   findHitId: string | null;
@@ -88,33 +94,51 @@ function tooltipPlaces(points: readonly MapPoint[]): (string | PlaceLine)[] {
   return shown;
 }
 
-/** A marker's hover text as DOM (names and places are file data, never HTML).
- *  A place line writes its house after the name, muted like the place
- *  picker's suggestions. */
-function tooltipEl(lines: (string | PlaceLine)[], more?: string): HTMLElement {
+/** A row of the hover card. Built as DOM: names and places are file data,
+ *  never HTML. */
+function row(className: string, text: string): HTMLElement {
   const el = document.createElement("div");
-  for (const line of lines) {
-    const row = document.createElement("div");
-    if (typeof line === "string") {
-      row.textContent = line;
-    } else {
-      row.textContent = line.place;
-      if (line.address) {
-        const addr = document.createElement("span");
-        addr.className = "place-suggestion-addr";
-        addr.textContent = ` · ${line.address}`;
-        row.appendChild(addr);
-      }
-    }
-    el.appendChild(row);
-  }
-  if (more) {
-    const row = document.createElement("div");
-    row.className = "map-cluster-tip-count";
-    row.textContent = more;
-    el.appendChild(row);
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+/** A place row: the place, with its house after it muted like the place
+ *  picker's suggestions. */
+function placeRow(line: string | PlaceLine, className = "chart-hover-line"): HTMLElement {
+  if (typeof line === "string") return row(className, line);
+  const el = row(className, line.place);
+  if (line.address) {
+    const addr = document.createElement("span");
+    addr.className = "place-suggestion-addr";
+    addr.textContent = ` · ${line.address}`;
+    el.appendChild(addr);
   }
   return el;
+}
+
+/** A person's name in the sex colour, with the lifespan beside it in the data
+ *  face — the head of the chart hover card, and a cluster's list entry. */
+function personRow(name: string, sex: KinPerson["sex"], years: string | undefined, className: string): HTMLElement {
+  const el = document.createElement("div");
+  el.className = className;
+  const nameEl = document.createElement("span");
+  nameEl.className = `person-name ${sexClass(sex)}`;
+  nameEl.textContent = name;
+  el.appendChild(nameEl);
+  if (years) {
+    const yearsEl = document.createElement("span");
+    yearsEl.className = "person-years gm-data";
+    yearsEl.textContent = years;
+    el.appendChild(yearsEl);
+  }
+  return el;
+}
+
+/** The lineage colour of a relative's kinship: the side of the root's family
+ *  their blood runs through. */
+function kinClass(p: KinPerson): string {
+  return p.side === "father" ? "lineage-paternal" : p.side === "mother" ? "lineage-maternal" : "";
 }
 
 export default function KinMapBody({
@@ -126,6 +150,8 @@ export default function KinMapBody({
   categoryOf,
   lit,
   nameFor,
+  kinshipOf,
+  redacted,
   tooltipFor,
   selectedId,
   findHitId,
@@ -274,27 +300,33 @@ export default function KinMapBody({
         }),
         keyboard: false,
       });
-      // Every tooltip opens with where the marker stands — the place is what a
-      // map is read for — then who is there.
+      // The hover card, written as the charts write theirs (ChartHoverCard):
+      // one relative gets the name and years as the head, then the place, the
+      // kinship in the lineage colour, and the anchoring event as the hint; a
+      // cluster leads with the place — what a map is read for — then names
+      // its people, and hints at the click.
+      const card = document.createElement("div");
       if (count === 1) {
         const m = members[0];
         marker.on("click", () => onSelect(m.person.id));
-        marker.bindTooltip(
-          tooltipEl(
-            [...tooltipPlaces([m.point]), tooltipFor(m.person)],
-            t(`event.${m.point.tag}`, { defaultValue: m.point.tag }),
-          ),
-          { direction: "top", opacity: 0.9 },
-        );
+        const hidden = redacted(m.person);
+        card.appendChild(personRow(nameFor(m.person), m.person.sex, hidden ? undefined : m.person.years, "chart-hover-head"));
+        for (const line of tooltipPlaces([m.point])) card.appendChild(placeRow(line));
+        const kin = kinshipOf(m.person);
+        if (kin) card.appendChild(row(`chart-hover-kin ${kinClass(m.person)}`, kin));
+        card.appendChild(row("chart-hover-hint", t(`event.${m.point.tag}`, { defaultValue: m.point.tag })));
       } else {
         marker.on("click", () => openCluster(cluster));
-        const names = members.slice(0, TOOLTIP_MAX_NAMES).map((m) => nameFor(m.person));
-        if (count > TOOLTIP_MAX_NAMES) names.push(`… +${count - TOOLTIP_MAX_NAMES}`);
-        marker.bindTooltip(
-          tooltipEl([...tooltipPlaces(cluster.points), ...names], t("kin.map.clusterTooltip", { count })),
-          { direction: "top", opacity: 0.9 },
-        );
+        const places = tooltipPlaces(cluster.points);
+        card.appendChild(placeRow(places[0], "chart-hover-head"));
+        for (const line of places.slice(1)) card.appendChild(placeRow(line));
+        for (const m of members.slice(0, TOOLTIP_MAX_NAMES)) {
+          card.appendChild(personRow(nameFor(m.person), m.person.sex, undefined, "chart-hover-line"));
+        }
+        if (count > TOOLTIP_MAX_NAMES) card.appendChild(row("chart-hover-line", `… +${count - TOOLTIP_MAX_NAMES}`));
+        card.appendChild(row("chart-hover-hint", t("kin.map.clusterTooltip", { count })));
       }
+      marker.bindTooltip(card, { direction: "top", opacity: 1, className: "kin-map-tooltip" });
       layer.addLayer(marker);
     }
     // The root's hub: a hollow ring around their place, with their initials on
@@ -317,16 +349,16 @@ export default function KinMapBody({
       // Text goes in through the DOM, not the HTML string: the initials and
       // the name are file data.
       hub.on("add", () => {
-        const root = hub.getElement()?.querySelector<HTMLElement>(".kin-map-hub");
-        if (!root) return;
-        root.title = rootLabel;
-        const badge = root.querySelector(".kin-map-hub-initials");
+        const hubEl = hub.getElement()?.querySelector<HTMLElement>(".kin-map-hub");
+        if (!hubEl) return;
+        hubEl.title = rootLabel;
+        const badge = hubEl.querySelector(".kin-map-hub-initials");
         if (badge) badge.textContent = rootInitials;
       });
       layer.addLayer(hub);
     }
     // viewGen re-runs this pass after every pan/zoom.
-  }, [points, byId, viewGen, lit, categoryOf, colorOf, selectedId, findHitId, onSelect, openCluster, nameFor, tooltipFor, rootPoint, rootLabel, rootInitials, t]);
+  }, [points, byId, viewGen, lit, categoryOf, colorOf, selectedId, findHitId, onSelect, openCluster, nameFor, kinshipOf, redacted, rootPoint, rootLabel, rootInitials, t]);
 
   // The list would go stale under a changed set of dots.
   useEffect(() => setPanel(null), [points]);
