@@ -26,6 +26,7 @@ import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
+import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
 
 // Full-page family Timeline: the root person and their immediate family
@@ -216,11 +217,14 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const rows = useMemo(() => data?.rows ?? [], [data]);
   // The shared Color axis over everyone on the chart; on the plain axis the
   // root's bar keeps the accent and the family the muted green.
-  const subjects = useMemo(() => rows.map((r) => ({ indi: mainDs.individuals.get(r.id) })), [rows, mainDs]);
+  const subjects = useMemo(
+    () => rows.map((r) => ({ indi: mainDs.individuals.get(r.id), pos: { gen: r.gen, branch: OWN_BRANCH } })),
+    [rows, mainDs],
+  );
   const colorer = useNodeColorer(mainDs, subjects);
   const colorFor = useMemo(
     () => (row: (typeof rows)[number]) =>
-      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(row.id))) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
+      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(row.id), { gen: row.gen, branch: OWN_BRANCH })) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
     [colorer, mainDs],
   );
   const nodesByKey = useMemo(() => {

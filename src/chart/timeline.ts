@@ -97,6 +97,9 @@ export interface TimelineRow {
   key: string;
   id: string;
   role: TimelineRole;
+  /** Generations above (+) or below (−) the root — the Color axis's reading;
+   *  a spouse or step-relative sits in the generation they married into. */
+  gen: number;
   name: string;
   /** Lifespan label ("1817–1921", "1817–", …) — may be "". */
   years: string;
@@ -156,10 +159,10 @@ export function buildTimeline(
   const seen = new Set<string>();
   // Every row carries its own dated events (the UI decides whose to show);
   // callers add the marriage marks that belong to the person's role.
-  const add = (indi: Individual | undefined, role: TimelineRole, marriage: TimelineMark[] = []) => {
+  const add = (indi: Individual | undefined, role: TimelineRole, gen: number, marriage: TimelineMark[] = []) => {
     if (!indi || seen.has(indi.id)) return;
     seen.add(indi.id);
-    rows.push(makeRow(t, indi, role, nameOf, [...eventMarks(t, indi), ...marriage], nowYear, ds));
+    rows.push(makeRow(t, indi, role, gen, nameOf, [...eventMarks(t, indi), ...marriage], nowYear, ds));
   };
 
   // Parents (father then mother), each carrying every marriage of theirs —
@@ -181,10 +184,10 @@ export function buildTimeline(
   // Grandparents and above, oldest generation first so the chart reads down the
   // page the way the years run. Emitted before the parents for the same reason.
   const above = generationsOf(ds, parents, reach - 1, parentsStep(ds));
-  for (const generation of above.reverse()) {
-    for (const a of generation) add(a, "ancestor", marriageMarks(t, ds, familiesByMarriage(ds, a.spouseOf)));
+  for (let i = above.length - 1; i >= 0; i--) {
+    for (const a of above[i]) add(a, "ancestor", i + 2, marriageMarks(t, ds, familiesByMarriage(ds, a.spouseOf)));
   }
-  for (const p of parents) add(p, "parent", marriageMarks(t, ds, familiesByMarriage(ds, p.spouseOf)));
+  for (const p of parents) add(p, "parent", 1, marriageMarks(t, ds, familiesByMarriage(ds, p.spouseOf)));
 
   // A parent's other unions: the partner there is the root's step-parent and
   // that union's children are half-siblings. Both are sorted into the
@@ -236,7 +239,7 @@ export function buildTimeline(
     // sharing a key put the wedding first.
     .sort((a, b) => a.sortKey - b.sortKey);
   for (const g of generation) {
-    add(g.indi, g.role, g.marriage ?? []);
+    add(g.indi, g.role, g.role === "stepparent" ? 1 : 0, g.marriage ?? []);
   }
 
   // Each union: the spouse (with that union's marriage marker), then that
@@ -245,7 +248,7 @@ export function buildTimeline(
   for (const fam of unions) {
     const spouseId = fam.husband === root.id ? fam.wife : fam.husband;
     const spouse = spouseId ? ds.individuals.get(spouseId) : undefined;
-    add(spouse, "spouse", marriageMarks(t, ds, [fam]));
+    add(spouse, "spouse", 0, marriageMarks(t, ds, [fam]));
     const kids = fam.children
       .map((id) => ds.individuals.get(id))
       .filter((c): c is Individual => c !== undefined)
@@ -258,7 +261,7 @@ export function buildTimeline(
       .filter((c): c is Individual => c !== undefined)
       .map((c) => ({ indi: c, role: "stepchild" as TimelineRole }));
     for (const kid of [...kids, ...stepKids].sort((a, b) => birthSortKey(a.indi) - birthSortKey(b.indi))) {
-      add(kid.indi, kid.role);
+      add(kid.indi, kid.role, -1);
     }
   }
 
@@ -269,9 +272,10 @@ export function buildTimeline(
     .flatMap((f) => f.children)
     .map((id) => ds.individuals.get(id))
     .filter((c): c is Individual => c !== undefined);
-  for (const generation of generationsOf(ds, ownChildren, reach - 1, childrenStep(ds))) {
-    for (const d of generation) add(d, "descendant", marriageMarks(t, ds, familiesByMarriage(ds, d.spouseOf)));
-  }
+  const below = generationsOf(ds, ownChildren, reach - 1, childrenStep(ds));
+  below.forEach((generation, i) => {
+    for (const d of generation) add(d, "descendant", -(i + 2), marriageMarks(t, ds, familiesByMarriage(ds, d.spouseOf)));
+  });
 
   let min: number | undefined;
   let max: number | undefined;
@@ -289,6 +293,7 @@ function makeRow(
   t: Translate,
   indi: Individual,
   role: TimelineRole,
+  gen: number,
   nameOf: NameOf,
   marks: TimelineMark[],
   nowYear: number,
@@ -318,6 +323,7 @@ function makeRow(
     key: indi.id,
     id: indi.id,
     role,
+    gen,
     name: nameOf(indi),
     years: formatLifespan(birth, death, deceased),
     sex: indi.sex,
