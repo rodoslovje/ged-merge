@@ -6,15 +6,15 @@ import { PersonLink } from "./PersonLink";
 import {
   WHEEL_LABEL_PX,
   barNameFont,
-  barNameText,
+  barShowsYears,
   buildKinBars,
   buildKinshipWheel,
   collectKin,
   kinDepth,
   OWN_BRANCH,
+  rootWindow,
   type KinPerson,
 } from "../chart/kinshipWheel";
-import { birthYear, isPresumedLiving } from "../gedcom/lifespan";
 import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { lifespanAge } from "../gedcom/age";
 import type { ChartNode } from "../chart/treeLayout";
@@ -38,7 +38,7 @@ import { ChartLegend } from "./ChartLegend";
 import { lineColor, type BranchInfo } from "../chart/nodeColor";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
-import { sexClass } from "./sex";
+import { sexClass, sexColorVar } from "./sex";
 
 // Leaflet comes with the layout that needs it, as the Places map's does.
 const KinMapBody = lazy(() => import("./KinMapBody"));
@@ -81,15 +81,11 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const changeRoot = useCallback((id: string) => onRootChange(id), [onRootChange]);
 
   const root = mainDs.individuals.get(currentRootId);
-  const rootBirth = root ? birthYear(root) : undefined;
   // The window every "contemporary" is measured against: the root's own life,
-  // running to today while they are presumed living.
-  const window = useMemo(() => {
-    if (!root || rootBirth === undefined) return undefined;
-    const living = isPresumedLiving(root, mainDs, now);
-    const to = living ? now : (lifespanAge(root) !== undefined ? rootBirth + lifespanAge(root)! : now);
-    return { from: rootBirth, to };
-  }, [root, rootBirth, mainDs, now]);
+  // read with the very rule that draws everyone's bar (lifeSpan) — an end taken
+  // from the whole-years age instead of the death year left the shaded band a
+  // year short of the root's own bar beneath it.
+  const window = useMemo(() => (root ? rootWindow(root, mainDs, now) : undefined), [root, mainDs, now]);
 
   // Scope falls back to "all" for a root with no datable life: there is no
   // window to compare anyone against, and an empty chart would say nothing.
@@ -358,7 +354,11 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       </text>
       {band.rows.map((r) => {
         const font = barNameFont(band.rowH);
-        const label = barNameText({ ...r.person, name: nameFor(r.person) }, font);
+        // Name and lifespan are written the way the tree and fan charts write
+        // them: the name in the sex colour, the years after it smaller and
+        // muted. A redacted living person keeps their placeholder alone — their
+        // birth year is exactly what the redaction withholds.
+        const years = barShowsYears(font) && !redacted(r.person) ? r.person.years : "";
         const showName = settings.kinNames && r.named && lit(r.person);
         return (
           <g
@@ -394,8 +394,14 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                 textAnchor="end"
                 fontSize={font}
                 fillOpacity={font < 8 ? 0.72 : 1}
+                style={{ fill: sexColorVar(r.person.sex) }}
               >
-                {label}
+                {nameFor(r.person)}
+                {years && (
+                  <tspan className="kin-bar-years gm-data" dx={5} fontSize={font * 0.85}>
+                    {years}
+                  </tspan>
+                )}
               </text>
             )}
           </g>

@@ -14,6 +14,7 @@ import {
   generationOffset,
   kinDepth,
   lifeSpan,
+  rootWindow,
   overlaps,
   type KinPerson,
 } from "./kinshipWheel";
@@ -163,6 +164,20 @@ describe("lifeSpan", () => {
     const span = lifeSpan(grandson, ds, NOW);
     expect(span).toMatchObject({ from: 1955, openEnd: true, living: true });
     expect(span.to).toBe(NOW);
+  });
+
+  it("shades the contemporaries window over exactly the root's own bar", () => {
+    // Born in December, died in January: 69 whole years lived, but the bar ends
+    // in 1970 — a window measured from the age would stop a year short of it.
+    const one = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Zima /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1 DEC 1900\n1 DEAT\n2 DATE 5 JAN 1970\n"),
+    );
+    const root = one.individuals.get("@I1@")!;
+    expect(rootWindow(root, one, NOW)).toEqual({ from: 1900, to: 1970 });
+    const bars = buildKinBars({ ds: one, rootId: "@I1@", nameOf, now: NOW, width: 1200 });
+    const bar = bars.bands[0].rows[0];
+    expect(bar.x0).toBeCloseTo(bars.xOf(1900), 0);
+    expect(bar.x1).toBeCloseTo(bars.xOf(1970), 0);
   });
 
   it("overlaps only where the two stretches actually touch", () => {

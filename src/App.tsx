@@ -60,6 +60,7 @@ import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
+import { recordLabeller } from "./ui/recordLabel";
 import { charsetNotices } from "./ui/charsetNotice";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
@@ -1620,6 +1621,8 @@ function AppContent() {
         compareFileName: preview.isMerge && compare.status === "loaded" ? compare.file.fileName : undefined,
         savedAt: new Date(),
         fileNotes,
+        // Headed like the preview's cards the reader has just been through.
+        labelOf: recordLabeller(preview.report, mainDataset, nameOf),
       }));
     }
 

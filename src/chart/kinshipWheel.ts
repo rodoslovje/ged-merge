@@ -164,6 +164,17 @@ export function lifeSpan(indi: Individual, ds: Dataset, now: number): LifeSpan {
   return { from, to, openEnd: died === undefined, living };
 }
 
+/**
+ * The stretch the "contemporaries" scope measures everyone against, and the
+ * band the bars chart shades behind them: the root's own life, read with the
+ * very rule that draws their bar, so the shading and the bar share both ends.
+ * Undefined for a root with no datable life — nothing to compare against.
+ */
+export function rootWindow(indi: Individual, ds: Dataset, now: number): { from: number; to: number } | undefined {
+  const { from, to } = lifeSpan(indi, ds, now);
+  return from !== undefined && to !== undefined ? { from, to } : undefined;
+}
+
 /** Whether the two stretches of years touch at all. */
 export function overlaps(span: LifeSpan, from: number, to: number): boolean {
   if (span.from === undefined && span.to === undefined) return false;
@@ -807,14 +818,15 @@ export function buildKinBars(input: KinInput & { width: number; people?: KinPers
   };
 }
 
-/** The name written beside a bar: small rows drop the years, which the tooltip
- *  carries anyway, so more of them fit in the margin. */
+/** The size the name beside a bar is written at, from the row's own height. */
 export function barNameFont(rowH: number): number {
   return Math.max(6.5, Math.min(11, rowH * 0.62));
 }
 
-export function barNameText(person: KinPerson, font: number): string {
-  return font < 8 || !person.years ? person.name : `${person.name}  ${person.years}`;
+/** Whether that label has room for the lifespan after the name: the small rows
+ *  carry the name alone, and the tooltip holds the years anyway. */
+export function barShowsYears(font: number): boolean {
+  return font >= 8;
 }
 
 /** Full-date hover text for a bar or dot, matching the other charts' tooltips. */

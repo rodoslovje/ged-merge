@@ -13,7 +13,8 @@ import { charsetNotices } from "./charsetNotice";
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
-import { useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { recordLabeller } from "./recordLabel";
 
 /** The one preference this dialog reads (and writes): whether the save also
  *  downloads the change report. */
@@ -109,6 +110,11 @@ export function SaveDialog({
   });
   const { saveReport } = useSettingsSlice(SAVE_REPORT_KEYS);
   const setSettings = useSetSettings();
+  // The card heads name people the way the rest of the app does — display
+  // order, married surname, capitals (see recordLabeller). The downloaded
+  // change report is headed by the same function, so the two agree.
+  const nameOf = useNameOf();
+  const labelOf = useMemo(() => recordLabeller(report, dataset, nameOf), [report, dataset, nameOf]);
 
   // `files` is [GEDCOM, change report]; the report leaves with the file only
   // when the reader has asked for it.
@@ -269,7 +275,7 @@ export function SaveDialog({
               <ul className="preview-deferred">
                 {report.deferred.map((d, i) => (
                   <li key={i}>
-                    <span className="preview-rec">{report.recordLabels[d.recordId] ?? d.recordId}</span>
+                    <span className="preview-rec">{labelOf(d.recordId)}</span>
                     {" — "}
                     <span className="preview-field">{d.field}</span>: {d.reason}
                   </li>
@@ -340,7 +346,7 @@ export function SaveDialog({
                     return (
                       <span key={s.id ?? i} className={sIndi ? sexClass(sIndi.sex) : undefined}>
                         {i > 0 && " + "}
-                        {s.name}
+                        {sIndi ? nameOf(sIndi) : s.name}
                         {sLifespan && <span className="person-years gm-data"> {sLifespan}</span>}
                       </span>
                     );
@@ -351,7 +357,7 @@ export function SaveDialog({
                   </>
                 ) : (
                   <>
-                    {g.label}
+                    {labelOf(g.id)}
                     {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
                   </>
                 );

@@ -5389,10 +5389,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-linejoin: round;
   paint-order: stroke;
 }
+/* The name takes the sex colour from an inline style, as it does on the tree
+   and fan charts; this fill is the unknown-sex default. The lifespan follows it
+   smaller and muted, so the two read apart. */
 .kin-bar-name {
   fill: var(--muted);
   stroke-width: 2.4;
 }
+.kin-bar-years { fill: var(--muted); }
 /* Bars layout: the root's own lifetime as a tinted band, and a rule + caption
    per blood-distance band. */
 .kin-window {

@@ -244,6 +244,26 @@ describe("buildDescendantFanChart", () => {
     expect(chart.segments.find((s) => s.band)?.photo).toBeUndefined();
   });
 
+  it("keeps an outward-reading name clear of the photo it sits beside", () => {
+    // Eight children share the fan's sweep, so each wedge is deeper than it is
+    // wide and its name reads outward — starting past the photo, never across it.
+    const kids = Array.from({ length: 8 }, (_, i) => person("M", `kid${i}`));
+    const root = person("M", "root", { partners: [spouse("F", "w", kids)] });
+    const chart = buildDescendantFanChart(root, "fan", { hasPhoto: () => true });
+    const seg = chart.segments.find((s) => s.node.name === "kid0")!;
+    expect(seg.curved).toBe(false);
+    expect(seg.photo).toBeDefined();
+    expect(seg.lines.length).toBeGreaterThan(0);
+    const [, ax, ay] = /translate\(([-\d.]+),([-\d.]+)\)/.exec(seg.labelTransform!)!.map(Number);
+    const rOut = +/A([-\d.]+),/.exec(seg.d)![1];
+    const r = Math.hypot(ax - chart.cx, ay - chart.cy);
+    // The lines are centred on the anchor and fit the band, so their inner end
+    // can reach no further in than the band's own inner edge.
+    const inner = r - (rOut - 8 - r);
+    const photoOut = Math.hypot(seg.photo!.cx - chart.cx, seg.photo!.cy - chart.cy) + seg.photo!.size / 2;
+    expect(inner).toBeGreaterThanOrEqual(photoOut);
+  });
+
   it("uses a square canvas centred on the root for both shapes", () => {
     const root = person("M", "root", { partners: [spouse("F", "w", [family("a", 2)])] });
     const fan = buildDescendantFanChart(root, "fan");
