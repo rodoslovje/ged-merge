@@ -2831,6 +2831,18 @@ describe("formatReport — a privacy flag turned on or off", () => {
     expect(text).toContain('changeReport.verb.madePublic "a remark"');
   });
 
+  it("heads a record with the caller's label, where it has one", () => {
+    // The app hands in a name built under the reader's Name display settings,
+    // which this module — run from the worker — cannot read for itself.
+    const change = row({ from: "", to: "a remark", segments: [{ text: "a remark", state: "changed" }] });
+    const text = formatReport(change, { t: tr, labelOf: (id) => (id === "@I1@" ? "Novak (Kos), Janez" : undefined) });
+    expect(text).toContain("Novak (Kos), Janez  @I1@");
+    expect(text).not.toContain("Janez Novak  @I1@");
+    // Nothing handed in: the report's own label still heads it.
+    expect(formatReport(change, { t: tr })).toContain("Janez Novak  @I1@");
+    expect(formatReport(change, { t: tr, labelOf: () => undefined })).toContain("Janez Novak  @I1@");
+  });
+
   it("keeps the flag beside a change that also moved the text", () => {
     const text = formatReport(row({
       from: "1901", to: "1902",

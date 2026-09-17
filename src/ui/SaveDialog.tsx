@@ -14,6 +14,7 @@ import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 import { useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { recordLabeller } from "./recordLabel";
 
 /** The one preference this dialog reads (and writes): whether the save also
  *  downloads the change report. */
@@ -110,18 +111,10 @@ export function SaveDialog({
   const { saveReport } = useSettingsSlice(SAVE_REPORT_KEYS);
   const setSettings = useSetSettings();
   // The card heads name people the way the rest of the app does — display
-  // order, married surname, capitals. The report's own `recordLabels` are
-  // written by the merge (and the worker), which knows nothing of those
-  // settings; they stay as the fallback for a record the dataset no longer
-  // holds, such as one this save removes.
+  // order, married surname, capitals (see recordLabeller). The downloaded
+  // change report is headed by the same function, so the two agree.
   const nameOf = useNameOf();
-  const labelOf = (id: string) => {
-    const indi =
-      report.recordKinds[id] === "individual"
-        ? dataset?.individuals.get(id) ?? report.newIndividuals?.[id]
-        : undefined;
-    return indi ? nameOf(indi) : report.recordLabels[id] ?? id;
-  };
+  const labelOf = useMemo(() => recordLabeller(report, dataset, nameOf), [report, dataset, nameOf]);
 
   // `files` is [GEDCOM, change report]; the report leaves with the file only
   // when the reader has asked for it.

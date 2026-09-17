@@ -649,6 +649,12 @@ export interface ReportContext {
    *  rewrite, the vendor tags the reader unticked, the audit stamps. Already
    *  translated by the caller, which is where each is decided. */
   fileNotes?: string[];
+  /** How a record is headed, where the caller can name it better than the merge
+   *  could: the app passes one that formats a person from their own record
+   *  under the reader's Name display settings, which this module — running in
+   *  the worker as often as not — cannot read (see `recordLabeller`). Falls
+   *  back to the report's own `recordLabels` for whatever it does not answer. */
+  labelOf?: (id: string) => string | undefined;
 }
 
 function underline(text: string, char: "=" | "-"): string[] {
@@ -699,7 +705,7 @@ export function formatReport(report: ChangeReport, ctx: ReportContext): string {
   }
 
   const recordHeader = (id: string) => {
-    const label = report.recordLabels[id];
+    const label = ctx.labelOf?.(id) || report.recordLabels[id];
     return label ? `${label}  ${id}` : id;
   };
 

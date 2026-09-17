@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
 
@@ -34,7 +34,7 @@ function writeFixture(): string {
 test("the save preview names a person the way the Name settings do", async ({ page }) => {
   const fixture = writeFixture();
   await page.addInitScript(() => {
-    localStorage.setItem("gedmerge.settings", JSON.stringify({ marriedSurname: true }));
+    localStorage.setItem("gedmerge.settings", JSON.stringify({ marriedSurname: true, saveReport: true }));
   });
   await page.goto("/");
 
@@ -53,4 +53,10 @@ test("the save preview names a person the way the Name settings do", async ({ pa
   await save.click();
   const head = page.locator(".preview-card-head").first();
   await expect(head).toContainText("Frances (Simonitsch)");
+
+  // …and the change report that leaves with the file is headed the same way.
+  const report = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".report.txt"));
+  await page.locator(".preview-actions .export-btn").click();
+  const text = readFileSync((await (await report).path())!, "utf-8");
+  expect(text).toContain("Frances (Simonitsch)  @I1@");
 });
