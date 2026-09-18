@@ -9,6 +9,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
+import { EventGlyphs } from "../EventGlyph";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
@@ -63,8 +64,12 @@ export function ToolsError({ message }: { message: string }) {
   return <p className="tools-clean">{t("tools.scan.error", { message })}</p>;
 }
 
-/** Records that cite a source/media or use a place; each navigates into Edit. */
+/** Records that cite a source/media or use a place; each navigates into Edit.
+ *  A place usage also carries the events it sits on, which follow the name as
+ *  genealogy marks — the row then says whether someone was born at the place
+ *  or died there, which is the whole question a house list is read with. */
 export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: SourceUse[]; onNavigate: (id: string) => void }) {
+  const { t } = useTranslation();
   if (uses.length === 0) return null;
   return (
     <ul className="tools-usage">
@@ -76,6 +81,7 @@ export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; use
               <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
             </span>
           ))}
+          {u.eventTags && <EventGlyphs tags={u.eventTags} t={t} />}
         </li>
       ))}
     </ul>

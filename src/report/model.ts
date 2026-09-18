@@ -9,7 +9,7 @@ import { dateText } from "../gedcom/date";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS } from "../chart/timeline";
+import { EVENT_GLYPHS } from "../gedcom/eventTags";
 import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */

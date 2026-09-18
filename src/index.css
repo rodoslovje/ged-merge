@@ -3080,6 +3080,28 @@ button:focus-visible {
   align-items: baseline;
   gap: 6px;
 }
+/* The genealogy mark an event wears (* a birth, ⚭ a marriage, † a death —
+   see EVENT_GLYPHS): shared by the Edit event rows, where it leads the type
+   label, and the place worklists, where a run of them follows a name. Drawn
+   in a slot of one width so the marks line up in a column down a list, and
+   muted — the mark says what kind of event this is, and is not the row's
+   subject. */
+.event-glyph {
+  display: inline-block;
+  /* Wide enough for the widest mark's own advance (⚯ at 1.12em), so a column
+     of them lines up and none of them is squeezed. */
+  width: 1.15em;
+  text-align: center;
+  line-height: 1;
+  color: var(--muted);
+}
+/* The asterisk rides at cap height, where every other mark sits mid-line; drop
+   it so a birth reads on the same line as the ⚭ and † beside it. */
+.event-glyph--high { transform: translateY(0.16em); }
+/* A run of marks after a person's name — which of their events happened at the
+   place the row is about. */
+.event-glyphs { display: inline-flex; align-items: baseline; margin-left: 6px; }
+.edit-event-label .event-glyph { margin-right: 3px; }
 /* Constrained to the fixed slot so a long multi-word name (a custom EVEN's
  * own Title, e.g. "Civil Partnership") wraps onto further right-aligned lines
  * instead of overflowing off the panel's left edge; a long single word

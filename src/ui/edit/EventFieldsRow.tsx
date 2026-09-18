@@ -8,6 +8,7 @@ import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventToo
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
+import { EventGlyph } from "../EventGlyph";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
@@ -884,6 +885,7 @@ export function EventFieldsRow({
             }}
             trigger={
               <>
+                {tag && <EventGlyph tag={tag} t={t} />}
                 {customName || label}
                 <span className="edit-event-type-caret" aria-hidden="true">▾</span>
               </>
@@ -901,6 +903,7 @@ export function EventFieldsRow({
                   : undefined
             }
           >
+            {tag && <EventGlyph tag={tag} t={t} />}
             {customName || label}
           </div>
         )}

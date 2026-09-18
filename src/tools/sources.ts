@@ -38,6 +38,11 @@ export interface SourceUse {
    * individual page of their own to navigate to).
    */
   persons: PersonRef[];
+  /** The event tags this usage sits on, drawn after the name as genealogy
+   *  marks ("Marija Oblak ⚭ †"). Filled by the place lists, where which event
+   *  put the person at the place is the point of the row; absent on a source
+   *  or media usage, which is listed per record. */
+  eventTags?: string[];
   /** This record's GEDCOM 7 crop region for the media object — present only when
    *  the citing `OBJE` link marks a subregion (e.g. this person in a group photo).
    *  Populated by {@link mediaUsedBy}; lets the viewer move the highlight on hover. */

@@ -15,6 +15,7 @@ import {
   isPresumedLiving,
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
+import { EVENT_GLYPHS } from "../gedcom/eventTags";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
@@ -59,26 +60,6 @@ export interface TimelineMark {
   glyph?: string;
 }
 
-/** Classic genealogy symbols for the common event types — language-neutral, so
- *  they need no translation: * born, ~ baptized, † died, ▭ buried, ⌂ residence,
- *  →/← emigrated/immigrated. No conventional symbol exists for occupation or
- *  education; ⚒ and ✎ are the closest widely-understood monochrome marks
- *  (Unicode's 🎓 only renders as colour emoji, 🕮 lacks font support). The one map is
- *  shared by the Timeline and the reports, so every surface draws an event
- *  type the same way. Unmapped events keep the generic dot. */
-export const EVENT_GLYPHS: Record<string, string> = {
-  BIRT: "*",
-  BAPM: "~",
-  CHR: "~",
-  DEAT: "†",
-  BURI: "▭",
-  CREM: "▭",
-  RESI: "⌂",
-  OCCU: "⚒",
-  EDUC: "✎",
-  EMIG: "→",
-  IMMI: "←",
-};
 
 /** One residence period, for the optional strip under the lifespan bar. An
  *  explicit range date sets the end; otherwise the period runs to the next
