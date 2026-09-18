@@ -43,10 +43,11 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
 
   await page.getByRole("tablist", { name: "Layout" }).getByRole("tab", { name: "Surnames" }).click();
 
-  // One slice per blood relative, the root excepted — they are the hub.
-  await expect(page.locator(".kin-slice")).toHaveCount(5);
-  // Ring 1 holds the father, the mother and the son; the hairline between the
-  // elders' run and the issue's is the whole point of the layout.
+  // One section per surname, not per person: ring 1 holds Kovac the father,
+  // Novak the mother and Kovac the son (a band of his own, being issue rather
+  // than an elder); ring 2 the grandfather and the brother.
+  await expect(page.locator(".kin-surname-band")).toHaveCount(5);
+  // The hairline between the elders' run and the issue's is the whole point.
   await expect(page.locator(".kin-gen-split")).toHaveCount(4);
   await expect(page.locator(".kin-surname").first()).toBeVisible();
 
@@ -54,10 +55,35 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
   await page.locator(".chart-settings-btn").first().click();
   await page.getByRole("button", { name: "Names", exact: true }).click();
   await expect(page.locator(".kin-surname")).toHaveCount(0);
-  await expect(page.locator(".kin-slice")).toHaveCount(5);
+  await expect(page.locator(".kin-surname-band")).toHaveCount(5);
   await page.keyboard.press("Escape");
 
-  // A slice selects its person, exactly as a dot on the wheel does.
-  await page.locator(".kin-slice").first().click();
+  // A band of one opens its person straight away, as a dot on the wheel does.
+  await page.locator(".kin-surname-band").first().click();
+  await expect(page.locator(".tree-compare")).toBeVisible();
+});
+
+test("a band of several lists its people, and a row opens one of them", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.locator(".charts-open-btn").first().click();
+  await page.getByRole("tablist", { name: "Chart kind" }).getByRole("tab", { name: "Contemporaries" }).click();
+  await page.getByRole("tablist", { name: "Layout" }).getByRole("tab", { name: "Surnames" }).click();
+  await expect(page.locator(".kin-surname-band")).toHaveCount(5);
+
+  // Ring 1's elders are two bands of one; the son is a third. Cap the chart at
+  // ring 1 and re-root on the father, whose ring 1 then holds two Kovac
+  // children — Ana and Peter — in one band.
+  await page.locator(".kin-surname-band").first().click();
+  await page.getByRole("button", { name: "Root", exact: true }).click();
+  const band = page.locator(".kin-surname-band").filter({ has: page.locator("title", { hasText: "2 blood relatives" }) });
+  await expect(band).toHaveCount(1);
+  await band.click();
+  const panel = page.locator(".kin-unplaced-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel.locator(".kin-band-person")).toHaveCount(2);
+  await panel.locator(".kin-band-person").first().click();
+  await expect(panel).toBeHidden();
   await expect(page.locator(".tree-compare")).toBeVisible();
 });

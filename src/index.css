@@ -5363,31 +5363,29 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-width: 2.5;
   stroke-opacity: 1;
 }
-/* Surname rings: solid slices, one per relative, tiling each ring edge to edge.
-   Told apart by the ground showing between the rings rather than by a stroke —
-   a stroke on a 2° slice is most of the slice. */
-.kin-slice {
+/* Surname rings: one section per surname, filling its share of the ring. Its
+   own stroke is the ground, so one band parts from the next without a second
+   element drawn between them. */
+.kin-surname-band {
   cursor: pointer;
-  stroke: none;
+  stroke: var(--bg);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
 }
-.kin-slice:hover { filter: brightness(1.2); }
-.kin-slice.dim { opacity: 0.12; }
-.kin-slice.selected {
+.kin-surname-band:hover { filter: brightness(1.2); }
+.kin-surname-band.dim { opacity: 0.12; }
+.kin-surname-band.selected,
+.kin-surname-band:focus-visible {
+  outline: none;
   stroke: var(--text);
   stroke-width: 2;
 }
-.kin-slice.find-hit {
+.kin-surname-band.find-hit {
   stroke: var(--status-diff);
   stroke-width: 2.5;
 }
-/* One surname giving way to the next, and — firmer — the elders' run giving way
-   to the issue's, the only boundary in a ring that is about kinship. */
-.kin-band-edge {
-  stroke: var(--bg);
-  stroke-width: 1.1;
-  stroke-opacity: 0.55;
-  pointer-events: none;
-}
+/* The elders' run giving way to the issue's — the only boundary in a ring that
+   is about kinship rather than about names. */
 .kin-gen-split {
   stroke: var(--text);
   stroke-width: 1.6;
@@ -5405,6 +5403,19 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-opacity: 0.35;
   stroke-linejoin: round;
 }
+/* A row in the list of who is in a band: the whole row is the button. */
+.kin-band-person {
+  display: block;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.kin-band-person:hover .map-panel-person { color: var(--accent); }
 /* The root, at the centre of the wheel. */
 .kin-hub { fill: var(--accent); }
 .kin-hub-label {

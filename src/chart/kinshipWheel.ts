@@ -726,19 +726,6 @@ export type KinDirection = "up" | "same" | "down";
 export const kinDirection = (generation: number): KinDirection =>
   generation > 0 ? "up" : generation === 0 ? "same" : "down";
 
-export interface SurnameSlice {
-  person: KinPerson;
-  /** Degrees, clockwise, with −90 at 12 o'clock. */
-  a0: number;
-  a1: number;
-  rInner: number;
-  rOuter: number;
-  pathD: string;
-  /** The slice's middle, for Find and selection. */
-  x: number;
-  y: number;
-}
-
 /** Hairline of ground between one ring and the next. The rings are solid here,
  *  so they are told apart by the gap rather than by the wheel's dotted circles. */
 const RING_INSET = 0.9;
@@ -757,17 +744,29 @@ export interface SurnameLabel {
   rotate?: number;
 }
 
+/** One drawn section: the relatives of one ring who share a surname, a family
+ *  line and a generation, and who came out next to each other. The people are
+ *  the band's own — nothing below it is drawn, so the names are read off the
+ *  tooltip rather than off a slice each. */
 export interface SurnameBand {
   /** Empty for a record with no surname — the caption is the caller's to word. */
   surname: string;
+  people: KinPerson[];
   count: number;
   distance: number;
   direction: KinDirection;
+  /** Generations above (+) or below (−) the root — one value for the whole
+   *  band, so a colour axis keyed on it paints the section exactly. */
+  generation: number;
+  branch: string;
   a0: number;
   a1: number;
   rInner: number;
   rOuter: number;
   pathD: string;
+  /** The band's middle, for Find and for scrolling a person into view. */
+  x: number;
+  y: number;
   label?: SurnameLabel;
 }
 
@@ -795,7 +794,6 @@ export interface SurnameRingsChart {
      *  wheel's scale drops those too, and every ring is on a tooltip anyway. */
     numbered: boolean;
   }[];
-  slices: SurnameSlice[];
   bands: SurnameBand[];
   splits: SurnameSplit[];
   maxDistance: number;
@@ -852,7 +850,7 @@ function captionArc(cx: number, cy: number, r: number, a0: number, a1: number): 
 function fitLabel(
   cx: number,
   cy: number,
-  band: Omit<SurnameBand, "label" | "pathD">,
+  band: { a0: number; a1: number; rInner: number; rOuter: number; count: number },
   text: string,
 ): SurnameLabel | undefined {
   if (!text) return undefined;
@@ -918,7 +916,6 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
     if (at) at.push(p); else byRing.set(p.distance, [p]);
   }
 
-  const slices: SurnameSlice[] = [];
   const bands: SurnameBand[] = [];
   const splits: SurnameSplit[] = [];
   const rings: SurnameRingsChart["rings"] = [];
@@ -943,9 +940,11 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
     const start = -90 - (elders * per) / 2;
     const rMid = (rInner + rOuter) / 2;
 
-    // One band per run of neighbours sharing a surname inside one family line:
-    // the same surname arriving from two lines stays two bands, which is how a
-    // name entering the tree twice stays visible.
+    // One band per run of neighbours sharing a surname inside one family line
+    // and one generation: the same surname arriving from two lines stays two
+    // bands, which is how a name entering the tree twice stays visible. The
+    // band is the whole section — nothing is drawn per person under it, so it
+    // is also the unit that is hovered, clicked and coloured.
     let open: { from: number; key: string; people: KinPerson[] } | undefined;
     const close = (to: number) => {
       if (!open) return;
@@ -955,14 +954,20 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
         count: open.people.length,
         distance: m,
         direction: kinDirection(first.generation),
+        generation: first.generation,
+        branch: first.branch,
         a0: open.from,
         a1: to,
         rInner,
         rOuter,
       };
+      const a = rad((open.from + to) / 2);
       bands.push({
         ...shape,
+        people: open.people,
         pathD: sectorPath(cx, cy, rInner, rOuter, open.from, to),
+        x: cx + rMid * Math.cos(a),
+        y: cy + rMid * Math.sin(a),
         label: fitLabel(cx, cy, shape, first.surname),
       });
       open = undefined;
@@ -971,26 +976,11 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
     const directions = new Set(cell.map((p) => kinDirection(p.generation)));
     cell.forEach((p, i) => {
       const a0 = start + i * per;
-      const a1 = a0 + per;
-      const a = rad(a0 + per / 2);
-      slices.push({
-        person: p,
-        a0,
-        a1,
-        rInner,
-        rOuter,
-        // Slices tile seamlessly and carry no stroke, so a run of relatives the
-        // colour axis paints alike reads as one block under the surname band.
-        pathD: sectorPath(cx, cy, rInner, rOuter, a0, a1),
-        x: cx + rMid * Math.cos(a),
-        y: cy + rMid * Math.sin(a),
-      });
-
       const prev = cell[i - 1];
       if (prev && kinDirection(prev.generation) !== kinDirection(p.generation)) {
         splits.push({ distance: m, angle: a0, rInner, rOuter });
       }
-      const key = `${kinDirection(p.generation)}|${p.branch}|${p.surname}`;
+      const key = `${kinDirection(p.generation)}|${p.generation}|${p.branch}|${p.surname}`;
       if (open && open.key !== key) close(a0);
       if (!open) open = { from: a0, key, people: [] };
       open.people.push(p);
@@ -1008,7 +998,6 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
     width: cx + radius + pad,
     height: cy + radius + pad,
     rings,
-    slices,
     bands,
     splits,
     maxDistance,

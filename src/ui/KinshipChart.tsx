@@ -12,10 +12,10 @@ import {
   buildSurnameRings,
   collectKin,
   kinDepth,
-  kinDirection,
   OWN_BRANCH,
   type KinDirection,
   type KinPerson,
+  type SurnameBand,
 } from "../chart/kinshipWheel";
 import { birthYear, isPresumedLiving } from "../gedcom/lifespan";
 import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
@@ -61,6 +61,9 @@ const KinMapBody = lazy(() => import("./KinMapBody"));
 
 /** The unplaced list shows at most this many names per group. */
 const UNPLACED_MAX_ROWS = 150;
+/** Names a surname band's hover text carries before it says "and N more" — a
+ *  tooltip taller than this is past reading, and the band opens for the rest. */
+const BAND_TOOLTIP_ROWS = 10;
 
 /** What a surname slice is filled with while the shared Color axis is Plain.
  *  The wheel can leave every dot the accent, because ground separates them; a
@@ -187,15 +190,30 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     [colorer],
   );
   const colorOf = useCallback((p: KinPerson) => colorer.colorOf(categoryOf(p)) ?? "var(--accent)", [colorer, categoryOf]);
-  /** Surname slices are tinted rather than filled flat, as the pedigree boxes
-   *  and fan wedges are: the surname is set on top of its own band, and has to
-   *  stay readable whatever the Color axis hands back. */
-  const sliceFill = useCallback(
-    (p: KinPerson) => {
-      const c = colorer.axis === "plain" ? DIRECTION_FILL[kinDirection(p.generation)] : colorOf(p);
+  /** A surname band is one section, so it takes one colour: the one most of its
+   *  people share. Bands are cut on surname, family line and generation, so the
+   *  axes keyed on those paint a section exactly; on sex or living, where a band
+   *  can hold both, the majority speaks for it and the tooltip has the truth.
+   *  Tinted rather than filled flat, as the pedigree boxes and fan wedges are —
+   *  the surname is set on top of its own band and has to stay readable. */
+  const bandFill = useCallback(
+    (band: SurnameBand) => {
+      let c: string;
+      if (colorer.axis === "plain") c = DIRECTION_FILL[band.direction];
+      else {
+        const tally = new Map<string, number>();
+        for (const p of band.people) {
+          const key = categoryOf(p);
+          tally.set(key, (tally.get(key) ?? 0) + 1);
+        }
+        let best = "";
+        let seen = -1;
+        for (const [key, n] of tally) if (n > seen) { best = key; seen = n; }
+        c = colorer.colorOf(best) ?? "var(--accent)";
+      }
       return `color-mix(in srgb, ${c} ${AXIS_TINT}%, var(--panel))`;
     },
-    [colorer.axis, colorOf],
+    [colorer, categoryOf],
   );
 
   // The colour key doubles as a filter, like the Map's event-kind chips: each
@@ -252,6 +270,11 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
 
   const drawn = useCallback((p: KinPerson) => p.distance > 0 && shown(p), [shown]);
 
+  /** A band the reader has opened, for the list of who is in it. A band of one
+   *  never opens: clicking it goes straight to that person, as a dot does. */
+  const [bandOpen, setBandOpen] = useState<SurnameBand | null>(null);
+  useEffect(() => setBandOpen(null), [layout, currentRootId, scope]);
+
   // The map layout: each relative at their anchor place, the rest listed. Only
   // built while it is showing — the other two layouts never ask.
   const mapData = useMemo(() => (layout === "map" ? placeKin(mainDs, people) : undefined), [layout, mainDs, people]);
@@ -272,7 +295,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     const m = new Map<string, ChartNode>();
     if (surnames) {
       m.set(currentRootId, { key: currentRootId, x: surnames.cx, y: surnames.cy });
-      for (const s of surnames.slices) m.set(s.person.id, { key: s.person.id, x: s.x, y: s.y });
+      // Everyone is findable, but a person has no place of their own here: Find
+      // scrolls to the band that holds them, which is what there is to look at.
+      for (const b of surnames.bands) for (const p of b.people) m.set(p.id, { key: p.id, x: b.x, y: b.y });
     } else if (layout !== "bars") {
       m.set(currentRootId, { key: currentRootId, x: wheel.cx, y: wheel.cy });
       for (const d of wheel.dots) m.set(d.person.id, { key: d.person.id, x: d.x, y: d.y });
@@ -295,6 +320,14 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
 
   const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", layout === "wheel" || layout === "surnames", 24, `${currentRootId}:${layout}:${scope}:${settings.maxGenerations ?? "all"}`);
+
+  const openBand = useCallback(
+    (b: SurnameBand) => {
+      if (b.count === 1) { setBandOpen(null); selectNode(b.people[0].id); return; }
+      setBandOpen((prev) => (prev && prev.pathD === b.pathD ? null : b));
+    },
+    [selectNode],
+  );
 
   // On the map only the placed can be found; a hit elsewhere is a miss with
   // the usual re-root offer.
@@ -361,6 +394,29 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const ringTitle = (d: number) => {
     const named = ringName(d);
     return named ? `${d} · ${named}` : String(d);
+  };
+
+  /** A band's identity in the drawing — its ring and where it starts. */
+  const bandKey = (b: SurnameBand) => `${b.distance}-${b.a0.toFixed(2)}`;
+
+  /** A band of one reads exactly as a dot does. A fuller band names itself, its
+   *  size and the kinship its people share, and then lists them: nothing is
+   *  drawn per person, so the tooltip is where the names are. */
+  const bandTooltip = (b: SurnameBand): string => {
+    if (b.count === 1) return tooltipFor(b.people[0]);
+    const head = [
+      b.surname || t("kin.surname.none"),
+      t("kin.count", { count: b.count }),
+      kinshipOf(b.people[0]),
+      ringTitle(b.distance),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const rows = b.people
+      .slice(0, BAND_TOOLTIP_ROWS)
+      .map((p) => (redacted(p) ? nameFor(p) : [p.name, p.years].filter(Boolean).join(" · ")));
+    if (b.count > BAND_TOOLTIP_ROWS) rows.push(t("kin.map.more", { count: b.count - BAND_TOOLTIP_ROWS }));
+    return [head, ...rows].join("\n");
   };
 
   /** The bars' year ruler and the root's own lifetime band, drawn to a given
@@ -637,6 +693,45 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             </div>
           </div>
         )}
+        {/* Who is in the band just clicked. The wheel opens a person straight
+            from their dot; here a section stands for several, so the list is
+            the way through to one of them. */}
+        {surnames && bandOpen && (
+          <div className="map-panel kin-unplaced-panel">
+            <div className="map-panel-header">
+              <span className="map-panel-title">
+                {bandOpen.surname || t("kin.surname.none")} · {t("kin.count", { count: bandOpen.count })}
+              </span>
+              <button className="modal-close" onClick={() => setBandOpen(null)} title={t("help.close")} aria-label={t("help.close")}>
+                ×
+              </button>
+            </div>
+            <div className="kin-unplaced-body">
+              <ul className="map-panel-list kin-map-list">
+                {bandOpen.people.slice(0, UNPLACED_MAX_ROWS).map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      className="kin-band-person"
+                      onClick={() => {
+                        selectNode(p.id);
+                        setBandOpen(null);
+                      }}
+                    >
+                      <span className="map-panel-person">
+                        <span>{nameFor(p)}</span>
+                        <span className="person-kinship">{kinshipOf(p)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+                {bandOpen.count > UNPLACED_MAX_ROWS && (
+                  <li className="map-panel-more">{t("kin.map.more", { count: bandOpen.count - UNPLACED_MAX_ROWS })}</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        )}
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps} hidden={onMap}>
           {laid && !onMap && (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
@@ -644,37 +739,35 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                 <g transform={`translate(${PAD},${PAD})`}>
                   {surnames ? (
                     <>
-                      {/* One slice per relative, filled by the shared Color axis
-                          exactly as the wheel's dots are, so the two layouts
-                          answer the colour key the same way. They tile edge to
-                          edge: the surname bands are drawn over them. */}
-                      {surnames.slices
-                        .filter((s) => shown(s.person))
-                        .map((s) => (
+                      {/* One section per surname, not per person: the people in
+                          it are read off the tooltip, and the band is what is
+                          hovered, coloured and clicked. Its own stroke is the
+                          ground, so neighbouring bands part without a second
+                          element between them. */}
+                      {surnames.bands
+                        .filter((b) => b.people.some(shown))
+                        .map((b) => (
                           <path
-                            key={s.person.id}
-                            className={`kin-slice${lit(s.person) ? "" : " dim"}${s.person.id === selectedKey ? " selected" : ""}${s.person.id === find.hitKey ? " find-hit" : ""}`}
-                            d={s.pathD}
-                            fill={sliceFill(s.person)}
-                            onClick={() => selectNode(s.person.id)}
+                            key={bandKey(b)}
+                            className={`kin-surname-band${b.people.some(lit) ? "" : " dim"}${b.people.some((p) => p.id === selectedKey) ? " selected" : ""}${b.people.some((p) => p.id === find.hitKey) ? " find-hit" : ""}`}
+                            d={b.pathD}
+                            fill={bandFill(b)}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`${b.surname || t("kin.surname.none")}, ${t("kin.count", { count: b.count })}`}
+                            onClick={() => openBand(b)}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter" && e.key !== " ") return;
+                              e.preventDefault();
+                              openBand(b);
+                            }}
                           >
-                            <title>{tooltipFor(s.person)}</title>
+                            <title>{bandTooltip(b)}</title>
                           </path>
                         ))}
-                      {/* A hairline where one surname gives way to the next… */}
-                      {surnames.bands.map((b) => (
-                        <line
-                          key={`e${b.distance}:${b.a0.toFixed(2)}`}
-                          className="kin-band-edge"
-                          x1={surnames.cx + b.rInner * Math.cos((b.a0 * Math.PI) / 180)}
-                          y1={surnames.cy + b.rInner * Math.sin((b.a0 * Math.PI) / 180)}
-                          x2={surnames.cx + b.rOuter * Math.cos((b.a0 * Math.PI) / 180)}
-                          y2={surnames.cy + b.rOuter * Math.sin((b.a0 * Math.PI) / 180)}
-                        />
-                      ))}
-                      {/* …and a firmer one where the elders' run meets the
-                          issue's, which is the one boundary in a ring that is
-                          about kinship rather than about names. */}
+                      {/* A firmer line where the elders' run meets the issue's,
+                          the one boundary in a ring that is about kinship
+                          rather than about names. */}
                       {surnames.splits.map((s) => (
                         <line
                           key={`s${s.distance}:${s.angle.toFixed(2)}`}
@@ -688,10 +781,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                       {settings.kinNames &&
                         surnames.bands.map((b) =>
                           !b.label ? null : b.label.pathD ? (
-                            <g key={`l${b.distance}:${b.a0.toFixed(2)}`}>
-                              <path id={`kin-sur-${b.distance}-${b.a0.toFixed(2)}`} d={b.label.pathD} fill="none" />
+                            <g key={`l${bandKey(b)}`}>
+                              <path id={`kin-sur-${bandKey(b)}`} d={b.label.pathD} fill="none" />
                               <text className="kin-surname" fontSize={b.label.fontPx} dominantBaseline="central">
-                                <textPath href={`#kin-sur-${b.distance}-${b.a0.toFixed(2)}`} startOffset="50%" textAnchor="middle">
+                                <textPath href={`#kin-sur-${bandKey(b)}`} startOffset="50%" textAnchor="middle">
                                   {b.surname || t("kin.surname.none")}
                                   {b.label.count !== undefined && <tspan className="kin-wedge-count"> {b.label.count}</tspan>}
                                 </textPath>
@@ -699,7 +792,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                             </g>
                           ) : (
                             <text
-                              key={`l${b.distance}:${b.a0.toFixed(2)}`}
+                              key={`l${bandKey(b)}`}
                               className="kin-surname"
                               fontSize={b.label.fontPx}
                               textAnchor="middle"
