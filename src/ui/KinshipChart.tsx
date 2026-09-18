@@ -645,7 +645,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       }
     >
       <div className={`tree-canvas-wrap${onMap ? " map-canvas-wrap kin-map-wrap" : ""}`}>
-        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} />
+        {/* The surname rings tint their bands so the names read on top of them;
+            the wheel, the bars and the map fill their marks flat. The key
+            follows whichever is showing. */}
+        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} tint={surnames ? AXIS_TINT : undefined} />
         {onMap && (
           <Suspense fallback={null}>
             <KinMapBody
