@@ -60,6 +60,8 @@ export function EventFieldsRow({
   addrCanonical,
   agencySuggestions,
   agencyCanonical,
+  causeSuggestions,
+  causeCanonical,
   placeCoords,
   placeForms,
   pairCoords,
@@ -115,6 +117,8 @@ export function EventFieldsRow({
   addrCanonical: Map<string, string>;
   agencySuggestions: string[];
   agencyCanonical: Map<string, string>;
+  causeSuggestions: string[];
+  causeCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   /** Attested FORM per place (see PlaceSuggestions.placeForms). */
@@ -719,6 +723,7 @@ export function EventFieldsRow({
       lookupNote?: string;
       onPickProposal?: (proposal: PlaceProposal) => void;
     },
+    offerAllWhenEmpty?: boolean,
   ) {
     return (
       <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
@@ -736,6 +741,7 @@ export function EventFieldsRow({
           // at all (the agency) has nothing to match that way.
           matchCombosByPlace={!!combos}
           addresses={!!combos}
+          offerAllWhenEmpty={offerAllWhenEmpty}
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
           className={"edit-input " + cls}
@@ -1046,7 +1052,26 @@ export function EventFieldsRow({
               agencySlotLabel,
               (val) => commitAll({ agency: val }),
             )}
-        {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
+        {/* The cause completes from the ones the file already names, and offers
+            them as soon as the field is entered: a register's deaths run on a
+            few repeated causes, and the exact wording of one already recorded
+            is the wording this one wants too. */}
+        {extraPlace(
+          "cause",
+          t("event.colCause"),
+          show.cause,
+          causeField,
+          causeForced,
+          causeSuggestions,
+          causeCanonical,
+          "edit-event-cause",
+          t("event.cause", { event: label }),
+          (val) => commitAll({ cause: val }),
+          undefined,
+          undefined,
+          undefined,
+          true,
+        )}
         {/* Sources and links lead the note: the note is a textarea that grows to
             as many lines as it holds, and after it the icons ended up alone at
             the foot of a tall row, far from the event they belong to. */}

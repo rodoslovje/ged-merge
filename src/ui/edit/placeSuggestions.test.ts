@@ -260,3 +260,33 @@ describe("buildPlaceSuggestions agencies", () => {
     expect(sug.agencyCanonical.get("župnija kranj - šmartin")).toBe("župnija Kranj - Šmartin");
   });
 });
+
+describe("buildPlaceSuggestions causes", () => {
+  const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 DEAT
+2 CAUS Pljučnica
+0 @I2@ INDI
+1 DEAT
+2 CAUS PLJUČNICA
+0 @I3@ INDI
+1 DEAT
+2 CAUS Starost
+0 @I4@ INDI
+1 BURI
+2 CAUS Pljučnica
+0 TRLR
+`));
+
+  it("offers the file's own causes, the most used one first", () => {
+    // Frequency order, not alphabetical: the dropdown opens before anything is
+    // typed, and the cause that already carries the file is the likely answer.
+    expect(sug.causeSuggestions).toEqual(["Pljučnica", "Starost"]);
+  });
+
+  it("snaps a retyped cause back to the casing the file writes most", () => {
+    expect(sug.causeCanonical.get("pljučnica")).toBe("Pljučnica");
+  });
+});

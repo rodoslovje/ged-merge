@@ -41,6 +41,8 @@ export const EventList = memo(function EventList({
   addrCanonical,
   agencySuggestions,
   agencyCanonical,
+  causeSuggestions,
+  causeCanonical,
   placeCoords,
   placeForms,
   pairCoords,
@@ -79,6 +81,8 @@ export const EventList = memo(function EventList({
   addrCanonical: Map<string, string>;
   agencySuggestions: string[];
   agencyCanonical: Map<string, string>;
+  causeSuggestions: string[];
+  causeCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -260,6 +264,8 @@ export const EventList = memo(function EventList({
         addrCanonical={addrCanonical}
         agencySuggestions={agencySuggestions}
         agencyCanonical={agencyCanonical}
+        causeSuggestions={causeSuggestions}
+        causeCanonical={causeCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -308,6 +314,8 @@ export const EventList = memo(function EventList({
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -364,6 +372,8 @@ export const EventList = memo(function EventList({
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}

@@ -42,6 +42,7 @@ export function PlaceAutocomplete({
   combos,
   matchCombosByPlace,
   addresses,
+  offerAllWhenEmpty,
   isDirty,
   isMerge,
   className,
@@ -74,6 +75,12 @@ export function PlaceAutocomplete({
    *  place — and are shown in the address style, so an address reads the same
    *  whether it stands alone or beside the other place it would move to. */
   addresses?: boolean;
+  /** Offer the suggestion list on focus, before anything is typed — for a
+   *  short list the file keeps reusing (the cause of death), where the point
+   *  is to pick one of the few values already in use rather than to narrow
+   *  thousands of them down by typing. The place and address fields keep it
+   *  off: a dropdown of eight arbitrary settlements answers nothing. */
+  offerAllWhenEmpty?: boolean;
   isDirty: boolean;
   isMerge?: boolean;
   className?: string;
@@ -126,7 +133,11 @@ export function PlaceAutocomplete({
     // The query is read like a name: each typed part matches on its own, in
     // any order and accent-blind — "Zg Bitnj" reaches Zgornje Bitnje.
     const q = placeQuery(value);
-    if (!q.terms.length) return [];
+    // Nothing typed: the whole list, capped like a filtered one, for a field
+    // that offers it (see offerAllWhenEmpty) — and nothing at all otherwise.
+    if (!q.terms.length) {
+      return offerAllWhenEmpty ? plainRows.slice(0, 8).map((r) => ({ place: r.place })) : [];
+    }
     // A match at the start of the text reads as "the one you meant" more than
     // a hit buried inside a longer name ("Sv. Peter" before "Pokopališče ob
     // cerkvi sv. Martin"), so texts opening with the first term lead, list
@@ -227,7 +238,7 @@ export function PlaceAutocomplete({
         ? search.results.map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
         : [];
     return [...fromFile, ...offers];
-  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, search]);
+  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, offerAllWhenEmpty, search]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
 
@@ -303,7 +314,7 @@ export function PlaceAutocomplete({
         title={title}
         autoFocus={autoFocus}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setHighlighted(-1); }}
-        onFocus={() => { if (value.trim()) setOpen(true); }}
+        onFocus={() => { if (value.trim() || offerAllWhenEmpty) setOpen(true); }}
         onKeyDown={handleKeyDown}
         onBlur={() => {}}
         onClear={() => { onClear(); setOpen(false); setSearch(IDLE); }}
