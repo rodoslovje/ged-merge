@@ -16,6 +16,7 @@ import { useSettingsSlice } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
 import { usePlacePeople } from "./PlacePeopleContext";
 import { personsOfRecord } from "../../tools/places";
+import type { PersonRef } from "../../tools/sources";
 import { UsageList } from "../tools/shared";
 import { usePhone } from "../usePhone";
 
@@ -370,17 +371,22 @@ export function EventCoordPicker({
   // Who else the file puts at this place and address — the names that say
   // whether the house on the map is the right one. Same rule: only once open.
   const peopleUses = open && people ? people.usesAt(place, address) : undefined;
+  /** One line per person, not per record: a couple's marriage at the house
+   *  names the two who are already there, and listing them twice says nothing
+   *  the two lines above it did not. */
   const peopleRows = useMemo(() => {
     if (!peopleUses || !people) return [];
-    return peopleUses.records
-      .map((id) => ({ recordId: id, persons: personsOfRecord(people.dataset, id) }))
-      .filter((use) => use.persons.length > 0);
+    const seen = new Set<string>();
+    const rows: { persons: PersonRef[] }[] = [];
+    for (const recordId of peopleUses.records) {
+      for (const person of personsOfRecord(people.dataset, recordId)) {
+        if (seen.has(person.id)) continue;
+        seen.add(person.id);
+        rows.push({ persons: [person] });
+      }
+    }
+    return rows;
   }, [peopleUses, people]);
-  /** Distinct people among those records — a marriage lists both spouses. */
-  const peopleCount = useMemo(
-    () => new Set(peopleRows.flatMap((use) => use.persons.map((p) => p.id))).size,
-    [peopleRows],
-  );
 
   /** What the file itself already knows about this address / place. Anything
    *  equal to the current coordinate is left out — it would propose a no-op.
@@ -670,7 +676,7 @@ export function EventCoordPicker({
                   the house being pinned is this family's at all. Folded away
                   behind its own count: a settlement's address-less events can
                   be a whole village, and the pick is what the panel is for. */}
-              {peopleCount > 0 && people && (
+              {peopleRows.length > 0 && people && (
                 <div className="edit-coord-people">
                   <button
                     type="button"
@@ -678,7 +684,7 @@ export function EventCoordPicker({
                     aria-expanded={showPeople}
                     onClick={() => setShowPeople((v) => !v)}
                   >
-                    {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleCount })}
+                    {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleRows.length })}
                   </button>
                   {showPeople && (
                     <>
