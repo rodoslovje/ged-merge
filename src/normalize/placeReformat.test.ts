@@ -176,6 +176,15 @@ describe("reformatPlace → main-learned hierarchy fills in missing detail", () 
     expect(r.addr).toBeUndefined();
   });
 
+  it("leaves a slash-separated value whole when it is the ADDR that carries it", () => {
+    // Where the file writes the path as the address and no place beside it,
+    // the same split produced a PLAC out of the path minus its number and an
+    // ADDR repeating the whole of it.
+    const r = reformatPlace(undefined, "Kranj/Ulica Janeza Puharja 9/Grosova ulica 18", RENKO_H);
+    expect(r.plac).toBeUndefined();
+    expect(r.addr).toBe("Kranj/Ulica Janeza Puharja 9/Grosova ulica 18");
+  });
+
   it("still splits village numbering, where the name before the number is a settlement", () => {
     const r = reformatPlace("Zgornje Bitnje 165", undefined, RENKO_H);
     expect(r.plac).toBe("Zgornje Bitnje");

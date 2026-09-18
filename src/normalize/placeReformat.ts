@@ -9,6 +9,7 @@ import {
   stripHouseNumber,
 } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
+import type { PlaceComponents } from "../gedcom/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
 /** Whether a main layout triggers reshaping (others are copied verbatim). */
@@ -48,8 +49,11 @@ export function reformatPlace(
   // parser never broke up — a file writing its levels with slashes, as in
   // "Kranj/Ulica Janeza Puharja 9/Grosova ulica 18" — or names a street, the
   // split leaves a place that exists nowhere and an address repeating the
-  // entire value. Such a value is passed through as written.
-  if (p?.houseNumber && !p.street && p.locality && (p.locality.includes("/") || looksLikeStreet(p.locality))) {
+  // entire value. Such a value is passed through as written, whether it is the
+  // PLAC or an ADDR standing in for one.
+  const unreadableHouse = (d: PlaceComponents | undefined): boolean =>
+    !!d?.houseNumber && !d.street && !!d.locality && (d.locality.includes("/") || looksLikeStreet(d.locality));
+  if (unreadableHouse(p) || (!p?.locality && unreadableHouse(a))) {
     return { plac: respellSeparator(clean(placRaw), fmt), addr: clean(addrRaw) };
   }
 
