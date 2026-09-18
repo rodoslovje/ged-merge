@@ -600,7 +600,12 @@ export function applyIndividualFamilies(
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
     const wantFamLinks = wantsIncoming(rows, fields, `${famKey}.links`);
-    if (!takeSpouses && !takeChildren && !wantFamEvent && !wantFamLinks) continue;
+    // A family whose only incoming change is its note or its private flag is
+    // still a family to write into: without these two the loop skipped it and
+    // the choice the reader made on that row went nowhere.
+    const wantFamNotes = wantsIncoming(rows, fields, `${famKey}.notes`);
+    const wantFamPrivate = wantsIncoming(rows, fields, `${famKey}.private`);
+    if (!takeSpouses && !takeChildren && !wantFamEvent && !wantFamLinks && !wantFamNotes && !wantFamPrivate) continue;
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
