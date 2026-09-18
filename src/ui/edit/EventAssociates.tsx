@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { Association, AssocRole, Dataset, GedNode, Sex } from "../../gedcom/types";
-import { lifespanWithAge } from "../../gedcom/age";
+import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
 import type { Translate } from "../../locales/i18n";
@@ -41,6 +42,7 @@ export function PersonChip({
   /** For an associate the file records as nobody: the typed name. */
   name?: string;
 }) {
+  const { t } = useTranslation();
   const nameOf = useNameOf();
   const settings = useSettingsSlice(CHIP_SETTINGS);
   const indi = targetId ? dataset.individuals.get(targetId) : undefined;
@@ -49,7 +51,11 @@ export function PersonChip({
   return (
     <span className={`person-label ${sexClass(indi.sex)}`}>
       <span className="person-name">{nameOf(indi)}</span>
-      {span && <span className="person-years gm-data">{span}</span>}
+      {span && (
+        <span className="person-years gm-data" title={lifespanTooltipOf(indi, settings.showAge, t)}>
+          {span}
+        </span>
+      )}
     </span>
   );
 }

@@ -467,7 +467,11 @@ export function CompareTree({
         rootName ? (
           <>
             <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
-            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+            {rootYears && (
+              <span className="tree-title-years gm-data" title={tree?.dates}>
+                {rootYears}
+              </span>
+            )}
             <span className="tree-title-break" aria-hidden="true" />
             {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
             {rootStatus && rootStatus !== "undecided" && (
@@ -728,7 +732,11 @@ function TreeLegend({
                       <span className="tree-swatch" style={{ background: STATUS_COLOR[n.status] }} />
                       <span className="tree-person-text">
                         <span className={`tree-person-name ${sexClass(n.sex)}`}>{n.name}</span>
-                        {n.years && <span className="tree-person-years gm-data">{n.years}</span>}
+                        {n.years && (
+                          <span className="tree-person-years gm-data" title={n.dates}>
+                            {n.years}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </li>

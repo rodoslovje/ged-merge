@@ -41,7 +41,7 @@ import { useChartSettings } from "./ChartSettingsContext";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Full-page text report — the Charts hub's "Report" kind, with the shared
@@ -343,6 +343,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
             name={reportName(rootEntry, exportOpts)}
             sexCls={sexClass(rootEntry.sex)}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(mainDs.individuals.get(currentRootId), settings.showAge, t)}
             kinship={showStartKinship ? startKinship?.label(currentRootId) : undefined}
             lineage={startKinship?.lineage(currentRootId)}
             kind={pageKind}

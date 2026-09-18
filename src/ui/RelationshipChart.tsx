@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeHover, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -242,7 +242,11 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         title={t("relpath.replace")}
       >
         <span className={`tree-title-name ${sexClass(indi?.sex)}`}>{nameOf(id)}</span>
-        {yearsOf(id) && <span className="tree-title-years gm-data">{yearsOf(id)}</span>}
+        {yearsOf(id) && (
+          <span className="tree-title-years gm-data" title={lifespanTooltipOf(indi, settings.showAge, t) || undefined}>
+            {yearsOf(id)}
+          </span>
+        )}
         <span className="relchart-endpoint-edit" aria-hidden="true">✎</span>
       </button>
     );

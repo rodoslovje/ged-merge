@@ -8,7 +8,7 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import { displayName } from "../match/relatives";
-import { lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
@@ -234,6 +234,7 @@ export function makeContext(
     const person = (indi: import("../gedcom/types").Individual) => ({
       name: displayName(indi.names[0]),
       years: lifespanOf(indi),
+      dates: datesTooltipOf(indi),
       sex: indi.sex,
     });
     report.graftJoins.push({ mainId, compareId: incomingId, main: person(m), incoming: person(c) });

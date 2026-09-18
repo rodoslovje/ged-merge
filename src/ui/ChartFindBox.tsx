@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { renderKeyToken } from "../keyboard/shortcuts";
 import { useFindShortcutOn } from "../keyboard/useFindShortcut";
 import { SearchIcon } from "./icons/SearchIcon";
@@ -125,7 +125,12 @@ export function ChartFindBox({
           {t(k("offChart"))}
           <button type="button" className="chart-find-goto" title={t("edit.tree.reroot")} onClick={find.goToOffChart}>
             {nameOf(offChart)}
-            {span && <span className="gm-data"> {span}</span>}
+            {span && (
+              <span className="gm-data" title={datesTooltipOf(offChart) || undefined}>
+                {" "}
+                {span}
+              </span>
+            )}
           </button>
         </span>
       )}

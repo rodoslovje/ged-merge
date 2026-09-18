@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { isItemizedChange, reportTotals, type ChangeReport, type FieldChange, type GraftJoinPerson } from "../merge/merge";
 import type { Dataset, Individual } from "../gedcom/types";
-import { lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { isPrivateNode } from "../gedcom/private";
 import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
@@ -347,7 +347,12 @@ export function SaveDialog({
                       <span key={s.id ?? i} className={sIndi ? sexClass(sIndi.sex) : undefined}>
                         {i > 0 && " + "}
                         {sIndi ? nameOf(sIndi) : s.name}
-                        {sLifespan && <span className="person-years gm-data"> {sLifespan}</span>}
+                        {sLifespan && (
+                          <span className="person-years gm-data" title={datesTooltipOf(sIndi) || undefined}>
+                            {" "}
+                            {sLifespan}
+                          </span>
+                        )}
                       </span>
                     );
                   })}
@@ -358,7 +363,12 @@ export function SaveDialog({
                 ) : (
                   <>
                     {labelOf(g.id)}
-                    {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
+                    {lifespan && (
+                      <span className="person-years gm-data" title={datesTooltipOf(indi) || undefined}>
+                        {" "}
+                        {lifespan}
+                      </span>
+                    )}
                   </>
                 );
                 return (
@@ -665,7 +675,12 @@ function PersonLabel({ person }: { person: GraftJoinPerson }) {
   return (
     <span className={`preview-rec ${sexClass(person.sex)}`}>
       {person.name}
-      {person.years && <span className="person-years gm-data"> {person.years}</span>}
+      {person.years && (
+        <span className="person-years gm-data" title={person.dates || undefined}>
+          {" "}
+          {person.years}
+        </span>
+      )}
     </span>
   );
 }

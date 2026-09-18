@@ -19,7 +19,7 @@ import {
   type SurnameBand,
 } from "../chart/kinshipWheel";
 import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import type { ChartNode } from "../chart/treeLayout";
 import { PAD } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -280,6 +280,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     (p: KinPerson) => lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: p.years, age: lifespanAge(p.indi) }),
     [settings.showAge],
   );
+  /** The full birth/death dates behind those years, for the hover on a listed
+   *  person's lifespan. A redacted person shows no years, so no dates either. */
+  const datesFor = useCallback(
+    (p: KinPerson) => (redacted(p) ? "" : lifespanTooltipOf(p.indi, settings.showAge, t)),
+    [redacted, settings.showAge, t],
+  );
   /** How a band's people are written wherever they are listed — hover card and
    *  open panel alike: the name under the Name-display settings and in the sex
    *  colour, the lifespan as the chart settings write it, then how they are
@@ -291,9 +297,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       name: nameFor(p),
       sex: redacted(p) ? undefined : p.sex,
       years: lifeOf(p),
+      dates: datesFor(p),
       kinship: kinshipOf(p),
     }),
-    [nameFor, redacted, lifeOf, kinshipOf],
+    [nameFor, redacted, lifeOf, datesFor, kinshipOf],
   );
   const bandHead = useCallback(
     (b: SurnameBand) => `${b.surname || t("kin.surname.none")} · ${t("kin.count", { count: b.count })}`,
@@ -558,6 +565,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             name={rootName}
             sexCls={sexClass(root.sex)}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(root, settings.showAge, t)}
             kinship={settings.showKinship && startId && startId !== currentRootId ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
             kind={pageKind}
@@ -679,6 +687,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
               kinshipOf={kinshipOf}
               redacted={redacted}
               tooltipFor={tooltipFor}
+              datesFor={datesFor}
               selectedId={selectedKey}
               findHitId={find.hitKey}
               onSelect={selectNode}
@@ -765,7 +774,11 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                 {bandOpen.people.slice(0, UNPLACED_MAX_ROWS).map(bandRow).map((r) => (
                   <li key={r.id} className="kin-band-row">
                     <span className={`person-name ${sexClass(r.sex)}`}>{r.name}</span>
-                    {r.years && <span className="person-years gm-data">{r.years}</span>}
+                    {r.years && (
+                      <span className="person-years gm-data" title={r.dates || undefined}>
+                        {r.years}
+                      </span>
+                    )}
                     {r.kinship && <span className="person-kinship">{r.kinship}</span>}
                   </li>
                 ))}

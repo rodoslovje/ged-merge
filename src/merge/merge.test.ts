@@ -2491,8 +2491,8 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
       {
         mainId: "@I1@",
         compareId: "@P1@",
-        main: { name: "Joze Grca", years: "1938", sex: "M" },
-        incoming: { name: "Jozef Grca", years: "1940", sex: "M" },
+        main: { name: "Joze Grca", years: "1938", dates: "1938", sex: "M" },
+        incoming: { name: "Jozef Grca", years: "1940", dates: "1940", sex: "M" },
       },
     ]);
   });
@@ -2635,8 +2635,8 @@ describe("mergeDecisions — unconfirmed matches used while stitching a decision
       {
         mainId: "@I2@",
         compareId: "@P2@",
-        main: { name: "Ana Hribar", years: "1893", sex: "F" },
-        incoming: { name: "Ana Hribar", years: "1892", sex: "F" },
+        main: { name: "Ana Hribar", years: "1893", dates: "1893", sex: "F" },
+        incoming: { name: "Ana Hribar", years: "1892", dates: "1892", sex: "F" },
       },
     ]);
   });

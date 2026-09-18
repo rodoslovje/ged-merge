@@ -57,6 +57,9 @@ interface Props {
   redacted: (p: KinPerson) => boolean;
   /** One-line hover text, for the list panel's rows. */
   tooltipFor: (p: KinPerson) => string;
+  /** The full birth/death dates behind a listed person's bare years, for their
+   *  own hover; empty for a redacted person, whose years stay off. */
+  datesFor: (p: KinPerson) => string;
   selectedId: string | null;
   findHitId: string | null;
   onSelect: (id: string) => void;
@@ -153,6 +156,7 @@ export default function KinMapBody({
   kinshipOf,
   redacted,
   tooltipFor,
+  datesFor,
   selectedId,
   findHitId,
   onSelect,
@@ -415,7 +419,11 @@ export default function KinMapBody({
                 >
                   <span className="map-kind-dot" style={{ background: colorOf(m.person) }} />
                   <span className="kin-map-row-name">{nameFor(m.person)}</span>
-                  {m.person.years && <span className="gm-data kin-map-row-years">{m.person.years}</span>}
+                  {m.person.years && (
+                    <span className="gm-data kin-map-row-years" title={datesFor(m.person) || undefined}>
+                      {m.person.years}
+                    </span>
+                  )}
                 </button>
               </li>
             ))}

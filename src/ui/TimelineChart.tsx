@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
@@ -340,6 +340,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             name={rowName(rootRow)}
             sexCls={sexClass(rootRow.sex)}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(mainDs.individuals.get(rootRow.id), settings.showAge, t)}
             kinship={showKinship ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
             kind={pageKind}

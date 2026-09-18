@@ -27,6 +27,7 @@ import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
+import { datesTooltipOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
@@ -1338,6 +1339,9 @@ function AppContent() {
     (id: string): SearchRowMeta => {
       const meta: SearchRowMeta = {};
       if (settings.showXref) meta.xref = xrefLabel(id);
+      // The row writes bare years; the full dates ride along for their tooltip.
+      const indi = mainDataset?.individuals.get(id);
+      if (indi) meta.dates = datesTooltipOf(indi) || undefined;
       if (settings.showKinship && startId && mainDataset && startId !== id) {
         let cached = kinshipCacheRef.current.get(id);
         if (cached === undefined) {

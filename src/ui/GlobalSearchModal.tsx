@@ -30,6 +30,8 @@ export interface SearchRowMeta {
   kinship?: string;
   /** Lineage CSS modifier (e.g. "lineage-paternal") for colouring the label. */
   kinshipLineage?: string;
+  /** Full birth/death dates behind the row's bare years, for their hover. */
+  dates?: string;
 }
 
 interface Props {
@@ -338,7 +340,11 @@ export function GlobalSearchModal({ isOpen, onClose, rows, indexProgress, onOpen
                   {folderName && <SearchThumb photo={row.photo} />}
                   <span className={`global-search-name ${sexClass(row.sex)}`}>{row.name}</span>
                   {meta.xref && <span className="global-search-xref">{meta.xref}</span>}
-                  {row.span && <span className="global-search-span">{row.span}</span>}
+                  {row.span && (
+                    <span className="global-search-span" title={meta.dates || undefined}>
+                      {row.span}
+                    </span>
+                  )}
                   {meta.kinship && (
                     <span className={`global-search-kin ${meta.kinshipLineage ?? ""}`}>{meta.kinship}</span>
                   )}
