@@ -5240,6 +5240,21 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .chart-hover-kin.lineage-paternal { color: var(--lineage-paternal); }
 .chart-hover-kin.lineage-maternal { color: var(--lineage-maternal); }
 .chart-hover-hint { color: var(--faint); font-size: 0.75rem; margin-top: 2px; }
+/* A card standing for several people — a surname band on the Contemporaries
+   rings — writes each of them the way the head writes one. */
+.chart-hover-people {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px solid var(--border);
+}
+.chart-hover-people li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 1px 0;
+}
+.chart-hover-more { color: var(--faint); font-size: 0.8rem; }
 .tree-edge {
   fill: none;
   stroke: var(--border);
@@ -5411,6 +5426,89 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke: var(--status-diff);
   stroke-width: 2.5;
   stroke-opacity: 1;
+}
+/* Surname rings: one section per surname, filling its share of the ring. Its
+   own stroke is the ground, so one band parts from the next without a second
+   element drawn between them. */
+.kin-surname-band {
+  cursor: pointer;
+  /* A hairline of ground, no more: a ring of two hundred bands is mostly edges,
+     and a heavier one turns a crowded ring into hatching. */
+  stroke: var(--bg);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  /* An outline on an annulus sector is drawn around its bounding box — a
+     rectangle reaching across the chart, tracing nothing that is there. The
+     band shows its own state with its own stroke instead. */
+  outline: none;
+  transition: opacity 0.12s ease;
+}
+.kin-surname-band:hover { filter: brightness(1.2); }
+.kin-surname-band.dim { opacity: 0.12; }
+/* One surname picked out: every band of that name anywhere on the chart, and
+   the rest stood down so the name's whole reach reads at once. The one that was
+   clicked takes the accent; its namesakes elsewhere are outlined plainly, so
+   the eye goes to where it is and then finds where else the name turns up. */
+.kin-surname-band.other { opacity: 0.22; }
+.kin-surname-band.same {
+  stroke: var(--text);
+  stroke-width: 1.6;
+}
+.kin-surname-band:focus-visible { stroke: var(--text); stroke-width: 2; }
+.kin-surname-band.open {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.kin-surname-band.find-hit {
+  stroke: var(--status-diff);
+  stroke-width: 2.2;
+}
+/* The elders' run giving way to the issue's — the only boundary in a ring that
+   is about kinship rather than about names. */
+.kin-gen-split {
+  stroke: var(--text);
+  stroke-width: 1.1;
+  stroke-opacity: 0.55;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.kin-surname {
+  fill: var(--text);
+  font-weight: 500;
+  pointer-events: none;
+  paint-order: stroke;
+  /* The bands carry most of their colour, so the halo does the work of keeping
+     a name off its own ground — light letters over a dark one, dark over a
+     light one, whichever way the theme runs. */
+  stroke: var(--bg);
+  stroke-width: 2.6;
+  stroke-opacity: 0.72;
+  stroke-linejoin: round;
+}
+/* The count rides on the band with its name, not on the page like the wheel's
+   wedge captions: --faint is a ground colour and disappears on a tinted band,
+   so the count keeps the name's own ink and steps back by opacity instead. */
+.kin-surname .kin-wedge-count {
+  fill: var(--text);
+  fill-opacity: 0.72;
+}
+.kin-surname.other { opacity: 0.22; }
+/* A row in the list of who is in a band — name, lifespan, kinship, the way a
+   person reads everywhere else. Nothing here is a link: the layout answers
+   about a family's names, and a person's own panel belongs to the wheel. */
+.kin-band-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+/* Which way the band lies and how far out — beside its name, in the header's
+   own line but stepped back from it. */
+.kin-band-where {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+  white-space: nowrap;
 }
 /* The root, at the centre of the wheel. */
 .kin-hub { fill: var(--accent); }

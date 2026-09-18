@@ -9,6 +9,7 @@ import {
   bloodKin,
   buildKinBars,
   buildKinshipWheel,
+  buildSurnameRings,
   collectKin,
   WEDGE_LABEL_PX,
   generationOffset,
@@ -341,5 +342,114 @@ describe("buildKinBars", () => {
     expect(bars.maxYear).toBeGreaterThanOrEqual(NOW);
     const grandson = bars.bands.flatMap((b) => b.rows).find((r) => r.person.id === "@I10@")!;
     expect(grandson.x1).toBeCloseTo(bars.xOf(NOW), 0);
+  });
+});
+
+describe("buildSurnameRings", () => {
+  const rings = buildSurnameRings(input);
+  const inRing = (d: number) => rings.bands.filter((b) => b.distance === d).sort((a, b) => a.a0 - b.a0);
+
+  it("fills every ring edge to edge, with no gap between one band and the next", () => {
+    expect(rings.rings.length).toBeGreaterThan(0);
+    for (const ring of rings.rings) {
+      const mine = inRing(ring.distance);
+      expect(mine.reduce((sum, b) => sum + b.count, 0)).toBe(ring.count);
+      expect(mine.reduce((sum, b) => sum + (b.a1 - b.a0), 0)).toBeCloseTo(360, 6);
+      for (let i = 1; i < mine.length; i++) expect(mine[i].a0).toBeCloseTo(mine[i - 1].a1, 6);
+      // A band's width is its share of the ring, so it says how many it holds.
+      for (const b of mine) expect(b.a1 - b.a0).toBeCloseTo((b.count * 360) / ring.count, 6);
+    }
+  });
+
+  it("centres each ring's elders on twelve o'clock, so ancestors stay on top", () => {
+    for (const ring of rings.rings) {
+      const elders = inRing(ring.distance).filter((b) => b.direction === "up");
+      if (!elders.length) continue;
+      const a0 = Math.min(...elders.map((b) => b.a0));
+      const a1 = Math.max(...elders.map((b) => b.a1));
+      expect((a0 + a1) / 2).toBeCloseTo(-90, 6);
+      // …and they are one unbroken run, not scattered among the issue.
+      const held = elders.reduce((sum, b) => sum + b.count, 0);
+      expect(a1 - a0).toBeCloseTo((held * 360) / ring.count, 6);
+    }
+  });
+
+  it("runs a ring from ancestor-ward to descendant-ward", () => {
+    const gens = inRing(2).map((b) => b.generation);
+    expect(gens).toEqual([...gens].sort((a, b) => b - a));
+  });
+
+  it("draws one section per surname, with its people on it rather than under it", () => {
+    for (const b of rings.bands) {
+      expect(b.people).toHaveLength(b.count);
+      expect(b.people.every((p) => p.surname === b.surname)).toBe(true);
+      expect(b.people.every((p) => p.generation === b.generation)).toBe(true);
+    }
+  });
+
+  it("bands neighbours sharing a surname, and keeps one name's two lines apart", () => {
+    // Ring 2: the four grandparents, each their own line, then the sister and
+    // the grandson — both Novak of the root's own line, but one on each side of
+    // the root's generation, so they stay two bands.
+    const d2 = rings.bands.filter((b) => b.distance === 2);
+    expect(d2.map((b) => b.surname)).toEqual(["Novak", "Zajc", "Kovac", "Hribar", "Novak", "Novak"]);
+    expect(d2.map((b) => b.direction)).toEqual(["up", "up", "up", "up", "same", "down"]);
+    expect(d2.every((b) => b.count === 1)).toBe(true);
+  });
+
+  it("names each band for what its people are to the root", () => {
+    // A band holds one ring and one generation, so up and down are the same for
+    // everyone in it and the name is exact: the grandparents are ancestors, the
+    // sister is reached sideways, the grandson is issue.
+    expect(rings.bands.filter((b) => b.distance === 2).map((b) => b.kind)).toEqual([
+      "ancestor", "ancestor", "ancestor", "ancestor", "relative", "descendant",
+    ]);
+    // …and an uncle and an aunt are relatives, though they stand a generation up.
+    expect(rings.bands.filter((b) => b.distance === 3).every((b) => b.kind === "relative")).toBe(true);
+    for (const b of rings.bands) {
+      expect(b.people.every((p) => p.up === b.people[0].up && p.down === b.people[0].down)).toBe(true);
+    }
+  });
+
+  it("marks where a direct line ends, and nowhere else", () => {
+    // Ring 2 holds all three kinds: two boundaries inside it plus the wrap,
+    // where the furthest ancestor meets the furthest descendant. Ring 3 is an
+    // uncle and an aunt — one kind, so nothing to mark.
+    expect(rings.splits.filter((s) => s.distance === 2)).toHaveLength(3);
+    expect(rings.splits.filter((s) => s.distance === 1)).toHaveLength(2);
+    expect(rings.splits.filter((s) => s.distance === 3)).toHaveLength(0);
+  });
+
+  it("sets a wide band's name along its arc", () => {
+    const band = rings.bands.find((b) => b.distance === 1 && b.surname === "Kovac")!;
+    expect(band.label?.pathD).toBeTruthy();
+    expect(band.label?.x).toBeUndefined();
+  });
+
+  it("draws every blood relative — the bands merge neighbours, they never drop them", () => {
+    // The count on the chart is the count of people, not of sections: a ring
+    // that lost its width, or a run that closed twice, would go unnoticed
+    // otherwise, because the rest of the circle simply closes over the gap.
+    const kin = collectKin(input).filter((p) => p.distance > 0);
+    expect(rings.bands.reduce((sum, b) => sum + b.count, 0)).toBe(kin.length);
+    expect(new Set(rings.bands.flatMap((b) => b.people.map((p) => p.id))).size).toBe(kin.length);
+  });
+
+  it("leaves the root off the rings — the hub is their place", () => {
+    expect(rings.bands.some((b) => b.people.some((p) => p.id === "@I1@"))).toBe(false);
+    expect(rings.rings.some((r) => r.distance === 0)).toBe(false);
+  });
+
+  it("keeps the rings in distance order, outward from the hub", () => {
+    for (let i = 1; i < rings.rings.length; i++) {
+      expect(rings.rings[i].distance).toBeGreaterThan(rings.rings[i - 1].distance);
+      expect(rings.rings[i].rInner).toBeGreaterThanOrEqual(rings.rings[i - 1].rOuter);
+    }
+  });
+
+  it("obeys the shared Generations cap", () => {
+    const capped = buildSurnameRings({ ...input, maxDistance: 2 });
+    expect(capped.maxDistance).toBe(2);
+    expect(capped.bands.every((b) => b.distance <= 2)).toBe(true);
   });
 });

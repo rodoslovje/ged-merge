@@ -14,9 +14,13 @@ interface Props {
   /** Groups currently hidden (toggling hosts only). */
   hidden?: ReadonlySet<string>;
   onToggle?: (key: string) => void;
+  /** Percentage of the colour a host tints its marks with, where it tints them
+   *  rather than filling them flat. A key that shows a colour the chart never
+   *  paints is not a key: the dot takes the same mix the marks do. */
+  tint?: number;
 }
 
-export function ChartLegend({ entries, hidden, onToggle }: Props) {
+export function ChartLegend({ entries, hidden, onToggle, tint }: Props) {
   const { t } = useTranslation();
   if (entries.length === 0) return null;
   return (
@@ -25,7 +29,10 @@ export function ChartLegend({ entries, hidden, onToggle }: Props) {
         const off = hidden?.has(e.key) ?? false;
         const body = (
           <>
-            <span className="map-kind-dot" style={{ background: e.color }} />
+            <span
+              className="map-kind-dot"
+              style={{ background: tint === undefined ? e.color : `color-mix(in srgb, ${e.color} ${tint}%, var(--panel))` }}
+            />
             {e.label} <span className="kin-legend-count">{e.count}</span>
           </>
         );
