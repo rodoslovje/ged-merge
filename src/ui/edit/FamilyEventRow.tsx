@@ -7,6 +7,7 @@ import { coupleAgesDisplay } from "../../gedcom/age";
 import { isSameSexCouple } from "../../gedcom/couple";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
+import type { TagSuggestions } from "./placeSuggestions";
 import { familyTagChoices } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
@@ -17,7 +18,7 @@ const SETTINGS_KEYS = ["showAge"] as const;
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
   fam, tag, t, commit, openEditSource, openMediaLink, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusLead,
-  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, causeSuggestions, causeCanonical, placeCoords, placeForms, pairCoords,
+  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, causeSuggestions, causeCanonical, tagSuggestions, placeCoords, placeForms, pairCoords,
   mergeHighlight, mergeIncomingSources, mergeIncomingPageImages, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
@@ -40,6 +41,7 @@ export function FamilyEventRow({
   agencyCanonical: Map<string, string>;
   causeSuggestions: string[];
   causeCanonical: Map<string, string>;
+  tagSuggestions: TagSuggestions;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -113,6 +115,7 @@ export function FamilyEventRow({
       agencyCanonical={agencyCanonical}
       causeSuggestions={causeSuggestions}
       causeCanonical={causeCanonical}
+      tagSuggestions={tagSuggestions}
       placeCoords={placeCoords}
       placeForms={placeForms}
       pairCoords={pairCoords}

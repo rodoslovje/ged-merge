@@ -1725,7 +1725,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const deferredDerivations = useDeferredValue(derivations);
   const deferredTick = useDeferredValue(tick);
   const deferredUndoVersion = useDeferredValue(undoVersion);
-  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, causeSuggestions, causeCanonical, placeCoords, pairCoords, placeForms } = useMemo(
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, causeSuggestions, causeCanonical, tagSuggestions, placeCoords, pairCoords, placeForms } = useMemo(
     // The shared per-edit derivation when the app provides it (computed once
     // for Edit and the geocode panel together); the direct build only for a
     // host without the provider.
@@ -2139,6 +2139,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             agencyCanonical={agencyCanonical}
             causeSuggestions={causeSuggestions}
             causeCanonical={causeCanonical}
+            tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -2293,6 +2294,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               agencyCanonical={agencyCanonical}
               causeSuggestions={causeSuggestions}
               causeCanonical={causeCanonical}
+              tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}

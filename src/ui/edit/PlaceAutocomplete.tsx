@@ -52,6 +52,7 @@ export function PlaceAutocomplete({
   title,
   autoFocus,
   preserveCase,
+  dataDetail,
   onChange,
   onCommit,
   onClear,
@@ -93,6 +94,9 @@ export function PlaceAutocomplete({
    *  For rename fields, whose very purpose may be a casing fix the canonical
    *  map would otherwise undo (picking a suggestion still applies it). */
   preserveCase?: boolean;
+  /** `data-detail` for the input itself — how Edit's event row finds a field to
+   *  focus, and reads which field a key was pressed in. */
+  dataDetail?: string;
   onChange: (value: string) => void;
   onCommit: (value: string) => void;
   onClear: () => void;
@@ -308,6 +312,7 @@ export function PlaceAutocomplete({
   return (
     <div ref={containerRef} className={`place-autocomplete-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} style={wrapStyle} onBlur={handleBlur}>
       <ClearableInput
+        data-detail={dataDetail}
         className={`${isMerge ? "edit-input--merge " : isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
         value={value}
         placeholder={placeholder}

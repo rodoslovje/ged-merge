@@ -290,3 +290,59 @@ describe("buildPlaceSuggestions causes", () => {
     expect(sug.causeCanonical.get("pljučnica")).toBe("Pljučnica");
   });
 });
+
+describe("buildPlaceSuggestions per-tag values and types", () => {
+  const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 OCCU Kmet
+1 RELI rimskokatoliška
+1 EDUC Ljudska šola
+1 REFN 1874-12
+0 @I2@ INDI
+1 OCCU Kmet
+1 OCCU Učitelj
+1 RELI RIMSKOKATOLIŠKA
+1 REFN 1881-04
+0 @I3@ INDI
+1 NCHI 7
+0 @F1@ FAM
+1 MARR
+2 TYPE cerkvena
+0 @F2@ FAM
+1 MARR
+2 TYPE cerkvena
+0 @F3@ FAM
+1 MARR
+2 TYPE civilna
+0 TRLR
+`));
+
+  it("keeps each tag's values to itself", () => {
+    // An occupation completes from occupations: a religion in the same list
+    // would be an answer to a question nobody asked here.
+    expect(sug.tagSuggestions.values.get("OCCU")?.suggestions).toEqual(["Kmet", "Učitelj"]);
+    expect(sug.tagSuggestions.values.get("RELI")?.suggestions).toEqual(["rimskokatoliška"]);
+    expect(sug.tagSuggestions.values.get("EDUC")?.suggestions).toEqual(["Ljudska šola"]);
+  });
+
+  it("orders a tag's values by how often the file uses them", () => {
+    expect(sug.tagSuggestions.values.get("OCCU")?.suggestions[0]).toBe("Kmet");
+  });
+
+  it("snaps a retyped value to the casing the tag writes most", () => {
+    expect(sug.tagSuggestions.values.get("RELI")?.canonical.get("rimskokatoliška")).toBe("rimskokatoliška");
+  });
+
+  it("completes a type from the same tag's types", () => {
+    expect(sug.tagSuggestions.types.get("MARR")?.suggestions).toEqual(["cerkvena", "civilna"]);
+  });
+
+  it("offers nothing for a reference number or a child count", () => {
+    // Both are answers about one person — a list of the file's others would
+    // invite the wrong one rather than save typing.
+    expect(sug.tagSuggestions.values.has("REFN")).toBe(false);
+    expect(sug.tagSuggestions.values.has("NCHI")).toBe(false);
+  });
+});

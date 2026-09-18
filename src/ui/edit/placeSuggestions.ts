@@ -2,6 +2,33 @@ import type { Dataset, GedEvent, GeoCoord } from "../../gedcom/types";
 import { placeCollator } from "../../gedcom/place";
 import { matchesTerms, queryTerms } from "../globalSearch";
 
+/** One field's completion list: the values themselves, and the canonical
+ *  casing per {@link placeKey}, so a retyped value snaps to the spelling the
+ *  file writes most. */
+export interface Suggestions {
+  suggestions: string[];
+  canonical: Map<string, string>;
+}
+
+/**
+ * Completion for the two fields whose values mean nothing outside their own
+ * tag: an occupation completes from the file's occupations, never from its
+ * religions, and a marriage's type from the words other marriages use. Keyed
+ * by event tag — a tag the file never writes is simply absent.
+ */
+export interface TagSuggestions {
+  /** Event tag → the values its events carry on the tag line itself
+   *  (`1 OCCU Farmer`), most used first. */
+  values: Map<string, Suggestions>;
+  /** Event tag → the `TYPE` values its events carry, most used first. */
+  types: Map<string, Suggestions>;
+}
+
+/** Value-bearing tags that complete from nothing: a reference number belongs
+ *  to one person and a child count is a number, so a list of the file's other
+ *  answers would offer a wrong one rather than a shortcut. */
+const NO_VALUE_COMPLETION = new Set(["REFN", "NCHI"]);
+
 export interface PlaceSuggestions {
   placeSuggestions: string[];
   /** Canonical place key → sorted unique address strings seen at that place. */
@@ -24,6 +51,8 @@ export interface PlaceSuggestions {
    */
   causeSuggestions: string[];
   causeCanonical: Map<string, string>;
+  /** Per-tag completion for the value and type fields (see {@link TagSuggestions}). */
+  tagSuggestions: TagSuggestions;
   /**
    * The coordinate the file already uses for a place, keyed by {@link placeKey}
    * (the most frequent one when occurrences disagree). Only coordinates from
@@ -64,6 +93,9 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   const addrForms = new Map<string, Map<string, number>>();
   const agencyForms = new Map<string, Map<string, number>>();
   const causeForms = new Map<string, Map<string, number>>();
+  // tag → value key → form → count, for the two per-tag fields.
+  const valueForms = new Map<string, Map<string, Map<string, number>>>();
+  const typeForms = new Map<string, Map<string, Map<string, number>>>();
   // placeKey → addrRaw → count
   const placeAddrForms = new Map<string, Map<string, number>>();
   // Coordinate tallies, so the most frequently used wins when they disagree.
@@ -90,6 +122,12 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     forms.set(key, m);
   }
 
+  function addTagValue(per: Map<string, Map<string, Map<string, number>>>, tag: string, raw: string) {
+    const forms = per.get(tag) ?? new Map<string, Map<string, number>>();
+    addValue(forms, raw);
+    per.set(tag, forms);
+  }
+
   function addEventValues(ev: GedEvent) {
     const placeRaw = ev.place?.raw;
     const addrRaw = ev.address?.raw;
@@ -97,6 +135,8 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     const form = ev.place?.form;
     if (ev.agency) addValue(agencyForms, ev.agency);
     if (ev.cause) addValue(causeForms, ev.cause);
+    if (ev.value && !NO_VALUE_COMPLETION.has(ev.tag)) addTagValue(valueForms, ev.tag, ev.value);
+    if (ev.type) addTagValue(typeForms, ev.tag, ev.type);
     // A FORM only describes the place it sits on if it labels every part of it;
     // one that doesn't is this file's own mistake, not a schema to spread.
     if (placeRaw && form && form.split(",").length === placeRaw.split(",").length) {
@@ -138,7 +178,7 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   function build(
     forms: Map<string, Map<string, number>>,
     order: "text" | "frequency" = "text",
-  ): { suggestions: string[]; canonical: Map<string, string> } {
+  ): Suggestions {
     const canonical = new Map<string, string>();
     const suggestions: { text: string; uses: number }[] = [];
     for (const [key, m] of forms) {
@@ -164,6 +204,14 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   const addr = build(addrForms);
   const agency = build(agencyForms);
   const cause = build(causeForms, "frequency");
+
+  /** Every tag's own list, built like the cause's — these dropdowns open
+   *  before anything is typed too. */
+  function buildPerTag(per: Map<string, Map<string, Map<string, number>>>): Map<string, Suggestions> {
+    const out = new Map<string, Suggestions>();
+    for (const [tag, forms] of per) out.set(tag, build(forms, "frequency"));
+    return out;
+  }
 
   const placeToAddrs = new Map<string, string[]>();
   for (const [pk, m] of placeAddrForms) {
@@ -201,6 +249,7 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     agencyCanonical: agency.canonical,
     causeSuggestions: cause.suggestions,
     causeCanonical: cause.canonical,
+    tagSuggestions: { values: buildPerTag(valueForms), types: buildPerTag(typeForms) },
     placeCoords: pickCoords(placeCoordCounts),
     pairCoords: pickCoords(pairCoordCounts),
     placeForms: pickMostFrequent(placeFormCounts),
