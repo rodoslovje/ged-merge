@@ -560,9 +560,13 @@ export function EventCoordPicker({
           // are set here.
           style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxH } : { visibility: "hidden" }}
         >
-          {/* Head: what the event carries now, and the manual entry that can
-              replace it — the two things that act on the value itself. */}
+          {/* Head: two columns. What the event carries now and the manual entry
+              that can replace it — the things that act on the value itself — and
+              the searches beside them. Columns rather than one wrapping row:
+              the searches used to wrap onto a line of their own at the right,
+              leaving the head's left half empty above the map. */}
           <div className="edit-coord-head">
+           <div className="edit-coord-value">
             {coord && (
               <div className="edit-coord-current">
                 <span className="gm-data gm-coord gm-coord--set">
@@ -602,6 +606,7 @@ export function EventCoordPicker({
                 {t("event.coord.set")}
               </button>
             </div>
+           </div>
             {/* The searches, in the room the head has left over beside the
                 value's own controls: from the top of the side column they
                 pushed every answer — the file's, the register's, the people at
