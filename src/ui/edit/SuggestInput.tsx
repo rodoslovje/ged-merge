@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
-import { applyCanonical, placeQuery } from "./placeSuggestions";
+import { applyCanonical, suggestQuery } from "./fieldSuggestions";
 import { foldSearch } from "../globalSearch";
 import { placeCollator } from "../../gedcom/place";
 import { proposalKey, type PlaceProposal } from "../../geo/placeProposal";
@@ -28,20 +28,26 @@ type SearchState = { state: "idle" | "loading" | "error" | "done"; query: string
 
 const IDLE: SearchState = { state: "idle", query: "", results: [] };
 
-/** A text input with dropdown autocomplete from a pre-built suggestion list.
+/** A text input with dropdown autocomplete from a pre-built suggestion list —
+ * the one control behind every Edit field that completes from what the file
+ * already writes: places and addresses, agencies, causes, an attribute's value,
+ * an event's type.
+ *
  * When the user selects a suggestion or blurs, the canonical form is applied.
- * With `combos`, known place+address pairs are offered too — matched by their
- * address text — and picking one reports the pair through `onPickCombo`.
- * With `onPickProposal`, the typed place can be looked up in the gazetteer and
- * the online registers, which supply its full jurisdiction chain, its house
+ * The remaining props serve the place and address fields alone: with `combos`,
+ * known place+address pairs are offered too — matched by their address text —
+ * and picking one reports the pair through `onPickCombo`; with
+ * `onPickProposal`, the typed place can be looked up in the gazetteer and the
+ * online registers, which supply its full jurisdiction chain, its house
  * address and its coordinate. */
-export function PlaceAutocomplete({
+export function SuggestInput({
   value,
   suggestions,
   canonical,
   combos,
   matchCombosByPlace,
   addresses,
+  offerAllWhenEmpty,
   isDirty,
   isMerge,
   className,
@@ -51,6 +57,7 @@ export function PlaceAutocomplete({
   title,
   autoFocus,
   preserveCase,
+  dataDetail,
   onChange,
   onCommit,
   onClear,
@@ -74,6 +81,12 @@ export function PlaceAutocomplete({
    *  place — and are shown in the address style, so an address reads the same
    *  whether it stands alone or beside the other place it would move to. */
   addresses?: boolean;
+  /** Offer the suggestion list on focus, before anything is typed — for a
+   *  short list the file keeps reusing (the cause of death), where the point
+   *  is to pick one of the few values already in use rather than to narrow
+   *  thousands of them down by typing. The place and address fields keep it
+   *  off: a dropdown of eight arbitrary settlements answers nothing. */
+  offerAllWhenEmpty?: boolean;
   isDirty: boolean;
   isMerge?: boolean;
   className?: string;
@@ -86,6 +99,9 @@ export function PlaceAutocomplete({
    *  For rename fields, whose very purpose may be a casing fix the canonical
    *  map would otherwise undo (picking a suggestion still applies it). */
   preserveCase?: boolean;
+  /** `data-detail` for the input itself — how Edit's event row finds a field to
+   *  focus, and reads which field a key was pressed in. */
+  dataDetail?: string;
   onChange: (value: string) => void;
   onCommit: (value: string) => void;
   onClear: () => void;
@@ -125,8 +141,12 @@ export function PlaceAutocomplete({
   const filtered = useMemo((): Item[] => {
     // The query is read like a name: each typed part matches on its own, in
     // any order and accent-blind — "Zg Bitnj" reaches Zgornje Bitnje.
-    const q = placeQuery(value);
-    if (!q.terms.length) return [];
+    const q = suggestQuery(value);
+    // Nothing typed: the whole list, capped like a filtered one, for a field
+    // that offers it (see offerAllWhenEmpty) — and nothing at all otherwise.
+    if (!q.terms.length) {
+      return offerAllWhenEmpty ? plainRows.slice(0, 8).map((r) => ({ place: r.place })) : [];
+    }
     // A match at the start of the text reads as "the one you meant" more than
     // a hit buried inside a longer name ("Sv. Peter" before "Pokopališče ob
     // cerkvi sv. Martin"), so texts opening with the first term lead, list
@@ -227,7 +247,7 @@ export function PlaceAutocomplete({
         ? search.results.map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
         : [];
     return [...fromFile, ...offers];
-  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, search]);
+  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, offerAllWhenEmpty, search]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
 
@@ -295,21 +315,22 @@ export function PlaceAutocomplete({
   const searchedThis = search.query === value.trim();
 
   return (
-    <div ref={containerRef} className={`place-autocomplete-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} style={wrapStyle} onBlur={handleBlur}>
+    <div ref={containerRef} className={`suggest-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} style={wrapStyle} onBlur={handleBlur}>
       <ClearableInput
+        data-detail={dataDetail}
         className={`${isMerge ? "edit-input--merge " : isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
         value={value}
         placeholder={placeholder}
         title={title}
         autoFocus={autoFocus}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setHighlighted(-1); }}
-        onFocus={() => { if (value.trim()) setOpen(true); }}
+        onFocus={() => { if (value.trim() || offerAllWhenEmpty) setOpen(true); }}
         onKeyDown={handleKeyDown}
         onBlur={() => {}}
         onClear={() => { onClear(); setOpen(false); setSearch(IDLE); }}
       />
       {showDropdown && (
-        <ul className="place-suggestions" role="listbox">
+        <ul className="suggest-list" role="listbox">
           {filtered.map((s, i) => (
             <li
               key={s.proposal ? `reg-${proposalKey(s.proposal)}` : s.addr ? `${s.place}|${s.addr}` : s.place}
@@ -317,17 +338,17 @@ export function PlaceAutocomplete({
               aria-selected={i === highlighted}
               title={s.proposal?.detail}
               className={
-                (i === highlighted ? "place-suggestion place-suggestion--hi" : "place-suggestion") +
-                (s.proposal ? " place-suggestion--register" : "")
+                (i === highlighted ? "suggest-item suggest-item--hi" : "suggest-item") +
+                (s.proposal ? " suggest-item--register" : "")
               }
               onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
             >
               {addresses && !s.addr && !s.movesPlace && !s.proposal ? (
-                <span className="place-suggestion-addr">{s.place}</span>
+                <span className="addr-muted">{s.place}</span>
               ) : (
                 s.place
               )}
-              {s.addr && <span className="place-suggestion-addr"> · {s.addr}</span>}
+              {s.addr && <span className="addr-muted"> · {s.addr}</span>}
               {s.proposal && (
                 <span className={`tools-reshape-badge ${s.proposal.official ? "official" : "reuse"}`}>
                   {s.proposal.source}
@@ -339,7 +360,7 @@ export function PlaceAutocomplete({
               opt-in and rate limited, so they are never queried per
               keystroke. */}
           {canSearch && (
-            <li className="place-suggestion-foot">
+            <li className="suggest-list-foot">
               {onLookup && (
                 <button
                   type="button"
@@ -358,12 +379,12 @@ export function PlaceAutocomplete({
                 </button>
               )}
               {searchedThis && search.state === "error" && (
-                <span className="place-suggestion-note">{t("event.place.lookup.error")}</span>
+                <span className="suggest-item-note">{t("event.place.lookup.error")}</span>
               )}
               {searchedThis && search.state === "done" && !filtered.some((f) => f.proposal) && (
-                <span className="place-suggestion-note">{t("event.place.lookup.none")}</span>
+                <span className="suggest-item-note">{t("event.place.lookup.none")}</span>
               )}
-              {lookupNote && <span className="place-suggestion-note">{lookupNote}</span>}
+              {lookupNote && <span className="suggest-item-note">{lookupNote}</span>}
             </li>
           )}
         </ul>

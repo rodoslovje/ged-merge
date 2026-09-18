@@ -5,7 +5,7 @@ import { buildPlaceTree } from "./places";
 import { collectFileCoords, countGeocodePending } from "./geocode";
 import { applyPlaceRename } from "./placeEdit";
 import { scanAddresses } from "./addresses";
-import { buildPlaceSuggestions } from "../ui/edit/placeSuggestions";
+import { buildFieldSuggestions } from "../ui/edit/fieldSuggestions";
 import { rnQueriesFrom } from "../geo/rn";
 import { decomposePlace } from "../gedcom/place";
 import { collectNodeUseIds } from "./places";
@@ -43,7 +43,7 @@ describe("places tree: what a rename costs", () => {
       console.log(`${label.padEnd(24)} ${(performance.now() - t0).toFixed(1)} ms`);
     };
     time("buildPlaceTree", () => buildPlaceTree(ds));
-    time("buildPlaceSuggestions", () => buildPlaceSuggestions(ds));
+    time("buildFieldSuggestions", () => buildFieldSuggestions(ds));
     time("collectFileCoords", () => collectFileCoords(ds));
     time("countGeocodePending", () => countGeocodePending(ds));
     time("scanAddresses", () => scanAddresses(ds));
@@ -54,7 +54,7 @@ describe("places tree: what a rename costs", () => {
     // for the row actually being renamed.
     const tree = buildPlaceTree(ds);
     const rows = tree.roots.flatMap((r) => r.children.flatMap((c) => c.children));
-    const suggestions = buildPlaceSuggestions(ds).placeSuggestions;
+    const suggestions = buildFieldSuggestions(ds).placeSuggestions;
     time("row: coord panel memos", () => {
       for (const row of rows) {
         rnQueriesFrom(row.name, undefined);

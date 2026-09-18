@@ -9,6 +9,7 @@ import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
 import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
 import { coupleAgesDisplay } from "../../gedcom/age";
+import type { TagSuggestions } from "./fieldSuggestions";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
   addFamilyEventNode,
@@ -357,6 +358,9 @@ interface FamilySectionProps extends SharedSectionProps {
   addrCanonical: Map<string, string>;
   agencySuggestions: string[];
   agencyCanonical: Map<string, string>;
+  causeSuggestions: string[];
+  causeCanonical: Map<string, string>;
+  tagSuggestions: TagSuggestions;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -409,6 +413,9 @@ export const FamilySection = memo(function FamilySection({
   addrCanonical,
   agencySuggestions,
   agencyCanonical,
+  causeSuggestions,
+  causeCanonical,
+  tagSuggestions,
   placeCoords,
   placeForms,
   pairCoords,
@@ -545,6 +552,9 @@ export const FamilySection = memo(function FamilySection({
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
+            tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}

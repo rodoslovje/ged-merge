@@ -3,7 +3,7 @@ import type { Dataset } from "../../gedcom/types";
 import type { GazetteerIndex } from "../../geo/gazetteer";
 import { collectFileCoords, type FileCoord } from "../../tools/geocode";
 import { useDatasetDerivations } from "../DatasetDerivations";
-import { buildPlaceSuggestions, placeCombosOf, type PlaceSuggestions } from "./placeSuggestions";
+import { buildFieldSuggestions, placeCombosOf, type FieldSuggestions } from "./fieldSuggestions";
 import { usePlaceLookupValue, usePlaceStyle, type PlaceLookup } from "./PlaceLookupContext";
 import type { PlaceStyle } from "../../geo/placeProposal";
 
@@ -33,7 +33,7 @@ export function usePlaceFields(
     index?: GazetteerIndex;
   } = {},
 ): {
-  placeSug: PlaceSuggestions;
+  placeSug: FieldSuggestions;
   /** Every place+address pair the file writes, for the fields that offer both. */
   placeCombos: { place: string; addr: string }[];
   lookup: PlaceLookup;
@@ -44,7 +44,7 @@ export function usePlaceFields(
   // Keyed on the derivations themselves: their identity changes with the edit
   // version, which is exactly when the file's places may have.
   const placeSug = useMemo(
-    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
+    () => derivations?.fieldSuggestions() ?? buildFieldSuggestions(dataset),
     [derivations, dataset],
   );
   const placeCombos = useMemo(() => placeCombosOf(placeSug.placeToAddrs, placeSug.placeCanonical), [placeSug]);

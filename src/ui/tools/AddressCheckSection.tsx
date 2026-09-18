@@ -23,7 +23,7 @@ import { placeCollator } from "../../gedcom/place";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { useVirtualList } from "../useVirtualList";
-import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import { placeKey, type FieldSuggestions } from "../edit/fieldSuggestions";
 import {
   AppliedNote,
   CandidateOption,
@@ -106,7 +106,7 @@ export function AddressCheckSection({
   /** The file's own places and the houses at each — what the row's ✎ completes
    *  from, the same source the geocoding addresses list draws its suggestions
    *  from. */
-  placeSug: PlaceSuggestions;
+  placeSug: FieldSuggestions;
   dataset: Dataset;
   /** Kept mounted but off screen while the other compliance tab is shown — a
    *  report costs a pass over the file, and switching tabs must not throw it
