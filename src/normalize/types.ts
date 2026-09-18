@@ -246,6 +246,10 @@ export interface SourceFormatProfile {
 export interface NormChange {
   before: string;
   after: string;
+  /** What the pair is a change *to* — a source's title, where the fields alone
+   *  do not say which record they belong to. Shown beside the pair, not struck
+   *  through: it is the caption, not part of the change. */
+  context?: string;
 }
 
 /**
@@ -278,10 +282,16 @@ export interface NormalizeOptions {
    */
   tidyPlaceWhitespace?: boolean;
   /** Alias source-tags the vendorTags pass must leave untouched. The
-   * bulk-normalize tool sets it to the file's own native dialect
-   * (`nativeAliasTags`), so e.g. a MacFamilyTree file keeps its `MISE` instead
-   * of gaining a foreign `_MILT`. Load-time compare normalization never sets it. */
+   * bulk-normalize tool sets it to every alias whose target is foreign to the
+   * file's own producer (`foreignAliasTags`), so e.g. a MyHeritage file keeps
+   * its `MISE` instead of gaining a `_MILT` that is no more its own. Load-time
+   * compare normalization never sets it. */
   preserveVendorTags?: ReadonlySet<string>;
+  /** Leave the partnership-status encodings as the file writes them, instead of
+   * consolidating them into `_MSTAT`. Set by the bulk-normalize tool whenever
+   * `_MSTAT` is not the file producer's own tag — the same round-trip doctrine
+   * as `preserveVendorTags`. */
+  preserveFamilyStatus?: boolean;
   /** GEDCOM version migration (compare → main's version). Defaults to on;
    * it only ever fires when the two declared versions actually differ. */
   version?: boolean;

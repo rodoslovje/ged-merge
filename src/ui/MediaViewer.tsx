@@ -22,6 +22,7 @@ import { parseDate } from "../gedcom/date";
 import { ageAtDate, fullAgeBetween } from "../gedcom/age";
 import { birthDateOf } from "../gedcom/lifespan";
 import { PersonLink } from "./PersonLink";
+import { EventGlyphs } from "./EventGlyph";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useSettingsSlice } from "./SettingsContext";
 import { usePhone } from "./usePhone";
@@ -277,6 +278,10 @@ export function MediaReferencedBy({
                   </span>
                 );
               })}
+              {/* Why this person is on the page: the events whose citation
+                  carries this image (the baptism it records, the burial). A
+                  link on the record itself wears no mark. */}
+              {u.eventTags && <EventGlyphs tags={u.eventTags} t={t} />}
             </li>
           );
         })}

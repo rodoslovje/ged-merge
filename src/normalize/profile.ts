@@ -613,8 +613,13 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
   }
   const localityOfStreet = new Map<string, string>();
   for (const [key, forms] of streetTally) {
-    const best = mostFrequentStr(forms);
-    if (best) localityOfStreet.set(key, best);
+    // A street the file writes under two localities names neither: street
+    // names repeat from village to village ("Šolska ulica", "Gasilska cesta"),
+    // and a plurality among them is a coin toss, not a clue. Only a name this
+    // file ties to exactly one locality may sharpen anything.
+    if (forms.size !== 1) continue;
+    const [locality] = [...forms.keys()];
+    localityOfStreet.set(key, locality);
   }
   return { parentOf, localityOfStreet, knownNames };
 }

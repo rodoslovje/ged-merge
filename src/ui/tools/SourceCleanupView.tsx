@@ -1754,6 +1754,10 @@ function PageMediaRow({
                   <span className="tools-tree-meta">
                     {m.eventTag ?? t("tools.sources.pageMediaRecord")}
                     {m.page && ` · ${t("tools.sources.pageMediaPage", { page: m.page })}`}
+                    {/* Which image would be hung here. A citation that names no
+                        page says nothing about that on its own, and the whole
+                        row is about that one image. */}
+                    {m.objeTitle && ` · ${t("tools.sources.pageMediaImage", { title: m.objeTitle })}`}
                   </span>
                 </li>
               );

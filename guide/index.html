@@ -1249,7 +1249,8 @@
               places, rewriting Matricula or Geneanet links to a consistent form, and restating each source's coverage
               in the file's own shape (or the one chosen in <a href="#workspace">Settings › GEDCOM</a> — program fields
               or the standard's <em>DATA</em> structure). A preview lists examples of each change before you download
-              the normalized copy.
+              the normalized copy; a source-coverage example carries the title of the source it was read from, since
+              that is where the register type comes from.
             </p>
             <p>
               One pass is left unticked until you ask for it: <strong>note shape</strong> rewrites every note as your
@@ -1292,7 +1293,9 @@
               scanned pages, cutouts, the unattached bucket — show as a thumbnail tray with each tile's usage count
               overlaid; clicking a tile opens the full viewer, where the media's title, date, place, description and
               private flag are editable in place and the side panel lists the people and families referencing the
-              image, plus the sources it is attached to (clicking one filters the tree to that source). A <strong>Potential duplicates</strong> view groups records
+              image — each name followed by the marks of the events that cite it, so a register page says which
+              baptism or burial it documents for whom — plus the sources it is attached to (clicking one filters the
+              tree to that source). A <strong>Potential duplicates</strong> view groups records
               that describe the same media, source or repository under different ids — pick groups to collapse and
               download a deduplicated file with every citation re-pointed.
             </p>
@@ -1420,8 +1423,9 @@
               this asks the opposite question, which no link can answer: the citation is already a proper citation and
               its page image sits under the source, but the person or the event does not link it, so a program showing
               scans beside the facts has nothing to show. Each row is one source with the citations missing theirs;
-              opened, it names the person, whether the citation sits on an event or on the record itself, and the page
-              it cites. Ticking and applying adds one image pointer beside each of those citations and changes nothing
+              opened, it names the person, whether the citation sits on an event or on the record itself, the page
+              it cites and what the image it would gain is called — a citation naming no page has only that name to
+              say which scan is meant. Ticking and applying adds one image pointer beside each of those citations and changes nothing
               else. Which image a citation means has to be beyond doubt: a source holding a single page image answers
               for every citation of it, and where it holds several, only the cited page tells them apart. A citation
               that names no page, or names one no image answers to, is left exactly as it is — and said so under the
@@ -2169,14 +2173,14 @@
               <strong>Surnames</strong> keeps those same rings and asks something else of them: <em>which names is this
               family made of, and how far out does each one sit?</em> A ring here is one continuous circle shared out
               among the relatives in it, and neighbours carrying the same surname read as a single band, as wide as the
-              number of people in it. They run from the ancestor-ward end round to the descendant-ward one, with the
-              older generations gathered at the top, so ancestors stay above and the issue below; a firmer hairline
-              marks where the two runs meet. The same surname arriving from two family lines stays two bands — that is
+              number of people in it. The relatives run in one sweep: the ancestors first, gathered over the top of the
+              circle, then clockwise through everyone reached sideways, then the issue, the furthest of whom comes
+              round to meet the furthest ancestor again. The same surname arriving from two family lines stays two bands — that is
               how a name which entered the tree twice remains visible. Nothing is drawn per person under a band, so the
               people are read off it: hover one for who is in it, or click it for the list, which gives the blood
               distance and then names each person in their sex colour, with the lifespan beside it and how they are
               related to the person at the centre. A band holds one ring at one generation, so everyone in it stands in
-              the same relation — a band of great-aunts is all great-aunts — and the firmer hairline in a ring falls
+              the same relation — a band of great-aunts is all great-aunts — and the firmer hairlines in a ring fall
               where a direct line ends: the ring's own ancestors, then everyone reached by going up and back down
               again, then its own issue. Opening one also picks out every other band of the same surname, wherever on the chart it
               sits, so a name that arrived twice shows its whole reach at once. A band answers about

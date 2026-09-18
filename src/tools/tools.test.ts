@@ -2061,6 +2061,31 @@ describe("mediaUsedBy", () => {
     // A reference without a CROP carries no region.
     expect(byId.get("@I3@")).toBeUndefined();
   });
+
+  it("says which events a page image is cited on, and nothing for a record-level link", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jakob /Renka/
+1 BAPM
+2 DATE 1801
+2 SOUR @S1@
+3 OBJE @O1@
+1 BURI
+2 OBJE @O1@
+0 @I2@ INDI
+1 NAME Marija /Renka/
+1 OBJE @O1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+0 @O1@ OBJE
+1 FILE 6802215.jpg
+0 TRLR`);
+    const uses = mediaUsedBy(ds, "@O1@");
+    const byId = new Map(uses.map((u) => [u.persons[0].id, u.eventTags]));
+    expect(byId.get("@I1@")).toEqual(["BAPM", "BURI"]);
+    expect(byId.get("@I2@")).toBeUndefined();
+  });
 });
 
 describe("buildSourceTree", () => {
@@ -2610,14 +2635,43 @@ describe("bulkNormalize vendor-tag dialect", () => {
     expect(report.vendorTagsRenamed).toBe(0);
   });
 
-  it("still canonicalizes MISE in a file from any other producer", () => {
+  it("keeps MISE in a file from a producer whose own tag _MILT is not either", () => {
+    // Renaming here would trade MacFamilyTree's spelling for Brother's
+    // Keeper's, and Gramps writes neither — the fact would simply be lost on
+    // the way back into the program the file came from.
     const { dataset: out, report } = bulkNormalize(dataset(person("Gramps")));
     const raw = out.individuals.get("@I1@")!.raw;
-    expect(raw.children.some((c) => c.tag === "_MILT")).toBe(true);
-    expect(report.vendorTagsRenamed).toBe(1);
+    expect(raw.children.some((c) => c.tag === "MISE")).toBe(true);
+    expect(raw.children.some((c) => c.tag === "_MILT")).toBe(false);
+    expect(report.vendorTagsRenamed).toBe(0);
 
     const noHeader = bulkNormalize(dataset(person("")));
-    expect(noHeader.report.vendorTagsRenamed).toBe(1);
+    expect(noHeader.report.vendorTagsRenamed).toBe(0);
+  });
+
+  it("keeps MyHeritage's own partnership event rather than restating it as BK's _MSTAT", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR MYHERITAGE
+0 @F1@ FAM
+1 EVEN
+2 TYPE MYHERITAGE:REL_PARTNERS
+0 TRLR`));
+    const fam = out.families.get("@F1@")!.raw;
+    expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(false);
+    expect(fam.children.some((c) => c.tag === "EVEN")).toBe(true);
+    expect(report.vendorTagsRenamed).toBe(0);
+  });
+
+  it("still consolidates the status in a Brother's Keeper file — _MSTAT is BK's own", () => {
+    const { dataset: out } = bulkNormalize(dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR BROSKEEP
+0 @F1@ FAM
+1 _NMR
+0 TRLR`));
+    const fam = out.families.get("@F1@")!.raw;
+    expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(true);
   });
 
   it("still renames _MILI in a Brother's Keeper file — _MILT is BK's own spelling too", () => {

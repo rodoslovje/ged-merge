@@ -2161,13 +2161,16 @@ export function normalizeSourceCoverage(
   // hundred same-book pages give one row, while another register type, place
   // or a moved filing number each earn their own.
   const seen = new Set<string>();
-  const note = (before: string, after: string) => {
+  // The context (which source) is deliberately outside the signature: a
+  // hundred books of the same shape still collapse to one example, and the row
+  // names the one it stands for rather than none.
+  const note = (before: string, after: string, context?: string) => {
     changed++;
     if (examples.length >= 12) return;
     const signature = `${before.replace(/\d+/g, "#")}→${after.replace(/\d+/g, "#")}`;
     if (seen.has(signature)) return;
     seen.add(signature);
-    examples.push({ before, after });
+    examples.push({ before, after, context });
   };
 
   for (const rec of records) {
@@ -2187,8 +2190,13 @@ export function normalizeSourceCoverage(
       const plac = firstChild(rec, "PLAC");
       const date = firstChild(rec, "DATE");
       if (!plac?.value?.trim() && !date?.value?.trim()) continue;
+      const title = sourceTitle(rec);
+      // The register type is read from the source's own title, and the example
+      // row carries that title with it: a coverage claim the reader cannot
+      // trace to something the book itself says is indistinguishable from a
+      // guess, however right it happens to be.
       const events = coverageEventsFromTitle(
-        sourceTitle(rec),
+        title,
         childText(rec, "ABBR"),
         plac?.value?.trim(),
         date?.value?.trim(),
@@ -2211,6 +2219,7 @@ export function normalizeSourceCoverage(
         ]
           .filter(Boolean)
           .join(" · "),
+        title,
       );
       continue;
     }
@@ -2255,6 +2264,7 @@ export function normalizeSourceCoverage(
     note(
       before || "DATA AGNC",
       [places[0] && `PLAC ${places[0]}`, years && `DATE ${years}`].filter(Boolean).join(" · ") || "AGNC",
+      sourceTitle(rec),
     );
   }
   return { changed, examples };

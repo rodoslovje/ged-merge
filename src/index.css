@@ -9173,6 +9173,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-examples li { display: flex; gap: 8px; padding: 2px 0; font-family: ui-monospace, monospace; }
 .tools-ex-from { color: var(--muted); text-decoration: line-through; }
 .tools-ex-to { color: var(--text); }
+/* The record a pair belongs to: a caption, so it neither strikes through nor
+   competes with the change itself. Long titles are held to one line. */
+.tools-ex-context {
+  color: var(--muted);
+  font-family: inherit;
+  font-style: italic;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Source duplicate finder */
 .tools-dup-toggle { cursor: pointer; }

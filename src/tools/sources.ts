@@ -11,6 +11,7 @@ import {
   type CropRegion,
 } from "../gedcom/source";
 import { label } from "../match/relatives";
+import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 
 /**
  * Source explorer: a read-only Repository → Source → Media containment tree
@@ -118,6 +119,25 @@ export function familySpouses(dataset: Dataset, famId: string): PersonRef[] {
 }
 
 /** Recursively collect pointer values under a given tag within a record subtree. */
+/**
+ * The record's own events whose subtree points at `xref` — what a name in a
+ * usage list wears as genealogy marks, so a photo's list says *why* each person
+ * is on it (the baptism page cited on their christening, the grave on a
+ * burial). A link on the record itself sits under no event and contributes
+ * nothing; a record linking it from two events wears both marks.
+ */
+function eventTagsPointingAt(rec: GedNode, tag: string, xref: string): string[] {
+  const eventTags = rec.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+  const out: string[] = [];
+  for (const child of rec.children) {
+    if (!eventTags.has(child.tag) || out.includes(child.tag)) continue;
+    const pointers = new Set<string>();
+    collectPointers(child, tag, pointers);
+    if (pointers.has(xref)) out.push(child.tag);
+  }
+  return out;
+}
+
 function collectPointers(node: GedNode, tag: string, into: Set<string>): void {
   for (const child of node.children) {
     if (child.tag === tag && child.value && isPointer(child.value.trim())) {
@@ -185,7 +205,14 @@ export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
       rec.tag === "INDI"
         ? [{ id: rec.xref, label: dataset.individuals.get(rec.xref) ? label(dataset.individuals.get(rec.xref)!) : rec.xref }]
         : familySpouses(dataset, rec.xref);
-    if (persons.length > 0) uses.push({ persons, crop: objeLinkCrop(rec, mediaXref) });
+    if (persons.length > 0) {
+      const eventTags = eventTagsPointingAt(rec, "OBJE", mediaXref);
+      uses.push({
+        persons,
+        crop: objeLinkCrop(rec, mediaXref),
+        ...(eventTags.length > 0 ? { eventTags } : {}),
+      });
+    }
   }
   return uses;
 }
