@@ -95,7 +95,7 @@ export function buildAhnentafel(
 }
 
 /** Facts in report order: * ~ open and † ▭ close; the mid-life lines between
- *  them (the ⚭, the optional ⚒/✎/⌂) run chronologically. */
+ *  them (the ⚭, the optional ⚒/🎓/⌂) run chronologically. */
 function vitals(indi: Individual, marriages: FactLine[], opts: ReportFactOptions, ds: Dataset): FactLine[] {
   return [
     factFor(indi, ["BIRT"], opts, ds),

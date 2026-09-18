@@ -292,7 +292,11 @@
   font-weight: 400;
   font-display: swap;
   src: url('./fonts/NotoSansSymbols2-geneal.woff2') format('woff2');
-  unicode-range: U+25A4, U+25AD, U+26AC, U+270E;
+  /* U+1F393 is the education mark. It is an emoji codepoint, so the app writes
+     it with U+FE0E after it (see EVENT_GLYPHS) to ask for text presentation —
+     which is what sends the browser to this font, whose cap is a plain outline
+     like every other mark, instead of to the system's colour emoji. */
+  unicode-range: U+25A4, U+25AD, U+26AC, U+270E, U+1F393;
 }
 
 :root {

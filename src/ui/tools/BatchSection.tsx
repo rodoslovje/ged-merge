@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
-import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
+import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
+import { eventMenuLabel } from "../EventGlyph";
 import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
 import {
   ANY_EVENT,
@@ -621,7 +622,7 @@ function CriterionRow({
               ...(c.tag === ANY_VENDOR_EVENT || eventOptions.includes(c.tag)
                 ? eventOptions
                 : [c.tag, ...eventOptions]
-              ).map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+              ).map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
               { value: ANY_VENDOR_EVENT, label: t("tools.batch.event.anyVendor") },
             ]}
           />
@@ -646,7 +647,7 @@ function CriterionRow({
               ...(c.tag === ANY_EVENT || familyEventOptions.includes(c.tag)
                 ? familyEventOptions
                 : [c.tag, ...familyEventOptions]
-              ).map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+              ).map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
               { value: ANY_EVENT, label: t("tools.batch.event.any") },
             ]}
           />
@@ -979,7 +980,7 @@ function ActionEditor({
               const named = action.toTag === "EVEN" || action.toTag === "FACT";
               onChange({ ...action, fromTag: v, type: named ? typeFor(v) : action.type });
             }}
-            options={vendorEventOptions.map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) }))}
+            options={vendorEventOptions.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) }))}
           />
           <span className="batch-sep">→</span>
           <SelectMenu
@@ -991,7 +992,7 @@ function ActionEditor({
             }}
             groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
               label: t(g.labelKey),
-              items: g.tags.map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+              items: g.tags.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
             }))}
           />
           {(action.toTag === "EVEN" || action.toTag === "FACT") && (

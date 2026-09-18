@@ -42,9 +42,14 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
  * German or Slovenian parish registers already expects to find them.
  *
  * Two marks are conventions of this app rather than of the craft: no symbol
- * exists for occupation or education, and ⚒ and ✎ are the closest widely
- * understood monochrome ones (Unicode's 🎓 only renders as colour emoji, 🕮
- * lacks font support). A tag with no honest mark is left out on purpose — the
+ * exists for occupation or education, and ⚒ and the graduation cap are the
+ * closest widely understood ones. The cap carries U+FE0E after it, the text
+ * presentation selector: it is an emoji codepoint, and without that the system
+ * would draw its own colour emoji instead of the plain outline the subset in
+ * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
+ * the app ✎ is the button that edits a record, and a mark that looks like the
+ * control beside it is worse than an approximate symbol.)
+ * A tag with no honest mark is left out on purpose — the
  * UI draws those as a neutral dot and the charts as their generic one, rather
  * than inventing a symbol nobody reads.
  *
@@ -67,7 +72,7 @@ export const EVENT_GLYPHS: Record<string, string> = {
   CREM: "⚱",
   RESI: "⌂",
   OCCU: "⚒",
-  EDUC: "✎",
+  EDUC: "🎓︎",
   EMIG: "→",
   IMMI: "←",
   NATU: "⚑",

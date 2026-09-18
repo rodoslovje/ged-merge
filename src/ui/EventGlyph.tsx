@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { EVENT_GLYPHS, GENERIC_EVENT_GLYPH, eventDisplayLabel, orderedEventTags } from "../gedcom/eventTags";
 import type { Translate } from "../locales/i18n";
 
@@ -23,6 +24,22 @@ export function EventGlyph({ tag, t, named = false }: { tag: string; t: Translat
     >
       {glyph}
     </span>
+  );
+}
+
+/**
+ * An event type as a menu entry reads it: the mark, then the name — for every
+ * menu that lists event types to pick from ("+ Add event", the type-change
+ * dropdown, the batch conditions, the quick-add settings), so the mark is
+ * learnt where the event is chosen and recognized afterwards on its row.
+ * `label` overrides the name, for a menu that words it its own way.
+ */
+export function eventMenuLabel(tag: string, t: Translate, label?: string): ReactNode {
+  return (
+    <>
+      <EventGlyph tag={tag} t={t} />
+      {label ?? eventDisplayLabel(tag, t)}
+    </>
   );
 }
 

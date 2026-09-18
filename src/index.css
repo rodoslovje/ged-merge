@@ -3070,13 +3070,17 @@ button:focus-visible {
  * first event a top border to keep it separated from the content above. */
 .edit-events > .edit-event:first-child { border-top: 1px solid var(--border); }
 /* Leading item 1: the event-type label with the expand toggle right beside it.
- * Fixed width so dates line up across events, and right-aligned so every label
- * ends just before the date — short labels no longer leave a gap, and long ones
- * overflow to the left (never toward the date). */
+ * Fixed width so dates line up across events, and left-aligned from the mark:
+ * every row then starts with its glyph in one column and its name in the next,
+ * which is what makes a life readable straight down the list. Wide enough that
+ * the mark and the longest ordinary name ("Naturalization", "Prebivališče")
+ * share one line — the slot the mark joined was sized for the name alone, and
+ * the mark, being an atomic inline, took a line of its own whenever the two no
+ * longer fitted. */
 .edit-event-type-row {
-  flex: 0 0 96px;
+  flex: 0 0 132px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: baseline;
   gap: 6px;
 }
@@ -3088,9 +3092,9 @@ button:focus-visible {
    subject. */
 .event-glyph {
   display: inline-block;
-  /* Wide enough for the widest mark's own advance (⚯ at 1.12em), so a column
-     of them lines up and none of them is squeezed. */
-  width: 1.15em;
+  /* Wide enough for the widest mark's own advance (the graduation cap at
+     1.2em), so a column of them lines up and none of them is squeezed. */
+  width: 1.25em;
   text-align: center;
   line-height: 1;
   color: var(--muted);
@@ -3102,12 +3106,16 @@ button:focus-visible {
    place the row is about. */
 .event-glyphs { display: inline-flex; align-items: baseline; margin-left: 6px; }
 .edit-event-label .event-glyph { margin-right: 3px; }
+/* The mark and the name's first word are one unbreakable piece, so a name too
+ * long for the slot (a custom EVEN's own Title, "Zapuščinska obravnava") wraps
+ * between its words and never leaves the mark standing alone on the line
+ * above. */
+.edit-event-label-lead { white-space: nowrap; }
 /* Constrained to the fixed slot so a long multi-word name (a custom EVEN's
- * own Title, e.g. "Civil Partnership") wraps onto further right-aligned lines
- * instead of overflowing off the panel's left edge; a long single word
- * ("Naturalization") still overflows left as before rather than breaking
- * mid-word. */
-.edit-event-label { flex: none; width: auto; max-width: 100%; text-align: right; color: var(--muted); }
+ * own Title, e.g. "Civil Partnership") wraps onto further lines instead of
+ * running into the date; a long single word ("Naturalization") still overflows
+ * rather than breaking mid-word. */
+.edit-event-label { flex: none; width: auto; max-width: 100%; text-align: left; color: var(--muted); }
 /* The type-change control is a DropdownMenu trigger button styled as the
  * plain label with only the small ▾ caret showing — the label text stays an
  * unconstrained string so long labels (e.g. "Naturalization") keep
@@ -3978,6 +3986,11 @@ button:focus-visible {
   text-overflow: ellipsis;
 }
 .dd-item--active { background: var(--accent-soft); }
+/* An event type in a menu wears its mark before the name, in one column so the
+   names line up under each other however wide the marks are. Muted like the
+   marks everywhere else — it identifies the entry, it is not the entry. */
+.dd-item .event-glyph,
+.select-menu-value .event-glyph { margin-right: 7px; }
 .dd-item--current::before {
   content: "✓";
   position: absolute;

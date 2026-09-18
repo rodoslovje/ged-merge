@@ -20,7 +20,7 @@ import type { NameOf } from "../chart/timeline";
 export interface FactLine {
   /** The event tag the line came from (BIRT, BAPM, MARR, DEAT, OCCU, …). */
   tag: string;
-  /** Classic genealogy symbol (* ~ ⚭ † ▭ ⚒ ✎ ⌂ — see {@link EVENT_GLYPHS}). */
+  /** Classic genealogy symbol (* ~ ⚭ † ▭ ⚒ ⌂ — see {@link EVENT_GLYPHS}). */
   glyph: string;
   /** The event's own value, leading the line ("Farmer" on an occupation). */
   value?: string;
@@ -281,7 +281,7 @@ export function makeEntry(
   };
 }
 
-/** The optional mid-life fact lines: every ⚒ occupation, ✎ education and
+/** The optional mid-life fact lines: every ⚒ occupation, 🎓 education and
  *  ⌂ residence, in record order per kind — glyphs from the shared
  *  {@link EVENT_GLYPHS}, so the Timeline draws the same marks. */
 /** A fact's sortable date (year-month-day folded into one number), or
@@ -292,7 +292,7 @@ export function factDateKey(f: FactLine | undefined): number | undefined {
   return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
 }
 
-/** Mid-life fact lines (⚭ ⚒ ✎ ⌂) in date order: dated lines ascending, undated
+/** Mid-life fact lines (⚭ ⚒ 🎓 ⌂) in date order: dated lines ascending, undated
  *  ones after them in the given order — so the story between birth and death
  *  reads chronologically instead of grouped by kind. Stable, non-mutating. */
 export function byFactDate(facts: FactLine[]): FactLine[] {
