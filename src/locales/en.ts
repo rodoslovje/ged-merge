@@ -2479,6 +2479,7 @@ export const en = {
   "save.toast_other": "Saved — {{count}} files downloaded.",
   "match.failed": "Matching failed: {{message}}",
   "persist.writeFailed": "Could not save the workspace cache — restore on reload may not work until storage frees up.",
+  "persist.restoreSkipped": "The last restore of the cached file did not finish, so it was skipped this time. Reload the page to try again.",
   "edit.charts.button": "Charts",
   "edit.charts.tooltip": "Charts for the current person — tree, fan, relationship…",
   "charts.header.tooltip": "Charts — family tree, fan chart, relationship & timeline diagrams",

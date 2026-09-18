@@ -2797,6 +2797,7 @@ export const sl = {
   "save.toast_other": "Shranjeno — prenesenih je {{count}} datotek.",
   "match.failed": "Iskanje ujemanj ni uspelo: {{message}}",
   "persist.writeFailed": "Delovnega okolja ni bilo mogoče shraniti v predpomnilnik — dokler se prostor ne sprosti, se delo ob osvežitvi morda ne bo obnovilo.",
+  "persist.restoreSkipped": "Zadnje obnavljanje shranjene datoteke se ni končalo, zato je bilo tokrat preskočeno. Za nov poskus osvežite stran.",
   "edit.charts.button": "Diagrami",
   "edit.charts.tooltip": "Diagrami za trenutno osebo — drevo, pahljača, sorodstvo …",
   "charts.header.tooltip": "Diagrami — rodoslovno drevo, pahljača, sorodstvo in časovnica",

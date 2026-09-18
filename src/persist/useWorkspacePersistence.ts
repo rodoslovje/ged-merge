@@ -8,9 +8,22 @@ import { isTableFile } from "../csv/compareCsv";
 import type { useDirtyTracking } from "../edit-state/useDirtyTracking";
 import type { useUndoRedo } from "../edit-state/useUndoRedo";
 import {
-  clearWorkspace, consumeFreshStart, loadWorkspace, requestPersistentStorage,
+  clearWorkspace, consumeFreshStart, deleteFile, loadWorkspace, requestPersistentStorage,
   saveFile, saveMainAndSession, type StoredEditState, type StoredSession,
 } from "./idb";
+
+/** localStorage key set while a cached main is being restored (see the
+ *  hydration effect). Browser storage may be blocked; every access is guarded. */
+const RESTORE_MARK = "gedmerge.restoreInProgress";
+function readRestoreMark(): boolean {
+  try { return localStorage.getItem(RESTORE_MARK) === "1"; } catch { return false; }
+}
+function writeRestoreMark(): void {
+  try { localStorage.setItem(RESTORE_MARK, "1"); } catch { /* storage blocked — no loop guard, no harm */ }
+}
+function clearRestoreMark(): void {
+  try { localStorage.removeItem(RESTORE_MARK); } catch { /* as above */ }
+}
 import { clearDecisions } from "./geoDb";
 import { hashFile, hasPermApi } from "./fingerprint";
 import { useSettingsSlice } from "../ui/SettingsContext";
@@ -176,8 +189,29 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
               : { type: "parse", role, fileName: sf.fileName, buffer, formatOverrides: formatOverridesRef.current },
             [buffer],
           );
+        }).catch(() => {
+          // A Blob stored in IndexedDB can refuse to be read (the browser
+          // evicted its bytes). Without this the slot stays "parsing…" at
+          // every boot with nothing dispatched; fail it, drop the unreadable
+          // cache entry, and let later loads persist again.
+          if (cancelled || userLoadedRef.current) return;
+          dispatch({ type: "slotError", role, fileName: sf.fileName, message: t("load.unreadable") });
+          void deleteFile(role);
+          hydratedRef.current = true;
         });
       };
+      // A cached main that crashes the tab (a renderer killed for memory
+      // sends no error event) would be restored again at every boot: the
+      // mark below is set before the parse and cleared once the slot settles,
+      // so a mark still present at boot means the last restore never
+      // finished. That boot skips the restore — once — and says so.
+      if (readRestoreMark()) {
+        clearRestoreMark();
+        hydratedRef.current = true;
+        opts.setSaveToast(t("persist.restoreSkipped"));
+        return;
+      }
+      writeRestoreMark();
       feed("main", ws.main); // main first so its profile is set before compare normalizes
       if (ws.compare) feed("compare", ws.compare);
 
@@ -205,7 +239,17 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
       if (ws.compare) void verifyOnHydrate("compare", ws.compare);
     });
     return () => { cancelled = true; };
+    // Mount-only by design: `t` and `opts.setSaveToast` are read once, on the
+    // boot that skips a restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post, dispatch, autoStartRef]);
+
+  // The restore mark comes off as soon as the main slot settles either way —
+  // parsed or failed — so only a restore that never finished leaves it behind.
+  const mainStatus = opts.workspace.main.status;
+  useEffect(() => {
+    if (mainStatus === "loaded" || mainStatus === "error") clearRestoreMark();
+  }, [mainStatus]);
 
   // Reacts to a mismatch found by the startup-restore's silent disk check
   // (`externalChangeAlert`). Kept as its own effect — rather than resolving the
