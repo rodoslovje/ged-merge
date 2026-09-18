@@ -5363,6 +5363,48 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-width: 2.5;
   stroke-opacity: 1;
 }
+/* Surname rings: solid slices, one per relative, tiling each ring edge to edge.
+   Told apart by the ground showing between the rings rather than by a stroke —
+   a stroke on a 2° slice is most of the slice. */
+.kin-slice {
+  cursor: pointer;
+  stroke: none;
+}
+.kin-slice:hover { filter: brightness(1.2); }
+.kin-slice.dim { opacity: 0.12; }
+.kin-slice.selected {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.kin-slice.find-hit {
+  stroke: var(--status-diff);
+  stroke-width: 2.5;
+}
+/* One surname giving way to the next, and — firmer — the elders' run giving way
+   to the issue's, the only boundary in a ring that is about kinship. */
+.kin-band-edge {
+  stroke: var(--bg);
+  stroke-width: 1.1;
+  stroke-opacity: 0.55;
+  pointer-events: none;
+}
+.kin-gen-split {
+  stroke: var(--text);
+  stroke-width: 1.6;
+  stroke-opacity: 0.55;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.kin-surname {
+  fill: var(--text);
+  font-weight: 500;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 2.2;
+  stroke-opacity: 0.35;
+  stroke-linejoin: round;
+}
 /* The root, at the centre of the wheel. */
 .kin-hub { fill: var(--accent); }
 .kin-hub-label {
