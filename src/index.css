@@ -5397,16 +5397,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-surname-band:hover { filter: brightness(1.2); }
 .kin-surname-band.dim { opacity: 0.12; }
 /* One surname picked out: every band of that name anywhere on the chart, and
-   the rest stood down so the name's whole reach reads at once. */
+   the rest stood down so the name's whole reach reads at once. The one that was
+   clicked takes the accent; its namesakes elsewhere are outlined plainly, so
+   the eye goes to where it is and then finds where else the name turns up. */
 .kin-surname-band.other { opacity: 0.22; }
 .kin-surname-band.same {
-  stroke: var(--accent);
+  stroke: var(--text);
   stroke-width: 1.6;
 }
-.kin-surname-band:focus-visible { stroke: var(--accent); stroke-width: 2; }
+.kin-surname-band:focus-visible { stroke: var(--text); stroke-width: 2; }
 .kin-surname-band.open {
-  stroke: var(--text);
-  stroke-width: 1.8;
+  stroke: var(--accent);
+  stroke-width: 2;
 }
 .kin-surname-band.find-hit {
   stroke: var(--status-diff);
