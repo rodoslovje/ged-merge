@@ -12,6 +12,7 @@ import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
+import { NOT_GEDCOM } from "./gedcom/parser";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { isTableFile } from "./csv/compareCsv";
@@ -442,7 +443,9 @@ function AppContent() {
           if (!persistence.expectCompareRef.current) persistence.hydratedRef.current = true;
         }
       } else {
-        dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: msg.message });
+        // The worker has no i18n: it names the not-a-GEDCOM case by a code.
+        const message = msg.message === NOT_GEDCOM ? t("load.notGedcom") : msg.message;
+        dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message });
         // A file that fails to parse must not stay cached, or every reload would
         // re-load it into an error and never reach the landing page.
         void deleteFile(msg.role);
@@ -513,8 +516,18 @@ function AppContent() {
   }
 
   async function loadSample(role: DatasetRole, fileName: string) {
-    const res = await fetch(`samples/${fileName}`);
-    const blob = await res.blob();
+    // A stale deploy answers a missing sample with the host's fallback HTML
+    // (status 200 or 404 alike): checked here, and by the parser refusing a
+    // file with no records, so an HTML page never lands in the slot.
+    let blob: Blob;
+    try {
+      const res = await fetch(`samples/${fileName}`);
+      if (!res.ok) throw new Error(String(res.status));
+      blob = await res.blob();
+    } catch {
+      dispatch({ type: "slotError", role, fileName, message: t("load.unreadable") });
+      return;
+    }
     loadFile(role, new File([blob], fileName, { type: "text/plain" }));
   }
 

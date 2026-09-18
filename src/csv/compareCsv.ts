@@ -10,6 +10,7 @@
  * being absent means to the worker.
  */
 import type { Dataset } from "../gedcom/types";
+import { decodeTableText } from "../gedcom/decode";
 import { parseGiMatchesCsv, type GiPair } from "./giMatches";
 import { parseParishIndexCsv, parseParishIndexRows } from "./parishIndex";
 import { looksLikeWorkbook, readWorkbook } from "./xlsx";
@@ -48,8 +49,7 @@ export function parseCompareCsv(text: string): CompareCsvImport {
  */
 export async function parseCompareTable(buffer: ArrayBuffer): Promise<CompareCsvImport> {
   if (looksLikeWorkbook(buffer)) return { dataset: await workbookDataset(buffer) };
-  const text = new TextDecoder("utf-8").decode(buffer);
-  return parseCompareCsv(text);
+  return parseCompareCsv(decodeTableText(buffer));
 }
 
 /**

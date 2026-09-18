@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeGedcom } from "./decode";
+import { decodeGedcom, decodeTableText } from "./decode";
 
 /** Build a byte buffer from a list of byte values. */
 function buf(...bytes: number[]): ArrayBuffer {
@@ -130,5 +130,38 @@ describe("decodeGedcom charset detection", () => {
     expect(charset).toBe("UTF-8");
     expect(text).toContain("Krać");
     expect(text).not.toContain("�");
+  });
+});
+
+describe("decodeTableText (CSV bytes with no charset header)", () => {
+  const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
+
+  it("decodes valid UTF-8 as UTF-8", () => {
+    const bytes = new TextEncoder().encode("Ime;Priimek\nJanez;Goršič\n");
+    expect(decodeTableText(bytes.buffer)).toBe("Ime;Priimek\nJanez;Goršič\n");
+  });
+
+  it("strips a UTF-8 BOM", () => {
+    const body = new TextEncoder().encode("a;b\n");
+    expect(decodeTableText(buf(0xef, 0xbb, 0xbf, ...body))).toBe("a;b\n");
+  });
+
+  it("decodes an Excel export on a Slovenian Windows (Windows-1250) so š/č/ž survive", () => {
+    // "Goršič" in cp1250: š = 0x9a, č = 0xe8
+    const bytes = buf(...ascii("Ime;Priimek\nJanez;Gor"), 0x9a, 0x69, 0xe8, 0x0a);
+    expect(decodeTableText(bytes)).toBe("Ime;Priimek\nJanez;Goršič\n");
+  });
+
+  it("decodes Windows-1252 when no Central-European marker byte is present", () => {
+    const bytes = buf(...ascii("M"), 0xfc, ...ascii("ller\n")); // ü in cp1252
+    expect(decodeTableText(bytes)).toBe("Müller\n");
+  });
+
+  it("decodes UTF-16 LE with a BOM (Excel's 'Unicode text')", () => {
+    const text = "a\tš\n";
+    const u16 = new Uint8Array(2 + text.length * 2);
+    u16[0] = 0xff; u16[1] = 0xfe;
+    for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); u16[2 + i * 2] = c & 0xff; u16[3 + i * 2] = c >> 8; }
+    expect(decodeTableText(u16.buffer)).toBe(text);
   });
 });

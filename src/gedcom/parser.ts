@@ -6,6 +6,11 @@ import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types"
 // file was kept verbatim and the file read as empty.
 const LINE_RE = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/;
 
+/** The message of the error `parseGedcom` throws for bytes that are not a
+ *  GEDCOM file at all. Only the message crosses the worker boundary, so the
+ *  main thread recognises the case by it (and shows a translated line). */
+export const NOT_GEDCOM = "not-gedcom";
+
 /**
  * Parse raw GEDCOM bytes into a lossless line tree (`ParseResult`).
  *
@@ -145,6 +150,14 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     textBlob = tag === "TEXT" || tag === "NOTE" ? node : undefined;
   }
 
+  // A photo, a zip, a .docx, an empty file: none of it is GEDCOM, yet every
+  // line "parses" (kept verbatim) and the result is a tree with nobody in it —
+  // which the app would load, show as an empty file and, with caching on,
+  // restore at every boot. Refuse a file with neither a header nor a single
+  // record, so the slot reports it instead.
+  if (!roots.some((r) => r.tag === "HEAD" || r.tag === "TRLR" || r.tag === "INDI" || r.tag === "FAM" || r.xref)) {
+    throw new Error(NOT_GEDCOM);
+  }
   const version = detectVersion(roots, warnings);
   return { version, charset, records: roots, warnings, eol, finalNewline, bom };
 }
