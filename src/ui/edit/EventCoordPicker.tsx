@@ -16,6 +16,7 @@ import { useSettingsSlice } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
 import { usePlacePeople } from "./PlacePeopleContext";
 import { personsOfRecord } from "../../tools/places";
+import { birthYear } from "../../gedcom/lifespan";
 import type { PersonRef } from "../../tools/sources";
 import { UsageList } from "../tools/shared";
 import { usePhone } from "../usePhone";
@@ -248,7 +249,7 @@ export function EventCoordPicker({
         return;
       }
       const panel = popRef.current?.getBoundingClientRect();
-      const width = panel?.width ?? Math.min(720, window.innerWidth * 0.92);
+      const width = panel?.width ?? Math.min(820, window.innerWidth * 0.92);
       const height = panel?.height ?? 320;
       const left = Math.max(EDGE, Math.min(anchor.left, window.innerWidth - width - EDGE));
       // Below the pin, or above it when the window has no room underneath.
@@ -366,19 +367,27 @@ export function EventCoordPicker({
   const peopleUses = open && people ? people.usesAt(place, address) : undefined;
   /** One line per person, not per record: a couple's marriage at the house
    *  names the two who are already there, and listing them twice says nothing
-   *  the two lines above it did not. */
+   *  the two lines above it did not.
+   *
+   *  Oldest first, by the year each was born: a house read from its earliest
+   *  inhabitant down reads as its own history, where the file's order is the
+   *  order some export happened to write. Whoever carries no birth year at all
+   *  keeps the file's order, at the end. */
   const peopleRows = useMemo(() => {
     if (!peopleUses || !people) return [];
     const seen = new Set<string>();
-    const rows: { persons: PersonRef[] }[] = [];
+    const rows: { person: PersonRef; year: number | undefined }[] = [];
     for (const recordId of peopleUses.records) {
       for (const person of personsOfRecord(people.dataset, recordId)) {
         if (seen.has(person.id)) continue;
         seen.add(person.id);
-        rows.push({ persons: [person] });
+        rows.push({ person, year: birthYear(people.dataset.individuals.get(person.id)) });
       }
     }
-    return rows;
+    return rows
+      .map((row, i) => ({ ...row, i }))
+      .sort((a, b) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.i - b.i)
+      .map((row) => ({ persons: [row.person] }));
   }, [peopleUses, people]);
 
   /** What the file itself already knows about this address / place. Anything

@@ -6737,6 +6737,8 @@ kbd {
   .edit-coord-body { flex-direction: column; }
   .edit-coord-map,
   .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
+  /* Stacked: the searches take a line of their own, as on a phone. */
+  .edit-coord-lookups { margin-left: 0; max-width: none; flex: 1 1 100%; }
   /* Pushed right, ahead of the manual entry it belongs with. */
 .edit-coord-share { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); }
 .edit-coord-share input { margin: 0; }
@@ -9390,7 +9392,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-coord-pop {
   /* Fixed, with the position computed from the pin: the events table scrolls
      sideways and clips its overflow, so an absolute panel was cut off. */
-  position: fixed; z-index: 30; width: min(720px, 92vw);
+  /* Wide enough for a lifespan to follow a full Slovenian name without the
+     line wrapping mid-column; still clamped to the window on a small screen. */
+  position: fixed; z-index: 30; width: min(820px, 92vw);
   display: flex; flex-direction: column; gap: 8px;
   padding: 8px 10px; margin-top: 4px;
   background: var(--panel-2); border: 1px solid var(--border);
@@ -9400,9 +9404,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-coord-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
 .edit-coord-body { display: flex; align-items: stretch; gap: 10px; }
 .edit-coord-map { flex: 1 1 58%; min-width: 0; }
-.edit-coord-map .tools-geo-minimap { height: 260px; max-width: none; margin: 0; }
+/* Tall enough that a house's people are read without scrolling — the column
+   beside it fills with names, where 260px showed a dozen and hid the rest. */
+.edit-coord-map .tools-geo-minimap { height: 340px; max-width: none; margin: 0; }
 .edit-coord-side {
-  flex: 1 1 42%; min-width: 0; max-height: 260px; overflow-y: auto;
+  flex: 1 1 42%; min-width: 0; max-height: 340px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
 }
 .edit-coord-current { display: flex; align-items: center; gap: 8px; }

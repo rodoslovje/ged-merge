@@ -16,11 +16,12 @@ writeFileSync(
     "0 @I1@ INDI", "1 NAME Ana /Kos/",
     // No coordinates anywhere: the geocoding list offers exactly the addresses
     // still to be placed, which is where the second test opens the panel.
-    "1 BIRT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
+    "1 BIRT", "2 DATE 1838", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
     "1 DEAT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
     "1 FAMS @F1@",
+    // Born before Ana, written after her: the list sorts, the file does not.
     "0 @I2@ INDI", "1 NAME Jože /Kos/",
-    "1 BIRT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
+    "1 BIRT", "2 DATE 1835", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
     "1 FAMS @F1@",
     // A neighbour at the same place but another house — never on this list.
     "0 @I3@ INDI", "1 NAME Marija /Novak/",
@@ -45,9 +46,11 @@ test("the coordinate panel lists the people at this address", async ({ page }) =
   await expect(page.locator(".edit-coord-people > p")).toHaveText("2 people at this address");
 
   // Standing open, each of them named once — the couple's marriage at the
-  // house adds no second pair of lines.
+  // house adds no second pair of lines — and oldest first, which is Jože
+  // (1835) ahead of Ana (1838) although the file writes her record first.
   const people = page.locator(".edit-coord-people .tools-usage .person-ref");
   await expect(people).toHaveCount(2);
+  await expect(people.first()).toContainText("Jože");
   await expect(people.filter({ hasText: "Marija" })).toHaveCount(0);
 
   // A name opens that person, which closes the panel with the row it hung off.
