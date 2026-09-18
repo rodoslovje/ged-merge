@@ -66,6 +66,10 @@ export function ChartSettings({
   // Living a band holds both, and one fill would have to pick a side.
   const axesHere =
     effectiveType === "kin" && settings.kinLayout === "surnames" ? GROUP_AXES : COLOR_AXES;
+  // An axis chosen elsewhere that this chart cannot answer is not the one in
+  // force here: the chart fell back to Plain, so Plain is what shows as chosen.
+  // Leaving none of them lit reads as a broken control.
+  const axisHere = axesHere.includes(settings.colorAxis) ? settings.colorAxis : "plain";
   // Generations currently drawn: the limit, or — with no limit — everything this
   // view has. Stepping starts from what the user sees, so "−" from "All" lands
   // one generation shallower than the tree in front of them.
@@ -230,8 +234,8 @@ export function ChartSettings({
                 {axesHere.map((axis) => (
                   <button
                     key={axis}
-                    className={settings.colorAxis === axis ? "active" : ""}
-                    aria-pressed={settings.colorAxis === axis}
+                    className={axisHere === axis ? "active" : ""}
+                    aria-pressed={axisHere === axis}
                     title={t(`chartColor.axis.${axis}.tip`)}
                     onClick={() => set({ colorAxis: axis })}
                   >

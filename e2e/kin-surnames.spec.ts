@@ -81,6 +81,34 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
   await expect(page.locator(".tree-compare")).toHaveCount(0);
 });
 
+test("an axis these rings cannot answer falls back to Plain, and says so", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.locator(".charts-open-btn").first().click();
+  await page.getByRole("tablist", { name: "Chart kind" }).getByRole("tab", { name: "Contemporaries" }).click();
+  await expect(page.locator(".kin-svg")).toBeVisible();
+
+  // Sex on the wheel, where every mark is one person and the axis is offered.
+  await page.locator(".chart-settings-btn").first().click();
+  await page.getByRole("button", { name: "Sex", exact: true }).click();
+  await page.keyboard.press("Escape");
+
+  // On the rings a mark is a band of people, so the choice cannot be honoured.
+  await page.getByRole("tablist", { name: "Layout" }).getByRole("tab", { name: "Surnames" }).click();
+  await expect(page.locator(".kin-surname-band").first()).toBeVisible();
+  await page.locator(".chart-settings-btn").first().click();
+  // Plain is what is in force, so Plain is what shows as chosen — leaving none
+  // of them lit reads as a broken control.
+  await expect(page.getByRole("button", { name: "Plain", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+
+  // …and the choice itself is untouched: the wheel still colours by sex.
+  await page.getByRole("tablist", { name: "Layout" }).getByRole("tab", { name: "Wheel" }).click();
+  await page.locator(".chart-settings-btn").first().click();
+  await expect(page.getByRole("button", { name: "Sex", exact: true })).toHaveAttribute("aria-pressed", "true");
+});
+
 test("a band lists its people with their lifespans and how they are related", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
