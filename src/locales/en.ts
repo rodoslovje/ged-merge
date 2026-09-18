@@ -1144,6 +1144,7 @@ export const en = {
   "load.verify.tooltip": "Check whether this file has changed on disk since it was loaded",
   "load.verify.denied": "Permission to read the file was denied.",
   "load.unreadable": "The file could not be read — it may have been moved or deleted.",
+  "load.notGedcom": "This is not a GEDCOM file: it has no header and no records.",
   "load.verify.unchanged": "No changes — the file on disk matches what's loaded.",
   "load.externalChange": "{{fileName}} has changed on disk since it was loaded. Reload it?",
   "load.externalChange.reload": "Reload",

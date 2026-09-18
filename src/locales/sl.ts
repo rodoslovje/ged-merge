@@ -1320,6 +1320,7 @@ export const sl = {
   "load.verify.tooltip": "Preveri, ali se je ta datoteka od nalaganja spremenila na disku",
   "load.verify.denied": "Dovoljenje za branje datoteke je bilo zavrnjeno.",
   "load.unreadable": "Datoteke ni bilo mogoče prebrati — morda je bila premaknjena ali izbrisana.",
+  "load.notGedcom": "To ni datoteka GEDCOM: v njej ni ne glave ne zapisov.",
   "load.verify.unchanged": "Brez sprememb — datoteka na disku se ujema z naloženo.",
   "load.externalChange": "Datoteka {{fileName}} se je od nalaganja spremenila na disku. Jo želite ponovno naložiti?",
   "load.externalChange.reload": "Ponovno naloži",
