@@ -2968,6 +2968,9 @@ button:focus-visible {
 }
 .edit-name-chip:hover,
 .edit-name-chip:focus-visible { border-color: var(--accent); }
+/* The quick-add buttons and the Settings list of them wear their event's mark
+   before its name, the way the row they write does. */
+.edit-name-chip .event-glyph { margin-right: 4px; }
 .edit-name-chip-add {
   border-style: dashed;
   border-color: var(--border-2);
@@ -2999,7 +3002,9 @@ button:focus-visible {
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
-   destination — solid-bordered and without the "+" — not an offer to add. */
+   destination — solid-bordered, where an offer to add is dashed. That border is
+   the whole distinction now that the buttons carry their event's mark and name
+   and nothing else. */
 .edit-name-chip--recorded {
   border-style: solid;
   border-color: var(--border);

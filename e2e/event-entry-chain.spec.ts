@@ -14,6 +14,13 @@ function focusedField(page: import("@playwright/test").Page) {
   });
 }
 
+/** A quick-add button, scoped to the row that adds events: the buttons carry
+ *  their event's name alone now, which an event row's own type control shares
+ *  once that event exists. */
+function quickAdd(page: import("@playwright/test").Page, event: string) {
+  return page.locator(".edit-event-add-row").getByRole("button", { name: event, exact: true });
+}
+
 async function openEdit(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(SAMPLE);
@@ -26,7 +33,7 @@ async function openEdit(page: import("@playwright/test").Page) {
 // skips it — so Enter now walks the fields an event is actually filled in.
 test("Enter walks a date event from its date to its place", async ({ page }) => {
   await openEdit(page);
-  await page.getByRole("button", { name: /^\+ Residence$/ }).click();
+  await quickAdd(page, "Residence").click();
   await expect.poll(() => focusedField(page)).toBe("edit-event-date");
 
   await page.keyboard.type("1 JAN 1900");
@@ -44,7 +51,7 @@ test("Enter walks a date event from its date to its place", async ({ page }) => 
 // an address is reached without the mouse.
 test("the + Add chip Enter lands on opens the detail menu", async ({ page }) => {
   await openEdit(page);
-  await page.getByRole("button", { name: /^\+ Residence$/ }).click();
+  await quickAdd(page, "Residence").click();
   await page.keyboard.type("1 JAN 1900");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Ljubljana, Slovenija");
@@ -66,7 +73,7 @@ test("Escape leaves the field, freeing Backspace to go back a person", async ({ 
   await page.locator(".edit-families .person-card").first().click();
   await expect.poll(shown).not.toBe(first);
 
-  await page.getByRole("button", { name: /^\+ Death$/ }).click();
+  await quickAdd(page, "Death").click();
   await expect.poll(() => focusedField(page)).toBe("edit-event-date");
   await page.keyboard.press("Escape");
   await expect.poll(() => focusedField(page)).toBe("DIV");
@@ -80,7 +87,7 @@ test("an event with a value still starts at the date, then the value, then place
   // take the lead and its date stayed hidden until it had one, so the first
   // field sat where the date sits on every other row.
   await openEdit(page);
-  await page.getByRole("button", { name: /^\+ Occupation$/ }).click();
+  await quickAdd(page, "Occupation").click();
   await expect.poll(() => focusedField(page)).toBe("edit-event-date");
 
   await page.keyboard.type("1 JAN 1900");
@@ -94,7 +101,7 @@ test("an event with a value still starts at the date, then the value, then place
 
 test("everything typed along the way is written", async ({ page }) => {
   await openEdit(page);
-  await page.getByRole("button", { name: /^\+ Occupation$/ }).click();
+  await quickAdd(page, "Occupation").click();
   await page.keyboard.type("1 JAN 1900");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Kmet");

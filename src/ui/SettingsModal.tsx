@@ -6,6 +6,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { useSettings, useNameOf, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { eventDisplayLabel } from "../gedcom/eventTags";
+import { EventGlyph } from "./EventGlyph";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
 import { sampleMapView, type FramedOverlay } from "./map/sampleView";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
@@ -563,6 +564,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span key={tag} className="edit-name-chip-wrap">
                   <span className="edit-name-chip edit-name-chip--recorded settings-quick-chip">
                     <span className="settings-quick-num gm-data">{i + 1}</span>
+                    <EventGlyph tag={tag} t={t} />
                     {eventDisplayLabel(tag, t)}
                   </span>
                   <button
