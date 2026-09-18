@@ -39,10 +39,37 @@ describe("diffRecord", () => {
     const after = record(PERSON.replace("2 DATE 12 MAR 1880", "2 DATE 12 MAR 1881"));
     expect(shown(record(PERSON), after)).toEqual([
       "  0 @I1@ INDI",
+      "  1 NAME Janez /Novak/",
       "  1 BIRT",
       "- 2 DATE 12 MAR 1880",
       "+ 2 DATE 12 MAR 1881",
     ]);
+  });
+
+  it("keeps the name line however far from it the change is", () => {
+    // The record's own line is an id: without the name, the lines say whose
+    // date this is only if the reader trusts the card they are sitting in.
+    const after = record(PERSON.replace("2 DATE 1945", "2 DATE 3 JUN 1945"));
+    expect(shown(record(PERSON), after).slice(0, 2)).toEqual([
+      "  0 @I1@ INDI",
+      "  1 NAME Janez /Novak/",
+    ]);
+  });
+
+  it("does not repeat a name that is itself the change", () => {
+    const after = record(PERSON.replace("1 NAME Janez /Novak/", "1 NAME Janez /Novach/"));
+    expect(shown(record(PERSON), after)).toEqual([
+      "  0 @I1@ INDI",
+      "- 1 NAME Janez /Novak/",
+      "+ 1 NAME Janez /Novach/",
+    ]);
+  });
+
+  it("does not mark a gap between the name and the first change", () => {
+    // The record line and the name caption the block; the sex line they step
+    // over is not a place the reader was reading from.
+    const after = record(PERSON.replace("2 PLAC Kranj", "2 PLAC Kranj, Slovenija"));
+    expect(shown(record(PERSON), after)).not.toContain("…");
   });
 
   it("counts what the file gains and loses", () => {
@@ -61,6 +88,7 @@ describe("diffRecord", () => {
     // since the reader is being moved out of one event and into another.
     expect(shown(record(PERSON), after)).toEqual([
       "  0 @I1@ INDI",
+      "  1 NAME Janez /Novak/",
       "  1 BIRT",
       "- 2 DATE 12 MAR 1880",
       "+ 2 DATE 12 MAR 1881",
@@ -77,6 +105,7 @@ describe("diffRecord", () => {
     );
     expect(shown(record(PERSON), after)).toEqual([
       "  0 @I1@ INDI",
+      "  1 NAME Janez /Novak/",
       "  1 BIRT",
       "- 2 PLAC Kranj",
       "+ 2 PLAC Kranj, Slovenija",
@@ -90,6 +119,7 @@ describe("diffRecord", () => {
     const after = record(PERSON.replace("1 FAMS @F1@\n", "1 BURI\n2 DATE 5 JUN 1945\n2 PLAC Kranj\n1 FAMS @F1@\n"));
     expect(shown(record(PERSON), after)).toEqual([
       "  0 @I1@ INDI",
+      "  1 NAME Janez /Novak/",
       "+ 1 BURI",
       "+ 2 DATE 5 JUN 1945",
       "+ 2 PLAC Kranj",

@@ -210,11 +210,25 @@ export function diffRecord(
     else markAncestors(op.bi, bOwner, opAtB);
   });
 
+  // The record's name line, kept whether or not the change is anywhere near it.
+  // A record's own line names nobody — `0 @I1@ INDI` is an id — so without this
+  // the reader has to trust the card's heading to know whose date is being
+  // rewritten. A record whose name is itself being rewritten lands on the
+  // removed spelling here, which is on show already: the block then opens with
+  // both spellings, which is the same caption told as the change it is.
+  const nameOp = ops.findIndex((op) => /^1 NAME(?=[ \t]|$)/.test(op.text));
+  if (nameOp >= 0) keep.add(nameOp);
+  // Where the head of the block ends: the record's line and the name under it
+  // caption the whole diff rather than open its first hunk, so the lines they
+  // step over are not a jump the reader needs marking (see below).
+  const headerEnd = nameOp >= 0 ? nameOp : 0;
+
   const lines: DiffLine[] = [];
   let added = 0;
   let removed = 0;
   let skipped = false;
   let lastLevel = -1;
+  let lastOp = -1;
   for (let k = 0; k < ops.length; k++) {
     const op = ops[k];
     if (!keep.has(k)) { skipped = true; continue; }
@@ -224,8 +238,13 @@ export function diffRecord(
     // the owning tags to the change itself (INDI → BIRT → DATE), and the lines
     // stepped over on the way are the person's other tags, which the hunk is
     // not about. Coming back out to the same level or shallower is a jump, and
-    // there the gap is the whole point. Never before the first line shown.
-    if (skipped && lines.length > 0 && level <= lastLevel) lines.push({ kind: "gap", text: "" });
+    // there the gap is the whole point. Never before the first line shown, and
+    // never straight after the caption, which is not a place in the record the
+    // reader was reading from.
+    if (skipped && lines.length > 0 && level <= lastLevel && lastOp > headerEnd) {
+      lines.push({ kind: "gap", text: "" });
+    }
+    lastOp = k;
     skipped = false;
     lastLevel = level;
     lines.push({ kind: op.kind, text: op.text });

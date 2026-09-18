@@ -42,15 +42,18 @@ test("the save preview reads the pending change as GEDCOM lines", async ({ page 
   await page.getByRole("tab", { name: "GEDCOM lines" }).click();
 
   const lines = page.locator(".preview-diff .diff-line");
-  await expect(lines).toHaveCount(4);
+  await expect(lines).toHaveCount(5);
   await expect(lines.nth(0)).toHaveText("0 @I1@ INDI");
-  await expect(lines.nth(1)).toHaveText("1 BIRT");
+  // The name captions the block: the record's own line is an id, and a reader
+  // checking a date should not have to take the card's heading on trust.
+  await expect(lines.nth(1)).toHaveText("1 NAME Jurij /Vidmar/");
+  await expect(lines.nth(2)).toHaveText("1 BIRT");
   // The sign sits against its line, as in any unified diff, so a block copied
   // out of here pastes as one.
-  await expect(lines.nth(2)).toHaveText("-2 DATE 12 MAR 1880");
-  await expect(lines.nth(3)).toHaveText("+2 DATE 13 MAR 1880");
-  await expect(lines.nth(2)).toHaveClass(/is-del/);
-  await expect(lines.nth(3)).toHaveClass(/is-add/);
+  await expect(lines.nth(3)).toHaveText("-2 DATE 12 MAR 1880");
+  await expect(lines.nth(4)).toHaveText("+2 DATE 13 MAR 1880");
+  await expect(lines.nth(3)).toHaveClass(/is-del/);
+  await expect(lines.nth(4)).toHaveClass(/is-add/);
   // The death and the unchanged birth place are another part of the record,
   // and the view is about the change.
   await expect(page.locator(".preview-diff")).not.toContainText("DEAT");
