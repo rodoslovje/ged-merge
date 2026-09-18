@@ -776,7 +776,9 @@ export interface SurnameBand {
   distance: number;
   /** Elders / own generation / issue — what the band is coloured by. */
   direction: KinDirection;
-  /** Ancestor / relative / descendant — what the band is called. */
+  /** Ancestor / relative / descendant — what the ring's marks are cut on: they
+   *  fall where a direct line ends. Not written anywhere, because every row of
+   *  a band shows the same kinship and says it in plainer words. */
   kind: KinKind;
   /** Generations above (+) or below (−) the root — one value for the whole
    *  band, so a colour axis keyed on it paints the section exactly. */
