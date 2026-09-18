@@ -59,6 +59,7 @@ import {
   ensurePrimaryName,
   rebuildNoteReferrers,
   removeIndividual,
+  familiesNaming,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
   sourceCitationNodes,
@@ -101,6 +102,7 @@ import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/Family
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { addAssociation, moveAssociation, removeAssociation, writeAssociation } from "../gedcom/edit";
+import { recordsNaming } from "../gedcom/assoc";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
@@ -1676,7 +1678,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       confirmLabel: t("confirm.delete"),
       action: () => {
         const personId = person.id;
-        const affectedFamilyIds = [...person.spouseOf, ...person.childOf];
+        // The family side too: a one-sided file can name the person in a
+        // family their own record does not link back to.
+        const affectedFamilyIds = [...new Set([...person.spouseOf, ...person.childOf, ...familiesNaming(dataset, personId)])];
 
         // Snapshot the person, their families, and all members of those families:
         // a family pruned for dropping below two members unlinks its survivors too.
@@ -1685,7 +1689,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           const fam = dataset.families.get(famId);
           if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
         }
-        const before = snapshotRecords(dataset, memberIds, affectedFamilyIds);
+        // And every record that names the person in an association — the
+        // delete strips those ASSO lines wherever they sit, so undo must be
+        // able to put them back. `snapshotRecords` ignores an id that is not
+        // an individual (or not a family), so each list gets the whole set.
+        const naming = recordsNaming(dataset.records, new Set([personId]));
+        for (const id of naming) memberIds.add(id);
+        const before = snapshotRecords(dataset, memberIds, new Set([...affectedFamilyIds, ...naming]));
 
         removeIndividual(dataset, person);
 
