@@ -807,16 +807,10 @@ export interface SurnameRingsChart {
   radius: number;
   width: number;
   height: number;
-  rings: {
-    distance: number;
-    rInner: number;
-    rOuter: number;
-    count: number;
-    labelR: number;
-    /** False where the number would sit on top of the one inside it — the
-     *  wheel's scale drops those too, and every ring is on a tooltip anyway. */
-    numbered: boolean;
-  }[];
+  /** The rings that hold anybody, innermost first. There is no scale drawn on
+   *  them: a continuous ring has no gutter to set one in, and every band names
+   *  its own blood distance. */
+  rings: { distance: number; rInner: number; rOuter: number; count: number }[];
   bands: SurnameBand[];
   splits: SurnameSplit[];
   maxDistance: number;
@@ -942,20 +936,13 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
   const bands: SurnameBand[] = [];
   const splits: SurnameSplit[] = [];
   const rings: SurnameRingsChart["rings"] = [];
-  let lastNumberR = -Infinity;
 
   for (let m = 1; m <= maxDistance; m++) {
     const cell = byRing.get(m);
     const rInner = edges[m - 1] + RING_INSET;
     const rOuter = edges[m] - RING_INSET;
     if (!cell?.length || rOuter <= rInner) continue;
-    const labelR = (rInner + rOuter) / 2;
-    // More room than the wheel's scale needs: there the numbers sit in an empty
-    // gutter, here they ride over the bands, so a two-digit number and its halo
-    // have to clear the one inside it.
-    const numbered = labelR - lastNumberR >= (m >= 10 ? 22 : 15);
-    if (numbered) lastNumberR = labelR;
-    rings.push({ distance: m, rInner, rOuter, count: cell.length, labelR, numbered });
+    rings.push({ distance: m, rInner, rOuter, count: cell.length });
 
     cell.sort(surnameOrder);
     const per = 360 / cell.length;

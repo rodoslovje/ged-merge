@@ -838,21 +838,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                             </text>
                           ),
                         )}
-                      {/* The ring scale, on the 9 o'clock axis: a continuous ring
-                          leaves no gutter to set it in, so it rides over the
-                          bands on the halo the wheel's numbers already use. */}
-                      {surnames.rings.filter((r) => r.numbered).map((ring) => (
-                        <text
-                          key={`r${ring.distance}`}
-                          className="kin-ring-label"
-                          x={surnames.cx - ring.labelR}
-                          y={surnames.cy + 3.5}
-                          textAnchor="middle"
-                        >
-                          <title>{ringTitle(ring.distance)}</title>
-                          {ring.distance}
-                        </text>
-                      ))}
+                      {/* No ring scale here. A continuous ring leaves no gutter
+                          to set it in, so the numbers rode over the bands and
+                          covered their names — and every band's card says the
+                          blood distance in words already. */}
                       <circle className="kin-hub" cx={surnames.cx} cy={surnames.cy} r={19} />
                       <text className="kin-hub-label" x={surnames.cx} y={surnames.cy + 5} textAnchor="middle">
                         {initials(rootName)}
