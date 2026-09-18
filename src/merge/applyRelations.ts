@@ -121,6 +121,12 @@ export function makeContext(
   const incToMain = new Map<string, string>();
   for (const c of matches.individuals) {
     if (rejectedPairs.has(`${c.mainId}|${c.compareId}`)) continue;
+    // A match can outlive its main person: the worker matched against the
+    // main as loaded, and a person deleted in Edit mode since is still named
+    // by the candidate. Joining on them would write their id as a spouse or
+    // child pointer to a record the file no longer holds, so the incoming
+    // person is imported as a record of their own instead.
+    if (!indiNodes.has(c.mainId)) continue;
     incToMain.set(c.compareId, c.mainId);
   }
 

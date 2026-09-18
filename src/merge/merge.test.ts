@@ -3281,3 +3281,42 @@ describe("a main file that cites pages by their link", () => {
     expect(out).not.toContain("0 @X162@ SOUR");
   });
 });
+
+describe("mergeDecisions — a match whose main person no longer exists", () => {
+  // The worker matched against the main as loaded; the user then deleted @I1@
+  // in Edit mode. The stale candidate (@I1@ ↔ @C2@) is still in `matches`.
+  const main = dataset(wrap("0 @I3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1 JAN 1900\n"));
+  const compare = dataset(
+    wrap(
+      "0 @C1@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1 JAN 1900\n1 FAMS @F1@\n" +
+        "0 @C2@ INDI\n1 NAME Janez /Kovač/\n1 SEX M\n1 BIRT\n2 DATE 1898\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @C2@\n1 WIFE @C1@\n1 MARR\n2 DATE 1920\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { mainId: "@I3@", compareId: "@C1@" },
+      { mainId: "@I1@", compareId: "@C2@" },
+    ],
+  } as never;
+
+  it("imports the incoming spouse as a new person instead of pointing at the deleted id", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@C1@"), { status: "confirmed", fields: { "fam.@F1@.partner": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+
+    const xrefs = new Set(records.map((r) => r.xref).filter(Boolean));
+    const fams = records.filter((r) => r.tag === "FAM");
+    expect(fams).toHaveLength(1);
+    for (const c of fams[0].children) {
+      if (c.tag === "HUSB" || c.tag === "WIFE") expect(xrefs.has(c.value!)).toBe(true);
+    }
+    // Janez arrived as a record of his own (which may well take the freed
+    // @I1@ id), named in the report as new, and the family points at *him*.
+    const janez = records.find((r) => r.tag === "INDI" && r.children.some((c) => c.tag === "NAME" && c.value === "Janez /Kovač/"));
+    expect(janez).toBeDefined();
+    expect(fams[0].children.find((c) => c.tag === "HUSB")?.value).toBe(janez!.xref);
+    expect(report.changes.some((c) => c.recordId === janez!.xref && c.newRecord)).toBe(true);
+  });
+});
