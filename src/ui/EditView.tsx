@@ -90,8 +90,9 @@ import { useMergeOverlay } from "./edit/useMergeOverlay";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
 import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
+import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/PlacePeopleContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
-import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
+import { applyGeocodeByAddress, placeAddrKey } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
 import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, keyHint, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
@@ -1743,27 +1744,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
-  // How many events carry each place+address pair — what the coordinate picker
-  // needs to offer "copy this pick to the file's other events at this address".
-  // Walked on demand, cached per edit generation: the walk visits every PLAC
-  // in the file, and its only reader is an *open* coordinate picker — eagerly
-  // recomputing it on every commit taxed each field blur for a picker that
-  // was closed. `useStableHandler` keeps the getter reading the live tick.
-  const pairUsesCacheRef = useRef<{ tick: number; undoVersion: number; counts: Map<string, number> } | null>(null);
-  const getPairUses = useStableHandler(() => {
-    const hit = pairUsesCacheRef.current;
-    if (hit && hit.tick === tick && hit.undoVersion === undoVersion) return hit.counts;
-    const counts = new Map<string, number>();
-    const visit = (raw: GedNode) =>
-      walkPlaceAddr(raw, (plac, addr) => {
-        const key = placeAddrKey(plac.value!.trim(), addr);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      });
-    for (const indi of dataset.individuals.values()) visit(indi.raw);
-    for (const fam of dataset.families.values()) visit(fam.raw);
-    pairUsesCacheRef.current = { tick, undoVersion, counts };
-    return counts;
-  });
+  // What the file writes at each place+address pair: how many events carry it —
+  // what the coordinate picker needs to offer "copy this pick to the file's
+  // other events at this address" — and which records they are, for the people
+  // the same panel lists. Walked on demand and cached per edit generation; the
+  // live tick and undo counter are what mark it stale, since the dataset is
+  // mutated in place.
+  const placeUsesAt = usePlaceAddrUses(dataset, `${tick}:${undoVersion}`);
 
   const coordShare = useMemo<CoordShare>(
     () => ({
@@ -1772,8 +1759,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // is exactly the one being corrected here, and counting that as "nothing
       // to copy" is what used to hide the offer whenever a pinned address was
       // re-pinned. A pick equal to what they hold simply produces no patch.
-      countOthers: (place, address) =>
-        Math.max(0, (getPairUses().get(placeAddrKey(place.trim(), address.trim())) ?? 0) - 1),
+      countOthers: (place, address) => Math.max(0, placeUsesAt(place, address).events - 1),
       applyToAll: (place, address, coord) => {
         const key = placeAddrKey(place.trim(), address.trim());
         const patches = applyGeocodeByAddress(dataset, new Map([[key, { coord }]]), true);
@@ -1783,9 +1769,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         setTick((v) => v + 1);
       },
     }),
-    // getPairUses is identity-stable and reads the live tick itself, so the
+    // placeUsesAt is identity-stable and reads the live tick itself, so the
     // share object never needs rebuilding for a count that is pulled lazily.
-    [dataset, getPairUses, onPushEdit, onDirty],
+    [dataset, placeUsesAt, onPushEdit, onDirty],
+  );
+
+  /** The same lookup read for names rather than counts: who else the file puts
+   *  at this house, listed in the coordinate panel. `navigate` opens one. */
+  const placePeople = useMemo<PlacePeople>(
+    () => ({ dataset, usesAt: placeUsesAt, onNavigate: navigate }),
+    [dataset, placeUsesAt, navigate],
   );
 
   // Glyph-tagged parents' ages at this person's birth, for the BIRT row
@@ -1917,6 +1910,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   return (
     <CoordShareProvider value={coordShare}>
+    <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
@@ -2366,6 +2360,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     </div>
     </AssocProvider>
     </PlaceLookupProvider>
+    </PlacePeopleProvider>
     </CoordShareProvider>
   );
 }

@@ -2,6 +2,7 @@ import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
 import { distinctSpots } from "./placeCoords";
 import { label } from "../match/relatives";
+import { placeAddrKey, walkPlaceAddr } from "./geocode";
 import { familySpouses, type PersonRef } from "./sources";
 
 /**
@@ -234,6 +235,66 @@ export function collectNodeUseIds(node: PlaceNode): Set<string> {
   }
   visit(node);
   return ids;
+}
+
+/** What one place+address pair is used by, as {@link buildPlaceAddrUses} indexes it. */
+export interface PlaceAddrUses {
+  /** `PLAC` mentions at the pair — events, not records: the events one shared
+   *  coordinate would reach, which is what the picker's "also set on N other
+   *  events" offer counts. */
+  events: number;
+  /** The records carrying them, in file order and at most {@link PLACE_USES_CAP}
+   *  of them — who else is at this house. */
+  records: string[];
+  /** How many records carry the pair in all, capped list or not. */
+  recordCount: number;
+}
+
+/** How many records one pair keeps. An event with no address is keyed by its
+ *  place alone, so its pair is every address-less event in the settlement — a
+ *  whole village, where the panel that reads this lists a handful of names. */
+export const PLACE_USES_CAP = 50;
+
+/** The answer for a pair the file never writes — one shared object, so a
+ *  caller asking on every render is handed the same one back. */
+export const NO_PLACE_ADDR_USES: PlaceAddrUses = { events: 0, records: [], recordCount: 0 };
+
+/**
+ * Index every `INDI`/`FAM` record by the place+address pairs its events name
+ * ({@link placeAddrKey}), in one walk of the file.
+ *
+ * Two questions share the walk: how many events a coordinate picked here would
+ * also serve, and who else in the file is at this very house — the same people
+ * the place tree lists under its leaves, asked of one pair rather than browsed.
+ */
+export function buildPlaceAddrUses(dataset: Dataset, cap = PLACE_USES_CAP): Map<string, PlaceAddrUses> {
+  const index = new Map<string, PlaceAddrUses>();
+  const visit = (raw: GedNode, recordId: string) => {
+    // Per record, so the three baptisms a family wrote at one house count as
+    // three events but list the family once.
+    const seen = new Set<string>();
+    walkPlaceAddr(raw, (plac, addr) => {
+      const key = placeAddrKey(plac.value!.trim(), addr);
+      let hit = index.get(key);
+      if (!hit) index.set(key, (hit = { events: 0, records: [], recordCount: 0 }));
+      hit.events++;
+      if (seen.has(key)) return;
+      seen.add(key);
+      hit.recordCount++;
+      if (hit.records.length < cap) hit.records.push(recordId);
+    });
+  };
+  for (const indi of dataset.individuals.values()) visit(indi.raw, indi.id);
+  for (const fam of dataset.families.values()) visit(fam.raw, fam.id);
+  return index;
+}
+
+/** The person(s) a record is shown and linked as — itself for an `INDI`, its
+ *  spouses for a `FAM`, exactly as the place tree's own usage lists read. */
+export function personsOfRecord(dataset: Dataset, recordId: string): PersonRef[] {
+  const indi = dataset.individuals.get(recordId);
+  if (indi) return [{ id: indi.id, label: label(indi) }];
+  return familySpouses(dataset, recordId);
 }
 
 /** Count distinct place strings across all `INDI`/`FAM` records — the same

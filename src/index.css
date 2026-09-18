@@ -9412,6 +9412,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    is narrow — without a gap of their own the labels run into one another and
    read as a single link. */
 .edit-coord-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+/* Who else the file puts at this address: the count, and the names under it
+   once unfolded. The list loses the indent it wears under a worklist row —
+   here there is no row above it to hang off, only the line that opened it. */
+.edit-coord-people { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.edit-coord-people .tools-usage { padding-left: 10px; margin: 0; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
 .edit-coord-results .tools-issue-link { text-align: left; }

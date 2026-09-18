@@ -14,6 +14,9 @@ import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
 import { LookupAction } from "./LookupAction";
 import { useSettingsSlice } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
+import { usePlacePeople } from "./PlacePeopleContext";
+import { personsOfRecord } from "../../tools/places";
+import { UsageList } from "../tools/shared";
 import { usePhone } from "../usePhone";
 
 // Per-event coordinate control in the Edit view: the pin beside a place, and the
@@ -190,7 +193,10 @@ export function EventCoordPicker({
     voidLookups();
     setRn((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
     setOsm((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
-   
+    // The names belong to the address the panel was opened on; the next one it
+    // opens on is another house, and its list starts folded like the first.
+    setShowPeople(false);
+
   }, [open]);
    
   useEffect(() => () => voidLookups(), []);
@@ -199,12 +205,17 @@ export function EventCoordPicker({
    *  clamped to the window: the events table scrolls sideways and clips, so an
    *  absolutely positioned panel was cut off at either edge. */
   const [pos, setPos] = useState<{ left?: number; top: number; maxH?: number } | null>(null);
+  /** Whether the list of people at this address is unfolded. Closed to begin
+   *  with: the panel is here to position a house, and the names are the check
+   *  on that — the line says how many there are, the list is one click away. */
+  const [showPeople, setShowPeople] = useState(false);
   /** Whether the next pick is copied to the file's other events at this exact
    *  place and address (see the offer in the panel head). On by default: the
    *  same place and address is the same house, so one position is what those
    *  events should all have — unticking is the exception. */
   const [shareAll, setShareAll] = useState(true);
   const share = useCoordShare();
+  const people = usePlacePeople();
   const phone = usePhone();
   const boxRef = useRef<HTMLDivElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
@@ -351,8 +362,25 @@ export function EventCoordPicker({
   };
 
   // Other events in the file at this very place and address: their coordinate
-  // should be the same one, so picking here offers to set theirs too.
-  const others = share ? share.countOthers(place, address) : 0;
+  // should be the same one, so picking here offers to set theirs too. Asked
+  // only of an open panel: the count comes from a walk over every PLAC in the
+  // file, and every event row of a person carries one of these pins.
+  const others = open && share ? share.countOthers(place, address) : 0;
+
+  // Who else the file puts at this place and address — the names that say
+  // whether the house on the map is the right one. Same rule: only once open.
+  const peopleUses = open && people ? people.usesAt(place, address) : undefined;
+  const peopleRows = useMemo(() => {
+    if (!peopleUses || !people) return [];
+    return peopleUses.records
+      .map((id) => ({ recordId: id, persons: personsOfRecord(people.dataset, id) }))
+      .filter((use) => use.persons.length > 0);
+  }, [peopleUses, people]);
+  /** Distinct people among those records — a marriage lists both spouses. */
+  const peopleCount = useMemo(
+    () => new Set(peopleRows.flatMap((use) => use.persons.map((p) => p.id))).size,
+    [peopleRows],
+  );
 
   /** What the file itself already knows about this address / place. Anything
    *  equal to the current coordinate is left out — it would propose a no-op.
@@ -636,6 +664,33 @@ export function EventCoordPicker({
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Who else the file has at this address — the check on whether
+                  the house being pinned is this family's at all. Folded away
+                  behind its own count: a settlement's address-less events can
+                  be a whole village, and the pick is what the panel is for. */}
+              {peopleCount > 0 && people && (
+                <div className="edit-coord-people">
+                  <button
+                    type="button"
+                    className="tools-issue-link"
+                    aria-expanded={showPeople}
+                    onClick={() => setShowPeople((v) => !v)}
+                  >
+                    {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleCount })}
+                  </button>
+                  {showPeople && (
+                    <>
+                      <UsageList dataset={people.dataset} uses={peopleRows} onNavigate={people.onNavigate} />
+                      {/* The cap the lookup lists up to — said plainly, so a
+                          village's list is not read as all there is. */}
+                      {peopleUses && peopleUses.recordCount > peopleUses.records.length && (
+                        <p className="edit-coord-note">{t("event.coord.people.more", { count: peopleUses.recordCount - peopleUses.records.length })}</p>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
 
               {(shownRn.length > 0 || shownOsm.length > 0) && (
