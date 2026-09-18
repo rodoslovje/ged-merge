@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import type { NormalizeOptions } from "../../normalize/types";
+import type { NormChange, NormalizeOptions } from "../../normalize/types";
 import type { RecordPatch } from "../historyTypes";
 import { downloadText, savedName } from "../download";
 import { revealEdgeWhitespace } from "../whitespace";
@@ -205,7 +205,7 @@ function NormCheck({
   );
 }
 
-function NormExamples({ title, examples }: { title: string; examples: { before: string; after: string }[] }) {
+function NormExamples({ title, examples }: { title: string; examples: NormChange[] }) {
   if (!examples.length) return null;
   return (
     <div className="tools-examples">
@@ -213,6 +213,10 @@ function NormExamples({ title, examples }: { title: string; examples: { before: 
       <ul>
         {examples.map((e, i) => (
           <li key={i}>
+            {/* The record the pair is a change to, where the fields alone do
+                not name it — a source's title says what the proposed coverage
+                was read from. */}
+            {e.context && <span className="tools-ex-context">{e.context}</span>}
             <span className="tools-ex-from">{revealEdgeWhitespace(e.before)}</span>
             <span className="tools-pair-sep">→</span>
             <span className="tools-ex-to">{revealEdgeWhitespace(e.after)}</span>

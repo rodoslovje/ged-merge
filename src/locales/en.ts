@@ -843,7 +843,7 @@ export const en = {
   "tools.sources.tab.pages": "Pages",
   "tools.sources.pageMediaHeading": "Cited pages without their image",
   "tools.sources.pageMediaIntro":
-    "This file links a cited page's image beside the citation, the way webtrees and Ancestry show a scan with the fact it documents (Settings → Page links). These citations do not have theirs: the image is under the source, but the person or the event does not link it. Pick the sources and apply — one image pointer is added beside each citation, and nothing else about the record changes.",
+    "These citations stand without the page image that documents them: the image hangs under the source record, and the event below it does not link it (Settings → Page links). Pick the sources and apply — each row below gains one pointer to the image named beside it, and nothing else about the record changes.",
   "tools.sources.pageMediaFound_one": "{{count}} citation without its page image",
   "tools.sources.pageMediaFound_other": "{{count}} citations without their page image",
   "tools.sources.pageMediaAmbiguous_one":
@@ -855,6 +855,7 @@ export const en = {
   "tools.sources.pageUnfiledHint":
     "These pages sit beside a citation of this source, but the source record does not hold them — so it cannot answer for the citations that are missing theirs. They are filed under the book by the same run.",
   "tools.sources.pageMediaPage": "page {{page}}",
+  "tools.sources.pageMediaImage": "image: {{title}}",
   "tools.sources.pageMediaRecord": "on the record itself",
   "tools.sources.applyPageMedia": "Link page images ({{count}})",
   "tools.sources.cleanupApply": "Apply to the file ({{count}})",

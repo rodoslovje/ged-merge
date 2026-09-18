@@ -989,7 +989,7 @@ export const sl = {
   "tools.sources.tab.pages": "Strani",
   "tools.sources.pageMediaHeading": "Navedene strani brez svoje slike",
   "tools.sources.pageMediaIntro":
-    "Ta datoteka pripenja sliko navedene strani k navedbi pri dogodku, tako da je posnetek viden ob dejstvu, ki ga dokazuje (nastavi se v Nastavitvah → Povezave strani). Te navedbe svoje slike nimajo: slika je pri zapisu vira, oseba ali dogodek pa je ne navaja. Izberite vire in jih uveljavite — ob vsaki navedbi se doda ena povezava do slike, drugo v zapisu ostane nespremenjeno.",
+    "Te navedbe stojijo brez slike strani, ki jo dokazujejo: slika visi pri zapisu vira, dogodek pod njim pa je ne navaja (Nastavitve → Povezave strani). Izberite vire in jih uveljavite — vsaka spodnja vrstica dobi eno povezavo do slike, ki je poimenovana ob njej, drugo v zapisu ostane nespremenjeno.",
   "tools.sources.pageMediaFound_one": "Brez slike strani: {{count}} navedba",
   "tools.sources.pageMediaFound_two": "Brez slike strani: {{count}} navedbi",
   "tools.sources.pageMediaFound_few": "Brez slike strani: {{count}} navedbe",
@@ -1009,6 +1009,7 @@ export const sl = {
   "tools.sources.pageUnfiledHint":
     "Te slike strani so pripete ob navedbi tega vira, zapis vira pa jih ne vodi — zato pri drugih navedbah te knjige ni mogoče ugotoviti, katera slika jim pripada. Isti zagon jih uvrsti k zapisu vira.",
   "tools.sources.pageMediaPage": "stran {{page}}",
+  "tools.sources.pageMediaImage": "slika: {{title}}",
   "tools.sources.pageMediaRecord": "pri samem zapisu",
   "tools.sources.applyPageMedia": "Pripni slike strani ({{count}})",
   "tools.sources.cleanupApply": "Uveljavi v datoteki ({{count}})",

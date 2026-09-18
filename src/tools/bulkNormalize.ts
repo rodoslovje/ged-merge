@@ -1,7 +1,7 @@
 import type { Dataset } from "../gedcom/types";
 import type { NormChange, NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { childValue } from "../gedcom/node";
-import { nativeAliasTags } from "../gedcom/vendorTags";
+import { foreignAliasTags, isNativeTag, producerSoftware } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
 import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { normalizeDataset } from "../normalize/normalize";
@@ -37,15 +37,19 @@ export function bulkNormalize(
   const profile = applyFormatOverrides(inferMainProfile(ds), overrides);
   const { dateValues } = collectLayoutValues(ds);
   // Vendor-tag aliases canonicalize toward the spelling *this app* supports —
-  // right for an incoming compare file, wrong when the tag is the file's own
-  // producer's dialect (a MacFamilyTree file must keep `MISE`, or a re-import
-  // into MacFamilyTree loses the fact). Exempt the producer's native aliases,
-  // identified from the HEAD>SOUR system id.
+  // right for an incoming compare file, wrong on one's own, where the rename
+  // trades one foreign dialect for another (`MISE` → `_MILT` on a MyHeritage
+  // file is MacFamilyTree's spelling swapped for Brother's Keeper's) and the
+  // fact is lost on re-import. Only a rename into the producer's own dialect
+  // runs, identified from the HEAD>SOUR system id.
   const head = ds.records.find((r) => r.tag === "HEAD");
-  const preserveVendorTags = nativeAliasTags(head && childValue(head, "SOUR"));
+  const headSour = head && childValue(head, "SOUR");
+  const preserveVendorTags = foreignAliasTags(headSour);
+  const preserveFamilyStatus = !isNativeTag("_MSTAT", producerSoftware(headSour));
   const result = normalizeDataset(ds, profile, dateValues, {
     ...(options ?? { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true }),
     preserveVendorTags,
+    preserveFamilyStatus,
     // Never on one's own file — see `NormalizeOptions.tidyPlaceWhitespace`.
     tidyPlaceWhitespace: false,
   });

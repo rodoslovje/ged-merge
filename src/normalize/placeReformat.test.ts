@@ -167,6 +167,42 @@ describe("reformatPlace → main-learned hierarchy fills in missing detail", () 
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
   });
 
+  it("leaves a slash-separated value whole instead of splitting a house number off it", () => {
+    // The file writes its levels with slashes, which this parser does not read
+    // as levels — so the whole path came out as the "locality" and the split
+    // produced a place without its number plus an address repeating all of it.
+    const r = reformatPlace("Kranj/Ulica Janeza Puharja 9/Grosova ulica 18", undefined, RENKO_H);
+    expect(r.plac).toBe("Kranj/Ulica Janeza Puharja 9/Grosova ulica 18");
+    expect(r.addr).toBeUndefined();
+  });
+
+  it("still splits village numbering, where the name before the number is a settlement", () => {
+    const r = reformatPlace("Zgornje Bitnje 165", undefined, RENKO_H);
+    expect(r.plac).toBe("Zgornje Bitnje");
+    expect(r.addr).toBe("Zgornje Bitnje 165");
+  });
+
+  it("never moves a record to a locality the written one does not contain", () => {
+    // "Šolska ulica" is a street in a hundred settlements. The file happens to
+    // spell it out in Spodnje Jarše, which sits under Domžale — no narrowing
+    // of Kranj, so a Kranj record carrying that street stays in Kranj.
+    const elsewhere: PlaceHierarchy = {
+      parentOf: new Map([
+        ...hierarchy.parentOf,
+        ["spodnje jarše", ["Domžale", "Slovenia"]],
+      ]),
+      localityOfStreet: new Map([["šolska ulica", "Spodnje Jarše"]]),
+      knownNames: new Set([...hierarchy.knownNames, "spodnje jarše", "domžale"]),
+    };
+    const r = reformatPlace("Kranj,Kranj,Slovenia", "Šolska ulica 3", {
+      layout: "structured-addr",
+      separator: ",",
+      hierarchy: elsewhere,
+    });
+    expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+    expect(r.addr).toBe("Šolska ulica 3");
+  });
+
   it("does not sharpen a generic locality from a parish (parishes span many villages)", () => {
     // A parish is no longer a sharpening hint: "župnija Šmartin" might cover
     // several hamlets, so a generic "Kranj,Slovenia" with only a parish and no
