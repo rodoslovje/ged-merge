@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
-import { COLOR_AXES } from "../chart/nodeColor";
+import { COLOR_AXES, GROUP_AXES } from "../chart/nodeColor";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the layered-chart alignment (left→right /
@@ -61,6 +61,11 @@ export function ChartSettings({
   // The effective type drives which extra rows show; with a locked type it wins
   // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
+  // The Contemporaries surname rings draw one mark per band of people, so they
+  // only offer the axes a band can answer for all of them at once — on Sex or
+  // Living a band holds both, and one fill would have to pick a side.
+  const axesHere =
+    effectiveType === "kin" && settings.kinLayout === "surnames" ? GROUP_AXES : COLOR_AXES;
   // Generations currently drawn: the limit, or — with no limit — everything this
   // view has. Stepping starts from what the user sees, so "−" from "All" lands
   // one generation shallower than the tree in front of them.
@@ -222,7 +227,7 @@ export function ChartSettings({
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("chartColor.heading")}</span>
               <div className="chart-settings-segmented chart-settings-toggles chart-settings-axes">
-                {COLOR_AXES.map((axis) => (
+                {axesHere.map((axis) => (
                   <button
                     key={axis}
                     className={settings.colorAxis === axis ? "active" : ""}

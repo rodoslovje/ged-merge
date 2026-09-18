@@ -42,6 +42,18 @@ export const COLOR_AXES: ColorAxis[] = [
   "parentAge", "lifespan", "century", "sources",
 ];
 
+/**
+ * The axes a *group* of people can answer exactly, because they read nothing
+ * off a person but where they stand in the tree and what they are called.
+ *
+ * A chart that draws one mark per person can offer every axis. One that draws a
+ * mark per group — the Contemporaries surname rings, where a band is a surname
+ * in one family line at one generation — can only offer these: on any other,
+ * the band holds men and women, living and dead, four countries, and a single
+ * fill would have to speak for a majority and quietly misreport the rest.
+ */
+export const GROUP_AXES: ColorAxis[] = ["plain", "generation", "branch", "surname"];
+
 /** A stored axis, or "plain" for anything else. */
 export function sanitizeColorAxis(v: unknown): ColorAxis {
   // The two parents' ages were separate axes for a day.

@@ -40,7 +40,7 @@ import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { AXIS_TINT, lineColor, type BranchInfo } from "../chart/nodeColor";
+import { AXIS_TINT, GROUP_AXES, lineColor, type BranchInfo } from "../chart/nodeColor";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { sexClass } from "./sex";
@@ -179,7 +179,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     () => people.filter((p) => p.distance > 0).map((p) => ({ indi: p.indi, pos: { gen: p.generation, branch: p.branch } })),
     [people],
   );
-  const colorer = useNodeColorer(mainDs, subjects, branches);
+  // The surname rings draw one mark per band, so an axis that varies inside a
+  // band has no honest fill to give it; those fall back to plain here, leaving
+  // the shared choice alone for the layouts that can answer it.
+  const axisOverride =
+    layout === "surnames" && !GROUP_AXES.includes(settings.colorAxis) ? ("plain" as const) : undefined;
+  const colorer = useNodeColorer(mainDs, subjects, branches, axisOverride);
 
   const alive = useCallback(
     (p: KinPerson) => (p.span.to ?? p.span.from ?? -Infinity) >= year && (p.span.from ?? Infinity) <= year,
@@ -192,27 +197,18 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     [colorer],
   );
   const colorOf = useCallback((p: KinPerson) => colorer.colorOf(categoryOf(p)) ?? "var(--accent)", [colorer, categoryOf]);
-  /** A surname band is one section, so it takes one colour: the one most of its
-   *  people share. Bands are cut on surname, family line and generation, so the
-   *  axes keyed on those paint a section exactly; on sex or living, where a band
-   *  can hold both, the majority speaks for it and the tooltip has the truth.
-   *  Tinted rather than filled flat, as the pedigree boxes and fan wedges are —
+  /** A surname band is one section, so it takes one colour — and it is the
+   *  colour of every person in it, not a majority: the layout only offers the
+   *  axes a band can answer exactly ({@link GROUP_AXES}), and a band is cut on
+   *  the surname, the family line and the generation those axes read. Tinted
+   *  rather than filled flat, as the pedigree boxes and fan wedges are, because
    *  the surname is set on top of its own band and has to stay readable. */
   const bandFill = useCallback(
     (band: SurnameBand) => {
-      let c: string;
-      if (colorer.axis === "plain") c = DIRECTION_FILL[band.direction];
-      else {
-        const tally = new Map<string, number>();
-        for (const p of band.people) {
-          const key = categoryOf(p);
-          tally.set(key, (tally.get(key) ?? 0) + 1);
-        }
-        let best = "";
-        let seen = -1;
-        for (const [key, n] of tally) if (n > seen) { best = key; seen = n; }
-        c = colorer.colorOf(best) ?? "var(--accent)";
-      }
+      const c =
+        colorer.axis === "plain"
+          ? DIRECTION_FILL[band.direction]
+          : colorer.colorOf(categoryOf(band.people[0])) ?? "var(--accent)";
       return `color-mix(in srgb, ${c} ${AXIS_TINT}%, var(--panel))`;
     },
     [colorer, categoryOf],

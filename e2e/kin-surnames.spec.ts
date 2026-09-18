@@ -54,7 +54,10 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
   // The colour key filters bands and their captions together — a caption left
   // behind by the band it named floats on bare ground and names nobody.
   await page.locator(".chart-settings-btn").first().click();
-  await page.getByRole("button", { name: "Sex", exact: true }).click();
+  // Only the axes a whole band can answer are offered here — a band holds men
+  // and women, so Sex is not among them.
+  await expect(page.getByRole("button", { name: "Sex", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Generation", exact: true }).click();
   await page.keyboard.press("Escape");
   await page.locator(".kin-legend .map-kind-chip").last().click();
   await expect(page.locator(".kin-surname-band")).not.toHaveCount(5);
