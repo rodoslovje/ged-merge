@@ -382,10 +382,24 @@ describe("buildSurnameRings", () => {
     expect(d2.every((b) => b.count === 1)).toBe(true);
   });
 
-  it("marks where the elders' run meets the issue's, and nowhere else", () => {
-    // Ring 2 holds all three directions: two boundaries inside it plus the wrap,
-    // where the furthest ancestor meets the furthest descendant. Ring 3 is all
-    // elders (an uncle and an aunt) and needs none.
+  it("names each band for what its people are to the root", () => {
+    // A band holds one ring and one generation, so up and down are the same for
+    // everyone in it and the name is exact: the grandparents are ancestors, the
+    // sister is reached sideways, the grandson is issue.
+    expect(rings.bands.filter((b) => b.distance === 2).map((b) => b.kind)).toEqual([
+      "ancestor", "ancestor", "ancestor", "ancestor", "relative", "descendant",
+    ]);
+    // …and an uncle and an aunt are relatives, though they stand a generation up.
+    expect(rings.bands.filter((b) => b.distance === 3).every((b) => b.kind === "relative")).toBe(true);
+    for (const b of rings.bands) {
+      expect(b.people.every((p) => p.up === b.people[0].up && p.down === b.people[0].down)).toBe(true);
+    }
+  });
+
+  it("marks where a direct line ends, and nowhere else", () => {
+    // Ring 2 holds all three kinds: two boundaries inside it plus the wrap,
+    // where the furthest ancestor meets the furthest descendant. Ring 3 is an
+    // uncle and an aunt — one kind, so nothing to mark.
     expect(rings.splits.filter((s) => s.distance === 2)).toHaveLength(3);
     expect(rings.splits.filter((s) => s.distance === 1)).toHaveLength(2);
     expect(rings.splits.filter((s) => s.distance === 3)).toHaveLength(0);

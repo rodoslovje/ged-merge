@@ -297,10 +297,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     (b: SurnameBand) => `${b.surname || t("kin.surname.none")} · ${t("kin.count", { count: b.count })}`,
     [t],
   );
-  /** Which way the band lies and how far out it sits — the two things the list
-   *  of people underneath cannot say for itself. */
+  /** What the band's people are to the person at the centre, and how far out
+   *  they sit — the two things the list of people underneath cannot say for
+   *  itself. A band holds one ring and one generation, so up and down are the
+   *  same for everyone in it: naming it "Ancestors" is exact, not a summary. */
   const bandWhere = useCallback(
-    (b: SurnameBand) => `${t(`kin.dir.${b.direction}`)} · ${t("kin.band.distance", { n: b.distance })}`,
+    (b: SurnameBand) => `${t(`kin.kind.${b.kind}`)} · ${t("kin.band.distance", { n: b.distance })}`,
     [t],
   );
 

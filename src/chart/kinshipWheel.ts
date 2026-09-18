@@ -712,19 +712,38 @@ function placeLabels(
 // separator marks where the elders end and the issue begin.
 
 /** Band caption sizes, and the shortest a surname may be cut to before the band
- *  gives up and leaves the name to the tooltip — three letters is noise. */
-const SURNAME_PX_MIN = 8.5;
+ *  gives up and leaves the name to the tooltip — two letters is noise.
+ *
+ *  A caption written across a band, rather than along it, is bounded by the
+ *  ring's thickness and nothing else, so it is set smaller than one that runs
+ *  along the arc: at the bigger size most of the outer rings carried no name at
+ *  all, which is where the surnames actually are. */
+const SURNAME_PX_MIN = 7;
 const SURNAME_PX_MAX = 16;
-const SURNAME_MIN_CHARS = 5;
+const SURNAME_MIN_CHARS = 4;
 /** A band this wide, in degrees, can carry its caption along the arc. */
 const SURNAME_ARC_DEG = 12;
 
 /** Where a relative sits relative to the root: elders, own generation, issue.
- *  The three run in this order around every ring. */
+ *  The three run in this order around every ring, and they are what the bands
+ *  are coloured by on the plain axis. */
 export type KinDirection = "up" | "same" | "down";
 
 export const kinDirection = (generation: number): KinDirection =>
   generation > 0 ? "up" : generation === 0 ? "same" : "down";
+
+/** What a relative *is* to the root — a direct ancestor, a direct descendant,
+ *  or anybody reached by going up and then back down again.
+ *
+ *  Inside one ring the blood distance is fixed, and a band holds one generation
+ *  offset, so `up` and `down` are the same for everyone in it: a band is exactly
+ *  one kinship class and can be named as one. Ordering the ring by generation
+ *  puts the classes in this order too — the pure ancestors are the deepest
+ *  elders, the pure issue the deepest young — so they come out contiguous. */
+export type KinKind = "ancestor" | "relative" | "descendant";
+
+export const kinKind = (up: number, down: number): KinKind =>
+  down === 0 ? "ancestor" : up === 0 ? "descendant" : "relative";
 
 /** Hairline of ground between one ring and the next. The rings are solid here,
  *  so they are told apart by the gap rather than by the wheel's dotted circles —
@@ -755,7 +774,10 @@ export interface SurnameBand {
   people: KinPerson[];
   count: number;
   distance: number;
+  /** Elders / own generation / issue — what the band is coloured by. */
   direction: KinDirection;
+  /** Ancestor / relative / descendant — what the band is called. */
+  kind: KinKind;
   /** Generations above (+) or below (−) the root — one value for the whole
    *  band, so a colour axis keyed on it paints the section exactly. */
   generation: number;
@@ -874,9 +896,9 @@ function fitLabel(
     }
   }
 
-  const fontPx = Math.max(SURNAME_PX_MIN, Math.min(13, thickness * 0.26));
+  const fontPx = Math.max(SURNAME_PX_MIN, Math.min(12, thickness * 0.24));
   if (arcPx < fontPx + 1.5) return undefined;
-  const room = thickness - 8;
+  const room = thickness - 5;
   const fits = Math.floor(room / (fontPx * 0.55));
   if (fits < SURNAME_MIN_CHARS && text.length > fits) return undefined;
   const mid = (band.a0 + band.a1) / 2;
@@ -955,6 +977,7 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
         count: open.people.length,
         distance: m,
         direction: kinDirection(first.generation),
+        kind: kinKind(first.up, first.down),
         generation: first.generation,
         branch: first.branch,
         a0: open.from,
@@ -974,11 +997,13 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
       open = undefined;
     };
 
-    const directions = new Set(cell.map((p) => kinDirection(p.generation)));
+    // The mark goes where the direct line ends: after the ring's own ancestors
+    // and before its own issue, with everyone reached sideways in between.
+    const kinds = new Set(cell.map((p) => kinKind(p.up, p.down)));
     cell.forEach((p, i) => {
       const a0 = start + i * per;
       const prev = cell[i - 1];
-      if (prev && kinDirection(prev.generation) !== kinDirection(p.generation)) {
+      if (prev && kinKind(prev.up, prev.down) !== kinKind(p.up, p.down)) {
         splits.push({ distance: m, angle: a0, rInner, rOuter });
       }
       const key = `${kinDirection(p.generation)}|${p.generation}|${p.branch}|${p.surname}`;
@@ -987,9 +1012,9 @@ export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): S
       open.people.push(p);
     });
     close(start + 360);
-    // Where the ring holds more than one direction, the wrap is a boundary too:
-    // the furthest ancestor meets the furthest descendant across it.
-    if (directions.size > 1) splits.push({ distance: m, angle: start, rInner, rOuter });
+    // Where the ring holds more than one kind, the wrap is a boundary too: the
+    // furthest ancestor meets the furthest descendant across it.
+    if (kinds.size > 1) splits.push({ distance: m, angle: start, rInner, rOuter });
   }
 
   return {
