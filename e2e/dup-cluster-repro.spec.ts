@@ -58,6 +58,7 @@ lines.push("0 TRLR", "");
 writeFileSync(BIG, lines.join("\n"), "utf-8");
 
 test("duplicate cluster list on a large file does not crash-loop", async ({ page }) => {
+  test.setTimeout(180_000); // the whole-file duplicate scan below waits up to 120 s
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => {
