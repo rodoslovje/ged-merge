@@ -242,6 +242,10 @@ function AppContent() {
   // even in a merge-only session where it still sat at 0) without making the
   // freshly-saved dataset look edited to the persistence writer.
   const cleanEditVersionRef = useRef(0);
+  // The editVersion the gedcom worker's copy of the main was built from. The
+  // worker matches a compare against *its* main, so when this drifts from
+  // editVersionRef the worker is re-fed before a compare loads (see loadFile).
+  const workerMainVersionRef = useRef(0);
   const bumpEdit = useCallback(() => {
     editVersionRef.current += 1;
     setEditVersion((v) => v + 1);
@@ -406,6 +410,9 @@ function AppContent() {
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
+          // The worker built its main from the same bytes as this one: it
+          // holds the edit version the load reset to (see loadFile).
+          workerMainVersionRef.current = editVersionRef.current;
           // Restore the cached start person as soon as the main is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
           // loaded, so a main-only workspace would otherwise never restore it.
@@ -611,23 +618,39 @@ function AppContent() {
         feed(newMsg, [buffer]); // new main first
         await refeedCompare(); // kept compare second (re-parsed from its raw bytes)
       } else if (keptMain) {
-        // Silent re-feed rebuilds the worker's main without touching the main
-        // thread's (possibly edited) main file or the edit tracking bound to it.
-        const text = serializeGedcom(keptMain.dataset.records, {
-          eol: keptMain.dataset.eol,
-          finalNewline: keptMain.dataset.finalNewline,
-        });
-        const mainBuf = await new Blob([text]).arrayBuffer();
-        post(
-          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
-          [mainBuf],
-        );
-        if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
+        await refeedWorkerMain(serializeMainForWorker(keptMain.dataset), keptMain.fileName);
         feed(newMsg, [buffer]); // new compare last
       }
       return;
     }
+    // A compare is matched against the worker's copy of the main, which is
+    // the file as loaded (or as last saved). Edits made since — a person
+    // deleted, one added — are not in it, so a compare loaded now would match
+    // people who no longer exist and miss those who do. Bring the worker's
+    // copy up to date first.
+    if (role === "compare" && keptMain && workerMainVersionRef.current !== editVersionRef.current) {
+      await refeedWorkerMain(serializeMainForWorker(keptMain.dataset), keptMain.fileName);
+    }
     feed(newMsg, [buffer]); // transfer ownership — avoids copying large files
+  }
+
+  function serializeMainForWorker(ds: Dataset): string {
+    return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+  }
+
+  /** Silently rebuild the worker's main from `text` (the main thread's current
+   *  main file, serialized) without touching this side's main file or the edit
+   *  tracking bound to it, and restore the kinship ranking's start person.
+   *  Records which edit version the worker now holds. */
+  async function refeedWorkerMain(text: string, fileName: string): Promise<void> {
+    const version = editVersionRef.current;
+    const mainBuf = await new Blob([text]).arrayBuffer();
+    post(
+      { type: "parse", role: "main", fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
+      [mainBuf],
+    );
+    if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
+    workerMainVersionRef.current = version;
   }
 
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
@@ -1685,6 +1708,11 @@ function AppContent() {
     // (sole main writer) then leaves it alone until the next edit.
     cleanEditVersionRef.current = editVersionRef.current;
     persistence.mainCachedRef.current = true;
+    // The worker's main is still the file as loaded; matched against it, a
+    // later compare would report people this save just imported as new. Hand
+    // it the saved text so its copy is the new baseline too. After the bump
+    // above, so the version it records is the one the rebuilt dataset has.
+    void refeedWorkerMain(text, mainFileName);
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
