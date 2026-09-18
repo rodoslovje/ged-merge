@@ -411,6 +411,15 @@ describe("buildSurnameRings", () => {
     expect(band.label?.x).toBeUndefined();
   });
 
+  it("draws every blood relative — the bands merge neighbours, they never drop them", () => {
+    // The count on the chart is the count of people, not of sections: a ring
+    // that lost its width, or a run that closed twice, would go unnoticed
+    // otherwise, because the rest of the circle simply closes over the gap.
+    const kin = collectKin(input).filter((p) => p.distance > 0);
+    expect(rings.bands.reduce((sum, b) => sum + b.count, 0)).toBe(kin.length);
+    expect(new Set(rings.bands.flatMap((b) => b.people.map((p) => p.id))).size).toBe(kin.length);
+  });
+
   it("leaves the root off the rings — the hub is their place", () => {
     expect(rings.bands.some((b) => b.people.some((p) => p.id === "@I1@"))).toBe(false);
     expect(rings.rings.some((r) => r.distance === 0)).toBe(false);
