@@ -9,7 +9,7 @@ import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
 import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
 import { coupleAgesDisplay } from "../../gedcom/age";
-import type { TagSuggestions } from "./placeSuggestions";
+import type { TagSuggestions } from "./fieldSuggestions";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
   addFamilyEventNode,

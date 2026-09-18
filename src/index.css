@@ -3825,18 +3825,19 @@ button:focus-visible {
 .note-tool--i { font-style: italic; }
 .note-tool--u { text-decoration: underline; }
 
-/* Place / address autocomplete dropdown */
-.place-autocomplete-wrap {
+/* The completion dropdown (SuggestInput) — place, address, agency, cause,
+   attribute value, event type */
+.suggest-wrap {
   position: relative;
   min-width: 0;
 }
-.place-autocomplete-wrap > .clearable-wrap {
+.suggest-wrap > .clearable-wrap {
   width: 100%;
 }
 /* A focused place/address field grows past its content width (an inline
    style from chW) so there is room to type and read a query. */
 .edit-event-extra-field:focus-within { min-width: 24ch; }
-.place-suggestions {
+.suggest-list {
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
@@ -3856,7 +3857,7 @@ button:focus-visible {
   overflow-y: auto;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
-.place-suggestion {
+.suggest-item {
   padding: 5px 10px;
   cursor: pointer;
   font-size: 0.88rem;
@@ -3865,23 +3866,24 @@ button:focus-visible {
   text-overflow: ellipsis;
   color: var(--text);
 }
-.place-suggestion:hover,
-.place-suggestion--hi {
+.suggest-item:hover,
+.suggest-item--hi {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
-/* The address part of a place+address combo suggestion. */
-.place-suggestion-addr { color: var(--muted); }
+/* An address beside the place it belongs to — the address part of a
+   place+address suggestion, and the same line on the map's hover card. */
+.addr-muted { color: var(--muted); }
 /* A register's offer for a place the file doesn't have: separated from the
    file's own values above it, and carrying its source badge. */
-.place-suggestion--register {
+.suggest-item--register {
   border-top: 1px dashed var(--border);
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.place-suggestion--register + .place-suggestion--register { border-top: none; }
+.suggest-item--register + .suggest-item--register { border-top: none; }
 /* The lookup row itself — not an option, so it doesn't highlight or select. */
-.place-suggestion-foot {
+.suggest-list-foot {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -3890,7 +3892,7 @@ button:focus-visible {
   border-top: 1px solid var(--border);
   font-size: 0.82rem;
 }
-.place-suggestion-note { color: var(--muted); }
+.suggest-item-note { color: var(--muted); }
 
 /* App-styled dropdown menus (DropdownMenu.tsx) — the themed popup replacing
  * native <select> popups for the menu-like pickers (event type ▾, "+ Add

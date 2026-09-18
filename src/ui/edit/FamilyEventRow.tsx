@@ -7,7 +7,7 @@ import { coupleAgesDisplay } from "../../gedcom/age";
 import { isSameSexCouple } from "../../gedcom/couple";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
-import type { TagSuggestions } from "./placeSuggestions";
+import type { TagSuggestions } from "./fieldSuggestions";
 import { familyTagChoices } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 

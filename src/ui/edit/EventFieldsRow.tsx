@@ -12,14 +12,14 @@ import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
 import { EventAssociates } from "./EventAssociates";
-import { PlaceAutocomplete } from "./PlaceAutocomplete";
+import { SuggestInput } from "./SuggestInput";
 import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
-import { placeAddrCoordKey, placeCombosOf, placeKey, type Suggestions, type TagSuggestions } from "./placeSuggestions";
+import { placeAddrCoordKey, placeCombosOf, placeKey, type Suggestions, type TagSuggestions } from "./fieldSuggestions";
 import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
@@ -127,7 +127,7 @@ export function EventFieldsRow({
   tagSuggestions: TagSuggestions;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
-  /** Attested FORM per place (see PlaceSuggestions.placeForms). */
+  /** Attested FORM per place (see FieldSuggestions.placeForms). */
   placeForms: Map<string, string>;
   /** Coordinate for a specific place+address pair (the house). */
   pairCoords: Map<string, GeoCoord>;
@@ -708,7 +708,7 @@ export function EventFieldsRow({
       /** Extra class on the input, where the field's width rule needs one. */
       cls?: string;
       /** Offer the list on focus — for the short per-field lists (see
-       *  PlaceAutocomplete's own prop). */
+       *  SuggestInput's own prop). */
       offerAllWhenEmpty?: boolean;
       combos?: { place: string; addr: string }[];
       onPickCombo?: (place: string, addr: string) => void;
@@ -725,7 +725,7 @@ export function EventFieldsRow({
         {/* No pin of its own here: the event's coordinate pin already stands
             between the place and the address, and two in a row read as two
             different marks. */}
-        <PlaceAutocomplete
+        <SuggestInput
           value={field.value}
           suggestions={opts.suggestions}
           canonical={opts.canonical}
@@ -944,7 +944,7 @@ export function EventFieldsRow({
              field completes from this tag's own values and offers them the
              moment it is entered. Enter still walks on to the place — the
              dropdown only takes the key while one of its rows is highlighted. */
-          <PlaceAutocomplete
+          <SuggestInput
             dataDetail="value"
             value={valueField.value}
             suggestions={valueSuggestions.suggestions}
@@ -965,7 +965,7 @@ export function EventFieldsRow({
         {/* Place — the same everywhere: unlabelled (a place reads as a place) and
          * shown only when it has content, so no event reserves an empty slot. */}
         <span data-detail="place" className={"edit-event-extra edit-event-extra--place" + optCls(show.place)}>
-          <PlaceAutocomplete
+          <SuggestInput
             value={placeField.value}
             suggestions={placeSuggestions}
             canonical={placeCanonical}

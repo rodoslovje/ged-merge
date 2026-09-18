@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../../gedcom/builder";
 import { parseGedcom } from "../../gedcom/parser";
-import { buildPlaceSuggestions, placeAddrCoordKey, placeKey, placeQuery } from "./placeSuggestions";
+import { buildFieldSuggestions, placeAddrCoordKey, placeKey, suggestQuery } from "./fieldSuggestions";
 import { foldSearch } from "../globalSearch";
 
 function build(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 }
 
-describe("placeQuery", () => {
-  const hits = (query: string, text: string) => placeQuery(query).hits(foldSearch(text));
-  const leads = (query: string, text: string) => placeQuery(query).leads(foldSearch(text));
+describe("suggestQuery", () => {
+  const hits = (query: string, text: string) => suggestQuery(query).hits(foldSearch(text));
+  const leads = (query: string, text: string) => suggestQuery(query).leads(foldSearch(text));
 
   it("matches a part of each word, in any order and without accents", () => {
     expect(hits("Zg Bitnj", "Zgornje Bitnje")).toBe(true);
@@ -27,7 +27,7 @@ describe("placeQuery", () => {
   });
 
   it("matches nothing for a blank query", () => {
-    expect(placeQuery("   ").terms).toEqual([]);
+    expect(suggestQuery("   ").terms).toEqual([]);
     expect(leads("  ", "Kranj")).toBe(false);
   });
 });
@@ -55,8 +55,8 @@ const FILE = `0 HEAD
 0 TRLR
 `;
 
-describe("buildPlaceSuggestions coordinates", () => {
-  const sug = buildPlaceSuggestions(build(FILE));
+describe("buildFieldSuggestions coordinates", () => {
+  const sug = buildFieldSuggestions(build(FILE));
 
   it("takes a place's coordinate only from events with no address", () => {
     // Otherwise the house at Kidričeva 38 could become "the coordinate of Kranj"
@@ -93,7 +93,7 @@ describe("buildPlaceSuggestions coordinates", () => {
 4 LONG E14.0
 0 TRLR
 `);
-    expect(buildPlaceSuggestions(ds).placeCoords.get(placeKey("Bled"))).toEqual({ lat: 46.3683, lon: 14.1136 });
+    expect(buildFieldSuggestions(ds).placeCoords.get(placeKey("Bled"))).toEqual({ lat: 46.3683, lon: 14.1136 });
   });
 
   it("has no entry for a place the file never coordinates", () => {
@@ -105,8 +105,8 @@ describe("buildPlaceSuggestions coordinates", () => {
 2 PLAC Neznano
 0 TRLR
 `);
-    expect(buildPlaceSuggestions(ds).placeCoords.size).toBe(0);
-    expect(buildPlaceSuggestions(ds).pairCoords.size).toBe(0);
+    expect(buildFieldSuggestions(ds).placeCoords.size).toBe(0);
+    expect(buildFieldSuggestions(ds).pairCoords.size).toBe(0);
   });
 });
 
@@ -116,7 +116,7 @@ describe("coordinate maps as the \"file uses locations\" signal", () => {
   // is that test. Guarding it here keeps the pin from reappearing on files that
   // have no locations at all.
   it("is empty for a file with places but no coordinates", () => {
-    const sug = buildPlaceSuggestions(
+    const sug = buildFieldSuggestions(
       build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -133,7 +133,7 @@ describe("coordinate maps as the \"file uses locations\" signal", () => {
   });
 
   it("is non-empty as soon as one coordinate exists, whether or not it has an address", () => {
-    const onlyAddressed = buildPlaceSuggestions(
+    const onlyAddressed = buildFieldSuggestions(
       build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -153,9 +153,9 @@ describe("coordinate maps as the \"file uses locations\" signal", () => {
   });
 });
 
-describe("buildPlaceSuggestions place FORM", () => {
+describe("buildFieldSuggestions place FORM", () => {
   it("offers the FORM the file already writes for that place", () => {
-    const sug = buildPlaceSuggestions(build(`0 HEAD
+    const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -170,7 +170,7 @@ describe("buildPlaceSuggestions place FORM", () => {
   });
 
   it("takes the most-used wording when the file disagrees with itself", () => {
-    const sug = buildPlaceSuggestions(build(`0 HEAD
+    const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -190,7 +190,7 @@ describe("buildPlaceSuggestions place FORM", () => {
   });
 
   it("ignores a FORM that doesn't label every part of its place", () => {
-    const sug = buildPlaceSuggestions(build(`0 HEAD
+    const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -205,7 +205,7 @@ describe("buildPlaceSuggestions place FORM", () => {
 
 describe("address ordering", () => {
   it("sorts a place's addresses by house number, not lexicographically", () => {
-    const sug = buildPlaceSuggestions(build(`0 HEAD
+    const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -232,8 +232,8 @@ describe("address ordering", () => {
   });
 });
 
-describe("buildPlaceSuggestions agencies", () => {
-  const sug = buildPlaceSuggestions(build(`0 HEAD
+describe("buildFieldSuggestions agencies", () => {
+  const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -261,8 +261,8 @@ describe("buildPlaceSuggestions agencies", () => {
   });
 });
 
-describe("buildPlaceSuggestions causes", () => {
-  const sug = buildPlaceSuggestions(build(`0 HEAD
+describe("buildFieldSuggestions causes", () => {
+  const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI
@@ -291,8 +291,8 @@ describe("buildPlaceSuggestions causes", () => {
   });
 });
 
-describe("buildPlaceSuggestions per-tag values and types", () => {
-  const sug = buildPlaceSuggestions(build(`0 HEAD
+describe("buildFieldSuggestions per-tag values and types", () => {
+  const sug = buildFieldSuggestions(build(`0 HEAD
 1 GEDC
 2 VERS 5.5.1
 0 @I1@ INDI

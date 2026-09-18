@@ -9,7 +9,7 @@ import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, SINGLE_EVENT_TAGS, zoneSortKey } from "../../review/fields";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
-import type { TagSuggestions } from "./placeSuggestions";
+import type { TagSuggestions } from "./fieldSuggestions";
 import { memo } from "react";
 import { nodeId } from "./nodeId";
 import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";

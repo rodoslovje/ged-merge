@@ -29,7 +29,7 @@ export interface TagSuggestions {
  *  answers would offer a wrong one rather than a shortcut. */
 const NO_VALUE_COMPLETION = new Set(["REFN", "NCHI"]);
 
-export interface PlaceSuggestions {
+export interface FieldSuggestions {
   placeSuggestions: string[];
   /** Canonical place key → sorted unique address strings seen at that place. */
   placeToAddrs: Map<string, string[]>;
@@ -77,7 +77,7 @@ export interface PlaceSuggestions {
   placeForms: Map<string, string>;
 }
 
-/** Key for the {@link PlaceSuggestions.pairCoords} map. */
+/** Key for the {@link FieldSuggestions.pairCoords} map. */
 export function placeAddrCoordKey(place: string, addr: string): string {
   return `${placeKey(place)} ${addr.trim().toLowerCase()}`;
 }
@@ -88,7 +88,7 @@ export function placeKey(raw: string): string {
 
 /** Collect all unique PLAC, ADDR, AGNC and CAUS values from a dataset and build
  * canonical maps (most-frequent casing wins) for normalize-on-blur. */
-export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
+export function buildFieldSuggestions(dataset: Dataset): FieldSuggestions {
   const placeForms = new Map<string, Map<string, number>>();
   const addrForms = new Map<string, Map<string, number>>();
   const agencyForms = new Map<string, Map<string, number>>();
@@ -285,12 +285,12 @@ export function placeCombosOf(
  * run through `foldSearch`; `leads` marks a text that opens with the first term
  * typed, which the dropdown lists ahead of the hits buried inside a longer name.
  */
-export interface PlaceQuery {
+export interface SuggestQuery {
   terms: string[];
   hits(folded: string): boolean;
   leads(folded: string): boolean;
 }
-export function placeQuery(raw: string): PlaceQuery {
+export function suggestQuery(raw: string): SuggestQuery {
   const terms = queryTerms(raw);
   return {
     terms,

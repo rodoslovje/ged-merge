@@ -12,9 +12,9 @@ import { PersonLink } from "../PersonLink";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { SuggestInput } from "../edit/SuggestInput";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import { placeKey, type FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
@@ -501,7 +501,7 @@ export function RenameEditor({
   autoFocus?: boolean;
   children?: React.ReactNode;
 } & Pick<
-  ComponentProps<typeof PlaceAutocomplete>,
+  ComponentProps<typeof SuggestInput>,
   "onLookup" | "lookupNote" | "onPickProposal" | "combos" | "matchCombosByPlace" | "onPickCombo"
 >) {
   const { t } = useTranslation();
@@ -515,7 +515,7 @@ export function RenameEditor({
         if (e.key === "Escape" && !e.defaultPrevented) onCancel();
       }}
     >
-      <PlaceAutocomplete
+      <SuggestInput
         value={value}
         suggestions={suggestions}
         canonical={canonical}
@@ -682,7 +682,7 @@ export function AddressSplitField({
    *  *within*, and which of the file's addresses are offered plainly. */
   place: string;
   value: string;
-  placeSug: PlaceSuggestions;
+  placeSug: FieldSuggestions;
   /** Every place+address pair the file writes. */
   placeCombos: { place: string; addr: string }[];
   onChange: (value: string) => void;
@@ -700,7 +700,7 @@ export function AddressSplitField({
   return (
     <span className="tools-geo-addr-chip tools-geo-addr-chip--field" title={t("tools.geocode.renameAddrTooltip")}>
       {t("event.colAddr")}:
-      <PlaceAutocomplete
+      <SuggestInput
         value={value}
         suggestions={placeSug.placeToAddrs.get(placeKey(place)) ?? []}
         canonical={placeSug.addrCanonical}
