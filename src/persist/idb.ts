@@ -121,7 +121,16 @@ function openDb(): Promise<IDBDatabase | null> {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve) => {
     if (typeof indexedDB === "undefined") return resolve(null);
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    let req: IDBOpenDBRequest;
+    try {
+      req = indexedDB.open(DB_NAME, DB_VERSION);
+    } catch {
+      // A *synchronous* throw (SecurityError in a sandboxed or opaque-origin
+      // page, some privacy modes) would otherwise reject dbPromise for good:
+      // every later operation would fail unhandled instead of falling back.
+      dbPromise = undefined;
+      return resolve(null);
+    }
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(FILES_STORE)) db.createObjectStore(FILES_STORE);
