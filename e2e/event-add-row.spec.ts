@@ -48,7 +48,6 @@ test("an event the person can only have one of leads to the one they have", asyn
 
   // Clicking one puts the keyboard in that event rather than adding a second.
   await recorded.first().click();
-  const focused = await page.evaluate(() => document.activeElement?.className ?? "");
-  expect(focused).toContain("edit-event-date");
-  expect(await page.locator(".edit-event").filter({ hasText: "Birth" }).count()).toBe(1);
+  await expect(page.locator(".edit-event-date:focus")).toHaveCount(1);
+  await expect(page.locator(".edit-event").filter({ hasText: "Birth" })).toHaveCount(1);
 });
