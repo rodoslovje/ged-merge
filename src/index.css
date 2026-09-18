@@ -9416,12 +9416,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    once unfolded. The list loses the indent it wears under a worklist row —
    here there is no row above it to hang off, only the line that opened it. */
 .edit-coord-people { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
-.edit-coord-people .tools-usage {
-  padding-left: 10px; margin: 0; align-self: stretch;
-  /* Every person at the pair is listed, and an address-less village is a long
-     list: it scrolls here rather than growing the panel down the screen. */
-  max-height: 180px; overflow-y: auto; overscroll-behavior: contain;
-}
+/* Last in the column and the only thing under the answers, so it scrolls with
+   the column rather than in a box of its own — one scrollbar, not two. */
+.edit-coord-people .tools-usage { padding-left: 10px; margin: 0; align-self: stretch; }
+/* The two searches, in the head's spare width at the right: they sit above the
+   map, where the value's own controls leave the row half empty. */
+.edit-coord-lookups { margin-left: auto; display: flex; flex-direction: column; gap: 2px; max-width: 48%; }
+.edit-coord-lookups:empty { display: none; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
 .edit-coord-results .tools-issue-link { text-align: left; }
@@ -9458,6 +9459,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The list scrolls with the panel rather than in a 260px box of its own. */
 .edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
 .edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
+/* Nothing is beside anything on a phone: the searches take their own full-width
+   line under the value's controls instead of a right-hand column of 48%. */
+.edit-coord-pop--phone .edit-coord-lookups { margin-left: 0; max-width: none; flex: 1 1 100%; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }

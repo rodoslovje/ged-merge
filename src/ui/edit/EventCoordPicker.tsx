@@ -555,6 +555,44 @@ export function EventCoordPicker({
                 {t("event.coord.set")}
               </button>
             </div>
+            {/* The searches, in the room the head has left over beside the
+                value's own controls: from the top of the side column they
+                pushed every answer — the file's, the register's, the people at
+                the address — down the panel, and what a list is read for is
+                its contents, not the button that filled it.
+                The register is offered whenever it can answer without the
+                network — a Croatian address is already in this browser, and
+                the online opt-in governs what leaves the device. The
+                OpenStreetMap search beside it always needs it. */}
+            <div className="edit-coord-lookups">
+              {settings.allowLinkFetch || registerLocal ? (
+                <div className="edit-coord-actions">
+                  {/* A search that has answered puts its own button away, as
+                      every list on the geocoding pages does — and "no hits" is
+                      an answer too, which is why LookupAction turns it into a
+                      note rather than a button that would ask the same service
+                      the same question again. A search that *failed* keeps its
+                      button: that is a service unreachable, not an answer.
+                      Both searches share one queue here, so either one running
+                      greys them both. */}
+                  {queries.length > 0 && (
+                    <LookupAction kind="rn" state={rn} onRun={runRegister} disabled={busy} noteClass="edit-coord-note" />
+                  )}
+                  {settings.allowLinkFetch && (
+                    <LookupAction kind="online" state={osm} onRun={runOnline} disabled={busy} noteClass="edit-coord-note" />
+                  )}
+                </div>
+              ) : (
+                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+              )}
+              {/* Why the register isn't on offer — only where it could have been:
+                  a Slovenian or Croatian place just needs a house number.
+                  Anywhere else the register was never a candidate, so saying so
+                  is noise. */}
+              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
+                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
+              )}
+            </div>
           </div>
 
           {/* Body: the map to pick on, and the candidates to pick from. */}
@@ -594,41 +632,6 @@ export function EventCoordPicker({
             )}
 
             <div className="edit-coord-side">
-              {/* The searches lead the side panel, and everything below them is
-                  what they and the file have to say — a control standing under
-                  its own results reads as being about something else.
-                  The register is offered whenever it can answer without the
-                  network — a Croatian address is already in this browser, and
-                  the online opt-in governs what leaves the device. The
-                  OpenStreetMap search beside it always needs it. */}
-              {settings.allowLinkFetch || registerLocal ? (
-                <div className="edit-coord-actions">
-                  {/* A search that has answered puts its own button away, as
-                      every list on the geocoding pages does — and "no hits" is
-                      an answer too, which is why LookupAction turns it into a
-                      note rather than a button that would ask the same service
-                      the same question again. A search that *failed* keeps its
-                      button: that is a service unreachable, not an answer.
-                      Both searches share one queue here, so either one running
-                      greys them both. */}
-                  {queries.length > 0 && (
-                    <LookupAction kind="rn" state={rn} onRun={runRegister} disabled={busy} noteClass="edit-coord-note" />
-                  )}
-                  {settings.allowLinkFetch && (
-                    <LookupAction kind="online" state={osm} onRun={runOnline} disabled={busy} noteClass="edit-coord-note" />
-                  )}
-                </div>
-              ) : (
-                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-              )}
-              {/* Why the register isn't on offer — only where it could have been:
-                  a Slovenian or Croatian place just needs a house number.
-                  Anywhere else the register was never a candidate, so saying so
-                  is noise. */}
-              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
-                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
-              )}
-
               {/* The answers the caller already has, under the numbers its own
                   list shows — the map above draws the same numbers, which is
                   what separates three hits spelled exactly alike. */}
