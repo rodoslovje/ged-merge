@@ -78,6 +78,15 @@
   --status-link:   #93c5fd;  /* carries a link / source            */
   --status-import: #c4b5fd;  /* importable candidate count         */
 
+  /* ---- line diff (the save preview's GEDCOM-lines view) ----
+     A tinted row plus its own text colour: the tint carries the reading at a
+     glance, the text colour keeps it legible where a row is selected or the
+     block is printed. */
+  --diff-add-bg: color-mix(in oklch, var(--status-new) 18%, transparent);
+  --diff-add-fg: var(--status-new);
+  --diff-del-bg: color-mix(in oklch, var(--danger) 16%, transparent);
+  --diff-del-fg: #f0a59d;
+
   /* ---- Compare-Tree node fills (deeper; white text reads on both themes) ---- */
   --node-match:    #067d4d;
   --node-minor:    #a2702b;
@@ -162,6 +171,13 @@
   --status-diff:   #b45309;
   --status-link:   #2563eb;
   --status-import: #7c3aed;
+
+  /* The tints mix into paper, so they need more of the hue to read at all; the
+     text colours are the same deep ones the rest of the light theme uses. */
+  --diff-add-bg: color-mix(in oklch, var(--status-new) 14%, transparent);
+  --diff-add-fg: var(--status-new);
+  --diff-del-bg: color-mix(in oklch, var(--danger) 12%, transparent);
+  --diff-del-fg: var(--danger);
 
   --map-birth:     #2e7d43;
   --map-marriage:  #a9750e;

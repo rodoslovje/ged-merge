@@ -7380,6 +7380,46 @@ kbd {
  * not the incoming color, since there may be no incoming file involved at all. */
 .preview-unchanged { color: var(--text); }
 
+/* The section head carries the Fields/GEDCOM-lines switch beside its title, so
+   the rule under it belongs to the row rather than to the heading alone. */
+.preview-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.preview-section-head h3 { margin: 0; padding: 0; border-bottom: none; }
+.preview-section-head .tree-mode button { padding: 4px 12px; }
+
+/* One record's lines, as the saved file will carry them. Monospace and
+   pre-wrapped: the levels only line up in a fixed pitch, and a long value must
+   wrap inside the card rather than scroll it sideways. */
+.preview-diff {
+  font: 0.82rem/1.5 var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg);
+}
+.diff-line {
+  display: flex; gap: 8px;
+  padding: 1px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+/* The sign is part of the copied text, so it is a real character in the flow —
+   fixed-width only so the lines under it still align. */
+.diff-sign { flex: none; width: 1ch; color: var(--muted); }
+.diff-line.is-add { background: var(--diff-add-bg); color: var(--diff-add-fg); }
+.diff-line.is-add .diff-sign { color: var(--diff-add-fg); }
+.diff-line.is-del { background: var(--diff-del-bg); color: var(--diff-del-fg); }
+.diff-line.is-del .diff-sign { color: var(--diff-del-fg); }
+/* Lines stepped over on the way to the next part of the record. */
+.diff-line.is-gap {
+  color: var(--muted); letter-spacing: 2px;
+  padding-left: 16px;
+}
+
 .preview-files {
   margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
   color: var(--muted); font-size: 0.9rem;
