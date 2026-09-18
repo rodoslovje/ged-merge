@@ -301,6 +301,15 @@ function chunkAt(text: string, breaks: number[]): string[] | undefined {
 
 /** Whether `prefix` + a space + `text` stays inside the byte limit. */
 function fitsLine(prefix: string, text: string, maxLen: number): boolean {
+  // A UTF-16 unit is at most 3 bytes (a surrogate pair is 4 bytes for two
+  // units), so the unit count bounds the byte count both ways: a line short
+  // enough in units to fit even if every one were 3 bytes fits, and one with
+  // more units than bytes allowed cannot. Only the lines in between — long
+  // ones near the limit — are counted byte by byte; that is almost none of a
+  // file, where this used to walk every character of every line.
+  const units = prefix.length + 1 + text.length;
+  if (units * 3 <= maxLen) return true;
+  if (units > maxLen) return false;
   return utf8Len(prefix) + 1 + utf8Len(text) <= maxLen;
 }
 
@@ -332,7 +341,12 @@ function splitForConc(text: string, firstAvail: number, restAvail: number): stri
   const chunks: string[] = [];
   let start = 0;
   let avail = first;
-  while (utf8Len(text.slice(start)) > avail) {
+  // The bytes still to place, kept as a running count: measuring the whole
+  // remainder for every chunk made a value folded over thousands of CONC
+  // lines (a pasted transcription) quadratic, and one such note cost seconds
+  // per save.
+  let remaining = utf8Len(text);
+  while (remaining > avail) {
     let cut = cutAtBytes(text, start, avail);
     // Back the cut up to a space-free boundary when one exists in this chunk.
     let c = cut;
@@ -342,7 +356,9 @@ function splitForConc(text: string, firstAvail: number, restAvail: number): stri
     const u = text.charCodeAt(cut - 1);
     if (u >= 0xd800 && u <= 0xdbff) cut--;
     if (cut <= start) cut = start + 1;
-    chunks.push(text.slice(start, cut));
+    const chunk = text.slice(start, cut);
+    chunks.push(chunk);
+    remaining -= utf8Len(chunk);
     start = cut;
     avail = rest;
   }
