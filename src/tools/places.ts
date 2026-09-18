@@ -243,21 +243,16 @@ export interface PlaceAddrUses {
    *  coordinate would reach, which is what the picker's "also set on N other
    *  events" offer counts. */
   events: number;
-  /** The records carrying them, in file order and at most {@link PLACE_USES_CAP}
-   *  of them — who else is at this house. */
+  /** Every record carrying them, in file order — who else is at this house.
+   *  All of them: a house with a dozen people is the answer to "is this the
+   *  right house", and a village's address-less events are a list someone
+   *  reads to the end. */
   records: string[];
-  /** How many records carry the pair in all, capped list or not. */
-  recordCount: number;
 }
-
-/** How many records one pair keeps. An event with no address is keyed by its
- *  place alone, so its pair is every address-less event in the settlement — a
- *  whole village, where the panel that reads this lists a handful of names. */
-export const PLACE_USES_CAP = 50;
 
 /** The answer for a pair the file never writes — one shared object, so a
  *  caller asking on every render is handed the same one back. */
-export const NO_PLACE_ADDR_USES: PlaceAddrUses = { events: 0, records: [], recordCount: 0 };
+export const NO_PLACE_ADDR_USES: PlaceAddrUses = { events: 0, records: [] };
 
 /**
  * Index every `INDI`/`FAM` record by the place+address pairs its events name
@@ -267,7 +262,7 @@ export const NO_PLACE_ADDR_USES: PlaceAddrUses = { events: 0, records: [], recor
  * also serve, and who else in the file is at this very house — the same people
  * the place tree lists under its leaves, asked of one pair rather than browsed.
  */
-export function buildPlaceAddrUses(dataset: Dataset, cap = PLACE_USES_CAP): Map<string, PlaceAddrUses> {
+export function buildPlaceAddrUses(dataset: Dataset): Map<string, PlaceAddrUses> {
   const index = new Map<string, PlaceAddrUses>();
   const visit = (raw: GedNode, recordId: string) => {
     // Per record, so the three baptisms a family wrote at one house count as
@@ -276,12 +271,11 @@ export function buildPlaceAddrUses(dataset: Dataset, cap = PLACE_USES_CAP): Map<
     walkPlaceAddr(raw, (plac, addr) => {
       const key = placeAddrKey(plac.value!.trim(), addr);
       let hit = index.get(key);
-      if (!hit) index.set(key, (hit = { events: 0, records: [], recordCount: 0 }));
+      if (!hit) index.set(key, (hit = { events: 0, records: [] }));
       hit.events++;
       if (seen.has(key)) return;
       seen.add(key);
-      hit.recordCount++;
-      if (hit.records.length < cap) hit.records.push(recordId);
+      hit.records.push(recordId);
     });
   };
   for (const indi of dataset.individuals.values()) visit(indi.raw, indi.id);

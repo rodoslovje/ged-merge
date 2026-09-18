@@ -2060,8 +2060,6 @@ export const en = {
   "event.coord.people.address_other": "{{count}} people at this address",
   "event.coord.people.place_one": "{{count}} person at this place",
   "event.coord.people.place_other": "{{count}} people at this place",
-  "event.coord.people.more_one": "… and {{count}} more record",
-  "event.coord.people.more_other": "… and {{count}} more records",
   "event.coord.fromFile.address": "Same address elsewhere in this file",
   "event.coord.source.file": "Already in this file",
   "event.coord.mapHint": "Circles: proposals (click to use one) · click anywhere else to fill the coordinate box",

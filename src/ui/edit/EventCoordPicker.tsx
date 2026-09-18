@@ -672,33 +672,6 @@ export function EventCoordPicker({
                 </ul>
               )}
 
-              {/* Who else the file has at this address — the check on whether
-                  the house being pinned is this family's at all. Folded away
-                  behind its own count: a settlement's address-less events can
-                  be a whole village, and the pick is what the panel is for. */}
-              {peopleRows.length > 0 && people && (
-                <div className="edit-coord-people">
-                  <button
-                    type="button"
-                    className="tools-issue-link"
-                    aria-expanded={showPeople}
-                    onClick={() => setShowPeople((v) => !v)}
-                  >
-                    {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleRows.length })}
-                  </button>
-                  {showPeople && (
-                    <>
-                      <UsageList dataset={people.dataset} uses={peopleRows} onNavigate={people.onNavigate} />
-                      {/* The cap the lookup lists up to — said plainly, so a
-                          village's list is not read as all there is. */}
-                      {peopleUses && peopleUses.recordCount > peopleUses.records.length && (
-                        <p className="edit-coord-note">{t("event.coord.people.more", { count: peopleUses.recordCount - peopleUses.records.length })}</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
               {(shownRn.length > 0 || shownOsm.length > 0) && (
                 <ul className="edit-coord-results">
                   {shownRn.map((r, i) => (
@@ -729,6 +702,29 @@ export function EventCoordPicker({
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Who else the file has at this address — the check on whether
+                  the house being pinned is this family's at all. Last in the
+                  column, and folded away behind its own count: everyone at the
+                  pair is listed, and a settlement's address-less events are a
+                  whole village, which must not push the answers out of reach. */}
+              {peopleRows.length > 0 && people && (
+                <div className="edit-coord-people">
+                  <button
+                    type="button"
+                    className="tools-issue-link"
+                    aria-expanded={showPeople}
+                    onClick={() => setShowPeople((v) => !v)}
+                  >
+                    {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleRows.length })}
+                  </button>
+                  {/* A long list scrolls in a box of its own rather than
+                      growing the panel down the screen. */}
+                  {showPeople && (
+                    <UsageList dataset={people.dataset} uses={peopleRows} onNavigate={people.onNavigate} />
+                  )}
+                </div>
               )}
             </div>
           </div>

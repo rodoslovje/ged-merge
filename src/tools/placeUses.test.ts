@@ -29,7 +29,6 @@ describe("who the file puts at a place and address", () => {
     // Two events for @I1@, one each for @I2@ and the family.
     expect(uses?.events).toBe(4);
     expect(uses?.records).toEqual(["@I1@", "@I2@", "@F1@"]);
-    expect(uses?.recordCount).toBe(3);
   });
 
   it("keeps an event without an address apart from the house's own", () => {
@@ -40,13 +39,13 @@ describe("who the file puts at a place and address", () => {
     expect(at("Ravna Gora, Croatia", "Ravna Gora 1")).toBeUndefined();
   });
 
-  it("stops listing records at the cap but still counts them", () => {
+  it("lists every record at the pair, however many a village holds", () => {
     const many = dataset(
-      Array.from({ length: 5 }, (_, i) => `0 @I${i}@ INDI\n1 BIRT\n2 PLAC Kranj\n`).join(""),
+      Array.from({ length: 200 }, (_, i) => `0 @I${i}@ INDI\n1 BIRT\n2 PLAC Kranj\n`).join(""),
     );
-    const uses = buildPlaceAddrUses(many, 2).get(placeAddrKey("Kranj", ""));
-    expect(uses?.records).toEqual(["@I0@", "@I1@"]);
-    expect(uses?.recordCount).toBe(5);
+    const uses = buildPlaceAddrUses(many).get(placeAddrKey("Kranj", ""));
+    expect(uses?.records).toHaveLength(200);
+    expect(uses?.records[199]).toBe("@I199@");
   });
 });
 
