@@ -58,12 +58,15 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
   await expect(page.locator(".kin-surname-band")).toHaveCount(5);
   await page.keyboard.press("Escape");
 
-  // A band of one opens its person straight away, as a dot on the wheel does.
-  await page.locator(".kin-surname-band").first().click();
-  await expect(page.locator(".tree-compare")).toBeVisible();
+  // A band answers about its blood relatives, never with a person's own panel.
+  // Dispatched rather than clicked: a band's bounding box is a rectangle across
+  // half the chart, so a click at its centre can land on a neighbour.
+  await page.locator(".kin-surname-band").first().dispatchEvent("click");
+  await expect(page.locator(".kin-unplaced-panel")).toBeVisible();
+  await expect(page.locator(".tree-compare")).toHaveCount(0);
 });
 
-test("a band of several lists its people, and a row opens one of them", async ({ page }) => {
+test("a band lists its people with their lifespans and how they are related", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
   await page.locator(".edit-person").first().waitFor();
@@ -72,18 +75,19 @@ test("a band of several lists its people, and a row opens one of them", async ({
   await page.getByRole("tablist", { name: "Layout" }).getByRole("tab", { name: "Surnames" }).click();
   await expect(page.locator(".kin-surname-band")).toHaveCount(5);
 
-  // Ring 1's elders are two bands of one; the son is a third. Cap the chart at
-  // ring 1 and re-root on the father, whose ring 1 then holds two Kovac
-  // children — Ana and Peter — in one band.
-  await page.locator(".kin-surname-band").first().click();
-  await page.getByRole("button", { name: "Root", exact: true }).click();
-  const band = page.locator(".kin-surname-band").filter({ has: page.locator("title", { hasText: "2 blood relatives" }) });
-  await expect(band).toHaveCount(1);
-  await band.click();
+  // Ring 1 holds the father (Kovac), the mother (Novak) and the son (Kovac,
+  // issue rather than an elder, so a band of his own).
+  const father = page.locator(".kin-surname-band").filter({ has: page.locator("title", { hasText: "Kovac · 1 blood relative" }) });
+  await father.first().dispatchEvent("click");
   const panel = page.locator(".kin-unplaced-panel");
   await expect(panel).toBeVisible();
-  await expect(panel.locator(".kin-band-person")).toHaveCount(2);
-  await panel.locator(".kin-band-person").first().click();
+  const row = panel.locator(".kin-band-row").first();
+  // Name in the sex colour, lifespan beside it, then the kinship.
+  await expect(row.locator(".person-name")).toHaveClass(/sex-/);
+  await expect(row.locator(".person-years")).toContainText("1870");
+  await expect(row.locator(".person-kinship")).not.toBeEmpty();
+  // Clicking the same band again closes it; nothing ever opens a person panel.
+  await father.first().dispatchEvent("click");
   await expect(panel).toBeHidden();
-  await expect(page.locator(".tree-compare")).toBeVisible();
+  await expect(page.locator(".tree-compare")).toHaveCount(0);
 });

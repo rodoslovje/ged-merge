@@ -5371,12 +5371,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke: var(--bg);
   stroke-width: 1.2;
   stroke-linejoin: round;
+  /* An outline on an annulus sector is drawn around its bounding box — a
+     rectangle reaching across the chart, tracing nothing that is there. The
+     band shows its own state with its own stroke instead. */
+  outline: none;
 }
 .kin-surname-band:hover { filter: brightness(1.2); }
 .kin-surname-band.dim { opacity: 0.12; }
-.kin-surname-band.selected,
-.kin-surname-band:focus-visible {
-  outline: none;
+.kin-surname-band:focus-visible { stroke: var(--accent); stroke-width: 2.5; }
+.kin-surname-band.open {
   stroke: var(--text);
   stroke-width: 2;
 }
@@ -5403,19 +5406,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-opacity: 0.35;
   stroke-linejoin: round;
 }
-/* A row in the list of who is in a band: the whole row is the button. */
-.kin-band-person {
-  display: block;
-  width: 100%;
-  font: inherit;
-  text-align: left;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: inherit;
-  cursor: pointer;
+/* A row in the list of who is in a band — name, lifespan, kinship, the way a
+   person reads everywhere else. Nothing here is a link: the layout answers
+   about a family's names, and a person's own panel belongs to the wheel. */
+.kin-band-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
 }
-.kin-band-person:hover .map-panel-person { color: var(--accent); }
 /* The root, at the centre of the wheel. */
 .kin-hub { fill: var(--accent); }
 .kin-hub-label {
