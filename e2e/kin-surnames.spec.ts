@@ -51,6 +51,18 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
   await expect(page.locator(".kin-gen-split")).toHaveCount(4);
   await expect(page.locator(".kin-surname").first()).toBeVisible();
 
+  // The colour key filters bands and their captions together — a caption left
+  // behind by the band it named floats on bare ground and names nobody.
+  await page.locator(".chart-settings-btn").first().click();
+  await page.getByRole("button", { name: "Sex", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.locator(".kin-legend .map-kind-chip").last().click();
+  await expect(page.locator(".kin-surname-band")).not.toHaveCount(5);
+  const left = await page.locator(".kin-surname-band").count();
+  await expect(page.locator(".kin-surname")).toHaveCount(left);
+  await page.locator(".kin-legend .map-kind-chip").last().click();
+  await expect(page.locator(".kin-surname-band")).toHaveCount(5);
+
   // Names off, bands stay: the toggle is the shared Contemporaries one.
   await page.locator(".chart-settings-btn").first().click();
   await page.getByRole("button", { name: "Names", exact: true }).click();
@@ -86,8 +98,15 @@ test("a band lists its people with their lifespans and how they are related", as
   await expect(row.locator(".person-name")).toHaveClass(/sex-/);
   await expect(row.locator(".person-years")).toContainText("1870");
   await expect(row.locator(".person-kinship")).not.toBeEmpty();
+  // Opening a band picks out every band of the same surname — the father, the
+  // son and the grandfather are all Kovac — and stands the rest down. The
+  // mother's Novak band is the only one left out.
+  await expect(page.locator(".kin-surname-band.same")).toHaveCount(4);
+  await expect(page.locator(".kin-surname-band.other")).toHaveCount(1);
+
   // Clicking the same band again closes it; nothing ever opens a person panel.
   await father.first().dispatchEvent("click");
+  await expect(page.locator(".kin-surname-band.same")).toHaveCount(0);
   await expect(panel).toBeHidden();
   await expect(page.locator(".tree-compare")).toHaveCount(0);
 
@@ -97,6 +116,9 @@ test("a band lists its people with their lifespans and how they are related", as
   const card = page.locator(".chart-hover-card");
   await expect(card).toBeVisible();
   await expect(card.locator(".chart-hover-head")).toContainText("Kovac");
+  // …and says which way the band lies and how far out it sits, which the list
+  // of people underneath cannot say for itself.
+  await expect(card.locator(".chart-hover-line")).toHaveText("older generations · blood distance 1");
   const hovered = card.locator(".chart-hover-people li").first();
   await expect(hovered.locator(".person-name")).toHaveClass(/sex-/);
   await expect(hovered.locator(".person-years")).toContainText("1870");

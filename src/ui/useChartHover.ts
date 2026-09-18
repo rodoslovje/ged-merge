@@ -15,6 +15,9 @@ export interface HoverInfo {
   /** The lifespan, with the age when shown — beside the name, as Edit's cards
    *  and the people list write it. */
   years?: string;
+  /** A muted line under the head, saying what the mark is — the Contemporaries
+   *  rings name the direction and the blood distance a surname band stands at. */
+  subtitle?: string;
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;

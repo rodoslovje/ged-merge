@@ -297,6 +297,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     (b: SurnameBand) => `${b.surname || t("kin.surname.none")} · ${t("kin.count", { count: b.count })}`,
     [t],
   );
+  /** Which way the band lies and how far out it sits — the two things the list
+   *  of people underneath cannot say for itself. */
+  const bandWhere = useCallback(
+    (b: SurnameBand) => `${t(`kin.dir.${b.direction}`)} · ${t("kin.band.distance", { n: b.distance })}`,
+    [t],
+  );
 
   /** The band the reader has opened, for the list of who is in it. This layout
    *  is about the names in a family rather than about one person, so a band
@@ -304,6 +310,16 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const [bandOpen, setBandOpen] = useState<SurnameBand | null>(null);
   useEffect(() => setBandOpen(null), [layout, currentRootId, scope]);
   const openBand = useCallback((b: SurnameBand) => setBandOpen((prev) => (prev?.pathD === b.pathD ? null : b)), []);
+  /** Opening a band lights every other band of the same surname, wherever it
+   *  sits: that a name arrives twice, from two lines and at two distances, is
+   *  the thing this layout is for and the one thing a single band cannot show.
+   *  A band with no surname recorded stands only for itself — "not recorded" is
+   *  an absence, not a name two people share. */
+  const sameSurname = useCallback(
+    (b: SurnameBand) =>
+      !!bandOpen && (bandOpen.surname ? b.surname === bandOpen.surname : b.pathD === bandOpen.pathD),
+    [bandOpen],
+  );
   const bandByKey = useMemo(
     () => new Map((surnames?.bands ?? []).map((b) => [`${b.distance}-${b.a0.toFixed(2)}`, b])),
     [surnames],
@@ -379,11 +395,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       if (!b) return undefined;
       return {
         name: bandHead(b),
+        subtitle: bandWhere(b),
         people: b.people.slice(0, BAND_HOVER_ROWS).map(bandRow),
         moreLabel: b.count > BAND_HOVER_ROWS ? t("kin.map.more", { count: b.count - BAND_HOVER_ROWS }) : undefined,
       };
     },
-    [bandByKey, bandHead, bandRow, t],
+    [bandByKey, bandHead, bandWhere, bandRow, t],
   );
   const hover = useChartHover(canvasRef, hoverInfoFor);
 
@@ -722,7 +739,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {surnames && bandOpen && (
           <div className="map-panel kin-unplaced-panel">
             <div className="map-panel-header">
-              <span className="map-panel-title">{bandHead(bandOpen)}</span>
+              <span className="map-panel-title">
+                {bandHead(bandOpen)} <small className="kin-band-where">{bandWhere(bandOpen)}</small>
+              </span>
               <button className="modal-close" onClick={() => setBandOpen(null)} title={t("help.close")} aria-label={t("help.close")}>
                 ×
               </button>
@@ -761,7 +780,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                           <path
                             key={bandKey(b)}
                             data-key={bandKey(b)}
-                            className={`kin-surname-band${b.people.some(lit) ? "" : " dim"}${bandOpen?.pathD === b.pathD ? " open" : ""}${b.people.some((p) => p.id === find.hitKey) ? " find-hit" : ""}`}
+                            className={`kin-surname-band${b.people.some(lit) ? "" : " dim"}${bandOpen ? (sameSurname(b) ? " same" : " other") : ""}${bandOpen?.pathD === b.pathD ? " open" : ""}${b.people.some((p) => p.id === find.hitKey) ? " find-hit" : ""}`}
                             d={b.pathD}
                             fill={bandFill(b)}
                             tabIndex={0}
@@ -788,12 +807,15 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                           y2={surnames.cy + s.rOuter * Math.sin((s.angle * Math.PI) / 180)}
                         />
                       ))}
+                      {/* Filtered by the colour key exactly as the bands are: a
+                          caption left behind by the band it named floats on bare
+                          ground and names nothing. */}
                       {settings.kinNames &&
-                        surnames.bands.map((b) =>
+                        surnames.bands.filter((b) => b.people.some(shown)).map((b) =>
                           !b.label ? null : b.label.pathD ? (
                             <g key={`l${bandKey(b)}`}>
                               <path id={`kin-sur-${bandKey(b)}`} d={b.label.pathD} fill="none" />
-                              <text className="kin-surname" fontSize={b.label.fontPx} dominantBaseline="central">
+                              <text className={`kin-surname${bandOpen && !sameSurname(b) ? " other" : ""}`} fontSize={b.label.fontPx} dominantBaseline="central">
                                 <textPath href={`#kin-sur-${bandKey(b)}`} startOffset="50%" textAnchor="middle">
                                   {b.surname || t("kin.surname.none")}
                                   {b.label.count !== undefined && <tspan className="kin-wedge-count"> {b.label.count}</tspan>}
@@ -803,7 +825,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                           ) : (
                             <text
                               key={`l${bandKey(b)}`}
-                              className="kin-surname"
+                              className={`kin-surname${bandOpen && !sameSurname(b) ? " other" : ""}`}
                               fontSize={b.label.fontPx}
                               textAnchor="middle"
                               dominantBaseline="central"

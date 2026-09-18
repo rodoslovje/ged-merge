@@ -727,8 +727,9 @@ export const kinDirection = (generation: number): KinDirection =>
   generation > 0 ? "up" : generation === 0 ? "same" : "down";
 
 /** Hairline of ground between one ring and the next. The rings are solid here,
- *  so they are told apart by the gap rather than by the wheel's dotted circles. */
-const RING_INSET = 0.9;
+ *  so they are told apart by the gap rather than by the wheel's dotted circles —
+ *  and a hairline is all that takes, the bands' own stroke adding to it. */
+const RING_INSET = 0.5;
 
 /** A surname's caption, already fitted to the band that carries it. */
 export interface SurnameLabel {

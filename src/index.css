@@ -5383,30 +5383,40 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    element drawn between them. */
 .kin-surname-band {
   cursor: pointer;
+  /* A hairline of ground, no more: a ring of two hundred bands is mostly edges,
+     and a heavier one turns a crowded ring into hatching. */
   stroke: var(--bg);
-  stroke-width: 1.2;
+  stroke-width: 0.6;
   stroke-linejoin: round;
   /* An outline on an annulus sector is drawn around its bounding box — a
      rectangle reaching across the chart, tracing nothing that is there. The
      band shows its own state with its own stroke instead. */
   outline: none;
+  transition: opacity 0.12s ease;
 }
 .kin-surname-band:hover { filter: brightness(1.2); }
 .kin-surname-band.dim { opacity: 0.12; }
-.kin-surname-band:focus-visible { stroke: var(--accent); stroke-width: 2.5; }
+/* One surname picked out: every band of that name anywhere on the chart, and
+   the rest stood down so the name's whole reach reads at once. */
+.kin-surname-band.other { opacity: 0.22; }
+.kin-surname-band.same {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+.kin-surname-band:focus-visible { stroke: var(--accent); stroke-width: 2; }
 .kin-surname-band.open {
   stroke: var(--text);
-  stroke-width: 2;
+  stroke-width: 1.8;
 }
 .kin-surname-band.find-hit {
   stroke: var(--status-diff);
-  stroke-width: 2.5;
+  stroke-width: 2.2;
 }
 /* The elders' run giving way to the issue's — the only boundary in a ring that
    is about kinship rather than about names. */
 .kin-gen-split {
   stroke: var(--text);
-  stroke-width: 1.6;
+  stroke-width: 1.1;
   stroke-opacity: 0.55;
   stroke-linecap: round;
   pointer-events: none;
@@ -5417,10 +5427,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   pointer-events: none;
   paint-order: stroke;
   stroke: var(--bg);
-  stroke-width: 2.2;
-  stroke-opacity: 0.35;
+  stroke-width: 2.4;
+  stroke-opacity: 0.45;
   stroke-linejoin: round;
 }
+/* The count rides on the band with its name, not on the page like the wheel's
+   wedge captions: --faint is a ground colour and disappears on a tinted band,
+   so the count keeps the name's own ink and steps back by opacity instead. */
+.kin-surname .kin-wedge-count {
+  fill: var(--text);
+  fill-opacity: 0.72;
+}
+.kin-surname.other { opacity: 0.22; }
 /* A row in the list of who is in a band — name, lifespan, kinship, the way a
    person reads everywhere else. Nothing here is a link: the layout answers
    about a family's names, and a person's own panel belongs to the wheel. */
@@ -5429,6 +5447,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   align-items: baseline;
   flex-wrap: wrap;
   gap: 2px 8px;
+}
+/* Which way the band lies and how far out — beside its name, in the header's
+   own line but stepped back from it. */
+.kin-band-where {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+  white-space: nowrap;
 }
 /* The root, at the centre of the wheel. */
 .kin-hub { fill: var(--accent); }
