@@ -194,9 +194,6 @@ export function EventCoordPicker({
     voidLookups();
     setRn((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
     setOsm((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
-    // The names belong to the address the panel was opened on; the next one it
-    // opens on is another house, and its list starts folded like the first.
-    setShowPeople(false);
 
   }, [open]);
    
@@ -206,10 +203,6 @@ export function EventCoordPicker({
    *  clamped to the window: the events table scrolls sideways and clips, so an
    *  absolutely positioned panel was cut off at either edge. */
   const [pos, setPos] = useState<{ left?: number; top: number; maxH?: number } | null>(null);
-  /** Whether the list of people at this address is unfolded. Closed to begin
-   *  with: the panel is here to position a house, and the names are the check
-   *  on that — the line says how many there are, the list is one click away. */
-  const [showPeople, setShowPeople] = useState(false);
   /** Whether the next pick is copied to the file's other events at this exact
    *  place and address (see the offer in the panel head). On by default: the
    *  same place and address is the same house, so one position is what those
@@ -705,25 +698,19 @@ export function EventCoordPicker({
               )}
 
               {/* Who else the file has at this address — the check on whether
-                  the house being pinned is this family's at all. Last in the
-                  column, and folded away behind its own count: everyone at the
-                  pair is listed, and a settlement's address-less events are a
-                  whole village, which must not push the answers out of reach. */}
+                  the house being pinned is this family's at all, so it stands
+                  open: a name read without asking for it is the whole point.
+                  Last in the column, and everyone at the pair is listed, so a
+                  settlement's address-less events — a whole village — cannot
+                  push the lookups and their answers out of reach. */}
               {peopleRows.length > 0 && people && (
                 <div className="edit-coord-people">
-                  <button
-                    type="button"
-                    className="tools-issue-link"
-                    aria-expanded={showPeople}
-                    onClick={() => setShowPeople((v) => !v)}
-                  >
+                  <p className="edit-coord-note">
                     {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleRows.length })}
-                  </button>
+                  </p>
                   {/* A long list scrolls in a box of its own rather than
                       growing the panel down the screen. */}
-                  {showPeople && (
-                    <UsageList dataset={people.dataset} uses={peopleRows} onNavigate={people.onNavigate} />
-                  )}
+                  <UsageList dataset={people.dataset} uses={peopleRows} onNavigate={people.onNavigate} />
                 </div>
               )}
             </div>

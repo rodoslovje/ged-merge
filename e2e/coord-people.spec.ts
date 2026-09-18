@@ -40,15 +40,12 @@ test("the coordinate panel lists the people at this address", async ({ page }) =
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.locator(".edit-event .edit-event-coord").first().click();
-  const line = page.locator(".edit-coord-people > button");
   // Ana and Jože — the marriage adds no third person, and the neighbour at 115
   // is a different house.
-  await expect(line).toHaveText("2 people at this address");
+  await expect(page.locator(".edit-coord-people > p")).toHaveText("2 people at this address");
 
-  // Folded to begin with; unfolding names them, each of them once — the
-  // couple's marriage at the house adds no second pair of lines.
-  await expect(page.locator(".edit-coord-people .tools-usage li")).toHaveCount(0);
-  await line.click();
+  // Standing open, each of them named once — the couple's marriage at the
+  // house adds no second pair of lines.
   const people = page.locator(".edit-coord-people .tools-usage .person-ref");
   await expect(people).toHaveCount(2);
   await expect(people.filter({ hasText: "Marija" })).toHaveCount(0);
@@ -72,8 +69,6 @@ test("the same list reads off the address the geocoding page is positioning", as
   // The row for Stražišče 114 — the house two of the three share.
   await page.locator(".tools-geo-addr-row").filter({ hasText: "114" }).first()
     .locator(".tools-geo-addr-name").click();
-  const line = page.locator(".edit-coord-people > button");
-  await expect(line).toHaveText("2 people at this address");
-  await line.click();
+  await expect(page.locator(".edit-coord-people > p")).toHaveText("2 people at this address");
   await expect(page.locator(".edit-coord-people .tools-usage .person-ref")).toHaveCount(2);
 });
