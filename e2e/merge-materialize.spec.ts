@@ -55,10 +55,10 @@ test("materialized merge event keeps all fields marked after a later edit", asyn
   // Materialize the incoming-only Radovljica residence by editing its address.
   let rad = await rowByPlace(page, "Radovljica");
   await rad.locator(".edit-event-addr").fill("Gorenjska cesta 33/a");
-  await page.keyboard.press("Tab");
-  await page.waitForTimeout(400);
+  await page.keyboard.press("Tab"); // the field writes to the record on blur
 
-  // All its fields should now be marked dirty.
+  // All its fields should now be marked dirty (the expects retry until the
+  // commit has landed).
   rad = await rowByPlace(page, "Radovljica");
   await expect(rad.locator(".edit-event-date")).toHaveClass(/edit-input--dirty/);
   await expect(rad.locator(".edit-event-place")).toHaveClass(/edit-input--dirty/);
@@ -67,7 +67,6 @@ test("materialized merge event keeps all fields marked after a later edit", asyn
   // Editing the date must not clear the marking on the other fields.
   await rad.locator(".edit-event-date").fill("9 AUG 1982");
   await page.keyboard.press("Tab");
-  await page.waitForTimeout(400);
 
   rad = await rowByPlace(page, "Radovljica");
   await expect(rad.locator(".edit-event-date")).toHaveClass(/edit-input--dirty/);

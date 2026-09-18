@@ -61,6 +61,7 @@ lines.push("0 TRLR", "");
 writeFileSync(FILE, lines.join("\n"), "utf-8");
 
 test("a related-records link opens that pair and scrolls to it", async ({ page }) => {
+  test.setTimeout(180_000); // the whole-file duplicate scan below waits up to 120 s
   await page.setViewportSize({ width: 1200, height: 700 });
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
@@ -89,12 +90,12 @@ test("a related-records link opens that pair and scrolls to it", async ({ page }
   // full list) …
   await expect(page.locator(".tools-search-input")).toHaveValue("Stopar");
 
-  // … and it is pinned into view, not left below the fold.
-  await page.waitForTimeout(400);
-  const box = await open.locator(".tools-pair-row").first().boundingBox();
-  const view = await page.locator(".tools-view").boundingBox();
-  expect(box).not.toBeNull();
-  expect(view).not.toBeNull();
-  expect(box!.y).toBeGreaterThanOrEqual(view!.y - 2);
-  expect(box!.y).toBeLessThan(view!.y + view!.height);
+  // … and it is pinned into view, not left below the fold (the scroll is
+  // animated, so poll rather than read the boxes once).
+  await expect.poll(async () => {
+    const box = await open.locator(".tools-pair-row").first().boundingBox();
+    const view = await page.locator(".tools-view").boundingBox();
+    if (!box || !view) return "no box";
+    return box.y >= view.y - 2 && box.y < view.y + view.height ? "in view" : `row at ${box.y}, view ${view.y}..${view.y + view.height}`;
+  }).toBe("in view");
 });

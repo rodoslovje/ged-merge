@@ -138,9 +138,19 @@ test("a key the menu answers does not also drive the view behind it", async ({ p
   const before = await scroller.evaluate((el) => el.scrollTop);
 
   await openMenu(trigger, () => page.keyboard.press("ArrowDown"));
-  await page.waitForTimeout(500); // long enough for a smooth scroll to have run
-  expect(await scroller.evaluate((el) => el.scrollTop), "the panel behind must not have moved").toBe(before);
   await expect(page.locator(".dd-menu")).toBeVisible();
+  // A negative claim: the panel must not move at all. A smooth scroll takes a
+  // few frames to show, so watch the position frame by frame over a bounded
+  // window, in the page, and report the first frame that moved.
+  const moved = await scroller.evaluate(async (el, before) => {
+    const until = performance.now() + 700;
+    while (performance.now() < until) {
+      if (el.scrollTop !== before) return el.scrollTop;
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    return before;
+  }, before);
+  expect(moved, "the panel behind must not have moved").toBe(before);
 });
 
 // The Edit view settles for a while after it appears — fonts and images land,

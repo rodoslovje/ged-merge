@@ -16,8 +16,8 @@ test("switching a settings tab returns to the top", async ({ page }) => {
 
   const body = page.locator(".modal-body");
   await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-  expect(await body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
 
   await page.getByRole("tab", { name: "Map" }).click();
-  expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
+  await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBe(0);
 });
