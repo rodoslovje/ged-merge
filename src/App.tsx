@@ -1680,6 +1680,9 @@ function AppContent() {
       warnings: mainDataset.warnings,
       eol: mainDataset.eol,
       finalNewline: mainDataset.finalNewline,
+      // The file's byte-order mark is a property of the file, not of this
+      // save: without it the second download of the session would lose it.
+      bom: mainDataset.bom,
     });
     Object.assign(mainDataset, rebuilt);
     dirty.resetOnSave(mainDataset);
