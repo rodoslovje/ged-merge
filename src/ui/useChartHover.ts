@@ -18,8 +18,23 @@ export interface HoverInfo {
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
+  /** A mark that stands for several people — a surname band on the
+   *  Contemporaries rings — carries them instead of one name and lifespan: the
+   *  head names the group, and these are its rows. */
+  people?: HoverPerson[];
+  /** "…and 12 more", already worded by the host. */
+  moreLabel?: string;
   /** A muted last line ("Click to see full details"). */
   hint?: string;
+}
+
+/** One person on a card that lists several, written as the head is. */
+export interface HoverPerson {
+  id: string;
+  name: string;
+  sex?: Sex | string;
+  years?: string;
+  kinship?: string;
 }
 
 export interface ChartHover {

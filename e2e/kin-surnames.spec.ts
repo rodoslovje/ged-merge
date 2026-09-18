@@ -77,7 +77,7 @@ test("a band lists its people with their lifespans and how they are related", as
 
   // Ring 1 holds the father (Kovac), the mother (Novak) and the son (Kovac,
   // issue rather than an elder, so a band of his own).
-  const father = page.locator(".kin-surname-band").filter({ has: page.locator("title", { hasText: "Kovac · 1 blood relative" }) });
+  const father = page.locator('.kin-surname-band[aria-label="Kovac · 1 blood relative"]');
   await father.first().dispatchEvent("click");
   const panel = page.locator(".kin-unplaced-panel");
   await expect(panel).toBeVisible();
@@ -90,4 +90,14 @@ test("a band lists its people with their lifespans and how they are related", as
   await father.first().dispatchEvent("click");
   await expect(panel).toBeHidden();
   await expect(page.locator(".tree-compare")).toHaveCount(0);
+
+  // Hovering says the same thing, in the chart's own hover card rather than a
+  // plain browser tooltip: the names carry their sex colour and lifespan.
+  await father.first().hover({ force: true });
+  const card = page.locator(".chart-hover-card");
+  await expect(card).toBeVisible();
+  await expect(card.locator(".chart-hover-head")).toContainText("Kovac");
+  const hovered = card.locator(".chart-hover-people li").first();
+  await expect(hovered.locator(".person-name")).toHaveClass(/sex-/);
+  await expect(hovered.locator(".person-years")).toContainText("1870");
 });

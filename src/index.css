@@ -5191,6 +5191,21 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .chart-hover-kin.lineage-paternal { color: var(--lineage-paternal); }
 .chart-hover-kin.lineage-maternal { color: var(--lineage-maternal); }
 .chart-hover-hint { color: var(--faint); font-size: 0.75rem; margin-top: 2px; }
+/* A card standing for several people — a surname band on the Contemporaries
+   rings — writes each of them the way the head writes one. */
+.chart-hover-people {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px solid var(--border);
+}
+.chart-hover-people li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 1px 0;
+}
+.chart-hover-more { color: var(--faint); font-size: 0.8rem; }
 .tree-edge {
   fill: none;
   stroke: var(--border);
