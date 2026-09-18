@@ -16,9 +16,18 @@ import type { Translate } from "../locales/i18n";
 export function EventGlyph({ tag, t, named = false }: { tag: string; t: Translate; named?: boolean }) {
   const glyph = EVENT_GLYPHS[tag] ?? GENERIC_EVENT_GLYPH;
   const name = eventDisplayLabel(tag, t);
+  // A pictograph (the graduation cap) is drawn solid and full-height, where
+  // every other mark is a few thin strokes, so beside them it reads as bold.
+  // The ones outside the Basic Multilingual Plane are exactly the pictographs,
+  // and the class scales that weight back to theirs.
+  const pictograph = (glyph.codePointAt(0) ?? 0) > 0xffff;
   return (
     <span
-      className={"event-glyph" + (glyph === "*" ? " event-glyph--high" : "")}
+      className={
+        "event-glyph" +
+        (glyph === "*" ? " event-glyph--high" : "") +
+        (pictograph ? " event-glyph--pictograph" : "")
+      }
       title={name}
       {...(named ? { role: "img", "aria-label": name } : { "aria-hidden": true })}
     >

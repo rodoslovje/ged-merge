@@ -3102,6 +3102,11 @@ button:focus-visible {
 /* The asterisk rides at cap height, where every other mark sits mid-line; drop
    it so a birth reads on the same line as the ⚭ and † beside it. */
 .event-glyph--high { transform: translateY(0.16em); }
+/* A pictograph mark (the education cap) is a solid, full-height drawing, and
+   next to marks made of two or three thin strokes it reads as bold. Scaled
+   down to their weight — as a transform, so the slot it sits in keeps its
+   width and the names after it stay in one column. */
+.event-glyph--pictograph { transform: scale(0.78); opacity: 0.92; }
 /* A run of marks after a person's name — which of their events happened at the
    place the row is about. */
 .event-glyphs { display: inline-flex; align-items: baseline; margin-left: 6px; }
