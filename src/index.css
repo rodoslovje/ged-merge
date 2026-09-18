@@ -6739,6 +6739,15 @@ kbd {
   .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
   /* Stacked: the searches take a line of their own, as on a phone. */
   .edit-coord-lookups { margin-left: 0; max-width: none; flex: 1 1 100%; }
+  /* Answers first, then the map their numbers are on, then the people at the
+     address: stacked, a map between the head and the answers pushed every
+     coordinate below the fold, and the numbers were read after the circles.
+     The side column dissolves into the body (display: contents) so its two
+     halves can take places of their own around the map. */
+  .edit-coord-side { display: contents; }
+  .edit-coord-answers { order: 1; }
+  .edit-coord-map { order: 2; }
+  .edit-coord-people { order: 3; }
   /* Pushed right, ahead of the manual entry it belongs with. */
 .edit-coord-share { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); }
 .edit-coord-share input { margin: 0; }
@@ -9411,6 +9420,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   flex: 1 1 42%; min-width: 0; max-height: 340px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
 }
+/* The pickable answers, as one block: beside the map in two columns, above it
+   when the panel stacks. */
+.edit-coord-answers { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.edit-coord-answers:empty { display: none; }
 .edit-coord-current { display: flex; align-items: center; gap: 8px; }
 .edit-coord-head .edit-coord-manual { flex: 0 1 320px; }
 .edit-coord-note { color: var(--muted); margin: 0; }
@@ -9460,10 +9473,15 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 }
 .edit-coord-pop--phone .edit-coord-body { flex-direction: column; }
 .edit-coord-pop--phone .edit-coord-map,
-.edit-coord-pop--phone .edit-coord-side { flex: 0 0 auto; }
+.edit-coord-pop--phone .edit-coord-answers,
+.edit-coord-pop--phone .edit-coord-people { flex: 0 0 auto; }
 .edit-coord-pop--phone .edit-coord-map .tools-geo-minimap { height: 190px; }
-/* The list scrolls with the panel rather than in a 260px box of its own. */
-.edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
+/* Same order as the narrow desktop panel: the answers, the map their numbers
+   are on, then who else is at the address. */
+.edit-coord-pop--phone .edit-coord-side { display: contents; }
+.edit-coord-pop--phone .edit-coord-answers { order: 1; }
+.edit-coord-pop--phone .edit-coord-map { order: 2; }
+.edit-coord-pop--phone .edit-coord-people { order: 3; }
 .edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
 /* Nothing is beside anything on a phone: the searches take their own full-width
    line under the value's controls instead of a right-hand column of 48%. */

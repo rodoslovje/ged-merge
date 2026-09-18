@@ -430,6 +430,41 @@ export function EventCoordPicker({
   const shownRn = rn.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
   const shownOsm = osm.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
 
+  /**
+   * A number for every option the panel offers, in the order its list prints
+   * them — the caller's answers, then the file's own positions, then what the
+   * two searches found.
+   *
+   * The geocoding lists have always numbered their answers and put the same
+   * number on the pin, because "which of these three is the house" is a
+   * question only the map answers, and a line and a circle are only read
+   * together if something ties them. In here only the answers handed in by such
+   * a list carried numbers, and the panel's own lookups — the three GURS and
+   * OpenStreetMap hits it found itself — stood unnumbered beside them.
+   *
+   * Keyed by position, so the same house reached twice (the file's coordinate
+   * that a search answers with again) keeps one number, on one pin.
+   */
+  const optionNumbers = new Map<string, number>();
+  let lastNumber = 0;
+  const numberFor = (c: GeoCoord, explicit?: number) => {
+    const key = `${c.lat},${c.lon}`;
+    const had = optionNumbers.get(key);
+    if (had !== undefined) return had;
+    // A caller numbering its own lines wins: the panel is showing that list's
+    // answers, and renumbering them would break the row it opened from.
+    const n = explicit ?? lastNumber + 1;
+    lastNumber = Math.max(lastNumber, n);
+    optionNumbers.set(key, n);
+    return n;
+  };
+  (candidates ?? []).forEach((c, i) => numberFor(c.coord, c.number ?? i + 1));
+  for (const f of fromFile) numberFor(f.coord);
+  for (const r of shownRn) numberFor(r.coord);
+  for (const r of shownOsm) numberFor(r.coord);
+  /** What a list line and its pin both print. */
+  const numberOf = (c: GeoCoord) => optionNumbers.get(`${c.lat},${c.lon}`);
+
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
   // the map renders its detail panel (house, post office, source, and that a
   // click takes it) rather than a bare one-line tooltip — with several numbers
@@ -440,13 +475,13 @@ export function EventCoordPicker({
   // The caller's own answers first, numbered as its list numbers them — the
   // numbers are the only way to read a pin back to the line it came from when
   // several hits share one name.
-  (candidates ?? []).forEach((c, i) => {
+  (candidates ?? []).forEach((c) => {
     pins.push({
       coord: c.coord,
       label: c.label,
       lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
       kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
-      badge: c.number ?? i + 1,
+      badge: numberOf(c.coord),
       onPick: () => take(c.coord, c.label),
     });
   });
@@ -456,6 +491,7 @@ export function EventCoordPicker({
       label: f.label,
       lines: [t("event.coord.source.file"), t("event.coord.pinPick")],
       kind: "candidate",
+      badge: numberOf(f.coord),
       // The settlement's position is not a house: a wide neutral ring, so it
       // frames the candidates standing on it instead of competing with them.
       ...(f.place ? { colorVar: "--map-other", area: true } : {}),
@@ -469,6 +505,7 @@ export function EventCoordPicker({
       label: r.address,
       lines: [r.label === r.address ? "" : r.label, t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
+      badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.label),
     });
   }
@@ -480,6 +517,7 @@ export function EventCoordPicker({
       label: r.name,
       lines: [short === r.name ? "" : short, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
+      badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.name),
     });
   }
@@ -641,15 +679,20 @@ export function EventCoordPicker({
             )}
 
             <div className="edit-coord-side">
+             {/* Every answer the panel has, each under the number its own pin
+                 wears on the map — what separates three hits spelled exactly
+                 alike. In the stacked layout this whole block rises above the
+                 map (see .edit-coord-answers), so the numbers are read before
+                 the circles they name. */}
+             <div className="edit-coord-answers">
               {/* The answers the caller already has, under the numbers its own
-                  list shows — the map above draws the same numbers, which is
-                  what separates three hits spelled exactly alike. */}
+                  list shows. */}
               {!!candidates?.length && (
                 <ul className="edit-coord-results">
                   {candidates.map((c, i) => (
                     <li key={`cand-${i}`}>
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{c.number ?? i + 1}</span>
+                        <span className="tools-geo-cand-num">{numberOf(c.coord)}</span>
                         <button type="button" className="tools-issue-link" title={c.label} onClick={() => take(c.coord, c.label)}>
                           {c.label}
                         </button>
@@ -668,9 +711,12 @@ export function EventCoordPicker({
                 <ul className="edit-coord-results">
                   {fromFile.map((f, i) => (
                     <li key={`file-${i}`}>
-                      <button type="button" className="tools-issue-link" onClick={() => take(f.coord, f.label)}>
-                        {f.label}
-                      </button>
+                      <span className="edit-coord-cand-line">
+                        <span className="tools-geo-cand-num">{numberOf(f.coord)}</span>
+                        <button type="button" className="tools-issue-link" onClick={() => take(f.coord, f.label)}>
+                          {f.label}
+                        </button>
+                      </span>
                       <span className="gm-data">{at(f.coord)}</span>
                     </li>
                   ))}
@@ -681,9 +727,12 @@ export function EventCoordPicker({
                 <ul className="edit-coord-results">
                   {shownRn.map((r, i) => (
                     <li key={`rn-${i}`}>
-                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
-                        {r.label}
-                      </button>
+                      <span className="edit-coord-cand-line">
+                        <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
+                        <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
+                          {r.label}
+                        </button>
+                      </span>
                       <span className="gm-data gm-coord">
                         {formatCoord(r.coord)}{" "}
                         <span className="tools-reshape-badge official">GURS</span>
@@ -694,9 +743,12 @@ export function EventCoordPicker({
                     <li key={`osm-${i}`}>
                       {/* The short composed line; the raw display chain, with
                           its quarters and postcodes, stays in the tooltip. */}
-                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
-                        {osmShortLabel(r)}
-                      </button>
+                      <span className="edit-coord-cand-line">
+                        <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
+                        <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
+                          {osmShortLabel(r)}
+                        </button>
+                      </span>
                       <span className="edit-coord-cand-line">
                         {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
                         <span className="gm-data gm-coord">
@@ -708,6 +760,7 @@ export function EventCoordPicker({
                   ))}
                 </ul>
               )}
+             </div>
 
               {/* Who else the file has at this address — the check on whether
                   the house being pinned is this family's at all, so it stands

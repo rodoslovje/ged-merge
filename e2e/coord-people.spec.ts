@@ -59,6 +59,43 @@ test("the coordinate panel lists the people at this address", async ({ page }) =
   await expect(page.locator(".edit-coord-people")).toHaveCount(0);
 });
 
+// Two positions the file already holds for this event's place and house, so the
+// panel offers both — the case that has to number them.
+const OFFERS = path.join(tmpdir(), "coord-offers.ged");
+
+writeFileSync(
+  OFFERS,
+  [
+    "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Ana /Kos/",
+    "1 BIRT", "2 DATE 1838", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
+    // The same house, placed.
+    "0 @I2@ INDI", "1 NAME Jože /Kos/",
+    "1 BIRT", "2 DATE 1835", "2 PLAC Kranj, Slovenija",
+    "3 MAP", "4 LATI N46.22269", "4 LONG E14.34230", "2 ADDR Stražišče 114",
+    // The settlement's own position.
+    "0 @I3@ INDI", "1 NAME Marija /Novak/",
+    "1 BIRT", "2 DATE 1860", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23958", "4 LONG E14.35629",
+    "0 TRLR", "",
+  ].join("\n"),
+  "utf-8",
+);
+
+test("every offer is numbered, and its pin on the map wears that number", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(OFFERS);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.locator(".edit-event .edit-event-coord").first().click();
+  // The house first, the settlement under it — the order the list prints.
+  const numbers = page.locator(".edit-coord-answers .tools-geo-cand-num");
+  await expect(numbers).toHaveText(["1", "2"]);
+  await expect(page.locator(".edit-coord-results li").first()).toContainText("46.22269");
+
+  // The map answers with the same two numbers.
+  await expect(page.locator(".edit-coord-map .mini-pin-badge")).toHaveText(["1", "2"]);
+});
+
 test("the same list reads off the address the geocoding page is positioning", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
