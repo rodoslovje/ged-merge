@@ -318,7 +318,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       )}
 
       <div className="tree-canvas-wrap">
-        <ChartLegend entries={colorer.legend} />
+        <ChartLegend entries={colorer.legend} tint={tint} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
             <ChartZoom width={chart.width} height={chart.height} zoom={zoom} layerRef={zoomLayerRef}>
