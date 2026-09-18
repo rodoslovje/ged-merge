@@ -12,14 +12,14 @@ import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
 import { EventAssociates } from "./EventAssociates";
-import { PlaceAutocomplete } from "./PlaceAutocomplete";
+import { SuggestInput } from "./SuggestInput";
 import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
-import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
+import { placeAddrCoordKey, placeCombosOf, placeKey, type Suggestions, type TagSuggestions } from "./fieldSuggestions";
 import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
@@ -34,6 +34,10 @@ const REMOVE_OPTION = "__remove_event__";
 /** The widest a note chip grows (see NotesEditor): a longer line wraps inside
  *  the chip, so the note stands more than a line tall. */
 const NOTE_CHIP_CH = 48;
+
+/** What a field completes from on a tag the file has never written — one
+ *  shared object, so a row of empty fields doesn't allocate a map each. */
+const EMPTY_SUGGESTIONS: Suggestions = { suggestions: [], canonical: new Map() };
 
 /** Editable date/place/address/links for a single event (individual or
  * family), e.g. `1 BIRT` or `1 MARR`. */
@@ -60,6 +64,9 @@ export function EventFieldsRow({
   addrCanonical,
   agencySuggestions,
   agencyCanonical,
+  causeSuggestions,
+  causeCanonical,
+  tagSuggestions,
   placeCoords,
   placeForms,
   pairCoords,
@@ -115,9 +122,12 @@ export function EventFieldsRow({
   addrCanonical: Map<string, string>;
   agencySuggestions: string[];
   agencyCanonical: Map<string, string>;
+  causeSuggestions: string[];
+  causeCanonical: Map<string, string>;
+  tagSuggestions: TagSuggestions;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
-  /** Attested FORM per place (see PlaceSuggestions.placeForms). */
+  /** Attested FORM per place (see FieldSuggestions.placeForms). */
   placeForms: Map<string, string>;
   /** Coordinate for a specific place+address pair (the house). */
   pairCoords: Map<string, GeoCoord>;
@@ -400,7 +410,16 @@ export function EventFieldsRow({
   const agencySlotField = isEven ? valueField : agencyField;
   const agencySlotForced = isEven ? valueForced : agencyForced;
   const agencySlotLabel = isEven ? t("event.colAgency") : t("event.agency", { event: label });
-  const agencyClearUpdate: Partial<EventFieldUpdate> = isEven ? { value: "" } : { agency: "" };
+
+  // What the value and the type fields complete from: this tag's own values,
+  // and nobody else's — the occupations for an Occupation, the words other
+  // marriages call themselves for a marriage's type. A tag the file has never
+  // written yet has nothing to offer, which is the empty pair.
+  const valueSuggestions = (tag && tagSuggestions.values.get(tag)) || EMPTY_SUGGESTIONS;
+  const typeSuggestions = (tag && tagSuggestions.types.get(tag)) || EMPTY_SUGGESTIONS;
+  // The list is short and the field is often empty (an occupation is typed into
+  // a fresh row), so it opens on focus the way the cause's does.
+  const valueCompletion = { ...valueSuggestions, offerAllWhenEmpty: true };
 
   // EVEN's TYPE doubles as its display label; while it has one, the label
   // column shows it in place of the generic "Event"/"Fact". A type a program
@@ -662,62 +681,42 @@ export function EventFieldsRow({
     commitField(merged);
   }
 
-  // A secondary field on the flowing "extras" line: a small label + a
-  // content-sized input. Hidden when empty and not added; shown once it has a
-  // value or the user picks it from the "+ Detail" menu. Used for Type / Agency
-  // / Cause.
-  function extraText(
+  /**
+   * A secondary field on the flowing "extras" line: a small label + a
+   * content-sized input that completes from what the file already writes in
+   * that same field. Hidden when empty and not added; shown once it has a
+   * value or the user picks it from the "+ Detail" menu. Hosts the Address,
+   * Type, Agency, Cause and Residence-value fields — the Place field renders
+   * inline in the body below, because it carries the coordinate pin too.
+   *
+   * Every one of them is the same autocomplete over a different list: places
+   * and addresses reach the registers as well (`lookup`) and fill each other
+   * in pairs (`combos`), while a type, an agency or a cause completes from the
+   * file alone.
+   */
+  function extraField(
     key: string,
     labelText: string,
     shown: boolean,
     field: ReturnType<typeof useField>,
     forced: boolean,
     title: string,
-    clearUpdate: Partial<EventFieldUpdate>,
-  ) {
-    return (
-      <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
-        <span className="edit-event-extra-label">{labelText}</span>
-        <ClearableInput
-          wrapClassName="edit-event-extra-field"
-          wrapStyle={chW(field.value)}
-          className={fieldCls("edit-input", field.isMerge, field.isDirty || forced)}
-          value={field.value}
-          // An extra is normally on screen only because it has content, so its
-          // name lives in the hover label and the tooltip. Added from the
-          // "+ Add" menu it arrives empty, and a blank unlabelled box says
-          // nothing — so it names itself until something is typed, the way the
-          // date and the value inputs do.
-          placeholder={labelText}
-          title={title}
-          onChange={field.onChange}
-          onBlur={() => commitAll({})}
-          onClear={() => { field.clear(); commitAll(clearUpdate); }}
-        />
-      </span>
-    );
-  }
-
-  // A place/address field on the flowing body: a hover label + a content-sized
-  // autocomplete. Hosts the Address field (the Place field renders inline in
-  // the body below).
-  function extraPlace(
-    key: string,
-    labelText: string,
-    shown: boolean,
-    field: ReturnType<typeof useField>,
-    forced: boolean,
-    suggestions: string[],
-    canonical: Map<string, string>,
-    cls: string,
-    title: string,
-    commit: (val: string) => void,
-    combos?: { place: string; addr: string }[],
-    onPickCombo?: (place: string, addr: string) => void,
-    lookupProps?: {
-      onLookup?: (query: string) => Promise<PlaceProposal[]>;
-      lookupNote?: string;
-      onPickProposal?: (proposal: PlaceProposal) => void;
+    opts: {
+      suggestions: string[];
+      canonical: Map<string, string>;
+      commit: (val: string) => void;
+      /** Extra class on the input, where the field's width rule needs one. */
+      cls?: string;
+      /** Offer the list on focus — for the short per-field lists (see
+       *  SuggestInput's own prop). */
+      offerAllWhenEmpty?: boolean;
+      combos?: { place: string; addr: string }[];
+      onPickCombo?: (place: string, addr: string) => void;
+      lookup?: {
+        onLookup?: (query: string) => Promise<PlaceProposal[]>;
+        lookupNote?: string;
+        onPickProposal?: (proposal: PlaceProposal) => void;
+      };
     },
   ) {
     return (
@@ -726,28 +725,34 @@ export function EventFieldsRow({
         {/* No pin of its own here: the event's coordinate pin already stands
             between the place and the address, and two in a row read as two
             different marks. */}
-        <PlaceAutocomplete
+        <SuggestInput
           value={field.value}
-          suggestions={suggestions}
-          canonical={canonical}
-          combos={combos}
+          suggestions={opts.suggestions}
+          canonical={opts.canonical}
+          combos={opts.combos}
           // The address field, whose pair list is the only route to another
           // settlement, matches a typed place name too. A field with no pairs
           // at all (the agency) has nothing to match that way.
-          matchCombosByPlace={!!combos}
-          addresses={!!combos}
+          matchCombosByPlace={!!opts.combos}
+          addresses={!!opts.combos}
+          offerAllWhenEmpty={opts.offerAllWhenEmpty}
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
-          className={"edit-input " + cls}
+          className={"edit-input" + (opts.cls ? ` ${opts.cls}` : "")}
           wrapClassName="edit-event-extra-field"
           wrapStyle={chW(field.value)}
+          // An extra is normally on screen only because it has content, so its
+          // name lives in the hover label and the tooltip. Added from the
+          // "+ Add" menu it arrives empty, and a blank unlabelled box says
+          // nothing — so it names itself until something is typed, the way the
+          // date and the value inputs do.
           placeholder={labelText}
           title={title}
           onChange={field.set}
-          onCommit={commit}
-          onClear={() => { field.clear(); commit(""); }}
-          onPickCombo={onPickCombo}
-          {...lookupProps}
+          onCommit={opts.commit}
+          onClear={() => { field.clear(); opts.commit(""); }}
+          onPickCombo={opts.onPickCombo}
+          {...opts.lookup}
         />
       </span>
     );
@@ -934,24 +939,33 @@ export function EventFieldsRow({
         {/* Value-events lead with their value (its own click target, always
          * shown); ordinary events lead with the date, already rendered above. */}
         {!primaryLine && (
-          <ClearableInput
-            data-detail="value"
+          /* An occupation, a religion, an education: the value *is* the event,
+             and the file writes the same handful of them over and over, so the
+             field completes from this tag's own values and offers them the
+             moment it is entered. Enter still walks on to the place — the
+             dropdown only takes the key while one of its rows is highlighted. */
+          <SuggestInput
+            dataDetail="value"
+            value={valueField.value}
+            suggestions={valueSuggestions.suggestions}
+            canonical={valueSuggestions.canonical}
+            offerAllWhenEmpty
+            isDirty={valueField.isDirty || valueForced}
+            isMerge={valueField.isMerge}
+            className="edit-input edit-event-value"
             wrapClassName="edit-event-primary"
             wrapStyle={chW(valueField.value, 60)}
-            className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty || valueForced)}
-            value={valueField.value}
             placeholder={t("event.colTitle")}
             title={label}
-            onChange={valueField.onChange}
-            onKeyDown={entryKeyDown("value")}
-            onBlur={() => commitAll({})}
+            onChange={valueField.set}
+            onCommit={(val) => commitAll({ value: val })}
             onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
           />
         )}
         {/* Place — the same everywhere: unlabelled (a place reads as a place) and
          * shown only when it has content, so no event reserves an empty slot. */}
         <span data-detail="place" className={"edit-event-extra edit-event-extra--place" + optCls(show.place)}>
-          <PlaceAutocomplete
+          <SuggestInput
             value={placeField.value}
             suggestions={placeSuggestions}
             canonical={placeCanonical}
@@ -1005,48 +1019,70 @@ export function EventFieldsRow({
           />
           )}
         </span>
-        {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => {
-          commitAll({ address: val, ...coordUpdate(placeField.value, val) });
-        }, addrCombos, pickCombo, {
-          // An address is looked up inside the event's place — and only online:
-          // house numbers are in the address registers, never in an imported
-          // gazetteer, so with the opt-in off the row says why instead of
-          // offering a search that could not answer.
-          onLookup: lookup?.online ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
-          lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
-          onPickProposal: pickAddrProposal,
+        {extraField("addr", t("event.colAddr"), show.addr, addrField, addrForced, t("event.addr", { event: label }), {
+          suggestions: placeToAddrs.get(placeKey(placeField.value)) ?? [],
+          canonical: addrCanonical,
+          cls: "edit-event-addr",
+          combos: addrCombos,
+          onPickCombo: pickCombo,
+          commit: (val) => commitAll({ address: val, ...coordUpdate(placeField.value, val) }),
+          lookup: {
+            // An address is looked up inside the event's place — and only online:
+            // house numbers are in the address registers, never in an imported
+            // gazetteer, so with the opt-in off the row says why instead of
+            // offering a search that could not answer.
+            onLookup: lookup?.online ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
+            lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
+            onPickProposal: pickAddrProposal,
+          },
         })}
         {/* The tag's own line value, for events that lead with the date instead
             of it (RESI) — otherwise it is the primary field rendered above. */}
-        {valueIsExtra && extraText("value", t("event.colValue"), show.value, valueField, valueForced, t("event.value", { event: label }), { value: "" })}
-        {extraText(
+        {valueIsExtra && extraField("value", t("event.colValue"), show.value, valueField, valueForced, t("event.value", { event: label }), {
+          ...valueCompletion,
+          cls: "edit-event-value",
+          commit: (val) => commitAll({ value: val }),
+        })}
+        {extraField(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),
           show.type,
           typeField,
           typeForced,
           isEven ? t("event.customTooltip", { tag: tag ?? "EVEN" }) : t("event.type", { event: label }),
-          { type: "" },
+          {
+            // The same few words over and over — a marriage is "civil" or
+            // "cerkvena", a custom event is the kind of event it is — and per
+            // tag, since none of them mean anything on another kind of event.
+            suggestions: typeSuggestions.suggestions,
+            canonical: typeSuggestions.canonical,
+            cls: "edit-event-type",
+            offerAllWhenEmpty: true,
+            commit: (val) => commitAll({ type: val }),
+          },
         )}
         {/* The agency completes from the ones the file already names — a tree
             keeps returning to the same handful of parishes and offices. On a
             custom event this slot hosts the event's own value instead, which
-            those names have nothing to do with, so there it stays a plain box. */}
-        {isEven
-          ? extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)
-          : extraPlace(
-              "agency",
-              t("event.colAgency"),
-              show.agency,
-              agencySlotField,
-              agencySlotForced,
-              agencySuggestions,
-              agencyCanonical,
-              "edit-event-agency",
-              agencySlotLabel,
-              (val) => commitAll({ agency: val }),
-            )}
-        {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
+            those names have nothing to do with, so there it completes from the
+            other custom events' values. */}
+        {extraField("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, {
+          ...(isEven
+            ? { ...valueCompletion, commit: (val: string) => commitAll({ value: val }) }
+            : { suggestions: agencySuggestions, canonical: agencyCanonical, commit: (val: string) => commitAll({ agency: val }) }),
+          cls: "edit-event-agency",
+        })}
+        {/* The cause completes from the ones the file already names, and offers
+            them as soon as the field is entered: a register's deaths run on a
+            few repeated causes, and the exact wording of one already recorded
+            is the wording this one wants too. */}
+        {extraField("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), {
+          suggestions: causeSuggestions,
+          canonical: causeCanonical,
+          cls: "edit-event-cause",
+          offerAllWhenEmpty: true,
+          commit: (val) => commitAll({ cause: val }),
+        })}
         {/* Sources and links lead the note: the note is a textarea that grows to
             as many lines as it holds, and after it the icons ended up alone at
             the foot of a tall row, far from the event they belong to. */}

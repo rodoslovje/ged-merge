@@ -64,7 +64,7 @@ test("the place itself leads the offers, above its houses", async ({ page }) => 
   const addr = await antonsAddressField(page);
   await addr.fill("zgornje bitnje");
 
-  const options = page.locator(".place-suggestion");
+  const options = page.locator(".suggest-item");
   await expect(options.first()).toBeVisible();
   // First row: the place on its own, no " · house" after it.
   await expect(options.first()).toHaveText("Zgornje Bitnje,Kranj,Slovenia");
@@ -75,7 +75,7 @@ test("the place itself leads the offers, above its houses", async ({ page }) => 
 test("picking the place moves the event there and takes its coordinate", async ({ page }) => {
   const addr = await antonsAddressField(page);
   await addr.fill("zgornje bitnje");
-  await page.locator(".place-suggestion").first().click();
+  await page.locator(".suggest-item").first().click();
 
   // The place is filled and the address left empty — the house was not chosen.
   await expect(page.locator(".edit-event-place").first()).toHaveValue("Zgornje Bitnje,Kranj,Slovenia");
@@ -98,14 +98,14 @@ test("a typed house number still offers the house, not the settlement", async ({
   await addr.fill("Zgornje Bitnje 13");
 
   // Matched on the address text, so the pair leads — no bare-place row above it.
-  await expect(page.locator(".place-suggestion").first()).toContainText("Zgornje Bitnje 13");
+  await expect(page.locator(".suggest-item").first()).toContainText("Zgornje Bitnje 13");
 });
 
 test("a place's houses stand together, in house-number order", async ({ page }) => {
   const addr = await antonsAddressField(page);
   await addr.fill("bitnje");
 
-  const rows = await page.locator(".place-suggestion").allInnerTexts();
+  const rows = await page.locator(".suggest-item").allInnerTexts();
   const pairs = rows.filter((r) => r.includes("·")).map((r) => r.replace(/\s+/g, " ").trim());
 
   // Each settlement's houses are consecutive — no interleaving between places.

@@ -44,5 +44,5 @@ test("a place typed on one person is suggested on the next one, without a reload
   await expect(partnerPlace).toHaveValue("Metlika,Metlika,Slovenia");
 
   await partnerPlace.fill("Malo");
-  await expect(page.locator(".place-suggestions li").first()).toContainText("Malo Lešče,Metlika,Slovenia");
+  await expect(page.locator(".suggest-list li").first()).toContainText("Malo Lešče,Metlika,Slovenia");
 });

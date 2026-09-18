@@ -87,7 +87,7 @@ import { nodeId } from "./edit/nodeId";
 import { editFieldKeys } from "./edit/fieldKeys";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
-import { buildPlaceSuggestions } from "./edit/placeSuggestions";
+import { buildFieldSuggestions } from "./edit/fieldSuggestions";
 import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
@@ -1725,11 +1725,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const deferredDerivations = useDeferredValue(derivations);
   const deferredTick = useDeferredValue(tick);
   const deferredUndoVersion = useDeferredValue(undoVersion);
-  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, placeCoords, pairCoords, placeForms } = useMemo(
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, causeSuggestions, causeCanonical, tagSuggestions, placeCoords, pairCoords, placeForms } = useMemo(
     // The shared per-edit derivation when the app provides it (computed once
     // for Edit and the geocode panel together); the direct build only for a
     // host without the provider.
-    () => deferredDerivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
+    () => deferredDerivations?.fieldSuggestions() ?? buildFieldSuggestions(dataset),
     // tick/undoVersion (deferred): the dataset is mutated in place,
     // so a place, address or coordinate entered a moment ago on another record
     // would otherwise stay invisible to every other field until the file is
@@ -2137,6 +2137,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
+            tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -2289,6 +2292,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               addrCanonical={addrCanonical}
               agencySuggestions={agencySuggestions}
               agencyCanonical={agencyCanonical}
+              causeSuggestions={causeSuggestions}
+              causeCanonical={causeCanonical}
+              tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}

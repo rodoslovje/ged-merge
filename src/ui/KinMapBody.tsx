@@ -110,7 +110,7 @@ function placeRow(line: string | PlaceLine, className = "chart-hover-line"): HTM
   const el = row(className, line.place);
   if (line.address) {
     const addr = document.createElement("span");
-    addr.className = "place-suggestion-addr";
+    addr.className = "addr-muted";
     addr.textContent = ` · ${line.address}`;
     el.appendChild(addr);
   }
@@ -395,7 +395,7 @@ export default function KinMapBody({
               {panelPlaces.slice(0, TOOLTIP_MAX_PLACES).map((l) => (
                 <div key={`${l.place}\n${l.address ?? ""}`}>
                   {l.place}
-                  {l.address && <span className="place-suggestion-addr"> · {l.address}</span>}
+                  {l.address && <span className="addr-muted"> · {l.address}</span>}
                 </div>
               ))}
               {panelPlaces.length > TOOLTIP_MAX_PLACES && <div>… +{panelPlaces.length - TOOLTIP_MAX_PLACES}</div>}

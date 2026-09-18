@@ -55,7 +55,7 @@ test("the tree's rename box offers the places the file already writes", async ({
 
   // The file's own other place — a whole value, from another branch of the
   // tree entirely — is offered, and picking it is what places this record.
-  const offer = page.locator(".place-suggestions .place-suggestion").filter({ hasText: "Kranj, Slovenija" }).first();
+  const offer = page.locator(".suggest-list .suggest-item").filter({ hasText: "Kranj, Slovenija" }).first();
   await expect(offer).toBeVisible();
   await offer.click();
   await expect(field).toHaveValue("Kranj, Slovenija");

@@ -18,11 +18,11 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
 import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { SuggestInput } from "../edit/SuggestInput";
 import { placeCollator } from "../../gedcom/place";
 import { findSameHouse } from "../../tools/sameHouse";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import type { PlaceSuggestions } from "../edit/placeSuggestions";
+import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
 import { loadDecisions, saveDecisions } from "../../persist/geoDb";
@@ -307,7 +307,7 @@ export function AddressCoordsSection({
    *  own scanGen-keyed list, so a place renamed this session is offered under
    *  its new spelling (the dataset mutates in place; a local memo would not
    *  see the change). */
-  places: PlaceSuggestions;
+  places: FieldSuggestions;
   onApply: (assignments: Map<string, GeoCoord>) => number;
   /** `coord` is the destination's own position, when it was picked from a
    *  register — the moved events are placed there instead of keeping the
@@ -2098,7 +2098,7 @@ function MovePanel({
   group: PlaceGroup;
   target: string;
   selected: ReadonlySet<string>;
-  places: PlaceSuggestions;
+  places: FieldSuggestions;
   /** Whether the destination field takes the keyboard as it appears — true for
    *  the click that opens the panel, false when a filtered-out group brings its
    *  open panel back with it. */
@@ -2127,7 +2127,7 @@ function MovePanel({
       }}
     >
       <p className="tools-intro">{t("tools.geocode.addr.moveIntro")}</p>
-      <PlaceAutocomplete
+      <SuggestInput
         value={target}
         suggestions={places.placeSuggestions}
         canonical={places.placeCanonical}

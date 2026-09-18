@@ -9,6 +9,7 @@ import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, SINGLE_EVENT_TAGS, zoneSortKey } from "../../review/fields";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
+import type { TagSuggestions } from "./fieldSuggestions";
 import { memo } from "react";
 import { nodeId } from "./nodeId";
 import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";
@@ -41,6 +42,9 @@ export const EventList = memo(function EventList({
   addrCanonical,
   agencySuggestions,
   agencyCanonical,
+  causeSuggestions,
+  causeCanonical,
+  tagSuggestions,
   placeCoords,
   placeForms,
   pairCoords,
@@ -79,6 +83,9 @@ export const EventList = memo(function EventList({
   addrCanonical: Map<string, string>;
   agencySuggestions: string[];
   agencyCanonical: Map<string, string>;
+  causeSuggestions: string[];
+  causeCanonical: Map<string, string>;
+  tagSuggestions: TagSuggestions;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -260,6 +267,9 @@ export const EventList = memo(function EventList({
         addrCanonical={addrCanonical}
         agencySuggestions={agencySuggestions}
         agencyCanonical={agencyCanonical}
+        causeSuggestions={causeSuggestions}
+        causeCanonical={causeCanonical}
+        tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -308,6 +318,9 @@ export const EventList = memo(function EventList({
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
+            tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -364,6 +377,9 @@ export const EventList = memo(function EventList({
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
+            tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
