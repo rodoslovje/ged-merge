@@ -40,7 +40,7 @@ import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { AXIS_TINT, GROUP_AXES, lineColor, type BranchInfo } from "../chart/nodeColor";
+import { GROUP_AXES, lineColor, type BranchInfo } from "../chart/nodeColor";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { sexClass } from "./sex";
@@ -67,16 +67,28 @@ const UNPLACED_MAX_ROWS = 150;
  *  card taller than this is past reading, and the band opens for the rest. */
 const BAND_HOVER_ROWS = 10;
 
-/** What a surname slice is filled with while the shared Color axis is Plain.
+/** How much of the category's colour a band carries. Well past the pedigree
+ *  charts' `AXIS_TINT`, which is set for a box: a box is small and mostly the
+ *  name inside it, while a band is a broad field with at most one name on it,
+ *  and at 38 % two neighbouring steps of a ramp were barely told apart. The
+ *  names stay readable on the stronger ground by way of their halo. */
+const BAND_TINT = 65;
+
+/** What a surname band is filled with while the shared Color axis is Plain.
  *  The wheel can leave every dot the accent, because ground separates them; a
- *  ring of slices touching edge to edge would read as one flat disc, so the
+ *  ring of bands touching edge to edge would read as one flat disc, so the
  *  plain fill says which way the band lies — the elders, the root's own
  *  generation, the issue — from the same three tokens the Generation axis ramps
- *  between. That axis still says more: a generation each, and a colour key. */
+ *  between. That axis still says more: a generation each, and a colour key.
+ *
+ *  Mixed one by one rather than at {@link BAND_TINT} like the rest, because
+ *  `--kin-gen-0` is a near-white by design — the middle of the ramp — and at
+ *  the others' strength it would bleach every band of the root's own
+ *  generation, which is most of the outer rings. */
 const DIRECTION_FILL: Record<KinDirection, string> = {
-  up: "var(--kin-anc-near)",
-  same: "var(--kin-gen-0)",
-  down: "var(--kin-desc-near)",
+  up: "color-mix(in srgb, var(--kin-anc-near) 65%, var(--panel))",
+  same: "color-mix(in srgb, var(--kin-gen-0) 30%, var(--panel))",
+  down: "color-mix(in srgb, var(--kin-desc-near) 65%, var(--panel))",
 };
 
 interface Props {
@@ -205,11 +217,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
    *  the surname is set on top of its own band and has to stay readable. */
   const bandFill = useCallback(
     (band: SurnameBand) => {
-      const c =
-        colorer.axis === "plain"
-          ? DIRECTION_FILL[band.direction]
-          : colorer.colorOf(categoryOf(band.people[0])) ?? "var(--accent)";
-      return `color-mix(in srgb, ${c} ${AXIS_TINT}%, var(--panel))`;
+      if (colorer.axis === "plain") return DIRECTION_FILL[band.direction];
+      const c = colorer.colorOf(categoryOf(band.people[0])) ?? "var(--accent)";
+      return `color-mix(in srgb, ${c} ${BAND_TINT}%, var(--panel))`;
     },
     [colorer, categoryOf],
   );
@@ -648,7 +658,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {/* The surname rings tint their bands so the names read on top of them;
             the wheel, the bars and the map fill their marks flat. The key
             follows whichever is showing. */}
-        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} tint={surnames ? AXIS_TINT : undefined} />
+        <ChartLegend entries={legend} hidden={hidden} onToggle={toggle} tint={surnames ? BAND_TINT : undefined} />
         {onMap && (
           <Suspense fallback={null}>
             <KinMapBody

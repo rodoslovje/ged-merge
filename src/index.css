@@ -5428,9 +5428,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-weight: 500;
   pointer-events: none;
   paint-order: stroke;
+  /* The bands carry most of their colour, so the halo does the work of keeping
+     a name off its own ground — light letters over a dark one, dark over a
+     light one, whichever way the theme runs. */
   stroke: var(--bg);
-  stroke-width: 2.4;
-  stroke-opacity: 0.45;
+  stroke-width: 2.6;
+  stroke-opacity: 0.72;
   stroke-linejoin: round;
 }
 /* The count rides on the band with its name, not on the page like the wheel's
