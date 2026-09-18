@@ -375,19 +375,30 @@ export function EventCoordPicker({
    *  keeps the file's order, at the end. */
   const peopleRows = useMemo(() => {
     if (!peopleUses || !people) return [];
-    const seen = new Set<string>();
-    const rows: { person: PersonRef; year: number | undefined }[] = [];
-    for (const recordId of peopleUses.records) {
-      for (const person of personsOfRecord(people.dataset, recordId)) {
-        if (seen.has(person.id)) continue;
-        seen.add(person.id);
-        rows.push({ person, year: birthYear(people.dataset.individuals.get(person.id)) });
+    const seen = new Map<string, { person: PersonRef; year: number | undefined; eventTags: string[] }>();
+    const rows: { person: PersonRef; year: number | undefined; eventTags: string[] }[] = [];
+    for (const record of peopleUses.records) {
+      for (const person of personsOfRecord(people.dataset, record.id)) {
+        const already = seen.get(person.id);
+        if (already) {
+          // The spouses of a marriage held here are already listed from their
+          // own events; the wedding's mark still belongs on both their lines.
+          for (const tag of record.eventTags) if (!already.eventTags.includes(tag)) already.eventTags.push(tag);
+          continue;
+        }
+        const row = {
+          person,
+          year: birthYear(people.dataset.individuals.get(person.id)),
+          eventTags: [...record.eventTags],
+        };
+        seen.set(person.id, row);
+        rows.push(row);
       }
     }
     return rows
       .map((row, i) => ({ ...row, i }))
       .sort((a, b) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.i - b.i)
-      .map((row) => ({ persons: [row.person] }));
+      .map((row) => ({ persons: [row.person], eventTags: row.eventTags }));
   }, [peopleUses, people]);
 
   /** What the file itself already knows about this address / place. Anything

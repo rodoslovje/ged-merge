@@ -571,8 +571,9 @@
               does the same, in the buttons' order, and <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span>
               opens the full menu. Which events appear here is set under
               <strong>Settings → General → Editing</strong>, where a button can be removed or another
-              event added. An event a person can have only one of and already has — their birth, death or burial —
-              keeps its button without the <strong>+</strong>: it leads to the row that holds it instead of adding a second.
+              event added. Each button is its event's mark and name (<a href="#legend">§15</a>), and its border says what
+              it does: dashed adds the event, solid leads to the row already holding it — which is what a button becomes
+              for an event a person can have only one of, their birth, death or burial, once they have it.
             </p>
             <div>
               Birth is always shown. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
@@ -591,6 +592,9 @@
                 <li><strong>Death</strong> — Death, Cremation, Burial, Interment, Funeral</li>
               </ul>
               <p>
+                Each row is led by its event's own genealogy mark — <span class="gm-glyph">*</span> a birth,
+                <span class="gm-glyph">⚭</span> a marriage, <span class="gm-glyph">†</span> a death — so a long life
+                can be read down the column at a glance; <a href="#legend">§15</a> lists them all.
                 An event row shows only the fields it actually carries, starting with the <strong>date</strong> and the
                 <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
                 address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
@@ -1442,7 +1446,9 @@
             <p>
               Lists every place in a country → locality → house → address hierarchy, with a usage count per place. Open
               a place to see the places under it, and <strong>click its count</strong> to list the records written at
-              exactly that place — a settlement with hundreds of them stays browsable either way. The <strong>✎</strong>
+              exactly that place — a settlement with hundreds of them stays browsable either way. Each name in that
+              list carries the marks of the events that put the person there (<a href="#legend">§15</a>), so someone
+              born in the village reads apart from someone who only died in it. The <strong>✎</strong>
               beside a name on any level renames or merges that place segment across every record at once — ideal for
               standardizing spelling variants. What it completes to are the names beside it under the same parent, so
               two towns that both number a <em>Breg 13</em> never offer each other's houses — and, below those, every
@@ -1922,8 +1928,9 @@
               so one undo takes the other events back and a second undo this one.)
               The panel also names <strong>the people your file puts at that place and address</strong>, counted on a line
               of their own and listed beneath it, each a link into Edit — which is how you tell that the house on the map
-              is this family's and not a neighbour's. Everyone is listed, oldest first by year of birth, so a house reads
-              as its own history; an event with no address is counted by its place alone, so there the line speaks for
+              is this family's and not a neighbour's. Each name carries the marks of the events that put the person
+              there (<a href="#legend">§15</a>) — born at the house, married from it, died in it. Everyone is listed,
+              oldest first by year of birth, so a house reads as its own history; an event with no address is counted by its place alone, so there the line speaks for
               the whole settlement and its list scrolls. It reads the same wherever this panel opens, the three lists above included.
             </p>
             <p>
@@ -2771,6 +2778,26 @@
                 <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person, or mark links for removal</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
+              </tbody>
+            </table>
+            <p><strong>Event marks</strong> — the classic genealogy symbols, the same everywhere an event is drawn
+              rather than named: leading each event row in Edit (<a href="#edit">§8</a>), following a name in the place
+              lists (<a href="#places">§10</a>), on the Timeline's bars and in the text reports (<a href="#charts">§11</a>).
+              Hover one for the event's name.</p>
+            <table class="gm-table">
+              <thead><tr><th>Mark</th><th>Event</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-glyph">*</span></td><td>Birth</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Baptism or christening</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚯</span></td><td>Engagement, marriage, divorce, partnership</td></tr>
+                <tr><td><span class="gm-glyph">†</span></td><td>Death</td></tr>
+                <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Burial, cremation</td></tr>
+                <tr><td><span class="gm-glyph">⌂</span></td><td>Residence</td></tr>
+                <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Occupation, education</td></tr>
+                <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Emigration, immigration, naturalization</td></tr>
+                <tr><td><span class="gm-glyph">▤</span></td><td>Census</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Will, probate, legal transaction, deed</td></tr>
+                <tr><td><span class="gm-glyph">·</span></td><td>Any other event type — one with no traditional symbol of its own</td></tr>
               </tbody>
             </table>
             <p><strong>Status badges</strong> — round chips on candidate rows (Merge), on the relatives listed in the

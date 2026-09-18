@@ -28,11 +28,19 @@ describe("who the file puts at a place and address", () => {
     const uses = at("Ravna Gora, Croatia", "Ravna Gora 227");
     // Two events for @I1@, one each for @I2@ and the family.
     expect(uses?.events).toBe(4);
-    expect(uses?.records).toEqual(["@I1@", "@I2@", "@F1@"]);
+    expect(uses?.records.map((r) => r.id)).toEqual(["@I1@", "@I2@", "@F1@"]);
+  });
+
+  it("keeps every kind of event a record writes at the pair", () => {
+    const uses = at("Ravna Gora, Croatia", "Ravna Gora 227");
+    // Born and died at the house: one line, both marks.
+    expect(uses?.records[0].eventTags).toEqual(["BIRT", "DEAT"]);
+    expect(uses?.records[1].eventTags).toEqual(["BIRT"]);
+    expect(uses?.records[2].eventTags).toEqual(["MARR"]);
   });
 
   it("keeps an event without an address apart from the house's own", () => {
-    expect(at("Ravna Gora, Croatia", "")?.records).toEqual(["@I3@"]);
+    expect(at("Ravna Gora, Croatia", "")?.records.map((r) => r.id)).toEqual(["@I3@"]);
   });
 
   it("answers nothing for a pair the file never writes", () => {
@@ -45,7 +53,7 @@ describe("who the file puts at a place and address", () => {
     );
     const uses = buildPlaceAddrUses(many).get(placeAddrKey("Kranj", ""));
     expect(uses?.records).toHaveLength(200);
-    expect(uses?.records[199]).toBe("@I199@");
+    expect(uses?.records[199].id).toBe("@I199@");
   });
 });
 

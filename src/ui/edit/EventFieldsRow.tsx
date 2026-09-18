@@ -4,10 +4,11 @@ import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventTooltip } from "../../gedcom/eventTags";
+import { customEventLabel, customEventTooltip, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
+import { EventGlyph, eventMenuLabel } from "../EventGlyph";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
@@ -38,6 +39,26 @@ const NOTE_CHIP_CH = 48;
 /** What a field completes from on a tag the file has never written — one
  *  shared object, so a row of empty fields doesn't allocate a map each. */
 const EMPTY_SUGGESTIONS: Suggestions = { suggestions: [], canonical: new Map() };
+
+/**
+ * The event's name led by its genealogy mark. The mark and the first word are
+ * kept in one unbreakable piece: a mark is an atomic inline, so the line may
+ * break straight after it, and a name too long for the label slot would
+ * otherwise leave the mark stranded on the line above its own event.
+ */
+function markedLabel(tag: string | undefined, text: string, t: Translate) {
+  if (!tag) return text;
+  const at = text.indexOf(" ");
+  return (
+    <>
+      <span className="edit-event-label-lead">
+        <EventGlyph tag={tag} t={t} />
+        {at < 0 ? text : text.slice(0, at)}
+      </span>
+      {at < 0 ? null : text.slice(at)}
+    </>
+  );
+}
 
 /** Editable date/place/address/links for a single event (individual or
  * family), e.g. `1 BIRT` or `1 MARR`. */
@@ -865,7 +886,7 @@ export function EventFieldsRow({
               ...(onChangeTag && tagGroups
                 ? tagGroups.map((g) => ({
                     label: g.labelKey ? t(g.labelKey) : undefined,
-                    items: g.tags.map((tg) => ({ value: tg, label: eventDisplayLabel(tg, t) })),
+                    items: g.tags.map((tg) => ({ value: tg, label: eventMenuLabel(tg, t) })),
                   }))
                 : []),
               ...(onCopy || onRemove
@@ -884,7 +905,7 @@ export function EventFieldsRow({
             }}
             trigger={
               <>
-                {customName || label}
+                {markedLabel(tag, customName || label, t)}
                 <span className="edit-event-type-caret" aria-hidden="true">▾</span>
               </>
             }
@@ -901,7 +922,7 @@ export function EventFieldsRow({
                   : undefined
             }
           >
-            {customName || label}
+            {markedLabel(tag, customName || label, t)}
           </div>
         )}
       </div>

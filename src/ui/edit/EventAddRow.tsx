@@ -1,6 +1,7 @@
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { AddEventSelect } from "./AddEventSelect";
+import { EventGlyph } from "../EventGlyph";
 import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 
 /**
@@ -13,6 +14,12 @@ import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
  * jumps to the row that holds it rather than writing a second one, and says so
  * in its tooltip. Removing the button would cost that, and would shift every
  * button after it out from under its digit.
+ *
+ * Each button is its event's genealogy mark and name, the way the row it
+ * writes will read. No "+" before them: which of the two things a button does
+ * is what its border says — dashed to add, solid to lead to the row already
+ * there — and a "+" on top of the mark made three things to read in a chip
+ * that holds one word.
  */
 export function EventAddRow({
   groups,
@@ -59,7 +66,8 @@ export function EventAddRow({
             }
             onClick={() => onAddEvent(tag)}
           >
-            {recorded ? event : `+ ${event}`}
+            <EventGlyph tag={tag} t={t} />
+            {event}
           </button>
         );
       })}

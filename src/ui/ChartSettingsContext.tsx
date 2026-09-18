@@ -112,7 +112,7 @@ export interface ChartSettings {
   showResidence: boolean;
   /** Report: add ⚒ occupation fact lines. */
   showOccupation: boolean;
-  /** Report: add ✎ education fact lines. */
+  /** Report: add 🎓 education fact lines. */
   showEducation: boolean;
   /** Report: show person notes under the name and event notes under the fact. */
   showNotes: boolean;

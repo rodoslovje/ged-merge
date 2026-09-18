@@ -1,5 +1,6 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
+import { ALL_EVENT_TAGS } from "../gedcom/eventTags";
 import { distinctSpots } from "./placeCoords";
 import { label } from "../match/relatives";
 import { placeAddrKey, walkPlaceAddr } from "./geocode";
@@ -39,6 +40,13 @@ export interface PlaceUse {
    *  and what a written coordinate is filed under, and a caller that had to
    *  split a joined string back apart was reading a separator no one owned. */
   addr?: string;
+  /** The event tags this record writes the place on — `["BIRT", "DEAT"]` for
+   *  someone born and buried in the same village. A list, because one row
+   *  stands for every mention the record makes of this place (the tree keeps
+   *  one use per record per path), and it is what the row's glyphs are drawn
+   *  from. Empty for a place named somewhere that is not an event at all (a
+   *  media object's `PLAC`). */
+  eventTags: string[];
 }
 
 export interface PlaceNode {
@@ -99,6 +107,10 @@ interface PlaceMention {
   /** True when `raw` is a standalone `ADDR` with no sibling `PLAC` — bucketed
    * under {@link UNSPECIFIED_PLACE} since it has no jurisdiction. */
   addrOnly?: boolean;
+  /** The tag of the event the mention hangs under — what the row's glyph is
+   *  drawn from. Absent when the place is written somewhere that is not an
+   *  event (a media object, or the record itself). */
+  eventTag?: string;
 }
 
 /**
@@ -111,11 +123,14 @@ interface PlaceMention {
 function collectPlaces(node: GedNode, into: PlaceMention[]): void {
   const placs = node.children.filter((c) => c.tag === "PLAC" && c.value?.trim());
   const addr = node.children.find((c) => c.tag === "ADDR" && c.value?.trim());
+  // The node the place hangs under *is* the event, when it is one at all — a
+  // record's own PLAC and a media object's describe no event and get no mark.
+  const eventTag = ALL_EVENT_TAGS.has(node.tag) ? node.tag : undefined;
   if (placs.length > 0) {
     for (const plac of placs)
-      into.push({ raw: plac.value!.trim(), addr: addr?.value?.trim(), coord: placeNodeCoord(plac) });
+      into.push({ raw: plac.value!.trim(), addr: addr?.value?.trim(), coord: placeNodeCoord(plac), eventTag });
   } else if (addr) {
-    into.push({ raw: addr.value!.trim(), addrOnly: true });
+    into.push({ raw: addr.value!.trim(), addrOnly: true, eventTag });
   }
   for (const child of node.children) collectPlaces(child, into);
 }
@@ -246,8 +261,9 @@ export interface PlaceAddrUses {
   /** Every record carrying them, in file order — who else is at this house.
    *  All of them: a house with a dozen people is the answer to "is this the
    *  right house", and a village's address-less events are a list someone
-   *  reads to the end. */
-  records: string[];
+   *  reads to the end. Each carries the event tags it writes the pair on, so
+   *  the list can say whether someone was born at the house or died there. */
+  records: { id: string; eventTags: string[] }[];
 }
 
 /** The answer for a pair the file never writes — one shared object, so a
@@ -267,15 +283,23 @@ export function buildPlaceAddrUses(dataset: Dataset): Map<string, PlaceAddrUses>
   const visit = (raw: GedNode, recordId: string) => {
     // Per record, so the three baptisms a family wrote at one house count as
     // three events but list the family once.
-    const seen = new Set<string>();
-    walkPlaceAddr(raw, (plac, addr) => {
+    const seen = new Map<string, { id: string; eventTags: string[] }>();
+    walkPlaceAddr(raw, (plac, addr, event) => {
       const key = placeAddrKey(plac.value!.trim(), addr);
       let hit = index.get(key);
       if (!hit) index.set(key, (hit = { events: 0, records: [] }));
       hit.events++;
-      if (seen.has(key)) return;
-      seen.add(key);
-      hit.records.push(recordId);
+      const tag = ALL_EVENT_TAGS.has(event.tag) ? event.tag : undefined;
+      const already = seen.get(key);
+      if (already) {
+        // Listed once, but every kind of event it holds there is kept: the
+        // person born and later buried at the house wears both marks.
+        if (tag && !already.eventTags.includes(tag)) already.eventTags.push(tag);
+        return;
+      }
+      const row = { id: recordId, eventTags: tag ? [tag] : [] };
+      seen.set(key, row);
+      hit.records.push(row);
     });
   };
   for (const indi of dataset.individuals.values()) visit(indi.raw, indi.id);
@@ -328,20 +352,33 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
     return hit;
   };
 
-  const visit = (rec: GedNode, use: Omit<PlaceUse, "plac" | "addr">) => {
+  const visit = (rec: GedNode, use: Omit<PlaceUse, "plac" | "addr" | "eventTags">) => {
     const found: PlaceMention[] = [];
     collectPlaces(rec, found);
-    const seenPaths = new Set<string>();
+    // The row a repeated path already made, so the second mention of a place —
+    // the death of someone born there — adds its mark to the one row instead
+    // of being dropped with the duplicate.
+    const seenPaths = new Map<string, PlaceUse>();
     for (const mention of found) {
       distinct.add(mention.addr ? `${mention.raw} | ${mention.addr}` : mention.raw);
       totalUses++;
       const { path, key: pathKey } = pathOf(mention);
       if (path.length === 0) continue;
-      if (seenPaths.has(pathKey)) continue;
-      seenPaths.add(pathKey);
+      const already = seenPaths.get(pathKey);
+      if (already) {
+        if (mention.eventTag && !already.eventTags.includes(mention.eventTag)) already.eventTags.push(mention.eventTag);
+        continue;
+      }
       let node = root;
       for (const seg of path) node = childNode(node, seg.name, seg.isAddress);
-      node.uses.push({ ...use, plac: mention.raw, ...(mention.addr ? { addr: mention.addr } : {}) });
+      const placeUse: PlaceUse = {
+        ...use,
+        plac: mention.raw,
+        ...(mention.addr ? { addr: mention.addr } : {}),
+        eventTags: mention.eventTag ? [mention.eventTag] : [],
+      };
+      seenPaths.set(pathKey, placeUse);
+      node.uses.push(placeUse);
       // The coordinate belongs to the deepest level the mention reached: the
       // file writes one per PLAC+ADDR pair, which is exactly this node.
       if (mention.coord) {

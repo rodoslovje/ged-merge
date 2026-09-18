@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventTooltip } from "./eventTags";
+import {
+  EVENT_GLYPHS,
+  customEventLabel,
+  customEventTooltip,
+  eventDisplayLabel,
+  orderedEventTags,
+  vendorEventTooltip,
+} from "./eventTags";
 
 /** Minimal i18n stub: a couple of event names plus the tooltip templates. */
 const t = (key: string, opts?: Record<string, unknown>) => {
@@ -61,6 +68,40 @@ describe("customEventLabel", () => {
     expect(customEventLabel("EVEN", t, "en")).toBe("EVEN");
     // A word that is not a tag stays exactly as the file wrote it.
     expect(customEventLabel("Marriage", t, "en")).toBe("Marriage");
+  });
+});
+
+describe("the genealogy marks", () => {
+  it("gives the union its own Unicode family, so the four read as a set", () => {
+    expect([EVENT_GLYPHS.ENGA, EVENT_GLYPHS.MARR, EVENT_GLYPHS.DIV, EVENT_GLYPHS._MSTAT]).toEqual([
+      "⚬",
+      "⚭",
+      "⚮",
+      "⚯",
+    ]);
+  });
+
+  it("tells a burial from a cremation", () => {
+    expect(EVENT_GLYPHS.BURI).not.toBe(EVENT_GLYPHS.CREM);
+  });
+
+  it("leaves a tag with no honest mark unmapped, for the caller's neutral dot", () => {
+    expect(EVENT_GLYPHS.DSCR).toBeUndefined();
+    expect(EVENT_GLYPHS.RELI).toBeUndefined();
+  });
+});
+
+describe("orderedEventTags", () => {
+  it("puts a set of tags in life-cycle order, whatever order it is given them in", () => {
+    expect(orderedEventTags(["DEAT", "BIRT", "BAPM"])).toEqual(["BIRT", "BAPM", "DEAT"]);
+  });
+
+  it("draws each kind once, and sorts a family event after a personal one", () => {
+    expect(orderedEventTags(["MARR", "BIRT", "MARR"])).toEqual(["BIRT", "MARR"]);
+  });
+
+  it("keeps a tag it has no order for at the end, in the order it arrived", () => {
+    expect(orderedEventTags(["_ODD", "BIRT", "_OTHER"])).toEqual(["BIRT", "_ODD", "_OTHER"]);
   });
 });
 

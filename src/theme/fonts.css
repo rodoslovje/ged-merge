@@ -262,8 +262,48 @@
   unicode-range: U+2070, U+2074-2079;
 }
 
+/* ------------------------------------------------------------
+   Genealogy marks (EVENT_GLYPHS): ⚭ a marriage, † a death, ⌂ a
+   residence, and the rest of the vocabulary the Edit rows, the
+   place lists, the Timeline and the reports draw events with.
+   Plex carries none of them past † (U+2020), so without these
+   they fall to whatever symbol font the machine happens to have
+   — a different shape and width on every platform, and on some
+   a coloured emoji. Two files because Noto splits the marks
+   across its two symbol fonts; their ranges do not overlap, so
+   one family name serves both.
+
+   Subset from the Google-served woff2 of "Noto Sans Symbols"
+   and "Noto Sans Symbols 2" (SIL Open Font License):
+   pyftsubset <file>.woff2 --unicodes=<the range below>
+     --flavor=woff2
+   ------------------------------------------------------------ */
+@font-face {
+  font-family: 'Geneal Symbols';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/NotoSansSymbols-geneal.woff2') format('woff2');
+  unicode-range: U+2190, U+2192, U+2302, U+2691-2692, U+26AD-26AF, U+26B1;
+}
+@font-face {
+  font-family: 'Geneal Symbols';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/NotoSansSymbols2-geneal.woff2') format('woff2');
+  /* U+1F393 is the education mark. It is an emoji codepoint, so the app writes
+     it with U+FE0E after it (see EVENT_GLYPHS) to ask for text presentation —
+     which is what sends the browser to this font, whose cap is a plain outline
+     like every other mark, instead of to the system's colour emoji. */
+  unicode-range: U+25A4, U+25AD, U+26AC, U+270E, U+1F393;
+}
+
 :root {
-  --font-sans:  "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono:  "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  /* "Geneal Symbols" leads every stack and claims nothing but the
+     genealogy marks — a font only ever serves the codepoints its
+     unicode-range declares, so the text beside them is Plex as before. */
+  --font-sans:  "Geneal Symbols", "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:  "Geneal Symbols", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-serif: "Geneal Symbols", "IBM Plex Serif", Georgia, "Times New Roman", serif;
 }

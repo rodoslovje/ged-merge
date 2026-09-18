@@ -574,8 +574,9 @@
               class="gm-key">9</span>, v vrstnem redu gumbov, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span
               class="gm-key">E</span> pa odpre celoten meni. Kateri dogodki so tu, določite v
               <strong>Nastavitve → Splošno → Urejanje</strong>, kjer gumb odstranite ali dodate
-              drugega. Dogodek, ki ga oseba lahko ima samo enega in ga že ima — rojstvo, smrt ali pokop — obdrži svoj
-              gumb brez <strong>+</strong>: ta vodi do vrstice, ki ga vsebuje, in ne doda drugega.
+              drugega. Vsak gumb nosi znamenje svojega dogodka in njegovo ime (<a href="#legend">§15</a>), kaj naredi, pa
+              pove njegov rob: črtkani rob dogodek doda, polni pa vodi do vrstice, ki ga že vsebuje — tak postane gumb
+              za dogodek, ki ga oseba lahko ima samo enega, torej za rojstvo, smrt in pokop, ko jih oseba dobi.
             </p>
             <div>
               Rojstvo je prikazano privzeto. <strong>+ Dodaj dogodek</strong> razkrije ostale, razvrščene po življenjskih
@@ -595,6 +596,9 @@
                 <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob, Pogreb</li>
               </ul>
               <p>
+                Vsako vrstico uvaja rodoslovno znamenje njenega dogodka — <span class="gm-glyph">*</span> za rojstvo,
+                <span class="gm-glyph">⚭</span> za poroko, <span class="gm-glyph">†</span> za smrt — tako da se dolgo
+                življenje prebere že po stolpcu znamenj; vsa so zbrana v <a href="#legend">§15</a>.
                 Vrstica dogodka pokaže samo polja, ki jih dogodek res nosi, začenši z <strong>datumom</strong> in
                 <strong>krajem</strong>. Gumb <strong>+ Dodaj</strong> na koncu vrstice doda preostala eno po eno —
                 naslov, ustanovo, vir, vrsto, vzrok, opombo — in kazalec postavi naravnost v novo polje, tako da vrstica
@@ -1482,7 +1486,9 @@
             <p>
               Navede vsak kraj v hierarhiji država → kraj → hišna številka → naslov, s števcem uporabe pri vsakem kraju. Odprite
               kraj za kraje pod njim, s <strong>klikom na števec</strong> pa dobite seznam zapisov, zapisanih točno na
-              tem kraju — naselje s stotinami zapisov tako ostane pregledno. <strong>✎</strong> ob imenu na kateri koli
+              tem kraju — naselje s stotinami zapisov tako ostane pregledno. Vsako ime na tem seznamu nosi znamenja
+              dogodkov, ki jih ima oseba zapisane v tem kraju (<a href="#legend">§15</a>), zato je razvidno, kdo se je
+              tu rodil in kdo je tu samo umrl. <strong>✎</strong> ob imenu na kateri koli
               ravni hkrati preimenuje ali združi del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
               Polje najprej predlaga imena sosednjih vnosov pod istim nadrejenim krajem, zato kraja, ki oba številčita <em>Breg 13</em>,
               nikoli ne ponudita naslovov drug drugega, pod njimi pa vse kraje, ki jih vaša datoteka piše drugod, na dnu
@@ -1985,7 +1991,9 @@
               razveljavitev vrne druge dogodke, druga pa tega.)
               Panel našteje tudi <strong>osebe, ki jih vaša datoteka vodi na tem kraju in naslovu</strong>: v svoji
               vrstici so preštete, pod njo pa naštete. Vsako ime je povezava v Urejanje, s čimer preverite, ali hiša na
-              zemljevidu res pripada tej družini in ne sosedu. Naštete so vse, od najstarejše po letu rojstva naprej, tako
+              zemljevidu res pripada tej družini in ne sosedu. Za vsakim imenom stojijo znamenja dogodkov, ki jih ima
+              oseba zapisane tam (<a href="#legend">§15</a>): rojstvo v hiši, poroko iz nje, smrt v njej.
+              Naštete so vse, od najstarejše po letu rojstva naprej, tako
               da se hiša bere kot svoja zgodovina; dogodek brez naslova šteje le po kraju, zato vrstica tam govori o
               celotnem naselju in se njegov seznam pomika.
               Enak seznam dobite povsod, kjer se ta panel odpre, tudi na treh seznamih zgoraj.
@@ -2853,6 +2861,26 @@
                 <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. odznači skupino »Odstrani sklice« v Uredi vire</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo ali označi povezave za odstranitev</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Prejšnja / naslednja fotografija v pregledovalniku</td></tr>
+              </tbody>
+            </table>
+            <p><strong>Znamenja dogodkov</strong> — klasični rodoslovni znaki, povsod isti, kjer je dogodek narisan in
+              ne poimenovan: na začetku vsake vrstice dogodka v Urejanju (<a href="#edit">§8</a>), za imenom na seznamih
+              krajev (<a href="#places">§10</a>), na črtah časovnice in v besedilnih poročilih
+              (<a href="#charts">§11</a>). Ime dogodka se pokaže, ko z miško postojite na znamenju.</p>
+            <table class="gm-table">
+              <thead><tr><th>Znamenje</th><th>Dogodek</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-glyph">*</span></td><td>Rojstvo</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Krst in krst otroka</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚯</span></td><td>Zaroka, poroka, ločitev, partnerstvo</td></tr>
+                <tr><td><span class="gm-glyph">†</span></td><td>Smrt</td></tr>
+                <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Pokop, upepelitev</td></tr>
+                <tr><td><span class="gm-glyph">⌂</span></td><td>Prebivališče</td></tr>
+                <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Poklic, izobrazba</td></tr>
+                <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Izselitev, priselitev, naturalizacija</td></tr>
+                <tr><td><span class="gm-glyph">▤</span></td><td>Popis</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Oporoka, zapuščinska obravnava, pravni posel, listina</td></tr>
+                <tr><td><span class="gm-glyph">·</span></td><td>Vsaka druga vrsta dogodka — takšna, ki nima svojega ustaljenega znaka</td></tr>
               </tbody>
             </table>
             <p><strong>Oznake stanja</strong> — okrogle oznake na vrsticah kandidatov (Združevanje), ob sorodnikih na

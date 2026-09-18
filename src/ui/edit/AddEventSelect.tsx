@@ -1,6 +1,6 @@
 import type { Translate } from "../../locales/i18n";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { DropdownMenu, type DropdownGroup } from "../DropdownMenu";
+import { eventMenuLabel } from "../EventGlyph";
 
 /** Dropdown chip that adds an event tag from a list of available tags. */
 export function AddEventSelect({
@@ -28,9 +28,9 @@ export function AddEventSelect({
         .filter((g) => g.tags.length)
         .map((g) => ({
           label: t(g.labelKey),
-          items: g.tags.map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+          items: g.tags.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
         }))
-    : [{ items: (tags ?? []).map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })) }];
+    : [{ items: (tags ?? []).map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })) }];
   if (!menuGroups.some((g) => g.items.length)) return null;
   return (
     <DropdownMenu
