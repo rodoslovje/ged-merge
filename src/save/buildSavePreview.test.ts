@@ -287,6 +287,67 @@ describe("merge save", () => {
   });
 });
 
+// ── the "before" side of the line diff ─────────────────────────────────────
+// What the preview can hold the output against, record by record. Getting this
+// wrong is quiet: a record diffed against its own edited self reads as
+// unchanged, which is the one thing a save preview may never claim.
+
+describe("beforeRecords", () => {
+  it("takes an edited record from its pre-edit snapshot", () => {
+    const ds = dataset(MAIN);
+    const snapshot = editedFrom(dataset(MAIN), "@I1@");
+    const out = buildSavePreview(
+      input(ds, { changedPersonIds: new Set(["@I1@"]), personSnapshots: new Map([["@I1@", snapshot]]) }),
+    )!;
+    expect(out.beforeRecords.get("@I1@")).toBe(snapshot);
+  });
+
+  it("offers no before for a record the edit path never snapshotted", () => {
+    // The live @I2@ is the *edited* state on this path, so handing it over
+    // would draw a record against itself.
+    const ds = dataset(MAIN);
+    const out = buildSavePreview(
+      input(ds, {
+        changedPersonIds: new Set(["@I1@"]),
+        personSnapshots: new Map([["@I1@", editedFrom(dataset(MAIN), "@I1@")]]),
+      }),
+    )!;
+    expect(out.beforeRecords.has("@I2@")).toBe(false);
+  });
+
+  it("takes an unedited record from the live main when the save is a merge", () => {
+    // The merge works on a clone, so the live record still reads as it loaded.
+    const main = dataset(MAIN);
+    const out = buildSavePreview({
+      ...input(main, {
+        compare: dataset(COMPARE),
+        decisions: confirmedDecisions(),
+        confirmedCount: 1,
+        matches: { individuals: [] },
+      }),
+    })!;
+    expect(out.beforeRecords.get("@I1@")).toBe(main.individuals.get("@I1@")!.raw);
+    expect(serializeGedcom([out.beforeRecords.get("@I1@")!])).not.toContain("Kranj");
+    expect(serializeGedcom([out.records.find((r) => r.xref === "@I1@")!])).toContain("Kranj");
+  });
+
+  it("prefers the snapshot over the live record when a merged record was also edited", () => {
+    const main = dataset(MAIN);
+    const snapshot = editedFrom(dataset(MAIN), "@I1@");
+    const out = buildSavePreview({
+      ...input(main, {
+        compare: dataset(COMPARE),
+        decisions: confirmedDecisions(),
+        confirmedCount: 1,
+        matches: { individuals: [] },
+        changedPersonIds: new Set(["@I1@"]),
+        personSnapshots: new Map([["@I1@", snapshot]]),
+      }),
+    })!;
+    expect(out.beforeRecords.get("@I1@")).toBe(snapshot);
+  });
+});
+
 // ── which records the save stamps ──────────────────────────────────────────
 // A record changed only by a maintenance pass keeps the change date the file
 // gave it; hand edits and everything the merge touched get a fresh stamp.

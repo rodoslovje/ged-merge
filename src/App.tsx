@@ -2544,6 +2544,8 @@ function AppContent() {
         <SaveDialog
           report={preview.report}
           title={preview.title}
+          records={preview.records}
+          beforeRecords={preview.beforeRecords}
           files={preview.files}
           downloadLabel={preview.downloadLabel}
           editRecordIds={preview.editRecordIds}
