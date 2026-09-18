@@ -2061,6 +2061,31 @@ describe("mediaUsedBy", () => {
     // A reference without a CROP carries no region.
     expect(byId.get("@I3@")).toBeUndefined();
   });
+
+  it("says which events a page image is cited on, and nothing for a record-level link", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jakob /Renka/
+1 BAPM
+2 DATE 1801
+2 SOUR @S1@
+3 OBJE @O1@
+1 BURI
+2 OBJE @O1@
+0 @I2@ INDI
+1 NAME Marija /Renka/
+1 OBJE @O1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+0 @O1@ OBJE
+1 FILE 6802215.jpg
+0 TRLR`);
+    const uses = mediaUsedBy(ds, "@O1@");
+    const byId = new Map(uses.map((u) => [u.persons[0].id, u.eventTags]));
+    expect(byId.get("@I1@")).toEqual(["BAPM", "BURI"]);
+    expect(byId.get("@I2@")).toBeUndefined();
+  });
 });
 
 describe("buildSourceTree", () => {
