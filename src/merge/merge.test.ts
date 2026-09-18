@@ -3320,3 +3320,152 @@ describe("mergeDecisions — a match whose main person no longer exists", () => 
     expect(report.changes.some((c) => c.recordId === janez!.xref && c.newRecord)).toBe(true);
   });
 });
+
+describe("mergeDecisions — record-level notes, privacy and nickname", () => {
+  const person = (extra: string) =>
+    `0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n${extra}`;
+  const incoming = (extra: string) =>
+    `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n${extra}`;
+  const indi = (records: GedNode[], xref = "@I1@") => records.find((r) => r.xref === xref)!;
+
+  it("'incoming' replaces the main's record notes, 'both' keeps both, and the report names the field", () => {
+    const main = dataset(wrap(person("1 NOTE old\n1 CHAN\n2 DATE 1 JAN 2020\n")));
+    const compare = dataset(wrap(incoming("1 NOTE new\n")));
+
+    const replaced = mergeDecisions(main, compare, confirmed({ notes: "incoming" }), NO_MATCHES, tr);
+    const notes = indi(replaced.records).children.filter((c) => c.tag === "NOTE").map((c) => c.value);
+    expect(notes).toEqual(["new"]);
+    // Placed by canonical order: ahead of the trailing CHAN, not after it.
+    const tags = indi(replaced.records).children.map((c) => c.tag);
+    expect(tags.indexOf("NOTE")).toBeLessThan(tags.indexOf("CHAN"));
+    expect(replaced.report.changes.some((c) => c.recordId === "@I1@" && c.field === "field.notes" && c.to === "new")).toBe(true);
+
+    const both = mergeDecisions(main, compare, confirmed({ notes: "both" }), NO_MATCHES, tr);
+    expect(indi(both.records).children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual(["old", "new"]);
+  });
+
+  it("a shared-note pointer is remapped to the imported NOTE record", () => {
+    const main = dataset(wrap(person("")));
+    const compare = dataset(wrap(incoming("1 NOTE @N1@\n") + "0 @N1@ NOTE Shared text\n"));
+
+    const { records } = mergeDecisions(main, compare, confirmed({ notes: "incoming" }), NO_MATCHES, tr);
+    const note = indi(records).children.find((c) => c.tag === "NOTE")!;
+    expect(note.value).toMatch(/^@.+@$/);
+    const shared = records.find((r) => r.tag === "NOTE" && r.xref === note.value);
+    expect(shared?.value).toBe("Shared text");
+  });
+
+  it("the private flag is added in the main file's own dialect, and never removed", () => {
+    // Main declares nothing about privacy → the standard RESN is written.
+    const plain = dataset(wrap(person("")));
+    const compare = dataset(wrap(incoming("1 RESN privacy\n")));
+    const std = mergeDecisions(plain, compare, confirmed({ private: "incoming" }), NO_MATCHES, tr);
+    expect(indi(std.records).children.some((c) => c.tag === "RESN" && c.value === "privacy")).toBe(true);
+    expect(std.report.changes.some((c) => c.recordId === "@I1@" && c.field === "field.private" && c.to.startsWith("🔒"))).toBe(true);
+
+    // Main already speaks MyHeritage's _PRIV on another person → that dialect.
+    const myh = dataset(wrap(person("") + "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 _PRIV Y\n"));
+    const mh = mergeDecisions(myh, compare, confirmed({ private: "incoming" }), NO_MATCHES, tr);
+    const flags = indi(mh.records).children.filter((c) => c.tag === "_PRIV" || c.tag === "RESN" || c.tag === "PRIV");
+    expect(flags.map((c) => `${c.tag} ${c.value}`)).toEqual(["_PRIV Y"]);
+
+    // A main-side flag the incoming side lacks is never a merge row: it stays.
+    const flagged = dataset(wrap(person("1 RESN privacy\n")));
+    const open = dataset(wrap(incoming("")));
+    const kept = mergeDecisions(flagged, open, confirmed(), NO_MATCHES, tr);
+    expect(indi(kept.records).children.some((c) => c.tag === "RESN" && c.value === "privacy")).toBe(true);
+  });
+
+  it("a nickname lands under the primary NAME; 'incoming' replaces a differing one", () => {
+    const main = dataset(wrap(person("")));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n2 NICK Nace\n1 SEX M\n1 BIRT\n2 DATE 1850\n"));
+    const added = mergeDecisions(main, compare, confirmed({ nickname: "incoming" }), NO_MATCHES, tr);
+    const name = indi(added.records).children.find((c) => c.tag === "NAME")!;
+    expect(name.children.find((c) => c.tag === "NICK")?.value).toBe("Nace");
+
+    const nicked = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n2 NICK Jani\n1 SEX M\n1 BIRT\n2 DATE 1850\n"));
+    const swapped = mergeDecisions(nicked, compare, confirmed({ nickname: "incoming" }), NO_MATCHES, tr);
+    const nicks = indi(swapped.records).children.find((c) => c.tag === "NAME")!.children.filter((c) => c.tag === "NICK").map((c) => c.value);
+    expect(nicks).toEqual(["Nace"]);
+  });
+});
+
+describe("mergeDecisions — a family's notes and private flag", () => {
+  const main = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1875\n1 CHAN\n2 DATE 1 JAN 2020\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1875\n1 NOTE Poročena v Kranju\n1 RESN privacy\n",
+    ),
+  );
+  const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }, { mainId: "@I2@", compareId: "@P2@" }] } as never;
+
+  it("copies the incoming family's note ahead of the CHAN stamp and flags the family private", () => {
+    // Both spouses confirmed: a confirmation outranks the identity vetoes
+    // an undated partner would otherwise fail, so @G1@ resolves to @F1@.
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.notes": "incoming", "fam.@G1@.private": "incoming" } }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const fam = records.find((r) => r.xref === "@F1@")!;
+    const tags = fam.children.map((c) => c.tag);
+    expect(fam.children.find((c) => c.tag === "NOTE")?.value).toBe("Poročena v Kranju");
+    expect(tags.indexOf("NOTE")).toBeLessThan(tags.indexOf("CHAN"));
+    expect(fam.children.some((c) => c.tag === "RESN" && c.value === "privacy")).toBe(true);
+    expect(report.changes.some((c) => c.recordId === "@F1@" && c.field === "field.notes" && c.to === "Poročena v Kranju")).toBe(true);
+    expect(report.changes.some((c) => c.recordId === "@F1@" && c.field === "field.private" && c.to.startsWith("🔒"))).toBe(true);
+    // Only one FAM in the output: the incoming family was matched, not imported.
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+  });
+});
+
+describe("formatReport — the verb shapes", () => {
+  const report = (changes: FieldChange[]): ChangeReport => ({
+    changes,
+    deferred: [],
+    graftJoins: [],
+    recordsChanged: 1,
+    newPersons: 0,
+    newFamilies: 0,
+    recordLabels: { "@I1@": "Janez Novak", "@I2@": "Ana Kos" },
+    recordKinds: { "@I1@": "individual", "@I2@": "individual" },
+    familySpouses: {},
+    customTags: {},
+  });
+
+  it("an added citation reads as its title and page", () => {
+    const text = formatReport(report([
+      { recordId: "@I1@", field: "Birth", from: "", to: "", action: "incoming", sources: [{ title: "Krstna knjiga", page: "42" }] as never },
+    ]), { t: tr });
+    expect(text).toContain('Birth: changeReport.verb.added "Krstna knjiga, p. 42"');
+  });
+
+  it("a value that went away reads as removed, a replaced one as changed", () => {
+    const text = formatReport(report([
+      { recordId: "@I1@", field: "Occupation", from: "kmet", to: "", action: "incoming" },
+      { recordId: "@I1@", field: "Birth", from: "1850", to: "1851", action: "incoming" },
+    ]), { t: tr });
+    expect(text).toContain('Occupation: changeReport.verb.removed "kmet"');
+    expect(text).toContain('Birth: changeReport.verb.changed "1850" → "1851"');
+  });
+
+  it("records changed in ways the report cannot describe are listed once each, under their own heading", () => {
+    const text = formatReport(report([
+      { recordId: "@I2@", field: "", from: "", to: "", action: "incoming", undescribed: true },
+      { recordId: "@I2@", field: "", from: "", to: "", action: "incoming", undescribed: true },
+    ]), { t: tr });
+    expect(text).toContain("changeReport.undescribed");
+    expect(text).toContain("changeReport.undescribedHint");
+    expect(text.split("Ana Kos").length - 1).toBeGreaterThanOrEqual(1);
+    const section = text.slice(text.indexOf("changeReport.undescribed"));
+    expect(section.match(/Ana Kos/g)?.length).toBe(1);
+  });
+});

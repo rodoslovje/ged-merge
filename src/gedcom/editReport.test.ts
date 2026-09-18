@@ -958,3 +958,62 @@ describe("enrichEditReport — a deleted person's memberships", () => {
     expect(gained).toMatchObject({ from: "", to: "Janez Novak + Ana Kos", action: "both" });
   });
 });
+
+describe("enrichEditReport — a family membership folded away by a duplicate merge", () => {
+  const PEOPLE =
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+    "0 @I3@ INDI\n1 NAME Tone /Novak/\n1 FAMC @F1@\n0 @I4@ INDI\n1 NAME Meta /Novak/\n1 FAMC @F1@\n";
+
+  it("reports the FAMS as moved into the surviving family, named by its spouses, not as lost", () => {
+    // Before: the couple recorded twice, one child in each family.
+    const before = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+          "0 @I3@ INDI\n1 NAME Tone /Novak/\n1 FAMC @F1@\n0 @I4@ INDI\n1 NAME Meta /Novak/\n1 FAMC @F2@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n" +
+          "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n",
+      ),
+    );
+    // After: @F2@ folded into @F1@.
+    const after = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+          PEOPLE.split("0 @I1@")[0] + "0 @I3@ INDI\n1 NAME Tone /Novak/\n1 FAMC @F1@\n0 @I4@ INDI\n1 NAME Meta /Novak/\n1 FAMC @F1@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n1 CHIL @I4@\n",
+      ),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const familySnapshots = new Map([["@F2@", before.families.get("@F2@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, familySnapshots, tr);
+
+    const spouseOf = report.changes.filter((c) => c.recordId === "@I1@" && c.field === "field.spouseOf");
+    expect(spouseOf).toEqual([{ recordId: "@I1@", field: "field.spouseOf", from: "@F2@", to: "Janez Novak + Ana Kos", action: "incoming" }]);
+  });
+
+  it("a FAMS whose family simply vanished, with nobody carried over, reads as a loss", () => {
+    const before = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F9@\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @I5@ INDI\n1 NAME Neža /Zupan/\n1 SEX F\n1 FAMS @F9@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n0 @F9@ FAM\n1 HUSB @I1@\n1 WIFE @I5@\n",
+      ),
+    );
+    const after = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @I5@ INDI\n1 NAME Neža /Zupan/\n1 SEX F\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n",
+      ),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const familySnapshots = new Map([["@F9@", before.families.get("@F9@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, familySnapshots, tr);
+
+    const spouseOf = report.changes.filter((c) => c.recordId === "@I1@" && c.field === "field.spouseOf");
+    expect(spouseOf).toEqual([{ recordId: "@I1@", field: "field.spouseOf", from: "@F9@", to: "", action: "incoming" }]);
+  });
+});
