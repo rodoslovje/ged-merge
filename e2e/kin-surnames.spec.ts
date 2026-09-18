@@ -121,7 +121,7 @@ test("a band lists its people with their lifespans and how they are related", as
   await expect(card.locator(".chart-hover-head")).toContainText("Kovac");
   // …and how far out the band sits, which the list of people underneath cannot
   // say for itself and the rings no longer carry a scale for.
-  await expect(card.locator(".chart-hover-line")).toHaveText("blood distance 1");
+  await expect(card.locator(".chart-hover-line")).toHaveText("distance 1");
   const hovered = card.locator(".chart-hover-people li").first();
   await expect(hovered.locator(".person-name")).toHaveClass(/sex-/);
   await expect(hovered.locator(".person-years")).toContainText("1870");

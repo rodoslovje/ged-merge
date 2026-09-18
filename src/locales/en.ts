@@ -1537,7 +1537,7 @@ export const en = {
   "kin.layout.bars": "Bars",
   "kin.layout.map": "Map",
   "kin.surname.none": "Surname not recorded",
-  "kin.band.distance": "blood distance {{n}}",
+  "kin.band.distance": "distance {{n}}",
   "kin.map.onMap": "{{count}} on the map",
   "kin.map.unplaced": "{{count}} not placed",
   "kin.map.unplaced.tooltip": "Relatives with no place with coordinates — click for the list",

@@ -1747,7 +1747,7 @@ export const sl = {
   "kin.layout.bars": "Trakovi",
   "kin.layout.map": "Zemljevid",
   "kin.surname.none": "Priimek ni zapisan",
-  "kin.band.distance": "krvna razdalja {{n}}",
+  "kin.band.distance": "razdalja {{n}}",
   "kin.map.onMap": "na zemljevidu: {{count}}",
   "kin.map.unplaced": "neumeščenih: {{count}}",
   "kin.map.unplaced.tooltip": "Sorodniki brez kraja s koordinatami — kliknite za seznam",
