@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { noteToText } from "../../gedcom/noteHtml";
 import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
@@ -10,7 +9,7 @@ import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/ed
 import { SourceRefs } from "../SourceRef";
 import { EventGlyph, eventMenuLabel } from "../EventGlyph";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
-import { NotesEditor } from "./NotesEditor";
+import { isTallNoteList, NOTE_CHIP_CH, NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
 import { EventAssociates } from "./EventAssociates";
 import { SuggestInput } from "./SuggestInput";
@@ -31,10 +30,6 @@ import { linkKey } from "../../normalize/links";
  * event-type dropdown (distinct from any real tag). */
 const COPY_OPTION = "__copy_event__";
 const REMOVE_OPTION = "__remove_event__";
-
-/** The widest a note chip grows (see NotesEditor): a longer line wraps inside
- *  the chip, so the note stands more than a line tall. */
-const NOTE_CHIP_CH = 48;
 
 /** What a field completes from on a tag the file has never written — one
  *  shared object, so a row of empty fields doesn't allocate a map each. */
@@ -829,11 +824,7 @@ export function EventFieldsRow({
    * not re-lay itself out under the cursor. */
   const noteTall = noteField.isMerge
     ? noteField.value.includes("\n") || noteField.value.length > NOTE_CHIP_CH
-    : (ev?.noteRefs?.length ?? 0) > 1 ||
-      (ev?.noteRefs ?? []).some((r) => {
-        const text = noteToText(r.text).replace(/^\n+/, "");
-        return text.includes("\n") || text.length > NOTE_CHIP_CH;
-      });
+    : isTallNoteList(ev?.noteRefs ?? []);
   const noteEl = (
       <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
         <span className="edit-event-extra-label">{t("event.colNote")}</span>

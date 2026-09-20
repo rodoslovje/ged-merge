@@ -73,6 +73,33 @@ test("the note is written while the associate is being named", async ({ page }) 
   await expect(panel.getByLabel("Note about this association")).toHaveValue("78 cM over 4 segments");
 });
 
+test("a long note drops under its associate, a short one reads on after the role", async ({ page }) => {
+  // The event rows' rule, applied to an associate: a record naming several
+  // people, each with a sentence about them, is a list — and inline, one
+  // sentence claimed the line and left the name a column a character wide.
+  await openEdit(page, "7.0");
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  await addAssociate(panel, "Jozefa", "godmother of the eldest");
+  await addAssociate(
+    panel,
+    "Marjana",
+    "FTDNA 50,7 cM · GEDmatch 48,6 cM · MyHeritage 46,0 cM — Luka Porenta (1819–1883, Spodnje Bitnje)",
+  );
+
+  const rows = panel.locator(".edit-event-assoc");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).not.toHaveClass(/edit-event-assoc--tall/);
+  await expect(rows.nth(1)).toHaveClass(/edit-event-assoc--tall/);
+
+  // The long one's note sits below the name rather than beside it, and the
+  // name keeps its own width either way.
+  const name = await rows.nth(1).locator(".person-name").boundingBox();
+  const note = await rows.nth(1).locator(".edit-note-item").boundingBox();
+  expect(note!.y).toBeGreaterThan(name!.y + name!.height - 1);
+  expect(name!.width).toBeGreaterThan(40);
+});
+
 test("naming an associate takes a line of its own", async ({ page }) => {
   // The picker, the role, the wording and the note are more than fits beside a
   // heading and the associates already named.

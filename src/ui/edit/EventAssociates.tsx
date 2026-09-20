@@ -9,7 +9,7 @@ import { EDITABLE_ASSOC_ROLES, isVoidAssociation } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
-import { NotesEditor } from "./NotesEditor";
+import { isTallNoteList, NotesEditor } from "./NotesEditor";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { DropdownMenu } from "../DropdownMenu";
 import { useAssoc, type AssocApi } from "./AssocContext";
@@ -248,8 +248,27 @@ export function EventAssociates({
 
   return (
     <>
-      {associations.map((assoc, i) => (
-        <span key={i} className="edit-event-assoc">
+      {associations.map((assoc, i) => {
+        // The event rows' own rule, applied to the associate: a note longer
+        // than a chip takes a line of its own under them, a one-liner reads on
+        // after the role. Inline, a sentence-long note left the name a column
+        // one character wide.
+        const notes = assoc.noteRefs ?? [];
+        const tall = isTallNoteList(notes);
+        const notesEl = api && (
+          <NotesEditor
+            // Seeded from these once, so it is remounted when the record's
+            // notes change underneath it — a commit, an undo (as the event
+            // rows do with the same key).
+            key={noteEditorKey(assoc)}
+            notes={notes}
+            addTrigger={noteAdds[i]}
+            t={t}
+            onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
+          />
+        );
+        return (
+        <span key={i} className={"edit-event-assoc" + (tall ? " edit-event-assoc--tall" : "")}>
           {api && editing === assoc ? (
             <RoleForm
               t={t}
@@ -296,20 +315,9 @@ export function EventAssociates({
               <span className="edit-assoc-role">{roleLabel(assoc, t, sexOfTarget(api, assoc))}</span>
               {/* The association's own notes, as chips — the same editor a
                   person's or an event's notes use, because they are the same
-                  thing: `ASSO` carries `NOTE` in both dialects. Empty until
-                  there is one, and the button below is how the first arrives. */}
-              {api && (
-                <NotesEditor
-                  // Seeded from these once, so it is remounted when the record's
-                  // notes change underneath it — a commit, an undo (as the
-                  // event rows do with the same key).
-                  key={noteEditorKey(assoc)}
-                  notes={assoc.noteRefs ?? []}
-                  addTrigger={noteAdds[i]}
-                  t={t}
-                  onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
-                />
-              )}
+                  thing: `ASSO` carries `NOTE` in both dialects. A short one
+                  reads on after the role; a long one waits below the actions. */}
+              {!tall && notesEl}
               {api && container && (
                 <>
                   <button
@@ -353,10 +361,12 @@ export function EventAssociates({
                   </button>
                 </>
               )}
+              {tall && notesEl}
             </>
           )}
         </span>
-      ))}
+        );
+      })}
       {api && container && picking && !picked && (
         <RelativePickerCard
           roleLabel={t("assoc.pickLabel")}

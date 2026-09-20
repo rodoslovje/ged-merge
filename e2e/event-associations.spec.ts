@@ -208,8 +208,8 @@ test("an event added this session is named with its date in the move menu", asyn
   await date.blur();
   await expect(date).toHaveValue("1980");
 
-  // The ↧ is revealed by hovering its row, like the ✎ and ✕ beside it.
-  const assocRow = page.locator(".edit-assoc .edit-record-label-row").first();
+  // The ↧ is revealed by hovering the associate, like the ✎ and ✕ beside it.
+  const assocRow = page.locator(".edit-assoc .edit-event-assoc").first();
   await assocRow.hover();
 
   // The three read as one set: same vertical centre, none noticeably smaller.

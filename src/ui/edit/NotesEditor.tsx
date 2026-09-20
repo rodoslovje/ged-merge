@@ -6,6 +6,29 @@ import { noteToText } from "../../gedcom/noteHtml";
 import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
 
+/**
+ * How wide a note may be before it stops riding beside the fields it belongs to.
+ * Past this it takes a line of its own — on an event row, and under an associate.
+ */
+export const NOTE_CHIP_CH = 48;
+
+/**
+ * Whether these notes want a line of their own rather than a place in the row:
+ * several of them, one with a line break, or one longer than a chip.
+ *
+ * Judged on committed notes, not on a draft being typed, so a row does not
+ * re-lay itself out under the cursor.
+ */
+export function isTallNoteList(notes: NoteRef[]): boolean {
+  return (
+    notes.length > 1 ||
+    notes.some((r) => {
+      const text = noteToText(r.text).replace(/^\n+/, "");
+      return text.includes("\n") || text.length > NOTE_CHIP_CH;
+    })
+  );
+}
+
 /** First URL in a note's text, for the chip's open-link button. */
 function firstUrlIn(text: string): string | undefined {
   const m = /https?:\/\/[^\s<>"]+/i.exec(noteToText(text));

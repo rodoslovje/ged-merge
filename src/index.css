@@ -9820,7 +9820,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-assoc-remove:hover { color: var(--danger); }
 .edit-event:hover .edit-assoc-glyph,
 .edit-assoc-row:hover .edit-assoc-glyph,
-.edit-record-label-row:hover .edit-assoc-glyph,
+/* A record naming nine people is a list, and revealing all nine sets of
+   actions at once is the noise the reveal exists to avoid — there, each
+   associate answers for their own. */
+.edit-event-assoc:hover .edit-assoc-glyph,
 .edit-assoc-glyph:focus-visible {
   max-width: 1.4em;
   opacity: 1;
@@ -9831,7 +9834,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    had to be invented for it, and none of ✎ ↧ ✕ says "note". */
 .edit-event:hover .edit-assoc-glyph.edit-assoc-note,
 .edit-assoc-row:hover .edit-assoc-glyph.edit-assoc-note,
-.edit-record-label-row:hover .edit-assoc-glyph.edit-assoc-note,
+.edit-event-assoc:hover .edit-assoc-glyph.edit-assoc-note,
 .edit-assoc-glyph.edit-assoc-note:focus-visible {
   max-width: 12em;
   white-space: nowrap;
@@ -9843,7 +9846,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   align-items: baseline;
   gap: 4px;
   margin-right: 8px;
+  flex-wrap: wrap;
 }
+/* An associate whose note is more than a chip's worth takes a line for
+   themselves, with the note on a second line under their name and actions —
+   the rule an event row applies to its own note. Inline, a sentence-long note
+   claimed the whole line and left the name a column one character wide. */
+.edit-event-assoc--tall { flex-basis: 100%; }
+.edit-event-assoc--tall > .edit-notes { flex-basis: 100%; }
+/* Neither the name nor an action shrinks to make room: the line wraps instead.
+   Shrinking is what set a name on its side and clipped "+ Note" to "+ No". */
+.edit-event-assoc > .person-ref,
+.edit-event-assoc > .edit-assoc-name-only,
+.edit-event-assoc > .edit-assoc-glyph { flex: none; }
 .edit-assoc-roleform {
   display: inline-flex;
   align-items: center;
