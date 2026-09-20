@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Association, AssocRole, Dataset, GedNode, Sex } from "../../gedcom/types";
 import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
@@ -213,6 +213,19 @@ export function EventAssociates({
   /** Per-associate counter that opens a fresh, empty note on this row — the
    *  same trigger the event rows use to reveal one. */
   const [noteAdds, setNoteAdds] = useState<Record<number, number>>({});
+  /** An associate just named, whose note box is to open by itself. */
+  const [noteFor, setNoteFor] = useState<number | null>(null);
+
+  // Naming an associate and saying what the register said about them is one
+  // thought, so the note opens with them rather than waiting to be asked for.
+  // It has to happen a render later than the add: the editor reads its trigger
+  // once on mount and acts only on a rise, so bumping it in the same pass as
+  // the row's first render would go unnoticed.
+  useEffect(() => {
+    if (noteFor === null) return;
+    setNoteAdds((prev) => ({ ...prev, [noteFor]: (prev[noteFor] ?? 0) + 1 }));
+    setNoteFor(null);
+  }, [noteFor]);
 
   const close = () => {
     setPicked(null);
@@ -353,6 +366,8 @@ export function EventAssociates({
           onCancel={close}
           onSave={(role, roleText) => {
             api.add(ownerId, container, { targetId: picked.targetId, name: picked.name, role, roleText });
+            // The new one is written among its peers, after the last of them.
+            setNoteFor(associations.length);
             close();
           }}
         />

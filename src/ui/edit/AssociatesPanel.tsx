@@ -65,9 +65,14 @@ export function RecordAssociates({
     <div className="edit-record-label-row">
       {/* The heading names a list, so it waits for one: with nobody on the
           record yet the chip stands alone and says what it does by itself.
+          While one is being added it appears too — the person picker that opens
+          in its place is the same control the relative slots use, and without a
+          word above it nothing says which of them this one is filling.
           Label, list and chip share one row — the shape every other titled
           block in the record uses (notes, sources, partners). */}
-      {associations.length > 0 && <span className="edit-record-label">{t("assoc.heading")}</span>}
+      {(associations.length > 0 || adding) && (
+        <span className="edit-record-label">{t("assoc.heading")}</span>
+      )}
       {(associations.length > 0 || adding) && (
         // The same chips as on an event's row, with the record itself as the
         // container. No "on the record" label in front of them: every row here
