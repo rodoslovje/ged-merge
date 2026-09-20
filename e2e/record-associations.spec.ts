@@ -32,13 +32,14 @@ async function openEdit(page: import("@playwright/test").Page, version: "5.5.1" 
   await page.locator(".edit-person").waitFor();
 }
 
-/** Name an associate through a record's "+ Add associate", role and all. */
-async function addAssociate(panel: import("@playwright/test").Locator, name: string) {
+/** Name an associate through a record's "+ Add associate", role, note and all. */
+async function addAssociate(panel: import("@playwright/test").Locator, name: string, note?: string) {
   await panel.getByRole("button", { name: "+ Add associate" }).click();
   const picker = panel.locator(".relative-picker-input");
   await expect(picker).toBeVisible();
   await picker.fill(name);
   await panel.getByRole("button", { name: new RegExp(name) }).first().click();
+  if (note !== undefined) await panel.getByLabel("Note about this association").fill(note);
   await panel.getByRole("button", { name: "Save" }).click();
 }
 
@@ -52,44 +53,41 @@ test("a person's own record takes an associate, in either dialect", async ({ pag
   await expect(panel.locator(".edit-event-assoc")).toContainText("Jozefa");
 });
 
-test("an associate takes a note of their own, open and waiting", async ({ page }) => {
+test("the note is written while the associate is being named", async ({ page }) => {
   // `ASSO` carries `NOTE` in both dialects, so what the register said — or the
   // centimorgans behind a DNA match — belongs on the association itself rather
-  // than on the person as a whole. Naming the associate and saying what the
-  // record said about them is one thought, so the box opens with the caret in it
-  // rather than waiting to be asked for.
+  // than on the person as a whole. And it is asked for in the same breath as
+  // the role, not on a second trip through the row.
   await openEdit(page, "7.0");
 
   const panel = page.locator(".edit-person .edit-assoc");
-  await addAssociate(panel, "Jozefa");
-
-  const note = panel.locator(".edit-event-note").first();
-  await expect(note).toBeVisible();
-  await expect(note).toBeFocused();
-  await page.keyboard.type("78 cM over 4 segments");
-  await note.blur();
+  await addAssociate(panel, "Jozefa", "78 cM over 4 segments");
 
   // It sits with the associate, not among the person's own notes.
   await expect(panel.locator(".edit-note-item")).toHaveCount(1);
   await expect(panel.locator(".edit-event-assoc")).toContainText("78 cM over 4 segments");
 
-  // And a second one is a click away.
+  // Reopening the form shows it back, to change or to clear.
   await panel.locator(".edit-event-assoc").first().hover();
-  await panel.getByRole("button", { name: /Note/ }).first().click();
-  await expect(panel.locator(".edit-note-item")).toHaveCount(2);
+  await panel.getByRole("button", { name: "Change the role" }).first().click();
+  await expect(panel.getByLabel("Note about this association")).toHaveValue("78 cM over 4 segments");
 });
 
-test("the picker opens under the heading that names it", async ({ page }) => {
-  // The person picker is the same control the parent and partner slots use, so
-  // without the block's own heading above it nothing says which it is filling.
+test("naming an associate takes a line of its own", async ({ page }) => {
+  // The picker, the role, the wording and the note are more than fits beside a
+  // heading and the associates already named.
   await openEdit(page, "7.0");
 
   const panel = page.locator(".edit-person .edit-assoc");
   await expect(panel.locator(".edit-record-label")).toHaveCount(0); // nothing to name yet
   await panel.getByRole("button", { name: "+ Add associate" }).click();
 
-  await expect(panel.locator(".relative-picker-input")).toBeVisible();
+  // The heading is there to say which slot the picker is filling — it is the
+  // same control the parent and partner slots use.
   await expect(panel.locator(".edit-record-label")).toHaveText("Associations");
+  const label = await panel.locator(".edit-record-label").boundingBox();
+  const picker = await panel.locator(".relative-picker").boundingBox();
+  expect(picker!.y).toBeGreaterThan(label!.y + label!.height - 1);
 });
 
 test("a 5.5.x file offers no association on an event or on a family", async ({ page }) => {

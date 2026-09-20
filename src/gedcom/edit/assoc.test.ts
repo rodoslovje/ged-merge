@@ -180,6 +180,49 @@ describe("writing associations", () => {
     ]);
   });
 
+  it("writes the role form's note with the association, in one pass", () => {
+    const ds = dataset("7.0", "0 @I1@ INDI\n0 @I2@ INDI\n1 NAME Jozefa /Pezdirc/\n");
+    const record = ds.individuals.get("@I1@")!.raw;
+    addAssociation(record, { targetId: "@I2@", role: "OTHER", roleText: "DNA match", note: "78 cM" }, ds.version);
+
+    expect(serializeGedcom([record])).toContain("1 ASSO @I2@\n2 ROLE OTHER\n3 PHRASE DNA match\n2 NOTE 78 cM");
+  });
+
+  it("rewrites that note and clears it, but never a shared one", () => {
+    const ds = dataset(
+      "7.0",
+      "0 @I1@ INDI\n1 ASSO @I2@\n2 ROLE GODP\n2 NOTE @N1@\n2 NOTE from the register\n0 @I2@ INDI\n0 @N1@ SNOTE shared\n",
+    );
+    const node = ds.individuals.get("@I1@")!.associations![0].raw;
+    const spec = { targetId: "@I2@", role: "GODP" as const };
+
+    writeAssociation(node, { ...spec, note: "the priest's own hand" }, ds.version);
+    expect(node.children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual([
+      "@N1@",
+      "the priest's own hand",
+    ]);
+
+    // Emptied, the association's own note goes; the shared one is not this
+    // form's to touch — other records cite it.
+    writeAssociation(node, { ...spec, note: "  " }, ds.version);
+    expect(node.children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual(["@N1@"]);
+
+    // And a spec that says nothing about notes leaves both alone.
+    writeAssociation(node, spec, ds.version);
+    expect(node.children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual(["@N1@"]);
+  });
+
+  it("puts a rewritten role back before the notes it already carried", () => {
+    // The rewrite strips ROLE and appends the new one, which without a sort
+    // left `ROLE` sitting after a `NOTE` that was there first.
+    const ds = dataset("7.0", "0 @I1@ INDI\n1 ASSO @I2@\n2 NOTE from the register\n2 ROLE GODP\n0 @I2@ INDI\n");
+    const node = ds.individuals.get("@I1@")!.associations![0].raw;
+
+    writeAssociation(node, { targetId: "@I2@", role: "WITN" }, ds.version);
+
+    expect(node.children.map((c) => c.tag)).toEqual(["ROLE", "NOTE"]);
+  });
+
   it("leaves an association's notes alone when its role is rewritten", () => {
     const ds = dataset("7.0", "0 @I1@ INDI\n1 ASSO @I2@\n2 ROLE GODP\n2 NOTE from the register\n0 @I2@ INDI\n");
     const node = ds.individuals.get("@I1@")!.associations![0].raw;

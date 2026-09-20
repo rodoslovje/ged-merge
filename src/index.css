@@ -9740,6 +9740,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    the way to name an associate, not an incidental extra on another row — and on
    a record with none yet it is the only thing in the block. */
 .edit-assoc .edit-name-chip-add { opacity: 1; }
+/* Naming somebody takes a person picker, a role, a wording and a note, which is
+   more than fits beside a heading and the associates already there. It takes a
+   line of its own under them — `flex-basis: 100%` in the wrapping row. */
+.edit-record-label-row > .edit-assoc-roleform,
+.edit-record-label-row > .person-card-wrap {
+  flex-basis: 100%;
+}
 .edit-record-label-row + .edit-assoc-list { margin-bottom: 10px; }
 .edit-assoc-list {
   list-style: none;
@@ -9857,6 +9864,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
+}
+/* A note is a sentence where the role beside it is a word or two, so it takes
+   what room the line has left rather than the same narrow box. */
+.edit-assoc-note-input {
+  flex: 1 1 14rem;
+  min-width: 8rem;
 }
 /* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
 .edit-person-changed {

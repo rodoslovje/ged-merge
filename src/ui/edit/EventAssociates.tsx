@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Association, AssocRole, Dataset, GedNode, Sex } from "../../gedcom/types";
 import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
@@ -98,6 +98,17 @@ export function RecordLink({
   );
 }
 
+/**
+ * The association's first note written as text on the `ASSO` itself — the one
+ * the role form edits. A pointer to a shared note record is deliberately not
+ * offered there: it belongs to every record citing it, and a one-line field is
+ * no place to rewrite something with other owners. Those are edited as chips on
+ * the row, where the lock and the shared-note machinery are.
+ */
+function firstInlineNote(assoc: Association | undefined): string | undefined {
+  return (assoc?.noteRefs ?? []).find((r) => !r.xref)?.text;
+}
+
 /** A note list's identity, for remounting the editor when the record's own
  *  notes have moved on under it (see the event rows, which key the same way). */
 function noteEditorKey(assoc: Association): string {
@@ -127,11 +138,15 @@ export function RoleForm({
   /** Their sex, so the options read "boter" rather than "boter/botra" once
    *  there is a person to say it about. */
   sex?: Sex;
-  onSave: (role: AssocRole, roleText?: string) => void;
+  onSave: (role: AssocRole, roleText?: string, note?: string) => void;
   onCancel: () => void;
 }) {
   const [role, setRole] = useState<AssocRole>(initial?.role ?? "GODP");
   const [text, setText] = useState(initial?.roleText ?? "");
+  // The register that named a godparent usually said something about them, and
+  // a DNA match without its numbers is barely worth recording — so the note is
+  // part of naming the associate, not a second trip through the row.
+  const [note, setNote] = useState(firstInlineNote(initial) ?? "");
 
   return (
     <span className="edit-assoc-roleform">
@@ -158,7 +173,18 @@ export function RoleForm({
           aria-label={t("assoc.roleTextLabel")}
         />
       )}
-      <button type="button" className="edit-assoc-action" onClick={() => onSave(role, text.trim() || undefined)}>
+      <input
+        className="edit-assoc-input edit-assoc-note-input"
+        value={note}
+        placeholder={t("assoc.notePlaceholder")}
+        onChange={(e) => setNote(e.target.value)}
+        aria-label={t("assoc.noteLabel")}
+      />
+      <button
+        type="button"
+        className="edit-assoc-action"
+        onClick={() => onSave(role, text.trim() || undefined, note.trim() || undefined)}
+      >
         {t("assoc.save")}
       </button>
       <button type="button" className="edit-assoc-action" onClick={onCancel}>
@@ -213,19 +239,6 @@ export function EventAssociates({
   /** Per-associate counter that opens a fresh, empty note on this row — the
    *  same trigger the event rows use to reveal one. */
   const [noteAdds, setNoteAdds] = useState<Record<number, number>>({});
-  /** An associate just named, whose note box is to open by itself. */
-  const [noteFor, setNoteFor] = useState<number | null>(null);
-
-  // Naming an associate and saying what the register said about them is one
-  // thought, so the note opens with them rather than waiting to be asked for.
-  // It has to happen a render later than the add: the editor reads its trigger
-  // once on mount and acts only on a rise, so bumping it in the same pass as
-  // the row's first render would go unnoticed.
-  useEffect(() => {
-    if (noteFor === null) return;
-    setNoteAdds((prev) => ({ ...prev, [noteFor]: (prev[noteFor] ?? 0) + 1 }));
-    setNoteFor(null);
-  }, [noteFor]);
 
   const close = () => {
     setPicked(null);
@@ -250,12 +263,13 @@ export function EventAssociates({
               }
               sex={sexOfTarget(api, assoc)}
               onCancel={() => setEditing(null)}
-              onSave={(role, roleText) => {
+              onSave={(role, roleText, note) => {
                 api.update(ownerId, assoc.raw, {
                   targetId: isVoidAssociation(assoc) ? undefined : assoc.targetId,
                   name: assoc.name,
                   role,
                   roleText,
+                  note,
                   // A 5.5-era association may point at a family; changing its
                   // role must not cost the `TYPE FAM` that says so.
                   targetKind: assoc.targetKind,
@@ -306,10 +320,14 @@ export function EventAssociates({
                   >
                     + {t("assoc.addNote")}
                   </button>
+                  {/* Named as well as titled: a button whose only content is a
+                      glyph is announced as that glyph, and "✎" tells a screen
+                      reader nothing. */}
                   <button
                     type="button"
                     className="edit-assoc-glyph"
                     title={t("assoc.editRole")}
+                    aria-label={t("assoc.editRole")}
                     onClick={() => setEditing(assoc)}
                   >
                     ✎
@@ -328,6 +346,7 @@ export function EventAssociates({
                     type="button"
                     className="edit-assoc-glyph edit-assoc-remove"
                     title={removeTitle ?? t("assoc.remove")}
+                    aria-label={removeTitle ?? t("assoc.remove")}
                     onClick={() => api.remove(ownerId, container, assoc.raw)}
                   >
                     ✕
@@ -364,10 +383,8 @@ export function EventAssociates({
           who={<PersonChip dataset={api.dataset} targetId={picked.targetId} name={picked.name} />}
           sex={picked.targetId ? api.dataset.individuals.get(picked.targetId)?.sex : undefined}
           onCancel={close}
-          onSave={(role, roleText) => {
-            api.add(ownerId, container, { targetId: picked.targetId, name: picked.name, role, roleText });
-            // The new one is written among its peers, after the last of them.
-            setNoteFor(associations.length);
+          onSave={(role, roleText, note) => {
+            api.add(ownerId, container, { targetId: picked.targetId, name: picked.name, role, roleText, note });
             close();
           }}
         />

@@ -45,6 +45,12 @@ export interface AssociationSpec {
    *  only ever points at a person, but a 5.5-era file's `ASSO @F14@` / `TYPE FAM`
    *  must keep saying "family" when its role is rewritten. */
   targetKind?: "INDI" | "FAM";
+  /** A note in the association's own words, as the role form takes it: what the
+   *  register said, or the centimorgans behind a DNA match. `undefined` leaves
+   *  the association's notes exactly as they are; empty removes the one the form
+   *  edits. Shared-note pointers are never touched — see
+   *  {@link setAssociationNotes} for those. */
+  note?: string;
 }
 
 /** Whether this file's dialect can name an associate it holds no record for. */
@@ -99,13 +105,49 @@ export function writeAssociation(node: GedNode, spec: AssociationSpec, version: 
     // A wording of the file's own goes on the ROLE's PHRASE. The enumeration
     // has no room for "botra", and OTHER without a phrase says nothing at all.
     if (spec.roleText?.trim()) child(role, "PHRASE", spec.roleText.trim());
-    return;
+  } else {
+    // 5.5.x: a pointer and the role as free text. `TYPE` only where it still
+    // says something — a pointer at a family (see the note at the top).
+    if (spec.targetKind === "FAM") child(node, "TYPE", "FAM");
+    child(node, "RELA", spec.roleText?.trim() || ROLE_TO_RELA[spec.role] || "other");
   }
 
-  // 5.5.x: a pointer and the role as free text. `TYPE` only where it still says
-  // something — a pointer at a family (see the note at the top of the file).
-  if (spec.targetKind === "FAM") child(node, "TYPE", "FAM");
-  child(node, "RELA", spec.roleText?.trim() || ROLE_TO_RELA[spec.role] || "other");
+  if (spec.note !== undefined) writeInlineNote(node, spec.note);
+  node.children.sort(byTagOrder(ASSO_CHILD_ORDER));
+}
+
+/**
+ * Set the association's own note, the one the role form shows.
+ *
+ * Only the first note written as text on the `ASSO` is touched. A `NOTE @N1@`
+ * or `SNOTE` pointer is left exactly where it is: a shared note belongs to every
+ * record citing it, and rewriting one from a one-line field would edit records
+ * this form never mentioned.
+ */
+function writeInlineNote(node: GedNode, text: string): void {
+  const trimmed = text.trim();
+  const existing = node.children.find((c) => c.tag === "NOTE" && !isPointer(c.value));
+  if (!trimmed) {
+    if (existing) node.children = node.children.filter((c) => c !== existing);
+    return;
+  }
+  if (existing) existing.value = trimmed;
+  else child(node, "NOTE", trimmed);
+}
+
+function isPointer(value: string | undefined): boolean {
+  return !!value && /^@[^@]+@$/.test(value.trim());
+}
+
+/** Sort a node's children back into `order`, leaving tags it does not name in
+ *  the order they were already in — `insertOrdered`'s rule, applied to a node
+ *  whose children were appended rather than inserted. */
+function byTagOrder(order: string[]) {
+  const rank = (tag: string) => {
+    const i = order.indexOf(tag);
+    return i === -1 ? order.length : i;
+  };
+  return (a: GedNode, b: GedNode) => rank(a.tag) - rank(b.tag);
 }
 
 /** The child order the container sorts by. */
