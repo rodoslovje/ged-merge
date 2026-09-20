@@ -11,8 +11,10 @@ import {
   canWriteNameOnly,
   moveAssociation,
   removeAssociation,
+  setAssociationNotes,
   writeAssociation,
 } from "./assoc";
+import { noteCtx } from "./notes";
 import type { GedNode } from "../types";
 
 function dataset(version: "5.5.1" | "7.0", body: string) {
@@ -157,6 +159,34 @@ describe("writing associations", () => {
     const node = addAssociation(bapm(ds), { targetId: "@I2@", role: "GODP" }, ds.version);
     moveAssociation(bapm(ds), bapm(ds), node);
     expect(associationsIn(bapm(ds))).toHaveLength(1);
+  });
+
+  it("keeps notes on the association itself, and reads them back", () => {
+    // `ASSO` carries `<<NOTE_STRUCTURE>>` in both dialects, so the numbers
+    // behind a DNA match belong on the association, not on the whole record.
+    const ds = dataset("7.0", "0 @I1@ INDI\n1 NAME Janez /Renko/\n0 @I2@ INDI\n1 NAME Jozefa /Pezdirc/\n");
+    const record = ds.individuals.get("@I1@")!.raw;
+    const node = addAssociation(record, { targetId: "@I2@", role: "OTHER", roleText: "DNA match" }, ds.version);
+
+    setAssociationNotes(noteCtx(ds.records), node, [{ text: "78 cM over 4 segments, largest 31 cM" }]);
+
+    expect(serializeGedcom([record])).toContain(
+      "1 ASSO @I2@\n2 ROLE OTHER\n3 PHRASE DNA match\n2 NOTE 78 cM over 4 segments, largest 31 cM",
+    );
+    // And the built dataset hands them to the editor like any other notes.
+    const rebuilt = buildDataset(parseGedcom(new TextEncoder().encode(serializeGedcom(ds.records)).buffer));
+    expect(rebuilt.individuals.get("@I1@")!.associations?.[0].noteRefs).toEqual([
+      { text: "78 cM over 4 segments, largest 31 cM" },
+    ]);
+  });
+
+  it("leaves an association's notes alone when its role is rewritten", () => {
+    const ds = dataset("7.0", "0 @I1@ INDI\n1 ASSO @I2@\n2 ROLE GODP\n2 NOTE from the register\n0 @I2@ INDI\n");
+    const node = ds.individuals.get("@I1@")!.associations![0].raw;
+
+    writeAssociation(node, { targetId: "@I2@", role: "WITN" }, ds.version);
+
+    expect(firstChild(node, "NOTE")?.value).toBe("from the register");
   });
 
   it("removes an association without touching its neighbours", () => {

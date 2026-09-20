@@ -50,6 +50,7 @@ export {
   canWriteNameOnly,
   canWriteEventAssociation,
   canWriteFamilyAssociation,
+  setAssociationNotes,
 } from "./assoc";
 export type { AssociationSpec } from "./assoc";
 

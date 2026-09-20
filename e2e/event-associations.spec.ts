@@ -209,12 +209,13 @@ test("an event added this session is named with its date in the move menu", asyn
   await expect(date).toHaveValue("1980");
 
   // The ↧ is revealed by hovering its row, like the ✎ and ✕ beside it.
-  const assocRow = page.locator(".edit-assoc .edit-assoc-row").first();
+  const assocRow = page.locator(".edit-assoc .edit-record-label-row").first();
   await assocRow.hover();
 
   // The three read as one set: same vertical centre, none noticeably smaller.
+  // "+ Note" is deliberately not one of them — it is a word, not a glyph.
   const glyphs = await assocRow.evaluate((row) => {
-    return [...row.querySelectorAll<HTMLElement>(".edit-assoc-glyph")].map((el) => {
+    return [...row.querySelectorAll<HTMLElement>(".edit-assoc-glyph:not(.edit-assoc-note)")].map((el) => {
       const r = el.getBoundingClientRect();
       return { mid: Math.round(r.top + r.height / 2), h: Math.round(r.height) };
     });

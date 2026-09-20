@@ -611,6 +611,8 @@ export const sl = {
   "assoc.roleTextPlaceholder": "na primer botra",
   "assoc.nameOnly": "Zapiši samo vpisano ime",
   "assoc.editRole": "Spremeni vlogo",
+  "assoc.addNote": "Opomba",
+  "assoc.addNoteTip": "Dodajte opombo k tej povezavi — zakaj sta osebi povezani ali kaj pove dokaz zanjo",
   "assoc.remove": "Odstrani osebo z dogodka",
   "assoc.removeFromRecord": "Odstrani osebo iz zapisa",
   "assoc.move": "Premakni k dogodku",

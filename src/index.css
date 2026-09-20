@@ -2990,11 +2990,7 @@ button:focus-visible {
    "+ Add event" menu. Sized like the person's own chip row above —
    it sits outside `.edit-other-names`, so it states the size and spacing that
    row inherits from there rather than taking the panel's. */
-/* The rows of "add one of these" chips under a record's lists: its events, and
-   the people it names who are not relatives. Both offer the record something of
-   its own, so they read alike. */
-.edit-event-add-row,
-.edit-assoc-add-row {
+.edit-event-add-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -3003,8 +2999,7 @@ button:focus-visible {
   font-size: 0.85rem;
   color: var(--muted);
 }
-.edit-event-add-row .edit-name-chip-add,
-.edit-assoc-add-row .edit-name-chip-add { opacity: 1; }
+.edit-event-add-row .edit-name-chip-add { opacity: 1; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
    destination — solid-bordered, where an offer to add is dashed. That border is
@@ -9741,12 +9736,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* Godparents, witnesses and officiants (ASSO) — the people the record names
    who are not its relatives, and the records that name this person back. */
 .edit-assoc { margin: 12px 0 4px; }
-.edit-assoc-head {
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-.edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
+/* Always visible, like the event row's add chip and for the same reason: it is
+   the way to name an associate, not an incidental extra on another row — and on
+   a record with none yet it is the only thing in the block. */
+.edit-assoc .edit-name-chip-add { opacity: 1; }
+.edit-record-label-row + .edit-assoc-list { margin-bottom: 10px; }
 .edit-assoc-list {
   list-style: none;
   margin: 0;
@@ -9819,10 +9813,21 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-assoc-remove:hover { color: var(--danger); }
 .edit-event:hover .edit-assoc-glyph,
 .edit-assoc-row:hover .edit-assoc-glyph,
+.edit-record-label-row:hover .edit-assoc-glyph,
 .edit-assoc-glyph:focus-visible {
   max-width: 1.4em;
   opacity: 1;
   padding: 0 2px;
+}
+/* "+ Note" is a word where its neighbours are single glyphs — it reveals the
+   same way and needs the room a 1.4em clamp does not give. A glyph would have
+   had to be invented for it, and none of ✎ ↧ ✕ says "note". */
+.edit-event:hover .edit-assoc-glyph.edit-assoc-note,
+.edit-assoc-row:hover .edit-assoc-glyph.edit-assoc-note,
+.edit-record-label-row:hover .edit-assoc-glyph.edit-assoc-note,
+.edit-assoc-glyph.edit-assoc-note:focus-visible {
+  max-width: 12em;
+  white-space: nowrap;
 }
 /* One associate on an event's own row: the person, their role, and the two
    actions — laid out like the row's other chips. */

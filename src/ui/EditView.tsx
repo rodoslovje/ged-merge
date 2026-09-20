@@ -101,7 +101,7 @@ import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSource
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
-import { addAssociation, moveAssociation, removeAssociation, writeAssociation } from "../gedcom/edit";
+import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
 import { recordsNaming } from "../gedcom/assoc";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
@@ -841,17 +841,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const ownerRaw = (owner: MediaOwner): GedNode | undefined =>
     owner.kind === "individual" ? person?.raw : owner.fam.raw;
 
-  /** Route a raw-record mutation through the owner's commit helper. */
-  function ownerCommit(owner: MediaOwner, mutate: (raw: GedNode) => void, extraPatches?: RecordPatch[]) {
-    if (owner.kind === "individual") commit((indi) => mutate(indi.raw), extraPatches);
-    else commitFamily(owner.fam, (f) => mutate(f.raw), extraPatches);
+  /** Route a raw-record mutation through the owner's commit helper. The note
+   *  context comes along for mutations that touch notes (shared ones have to be
+   *  resolved against the whole file); the rest ignore it. */
+  function ownerCommit(
+    owner: MediaOwner,
+    mutate: (raw: GedNode, notes: SharedNoteCtx) => void,
+    extraPatches?: RecordPatch[],
+  ) {
+    if (owner.kind === "individual") commit((indi, notes) => mutate(indi.raw, notes), extraPatches);
+    else commitFamily(owner.fam, (f, notes) => mutate(f.raw, notes), extraPatches);
   }
 
-  /** Commit an association edit against whichever record owns the event — the
-   *  person for an individual event, the family for a marriage. */
-  const commitAssoc = (ownerId: string, mutate: () => void) => {
+  /** Commit an association edit against whichever record owns it — the person
+   *  for an individual or their event, the family for a marriage. */
+  const commitAssoc = (ownerId: string, mutate: (notes: SharedNoteCtx) => void) => {
     const fam = dataset.families.get(ownerId);
-    ownerCommit(fam ? { kind: "family", fam } : { kind: "individual" }, () => mutate());
+    ownerCommit(fam ? { kind: "family", fam } : { kind: "individual" }, (_raw, notes) => mutate(notes));
   };
   const assocApi: AssocApi = {
     dataset,
@@ -859,6 +865,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     navigate,
     add: (ownerId, container, spec) => commitAssoc(ownerId, () => addAssociation(container, spec, dataset.version)),
     update: (ownerId, node, spec) => commitAssoc(ownerId, () => writeAssociation(node, spec, dataset.version)),
+    notes: (ownerId, node, refs) => commitAssoc(ownerId, (ctx) => setAssociationNotes(ctx, node, refs)),
     remove: (ownerId, container, node) => commitAssoc(ownerId, () => removeAssociation(container, node)),
     move: (ownerId, from, to, node) => commitAssoc(ownerId, () => moveAssociation(from, to, node)),
   };

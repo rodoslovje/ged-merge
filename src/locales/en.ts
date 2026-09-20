@@ -487,6 +487,8 @@ export const en = {
   "assoc.roleTextPlaceholder": "e.g. godmother",
   "assoc.nameOnly": "Record the typed name only",
   "assoc.editRole": "Change the role",
+  "assoc.addNote": "Note",
+  "assoc.addNoteTip": "Add a note to this association — why these two are connected, or what the evidence for it says",
   "assoc.remove": "Remove this person from the event",
   "assoc.removeFromRecord": "Remove this person from the record",
   "assoc.move": "Move to an event",

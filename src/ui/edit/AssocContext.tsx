@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { Dataset, GedNode, GedcomVersion } from "../../gedcom/types";
+import type { Dataset, GedNode, GedcomVersion, NoteRef } from "../../gedcom/types";
 import type { AssociationSpec } from "../../gedcom/edit";
 
 // An association belongs to the event that names it — the godparents to the
@@ -24,6 +24,8 @@ export interface AssocApi {
   add: (ownerId: string, container: GedNode, spec: AssociationSpec) => void;
   /** Rewrite an existing association's target/role in place. */
   update: (ownerId: string, node: GedNode, spec: AssociationSpec) => void;
+  /** Replace one association's own notes — why these two are connected. */
+  notes: (ownerId: string, node: GedNode, refs: NoteRef[]) => void;
   /** Remove one association from its container. */
   remove: (ownerId: string, container: GedNode, node: GedNode) => void;
   /** Move one off the record and onto the event it belongs to. */

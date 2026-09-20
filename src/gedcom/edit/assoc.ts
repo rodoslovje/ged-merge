@@ -26,9 +26,10 @@
  * written only for an association pointing at a family, where it is the one
  * thing that says so.
  */
-import type { AssocRole, GedcomVersion, GedNode } from "../types";
+import type { AssocRole, GedcomVersion, GedNode, NoteRef } from "../types";
 import { ROLE_TO_RELA, VOID_XREF } from "../assoc";
-import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, FAM_CHILD_ORDER, insertOrdered } from "./shared";
+import { applyNoteRefs, type SharedNoteCtx } from "./notes";
+import { ASSO_CHILD_ORDER, EVENT_CHILD_ORDER, INDI_CHILD_ORDER, FAM_CHILD_ORDER, insertOrdered } from "./shared";
 
 /** What the editor asks for; the dialect decides how it is written. */
 export interface AssociationSpec {
@@ -121,6 +122,17 @@ export function addAssociation(container: GedNode, spec: AssociationSpec, versio
   writeAssociation(node, spec, version);
   insertOrdered(container, node, orderFor(container));
   return node;
+}
+
+/**
+ * Replace the notes on an association, shared-note pointers and all.
+ *
+ * The same `applyNoteRefs` every other owner's notes go through — an `ASSO`
+ * carries `<<NOTE_STRUCTURE>>` in both dialects, so its notes are notes like any
+ * other, not a field of their own.
+ */
+export function setAssociationNotes(ctx: SharedNoteCtx, node: GedNode, notes: NoteRef[]): void {
+  applyNoteRefs(ctx, node, notes, ASSO_CHILD_ORDER);
 }
 
 /** Remove one association from its container. */

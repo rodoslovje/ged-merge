@@ -52,6 +52,26 @@ test("a person's own record takes an associate, in either dialect", async ({ pag
   await expect(panel.locator(".edit-event-assoc")).toContainText("Jozefa");
 });
 
+test("an associate takes a note of their own", async ({ page }) => {
+  // `ASSO` carries `NOTE` in both dialects, so what the register said — or the
+  // centimorgans behind a DNA match — belongs on the association itself rather
+  // than on the person as a whole.
+  await openEdit(page, "7.0");
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  await addAssociate(panel, "Jozefa");
+
+  await panel.getByRole("button", { name: /Note/ }).first().click();
+  const note = panel.locator(".edit-event-note").first();
+  await expect(note).toBeVisible();
+  await note.fill("78 cM over 4 segments");
+  await note.blur();
+
+  // It sits with the associate, not with the person's own notes.
+  await expect(panel.locator(".edit-note-item")).toHaveCount(1);
+  await expect(panel.locator(".edit-event-assoc")).toContainText("78 cM over 4 segments");
+});
+
 test("a 5.5.x file offers no association on an event or on a family", async ({ page }) => {
   await openEdit(page, "5.5.1");
 

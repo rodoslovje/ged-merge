@@ -62,44 +62,38 @@ export function RecordAssociates({
   if (!associations.length && !offerAdd) return null;
 
   return (
-    <>
-      {/* The heading names a list. With nobody on the record yet there is no
-          list to name, and the button below says what it does by itself. */}
-      {associations.length > 0 && <div className="edit-assoc-head">{t("assoc.heading")}</div>}
+    <div className="edit-record-label-row">
+      {/* The heading names a list, so it waits for one: with nobody on the
+          record yet the chip stands alone and says what it does by itself.
+          Label, list and chip share one row — the shape every other titled
+          block in the record uses (notes, sources, partners). */}
+      {associations.length > 0 && <span className="edit-record-label">{t("assoc.heading")}</span>}
       {(associations.length > 0 || adding) && (
-        <ul className="edit-assoc-list">
-          <li className="edit-assoc-row">
-            <span className="edit-assoc-context">{t("assoc.onTheRecord")}</span>
-            {/* The same chips as on an event's row, with the record itself as
-                the container. */}
-            <EventAssociates
-              associations={associations}
-              container={record}
-              ownerId={ownerId}
-              t={t}
-              picking={adding}
-              onDonePicking={() => setAdding(false)}
-              moveTargets={moveTargets}
-              removeTitle={t("assoc.removeFromRecord")}
-            />
-          </li>
-        </ul>
+        // The same chips as on an event's row, with the record itself as the
+        // container. No "on the record" label in front of them: every row here
+        // is on the record, and the heading above has already said so.
+        <EventAssociates
+          associations={associations}
+          container={record}
+          ownerId={ownerId}
+          t={t}
+          picking={adding}
+          onDonePicking={() => setAdding(false)}
+          moveTargets={moveTargets}
+          removeTitle={t("assoc.removeFromRecord")}
+        />
       )}
       {offerAdd && !adding && (
-        // The same chip as "+ Add event" above it: both are the record's own
-        // "add one of these" and there is no reason for them to read differently.
-        <div className="edit-assoc-add-row">
-          <button
-            type="button"
-            className="edit-name-chip edit-name-chip-add"
-            title={t("assoc.addOnRecordTip")}
-            onClick={() => setAdding(true)}
-          >
-            + {t("assoc.addOnRecord")}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="edit-name-chip edit-name-chip-add"
+          title={t("assoc.addOnRecordTip")}
+          onClick={() => setAdding(true)}
+        >
+          + {t("assoc.addOnRecord")}
+        </button>
       )}
-    </>
+    </div>
   );
 }
 
@@ -142,7 +136,9 @@ export function AssociatesPanel({
       />
       {!!namedBy?.length && (
         <>
-          <div className="edit-assoc-head">{t("assoc.namedByHeading")}</div>
+          <div className="edit-record-label-row">
+            <span className="edit-record-label">{t("assoc.namedByHeading")}</span>
+          </div>
           <ul className="edit-assoc-list">
             {namedBy.map((ref, i) => {
               // "Marriage 1899" — the year says which one, the couple below says

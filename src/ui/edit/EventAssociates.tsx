@@ -9,6 +9,7 @@ import { EDITABLE_ASSOC_ROLES, isVoidAssociation } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
+import { NotesEditor } from "./NotesEditor";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { DropdownMenu } from "../DropdownMenu";
 import { useAssoc, type AssocApi } from "./AssocContext";
@@ -95,6 +96,12 @@ export function RecordLink({
       ))}
     </span>
   );
+}
+
+/** A note list's identity, for remounting the editor when the record's own
+ *  notes have moved on under it (see the event rows, which key the same way). */
+function noteEditorKey(assoc: Association): string {
+  return (assoc.noteRefs ?? []).map((r) => `${r.xref ?? ""}:${r.text}:${r.private ? 1 : 0}`).join("|");
 }
 
 /** The associate's sex, where the file records them and states it. */
@@ -203,6 +210,9 @@ export function EventAssociates({
   const api = useAssoc();
   const [editing, setEditing] = useState<Association | null>(null);
   const [picked, setPicked] = useState<{ targetId?: string; name?: string } | null>(null);
+  /** Per-associate counter that opens a fresh, empty note on this row — the
+   *  same trigger the event rows use to reveal one. */
+  const [noteAdds, setNoteAdds] = useState<Record<number, number>>({});
 
   const close = () => {
     setPicked(null);
@@ -257,8 +267,32 @@ export function EventAssociates({
                 />
               )}
               <span className="edit-assoc-role">{roleLabel(assoc, t, sexOfTarget(api, assoc))}</span>
+              {/* The association's own notes, as chips — the same editor a
+                  person's or an event's notes use, because they are the same
+                  thing: `ASSO` carries `NOTE` in both dialects. Empty until
+                  there is one, and the button below is how the first arrives. */}
+              {api && (
+                <NotesEditor
+                  // Seeded from these once, so it is remounted when the record's
+                  // notes change underneath it — a commit, an undo (as the
+                  // event rows do with the same key).
+                  key={noteEditorKey(assoc)}
+                  notes={assoc.noteRefs ?? []}
+                  addTrigger={noteAdds[i]}
+                  t={t}
+                  onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
+                />
+              )}
               {api && container && (
                 <>
+                  <button
+                    type="button"
+                    className="edit-assoc-glyph edit-assoc-note"
+                    title={t("assoc.addNoteTip")}
+                    onClick={() => setNoteAdds((prev) => ({ ...prev, [i]: (prev[i] ?? 0) + 1 }))}
+                  >
+                    + {t("assoc.addNote")}
+                  </button>
                   <button
                     type="button"
                     className="edit-assoc-glyph"
