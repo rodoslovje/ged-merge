@@ -9771,6 +9771,41 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   color: var(--accent);
   font-size: 0.78rem;
 }
+/* The role is a field, edited where it stands like every field on an event row:
+   the words the file holds, with the box drawn only once the pointer or the
+   caret is in it (`.edit-input`). Sized to its own text so a list of associates
+   does not become a column of same-width boxes. */
+.edit-assoc-role-field {
+  color: var(--accent);
+  font-size: 0.78rem;
+  padding: 1px 4px;
+}
+/* The vocabulary, and the actions that are not typing, hang off the caret
+   beside it — the shape an event's type label has. Hidden until the row is
+   reached, so a record naming nine people reads as nine roles, not as nine
+   controls. */
+.edit-assoc-role-menu {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: -2px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent);
+  line-height: 1;
+  align-self: center;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+.edit-event-assoc:hover .edit-assoc-role-menu,
+.edit-assoc-role-field:focus + .edit-assoc-role-menu,
+.edit-assoc-role-menu:focus-visible,
+.edit-assoc-role-menu[aria-expanded="true"] {
+  max-width: 1.4em;
+  opacity: 1;
+}
 /* A name the file records as nobody: no record to open, so no link affordance. */
 .edit-assoc-name-only {
   color: var(--text);
@@ -9787,10 +9822,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   white-space: nowrap;
 }
 .edit-assoc-action:hover { text-decoration: underline; }
-/* The ✎ and ✕ beside an associate: single glyphs, hidden until the row is
-   hovered, like the ↗ beside a citation. A baptism naming four godparents is a
-   list of people, and eight glyphs threaded between them is what it stops
-   reading as. Hover-only rather than :focus-within — a clicked control keeps
+/* The ✎ beside an associate: a single glyph, hidden until the row is hovered,
+   like the ↗ beside a citation. A baptism naming four godparents is a list of
+   people, and glyphs threaded between them is what it stops reading as — which
+   is also why moving and removing live in the role's own menu rather than out
+   here, a click away from an edit and one of them not undone by reading.
+   Hover-only rather than :focus-within — a clicked control keeps
    focus after the pointer leaves, which would pin the reveal to the last row
    touched; keyboard users reach them through :focus-visible.
    Only ever glyphs: the same clamp on a word ("Shrani") cuts it to 1.4em and
@@ -9812,12 +9849,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   overflow: hidden;
   transition: max-width 0.12s, opacity 0.12s;
 }
-/* ↧ is drawn lighter and smaller than ✎ and ✕ at the same size — the arrow's
-   bar sits low in its em box — so it gets the size that makes the three read
-   as one set. */
-.edit-assoc-move { font-size: 1rem; }
 .edit-assoc-glyph:hover { color: var(--accent); }
-.edit-assoc-remove:hover { color: var(--danger); }
 .edit-event:hover .edit-assoc-glyph,
 .edit-assoc-row:hover .edit-assoc-glyph,
 /* A record naming nine people is a list, and revealing all nine sets of

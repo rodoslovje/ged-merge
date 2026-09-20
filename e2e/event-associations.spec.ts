@@ -208,25 +208,14 @@ test("an event added this session is named with its date in the move menu", asyn
   await date.blur();
   await expect(date).toHaveValue("1980");
 
-  // The ↧ is revealed by hovering the associate, like the ✎ and ✕ beside it.
+  // The move hangs off the caret beside the role, which comes up with the row.
   const assocRow = page.locator(".edit-assoc .edit-event-assoc").first();
   await assocRow.hover();
+  await assocRow.locator(".edit-assoc-role-menu").click();
 
-  // The three read as one set: same vertical centre, none noticeably smaller.
-  // "+ Note" is deliberately not one of them — it is a word, not a glyph.
-  const glyphs = await assocRow.evaluate((row) => {
-    return [...row.querySelectorAll<HTMLElement>(".edit-assoc-glyph:not(.edit-assoc-note)")].map((el) => {
-      const r = el.getBoundingClientRect();
-      return { mid: Math.round(r.top + r.height / 2), h: Math.round(r.height) };
-    });
-  });
-  expect(glyphs).toHaveLength(3);
-  const mids = glyphs.map((g) => g.mid);
-  expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(1);
-  const heights = glyphs.map((g) => g.h);
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(4);
-
-  await assocRow.getByRole("button", { name: "Move to an event" }).click();
   const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
   expect(items).toContain("Education 1980");
+  // The destructive one keeps it company rather than standing exposed beside
+  // the role, a click away from an edit.
+  expect(items.some((i) => /Remove this person/.test(i))).toBe(true);
 });

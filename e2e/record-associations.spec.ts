@@ -67,14 +67,37 @@ test("the note is written while the associate is being named", async ({ page }) 
   await expect(panel.locator(".edit-note-item")).toHaveCount(1);
   await expect(panel.locator(".edit-event-assoc")).toContainText("78 cM over 4 segments");
 
-  // The form is the one way in, so nothing else offers to add what it already
-  // asked for.
-  await panel.locator(".edit-event-assoc").first().hover();
-  await expect(panel.getByRole("button", { name: /Note/ })).toHaveCount(0);
+  // And afterwards it is edited where it stands, like an event's own note —
+  // there is no second form to open.
+  const chip = panel.locator(".edit-event-note").first();
+  await chip.click();
+  await chip.fill("78 cM over 4 segments · MyHeritage");
+  await chip.blur();
+  await expect(panel.locator(".edit-event-assoc")).toContainText("MyHeritage");
+});
 
-  // Reopening it shows the note back, to change or to clear.
-  await panel.getByRole("button", { name: "Change the role or the note" }).first().click();
-  await expect(panel.getByLabel("Note about this association")).toHaveValue("78 cM over 4 segments");
+test("the role is a field, and its menu carries what typing cannot do", async ({ page }) => {
+  // The event rows' way: the value is the field, edited where it stands. The
+  // vocabulary and the actions hang off the caret beside it.
+  await openEdit(page, "7.0");
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  await addAssociate(panel, "Jozefa");
+
+  // Typed over, the file keeps the words — no dialog, no edit button.
+  // The exact word the language has for a woman in that role, not the neutral one.
+  const role = panel.locator(".edit-assoc-role-field").first();
+  await expect(role).toHaveValue("godmother");
+  await role.fill("DNA match");
+  await role.blur();
+  await expect(role).toHaveValue("DNA match");
+
+  // The vocabulary is in the menu, and picking from it replaces the wording
+  // rather than leaving the association with two answers.
+  await panel.locator(".edit-event-assoc").first().hover();
+  await panel.locator(".edit-assoc-role-menu").first().click();
+  await page.locator(".dd-menu [role=option]", { hasText: "witness" }).first().click();
+  await expect(role).toHaveValue("witness");
 });
 
 test("a long note drops under its associate, a short one reads on after the role", async ({ page }) => {

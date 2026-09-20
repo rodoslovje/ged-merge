@@ -5,7 +5,7 @@ import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
 import type { Translate } from "../../locales/i18n";
-import { EDITABLE_ASSOC_ROLES, isVoidAssociation } from "../../gedcom/assoc";
+import { EDITABLE_ASSOC_ROLES, isVoidAssociation, roleFromRela } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
@@ -95,6 +95,130 @@ export function RecordLink({
         </span>
       ))}
     </span>
+  );
+}
+
+/** Sentinel menu values for the entries that are not a role or a move target. */
+const REMOVE_OPTION = "__remove_assoc__";
+const NOTE_OPTION = "__note_assoc__";
+/** Move targets are numbered; this tells their values from the sentinels. */
+const MOVE_PREFIX = "move:";
+
+/**
+ * One associate as the row shows them: who they were, in what role, and what
+ * the record said about them.
+ *
+ * Edited in place, the way an event's fields are — the role is a field that
+ * looks like the words it holds until the pointer reaches it, and its own menu
+ * carries the vocabulary plus the things that are not typing: a note, a move to
+ * an event, and taking the person off the record. There is no edit button,
+ * because there is nothing an edit button would open that is not already here.
+ */
+function AssociateChip({
+  assoc,
+  api,
+  ownerId,
+  container,
+  t,
+  moveTargets,
+  removeTitle,
+}: {
+  assoc: Association;
+  api: AssocApi;
+  ownerId: string;
+  container: GedNode;
+  t: Translate;
+  moveTargets?: { node: GedNode; label: string }[];
+  removeTitle?: string;
+}) {
+  const sex = sexOfTarget(api, assoc);
+  const shown = roleLabel(assoc, t, sex);
+  const [role, setRole] = useState(shown);
+  /** Opens a fresh, empty note on this row — the event rows' own trigger. */
+  const [noteAdd, setNoteAdd] = useState(0);
+
+  /** Write the role: a word of the file's own, or the vocabulary's. */
+  const commit = (next: AssocRole, text: string | undefined) =>
+    api.update(ownerId, assoc.raw, {
+      targetId: isVoidAssociation(assoc) ? undefined : assoc.targetId,
+      name: assoc.name,
+      role: next,
+      roleText: text,
+      // A 5.5-era association may point at a family; changing its role must not
+      // cost the `TYPE FAM` that says so.
+      targetKind: assoc.targetKind,
+    });
+
+  return (
+    <>
+      {/* Typed over, the role becomes the file's own wording; the vocabulary is
+          in the menu beside it. What stands here at rest is what the file says,
+          so a row of matches reads "DNA match" and not "named without a role". */}
+      <input
+        className="edit-input edit-assoc-role edit-assoc-role-field"
+        value={role}
+        size={Math.max(6, role.length)}
+        aria-label={t("assoc.roleLabel")}
+        placeholder={t("assoc.roleTextPlaceholder")}
+        onChange={(e) => setRole(e.target.value)}
+        onBlur={() => {
+          const text = role.trim();
+          if (text === shown) return; // untouched: the file keeps its own words
+          // Cleared, it falls back to the role the file was read as; typed over,
+          // the words are kept verbatim and the role reads as OTHER.
+          if (text) commit(roleFromRela(text), text);
+          else commit(assoc.role, undefined);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          else if (e.key === "Escape") setRole(shown);
+        }}
+      />
+      <DropdownMenu
+        className="edit-assoc-role-menu"
+        title={t("assoc.rowMenuTip")}
+        ariaLabel={t("assoc.rowMenu")}
+        current={assoc.role}
+        groups={[
+          { items: EDITABLE_ASSOC_ROLES.map((r) => ({ value: r, label: t(`assoc.role.${r}`, { context: sex === "M" || sex === "F" ? sex : undefined }) })) },
+          ...(moveTargets?.length
+            ? [{ label: t("assoc.move"), items: moveTargets.map((m, mi) => ({ value: `${MOVE_PREFIX}${mi}`, label: m.label })) }]
+            : []),
+          {
+            items: [
+              // The app's own words for this everywhere else — a note on an
+              // association is a note like any other.
+              { value: NOTE_OPTION, label: t("edit.addNote") },
+              { value: REMOVE_OPTION, label: removeTitle ?? t("assoc.remove") },
+            ],
+          },
+        ]}
+        onSelect={(v) => {
+          if (v === REMOVE_OPTION) api.remove(ownerId, container, assoc.raw);
+          else if (v === NOTE_OPTION) setNoteAdd((n) => n + 1);
+          else if (v.startsWith(MOVE_PREFIX) && moveTargets) {
+            api.move(ownerId, container, moveTargets[Number(v.slice(MOVE_PREFIX.length))].node, assoc.raw);
+          } else {
+            // A role from the vocabulary replaces wording of the file's own:
+            // "botra" and "witness" on one association is two answers.
+            setRole(t(`assoc.role.${v}`, { context: sex === "M" || sex === "F" ? sex : undefined }));
+            commit(v as AssocRole, undefined);
+          }
+        }}
+        trigger={<span className="edit-assoc-role-caret" aria-hidden="true">▾</span>}
+      />
+      {/* The association's own notes, as chips — the same editor a person's or
+          an event's notes use, because they are the same thing: `ASSO` carries
+          `NOTE` in both dialects. Seeded from the record once, so the editor is
+          remounted when a commit or an undo moves them underneath it. */}
+      <NotesEditor
+        key={noteEditorKey(assoc)}
+        notes={assoc.noteRefs ?? []}
+        addTrigger={noteAdd}
+        t={t}
+        onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
+      />
+    </>
   );
 }
 
@@ -234,129 +358,54 @@ export function EventAssociates({
   removeTitle?: string;
 }) {
   const api = useAssoc();
-  const [editing, setEditing] = useState<Association | null>(null);
   const [picked, setPicked] = useState<{ targetId?: string; name?: string } | null>(null);
 
   const close = () => {
     setPicked(null);
-    setEditing(null);
     onDonePicking();
   };
 
   return (
     <>
-      {associations.map((assoc, i) => {
+      {associations.map((assoc, i) => (
         // The event rows' own rule, applied to the associate: a note longer
         // than a chip takes a line of its own under them, a one-liner reads on
         // after the role. Inline, a sentence-long note left the name a column
         // one character wide.
-        const notes = assoc.noteRefs ?? [];
-        const tall = isTallNoteList(notes);
-        const notesEl = api && (
-          <NotesEditor
-            // Seeded from these once, so it is remounted when the record's
-            // notes change underneath it — a commit, an undo (as the event
-            // rows do with the same key).
-            key={noteEditorKey(assoc)}
-            notes={notes}
-            t={t}
-            onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
-          />
-        );
-        return (
-        <span key={i} className={"edit-event-assoc" + (tall ? " edit-event-assoc--tall" : "")}>
-          {api && editing === assoc ? (
-            <RoleForm
+        <span
+          key={i}
+          className={"edit-event-assoc" + (isTallNoteList(assoc.noteRefs ?? []) ? " edit-event-assoc--tall" : "")}
+        >
+          {isVoidAssociation(assoc) || !api ? (
+            // Named, but recorded as nobody: there is no record to open, and
+            // dressing the text up as a link would promise one.
+            <span className="edit-assoc-name-only" title={t("assoc.nameOnlyTip")}>
+              {assoc.name || assoc.targetId}
+            </span>
+          ) : (
+            <RecordLink
+              dataset={api.dataset}
+              id={assoc.targetId}
+              fallback={assoc.name || assoc.targetId}
+              onNavigate={api.navigate}
+            />
+          )}
+          {api && container ? (
+            <AssociateChip
+              assoc={assoc}
+              api={api}
+              ownerId={ownerId}
+              container={container}
               t={t}
-              initial={assoc}
-              who={
-                <PersonChip
-                  dataset={api.dataset}
-                  targetId={isVoidAssociation(assoc) ? undefined : assoc.targetId}
-                  name={assoc.name}
-                />
-              }
-              sex={sexOfTarget(api, assoc)}
-              onCancel={() => setEditing(null)}
-              onSave={(role, roleText, note) => {
-                api.update(ownerId, assoc.raw, {
-                  targetId: isVoidAssociation(assoc) ? undefined : assoc.targetId,
-                  name: assoc.name,
-                  role,
-                  roleText,
-                  note,
-                  // A 5.5-era association may point at a family; changing its
-                  // role must not cost the `TYPE FAM` that says so.
-                  targetKind: assoc.targetKind,
-                });
-                setEditing(null);
-              }}
+              moveTargets={moveTargets}
+              removeTitle={removeTitle}
             />
           ) : (
-            <>
-              {isVoidAssociation(assoc) || !api ? (
-                // Named, but recorded as nobody: there is no record to open, and
-                // dressing the text up as a link would promise one.
-                <span className="edit-assoc-name-only" title={t("assoc.nameOnlyTip")}>
-                  {assoc.name || assoc.targetId}
-                </span>
-              ) : (
-                <RecordLink
-                  dataset={api.dataset}
-                  id={assoc.targetId}
-                  fallback={assoc.name || assoc.targetId}
-                  onNavigate={api.navigate}
-                />
-              )}
-              <span className="edit-assoc-role">{roleLabel(assoc, t, sexOfTarget(api, assoc))}</span>
-              {/* The association's own notes, as chips — the same editor a
-                  person's or an event's notes use, because they are the same
-                  thing: `ASSO` carries `NOTE` in both dialects. A short one
-                  reads on after the role; a long one waits below the actions.
-                  Editable where they are; ✎ is where one is written, so there
-                  is no separate button offering what the form already asks. */}
-              {!tall && notesEl}
-              {api && container && (
-                <>
-                  {/* Named as well as titled: a button whose only content is a
-                      glyph is announced as that glyph, and "✎" tells a screen
-                      reader nothing. */}
-                  <button
-                    type="button"
-                    className="edit-assoc-glyph"
-                    title={t("assoc.edit")}
-                    aria-label={t("assoc.edit")}
-                    onClick={() => setEditing(assoc)}
-                  >
-                    ✎
-                  </button>
-                  {!!moveTargets?.length && (
-                    <DropdownMenu
-                      className="edit-assoc-glyph edit-assoc-move"
-                      title={t("assoc.moveTip")}
-                      ariaLabel={t("assoc.move")}
-                      groups={[{ label: t("assoc.move"), items: moveTargets.map((m, mi) => ({ value: String(mi), label: m.label })) }]}
-                      onSelect={(v) => api.move(ownerId, container, moveTargets[Number(v)].node, assoc.raw)}
-                      trigger="↧"
-                    />
-                  )}
-                  <button
-                    type="button"
-                    className="edit-assoc-glyph edit-assoc-remove"
-                    title={removeTitle ?? t("assoc.remove")}
-                    aria-label={removeTitle ?? t("assoc.remove")}
-                    onClick={() => api.remove(ownerId, container, assoc.raw)}
-                  >
-                    ✕
-                  </button>
-                </>
-              )}
-              {tall && notesEl}
-            </>
+            // The merge's read-only rows have nothing to edit.
+            <span className="edit-assoc-role">{roleLabel(assoc, t, sexOfTarget(api, assoc))}</span>
           )}
         </span>
-        );
-      })}
+      ))}
       {api && container && picking && !picked && (
         <RelativePickerCard
           roleLabel={t("assoc.pickLabel")}
