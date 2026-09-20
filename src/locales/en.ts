@@ -478,7 +478,7 @@ export const en = {
   // The "+ Add" menu entry names one thing to add, like Place / Source / Note
   // beside it; the section heading below stays plural.
   "assoc.add": "Association",
-  "assoc.addOnRecord": "+ Add associate",
+  "assoc.addOnRecord": "Add associate",
   "assoc.addOnRecordTip": "Add a person connected to the record as a whole, rather than to one of its events",
   "assoc.pickLabel": "Who was named",
   "assoc.eventLabel": "At which event",

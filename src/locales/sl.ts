@@ -602,7 +602,7 @@ export const sl = {
   // Vnos v meniju »+ Dodaj« poimenuje eno stvar, ki jo dodate; naslov razdelka
   // spodaj ostaja v množini.
   "assoc.add": "Povezana oseba",
-  "assoc.addOnRecord": "+ Dodaj povezano osebo",
+  "assoc.addOnRecord": "Dodaj povezano osebo",
   "assoc.addOnRecordTip": "Dodajte osebo, ki je povezana s celotnim zapisom in ne z enim samim dogodkom",
   "assoc.pickLabel": "Koga je zapis imenoval",
   "assoc.eventLabel": "Pri katerem dogodku",

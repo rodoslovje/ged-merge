@@ -63,19 +63,9 @@ export function RecordAssociates({
 
   return (
     <>
-      <div className="edit-assoc-head">
-        {t("assoc.heading")}
-        {offerAdd && !adding && (
-          <button
-            type="button"
-            className="edit-assoc-add"
-            title={t("assoc.addOnRecordTip")}
-            onClick={() => setAdding(true)}
-          >
-            {t("assoc.addOnRecord")}
-          </button>
-        )}
-      </div>
+      {/* The heading names a list. With nobody on the record yet there is no
+          list to name, and the button below says what it does by itself. */}
+      {associations.length > 0 && <div className="edit-assoc-head">{t("assoc.heading")}</div>}
       {(associations.length > 0 || adding) && (
         <ul className="edit-assoc-list">
           <li className="edit-assoc-row">
@@ -94,6 +84,20 @@ export function RecordAssociates({
             />
           </li>
         </ul>
+      )}
+      {offerAdd && !adding && (
+        // The same chip as "+ Add event" above it: both are the record's own
+        // "add one of these" and there is no reason for them to read differently.
+        <div className="edit-assoc-add-row">
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("assoc.addOnRecordTip")}
+            onClick={() => setAdding(true)}
+          >
+            + {t("assoc.addOnRecord")}
+          </button>
+        </div>
       )}
     </>
   );

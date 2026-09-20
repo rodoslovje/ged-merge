@@ -2990,7 +2990,11 @@ button:focus-visible {
    "+ Add event" menu. Sized like the person's own chip row above —
    it sits outside `.edit-other-names`, so it states the size and spacing that
    row inherits from there rather than taking the panel's. */
-.edit-event-add-row {
+/* The rows of "add one of these" chips under a record's lists: its events, and
+   the people it names who are not relatives. Both offer the record something of
+   its own, so they read alike. */
+.edit-event-add-row,
+.edit-assoc-add-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2999,7 +3003,8 @@ button:focus-visible {
   font-size: 0.85rem;
   color: var(--muted);
 }
-.edit-event-add-row .edit-name-chip-add { opacity: 1; }
+.edit-event-add-row .edit-name-chip-add,
+.edit-assoc-add-row .edit-name-chip-add { opacity: 1; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
    destination — solid-bordered, where an offer to add is dashed. That border is
@@ -9740,25 +9745,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 0.78rem;
   color: var(--muted);
   margin-bottom: 4px;
-  /* The heading carries the "+ Add associate" action beside it, the way the
-     event list's add row sits under its events. */
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 10px;
 }
-/* Always readable, unlike the hover-only ✎ and ✕ below: with no associate on the
-   record yet there is no row to hover to find it. */
-.edit-assoc-add {
-  background: none;
-  border: 0;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-.edit-assoc-add:hover { text-decoration: underline; }
 .edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
 .edit-assoc-list {
   list-style: none;
