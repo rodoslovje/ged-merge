@@ -598,7 +598,7 @@ export const sl = {
   "assoc.role.SPOU": "zakonec",
   "assoc.role.WIFE": "žena",
   "assoc.role.WITN": "priča",
-  "assoc.role.OTHER": "brez navedene vloge",
+  "assoc.role.OTHER": "drugo",
   // Vnos v meniju »+ Dodaj« poimenuje eno stvar, ki jo dodate; naslov razdelka
   // spodaj ostaja v množini.
   "assoc.add": "Povezana oseba",

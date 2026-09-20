@@ -474,7 +474,7 @@ export const en = {
   "assoc.role.SPOU": "spouse",
   "assoc.role.WIFE": "wife",
   "assoc.role.WITN": "witness",
-  "assoc.role.OTHER": "named without a role",
+  "assoc.role.OTHER": "other",
   // The "+ Add" menu entry names one thing to add, like Place / Source / Note
   // beside it; the section heading below stays plural.
   "assoc.add": "Association",

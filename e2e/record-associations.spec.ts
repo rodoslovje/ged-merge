@@ -95,6 +95,14 @@ test("naming somebody writes them, with the caret in the role and a note waiting
   await chip.fill("78 cM over 4 segments · MyHeritage");
   await chip.blur();
   await expect(panel.locator(".edit-event-assoc")).toContainText("MyHeritage");
+
+  // The menu stops offering to add what is on the row already — a note on
+  // screen is the way to write in it.
+  await panel.locator(".edit-event-assoc").first().hover();
+  await panel.locator(".edit-assoc-role-menu").first().click();
+  const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
+  expect(items.some((i) => /Add Note/.test(i))).toBe(false);
+  expect(items.some((i) => /Remove this person/.test(i))).toBe(true);
 });
 
 test("the role is a field, and its menu carries what typing cannot do", async ({ page }) => {

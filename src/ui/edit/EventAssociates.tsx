@@ -156,9 +156,13 @@ function AssociateChip({
             : []),
           {
             items: [
-              // The app's own words for this everywhere else — a note on an
-              // association is a note like any other.
-              { value: NOTE_OPTION, label: t("edit.addNote") },
+              // Offered only while there is no note to type in: once one is on
+              // the row it is the way to write, and a menu entry for what is
+              // already on screen is the menu asking to be read for nothing.
+              // The event rows drop "Note" from their own "+ Add" the same way.
+              // The app's own words for it, because a note on an association is
+              // a note like any other.
+              ...(assoc.noteRefs?.length ? [] : [{ value: NOTE_OPTION, label: t("edit.addNote") }]),
               { value: REMOVE_OPTION, label: removeTitle ?? t("assoc.remove") },
             ],
           },

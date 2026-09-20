@@ -56,6 +56,35 @@ test("edit mode: an event's + Add menu records a godparent on that event", async
   await expect(bapm.locator(".edit-event-assoc")).toContainText("Jozefa");
 });
 
+test("an event's associate takes a role in your own words", async ({ page }) => {
+  // The register's word for somebody is often not one of the eight in the
+  // vocabulary — "pater", "kum", "svedok" — so the role is typed here as it is
+  // on a record, and the file keeps exactly what was typed.
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const bapm = page.locator(".edit-event").filter({ hasText: "Baptism" }).first();
+  await bapm.locator(".edit-event-addfield").click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
+  await bapm.locator(".relative-picker-input").fill("Jozefa");
+  await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
+
+  const role = bapm.locator(".edit-assoc-role-field");
+  await role.fill("pater");
+  await role.blur();
+  await expect(role).toHaveValue("pater");
+
+  // And the vocabulary's own entry for a role it has no word for reads "other",
+  // not a sentence about the absence of one.
+  await bapm.locator(".edit-event-assoc").first().hover();
+  await bapm.locator(".edit-assoc-role-menu").first().click();
+  const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
+  expect(items).toContain("other");
+});
+
 test("the association row keeps to itself and to the row's scale", async ({ page }) => {
   const fixture = writeFixture();
   await page.goto("/");
