@@ -96,13 +96,66 @@ test("naming somebody writes them, with the caret in the role and a note waiting
   await chip.blur();
   await expect(panel.locator(".edit-event-assoc")).toContainText("MyHeritage");
 
-  // The menu stops offering to add what is on the row already — a note on
-  // screen is the way to write in it.
+  // Writing one is the row's own offer, not a menu entry to go looking for.
   await panel.locator(".edit-event-assoc").first().hover();
   await panel.locator(".edit-assoc-role-menu").first().click();
   const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
   expect(items.some((i) => /Add Note/.test(i))).toBe(false);
   expect(items.some((i) => /Remove this person/.test(i))).toBe(true);
+});
+
+test("an associate with no note is offered one on the row", async ({ page }) => {
+  // One the file already carries: nothing was opened for it, so without the
+  // row's own offer there would be nothing to type in.
+  const ged = [
+    "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Janez /Renko/", "1 SEX M",
+    "1 ASSO @I3@", "2 ROLE GODP",
+    "0 @I3@ INDI", "1 NAME Jozefa /Pezdirc/", "1 SEX F",
+    "0 TRLR", "",
+  ].join("\n");
+  const filePath = path.join(tmpdir(), `assoc-noteless-${Date.now()}.ged`);
+  writeFileSync(filePath, ged, "utf-8");
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(filePath);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  await panel.locator(".edit-event-assoc").first().hover();
+  const offer = panel.getByRole("button", { name: "Add Note" });
+  await expect(offer).toBeVisible();
+  await offer.click();
+
+  const note = panel.locator(".edit-event-note").first();
+  await expect(note).toBeFocused();
+  await note.fill("stood for the eldest too");
+  await note.blur();
+  await expect(panel.locator(".edit-event-assoc")).toContainText("stood for the eldest too");
+  // Written, so the offer has nothing left to offer.
+  await expect(panel.getByRole("button", { name: "Add Note" })).toHaveCount(0);
+});
+
+test("picking \"other\" asks for the word rather than writing one", async ({ page }) => {
+  // "Other" is the absence of a word in the vocabulary, so it cannot be the
+  // word the file keeps.
+  await openEdit(page, "7.0");
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  await addAssociate(panel, "Jozefa");
+
+  const role = panel.locator(".edit-assoc-role-field").first();
+  await role.click(); // out of the note box the new row opened with
+  await panel.locator(".edit-assoc-role-menu").first().click();
+  // Not "godmother", which contains the word.
+  await page.locator(".dd-menu [role=option]").filter({ hasText: /^other$/ }).click();
+
+  await expect(role).toHaveValue("");
+  await expect(role).toBeFocused();
+  await role.fill("DNA match");
+  await role.blur();
+  await expect(role).toHaveValue("DNA match");
 });
 
 test("the role is a field, and its menu carries what typing cannot do", async ({ page }) => {

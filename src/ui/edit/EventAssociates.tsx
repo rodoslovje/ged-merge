@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Association, AssocRole, Dataset, GedNode, Sex } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { EDITABLE_ASSOC_ROLES, isVoidAssociation, roleFromRela } from "../../gedcom/assoc";
@@ -59,9 +59,8 @@ export function RecordLink({
   );
 }
 
-/** Sentinel menu values for the entries that are not a role or a move target. */
+/** Sentinel menu value for the one entry that is neither a role nor a move. */
 const REMOVE_OPTION = "__remove_assoc__";
-const NOTE_OPTION = "__note_assoc__";
 /** Move targets are numbered; this tells their values from the sentinels. */
 const MOVE_PREFIX = "move:";
 
@@ -70,10 +69,11 @@ const MOVE_PREFIX = "move:";
  * the record said about them.
  *
  * Edited in place, the way an event's fields are — the role is a field that
- * looks like the words it holds until the pointer reaches it, and its own menu
- * carries the vocabulary plus the things that are not typing: a note, a move to
- * an event, and taking the person off the record. There is no edit button,
- * because there is nothing an edit button would open that is not already here.
+ * looks like the words it holds until the pointer reaches it, the note is its
+ * own box, and the menu beside the role carries only what typing cannot do: the
+ * vocabulary, a move to one of the record's events, and taking the person off
+ * the record. There is no edit button, because there is nothing an edit button
+ * would open that is not already here.
  */
 function AssociateChip({
   assoc,
@@ -100,8 +100,14 @@ function AssociateChip({
   const sex = sexOfTarget(api, assoc);
   const shown = roleLabel(assoc, t, sex);
   const [role, setRole] = useState(shown);
-  /** Opens a fresh, empty note on this row — the event rows' own trigger. */
-  const [noteAdd, setNoteAdd] = useState(0);
+  /** Opens a fresh, empty note on this row — the event rows' own trigger. Also
+   *  counts the box a just-written row opens by itself, so the offer below does
+   *  not stand beside an empty box offering a second one. */
+  const [noteAdd, setNoteAdd] = useState(fresh ? 1 : 0);
+  const roleRef = useRef<HTMLInputElement>(null);
+
+  /** The vocabulary's word for a role, in the associate's own gender. */
+  const roleWord = (r: AssocRole) => t(`assoc.role.${r}`, { context: sex === "M" || sex === "F" ? sex : undefined });
 
   /** Write the role: a word of the file's own, or the vocabulary's. */
   const commit = (next: AssocRole, text: string | undefined) =>
@@ -121,6 +127,7 @@ function AssociateChip({
           in the menu beside it. What stands here at rest is what the file says,
           so a row of matches reads "DNA match" and not "named without a role". */}
       <input
+        ref={roleRef}
         className="edit-input edit-assoc-role edit-assoc-role-field"
         value={role}
         size={Math.max(6, role.length)}
@@ -134,10 +141,17 @@ function AssociateChip({
         onBlur={() => {
           const text = role.trim();
           if (text === shown) return; // untouched: the file keeps its own words
-          // Cleared, it falls back to the role the file was read as; typed over,
-          // the words are kept verbatim and the role reads as OTHER.
-          if (text) commit(roleFromRela(text), text);
-          else commit(assoc.role, undefined);
+          if (text) {
+            // Typed over: the words are kept verbatim, and the role reads as
+            // whichever of the vocabulary they name — OTHER when none.
+            commit(roleFromRela(text), text);
+          } else {
+            // Left empty — including the empty box "other" opens. The file keeps
+            // the role it was read as, and the row says it in the app's words
+            // rather than standing blank.
+            commit(assoc.role, undefined);
+            setRole(roleWord(assoc.role));
+          }
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
@@ -154,28 +168,25 @@ function AssociateChip({
           ...(moveTargets?.length
             ? [{ label: t("assoc.move"), items: moveTargets.map((m, mi) => ({ value: `${MOVE_PREFIX}${mi}`, label: m.label })) }]
             : []),
-          {
-            items: [
-              // Offered only while there is no note to type in: once one is on
-              // the row it is the way to write, and a menu entry for what is
-              // already on screen is the menu asking to be read for nothing.
-              // The event rows drop "Note" from their own "+ Add" the same way.
-              // The app's own words for it, because a note on an association is
-              // a note like any other.
-              ...(assoc.noteRefs?.length ? [] : [{ value: NOTE_OPTION, label: t("edit.addNote") }]),
-              { value: REMOVE_OPTION, label: removeTitle ?? t("assoc.remove") },
-            ],
-          },
+          // No note entry here: the row itself offers the box (see below), and a
+          // menu is no place to look for something the row already shows.
+          { items: [{ value: REMOVE_OPTION, label: removeTitle ?? t("assoc.remove") }] },
         ]}
         onSelect={(v) => {
           if (v === REMOVE_OPTION) api.remove(ownerId, container, assoc.raw);
-          else if (v === NOTE_OPTION) setNoteAdd((n) => n + 1);
           else if (v.startsWith(MOVE_PREFIX) && moveTargets) {
             api.move(ownerId, container, moveTargets[Number(v.slice(MOVE_PREFIX.length))].node, assoc.raw);
+          } else if (v === "OTHER") {
+            // "Other" is not a role, it is the absence of one in the
+            // vocabulary — so picking it asks for the word instead of writing
+            // "other" into the file: the box is emptied and handed the caret.
+            setRole("");
+            commit("OTHER", undefined);
+            roleRef.current?.focus();
           } else {
             // A role from the vocabulary replaces wording of the file's own:
             // "botra" and "witness" on one association is two answers.
-            setRole(t(`assoc.role.${v}`, { context: sex === "M" || sex === "F" ? sex : undefined }));
+            setRole(roleWord(v as AssocRole));
             commit(v as AssocRole, undefined);
           }
         }}
@@ -193,6 +204,19 @@ function AssociateChip({
         t={t}
         onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
       />
+      {/* With no note yet there is no box to click, so the row offers one: it
+          comes up with the row like the ▾ does, and clicking hands over to the
+          editor above, which opens a real note with the caret in it. */}
+      {!assoc.noteRefs?.length && !noteAdd && (
+        <button
+          type="button"
+          className="edit-assoc-note-add"
+          title={t("edit.addNoteTooltip")}
+          onClick={() => setNoteAdd((n) => n + 1)}
+        >
+          {t("edit.addNote")}
+        </button>
+      )}
     </>
   );
 }
