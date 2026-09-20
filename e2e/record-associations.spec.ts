@@ -67,9 +67,13 @@ test("the note is written while the associate is being named", async ({ page }) 
   await expect(panel.locator(".edit-note-item")).toHaveCount(1);
   await expect(panel.locator(".edit-event-assoc")).toContainText("78 cM over 4 segments");
 
-  // Reopening the form shows it back, to change or to clear.
+  // The form is the one way in, so nothing else offers to add what it already
+  // asked for.
   await panel.locator(".edit-event-assoc").first().hover();
-  await panel.getByRole("button", { name: "Change the role" }).first().click();
+  await expect(panel.getByRole("button", { name: /Note/ })).toHaveCount(0);
+
+  // Reopening it shows the note back, to change or to clear.
+  await panel.getByRole("button", { name: "Change the role or the note" }).first().click();
   await expect(panel.getByLabel("Note about this association")).toHaveValue("78 cM over 4 segments");
 });
 

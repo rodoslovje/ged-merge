@@ -236,9 +236,6 @@ export function EventAssociates({
   const api = useAssoc();
   const [editing, setEditing] = useState<Association | null>(null);
   const [picked, setPicked] = useState<{ targetId?: string; name?: string } | null>(null);
-  /** Per-associate counter that opens a fresh, empty note on this row — the
-   *  same trigger the event rows use to reveal one. */
-  const [noteAdds, setNoteAdds] = useState<Record<number, number>>({});
 
   const close = () => {
     setPicked(null);
@@ -262,7 +259,6 @@ export function EventAssociates({
             // rows do with the same key).
             key={noteEditorKey(assoc)}
             notes={notes}
-            addTrigger={noteAdds[i]}
             t={t}
             onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
           />
@@ -316,26 +312,20 @@ export function EventAssociates({
               {/* The association's own notes, as chips — the same editor a
                   person's or an event's notes use, because they are the same
                   thing: `ASSO` carries `NOTE` in both dialects. A short one
-                  reads on after the role; a long one waits below the actions. */}
+                  reads on after the role; a long one waits below the actions.
+                  Editable where they are; ✎ is where one is written, so there
+                  is no separate button offering what the form already asks. */}
               {!tall && notesEl}
               {api && container && (
                 <>
-                  <button
-                    type="button"
-                    className="edit-assoc-glyph edit-assoc-note"
-                    title={t("assoc.addNoteTip")}
-                    onClick={() => setNoteAdds((prev) => ({ ...prev, [i]: (prev[i] ?? 0) + 1 }))}
-                  >
-                    + {t("assoc.addNote")}
-                  </button>
                   {/* Named as well as titled: a button whose only content is a
                       glyph is announced as that glyph, and "✎" tells a screen
                       reader nothing. */}
                   <button
                     type="button"
                     className="edit-assoc-glyph"
-                    title={t("assoc.editRole")}
-                    aria-label={t("assoc.editRole")}
+                    title={t("assoc.edit")}
+                    aria-label={t("assoc.edit")}
                     onClick={() => setEditing(assoc)}
                   >
                     ✎

@@ -9829,16 +9829,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   opacity: 1;
   padding: 0 2px;
 }
-/* "+ Note" is a word where its neighbours are single glyphs — it reveals the
-   same way and needs the room a 1.4em clamp does not give. A glyph would have
-   had to be invented for it, and none of ✎ ↧ ✕ says "note". */
-.edit-event:hover .edit-assoc-glyph.edit-assoc-note,
-.edit-assoc-row:hover .edit-assoc-glyph.edit-assoc-note,
-.edit-event-assoc:hover .edit-assoc-glyph.edit-assoc-note,
-.edit-assoc-glyph.edit-assoc-note:focus-visible {
-  max-width: 12em;
-  white-space: nowrap;
-}
 /* One associate on an event's own row: the person, their role, and the two
    actions — laid out like the row's other chips. */
 .edit-event-assoc {
