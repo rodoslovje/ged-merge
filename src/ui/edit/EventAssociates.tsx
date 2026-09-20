@@ -1,9 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
 import type { Association, AssocRole, Dataset, GedNode, Sex } from "../../gedcom/types";
-import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
-import { useNameOf, useSettingsSlice } from "../SettingsContext";
-import { sexClass } from "../sex";
 import type { Translate } from "../../locales/i18n";
 import { EDITABLE_ASSOC_ROLES, isVoidAssociation, roleFromRela } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
@@ -27,41 +23,6 @@ export function roleLabel(assoc: Association, t: Translate, sex?: Sex): string {
   if (own) return own;
   return t(`assoc.role.${assoc.role}`, { context: sex === "M" || sex === "F" ? sex : undefined });
 }
-
-/**
- * The associate's name as the app writes it elsewhere, shown while their role
- * is being chosen — a pick you cannot see is a pick you cannot check. Not a
- * link: following it mid-form would abandon the form.
- */
-export function PersonChip({
-  dataset,
-  targetId,
-  name,
-}: {
-  dataset: Dataset;
-  targetId?: string;
-  /** For an associate the file records as nobody: the typed name. */
-  name?: string;
-}) {
-  const { t } = useTranslation();
-  const nameOf = useNameOf();
-  const settings = useSettingsSlice(CHIP_SETTINGS);
-  const indi = targetId ? dataset.individuals.get(targetId) : undefined;
-  if (!indi) return <span className="person-label">{name}</span>;
-  const span = lifespanWithAge(indi, settings.showAge);
-  return (
-    <span className={`person-label ${sexClass(indi.sex)}`}>
-      <span className="person-name">{nameOf(indi)}</span>
-      {span && (
-        <span className="person-years gm-data" title={lifespanTooltipOf(indi, settings.showAge, t)}>
-          {span}
-        </span>
-      )}
-    </span>
-  );
-}
-
-const CHIP_SETTINGS = ["showAge"] as const;
 
 /**
  * A record an association points at, or is carried by. Usually a person; a
@@ -122,6 +83,7 @@ function AssociateChip({
   t,
   moveTargets,
   removeTitle,
+  fresh,
 }: {
   assoc: Association;
   api: AssocApi;
@@ -130,6 +92,10 @@ function AssociateChip({
   t: Translate;
   moveTargets?: { node: GedNode; label: string }[];
   removeTitle?: string;
+  /** Just written: the row opens with the caret in the role and a note waiting,
+   *  since naming somebody, saying in what role and saying what the record said
+   *  about them is one thought. */
+  fresh?: boolean;
 }) {
   const sex = sexOfTarget(api, assoc);
   const shown = roleLabel(assoc, t, sex);
@@ -160,6 +126,10 @@ function AssociateChip({
         size={Math.max(6, role.length)}
         aria-label={t("assoc.roleLabel")}
         placeholder={t("assoc.roleTextPlaceholder")}
+        // Not focused on arrival, though it is the first field here: the empty
+        // note beside it is, because the role already holds a sensible word and
+        // the note holds nothing. Shift+Tab reaches it from there.
+        onFocus={(e) => fresh && e.currentTarget.select()}
         onChange={(e) => setRole(e.target.value)}
         onBlur={() => {
           const text = role.trim();
@@ -214,23 +184,13 @@ function AssociateChip({
       <NotesEditor
         key={noteEditorKey(assoc)}
         notes={assoc.noteRefs ?? []}
+        addOnMount={fresh}
         addTrigger={noteAdd}
         t={t}
         onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
       />
     </>
   );
-}
-
-/**
- * The association's first note written as text on the `ASSO` itself — the one
- * the role form edits. A pointer to a shared note record is deliberately not
- * offered there: it belongs to every record citing it, and a one-line field is
- * no place to rewrite something with other owners. Those are edited as chips on
- * the row, where the lock and the shared-note machinery are.
- */
-function firstInlineNote(assoc: Association | undefined): string | undefined {
-  return (assoc?.noteRefs ?? []).find((r) => !r.xref)?.text;
 }
 
 /** A note list's identity, for remounting the editor when the record's own
@@ -243,79 +203,6 @@ function noteEditorKey(assoc: Association): string {
 function sexOfTarget(api: AssocApi | null, assoc: Association): Sex | undefined {
   if (!api || isVoidAssociation(assoc)) return undefined;
   return api.dataset.individuals.get(assoc.targetId)?.sex;
-}
-
-/** Pick the role, and — for one the vocabulary has no word for — the wording to
- *  keep instead. */
-export function RoleForm({
-  t,
-  initial,
-  who,
-  sex,
-  onSave,
-  onCancel,
-}: {
-  t: Translate;
-  initial?: Association;
-  /** Who the role is being chosen for — kept on screen throughout. */
-  who?: ReactNode;
-  /** Their sex, so the options read "boter" rather than "boter/botra" once
-   *  there is a person to say it about. */
-  sex?: Sex;
-  onSave: (role: AssocRole, roleText?: string, note?: string) => void;
-  onCancel: () => void;
-}) {
-  const [role, setRole] = useState<AssocRole>(initial?.role ?? "GODP");
-  const [text, setText] = useState(initial?.roleText ?? "");
-  // The register that named a godparent usually said something about them, and
-  // a DNA match without its numbers is barely worth recording — so the note is
-  // part of naming the associate, not a second trip through the row.
-  const [note, setNote] = useState(firstInlineNote(initial) ?? "");
-
-  return (
-    <span className="edit-assoc-roleform">
-      {who}
-      <select
-        className="edit-assoc-select"
-        value={role}
-        onChange={(e) => setRole(e.target.value as AssocRole)}
-        aria-label={t("assoc.roleLabel")}
-        autoFocus
-      >
-        {EDITABLE_ASSOC_ROLES.map((r) => (
-          <option key={r} value={r}>
-            {t(`assoc.role.${r}`, { context: sex === "M" || sex === "F" ? sex : undefined })}
-          </option>
-        ))}
-      </select>
-      {role === "OTHER" && (
-        <input
-          className="edit-assoc-input"
-          value={text}
-          placeholder={t("assoc.roleTextPlaceholder")}
-          onChange={(e) => setText(e.target.value)}
-          aria-label={t("assoc.roleTextLabel")}
-        />
-      )}
-      <input
-        className="edit-assoc-input edit-assoc-note-input"
-        value={note}
-        placeholder={t("assoc.notePlaceholder")}
-        onChange={(e) => setNote(e.target.value)}
-        aria-label={t("assoc.noteLabel")}
-      />
-      <button
-        type="button"
-        className="edit-assoc-action"
-        onClick={() => onSave(role, text.trim() || undefined, note.trim() || undefined)}
-      >
-        {t("assoc.save")}
-      </button>
-      <button type="button" className="edit-assoc-action" onClick={onCancel}>
-        {t("assoc.cancel")}
-      </button>
-    </span>
-  );
 }
 
 /**
@@ -358,10 +245,26 @@ export function EventAssociates({
   removeTitle?: string;
 }) {
   const api = useAssoc();
-  const [picked, setPicked] = useState<{ targetId?: string; name?: string } | null>(null);
+  /** The associate just written, whose row opens ready to be filled in. */
+  const [fresh, setFresh] = useState<number | null>(null);
 
-  const close = () => {
-    setPicked(null);
+  // One render's worth: the row mounts with it, takes the caret and opens an
+  // empty note, and from then on is an ordinary row. Left standing, it would
+  // open a second empty note every time the first one was committed.
+  useEffect(() => {
+    if (fresh !== null) setFresh(null);
+  }, [fresh]);
+
+  /**
+   * Picking somebody writes the association there and then, the way adding an
+   * event or another name does — no form to fill and confirm. The role it
+   * starts with is the one a register names most, and the row it lands in is
+   * where it is changed: the caret is already in the role.
+   */
+  const name = (who: { targetId?: string; name?: string }) => {
+    if (!api || !container) return;
+    api.add(ownerId, container, { ...who, role: "GODP" });
+    setFresh(associations.length);
     onDonePicking();
   };
 
@@ -399,6 +302,7 @@ export function EventAssociates({
               t={t}
               moveTargets={moveTargets}
               removeTitle={removeTitle}
+              fresh={i === fresh}
             />
           ) : (
             // The merge's read-only rows have nothing to edit.
@@ -406,36 +310,24 @@ export function EventAssociates({
           )}
         </span>
       ))}
-      {api && container && picking && !picked && (
+      {api && container && picking && (
         <RelativePickerCard
           roleLabel={t("assoc.pickLabel")}
           individuals={api.dataset.individuals}
           excludeId={ownerId}
-          onPickExisting={(id) => setPicked({ targetId: id })}
+          onPickExisting={(id) => name({ targetId: id })}
           // In a 7.0 file the extra row records the typed name on the
           // association itself (`@VOID@` + `PHRASE`) rather than minting a
           // person — the godparent is named, not researched. A 5.5.1 file has
           // no such form, so it offers only people the file already holds.
           onAddNew={
             canWriteNameOnly(api.version)
-              ? (typed) => (typed.trim() ? setPicked({ name: typed.trim() }) : close())
+              ? (typed) => (typed.trim() ? name({ name: typed.trim() }) : onDonePicking())
               : undefined
           }
           newLabel={t("assoc.nameOnly")}
-          onCancel={close}
+          onCancel={onDonePicking}
           t={t}
-        />
-      )}
-      {api && container && picking && picked && (
-        <RoleForm
-          t={t}
-          who={<PersonChip dataset={api.dataset} targetId={picked.targetId} name={picked.name} />}
-          sex={picked.targetId ? api.dataset.individuals.get(picked.targetId)?.sex : undefined}
-          onCancel={close}
-          onSave={(role, roleText, note) => {
-            api.add(ownerId, container, { targetId: picked.targetId, name: picked.name, role, roleText, note });
-            close();
-          }}
         />
       )}
     </>

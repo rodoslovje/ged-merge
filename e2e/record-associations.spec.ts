@@ -32,15 +32,23 @@ async function openEdit(page: import("@playwright/test").Page, version: "5.5.1" 
   await page.locator(".edit-person").waitFor();
 }
 
-/** Name an associate through a record's "+ Add associate", role, note and all. */
+/**
+ * Name an associate through a record's "+ Add associate". Picking writes them,
+ * as adding an event or another name does — there is nothing to confirm — and
+ * the row opens with the caret in the role and a note waiting.
+ */
 async function addAssociate(panel: import("@playwright/test").Locator, name: string, note?: string) {
   await panel.getByRole("button", { name: "+ Add associate" }).click();
   const picker = panel.locator(".relative-picker-input");
   await expect(picker).toBeVisible();
   await picker.fill(name);
   await panel.getByRole("button", { name: new RegExp(name) }).first().click();
-  if (note !== undefined) await panel.getByLabel("Note about this association").fill(note);
-  await panel.getByRole("button", { name: "Save" }).click();
+  if (note !== undefined) {
+    const box = panel.locator(".edit-event-note").last();
+    await expect(box).toBeVisible();
+    await box.fill(note);
+    await box.blur();
+  }
 }
 
 test("a person's own record takes an associate, in either dialect", async ({ page }) => {
@@ -53,15 +61,28 @@ test("a person's own record takes an associate, in either dialect", async ({ pag
   await expect(panel.locator(".edit-event-assoc")).toContainText("Jozefa");
 });
 
-test("the note is written while the associate is being named", async ({ page }) => {
-  // `ASSO` carries `NOTE` in both dialects, so what the register said — or the
-  // centimorgans behind a DNA match — belongs on the association itself rather
-  // than on the person as a whole. And it is asked for in the same breath as
-  // the role, not on a second trip through the row.
+test("naming somebody writes them, with the caret in the role and a note waiting", async ({ page }) => {
+  // Picking is the whole act, as it is for an event or another name: nothing to
+  // confirm. `ASSO` carries `NOTE` in both dialects, so what the register said —
+  // or the centimorgans behind a DNA match — belongs on the association itself
+  // rather than on the person as a whole, and the box for it is already open.
   await openEdit(page, "7.0");
 
   const panel = page.locator(".edit-person .edit-assoc");
-  await addAssociate(panel, "Jozefa", "78 cM over 4 segments");
+  await panel.getByRole("button", { name: "+ Add associate" }).click();
+  await panel.locator(".relative-picker-input").fill("Jozefa");
+  await panel.getByRole("button", { name: /Jozefa/ }).first().click();
+
+  // Written already — no Save, no Cancel — with the role at its default and
+  // the caret in the empty note, which is the part that holds nothing yet.
+  await expect(panel.locator(".edit-event-assoc")).toContainText("Jozefa");
+  await expect(panel.getByRole("button", { name: "Save" })).toHaveCount(0);
+  await expect(panel.locator(".edit-assoc-role-field")).toHaveValue("godmother");
+
+  const note = panel.locator(".edit-event-note").first();
+  await expect(note).toBeFocused();
+  await note.fill("78 cM over 4 segments");
+  await note.blur();
 
   // It sits with the associate, not among the person's own notes.
   await expect(panel.locator(".edit-note-item")).toHaveCount(1);

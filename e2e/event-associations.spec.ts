@@ -50,10 +50,8 @@ test("edit mode: an event's + Add menu records a godparent on that event", async
   await picker.fill("Jozefa");
   await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
 
-  // Then the role, defaulting to godparent.
-  await bapm.getByRole("button", { name: "Save" }).click();
-
-  // The associate now sits on the baptism row.
+  // Picking writes them — nothing to confirm — and the associate now sits on
+  // the baptism row, in the role a register names most.
   await expect(bapm.locator(".edit-event-assoc")).toHaveCount(1);
   await expect(bapm.locator(".edit-event-assoc")).toContainText("Jozefa");
 });
@@ -71,12 +69,11 @@ test("the association row keeps to itself and to the row's scale", async ({ page
   await bapm.locator(".relative-picker-input").fill("Jozefa");
   await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
 
-  // The role form is on screen with the person it is about.
-  const form = bapm.locator(".edit-assoc-roleform");
-  await expect(form).toBeVisible();
-  await expect(form).toContainText("Jozefa");
+  // The associate is on the row, with the role field and note beside them.
+  await expect(bapm.locator(".edit-event-assoc")).toContainText("Jozefa");
+  await expect(bapm.locator(".edit-assoc-role-field")).toHaveValue("godmother");
 
-  // It stays inside the event row rather than running across the note beside it.
+  // They stay inside the event row rather than running across the note beside it.
   const overflow = await bapm.evaluate((row) => {
     const slot = row.querySelector<HTMLElement>('[data-detail="assoc"]');
     const note = row.querySelector<HTMLElement>('[data-detail="note"]');
@@ -95,24 +92,6 @@ test("the association row keeps to itself and to the row's scale", async ({ page
   expect(overflow.missing).toBe(false);
   expect(overflow.over).toBe(0);
   expect(overflow.notes).toBe(0);
-
-  // The form's own buttons are words, not glyphs: clamped like the hover-only
-  // ✎ and ✕ they were cut to 1.4em and printed on top of each other.
-  const buttons = await form.evaluate((el) => {
-    const [save, cancel] = [...el.querySelectorAll<HTMLElement>(".edit-assoc-action")];
-    if (!save || !cancel) return { found: false, overlap: 0, clipped: true };
-    const a = save.getBoundingClientRect();
-    const b = cancel.getBoundingClientRect();
-    return {
-      found: true,
-      overlap: Math.max(0, Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left))),
-      // A word narrower than its own text is a clamped one.
-      clipped: save.scrollWidth > Math.ceil(a.width) + 1,
-    };
-  });
-  expect(buttons.found).toBe(true);
-  expect(buttons.overlap).toBe(0);
-  expect(buttons.clipped).toBe(false);
 });
 
 /** How a picker row reads: the name's size and leading, and the row's height.
