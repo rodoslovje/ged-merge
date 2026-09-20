@@ -744,13 +744,37 @@
             <h3 id="associates">Associations</h3>
             <p>
               Records name people who are not relatives: the godparents at a baptism, the witnesses at a wedding, the
-              priest who officiated — and, outside the registers, a teacher or a neighbour. They belong to the event
-              that names them, so that is where they are edited: the event's
-              <strong>+ Add</strong> menu gains an <strong>Association</strong> entry, which searches for the person
-              and then asks for the role, and each associate sits on the event's own row as a name, a role, and the
-              <span class="gm-glyph">✎</span> / <span class="gm-glyph danger">✕</span> to change or remove it. Roles
-              offered are godparent, witness, clergy, officiant, friend, neighbour, born at the same birth, and a
-              free-text one for anything else. A marriage's witnesses go on the family's marriage row the same way.
+              priest who officiated — and, outside the registers, a teacher or a neighbour. Where one of these may be
+              written is the standard's decision, not the app's, and the two GEDCOM versions differ, so what is offered
+              follows the file you have loaded.
+            </p>
+            <p>
+              A <strong>GEDCOM 7</strong> file holds an association in three places. On an event, which says the most
+              and so comes first: the event's <strong>+ Add</strong> menu gains an <strong>Association</strong> entry,
+              which searches for the person and then asks for the role, and each associate sits on the event's own row
+              as a name, a role, and the <span class="gm-glyph">✎</span> / <span class="gm-glyph danger">✕</span> to
+              change or remove it. On the person's own record, under <strong>Associations</strong> below the event list,
+              where <strong>+ Add associate</strong> records a connection no single event accounts for — a lifelong
+              neighbour, a DNA match. And on a family's record, under the same heading in the family panel, for
+              witnesses who belong to the marriage rather than to one spouse. Roles offered are godparent, witness,
+              clergy, officiant, friend, neighbour, born at the same birth, and a free-text one for anything else.
+            </p>
+            <p>
+              A file written to the older <strong>GEDCOM 5.5.1</strong> layout has only the middle one: that standard
+              defines an association on a person and nowhere else. So there the event rows and the family panel offer
+              none, and <strong>+ Add associate</strong> on the person is the way in — a wedding's witness goes on a
+              spouse's record, which is what the dialect has to say it with. Associations such a file already carries on
+              an event stay visible and editable where they sit; none of them is moved or hidden.
+            </p>
+            <p>
+              A <strong>DNA match</strong> has no place of its own in GEDCOM: neither version defines a test, a match, a
+              shared-centimorgan figure or a segment. An association is the closest honest fit, and it belongs on the
+              person's own record rather than on an event — a match is not something that happened to them on a day.
+              Choose the role <strong>named without a role</strong>, which is the free-text one, write
+              <em>DNA match</em> in <strong>Role, in your own words</strong>, and keep the numbers in a note on the
+              record with the testing company as its source. Nothing in the app reads those numbers as DNA — the
+              matching engine does not use them and no chart draws them; they are stored as you wrote them and saved
+              back unchanged.
             </p>
             <p>
               A godparent who is <em>not</em> in your tree can be recorded by name alone — type the name and choose
@@ -759,12 +783,10 @@
             </p>
             <p>
               Below the event list, <strong>Where this person is named</strong> lists it the other way round — every
-              baptism they stood godparent at. That side is a view, not a second entry to keep in step: the link is
-              stored once, on the event that names them. A file written to the older GEDCOM 5.5.1 layout — and some
-              programs' GEDCOM 7 output — carries associations on the record rather than on an event, saying who a
-              person was associated with but not at what. Those are listed there too, and the
-              <span class="gm-glyph">↧</span> beside one files it under the event it belongs to: pick the baptism they
-              stood godparent at, and the role, the date and any note or citation travel with it. The
+              baptism they stood godparent at, and every record naming them with no event to go with it. That side is a
+              view, not a second entry to keep in step: the link is stored once, on the record that names them. The
+              <span class="gm-glyph">↧</span> beside a record-level one files it under the event it belongs to: pick the
+              baptism they stood godparent at, and the role, the date and any note or citation travel with it. The
               <a href="#validate">Health check</a> reads all of these under
               <strong>Associations</strong>, where it reports a person named without a role, a person named as their
               own witness, and an associate who was not alive on the day.
@@ -1107,7 +1129,7 @@
               disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
               usually an import that never got attached, or a duplicate of a branch you already have. One finding per
               group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
-              is never a group. <strong>Associations</strong> checks the people an event names
+              is never a group. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable

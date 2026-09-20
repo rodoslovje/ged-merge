@@ -749,13 +749,38 @@
             <h3 id="associates">Povezane osebe</h3>
             <p>
               Zapisi imenujejo tudi osebe, ki niso sorodniki: botre pri krstu, priče pri poroki in duhovnika, ki je
-              vodil obred, zunaj matičnih knjig pa tudi učitelja ali soseda. Pripadajo dogodku, ki jih imenuje, zato jih
-              tam tudi urejate: meni <strong>+ Dodaj</strong> pri dogodku dobi vnos <strong>Povezana oseba</strong>, ki
-              poišče osebo in nato vpraša po vlogi, vsaka povezana oseba pa stoji na vrstici dogodka z imenom, vlogo in
-              gumboma <span class="gm-glyph">✎</span> in <span class="gm-glyph danger">✕</span> za spremembo ali
-              odstranitev. Na voljo so vloge boter/botra, priča, duhovnik, voditelj obreda, prijatelj/prijateljica,
-              sosed/soseda, iz istega poroda in prosto besedilo za vse drugo. Poročne priče vpišete enako, na vrstici
-              poroke pri družini.
+              vodil obred, zunaj matičnih knjig pa tudi učitelja ali soseda. Kam je tako osebo dovoljeno zapisati,
+              določa standard in ne program, različici GEDCOM pa se v tem razlikujeta — ponujeno je torej tisto, kar
+              zmore naložena datoteka.
+            </p>
+            <p>
+              Datoteka <strong>GEDCOM 7</strong> nosi povezano osebo na treh mestih. Prvo mesto je dogodek, ki pove
+              največ in je zato ponujen prvi: meni <strong>+ Dodaj</strong> pri dogodku dobi vnos
+              <strong>Povezana oseba</strong>, ki poišče osebo in nato vpraša po vlogi, vsaka povezana oseba pa stoji na
+              vrstici dogodka z imenom, vlogo in gumboma <span class="gm-glyph">✎</span> in
+              <span class="gm-glyph danger">✕</span> za spremembo ali odstranitev. Drugo mesto je zapis osebe same: v
+              razdelku <strong>Povezane osebe</strong> pod seznamom dogodkov z gumbom
+              <strong>+ Dodaj povezano osebo</strong> zapišete zvezo, ki je ne pojasni noben posamezen dogodek —
+              dolgoletni sosed, ujemanje DNK. Tretje mesto je zapis družine: pod istim naslovom v družinskem razdelku
+              zapišete priče, ki pripadajo poroki in ne enemu od zakoncev. Na voljo so vloge boter/botra, priča,
+              duhovnik, voditelj obreda, prijatelj/prijateljica, sosed/soseda, iz istega poroda in prosto besedilo za
+              vse drugo.
+            </p>
+            <p>
+              Starejša oblika <strong>GEDCOM 5.5.1</strong> pozna le drugo od teh mest: ta standard dopušča povezano
+              osebo samo pri zapisu osebe in nikjer drugje. Zato vrstice dogodkov in družinski razdelek tam ne ponudijo
+              ničesar, pot pa vodi prek gumba <strong>+ Dodaj povezano osebo</strong> pri osebi — poročno pričo zapišete
+              pri zapisu enega od zakoncev, saj druge možnosti ta oblika nima. Povezane osebe, ki jih taka datoteka že
+              nosi pri dogodku, ostanejo vidne in jih tam tudi uredite; nobena se ne premakne in nobena se ne skrije.
+            </p>
+            <p>
+              <strong>Ujemanje DNK</strong> v obliki GEDCOM nima svojega mesta: nobena od različic ne pozna ne testa, ne
+              ujemanja, ne skupnih centimorganov in ne odsekov. Najbolj primeren zapis je povezana oseba, in sicer pri
+              zapisu osebe in ne pri dogodku — ujemanje ni nekaj, kar bi se osebi zgodilo nekega dne. Izberite vlogo
+              <strong>brez navedene vloge</strong>, ki je tista s prostim besedilom, v polje
+              <strong>Vloga po vaše</strong> vpišite »ujemanje DNK«, številke pa pustite v opombi pri zapisu in kot njen
+              vir navedite ponudnika testa. Teh številk program ne bere kot podatkov o DNK — ujemanje jih ne upošteva in
+              noben diagram jih ne izriše; shranjene so tako, kot jih vpišete.
             </p>
             <p>
               Botra, ki ga v vašem drevesu ni, lahko zapišete samo po imenu — vpišite ime in izberite
@@ -764,12 +789,11 @@
             </p>
             <p>
               Pod seznamom dogodkov razdelek <strong>Kje je ta oseba imenovana</strong> pokaže obratno smer — vse
-              krste, pri katerih je bila ta oseba boter ali botra. Ta stran je le pogled in ne drugi vnos, ki bi ga bilo
-              treba usklajevati: povezava se shrani enkrat, pri dogodku, ki osebo imenuje. Datoteka v starejši obliki
-              GEDCOM 5.5.1 — in izhod nekaterih programov v obliki GEDCOM 7 — povezane osebe nosi pri zapisu in ne pri
-              dogodku, torej pove, s kom je bila oseba povezana, ne pa tudi pri čem. Te so naštete prav tam, gumb
-              <span class="gm-glyph">↧</span> ob posamezni pa jo uvrsti k dogodku, ki ji pripada: izberete krst, pri
-              katerem je botrovala, z njo pa se preselijo vloga, datum ter morebitna opomba in navedba vira.
+              krste, pri katerih je bila ta oseba boter ali botra, in vse zapise, ki jo imenujejo brez dogodka. Ta stran
+              je le pogled in ne drugi vnos, ki bi ga bilo treba usklajevati: povezava se shrani enkrat, pri zapisu, ki
+              osebo imenuje. Gumb <span class="gm-glyph">↧</span> ob povezani osebi pri zapisu jo uvrsti k dogodku, ki
+              ji pripada: izberete krst, pri katerem je botrovala, z njo pa se preselijo vloga, datum ter morebitna
+              opomba in navedba vira.
               <a href="#validate">Pregled</a> vse te povezave preveri v
               skupini <strong>Povezane osebe</strong>, kjer poroča o osebi brez navedene vloge, o osebi, ki je navedena
               kot priča sama pri sebi, in o tisti, ki na dan dogodka ni bila živa.
@@ -1125,7 +1149,7 @@
                   oseb, ki so povezane samo med sabo in z nikomer drugim v datoteki — navadno uvoz, ki ni bil nikoli
                   pripet, ali dvojnik veje, ki jo že imate. Ena najdba na skupino, pri njenem najmlajšem članu, da ga
                   odprete in se sprehodite po sorodnikih skupine; glavno drevo datoteke ni nikoli skupina.</li>
-                <li><strong>povezane osebe</strong> — osebe, ki jih imenuje dogodek (<a href="#associates">§8</a>):
+                <li><strong>povezane osebe</strong> — osebe, ki jih imenuje zapis ali dogodek (<a href="#associates">§8</a>):
                   oseba brez navedene vloge, oseba, ki je navedena kot priča sama pri sebi, in tista, ki je bila rojena
                   po dogodku ali je umrla pred njim.</li>
               </ul>
