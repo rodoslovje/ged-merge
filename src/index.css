@@ -9740,7 +9740,25 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 0.78rem;
   color: var(--muted);
   margin-bottom: 4px;
+  /* The heading carries the "+ Add associate" action beside it, the way the
+     event list's add row sits under its events. */
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
+/* Always readable, unlike the hover-only ✎ and ✕ below: with no associate on the
+   record yet there is no row to hover to find it. */
+.edit-assoc-add {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.edit-assoc-add:hover { text-decoration: underline; }
 .edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
 .edit-assoc-list {
   list-style: none;

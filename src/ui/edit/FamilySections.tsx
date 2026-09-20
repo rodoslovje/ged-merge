@@ -7,13 +7,14 @@ import { childrenByBirth } from "../../gedcom/familySort";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
-import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
+import { customEventLabel, eventDisplayLabel, famEventNodes } from "../../gedcom/eventTags";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import type { TagSuggestions } from "./fieldSuggestions";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
   addFamilyEventNode,
   attachSourceCitation,
+  canWriteFamilyAssociation,
   linkPageMedia,
   FAM_CHILD_ORDER,
   removeFamilyEvent,
@@ -30,6 +31,8 @@ import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
+import { assocMoveTargets, RecordAssociates } from "./AssociatesPanel";
+import { useAssoc } from "./AssocContext";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
@@ -374,6 +377,34 @@ interface FamilySectionProps extends SharedSectionProps {
    *  owner's edit — folded into the media tray's key so it re-reads metadata. */
 }
 
+/**
+ * The people a family's own record names — the witnesses at the wedding, the
+ * priest who married them — as against the ones named on one of its events.
+ *
+ * 7.0 only, because 5.5.1 puts `ASSO` on a person and nowhere else: in a 5.5.x
+ * file a witness goes on a spouse's record instead, and this offers nothing. One
+ * such a file already carries is still shown and still editable — a file's own
+ * words are never hidden, whatever dialect it claims.
+ */
+function FamilyAssociates({ fam, t }: { fam: Family; t: Translate }) {
+  const api = useAssoc();
+  const associations = fam.associations ?? [];
+  const canAdd = !!api && canWriteFamilyAssociation(api.version);
+  if (!associations.length && !canAdd) return null;
+  return (
+    <div className="edit-record-section edit-assoc">
+      <RecordAssociates
+        record={fam.raw}
+        ownerId={fam.id}
+        associations={associations}
+        canAdd={canAdd}
+        moveTargets={assocMoveTargets(famEventNodes(fam.raw), t)}
+        t={t}
+      />
+    </div>
+  );
+}
+
 export const FamilySection = memo(function FamilySection({
   fam,
   personId,
@@ -601,6 +632,7 @@ export const FamilySection = memo(function FamilySection({
           )}
         </div>
       </div>
+      {fam && <FamilyAssociates fam={fam} t={t} />}
       {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0 || (famLinksMerge.links?.length ?? 0) > 0 || (famLinksMerge.sources?.length ?? 0) > 0) && (
         <div className="edit-record-section">
           <LinksEditor

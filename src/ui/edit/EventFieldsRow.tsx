@@ -6,7 +6,7 @@ import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/t
 import type { Translate } from "../../locales/i18n";
 import { customEventLabel, customEventTooltip, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
-import type { EventFieldUpdate } from "../../gedcom/edit";
+import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { EventGlyph, eventMenuLabel } from "../EventGlyph";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
@@ -423,7 +423,12 @@ export function EventFieldsRow({
   const [assocPicking, setAssocPicking] = useState(false);
   // Editing the people an event names needs the Edit view's file and dialect
   // (see AssocContext); the merge's read-only rows have neither and offer none.
-  const canAssoc = !!useAssoc() && !!eventNode;
+  // A 5.5.x file has no event-level `ASSO` at all, so there the row offers none
+  // either and the person's own record is where one goes — the panel under the
+  // event list. Associations such a file already carries here still show and
+  // still edit; only writing a new one is refused.
+  const assocApi = useAssoc();
+  const canAssoc = !!assocApi && !!eventNode && canWriteEventAssociation(assocApi.version);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Agency slot to its line value; every other event keeps the

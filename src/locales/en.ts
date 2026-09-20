@@ -478,6 +478,8 @@ export const en = {
   // The "+ Add" menu entry names one thing to add, like Place / Source / Note
   // beside it; the section heading below stays plural.
   "assoc.add": "Association",
+  "assoc.addOnRecord": "+ Add associate",
+  "assoc.addOnRecordTip": "Add a person connected to the record as a whole, rather than to one of its events",
   "assoc.pickLabel": "Who was named",
   "assoc.eventLabel": "At which event",
   "assoc.roleLabel": "In what role",
@@ -486,6 +488,7 @@ export const en = {
   "assoc.nameOnly": "Record the typed name only",
   "assoc.editRole": "Change the role",
   "assoc.remove": "Remove this person from the event",
+  "assoc.removeFromRecord": "Remove this person from the record",
   "assoc.move": "Move to an event",
   "assoc.moveTip": "File this person under the event they belong to — the baptism they stood godparent at, the wedding they witnessed",
   "assoc.save": "Save",

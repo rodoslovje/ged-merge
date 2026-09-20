@@ -2,18 +2,29 @@
  * Writing associations (`ASSO`) — see `gedcom/assoc.ts` for reading them and
  * for the role vocabulary.
  *
- * Two decisions are baked in here:
+ * *Where* an association may be written is the dialect's decision, not ours:
  *
- *  - **Associations are written under the event they belong to**, in both
- *    dialects. 5.5.1 formally allows `ASSO` only at record level, but putting a
- *    baptism's godparents there throws away *which* event they attended — the
- *    very thing one vendor's `RELA Witness at event _EVN 29` free text exists to
- *    smuggle back in. Readers tolerate the event-level form; the lost event is
- *    not recoverable.
- *  - **An associate the file does not record as a person is written `@VOID@`
- *    plus a `PHRASE` naming them**, which is 7.0-only. In a 5.5.1 file there is
- *    no such form, so only an association to an existing record can be written
- *    there — {@link canWriteNameOnly} says which case a file is in.
+ *  - **7.0** carries `ASSO` in three places: under an `INDI` record, under a
+ *    `FAM` record, and inside every event's `EVENT_DETAIL`. The event is the
+ *    best of them — it says *which* baptism the godparent attended — so that is
+ *    where the editor puts one when the file allows it.
+ *  - **5.5.1** defines `ASSO` in exactly one place: a substructure of `INDI`,
+ *    pointing at an `INDI`, with a required free-text `RELA`. There is no
+ *    event-level form and no family-level form. So in a 5.5.x file an
+ *    association is written on the person's own record, and a family's is not
+ *    offered at all: a marriage witness goes on a spouse's record, which is what
+ *    the dialect has. {@link canWriteEventAssociation} and
+ *    {@link canWriteFamilyAssociation} are the questions the UI asks.
+ *  - **An associate the file does not record as a person** is written `@VOID@`
+ *    plus a `PHRASE` naming them, which is 7.0-only. A 5.5.x file has no such
+ *    form, so only an association to an existing record can be written there —
+ *    {@link canWriteNameOnly} says which case a file is in.
+ *
+ * `TYPE` is deliberately absent from the 5.5.x output. 5.5 had it, because its
+ * `ASSO` could point at any record; 5.5.1 dropped both the freedom and the tag,
+ * and the spec's own example is a bare `ASSO @I2@` / `RELA Godfather`. It is
+ * written only for an association pointing at a family, where it is the one
+ * thing that says so.
  */
 import type { AssocRole, GedcomVersion, GedNode } from "../types";
 import { ROLE_TO_RELA, VOID_XREF } from "../assoc";
@@ -29,10 +40,35 @@ export interface AssociationSpec {
   /** Wording to keep instead of the role's own name — a `RELA` value in 5.5.1,
    *  a `PHRASE` under `ROLE` in 7.0. */
   roleText?: string;
+  /** What kind of record the pointer names, where the file said so. The editor
+   *  only ever points at a person, but a 5.5-era file's `ASSO @F14@` / `TYPE FAM`
+   *  must keep saying "family" when its role is rewritten. */
+  targetKind?: "INDI" | "FAM";
 }
 
 /** Whether this file's dialect can name an associate it holds no record for. */
 export function canWriteNameOnly(version: GedcomVersion): boolean {
+  return version === "7.0";
+}
+
+/**
+ * Whether this dialect can hang an association under an event — 7.0's
+ * `EVENT_DETAIL` can, 5.5.1 has no such place. Where it cannot, the association
+ * belongs on the record instead, and the event rows offer none.
+ *
+ * An unrecognised version counts as the older dialect, like
+ * {@link canWriteNameOnly}: the narrower form is the one every reader
+ * understands.
+ */
+export function canWriteEventAssociation(version: GedcomVersion): boolean {
+  return version === "7.0";
+}
+
+/**
+ * Whether this dialect can hang an association on a `FAM` record — 7.0 added it,
+ * 5.5.1 knows associations only on a person.
+ */
+export function canWriteFamilyAssociation(version: GedcomVersion): boolean {
   return version === "7.0";
 }
 
@@ -65,8 +101,9 @@ export function writeAssociation(node: GedNode, spec: AssociationSpec, version: 
     return;
   }
 
-  // 5.5.1: a pointer, the kind of record it names, and the role as free text.
-  child(node, "TYPE", "INDI");
+  // 5.5.x: a pointer and the role as free text. `TYPE` only where it still says
+  // something — a pointer at a family (see the note at the top of the file).
+  if (spec.targetKind === "FAM") child(node, "TYPE", "FAM");
   child(node, "RELA", spec.roleText?.trim() || ROLE_TO_RELA[spec.role] || "other");
 }
 

@@ -602,6 +602,8 @@ export const sl = {
   // Vnos v meniju »+ Dodaj« poimenuje eno stvar, ki jo dodate; naslov razdelka
   // spodaj ostaja v množini.
   "assoc.add": "Povezana oseba",
+  "assoc.addOnRecord": "+ Dodaj povezano osebo",
+  "assoc.addOnRecordTip": "Dodajte osebo, ki je povezana s celotnim zapisom in ne z enim samim dogodkom",
   "assoc.pickLabel": "Koga je zapis imenoval",
   "assoc.eventLabel": "Pri katerem dogodku",
   "assoc.roleLabel": "V kateri vlogi",
@@ -610,6 +612,7 @@ export const sl = {
   "assoc.nameOnly": "Zapiši samo vpisano ime",
   "assoc.editRole": "Spremeni vlogo",
   "assoc.remove": "Odstrani osebo z dogodka",
+  "assoc.removeFromRecord": "Odstrani osebo iz zapisa",
   "assoc.move": "Premakni k dogodku",
   "assoc.moveTip": "Osebo uvrstite k dogodku, ki ji pripada — h krstu, pri katerem je botrovala, ali k poroki, pri kateri je bila priča",
   "assoc.save": "Shrani",

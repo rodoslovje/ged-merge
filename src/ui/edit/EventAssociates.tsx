@@ -176,6 +176,7 @@ export function EventAssociates({
   picking,
   onDonePicking,
   moveTargets,
+  removeTitle,
 }: {
   associations: Association[];
   /** The event node the associations hang under. */
@@ -195,6 +196,9 @@ export function EventAssociates({
    * own row: it is already where it belongs.
    */
   moveTargets?: { node: GedNode; label: string }[];
+  /** What the ✕ says it removes the person from. Defaults to the event, since
+   *  that is where most associations sit; a record-level row says so instead. */
+  removeTitle?: string;
 }) {
   const api = useAssoc();
   const [editing, setEditing] = useState<Association | null>(null);
@@ -229,6 +233,9 @@ export function EventAssociates({
                   name: assoc.name,
                   role,
                   roleText,
+                  // A 5.5-era association may point at a family; changing its
+                  // role must not cost the `TYPE FAM` that says so.
+                  targetKind: assoc.targetKind,
                 });
                 setEditing(null);
               }}
@@ -273,7 +280,7 @@ export function EventAssociates({
                   <button
                     type="button"
                     className="edit-assoc-glyph edit-assoc-remove"
-                    title={t("assoc.remove")}
+                    title={removeTitle ?? t("assoc.remove")}
                     onClick={() => api.remove(ownerId, container, assoc.raw)}
                   >
                     ✕
