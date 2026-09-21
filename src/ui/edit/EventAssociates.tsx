@@ -103,24 +103,56 @@ function AssociateChip({
   /** Nothing written about them yet: the row carries an empty box instead. */
   const empty = !assoc.noteRefs?.length;
   const roleRef = useRef<HTMLInputElement>(null);
+  /** Named without a record of their own: the name is the file's own text, and
+   *  so a field like the role rather than a label. */
+  const nameOnly = isVoidAssociation(assoc);
+  const [name, setName] = useState(assoc.name ?? "");
 
   /** The vocabulary's word for a role, in the associate's own gender. */
   const roleWord = (r: AssocRole) => t(`assoc.role.${r}`, { context: sex === "M" || sex === "F" ? sex : undefined });
 
-  /** Write the role: a word of the file's own, or the vocabulary's. */
-  const commit = (next: AssocRole, text: string | undefined) =>
+  /** Write the association: whichever of its words has just changed. */
+  const write = (next: { role?: AssocRole; roleText?: string; name?: string }) =>
     api.update(ownerId, assoc.raw, {
-      targetId: isVoidAssociation(assoc) ? undefined : assoc.targetId,
-      name: assoc.name,
-      role: next,
-      roleText: text,
+      targetId: nameOnly ? undefined : assoc.targetId,
+      name: next.name ?? assoc.name,
+      role: next.role ?? assoc.role,
+      roleText: "roleText" in next ? next.roleText : assoc.roleText,
       // A 5.5-era association may point at a family; changing its role must not
       // cost the `TYPE FAM` that says so.
       targetKind: assoc.targetKind,
     });
 
+  /** Write the role: a word of the file's own, or the vocabulary's. */
+  const commit = (next: AssocRole, text: string | undefined) => write({ role: next, roleText: text });
+
   return (
     <>
+      {nameOnly && (
+        // The file names them and holds no record for them, so the name is text
+        // of its own — typed over here, as the role is. A person the file does
+        // record keeps their link: it is how you reach them, and the ▾ is where
+        // that link is pointed somewhere else.
+        <input
+          className="edit-input edit-assoc-name-field"
+          value={name}
+          size={Math.max(6, name.length)}
+          aria-label={t("assoc.pickLabel")}
+          title={t("assoc.nameOnlyTip")}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => {
+            const text = name.trim();
+            if (text === (assoc.name ?? "")) return;
+            // Emptied, it would name nobody at all; the file keeps what it had.
+            if (text) write({ name: text });
+            else setName(assoc.name ?? "");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            else if (e.key === "Escape") setName(assoc.name ?? "");
+          }}
+        />
+      )}
       {/* Typed over, the role becomes the file's own wording; the vocabulary is
           in the menu beside it. What stands here at rest is what the file says,
           so a row of matches reads "DNA match" and not "named without a role". */}
@@ -301,10 +333,13 @@ export function EventAssociates({
         >
           {isVoidAssociation(assoc) || !api ? (
             // Named, but recorded as nobody: there is no record to open, and
-            // dressing the text up as a link would promise one.
-            <span className="edit-assoc-name-only" title={t("assoc.nameOnlyTip")}>
-              {assoc.name || assoc.targetId}
-            </span>
+            // dressing the text up as a link would promise one. Where the row
+            // can be edited the chip draws this itself, as a field.
+            (!api || !container) && (
+              <span className="edit-assoc-name-only" title={t("assoc.nameOnlyTip")}>
+                {assoc.name || assoc.targetId}
+              </span>
+            )
           ) : (
             <RecordLink
               dataset={api.dataset}

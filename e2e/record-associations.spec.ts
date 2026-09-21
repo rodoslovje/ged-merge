@@ -147,6 +147,37 @@ test("an associate with no note is offered one on the row", async ({ page }) => 
   await expect(panel.getByRole("button", { name: /Add Note/ })).toHaveCount(0);
 });
 
+test("a name the file holds no record for is typed over where it stands", async ({ page }) => {
+  // `@VOID@` + `PHRASE`: the name is the file's own text, not a person to open,
+  // so it is a field like the role rather than a label to read.
+  const ged = [
+    "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Janez /Renko/", "1 SEX M",
+    "1 ASSO @VOID@", "2 PHRASE Miki", "2 ROLE GODP",
+    "0 TRLR", "",
+  ].join("\n");
+  const filePath = path.join(tmpdir(), `assoc-void-${Date.now()}.ged`);
+  writeFileSync(filePath, ged, "utf-8");
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(filePath);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  const name = panel.locator(".edit-assoc-name-field");
+  await expect(name).toHaveValue("Miki");
+
+  await name.fill("Miki Mikič, sosed");
+  await name.blur();
+  await expect(name).toHaveValue("Miki Mikič, sosed");
+
+  // Emptied it would name nobody at all, so the file keeps what it had.
+  await name.fill("");
+  await name.blur();
+  await expect(name).toHaveValue("Miki Mikič, sosed");
+});
+
 test("picking \"other\" asks for the word rather than writing one", async ({ page }) => {
   // "Other" is the absence of a word in the vocabulary, so it cannot be the
   // word the file keeps.

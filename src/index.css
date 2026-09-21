@@ -9849,6 +9849,16 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   background: var(--panel);
 }
 .edit-event-assoc:hover .edit-notes--offer .note-rich:empty::before { opacity: 1; }
+/* The same name where the row can be edited: the file's own text, so a field —
+   drawn as the words it holds until the pointer reaches it, like the role. The
+   dotted underline stays, to say this name answers for nobody in the file. */
+.edit-assoc-name-field {
+  color: var(--text);
+  border-bottom-style: dotted;
+  border-bottom-color: var(--muted);
+  border-radius: 0;
+  padding: 1px 2px;
+}
 /* A name the file records as nobody: no record to open, so no link affordance. */
 .edit-assoc-name-only {
   color: var(--text);
