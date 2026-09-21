@@ -156,8 +156,10 @@ export function NotesEditor({
           // Shown formatted; the stored text stays verbatim until the user
           // really edits, so an untouched blur can't rewrite the record.
           text={note.text}
-          placeholder={t("field.notes")}
-          title={t("field.notes")}
+          // Singular: this box is one note, whatever the section above it is
+          // called. "Notes" in an empty box read as the whole list living there.
+          placeholder={t("field.note")}
+          title={t("field.note")}
           t={t}
           onInput={(text) => setNotes((prev) => prev.map((n, idx) => (idx === i ? { ...n, text } : n)))}
           onBlur={() => commitNotes(notes)}

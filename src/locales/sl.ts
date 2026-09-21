@@ -608,7 +608,7 @@ export const sl = {
   "assoc.eventLabel": "Pri katerem dogodku",
   "assoc.roleLabel": "V kateri vlogi",
   "assoc.roleTextLabel": "Vloga po vaše",
-  "assoc.roleTextPlaceholder": "na primer botra",
+  "assoc.roleTextPlaceholder": "vloga",
   "assoc.nameOnly": "Zapiši samo vpisano ime",
   "assoc.remove": "Odstrani osebo z dogodka",
   "assoc.removeFromRecord": "Odstrani osebo iz zapisa",
@@ -2165,6 +2165,8 @@ export const sl = {
   "field.spouseOf": "Zakonec v",
   "field.additionalNames": "Druga imena",
   "field.notes": "Opombe",
+  // Eno polje nosi eno opombo, zato tako tudi pove.
+  "field.note": "Opomba",
   "field.private": "Zasebno",
   "field.nameType": "Vrsta imena",
   "field.sources": "Vir",

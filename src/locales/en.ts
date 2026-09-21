@@ -484,7 +484,7 @@ export const en = {
   "assoc.eventLabel": "At which event",
   "assoc.roleLabel": "In what role",
   "assoc.roleTextLabel": "Role, in your own words",
-  "assoc.roleTextPlaceholder": "e.g. godmother",
+  "assoc.roleTextPlaceholder": "role",
   "assoc.nameOnly": "Record the typed name only",
   "assoc.remove": "Remove this person from the event",
   "assoc.removeFromRecord": "Remove this person from the record",
@@ -1856,6 +1856,8 @@ export const en = {
   "field.spouseOf": "Spouse of",
   "field.additionalNames": "Other names",
   "field.notes": "Notes",
+  // One box holds one note, so the box says so.
+  "field.note": "Note",
   "field.private": "Private",
   "field.nameType": "Name type",
   "field.sources": "Source",
