@@ -9812,31 +9812,26 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    nine blank boxes. Typing in it is all there is to do; there is no button
    between the pointer and the words.
 
-   It is laid over the row rather than in it, and faded until the row is
-   reached. Three things ruled out the simpler ways: collapsed, it grew on hover
-   and moved the ▾ beside it, so a pointer resting there fell out of the row as
-   it moved — hover and layout feeding each other, the loop the equal-height
-   cards had. `visibility: hidden` costs the box its focus, leaving the tab
-   order so neither the keyboard nor a freshly written row can reach it. And
-   held in the flow it reserves its whole height, toolbar and all — 65px per
-   associate who has nothing written about them yet.
+   It holds its place in the row and is faded, rather than collapsed, laid over
+   or `visibility: hidden` — each of which was tried and each of which failed
+   its own way. Collapsed, it grew on hover and moved the ▾ beside it, so a
+   pointer resting there fell out of the row as it moved: hover and layout
+   feeding each other, the loop the equal-height cards had. `visibility: hidden`
+   costs the box its focus, leaving the tab order so neither the keyboard nor a
+   freshly written row can reach it. Laid over the row, it covered whatever the
+   row happened to sit above — the map's own buttons, a line below.
 
-   Absolutely positioned, it is still a descendant, so moving the pointer down
-   onto it keeps the row hovered and the box open. */
-.edit-notes--offer {
-  position: absolute;
-  left: 0;
-  top: 100%;
-  z-index: 3;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s;
-}
+   Faded in place, nothing moves and nothing is covered; the cost is a short gap
+   per associate with nothing written about them. */
+.edit-notes--offer { opacity: 0; transition: opacity 0.12s; }
 .edit-event-assoc:hover .edit-notes--offer,
-.edit-notes--offer:focus-within {
-  opacity: 1;
-  pointer-events: auto;
-}
+.edit-notes--offer:focus-within { opacity: 1; }
+/* That gap is kept to the width of its own placeholder while it holds nothing,
+   so a row of associates reads as names and not as a run of empty fields. The
+   width it overrides is an inline style (the editor sizes each note to its own
+   text), which no selector can outweigh — and it lifts the moment the box is
+   typed in, where a changed width costs a click and not a hover. */
+.edit-notes--offer:not(:focus-within) .edit-note-chip { width: calc(7ch + 42px) !important; }
 /* Revealed, it has to look like somewhere to type: an empty note box is a
    transparent border around nothing, whose placeholder waits for a hover of its
    own — laid over the row it read as a gap in the page. Dashed, like every
@@ -9942,9 +9937,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   gap: 4px;
   margin-right: 8px;
   flex-wrap: wrap;
-  /* The frame an as-yet-unwritten note's box is laid over (see
-     `.edit-notes--offer`). */
-  position: relative;
 }
 /* An associate whose note is more than a chip's worth takes a line for
    themselves, with the note on a second line under their name and actions —
