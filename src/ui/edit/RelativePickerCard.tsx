@@ -16,6 +16,113 @@ const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 /** Rows offered at once — a page the user can scan, not the whole file. */
 const MAX_OPTIONS = 10;
 
+/** One person as the picker lists them: what is shown, and what is searched. */
+export interface PersonOption {
+  id: string;
+  indi: Individual;
+  name: string;
+  span: string;
+  sex: Individual["sex"];
+  xref: string;
+  search: string;
+}
+
+/**
+ * Every person the file holds, prepared once and left in name order.
+ *
+ * Formatting a name resolves married surnames from the whole dataset and
+ * reading a lifespan parses dates, so doing this per keystroke — as it used to
+ * — cost the length of the file on every letter typed. `enabled` is for a
+ * caller that only sometimes searches: an associate's name field builds the
+ * list when it is typed in, not on every row of a record naming nine people.
+ */
+export function usePersonOptions(
+  individuals: Map<string, Individual>,
+  excludeId: string,
+  enabled = true,
+): PersonOption[] {
+  const nameOf = useNameOf();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  return useMemo(
+    () =>
+      enabled
+        ? [...individuals.values()]
+            .filter((i) => i.id !== excludeId)
+            .map((i) => {
+              const name = nameOf(i);
+              const span = lifespanWithAge(i, settings.showAge);
+              return {
+                id: i.id,
+                indi: i,
+                name,
+                span,
+                sex: i.sex,
+                xref: xrefLabel(i.id),
+                // Searchable on every name the person carries, not just the one
+                // on show: a maiden name still finds them while married names
+                // are displayed, and the record id finds them outright.
+                search: foldSearch(`${nameSearchText(i)} ${name} ${span} ${i.id}`),
+              };
+            })
+            .sort((a, b) => a.name.localeCompare(b.name) || a.span.localeCompare(b.span))
+        : [],
+    [enabled, individuals, excludeId, nameOf, settings.showAge],
+  );
+}
+
+/**
+ * The first page of people the query answers for — a page to scan, not the
+ * whole file. Each word is matched on its own, so a few opening letters of the
+ * given name and of the surname are enough: "sebas kala" finds "Sebastjan
+ * Kalan", and the two may sit in different name fields.
+ */
+export function matchPersonOptions(people: PersonOption[], query: string, max = MAX_OPTIONS): PersonOption[] {
+  const terms = queryTerms(query);
+  const shown: PersonOption[] = [];
+  for (const p of people) {
+    if (!matchesTerms(p.search, terms)) continue;
+    shown.push(p);
+    if (shown.length === max) break;
+  }
+  return shown;
+}
+
+/** One row of that list, wherever it is drawn. */
+export function PersonOptionRow({
+  option,
+  highlighted,
+  onHighlight,
+  onPick,
+  t,
+}: {
+  option: PersonOption;
+  highlighted: boolean;
+  onHighlight: () => void;
+  onPick: () => void;
+  t: Translate;
+}) {
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  return (
+    <button
+      type="button"
+      className={`relative-picker-option${highlighted ? " highlighted" : ""}`}
+      title={lifespanTooltipOf(option.indi, settings.showAge, t)}
+      onMouseEnter={onHighlight}
+      onFocus={onHighlight}
+      // mousedown only keeps the search box's focus; the pick is the click, so
+      // Enter on a row reached with Tab picks it too.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onPick}
+    >
+      <span className={`person-label ${sexClass(option.sex)}`}>
+        <span className="person-name">{option.name}</span>
+        {settings.showXref && <span className="person-xref gm-data">{option.xref}</span>}
+        {option.span && <span className="person-years gm-data">{option.span}</span>}
+      </span>
+    </button>
+  );
+}
+
 /** Inline picker that lets the user either search for an existing person or add a new one. */
 export function RelativePickerCard({
   roleLabel,
@@ -40,8 +147,6 @@ export function RelativePickerCard({
   onCancel: () => void;
   t: Translate;
 }) {
-  const nameOf = useNameOf();
-  const settings = useSettingsSlice(SETTINGS_KEYS);
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,48 +171,8 @@ export function RelativePickerCard({
     };
   }, [onCancel]);
 
-  // Every person, prepared once and left in name order. Formatting a name
-  // resolves married surnames from the whole dataset and reading a lifespan
-  // parses dates, so doing this per keystroke — as it used to — cost the length
-  // of the file on every letter typed.
-  const people = useMemo(
-    () =>
-      [...individuals.values()]
-        .filter((i) => i.id !== excludeId)
-        .map((i) => {
-          const name = nameOf(i);
-          const span = lifespanWithAge(i, settings.showAge);
-          return {
-            id: i.id,
-            indi: i,
-            name,
-            span,
-            sex: i.sex,
-            xref: xrefLabel(i.id),
-            // Searchable on every name the person carries, not just the one on
-            // show: a maiden name still finds them while married names are
-            // displayed, and the record id finds them outright.
-            search: foldSearch(`${nameSearchText(i)} ${name} ${span} ${i.id}`),
-          };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name) || a.span.localeCompare(b.span)),
-    [individuals, excludeId, nameOf, settings.showAge],
-  );
-
-  // Typing only walks that list, and stops at the first full page of matches.
-  // Each word of the query is matched on its own, so a few opening letters of
-  // the given name and of the surname are enough: "sebas kala" finds
-  // "Sebastjan Kalan", and the two may sit in different name fields.
-  const options = useMemo(() => {
-    const terms = queryTerms(query);
-    const shown: typeof people = [];
-    for (const p of people) {
-      if (!matchesTerms(p.search, terms)) continue;
-      shown.push(p);
-      if (shown.length === MAX_OPTIONS) break;
-    }
-    return shown;
-  }, [people, query]);
+  const people = usePersonOptions(individuals, excludeId);
+  const options = useMemo(() => matchPersonOptions(people, query), [people, query]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);
 
@@ -163,21 +228,13 @@ export function RelativePickerCard({
           )}
           {options.map((o, i) => (
             <li key={o.id}>
-              <button
-                type="button"
-                className={`relative-picker-option${i + offset === activeIdx ? " highlighted" : ""}`}
-                title={lifespanTooltipOf(o.indi, settings.showAge, t)}
-                onMouseEnter={() => setActiveIdx(i + offset)}
-                onFocus={() => setActiveIdx(i + offset)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onPickExisting(o.id)}
-              >
-                <span className={`person-label ${sexClass(o.sex)}`}>
-                  <span className="person-name">{o.name}</span>
-                  {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
-                  {o.span && <span className="person-years gm-data">{o.span}</span>}
-                </span>
-              </button>
+              <PersonOptionRow
+                option={o}
+                highlighted={i + offset === activeIdx}
+                onHighlight={() => setActiveIdx(i + offset)}
+                onPick={() => onPickExisting(o.id)}
+                t={t}
+              />
             </li>
           ))}
           {options.length === 0 && query.trim() && (

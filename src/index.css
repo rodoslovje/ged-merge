@@ -9849,6 +9849,26 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   background: var(--panel);
 }
 .edit-event-assoc:hover .edit-notes--offer .note-rich:empty::before { opacity: 1; }
+/* The field and the people it finds while it is typed in: the list hangs under
+   it without moving the row, the way a menu does. */
+.edit-assoc-name-wrap { position: relative; display: inline-flex; }
+.edit-assoc-name-list {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 4;
+  min-width: 14rem;
+  background: var(--panel);
+  /* The surface a dropdown has, since that is what this is. */
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  padding: 2px;
+  margin: 2px 0 0;
+  list-style: none;
+  max-height: 16rem;
+  overflow: auto;
+}
 /* The same name where the row can be edited: the file's own text, so a field —
    drawn as the words it holds until the pointer reaches it, like the role. The
    dotted underline stays, to say this name answers for nobody in the file. */

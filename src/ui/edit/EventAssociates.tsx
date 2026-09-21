@@ -6,9 +6,10 @@ import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
 import { isTallNoteList, NotesEditor } from "./NotesEditor";
-import { RelativePickerCard } from "./RelativePickerCard";
+import { matchPersonOptions, PersonOptionRow, RelativePickerCard, usePersonOptions } from "./RelativePickerCard";
 import { DropdownMenu } from "../DropdownMenu";
 import { useAssoc, type AssocApi } from "./AssocContext";
+import { handleListKey } from "../../keyboard/useListKeyboard";
 
 /**
  * The role in words: the file's own wording where it has one, else the
@@ -107,20 +108,31 @@ function AssociateChip({
    *  so a field like the role rather than a label. */
   const nameOnly = isVoidAssociation(assoc);
   const [name, setName] = useState(assoc.name ?? "");
+  /** Typing in that name searches the file: the person may be in it after all,
+   *  and then the association should point at them rather than spell them. The
+   *  list is only built while the field is being typed in — preparing every
+   *  person's name is the length of the file, and a record naming nine people
+   *  would otherwise pay it nine times over. */
+  const [searching, setSearching] = useState(false);
+  const [pickIdx, setPickIdx] = useState(0);
+  const people = usePersonOptions(api.dataset.individuals, ownerId, searching);
+  const matches = searching && name.trim() ? matchPersonOptions(people, name) : [];
 
   /** The vocabulary's word for a role, in the associate's own gender. */
   const roleWord = (r: AssocRole) => t(`assoc.role.${r}`, { context: sex === "M" || sex === "F" ? sex : undefined });
 
   /** Write the association: whichever of its words has just changed. */
-  const write = (next: { role?: AssocRole; roleText?: string; name?: string }) =>
+  const write = (next: { targetId?: string; role?: AssocRole; roleText?: string; name?: string }) =>
     api.update(ownerId, assoc.raw, {
-      targetId: nameOnly ? undefined : assoc.targetId,
-      name: next.name ?? assoc.name,
+      targetId: next.targetId ?? (nameOnly ? undefined : assoc.targetId),
+      // A person the file records needs no name of its own — their record has
+      // one, and two names for one associate is two answers.
+      name: next.targetId ? undefined : "name" in next ? next.name : assoc.name,
       role: next.role ?? assoc.role,
       roleText: "roleText" in next ? next.roleText : assoc.roleText,
       // A 5.5-era association may point at a family; changing its role must not
       // cost the `TYPE FAM` that says so.
-      targetKind: assoc.targetKind,
+      targetKind: next.targetId ? undefined : assoc.targetKind,
     });
 
   /** Write the role: a word of the file's own, or the vocabulary's. */
@@ -133,25 +145,58 @@ function AssociateChip({
         // of its own — typed over here, as the role is. A person the file does
         // record keeps their link: it is how you reach them, and the ▾ is where
         // that link is pointed somewhere else.
-        <input
-          className="edit-input edit-assoc-name-field"
-          value={name}
-          size={Math.max(6, name.length)}
-          aria-label={t("assoc.pickLabel")}
-          title={t("assoc.nameOnlyTip")}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => {
-            const text = name.trim();
-            if (text === (assoc.name ?? "")) return;
-            // Emptied, it would name nobody at all; the file keeps what it had.
-            if (text) write({ name: text });
-            else setName(assoc.name ?? "");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            else if (e.key === "Escape") setName(assoc.name ?? "");
-          }}
-        />
+        <span className="edit-assoc-name-wrap">
+          <input
+            className="edit-input edit-assoc-name-field"
+            value={name}
+            size={Math.max(6, name.length)}
+            aria-label={t("assoc.pickLabel")}
+            title={t("assoc.nameOnlyTip")}
+            onChange={(e) => { setName(e.target.value); setPickIdx(0); }}
+            onFocus={() => setSearching(true)}
+            onBlur={() => {
+              setSearching(false);
+              const text = name.trim();
+              if (text === (assoc.name ?? "")) return;
+              // Nobody picked, so the name stays the text it is. Emptied, it
+              // would name nobody at all; the file keeps what it had.
+              if (text) write({ name: text });
+              else setName(assoc.name ?? "");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") { setSearching(false); setName(assoc.name ?? ""); return; }
+              if (!matches.length) {
+                if (e.key === "Enter") e.currentTarget.blur();
+                return;
+              }
+              handleListKey(e, {
+                count: matches.length,
+                index: pickIdx,
+                setIndex: setPickIdx,
+                onEnter: (i) => matches[i] && write({ targetId: matches[i].id }),
+              });
+            }}
+          />
+          {/* Typed over, the name is searched for in the file: a godparent
+              written by name alone is often somebody it holds after all, and
+              picking them turns the text into a pointer at their record. Blur
+              without picking and the text stays text. */}
+          {matches.length > 0 && (
+            <ul className="relative-picker-list edit-assoc-name-list">
+              {matches.map((o, i) => (
+                <li key={o.id}>
+                  <PersonOptionRow
+                    option={o}
+                    highlighted={i === pickIdx}
+                    onHighlight={() => setPickIdx(i)}
+                    onPick={() => write({ targetId: o.id })}
+                    t={t}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </span>
       )}
       {/* Typed over, the role becomes the file's own wording; the vocabulary is
           in the menu beside it. What stands here at rest is what the file says,
@@ -328,7 +373,11 @@ export function EventAssociates({
         // after the role. Inline, a sentence-long note left the name a column
         // one character wide.
         <span
-          key={i}
+          // Keyed by who it names, not by where it sits: the row's fields hold
+          // their own drafts, and a role read as "godparent" for a name the file
+          // knew nothing about must be read again — as "godmother" — once that
+          // name turns out to be a woman the file records.
+          key={`${i}:${assoc.targetId}`}
           className={"edit-event-assoc" + (isTallNoteList(assoc.noteRefs ?? []) ? " edit-event-assoc--tall" : "")}
         >
           {isVoidAssociation(assoc) || !api ? (

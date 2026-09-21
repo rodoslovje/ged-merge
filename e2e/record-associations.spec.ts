@@ -176,6 +176,47 @@ test("a name the file holds no record for is typed over where it stands", async 
   await name.fill("");
   await name.blur();
   await expect(name).toHaveValue("Miki Mikič, sosed");
+
+  // Nobody in the file answers to that, so it stayed text: still a field, no
+  // link to open.
+  await expect(panel.locator(".person-ref")).toHaveCount(0);
+});
+
+test("typing that name searches the file, and picking makes it a person", async ({ page }) => {
+  // A godparent written by name alone is often somebody the file holds after
+  // all — so the name field searches, and a pick turns the text into a pointer
+  // at their record. Left unpicked, the text stays text (the test above).
+  const ged = [
+    "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Janez /Renko/", "1 SEX M",
+    "1 ASSO @VOID@", "2 PHRASE Miki", "2 ROLE GODP",
+    "0 @I3@ INDI", "1 NAME Jozefa /Pezdirc/", "1 SEX F", "1 BIRT", "2 DATE 1900",
+    "0 TRLR", "",
+  ].join("\n");
+  const filePath = path.join(tmpdir(), `assoc-void-search-${Date.now()}.ged`);
+  writeFileSync(filePath, ged, "utf-8");
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(filePath);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const panel = page.locator(".edit-person .edit-assoc");
+  const name = panel.locator(".edit-assoc-name-field");
+  await name.click();
+  await name.fill("Jozefa");
+
+  const hit = panel.locator(".edit-assoc-name-list .relative-picker-option").filter({ hasText: "Jozefa" });
+  await expect(hit).toHaveCount(1);
+  await hit.click();
+
+  // Now a person: a link to their record, and no name text of its own — their
+  // record holds the name.
+  await expect(panel.locator(".edit-assoc-name-field")).toHaveCount(0);
+  const link = panel.locator(".person-ref");
+  await expect(link).toContainText("Jozefa");
+  // The role it had came through the change.
+  await expect(panel.locator(".edit-assoc-role-field")).toHaveValue("godmother");
 });
 
 test("picking \"other\" asks for the word rather than writing one", async ({ page }) => {
