@@ -43,9 +43,20 @@ test("edit mode: an HTML note reads as text, is rewritten clean once edited and 
   await expect(chips.nth(1).locator("a")).toHaveAttribute("href", "https://www.dlib.si/x");
   await expect(chips.nth(2)).toHaveText("plain note");
 
-  // Append to the first note; leave the second alone.
+  // Append to the first note; leave the second alone. The caret is placed
+  // through the selection rather than with the End key: with anything else on
+  // the page below the note — the associates block, for one — Chromium leaves
+  // the caret where the click put it and End does nothing, which is its own
+  // quirk and not what this test is about.
   await chips.nth(0).click();
-  await page.keyboard.press("End");
+  await chips.nth(0).evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
   await page.keyboard.type(" Doma.");
 
   // Make the plain note bold with the toolbar: it becomes an HTML note.
