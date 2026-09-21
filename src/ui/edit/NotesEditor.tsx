@@ -6,6 +6,29 @@ import { noteToText } from "../../gedcom/noteHtml";
 import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
 
+/**
+ * How wide a note may be before it stops riding beside the fields it belongs to.
+ * Past this it takes a line of its own — on an event row, and under an associate.
+ */
+export const NOTE_CHIP_CH = 48;
+
+/**
+ * Whether these notes want a line of their own rather than a place in the row:
+ * several of them, one with a line break, or one longer than a chip.
+ *
+ * Judged on committed notes, not on a draft being typed, so a row does not
+ * re-lay itself out under the cursor.
+ */
+export function isTallNoteList(notes: NoteRef[]): boolean {
+  return (
+    notes.length > 1 ||
+    notes.some((r) => {
+      const text = noteToText(r.text).replace(/^\n+/, "");
+      return text.includes("\n") || text.length > NOTE_CHIP_CH;
+    })
+  );
+}
+
 /** First URL in a note's text, for the chip's open-link button. */
 function firstUrlIn(text: string): string | undefined {
   const m = /https?:\/\/[^\s<>"]+/i.exec(noteToText(text));
@@ -23,16 +46,26 @@ function firstUrlIn(text: string): string | undefined {
 export function NotesEditor({
   notes: initialNotes,
   addOnMount,
+  focusOnMount = true,
   addTrigger,
   sectionLabel,
+  className,
   baselineNotes,
   t,
   onCommit,
 }: {
   notes: NoteRef[];
   addOnMount?: boolean;
+  /** Whether the box `addOnMount` opens also takes the caret. False where
+   *  many editors mount at once — an associate list gives every unwritten
+   *  note a box, and the last to mount must not steal the focus. */
+  focusOnMount?: boolean;
   addTrigger?: number;
   sectionLabel?: string;
+  /** Added to the editor's own class, for a caller that has to style the
+   *  whole list — an associate's row hides an as-yet-unwritten note there
+   *  until the row is reached. */
+  className?: string;
   /** The note texts as they were at the last clean/saved state; any note not in
    * here is new or changed and renders bold, like other new/changed data. */
   baselineNotes?: string[];
@@ -42,7 +75,7 @@ export function NotesEditor({
   const baseline = new Set(baselineNotes ?? initialNotes.map((n) => n.text));
   const [notes, setNotes] = useState<NoteRef[]>(() => (addOnMount ? [...initialNotes, { text: "" }] : initialNotes));
   const prevTrigger = useRef(addTrigger ?? 0);
-  const focusNewRef = useRef<number | null>(addOnMount ? initialNotes.length : null);
+  const focusNewRef = useRef<number | null>(addOnMount && focusOnMount ? initialNotes.length : null);
   const boxRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
@@ -123,8 +156,10 @@ export function NotesEditor({
           // Shown formatted; the stored text stays verbatim until the user
           // really edits, so an untouched blur can't rewrite the record.
           text={note.text}
-          placeholder={t("field.notes")}
-          title={t("field.notes")}
+          // Singular: this box is one note, whatever the section above it is
+          // called. "Notes" in an empty box read as the whole list living there.
+          placeholder={t("field.note")}
+          title={t("field.note")}
           t={t}
           onInput={(text) => setNotes((prev) => prev.map((n, idx) => (idx === i ? { ...n, text } : n)))}
           onBlur={() => commitNotes(notes)}
@@ -140,7 +175,7 @@ export function NotesEditor({
   });
 
   return (
-    <div className="edit-notes">
+    <div className={`edit-notes${className ? ` ${className}` : ""}`}>
       {sectionLabel ? (
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>

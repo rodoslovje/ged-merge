@@ -9736,12 +9736,18 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* Godparents, witnesses and officiants (ASSO) — the people the record names
    who are not its relatives, and the records that name this person back. */
 .edit-assoc { margin: 12px 0 4px; }
-.edit-assoc-head {
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-bottom: 4px;
+/* Always visible, like the event row's add chip and for the same reason: it is
+   the way to name an associate, not an incidental extra on another row — and on
+   a record with none yet it is the only thing in the block. */
+.edit-assoc .edit-name-chip-add { opacity: 1; }
+/* Naming somebody takes a person picker, a role, a wording and a note, which is
+   more than fits beside a heading and the associates already there. It takes a
+   line of its own under them — `flex-basis: 100%` in the wrapping row. */
+.edit-record-label-row > .edit-assoc-roleform,
+.edit-record-label-row > .person-card-wrap {
+  flex-basis: 100%;
 }
-.edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
+.edit-record-label-row + .edit-assoc-list { margin-bottom: 10px; }
 .edit-assoc-list {
   list-style: none;
   margin: 0;
@@ -9765,6 +9771,109 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   color: var(--accent);
   font-size: 0.78rem;
 }
+/* The role is a field, edited where it stands like every field on an event row:
+   the words the file holds, with the box drawn only once the pointer or the
+   caret is in it (`.edit-input`). Sized to its own text so a list of associates
+   does not become a column of same-width boxes. */
+.edit-assoc-role-field {
+  color: var(--accent);
+  font-size: 0.78rem;
+  padding: 1px 4px;
+}
+/* The vocabulary, and the actions that are not typing, hang off the caret
+   beside it — the shape an event's type label has. Hidden until the row is
+   reached, so a record naming nine people reads as nine roles, not as nine
+   controls. */
+.edit-assoc-role-menu {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: -2px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent);
+  line-height: 1;
+  align-self: center;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+.edit-event-assoc:hover .edit-assoc-role-menu,
+.edit-assoc-role-field:focus + .edit-assoc-role-menu,
+.edit-assoc-role-menu:focus-visible,
+.edit-assoc-role-menu[aria-expanded="true"] {
+  max-width: 1.4em;
+  opacity: 1;
+}
+/* An associate with nothing written about them carries the note box all the
+   same, empty and waiting — it simply keeps out of the way until the row is
+   reached, like the ▾, so a record naming nine people is nine names and not
+   nine blank boxes. Typing in it is all there is to do; there is no button
+   between the pointer and the words.
+
+   It holds its place in the row and is faded, rather than collapsed, laid over
+   or `visibility: hidden` — each of which was tried and each of which failed
+   its own way. Collapsed, it grew on hover and moved the ▾ beside it, so a
+   pointer resting there fell out of the row as it moved: hover and layout
+   feeding each other, the loop the equal-height cards had. `visibility: hidden`
+   costs the box its focus, leaving the tab order so neither the keyboard nor a
+   freshly written row can reach it. Laid over the row, it covered whatever the
+   row happened to sit above — the map's own buttons, a line below.
+
+   Faded in place, nothing moves and nothing is covered; the cost is a short gap
+   per associate with nothing written about them. */
+.edit-notes--offer { opacity: 0; transition: opacity 0.12s; }
+.edit-event-assoc:hover .edit-notes--offer,
+.edit-notes--offer:focus-within { opacity: 1; }
+/* That gap is kept to the width of its own placeholder while it holds nothing,
+   so a row of associates reads as names and not as a run of empty fields. The
+   width it overrides is an inline style (the editor sizes each note to its own
+   text), which no selector can outweigh — and it lifts the moment the box is
+   typed in, where a changed width costs a click and not a hover. */
+.edit-notes--offer:not(:focus-within) .edit-note-chip { width: calc(7ch + 42px) !important; }
+/* Revealed, it has to look like somewhere to type: an empty note box is a
+   transparent border around nothing, whose placeholder waits for a hover of its
+   own — laid over the row it read as a gap in the page. Dashed, like every
+   other "there is room for one more here" in the editor, and with the
+   placeholder up. */
+.edit-event-assoc:hover .edit-notes--offer .edit-input,
+.edit-notes--offer:focus-within .edit-input {
+  border-style: dashed;
+  border-color: var(--border-2);
+  background: var(--panel);
+}
+.edit-event-assoc:hover .edit-notes--offer .note-rich:empty::before { opacity: 1; }
+/* The field and the people it finds while it is typed in: the list hangs under
+   it without moving the row, the way a menu does. */
+.edit-assoc-name-wrap { position: relative; display: inline-flex; }
+.edit-assoc-name-list {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 4;
+  min-width: 14rem;
+  background: var(--panel);
+  /* The surface a dropdown has, since that is what this is. */
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  padding: 2px;
+  margin: 2px 0 0;
+  list-style: none;
+  max-height: 16rem;
+  overflow: auto;
+}
+/* The same name where the row can be edited: the file's own text, so a field —
+   drawn as the words it holds until the pointer reaches it, like the role. The
+   dotted underline stays, to say this name answers for nobody in the file. */
+.edit-assoc-name-field {
+  color: var(--text);
+  border-bottom-style: dotted;
+  border-bottom-color: var(--muted);
+  border-radius: 0;
+  padding: 1px 2px;
+}
 /* A name the file records as nobody: no record to open, so no link affordance. */
 .edit-assoc-name-only {
   color: var(--text);
@@ -9781,10 +9890,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   white-space: nowrap;
 }
 .edit-assoc-action:hover { text-decoration: underline; }
-/* The ✎ and ✕ beside an associate: single glyphs, hidden until the row is
-   hovered, like the ↗ beside a citation. A baptism naming four godparents is a
-   list of people, and eight glyphs threaded between them is what it stops
-   reading as. Hover-only rather than :focus-within — a clicked control keeps
+/* The ✎ beside an associate: a single glyph, hidden until the row is hovered,
+   like the ↗ beside a citation. A baptism naming four godparents is a list of
+   people, and glyphs threaded between them is what it stops reading as — which
+   is also why moving and removing live in the role's own menu rather than out
+   here, a click away from an edit and one of them not undone by reading.
+   Hover-only rather than :focus-within — a clicked control keeps
    focus after the pointer leaves, which would pin the reveal to the last row
    touched; keyboard users reach them through :focus-visible.
    Only ever glyphs: the same clamp on a word ("Shrani") cuts it to 1.4em and
@@ -9806,14 +9917,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   overflow: hidden;
   transition: max-width 0.12s, opacity 0.12s;
 }
-/* ↧ is drawn lighter and smaller than ✎ and ✕ at the same size — the arrow's
-   bar sits low in its em box — so it gets the size that makes the three read
-   as one set. */
-.edit-assoc-move { font-size: 1rem; }
 .edit-assoc-glyph:hover { color: var(--accent); }
-.edit-assoc-remove:hover { color: var(--danger); }
 .edit-event:hover .edit-assoc-glyph,
 .edit-assoc-row:hover .edit-assoc-glyph,
+/* A record naming nine people is a list, and revealing all nine sets of
+   actions at once is the noise the reveal exists to avoid — there, each
+   associate answers for their own. */
+.edit-event-assoc:hover .edit-assoc-glyph,
 .edit-assoc-glyph:focus-visible {
   max-width: 1.4em;
   opacity: 1;
@@ -9826,7 +9936,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   align-items: baseline;
   gap: 4px;
   margin-right: 8px;
+  flex-wrap: wrap;
 }
+/* An associate whose note is more than a chip's worth takes a line for
+   themselves, with the note on a second line under their name and actions —
+   the rule an event row applies to its own note. Inline, a sentence-long note
+   claimed the whole line and left the name a column one character wide. */
+.edit-event-assoc--tall { flex-basis: 100%; }
+.edit-event-assoc--tall > .edit-notes { flex-basis: 100%; }
+/* Neither the name nor an action shrinks to make room: the line wraps instead.
+   Shrinking is what set a name on its side and clipped "+ Note" to "+ No". */
+.edit-event-assoc > .person-ref,
+.edit-event-assoc > .edit-assoc-name-only,
+.edit-event-assoc > .edit-assoc-glyph { flex: none; }
 .edit-assoc-roleform {
   display: inline-flex;
   align-items: center;
@@ -9847,6 +9969,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
+}
+/* A note is a sentence where the role beside it is a word or two, so it takes
+   what room the line has left rather than the same narrow box. */
+.edit-assoc-note-input {
+  flex: 1 1 14rem;
+  min-width: 8rem;
 }
 /* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
 .edit-person-changed {

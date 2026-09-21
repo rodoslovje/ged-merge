@@ -1,6 +1,7 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
 import { RELA_TO_ROLE, ROLE_TO_RELA } from "../gedcom/assoc";
 import { cloneNode, firstChild } from "../gedcom/node";
+import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { walkNodes } from "./walk";
 
@@ -21,7 +22,10 @@ import { walkNodes } from "./walk";
  *                                        bounded ages + `PHRASE`; unit casing;
  *                                        weeks (7-only) ⇄ days
  *  - associations                      : `ASSO`.`RELA` free text ⇄ `ROLE` enum
- *                                        (+ `PHRASE` for OTHER)
+ *                                        (+ `PHRASE` for OTHER); `TYPE INDI`
+ *                                        dropped on the way up, and on the way
+ *                                        down an event's or a family's `ASSO`
+ *                                        moved to the one record 5.5.1 allows
  *  - identifiers                       : `AFN`/`RFN`/`RIN` ⇄ `EXID` + TYPE URI
  *                                        (other EXIDs downgrade to `REFN`)
  *  - media                             : `FORM` file extension ⇄ IANA media
@@ -286,6 +290,17 @@ function titleCase(word: string): string {
 }
 
 function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
+  // `TYPE` has no place under 7.0's `ASSO`. 5.5 carried it because its pointer
+  // could name any record; once 5.5.1 restricted the pointer to a person, `TYPE
+  // INDI` said nothing, and 7.0 dropped the tag. `TYPE FAM` is left where it is:
+  // its pointer is one 7.0 cannot express either, and the tag is the only line
+  // saying the association does not name a person.
+  const type = firstChild(node, "TYPE");
+  if (type && type.value?.trim().toUpperCase() === "INDI") {
+    node.children = node.children.filter((c) => c !== type);
+    report(ctx, node, `${describe(node)}.TYPE INDI`);
+  }
+
   const rela = firstChild(node, "RELA");
   if (!rela) return;
   const before = describe(rela);
@@ -345,6 +360,57 @@ const UNDERSCORE_DOWNGRADES: Record<string, string> = {
   NO: "_NO",
 };
 
+/**
+ * 5.5.1 defines `ASSO` in one place: under an `INDI` record. Both of the other
+ * places 7.0 allows have to give theirs up on the way down.
+ *
+ * An individual event's association goes to that person's own record — the same
+ * record, one level up, which is where the dialect keeps it. A family's has no
+ * family-level form to fall back on, so it goes to a spouse's record instead, the
+ * husband's where the family records one and otherwise the wife's: that is what
+ * 5.5.1 has to say "a witness at this couple's wedding" with. Which event it was
+ * is not recoverable afterwards, and every move is named in the normalization
+ * report, so the reshaping is the user's to see rather than a silent one.
+ *
+ * A family that records neither spouse has nowhere to send its associations, so
+ * they stay where they are: an unexpected structure a reader can still find beats
+ * a dropped one it cannot.
+ *
+ * Runs after the `ROLE` → `RELA` rewrite, on records rather than on single nodes,
+ * because a move needs both containers at once.
+ */
+function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
+  const byXref = new Map(records.filter((r) => r.xref).map((r) => [r.xref!, r]));
+
+  /** The `INDI` record a family's associations belong to, if it names one. */
+  const spouseOf = (fam: GedNode): GedNode | undefined => {
+    for (const tag of ["HUSB", "WIFE"]) {
+      const ref = firstChild(fam, tag)?.value?.trim();
+      const rec = ref ? byXref.get(ref) : undefined;
+      if (rec?.tag === "INDI") return rec;
+    }
+    return undefined;
+  };
+
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    const host = rec.tag === "INDI" ? rec : spouseOf(rec);
+    if (!host) continue;
+
+    // The record's own children first (a FAM's record-level associations), then
+    // each event's. Snapshot both lists: the move mutates them.
+    const containers = [rec, ...rec.children.filter((c) => c.tag !== "ASSO")];
+    for (const container of containers) {
+      if (container === host) continue; // already where 5.5.1 wants it
+      for (const assoc of container.children.filter((c) => c.tag === "ASSO")) {
+        moveAssociation(container, host, assoc);
+        ctx.changed++;
+        ctx.onChange(`${container.tag}.${describe(assoc)}`, `${host.tag}.${describe(assoc)}`);
+      }
+    }
+  }
+}
+
 function downgrade(records: GedNode[], ctx: MigrateCtx): void {
   const snoteXrefs = new Set(
     records.filter((r) => r.tag === "SNOTE" && r.xref).map((r) => r.xref!),
@@ -378,6 +444,10 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, retag(node, UNDERSCORE_DOWNGRADES[node.tag]), describe(node));
     }
   });
+
+  // Last, because it moves whole `ASSO` subtrees between records and wants their
+  // roles already rewritten when it does.
+  downgradeAssoPlacement(records, ctx);
 }
 
 /** Fold a 7.0 `PHRASE` substructure back into the 5.5.1 date value, and turn

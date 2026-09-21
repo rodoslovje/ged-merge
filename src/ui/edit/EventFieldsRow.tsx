@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { noteToText } from "../../gedcom/noteHtml";
 import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { customEventLabel, customEventTooltip, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
-import type { EventFieldUpdate } from "../../gedcom/edit";
+import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { EventGlyph, eventMenuLabel } from "../EventGlyph";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
-import { NotesEditor } from "./NotesEditor";
+import { isTallNoteList, NOTE_CHIP_CH, NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
 import { EventAssociates } from "./EventAssociates";
 import { SuggestInput } from "./SuggestInput";
@@ -31,10 +30,6 @@ import { linkKey } from "../../normalize/links";
  * event-type dropdown (distinct from any real tag). */
 const COPY_OPTION = "__copy_event__";
 const REMOVE_OPTION = "__remove_event__";
-
-/** The widest a note chip grows (see NotesEditor): a longer line wraps inside
- *  the chip, so the note stands more than a line tall. */
-const NOTE_CHIP_CH = 48;
 
 /** What a field completes from on a tag the file has never written — one
  *  shared object, so a row of empty fields doesn't allocate a map each. */
@@ -423,7 +418,12 @@ export function EventFieldsRow({
   const [assocPicking, setAssocPicking] = useState(false);
   // Editing the people an event names needs the Edit view's file and dialect
   // (see AssocContext); the merge's read-only rows have neither and offer none.
-  const canAssoc = !!useAssoc() && !!eventNode;
+  // A 5.5.x file has no event-level `ASSO` at all, so there the row offers none
+  // either and the person's own record is where one goes — the panel under the
+  // event list. Associations such a file already carries here still show and
+  // still edit; only writing a new one is refused.
+  const assocApi = useAssoc();
+  const canAssoc = !!assocApi && !!eventNode && canWriteEventAssociation(assocApi.version);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Agency slot to its line value; every other event keeps the
@@ -824,11 +824,7 @@ export function EventFieldsRow({
    * not re-lay itself out under the cursor. */
   const noteTall = noteField.isMerge
     ? noteField.value.includes("\n") || noteField.value.length > NOTE_CHIP_CH
-    : (ev?.noteRefs?.length ?? 0) > 1 ||
-      (ev?.noteRefs ?? []).some((r) => {
-        const text = noteToText(r.text).replace(/^\n+/, "");
-        return text.includes("\n") || text.length > NOTE_CHIP_CH;
-      });
+    : isTallNoteList(ev?.noteRefs ?? []);
   const noteEl = (
       <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
         <span className="edit-event-extra-label">{t("event.colNote")}</span>

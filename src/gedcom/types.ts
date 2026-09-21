@@ -333,6 +333,12 @@ export interface Association {
   name?: string;
   /** A `DATE` on the association itself, where the file writes one. */
   date?: GedDate;
+  /** Notes on the association itself — why these two are connected, and on a
+   *  DNA match the numbers behind it. Both dialects allow them
+   *  (`ASSOCIATION_STRUCTURE` carries `<<NOTE_STRUCTURE>>` in 5.5.1 and 7.0),
+   *  and they read like any other record's: many per association, shared-note
+   *  pointers kept, privacy flags honoured. */
+  noteRefs?: NoteRef[];
   /** Back-reference to the `ASSO` node, so an edit can rewrite exactly it. */
   raw: GedNode;
 }
