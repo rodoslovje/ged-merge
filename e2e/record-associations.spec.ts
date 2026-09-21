@@ -44,6 +44,9 @@ async function addAssociate(panel: import("@playwright/test").Locator, name: str
   await picker.fill(name);
   await panel.getByRole("button", { name: new RegExp(name) }).first().click();
   if (note !== undefined) {
+    // The box an unwritten note keeps is shown once the row is reached — which
+    // it is, the pointer having just clicked the picker's option there.
+    await panel.locator(".edit-event-assoc").last().hover();
     const box = panel.locator(".edit-event-note").last();
     await expect(box).toBeVisible();
     await box.fill(note);
@@ -122,19 +125,26 @@ test("an associate with no note is offered one on the row", async ({ page }) => 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
+  // The box is on the row, not a button that opens one — out of the way until
+  // the row is reached, then typed straight into.
   const panel = page.locator(".edit-person .edit-assoc");
-  await panel.locator(".edit-event-assoc").first().hover();
-  const offer = panel.getByRole("button", { name: "Add Note" });
-  await expect(offer).toBeVisible();
-  await offer.click();
-
   const note = panel.locator(".edit-event-note").first();
-  await expect(note).toBeFocused();
+  await expect(note).toHaveCount(1);
+  // There, holding its place and reachable, but faded out of the way. Measured
+  // on the list that carries the fade: opacity does not inherit into a child's
+  // computed style, so the box itself reads 1 either way.
+  const notes = panel.locator(".edit-notes").first();
+  await expect(notes).toHaveCSS("opacity", "0");
+
+  await panel.locator(".edit-event-assoc").first().hover();
+  await expect(notes).toHaveCSS("opacity", "1");
+  await note.click();
   await note.fill("stood for the eldest too");
   await note.blur();
   await expect(panel.locator(".edit-event-assoc")).toContainText("stood for the eldest too");
-  // Written, so the offer has nothing left to offer.
-  await expect(panel.getByRole("button", { name: "Add Note" })).toHaveCount(0);
+
+  // No button was ever offered — the box was the offer.
+  await expect(panel.getByRole("button", { name: /Add Note/ })).toHaveCount(0);
 });
 
 test("picking \"other\" asks for the word rather than writing one", async ({ page }) => {

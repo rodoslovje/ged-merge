@@ -9806,32 +9806,49 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   max-width: 1.4em;
   opacity: 1;
 }
-/* With no note yet there is no box to click in, so the row offers one — and it
-   comes up with the row, like the ▾ does, rather than standing there empty
-   beside every associate who has nothing written about them. */
-.edit-assoc-note-add {
-  background: none;
-  border: 1px dashed transparent;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 1px 0;
-  white-space: nowrap;
-  max-width: 0;
+/* An associate with nothing written about them carries the note box all the
+   same, empty and waiting — it simply keeps out of the way until the row is
+   reached, like the ▾, so a record naming nine people is nine names and not
+   nine blank boxes. Typing in it is all there is to do; there is no button
+   between the pointer and the words.
+
+   It is laid over the row rather than in it, and faded until the row is
+   reached. Three things ruled out the simpler ways: collapsed, it grew on hover
+   and moved the ▾ beside it, so a pointer resting there fell out of the row as
+   it moved — hover and layout feeding each other, the loop the equal-height
+   cards had. `visibility: hidden` costs the box its focus, leaving the tab
+   order so neither the keyboard nor a freshly written row can reach it. And
+   held in the flow it reserves its whole height, toolbar and all — 65px per
+   associate who has nothing written about them yet.
+
+   Absolutely positioned, it is still a descendant, so moving the pointer down
+   onto it keeps the row hovered and the box open. */
+.edit-notes--offer {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 3;
   opacity: 0;
-  overflow: hidden;
-  transition: max-width 0.12s, opacity 0.12s;
+  pointer-events: none;
+  transition: opacity 0.12s;
 }
-.edit-event-assoc:hover .edit-assoc-note-add,
-.edit-assoc-note-add:focus-visible {
-  max-width: 12em;
-  padding: 1px 6px;
-  border-color: var(--border-2);
+.edit-event-assoc:hover .edit-notes--offer,
+.edit-notes--offer:focus-within {
   opacity: 1;
+  pointer-events: auto;
 }
-.edit-assoc-note-add:hover { color: var(--accent); border-color: var(--accent); }
+/* Revealed, it has to look like somewhere to type: an empty note box is a
+   transparent border around nothing, whose placeholder waits for a hover of its
+   own — laid over the row it read as a gap in the page. Dashed, like every
+   other "there is room for one more here" in the editor, and with the
+   placeholder up. */
+.edit-event-assoc:hover .edit-notes--offer .edit-input,
+.edit-notes--offer:focus-within .edit-input {
+  border-style: dashed;
+  border-color: var(--border-2);
+  background: var(--panel);
+}
+.edit-event-assoc:hover .edit-notes--offer .note-rich:empty::before { opacity: 1; }
 /* A name the file records as nobody: no record to open, so no link affordance. */
 .edit-assoc-name-only {
   color: var(--text);
@@ -9895,6 +9912,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   gap: 4px;
   margin-right: 8px;
   flex-wrap: wrap;
+  /* The frame an as-yet-unwritten note's box is laid over (see
+     `.edit-notes--offer`). */
+  position: relative;
 }
 /* An associate whose note is more than a chip's worth takes a line for
    themselves, with the note on a second line under their name and actions —

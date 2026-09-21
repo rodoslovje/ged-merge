@@ -46,16 +46,26 @@ function firstUrlIn(text: string): string | undefined {
 export function NotesEditor({
   notes: initialNotes,
   addOnMount,
+  focusOnMount = true,
   addTrigger,
   sectionLabel,
+  className,
   baselineNotes,
   t,
   onCommit,
 }: {
   notes: NoteRef[];
   addOnMount?: boolean;
+  /** Whether the box `addOnMount` opens also takes the caret. False where
+   *  many editors mount at once — an associate list gives every unwritten
+   *  note a box, and the last to mount must not steal the focus. */
+  focusOnMount?: boolean;
   addTrigger?: number;
   sectionLabel?: string;
+  /** Added to the editor's own class, for a caller that has to style the
+   *  whole list — an associate's row hides an as-yet-unwritten note there
+   *  until the row is reached. */
+  className?: string;
   /** The note texts as they were at the last clean/saved state; any note not in
    * here is new or changed and renders bold, like other new/changed data. */
   baselineNotes?: string[];
@@ -65,7 +75,7 @@ export function NotesEditor({
   const baseline = new Set(baselineNotes ?? initialNotes.map((n) => n.text));
   const [notes, setNotes] = useState<NoteRef[]>(() => (addOnMount ? [...initialNotes, { text: "" }] : initialNotes));
   const prevTrigger = useRef(addTrigger ?? 0);
-  const focusNewRef = useRef<number | null>(addOnMount ? initialNotes.length : null);
+  const focusNewRef = useRef<number | null>(addOnMount && focusOnMount ? initialNotes.length : null);
   const boxRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
@@ -163,7 +173,7 @@ export function NotesEditor({
   });
 
   return (
-    <div className="edit-notes">
+    <div className={`edit-notes${className ? ` ${className}` : ""}`}>
       {sectionLabel ? (
         <div className="edit-record-label-row">
           <span className="edit-record-label">{sectionLabel}</span>

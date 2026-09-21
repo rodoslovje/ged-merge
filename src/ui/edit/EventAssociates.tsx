@@ -100,10 +100,8 @@ function AssociateChip({
   const sex = sexOfTarget(api, assoc);
   const shown = roleLabel(assoc, t, sex);
   const [role, setRole] = useState(shown);
-  /** Opens a fresh, empty note on this row — the event rows' own trigger. Also
-   *  counts the box a just-written row opens by itself, so the offer below does
-   *  not stand beside an empty box offering a second one. */
-  const [noteAdd, setNoteAdd] = useState(fresh ? 1 : 0);
+  /** Nothing written about them yet: the row carries an empty box instead. */
+  const empty = !assoc.noteRefs?.length;
   const roleRef = useRef<HTMLInputElement>(null);
 
   /** The vocabulary's word for a role, in the associate's own gender. */
@@ -192,31 +190,25 @@ function AssociateChip({
         }}
         trigger={<span className="edit-assoc-role-caret" aria-hidden="true">▾</span>}
       />
-      {/* The association's own notes, as chips — the same editor a person's or
-          an event's notes use, because they are the same thing: `ASSO` carries
-          `NOTE` in both dialects. Seeded from the record once, so the editor is
-          remounted when a commit or an undo moves them underneath it. */}
+      {/* An associate with nothing written about them still has the box —
+          empty, and out of the way until the row is reached, like the ▾ —
+          rather than a button that would open one. There is nothing a button
+          would add: the box is the thing it was going to give you. The same
+          editor a person's or an event's notes use, because `ASSO` carries
+          `NOTE` in both dialects; seeded from the record once, so it is
+          remounted when a commit or an undo moves the notes underneath it. An
+          untouched empty box commits nothing, so a row of them writes nothing. */}
       <NotesEditor
         key={noteEditorKey(assoc)}
         notes={assoc.noteRefs ?? []}
-        addOnMount={fresh}
-        addTrigger={noteAdd}
+        addOnMount={empty}
+        // Only the row just written takes the caret: every note-less associate
+        // mounts a box, and the last of them must not claim the focus.
+        focusOnMount={fresh}
+        className={empty ? "edit-notes--offer" : undefined}
         t={t}
         onCommit={(refs) => api.notes(ownerId, assoc.raw, refs)}
       />
-      {/* With no note yet there is no box to click, so the row offers one: it
-          comes up with the row like the ▾ does, and clicking hands over to the
-          editor above, which opens a real note with the caret in it. */}
-      {!assoc.noteRefs?.length && !noteAdd && (
-        <button
-          type="button"
-          className="edit-assoc-note-add"
-          title={t("edit.addNoteTooltip")}
-          onClick={() => setNoteAdd((n) => n + 1)}
-        >
-          {t("edit.addNote")}
-        </button>
-      )}
     </>
   );
 }
