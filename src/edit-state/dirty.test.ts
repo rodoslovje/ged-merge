@@ -187,6 +187,8 @@ describe("computePatchApplyOps", () => {
       "redo",
       noSnapshot,      // snapshot was cleared
       () => edited,    // current is the re-applied edited state
+      undefined,
+      wasLoaded,
     );
     expect(ops.dirty).toEqual([{ action: "add", kind: "individual", id: "@I1@" }]);
     expect(ops.snapshots).toHaveLength(1);
@@ -194,6 +196,22 @@ describe("computePatchApplyOps", () => {
     expect(ops.snapshots[0].id).toBe("@I1@");
     // value should be a clone of patch.before (original)
     expect((ops.snapshots[0] as { action: "set"; value: GedNode }).value).toEqual(original);
+  });
+
+  it("D: redo restores no snapshot for a record created in this session", () => {
+    // `before` here is the record as its creation left it, not a baseline the
+    // file ever held — taking it would draw the new record against itself.
+    const patch = indiPatch("@I9@", node("INDI", "just-created"), edited);
+    const ops = computePatchApplyOps(
+      [patch],
+      "redo",
+      noSnapshot,
+      () => edited,
+      undefined,
+      wasLoaded, // @I9@ is the session-created one
+    );
+    expect(ops.dirty).toEqual([{ action: "add", kind: "individual", id: "@I9@" }]);
+    expect(ops.snapshots).toHaveLength(0);
   });
 
   // Case E ─────────────────────────────────────────────────────────────────
@@ -331,6 +349,8 @@ describe("computePatchApplyOps", () => {
         "redo",
         () => undefined, // record snapshot was cleared by the prior undo
         (kind) => (kind === "record" ? objeEdited : ownerRaw),
+        undefined,
+        wasLoaded, // @O1@ came with the file
       );
       expect(ops.dirty).toEqual([{ action: "add", kind: "individual", id: "@I1@" }]);
       expect(ops.snapshots).toHaveLength(1);
@@ -364,6 +384,14 @@ describe("computePushCaptureOps", () => {
   it("skips patches where before === null (record creation)", () => {
     const patch = indiPatch("@I1@", null, node("INDI", "new"));
     const ops = computePushCaptureOps([patch], () => false);
+    expect(ops).toHaveLength(0);
+  });
+
+  it("skips a record created in this session, whose `before` is its own creation state", () => {
+    // Second edit on a person the file never had: `before` is the record as
+    // the creation left it, which must not become a baseline.
+    const patch = indiPatch("@I1@", node("INDI", "just-created"), node("INDI", "with-birth"));
+    const ops = computePushCaptureOps([patch], () => false, () => false);
     expect(ops).toHaveLength(0);
   });
 
