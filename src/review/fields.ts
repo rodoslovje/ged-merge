@@ -1237,6 +1237,7 @@ function pushSourcesRow(
   const mIcons = linksNotCitedAsSource(mRemainingLinks, m);
   const iIcons = linksNotCitedAsSource(iRemainingLinks, i);
   if (m.length === 0 && i.length === 0 && mIcons.length === 0 && iIcons.length === 0) return;
+  const state = sourcesState(m, i, mIcons, iIcons);
   rows.push({
     key,
     label,
@@ -1245,7 +1246,8 @@ function pushSourcesRow(
     // too, not just the citations.
     main: [...m.map((c) => c.title ?? c.sourceId), ...mIcons].join("\n"),
     incoming: [...i.map((c) => c.title ?? c.sourceId), ...iIcons].join("\n"),
-    state: sourcesState(m, i, mIcons, iIcons),
+    state,
+    incomingAddsOnly: state === "conflict" && coversAll(i, m, iIcons, mIcons) ? true : undefined,
     mainSources: m.length ? m : undefined,
     incomingSources: i.length ? i : undefined,
     mainLinkIcons: mIcons.length ? mIcons : undefined,
@@ -1425,6 +1427,13 @@ function sourcesState(
   const sameCitations = m.size === i.size && [...m].every((x) => i.has(x));
   const sameIcons = mi.size === ii.size && [...mi].every((x) => ii.has(x));
   return sameCitations && sameIcons ? "agree" : "conflict";
+}
+
+/** Whether `side` carries every citation and link `other` does. */
+function coversAll(side: SourceCitation[], other: SourceCitation[], sideIcons: string[], otherIcons: string[]): boolean {
+  const s = new Set(side.map(sourceCitationKey));
+  const si = new Set(sideIcons.map(linkKey));
+  return other.every((c) => s.has(sourceCitationKey(c))) && otherIcons.every((u) => si.has(linkKey(u)));
 }
 
 function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {
