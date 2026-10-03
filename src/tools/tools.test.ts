@@ -36,6 +36,27 @@ describe("validateDataset", () => {
     expect(cats).toContain("orphan");
   });
 
+  it("flags a second birth or death record, listing each", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Adam /Troha/
+1 SEX M
+1 BIRT
+2 DATE 23 DEC 1807
+2 PLAC Stara Sušica
+1 BIRT
+2 DATE 23 OCT 1807
+2 PLAC Ravna Gora
+1 DEAT
+2 DATE 15 FEB 1885
+0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "duplicateVital");
+    expect(found).toHaveLength(1);
+    expect(found[0].messageKey).toBe("tools.validate.issue.duplicateBirth");
+    expect(found[0].messageVars?.events).toBe("23 DEC 1807, Stara Sušica; 23 OCT 1807, Ravna Gora");
+  });
+
   it("checks the godparents and witnesses an event names", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
