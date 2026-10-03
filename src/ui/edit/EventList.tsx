@@ -214,7 +214,7 @@ export const EventList = memo(function EventList({
   const allRows: AnyRow[] = [
     ...person.events
       .map((ev, i) => ({ ev, i }))
-      .filter(({ ev }) => ev.tag !== "BIRT")
+      .filter(({ i }) => i !== birtOriginalIdx)
       .map(({ ev, i }): AnyRow => ({
         kind: "main",
         ev, i,
