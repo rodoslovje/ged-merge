@@ -1668,7 +1668,9 @@ export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnch
     // let a contemporaneous life-zone event from the other side (a `1818`
     // residence) sort ahead of the birth. Clamping down to `minBirthKey` keeps
     // the birth row first while still letting a genuinely pre-birth event lead.
-    if (tag === "BIRT" && a.minBirthKey != null && key > a.minBirthKey) return a.minBirthKey;
+    // The birth itself is never pushed after the latest birth: a vaguer `1899`
+    // on the other side would otherwise sort it past a `3 NOV 1899` death.
+    if (tag === "BIRT") return a.minBirthKey != null ? Math.min(key, a.minBirthKey) : key;
     return clampAfterBirthZone(tag, key, a.maxBirthKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);
