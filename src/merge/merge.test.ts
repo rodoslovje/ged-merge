@@ -3469,3 +3469,46 @@ describe("formatReport — the verb shapes", () => {
     expect(section.match(/Ana Kos/g)?.length).toBe(1);
   });
 });
+
+// A file that hangs each cited page's image on the event as an `OBJE` pointer
+// beside its citation — the main already cites the same pages without them.
+describe("event media links beside the citations", () => {
+  const BOOK = "1 TITL Births 1759-1812, Ravna Gora\n";
+  const MAIN_CITED = wrap(
+    "0 @I1@ INDI\n1 NAME Martin /Novak/\n1 SEX M\n1 BIRT\n2 DATE 25 NOV 1802\n" +
+      "2 SOUR @S1@\n3 PAGE 52\n2 SOUR @S1@\n3 PAGE 38\n0 @S1@ SOUR\n" + BOOK +
+      "0 @88120791@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5CK1?i=37&cc=2040054\n",
+  );
+  const COMPARE_IMAGED = wrap(
+    "0 @P1@ INDI\n1 NAME Martin /Novak/\n1 SEX M\n1 BIRT\n2 DATE 25 NOV 1802\n" +
+      "2 SOUR @19524725@\n3 PAGE 52\n2 OBJE @O5@\n2 SOUR @19524725@\n3 PAGE 38\n2 OBJE @88120791@\n" +
+      "0 @19524725@ SOUR\n" + BOOK +
+      "0 @O5@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-899C-5CGN\n" +
+      "0 @88120791@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5CK1\n",
+  );
+  const birthOf = (out: string) => out.slice(out.indexOf("1 BIRT"), out.indexOf("0 @", out.indexOf("1 BIRT")));
+
+  it("takes the images on a plain confirm, citing each page once", () => {
+    const { records } = mergeDecisions(dataset(MAIN_CITED), dataset(COMPARE_IMAGED), confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    const birth = birthOf(out);
+    expect(birth.match(/2 SOUR @S1@/g)).toHaveLength(2);
+    expect(birth).toContain("2 OBJE @O5@");
+    // The second image is the main's own record of that page, not a copy of it.
+    expect(birth).toContain("2 OBJE @88120791@");
+    expect(out.match(/3QSQ-G99C-5CK1/g)).toHaveLength(1);
+    expect(out).toContain("0 @O5@ OBJE");
+  });
+
+  it("writes nothing more once the main has them", () => {
+    const first = serializeGedcom(mergeDecisions(dataset(MAIN_CITED), dataset(COMPARE_IMAGED), confirmed(), NO_MATCHES, tr).records);
+    const again = mergeDecisions(dataset(first), dataset(COMPARE_IMAGED), confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    expect(serializeGedcom(again.records)).toBe(first);
+  });
+
+  it("keeps the main's own pages when the incoming side differs", () => {
+    const main = dataset(MAIN_CITED.replace("3 PAGE 38", "3 PAGE 40"));
+    const { records } = mergeDecisions(main, dataset(COMPARE_IMAGED), confirmed(), NO_MATCHES, tr);
+    expect(birthOf(serializeGedcom(records))).not.toContain("OBJE");
+  });
+});

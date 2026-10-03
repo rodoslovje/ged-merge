@@ -40,6 +40,9 @@ export interface FieldRow {
    *  they become documents it. Applied from here rather than read off the
    *  incoming event, which does not carry them. */
   incomingRecordLinks?: string[];
+  /** A sources row whose incoming side carries every citation and link the
+   *  main's does, and more — keeping both adds the extras and loses nothing. */
+  incomingAddsOnly?: true;
   /** The incoming value is on screen for the record only: its event was taken
    *  into the main file by hand in Edit and is out of the merge (see
    *  `CandidateDecision.rejectedEvents`). Nothing here can be chosen or
@@ -320,10 +323,11 @@ export function decisionStatusByMainId(
  *  this merge files under the event it documents — it replaces nothing, and
  *  before it was shown here it was taken by default from the person's own row.
  *  The event's own citations keep the conservative default when no such link
- *  joined them. */
+ *  joined them — unless the incoming side only adds to the main's, where
+ *  keeping both is all gain. */
 export function defaultChoice(row: FieldRow): FieldChoice {
   if (!row.main) return "incoming";
-  if (row.incomingRecordLinks?.length) return "both";
+  if (row.incomingRecordLinks?.length || row.incomingAddsOnly) return "both";
   if (row.key.endsWith(".date") && dateRefines(row.main, row.incoming)) return "incoming";
   return "main";
 }
