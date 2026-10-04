@@ -52,3 +52,49 @@ jobs:
       - run: npm run test:e2e
         env:
           CI: true
+
+  # Every green push to main goes to the test site on GitHub Pages
+  # (test.gedmerge.com). Production is released by hand with the
+  # "Deploy production" workflow.
+  deploy-test:
+    name: Deploy test site
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # A newer push waits for the running deploy rather than cancelling it
+    # halfway.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # The pages keep their canonical links to gedmerge.com; this keeps the
+      # test copy out of the search index altogether.
+      - name: Keep the test site out of search engines
+        run: |
+          printf 'User-agent: *\nDisallow: /\n' > dist/robots.txt
+          rm -f dist/sitemap.xml
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
