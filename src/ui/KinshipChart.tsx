@@ -26,7 +26,7 @@ import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
-import { useChartHover, type HoverInfo } from "./useChartHover";
+import type { HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { createKinshipResolver, kinshipLabelFor, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
@@ -412,7 +412,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     },
     [bandByKey, bandHead, bandWhere, bandRow, t],
   );
-  const hover = useChartHover(canvasRef, hoverInfoFor);
 
 
   const selected = people.find((p) => p.id === selectedKey);
@@ -948,7 +947,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           )}
         </div>
 
-        <ChartHoverCard hover={hover} />
+        <ChartHoverCard canvasRef={canvasRef} infoFor={hoverInfoFor} />
         {/* Outside the canvas: an absolute child of a scroller scrolls away with
             the content, and the zoom toolbar has to stay put. */}
         {laid && !onMap && (
