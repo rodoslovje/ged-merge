@@ -88,7 +88,7 @@ sent, and lists what the app stores in your browser.
 
 ## Getting started
 
-Prerequisites: a recent **Node.js** (ships with npm).
+Prerequisites: **Node.js 24** or newer (the version CI uses is in [`.nvmrc`](.nvmrc); npm ships with it).
 
 ```bash
 npm install      # install dependencies
@@ -171,7 +171,8 @@ npm run build && npm run lint && npm run test && npm run test:e2e
 ```
 
 CI runs lint, typecheck, the unit suite with coverage floors, and the Playwright suite on every
-pull request. Two house rules worth knowing: user-facing strings change in **both** `src/locales/en.ts`
+pull request. All changes reach `main` through a pull request: direct pushes are refused, and a PR
+merges (with a merge commit) only once CI is green. Two house rules worth knowing: user-facing strings change in **both** `src/locales/en.ts`
 and `src/locales/sl.ts` in the same commit, and colours and radii come from the design tokens in
 `src/theme/heritage-pine.css` rather than literals. `AGENTS.md` has the rest.
 
@@ -202,7 +203,14 @@ npm run build    # → dist/ : a self-contained static site
 GitHub Pages, Netlify or Vercel work equally well). The app is an installable PWA and works offline
 after the first load.
 
-Every green push to `main` is deployed to the test site on GitHub Pages (`test.gedmerge.com`).
-Production is released by hand with the **Deploy production** workflow
-(`gh workflow run deploy-production.yml`), which by default ships the commit the test site serves,
-rsyncs it to the server and tags the release with its date.
+Every green push to `main` is deployed to the test site on GitHub Pages
+([test.gedmerge.com](https://test.gedmerge.com)), which is kept out of search engines.
+Production is released by hand with the **Deploy production** workflow:
+
+```bash
+gh workflow run deploy-production.yml                     # ship what the test site serves
+gh workflow run deploy-production.yml -f ref=2026-10-04   # or a release tag / commit on main
+```
+
+It builds that commit, rsyncs it to the server and tags the release with its date (`2026-10-04`,
+then `2026-10-04.2`); rolling back is the same command with an older tag.
