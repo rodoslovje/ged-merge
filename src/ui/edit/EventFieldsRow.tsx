@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
+import { tipProps } from "../IconTip";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -1118,12 +1119,12 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className={`${linkGlyph(link).cls} edit-link-icon`}
-                title={linkTooltip(link, t)}
+                {...tipProps(linkTooltip(link, t), { edit: true, href: linkHref(link) })}
                 onClick={() => openEditLink(i)}
               >
                 {linkGlyph(link).icon}
               </button>
-              <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
+              <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" {...tipProps(linkTooltip(link, t, t("edit.openLink")))}>
                 ↗
               </a>
             </span>
@@ -1136,12 +1137,12 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className="link-icon edit-link-icon"
-                title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
+                {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`), { edit: true, href: linkHref(link) })}
                 onClick={() => onOpenMediaLink?.(link)}
               >
                 🔗
               </button>
-              <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
+              <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" {...tipProps(linkTooltip(link, t, t("edit.openLink")))}>
                 ↗
               </a>
             </span>
@@ -1153,7 +1154,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noreferrer"
-              title={linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`)}
+              {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`))}
             >
               {linkGlyph(link).icon}
             </a>
@@ -1167,7 +1168,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noopener noreferrer"
-              title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
+              {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`))}
             >
               🔗
             </a>
