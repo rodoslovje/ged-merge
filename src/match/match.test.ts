@@ -179,6 +179,32 @@ describe("plausibility gates", () => {
     ).toHaveLength(0);
   });
 
+  it("rejects two people with no given name in common, born years apart", () => {
+    // Barbara/Agata clears the loose given gate (0.68), and the 23 years sit
+    // inside the era window — but together they are two people.
+    expect(
+      pair(
+        "0 @M@ INDI\n1 NAME Agata /Renka/\n1 SEX F\n1 BIRT\n2 DATE 20 JAN 1864",
+        "0 @C@ INDI\n1 NAME Barbara /Renka/\n1 SEX F\n1 BIRT\n2 DATE 21 MAY 1841",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("keeps a pair whose given names are two forms of one name, or whose years are a slip apart", () => {
+    expect(
+      pair(
+        "0 @M@ INDI\n1 NAME Agnes /Renka/\n1 SEX F\n1 BIRT\n2 DATE 1841",
+        "0 @C@ INDI\n1 NAME Neža /Renka/\n1 SEX F\n1 BIRT\n2 DATE 1848",
+      ),
+    ).toHaveLength(1);
+    expect(
+      pair(
+        "0 @M@ INDI\n1 NAME Agata /Renka/\n1 SEX F\n1 BIRT\n2 DATE 1841",
+        "0 @C@ INDI\n1 NAME Barbara /Renka/\n1 SEX F\n1 BIRT\n2 DATE 1842",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("rejects pairs more than a century apart", () => {
     expect(
       pair(

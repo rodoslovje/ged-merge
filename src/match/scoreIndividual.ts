@@ -12,6 +12,7 @@ import {
   cachedPartnerNames,
 } from "./profileCache";
 import {
+  birthYearsApart,
   comparableName,
   dateSimilarity,
   fatherGivenVerdict,
@@ -20,6 +21,7 @@ import {
   motherVerdict,
   nameSetSimilarity,
   nameSimilarity,
+  noGivenNameInCommon,
   ownComparableName,
   placeSimilarity,
 } from "./similarity";
@@ -613,7 +615,22 @@ export function plausibleIndividualMatch(
   // same-surname pairs centuries apart reach here and should fall to the year
   // comparison before any string similarity runs. Order changes no outcome
   // (both must pass), only who pays for the rejection.
-  return temporalGate(a, b, gates, dsA, dsB) && nameGate(a, b, gates);
+  return temporalGate(a, b, gates, dsA, dsB) && nameGate(a, b, gates) && !twoPeople(a, b);
+}
+
+/**
+ * The two records are plainly two people: no given name in common — not even
+ * one form of the other (Neža/Agnes) — *and* birth years too far apart for a
+ * slip of the pen. Either alone stays a question for the score: the given gate
+ * is loose on purpose, for nicknames and spellings the variant table does not
+ * know, and a year can be misread. Together they are what the merge already
+ * refuses to join on (`graftJoinHolds`), so a pair the merge would never treat
+ * as one person is not offered as a match either — a Barbara born 1841 against
+ * an Agata born 1864, whose families merely share a father's and a mother's
+ * given name, used to reach the list as a weak candidate.
+ */
+function twoPeople(a: Individual, b: Individual): boolean {
+  return birthYearsApart(a, b) && noGivenNameInCommon(a, b);
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {

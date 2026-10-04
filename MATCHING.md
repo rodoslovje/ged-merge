@@ -140,6 +140,15 @@ Pairs failing any gate are never scored:
   class of false positive (the dead infant paired with its adult namesake)
   that names and birth years alone score in the 90s. A same-year marriage is
   allowed: a widow's wedding and a spouse's death can share a year.
+- **Two people**: no given name in common — not even two forms of one name
+  from the variant table — *and* birth years more than 3 apart
+  (`noGivenNameInCommon` + `birthYearsApart`, the same vetoes the merge applies
+  before joining on an unconfirmed match). Either alone is left to the score;
+  together they mark siblings or cousins whose families share a father's and a
+  mother's given name (a Barbara born 1841 against an Agata born 1864 scored a
+  weak 53.7 before this gate). On the benchmark: Renko ↔ Renko-Rakar unchanged,
+  Renko ↔ Trobec −20 weak/probable false pairs, two sibling pairs gone from
+  Pratnekar's duplicates.
 
 ### 3. Scoring (`scoreIndividualPair`, `src/match/scoreIndividual.ts`)
 
