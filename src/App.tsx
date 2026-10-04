@@ -857,9 +857,10 @@ function AppContent() {
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
 
-  // A person a confirmed decision added ahead of the save has no match row of
-  // their own to jump to; their name — on either side of the comparison —
-  // opens their new record in Edit instead.
+  // A person a confirmed decision added ahead of the save is their new record:
+  // their name — on either side of the comparison — opens it in Edit, even
+  // when the matcher also paired them with someone else (that weaker
+  // candidate is not who they are).
   const addedPerson = useMemo(() => {
     const pinned = pinnedAdds(decisions);
     const mainIds = new Set(pinned.values());
@@ -941,12 +942,10 @@ function AppContent() {
   navigateFromPageRef.current = navigateFromPage;
   const navigatePerson = useCallback(
     (side: "main" | "incoming", id: string) => {
+      const added = addedPerson(side, id);
+      if (added) { navigateFromPageRef.current(added); return; }
       const target = (side === "main" ? indexByMain : indexByCompare).get(id);
-      if (!target) {
-        const added = addedPerson(side, id);
-        if (added) navigateFromPageRef.current(added);
-        return;
-      }
+      if (!target) return;
       if (target.mainId === current?.mainId && target.compareId === current?.compareId) return;
       selectFromPageRef.current({ mainId: target.mainId, compareId: target.compareId });
       if (window.innerWidth <= 880) {

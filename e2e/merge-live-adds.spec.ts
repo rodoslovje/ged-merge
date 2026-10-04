@@ -125,3 +125,39 @@ test("undo and an untick each take the added child back out of the file", async 
   await expect(children).toContainText("Peter");
   await expect(children).not.toContainText("Marko");
 });
+
+// The main file already has another Marko Novak, unrelated, whom the matcher
+// pairs with the incoming child as a weak candidate. Once the child is added,
+// his name must still open his own new record, not that stranger's match.
+const MAIN_WITH_NAMESAKE = path.join(tmpdir(), "live-adds-main-namesake.ged");
+writeFileSync(MAIN_WITH_NAMESAKE, [
+  "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+  "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1850", "1 FAMS @F1@",
+  "0 @I2@ INDI", "1 NAME Ana /Kos/", "1 SEX F", "1 BIRT", "2 DATE 1855", "1 FAMS @F1@",
+  "0 @I3@ INDI", "1 NAME Peter /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1880", "1 FAMC @F1@",
+  "0 @I9@ INDI", "1 NAME Marko /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1895",
+  "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@", "1 CHIL @I3@",
+  "0 TRLR", "",
+].join("\n"), "utf-8");
+
+test("an added child's name opens his new record even when a namesake is a candidate", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(MAIN_WITH_NAMESAKE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Merge", exact: true }).click();
+  await page.locator("input.file-input").last().setInputFiles(COMPARE);
+  await page.locator(".candidate", { hasText: "Janez" }).first().locator(".candidate-main").click();
+  await page.locator(".decision-bar button").first().click();
+  await page.locator(".compare-panel button.choice.take", { hasText: "add" }).click();
+  await expect(page.locator(".compare-panel button.choice.take.active")).toBeVisible();
+
+  // Both columns now list him; click the incoming one, which the namesake's
+  // match also claims.
+  const links = page.locator(".compare-panel .person-link", { hasText: "Marko" });
+  await expect(links).toHaveCount(2);
+  await links.last().click();
+  await expect(page.locator(".edit-person")).toBeVisible();
+  await expect(page.locator(".edit-name-input").first()).toHaveValue(/Marko/);
+  // His own record: born 1883 into Janez's family, not the 1884 stranger.
+  await expect(page.locator(".edit-parents")).toContainText("Janez");
+});
