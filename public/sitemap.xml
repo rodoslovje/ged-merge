@@ -2,12 +2,21 @@
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
 >
   <url>
     <loc>https://gedmerge.com/</loc>
-    <lastmod>2026-06-27</lastmod>
+    <lastmod>2026-10-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
+    <image:image><image:loc>https://gedmerge.com/gedmerge-fan-1x1.png</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/gedmerge-fan-4x3.png</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/gedmerge-workbench.png</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/landing/fan-light.png</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/landing/tree-light.png</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/landing/map-light.jpg</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/landing/merge-light.png</image:loc></image:image>
+    <image:image><image:loc>https://gedmerge.com/landing/edit-light.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://gedmerge.com/guide/</loc>
