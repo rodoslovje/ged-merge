@@ -152,7 +152,7 @@ Safari use an in-memory fallback.
 
 | Document | What's in it |
 |----------|--------------|
-| [CLAUDE.md](CLAUDE.md) | Full module map, development workflow, and the CSS token/styling conventions. |
+| [AGENTS.md](AGENTS.md) | Full module map, development workflow, and the CSS token/styling conventions. |
 | [MATCHING.md](MATCHING.md) | The matching algorithm: pipeline stages, weights, gates, penalties, calibrated thresholds, and how to verify a change to any of them. |
 | [MAPVIEW.md](MAPVIEW.md) | Map and geocoding design — providers, caching, the coordinate write-back. |
 | [IDEAS.md](IDEAS.md) | The backlog: what might come next, and what was deliberately rejected. |
@@ -173,7 +173,7 @@ npm run build && npm run lint && npm run test && npm run test:e2e
 CI runs lint, typecheck, the unit suite with coverage floors, and the Playwright suite on every
 pull request. Two house rules worth knowing: user-facing strings change in **both** `src/locales/en.ts`
 and `src/locales/sl.ts` in the same commit, and colours and radii come from the design tokens in
-`src/theme/heritage-pine.css` rather than literals. `CLAUDE.md` has the rest.
+`src/theme/heritage-pine.css` rather than literals. `AGENTS.md` has the rest.
 
 Regenerate the screenshots above after a UI change with `node scripts/screenshots.mjs` (with the
 dev server running).
