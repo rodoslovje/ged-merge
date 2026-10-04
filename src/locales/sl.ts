@@ -1818,7 +1818,7 @@ export const sl = {
   "chartColor.axis.living": "Živi",
   "chartColor.axis.living.tip": "Osebe, ki so domnevno žive, in umrle",
   "chartColor.axis.country": "Država",
-  "chartColor.axis.country.tip": "Država kraja rojstva, bivanja ali smrti — prvega, ki je zapisan",
+  "chartColor.axis.country.tip": "Država kraja rojstva, bivanja, smrti ali pokopa — prvega, ki je zapisan",
   "chartColor.axis.birthPlace": "Kraj rojstva",
   "chartColor.axis.birthPlace.tip": "Najpogostejši kraji rojstva, vsak s svojo barvo",
   "chartColor.axis.surname": "Priimek",
