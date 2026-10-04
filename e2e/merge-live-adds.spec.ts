@@ -43,9 +43,10 @@ test("a ticked child is added at once, editable, and shown as added under the ot
   // Ticked on a confirmed match: Marko is in the file now, and the tick stays.
   await expect(page.locator(".compare-panel button.choice.take.active")).toBeVisible();
 
-  // Edit him before saving.
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.locator(".edit-children .person-card-wrap", { hasText: "Marko" }).locator("button.person-card").click();
+  // His name in the comparison opens him in Edit: he has no match row of his
+  // own to jump to. Edit him before saving.
+  await page.locator(".compare-panel .person-link", { hasText: "Marko" }).first().click();
+  await expect(page.locator(".edit-person")).toBeVisible();
   const name = page.locator(".edit-name-input").first();
   await expect(name).toHaveValue(/Marko/);
   await name.fill("Marko Anton Novak");

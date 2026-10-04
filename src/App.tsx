@@ -30,7 +30,7 @@ import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import { datesTooltipOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -857,10 +857,21 @@ function AppContent() {
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
 
+  // A person a confirmed decision added ahead of the save has no match row of
+  // their own to jump to; their name — on either side of the comparison —
+  // opens their new record in Edit instead.
+  const addedPerson = useMemo(() => {
+    const pinned = pinnedAdds(decisions);
+    const mainIds = new Set(pinned.values());
+    return (side: "main" | "incoming", id: string): string | undefined => {
+      const mainId = side === "main" ? (mainIds.has(id) ? id : undefined) : pinned.get(id);
+      return mainId && mainDatasetRef.current?.individuals.has(mainId) ? mainId : undefined;
+    };
+  }, [decisions]);
   const canNavigatePerson = useCallback(
     (side: "main" | "incoming", id: string) =>
-      (side === "main" ? indexByMain : indexByCompare).has(id),
-    [indexByMain, indexByCompare],
+      (side === "main" ? indexByMain : indexByCompare).has(id) || !!addedPerson(side, id),
+    [indexByMain, indexByCompare, addedPerson],
   );
 
 
@@ -926,17 +937,23 @@ function AppContent() {
   // is rebuilt each render; read through a ref so this callback stays stable.
   const selectFromPageRef = useRef(selectFromPage);
   selectFromPageRef.current = selectFromPage;
+  const navigateFromPageRef = useRef(navigateFromPage);
+  navigateFromPageRef.current = navigateFromPage;
   const navigatePerson = useCallback(
     (side: "main" | "incoming", id: string) => {
       const target = (side === "main" ? indexByMain : indexByCompare).get(id);
-      if (!target) return;
+      if (!target) {
+        const added = addedPerson(side, id);
+        if (added) navigateFromPageRef.current(added);
+        return;
+      }
       if (target.mainId === current?.mainId && target.compareId === current?.compareId) return;
       selectFromPageRef.current({ mainId: target.mainId, compareId: target.compareId });
       if (window.innerWidth <= 880) {
         setTimeout(() => { compareRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
       }
     },
-    [indexByMain, indexByCompare, current],
+    [indexByMain, indexByCompare, current, addedPerson],
   );
 
   function handleUndo() {
