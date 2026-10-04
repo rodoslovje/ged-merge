@@ -199,6 +199,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     titleKey: "shortcuts.group.navigation",
     category: "app",
     items: [
+      { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scrollCompare", scope: ["merge"] },
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll", scope: ["merge", "tools"] },
       { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext", scope: ["merge", "edit", "tools"] },
       { keys: [["Home"], ["End"]], descKey: "shortcuts.item.homeEnd", scope: ["merge", "tools"] },
