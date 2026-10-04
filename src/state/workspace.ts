@@ -182,8 +182,17 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       // pending-changes count and edit highlighting reset. ALWAYS returns a fresh
       // map (even if none were confirmed) — the caller relies on the identity
       // change to bump EditView's merge generation.
+      // People a decision added ahead of the save are ordinary records once it
+      // is written, so no surviving decision may still claim them: a claim
+      // left behind would take them back out when it is next reconciled.
       const decisions = new Map(state.decisions);
-      for (const [key, d] of decisions) if (d.status === "confirmed") decisions.delete(key);
+      for (const [key, d] of decisions) {
+        if (d.status === "confirmed") decisions.delete(key);
+        else if (d.added) {
+          const { added: _added, ...rest } = d;
+          decisions.set(key, rest);
+        }
+      }
       return { ...state, decisions };
     }
 

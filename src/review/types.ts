@@ -170,6 +170,26 @@ export interface CandidateDecision {
    * listed here — it needs no decision.
    */
   takenChildren?: string[];
+  /**
+   * Incoming people this confirmed decision has already added to the main file
+   * — a ticked child, a taken parent or partner the main file did not have —
+   * as incoming id → the new record's main id. They are added the moment the
+   * decision asks for them, so they can be edited in Edit before the save; the
+   * save then treats each pair as one confirmed person and never adds them
+   * again. Kept on the decision so undo, a restored session and the save's
+   * clean-up carry it with the decision it belongs to (see `materializeAdds`).
+   */
+  added?: Record<string, string>;
+}
+
+/** Every person the decisions have added ahead of the save, incoming id →
+ *  main id, whatever the owning decision's status (see `CandidateDecision.added`). */
+export function pinnedAdds(decisions: ReadonlyMap<string, CandidateDecision>): Map<string, string> {
+  const pinned = new Map<string, string>();
+  for (const d of decisions.values()) {
+    for (const [incomingId, mainId] of Object.entries(d.added ?? {})) pinned.set(incomingId, mainId);
+  }
+  return pinned;
 }
 
 /**
