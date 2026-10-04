@@ -1,28 +1,19 @@
 # Project Ideas & TODO
 
 A running list of ideas, features, and todos for ged-merge. Done items are removed
-on each cleanup (last: 2026-07-13) — history lives in the changelog and git log.
+on each cleanup (last: 2026-10-04) — history lives in the changelog and git log.
 
 ## Priority queue
 
 The items most worth doing next, in rough order of payoff for real usage
 (index-scale files, everyday editing).
 
-1. **Cluster-grouped duplicate review** — for index-scale files the duplicate
-   finder produces pair counts no flat list can serve (Hawlina: 493k people →
-   136k pairs, which union-find collapses to ~19.6k connected clusters, ~11k of
-   them clean two-person pairs). Present duplicates grouped by cluster: review a
-   pair normally; dismiss or bulk-handle a giant same-name blob wholesale. Also
-   expose the existing `minScore` knob in the Tools UI (default 0.70;
-   index-scale files want 0.85+). *(The worker offload half of the original item
-   shipped 2026-07-13: scans run in `tools.worker.ts` with progress + cancel,
-   and the results list is virtualized with no top-200 cap.)*
-2. **Living persons privacy (global setting)** — one Settings toggle that hides
+1. **Living persons privacy (global setting)** — one Settings toggle that hides
    data of living persons throughout the app and in matching. *(The building
    blocks exist: a Tools-tab privacy action that strips living persons
    (`tools/privacy.ts`) and a per-chart/report "hide living people" display
    toggle; this folds them into one global setting that also reaches matching.)*
-3. **Merge mode: media/photo field** — the deferred Phase C of the media
+2. **Merge mode: media/photo field** — the deferred Phase C of the media
    feature: compare and merge each person's media links (OBJE) like other
    fields. `review/fields.ts` currently produces no media rows at all, so
    compare-file photos can only arrive via whole-person import.
@@ -70,8 +61,7 @@ missing is the UI that makes *sharing itself* visible and creatable:
   created in-app.
 - Related small gaps: only the first NOTE on an event is surfaced/editable;
   merge's `copyNotes` with "incoming" replaces NOTE children wholesale and can
-  orphan a main-side shared record; GEDCOM 7 `SNOTE` rename in the 5.5.1⇄7.0
-  version migration.
+  orphan a main-side shared record.
 
 ### FamilySearch API integration (major feature)
 
@@ -172,19 +162,12 @@ already has a drag-to-draw crop editor, dashed boxes with name labels, and
 
 ### Gaps against MacFamilyTree (reviewed 2026-08-31)
 
-Three items from a feature comparison with MacFamilyTree 11, ranked by payoff
+Items from a feature comparison with MacFamilyTree 11, ranked by payoff
 for this app's own premise. The rest of MFT's lead — FamilySearch record search,
 CloudTree sync, website/book publishing, AI photo restoration — sits outside a
 browser-only, file-in/file-out tool and is not pursued here.
 
-1. **Associations editor (ASSO/RELA)** — godparents and marriage witnesses are
-   the relations parish research turns on, and Edit cannot express them: ASSO is
-   round-tripped losslessly (`tools/structure.ts`) but has no UI, and merge drops
-   it outright (`merge.reason.assoNotImported`, `merge/applyRelations.ts`). Wanted:
-   a typed person-to-person link with role, date and sources on the person editor,
-   shown on the person card and carried through merge. MFT 11 shipped the same
-   idea as "Influential Persons" plus a sociogram diagram.
-2. **List reports + CSV export** — the report side is deep but narrow (Ahnentafel,
+1. **List reports + CSV export** — the report side is deep but narrow (Ahnentafel,
    NGSQ register, narrative). MFT's catalogue of flat lists — persons, marriages,
    events, places, anniversaries, sources, uncited facts — answers the questions
    users actually ask of a file ("all marriages 1780–1820", "every event in
@@ -192,7 +175,7 @@ browser-only, file-in/file-out tool and is not pursued here.
    list with a CSV download, which also settles the **CSV / JSON export** item
    under Import / export and overlaps the **Source coverage report** under
    Tools tab.
-3. **Hourglass chart and a statistics page** — the one missing pedigree layout is
+2. **Hourglass chart and a statistics page** — the one missing pedigree layout is
    the hourglass (one person's ancestors and descendants in a single chart), which
    `personTree` + `treeLayout` already have the pieces for. Alongside it, a
    statistics page the app has all the data for and shows none of: surname and
@@ -210,13 +193,12 @@ browser-only, file-in/file-out tool and is not pursued here.
   hierarchy against GeoNames / GOV, beyond the current reshape.
 
 ### Reports & charts
-- **Report generation depth** — a max-generations setting for the Ahnentafel /
-  descendant register (both currently walk the whole tree).
 - **Research to-do / log** — per-person open questions, flags, research notes.
   *(The register-browsing capture half of this is now specced — see
   [Research finds from register browsing](#research-finds-from-register-browsing-candidate-persons).)*
-- **Map view** — plot birth/death/marriage places (geocoded) and migration
-  paths. Designed — see [MAPVIEW.md](MAPVIEW.md) for the agreed phased plan.
+- **GOV place lookup** — the one deferred part of the map view (user decision
+  2026-07-18); feasibility and the `PLAC._GOV` tag choice are in
+  [MAPVIEW.md](MAPVIEW.md), phase 4.
 
 ### Settings
 - **Local media photos in SVG** — choose how to save people's local media photos
@@ -224,15 +206,10 @@ browser-only, file-in/file-out tool and is not pursued here.
   configurable URL prefix.
 
 ### Import / export
-- **GEDCOM 7 + GEDZIP** — read/write GEDCOM 7 and import/export GEDZIP media
-  bundles. *(Crop regions already use the GEDCOM 7 vocabulary.)*
+- **GEDZIP** — import/export GEDZIP media bundles. *(GEDCOM 7 itself is read
+  and written, with a 5.5.1⇄7.0 migration.)*
 - **CSV / JSON export** — export the main file (or a filtered subset) as CSV or
   JSON for spreadsheets and external tools.
-- **GEDCOM custom tags support** — phases 1–4 (registry + health-check
-  classification, attribute/vendor-event lift, family-status & pedigree
-  normalization, `_UID`/`_FID` identity matching) shipped 2026-07-13; phase 5
-  (media metadata + noise suppression) remains. See
-  [Custom-tag support plan](#custom-tag-support-plan-2026-07-13-corpus-analysis).
 
 ## Custom-tag support plan (2026-07-13 corpus analysis)
 
