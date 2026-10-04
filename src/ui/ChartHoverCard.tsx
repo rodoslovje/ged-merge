@@ -1,4 +1,5 @@
-import type { ChartHover } from "./useChartHover";
+import type { RefObject } from "react";
+import { useChartHover, type HoverInfo } from "./useChartHover";
 import { sexClass } from "./sex";
 import { lineageClass } from "../match/kinship";
 
@@ -8,8 +9,20 @@ import { lineageClass } from "../match/kinship";
 // and the kinship (coloured by lineage) as the chart options show them, then
 // the click hint — what the box or wedge had no room for. Rendered once per
 // chart page, inside the canvas wrap, and never in the pointer's way.
+//
+// The card watches the canvas itself rather than being handed a hover its host
+// keeps: following the pointer means new coordinates every frame, and a chart
+// of a few thousand boxes must not be re-rendered for each of them.
 
-export function ChartHoverCard({ hover }: { hover: ChartHover | null }) {
+export function ChartHoverCard({
+  canvasRef,
+  infoFor,
+}: {
+  canvasRef: RefObject<HTMLElement | null>;
+  /** What to say about the node under the pointer; undefined to say nothing. */
+  infoFor: (key: string) => HoverInfo | undefined;
+}) {
+  const hover = useChartHover(canvasRef, infoFor);
   if (!hover) return null;
   const { x, y, right, below, info } = hover;
   return (

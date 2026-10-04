@@ -41,6 +41,7 @@ import {
   FOOTER_H,
   HEADER_H,
   SANS,
+  legendHeight,
   prepareDiagram,
   printSheetSet,
   wrapWithBands,
@@ -71,13 +72,26 @@ export interface SheetPaper extends PrintPaper {
   size: PrintSize;
 }
 
-/** Plan the split for `src` on the chosen paper. */
-export function planSheets(src: SheetChartSource, { paper, orientation, size }: SheetPaper): Sheet[] {
+/**
+ * The bands every sheet carries, in canvas px: the header and footer, and the
+ * colour key when the chart has one — each sheet is a page of its own and gets
+ * the key, so the split and the preview have to allow for it exactly as
+ * `wrapWithBands` will draw it. Measured at the width one sheet may span,
+ * which the key's own height cannot change.
+ */
+export function sheetBandsHeight(legend: SvgExportOptions["legend"], { paper, orientation, size }: SheetPaper): number {
+  const { w } = sheetBudget(paper, orientation, 0, size);
+  return HEADER_H + FOOTER_H + legendHeight(legend, w);
+}
+
+/** Plan the split for `src` on the chosen paper, leaving `bandsH` of each sheet
+ *  to the export frame (see {@link sheetBandsHeight}). */
+export function planSheets(src: SheetChartSource, { paper, orientation, size }: SheetPaper, bandsH = HEADER_H + FOOTER_H): Sheet[] {
   return splitIntoSheets(src.tree, {
     grid: src.grid,
     alignment: src.alignment,
     nodeH: src.nodeH,
-    budget: sheetBudget(paper, orientation, HEADER_H + FOOTER_H, size),
+    budget: sheetBudget(paper, orientation, bandsH, size),
   });
 }
 
@@ -86,10 +100,10 @@ export function planSheets(src: SheetChartSource, { paper, orientation, size }: 
  *  hear that from the dialog rather than from the printer. Measured on the
  *  diagram alone, so it is a hair optimistic for a diagram narrower than the
  *  header title. */
-export function planPrintScale(src: SheetChartSource, paper: SheetPaper, sheets: Sheet[]): number {
+export function planPrintScale(src: SheetChartSource, paper: SheetPaper, sheets: Sheet[], bandsH = HEADER_H + FOOTER_H): number {
   const laid = sheets.map((s) => {
     const { width, height } = laySheet(src, s);
-    return { width, height: height + HEADER_H + FOOTER_H };
+    return { width, height: height + bandsH };
   });
   return fillScale(laid, pageBox(paper.paper, paper.orientation));
 }
@@ -134,7 +148,7 @@ export async function printChartSheets(
   const live = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!live) return;
 
-  const sheets = planSheets(src, paper).map((s) => laySheet(src, s));
+  const sheets = planSheets(src, paper, sheetBandsHeight(opts.legend, paper)).map((s) => laySheet(src, s));
   const prepared = await prepareDiagram(live);
   const built = sheets.map(({ sheet, flat, width, height }) =>
     wrapWithBands(

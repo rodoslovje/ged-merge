@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, nodeHover, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -31,7 +31,7 @@ import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
-import { useChartHover, type HoverInfo } from "./useChartHover";
+import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { ArrowIcon } from "./icons/ArrowIcon";
 
@@ -152,10 +152,10 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     () => (chart?.boxes ?? []).map((b) => ({ indi: mainDs.individuals.get(b.id), pos: { gen: b.gen, branch: OWN_BRANCH } })),
     [chart, mainDs],
   );
-  const colorer = useNodeColorer(mainDs, subjects);
+  const colorer = useNodeColorer(mainDs, subjects, undefined, "noBranch");
   const colorFor = useMemo(
     () => (b: { id: string; onSpine: boolean; gen: number }) =>
-      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(b.id), { gen: b.gen, branch: OWN_BRANCH })) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
+      colorer.colorFor(mainDs.individuals.get(b.id), { gen: b.gen, branch: OWN_BRANCH }) ?? (b.onSpine ? COLOR_SPINE : COLOR_CONTEXT),
     [colorer, mainDs],
   );
   const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
@@ -210,22 +210,25 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       if (!b) return undefined;
       const indi = mainDs.individuals.get(b.id);
       const age = lifespanAge(indi);
-      const h = nodeHover(settings, {
-        name: b.name,
-        years: b.years,
-        age,
-        ageText: age !== undefined ? ageStandalone(t, b.sex, age) : undefined,
-        place: placeLabel(indi),
-        kinship: kinshipOf.label(b.id),
-        kinshipLineage: kinshipOf.lineage(b.id),
-        living: isPresumedLiving(indi, mainDs) || !!indi?.private,
-        livingLabel: livingLabelFor(t, b.sex),
-      });
-      return { ...h, sex: h.redacted ? undefined : b.sex, hint: t("tree.node.clickHint") };
+      return hoverInfoFrom(
+        settings,
+        {
+          name: b.name,
+          years: b.years,
+          age,
+          ageText: age !== undefined ? ageStandalone(t, b.sex, age) : undefined,
+          place: placeLabel(indi),
+          kinship: kinshipOf.label(b.id),
+          kinshipLineage: kinshipOf.lineage(b.id),
+          living: isPresumedLiving(indi, mainDs) || !!indi?.private,
+          livingLabel: livingLabelFor(t, b.sex),
+        },
+        b.sex,
+        t("tree.node.clickHint"),
+      );
     },
     [nodesByKey, mainDs, settings, t, kinshipOf],
   );
-  const hover = useChartHover(canvasRef, hoverInfoFor);
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
@@ -268,7 +271,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       }
       actions={
         <>
-          <ChartSettings lockedType="tree" />
+          <ChartSettings lockedType="tree" colorAxes="noBranch" />
           <ChartExportMenu
             disabled={!chart}
             slug={relchartSlug}
@@ -395,7 +398,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           )}
         </div>
 
-        <ChartHoverCard hover={hover} />
+        <ChartHoverCard canvasRef={canvasRef} infoFor={hoverInfoFor} />
         {chart && (
           <ChartMinimap
             contentW={chart.width}

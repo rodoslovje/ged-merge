@@ -16,14 +16,14 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { Segmented, type SegmentedItem } from "./Segmented";
-import { AXIS_TINT, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { useChartHover, type HoverInfo } from "./useChartHover";
+import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHover } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -68,11 +68,6 @@ const COLOR_MODIFIED = "var(--node-minor)";
  *  marriage collars — the spouse is not of the line, so the line's colour
  *  is not theirs. */
 const COLOR_SPOUSE_BAND = "var(--muted)";
-/** The axes that read a person's place on the chart rather than their
- *  record; a spouse has no place of their own on the line, so their band
- *  stays neutral there. On the record axes the band takes the spouse's own
- *  colour — where they were born is exactly what the axis is for. */
-const CHART_AXES = new Set(["plain", "generation", "branch"]);
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -320,8 +315,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     return { positions: d.positions, branchInfo: d.branches };
   }, [bowtie, mode, radial, shown]);
   const positionOf = useCallback(
-    (n: TreeNode, seg?: FanSegment): NodePosition | undefined =>
-      seg ? fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions) : positions.get(n.key),
+    (n: TreeNode, seg?: FanSegment): NodePosition | undefined => {
+      if (!seg) return positions.get(n.key);
+      const pos = fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions);
+      // A spouse's band rides beside the line, not on it: the chart-reading
+      // axes leave them out, counts and all (see NodePosition.offLine).
+      return seg.band ? { ...pos, offLine: true } : pos;
+    },
     [positions, bowtie, mode],
   );
   const subjects = useMemo(
@@ -341,7 +341,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode, seg?: FanSegment) => {
       if (seg?.band && CHART_AXES.has(colorer.axis) && !isModified(n)) return COLOR_SPOUSE_BAND;
       const pos = positionOf(n, seg);
-      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, pos)) ?? COLOR_NORMAL;
+      if (colorer.axis !== "plain") return colorer.colorFor(n.main, pos) ?? COLOR_NORMAL;
       return isModified(n) ? COLOR_MODIFIED : (pos?.gen ?? 0) < 0 ? COLOR_DESCENDANT : COLOR_NORMAL;
     },
     [colorer, positionOf, isModified],
@@ -352,7 +352,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`, bowtie);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).
@@ -380,22 +380,25 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (key: string): HoverInfo | undefined => {
       const n: TreeNode | undefined = radial ? fanNodes.get(key)?.node : nodesByKey.get(key);
       if (!n) return undefined;
-      const h = nodeHover(display, {
-        name: n.name,
-        years: n.years,
-        age: n.age,
-        ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
-        place: n.place,
-        kinship: fanKinshipOf(n),
-        kinshipLineage: lineageOf(n),
-        living: n.living,
-        livingLabel: livingLabelFor(t, n.sex),
-      });
-      return { ...h, sex: h.redacted ? undefined : n.sex, hint: t("tree.node.clickHint") };
+      return hoverInfoFrom(
+        display,
+        {
+          name: n.name,
+          years: n.years,
+          age: n.age,
+          ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
+          place: n.place,
+          kinship: fanKinshipOf(n),
+          kinshipLineage: lineageOf(n),
+          living: n.living,
+          livingLabel: livingLabelFor(t, n.sex),
+        },
+        n.sex,
+        t("tree.node.clickHint"),
+      );
     },
     [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
   );
-  const hover = useChartHover(canvasRef, hoverInfoFor);
 
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
   // Esc leaves the page.
@@ -619,7 +622,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           )}
         </div>
 
-        <ChartHoverCard hover={hover} />
+        <ChartHoverCard canvasRef={canvasRef} infoFor={hoverInfoFor} />
 
         {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
         {!radial && laid && flat && (

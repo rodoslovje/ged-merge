@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
-import { COLOR_AXES, GROUP_AXES } from "../chart/nodeColor";
+import { colorAxesFor, type ColorAxisScope } from "../chart/nodeColor";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the layered-chart alignment (left→right /
@@ -43,12 +43,17 @@ const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
 export function ChartSettings({
   lockedType,
   availableGenerations,
+  colorAxes = "all",
 }: {
   lockedType?: PedigreeType | "timeline" | "report" | "map" | "kin";
   /** How many generations the current view actually has to offer. Passing it
    *  opts the view into the generation limit — the stepper only shows for the
    *  views that honour it, and reads "of N" against the real depth. */
   availableGenerations?: number;
+  /** Which Color axes this chart can honour — the ones it is offered. A chart
+   *  that colours by something of its own takes "none" and is offered no Color
+   *  setting at all (see {@link ColorAxisScope}). */
+  colorAxes?: ColorAxisScope;
 } = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
@@ -64,12 +69,11 @@ export function ChartSettings({
   // The Contemporaries surname rings draw one mark per band of people, so they
   // only offer the axes a band can answer for all of them at once — on Sex or
   // Living a band holds both, and one fill would have to pick a side.
-  const axesHere =
-    effectiveType === "kin" && settings.kinLayout === "surnames" ? GROUP_AXES : COLOR_AXES;
+  const axes = colorAxesFor(effectiveType === "kin" && settings.kinLayout === "surnames" ? "group" : colorAxes);
   // An axis chosen elsewhere that this chart cannot answer is not the one in
   // force here: the chart fell back to Plain, so Plain is what shows as chosen.
   // Leaving none of them lit reads as a broken control.
-  const axisHere = axesHere.includes(settings.colorAxis) ? settings.colorAxis : "plain";
+  const axisHere = axes.includes(settings.colorAxis) ? settings.colorAxis : "plain";
   // Generations currently drawn: the limit, or — with no limit — everything this
   // view has. Stepping starts from what the user sees, so "−" from "All" lands
   // one generation shallower than the tree in front of them.
@@ -227,11 +231,11 @@ export function ChartSettings({
           {/* What a person's fill says — one shared choice for every chart
               that draws people. The report has no fills and the map colours
               its markers by event kind. */}
-          {effectiveType !== "report" && effectiveType !== "map" && (
+          {effectiveType !== "report" && effectiveType !== "map" && axes.length > 0 && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("chartColor.heading")}</span>
               <div className="chart-settings-segmented chart-settings-toggles chart-settings-axes">
-                {axesHere.map((axis) => (
+                {axes.map((axis) => (
                   <button
                     key={axis}
                     className={axisHere === axis ? "active" : ""}

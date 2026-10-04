@@ -59,7 +59,6 @@ export function buildButterflyChart(ancestors: TreeNode, descendants: TreeNode, 
     rootKey: d.rootKey,
     maxGen: Math.max(a.maxGen, d.maxGen),
     rings,
-    branches: d.branches,
     width: 2 * r + PAD * 2,
     height: 2 * r + PAD * 2,
   };

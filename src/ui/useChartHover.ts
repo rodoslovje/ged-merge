@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Sex } from "../gedcom/types";
+import { nodeHover, type NodeDisplayInput, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 
 // The chart hover card's engine: one delegated pointer listener on the canvas
@@ -29,6 +30,23 @@ export interface HoverInfo {
   moreLabel?: string;
   /** A muted last line ("Click to see full details"). */
   hint?: string;
+}
+
+/**
+ * What a chart's hover card says about one node: everything
+ * {@link nodeHover} reads off the record, plus the two things the card itself
+ * adds — the sex that colours the name, which a redacted person does not give
+ * away, and the muted hint on the last line. Every chart with a card builds it
+ * this way; only the fields it reads a node by are its own.
+ */
+export function hoverInfoFrom(
+  display: NodeDisplayOptions,
+  input: NodeDisplayInput,
+  sex: Sex | undefined,
+  hint: string,
+): HoverInfo {
+  const h = nodeHover(display, input);
+  return { ...h, sex: h.redacted ? undefined : sex, hint };
 }
 
 /** One person on a card that lists several, written as the head is. */
@@ -65,9 +83,15 @@ export function useChartHover(canvasRef: RefObject<HTMLElement | null>, infoFor:
     let timer = 0;
     let raf = 0;
     let pos = { x: 0, y: 0 };
+    // The canvas's screen rect, read once per node the pointer enters rather
+    // than on every move: reading it is a forced layout, and a mouse delivers
+    // many moves per frame over a chart of thousands of nodes. Anything that
+    // could move the canvas under the pointer (a scroll, a wheel, a press)
+    // hides the card, and `hide` drops the rect with it.
+    let rect: DOMRect | null = null;
     const place = (clientX: number, clientY: number) => {
-      const r = el.getBoundingClientRect();
-      pos = { x: clientX - r.left, y: clientY - r.top };
+      rect ??= el.getBoundingClientRect();
+      pos = { x: clientX - rect.left, y: clientY - rect.top };
     };
     const show = () => {
       if (!key) return;
@@ -77,6 +101,7 @@ export function useChartHover(canvasRef: RefObject<HTMLElement | null>, infoFor:
     const hide = () => {
       key = null;
       visible = false;
+      rect = null;
       clearTimeout(timer);
       cancelAnimationFrame(raf);
       timer = 0;
@@ -101,10 +126,21 @@ export function useChartHover(canvasRef: RefObject<HTMLElement | null>, infoFor:
       place(e.clientX, e.clientY);
       if (visible && !raf) raf = requestAnimationFrame(() => { raf = 0; show(); });
     };
+    // A press hides the card and then focuses the node it opened — the browser
+    // runs that focus as the press's own default action, in the same task — so
+    // the focus handler has to let it pass or the card springs straight back
+    // up beside the panel the click just opened. The next task clears the flag,
+    // leaving a keyboard focus (which follows no press) to show the card.
+    let pressing = false;
+    const onDown = () => {
+      pressing = true;
+      window.setTimeout(() => { pressing = false; }, 0);
+      hide();
+    };
     const onFocus = (e: FocusEvent) => {
       const target = (e.target as Element | null)?.closest?.("[data-key]");
       const k = target?.getAttribute("data-key");
-      if (!target || !k) return;
+      if (!target || !k || pressing) return;
       hide();
       key = k;
       const r = target.getBoundingClientRect();
@@ -114,7 +150,7 @@ export function useChartHover(canvasRef: RefObject<HTMLElement | null>, infoFor:
     el.addEventListener("pointerover", onOver);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerleave", hide);
-    el.addEventListener("pointerdown", hide);
+    el.addEventListener("pointerdown", onDown);
     el.addEventListener("scroll", hide, { passive: true });
     el.addEventListener("wheel", hide, { passive: true });
     el.addEventListener("focusin", onFocus);
@@ -124,7 +160,7 @@ export function useChartHover(canvasRef: RefObject<HTMLElement | null>, infoFor:
       el.removeEventListener("pointerover", onOver);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerleave", hide);
-      el.removeEventListener("pointerdown", hide);
+      el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("scroll", hide);
       el.removeEventListener("wheel", hide);
       el.removeEventListener("focusin", onFocus);

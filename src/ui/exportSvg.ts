@@ -167,14 +167,41 @@ function bakeColorMix(value: string, ctx: ColorCtx): string {
   return out;
 }
 
-function inlineComputedStyles(live: Element, clone: Element): void {
-  // A probe in the live document inherits the theme's custom properties (defined
-  // on :root), so `var(--…)` resolves to the colours currently on screen.
+/**
+ * Run `fn` with the light palette forced on the document, then put the theme
+ * back — an export looks the same whichever scheme the UI is in. Everything
+ * inside must be synchronous, or the page paints a frame in the wrong theme.
+ */
+function withLightPalette<T>(fn: () => T): T {
+  const root = document.documentElement;
+  const prev = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "light");
+  try {
+    return fn();
+  } finally {
+    if (prev === null) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", prev);
+  }
+}
+
+/**
+ * Run `fn` with a hidden probe in the live document. The probe inherits the
+ * theme's custom properties (defined on :root), so `var(--…)` resolves through
+ * it to the colours in force; it is taken out again however `fn` ends.
+ */
+function withColorCtx<T>(fn: (ctx: ColorCtx) => T): T {
   const probe = document.createElement("span");
   probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
   document.body.appendChild(probe);
-  const ctx: ColorCtx = { probe, cache: new Map() };
   try {
+    return fn({ probe, cache: new Map() });
+  } finally {
+    probe.remove();
+  }
+}
+
+function inlineComputedStyles(live: Element, clone: Element): void {
+  withColorCtx((ctx) => {
     // The clone is a deep copy of `live`, so a flat walk over both lists stays in
     // lockstep (same elements, same order, including foreignObject HTML).
     const liveEls = [live, ...live.querySelectorAll("*")];
@@ -203,9 +230,7 @@ function inlineComputedStyles(live: Element, clone: Element): void {
       }
       out.setAttribute("style", decl);
     }
-  } finally {
-    probe.remove();
-  }
+  });
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -389,21 +414,13 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
   const clone = live.cloneNode(true) as SVGSVGElement;
 
   // Resolve every colour with the light palette forced, so the export looks the
-  // same whichever scheme the UI is in. The attribute flip, the style reads and
-  // the restore all happen synchronously (before any await), so the page never
-  // paints a frame in the wrong theme.
-  const root = document.documentElement;
-  const prevTheme = root.getAttribute("data-theme");
-  root.setAttribute("data-theme", "light");
-  let foreground: string;
-  try {
+  // same whichever scheme the UI is in — all of it before any await, so the
+  // page never paints a frame in the wrong theme.
+  const foreground = withLightPalette(() => {
     inlineComputedStyles(live, clone);
     // Header/footer ink: the canvas text colour as the light theme resolves it.
-    foreground = getComputedStyle(live).color || "#000000";
-  } finally {
-    if (prevTheme === null) root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", prevTheme);
-  }
+    return getComputedStyle(live).color || "#000000";
+  });
 
   // SVG <title> children surface as hover tooltips (the on-screen nodes carry a
   // "click to…" hint). In a static export they're useless and misleading, so
@@ -432,13 +449,6 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
  *  through a canvas so even a colour space an external renderer lacks lands
  *  as rgb. */
 function bakeLegend(legend: { label: string; color: string }[]): { label: string; color: string }[] {
-  const root = document.documentElement;
-  const prevTheme = root.getAttribute("data-theme");
-  root.setAttribute("data-theme", "light");
-  const probe = document.createElement("span");
-  probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none";
-  document.body.appendChild(probe);
-  const ctx: ColorCtx = { probe, cache: new Map() };
   const pixel = document.createElement("canvas");
   pixel.width = pixel.height = 1;
   const g = pixel.getContext("2d");
@@ -451,13 +461,9 @@ function bakeLegend(legend: { label: string; color: string }[]): { label: string
     const [r, gg, b, a] = g.getImageData(0, 0, 1, 1).data;
     return a === 255 ? `rgb(${r}, ${gg}, ${b})` : `rgba(${r}, ${gg}, ${b}, ${(a / 255).toFixed(3)})`;
   };
-  try {
-    return legend.map((e) => ({ label: e.label, color: toRgb(resolveColorExpr(e.color, ctx)) }));
-  } finally {
-    probe.remove();
-    if (prevTheme === null) root.removeAttribute("data-theme");
-    else root.setAttribute("data-theme", prevTheme);
-  }
+  return withLightPalette(() =>
+    withColorCtx((ctx) => legend.map((e) => ({ label: e.label, color: toRgb(resolveColorExpr(e.color, ctx)) }))),
+  );
 }
 
 /** Lay the key's chips out in rows no wider than `width`: each chip a dot,
@@ -474,6 +480,23 @@ function layoutLegend(legend: { label: string; color: string }[], width: number)
     x += w + LEGEND_GAP;
   }
   return out;
+}
+
+/** The band height a laid-out key takes: its rows, plus the padding above and
+ *  below. Nothing for a chart with no key. */
+function legendBandHeight(laid: { row: number }[]): number {
+  const rows = laid.length ? laid[laid.length - 1].row + 1 : 0;
+  return rows ? LEGEND_PAD_Y * 2 + rows * LEGEND_ROW_H : 0;
+}
+
+/**
+ * How tall the colour key will be in an export frame `width` wide — the same
+ * rule {@link wrapWithBands} draws it by, so the sheet planner and the print
+ * preview can budget for a band they do not draw themselves. Measured off the
+ * labels alone: the colours play no part in how the chips wrap.
+ */
+export function legendHeight(legend: SvgExportOptions["legend"], width: number): number {
+  return legend?.length ? legendBandHeight(layoutLegend(legend, width)) : 0;
 }
 
 /**
@@ -506,8 +529,7 @@ export function wrapWithBands(
   const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
   // The key, between the diagram and the footer, as many rows as it wraps to.
   const legend = opts.legend?.length ? layoutLegend(bakeLegend(opts.legend), totalW) : [];
-  const legendRows = legend.length ? legend[legend.length - 1].row + 1 : 0;
-  const legendH = legendRows ? LEGEND_PAD_Y * 2 + legendRows * LEGEND_ROW_H : 0;
+  const legendH = legendBandHeight(legend);
   const totalH = HEADER_H + bandH + legendH + FOOTER_H;
 
   // Move the diagram into a group shifted below the header band (centred when
@@ -568,7 +590,7 @@ export function wrapWithBands(
   }
 
   // The colour key: a dot and a label per entry, in rows, under the diagram.
-  if (legendRows) {
+  if (legendH) {
     const keyY = HEADER_H + bandH;
     const keyLine = headLine.cloneNode() as SVGLineElement;
     keyLine.setAttribute("y1", String(keyY));

@@ -356,13 +356,16 @@ export function duplicateFamilyGroups(ds: Dataset): Family[][] {
 /**
  * Whether date `a` certainly falls before date `b` — compared at the coarser of
  * the two precisions, so `1950` against `3 MAR 1950` is not a contradiction
- * either way, and a `BEF`/`AFT`/`BET`/`FROM`/`TO` on either side is left alone.
+ * either way. Only two dates that state themselves exactly can contradict each
+ * other: an `ABT`/`EST`/`CAL` or an interpreted date names a neighbourhood
+ * rather than a day — an estimated burial "about 1949" against a death in 1950
+ * is the ordinary shape of a parish transcription, not an error — and an open
+ * `BEF`/`AFT`/`BET`/`FROM`/`TO` names no point at all.
  * Used where the years alone cannot settle it: a burial the day before a death.
  */
 export function certainlyBefore(a: GedDate, b: GedDate): boolean {
-  const OPEN = new Set(["before", "after", "between", "from", "to", "range"]);
+  if (a.qualifier !== "exact" || b.qualifier !== "exact") return false;
   if (a.year === undefined || b.year === undefined) return false;
-  if (OPEN.has(a.qualifier) || OPEN.has(b.qualifier)) return false;
   if (a.year !== b.year) return a.year < b.year;
   if (a.month === undefined || b.month === undefined) return false;
   if (a.month !== b.month) return a.month < b.month;

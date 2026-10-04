@@ -407,22 +407,16 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
         <>
           {kindSwitcher}
           <Segmented label={t("tree.direction")} value={mode} onChange={onModeChange} items={directions} />
-          <div className="tree-mode">
-            <button
-              className={!settings.reportNarrative ? "active" : ""}
-              title={t("report.style.list.tooltip")}
-              onClick={() => set({ reportNarrative: false })}
-            >
-              {t("report.style.list")}
-            </button>
-            <button
-              className={settings.reportNarrative ? "active" : ""}
-              title={t("report.style.narrative.tooltip")}
-              onClick={() => set({ reportNarrative: true })}
-            >
-              {t("report.style.narrative")}
-            </button>
-          </div>
+          <Segmented
+            label={t("report.style")}
+            value={settings.reportNarrative ? "narrative" : "list"}
+            onChange={(style) => set({ reportNarrative: style === "narrative" })}
+            items={(["list", "narrative"] as const).map((style) => ({
+              key: style,
+              label: t(`report.style.${style}`),
+              title: t(`report.style.${style}.tooltip`),
+            }))}
+          />
         </>
       }
       // The chord stays with the browser here: report entries are plain text,

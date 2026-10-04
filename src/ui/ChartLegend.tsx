@@ -48,7 +48,7 @@ export function ChartLegend({ entries, hidden, onToggle, tint }: Props) {
             {body}
           </button>
         ) : (
-          <span key={e.key} className="map-kind-chip active chart-legend-chip">
+          <span key={e.key} className="map-kind-chip active">
             {body}
           </span>
         );

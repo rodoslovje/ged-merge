@@ -4,7 +4,7 @@ import { buildDataset } from "../gedcom/builder";
 import type { Individual } from "../gedcom/types";
 import type { TreeNode } from "./personTree";
 import { OWN_BRANCH } from "./kinshipWheel";
-import { createNodeColorer, indexPositions, lineColor, sanitizeColorAxis, type ColorContext } from "./nodeColor";
+import { axisWithin, colorAxesFor, COLOR_AXES, createNodeColorer, indexPositions, lineColor, sanitizeColorAxis, type ColorContext } from "./nodeColor";
 
 const GED = `0 HEAD
 1 GEDC
@@ -193,5 +193,35 @@ describe("createNodeColorer", () => {
     expect(sanitizeColorAxis("country")).toBe("country");
     expect(sanitizeColorAxis("nope")).toBe("plain");
     expect(sanitizeColorAxis("motherAge")).toBe("parentAge");
+  });
+
+  it("leaves a spouse riding beside the line out of the chart-reading axes", () => {
+    // A descendant fan: the root, their child, and the child's spouse on a band.
+    const subjectsWithBand = [
+      { indi: indi("I1"), pos: { gen: 0, branch: OWN_BRANCH } },
+      { indi: indi("I4"), pos: { gen: -1, branch: "@I4@" } },
+      { indi: indi("I5"), pos: { gen: -1, branch: "@I4@", offLine: true } },
+    ];
+    const gen = createNodeColorer("generation", ctx, subjectsWithBand);
+    // The band counts for neither generation: one person stands at −1.
+    expect(gen.categoryOf(indi("I5"), { gen: -1, branch: "@I4@", offLine: true })).toBe("");
+    expect(gen.legend.map((e) => [e.key, e.count])).toEqual([["0", 1], ["-1", 1]]);
+    const line = createNodeColorer("branch", ctx, subjectsWithBand);
+    expect(line.legend.map((e) => [e.key, e.count])).toEqual([[OWN_BRANCH, 1], ["@I4@", 1]]);
+    // A record axis still reads the spouse: their own sex is theirs to show.
+    const sex = createNodeColorer("sex", ctx, subjectsWithBand);
+    expect(sex.categoryOf(indi("I5"), { gen: -1, branch: "@I4@", offLine: true })).toBe("F");
+    expect(sex.legend.map((e) => [e.key, e.count])).toEqual([["M", 1], ["F", 2]]);
+  });
+
+  it("offers a chart only the axes it can honour", () => {
+    expect(colorAxesFor("all")).toEqual(COLOR_AXES);
+    expect(colorAxesFor("noBranch")).not.toContain("branch");
+    expect(colorAxesFor("noBranch")).toContain("generation");
+    expect(colorAxesFor("none")).toEqual([]);
+    // A choice made on another chart falls back rather than painting one colour.
+    expect(axisWithin("branch", "noBranch")).toBe("plain");
+    expect(axisWithin("sex", "noBranch")).toBe("sex");
+    expect(axisWithin("sex", "none")).toBe("plain");
   });
 });

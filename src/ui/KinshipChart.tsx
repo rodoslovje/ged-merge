@@ -26,7 +26,7 @@ import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
-import { useChartHover, type HoverInfo } from "./useChartHover";
+import type { HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { createKinshipResolver, kinshipLabelFor, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
@@ -37,10 +37,11 @@ import { ZoomControls } from "./ZoomControls";
 import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
+import { Segmented } from "./Segmented";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
-import { GROUP_AXES, lineColor, type BranchInfo } from "../chart/nodeColor";
+import { lineColor, type BranchInfo } from "../chart/nodeColor";
 import { useNameOf } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { sexClass, sexColorVar } from "./sex";
@@ -182,17 +183,18 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     }
     return map;
   }, [wheel.wedges, wedgeLabel]);
-  // The shared Color axis, over everyone but the root (whose dot is the centre).
+  // The shared Color axis, over everyone the chart draws — the root included:
+  // the wheel keeps them at the centre, but the bars give them a band of their
+  // own, and a root whose category no relative shares (the only living person,
+  // the only one of their generation) has to have a colour of it too.
   const subjects = useMemo(
-    () => people.filter((p) => p.distance > 0).map((p) => ({ indi: p.indi, pos: { gen: p.generation, branch: p.branch } })),
+    () => people.map((p) => ({ indi: p.indi, pos: { gen: p.generation, branch: p.branch } })),
     [people],
   );
   // The surname rings draw one mark per band, so an axis that varies inside a
   // band has no honest fill to give it; those fall back to plain here, leaving
   // the shared choice alone for the layouts that can answer it.
-  const axisOverride =
-    layout === "surnames" && !GROUP_AXES.includes(settings.colorAxis) ? ("plain" as const) : undefined;
-  const colorer = useNodeColorer(mainDs, subjects, branches, axisOverride);
+  const colorer = useNodeColorer(mainDs, subjects, branches, layout === "surnames" ? "group" : "all");
 
   const alive = useCallback(
     (p: KinPerson) => (p.span.to ?? p.span.from ?? -Infinity) >= year && (p.span.from ?? Infinity) <= year,
@@ -410,7 +412,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     },
     [bandByKey, bandHead, bandWhere, bandRow, t],
   );
-  const hover = useChartHover(canvasRef, hoverInfoFor);
 
 
   const selected = people.find((p) => p.id === selectedKey);
@@ -591,34 +592,20 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       controlsLeft={
         <>
           {kindSwitcher}
-          <div className="tree-mode" role="tablist" aria-label={t("kin.layout")}>
-          {(["wheel", "surnames", "bars", "map"] as const).map((l) => (
-            <button
-              key={l}
-              role="tab"
-              aria-selected={layout === l}
-              className={layout === l ? "active" : ""}
-              onClick={() => set({ kinLayout: l })}
-            >
-              {t(`kin.layout.${l}`)}
-            </button>
-          ))}
-        </div>
-        {window && (
-          <div className="tree-mode" role="tablist" aria-label={t("kin.scope")}>
-            {(["contemporaries", "all"] as const).map((sc) => (
-              <button
-                key={sc}
-                role="tab"
-                aria-selected={scope === sc}
-                className={scope === sc ? "active" : ""}
-                onClick={() => set({ kinScope: sc })}
-              >
-                {t(`kin.scope.${sc}`)}
-              </button>
-            ))}
-          </div>
-        )}
+          <Segmented
+            label={t("kin.layout")}
+            value={layout}
+            onChange={(kinLayout) => set({ kinLayout })}
+            items={(["wheel", "surnames", "bars", "map"] as const).map((l) => ({ key: l, label: t(`kin.layout.${l}`) }))}
+          />
+          {window && (
+            <Segmented
+              label={t("kin.scope")}
+              value={scope}
+              onChange={(kinScope) => set({ kinScope })}
+              items={(["contemporaries", "all"] as const).map((sc) => ({ key: sc, label: t(`kin.scope.${sc}`) }))}
+            />
+          )}
         <label className="kin-year">
           <input type="checkbox" checked={yearOn} onChange={(e) => setYearOn(e.target.checked)} />
           <span>{t("kin.aliveIn")}</span>
@@ -960,7 +947,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           )}
         </div>
 
-        <ChartHoverCard hover={hover} />
+        <ChartHoverCard canvasRef={canvasRef} infoFor={hoverInfoFor} />
         {/* Outside the canvas: an absolute child of a scroller scrolls away with
             the content, and the zoom toolbar has to stay put. */}
         {laid && !onMap && (

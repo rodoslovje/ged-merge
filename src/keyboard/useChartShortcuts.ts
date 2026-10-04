@@ -18,9 +18,8 @@ interface Handlers {
   /** Digit keys 1..n pick from this list (in tab order). */
   kinds?: readonly ChartKind[];
   onKind?: (kind: ChartKind) => void;
-  /** A / D switch the direction; D is ignored when descendants are unavailable. */
+  /** A / D switch the direction. */
   onMode?: (mode: TreeMode) => void;
-  allowDescendants?: boolean;
   /** H re-draws the chart for the start ("home") person. Omitted when there is
    *  no start person, or the chart already stands on them. */
   onHome?: () => void;
@@ -103,7 +102,7 @@ export function useChartShortcuts(handlers: Handlers) {
         return;
       }
       if (lower === CHART_KEY.descendants) {
-        if (h.onMode && h.allowDescendants !== false) { e.preventDefault(); h.onMode("descendants"); }
+        if (h.onMode) { e.preventDefault(); h.onMode("descendants"); }
         return;
       }
       if (h.kinds && h.onKind && key >= "1" && key <= "9") {

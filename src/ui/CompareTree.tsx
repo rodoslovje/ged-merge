@@ -21,6 +21,7 @@ import {
   type TreeMode,
   type TreeNode,
 } from "../chart/personTree";
+import { Segmented, type SegmentedItem } from "./Segmented";
 import { useFanChart } from "./useFanChart";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -447,6 +448,22 @@ export function CompareTree({
     onLeave: onBack,
   });
 
+  // The direction row: each side's head-count, and how many of those people
+  // the incoming file brings.
+  const directions: SegmentedItem<TreeMode>[] = (["ancestors", "descendants"] as const).map((dir) => ({
+    key: dir,
+    title: modeSummary(t, peopleCounts[dir], depths[dir]),
+    label: (
+      <>
+        {t(`tree.${dir}`)}
+        <span className="tree-mode-count">{peopleCounts[dir]}</span>
+        {importCounts[dir] > 0 && (
+          <span className="tree-import-count">{dir === "ancestors" ? "▲" : "▼"}{importCounts[dir]}</span>
+        )}
+      </>
+    ),
+  }));
+
   // The selected person — a laid tree node or a fan segment's ancestor node;
   // both are `TreeNode`s, read identically by the detail panel.
   const selected: TreeNode | undefined = radial
@@ -483,7 +500,10 @@ export function CompareTree({
       }
       actions={
         <>
-          <ChartSettings availableGenerations={depths[mode]} />
+          {/* No Color axis here: this chart paints every node by what the
+              merge found — main, incoming, conflict — and that is the whole
+              point of looking at it. */}
+          <ChartSettings availableGenerations={depths[mode]} colorAxes="none" />
           <ChartExportMenu
             disabled={!activeLaid}
             slug={chartSlug(rootName, t(`tree.${mode}`))}
@@ -501,30 +521,7 @@ export function CompareTree({
             onChange={(k) => setType(k as PedigreeType)}
           />
           <PedigreeVariantTabs />
-          <div className="tree-mode">
-            <button
-              className={mode === "ancestors" ? "active" : ""}
-              onClick={() => onModeChange("ancestors")}
-              title={modeSummary(t, peopleCounts.ancestors, depths.ancestors)}
-            >
-              {t("tree.ancestors")}
-              <span className="tree-mode-count">{peopleCounts.ancestors}</span>
-              {importCounts.ancestors > 0 && (
-                <span className="tree-import-count">▲{importCounts.ancestors}</span>
-              )}
-            </button>
-            <button
-              className={mode === "descendants" ? "active" : ""}
-              onClick={() => onModeChange("descendants")}
-              title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
-            >
-              {t("tree.descendants")}
-              <span className="tree-mode-count">{peopleCounts.descendants}</span>
-              {importCounts.descendants > 0 && (
-                <span className="tree-import-count">▼{importCounts.descendants}</span>
-              )}
-            </button>
-          </div>
+          <Segmented label={t("tree.direction")} value={mode} onChange={onModeChange} items={directions} />
         </>
       }
       controlsRight={

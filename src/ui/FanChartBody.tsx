@@ -24,8 +24,8 @@ export interface FanBadge {
 interface Props {
   chart: FanChart;
   /** State colour for a node's wedge border + tinted fill (matches `TreeNodeBox`).
-   *  The segment is handed along so a host can colour a descendant chart by
-   *  branch (`FanSegment.branch`). */
+   *  The segment is handed along so a host can tell where on the chart the
+   *  wedge sits — which half of a bowtie, and whether it is a spouse's band. */
   colorOf: (node: TreeNode, seg: FanSegment) => string;
   /** Fill strength (percent of the colour in the panel) for every wedge,
    *  overriding the segments' own; a Color axis in force asks for a stronger
