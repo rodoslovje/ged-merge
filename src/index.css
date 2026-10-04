@@ -5983,6 +5983,8 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   font-size: 0.85rem;
 }
 .tree-title-arrow {
+  display: inline-flex;
+  align-self: center;
   color: var(--muted);
   margin: 0 2px;
 }

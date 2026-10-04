@@ -1,3 +1,5 @@
+import { ArrowIcon } from "./icons/ArrowIcon";
+
 // The one Back affordance for every sub-page reached from a parent view — the
 // chart overlays (icon-only, leftmost in the toolbar), the Edit view's
 // person-history Back and the Tools source-duplicates page (visible label).
@@ -24,7 +26,7 @@ export function BackButton({ label, shortcutHint, showLabel = false, disabled, o
       title={shortcutHint ? `${label} (${shortcutHint})` : label}
       aria-label={label}
     >
-      <span aria-hidden="true">←</span>
+      <ArrowIcon dir="left" />
       {showLabel && <span className="tree-back-label">{label}</span>}
     </button>
   );

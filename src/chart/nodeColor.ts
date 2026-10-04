@@ -173,13 +173,14 @@ const OTHER = "\u0000other";
 
 // ─── Per-person readings ─────────────────────────────────────────────────────
 
-const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
+// Burial last: someone buried in a country is taken to have lived there.
+const PLACE_TAGS = ["BIRT", "RESI", "DEAT", "BURI"] as const;
 
 function eventOf(indi: Individual, tag: string) {
   return indi.events.find((e) => e.tag === tag);
 }
 
-/** The country of the first of birth, residence and death that names a place. */
+/** The country of the first of birth, residence, death and burial that names a place. */
 function countryOf(indi: Individual, home: string): string {
   for (const tag of PLACE_TAGS) {
     const place = eventOf(indi, tag)?.place;

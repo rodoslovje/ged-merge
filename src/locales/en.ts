@@ -1602,7 +1602,7 @@ export const en = {
   "chartColor.axis.living": "Living",
   "chartColor.axis.living.tip": "People presumed living, and the deceased",
   "chartColor.axis.country": "Country",
-  "chartColor.axis.country.tip": "The country of the birth, residence or death place — whichever is recorded first",
+  "chartColor.axis.country.tip": "The country of the birth, residence, death or burial place — whichever is recorded first",
   "chartColor.axis.birthPlace": "Birth place",
   "chartColor.axis.birthPlace.tip": "The most frequent birth places, one colour each",
   "chartColor.axis.surname": "Surname",
