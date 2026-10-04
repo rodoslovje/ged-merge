@@ -80,8 +80,15 @@ table the given name, the only part that tells siblings apart, contributed
 nothing to a Latin-against-Slovenian comparison, leaving the shared surname
 and the birth year to carry the identity alone. Names that merely share a
 root but name two different children (`Matej`/`Matija`, `Neža`/`Ana`) are
-deliberately in separate rows; diminutives appear only where registers use
-them (`Meta` for Marjeta, `Polona` for Apolonija).
+deliberately in separate rows; diminutives appear only where registers or
+trees use them for the same person (`Meta` for Marjeta, `Polona` for
+Apolonija, `Pepa`/`Pepca` for Jožefa, `Mica` for Marija). Croatian parish forms
+sit in the same rows (`Ignjat` for Ignacij, `Gjuro` for Jurij, `Mihovil` for
+Mihael), as do old Slovenian ones (`Jedrt` for Gertruda, `Rotija` for
+Doroteja). A pet name shared by two full names stays out of the table: `Pepi`
+is Jože or Jožefa. `Agata` shares Neža's row by choice, not by etymology
+(Agatha and Agnes are two saints): the Ravna Gora trees record the same girl
+under both names.
 
 ### ½. UID identity pre-match (`matchByUid`, `src/match/engine.ts`)
 
