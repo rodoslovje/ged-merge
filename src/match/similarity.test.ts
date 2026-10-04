@@ -76,6 +76,20 @@ describe("cross-language given names", () => {
       ["Alojz", "Lojze"],
       ["Ignacij", "Nace"],
       ["Frančišek", "Franci"],
+      // Croatian parish forms and pet names of the Ravna Gora families.
+      ["Ignacij", "Ignjat"],
+      ["Jožefa", "Pepa"],
+      ["Jožefa", "Pepca"],
+      ["Josepha", "Pepa"],
+      ["Gertruda", "Jedrt"],
+      ["Gertrude", "Jedrt"],
+      ["Frančiška", "Franka"],
+      ["Francisca", "Franka"],
+      ["Jurij", "Gjuro"],
+      ["Mihael", "Mihovil"],
+      ["Boštjan", "Sebastjan"],
+      ["Marija", "Mica"],
+      ["Antonija", "Tončka"],
     ] as const) {
       expect(givenSimilarity(a, b), `${a}/${b}`).toBe(1);
     }
@@ -88,6 +102,8 @@ describe("cross-language given names", () => {
       ["Anton", "Jakob"],
       ["Marija", "Terezija"],
       ["Jožef", "Jakob"],
+      // Agatha and Agnes are two saints, not one name in two languages.
+      ["Agata", "Neža"],
     ] as const) {
       expect(givenSimilarity(a, b), `${a}/${b}`).toBeLessThan(SAME_PERSON_GIVEN);
     }
