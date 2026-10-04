@@ -201,3 +201,8 @@ npm run build    # → dist/ : a self-contained static site
 `dist/` can be hosted on any static file server (the live site runs on Caddy behind Cloudflare;
 GitHub Pages, Netlify or Vercel work equally well). The app is an installable PWA and works offline
 after the first load.
+
+Every green push to `main` is deployed to the test site on GitHub Pages (`test.gedmerge.com`).
+Production is released by hand with the **Deploy production** workflow
+(`gh workflow run deploy-production.yml`), which by default ships the commit the test site serves,
+rsyncs it to the server and tags the release with its date.

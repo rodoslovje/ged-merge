@@ -1,0 +1,107 @@
+name: Deploy production
+
+# Released by hand (Actions → Deploy production → Run workflow, or
+# `gh workflow run deploy-production.yml`). By default it releases exactly the
+# commit the test site is serving, so production gets what was tested there.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit, tag or branch to release (empty = what the test site serves)"
+        required: false
+        default: ""
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy gedmerge.com
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://gedmerge.com
+    permissions:
+      contents: write # push the release tag
+      deployments: read # find what the test site serves
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the commit to release
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref }}
+        run: |
+          if [ -n "$REF" ]; then
+            sha=$(git rev-parse --verify "$REF^{commit}" 2>/dev/null \
+              || git rev-parse --verify "origin/$REF^{commit}")
+          else
+            # The newest github-pages deployment that actually succeeded.
+            sha=""
+            for id in $(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=github-pages&per_page=20" --jq '.[].id'); do
+              state=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" --jq '.[0].state')
+              if [ "$state" = "success" ]; then
+                sha=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id" --jq '.sha')
+                break
+              fi
+            done
+            [ -n "$sha" ] || { echo "::error::No successful test-site deployment found"; exit 1; }
+          fi
+          # Only what has landed on main may reach production.
+          git merge-base --is-ancestor "$sha" origin/main \
+            || { echo "::error::$sha is not on main"; exit 1; }
+          git checkout --quiet "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Releasing $(git log -1 --format='%h %s')" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # DEPLOY_SSH_KEY: private key allowed to write the web root only.
+      # DEPLOY_KNOWN_HOSTS: `ssh-keyscan <host>` output, so the host is pinned.
+      # DEPLOY_TARGET (variable): rsync destination, e.g. user@host:/srv/gedmerge/
+      - name: Upload with rsync
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          TARGET: ${{ vars.DEPLOY_TARGET }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # No --delete: old hashed assets stay so a tab opened on the previous
+          # release can still load its chunks. --delay-updates swaps the files
+          # in at the end instead of one by one.
+          rsync -rlcz --delay-updates --itemize-changes \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
+            dist/ "$TARGET"
+
+      - name: Tag the release
+        run: |
+          sha=${{ steps.commit.outputs.sha }}
+          if git tag --points-at "$sha" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]+)?$'; then
+            echo "Already tagged: $(git tag --points-at "$sha" | tr '\n' ' ')"
+            exit 0
+          fi
+          # The app's version is the commit date; a second release with the
+          # same date gets .2, .3, …
+          tag=$(git log -1 --format=%cd --date=format:%Y-%m-%d "$sha")
+          n=1
+          while git rev-parse -q --verify "refs/tags/$tag" >/dev/null; do
+            n=$((n + 1))
+            tag="$(git log -1 --format=%cd --date=format:%Y-%m-%d "$sha").$n"
+          done
+          git tag "$tag" "$sha"
+          git push origin "refs/tags/$tag"
+          echo "Tagged $tag" >> "$GITHUB_STEP_SUMMARY"
