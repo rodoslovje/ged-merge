@@ -365,6 +365,12 @@ function descend(
       // person" spouse the matcher never produced a candidate for is drawn
       // twice — once per side — and the couple reads as two marriages.
       if (iIndex < 0) iIndex = similarPartner(mu.partner, incomingUnions, usedIncoming, maps);
+    } else {
+      // No spouse recorded: there is nothing to align by, so pair it with an
+      // incoming union that has no spouse either — otherwise the same
+      // single-parent family is drawn once per side and its matched children
+      // are never paired.
+      iIndex = partnerlessUnion(mu, incomingUnions, usedIncoming, maps);
     }
     const iu = iIndex >= 0 ? incomingUnions[iIndex] : undefined;
     if (iIndex >= 0) usedIncoming.add(iIndex);
@@ -430,6 +436,22 @@ function similarPartner(
     .filter((c) => !usedIncoming.has(c.idx) && c.partner && !maps.compareToMain.has(c.partner.id));
   const pick = alignByLikeness([mainPartner], free.map((c) => c.partner!), "partner").get(mainPartner.id);
   return pick ? free.find((c) => c.partner === pick)!.idx : -1;
+}
+
+/** Index of the unused, spouse-less incoming union to align with the spouse-less
+ *  main union `mu`, or -1: the one sharing a matched child, else the first. */
+function partnerlessUnion(
+  mu: Union,
+  incomingUnions: Union[],
+  usedIncoming: Set<number>,
+  maps: MatchMaps,
+): number {
+  const free = incomingUnions
+    .map((iu, idx) => ({ iu, idx }))
+    .filter((c) => !usedIncoming.has(c.idx) && !c.iu.partner);
+  const matched = new Set(mu.children.map((c) => maps.mainToCompare.get(c.id)).filter((id) => id !== undefined));
+  const shared = free.find((c) => c.iu.children.some((k) => matched.has(k.id)));
+  return (shared ?? free[0])?.idx ?? -1;
 }
 
 /** Pair a union's main and incoming children through the match map, falling back

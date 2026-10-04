@@ -217,6 +217,31 @@ describe("buildPersonTree (descendants)", () => {
   });
 });
 
+describe("buildPersonTree (union with no spouse on either side)", () => {
+  // A father with one recorded child and no wife, in both files.
+  const SOLO = (p: string, f: string) =>
+    wrap(
+      `0 @${p}1@ INDI\n1 NAME Janez /Bončina/\n1 SEX M\n1 BIRT\n2 DATE 1695\n1 FAMS @${f}1@\n` +
+        `0 @${p}2@ INDI\n1 NAME Katarina /Bončina/\n1 SEX F\n1 BIRT\n2 DATE 1725\n1 FAMC @${f}1@\n` +
+        `0 @${f}1@ FAM\n1 HUSB @${p}1@\n1 CHIL @${p}2@\n`,
+    );
+  const mainDs = dataset(SOLO("I", "F"));
+  const compareDs = dataset(SOLO("P", "G"));
+  const maps = {
+    mainToCompare: new Map([["@I1@", "@P1@"], ["@I2@", "@P2@"]]),
+    compareToMain: new Map([["@P1@", "@I1@"], ["@P2@", "@I2@"]]),
+  };
+
+  it("aligns the two families, so the matched child is drawn once, as a match", () => {
+    const root = buildPersonTree(tr, mainDs.individuals.get("@I1@"), compareDs.individuals.get("@P1@"), mainDs, compareDs, maps, "descendants")!;
+    expect(root.partners).toHaveLength(0);
+    expect(root.children).toHaveLength(1);
+    expect(root.children[0].main?.id).toBe("@I2@");
+    expect(root.children[0].incoming?.id).toBe("@P2@");
+    expect(root.children[0].status).toBe("match");
+  });
+});
+
 describe("buildPersonTree (spouse the matcher never paired)", () => {
   const mainDs = dataset(MAIN);
   const compareDs = dataset(COMPARE);
