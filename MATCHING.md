@@ -86,7 +86,9 @@ Apolonija, `Pepa`/`Pepca` for Jožefa, `Mica` for Marija). Croatian parish forms
 sit in the same rows (`Ignjat` for Ignacij, `Gjuro` for Jurij, `Mihovil` for
 Mihael), as do old Slovenian ones (`Jedrt` for Gertruda, `Rotija` for
 Doroteja). A pet name shared by two full names stays out of the table: `Pepi`
-is Jože or Jožefa. `Agata` is Agatha, a different name from Agnes.
+is Jože or Jožefa. `Agata` shares Neža's row by choice, not by etymology
+(Agatha and Agnes are two saints): the Ravna Gora trees record the same girl
+under both names.
 
 ### ½. UID identity pre-match (`matchByUid`, `src/match/engine.ts`)
 

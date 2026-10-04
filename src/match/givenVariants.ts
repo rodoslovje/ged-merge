@@ -96,7 +96,7 @@ const VARIANT_GROUPS: readonly (readonly string[])[] = [
   ["marija", "maria", "mica", "micka", "mici"],
   ["marjana", "mariana", "marianna"],
   ["marjeta", "margaretha", "margareta", "margaret", "margarita", "meta"],
-  ["neza", "agnes", "agnetha", "agneza", "agnesa"],
+  ["neza", "agnes", "agnetha", "agneza", "agnesa", "agata", "agatha"],
   ["rozalija", "rosalia", "rozalia"],
   ["suzana", "susanna", "susana"],
   ["terezija", "theresia", "theresa", "teresa", "tereza", "reza", "rezka"],

@@ -90,6 +90,12 @@ describe("cross-language given names", () => {
       ["Boštjan", "Sebastjan"],
       ["Marija", "Mica"],
       ["Antonija", "Tončka"],
+      ["Jurij", "Jure"],
+      ["Jurij", "Juraj"],
+      ["Jure", "Juraj"],
+      // The trees record one girl as Neža in one file and Agata in the other.
+      ["Neža", "Agata"],
+      ["Agnes", "Agata"],
     ] as const) {
       expect(givenSimilarity(a, b), `${a}/${b}`).toBe(1);
     }
@@ -102,8 +108,6 @@ describe("cross-language given names", () => {
       ["Anton", "Jakob"],
       ["Marija", "Terezija"],
       ["Jožef", "Jakob"],
-      // Agatha and Agnes are two saints, not one name in two languages.
-      ["Agata", "Neža"],
     ] as const) {
       expect(givenSimilarity(a, b), `${a}/${b}`).toBeLessThan(SAME_PERSON_GIVEN);
     }
