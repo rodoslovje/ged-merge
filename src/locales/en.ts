@@ -2459,6 +2459,7 @@ export const en = {
   "shortcuts.item.tree": "Open the person's chart (tree, grid, fan, circle)",
   "shortcuts.item.home": "Go to the start person (Edit)",
   "shortcuts.item.back": "Back — previous person (Edit) or leave a chart page; the chord goes back from inside a field too",
+  "shortcuts.item.backMerge": "Back — to the match you opened a relative from",
   "shortcuts.group.charts": "Chart pages",
   "shortcuts.item.chartKind": "Switch chart kind (Tree … Report)",
   "shortcuts.item.chartDirection": "Ancestors / descendants",

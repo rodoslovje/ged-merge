@@ -2775,6 +2775,7 @@ export const sl = {
   "shortcuts.item.tree": "Odpri diagram osebe (drevo, mreža, pahljača, krog)",
   "shortcuts.item.home": "Pojdi na izhodiščno osebo (urejanje)",
   "shortcuts.item.back": "Nazaj — prejšnja oseba (urejanje) ali izhod iz diagrama; kombinacija deluje tudi iz polja v urejanju",
+  "shortcuts.item.backMerge": "Nazaj — k ujemanju, iz katerega ste odprli sorodnika",
   "shortcuts.group.charts": "Strani z diagrami",
   "shortcuts.item.chartKind": "Preklopi vrsto diagrama (drevo … poročilo)",
   "shortcuts.item.chartDirection": "Predniki / potomci",

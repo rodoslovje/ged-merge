@@ -55,6 +55,9 @@ interface Props {
   compareDataset: Dataset | undefined;
   onUpdateDecision: (next: CandidateDecision) => void;
   onOpenTree: (mainId: string, compareId: string) => void;
+  /** One step back through the app's pages — ⌫ from a relative followed in
+   *  the comparison returns to the pair it was followed from. */
+  onGoBack: () => void;
   canNavigatePerson: (side: "main" | "incoming", id: string) => boolean;
   onNavigatePerson: (side: "main" | "incoming", id: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
@@ -97,6 +100,7 @@ export function MergeView({
   compareDataset,
   onUpdateDecision,
   onOpenTree,
+  onGoBack,
   canNavigatePerson,
   onNavigatePerson,
   compareRef,
@@ -219,6 +223,12 @@ export function MergeView({
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       // Already answered where it was pressed — the comparison's own rows.
       if (e.defaultPrevented) return;
+      if (e.key === "Backspace") {
+        // Swallowed even with nowhere to go, so it never leaves the app.
+        e.preventDefault();
+        onGoBack();
+        return;
+      }
       // ↑/↓ step the match list, as every list; ←/→ too, the keys Merge
       // always had. Enter takes the keyboard into the comparison, whose rows
       // then answer the arrows. PageUp/PageDown scroll the comparison without

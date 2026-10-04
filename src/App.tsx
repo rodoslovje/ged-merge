@@ -849,7 +849,7 @@ function AppContent() {
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
-    navigateFromPage, goToPage, canGoBack, goBackPage,
+    navigateFromPage, selectFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
@@ -922,15 +922,16 @@ function AppContent() {
   }
 
   // Jump the compare view to a relative's own match row, pushing a history entry
-  // so the browser Back button returns to where we were.
+  // so the browser Back button returns to where we were. The history helper
+  // is rebuilt each render; read through a ref so this callback stays stable.
+  const selectFromPageRef = useRef(selectFromPage);
+  selectFromPageRef.current = selectFromPage;
   const navigatePerson = useCallback(
     (side: "main" | "incoming", id: string) => {
       const target = (side === "main" ? indexByMain : indexByCompare).get(id);
       if (!target) return;
       if (target.mainId === current?.mainId && target.compareId === current?.compareId) return;
-      if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
-      window.history.pushState({ gedSel: { mainId: target.mainId, compareId: target.compareId } }, "");
-      setSelectedId({ mainId: target.mainId, compareId: target.compareId });
+      selectFromPageRef.current({ mainId: target.mainId, compareId: target.compareId });
       if (window.innerWidth <= 880) {
         setTimeout(() => { compareRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
       }
@@ -2337,6 +2338,7 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecision}
               onOpenTree={openTree}
+              onGoBack={goBackPage}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
               compareRef={compareRef}

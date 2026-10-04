@@ -217,6 +217,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       // The chord is the same step taken from inside a field, where the bare
       // key belongs to the text being typed.
       { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back", scope: ["edit", "chart"] },
+      { keys: [["⌫"]], descKey: "shortcuts.item.backMerge", scope: ["merge"] },
     ],
   },
   {
