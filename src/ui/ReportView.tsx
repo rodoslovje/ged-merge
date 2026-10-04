@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../gedcom/types";
 import type { TreeMode } from "../chart/personTree";
+import type { ChartDirection } from "../chart/treeLayout";
+import { Segmented, type SegmentedItem } from "./Segmented";
 import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { createKinshipResolver } from "../match/kinship";
 import { linkHref } from "./FieldValue";
@@ -19,7 +21,7 @@ import {
   type SourceLine,
 } from "../report/model";
 import { childrenOfLabel, factText, reportName, reportToText, type ReportTextOptions } from "../report/text";
-import { reportToRtf } from "../report/rtf";
+import { reportsToRtf } from "../report/rtf";
 import { childGroups, planEntry } from "../report/narrative";
 import { citationMark, narrativeEntry, narrativeLangFor } from "../report/narrativeText";
 import type { Translate } from "../locales/i18n";
@@ -39,7 +41,7 @@ import { useChartSettings } from "./ChartSettingsContext";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Full-page text report — the Charts hub's "Report" kind, with the shared
@@ -86,8 +88,17 @@ interface Props {
   onRootChange: (id: string) => void;
   /** The hub-owned ancestors/descendants choice, shared with the pedigree
    *  charts so the direction survives kind switches. */
-  mode: TreeMode;
-  onModeChange: (mode: TreeMode) => void;
+  mode: ChartDirection;
+  onModeChange: (mode: ChartDirection) => void;
+}
+
+/** One report of the page: its direction, data (after the generation limit),
+ *  page title and rendering options — the bowtie shows two. */
+interface ReportPart {
+  dir: TreeMode;
+  data: ReportData | undefined;
+  kind: string;
+  opts: ReportTextOptions;
 }
 
 export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
@@ -124,24 +135,33 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
     () => buildDescendants(mainDs, currentRootId, nameOf, undefined, factOpts),
     [mainDs, currentRootId, nameOf, factOpts],
   );
-  const fullData = mode === "descendants" ? descendants : ancestors;
-  // Generations this direction has to offer (the root is generation 0).
-  const availableGenerations = fullData ? fullData.generations.length - 1 : 0;
-  // The generation limit trims the report's tail. The kept generations — their
+  // "Both" prints the Ahnentafel and the descendant register one after the
+  // other; each is the page it would be on its own.
+  const dirs = useMemo<TreeMode[]>(() => (mode === "both" ? ["ancestors", "descendants"] : [mode]), [mode]);
+  // Generations the direction(s) have to offer (the root is generation 0) —
+  // the deeper one for both.
+  const availableGenerations = Math.max(
+    0,
+    ...dirs.map((d) => ((d === "descendants" ? descendants : ancestors)?.generations.length ?? 1) - 1),
+  );
+  // The generation limit trims a report's tail. The kept generations — their
   // entries and their numbering — are exactly the full report's, so slicing the
   // built data is the whole job; `truncated` records what was left off so the
   // page and every export can say so.
-  const data = useMemo(() => {
+  const sliced = useMemo(() => {
     const max = settings.maxGenerations;
-    if (!fullData || max === null || max >= fullData.generations.length - 1) return fullData;
-    const generations = fullData.generations.slice(0, max + 1);
-    return {
-      ...fullData,
-      generations,
-      total: generations.reduce((n, g) => n + g.entries.filter((e) => e.dupOf === undefined).length, 0),
-      truncated: fullData.generations.length - 1 - max,
+    const cut = (full: ReportData | undefined): ReportData | undefined => {
+      if (!full || max === null || max >= full.generations.length - 1) return full;
+      const generations = full.generations.slice(0, max + 1);
+      return {
+        ...full,
+        generations,
+        total: generations.reduce((n, g) => n + g.entries.filter((e) => e.dupOf === undefined).length, 0),
+        truncated: full.generations.length - 1 - max,
+      };
     };
-  }, [fullData, settings.maxGenerations]);
+    return { ancestors: cut(ancestors), descendants: cut(descendants) };
+  }, [ancestors, descendants, settings.maxGenerations]);
 
   // Redact people inferred to be living: keep their number (the family
   // structure), replace the name with their kinship to the root — or the
@@ -160,21 +180,50 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
 
   // Narrative style: each entry's facts phrased as prose in the UI language
   // (with citation markers, woven-in notes and the numbered citation list).
-  // Shared by the page, the text download and the print sheet.
-  const narrativeOf = useMemo(() => {
-    if (!settings.reportNarrative || !data) return undefined;
-    const lang = narrativeLangFor(i18n.language);
-    const groups = childGroups(data);
-    // Privacy reaches the planner: it decides whether a living partner's
-    // years and a living parent's name enter the sentences at all.
-    return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num), { privacyLiving: privacy }));
-  }, [settings.reportNarrative, data, t, i18n.language, privacy]);
-
-  // One options object for all renderings (page names, txt, RTF, print).
-  const exportOpts = useMemo<ReportTextOptions>(
-    () => ({ privacyLiving: privacy, livingNameOf, narrativeOf, toc }),
-    [privacy, livingNameOf, narrativeOf, toc],
+  // Shared by the page, the text download and the print sheet — built per
+  // report, since the child groups it reads are that report's own.
+  const narrativeFor = useCallback(
+    (data: ReportData | undefined) => {
+      if (!settings.reportNarrative || !data) return undefined;
+      const lang = narrativeLangFor(i18n.language);
+      const groups = childGroups(data);
+      // Privacy reaches the planner: it decides whether a living partner's
+      // years and a living parent's name enter the sentences at all.
+      return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num), { privacyLiving: privacy }));
+    },
+    [settings.reportNarrative, t, i18n.language, privacy],
   );
+  // One options object per report for all its renderings (page names, txt,
+  // RTF, print).
+  const parts = useMemo<ReportPart[]>(
+    () =>
+      dirs.map((dir) => {
+        const data = sliced[dir];
+        return {
+          dir,
+          data,
+          kind: t(dir === "descendants" ? "register.pageTitle" : "ahnentafel.pageTitle"),
+          opts: { privacyLiving: privacy, livingNameOf, narrativeOf: narrativeFor(data), toc },
+        };
+      }),
+    [dirs, sliced, t, privacy, livingNameOf, narrativeFor, toc],
+  );
+  // The first report: the root entry and the header read from it, and its
+  // options serve the names the page writes outside any one report.
+  const data = parts[0].data;
+  const exportOpts = parts[0].opts;
+
+  // The direction row: each report's head-count, both the two together (the
+  // root counted once).
+  const directions: SegmentedItem<ChartDirection>[] = [
+    { key: "ancestors", label: <>{t("tree.ancestors")}{ancestors && <span className="tree-mode-count">{ancestors.total}</span>}</> },
+    { key: "descendants", label: <>{t("tree.descendants")}{descendants && <span className="tree-mode-count">{descendants.total}</span>}</> },
+    {
+      key: "both",
+      label: <>{t("tree.both")}{ancestors && descendants && <span className="tree-mode-count">{ancestors.total + descendants.total - 1}</span>}</>,
+      title: t("tree.both.tooltip"),
+    },
+  ];
 
   // Esc / Backspace leave, A/D switch direction; kind digits are the hub's.
   useChartShortcuts({ onMode: onModeChange, onLeave: onBack });
@@ -182,10 +231,10 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
   const rootEntry = data?.generations[0]?.entries[0];
   // The report's people, for the branch-GEDCOM export (dups appear once).
   const reportIds = useMemo(
-    () => [...new Set((data?.generations ?? []).flatMap((g) => g.entries.map((e) => e.id)))],
-    [data],
+    () => [...new Set(parts.flatMap((p) => (p.data?.generations ?? []).flatMap((g) => g.entries.map((e) => e.id))))],
+    [parts],
   );
-  const pageKind = t(mode === "descendants" ? "register.pageTitle" : "ahnentafel.pageTitle");
+  const pageKind = mode === "both" ? parts.map((p) => p.kind).join(" · ") : parts[0].kind;
   // Header lifespan with the age folded in when the Age display toggle is on —
   // the same lifespanLine convention as the pedigree charts and the timeline.
   const rootYears =
@@ -202,13 +251,14 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
     () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
     [mainDs, startId, t],
   );
-  const exportTitle = [rootEntry && reportName(rootEntry, exportOpts), rootYears, "—", pageKind]
-    .filter(Boolean)
-    .join(" ");
+  // The title of one report's export: the root, then that report's kind.
+  const titleFor = (kind: string) => [rootEntry && reportName(rootEntry, exportOpts), rootYears, "—", kind].filter(Boolean).join(" ");
+  // The reports with something to export, each with its own title.
+  const exportParts = parts.filter((p): p is ReportPart & { data: ReportData } => !!p.data);
 
   const selectedEntry = useMemo(
-    () => data?.generations.flatMap((g) => g.entries).find((e) => e.id === selectedId),
-    [data, selectedId],
+    () => parts.flatMap((p) => p.data?.generations.flatMap((g) => g.entries) ?? []).find((e) => e.id === selectedId),
+    [parts, selectedId],
   );
   const selectedIndi = selectedEntry ? mainDs.individuals.get(selectedEntry.id) : undefined;
   const selectedRows = useMemo(
@@ -250,8 +300,8 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
 
   // Cross-reference jump: scroll a numbered entry into view and flash it. Also
   // the find box's reveal — its keys are entry numbers.
-  const jumpTo = useCallback((num: number) => {
-    const el = document.getElementById(`report-entry-${num}`);
+  const jumpTo = useCallback((dir: TreeMode, num: number) => {
+    const el = document.getElementById(`report-entry-${dir}-${num}`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     // Restart the flash animation on repeated jumps to the same entry.
@@ -266,13 +316,21 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
   // this report offers to re-root on that person, exactly as the charts do.
   const findSources = useMemo<FindSource[]>(
     () =>
-      (data?.generations ?? [])
-        .flatMap((g) => g.entries)
-        .filter((e) => e.dupOf === undefined)
-        .map((e) => ({ key: String(e.num), people: [mainDs.individuals.get(e.id)] })),
-    [data, mainDs],
+      parts.flatMap((p) =>
+        (p.data?.generations ?? [])
+          .flatMap((g) => g.entries)
+          .filter((e) => e.dupOf === undefined)
+          .map((e) => ({ key: `${p.dir}:${e.num}`, people: [mainDs.individuals.get(e.id)] })),
+      ),
+    [parts, mainDs],
   );
-  const revealEntry = useCallback((key: string) => jumpTo(Number(key)), [jumpTo]);
+  const revealEntry = useCallback(
+    (key: string) => {
+      const [dir, num] = key.split(":");
+      jumpTo(dir as TreeMode, Number(num));
+    },
+    [jumpTo],
+  );
   const find = useChartFind(findSources, mainDs.individuals, revealEntry, changeRoot);
 
   return (
@@ -285,6 +343,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
             name={reportName(rootEntry, exportOpts)}
             sexCls={sexClass(rootEntry.sex)}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(mainDs.individuals.get(currentRootId), settings.showAge, t)}
             kinship={showStartKinship ? startKinship?.label(currentRootId) : undefined}
             lineage={startKinship?.lineage(currentRootId)}
             kind={pageKind}
@@ -310,7 +369,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.txt`,
-                    reportToText(t, data, mode, exportTitle, exportOpts),
+                    exportParts.map((p) => reportToText(t, p.data, p.dir, titleFor(p.kind), p.opts)).join("\n\n"),
                   ),
               },
               {
@@ -322,7 +381,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                   data &&
                   downloadText(
                     `${chartSlug(rootEntry?.name, pageKind)}.rtf`,
-                    reportToRtf(t, data, mode, exportTitle, exportOpts),
+                    reportsToRtf(t, exportParts.map((p) => ({ data: p.data, direction: p.dir, title: titleFor(p.kind), opts: p.opts }))),
                     "application/rtf",
                   ),
               },
@@ -333,7 +392,12 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                 title: t("tree.exportPdf.tooltip"),
                 onSelect: () =>
                   data &&
-                  printDocument(printDoc(t, data, mode, exportTitle, chartSlug(rootEntry?.name, pageKind), exportOpts)),
+                  printDocument(
+                    printSheet(
+                      chartSlug(rootEntry?.name, pageKind),
+                      exportParts.flatMap((p) => printBody(t, p.data, p.dir, titleFor(p.kind), p.opts)),
+                    ),
+                  ),
               },
             ]}
           />
@@ -342,16 +406,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
       controlsLeft={
         <>
           {kindSwitcher}
-          <div className="tree-mode">
-            <button className={mode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
-              {t("tree.ancestors")}
-              {ancestors && <span className="tree-mode-count">{ancestors.total}</span>}
-            </button>
-            <button className={mode === "descendants" ? "active" : ""} onClick={() => onModeChange("descendants")}>
-              {t("tree.descendants")}
-              {descendants && <span className="tree-mode-count">{descendants.total}</span>}
-            </button>
-          </div>
+          <Segmented label={t("tree.direction")} value={mode} onChange={onModeChange} items={directions} />
           <div className="tree-mode">
             <button
               className={!settings.reportNarrative ? "active" : ""}
@@ -376,18 +431,22 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
     >
       <div className="tree-canvas-wrap">
         <div className="report-scroll">
-          {data ? (
-            <div className="report-page">
+          {parts.some((p) => p.data) ? (
+            parts.map(
+              (part) =>
+                part.data && (
+                  <div key={part.dir} className="report-page">
+                    {mode === "both" && <h2 className="report-part-head">{part.kind}</h2>}
               {toc && (
                 <nav className="report-toc" aria-label={t("report.toc")}>
                   <h3 className="report-toc-head">{t("report.toc")}</h3>
-                  {tocRows(t, data, mode).map((row) => (
+                  {tocRows(t, part.data, part.dir).map((row) => (
                     <button
                       key={row.gen}
                       className="report-jump report-toc-row"
                       onClick={() =>
                         document
-                          .getElementById(`report-gen-${row.gen}`)
+                          .getElementById(`report-gen-${part.dir}-${row.gen}`)
                           ?.scrollIntoView({ behavior: "smooth", block: "start" })
                       }
                     >
@@ -396,10 +455,10 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                   ))}
                 </nav>
               )}
-              {data.generations.map((g) => {
-                const heading = generationHeading(t, g, mode);
+              {part.data.generations.map((g) => {
+                const heading = generationHeading(t, g, part.dir);
                 return (
-                <section key={g.gen} id={`report-gen-${g.gen}`}>
+                <section key={g.gen} id={`report-gen-${part.dir}-${g.gen}`}>
                   <h3 className="report-gen-head">
                     <span>{heading.title}</span>
                     {heading.range && <span className="report-gen-range gm-data">{heading.range}</span>}
@@ -412,13 +471,13 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                           descendant parent's entry. */}
                       {e.parentNum !== undefined && e.parentFam !== g.entries[i - 1]?.parentFam && (
                         <h4 className="report-family-head">
-                          <button className="report-jump" onClick={() => jumpTo(e.parentNum!)}>
+                          <button className="report-jump" onClick={() => jumpTo(part.dir, e.parentNum!)}>
                             {familyHeading(e)}
                           </button>
                         </h4>
                       )}
                       <div
-                        id={e.dupOf === undefined ? `report-entry-${e.num}` : undefined}
+                        id={e.dupOf === undefined ? `report-entry-${part.dir}-${e.num}` : undefined}
                         className={`report-entry${e.id === selectedId ? " selected" : ""}`}
                         onClick={() => setSelectedId(e.id)}
                         title={t("tree.node.clickHint")}
@@ -432,14 +491,14 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                         )}
                         <div className="report-entry-body">
                           <div>
-                            <span className={`report-name ${sexClass(e.sex)}`}>{reportName(e, exportOpts)}</span>
+                            <span className={`report-name ${sexClass(e.sex)}`}>{reportName(e, part.opts)}</span>
                             {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
                             {e.dupOf !== undefined && (
                               <button
                                 className="report-dup report-jump"
                                 onClick={(ev) => {
                                   ev.stopPropagation();
-                                  jumpTo(e.dupOf!);
+                                  jumpTo(part.dir, e.dupOf!);
                                 }}
                               >
                                 → {t("ahnentafel.dup", { n: e.dupOf })}
@@ -451,9 +510,9 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                               the numbered footnotes — source citations and
                               the event notes too long to weave in. */}
                           {!redacted(e) &&
-                            narrativeOf &&
+                            part.opts.narrativeOf &&
                             (() => {
-                              const nt = narrativeOf(e);
+                              const nt = part.opts.narrativeOf!(e);
                               return (
                                 <>
                                   {nt.paragraph && <div className="report-para">{nt.paragraph}</div>}
@@ -478,23 +537,23 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                               nested under their line), then the person's own
                               notes, then their record-level sources. */}
                           {!redacted(e) &&
-                            !narrativeOf &&
+                            !part.opts.narrativeOf &&
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
-                                {factText(t, f, exportOpts)}
+                                {factText(t, f, part.opts)}
                                 {f.note && <div className="report-note">{f.note}</div>}
                                 {(f.sources ?? []).map((src, k) => sourceNode(src, sourceLabel(t, src), k))}
                               </div>
                             ))}
                           {!redacted(e) &&
-                            !narrativeOf &&
+                            !part.opts.narrativeOf &&
                             (e.notes ?? []).map((note, j) => (
                               <div key={`n${j}`} className="report-note">
                                 {note}
                               </div>
                             ))}
                           {!redacted(e) &&
-                            !narrativeOf &&
+                            !part.opts.narrativeOf &&
                             (e.sources ?? []).map((src, j) => sourceNode(src, sourceLabel(t, src), `s${j}`))}
                         </div>
                       </div>
@@ -505,8 +564,10 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
               })}
               {/* The report stops where the generation limit says — own up to
                   the generations left off rather than ending as if complete. */}
-              {truncationNote(t, data) && <p className="report-truncated muted">{truncationNote(t, data)}</p>}
-            </div>
+              {truncationNote(t, part.data) && <p className="report-truncated muted">{truncationNote(t, part.data)}</p>}
+                  </div>
+                ),
+            )
           ) : (
             <p className="muted">{t("ahnentafel.empty")}</p>
           )}
@@ -558,23 +619,22 @@ function sourceNode(src: SourceLine, label: string, key: React.Key) {
   );
 }
 
-/** The standalone print document ("Save as PDF"): the same content as the
- *  page, in a self-contained light-palette sheet (no app CSS to resolve). */
-function printDoc(
+/** One report's part of the print document: its title, table of contents,
+ *  generations and closing note (see printSheet). */
+function printBody(
   t: Translate,
   data: ReportData,
   direction: TreeMode,
   title: string,
-  fileName: string,
   opts: ReportTextOptions,
-): string {
+): string[] {
   const parts: string[] = [`<h1>${escapeHtml(title)}</h1>`];
   if (opts.toc) {
     // Anchor links to the generation headings — clickable in the saved PDF.
     parts.push(
       `<nav class="toc"><div class="toc-head">${escapeHtml(t("report.toc"))}</div>` +
         tocRows(t, data, direction)
-          .map((row) => `<a href="#gen-${row.gen}">${escapeHtml(row.label)}</a>`)
+          .map((row) => `<a href="#gen-${direction}-${row.gen}">${escapeHtml(row.label)}</a>`)
           .join("") +
         `</nav>`,
     );
@@ -582,7 +642,7 @@ function printDoc(
   for (const g of data.generations) {
     const h = generationHeading(t, g, direction);
     const meta = [h.range, h.coverage].filter(Boolean).map((s) => `· ${escapeHtml(s!)}`).join(" ");
-    parts.push(`<h2 id="gen-${g.gen}">${escapeHtml(h.title)}${meta ? ` <span class="range">${meta}</span>` : ""}</h2>`);
+    parts.push(`<h2 id="gen-${direction}-${g.gen}">${escapeHtml(h.title)}${meta ? ` <span class="range">${meta}</span>` : ""}</h2>`);
     let lastFam: string | undefined;
     for (const e of g.entries) {
       if (e.parentNum !== undefined && e.parentFam !== lastFam) {
@@ -633,6 +693,13 @@ function printDoc(
   }
   const truncated = truncationNote(t, data);
   if (truncated) parts.push(`<div class="note">${escapeHtml(truncated)}</div>`);
+  return parts;
+}
+
+/** The standalone print document ("Save as PDF"): the same content as the
+ *  page — one report, or the bowtie's two one after the other — in a
+ *  self-contained light-palette sheet (no app CSS to resolve). */
+function printSheet(fileName: string, parts: string[]): string {
   // Browsers seed the "Save as PDF" filename from the document <title>.
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(`${fileName}.gedmerge`)}</title>
 <style>

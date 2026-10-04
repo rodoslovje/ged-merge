@@ -11,9 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
 // Chart kinds in hub order, for the digit shortcuts:
-// 1–4 pedigrees, 5 Timeline, 6 Relationship, 7 Contemporaries, 8 Map, 9 Report.
-const MAP_KEY = "8";
-const REPORT_KEY = "9";
+// 1 Tree, 2 Fan, 3 Timeline, 4 Relationship, 5 Contemporaries, 6 Map, 7 Report.
+const MAP_KEY = "6";
+const REPORT_KEY = "7";
 
 // A tiny geocoded file: the corpus fixtures carry no MAP coordinates, so the
 // map would draw nothing to find.
@@ -63,7 +63,8 @@ test("report find box scrolls to a person's entry", async ({ page }) => {
 
   // The found entry is flashed, and the counter reads as entries, not "places".
   await expect(page.locator(".report-flash")).toHaveCount(1, { timeout: 5000 });
-  await expect(page.locator(".report-flash")).toHaveAttribute("id", /^report-entry-\d+$/);
+  // The id names the list the entry is in (the report can print both).
+  await expect(page.locator(".report-flash")).toHaveAttribute("id", /^report-entry-(ancestors|descendants)-\d+$/);
   await expect(page.locator(".chart-find-count")).toHaveAttribute("title", /entr(y|ies) in this report/);
 
   // Ctrl+F stays with the browser here — a report is plain text. Dispatched

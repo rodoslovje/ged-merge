@@ -9,6 +9,7 @@ import {
   applySiteSourceExtras,
   cachedBookMeta,
   detectPageMediaStyle,
+  hasSourcePageMedia,
   classifyBookType,
   fetchBookMeta,
   fetchReshapeMeta,
@@ -1250,6 +1251,22 @@ describe("reshapeSources — apply", () => {
 1 FILE ${BOOK2}/?pg=111
 0 TRLR`);
     expect(detectPageMediaStyle(sourceStyle.records)).toBe("source");
+  });
+
+  it("a scan stored as a local file under a source is not a page link, so such a file has no page-media habit", () => {
+    const localScans = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE ${BOOK2}/?pg=111
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE Mihael-Korenjak-rojstvo.png
+0 TRLR`);
+    expect(hasSourcePageMedia(localScans.records)).toBe(false);
   });
 
   it("event page-media style: converted links get the page image beside the citation", () => {

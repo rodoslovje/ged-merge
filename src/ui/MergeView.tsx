@@ -5,7 +5,6 @@ import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
-import { KeyHint } from "./KeyHint";
 import { handleListKey } from "../keyboard/useListKeyboard";
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
@@ -139,7 +138,6 @@ export function MergeView({
       <span className="muted gm-data">
         {t("list.count", { visible: visible.length, total: matches.individuals.length })}
       </span>
-      <KeyHint keys={["↑", "↓", KEY.confirm.toUpperCase(), KEY.reject.toUpperCase(), KEY.defer.toUpperCase()]} title={t("keys.listHint")} />
       <button
         className={`nav-btn icon-only ${showFilters ? "active" : ""}`}
         onClick={() => setShowFilters((s) => !s)}
@@ -221,11 +219,19 @@ export function MergeView({
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       // Already answered where it was pressed — the comparison's own rows.
       if (e.defaultPrevented) return;
-      // ↑/↓ step the match list, as every list; ←/→ too, the keys Merge
-      // always had. Enter takes the keyboard into the comparison, whose rows
-      // then answer the arrows. PageUp/PageDown scroll the comparison without
-      // leaving the list, so a long table can be read without losing your
-      // place in the matches.
+      // ←/→ step the match list; ↑/↓ and PageUp/PageDown scroll the
+      // comparison, as Edit's arrows scroll its person, so a long table can be
+      // read without losing your place in the matches. Enter takes the
+      // keyboard into the comparison, whose rows then answer ↑/↓.
+      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
+        const el = compareBodyRef.current;
+        if (!el || el.scrollHeight <= el.clientHeight) return;
+        e.preventDefault();
+        const step = e.key.startsWith("Page") ? el.clientHeight * 0.9 : 96;
+        const down = e.key === "ArrowDown" || e.key === "PageDown";
+        el.scrollBy({ top: down ? step : -step, behavior: "smooth" });
+        return;
+      }
       if (handleListKey(e, {
         count: visibleCount,
         index: visibleIndex,
@@ -233,13 +239,6 @@ export function MergeView({
         horizontal: true,
         onEnter: () => compareBodyRef.current?.querySelector<HTMLElement>(".compare-panel")?.focus(),
       })) return;
-      if (e.key === "PageUp" || e.key === "PageDown") {
-        const el = compareBodyRef.current;
-        if (!el || el.scrollHeight <= el.clientHeight) return;
-        e.preventDefault();
-        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: "smooth" });
-        return;
-      }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
       if (key === KEY.filter) {

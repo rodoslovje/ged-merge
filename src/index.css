@@ -2001,7 +2001,7 @@ button:focus-visible {
 .tools-pairs:focus-visible .tools-dup-cluster-head.selected { box-shadow: inset 0 0 0 2px var(--accent); }
 .tools-issue.selected { box-shadow: inset 0 0 0 1px var(--accent); }
 .tools-issues:focus-visible .tools-issue.selected { box-shadow: inset 0 0 0 2px var(--accent); }
-.compare tr.kbd-active > td { background: var(--accent-soft); }
+.compare-panel:focus-visible tr.kbd-active > td { background: var(--accent-soft); }
 .compare-panel:focus-visible tr.kbd-active > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .candidate-head {
@@ -2968,6 +2968,9 @@ button:focus-visible {
 }
 .edit-name-chip:hover,
 .edit-name-chip:focus-visible { border-color: var(--accent); }
+/* The quick-add buttons and the Settings list of them wear their event's mark
+   before its name, the way the row they write does. */
+.edit-name-chip .event-glyph { margin-right: 4px; }
 .edit-name-chip-add {
   border-style: dashed;
   border-color: var(--border-2);
@@ -2999,7 +3002,9 @@ button:focus-visible {
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
-   destination — solid-bordered and without the "+" — not an offer to add. */
+   destination — solid-bordered, where an offer to add is dashed. That border is
+   the whole distinction now that the buttons carry their event's mark and name
+   and nothing else. */
 .edit-name-chip--recorded {
   border-style: solid;
   border-color: var(--border);
@@ -3070,22 +3075,57 @@ button:focus-visible {
  * first event a top border to keep it separated from the content above. */
 .edit-events > .edit-event:first-child { border-top: 1px solid var(--border); }
 /* Leading item 1: the event-type label with the expand toggle right beside it.
- * Fixed width so dates line up across events, and right-aligned so every label
- * ends just before the date — short labels no longer leave a gap, and long ones
- * overflow to the left (never toward the date). */
+ * Fixed width so dates line up across events, and left-aligned from the mark:
+ * every row then starts with its glyph in one column and its name in the next,
+ * which is what makes a life readable straight down the list. Wide enough that
+ * the mark and the longest ordinary name ("Naturalization", "Prebivališče")
+ * share one line — the slot the mark joined was sized for the name alone, and
+ * the mark, being an atomic inline, took a line of its own whenever the two no
+ * longer fitted. */
 .edit-event-type-row {
-  flex: 0 0 96px;
+  flex: 0 0 132px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: baseline;
   gap: 6px;
 }
+/* The genealogy mark an event wears (* a birth, ⚭ a marriage, † a death —
+   see EVENT_GLYPHS): shared by the Edit event rows, where it leads the type
+   label, and the place worklists, where a run of them follows a name. Drawn
+   in a slot of one width so the marks line up in a column down a list, and
+   muted — the mark says what kind of event this is, and is not the row's
+   subject. */
+.event-glyph {
+  display: inline-block;
+  /* Wide enough for the widest mark's own advance (the graduation cap at
+     1.2em), so a column of them lines up and none of them is squeezed. */
+  width: 1.25em;
+  text-align: center;
+  line-height: 1;
+  color: var(--muted);
+}
+/* The asterisk rides at cap height, where every other mark sits mid-line; drop
+   it so a birth reads on the same line as the ⚭ and † beside it. */
+.event-glyph--high { transform: translateY(0.16em); }
+/* A pictograph mark (the education cap) is a solid, full-height drawing, and
+   next to marks made of two or three thin strokes it reads as bold. Scaled
+   down to their weight — as a transform, so the slot it sits in keeps its
+   width and the names after it stay in one column. */
+.event-glyph--pictograph { transform: scale(0.78); opacity: 0.92; }
+/* A run of marks after a person's name — which of their events happened at the
+   place the row is about. */
+.event-glyphs { display: inline-flex; align-items: baseline; margin-left: 6px; }
+.edit-event-label .event-glyph { margin-right: 3px; }
+/* The mark and the name's first word are one unbreakable piece, so a name too
+ * long for the slot (a custom EVEN's own Title, "Zapuščinska obravnava") wraps
+ * between its words and never leaves the mark standing alone on the line
+ * above. */
+.edit-event-label-lead { white-space: nowrap; }
 /* Constrained to the fixed slot so a long multi-word name (a custom EVEN's
- * own Title, e.g. "Civil Partnership") wraps onto further right-aligned lines
- * instead of overflowing off the panel's left edge; a long single word
- * ("Naturalization") still overflows left as before rather than breaking
- * mid-word. */
-.edit-event-label { flex: none; width: auto; max-width: 100%; text-align: right; color: var(--muted); }
+ * own Title, e.g. "Civil Partnership") wraps onto further lines instead of
+ * running into the date; a long single word ("Naturalization") still overflows
+ * rather than breaking mid-word. */
+.edit-event-label { flex: none; width: auto; max-width: 100%; text-align: left; color: var(--muted); }
 /* The type-change control is a DropdownMenu trigger button styled as the
  * plain label with only the small ▾ caret showing — the label text stays an
  * unconstrained string so long labels (e.g. "Naturalization") keep
@@ -3155,7 +3195,9 @@ button:focus-visible {
 .edit-event-date,
 .edit-event-place,
 .edit-event-addr,
-.edit-event-agency { width: 100%; min-width: 0; }
+.edit-event-agency,
+.edit-event-cause,
+.edit-event-type { width: 100%; min-width: 0; }
 .edit-event-date { text-align: right; }
 /* Compact events: a field with no value (`.ev-collapsed`) takes zero height at
  * rest and is revealed only while the event row is hovered or focused, so a
@@ -3232,7 +3274,9 @@ button:focus-visible {
 }
 /* At rest an extras field shows only its value (kept clean); its name appears
  * as a faint label when the event row is hovered or focused, and always as the
- * input's native tooltip. */
+ * input's native tooltip. Not on a hover-less touch screen: a tap's emulated
+ * hover put the label in before the click landed, shifting the field under the
+ * finger. */
 .edit-event-extra-label {
   flex: none;
   font-family: var(--font-mono);
@@ -3242,7 +3286,9 @@ button:focus-visible {
   color: var(--faint);
   display: none;
 }
-.edit-event:hover .edit-event-extra-label,
+@media (hover: hover) {
+  .edit-event:hover .edit-event-extra-label { display: inline; }
+}
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
@@ -3823,18 +3869,19 @@ button:focus-visible {
 .note-tool--i { font-style: italic; }
 .note-tool--u { text-decoration: underline; }
 
-/* Place / address autocomplete dropdown */
-.place-autocomplete-wrap {
+/* The completion dropdown (SuggestInput) — place, address, agency, cause,
+   attribute value, event type */
+.suggest-wrap {
   position: relative;
   min-width: 0;
 }
-.place-autocomplete-wrap > .clearable-wrap {
+.suggest-wrap > .clearable-wrap {
   width: 100%;
 }
 /* A focused place/address field grows past its content width (an inline
    style from chW) so there is room to type and read a query. */
 .edit-event-extra-field:focus-within { min-width: 24ch; }
-.place-suggestions {
+.suggest-list {
   position: absolute;
   top: calc(100% + 2px);
   left: 0;
@@ -3854,7 +3901,7 @@ button:focus-visible {
   overflow-y: auto;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
-.place-suggestion {
+.suggest-item {
   padding: 5px 10px;
   cursor: pointer;
   font-size: 0.88rem;
@@ -3863,23 +3910,24 @@ button:focus-visible {
   text-overflow: ellipsis;
   color: var(--text);
 }
-.place-suggestion:hover,
-.place-suggestion--hi {
+.suggest-item:hover,
+.suggest-item--hi {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
-/* The address part of a place+address combo suggestion. */
-.place-suggestion-addr { color: var(--muted); }
+/* An address beside the place it belongs to — the address part of a
+   place+address suggestion, and the same line on the map's hover card. */
+.addr-muted { color: var(--muted); }
 /* A register's offer for a place the file doesn't have: separated from the
    file's own values above it, and carrying its source badge. */
-.place-suggestion--register {
+.suggest-item--register {
   border-top: 1px dashed var(--border);
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.place-suggestion--register + .place-suggestion--register { border-top: none; }
+.suggest-item--register + .suggest-item--register { border-top: none; }
 /* The lookup row itself — not an option, so it doesn't highlight or select. */
-.place-suggestion-foot {
+.suggest-list-foot {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -3888,7 +3936,7 @@ button:focus-visible {
   border-top: 1px solid var(--border);
   font-size: 0.82rem;
 }
-.place-suggestion-note { color: var(--muted); }
+.suggest-item-note { color: var(--muted); }
 
 /* App-styled dropdown menus (DropdownMenu.tsx) — the themed popup replacing
  * native <select> popups for the menu-like pickers (event type ▾, "+ Add
@@ -3952,6 +4000,11 @@ button:focus-visible {
   text-overflow: ellipsis;
 }
 .dd-item--active { background: var(--accent-soft); }
+/* An event type in a menu wears its mark before the name, in one column so the
+   names line up under each other however wide the marks are. Muted like the
+   marks everywhere else — it identifies the entry, it is not the entry. */
+.dd-item .event-glyph,
+.select-menu-value .event-glyph { margin-right: 7px; }
 .dd-item--current::before {
   content: "✓";
   position: absolute;
@@ -4266,6 +4319,12 @@ button:focus-visible {
   font-size: 0.78rem;
   color: var(--state-main);
 }
+/* A relative a confirmed match has already added to the main file. */
+.gm-added-tag {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--status-new);
+}
 /* GEDCOM filenames in the Load header, coloured by their role. */
 .gm-file.main { color: var(--state-main); }
 .gm-file.incoming { color: var(--state-incoming); }
@@ -4385,12 +4444,20 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 }
 /* Hover-only on rows: a clicked control keeps focus after the pointer leaves,
    so a :focus-within reveal would stick to the last-clicked row. Keyboard
-   users still get the ↗ via its own :focus-visible. */
-.source-ref-wrap:hover .source-ref-open,
-.edit-event:hover .source-ref-open,
-.edit-record-label-row:hover .source-ref-open,
-.edit-record-section:hover .source-ref-open,
-.edit-note-item:hover .source-ref-open,
+   users still get the ↗ via its own :focus-visible. A touch screen gets no
+   reveal: the tap's emulated hover slid the ↗ open under the finger and the
+   click landed beside the chip — the chip's tap tooltip offers the link. */
+@media (hover: hover) {
+  .source-ref-wrap:hover .source-ref-open,
+  .edit-event:hover .source-ref-open,
+  .edit-record-label-row:hover .source-ref-open,
+  .edit-record-section:hover .source-ref-open,
+  .edit-note-item:hover .source-ref-open {
+    max-width: 1.2em;
+    opacity: 1;
+    padding-right: 2px;
+  }
+}
 .source-ref-open:focus-visible {
   max-width: 1.2em;
   opacity: 1;
@@ -4400,6 +4467,26 @@ a.source-ref:hover, button.source-ref:hover { opacity: 1; }
 a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* An incoming citation the main doesn't have yet. */
 .source-ref.source-ref--new { background: color-mix(in oklch, var(--state-match) 25%, transparent); opacity: 1; }
+/* The quick tooltip of a source/link chip (IconTip.tsx), in place of the slow
+   native `title`. Opened by a tap it takes taps and carries the chip's actions. */
+.icon-tip {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(340px, calc(100vw - 16px));
+  padding: 6px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.icon-tip--touch { pointer-events: auto; }
+.icon-tip-text { white-space: pre-line; overflow-wrap: anywhere; }
+.icon-tip-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.icon-tip-actions .btn-secondary { text-decoration: none; padding: 8px 14px; }
 /* Edit mode: a legacy link row collapsed to its icon (click to edit). */
 .edit-link-icon { cursor: pointer; }
 /* A relative's name rendered as a jump-to-person link. */
@@ -5009,10 +5096,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   flex: 0 0 auto;
 }
 
+/* The chart's frame — panel, border, corners — is the wrap's, so everything
+   laid inside it (the canvas, the overview map, the zoom controls, the colour
+   key along the bottom) shares one container and the canvas can give the
+   key its strip without leaving the frame. */
 .tree-canvas-wrap {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .tree-canvas {
   position: absolute;
@@ -5025,9 +5120,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
      canvas (filling the empty area), yet let it scroll from the top-left without
      clipping when it is larger. */
   display: flex;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
   cursor: grab;
   user-select: none;
 }
@@ -5154,9 +5246,53 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    corner because the in-flight pinch transform useTreeCanvas paints here is
    solved for that corner — a centred origin would offset every gesture by half
    the chart. (`.tree-zoom` is the zoom toolbar.) */
-.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
+/* Always a compositor layer of its own: a pinch or wheel zoom paints its
+   transform straight onto it (useTreeCanvas), and promoting it only for the
+   gesture made Chromium rasterise the whole chart at the gesture's start and
+   again at its end — a big fan's curved text, twice per pinch. Kept promoted,
+   the gesture scales the existing raster, as Safari and Firefox do anyway. */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; will-change: transform; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
+/* The hover card beside the pointer (ChartHoverCard): anchored at the pointer
+   in the canvas wrap and pushed off it by its transform, so it never sits
+   under the pointer and steals the hover it is describing. */
+.chart-hover-card {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  max-width: 300px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+/* Head: the name and the lifespan side by side, as a person card writes them. */
+.chart-hover-head { display: flex; align-items: baseline; gap: 8px; font-weight: 600; color: var(--text); }
+.chart-hover-line { color: var(--muted); }
+.chart-hover-kin { color: var(--accent); font-size: 0.8rem; }
+.chart-hover-kin.lineage-paternal { color: var(--lineage-paternal); }
+.chart-hover-kin.lineage-maternal { color: var(--lineage-maternal); }
+.chart-hover-hint { color: var(--faint); font-size: 0.75rem; margin-top: 2px; }
+/* A card standing for several people — a surname band on the Contemporaries
+   rings — writes each of them the way the head writes one. */
+.chart-hover-people {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px solid var(--border);
+}
+.chart-hover-people li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 1px 0;
+}
+.chart-hover-more { color: var(--faint); font-size: 0.8rem; }
 .tree-edge {
   fill: none;
   stroke: var(--border);
@@ -5329,6 +5465,89 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-width: 2.5;
   stroke-opacity: 1;
 }
+/* Surname rings: one section per surname, filling its share of the ring. Its
+   own stroke is the ground, so one band parts from the next without a second
+   element drawn between them. */
+.kin-surname-band {
+  cursor: pointer;
+  /* A hairline of ground, no more: a ring of two hundred bands is mostly edges,
+     and a heavier one turns a crowded ring into hatching. */
+  stroke: var(--bg);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  /* An outline on an annulus sector is drawn around its bounding box — a
+     rectangle reaching across the chart, tracing nothing that is there. The
+     band shows its own state with its own stroke instead. */
+  outline: none;
+  transition: opacity 0.12s ease;
+}
+.kin-surname-band:hover { filter: brightness(1.2); }
+.kin-surname-band.dim { opacity: 0.12; }
+/* One surname picked out: every band of that name anywhere on the chart, and
+   the rest stood down so the name's whole reach reads at once. The one that was
+   clicked takes the accent; its namesakes elsewhere are outlined plainly, so
+   the eye goes to where it is and then finds where else the name turns up. */
+.kin-surname-band.other { opacity: 0.22; }
+.kin-surname-band.same {
+  stroke: var(--text);
+  stroke-width: 1.6;
+}
+.kin-surname-band:focus-visible { stroke: var(--text); stroke-width: 2; }
+.kin-surname-band.open {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.kin-surname-band.find-hit {
+  stroke: var(--status-diff);
+  stroke-width: 2.2;
+}
+/* The elders' run giving way to the issue's — the only boundary in a ring that
+   is about kinship rather than about names. */
+.kin-gen-split {
+  stroke: var(--text);
+  stroke-width: 1.1;
+  stroke-opacity: 0.55;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.kin-surname {
+  fill: var(--text);
+  font-weight: 500;
+  pointer-events: none;
+  paint-order: stroke;
+  /* The bands carry most of their colour, so the halo does the work of keeping
+     a name off its own ground — light letters over a dark one, dark over a
+     light one, whichever way the theme runs. */
+  stroke: var(--bg);
+  stroke-width: 2.6;
+  stroke-opacity: 0.72;
+  stroke-linejoin: round;
+}
+/* The count rides on the band with its name, not on the page like the wheel's
+   wedge captions: --faint is a ground colour and disappears on a tinted band,
+   so the count keeps the name's own ink and steps back by opacity instead. */
+.kin-surname .kin-wedge-count {
+  fill: var(--text);
+  fill-opacity: 0.72;
+}
+.kin-surname.other { opacity: 0.22; }
+/* A row in the list of who is in a band — name, lifespan, kinship, the way a
+   person reads everywhere else. Nothing here is a link: the layout answers
+   about a family's names, and a person's own panel belongs to the wheel. */
+.kin-band-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+/* Which way the band lies and how far out — beside its name, in the header's
+   own line but stepped back from it. */
+.kin-band-where {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
 /* The root, at the centre of the wheel. */
 .kin-hub { fill: var(--accent); }
 .kin-hub-label {
@@ -5355,10 +5574,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-linejoin: round;
   paint-order: stroke;
 }
+/* The name takes the sex colour from an inline style, as it does on the tree
+   and fan charts; this fill is the unknown-sex default. The lifespan follows it
+   smaller and muted, so the two read apart. */
 .kin-bar-name {
   fill: var(--muted);
   stroke-width: 2.4;
 }
+.kin-bar-years { fill: var(--muted); }
 /* Bars layout: the root's own lifetime as a tinted band, and a rule + caption
    per blood-distance band. */
 .kin-window {
@@ -5379,6 +5602,27 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
+/* A band along the bottom of the canvas wrap (see ChartLegend): laid over
+   the wrap so its size never changes, while the scrolling canvas above ends
+   at the band's top edge, so no part of the chart is ever under it. One line
+   that scrolls sideways when long; the zoom controls keep the corner to its
+   right. */
+.tree-canvas-wrap > .chart-legend {
+  position: absolute;
+  left: 10px;
+  right: 64px;
+  bottom: 8px;
+  z-index: 3;
+  margin: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+.tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
+/* While a key shows, the canvas ends above the band; the frame is the wrap's
+   (see .tree-canvas-wrap), so the band sits inside it. */
+.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: 44px; }
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
@@ -5404,6 +5648,167 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-sticky svg {
   display: block;
   margin: auto;
+}
+
+/* ── Contemporaries on a map ─────────────────────────────────────────────────
+   The wheel's dots on Leaflet (see KinMapBody). The wrapper is the Places
+   map's (isolation, absolute canvas); what the chart lays over it — the colour
+   key, the selected person's panel — has to clear Leaflet's own z-scale, as the
+   map's panels do. */
+.kin-map-wrap > .chart-legend,
+.kin-map-wrap > .tree-compare {
+  z-index: 1100;
+}
+/* On the map the colour key sits along the bottom edge, centred, above the
+   band the scale bar (left) and the credit (right) occupy — the top corners
+   belong to the zoom bar and the panels. The tiles notice, which shares that
+   bottom centre elsewhere, moves to the top centre here. */
+.kin-map-wrap > .chart-legend {
+  top: auto;
+  bottom: 30px;
+  left: 20px;
+  right: 20px;
+  /* Shrink to the chips and centre in the full span: anchored at left:50%
+     the box would only ever get half the width to wrap in. */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  justify-content: center;
+}
+.kin-map-wrap .map-tiles-notice {
+  bottom: auto;
+  top: 12px;
+}
+/* The wheel's canvas stays mounted under the map (its zoom hook owns it and
+   must find it again when the layout switches back), but it has to be gone
+   from the page, not merely empty: `.tree-canvas` sets display:flex, which
+   beats the `hidden` attribute, and an invisible full-size box over the map
+   swallowed every drag and wheel that started on open water. */
+.kin-map-wrap > .tree-canvas {
+  display: none;
+}
+/* One dot per relative, in the chart's colour; a group of them counted, like
+   the map's clusters. The states are the wheel's: dimmed while a year is
+   scrubbed, ringed when selected or found. */
+.kin-map-dot {
+  transition: opacity 0.15s;
+}
+.kin-map-dot.dim {
+  opacity: 0.12;
+}
+.kin-map-dot.selected {
+  box-shadow: 0 0 0 2.5px var(--text), 0 1px 4px rgb(0 0 0 / 0.35);
+}
+.kin-map-dot.find-hit {
+  box-shadow: 0 0 0 2.5px var(--status-diff), 0 1px 4px rgb(0 0 0 / 0.35);
+}
+/* The root: a hollow accent ring around their place — relatives at the same
+   spot sit inside it, still clickable — with their initials on its shoulder,
+   in the wheel's hub colours. */
+.kin-map-hub {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2.5px solid var(--accent);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent-ink) 60%, transparent);
+  pointer-events: none;
+}
+.kin-map-hub-initials {
+  position: absolute;
+  top: -9px;
+  right: -14px;
+  padding: 1px 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+/* The "not placed" count is a button: it opens the list of who is missing. */
+.kin-unplaced-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.kin-unplaced-btn.active {
+  text-decoration-style: solid;
+}
+.kin-unplaced-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+.kin-unplaced-hint {
+  margin: 0;
+  padding: 8px 12px 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.kin-unplaced-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+/* The marker hover card: Leaflet's tooltip box dressed as the charts' hover
+   card (.chart-hover-card) — same panel, border, radius, shadow and type —
+   with the card's own row classes inside it. The pointer arrow takes the
+   panel colour, so it does not show up white against a dark card. */
+.map-canvas .leaflet-tooltip.kin-map-tooltip {
+  padding: 6px 10px;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  max-width: 300px;
+  white-space: nowrap;
+}
+.map-canvas .kin-map-tooltip.leaflet-tooltip-top::before {
+  border-top-color: var(--panel);
+}
+.map-canvas .kin-map-tooltip.leaflet-tooltip-bottom::before {
+  border-bottom-color: var(--panel);
+}
+/* The place(s) a cluster stands at, above its people. */
+.kin-map-places {
+  padding: 8px 12px 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+/* The cluster list: one button per relative, in their colour, that opens
+   their panel. */
+.kin-map-list .kin-map-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.kin-map-list .kin-map-row:hover .kin-map-row-name {
+  text-decoration: underline;
+}
+.kin-map-list .kin-map-row.dim {
+  color: var(--faint);
+}
+.kin-map-row-years {
+  color: var(--muted);
 }
 
 /* ── Ahnentafel report ────────────────────────────────────────────────────
@@ -5442,7 +5847,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 0.85rem;
   color: var(--muted);
 }
-.report-page section:first-child .report-gen-head { margin-top: 0; }
+.report-page section:first-of-type .report-gen-head { margin-top: 0; }
+/* The bowtie's two reports on one page: each under its own title, the second
+   ruled off from the first. */
+.report-part-head { font-size: 1.05rem; margin: 0 0 14px; color: var(--text); }
+.report-page + .report-page { border-top: 1px solid var(--border); }
 /* Register: the "Children of no. X" group heading inside a generation. */
 .report-family-head {
   margin: 12px 0 2px;
@@ -5606,6 +6015,8 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   font-size: 0.85rem;
 }
 .tree-title-arrow {
+  display: inline-flex;
+  align-self: center;
   color: var(--muted);
   margin: 0 2px;
 }
@@ -5740,6 +6151,11 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   stroke-width: 0.5;
 }
 .fan-marriage { fill: var(--muted); }
+/* Descendant charts: a spouse rides a thin band outside their partner's wedge,
+   one per marriage. Lighter than a person's own wedge so the generations still
+   read as the strong rings. */
+.fan-spouse .fan-label-name { font-weight: 500; }
+.fan-spouse .fan-label-year { fill: var(--muted); }
 .fan-badge { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
 
 /* selected-person compare table (top-right overlay) */
@@ -6492,19 +6908,12 @@ kbd {
   margin: 14px 0 4px; font-size: 0.78rem; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
 }
-/* Keycaps beside a list's controls — the keys that drive that list. */
-.key-hint { display: inline-flex; gap: 3px; align-items: center; margin-left: 6px; opacity: 0.75; }
-.key-hint kbd { min-width: 1.3em; padding: 0 5px; font-size: 0.72rem; line-height: 1.5; }
 /* The landing page's one line about the keyboard. */
 .lb-kbd-hint { margin: 18px 0 0; font-size: 0.85rem; color: var(--muted); }
 /* The keycap is the button: it opens the sheet it names. */
 .lb-kbd-btn { border: none; background: none; padding: 0; margin-right: 2px; cursor: pointer; font: inherit; }
 .lb-kbd-btn kbd { transition: background 0.1s; }
 .lb-kbd-btn:hover kbd, .lb-kbd-btn:focus-visible kbd { background: var(--accent-soft); border-color: var(--accent); }
-@media (max-width: 880px) {
-  .key-hint { display: none; }
-}
-
 @media (max-width: 1100px) {
   .shortcuts-grid { column-count: 2; }
 }
@@ -6515,6 +6924,19 @@ kbd {
   .edit-coord-body { flex-direction: column; }
   .edit-coord-map,
   .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
+  /* Stacked: no room for two columns in the head — the searches take a full
+     line under the value's own controls, as on a phone. */
+  .edit-coord-value,
+  .edit-coord-lookups { flex: 1 1 100%; }
+  /* Answers first, then the map their numbers are on, then the people at the
+     address: stacked, a map between the head and the answers pushed every
+     coordinate below the fold, and the numbers were read after the circles.
+     The side column dissolves into the body (display: contents) so its two
+     halves can take places of their own around the map. */
+  .edit-coord-side { display: contents; }
+  .edit-coord-answers { order: 1; }
+  .edit-coord-map { order: 2; }
+  .edit-coord-people { order: 3; }
   /* Pushed right, ahead of the manual entry it belongs with. */
 .edit-coord-share { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); }
 .edit-coord-share input { margin: 0; }
@@ -6997,6 +7419,46 @@ kbd {
 /* A sub-field of an edited event that the edit itself didn't touch — plain text,
  * not the incoming color, since there may be no incoming file involved at all. */
 .preview-unchanged { color: var(--text); }
+
+/* The section head carries the Fields/GEDCOM-lines switch beside its title, so
+   the rule under it belongs to the row rather than to the heading alone. */
+.preview-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.preview-section-head h3 { margin: 0; padding: 0; border-bottom: none; }
+.preview-section-head .tree-mode button { padding: 4px 12px; }
+
+/* One record's lines, as the saved file will carry them. Monospace and
+   pre-wrapped: the levels only line up in a fixed pitch, and a long value must
+   wrap inside the card rather than scroll it sideways. */
+.preview-diff {
+  font: 0.82rem/1.5 var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg);
+}
+.diff-line {
+  display: flex; gap: 8px;
+  padding: 1px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+/* The sign is part of the copied text, so it is a real character in the flow —
+   fixed-width only so the lines under it still align. */
+.diff-sign { flex: none; width: 1ch; color: var(--muted); }
+.diff-line.is-add { background: var(--diff-add-bg); color: var(--diff-add-fg); }
+.diff-line.is-add .diff-sign { color: var(--diff-add-fg); }
+.diff-line.is-del { background: var(--diff-del-bg); color: var(--diff-del-fg); }
+.diff-line.is-del .diff-sign { color: var(--diff-del-fg); }
+/* Lines stepped over on the way to the next part of the record. */
+.diff-line.is-gap {
+  color: var(--muted); letter-spacing: 2px;
+  padding-left: 16px;
+}
 
 .preview-files {
   margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
@@ -8751,6 +9213,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-examples li { display: flex; gap: 8px; padding: 2px 0; font-family: ui-monospace, monospace; }
 .tools-ex-from { color: var(--muted); text-decoration: line-through; }
 .tools-ex-to { color: var(--text); }
+/* The record a pair belongs to: a caption, so it neither strikes through nor
+   competes with the change itself. Long titles are held to one line. */
+.tools-ex-context {
+  color: var(--muted);
+  font-family: inherit;
+  font-style: italic;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Source duplicate finder */
 .tools-dup-toggle { cursor: pointer; }
@@ -9168,21 +9643,42 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-coord-pop {
   /* Fixed, with the position computed from the pin: the events table scrolls
      sideways and clips its overflow, so an absolute panel was cut off. */
-  position: fixed; z-index: 30; width: min(720px, 92vw);
+  /* Wide enough for a lifespan to follow a full Slovenian name without the
+     line wrapping mid-column; still clamped to the window on a small screen. */
+  position: fixed; z-index: 30; width: min(820px, 92vw);
   display: flex; flex-direction: column; gap: 8px;
   padding: 8px 10px; margin-top: 4px;
   background: var(--panel-2); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / 0.28);
   font-size: 0.85rem; font-weight: 400;
 }
-.edit-coord-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+/* Two columns, both starting at the top: the value's own controls, and the
+   searches beside them. As one wrapping row the searches took a line of their
+   own at the right and left the head's left half empty above the map.
+   The split and the gap are the body's own, so the searches begin exactly
+   where the answers they produce begin, and the value's controls run the width
+   of the map — a head divided anywhere else reads as a third column. */
+.edit-coord-head { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 10px; }
+.edit-coord-value {
+  /* The 5px is half the column gap: two columns of 58% and 42% plus a 10px gap
+     overflow the row, and a wrapping head answered that by dropping the
+     searches onto a line of their own. */
+  flex: 1 1 calc(58% - 5px); min-width: 0;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
+}
 .edit-coord-body { display: flex; align-items: stretch; gap: 10px; }
-.edit-coord-map { flex: 1 1 58%; min-width: 0; }
-.edit-coord-map .tools-geo-minimap { height: 260px; max-width: none; margin: 0; }
+.edit-coord-map { flex: 1 1 calc(58% - 5px); min-width: 0; }
+/* Tall enough that a house's people are read without scrolling — the column
+   beside it fills with names, where 260px showed a dozen and hid the rest. */
+.edit-coord-map .tools-geo-minimap { height: 340px; max-width: none; margin: 0; }
 .edit-coord-side {
-  flex: 1 1 42%; min-width: 0; max-height: 260px; overflow-y: auto;
+  flex: 1 1 calc(42% - 5px); min-width: 0; max-height: 340px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
 }
+/* The pickable answers, as one block: beside the map in two columns, above it
+   when the panel stacks. */
+.edit-coord-answers { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.edit-coord-answers:empty { display: none; }
 .edit-coord-current { display: flex; align-items: center; gap: 8px; }
 .edit-coord-head .edit-coord-manual { flex: 0 1 320px; }
 .edit-coord-note { color: var(--muted); margin: 0; }
@@ -9190,6 +9686,17 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    is narrow — without a gap of their own the labels run into one another and
    read as a single link. */
 .edit-coord-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+/* Who else the file puts at this address: the count, and the names under it
+   once unfolded. The list loses the indent it wears under a worklist row —
+   here there is no row above it to hang off, only the line that opened it. */
+.edit-coord-people { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+/* Last in the column and the only thing under the answers, so it scrolls with
+   the column rather than in a box of its own — one scrollbar, not two. */
+.edit-coord-people .tools-usage { padding-left: 10px; margin: 0; align-self: stretch; }
+/* The two searches, in the head's spare width at the right: they sit above the
+   map, where the value's own controls leave the row half empty. */
+.edit-coord-lookups { flex: 1 1 calc(42% - 5px); min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.edit-coord-lookups:empty { display: none; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
 .edit-coord-results .tools-issue-link { text-align: left; }
@@ -9221,11 +9728,20 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 }
 .edit-coord-pop--phone .edit-coord-body { flex-direction: column; }
 .edit-coord-pop--phone .edit-coord-map,
-.edit-coord-pop--phone .edit-coord-side { flex: 0 0 auto; }
+.edit-coord-pop--phone .edit-coord-answers,
+.edit-coord-pop--phone .edit-coord-people { flex: 0 0 auto; }
 .edit-coord-pop--phone .edit-coord-map .tools-geo-minimap { height: 190px; }
-/* The list scrolls with the panel rather than in a 260px box of its own. */
-.edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
+/* Same order as the narrow desktop panel: the answers, the map their numbers
+   are on, then who else is at the address. */
+.edit-coord-pop--phone .edit-coord-side { display: contents; }
+.edit-coord-pop--phone .edit-coord-answers { order: 1; }
+.edit-coord-pop--phone .edit-coord-map { order: 2; }
+.edit-coord-pop--phone .edit-coord-people { order: 3; }
 .edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
+/* Nothing is beside anything on a phone: the searches take their own full-width
+   line under the value's controls instead of a right-hand column of 48%. */
+.edit-coord-pop--phone .edit-coord-value,
+.edit-coord-pop--phone .edit-coord-lookups { flex: 1 1 100%; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
@@ -9260,12 +9776,18 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* Godparents, witnesses and officiants (ASSO) — the people the record names
    who are not its relatives, and the records that name this person back. */
 .edit-assoc { margin: 12px 0 4px; }
-.edit-assoc-head {
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-bottom: 4px;
+/* Always visible, like the event row's add chip and for the same reason: it is
+   the way to name an associate, not an incidental extra on another row — and on
+   a record with none yet it is the only thing in the block. */
+.edit-assoc .edit-name-chip-add { opacity: 1; }
+/* Naming somebody takes a person picker, a role, a wording and a note, which is
+   more than fits beside a heading and the associates already there. It takes a
+   line of its own under them — `flex-basis: 100%` in the wrapping row. */
+.edit-record-label-row > .edit-assoc-roleform,
+.edit-record-label-row > .person-card-wrap {
+  flex-basis: 100%;
 }
-.edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
+.edit-record-label-row + .edit-assoc-list { margin-bottom: 10px; }
 .edit-assoc-list {
   list-style: none;
   margin: 0;
@@ -9289,6 +9811,109 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   color: var(--accent);
   font-size: 0.78rem;
 }
+/* The role is a field, edited where it stands like every field on an event row:
+   the words the file holds, with the box drawn only once the pointer or the
+   caret is in it (`.edit-input`). Sized to its own text so a list of associates
+   does not become a column of same-width boxes. */
+.edit-assoc-role-field {
+  color: var(--accent);
+  font-size: 0.78rem;
+  padding: 1px 4px;
+}
+/* The vocabulary, and the actions that are not typing, hang off the caret
+   beside it — the shape an event's type label has. Hidden until the row is
+   reached, so a record naming nine people reads as nine roles, not as nine
+   controls. */
+.edit-assoc-role-menu {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: -2px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--accent);
+  line-height: 1;
+  align-self: center;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+.edit-event-assoc:hover .edit-assoc-role-menu,
+.edit-assoc-role-field:focus + .edit-assoc-role-menu,
+.edit-assoc-role-menu:focus-visible,
+.edit-assoc-role-menu[aria-expanded="true"] {
+  max-width: 1.4em;
+  opacity: 1;
+}
+/* An associate with nothing written about them carries the note box all the
+   same, empty and waiting — it simply keeps out of the way until the row is
+   reached, like the ▾, so a record naming nine people is nine names and not
+   nine blank boxes. Typing in it is all there is to do; there is no button
+   between the pointer and the words.
+
+   It holds its place in the row and is faded, rather than collapsed, laid over
+   or `visibility: hidden` — each of which was tried and each of which failed
+   its own way. Collapsed, it grew on hover and moved the ▾ beside it, so a
+   pointer resting there fell out of the row as it moved: hover and layout
+   feeding each other, the loop the equal-height cards had. `visibility: hidden`
+   costs the box its focus, leaving the tab order so neither the keyboard nor a
+   freshly written row can reach it. Laid over the row, it covered whatever the
+   row happened to sit above — the map's own buttons, a line below.
+
+   Faded in place, nothing moves and nothing is covered; the cost is a short gap
+   per associate with nothing written about them. */
+.edit-notes--offer { opacity: 0; transition: opacity 0.12s; }
+.edit-event-assoc:hover .edit-notes--offer,
+.edit-notes--offer:focus-within { opacity: 1; }
+/* That gap is kept to the width of its own placeholder while it holds nothing,
+   so a row of associates reads as names and not as a run of empty fields. The
+   width it overrides is an inline style (the editor sizes each note to its own
+   text), which no selector can outweigh — and it lifts the moment the box is
+   typed in, where a changed width costs a click and not a hover. */
+.edit-notes--offer:not(:focus-within) .edit-note-chip { width: calc(7ch + 42px) !important; }
+/* Revealed, it has to look like somewhere to type: an empty note box is a
+   transparent border around nothing, whose placeholder waits for a hover of its
+   own — laid over the row it read as a gap in the page. Dashed, like every
+   other "there is room for one more here" in the editor, and with the
+   placeholder up. */
+.edit-event-assoc:hover .edit-notes--offer .edit-input,
+.edit-notes--offer:focus-within .edit-input {
+  border-style: dashed;
+  border-color: var(--border-2);
+  background: var(--panel);
+}
+.edit-event-assoc:hover .edit-notes--offer .note-rich:empty::before { opacity: 1; }
+/* The field and the people it finds while it is typed in: the list hangs under
+   it without moving the row, the way a menu does. */
+.edit-assoc-name-wrap { position: relative; display: inline-flex; }
+.edit-assoc-name-list {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 4;
+  min-width: 14rem;
+  background: var(--panel);
+  /* The surface a dropdown has, since that is what this is. */
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  padding: 2px;
+  margin: 2px 0 0;
+  list-style: none;
+  max-height: 16rem;
+  overflow: auto;
+}
+/* The same name where the row can be edited: the file's own text, so a field —
+   drawn as the words it holds until the pointer reaches it, like the role. The
+   dotted underline stays, to say this name answers for nobody in the file. */
+.edit-assoc-name-field {
+  color: var(--text);
+  border-bottom-style: dotted;
+  border-bottom-color: var(--muted);
+  border-radius: 0;
+  padding: 1px 2px;
+}
 /* A name the file records as nobody: no record to open, so no link affordance. */
 .edit-assoc-name-only {
   color: var(--text);
@@ -9305,10 +9930,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   white-space: nowrap;
 }
 .edit-assoc-action:hover { text-decoration: underline; }
-/* The ✎ and ✕ beside an associate: single glyphs, hidden until the row is
-   hovered, like the ↗ beside a citation. A baptism naming four godparents is a
-   list of people, and eight glyphs threaded between them is what it stops
-   reading as. Hover-only rather than :focus-within — a clicked control keeps
+/* The ✎ beside an associate: a single glyph, hidden until the row is hovered,
+   like the ↗ beside a citation. A baptism naming four godparents is a list of
+   people, and glyphs threaded between them is what it stops reading as — which
+   is also why moving and removing live in the role's own menu rather than out
+   here, a click away from an edit and one of them not undone by reading.
+   Hover-only rather than :focus-within — a clicked control keeps
    focus after the pointer leaves, which would pin the reveal to the last row
    touched; keyboard users reach them through :focus-visible.
    Only ever glyphs: the same clamp on a word ("Shrani") cuts it to 1.4em and
@@ -9330,14 +9957,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   overflow: hidden;
   transition: max-width 0.12s, opacity 0.12s;
 }
-/* ↧ is drawn lighter and smaller than ✎ and ✕ at the same size — the arrow's
-   bar sits low in its em box — so it gets the size that makes the three read
-   as one set. */
-.edit-assoc-move { font-size: 1rem; }
 .edit-assoc-glyph:hover { color: var(--accent); }
-.edit-assoc-remove:hover { color: var(--danger); }
 .edit-event:hover .edit-assoc-glyph,
 .edit-assoc-row:hover .edit-assoc-glyph,
+/* A record naming nine people is a list, and revealing all nine sets of
+   actions at once is the noise the reveal exists to avoid — there, each
+   associate answers for their own. */
+.edit-event-assoc:hover .edit-assoc-glyph,
 .edit-assoc-glyph:focus-visible {
   max-width: 1.4em;
   opacity: 1;
@@ -9350,7 +9976,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   align-items: baseline;
   gap: 4px;
   margin-right: 8px;
+  flex-wrap: wrap;
 }
+/* An associate whose note is more than a chip's worth takes a line for
+   themselves, with the note on a second line under their name and actions —
+   the rule an event row applies to its own note. Inline, a sentence-long note
+   claimed the whole line and left the name a column one character wide. */
+.edit-event-assoc--tall { flex-basis: 100%; }
+.edit-event-assoc--tall > .edit-notes { flex-basis: 100%; }
+/* Neither the name nor an action shrinks to make room: the line wraps instead.
+   Shrinking is what set a name on its side and clipped "+ Note" to "+ No". */
+.edit-event-assoc > .person-ref,
+.edit-event-assoc > .edit-assoc-name-only,
+.edit-event-assoc > .edit-assoc-glyph { flex: none; }
 .edit-assoc-roleform {
   display: inline-flex;
   align-items: center;
@@ -9371,6 +10009,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
+}
+/* A note is a sentence where the role beside it is a word or two, so it takes
+   what room the line has left rather than the same narrow box. */
+.edit-assoc-note-input {
+  flex: 1 1 14rem;
+  min-width: 8rem;
 }
 /* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
 .edit-person-changed {

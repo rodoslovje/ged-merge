@@ -210,7 +210,10 @@ export function normalizeDataset(
   // events, FTM _STAT, the BK _NMR/_MSTAT/_MARRIED trio) into `_MSTAT`.
   // Deliberately after the date walk and the placeholder-date drop — see the
   // vendor-rename block above for why.
-  if (options.vendorTags) {
+  // `_MSTAT` is Brother's Keeper's tag: on one's own file it is a rewrite into
+  // a third program's dialect, which `preserveFamilyStatus` holds off — the
+  // same doctrine as `preserveVendorTags` above.
+  if (options.vendorTags && !options.preserveFamilyStatus) {
     for (const change of normalizeFamilyStatus(editable)) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);

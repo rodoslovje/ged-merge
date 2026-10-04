@@ -11,6 +11,7 @@ import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import {
   defaultChoice,
+  pinnedAdds,
   type CandidateDecision,
   type FieldChoice,
   type FieldRow,
@@ -125,6 +126,22 @@ export function ComparePanel({
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};
   const takenChildren = useMemo(() => new Set(decision?.takenChildren ?? []), [decision]);
+  // People a confirmed decision has already added to the main file — by this
+  // match or another one (see `CandidateDecision.added`): incoming id → main id,
+  // and the main ids on their own.
+  const pinned = useMemo(() => pinnedAdds(decisions), [decisions]);
+  const addedMain = useMemo(() => new Set(pinned.values()), [pinned]);
+  const ownAdds = useMemo(() => new Set(Object.values(decision?.added ?? {})), [decision]);
+  /** The marker for a relative that is already in the main file because a
+   *  decision added them, saying which decision did. */
+  function addedTag(mainId: string | undefined) {
+    const own = !!mainId && ownAdds.has(mainId);
+    return (
+      <span className="gm-added-tag" title={t(own ? "compare.added.title" : "compare.addedElsewhere.title")}>
+        {t("compare.childTaken.label")}
+      </span>
+    );
+  }
   // A rejected/deferred match never applies any incoming data on save (see
   // `mergeDecisions`, which skips non-"confirmed" decisions outright) — so the
   // preview shows every field as kept from main, regardless of any per-field
@@ -196,6 +213,26 @@ export function ComparePanel({
     const hasMain = !!pair.main?.text;
     const hasIncoming = !!pair.incoming?.text;
     const incId = pair.incoming?.id;
+    const mainId = pair.main?.id;
+    // A child this match added: the tick stays, and taking it back removes them.
+    if (hasMain && mainId && incId && ownAdds.has(mainId) && takenChildren.has(incId)) {
+      return {
+        mainChosen: true,
+        incomingChosen: true,
+        choice: (
+          <button className="choice take active" title={t("compare.childAdded.title")} onClick={() => setTakenChild(incId, false)}>
+            {t("compare.childTaken.label")}
+          </button>
+        ),
+      };
+    }
+    if (hasMain && mainId && addedMain.has(mainId)) {
+      return { mainChosen: true, incomingChosen: true, choice: addedTag(mainId) };
+    }
+    // Added with another match (the other parent's), to a family of theirs.
+    if (!hasMain && incId && !forceMain && pinned.has(incId)) {
+      return { mainChosen: false, incomingChosen: true, choice: addedTag(pinned.get(incId)) };
+    }
     if (hasMain) {
       const choiceNode = hasIncoming
         ? <span className="muted">=</span>
@@ -287,7 +324,10 @@ export function ComparePanel({
         </button>
       )));
     }
-    if (row.state === "agree") return <span className="muted">=</span>;
+    if (row.state === "agree") {
+      const added = [...(row.mainRefs ?? []), ...(row.relatives ?? []).map((p) => p.main?.id)].find((id) => id && addedMain.has(id));
+      return added ? addedTag(added) : <span className="muted">=</span>;
+    }
     return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
   }
 

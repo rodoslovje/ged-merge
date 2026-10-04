@@ -76,6 +76,26 @@ describe("cross-language given names", () => {
       ["Alojz", "Lojze"],
       ["Ignacij", "Nace"],
       ["Frančišek", "Franci"],
+      // Croatian parish forms and pet names of the Ravna Gora families.
+      ["Ignacij", "Ignjat"],
+      ["Jožefa", "Pepa"],
+      ["Jožefa", "Pepca"],
+      ["Josepha", "Pepa"],
+      ["Gertruda", "Jedrt"],
+      ["Gertrude", "Jedrt"],
+      ["Frančiška", "Franka"],
+      ["Francisca", "Franka"],
+      ["Jurij", "Gjuro"],
+      ["Mihael", "Mihovil"],
+      ["Boštjan", "Sebastjan"],
+      ["Marija", "Mica"],
+      ["Antonija", "Tončka"],
+      ["Jurij", "Jure"],
+      ["Jurij", "Juraj"],
+      ["Jure", "Juraj"],
+      // The trees record one girl as Neža in one file and Agata in the other.
+      ["Neža", "Agata"],
+      ["Agnes", "Agata"],
     ] as const) {
       expect(givenSimilarity(a, b), `${a}/${b}`).toBe(1);
     }

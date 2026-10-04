@@ -34,6 +34,9 @@ export interface ChartBox {
   onSpine: boolean;
   /** Marks the two endpoints for emphasis. */
   role?: "start" | "target";
+  /** Generations above (+) or below (−) the start person, read off the row
+   *  the box is drawn on — the Color axis's reading. */
+  gen: number;
 }
 
 export interface ChartLink {
@@ -207,11 +210,14 @@ export function buildRelationshipChart(
     y: lr ? breadthPx(p.col) : depthPx(p.row),
   });
 
+  // Rows count down from the apex; the start person's row is generation 0.
+  const startRow = place.get(steps[0].id)!.row;
   const boxes: ChartBox[] = order.map((id) => {
     const p = place.get(id)!;
     const indi = ds.individuals.get(id);
     const { x, y } = coordOf(p);
     return {
+      gen: startRow - p.row,
       key: id,
       id,
       name: indi ? nameOf(indi) : id,

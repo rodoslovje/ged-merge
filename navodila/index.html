@@ -231,7 +231,7 @@
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko. Na telefonu sta imeni v meniju <span class="gm-glyph">☰</span>.</li>
               <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja, posege orodij in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>) — glejte <a href="#undo"><em>Razveljavi in ponovi</em></a> spodaj.</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu — dovolj so začetne črke vsakega dela, v poljubnem vrstnem redu in brez šumnikov, tako da <em>sebas kala</em> najde Sebastjana Kalana; enako bere ime tudi vsako drugo iskalno polje (izbirniki sorodnikov, izhodiščna oseba, iskanje v diagramu, seznam ujemanj); <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. Ko je povezana mapa z mediji (<a href="#photos">§12</a>), se ob vsakem zadetku pokaže tudi sličica osebe — na skupinski fotografiji njeno označeno območje — zato soimenjake ločite na prvi pogled. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§7</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
+              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu — dovolj so začetne črke vsakega dela, v poljubnem vrstnem redu in brez šumnikov, tako da <em>sebas kala</em> najde Sebastjana Kalana; enako bere ime tudi vsako drugo iskalno polje (izbirniki sorodnikov, izhodiščna oseba, iskanje v diagramu, seznam ujemanj); <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. Ko je povezana mapa z mediji (<a href="#photos">§12</a>), se ob vsakem zadetku pokaže tudi sličica osebe — na skupinski fotografiji njeno označeno območje — zato soimenjake ločite na prvi pogled. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§7</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo. Pri zelo veliki datoteki se seznam za iskanje pripravi v ozadju, potem ko se datoteka odpre; če iskanje odprete prej, pokaže, kolikšen del seznama je že pripravljen.</li>
               <li><strong>Dodaj novo osebo</strong> — gumb <span class="gm-glyph">＋</span> (ali <span class="gm-key">N</span>) ustvari osebo brez povezav, iz katerega koli načina — glejte <a href="#edit">§8</a>.</li>
               <li><strong>Nastavitve</strong> — meni <span class="gm-glyph">⚙</span> vsebuje jezik in videz, prikaz imen in zapisov, pravila datoteke GEDCOM, zemljevid in napredne možnosti — glejte <em>Nastavitve</em> spodaj.</li>
             </ul>
@@ -337,8 +337,8 @@
                 vzdržujete. Naložite jo najprej; <span class="gm-pill">Urejanje</span> in
                 <span class="gm-pill">Orodja</span> delata vedno z njo.</li>
               <li><strong>Vhodna datoteka</strong> — datoteka, ki jo primerjate z glavno; naložite jo samo v načinu
-                <span class="gm-pill">Združevanje</span>: drug <em>.ged</em>, <strong>CSV z ujemanji</strong>,
-                izvožen z
+                <span class="gm-pill">Združevanje</span>: drug <em>.ged</em>, <strong>CSV z ujemanji ali z rezultati
+                iskanja</strong>, izvožen z
                 <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
                 (slovenski rodoslovni indeks), ali <strong>indeks matične knjige</strong>, prebrane na Matriculi —
                 preglednico samo (<em>.xlsx</em>, <em>.xlsm</em>) ali datoteko CSV, shranjeno iz nje
@@ -409,7 +409,9 @@
               (<code>NOTE</code> ⇄ <code>SNOTE</code>), datumske fraze in dvojna letna števila, starostne ključne besede,
               vloge povezav, starejši identifikatorji (<code>AFN</code>/<code>RFN</code> ⇄ <code>EXID</code>),
               transliterirana imena in vrste medijev se prepišejo v ciljno specifikacijo, tako da združeni zapisi ostanejo
-              veljavni. Povzetek nalaganja navede, kaj je bilo pretvorjeno, s primeri ob prehodu z miško.
+              veljavni. Povezane osebe ne spremenijo le besed, ampak tudi mesto: pri pretvorbi v 5.5.1, ki jih pozna samo
+              pri osebi, gredo botri s krsta k zapisu otroka, poročne priče pa k zapisu enega od zakoncev
+              (<a href="#associates">§8</a>). Povzetek nalaganja navede, kaj je bilo pretvorjeno, s primeri ob prehodu z miško.
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Namig</span>
@@ -574,8 +576,9 @@
               class="gm-key">9</span>, v vrstnem redu gumbov, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span
               class="gm-key">E</span> pa odpre celoten meni. Kateri dogodki so tu, določite v
               <strong>Nastavitve → Splošno → Urejanje</strong>, kjer gumb odstranite ali dodate
-              drugega. Dogodek, ki ga oseba lahko ima samo enega in ga že ima — rojstvo, smrt ali pokop — obdrži svoj
-              gumb brez <strong>+</strong>: ta vodi do vrstice, ki ga vsebuje, in ne doda drugega.
+              drugega. Vsak gumb nosi znamenje svojega dogodka in njegovo ime (<a href="#legend">§15</a>), kaj naredi, pa
+              pove njegov rob: črtkani rob dogodek doda, polni pa vodi do vrstice, ki ga že vsebuje — tak postane gumb
+              za dogodek, ki ga oseba lahko ima samo enega, torej za rojstvo, smrt in pokop, ko jih oseba dobi.
             </p>
             <div>
               Rojstvo je prikazano privzeto. <strong>+ Dodaj dogodek</strong> razkrije ostale, razvrščene po življenjskih
@@ -595,12 +598,22 @@
                 <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob, Pogreb</li>
               </ul>
               <p>
+                Vsako vrstico uvaja rodoslovno znamenje njenega dogodka — <span class="gm-glyph">*</span> za rojstvo,
+                <span class="gm-glyph">⚭</span> za poroko, <span class="gm-glyph">†</span> za smrt — tako da se dolgo
+                življenje prebere že po stolpcu znamenj; vsa so zbrana v <a href="#legend">§15</a>.
                 Vrstica dogodka pokaže samo polja, ki jih dogodek res nosi, začenši z <strong>datumom</strong> in
                 <strong>krajem</strong>. Gumb <strong>+ Dodaj</strong> na koncu vrstice doda preostala eno po eno —
                 naslov, ustanovo, vir, vrsto, vzrok, opombo — in kazalec postavi naravnost v novo polje, tako da vrstica
                 nikoli ne postane stena praznih vnosnih polj. Z <span class="gm-glyph">×</span> počistite posamezno
                 polje. Polje <strong>Ustanova</strong> se dopolnjuje iz že vpisanih ustanov — iz župnij in uradov, ki
                 jih navajajo dogodki vaše datoteke — tako da ime župnije izpišete enkrat, potem pa ga izberete.
+                Enako se dopolnjujejo polja <strong>Vzrok</strong>, <strong>Vrsta</strong> in <strong>Vrednost</strong>
+                pri lastnostih, kot so Poklic, Veroizpoved in Izobrazba: vrednosti se ponudijo takoj, ko vstopite v
+                polje, in sicer od najpogostejše naprej. V isti knjigi se smrti vrstijo po nekaj ponavljajočih se
+                vzrokih, ljudje pa po nekaj poklicih, zato je že zapisana beseda navadno prav tista, ki jo želite
+                zapisati znova. Vrednosti so ločene po vrsti dogodka, zato se poklic nikoli ne dopolnjuje iz
+                veroizpovedi; polji <em>Referenčna številka</em> in <em>Število otrok</em> pa se ne dopolnjujeta,
+                saj vsako od njiju pripada eni sami osebi.
                 Celo vrstico lahko izpolnite brez miške: s tipko <span class="gm-key">Enter</span> se premaknete
                 z datuma na kraj in nato na gumb <strong>+ Dodaj</strong>, tam z isto tipko odprete meni in s puščicama
                 izberete polje, ki ga želite dodati (isti meni odpre kombinacija
@@ -738,27 +751,70 @@
             <h3 id="associates">Povezane osebe</h3>
             <p>
               Zapisi imenujejo tudi osebe, ki niso sorodniki: botre pri krstu, priče pri poroki in duhovnika, ki je
-              vodil obred, zunaj matičnih knjig pa tudi učitelja ali soseda. Pripadajo dogodku, ki jih imenuje, zato jih
-              tam tudi urejate: meni <strong>+ Dodaj</strong> pri dogodku dobi vnos <strong>Povezana oseba</strong>, ki
-              poišče osebo in nato vpraša po vlogi, vsaka povezana oseba pa stoji na vrstici dogodka z imenom, vlogo in
-              gumboma <span class="gm-glyph">✎</span> in <span class="gm-glyph danger">✕</span> za spremembo ali
-              odstranitev. Na voljo so vloge boter/botra, priča, duhovnik, voditelj obreda, prijatelj/prijateljica,
-              sosed/soseda, iz istega poroda in prosto besedilo za vse drugo. Poročne priče vpišete enako, na vrstici
-              poroke pri družini.
+              vodil obred, zunaj matičnih knjig pa tudi učitelja ali soseda. Kam je tako osebo dovoljeno zapisati,
+              določa standard in ne program, različici GEDCOM pa se v tem razlikujeta — ponujeno je torej tisto, kar
+              zmore naložena datoteka.
+            </p>
+            <p>
+              Datoteka <strong>GEDCOM 7</strong> nosi povezano osebo na treh mestih. Prvo mesto je dogodek, ki pove
+              največ in je zato ponujen prvi: meni <strong>+ Dodaj</strong> pri dogodku dobi vnos
+              <strong>Povezana oseba</strong>, ki poišče osebo in nato vpraša po vlogi, vsaka povezana oseba pa stoji na
+              vrstici dogodka z imenom in vlogo. Drugo mesto je zapis osebe same: v
+              razdelku <strong>Povezane osebe</strong> pod seznamom dogodkov z gumbom
+              <strong>+ Dodaj povezano osebo</strong> zapišete zvezo, ki je ne pojasni noben posamezen dogodek —
+              dolgoletni sosed, ujemanje DNK. Tretje mesto je zapis družine: pod istim naslovom v družinskem razdelku
+              zapišete priče, ki pripadajo poroki in ne enemu od zakoncev. Na voljo so vloge boter/botra, priča,
+              duhovnik, voditelj obreda, prijatelj/prijateljica, sosed/soseda, iz istega poroda in prosto besedilo za
+              vse drugo. Ko osebo izberete, se zapiše takoj, tako kot dodani dogodek ali dodatno ime — ničesar ni
+              treba potrditi. Dobi vlogo, ki jo matične knjige imenujejo najpogosteje, ob njej pa se odpre prazna
+              <strong>opomba</strong> s kazalcem v njej: opombo pri povezani osebi dopuščata obe različici GEDCOM, kaj
+              je knjiga povedala o botru ali koliko centimorganov stoji za ujemanjem DNK pa sodi prav tja in ne k
+              osebi kot celoti. Z njo ravnate enako kot z vsemi drugimi opombami.
+            </p>
+            <p>
+              Povezano osebo urejate kar tam, kjer stoji, tako kot polja pri dogodku: vloga je polje z
+              besedami, ki jih nosi vaša datoteka, zato ostane vaše besedilo, če ga prepišete, opombo pa uredite v
+              njenem čipu — osebi, ki opombe nima, se prazna ponudi, ko se z miško približate njeni vrstici. Ob vlogi
+              se takrat pokaže tudi <strong>▾</strong> in ponudi to, česar se ne da natipkati: seznam vlog, premik
+              osebe k enemu od dogodkov tega zapisa in odstranitev osebe z zapisa. Zadnji dve sta v meniju prav zato,
+              ker enega od njiju ni mogoče razveljaviti z branjem. Če v tem seznamu izberete <em>drugo</em>, se polje
+              izprazni in počaka na vašo besedo: »drugo« pomeni, da slovar zanjo besede nima, in ni beseda, ki bi jo
+              zapisali v datoteko.
+            </p>
+            <p>
+              Starejša oblika <strong>GEDCOM 5.5.1</strong> pozna le drugo od teh mest: ta standard dopušča povezano
+              osebo samo pri zapisu osebe in nikjer drugje. Zato vrstice dogodkov in družinski razdelek tam ne ponudijo
+              ničesar, pot pa vodi prek gumba <strong>+ Dodaj povezano osebo</strong> pri osebi — poročno pričo zapišete
+              pri zapisu enega od zakoncev, saj druge možnosti ta oblika nima. Povezane osebe, ki jih taka datoteka že
+              nosi pri dogodku, ostanejo vidne in jih tam tudi uredite; nobena se ne premakne in nobena se ne skrije.
+            </p>
+            <p>
+              <strong>Ujemanje DNK</strong> v obliki GEDCOM nima svojega mesta: nobena od različic ne pozna ne testa, ne
+              ujemanja, ne skupnih centimorganov in ne odsekov. Najbolj primeren zapis je povezana oseba, in sicer pri
+              zapisu osebe in ne pri dogodku — ujemanje ni nekaj, kar bi se osebi zgodilo nekega dne. Čez vlogo vpišite
+              »ujemanje DNK«, saj datoteka ohrani vaše besedilo, številke — skupne centimorgane, odseke in ponudnika
+              testa — pa v <strong>opombo</strong> ob njej, kjer ostanejo pri ujemanju samem in ne pri osebi kot
+              celoti. Teh številk program ne bere kot podatkov o DNK — ujemanje jih ne upošteva in
+              noben diagram jih ne izriše; shranjene so tako, kot jih vpišete.
             </p>
             <p>
               Botra, ki ga v vašem drevesu ni, lahko zapišete samo po imenu — vpišite ime in izberite
-              <strong>Zapiši samo vpisano ime</strong>. To zmore le GEDCOM 7; datoteka 5.5.1 nima oblike, s katero bi
+              <strong>Zapiši samo vpisano ime</strong>. Tako ime je besedilo, ki ga nosi vaša datoteka, in ne oseba, ki
+              jo ta vodi, zato je polje tako kot vloga: prepišete ga kar tam, kjer stoji, pikčasta podčrtava pod njim
+              pa pove, da za njim ni nikogar. (Če ga izpraznite, povezava ne bi imenovala nikogar več, zato ostane
+              prejšnje ime.) Ko vanj tipkate, se po vaši datoteki tudi <strong>išče</strong>, saj se tak boter
+              pogosto izkaže za osebo, ki jo datoteka vendarle ima: izberite eno od ponujenih oseb in povezava odslej
+              kaže na njen zapis, vlogo in opombo pa obdrži; če tipkate naprej in ne izberete nikogar, ostane
+              besedilo besedilo. To zmore le GEDCOM 7; datoteka 5.5.1 nima oblike, s katero bi
               imenovala osebo brez svojega zapisa, zato tam izbirnik ponudi samo osebe, ki jih datoteka že ima.
             </p>
             <p>
               Pod seznamom dogodkov razdelek <strong>Kje je ta oseba imenovana</strong> pokaže obratno smer — vse
-              krste, pri katerih je bila ta oseba boter ali botra. Ta stran je le pogled in ne drugi vnos, ki bi ga bilo
-              treba usklajevati: povezava se shrani enkrat, pri dogodku, ki osebo imenuje. Datoteka v starejši obliki
-              GEDCOM 5.5.1 — in izhod nekaterih programov v obliki GEDCOM 7 — povezane osebe nosi pri zapisu in ne pri
-              dogodku, torej pove, s kom je bila oseba povezana, ne pa tudi pri čem. Te so naštete prav tam, gumb
-              <span class="gm-glyph">↧</span> ob posamezni pa jo uvrsti k dogodku, ki ji pripada: izberete krst, pri
-              katerem je botrovala, z njo pa se preselijo vloga, datum ter morebitna opomba in navedba vira.
+              krste, pri katerih je bila ta oseba boter ali botra, in vse zapise, ki jo imenujejo brez dogodka. Ta stran
+              je le pogled in ne drugi vnos, ki bi ga bilo treba usklajevati: povezava se shrani enkrat, pri zapisu, ki
+              osebo imenuje. Gumb <span class="gm-glyph">↧</span> ob povezani osebi pri zapisu jo uvrsti k dogodku, ki
+              ji pripada: izberete krst, pri katerem je botrovala, z njo pa se preselijo vloga, datum ter morebitna
+              opomba in navedba vira.
               <a href="#validate">Pregled</a> vse te povezave preveri v
               skupini <strong>Povezane osebe</strong>, kjer poroča o osebi brez navedene vloge, o osebi, ki je navedena
               kot priča sama pri sebi, in o tisti, ki na dan dogodka ni bila živa.
@@ -828,6 +884,15 @@
               datoteki oseba z istim imenom in letom rojstva. Taka oseba je en sam zapis, naj jo CSV omenja še tolikokrat —
               enkrat kot lastno ujemanje, drugič kot partnerja nekoga drugega — zato vhodna stran pride kot povezano drevo in
               ne kot niz ločenih parov.
+            </p>
+            <p>
+              <strong>CSV z rezultati iskanja</strong> — preglednica oseb ali družin, ki jo indeks izvozi iz iskanja —
+              ne imenuje nikogar iz vaše datoteke, zato se ujemanja iščejo tako kot pri drugi datoteki GEDCOM: vsaka
+              vrstica postane vhodna oseba (ali par) s partnerji in starši, ki jih imenuje, povezava do pokopališča pa
+              se pripiše pokopu vsakega, ki ga zadeva; seznam ujemanj nato pokaže, kdo iz vaše datoteke se z vrstico
+              ujema. Izvoza se
+              ločita po stolpcu »Zaupanje«, ki ga ima samo izvoz ujemanj, zato se izvoz iskanja prepozna sam in ni
+              treba ničesar izbirati.
             </p>
             <p>
               Izvoz iz indeksa nima stolpca s spolom, zato se ta prebere iz stolpcev, ki ga povedo naravnost (oče, mati
@@ -908,7 +973,8 @@
               <li><span class="gm-badge m">G</span> — ohrani vrednost <strong>glavne</strong> datoteke</li>
               <li><span class="gm-badge i">V</span> — vzemi <strong>vhodno</strong> vrednost</li>
               <li><span class="gm-badge b">O</span> — ohrani <strong>oboje</strong> (na voljo le pri poljih, ki lahko
-                hranijo več vrednosti, kot so opombe, viri in imena)</li>
+                hranijo več vrednosti, kot so opombe, viri in imena); kadar vhodna datoteka navaja vse vire vaše
+                datoteke in še kaj več, je ta izbira že označena</li>
             </ul>
             <p>
               Gumbi se odklenejo, ko ujemanje <strong>potrdite</strong> (glejte spodaj): ob shranjevanju se združijo
@@ -945,6 +1011,16 @@
               letnica loči enako imenovana brata ali sestri, otrok, ki mu je letnica na obeh straneh zapisana leto ali
               dve narazen — krst, vpisan sezono pozneje, ali spodrsljaj pri prepisu — pa se še vedno poveže v par; sama
               letnica nikoli ne poveže dveh otrok z različnima osebnima imenoma.
+            </p>
+            <p>
+              <strong>Novi sorodniki se v datoteko dodajo takoj.</strong> Ko je ujemanje potrjeno, se novi sorodnik
+              doda v vašo datoteko že pred shranjevanjem, in sicer v družino, v katero bi ga postavilo shranjevanje. To
+              velja za otroka, ki ga dodate z gumbom »+ dodaj«, in za vhodnega starša ali partnerja, ki ga vaša datoteka
+              še nima. Pred shranjevanjem ga lahko odprete v <strong>Urejanju</strong> (<a href="#edit">§8</a>) in
+              popravite; tja vas pripelje klik na njegovo ime v primerjavi. Otrok, ki je naveden pri obeh starših, se doda le enkrat: pri ujemanju drugega starša že stoji
+              nasproti svojemu dvojniku in je označen z »✓ dodano«. Če izbiro otroka izklopite ali potrditev ujemanja
+              prekličete, se oseba znova odstrani, skupaj z vašimi popravki. Sorodniki, ki jih vaša datoteka že ima, se
+              tako kot doslej povežejo ob shranjevanju.
             </p>
             <h3>Označevanje ujemanj</h3>
             <p>
@@ -1041,6 +1117,13 @@
               ima — stran, ki jo že navajate, se tako pokaže kot ujemanje in ne kot nekaj, kar bi bilo treba dodati.
               Enako se prebere povezava, ki jo nosi družinski zapis vhodne datoteke: stran poročne knjige se pripne
               <em>Poroki</em> para. Prevzamejo se tudi viri, ki jih ta zapis navaja.
+              Navedba, v kateri vhodna datoteka namesto številke strani hrani njen spletni naslov, se prebere kot
+              povezava na to stran in se zapiše enako: knjiga, ki jo vaša datoteka že ima, številka strani, njena slika
+              ob navedbi in besedilo, ki ga navedba že nosi. Datoteka, ki svoje strani navaja obratno — s spletnim
+              naslovom strani v navedbi, kakor to zapisuje webtrees, in brez zapisa slike — se ob nalaganju prepozna in
+              se tako tudi zapisuje: vsaka navedba, ki jo doda združevanje, vzame za stran povezavo. To je vrstica
+              <em>Navedena stran</em> v <a href="#workspace">Nastavitvah › GEDCOM</a>, njena <em>samodejno</em> pa sledi
+              vaši datoteki.
               Povezava s spletišča, ki ga GED Merge ne prepozna, se zapiše kot gola povezava.
             </p>
           </section>
@@ -1065,6 +1148,8 @@
               <ul>
                 <li>brez imena, brez spola, brez ključnih datumov in nepovezani zapisi;</li>
                 <li>pokvarjene ali enosmerne družinske povezave in podvojeni kazalci;</li>
+                <li><strong>isti par dvakrat</strong> — isti osebi sta kot par zapisani v več družinah, otroci, poroka in
+                  opombe pa so lahko razdeljeni med te zapise; najdba poimenuje partnerja in zapise;</li>
                 <li><strong>sorodstvene zanke</strong> — oseba, ki je sama svoj prednik;</li>
                 <li>neskladja <strong>spola in vloge</strong> — ženska, zapisana kot mož, ali moški kot žena; pristen
                   istospolni par, po enega partnerja v vsaki vlogi, <em>ni</em> označen;</li>
@@ -1076,9 +1161,12 @@
                 <li><strong>družina brez staršev</strong> — druga starševska družina, ki ne navaja nobenega starša, in
                   družinski zapisi, v katerih ni nikogar; prve odstranite z ikono
                   <span class="gm-glyph danger">−</span> pri tem sklopu staršev v načinu <span class="gm-pill">Urejanje</span>;</li>
+                <li><strong>podvojeno rojstvo ali smrt</strong> — oseba z dvema zapisoma o rojstvu ali o smrti; vsa
+                  druga preverjanja upoštevajo le prvega;</li>
                 <li>dogodki z datumom v prihodnosti in smrt pred rojstvom;</li>
                 <li><strong>dogodki zunaj življenjske dobe</strong> — poklic z datumom pred rojstvom, bivališče ali
-                  poroka po smrti; pokop, upepelitev in zapuščinska obravnava smrti smejo slediti in niso označeni;</li>
+                  poroka po smrti; pokop, upepelitev in zapuščinska obravnava smrti smejo slediti in niso označeni,
+                  pokop ali upepelitev z datumom <em>pred</em> smrtjo pa je — datuma se primerjata do dneva natančno;</li>
                 <li><strong>živi nad 99 let</strong> — brez zapisa o smrti, a rojeni tako davno, da bi bili danes čez
                   verjetno življenjsko dobo; skoraj vedno manjka zapis o smrti, paketno opravilo <em>označi kot
                   umrle</em> pa jih zapre v enem koraku;</li>
@@ -1095,7 +1183,7 @@
                   oseb, ki so povezane samo med sabo in z nikomer drugim v datoteki — navadno uvoz, ki ni bil nikoli
                   pripet, ali dvojnik veje, ki jo že imate. Ena najdba na skupino, pri njenem najmlajšem članu, da ga
                   odprete in se sprehodite po sorodnikih skupine; glavno drevo datoteke ni nikoli skupina.</li>
-                <li><strong>povezane osebe</strong> — osebe, ki jih imenuje dogodek (<a href="#associates">§8</a>):
+                <li><strong>povezane osebe</strong> — osebe, ki jih imenuje zapis ali dogodek (<a href="#associates">§8</a>):
                   oseba brez navedene vloge, oseba, ki je navedena kot priča sama pri sebi, in tista, ki je bila rojena
                   po dogodku ali je umrla pred njim.</li>
               </ul>
@@ -1115,7 +1203,8 @@
               enosmerne družinske kazalce med osebami in družinami, <strong>Odstrani neobstoječe sklice</strong> odstrani
               vse druge kazalce, katerih ciljni zapis manjka — navedbe virov, opomb in medijev, povezave med osebami ter
               družinske povezave znotraj dogodka — <strong>Odstrani podvojene kazalce</strong> odpravi podvojene povezave,
-              popravek spola nastavi spol nedoločenim zakoncem (mož → moški, žena → ženska),
+              <strong>Združi podvojene družine</strong> družinske zapise istega para zloži v enega in vanj prenese vse
+              otroke, dogodke, opombe in vire, popravek spola nastavi spol nedoločenim zakoncem (mož → moški, žena → ženska),
               <strong>Zamenjaj vlogi zakoncev</strong> vrne oba partnerja v njuni vlogi v družini, ki ima moškega
               zapisanega kot ženo in žensko kot moža (samo pri taki obojestranski zamenjavi — če vlogi nasprotuje samo
               eden od zakoncev, je morda napačen zapisani spol, zato presojo prepusti vam),
@@ -1125,7 +1214,8 @@
             <p>
               Vsak od teh popravkov je na voljo tudi po eni ugotovitvi naenkrat, kar na vrstici, ki jo je sprožila:
               prizadete vrstice imajo svoj gumb — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>,
-              <strong>Odstrani sklic</strong> ali, kadar se vrednost nastavi in ne odstrani, kar izid sam
+              <strong>Združi v eno</strong>, <strong>Odstrani sklic</strong> ali, kadar se vrednost nastavi in ne
+              odstrani, kar izid sam
               (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>). Uporabite jih, kadar se
               z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
               je v skupini več ugotovitev, kot jih popravek lahko uredi (trije zakonci brez spola med osmimi zapisi brez
@@ -1253,7 +1343,8 @@
               prilagodi kraje, prepiše povezave Matricula ali Geneanet v enotno obliko in prevede obseg vsakega vira v
               obliko, ki jo uporablja datoteka (ali v izbrano v <a href="#workspace">Nastavitve › GEDCOM</a> — polja
               programa ali standardna struktura <em>DATA</em>). Predogled navede primere vsake spremembe, preden
-              prenesete poenoteno kopijo.
+              prenesete poenoteno kopijo; pri obsegu virov je ob primeru zapisan naslov vira, saj je vrsta registra
+              prebrana prav iz njega.
             </p>
             <p>
               Eno opravilo ostane neoznačeno, dokler ga sami ne izberete: <strong>oblika opomb</strong> prepiše vsako
@@ -1296,8 +1387,9 @@
               nepovezani mediji in navedbe brez vira so navedeni ločeno. Z naloženo mapo medijev se krajevne datoteke —
               skenirane strani vira, izrezki, nepovezani mediji — pokažejo kot sličice s prekritim številom uporab;
               klik na sličico odpre polni pregledovalnik, v katerem lahko naslov, datum, kraj, opis in oznako zasebno
-              medija uredite kar na mestu, ob strani pa so naštete osebe in družine, ki sliko navajajo, ter viri, ki
-              jim je priložena (klik na vir omeji drevo nanj).
+              medija uredite kar na mestu, ob strani pa so naštete osebe in družine, ki sliko navajajo — za vsakim imenom
+              stojijo znamenja dogodkov, ki jo navajajo, tako da je pri strani matične knjige razvidno, čigav krst ali
+              pogreb dokazuje — ter viri, ki jim je priložena (klik na vir omeji drevo nanj).
               Pogled <strong>Možni dvojniki</strong> združi
               zapise, ki opisujejo isti medij, vir ali hrambo pod različnimi oznakami — izberite skupine za strnitev
               in prenesite datoteko brez dvojnikov z vsemi navedbami preusmerjenimi.
@@ -1430,7 +1522,8 @@
               nobena povezava ne odgovori: navedba je že prava navedba in slika strani je pri zapisu vira, oseba ali
               dogodek pa je ne navaja, zato program, ki posnetke kaže ob dejstvih, nima česa pokazati. Vsaka vrstica je
               en vir z navedbami, ki svoje slike nimajo; ko jo odprete, pove ime osebe, ali navedba stoji pri dogodku
-              ali pri samem zapisu, in katero stran navaja. Ko jih označite in uveljavite, se ob vsaki taki navedbi doda
+              ali pri samem zapisu, katero stran navaja in kako je imenovana slika, ki jo bo dobila — pri navedbi, ki
+              strani ne pove, je prav to ime edino, kar pove, za kateri posnetek gre. Ko jih označite in uveljavite, se ob vsaki taki navedbi doda
               ena povezava do slike, drugo ostane nespremenjeno. Katero sliko navedba misli, mora biti nedvoumno: vir z
               eno samo sliko strani odgovarja za vse svoje navedbe, pri viru z več slikami pa jih loči le navedena
               stran. Navedba, ki strani ne pove ali pove tako, ki ji ne ustreza nobena slika, ostane nespremenjena — in
@@ -1454,7 +1547,9 @@
             <p>
               Navede vsak kraj v hierarhiji država → kraj → hišna številka → naslov, s števcem uporabe pri vsakem kraju. Odprite
               kraj za kraje pod njim, s <strong>klikom na števec</strong> pa dobite seznam zapisov, zapisanih točno na
-              tem kraju — naselje s stotinami zapisov tako ostane pregledno. <strong>✎</strong> ob imenu na kateri koli
+              tem kraju — naselje s stotinami zapisov tako ostane pregledno. Vsako ime na tem seznamu nosi znamenja
+              dogodkov, ki jih ima oseba zapisane v tem kraju (<a href="#legend">§15</a>), zato je razvidno, kdo se je
+              tu rodil in kdo je tu samo umrl. <strong>✎</strong> ob imenu na kateri koli
               ravni hkrati preimenuje ali združi del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
               Polje najprej predlaga imena sosednjih vnosov pod istim nadrejenim krajem, zato kraja, ki oba številčita <em>Breg 13</em>,
               nikoli ne ponudita naslovov drug drugega, pod njimi pa vse kraje, ki jih vaša datoteka piše drugod, na dnu
@@ -1947,11 +2042,22 @@
               naslov ali kraj že uporablja, naslov poiščete v registru, <strong>iščete na spletu</strong> (OpenStreetMap — za
               naslov zunaj Slovenije, ki ga register ne pokriva), koordinato vnesete ali prilepite, ali pa obstoječo
               odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam za geokodiranje ponuja le
-              kraje, ki koordinate sploh nimajo (do že določenih pridete v drevesu <a href="#places">Kraji</a>). Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
+              kraje, ki koordinate sploh nimajo (do že določenih pridete v drevesu <a href="#places">Kraji</a>).
+              Vsaka ponudba v panelu je oštevilčena, njen krogec na zemljevidu pa nosi isto številko, tako kot jih
+              številčijo seznami zgoraj; na ozkem oknu so ponudbe nad zemljevidom, da številke preberete pred krogci,
+              ki jih označujejo. Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
               ponudi — privzeto obkljukano — da se izbrana koordinata zapiše na vse te dogodke, saj ima en naslov en
               položaj; če kljukico odstranite, koordinato dobi samo ta dogodek. Ponudba velja tudi, kadar ti dogodki koordinato že
               imajo — tako celoten naslov naenkrat prestavite na boljši položaj. (Prenos je svoj korak razveljavitve: prva
               razveljavitev vrne druge dogodke, druga pa tega.)
+              Panel našteje tudi <strong>osebe, ki jih vaša datoteka vodi na tem kraju in naslovu</strong>: v svoji
+              vrstici so preštete, pod njo pa naštete. Vsako ime je povezava v Urejanje, s čimer preverite, ali hiša na
+              zemljevidu res pripada tej družini in ne sosedu. Za vsakim imenom stojijo znamenja dogodkov, ki jih ima
+              oseba zapisane tam (<a href="#legend">§15</a>): rojstvo v hiši, poroko iz nje, smrt v njej.
+              Naštete so vse, od najstarejše po letu rojstva naprej, tako
+              da se hiša bere kot svoja zgodovina; dogodek brez naslova šteje le po kraju, zato vrstica tam govori o
+              celotnem naselju in se njegov seznam pomika.
+              Enak seznam dobite povsod, kjer se ta panel odpre, tudi na treh seznamih zgoraj.
             </p>
             <p>
               Izbira kraja ali naslova, ki ga datoteka že pozna, s seboj prinese njegovo koordinato, zato je na novo vnesen
@@ -1969,20 +2075,32 @@
             <h2><span class="guide-num">11</span>Diagrami, zemljevidi in poročila</h2>
             <p>
               En sam gumb <strong>Diagrami</strong> (<span class="gm-key">V</span>) — v orodni vrstici Urejanja ali na
-              ikoni diagramov v glavi osebe — odpre celozaslonsko stran z diagrami za izbrano osebo. Vrstica zavihkov preklaplja med devetimi vrstami (številke
-              <span class="gm-key">1</span>–<span class="gm-key">9</span> odprejo posamezno neposredno); GED Merge si
+              ikoni diagramov v glavi osebe — odpre celozaslonsko stran
+              z diagrami za izbrano osebo. Vrstica zavihkov preklaplja med sedmimi vrstami (številke
+              <span class="gm-key">1</span>–<span class="gm-key">7</span> odprejo posamezno neposredno); GED Merge si
               zapomni nazadnje uporabljeno. Vsaka zamenjava korena — <strong>Koren</strong> v podoknu
               vozlišča, značka <span class="gm-badge rep">+7</span>, zadetek iskanja zunaj diagrama — šteje kot korak,
               zato se <strong>Nazaj</strong> (gumb ali brskalnikov) vrača po osebah, na katere ste diagram postavili,
-              in šele nato zapusti stran:
+              in šele nato zapusti stran. Če se z miško ustavite na osebi, se pokaže kartica s polnim imenom,
+              življenjsko dobo in polji, ki jih kažejo nastavitve diagrama:
             </p>
             <ul>
-              <li><strong>Drevo</strong>, <strong>Mreža</strong>, <strong>Pahljača</strong> in <strong>Krog</strong> —
-                štirje rodovniški slogi. <em>Drevo</em> je urejeno plastovito rodoslovno drevo; <em>Mreža</em> poravna
-                rodove v stolpce (rodovniška mreža za prednike, zamaknjen seznam za potomce); <em>Pahljača</em> in
-                <em>Krog</em> sta krožna diagrama prednikov (samo prednikov — pogleda na potomce v pahljači ni).
-                Narišeta osem obročev prednikov, kolikor jih ostane berljivih — sedmi izpusti kraj, osmi obdrži samo ime; kdor je nad tem, je preštet na oznaki
-                <span class="gm-badge rep">+7</span> na zunanjem obroču, klik nanjo pa diagram nariše od te osebe naprej.</li>
+              <li><strong>Drevo</strong> in <strong>Pahljača</strong> — dve vrsti rodovniškega diagrama, vsaka v dveh
+                izvedbah, ki ju izberete v vrstici ob zavihkih. <em>Drevo</em> je urejeno plastovito rodoslovno drevo,
+                kot <em>Mreža</em> pa poravna rodove v stolpce (rodovniška mreža za prednike, zamaknjen seznam za
+                potomce); <em>Pahljača</em> je krožni diagram, kot <em>Krog</em> pa zaobjame poln krog, in prikaže
+                katero koli od obeh smeri.
+                Pri prednikih Pahljača nariše osem obročev, kolikor jih ostane berljivih — sedmi izpusti kraj, osmi obdrži samo ime; kdor je nad tem, je preštet na oznaki
+                <span class="gm-badge rep">+7</span> na zunanjem obroču, klik nanjo pa diagram nariše od te osebe naprej.
+                Pri potomcih je vsak obroč en rod otrok, širina izseka osebe pa sledi številu družinskih linij, ki se
+                pod njo končajo — veja, ki je rod nadaljevala, zavzame večino loka, brat ali sestra brez otrok pa obdrži
+                ozek izsek, v katerega se ime še vedno izpiše. Vsaka poroka je tanek pas ob zunanjem robu izseka z imenom
+                zakonca, otroci te poroke pa so izrisani ob njem; potomci so v svoji barvi, korak stran od zelene
+                prednikov, ki z vsakim rodom zbledi (na barvni osi <em>Družinska veja</em> dobi linija vsakega otroka
+                izhodiščne osebe svoj odtenek). Obroči se končajo tam, kjer v rodu zmanjka prostora za ime vsake osebe;
+                oznaka <span class="gm-badge rep">+7</span> na zadnjem obroču prešteje preostale. Izseki potomcev in
+                pasovi zakoncev nosijo samo imena: imenu, ki je za svoj izsek predolgo, se najprej umakne poročni
+                priimek, nato priimek, sicer se izpusti, ne pa skrajša.</li>
               <li><strong>Časovnica</strong> — najbližja družina kot časovni trakovi na skupni letni osi; glejte
                 spodaj.</li>
               <li><strong>Sorodstvo</strong> (<span class="gm-key">S</span>) — prikaže, kako je izbrana oseba v sorodu z
@@ -2002,16 +2120,22 @@
                 <a href="#reports">spodaj</a>.</li>
             </ul>
             <p>
-              Rodovniški slogi, Zemljevid in Poročilo imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka
-              izbira pokaže trenutno število). Gumb <strong>Diagram</strong> (zobnik <span class="gm-glyph">⚙</span>) odpre okno z
+              Rodovniška diagrama, Zemljevid in Poročilo imajo tudi preklop <strong>Predniki / Potomci</strong> (vsaka
+              izbira pokaže trenutno število), rodovniška diagrama in Zemljevid pa še tretjo izbiro
+              <strong>Oboje</strong>, ki izriše prednike in potomce hkrati. Pri Drevesu so predniki na eni strani osebe
+              in potomci na drugi, v obeh izvedbah. Pri Pahljači si obe smeri delita en poln krog, predniki zgoraj in
+              potomci spodaj. Krog se razdeli v razmerju s številom oseb na vsaki strani, obe polovici pa loči zareza
+              na vsakem boku. Zemljevid pokaže kraje obeh vej skupaj, Poročilo pa izpiše obe poročili, o prednikih in o
+              potomcih, eno za drugim. Gumb
+              <strong>Diagram</strong> (zobnik <span class="gm-glyph">⚙</span>) odpre okno z
               nastavitvami, ki se prilagodijo odprti vrsti; vse izbire se ohranijo med sejami:
             </p>
             <ul>
-              <li><strong>Usmeritev</strong> (Drevo, Mreža in diagram sorodstva) — razporeditev
-                <em>Levo → desno</em> ali <em>Zgoraj → spodaj</em>. Krožna Pahljača in Krog usmeritve nimata.</li>
+              <li><strong>Usmeritev</strong> (Drevo in diagram sorodstva) — razporeditev
+                <em>Levo → desno</em> ali <em>Zgoraj → spodaj</em>. Krožna Pahljača usmeritve nima.</li>
               <li><strong>Rodovi</strong> — kako daleč diagram sega od izhodiščne osebe. Od <em>Vsi</em> se lahko
                 spustite navzdol in izrišete le najbližje rodove; zapis <em>4 od 9</em> pove, koliko rodov je izrisanih
-                od vseh, ki obstajajo. Izbira je skupna: upoštevajo jo Drevo, Mreža, Pahljača, Krog, Časovnica (ki jo šteje
+                od vseh, ki obstajajo. Izbira je skupna: upoštevajo jo Drevo, Pahljača, Časovnica (ki jo šteje
                 v obe smeri hkrati — predniki zgoraj, potomci spodaj), Poročilo in
                 Zemljevid. Kjer je diagram odrezan, nosi zadnja izrisana oseba značko
                 <span class="gm-badge rep">+7</span> s številom njenih potomcev (ali prednikov), ki niso prikazani —
@@ -2019,21 +2143,29 @@
                 takrat pišeta <em>4 od 9 rodov</em>, skrajšano Poročilo pa se konča z vrstico o izpuščenih rodovih.</li>
               <li><strong>Oseba</strong> — preklop, kaj prikaže vsako vozlišče: <em>Življenjska doba</em>,
                 <em>Starost</em>, <em>Kraj</em>, <em>Fotografija</em> (na voljo le, dokler je naložena mapa z mediji),
-                <em>Sorodstvo</em> (oznaka sorodstva do izhodiščne osebe; pri Pahljači in Krogu se ne izriše) in
+                <em>Sorodstvo</em> (oznaka sorodstva do izhodiščne osebe; pri Pahljači se ne izriše) in
                 <em>Poročni priimek</em>. Zadnji se sprva ravna po nastavitvi <em>Prikaži poročni priimek</em> v
                 Nastavitve → Imena (<a href="#workspace">§2</a>), ko se ga enkrat dotaknete, pa gre svojo pot — tako je
                 ženska povsod drugod <em>Ana Novak (Kovač)</em>, na diagramu, ki ga tiskate, pa le pod dekliškim
                 priimkom. Ta skupina se ne prikaže, ko je odprto Poročilo ali Zemljevid; preklopite na drugo vrsto,
                 da jo spremenite, Poročilo pa upošteva zadnjo izbrano vrednost.</li>
               <li><strong>Poroka</strong> — doda <em>Datum</em> in/ali <em>Kraj</em> poroke na povezovalnik para (ovratnik
-                pri Pahljači in Krogu ali ob oznakah <span aria-hidden="true">⚭</span> na Časovnici). Privzeto sta
+                pri Pahljači ali ob oznakah <span aria-hidden="true">⚭</span> na Časovnici). Privzeto sta
                 izklopljena.</li>
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
                 piko) in skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj).</li>
-              <li><strong>Barva</strong> in <strong>Imena</strong> (samo Sodobniki) — kaj pove barva osebe
-                (<em>Rod</em>, <em>Družinska veja</em> ali <em>Živi</em>) in ali so najbližji sorodniki na diagramu
-                poimenovani; glejte <a href="#contemporaries">spodaj</a>.</li>
+              <li><strong>Barva</strong> (vse vrste razen Poročila in Zemljevida) — kaj pove barva osebe.
+                <em>Enobarvno</em> je lastno barvanje diagrama; <em>Rod</em> in <em>Družinska veja</em> bereta mesto
+                osebe na diagramu, zato obarvata rodovniška diagrama in Sodobnike; <em>Spol</em>, <em>Živi</em>,
+                <em>Država</em> (kraja rojstva, bivanja, smrti ali pokopa, prvega, ki je zapisan), <em>Kraj rojstva</em>,
+                <em>Priimek</em>, <em>Starost staršev</em> ob rojstvu osebe (povprečje obeh),
+                <em>Življenjska doba</em>, <em>Stoletje</em> rojstva in <em>Viri</em> (kolikšen del rojstva, smrti in
+                porok ima naveden vir) berejo zapis. Ključ nad diagramom poimenuje vsako barvo s številom oseb;
+                dvanajst najpogostejših krajev ali priimkov dobi vsak svojo barvo, preostali se združijo pod
+                <em>Drugo</em>, oseba, ki je os ne more uvrstiti, pa ostane siva.</li>
+              <li><strong>Imena</strong> (samo Sodobniki) — ali so najbližji sorodniki na diagramu poimenovani;
+                glejte <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Dejstva</strong> in <strong>Zgradba</strong> (samo Poročilo) — glejte
                 <a href="#reports">spodaj</a>.</li>
               <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
@@ -2091,9 +2223,9 @@
               ni natisljiv na eni strani: če ga stisnemo na A4, imena postanejo neberljiva. Zato <strong>PDF</strong>
               vedno najprej vpraša za papir — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> ali
               <strong>Po meri</strong> — in diagram prilagodi nanj; če od tiskalnika zahtevamo stran v velikosti
-              diagrama, gonilnik za silo izbere najbližji papir, večina diagrama pa je odrezana. Pri vrstah
-              <strong>Drevo</strong> in <strong>Mreža</strong> isto okno doda še <strong>velikost tiska</strong>, saj se
-              ti dve vrsti lahko prerežeta na več listov, okno pa pove, na koliko listov se bo diagram
+              diagrama, gonilnik za silo izbere najbližji papir, večina diagrama pa je odrezana. Pri vrsti
+              <strong>Drevo</strong> (v obeh izvedbah, ne pa pri prednikih in potomcih hkrati) isto okno doda še
+              <strong>velikost tiska</strong>, saj se diagram ene smeri lahko prereže na več listov, okno pa pove, na koliko listov se bo diagram
               natisnil; <strong>Natisni</strong> nato pošlje ves komplet v tiskanje, po en list na stran. Veliki formati
               so za risalnik ali kopirnico: širok diagram, ki zahteva ducat listov A4, se pogosto natisne na en sam A1.
               <strong>Po meri</strong> sprejme poljubno velikost v milimetrih, tako da se zvitek za risalnik — denimo
@@ -2161,6 +2293,33 @@
               najbližji sorodniki pa so poimenovani na diagramu, kolikor jih gre brez prekrivanja.
             </p>
             <p>
+              <strong>Priimki</strong> obdržijo iste obroče, odgovarjajo pa na drugo vprašanje: <em>iz katerih imen je
+              ta družina sestavljena in kako daleč sega vsako od njih?</em> Obroč je tu en sam sklenjen krog, razdeljen
+              med sorodnike, ki so v njem; sosedje z istim priimkom se berejo kot en pas, širok toliko, kolikor je v
+              njem oseb. Sorodniki so razvrščeni v en sam niz: najprej predniki, zbrani na vrhu kroga, nato v smeri
+              urinega kazalca vsi, do katerih vodi pot navzgor in nato nazaj navzdol, in nazadnje potomci. Najbolj
+              oddaljeni potomec se ob sklenitvi kroga spet stakne z najbolj oddaljenim prednikom.
+              Isti priimek, ki pride po dveh vejah, ostane dva pasova — tako je ime, ki je v
+              rodovnik vstopilo dvakrat, še vedno vidno. Pod pasom ni narisana nobena posamezna oseba, zato osebe
+              preberete na pasu samem: ustavite se nad njim in izpiše se, kdo je v njem, s klikom pa odprete seznam.
+              V glavi piše krvna razdalja, nato pa je vsako ime v barvi spola, ob njem pa življenjska doba in sorodstvo
+              z osebo v središču. Pas zajema en obroč in en rod, zato so vsi v njem v istem sorodstvu — pas tet je
+              sam iz tet. Močnejše črte v obroču stojijo tam, kjer se konča neposredna linija: najprej predniki tega
+              obroča, nato vsi, do katerih vodi pot navzgor in nato nazaj navzdol, in nazadnje njegovi potomci. Ko odprete
+              en pas, se osvetlijo tudi vsi drugi pasovi z istim priimkom, kjer koli na diagramu so, tako da se doseg
+              imena, ki je v rodovnik prišlo večkrat, pokaže naenkrat. Pas
+              odgovori s svojimi krvnimi sorodniki in nikoli ne odpre podokna posamezne osebe — ta postavitev je
+              namenjena imenom družine, posamezna oseba pa sodi na Kolo. Kadar je <em>Barva</em>
+              (<a href="#charts">§11</a>) nastavljena na
+              <em>Enobarvno</em>, so pasovi obarvani samo po tej smeri. Tu so na voljo še <em>Rod</em>,
+              <em>Družinska veja</em> in <em>Priimek</em> — te tri lahko pas pove za vse svoje osebe hkrati, saj zajema
+              en priimek v eni družinski veji pri enem rodu. Drugih izbir ni, ker bi morale ugibati: v pasu so moški in
+              ženske, živi in umrli, ena sama barva pa bi izbrala eno in preostale napačno prikazala. Če katero od njih
+              izberete na drugem diagramu, se ti obroči vrnejo na <em>Enobarvno</em>, vaša izbira pa ostane
+              nespremenjena. Oznake izklopite z nastavitvijo <em>Imena</em>. Obroči nimajo svoje številčne lestvice: sklenjen obroč
+              nima vrzeli, kamor bi jo postavili, vsak pas pa svojo krvno razdaljo pove sam.
+            </p>
+            <p>
               <strong>Trakovi</strong> izrišejo iste osebe kot trakove življenjske dobe na letni osi, razvrščene v
               pasove po krvni razdalji, za vsem skupaj pa stoji obarvan stolpec življenja izbrane osebe. Vrstice
               najbližjih sorodnikov so dovolj visoke za ime in letnici, tisoči oddaljenih bratrancev pa so tanke črtice.
@@ -2168,9 +2327,9 @@
               vsak drug trak bere prav v razmerju do tega življenja.
             </p>
             <p>
-              Pod krmilnimi gumbi je <strong>barvni ključ</strong> z eno postavko za vsako skupino na trenutni
-              barvni osi in z njenim številom, vsaka postavka pa je hkrati njeno stikalo: s klikom nanjo tisti
-              rod, družinsko vejo ali stanje odstranite z diagrama. Postavitev se izriše iz vseh oseb, zato
+              <strong>Barvni ključ</strong> pod krmilnimi gumbi — isti, kot ga za nastavitev <em>Barva</em> pokaže
+              vsak diagram (<a href="#charts">§11</a>) — ima po eno postavko za vsako skupino z njenim številom, tu
+              pa je vsaka postavka hkrati njeno stikalo: s klikom nanjo tisto skupino odstranite z diagrama. Postavitev se izriše iz vseh oseb, zato
               skrivanje ene veje ne premakne izsekov okoli nje. V kolesu so oznake obročev napisane kar po
               obročih; obroč, ki je preblizu središča, da bi bilo prostora za besede, pokaže samo svojo
               številko — z miško nad njo se izpiše celotno sorodstvo.
@@ -2189,6 +2348,20 @@
               po katerem za osebo ne velja več, da je še živa. Ko z miško postojite nad znamenjem, se izpišejo ime,
               natančno sorodstvo z osebo v središču in letnici; s klikom nanj se odpre podokno osebe, iz katerega
               lahko diagram postavite nanjo ali jo odprete v <span class="gm-pill">Urejanju</span>.
+            </p>
+            <p>
+              <strong>Zemljevid</strong> postavi iste osebe na zemljevid, vsako z eno piko, v kraj njenega rojstva —
+              kadar rojstvo nima koordinat, pa k njenemu najzgodnejšemu dogodku, ki jih ima, sicer k smrti ali pokopu.
+              Nihče ni umeščen po ugibanju: sorodnik, ki nima nobenega dogodka s koordinatami, se ne izriše v vasi
+              svojih staršev, kjer bi bila ugibana pika videti prav takšna kot prava. Namesto tega števec ob iskalnem
+              polju pove, koliko sorodnikov je <em>neumeščenih</em>; s klikom nanj se odpre seznam v dveh skupinah:
+              sorodniki, katerih kraju manjkajo le koordinate, z gumbom, ki odpre orodje
+              <a href="#geocode">Geokodiranje krajev</a>, in sorodniki brez vsakega kraja. Pike obdržijo barve
+              diagrama, ob vklopljenem stikalu <strong>Živi v letu</strong> potemnijo in upoštevajo barvni ključ;
+              sorodniki na istem mestu se združijo v oznako s števcem: klik jo približa, ko je zemljevid dovolj blizu,
+              pa našteje, kdo je tam. Oseba iz središča kolesa je tu večji krogec z njenimi začetnicami. Kartografsko
+              ozadje in zgodovinske plasti so iste kot pri vrsti <a href="#map">Zemljevid</a>, z enako privolitvijo v
+              nalaganje ploščic.
             </p>
             <h3 id="map">Zemljevid</h3>
             <p>
@@ -2536,7 +2709,9 @@
               povezav: povezava, pripeta kot medijski zapis, se pokaže kot 🔗 in odpre okno
               <strong>Uredi povezavo</strong>, kjer naslov URL uredite, odprete ali odstranite (skupaj z njo se
               izbriše tudi medijski zapis, ki ga ne uporablja nič drugega). Če se z miško ustavite nad katero koli
-              ikono vira ali povezave, se ob njej pokaže puščica ↗, ki stran odpre neposredno. Povezava, zapisana v
+              ikono vira ali povezave, se pokaže njen opis, ob ikoni pa puščica ↗, ki stran odpre neposredno. Na
+              zaslonu na dotik prvi dotik ikone pokaže isti opis z gumboma <strong>Uredi</strong> in
+              <strong>Odpri povezavo v novem zavihku</strong>, drugi dotik pa deluje kot klik. Povezava, zapisana v
               besedilu opombe, ostane ikona samo za branje — v opombi jo uredite ali odstranite. Za pregled in
               urejanje virov po celotni
               datoteki — vključno z dvojniki — uporabite <span class="gm-pill">Orodja</span> › <strong>Viri</strong>, za
@@ -2613,6 +2788,17 @@
               takrat, kadar to ni nastalo iz zgoraj naštetih urejanj — v tem primeru zanj ni opisa po posameznih poljih.
               Bistvo je, da v vašo datoteko nič ne pride neomenjeno: tudi zapis brez opisa je zapis, ki si ga velja
               ogledati.
+            </p>
+            <p>
+              <strong>Polja</strong> in <strong>Vrstice GEDCOM</strong> — preklop ob naslovu <em>Spremembe</em> — sta
+              dva pogleda na isto pripravljeno shranjevanje. Polja so pogled, opisan zgoraj: kaj posamezna sprememba
+              pomeni, povedano z besedami programa. Vrstice GEDCOM pokažejo, kaj bo datoteka dobesedno dobila: vsaka
+              spremenjena vrstica stoji ob tisti, ki jo nadomešča, in pod svojimi nadrejenimi oznakami, tako da
+              spremenjen datum berete pod njegovim dogodkom in ne med drugimi vrsticami zapisa. Nespremenjene vrstice
+              so izpuščene, razen vrstice z imenom osebe, ki ostane nad vsako spremembo; znak »⋯« pove, da se prikaz
+              seli v drug del zapisa. Datuma spremembe med njimi ni:
+              vpiše se šele, ko prenos potrdite. Pri zapisu, ki mu program ni ohranil prejšnje različice, se namesto
+              vrstic izpiše pojasnilo. Izbrani pogled se ohrani do naslednjega shranjevanja.
             </p>
             <p>
               <strong>Prenesi GEDCOM</strong> zapiše novo datoteko <em>.ged</em>. Prenesena datoteka postane vaše novo
@@ -2778,6 +2964,31 @@
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Prejšnja / naslednja fotografija v pregledovalniku</td></tr>
               </tbody>
             </table>
+            <p><strong>Razpon let</strong> — kratki zapis <span class="gm-data">1817–1921</span> za imenom osebe, kjer
+              koli so osebe naštete ali zbrane na kartici: med zadetki iskanja, pri kandidatih za ujemanje in njihovih
+              sorodnikih, v naslovih diagramov in stranskih ploščah, v izbirnikih oseb in v predogledu shranjevanja. Če
+              se z miško ustavite na letnicah, se izpišeta datuma rojstva in smrti, tako kot ju zapisuje vaša datoteka,
+              skupaj s približnim datumom (<em>ABT 1908</em>).</p>
+            <p><strong>Znamenja dogodkov</strong> — klasični rodoslovni znaki, povsod isti, kjer je dogodek narisan in
+              ne poimenovan: na začetku vsake vrstice dogodka v Urejanju (<a href="#edit">§8</a>), za imenom na seznamih
+              krajev (<a href="#places">§10</a>), na črtah časovnice in v besedilnih poročilih
+              (<a href="#charts">§11</a>). Ime dogodka se pokaže, ko z miško postojite na znamenju.</p>
+            <table class="gm-table">
+              <thead><tr><th>Znamenje</th><th>Dogodek</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-glyph">*</span></td><td>Rojstvo</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Krst in krst otroka</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚯</span></td><td>Zaroka, poroka, ločitev, partnerstvo</td></tr>
+                <tr><td><span class="gm-glyph">†</span></td><td>Smrt</td></tr>
+                <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Pokop, upepelitev</td></tr>
+                <tr><td><span class="gm-glyph">⌂</span></td><td>Prebivališče</td></tr>
+                <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Poklic, izobrazba</td></tr>
+                <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Izselitev, priselitev, naturalizacija</td></tr>
+                <tr><td><span class="gm-glyph">▤</span></td><td>Popis</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Oporoka, zapuščinska obravnava, pravni posel, listina</td></tr>
+                <tr><td><span class="gm-glyph">·</span></td><td>Vsaka druga vrsta dogodka — takšna, ki nima svojega ustaljenega znaka</td></tr>
+              </tbody>
+            </table>
             <p><strong>Oznake stanja</strong> — okrogle oznake na vrsticah kandidatov (Združevanje), ob sorodnikih na
               plošči s primerjavo in na vozliščih primerjalnega drevesa, kjer je odločitev bistvo pogleda. Drugi
               diagrami jih ne rišejo: prikazujejo družino, ne vašega dela na njej. Na seznamu ujemanj v Združevanju
@@ -2829,7 +3040,7 @@
               Kjer koli pritisnite <span class="gm-key">?</span> (ali <span class="gm-key">F1</span>) ali kliknite gumb
               <span class="gm-key">?</span> v glavi strani, da v aplikaciji odprete ta seznam; najprej so naštete tipke,
               ki delujejo tam, kjer ste, preostale pa pod naslovom <em>Drugod v aplikaciji</em>. Vsak gumb z bližnjico jo
-              navede v svojem namigu, seznama ujemanj in dvojnikov pa kažeta svoje tipke ob filtrih. Gumb <strong>Natisni</strong>
+              navede v svojem namigu. Gumb <strong>Natisni</strong>
               na seznamu natisne celoten seznam na eno stran A4, ležeče. <strong>Standardne</strong> bližnjice uporabljajo tipko
               (<span class="gm-key">Ctrl</span> / <span class="gm-key">⌘</span>); <strong>aplikacijske</strong> so ena
               sama tipka.
@@ -2846,7 +3057,8 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Prikaži seznam bližnjic — F1 deluje tudi iz polja, ki ga urejate</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Zapusti polje, ki ga urejate, in ohrani vpisano (Urejanje) / zapri okno / zapusti stran z diagramom</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Preklopi na Urejanje · Združevanje · Orodja</td></tr>
-                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premakni označeno vrstico seznama, v katerem ste — ujemanja, pari dvojnikov, ugotovitve Pregleda, zadetki iskanja</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Pomakni primerjavo (Združevanje); po tipki <span class="gm-key">Enter</span> se s puščicama premikate po njenih poljih</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premakni označeno vrstico seznama, v katerem ste — polja primerjave, pari dvojnikov, ugotovitve Pregleda, zadetki iskanja</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Prejšnje / naslednje ujemanje — v Združevanju in Urejanju ter na seznamu dvojnikov</td></tr>
                 <tr><td><span class="gm-key">Home</span> / <span class="gm-key">End</span></td><td>Prva / zadnja vrstica seznama</td></tr>
                 <tr><td><span class="gm-key">PgUp</span> / <span class="gm-key">PgDn</span></td><td>Pomakni odprto okno — v Združevanju primerjavo</td></tr>
@@ -2859,7 +3071,7 @@
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega brata ali sestro, po rojstvu (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↓</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span></td><td>Odpri najstarejšega · najmlajšega otroka (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega partnerja (Urejanje)</td></tr>
-                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Nazaj — prejšnja stran v Urejanju (prejšnja oseba ali seznam v Orodjih, s katerega ste jo odprli) ali izhod iz strani z diagramom; kombinacija deluje tudi iz polja, ki ga urejate</td></tr>
+                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Nazaj — vedno isti korak kot gumb Nazaj v brskalniku: v Urejanju prejšnja oseba (ali seznam v Orodjih, s katerega ste jo odprli), v Združevanju ujemanje, iz katerega ste odprli sorodnika, v Orodjih prejšnja stran, sicer izhod iz strani z diagramom; kombinacija deluje tudi iz polja, ki ga urejate (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Dodaj novo osebo (brez povezav)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Odpri meni <strong>+ Dodaj dogodek</strong> (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Dodaj hitri dogodek odprti osebi (Urejanje) — gumbi pod seznamom dogodkov, v njihovem vrstnem redu</td></tr>

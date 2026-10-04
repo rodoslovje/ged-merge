@@ -3,6 +3,7 @@ import { firstChild } from "../../gedcom/node";
 import { createRepoRecord, createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
 import { applySiteSourceExtras, createSiteRepo, pageObjeTitle } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
+import type { CitationPageStyle } from "../../gedcom/source";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
 import type { AddSourceResult } from "../AddSourceDialog";
 
@@ -24,10 +25,14 @@ export function createStandaloneSource(
     sourceLayout: SourceLayout | "auto";
     sourceCoverage?: "vendor" | "standard" | "auto";
     baptism?: "BIRT" | "BAPM" | "auto";
+    /** "url": the file cites a page by its link, so the source gets no page
+     *  image and the citation's page is the link itself. Number by default. */
+    citationPage?: CitationPageStyle;
   },
 ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
   const extraPatches: RecordPatch[] = [];
-  const sourceNode = createSourceRecord(records, fields as NewSourceFields);
+  const byLink = opts.citationPage === "url";
+  const sourceNode = createSourceRecord(records, byLink ? { ...(fields as NewSourceFields), url: undefined } : (fields as NewSourceFields));
   // The dialog's Repository dropdown sends an explicit choice (an existing
   // xref, "" for none, or create-the-site's); without one — older callers —
   // the automatic site-repo behavior applies as before.
@@ -85,5 +90,5 @@ export function createStandaloneSource(
       extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
     }
   }
-  return { sourceXref: sourceNode.xref!, page: fields.page, pageObjeXref: objeChild?.value, extraPatches };
+  return { sourceXref: sourceNode.xref!, page: byLink ? fields.url || fields.page : fields.page, pageObjeXref: objeChild?.value, extraPatches };
 }

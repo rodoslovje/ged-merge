@@ -57,10 +57,16 @@
   /* The four grandparent lines. Kin to the lineage pair and ordered like the
      wedges themselves — father's blood in blues on the left, mother's in
      purples on the right — so a wedge's colour and its side agree. */
-  --kin-line-f1: #5a8df0;
-  --kin-line-f2: #56b8d8;
-  --kin-line-m1: #c061f0;
-  --kin-line-m2: #ee7ab4;
+
+  /* ---- Fan / Circle descendants ----
+     One hue per child of the root, inherited down that child's whole line and
+     paler with each generation, so a wedge says which branch it belongs to
+     without a label. The hues are spaced evenly around the wheel by how many
+     children there are (EditTree builds `oklch(L C hue)`); the theme sets the
+     lightness and chroma every hue shares, so the ring reads as one ordered
+     progression on this ground. */
+  --fan-branch-l: 0.72;
+  --fan-branch-c: 0.15;
 
   /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
   --danger:      #e74c3c;
@@ -72,11 +78,21 @@
   --status-link:   #93c5fd;  /* carries a link / source            */
   --status-import: #c4b5fd;  /* importable candidate count         */
 
+  /* ---- line diff (the save preview's GEDCOM-lines view) ----
+     A tinted row plus its own text colour: the tint carries the reading at a
+     glance, the text colour keeps it legible where a row is selected or the
+     block is printed. */
+  --diff-add-bg: color-mix(in oklch, var(--status-new) 18%, transparent);
+  --diff-add-fg: var(--status-new);
+  --diff-del-bg: color-mix(in oklch, var(--danger) 16%, transparent);
+  --diff-del-fg: #f0a59d;
+
   /* ---- Compare-Tree node fills (deeper; white text reads on both themes) ---- */
   --node-match:    #067d4d;
   --node-minor:    #a2702b;
   --node-major:    #b63b39;
   --node-main:   #286853;
+  --node-desc:   #2b6b7d;   /* the descendants' side on the plain Color axis */
   --node-incoming: #7846a9;
 
   /* ---- Map chart: marker colour per event kind + offline-outline land ---- */
@@ -143,10 +159,10 @@
   --kin-desc-near: #0f8a6a;
   --kin-desc-far:  #1a2f9e;
   --kin-deceased:  #8d857b;
-  --kin-line-f1: #2f5fcf;
-  --kin-line-f2: #1a7392;
-  --kin-line-m1: #8e24c9;
-  --kin-line-m2: #b73c7c;
+
+  /* Darker, fuller hues on paper: the tints are mixed into a light panel. */
+  --fan-branch-l: 0.56;
+  --fan-branch-c: 0.16;
 
   --danger:      #c0392b;   /* deeper red reads better on warm paper */
   /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */
@@ -155,6 +171,13 @@
   --status-diff:   #b45309;
   --status-link:   #2563eb;
   --status-import: #7c3aed;
+
+  /* The tints mix into paper, so they need more of the hue to read at all; the
+     text colours are the same deep ones the rest of the light theme uses. */
+  --diff-add-bg: color-mix(in oklch, var(--status-new) 14%, transparent);
+  --diff-add-fg: var(--status-new);
+  --diff-del-bg: color-mix(in oklch, var(--danger) 12%, transparent);
+  --diff-del-fg: var(--danger);
 
   --map-birth:     #2e7d43;
   --map-marriage:  #a9750e;

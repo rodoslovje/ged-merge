@@ -105,7 +105,7 @@ export function buildDescendants(
 }
 
 /** Facts in report order: * ~ open and † ▭ close; the mid-life lines between
- *  them (every union's ⚭, the optional ⚒/✎/⌂) run chronologically. */
+ *  them (every union's ⚭, the optional ⚒/🎓/⌂) run chronologically. */
 function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactOptions, nowYear: number): FactLine[] {
   return [
     factFor(indi, ["BIRT"], opts, ds),

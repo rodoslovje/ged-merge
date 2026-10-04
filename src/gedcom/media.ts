@@ -96,6 +96,11 @@ export interface MediaRef extends MediaAddress {
   /** GEDCOM 7 crop region from the OBJE *link* — the part of this (group) photo
    *  that depicts the record. Lives on the link, not the shared media record. */
   crop?: CropRegion;
+  /** Further links on the same record to this very media (same shared `OBJE`
+   *  or same inline file, same crop) — e.g. a scan attached on the person and
+   *  again on their birth event. One ref stands for all of them; a delete
+   *  removes every one (see `removeMediaAt`). */
+  alsoAt?: MediaAddress[];
 }
 
 /** Local file, title, and descriptive content for one OBJE node, or null when
@@ -119,6 +124,9 @@ function objeMediaRef(objeNode: GedNode): Pick<MediaRef, "file" | "title" | "dat
  * itself first, then under its direct-child events (a christening photo on
  * `CHR`, a wedding photo on a `FAM`'s `MARR`, …). `SOUR` citation subtrees are
  * skipped: their media belongs to the source and is shown by the sources UI.
+ * The same media linked twice (the person and one of their events both
+ * pointing at one `OBJE`, with the same crop) yields one ref, the later links
+ * folded into its `alsoAt`.
  */
 export function collectMediaRefs(raw: GedNode, records: GedNode[]): MediaRef[] {
   const objeNodes = objeNodesFor(records);
@@ -159,7 +167,19 @@ export function collectMediaRefs(raw: GedNode, records: GedNode[]): MediaRef[] {
     collectFrom(child, { eventTag: child.tag, eventIndex });
   }
   entries.sort((a, b) => Number(b.primary) - Number(a.primary) || a.seq - b.seq || a.pos - b.pos);
-  return entries.map((e) => e.ref);
+  const kept = new Map<string, MediaRef>();
+  const refs: MediaRef[] = [];
+  for (const { ref } of entries) {
+    const key = `${ref.xref ?? `file:${ref.file}`}|${ref.crop ? JSON.stringify(ref.crop) : ""}`;
+    const first = kept.get(key);
+    if (!first) {
+      kept.set(key, ref);
+      refs.push(ref);
+      continue;
+    }
+    (first.alsoAt ??= []).push({ eventTag: ref.eventTag, eventIndex: ref.eventIndex, objeIndex: ref.objeIndex });
+  }
+  return refs;
 }
 
 /** Resolve a media address to its container node — the record itself or the

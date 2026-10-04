@@ -25,6 +25,7 @@ const CARRIED_FIELDS = [
   "sourceLayout",
   "detectedFormats",
   "pageMediaStyle",
+  "citationPageStyle",
   "nameLayout",
   "unknownNameStyle",
   "marriedNameTag",

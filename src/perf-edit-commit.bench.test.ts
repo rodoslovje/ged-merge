@@ -20,7 +20,7 @@ import { buildDataset } from "./gedcom/builder";
 import { defaultStartId } from "./match/relatives";
 import { computeDistances } from "./match/distance";
 import { buildSearchRows } from "./ui/globalSearch";
-import { buildPlaceSuggestions } from "./ui/edit/placeSuggestions";
+import { buildFieldSuggestions } from "./ui/edit/fieldSuggestions";
 import { collectPlaceValues } from "./tools/geocode";
 import { detectHomeCountry } from "./geo/homeCountry";
 import { inferPlaceExportFormat } from "./normalize/profile";
@@ -71,7 +71,7 @@ describe.skipIf(!file)("edit-commit cost profile", () => {
       }));
       opts.sort((a, b) => a.text.localeCompare(b.text));
     });
-    total += timed("Derivations: buildPlaceSuggestions", () => buildPlaceSuggestions(dataset));
+    total += timed("Derivations: buildFieldSuggestions", () => buildFieldSuggestions(dataset));
     total += timed("EditView: pairUses walk (walkPlaceAddr all)", () => {
       const counts = new Map<string, number>();
       const visit = (raw: GedNode) =>

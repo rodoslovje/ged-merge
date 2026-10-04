@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGedcom } from "./parser";
+import { NOT_GEDCOM, parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
 import { downloadOptions, serializeGedcom } from "./serialize";
 
@@ -296,5 +296,28 @@ describe("parseGedcom", () => {
       expect(name.surname).toBe("Novak");
       expect(name.suffix).toBeUndefined();
     });
+  });
+});
+
+describe("parseGedcom refuses what is not a GEDCOM file", () => {
+  const bytes = (s: string) => new TextEncoder().encode(s).buffer;
+
+  it("throws NOT_GEDCOM for an empty file", () => {
+    expect(() => parseGedcom(bytes(""))).toThrow(NOT_GEDCOM);
+  });
+
+  it("throws NOT_GEDCOM for a text with no header and no records", () => {
+    expect(() => parseGedcom(bytes("<!doctype html><html><body>Not found</body></html>\n"))).toThrow(NOT_GEDCOM);
+  });
+
+  it("throws NOT_GEDCOM for binary junk", () => {
+    const junk = new Uint8Array(4096);
+    for (let i = 0; i < junk.length; i++) junk[i] = (i * 7919 + 13) & 0xff;
+    expect(() => parseGedcom(junk.buffer)).toThrow(NOT_GEDCOM);
+  });
+
+  it("accepts a header-only file (a new, empty tree) and a bare record fragment", () => {
+    expect(parseGedcom(bytes("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 TRLR\n")).records).toHaveLength(2);
+    expect(parseGedcom(bytes("0 @S1@ SOUR\n1 TITL Book\n")).records).toHaveLength(1);
   });
 });

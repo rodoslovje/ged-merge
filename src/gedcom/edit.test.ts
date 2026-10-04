@@ -48,6 +48,7 @@ import {
   removeFamilyEvent,
   removeFamily,
   removeIndividual,
+  familiesNaming,
   removeSourceCitationAtIndex,
   setAdditionalName,
   setEventField,
@@ -1459,6 +1460,76 @@ describe("removeIndividual", () => {
     expect(ds.families.has("@F1@")).toBe(false); // only the child was left
     expect(ds.individuals.get("@I3@")!.childOf).not.toContain("@F1@");
   });
+
+  it("keeps a widow's marriage: a childless family with a dated, cited MARR survives the first spouse delete", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 FAMS @F1@",
+      "0 @I2@ INDI", "1 NAME Ana /Kos/", "1 FAMS @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@",
+      "1 MARR", "2 DATE 1 JAN 1900", "2 PLAC Ljubljana", "2 SOUR @S1@", "3 PAGE 12",
+      "0 @S1@ SOUR", "1 TITL Book",
+      "0 TRLR", "",
+    ].join("\n"));
+
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+    const fam = ds.families.get("@F1@")!;
+    expect(fam).toBeDefined();
+    expect(fam.husband).toBeUndefined();
+    expect(fam.wife).toBe("@I2@");
+    expect(ds.individuals.get("@I2@")!.spouseOf).toContain("@F1@");
+    const marr = fam.raw.children.find((c) => c.tag === "MARR")!;
+    expect(marr.children.map((c) => c.tag)).toEqual(["DATE", "PLAC", "SOUR"]);
+  });
+
+  it("still prunes a childless family that carries only stamps and empty stubs", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 FAMS @F1@",
+      "0 @I2@ INDI", "1 NAME Ana /Kos/", "1 FAMS @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@", "1 MARR", "1 _UID ABC", "1 CHAN", "2 DATE 18 JUN 2026",
+      "0 TRLR", "",
+    ].join("\n"));
+
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.individuals.get("@I2@")!.spouseOf).not.toContain("@F1@");
+  });
+
+  it("clears a CHIL pointer the child's own record never linked back to", () => {
+    // One-sided file: @F1@ lists @I2@ as a child, but @I2@ carries no FAMC.
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME A /X/", "1 FAMS @F1@",
+      "0 @I2@ INDI", "1 NAME B /X/",
+      "0 @I3@ INDI", "1 NAME C /X/", "1 FAMS @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I3@", "1 CHIL @I2@",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(familiesNaming(ds, "@I2@")).toEqual(["@F1@"]);
+
+    removeIndividual(ds, ds.individuals.get("@I2@")!);
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.raw.children.some((c) => c.tag === "CHIL")).toBe(false);
+    expect(fam.children).toEqual([]);
+    expect(ds.families.has("@F1@")).toBe(true); // the couple remains
+  });
+
+  it("clears a HUSB pointer the spouse's own record never linked back to", () => {
+    const ds = buildFromText([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME A /X/",
+      "0 @I2@ INDI", "1 NAME B /Y/", "1 FAMS @F1@",
+      "0 @I3@ INDI", "1 NAME C /X/", "1 FAMC @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@", "1 CHIL @I3@",
+      "0 TRLR", "",
+    ].join("\n"));
+
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.husband).toBeUndefined();
+    expect(fam.raw.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["WIFE @I2@", "CHIL @I3@"]);
+  });
 });
 
 // ─── removeFamily ─────────────────────────────────────────────────────────────
@@ -2210,6 +2281,23 @@ describe("individual media", () => {
     const rec = createMediaRecord(ds.records, "a.jpg");
     attachMediaPointer(indi.raw, rec.xref!);
     removeMediaAt(ds, indi.raw, { objeIndex: 0 });
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
+  it("removes every link a collapsed ref stands for, then prunes the shared record", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const rec = createMediaRecord(ds.records, "scan.jpg");
+    attachMediaPointer(indi.raw, rec.xref!);
+    attachMediaPointer(indi.raw, rec.xref!);
+    const birt = { level: 1, tag: "BIRT", children: [{ level: 2, tag: "OBJE", value: rec.xref, children: [] }] };
+    indi.raw.children.push(birt);
+    removeMediaAt(ds, indi.raw, {
+      objeIndex: 0,
+      alsoAt: [{ objeIndex: 1 }, { eventTag: "BIRT", eventIndex: 0, objeIndex: 0 }],
+    });
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(birt.children).toHaveLength(0);
     expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
   });
 

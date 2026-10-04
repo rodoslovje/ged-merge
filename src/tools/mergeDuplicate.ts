@@ -1,15 +1,14 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { recordsNaming, repointAssociations } from "../gedcom/assoc";
-import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import {
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
   detachChildFromFamily,
+  foldFamily,
   insertOrdered,
   rebuildFamily,
   rebuildIndividual,
-  removeFamily,
   removeIndividual,
 } from "../gedcom/edit";
 import { applyRows, linkPlacementFor } from "../merge/applyFields";
@@ -17,7 +16,6 @@ import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
 import {
-  cloneRaw,
   patchesFromSnapshots,
   snapshotRecords,
   type RecordPatch,
@@ -460,41 +458,6 @@ function groupAndFold(dataset: Dataset, famIds: string[], keyOf: (fam: Family) =
     for (let i = 1; i < fids.length; i++) foldFamily(dataset, fids[0], fids[i]);
   }
 }
-
-/** Merge `dropId` into `keepId`: move children and any missing spouse slots and
- *  marriage events over, then remove the now-redundant family. */
-function foldFamily(dataset: Dataset, keepId: string, dropId: string): void {
-  const keep = dataset.families.get(keepId);
-  const drop = dataset.families.get(dropId);
-  if (!keep || !drop) return;
-
-  for (const childId of [...drop.children]) {
-    if (keep.children.includes(childId)) continue;
-    insertOrdered(keep.raw, ptr(keep.raw, "CHIL", childId), FAM_CHILD_ORDER);
-    const child = dataset.individuals.get(childId);
-    if (child) addLink(dataset, child, "FAMC", keepId);
-  }
-
-  for (const role of ["HUSB", "WIFE"] as const) {
-    if (keep.raw.children.some((c) => c.tag === role)) continue;
-    const spouseId = drop.raw.children.find((c) => c.tag === role)?.value;
-    if (!spouseId) continue;
-    insertOrdered(keep.raw, ptr(keep.raw, role, spouseId), FAM_CHILD_ORDER);
-    const spouse = dataset.individuals.get(spouseId);
-    if (spouse) addLink(dataset, spouse, "FAMS", keepId);
-  }
-
-  for (const ev of drop.raw.children) {
-    if (FAM_EVENT_TAGS.has(ev.tag) && !keep.raw.children.some((c) => c.tag === ev.tag)) {
-      insertOrdered(keep.raw, cloneRaw(ev), FAM_CHILD_ORDER);
-    }
-  }
-
-  rebuildFamily(dataset, keep);
-  removeFamily(dataset, drop); // unlinks every remaining member's FAMS/FAMC to drop
-}
-
-const FAM_EVENT_TAGS = new Set(EDITABLE_FAM_EVENT_TAGS);
 
 // ── small helpers ────────────────────────────────────────────────────────────
 

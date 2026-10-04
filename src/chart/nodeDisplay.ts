@@ -7,6 +7,7 @@ import type { Individual, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import type { Lineage } from "../match/kinship";
 import { findEvent } from "../match/relatives";
+import { EVENT_GLYPHS } from "../gedcom/eventTags";
 import { localityParts } from "../gedcom/place";
 
 /** The display subset of `ChartSettings` (kept independent of the React context so
@@ -38,8 +39,10 @@ export const ALL_DISPLAY: NodeDisplayOptions = {
   privacyLiving: false,
 };
 
-/** Marriage glyph (U+26AD) — language-neutral, prefixed on every marriage label. */
-export const MARRIAGE_SYMBOL = "⚭";
+/** Marriage glyph (U+26AD) — language-neutral, prefixed on every marriage
+ *  label. The event vocabulary's own mark, so the connector label and the
+ *  event lists elsewhere carry the same one. */
+export const MARRIAGE_SYMBOL = EVENT_GLYPHS.MARR;
 
 /** Which marriage fields to include — the two independent Marriage toggles. */
 export interface MarriageFields {
@@ -189,5 +192,44 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
     showPhoto: opts.showPhoto,
+  };
+}
+
+/**
+ * The hover text for a chart node: the full name with the lifespan (and the
+ * age, when shown) on the first line — whatever the box or wedge had room to
+ * draw — then each further field the chart options show on a line of its
+ * own: the place and the kinship to the start person. A redacted living
+ * person shows only their placeholder, and every line the redaction hides
+ * stays hidden here too.
+ */
+export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): string {
+  const h = nodeHover(opts, input);
+  return [h.years ? `${h.name}, ${h.years}` : h.name, h.place, h.kinship].filter(Boolean).join("\n");
+}
+
+/** What the hover card shows for a node, field by field: the name (or the
+ *  placeholder for a redacted living person), the lifespan with the age when
+ *  shown, and the place and kinship lines the settings show. */
+export interface NodeHover {
+  name: string;
+  years?: string;
+  place?: string;
+  kinship?: string;
+  kinshipLineage?: Lineage;
+  /** A redacted living person: the name is the placeholder and nothing else shows. */
+  redacted: boolean;
+}
+
+export function nodeHover(opts: NodeDisplayOptions, input: NodeDisplayInput): NodeHover {
+  const disp = nodeDisplay(opts, input);
+  if (opts.privacyLiving && input.living) return { name: disp.name, redacted: true };
+  return {
+    name: input.name,
+    years: lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age }) || undefined,
+    place: disp.place,
+    kinship: disp.kinship,
+    kinshipLineage: disp.kinshipLineage,
+    redacted: false,
   };
 }

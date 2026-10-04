@@ -1,5 +1,6 @@
 import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
+import { cloneNode } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { rebuildFamily, rebuildIndividual } from "./cache";
@@ -277,18 +278,34 @@ export function connectExistingChild(
 
 /**
  * Remove a family that has fewer than two members — a lone spouse, a single
- * child, or nothing at all. A family needs at least two members (a couple, or
- * a parent/sibling group) to mean anything; once a deletion or detach drops it
- * below that, the now-meaningless `FAM` record (which may still carry only
- * CREA/CHAN/MARR stubs) is dropped via `removeFamily`, which also unlinks the
- * `FAMS`/`FAMC` pointer of any sole surviving member. Returns `true` if it was
- * removed.
+ * child, or nothing at all — *and* nothing recorded about it. A family needs at
+ * least two members (a couple, or a parent/sibling group) to mean anything;
+ * once a deletion or detach drops it below that, the now-meaningless `FAM`
+ * record (which may still carry only CREA/CHAN stamps and empty `1 MARR`
+ * stubs) is dropped via `removeFamily`, which also unlinks the `FAMS`/`FAMC`
+ * pointer of any sole surviving member. Returns `true` if it was removed.
+ *
+ * A family that still carries content — a marriage date or place, a citation,
+ * a note, a divorce — is kept with its one remaining member: the widow's
+ * wedding is a fact about her, and the confirm dialog promised to remove the
+ * deleted person's relationships, not the marriage record itself.
  */
 export function pruneDegenerateFamily(dataset: Dataset, fam: Family): boolean {
   const memberCount = (fam.husband ? 1 : 0) + (fam.wife ? 1 : 0) + fam.children.length;
   if (memberCount >= 2) return false;
+  if (!isBareFamily(fam)) return false;
   removeFamily(dataset, fam);
   return true;
+}
+
+/** Whether the family record holds nothing beyond member pointers, its own
+ *  record stamps and empty stub lines (`1 MARR` with nothing under it). */
+function isBareFamily(fam: Family): boolean {
+  return fam.raw.children.every(
+    (c) =>
+      c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL" || RECORD_OWN_TAGS.has(c.tag) ||
+      (!c.value && c.children.length === 0),
+  );
 }
 
 /** Remove a spouse role (HUSB or WIFE) from a family and the matching FAMS from the individual. */
@@ -327,7 +344,11 @@ export function detachChildFromFamily(dataset: Dataset, fam: Family, childId: st
  * holds cannot stay pointed at from the baptism, or every delete would leave
  * the health check a dangling reference to report. */
 export function removeIndividual(dataset: Dataset, indi: Individual): void {
-  const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf]);
+  // The person's own FAMS/FAMC lines name their families — but a file can be
+  // one-sided (a `CHIL` with no `FAMC` back-link, a `HUSB` without `FAMS`), and
+  // a pointer left on such a family would dangle. So the family side is
+  // scanned too.
+  const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf, ...familiesNaming(dataset, indi.id)]);
   for (const id of repointAssociations(dataset.records, indi.id)) {
     const named = dataset.individuals.get(id);
     if (named) rebuildIndividual(dataset, named);
@@ -336,18 +357,12 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
       if (fam) rebuildFamily(dataset, fam);
     }
   }
-  for (const famId of indi.spouseOf) {
+  for (const famId of affectedFamilyIds) {
     const fam = dataset.families.get(famId);
     if (!fam) continue;
-    if (fam.husband === indi.id) removeChild(fam.raw, "HUSB");
-    else if (fam.wife === indi.id) removeChild(fam.raw, "WIFE");
-    rebuildFamily(dataset, fam);
-  }
-  for (const famId of indi.childOf) {
-    const fam = dataset.families.get(famId);
-    if (!fam) continue;
-    const ci = fam.raw.children.findIndex((c) => c.tag === "CHIL" && c.value === indi.id);
-    if (ci !== -1) fam.raw.children.splice(ci, 1);
+    fam.raw.children = fam.raw.children.filter(
+      (c) => !((c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL") && c.value === indi.id),
+    );
     rebuildFamily(dataset, fam);
   }
   const ri = dataset.records.findIndex((r) => r.xref === indi.id);
@@ -357,6 +372,16 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
     const fam = dataset.families.get(famId);
     if (fam) pruneDegenerateFamily(dataset, fam);
   }
+}
+
+/** Families whose HUSB/WIFE/CHIL lines name `indiId`, whether or not the
+ *  person's own record links back to them. */
+export function familiesNaming(dataset: Dataset, indiId: string): string[] {
+  const ids: string[] = [];
+  for (const fam of dataset.families.values()) {
+    if (fam.husband === indiId || fam.wife === indiId || fam.children.includes(indiId)) ids.push(fam.id);
+  }
+  return ids;
 }
 
 /** Fully remove a family from the dataset, cleaning up FAMS/FAMC pointers on all members. */
@@ -379,4 +404,63 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
   const ri = dataset.records.findIndex((r) => r.xref === fam.id);
   if (ri !== -1) dataset.records.splice(ri, 1);
   dataset.families.delete(fam.id);
+}
+
+/** Lines that belong to the record they sit on, not to the family it describes:
+ *  change stamps and record identifiers. A fold leaves the kept record's own
+ *  and does not carry the dropped record's over. */
+const RECORD_OWN_TAGS = new Set(["CHAN", "CREA", "_UPD", "RIN", "_UID", "UID"]);
+
+/**
+ * Merge family `dropId` into family `keepId` and remove it — for two records
+ * of the same couple, whichever way they came about (a duplicate person
+ * merged, or a partner added twice by hand).
+ *
+ * Nothing recorded is lost: the dropped family's children join the kept one in
+ * birth order, an empty spouse slot is filled from it, and every other line —
+ * marriage and other events, notes, sources, media, custom tags — moves across
+ * unless the kept record already holds an identical line, or holds the tag and
+ * the line is an empty stub (`1 MARR` with nothing under it). Only the dropped
+ * record's own change stamps and identifiers stay behind. Every member's
+ * `FAMS`/`FAMC` pointers end up on the kept family alone.
+ */
+export function foldFamily(dataset: Dataset, keepId: string, dropId: string): void {
+  const keep = dataset.families.get(keepId);
+  const drop = dataset.families.get(dropId);
+  if (!keep || !drop || keepId === dropId) return;
+
+  for (const childId of [...drop.children]) {
+    if (keep.children.includes(childId)) continue;
+    addFamilyChild(dataset, keep, childId);
+    const child = dataset.individuals.get(childId);
+    if (child && !child.raw.children.some((c) => c.tag === "FAMC" && c.value === keepId)) {
+      addFamilyLink(child, "FAMC", keepId);
+      rebuildIndividual(dataset, child);
+    }
+  }
+
+  for (const role of ["HUSB", "WIFE"] as const) {
+    if (keep.raw.children.some((c) => c.tag === role)) continue;
+    const spouseId = drop.raw.children.find((c) => c.tag === role)?.value;
+    if (!spouseId) continue;
+    setFamilySpouse(keep, role, spouseId);
+    const spouse = dataset.individuals.get(spouseId);
+    if (spouse && !spouse.raw.children.some((c) => c.tag === "FAMS" && c.value === keepId)) {
+      addFamilyLink(spouse, "FAMS", keepId);
+      rebuildIndividual(dataset, spouse);
+    }
+  }
+
+  const have = new Set(keep.raw.children.map((c) => JSON.stringify(c)));
+  for (const line of drop.raw.children) {
+    if (line.tag === "HUSB" || line.tag === "WIFE" || line.tag === "CHIL") continue;
+    if (RECORD_OWN_TAGS.has(line.tag)) continue;
+    if (have.has(JSON.stringify(line))) continue;
+    const stub = !line.value && line.children.length === 0;
+    if (stub && keep.raw.children.some((c) => c.tag === line.tag)) continue;
+    insertOrdered(keep.raw, cloneNode(line), FAM_CHILD_ORDER);
+  }
+
+  rebuildFamily(dataset, keep);
+  removeFamily(dataset, drop); // unlinks every member's FAMS/FAMC to the dropped record
 }

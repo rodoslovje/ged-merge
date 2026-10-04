@@ -44,19 +44,14 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings, type PedigreeType } from "./ChartSettingsContext";
-import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
+import { marriedNameOverride, pedigreeVariant, useChartSettings, type PedigreeType } from "./ChartSettingsContext";
+import { ChartKindTabs, PEDIGREE_KINDS, PedigreeVariantTabs } from "./ChartKindTabs";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
-
-/** Chart override for the name formatter when the chart's own Married-name
- *  toggle is off; a module-level constant so useNameOf's formatter keeps a
- *  stable identity across renders. */
-const NO_MARRIED_NAME = { marriedSurname: false } as const;
 
 interface Props {
   mainDs: Dataset;
@@ -144,7 +139,7 @@ export function CompareTree({
   // Names read as the Name-display settings say (married surname, order, …) —
   // the same formatter the lists, the timeline and the reports use.
   const { settings: chartSettings } = useChartSettings();
-  const nameOf = useNameOf(chartSettings.showMarriedName ? undefined : NO_MARRIED_NAME);
+  const nameOf = useNameOf(marriedNameOverride(chartSettings.showMarriedName));
 
   // A node whose main record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.
@@ -223,15 +218,13 @@ export function CompareTree({
   const { settings, setType } = useChartSettings();
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
-  const radial = settings.type === "fan" || settings.type === "circle";
-  const isGrid = settings.type === "grid";
-  // A radial chart only draws ancestors — an override on top of the user's
-  // direction, never a change to it, so leaving Fan/Circle restores the choice.
-  const effectiveMode = radial ? "ancestors" : mode;
+  const radial = settings.type === "fan";
+  const isGrid = !radial && settings.treeLayout === "grid";
+  const variant = pedigreeVariant(settings);
 
   // Both directions build once per root/dataset/decisions: they feed the
-  // mode-button counts, the current direction's layered chart, and (ancestors)
-  // the radial chart — so switching direction or chart type never rebuilds a tree.
+  // mode-button counts and the current direction's chart, layered or radial —
+  // so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
       ancestors: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "ancestors", isRejected, nameOf),
@@ -254,12 +247,12 @@ export function CompareTree({
     }),
     [trees, limit],
   );
-  const tree = shown[effectiveMode];
+  const tree = shown[mode];
   // "4 of 9 generations" while the limit actually cuts this direction — shown on
   // the page and in the export header, so a partial chart never reads as whole.
   const genNote =
-    limit !== null && limit < depths[effectiveMode]
-      ? t("tree.gen.shown", { n: limit, of: depths[effectiveMode] })
+    limit !== null && limit < depths[mode]
+      ? t("tree.gen.shown", { n: limit, of: depths[mode] })
       : undefined;
   // What the "+N" marker says: the direction decides who is missing, and the
   // tooltip names the limit that hid them.
@@ -267,12 +260,15 @@ export function CompareTree({
   // name its own cap instead of the generation setting's.
   const hiddenTitle = useCallback(
     (count: number, atLimit?: number) =>
-      t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
+      t(mode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
         limit: atLimit ?? limit ?? 0,
       }),
-    [t, effectiveMode, limit],
+    [t, mode, limit],
   );
+  // The layered body hands its node along; this chart has no bowtie, so the
+  // node says nothing the direction doesn't.
+  const treeHiddenTitle = useCallback((count: number) => hiddenTitle(count), [hiddenTitle]);
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
   // the same counts the Compare Tree button surfaces in Merge mode.
@@ -305,17 +301,16 @@ export function CompareTree({
   const marriageLabel = useMemo(() => {
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
-    return (node: TreeNode) =>
-      display.privacyLiving && node.living
-        ? undefined
-        : formatMarriage(node.marriage, fields, display.privacyLiving);
+    // formatMarriage redacts a couple with a living partner itself; the node
+    // being living says nothing about its parents' wedding.
+    return (node: TreeNode) => formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>
       laid
-        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, effectiveMode === "ancestors")
+        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
         : undefined,
-    [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // What "print in sheets" splits: the layered charts only — a fan has no
@@ -323,13 +318,13 @@ export function CompareTree({
   const sheetSource = useMemo(
     () =>
       !radial && tree
-        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: effectiveMode === "ancestors" }
+        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
         : undefined,
-    [radial, tree, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+    [radial, tree, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
-  // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
-  // so it's independent of the (overridden-to-ancestors) mode toggle.
+  // Radial (fan / circle) chart of the current direction — reuses the prebuilt
+  // tree, so switching direction is a re-layout, not a rebuild.
   const { folderName } = useMediaFolder();
   const hasPhoto = useCallback(
     (n: TreeNode) =>
@@ -344,9 +339,9 @@ export function CompareTree({
     [kinship],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
-    radial ? shown.ancestors : undefined,
-    settings.type === "circle" ? "circle" : "fan",
-    { hasPhoto, display, kinshipOf: fanKinshipOf },
+    radial ? tree : undefined,
+    settings.fanShape,
+    { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
@@ -358,7 +353,7 @@ export function CompareTree({
   const willImport = useMemo(() => {
     const set = new Set<string>();
     if (!laid) return set;
-    const isAnchor = (n: Placed) => !!n.incoming && importBranches.has(importKey(effectiveMode, n.incoming.id));
+    const isAnchor = (n: Placed) => !!n.incoming && importBranches.has(importKey(mode, n.incoming.id));
     (function walk(n: Placed, covered: boolean) {
       const active = covered || isAnchor(n);
       if (active && n.status === "incoming-only") set.add(n.key);
@@ -370,7 +365,7 @@ export function CompareTree({
       for (const c of n.children) walk(c, active);
     })(laid.root, false);
     return set;
-  }, [laid, importBranches, effectiveMode]);
+  }, [laid, importBranches, mode]);
 
   // The badge a node shows next to its lifespan: a decided match's C/D/R, or "I"
   // (Incoming) for an incoming-only person an active graft will bring in.
@@ -419,7 +414,7 @@ export function CompareTree({
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${effectiveMode}:${settings.type}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${mode}:${variant}:${alignment}`);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
   // searchable — the incoming spelling of a name finds the node just as well.
@@ -447,7 +442,6 @@ export function CompareTree({
     resetZoom,
     fitToScreen,
     onMode: onModeChange,
-    allowDescendants: !radial,
     kinds: PEDIGREE_KINDS,
     onKind: (k) => setType(k as PedigreeType),
     onLeave: onBack,
@@ -469,7 +463,11 @@ export function CompareTree({
         rootName ? (
           <>
             <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
-            {rootYears && <span className="tree-title-years gm-data">{rootYears}</span>}
+            {rootYears && (
+              <span className="tree-title-years gm-data" title={tree?.dates}>
+                {rootYears}
+              </span>
+            )}
             <span className="tree-title-break" aria-hidden="true" />
             {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
             {rootStatus && rootStatus !== "undecided" && (
@@ -485,10 +483,10 @@ export function CompareTree({
       }
       actions={
         <>
-          <ChartSettings availableGenerations={depths[effectiveMode]} />
+          <ChartSettings availableGenerations={depths[mode]} />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={chartSlug(rootName, t(`tree.${effectiveMode}`))}
+            slug={chartSlug(rootName, t(`tree.${mode}`))}
             title={compareTreeTitle}
             canvasRef={canvasRef}
             sheets={sheetSource}
@@ -502,9 +500,10 @@ export function CompareTree({
             value={settings.type}
             onChange={(k) => setType(k as PedigreeType)}
           />
+          <PedigreeVariantTabs />
           <div className="tree-mode">
             <button
-              className={effectiveMode === "ancestors" ? "active" : ""}
+              className={mode === "ancestors" ? "active" : ""}
               onClick={() => onModeChange("ancestors")}
               title={modeSummary(t, peopleCounts.ancestors, depths.ancestors)}
             >
@@ -514,21 +513,17 @@ export function CompareTree({
                 <span className="tree-import-count">▲{importCounts.ancestors}</span>
               )}
             </button>
-            {/* Radial charts are ancestor-only, so Descendants isn't offered
-                there — the preserved choice reappears on the layered charts. */}
-            {!radial && (
-              <button
-                className={effectiveMode === "descendants" ? "active" : ""}
-                onClick={() => onModeChange("descendants")}
-                title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
-              >
-                {t("tree.descendants")}
-                <span className="tree-mode-count">{peopleCounts.descendants}</span>
-                {importCounts.descendants > 0 && (
-                  <span className="tree-import-count">▼{importCounts.descendants}</span>
-                )}
-              </button>
-            )}
+            <button
+              className={mode === "descendants" ? "active" : ""}
+              onClick={() => onModeChange("descendants")}
+              title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
+            >
+              {t("tree.descendants")}
+              <span className="tree-mode-count">{peopleCounts.descendants}</span>
+              {importCounts.descendants > 0 && (
+                <span className="tree-import-count">▼{importCounts.descendants}</span>
+              )}
+            </button>
           </div>
         </>
       }
@@ -582,7 +577,7 @@ export function CompareTree({
                 modifiedOf={isModified}
                 showRepeat
                 onRepeatJump={find.jumpTo}
-                hiddenTitle={hiddenTitle}
+                hiddenTitle={treeHiddenTitle}
                 onHiddenJump={hiddenJump}
                 kinshipOf={kinshipOf}
                 lineageOf={lineageOf}
@@ -620,8 +615,8 @@ export function CompareTree({
             mainDs={mainDs}
             compareDs={compareDs}
             maps={maps}
-            mode={effectiveMode}
-            importActive={!!selected.incoming && importBranches.has(importKey(effectiveMode, selected.incoming.id))}
+            mode={mode}
+            importActive={!!selected.incoming && importBranches.has(importKey(mode, selected.incoming.id))}
             onToggleImport={onToggleImport}
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
@@ -732,7 +727,11 @@ function TreeLegend({
                       <span className="tree-swatch" style={{ background: STATUS_COLOR[n.status] }} />
                       <span className="tree-person-text">
                         <span className={`tree-person-name ${sexClass(n.sex)}`}>{n.name}</span>
-                        {n.years && <span className="tree-person-years gm-data">{n.years}</span>}
+                        {n.years && (
+                          <span className="tree-person-years gm-data" title={n.dates}>
+                            {n.years}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </li>

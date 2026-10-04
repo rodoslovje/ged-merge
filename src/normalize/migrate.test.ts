@@ -136,6 +136,21 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(childValue(other, "PHRASE")).toBe("family lawyer");
   });
 
+  it("drops an ASSO's TYPE INDI, which 7.0 does not define, and keeps TYPE FAM", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 ASSO @I2@\n2 TYPE INDI\n2 RELA boter\n1 ASSO @F1@\n2 TYPE FAM\n2 RELA witness\n0 @I2@ INDI\n0 @F1@ FAM\n",
+      "7.0",
+    );
+    const assos = childrenByTag(record(records, "@I1@"), "ASSO");
+    // A pointer at a person is all 7.0 has, so the tag saying so is noise.
+    expect(firstChild(assos[0], "TYPE")).toBeUndefined();
+    expect(childValue(assos[0], "ROLE")).toBe("GODP");
+    // A pointer at a family is one 7.0 cannot express either — the line saying
+    // the association names no person is left for the reader to see.
+    expect(childValue(assos[1], "TYPE")).toBe("FAM");
+  });
+
   it("folds AFN/RFN/RIN into EXID with a type URI", () => {
     const { records } = migrated("5.5.1", "0 @I1@ INDI\n1 AFN 123A-BCD\n1 RIN 42\n", "7.0");
     const exids = childrenByTag(record(records, "@I1@"), "EXID");
@@ -238,6 +253,58 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     const rela = firstChild(assos[1], "RELA")!;
     expect(rela.value).toBe("family lawyer");
     expect(firstChild(rela, "PHRASE")).toBeUndefined();
+  });
+
+  it("moves an individual event's ASSO onto the person's own record", () => {
+    // 5.5.1 defines ASSO under INDI and nowhere else, so a baptism's godparent
+    // has to travel up one level — role, note and citation with it.
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 CHR\n2 DATE 12 MAR 1874\n2 ASSO @I2@\n3 ROLE GODP\n3 NOTE from the register\n0 @I2@ INDI\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    const chr = firstChild(indi, "CHR")!;
+    expect(firstChild(chr, "ASSO")).toBeUndefined();
+    const moved = childrenByTag(indi, "ASSO");
+    expect(moved).toHaveLength(1);
+    expect(moved[0].value).toBe("@I2@");
+    expect(childValue(moved[0], "RELA")).toBe("godparent");
+    // Whole: what documented the association came along, restacked to its new depth.
+    expect(childValue(moved[0], "NOTE")).toBe("from the register");
+    expect(moved[0].level).toBe(1);
+    expect(firstChild(moved[0], "RELA")!.level).toBe(2);
+    // And the move is disclosed rather than silent.
+    expect(changes).toContainEqual({ before: "CHR.ASSO @I2@", after: "INDI.ASSO @I2@" });
+  });
+
+  it("moves a family's ASSO to a spouse's record, which is what 5.5.1 has", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I9@\n1 MARR\n2 DATE 1899\n2 ASSO @I2@\n3 ROLE WITN\n1 ASSO @I3@\n2 ROLE OTHER\n3 PHRASE best man\n0 @I1@ INDI\n0 @I9@ INDI\n0 @I2@ INDI\n0 @I3@ INDI\n",
+      "5.5.1",
+    );
+    const fam = record(records, "@F1@");
+    // Neither the family nor its marriage keeps one: 5.5.1 has no form for either.
+    expect(childrenByTag(fam, "ASSO")).toHaveLength(0);
+    expect(firstChild(firstChild(fam, "MARR")!, "ASSO")).toBeUndefined();
+    // The husband's record takes both, the marriage's witness and the family's
+    // own; their order among themselves says nothing and is not asserted.
+    const husb = childrenByTag(record(records, "@I1@"), "ASSO");
+    expect(husb.map((a) => a.value).sort()).toEqual(["@I2@", "@I3@"]);
+    expect(childValue(husb.find((a) => a.value === "@I3@")!, "RELA")).toBe("best man");
+    expect(childrenByTag(record(records, "@I9@"), "ASSO")).toHaveLength(0);
+  });
+
+  it("leaves a spouseless family's ASSO where it is rather than dropping it", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @F1@ FAM\n1 CHIL @I1@\n1 ASSO @I2@\n2 ROLE WITN\n0 @I1@ INDI\n0 @I2@ INDI\n",
+      "5.5.1",
+    );
+    // Nowhere to send it, and an unexpected structure a reader can still find
+    // beats one that is gone.
+    expect(childrenByTag(record(records, "@F1@"), "ASSO")).toHaveLength(1);
   });
 
   it("maps EXID back to legacy identifier tags or to REFN", () => {

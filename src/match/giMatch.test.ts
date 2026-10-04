@@ -70,7 +70,7 @@ describe("matchGiPairs", () => {
     const mainDs = dataset(MAIN);
     const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
 
-    const result = matchGiPairs(mainDs, compareDs, pairs);
+    const result = matchGiPairs(mainDs, compareDs, pairs!);
     expect(result.individuals).toHaveLength(1);
     expect(result.individuals[0].mainId).toBe("@I1@");
     expect(result.individuals[0].compareId).toBe("@SGI1@");
@@ -87,7 +87,7 @@ describe("matchGiPairs", () => {
     const mainDs = dataset(MAIN);
     const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
 
-    const result = matchGiPairs(mainDs, compareDs, pairs);
+    const result = matchGiPairs(mainDs, compareDs, pairs!);
     expect(result.individuals.map((c) => [c.mainId, c.compareId])).toEqual([
       ["@I1@", "@SGI1@"],
       ["@I2@", "@SGI1P1@"],
@@ -104,7 +104,7 @@ describe("matchGiPairs", () => {
     const mainDs = dataset(MAIN);
     const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
 
-    const result = matchGiPairs(mainDs, compareDs, pairs);
+    const result = matchGiPairs(mainDs, compareDs, pairs!);
     expect(result.individuals).toHaveLength(1);
     expect(result.individuals[0].mainId).toBe("@I1@");
   });
@@ -145,7 +145,7 @@ describe("matchGiPairs", () => {
     const mainDs = dataset(MAIN);
     const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
 
-    const result = matchGiPairs(mainDs, compareDs, pairs);
+    const result = matchGiPairs(mainDs, compareDs, pairs!);
     expect(result.individuals).toHaveLength(0);
   });
 });

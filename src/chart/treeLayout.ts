@@ -3,7 +3,7 @@
 // SVG connector paths. Both views render different node contents on top of this
 // identical skeleton, so the geometry lives here once.
 
-import type { TreeNode } from "./personTree";
+import type { TreeMode, TreeNode } from "./personTree";
 
 /** Which way a layered diagram grows: left→right (default) or top→bottom. The
  *  canonical home for the type — the UI's ChartSettings re-exports it. */
@@ -208,7 +208,13 @@ export function flatten(
   /** True in ancestor mode (children are parents) — switches the marriage label
    *  from the partner connector to a bracket between a node's two parents. */
   ancestors = false,
+  /** The tree was laid out against the depth axis (a bowtie's ancestor half):
+   *  a node's graph children sit *before* it, so every parent→child connector
+   *  runs the other way. */
+  mirror = false,
 ): Flat {
+  const link = (from: Placed, to: Placed) =>
+    mirror ? edgePath(to, from, alignment, connector, nodeH) : edgePath(from, to, alignment, connector, nodeH);
   const nodes: Placed[] = [];
   const edges: Flat["edges"] = [];
   (function walk(n: Placed) {
@@ -232,7 +238,7 @@ export function flatten(
         // compaction hoists onto the person's own lane, which used to get its
         // own straight line from the person and so read as that person's alone
         // while its siblings hung off the spouse.
-        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c, alignment, connector, nodeH) });
+        edges.push({ id: `${p.key}->${c.key}`, d: link(p, c) });
         walk(c);
       }
     }
@@ -247,11 +253,116 @@ export function flatten(
     }
     // Children of a spouseless family connect to the person directly.
     for (const c of n.children) {
-      edges.push({ id: `${n.key}->${c.key}`, d: edgePath(n, c, alignment, connector, nodeH) });
+      edges.push({ id: `${n.key}->${c.key}`, d: link(n, c) });
       walk(c);
     }
   })(root);
   return { nodes, edges };
+}
+
+// ─── Bowtie ───────────────────────────────────────────────────────────────────
+
+/** Which way a pedigree page draws from its root: up, down, or both at once —
+ *  the bowtie, ancestors on one side of the root and descendants on the other. */
+export type ChartDirection = TreeMode | "both";
+
+/** Keys of the bowtie's ancestor half carry this prefix, so a position there
+ *  never collides with one on the descendant side (the root is drawn once, on
+ *  the descendant side, where its spouses are). */
+export const ANCESTOR_KEY_PREFIX = "a:";
+
+/** The half of a bowtie a laid node belongs to, by its key. */
+export function bowtieHalf(key: string): TreeMode {
+  return key.startsWith(ANCESTOR_KEY_PREFIX) ? "ancestors" : "descendants";
+}
+
+/** A laid-out bowtie: the descendant half's root (the root person, with their
+ *  spouses and every descendant hanging off them) and the ancestor half's root
+ *  (the same person again, with the ancestors hanging off it — mirrored so they
+ *  sit on the trailing side). Both roots share one position. */
+export interface BowtieLaid {
+  root: Placed;
+  ancestors: Placed;
+  width: number;
+  height: number;
+}
+
+/** Whether a laid chart is a bowtie (carries the mirrored ancestor half). */
+export function isBowtie(laid: { root: Placed }): laid is BowtieLaid {
+  return "ancestors" in laid;
+}
+
+/**
+ * Bowtie layout: the descendants lay out as usual from the root, the ancestors
+ * lay out the same way and are then flipped along the depth axis, so they sit
+ * to the left (LR) or above (TB) the root while the descendants sit to the
+ * right or below. The two halves are aligned on the root's breadth position
+ * and share the tidy / grid placement of the direction charts, so a bowtie
+ * reads as the two familiar charts joined at the root.
+ */
+export function layoutBowtie(
+  ancestors: TreeNode,
+  descendants: TreeNode,
+  alignment: ChartAlignment = "lr",
+  nodeH: number = NODE_H,
+  grid = false,
+): BowtieLaid {
+  const lay = grid ? layoutGrid : layout;
+  const a = lay(ancestors, alignment, nodeH);
+  const d = lay(descendants, alignment, nodeH);
+  const lr = alignment === "lr";
+  const depthStep = lr ? COL_STEP : nodeH + ROW_GAP_TB;
+  // How far the ancestor half reaches along the depth axis: the root's
+  // position once the half is flipped to end at the root.
+  const ancDepth = maxDepth(ancestors) * depthStep;
+  // Breadth: both roots move to the larger of their two positions, so neither
+  // half is pushed into negative coordinates.
+  const breadthOf = (n: Placed) => (lr ? n.y : n.x);
+  const rootB = Math.max(breadthOf(a.root), breadthOf(d.root));
+  const shiftA = rootB - breadthOf(a.root);
+  const shiftD = rootB - breadthOf(d.root);
+  const walk = (n: Placed, fn: (n: Placed) => void): void => {
+    fn(n);
+    n.partners.forEach((p) => walk(p, fn));
+    n.children.forEach((c) => walk(c, fn));
+  };
+  walk(a.root, (n) => {
+    if (lr) { n.x = ancDepth - n.x; n.y += shiftA; } else { n.y = ancDepth - n.y; n.x += shiftA; }
+    n.key = ANCESTOR_KEY_PREFIX + n.key;
+    if (n.repeatOf) n.repeatOf = ANCESTOR_KEY_PREFIX + n.repeatOf;
+  });
+  walk(d.root, (n) => {
+    if (lr) { n.x += ancDepth; n.y += shiftD; } else { n.y += ancDepth; n.x += shiftD; }
+  });
+  // Each half's extents come back padded; strip the padding, join, re-pad.
+  const breadthExtent = Math.max(
+    (lr ? a.height : a.width) - PAD * 2 + shiftA,
+    (lr ? d.height : d.width) - PAD * 2 + shiftD,
+  );
+  const depthExtent = ancDepth + (lr ? d.width : d.height) - PAD * 2;
+  return {
+    root: d.root,
+    ancestors: a.root,
+    width: (lr ? depthExtent : breadthExtent) + PAD * 2,
+    height: (lr ? breadthExtent : depthExtent) + PAD * 2,
+  };
+}
+
+/** Flatten a bowtie to one draw list: the descendant half as drawn on its own,
+ *  the ancestor half mirrored, and the root only once. */
+export function flattenBowtie(
+  laid: BowtieLaid,
+  alignment: ChartAlignment = "lr",
+  connector: ChartConnector = "curve",
+  nodeH: number = NODE_H,
+  marriageLabel?: (node: TreeNode) => string | undefined,
+): Flat {
+  const d = flatten(laid.root, alignment, connector, nodeH, marriageLabel, false);
+  const a = flatten(laid.ancestors, alignment, connector, nodeH, marriageLabel, true, true);
+  return {
+    nodes: [...d.nodes, ...a.nodes.filter((n) => n !== laid.ancestors)],
+    edges: [...d.edges, ...a.edges],
+  };
 }
 
 /** Parent→child connector: a smooth Bézier from the parent's trailing edge (right

@@ -8,7 +8,7 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import { displayName } from "../match/relatives";
-import { lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
@@ -88,6 +88,9 @@ export interface MergeContext {
    *  whole-branch import phase begins, so addNewIndividual/createFamily tag the
    *  records they add as imported subtrees (the preview shows them as "Incoming"). */
   beginGraftPhase: () => void;
+  /** Incoming id → main id of every person this context added as a new
+   *  record, so a caller can tell which records it created for whom. */
+  added: ReadonlyMap<string, string>;
   /** Translator for human-readable change/deferred labels. */
   t: Translate;
   /** Compare SOUR/REPO xref → output xref. Used to remap nodes cloned from compare. */
@@ -116,12 +119,48 @@ export function makeContext(
   /** `${mainId}|${compareId}` pairs the user confirmed — the only identities the
    *  merge trusts over the files' own evidence (see `confirmedPair`). */
   confirmedPairs: Set<string> = new Set(),
-  linkPlacement: LinkPlacement = { linkFormat: "WWW", pageMedia: "source" },
+  linkPlacement: LinkPlacement = { linkFormat: "WWW", pageMedia: "source", citationPage: "number" },
+  opts: {
+    /** Incoming people a confirmed decision already added to the main file
+     *  before the save (incoming id → their new main id — see
+     *  `CandidateDecision.added`). Each is the same person as their incoming
+     *  record by construction, so they join as a confirmed pair and are never
+     *  added a second time; one whose record has since been deleted in Edit is
+     *  not brought back either. */
+    pinned?: ReadonlyMap<string, string>;
+    /** Number fresh records past the file's highest id instead of filling the
+     *  first gap — for records added to the live file, where a gap may be a
+     *  record deleted this session that undo can still bring back. */
+    afterHighest?: boolean;
+    /** `resolve` adds people but never joins one the main file already had
+     *  (pinned people excepted): links to existing records are left to the
+     *  save, so taking an addition back removes all it did. */
+    newOnly?: boolean;
+  } = {},
 ): MergeContext {
+  const pinned = opts.pinned ?? new Map<string, string>();
   const incToMain = new Map<string, string>();
   for (const c of matches.individuals) {
     if (rejectedPairs.has(`${c.mainId}|${c.compareId}`)) continue;
+    // A match can outlive its main person: the worker matched against the
+    // main as loaded, and a person deleted in Edit mode since is still named
+    // by the candidate. Joining on them would write their id as a spouse or
+    // child pointer to a record the file no longer holds, so the incoming
+    // person is imported as a record of their own instead.
+    if (!indiNodes.has(c.mainId)) continue;
     incToMain.set(c.compareId, c.mainId);
+  }
+  // Pinned people outrank whatever the matcher suggested for them.
+  const suppressed = new Set<string>();
+  const confirmed = pinned.size ? new Set(confirmedPairs) : confirmedPairs;
+  for (const [incomingId, mainId] of pinned) {
+    if (!indiNodes.has(mainId)) {
+      incToMain.delete(incomingId);
+      suppressed.add(incomingId);
+      continue;
+    }
+    incToMain.set(incomingId, mainId);
+    confirmed.add(`${mainId}|${incomingId}`);
   }
 
   const used = new Set<string>();
@@ -133,7 +172,7 @@ export function makeContext(
   for (const outXref of reservedXrefs(sourXrefMap)) used.add(outXref);
   const counters = new Map<string, number>();
   const allocXref = (prefix = "I"): string => {
-    let n = counters.get(prefix) ?? 1;
+    let n = counters.get(prefix) ?? (opts.afterHighest ? highestXref(used, prefix) + 1 : 1);
     let id: string;
     do {
       id = `@${prefix}${n++}@`;
@@ -190,7 +229,7 @@ export function makeContext(
    * A confirmed pair is exempt — a confirmation outranks the files' evidence.
    */
   const graftJoinHolds = (mainId: string, incomingId: string): boolean => {
-    if (confirmedPairs.has(`${mainId}|${incomingId}`)) return true;
+    if (confirmed.has(`${mainId}|${incomingId}`)) return true;
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
     if (!m || !c) return true; // nothing to judge on — leave the match alone
@@ -220,7 +259,7 @@ export function makeContext(
    * lists the people relatives really were hung on.
    */
   const noteGraftJoin = (mainId: string, incomingId: string): void => {
-    if (confirmedPairs.has(`${mainId}|${incomingId}`) || notedJoins.has(incomingId)) return;
+    if (confirmed.has(`${mainId}|${incomingId}`) || notedJoins.has(incomingId)) return;
     notedJoins.add(incomingId);
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
@@ -228,12 +267,14 @@ export function makeContext(
     const person = (indi: import("../gedcom/types").Individual) => ({
       name: displayName(indi.names[0]),
       years: lifespanOf(indi),
+      dates: datesTooltipOf(indi),
       sex: indi.sex,
     });
     report.graftJoins.push({ mainId, compareId: incomingId, main: person(m), incoming: person(c) });
   };
 
   const addNewIndividual = (incomingId: string): string | undefined => {
+    if (suppressed.has(incomingId)) return undefined;
     const cached = addedFromIncoming.get(incomingId);
     if (cached) return cached;
     const incIndi = compare.individuals.get(incomingId);
@@ -278,8 +319,10 @@ export function makeContext(
     famNode: (id) => famNodes.get(id),
     createFamily,
     resolve: (incomingId) => {
+      if (suppressed.has(incomingId)) return undefined;
       const matched = matchedJoin(incomingId);
       if (matched === undefined) return addNewIndividual(incomingId);
+      if (opts.newOnly && !pinned.has(incomingId)) return undefined;
       noteGraftJoin(matched, incomingId);
       return matched;
     },
@@ -292,7 +335,7 @@ export function makeContext(
       // children on their given names alone — ask it the same way.
       return !!m && !!c && relativePersonSimilarity(m, c, "child") >= RELATIVE_PAIR_THRESHOLD;
     },
-    confirmedPair: (mainId, incomingId) => confirmedPairs.has(`${mainId}|${incomingId}`),
+    confirmedPair: (mainId, incomingId) => confirmed.has(`${mainId}|${incomingId}`),
     childPedigree: (incomingId, incomingFamId) => {
       const famc = compare.individuals.get(incomingId)?.raw.children.find((c) => c.tag === "FAMC" && c.value === incomingFamId);
       return famc?.children.find((c) => c.tag === "PEDI")?.value?.trim() || undefined;
@@ -306,11 +349,23 @@ export function makeContext(
     touched,
     familyLinks: [],
     processedFamIds: new Set<string>(),
+    added: addedFromIncoming,
     t,
     sourXrefMap,
     records,
     linkPlacement,
   };
+}
+
+/** The highest number among `@<prefix><n>@` ids, 0 when there is none. */
+function highestXref(ids: Iterable<string>, prefix: string): number {
+  const re = new RegExp(`^@${prefix}(\\d+)@$`);
+  let max = 0;
+  for (const id of ids) {
+    const m = re.exec(id);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max;
 }
 
 /**
@@ -401,8 +456,11 @@ export function applyFamilyStructure(
       // as a person of its own instead of silently dropping the tick.
       // Guarded by that same alignment rule, so this only fires for a child the
       // review really did put on a line of its own.
+      // A confirmed pair is exempt: the user said these two are one person, and a
+      // child added before the save may since have been renamed in Edit.
       const takeOver =
-        opts.explicitPicks && !!known && existing.has(known) && !ctx.pairedAsRelatives(known, incChild);
+        opts.explicitPicks && !!known && existing.has(known) && !ctx.confirmedPair(known, incChild) &&
+        !ctx.pairedAsRelatives(known, incChild);
       let targetId = takeOver ? ctx.importNew(incChild) : ctx.resolve(incChild);
       if (!targetId || existing.has(targetId)) continue;
       // A person is born into exactly one family, so a record that is already
@@ -563,6 +621,9 @@ export function applyIndividualFamilies(
   ctx: MergeContext,
   /** Incoming child ids the user opted to stitch in (see `CandidateDecision.takenChildren`). */
   takenChildIds: Set<string>,
+  /** Only link people — partners and children — and leave every family fact,
+   *  note and source to the save (see `materializeAdds`). */
+  structureOnly = false,
 ): void {
   // The main family each incoming family was paired with in the review — the
   // pair whose rows the user actually judged. The merge writes into exactly
@@ -594,7 +655,12 @@ export function applyIndividualFamilies(
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
     const wantFamLinks = wantsIncoming(rows, fields, `${famKey}.links`);
-    if (!takeSpouses && !takeChildren && !wantFamEvent && !wantFamLinks) continue;
+    // A family whose only incoming change is its note or its private flag is
+    // still a family to write into: without these two the loop skipped it and
+    // the choice the reader made on that row went nowhere.
+    const wantFamNotes = wantsIncoming(rows, fields, `${famKey}.notes`);
+    const wantFamPrivate = wantsIncoming(rows, fields, `${famKey}.private`);
+    if (!takeSpouses && !takeChildren && (structureOnly || (!wantFamEvent && !wantFamLinks && !wantFamNotes && !wantFamPrivate))) continue;
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
@@ -615,6 +681,7 @@ export function applyIndividualFamilies(
     if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx, incFam.wife === incomingIndi.id ? "WIFE" : "HUSB");
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
+    if (structureOnly) continue;
 
     const marrEntries: EventSubEdit[] = [];
     for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
@@ -696,7 +763,7 @@ export function applyIndividualFamilies(
     const famLinksRow = rows.find((r) => r.key === famLinksKey);
     if (famLinksRow && wantsIncoming(rows, fields, famLinksKey)) {
       const choice = fields[famLinksKey] ?? defaultChoice(famLinksRow as never);
-      if (applyRecordSources(famNode, incFam.raw, choice, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+      if (applyRecordSources(famNode, incFam.raw, choice, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags)) {
         ctx.report.changes.push({ recordId: famNode.xref!, field: famLinksRow.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(famLinksRow.mainSources, famLinksRow.incomingSources) });
         ctx.touched.add(famNode.xref!);
       }

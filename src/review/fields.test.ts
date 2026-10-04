@@ -700,6 +700,15 @@ describe("event ordering", () => {
     expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.0.header"));
   });
 
+  it("keeps the birth before a same-year death when the incoming birth is vaguer", () => {
+    // Main `MAY 1899`, incoming year-only `1899` (sorts at year end), death 3 NOV 1899.
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE MAY 1899\n1 DEAT\n2 DATE 3 NOV 1899\n0 TRLR\n`);
+    const c = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1899\n1 DEAT\n2 DATE 3 NOV 1899\n0 TRLR\n`);
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@I1@"));
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys).toEqual(["BIRT.header", "DEAT.header"]);
+  });
+
   it("orders undated terminal events by when they happen", () => {
     // None of the five carries a date, so only the death-zone order decides:
     // death, then what becomes of the body, then the funeral service.
@@ -1253,6 +1262,26 @@ describe("attached links", () => {
     );
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
     const birtSources = byKey(rows, "BIRT.sources");
+    expect(birtSources?.incomingLinkIcons).toBeUndefined();
+    expect(birtSources?.incomingSources).toEqual(birtSources?.mainSources);
+    expect(birtSources?.state).toBe("agree");
+  });
+
+  it("shows an incoming citation naming its page by address as the main's own citation of that page", () => {
+    // The incoming file cites the page by its link, with no image record; the
+    // main cites it by number with the page's image. One archival record.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 SOUR @S1@\n3 PAGE 56\n` +
+        `0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/01/?pg=56\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 SOUR @CS1@\n` +
+        `3 PAGE https://data.matricula-online.eu/de/slovenia/ljubljana/kranj/01/?pg=56\n` +
+        `0 @CS1@ SOUR\n1 TITL Taufbuch Kranj\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const birtSources = byKey(rows, "BIRT.sources");
+    // No second link icon for the address the citation itself already carries.
     expect(birtSources?.incomingLinkIcons).toBeUndefined();
     expect(birtSources?.incomingSources).toEqual(birtSources?.mainSources);
     expect(birtSources?.state).toBe("agree");

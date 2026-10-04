@@ -12,37 +12,34 @@ export function computeDistances(ds: Dataset, startId: string): Map<string, numb
 
   dist.set(startId, 0);
   const queue = [startId];
+  // Parents, spouses and children are one hop each (siblings emerge at 2).
+  // The neighbour walk is inlined: a generator per person cost ~10 µs a node,
+  // which on a half-million-person file was seconds per start-person change.
+  const visit = (next: string | undefined, d: number) => {
+    if (next !== undefined && !dist.has(next)) {
+      dist.set(next, d);
+      queue.push(next);
+    }
+  };
   for (let head = 0; head < queue.length; head++) {
     const id = queue[head];
-    const d = dist.get(id)!;
-    for (const next of neighbors(id, ds)) {
-      if (!dist.has(next)) {
-        dist.set(next, d + 1);
-        queue.push(next);
-      }
+    const d = dist.get(id)! + 1;
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    for (const famId of indi.childOf) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      visit(fam.husband, d);
+      visit(fam.wife, d);
+    }
+    for (const famId of indi.spouseOf) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      visit(fam.husband === id ? fam.wife : fam.husband, d);
+      for (const child of fam.children) visit(child, d);
     }
   }
   return dist;
-}
-
-/** Parents, spouses, and children — one hop each. (Siblings emerge at 2.) */
-function* neighbors(id: string, ds: Dataset): Generator<string> {
-  const indi = ds.individuals.get(id);
-  if (!indi) return;
-
-  for (const famId of indi.childOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    if (fam.husband) yield fam.husband;
-    if (fam.wife) yield fam.wife;
-  }
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    const spouse = fam.husband === id ? fam.wife : fam.husband;
-    if (spouse) yield spouse;
-    for (const child of fam.children) yield child;
-  }
 }
 
 /**

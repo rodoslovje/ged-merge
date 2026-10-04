@@ -33,6 +33,9 @@ export interface FormatOverrides {
   citations?: "event" | "record";
   /** Where cited page images are linked besides the source record. */
   pageMedia?: "event" | "source";
+  /** How a citation names its page: by number, with the page's image under
+   *  the source, or by the page's own link in `PAGE` (webtrees-style). */
+  citationPage?: "number" | "url";
   /** Which event carries baptism-book citations. */
   baptism?: "BIRT" | "BAPM";
   /** How a source states what it covers: the vendor fields (level-1
@@ -220,6 +223,7 @@ export function sanitizeFormatOverrides(raw: unknown): FormatOverrides {
   out.sourceLayout = oneOf(r.sourceLayout, ["paginated", "repository", "literature", "inline"] as const);
   out.citations = oneOf(r.citations, ["event", "record"] as const);
   out.pageMedia = oneOf(r.pageMedia, ["event", "source"] as const);
+  out.citationPage = oneOf(r.citationPage, ["number", "url"] as const);
   out.baptism = oneOf(r.baptism, ["BIRT", "BAPM"] as const);
   out.sourceCoverage = oneOf(r.sourceCoverage, ["vendor", "standard"] as const);
   out.doubledLinks = oneOf(r.doubledLinks, ["fold", "keep"] as const);

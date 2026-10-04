@@ -9,12 +9,13 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
+import { EventGlyphs } from "../EventGlyph";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { SuggestInput } from "../edit/SuggestInput";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import { placeKey, type FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
@@ -63,8 +64,12 @@ export function ToolsError({ message }: { message: string }) {
   return <p className="tools-clean">{t("tools.scan.error", { message })}</p>;
 }
 
-/** Records that cite a source/media or use a place; each navigates into Edit. */
+/** Records that cite a source/media or use a place; each navigates into Edit.
+ *  A place usage also carries the events it sits on, which follow the name as
+ *  genealogy marks — the row then says whether someone was born at the place
+ *  or died there, which is the whole question a house list is read with. */
 export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; uses: SourceUse[]; onNavigate: (id: string) => void }) {
+  const { t } = useTranslation();
   if (uses.length === 0) return null;
   return (
     <ul className="tools-usage">
@@ -76,6 +81,7 @@ export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; use
               <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
             </span>
           ))}
+          {u.eventTags && <EventGlyphs tags={u.eventTags} t={t} />}
         </li>
       ))}
     </ul>
@@ -501,7 +507,7 @@ export function RenameEditor({
   autoFocus?: boolean;
   children?: React.ReactNode;
 } & Pick<
-  ComponentProps<typeof PlaceAutocomplete>,
+  ComponentProps<typeof SuggestInput>,
   "onLookup" | "lookupNote" | "onPickProposal" | "combos" | "matchCombosByPlace" | "onPickCombo"
 >) {
   const { t } = useTranslation();
@@ -515,7 +521,7 @@ export function RenameEditor({
         if (e.key === "Escape" && !e.defaultPrevented) onCancel();
       }}
     >
-      <PlaceAutocomplete
+      <SuggestInput
         value={value}
         suggestions={suggestions}
         canonical={canonical}
@@ -682,7 +688,7 @@ export function AddressSplitField({
    *  *within*, and which of the file's addresses are offered plainly. */
   place: string;
   value: string;
-  placeSug: PlaceSuggestions;
+  placeSug: FieldSuggestions;
   /** Every place+address pair the file writes. */
   placeCombos: { place: string; addr: string }[];
   onChange: (value: string) => void;
@@ -700,7 +706,7 @@ export function AddressSplitField({
   return (
     <span className="tools-geo-addr-chip tools-geo-addr-chip--field" title={t("tools.geocode.renameAddrTooltip")}>
       {t("event.colAddr")}:
-      <PlaceAutocomplete
+      <SuggestInput
         value={value}
         suggestions={placeSug.placeToAddrs.get(placeKey(place)) ?? []}
         canonical={placeSug.addrCanonical}

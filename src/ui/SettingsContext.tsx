@@ -138,6 +138,11 @@ export interface AppSettings extends NameDisplayOptions {
    *  preview already shows the same changes, and some browsers take only one
    *  file from a burst of two downloads. */
   saveReport: boolean;
+  /** Which reading of the pending save the preview opens on: the field rows
+   *  (`false`, the default) or the GEDCOM lines the file will receive
+   *  (`true`). Remembered because it is a habit, not a per-save decision — a
+   *  reader who checks saves line by line does so every time. */
+  saveDiffView: boolean;
   /** Quick-add event buttons on the Edit person card, in order — digits 1–9
    *  add them from the keyboard. Empty = no quick row. */
   quickEventTags: string[];
@@ -166,6 +171,7 @@ const DEFAULTS: AppSettings = {
   formatOverrides: {},
   persistWorkspace: false,
   saveReport: false,
+  saveDiffView: false,
   quickEventTags: ["BIRT", "RESI", "OCCU", "DEAT", "BURI"],
   marriedNameFromPartner: false,
   homeCountry: HOME_COUNTRY_AUTO,
@@ -362,6 +368,7 @@ function load(): AppSettings {
       },
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       saveReport: bool(parsed.saveReport, DEFAULTS.saveReport),
+      saveDiffView: bool(parsed.saveDiffView, DEFAULTS.saveDiffView),
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
       homeCountry: sanitizeHomeCountry(parsed.homeCountry),

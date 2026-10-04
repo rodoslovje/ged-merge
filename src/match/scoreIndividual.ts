@@ -1,5 +1,5 @@
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
-import { BIRTH_TAGS, DEATH_TAGS, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
+import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
 import type { NameFrequencies } from "./nameFrequency";
 import { displayName, pairTitle, primaryName } from "./relatives";
@@ -12,6 +12,7 @@ import {
   cachedPartnerNames,
 } from "./profileCache";
 import {
+  birthYearsApart,
   comparableName,
   dateSimilarity,
   fatherGivenVerdict,
@@ -20,6 +21,7 @@ import {
   motherVerdict,
   nameSetSimilarity,
   nameSimilarity,
+  noGivenNameInCommon,
   ownComparableName,
   placeSimilarity,
 } from "./similarity";
@@ -613,7 +615,42 @@ export function plausibleIndividualMatch(
   // same-surname pairs centuries apart reach here and should fall to the year
   // comparison before any string similarity runs. Order changes no outcome
   // (both must pass), only who pays for the rejection.
-  return temporalGate(a, b, gates, dsA, dsB) && nameGate(a, b, gates);
+  return temporalGate(a, b, gates, dsA, dsB) && nameGate(a, b, gates) && !twoPeople(a, b);
+}
+
+/**
+ * The two records are plainly two people: no given name in common — not even
+ * one form of the other (Neža/Agnes) — *and* birth years too far apart for a
+ * slip of the pen. Either alone stays a question for the score: the given gate
+ * is loose on purpose, for nicknames and spellings the variant table does not
+ * know, and a year can be misread. Together they are what the merge already
+ * refuses to join on (`graftJoinHolds`), so a pair the merge would never treat
+ * as one person is not offered as a match either — a Barbara born 1841 against
+ * an Agata born 1864, whose families merely share a father's and a mother's
+ * given name, used to reach the list as a weak candidate.
+ */
+function twoPeople(a: Individual, b: Individual): boolean {
+  return (birthYearsApart(a, b) || exactBirthsApart(a, b)) && noGivenNameInCommon(a, b);
+}
+
+/** Days apart beyond which two exact birth dates are two births: a baptism
+ *  entered as the birth lands a day or a week off, never a season. */
+const EXACT_BIRTH_GAP_DAYS = 31;
+
+/**
+ * Both records give a full, exact birth date (day, month and year) and the two
+ * are more than a month apart. A misread year keeps its day and month; a
+ * different day, month *and* year is a different birth — the brother born
+ * three years earlier in the same house (an Anton of 18 OCT 1882 against a
+ * Jakob of 29 JUN 1879), whom the year gap alone lets through.
+ */
+function exactBirthsApart(a: Individual, b: Individual): boolean {
+  const da = birthDateOf(a);
+  const db = birthDateOf(b);
+  if (!da || !db || da.qualifier !== "exact" || db.qualifier !== "exact") return false;
+  if (da.day === undefined || da.month === undefined || db.day === undefined || db.month === undefined) return false;
+  const days = Math.abs(Date.UTC(da.year!, da.month - 1, da.day) - Date.UTC(db.year!, db.month - 1, db.day)) / 86_400_000;
+  return days > EXACT_BIRTH_GAP_DAYS;
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {

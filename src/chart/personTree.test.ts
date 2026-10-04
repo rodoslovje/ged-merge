@@ -105,6 +105,55 @@ describe("buildPersonTree (ancestors)", () => {
   });
 });
 
+describe("buildPersonTree — the full dates behind a node's years", () => {
+  // The years a node writes are read off whichever side dates the person; the
+  // hover that explains them has to be read off the same side, or the two
+  // disagree about who was born when.
+  const main = dataset(
+    wrap("0 @I1@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 12 FEB 1841\n1 DEAT\n2 DATE 3 MAR 1902\n"),
+  );
+  const compare = dataset(
+    wrap("0 @P1@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE ABT 1841\n"),
+  );
+  const tree = (m?: string, c?: string) =>
+    buildPersonTree(
+      tr,
+      m ? main.individuals.get(m) : undefined,
+      c ? compare.individuals.get(c) : undefined,
+      main,
+      compare,
+      buildMatchMaps(matchDatasets(main, compare)),
+      "ancestors",
+    )!;
+
+  it("writes the file's own date text for both ends", () => {
+    const node = tree("@I1@", "@P1@");
+    expect(node.years).toBe("1841–1902");
+    expect(node.dates).toBe("12 FEB 1841 – 3 MAR 1902");
+  });
+
+  it("falls back to the incoming side, approximate date and all", () => {
+    const node = tree(undefined, "@P1@");
+    expect(node.years).toBe("1841");
+    expect(node.dates).toBe("ABT 1841");
+  });
+
+  it("carries no dates for a person neither file dates", () => {
+    const undated = dataset(wrap("0 @I9@ INDI\n1 NAME Neža /Kos/\n1 SEX F\n"));
+    const node = buildPersonTree(
+      tr,
+      undated.individuals.get("@I9@"),
+      undefined,
+      undated,
+      compare,
+      buildMatchMaps(matchDatasets(undated, compare)),
+      "ancestors",
+    )!;
+    expect(node.years).toBe("");
+    expect(node.dates).toBeUndefined();
+  });
+});
+
 describe("buildPersonTree (descendants)", () => {
   const mainDs = dataset(MAIN);
   const compareDs = dataset(COMPARE);

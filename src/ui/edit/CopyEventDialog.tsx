@@ -3,7 +3,7 @@ import type { Dataset, GedNode, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { useModalKeyboard } from "../../keyboard/useModalKeyboard";
 import { childValue } from "../../gedcom/node";
-import { lifespanOf } from "../../gedcom/lifespan";
+import { datesTooltipOf, lifespanOf } from "../../gedcom/lifespan";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
 import { useNameOf } from "../SettingsContext";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
@@ -28,6 +28,8 @@ interface Row {
   name: string;
   /** Lifespan / family detail shown after the name. */
   detail: string;
+  /** Full birth/death dates behind a person's bare years, for their hover. */
+  detailTitle?: string;
   /** Set when this record can't take the copy — the reason is shown inline. */
   blocked?: CopyEventBlock;
   search: string;
@@ -111,6 +113,7 @@ export function CopyEventDialog({
           id: indi.id,
           name,
           detail,
+          detailTitle: datesTooltipOf(indi) || undefined,
           blocked: individualCopyBlock(indi, node),
           search: foldSearch(`${name} ${detail} ${indi.id}`),
         });
@@ -241,7 +244,11 @@ export function CopyEventDialog({
                           onChange={() => toggle(r.id)}
                         />
                         <span className="copy-event-name">{r.name}</span>
-                        {r.detail && <span className="copy-event-detail gm-data">{r.detail}</span>}
+                        {r.detail && (
+                          <span className="copy-event-detail gm-data" title={r.detailTitle}>
+                            {r.detail}
+                          </span>
+                        )}
                         {r.blocked && (
                           <span className="copy-event-blocked">{t(`copyEvent.blocked.${r.blocked}`)}</span>
                         )}

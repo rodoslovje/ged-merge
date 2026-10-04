@@ -57,6 +57,7 @@ function countFamilies(ged: string): number {
 
 /** Open Tools → Find duplicates and click Merge all on the cluster. */
 async function openMergeAll(page: Page, file: string) {
+  test.setTimeout(180_000); // the whole-file duplicate scan below waits up to 120 s
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(file);
   await page.locator(".edit-person").first().waitFor({ timeout: 60000 });

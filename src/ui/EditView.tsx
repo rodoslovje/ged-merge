@@ -1,5 +1,5 @@
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
+import { type RecordPatch, type PendingEditApply, applyRecordPatches, cloneRaw, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { lastChangedText } from "../gedcom/chanCrea";
@@ -49,8 +49,6 @@ import {
   EVENT_CHILD_ORDER,
   INDI_CHILD_ORDER,
   insertOrdered,
-  insertRecord,
-  insertRecordAt,
   noteCtx,
   preferredFsIdTag,
   rebuildFamily,
@@ -59,6 +57,7 @@ import {
   ensurePrimaryName,
   rebuildNoteReferrers,
   removeIndividual,
+  familiesNaming,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
   sourceCitationNodes,
@@ -76,7 +75,7 @@ import {
   type SharedNoteChange,
   type SharedNoteCtx,
 } from "../gedcom/edit";
-import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
+import { childText, detectCitationPageStyle, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CitationPageStyle, type CropRegion } from "../gedcom/source";
 import { detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
 import { createStandaloneSource, pageObjeTitle } from "./edit/standaloneSource";
 import { detectMediaMode } from "../gedcom/media";
@@ -87,11 +86,12 @@ import { nodeId } from "./edit/nodeId";
 import { editFieldKeys } from "./edit/fieldKeys";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
-import { buildPlaceSuggestions } from "./edit/placeSuggestions";
+import { buildFieldSuggestions } from "./edit/fieldSuggestions";
 import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
+import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/PlacePeopleContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
-import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
+import { applyGeocodeByAddress, placeAddrKey } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
 import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, keyHint, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
@@ -99,7 +99,8 @@ import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSource
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
-import { addAssociation, moveAssociation, removeAssociation, writeAssociation } from "../gedcom/edit";
+import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
+import { recordsNaming } from "../gedcom/assoc";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
@@ -122,7 +123,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { mediaKindOf } from "./mediaPath";
-import { collectMediaRefs, mediaNodeAt, type MediaAddress } from "../gedcom/media";
+import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
 
 
 interface Props {
@@ -288,83 +289,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // ── Undo / Redo (applied here; stack lives in App.tsx) ───────────────────
 
   function applyEditPatches(patches: RecordPatch[], direction: "undo" | "redo") {
-    const pick: "before" | "after" = direction === "undo" ? "before" : "after";
-    // First pass: remove records that need to go away.
-    for (const patch of patches) {
-      if (patch[pick] === null) {
-        const ri = dataset.records.findIndex((r) => r.xref === patch.id);
-        if (ri !== -1) dataset.records.splice(ri, 1);
-        if (patch.type === "individual") dataset.individuals.delete(patch.id);
-        else if (patch.type === "family") dataset.families.delete(patch.id);
-        else if (patch.type === "record") { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
-      }
-    }
-    // Second pass: restore or re-add generic top-level records (e.g. a
-    // SOUR/OBJE created or pruned by "Add Source") *before* any
-    // individual/family rebuild below — that rebuild re-resolves source
-    // citations via getMediaAndSourceCtx(dataset.records) (each iteration here
-    // also bumps its cache, so the rebuild can't reuse a stale pre-undo
-    // version), so a SOUR/OBJE this same batch touched must already be back
-    // in place, or a citation pointer resolves dangling (no title/url) until
-    // the next edit.
-    for (const patch of patches) {
-      if (patch.type !== "record") continue;
-      const target = patch[pick];
-      if (target === null) continue;
-      const restored = cloneRaw(target);
-      const existing = dataset.records.find((r) => r.xref === patch.id);
-      if (existing) {
-        existing.value = restored.value;
-        existing.children = restored.children;
-      } else {
-        insertRecord(dataset.records, restored);
-      }
-      // A SOUR/OBJE this patch touches may now have a different FILE value or
-      // existence than `getMediaAndSourceCtx`'s cache last saw.
-      bumpSourceCacheVersion(dataset.records);
-      clearObjeNodeCache(dataset.records);
-    }
-    // Third pass: restore individual/family records and rebuild them. Sorted by
-    // original position so re-added records (undo of a deletion) land back at
-    // their original indices — inserting ascending keeps every later index valid.
-    const byPosition = [...patches].sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
-    for (const patch of byPosition) {
-      const target = patch[pick];
-      if (target === null) continue;
-      const restored = cloneRaw(target);
-      if (patch.type === "individual") {
-        const existing = dataset.individuals.get(patch.id);
-        if (existing) {
-          existing.raw.value = restored.value;
-          existing.raw.children = restored.children;
-          rebuildIndividual(dataset, existing);
-        } else {
-          insertRecordAt(dataset.records, restored, patch.index);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rebuildIndividual(dataset, { raw: restored } as any);
-        }
-      } else if (patch.type === "family") {
-        const existing = dataset.families.get(patch.id);
-        if (existing) {
-          existing.raw.value = restored.value;
-          existing.raw.children = restored.children;
-          rebuildFamily(dataset, existing);
-        } else {
-          insertRecordAt(dataset.records, restored, patch.index);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rebuildFamily(dataset, { raw: restored } as any);
-        }
-      }
-    }
-    // Shared NOTE records restored above: referrers other than the patched
-    // owner still project the pre-undo text — refresh them (and the editors).
-    const noteChanges = patches
-      .filter((p) => p.type === "record" && (p.before ?? p.after)?.tag === "NOTE")
-      .map((p) => ({ xref: p.id }));
-    if (noteChanges.length) {
-      rebuildNoteReferrers(dataset, noteChanges);
-      noteGenRef.current++;
-    }
+    // Shared NOTE records restored: referrers' editors must re-read them.
+    if (applyRecordPatches(dataset, patches, direction)) noteGenRef.current++;
   }
 
   // Apply patches queued by the parent (triggered by unified undo/redo).
@@ -551,7 +477,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // own keys. The view behind must not act on it a second time.
       if (e.defaultPrevented) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, goBack: back, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
+      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) {
         // A pedigree chart (the last one used) — never the relationship diagram,
@@ -565,13 +491,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }
       if (key === KEY.home) {
         if (hId) { e.preventDefault(); nav(hId); }
-        return;
-      }
-      if (e.key === "Backspace") {
-        // Swallow it even with empty history, so it never triggers the
-        // browser's page-back navigation.
-        e.preventDefault();
-        back();
         return;
       }
       const statusHit = KEY_STATUS[key];
@@ -838,17 +757,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const ownerRaw = (owner: MediaOwner): GedNode | undefined =>
     owner.kind === "individual" ? person?.raw : owner.fam.raw;
 
-  /** Route a raw-record mutation through the owner's commit helper. */
-  function ownerCommit(owner: MediaOwner, mutate: (raw: GedNode) => void, extraPatches?: RecordPatch[]) {
-    if (owner.kind === "individual") commit((indi) => mutate(indi.raw), extraPatches);
-    else commitFamily(owner.fam, (f) => mutate(f.raw), extraPatches);
+  /** Route a raw-record mutation through the owner's commit helper. The note
+   *  context comes along for mutations that touch notes (shared ones have to be
+   *  resolved against the whole file); the rest ignore it. */
+  function ownerCommit(
+    owner: MediaOwner,
+    mutate: (raw: GedNode, notes: SharedNoteCtx) => void,
+    extraPatches?: RecordPatch[],
+  ) {
+    if (owner.kind === "individual") commit((indi, notes) => mutate(indi.raw, notes), extraPatches);
+    else commitFamily(owner.fam, (f, notes) => mutate(f.raw, notes), extraPatches);
   }
 
-  /** Commit an association edit against whichever record owns the event — the
-   *  person for an individual event, the family for a marriage. */
-  const commitAssoc = (ownerId: string, mutate: () => void) => {
+  /** Commit an association edit against whichever record owns it — the person
+   *  for an individual or their event, the family for a marriage. */
+  const commitAssoc = (ownerId: string, mutate: (notes: SharedNoteCtx) => void) => {
     const fam = dataset.families.get(ownerId);
-    ownerCommit(fam ? { kind: "family", fam } : { kind: "individual" }, () => mutate());
+    ownerCommit(fam ? { kind: "family", fam } : { kind: "individual" }, (_raw, notes) => mutate(notes));
   };
   const assocApi: AssocApi = {
     dataset,
@@ -856,6 +781,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     navigate,
     add: (ownerId, container, spec) => commitAssoc(ownerId, () => addAssociation(container, spec, dataset.version)),
     update: (ownerId, node, spec) => commitAssoc(ownerId, () => writeAssociation(node, spec, dataset.version)),
+    notes: (ownerId, node, refs) => commitAssoc(ownerId, (ctx) => setAssociationNotes(ctx, node, refs)),
     remove: (ownerId, container, node) => commitAssoc(ownerId, () => removeAssociation(container, node)),
     move: (ownerId, from, to, node) => commitAssoc(ownerId, () => moveAssociation(from, to, node)),
   };
@@ -980,7 +906,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   /** Remove the owner's media at `addr`. Mirrors `commitRemoveSource`:
    *  snapshots the shared OBJE first so undo can restore it if the delete
    *  pruned it as now-unreferenced. */
-  function deleteMediaOn(owner: MediaOwner, addr: MediaAddress) {
+  function deleteMediaOn(owner: MediaOwner, addr: MediaAddress & Pick<MediaRef, "alsoAt">) {
     const raw = ownerRaw(owner);
     if (!raw) return;
     const objeChild = mediaNodeAt(raw, addr);
@@ -1011,7 +937,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     setTick((v) => v + 1);
   }
 
-  const handleDeleteMedia = useStableHandler((owner: MediaOwner, addr: MediaAddress) => {
+  const handleDeleteMedia = useStableHandler((owner: MediaOwner, addr: MediaAddress & Pick<MediaRef, "alsoAt">) => {
     setPendingConfirm({
       message: t("media.deleteConfirm"),
       confirmLabel: t("confirm.delete"),
@@ -1086,6 +1012,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }, getSourceLookup(dataset.records));
       if (match) {
         const extraPatches: RecordPatch[] = [];
+        // A file that cites a page by its link needs no image record of it:
+        // the link itself is the citation's page.
+        if (citationPageStyle() === "url") return { sourceXref: match.sourceXref, page: fields.url, extraPatches };
         let pageObjeXref = match.objeXref;
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
@@ -1103,7 +1032,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
       sourceCoverage: settings.formatOverrides.sourceCoverage ?? "auto",
       baptism: settings.formatOverrides.baptism ?? "auto",
+      citationPage: citationPageStyle(),
     });
+  }
+
+  /** How this file names a cited page — Settings → Cited page, whose "auto"
+   *  follows the file's own habit; by number where it has none. */
+  function citationPageStyle(): CitationPageStyle {
+    return settings.formatOverrides.citationPage ?? detectCitationPageStyle(dataset.records) ?? "number";
   }
 
   /** The cited page's image to link beside the citation, or undefined when
@@ -1665,7 +1601,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       confirmLabel: t("confirm.delete"),
       action: () => {
         const personId = person.id;
-        const affectedFamilyIds = [...person.spouseOf, ...person.childOf];
+        // The family side too: a one-sided file can name the person in a
+        // family their own record does not link back to.
+        const affectedFamilyIds = [...new Set([...person.spouseOf, ...person.childOf, ...familiesNaming(dataset, personId)])];
 
         // Snapshot the person, their families, and all members of those families:
         // a family pruned for dropping below two members unlinks its survivors too.
@@ -1674,7 +1612,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           const fam = dataset.families.get(famId);
           if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
         }
-        const before = snapshotRecords(dataset, memberIds, affectedFamilyIds);
+        // And every record that names the person in an association — the
+        // delete strips those ASSO lines wherever they sit, so undo must be
+        // able to put them back. `snapshotRecords` ignores an id that is not
+        // an individual (or not a family), so each list gets the whole set.
+        const naming = recordsNaming(dataset.records, new Set([personId]));
+        for (const id of naming) memberIds.add(id);
+        const before = snapshotRecords(dataset, memberIds, new Set([...affectedFamilyIds, ...naming]));
 
         removeIndividual(dataset, person);
 
@@ -1715,11 +1659,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const deferredDerivations = useDeferredValue(derivations);
   const deferredTick = useDeferredValue(tick);
   const deferredUndoVersion = useDeferredValue(undoVersion);
-  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, placeCoords, pairCoords, placeForms } = useMemo(
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, causeSuggestions, causeCanonical, tagSuggestions, placeCoords, pairCoords, placeForms } = useMemo(
     // The shared per-edit derivation when the app provides it (computed once
     // for Edit and the geocode panel together); the direct build only for a
     // host without the provider.
-    () => deferredDerivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
+    () => deferredDerivations?.fieldSuggestions() ?? buildFieldSuggestions(dataset),
     // tick/undoVersion (deferred): the dataset is mutated in place,
     // so a place, address or coordinate entered a moment ago on another record
     // would otherwise stay invisible to every other field until the file is
@@ -1733,27 +1677,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
-  // How many events carry each place+address pair — what the coordinate picker
-  // needs to offer "copy this pick to the file's other events at this address".
-  // Walked on demand, cached per edit generation: the walk visits every PLAC
-  // in the file, and its only reader is an *open* coordinate picker — eagerly
-  // recomputing it on every commit taxed each field blur for a picker that
-  // was closed. `useStableHandler` keeps the getter reading the live tick.
-  const pairUsesCacheRef = useRef<{ tick: number; undoVersion: number; counts: Map<string, number> } | null>(null);
-  const getPairUses = useStableHandler(() => {
-    const hit = pairUsesCacheRef.current;
-    if (hit && hit.tick === tick && hit.undoVersion === undoVersion) return hit.counts;
-    const counts = new Map<string, number>();
-    const visit = (raw: GedNode) =>
-      walkPlaceAddr(raw, (plac, addr) => {
-        const key = placeAddrKey(plac.value!.trim(), addr);
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      });
-    for (const indi of dataset.individuals.values()) visit(indi.raw);
-    for (const fam of dataset.families.values()) visit(fam.raw);
-    pairUsesCacheRef.current = { tick, undoVersion, counts };
-    return counts;
-  });
+  // What the file writes at each place+address pair: how many events carry it —
+  // what the coordinate picker needs to offer "copy this pick to the file's
+  // other events at this address" — and which records they are, for the people
+  // the same panel lists. Walked on demand and cached per edit generation; the
+  // live tick and undo counter are what mark it stale, since the dataset is
+  // mutated in place.
+  const placeUsesAt = usePlaceAddrUses(dataset, `${tick}:${undoVersion}`);
 
   const coordShare = useMemo<CoordShare>(
     () => ({
@@ -1762,8 +1692,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // is exactly the one being corrected here, and counting that as "nothing
       // to copy" is what used to hide the offer whenever a pinned address was
       // re-pinned. A pick equal to what they hold simply produces no patch.
-      countOthers: (place, address) =>
-        Math.max(0, (getPairUses().get(placeAddrKey(place.trim(), address.trim())) ?? 0) - 1),
+      countOthers: (place, address) => Math.max(0, placeUsesAt(place, address).events - 1),
       applyToAll: (place, address, coord) => {
         const key = placeAddrKey(place.trim(), address.trim());
         const patches = applyGeocodeByAddress(dataset, new Map([[key, { coord }]]), true);
@@ -1773,9 +1702,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         setTick((v) => v + 1);
       },
     }),
-    // getPairUses is identity-stable and reads the live tick itself, so the
+    // placeUsesAt is identity-stable and reads the live tick itself, so the
     // share object never needs rebuilding for a count that is pulled lazily.
-    [dataset, getPairUses, onPushEdit, onDirty],
+    [dataset, placeUsesAt, onPushEdit, onDirty],
+  );
+
+  /** The same lookup read for names rather than counts: who else the file puts
+   *  at this house, listed in the coordinate panel. `navigate` opens one. */
+  const placePeople = useMemo<PlacePeople>(
+    () => ({ dataset, usesAt: placeUsesAt, onNavigate: navigate }),
+    [dataset, placeUsesAt, navigate],
   );
 
   // Glyph-tagged parents' ages at this person's birth, for the BIRT row
@@ -1907,6 +1843,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   return (
     <CoordShareProvider value={coordShare}>
+    <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
@@ -2127,6 +2064,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             addrCanonical={addrCanonical}
             agencySuggestions={agencySuggestions}
             agencyCanonical={agencyCanonical}
+            causeSuggestions={causeSuggestions}
+            causeCanonical={causeCanonical}
+            tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -2279,6 +2219,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               addrCanonical={addrCanonical}
               agencySuggestions={agencySuggestions}
               agencyCanonical={agencyCanonical}
+              causeSuggestions={causeSuggestions}
+              causeCanonical={causeCanonical}
+              tagSuggestions={tagSuggestions}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
@@ -2356,6 +2299,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     </div>
     </AssocProvider>
     </PlaceLookupProvider>
+    </PlacePeopleProvider>
     </CoordShareProvider>
   );
 }

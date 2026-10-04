@@ -1,5 +1,14 @@
 import type { Dataset, Family, Individual, Sex } from "../gedcom/types";
-import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import {
+  birthDateText,
+  birthYear,
+  datesTooltip,
+  deathDateText,
+  deathYear,
+  formatLifespan,
+  isDeceased,
+  isPresumedLiving,
+} from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
 import { localityParts } from "../gedcom/place";
@@ -34,6 +43,10 @@ export interface TreeNode {
   name: string;
   /** Lifespan label: "1817–1921", "1817–" (dead), "1817" (living), or "". */
   years: string;
+  /** The same lifespan in the files' own full date text ("26 Jan 1817 – 3 Mar
+   *  1921"), for the hover behind the bare years where they are listed. Absent
+   *  when neither side dates the person. */
+  dates?: string;
   /** Whole-years age (at death, or current for the living) when known — folded
    *  into the lifespan line by {@link nodeDisplay} when the Age toggle is on. */
   age?: number;
@@ -585,6 +598,7 @@ function makeNode(
     status,
     name: nameOf(primary),
     years: birthYears(main, incoming),
+    dates: birthDates(main, incoming) || undefined,
     age: lifespanAge(primary),
     place: placeLabel(primary),
     // Declared-private people redact exactly like the presumed-living.
@@ -672,4 +686,19 @@ function birthYears(
   const d = deathYear(main) ?? deathYear(incoming);
   const dead = isDeceased(main) || isDeceased(incoming);
   return formatLifespan(b, d, dead);
+}
+
+/**
+ * The same lifespan as {@link birthYears}, written in the files' own full date
+ * text — "26 Jan 1817 – 3 Mar 1921" — and taking each end from the same side
+ * the years do, so the hover never dates a person differently than the label
+ * it explains.
+ */
+function birthDates(
+  main: Individual | undefined,
+  incoming: Individual | undefined,
+): string {
+  const b = birthDateText(main) ?? birthDateText(incoming);
+  const d = deathDateText(main) ?? deathDateText(incoming);
+  return datesTooltip(b, d, isDeceased(main) || isDeceased(incoming));
 }

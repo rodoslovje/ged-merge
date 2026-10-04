@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
@@ -22,9 +22,12 @@ import { ZoomControls } from "./ZoomControls";
 import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
-import { useChartSettings } from "./ChartSettingsContext";
+import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { useNodeColorer } from "./useNodeColorer";
+import { OWN_BRANCH } from "../chart/kinshipWheel";
+import { ChartLegend } from "./ChartLegend";
 
 // Full-page family Timeline: the root person and their immediate family
 // (parents, siblings, spouses, children) as horizontal lifespan bars on a
@@ -114,11 +117,6 @@ const TAPER_W = 12;
  *  140px apart, so density never needs to adapt to the span. */
 const TICK_STEP = 10;
 
-/** Chart override for the name formatter when the chart's own Married-name
- *  toggle is off; a module-level constant so useNameOf's formatter keeps a
- *  stable identity across renders. */
-const NO_MARRIED_NAME = { marriedSurname: false } as const;
-
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -139,7 +137,7 @@ interface Props {
 export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
-  const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
+  const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Identity-stable, so the memoized row handlers below don't rebuild every
   // render just because App passes a fresh callback.
@@ -217,6 +215,18 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   // Position each row for useTreeCanvas (rows satisfy ChartNode once they get
   // an x/y); the root person's row pins the initial scroll.
   const rows = useMemo(() => data?.rows ?? [], [data]);
+  // The shared Color axis over everyone on the chart; on the plain axis the
+  // root's bar keeps the accent and the family the muted green.
+  const subjects = useMemo(
+    () => rows.map((r) => ({ indi: mainDs.individuals.get(r.id), pos: { gen: r.gen, branch: OWN_BRANCH } })),
+    [rows, mainDs],
+  );
+  const colorer = useNodeColorer(mainDs, subjects);
+  const colorFor = useMemo(
+    () => (row: (typeof rows)[number]) =>
+      colorer.colorOf(colorer.categoryOf(mainDs.individuals.get(row.id), { gen: row.gen, branch: OWN_BRANCH })) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
+    [colorer, mainDs],
+  );
   const nodesByKey = useMemo(() => {
     const m = new Map<string, TimelineRow & ChartNode>();
     rows.forEach((r, i) => {
@@ -330,6 +340,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             name={rowName(rootRow)}
             sexCls={sexClass(rootRow.sex)}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(mainDs.individuals.get(rootRow.id), settings.showAge, t)}
             kinship={showKinship ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
             kind={pageKind}
@@ -345,6 +356,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}
             title={exportTitle}
+            legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: rows.map((r) => r.id) }}
             canvasRef={canvasRef}
           />
@@ -354,6 +366,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={colorer.legend} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
@@ -378,7 +391,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   const hidden = redacted(row);
                   const meta = rowMeta(row);
                   const role = rowRole(row);
-                  const color = row.role === "person" ? COLOR_PERSON : COLOR_FAMILY;
+                  const color = colorFor(row);
                   const barX = row.from !== undefined ? geom.xOf(row.from) : 0;
                   const barW = row.from !== undefined && row.to !== undefined
                     ? Math.max(3, (row.to - row.from) * PX_PER_YEAR)
@@ -591,7 +604,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
         {selectedRow && selectedIndi && (
           <TreeNodePanel
             node={selectedRow}
-            swatch={selectedRow.role === "person" ? COLOR_PERSON : COLOR_FAMILY}
+            swatch={colorFor(selectedRow)}
             rows={selectedRows}
             mainPerson={mainNav}
             mainLabel={t("tree.main")}

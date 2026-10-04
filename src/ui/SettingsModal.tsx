@@ -6,6 +6,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { useSettings, useNameOf, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { eventDisplayLabel } from "../gedcom/eventTags";
+import { EventGlyph } from "./EventGlyph";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
 import { sampleMapView, type FramedOverlay } from "./map/sampleView";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
@@ -93,6 +94,7 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
       { key: "sourceLayout", choices: ["paginated", "repository", "literature", "inline"] },
       { key: "citations", choices: ["event", "record"] },
       { key: "pageMedia", choices: ["event", "source"] },
+      { key: "citationPage", choices: ["number", "url"] },
       { key: "baptism", choices: ["BIRT", "BAPM"] },
       { key: "sourceCoverage", choices: ["vendor", "standard"] },
       { key: "doubledLinks", choices: ["fold", "keep"] },
@@ -129,6 +131,7 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   },
   citations: { event: "1 BIRT › 2 SOUR", record: "1 SOUR" },
   pageMedia: { event: "2 SOUR + 2 OBJE", source: "0 SOUR › 1 OBJE" },
+  citationPage: { number: "3 PAGE 56 › 0 SOUR › 1 OBJE", url: "3 PAGE https://…?pg=56" },
   baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
   sourceCoverage: { vendor: "1 PLAC, 1 DATE", standard: "1 DATA › 2 EVEN DEAT" },
   doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
@@ -561,6 +564,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span key={tag} className="edit-name-chip-wrap">
                   <span className="edit-name-chip edit-name-chip--recorded settings-quick-chip">
                     <span className="settings-quick-num gm-data">{i + 1}</span>
+                    <EventGlyph tag={tag} t={t} />
                     {eventDisplayLabel(tag, t)}
                   </span>
                   <button

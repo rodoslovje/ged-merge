@@ -3,6 +3,7 @@ import { sourceCitationKey } from "../gedcom/source";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import type { Translate } from "../locales/i18n";
 import { linkHref, linkTooltip } from "./FieldValue";
+import { tipProps } from "./IconTip";
 
 /**
  * Source citation references. When only `mainSources` is given, renders that
@@ -91,7 +92,12 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
   if (onEdit) {
     return (
       <span className="source-ref-wrap">
-        <button type="button" className={cls} title={title} onClick={onEdit}>
+        <button
+          type="button"
+          className={cls}
+          {...tipProps(title, { edit: true, href: citation.url ? linkHref(citation.url) : undefined })}
+          onClick={onEdit}
+        >
           {icon}
         </button>
         {citation.url && (
@@ -100,7 +106,7 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
             href={linkHref(citation.url)}
             target="_blank"
             rel="noopener noreferrer"
-            title={linkTooltip(citation.url, t, t("edit.openLink"))}
+            {...tipProps(linkTooltip(citation.url, t, t("edit.openLink")))}
           >
             ↗
           </a>
@@ -109,11 +115,11 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
     );
   }
   return citation.url ? (
-    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" title={title}>
+    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" {...tipProps(title)}>
       {icon}
     </a>
   ) : (
-    <span className={cls} title={title}>
+    <span className={cls} role="img" {...tipProps(title)}>
       {icon}
     </span>
   );

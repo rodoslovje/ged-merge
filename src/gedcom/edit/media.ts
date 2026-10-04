@@ -141,18 +141,24 @@ export function attachMediaPointer(raw: GedNode, objeXref: string): GedNode {
 
 /**
  * Remove the `OBJE` at `addr` from a record — on the record itself or under
- * one of its events (see {@link MediaAddress}). If it was a pointer to a
- * top-level shared record, prune that record when nothing else in the dataset
- * still references it.
+ * one of its events (see {@link MediaAddress}) — and, when the address carries
+ * `alsoAt`, every further link a collapsed media ref stands for. If a removed
+ * link was a pointer to a top-level shared record, prune that record when
+ * nothing else in the dataset still references it.
  */
-export function removeMediaAt(dataset: Dataset, raw: GedNode, addr: MediaAddress): void {
-  const container = mediaContainerOf(raw, addr);
-  const node = container && childrenByTag(container, "OBJE")[addr.objeIndex];
-  if (!container || !node) return;
-  const i = container.children.indexOf(node);
-  if (i !== -1) container.children.splice(i, 1);
-  const ptr = node.value?.trim();
-  if (ptr && isPointer(ptr)) pruneUnreferencedMedia(dataset, ptr);
+export function removeMediaAt(dataset: Dataset, raw: GedNode, addr: MediaAddress & { alsoAt?: MediaAddress[] }): void {
+  // Highest index first, so removing one link in a container does not shift
+  // the address of another link in the same container.
+  const addrs = [addr, ...(addr.alsoAt ?? [])].sort((a, b) => b.objeIndex - a.objeIndex);
+  for (const a of addrs) {
+    const container = mediaContainerOf(raw, a);
+    const node = container && childrenByTag(container, "OBJE")[a.objeIndex];
+    if (!container || !node) continue;
+    const i = container.children.indexOf(node);
+    if (i !== -1) container.children.splice(i, 1);
+    const ptr = node.value?.trim();
+    if (ptr && isPointer(ptr)) pruneUnreferencedMedia(dataset, ptr);
+  }
 }
 
 /**

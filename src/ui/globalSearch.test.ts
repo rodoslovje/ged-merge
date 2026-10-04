@@ -3,6 +3,8 @@ import type { GedEvent, Individual, PersonName } from "../gedcom/types";
 import type { MatchDecisionStatus } from "../review/types";
 import {
   buildSearchRows,
+  startSearchIndex,
+  nameCollator,
   searchPeople,
   hasActiveFilters,
   matchesQuery,
@@ -81,6 +83,48 @@ describe("buildSearchRows", () => {
     expect(rows.map((r) => r.span)).toEqual(["1888", "1888", "–1879", ""]);
     // Same birth year: the dated-to-the-day record follows the year-only one.
     expect(rows[1].birthKey).toBeGreaterThan(rows[0].birthKey);
+  });
+});
+
+describe("startSearchIndex", () => {
+  it("reaches the one-shot result in slices, reporting progress on the way", () => {
+    const people = toMap(
+      Array.from({ length: 600 }, (_, i) => indi([{ full: `Person ${(i * 7919) % 600}` }], [birth(1800 + (i % 90))])),
+    );
+    const expected = buildSearchRows(people, nameOf);
+    const build = startSearchIndex(people, nameOf);
+    expect(build.rows).toEqual([]);
+    const seen: number[] = [];
+    let steps = 0;
+    while (!build.step(0)) {
+      seen.push(build.progress);
+      steps++;
+    }
+    expect(steps).toBeGreaterThan(1);
+    expect(seen.every((p, i) => p >= 0 && p <= 1 && (i === 0 || p >= seen[i - 1]))).toBe(true);
+    expect(build.progress).toBe(1);
+    expect(build.rows).toEqual(expected);
+  });
+
+  it("sorts a crowd of namesakes and near-namesakes in the collator's order", () => {
+    // Well over the bucket limit sharing "ma…": the build has to split the
+    // bucket by longer prefixes, and the 2500 identical names cannot be split
+    // at all — both paths must still end in the plain sorted order.
+    const list: Individual[] = [];
+    for (let i = 0; i < 2500; i++) list.push(indi([{ full: "Marija Novak" }], [birth(1700 + (i % 200))]));
+    for (let i = 0; i < 2500; i++) {
+      const surname = ["Novak", "Kovac", "Mali", "Zupan", "Kos"][i % 5];
+      list.push(indi([{ full: `Ma${"rtijk"[i % 6]}${"aeiou"[i % 5]} ${surname}` }], i % 3 ? [birth(1800 + (i % 50))] : []));
+    }
+    const rows = buildSearchRows(toMap(list), nameOf);
+    const plain = [...rows].sort(
+      (a, b) =>
+        nameCollator.compare(a.name, b.name) ||
+        a.birthKey - b.birthKey ||
+        a.deathKey - b.deathKey ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
+    expect(rows.map((r) => r.id)).toEqual(plain.map((r) => r.id));
   });
 });
 

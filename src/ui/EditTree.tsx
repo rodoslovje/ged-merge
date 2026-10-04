@@ -4,14 +4,26 @@ import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
 import { buildPersonTree, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "../chart/personTree";
 import {
+  bowtieHalf,
   flatten,
+  flattenBowtie,
+  isBowtie,
   layout,
+  layoutBowtie,
   layoutGrid,
   nodeHeight,
+  type ChartDirection,
   type Placed,
 } from "../chart/treeLayout";
+import { Segmented, type SegmentedItem } from "./Segmented";
+import { AXIS_TINT, fanPosition, indexPositions, type NodePosition } from "../chart/nodeColor";
+import { useNodeColorer } from "./useNodeColorer";
+import { ChartLegend } from "./ChartLegend";
+import { useChartHover, type HoverInfo } from "./useChartHover";
+import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
-import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
+import type { FanSegment } from "../chart/fanLayout";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, modeSummary, nodeHover } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
@@ -30,22 +42,37 @@ import { TreeNodePanel } from "./TreeNodePanel";
 import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
+import { lifespanTooltipOf } from "../gedcom/age";
 import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
-import { useChartSettings } from "./ChartSettingsContext";
+import { marriedNameOverride, pedigreeVariant, useChartSettings } from "./ChartSettingsContext";
+import { PedigreeVariantTabs } from "./ChartKindTabs";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 
-// Color for unmodified nodes (main pine green) and modified (amber/minor).
+// Colors on the plain Color axis: the ancestors' side (main pine green), the
+// descendants' side (a step away from it, so a bowtie's two halves read
+// apart), and modified (amber/minor). Any other axis colours by the shared
+// colorer, and an edit shows as the "modified" badge alone.
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
 
 const COLOR_NORMAL = "var(--node-main)";
+const COLOR_DESCENDANT = "var(--node-desc)";
 const COLOR_MODIFIED = "var(--node-minor)";
+/** A spouse's band on the descendant fan: neutral, like the ancestors'
+ *  marriage collars — the spouse is not of the line, so the line's colour
+ *  is not theirs. */
+const COLOR_SPOUSE_BAND = "var(--muted)";
+/** The axes that read a person's place on the chart rather than their
+ *  record; a spouse has no place of their own on the line, so their band
+ *  stays neutral there. On the record axes the band takes the spouse's own
+ *  colour — where they were born is exactly what the axis is for. */
+const CHART_AXES = new Set(["plain", "generation", "branch"]);
 
 // Empty compare-side dataset — the tree builder needs a valid Dataset object
 // but won't find any incoming individuals since all Maps are empty. Module-level
@@ -59,11 +86,6 @@ const EMPTY_MAPS = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-/** Chart override for the name formatter when the chart's own Married-name
- *  toggle is off; a module-level constant so useNameOf's formatter keeps a
- *  stable identity across renders. */
-const NO_MARRIED_NAME = { marriedSurname: false } as const;
-
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -76,10 +98,11 @@ interface Props {
   onBack: () => void;
   /** Jump to a person in Edit mode (closes the hub). */
   onNavigate?: (id: string) => void;
-  /** The user's chosen direction — owned by the Charts hub so it survives kind
-   *  switches (including a round-trip through the relationship diagram). */
-  mode: TreeMode;
-  onModeChange: (mode: TreeMode) => void;
+  /** The user's chosen direction — ancestors, descendants, or both at once
+   *  (the bowtie) — owned by the Charts hub so it survives kind switches
+   *  (including a round-trip through the relationship diagram). */
+  direction: ChartDirection;
+  onDirectionChange: (direction: ChartDirection) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
   /** Re-root on another person. The hub owns the root (and records it in browser
@@ -87,7 +110,7 @@ interface Props {
   onRootChange: (id: string) => void;
 }
 
-export function EditTree({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, direction, onDirectionChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   // Identity-stable, so the memoized card contexts and the find box below don't
   // rebuild every render just because App passes a fresh callback.
@@ -97,12 +120,20 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Names read as the Name-display settings say (married surname, order, …) —
   // the same formatter the lists, the timeline and the reports use.
-  const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
+  const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const { alignment } = settings;
-  // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
-  // are radial.
-  const radial = settings.type === "fan" || settings.type === "circle";
-  const isGrid = settings.type === "grid";
+  // Grid is a layered chart (it reuses the tidy-tree SVG path); only the fan
+  // kind (fan / circle) is radial.
+  const radial = settings.type === "fan";
+  const isGrid = !radial && settings.treeLayout === "grid";
+  // "Both" is the bowtie: the layered chart draws the ancestors before the
+  // root and the descendants after it; the radial chart shares one circle
+  // between the two, ancestors up and descendants down. `mode` is the one
+  // direction the single-direction code paths still read.
+  const bowtie = direction === "both";
+  const mode: TreeMode = direction === "both" ? "ancestors" : direction;
+  // The radial bowtie is a full circle whatever the shape setting says.
+  const variant = bowtie && radial ? "circle" : pedigreeVariant(settings);
   // Kinship can only show when there's a start person to measure against; gate it so
   // the box height doesn't reserve an always-empty kinship row.
   const display = useMemo(
@@ -112,10 +143,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);
-
-  // A radial chart only draws ancestors — an override on top of the user's
-  // direction, never a change to it, so leaving Fan/Circle restores the choice.
-  const effectiveMode = radial ? "ancestors" : mode;
 
   const rootPerson = mainDs.individuals.get(currentRootId);
 
@@ -127,8 +154,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   );
 
   // Both directions build once per root/dataset: they feed the mode-button
-  // head-counts, the current direction's layered chart, and (ancestors) the
-  // radial chart — so switching direction or chart type never rebuilds a tree.
+  // head-counts and the current direction's chart, layered or radial — so
+  // switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
       ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors", undefined, nameOf) : undefined,
@@ -151,51 +178,74 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     }),
     [trees, limit],
   );
-  const tree = shown[effectiveMode];
-  // Whether the limit actually cuts the direction on screen (a limit deeper than
+  const tree = shown[mode];
+  // How deep what is on screen goes: the bowtie's deeper half, else the
+  // direction's tree.
+  const shownDepth = bowtie ? Math.max(depths.ancestors, depths.descendants) : depths[mode];
+  // Whether the limit actually cuts the chart on screen (a limit deeper than
   // the tree changes nothing, and shouldn't claim to).
-  const limited = limit !== null && limit < depths[effectiveMode];
-  // What the "+N" marker says: the direction decides who is missing, and the
+  const limited = limit !== null && limit < shownDepth;
+  // What the "+N" marker says: the half decides who is missing, and the
   // tooltip names the limit that hid them.
-  const hiddenTitle = useCallback(
+  const hiddenTitleFor = useCallback(
     // `atLimit` lets a chart that ran out of room of its own (the radial rings)
     // name its own cap instead of the generation setting's.
-    (count: number, atLimit?: number) =>
-      t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
+    (half: TreeMode, count: number, atLimit?: number) =>
+      t(half === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
         limit: atLimit ?? limit ?? 0,
       }),
-    [t, effectiveMode, limit],
+    [t, limit],
+  );
+  // The radial body hands the segment's key along, which says which half of
+  // a bowtie the marker is on.
+  const hiddenTitle = useCallback(
+    (count: number, atLimit?: number, key?: string) =>
+      hiddenTitleFor(bowtie && key ? bowtieHalf(key) : mode, count, atLimit),
+    [hiddenTitleFor, bowtie, mode],
+  );
+  // The layered chart's marker knows its node, and so which half of a bowtie
+  // it is on.
+  const treeHiddenTitle = useCallback(
+    (count: number, node: Placed) => hiddenTitleFor(bowtie ? bowtieHalf(node.key) : mode, count),
+    [hiddenTitleFor, bowtie, mode],
   );
 
   const laid = useMemo(
-    () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
-    [tree, alignment, isGrid, nodeH],
+    () =>
+      bowtie && shown.ancestors && shown.descendants
+        ? layoutBowtie(shown.ancestors, shown.descendants, alignment, nodeH, isGrid)
+        : tree
+          ? isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)
+          : undefined,
+    [bowtie, shown, tree, alignment, isGrid, nodeH],
   );
   const marriageLabel = useMemo(() => {
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
-    return (node: TreeNode) =>
-      display.privacyLiving && node.living
-        ? undefined
-        : formatMarriage(node.marriage, fields, display.privacyLiving);
+    // formatMarriage redacts a couple with a living partner itself; the node
+    // being living says nothing about its parents' wedding.
+    return (node: TreeNode) => formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>
-      laid
-        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, effectiveMode === "ancestors")
-        : undefined,
-    [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+      !laid
+        ? undefined
+        : isBowtie(laid)
+          ? flattenBowtie(laid, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel)
+          : flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors"),
+    [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
-  // What "print in sheets" splits: the layered charts only — a fan has no
-  // rectangular branches to cut. It re-lays the very same tree the canvas draws.
+  // What "print in sheets" splits: the layered direction charts only — a fan
+  // has no rectangular branches to cut, and a bowtie's two halves would each
+  // want the root. It re-lays the very same tree the canvas draws.
   const sheetSource = useMemo(
     () =>
-      !radial && tree
-        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: effectiveMode === "ancestors" }
+      !radial && !bowtie && tree
+        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
         : undefined,
-    [radial, tree, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+    [radial, bowtie, tree, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Ancestor / descendant head-counts for both directions, shown on the mode
@@ -215,11 +265,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode) => !!n.main && changedPersonIds.has(n.main.id),
     [changedPersonIds],
   );
-  const colorOf = useCallback(
-    (n: TreeNode) => isModified(n) ? COLOR_MODIFIED : COLOR_NORMAL,
-    [isModified],
-  );
-
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
   const decisionOf = useCallback(
     (n: TreeNode): { status: Exclude<MatchDecisionStatus, "undecided">; letter: string } | undefined => {
@@ -235,8 +280,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [mainDs, changeRoot],
   );
 
-  // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
-  // so it's independent of the (forced-ancestors) mode toggle.
+  // Radial (fan / circle) chart of the current direction — reuses the prebuilt
+  // tree, so switching direction is a re-layout, not a rebuild.
   const { folderName } = useMediaFolder();
   const hasPhoto = useCallback(
     (n: TreeNode) => !!folderName && !!n.main && !!collectFirstFilePath(n.main.raw, mainDs.records),
@@ -258,9 +303,48 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [changeRoot],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
-    radial ? shown.ancestors : undefined,
-    settings.type === "circle" ? "circle" : "fan",
-    { hasPhoto, display, kinshipOf: fanKinshipOf },
+    radial ? tree : undefined,
+    settings.fanShape,
+    { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, hasPhoto, display, kinshipOf: fanKinshipOf },
+  );
+
+  // Where every drawn person sits (generation, family line), for the Color
+  // axes that read the chart rather than the record. The layered bowtie's
+  // ancestor half carries prefixed keys; the fan's segments resolve through
+  // their tree node.
+  const { positions, branchInfo } = useMemo(() => {
+    const anc = bowtie || mode === "ancestors" ? shown.ancestors : undefined;
+    const desc = bowtie || mode === "descendants" ? shown.descendants : undefined;
+    const a = indexPositions(anc, "ancestors", bowtie && !radial ? "a:" : "");
+    const d = indexPositions(desc, "descendants", "", a.positions, a.branches);
+    return { positions: d.positions, branchInfo: d.branches };
+  }, [bowtie, mode, radial, shown]);
+  const positionOf = useCallback(
+    (n: TreeNode, seg?: FanSegment): NodePosition | undefined =>
+      seg ? fanPosition(seg, bowtie ? bowtieHalf(seg.key) : mode, positions) : positions.get(n.key),
+    [positions, bowtie, mode],
+  );
+  const subjects = useMemo(
+    () =>
+      radial
+        ? (fan?.segments ?? []).map((s) => ({ indi: s.node.main, pos: positionOf(s.node, s) }))
+        : (flat?.nodes ?? []).map((n) => ({ indi: n.main, pos: positionOf(n) })),
+    [radial, fan, flat, positionOf],
+  );
+  const colorer = useNodeColorer(mainDs, subjects, branchInfo);
+  // On the plain axis everyone below the root takes the descendants' colour,
+  // everyone else the main one, and an edited person shows the modified amber
+  // wherever they are drawn. On any other axis the colorer decides and an
+  // edit is the badge alone.
+  const tint = colorer.axis === "plain" ? undefined : AXIS_TINT;
+  const colorOf = useCallback(
+    (n: TreeNode, seg?: FanSegment) => {
+      if (seg?.band && CHART_AXES.has(colorer.axis) && !isModified(n)) return COLOR_SPOUSE_BAND;
+      const pos = positionOf(n, seg);
+      if (colorer.axis !== "plain") return colorer.colorOf(colorer.categoryOf(n.main, pos)) ?? COLOR_NORMAL;
+      return isModified(n) ? COLOR_MODIFIED : (pos?.gen ?? 0) < 0 ? COLOR_DESCENDANT : COLOR_NORMAL;
+    },
+    [colorer, positionOf, isModified],
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -268,7 +352,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${effectiveMode}:${settings.type}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).
@@ -289,13 +373,36 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       ? nodesByKey.get(selectedKey)
       : undefined;
 
-  // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts),
-  // E the selected person in Edit, Esc leaves the page.
+  // The hover card: the person under the pointer, in full, plus the fields
+  // the options show — the same lines the native tooltip carried, in the sex
+  // colour and without the browser's delay and truncation.
+  const hoverInfoFor = useCallback(
+    (key: string): HoverInfo | undefined => {
+      const n: TreeNode | undefined = radial ? fanNodes.get(key)?.node : nodesByKey.get(key);
+      if (!n) return undefined;
+      const h = nodeHover(display, {
+        name: n.name,
+        years: n.years,
+        age: n.age,
+        ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
+        place: n.place,
+        kinship: fanKinshipOf(n),
+        kinshipLineage: lineageOf(n),
+        living: n.living,
+        livingLabel: livingLabelFor(t, n.sex),
+      });
+      return { ...h, sex: h.redacted ? undefined : n.sex, hint: t("tree.node.clickHint") };
+    },
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
+  );
+  const hover = useChartHover(canvasRef, hoverInfoFor);
+
+  // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
+  // Esc leaves the page.
   const selectedMainId = selected?.main?.id;
   useChartShortcuts({
     zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
-    onMode: onModeChange,
-    allowDescendants: !radial,
+    onMode: onDirectionChange,
     onEdit: selectedMainId && onNavigate ? () => onNavigate(selectedMainId) : undefined,
     onLeave: onBack,
   });
@@ -360,12 +467,33 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
   const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
 
-  // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart",
-  // plus "4 of 9 generations" while the limit is cutting — on the page and in
-  // every export header, so a partial chart never passes for a whole one.
+  // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart"
+  // or "Bowtie Tree", plus "4 of 9 generations" while the limit is cutting —
+  // on the page and in every export header, so a partial chart never passes
+  // for a whole one.
+  const directionLabel = t(bowtie ? "tree.bowtie" : `tree.${mode}`);
   const chartKind =
-    `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}` +
-    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: depths[effectiveMode] })}` : "");
+    `${directionLabel} ${t(`tree.kind.${variant}`)}` +
+    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: shownDepth })}` : "");
+  // The direction row: the two directions with their head-counts, and both at
+  // once.
+  const directions: SegmentedItem<ChartDirection>[] = [
+    {
+      key: "ancestors",
+      label: <>{t("tree.ancestors")}<span className="tree-mode-count">{peopleCounts.ancestors}</span></>,
+      title: modeSummary(t, peopleCounts.ancestors, depths.ancestors),
+    },
+    {
+      key: "descendants",
+      label: <>{t("tree.descendants")}<span className="tree-mode-count">{peopleCounts.descendants}</span></>,
+      title: modeSummary(t, peopleCounts.descendants, depths.descendants),
+    },
+    {
+      key: "both",
+      label: <>{t("tree.both")}<span className="tree-mode-count">{peopleCounts.ancestors + peopleCounts.descendants}</span></>,
+      title: t("tree.both.tooltip"),
+    },
+  ];
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
   const rootYears = tree
@@ -396,6 +524,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             name={tree.name}
             sexCls={rootPerson ? sexClass(rootPerson.sex) : ""}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(rootPerson, display.showAge, t)}
             kinship={rootKinship}
             lineage={rootLineage}
             kind={chartKind}
@@ -406,11 +535,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       }
       actions={
         <>
-          <ChartSettings availableGenerations={depths[effectiveMode]} />
+          <ChartSettings availableGenerations={shownDepth} />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={chartSlug(tree?.name, t(`tree.${effectiveMode}`))}
+            slug={chartSlug(tree?.name, directionLabel)}
             title={editTreeTitle}
+            legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: chartPersonIds }}
             canvasRef={canvasRef}
             sheets={sheetSource}
@@ -420,33 +550,19 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       controlsLeft={
         <>
           {kindSwitcher}
-          <div className="tree-mode">
-            <button
-              className={effectiveMode === "ancestors" ? "active" : ""}
-              onClick={() => onModeChange("ancestors")}
-              title={modeSummary(t, peopleCounts.ancestors, depths.ancestors)}
-            >
-              {t("tree.ancestors")}
-              <span className="tree-mode-count">{peopleCounts.ancestors}</span>
-            </button>
-            {/* Radial charts are ancestor-only, so Descendants isn't offered
-                there — the preserved choice reappears on the layered charts. */}
-            {!radial && (
-              <button
-                className={effectiveMode === "descendants" ? "active" : ""}
-                onClick={() => onModeChange("descendants")}
-                title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
-              >
-                {t("tree.descendants")}
-                <span className="tree-mode-count">{peopleCounts.descendants}</span>
-              </button>
-            )}
-          </div>
+          <PedigreeVariantTabs hideShape={bowtie} />
+          <Segmented
+            label={t("tree.direction")}
+            value={bowtie ? "both" : mode}
+            onChange={onDirectionChange}
+            items={directions}
+          />
         </>
       }
       controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
+        <ChartLegend entries={colorer.legend} tint={tint} />
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
           ref={canvasRef}
@@ -458,6 +574,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 <FanChartBody
                   chart={fan}
                   colorOf={colorOf}
+                  tint={tint}
                   selectedKey={selectedKey}
                   flashKey={find.hitKey}
                   onSelect={selectNode}
@@ -467,6 +584,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                   onRepeatJump={find.jumpTo}
                   hiddenTitle={hiddenTitle}
                   onHiddenJump={hiddenJump}
+                  nativeTooltip={false}
                 />
               </ChartZoom>
             ) : (
@@ -482,9 +600,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 flashKey={find.hitKey}
                 onSelect={selectNode}
                 colorOf={colorOf}
+                tint={tint}
                 showRepeat
                 onRepeatJump={find.jumpTo}
-                hiddenTitle={hiddenTitle}
+                hiddenTitle={treeHiddenTitle}
                 onHiddenJump={hiddenJump}
                 kinshipOf={fanKinshipOf}
                 lineageOf={lineageOf}
@@ -492,12 +611,15 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 mainRefCtx={mainRefCtx}
                 display={display}
                 nodeH={nodeH}
+                nativeTooltip={false}
               />
             </ChartZoom>
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}
         </div>
+
+        <ChartHoverCard hover={hover} />
 
         {/* Radial charts fit the whole pedigree on screen; the minimap adds nothing. */}
         {!radial && laid && flat && (

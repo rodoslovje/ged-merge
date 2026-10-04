@@ -3,7 +3,7 @@ import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childrenByTag, firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
-import { isPointer, looksLikeUrl } from "./uri";
+import { isPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 
@@ -218,7 +218,10 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
   if (noteRefs.length) indi.noteRefs = noteRefs;
   if (sources.length) indi.sources = sources;
-  if (associations.length) indi.associations = associations;
+  if (associations.length) {
+    readAssocNotes(associations, noteIndex, media);
+    indi.associations = associations;
+  }
   if (isPrivateNode(record)) indi.private = true;
   return indi;
 }
@@ -280,7 +283,10 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
   if (noteRefs.length) fam.noteRefs = noteRefs;
   if (sources.length) fam.sources = sources;
-  if (associations.length) fam.associations = associations;
+  if (associations.length) {
+    readAssocNotes(associations, noteIndex, media);
+    fam.associations = associations;
+  }
   if (isPrivateNode(record)) fam.private = true;
   return fam;
 }
@@ -335,7 +341,10 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const mediaLinks = collectMediaLinks(node, media);
   if (mediaLinks.length) event.mediaLinks = dedupe(mediaLinks);
   const associations = associationsIn(node);
-  if (associations.length) event.associations = associations;
+  if (associations.length) {
+    readAssocNotes(associations, noteIndex, media);
+    event.associations = associations;
+  }
   const sources = node.children
     .filter((c) => c.tag === "SOUR")
     .map((c) => resolveSourceCitation(c, sourceCtx))
@@ -360,9 +369,9 @@ export type NoteIndex = Map<string, NoteIndexEntry>;
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
 export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
 
-/** Matches one or more http(s) URLs embedded anywhere in a line value.
- *  Shared with citationParse — one spelling of "what counts as a URL". */
-export const URL_RE = /https?:\/\/[^\s<>"]+/gi;
+// `URL_RE` and `stripTrailingPunct` live in `uri.ts` (the source resolver needs
+// them too) and are re-exported here for their callers.
+export { stripTrailingPunct, URL_RE } from "./uri";
 
 /** Trim and tidy the lines of a note already reduced to plain text. */
 function tidyLines(text: string): string {
@@ -452,6 +461,25 @@ function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): str
  *  flag) — including notes the display arrays drop because only a URL
  *  remains after stripping, so an edit round-trip can't silently discard
  *  them. */
+/**
+ * Read each association's own notes, which both dialects allow it to carry.
+ *
+ * Runs here rather than in `parseAssociation` because resolving a shared-note
+ * pointer to its text needs the file-wide note index, which the parser has no
+ * business knowing about. The note's URLs stay the note's own: they are not
+ * harvested into the record's link list, where a godparent's remark would read
+ * as a source for the person.
+ */
+function readAssocNotes(associations: Association[], notes: NoteIndex, media: MediaLinks): void {
+  for (const assoc of associations) {
+    const refs: NoteRef[] = [];
+    for (const child of assoc.raw.children) {
+      if (child.tag === "NOTE" || child.tag === "SNOTE") collectNote(child, notes, media, [], [], [], refs);
+    }
+    if (refs.length) assoc.noteRefs = refs;
+  }
+}
+
 function collectNote(
   node: GedNode, notes: NoteIndex, media: MediaLinks,
   out: string[], links: string[], outFull: string[], outRefs?: NoteRef[],
@@ -545,30 +573,6 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
     // harvesting it hung a 🔗 on the person and offered it as a source to merge.
     if (node.tag === "EXID" && child.tag === "TYPE") continue;
     collectLinks(child, media, out);
-  }
-  return out;
-}
-
-/**
- * Drop trailing punctuation a URL regex may swallow from surrounding prose —
- * the one spelling of this rule, shared by the note-link harvester,
- * `citationParse` and the reshape scan, so every path sees the same URL in
- * the same note. Slovenian »…« quotes are prose too. A trailing `)` is only
- * prose when the URL doesn't open it: `…/wiki/Ljubljana_(city)` keeps its
- * paren, `(see https://example.com/a)` loses it.
- */
-export function stripTrailingPunct(url: string): string {
-  let out = url;
-  for (;;) {
-    if (/[.,;:!?»«"'\]}>]$/.test(out)) {
-      out = out.slice(0, -1);
-      continue;
-    }
-    if (out.endsWith(")") && (out.match(/\(/g)?.length ?? 0) < (out.match(/\)/g)?.length ?? 0)) {
-      out = out.slice(0, -1);
-      continue;
-    }
-    break;
   }
   return out;
 }

@@ -371,25 +371,37 @@ const HEAD_SOUR_SOFTWARE: Record<string, string> = {
   BROSKEEP: BK,
 };
 
+/** The registry's software name for a file's `HEAD > SOUR` id, where the id is
+ *  one whose dialect the alias rules need to know. */
+export function producerSoftware(headSour: string | undefined): string | undefined {
+  return headSour ? HEAD_SOUR_SOFTWARE[headSour.trim().toUpperCase()] : undefined;
+}
+
+/** Whether the named software writes `tag` as its own. A tag no registry entry
+ *  covers is nobody's dialect — and with no software named, nothing is. */
+export function isNativeTag(tag: string, software: string | undefined): boolean {
+  return !!software && (VENDOR_TAGS[tag]?.software.includes(software) ?? false);
+}
+
 /**
- * Alias source-tags that are the *native dialect* of the file's own producing
- * software (per its HEAD>SOUR id) and whose canonical target is foreign to it.
- * The bulk-normalize tool skips these renames when re-rendering the main file
- * to its own house style: a MacFamilyTree file keeps its native `MISE`
- * (rewriting it to `_MILT` would make a re-import into MacFamilyTree lose the
- * military-service fact), while `_MILI` → `_MILT` still runs on a Brother's
- * Keeper file because both spellings are BK's own. Compare-file normalization
- * ignores this — there the goal is the app's canonical form, not round-trip
- * fidelity with the compare file's producer.
+ * Alias source-tags the bulk-normalize tool must leave alone when re-rendering
+ * a file to its own house style: every one whose canonical target is not a tag
+ * the file's own producer writes.
+ *
+ * Renaming toward a spelling neither program uses buys nothing and costs the
+ * fact on re-import: `MISE` → `_MILT` on a MyHeritage file swaps MacFamilyTree's
+ * spelling for Brother's Keeper's, and neither is MyHeritage's. `_MILI` →
+ * `_MILT` on a Brother's Keeper file still runs, because `_MILT` is BK's own.
+ * A file whose producer the registry doesn't know keeps every spelling it has.
+ *
+ * Compare-file normalization ignores this — there the goal is the app's
+ * canonical form, not round-trip fidelity with the incoming file's producer.
  */
-export function nativeAliasTags(headSour: string | undefined): Set<string> {
+export function foreignAliasTags(headSour: string | undefined): Set<string> {
   const keep = new Set<string>();
-  const software = headSour ? HEAD_SOUR_SOFTWARE[headSour.trim().toUpperCase()] : undefined;
-  if (!software) return keep;
+  const software = producerSoftware(headSour);
   for (const [src, dst] of Object.entries(VENDOR_TAG_ALIASES)) {
-    const srcNative = VENDOR_TAGS[src]?.software.includes(software) ?? false;
-    const dstNative = VENDOR_TAGS[dst]?.software.includes(software) ?? false;
-    if (srcNative && !dstNative) keep.add(src);
+    if (!isNativeTag(dst, software)) keep.add(src);
   }
   return keep;
 }

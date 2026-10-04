@@ -12,6 +12,9 @@ interface Props {
   sexCls?: string;
   /** Lifespan (+ age) line, already formatted by lifespanLine. */
   years?: string;
+  /** Full birth/death dates behind those years, for their hover (the caller
+   *  builds the string via lifespanTooltipOf). */
+  yearsTitle?: string;
   /** Kinship-to-start label; omitted when kinship display is off. */
   kinship?: string;
   lineage?: Lineage;
@@ -19,11 +22,15 @@ interface Props {
   kind: string;
 }
 
-export function ChartRootTitle({ name, sexCls = "", years, kinship, lineage, kind }: Props) {
+export function ChartRootTitle({ name, sexCls = "", years, yearsTitle, kinship, lineage, kind }: Props) {
   return (
     <>
       <span className={`tree-title-name ${sexCls}`}>{name}</span>
-      {years && <span className="tree-title-years gm-data">{years}</span>}
+      {years && (
+        <span className="tree-title-years gm-data" title={yearsTitle || undefined}>
+          {years}
+        </span>
+      )}
       <span className="tree-title-break" aria-hidden="true" />
       {kinship && <span className={`tree-title-kinship ${lineageClass(lineage)}`}>{kinship}</span>}
       <span className="tree-title-kind">{kind}</span>

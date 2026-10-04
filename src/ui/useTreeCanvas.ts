@@ -206,10 +206,7 @@ export function useTreeCanvas(
     if (pendingLayerReset.current) {
       pendingLayerReset.current = false;
       const layer = zoomLayerRef.current;
-      if (layer) {
-        layer.style.transform = "";
-        layer.style.willChange = "";
-      }
+      if (layer) layer.style.transform = "";
     }
     syncViewport();
   }, [zoom, syncViewport]);
@@ -241,9 +238,6 @@ export function useTreeCanvas(
         left: el.scrollLeft,
         top: el.scrollTop,
       };
-      // Promote the layer for the duration of the gesture so the per-event
-      // transform stays on the compositor; cleared again on commit.
-      layer.style.willChange = "transform";
     }
     return gesture.current;
   }, [laid]);
@@ -315,7 +309,6 @@ export function useTreeCanvas(
       // Pure pan (or a pinch that cancelled itself out): no re-render is
       // coming, so clear the transform and set the scroll directly.
       layer.style.transform = "";
-      layer.style.willChange = "";
       pendingScroll.current = null;
       el.scrollLeft = g.left;
       el.scrollTop = g.top;
@@ -383,9 +376,11 @@ export function useTreeCanvas(
   }, [laid, commitGesture]);
 
   // On a new chart — initial load, a re-root, mode switches, alignment flips —
-  // scroll so the starting person (the tree root) is in view. The root sits at
-  // the leading edge of the depth axis, so pin it there (left in LR, top in TB)
-  // and centre it on the breadth axis. Then re-measure for the minimap.
+  // scroll so the starting person (the tree root) is in view. A direction
+  // chart's root sits at the leading edge of the depth axis, so it is pinned
+  // there (left in LR, top in TB); a bowtie's root sits in the middle, with
+  // the ancestors before it, so it is centred instead. The breadth axis always
+  // centres on the root. Then re-measure for the minimap.
   // (Defined after fitToScreen: the dependency array reads it during render.)
   const homedFor = useRef<string | null>(null);
   useEffect(() => {
@@ -402,12 +397,16 @@ export function useTreeCanvas(
         // 1×) and centred — rather than showing just the middle rings at the
         // zoom left over from the previous chart.
         fitToScreen();
-      } else if (alignment === "tb") {
-        el.scrollTop = Math.max(0, laid.root.y * z);
-        el.scrollLeft = Math.max(0, (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2);
       } else {
-        el.scrollLeft = Math.max(0, laid.root.x * z);
-        el.scrollTop = Math.max(0, (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2);
+        const centreX = (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2;
+        const centreY = (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2;
+        if (alignment === "tb") {
+          el.scrollTop = Math.max(0, laid.root.y === 0 ? 0 : centreY);
+          el.scrollLeft = Math.max(0, centreX);
+        } else {
+          el.scrollLeft = Math.max(0, laid.root.x === 0 ? 0 : centreX);
+          el.scrollTop = Math.max(0, centreY);
+        }
       }
     }
     syncViewport();
@@ -433,8 +432,11 @@ export function useTreeCanvas(
       // Fast path: paint the run of wheel events as one gesture and commit
       // when it goes idle. Without a ChartZoom layer, commit per event.
       if (gestureZoom(factor, e.clientX, e.clientY)) {
+        // A mouse wheel's notches come 100–200 ms apart; the window must
+        // outlast that gap, or every notch commits on its own and a big chart
+        // (a fan's curved text) re-rasterises per notch.
         if (wheelIdle.current) clearTimeout(wheelIdle.current);
-        wheelIdle.current = window.setTimeout(commitGesture, 140);
+        wheelIdle.current = window.setTimeout(commitGesture, 260);
         return;
       }
       const rect = el.getBoundingClientRect();

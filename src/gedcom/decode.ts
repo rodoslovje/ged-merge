@@ -78,6 +78,22 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
   }
 }
 
+/**
+ * Decode the bytes of a plain text table (CSV) the way a GEDCOM's are decoded,
+ * minus the header the table does not have: a BOM settles it, valid UTF-8 is
+ * UTF-8, and anything else is a Windows codepage — a CSV saved by Excel on a
+ * Slovenian Windows is Windows-1250, and decoded as UTF-8 every š/č/ž became
+ * U+FFFD and no name matched any more.
+ */
+export function decodeTableText(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return decodeUtf8(bytes.subarray(3));
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) return decodeUtf16(bytes.subarray(2), true);
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) return decodeUtf16(bytes.subarray(2), false);
+  if (!hasHighBytes(bytes) || isValidUtf8(bytes)) return decodeUtf8(bytes);
+  return decodeWindowsAnsi(bytes, [], "table").text;
+}
+
 /** Note a charset that was declared wrong, then decode the bytes as UTF-8. */
 function mislabelledUtf8(
   bytes: Uint8Array,

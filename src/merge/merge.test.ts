@@ -2007,6 +2007,7 @@ describe("materializeEventSources", () => {
     const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, {
       linkFormat: "WWW",
       pageMedia: "source",
+      citationPage: "number",
     });
 
     // A citation of a minted source, not a bare link left on the event.
@@ -2490,8 +2491,8 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
       {
         mainId: "@I1@",
         compareId: "@P1@",
-        main: { name: "Joze Grca", years: "1938", sex: "M" },
-        incoming: { name: "Jozef Grca", years: "1940", sex: "M" },
+        main: { name: "Joze Grca", years: "1938", dates: "1938", sex: "M" },
+        incoming: { name: "Jozef Grca", years: "1940", dates: "1940", sex: "M" },
       },
     ]);
   });
@@ -2634,8 +2635,8 @@ describe("mergeDecisions — unconfirmed matches used while stitching a decision
       {
         mainId: "@I2@",
         compareId: "@P2@",
-        main: { name: "Ana Hribar", years: "1893", sex: "F" },
-        incoming: { name: "Ana Hribar", years: "1892", sex: "F" },
+        main: { name: "Ana Hribar", years: "1893", dates: "1893", sex: "F" },
+        incoming: { name: "Ana Hribar", years: "1892", dates: "1892", sex: "F" },
       },
     ]);
   });
@@ -2828,6 +2829,18 @@ describe("formatReport — a privacy flag turned on or off", () => {
       privacyChanged: true,
     }), { t: tr });
     expect(text).toContain('changeReport.verb.madePublic "a remark"');
+  });
+
+  it("heads a record with the caller's label, where it has one", () => {
+    // The app hands in a name built under the reader's Name display settings,
+    // which this module — run from the worker — cannot read for itself.
+    const change = row({ from: "", to: "a remark", segments: [{ text: "a remark", state: "changed" }] });
+    const text = formatReport(change, { t: tr, labelOf: (id) => (id === "@I1@" ? "Novak (Kos), Janez" : undefined) });
+    expect(text).toContain("Novak (Kos), Janez  @I1@");
+    expect(text).not.toContain("Janez Novak  @I1@");
+    // Nothing handed in: the report's own label still heads it.
+    expect(formatReport(change, { t: tr })).toContain("Janez Novak  @I1@");
+    expect(formatReport(change, { t: tr, labelOf: () => undefined })).toContain("Janez Novak  @I1@");
   });
 
   it("keeps the flag beside a change that also moved the text", () => {
@@ -3099,5 +3112,403 @@ describe("materializeAdditionalNames", () => {
     const kept = dataset(MAIN_NAMES);
     materializeAdditionalNames(kept, compareDs, kept.records.find((r) => r.xref === "@I1@")!, incoming, "both");
     expect(namesOf(kept.records.find((r) => r.xref === "@I1@")!)).toEqual(["Ana /Kos/", "Ana /Kralj/", "Ana /Novak/"]);
+  });
+});
+
+describe("an incoming citation that names its page by address", () => {
+  // The incoming file cites the register page by its address —
+  // `PAGE https://…/03173/?pg=58` — where this file cites it by number, with
+  // the page's image beside the citation. The merge must write it the main's
+  // way, as it does a bare link of the same page, not copy the shape across.
+  const PAGE_58 = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58";
+  const MAIN_BOOK = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" +
+      "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+      "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+  );
+  const citing = (page: string, extra = "") =>
+    wrap(
+      `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @CS1@\n3 PAGE ${page}\n${extra}` +
+        "0 @CS1@ SOUR\n1 TITL Šenčur, krstna knjiga 1850–1860\n",
+    );
+
+  it("is written as the main's own citation of that page, its words carried along", () => {
+    const main = dataset(MAIN_BOOK);
+    const compare = dataset(citing(PAGE_58, "3 DATA\n4 TEXT 4. zapis na levi\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // The main's book, the page's number, the incoming citation's own text,
+    // and the site's evidence grade — in the citation's field order.
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 DATA\n4 TEXT 4. zapis na levi\n3 QUAY 3");
+    expect(out).not.toContain("PAGE https://");
+    // The page's image joins the book and sits beside the citation, as the
+    // file keeps them.
+    expect(out).toMatch(/1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 OBJE @O2@\n2 SOUR @S1@\n3 PAGE 56\n2 SOUR @S1@\n3 PAGE 58/);
+    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}\n1 TITL #58 - Krstna knjiga - Šenčur`);
+    // The incoming file's own record of the book is not imported: nothing
+    // cites it any more.
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("keeps the prose beside the address and the incoming file's own grade of the evidence", () => {
+    const main = dataset(MAIN_BOOK);
+    const compare = dataset(citing(`fol. 3, ${PAGE_58}`, "3 QUAY 2\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE fol. 3, 58\n3 QUAY 2");
+  });
+
+  it("does not cite a page the main already cites a second time", () => {
+    const main = dataset(MAIN_BOOK.replace("3 PAGE 56", "3 PAGE 58"));
+    const compare = dataset(citing(PAGE_58));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/3 PAGE 58/g)).toHaveLength(1);
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("mints the book's source for a recognized site the main has no source for, named by the incoming file's own record", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(citing(PAGE_58));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    const citation = /2 SOUR (@S\d+@)\n3 PAGE 58\n/.exec(out);
+    expect(citation).not.toBeNull();
+    // The incoming file's title for the book beats the address's offline
+    // proposal; the shape is still the main's — a page image under the source.
+    expect(out).toContain(`0 ${citation![1]} SOUR\n1 TITL Šenčur, krstna knjiga 1850–1860\n`);
+    expect(out).toMatch(new RegExp(`0 ${citation![1]} SOUR\\n(?:1 .*\\n)*?1 OBJE @O\\d+@`));
+    expect(out).not.toContain("0 @CS1@ SOUR");
+  });
+
+  it("re-points a citation naming its page by the incoming source's page image at the main's own book", () => {
+    // The incoming file cites by number with the page's image under its
+    // source — the shape the main keeps too — so the book is the same and the
+    // page is known: it joins the main's source instead of importing a twin.
+    const main = dataset(MAIN_BOOK);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @CS1@\n3 PAGE 58\n" +
+          "0 @CS1@ SOUR\n1 TITL Šenčur krsti\n1 OBJE @CO1@\n" +
+          `0 @CO1@ OBJE\n1 FILE ${PAGE_58}\n`,
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
+    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}`);
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("copies a citation of an unknown site as it is, its source imported", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(citing("https://example.com/records/17"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 SOUR @CS1@\n3 PAGE https://example.com/records/17");
+    expect(out).toContain("0 @CS1@ SOUR\n1 TITL Šenčur, krstna knjiga 1850–1860");
+  });
+
+  it("is written the same way when Edit materializes the event", () => {
+    const mainDs = dataset(MAIN_BOOK);
+    const compareDs = dataset(citing(PAGE_58).replace("1 BIRT", "1 BAPM"));
+    const eventNode: GedNode = { level: 1, tag: "BAPM", children: [{ level: 2, tag: "DATE", value: "1850", children: [] }] };
+    mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BAPM")!;
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, { linkFormat: "WWW", pageMedia: "event", citationPage: "number" });
+    const out = serializeGedcom(mainDs.records);
+    expect(out).toContain("1 BAPM\n2 DATE 1850\n2 OBJE @O2@\n2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
+    expect(mainDs.records.some((r) => r.xref === "@CS1@")).toBe(false);
+    // The page image it minted comes back for undo.
+    expect(imported.map((r) => r.xref)).toEqual(["@O2@"]);
+  });
+});
+
+describe("a main file that cites pages by their link", () => {
+  // webtrees-style (Sajovic.ged): no page images anywhere; a citation's PAGE
+  // is the register page's own address. Whatever an incoming file brings —
+  // a bare link, a citation by number with the page's image, a citation by
+  // address — is written that way, and no image record is minted.
+  const BOOK = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/";
+  const MAIN_BY_LINK = wrap(
+    `0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE ${BOOK}?pg=56\n` +
+      "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n",
+  );
+
+  it("writes an incoming citation by number and image as the main's citation by link", () => {
+    const main = dataset(MAIN_BY_LINK);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @CS1@\n3 PAGE 58\n3 DATA\n4 TEXT 4. zapis\n" +
+          "0 @CS1@ SOUR\n1 TITL Šenčur krsti\n1 OBJE @CO1@\n" +
+          `0 @CO1@ OBJE\n1 FILE ${BOOK}?pg=58\n`,
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain(`2 SOUR @S1@\n3 PAGE ${BOOK}?pg=58\n3 DATA\n4 TEXT 4. zapis\n3 QUAY 3`);
+    expect(out).not.toMatch(/^0 @\w+@ OBJE/m);
+    expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
+  });
+
+  it("writes an incoming bare link of the book as a citation by link", () => {
+    const main = dataset(MAIN_BY_LINK);
+    const compare = dataset(wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 WWW ${BOOK}?pg=58\n`));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain(`2 SOUR @S1@\n3 PAGE ${BOOK}?pg=58`);
+    expect(out).not.toMatch(/^2 WWW/m);
+    expect(out).not.toMatch(/^0 @\w+@ OBJE/m);
+  });
+
+  it("mints a source without a page image for a book the main lacks, named by the incoming record", () => {
+    const main = dataset(MAIN_BY_LINK);
+    const other = "https://data.matricula-online.eu/sl/slovenia/koper/Biljana/MKK+6/?pg=107";
+    const compare = dataset(
+      wrap(
+        `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @X162@\n3 PAGE ${other}\n` +
+          "0 @X162@ SOUR\n1 TITL Matična knjiga krščenih Biljana 1834-1904\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    const citation = /2 SOUR (@S\d+@)\n3 PAGE (\S+)\n/.exec(out.split("0 @S1@")[0].split("2 SOUR @S1@")[1] ?? "");
+    expect(citation?.[2]).toBe(other);
+    const minted = citation![1];
+    expect(minted).not.toBe("@S1@");
+    expect(out).toContain(`0 ${minted} SOUR\n1 TITL Matična knjiga krščenih Biljana 1834-1904\n`);
+    expect(out).not.toMatch(/^0 @\w+@ OBJE/m);
+    expect(out).not.toContain("0 @X162@ SOUR");
+  });
+});
+
+describe("mergeDecisions — a match whose main person no longer exists", () => {
+  // The worker matched against the main as loaded; the user then deleted @I1@
+  // in Edit mode. The stale candidate (@I1@ ↔ @C2@) is still in `matches`.
+  const main = dataset(wrap("0 @I3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1 JAN 1900\n"));
+  const compare = dataset(
+    wrap(
+      "0 @C1@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1 JAN 1900\n1 FAMS @F1@\n" +
+        "0 @C2@ INDI\n1 NAME Janez /Kovač/\n1 SEX M\n1 BIRT\n2 DATE 1898\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @C2@\n1 WIFE @C1@\n1 MARR\n2 DATE 1920\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { mainId: "@I3@", compareId: "@C1@" },
+      { mainId: "@I1@", compareId: "@C2@" },
+    ],
+  } as never;
+
+  it("imports the incoming spouse as a new person instead of pointing at the deleted id", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@C1@"), { status: "confirmed", fields: { "fam.@F1@.partner": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+
+    const xrefs = new Set(records.map((r) => r.xref).filter(Boolean));
+    const fams = records.filter((r) => r.tag === "FAM");
+    expect(fams).toHaveLength(1);
+    for (const c of fams[0].children) {
+      if (c.tag === "HUSB" || c.tag === "WIFE") expect(xrefs.has(c.value!)).toBe(true);
+    }
+    // Janez arrived as a record of his own (which may well take the freed
+    // @I1@ id), named in the report as new, and the family points at *him*.
+    const janez = records.find((r) => r.tag === "INDI" && r.children.some((c) => c.tag === "NAME" && c.value === "Janez /Kovač/"));
+    expect(janez).toBeDefined();
+    expect(fams[0].children.find((c) => c.tag === "HUSB")?.value).toBe(janez!.xref);
+    expect(report.changes.some((c) => c.recordId === janez!.xref && c.newRecord)).toBe(true);
+  });
+});
+
+describe("mergeDecisions — record-level notes, privacy and nickname", () => {
+  const person = (extra: string) =>
+    `0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n${extra}`;
+  const incoming = (extra: string) =>
+    `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n${extra}`;
+  const indi = (records: GedNode[], xref = "@I1@") => records.find((r) => r.xref === xref)!;
+
+  it("'incoming' replaces the main's record notes, 'both' keeps both, and the report names the field", () => {
+    const main = dataset(wrap(person("1 NOTE old\n1 CHAN\n2 DATE 1 JAN 2020\n")));
+    const compare = dataset(wrap(incoming("1 NOTE new\n")));
+
+    const replaced = mergeDecisions(main, compare, confirmed({ notes: "incoming" }), NO_MATCHES, tr);
+    const notes = indi(replaced.records).children.filter((c) => c.tag === "NOTE").map((c) => c.value);
+    expect(notes).toEqual(["new"]);
+    // Placed by canonical order: ahead of the trailing CHAN, not after it.
+    const tags = indi(replaced.records).children.map((c) => c.tag);
+    expect(tags.indexOf("NOTE")).toBeLessThan(tags.indexOf("CHAN"));
+    expect(replaced.report.changes.some((c) => c.recordId === "@I1@" && c.field === "field.notes" && c.to === "new")).toBe(true);
+
+    const both = mergeDecisions(main, compare, confirmed({ notes: "both" }), NO_MATCHES, tr);
+    expect(indi(both.records).children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual(["old", "new"]);
+  });
+
+  it("a shared-note pointer is remapped to the imported NOTE record", () => {
+    const main = dataset(wrap(person("")));
+    const compare = dataset(wrap(incoming("1 NOTE @N1@\n") + "0 @N1@ NOTE Shared text\n"));
+
+    const { records } = mergeDecisions(main, compare, confirmed({ notes: "incoming" }), NO_MATCHES, tr);
+    const note = indi(records).children.find((c) => c.tag === "NOTE")!;
+    expect(note.value).toMatch(/^@.+@$/);
+    const shared = records.find((r) => r.tag === "NOTE" && r.xref === note.value);
+    expect(shared?.value).toBe("Shared text");
+  });
+
+  it("the private flag is added in the main file's own dialect, and never removed", () => {
+    // Main declares nothing about privacy → the standard RESN is written.
+    const plain = dataset(wrap(person("")));
+    const compare = dataset(wrap(incoming("1 RESN privacy\n")));
+    const std = mergeDecisions(plain, compare, confirmed({ private: "incoming" }), NO_MATCHES, tr);
+    expect(indi(std.records).children.some((c) => c.tag === "RESN" && c.value === "privacy")).toBe(true);
+    expect(std.report.changes.some((c) => c.recordId === "@I1@" && c.field === "field.private" && c.to.startsWith("🔒"))).toBe(true);
+
+    // Main already speaks MyHeritage's _PRIV on another person → that dialect.
+    const myh = dataset(wrap(person("") + "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 _PRIV Y\n"));
+    const mh = mergeDecisions(myh, compare, confirmed({ private: "incoming" }), NO_MATCHES, tr);
+    const flags = indi(mh.records).children.filter((c) => c.tag === "_PRIV" || c.tag === "RESN" || c.tag === "PRIV");
+    expect(flags.map((c) => `${c.tag} ${c.value}`)).toEqual(["_PRIV Y"]);
+
+    // A main-side flag the incoming side lacks is never a merge row: it stays.
+    const flagged = dataset(wrap(person("1 RESN privacy\n")));
+    const open = dataset(wrap(incoming("")));
+    const kept = mergeDecisions(flagged, open, confirmed(), NO_MATCHES, tr);
+    expect(indi(kept.records).children.some((c) => c.tag === "RESN" && c.value === "privacy")).toBe(true);
+  });
+
+  it("a nickname lands under the primary NAME; 'incoming' replaces a differing one", () => {
+    const main = dataset(wrap(person("")));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n2 NICK Nace\n1 SEX M\n1 BIRT\n2 DATE 1850\n"));
+    const added = mergeDecisions(main, compare, confirmed({ nickname: "incoming" }), NO_MATCHES, tr);
+    const name = indi(added.records).children.find((c) => c.tag === "NAME")!;
+    expect(name.children.find((c) => c.tag === "NICK")?.value).toBe("Nace");
+
+    const nicked = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n2 NICK Jani\n1 SEX M\n1 BIRT\n2 DATE 1850\n"));
+    const swapped = mergeDecisions(nicked, compare, confirmed({ nickname: "incoming" }), NO_MATCHES, tr);
+    const nicks = indi(swapped.records).children.find((c) => c.tag === "NAME")!.children.filter((c) => c.tag === "NICK").map((c) => c.value);
+    expect(nicks).toEqual(["Nace"]);
+  });
+});
+
+describe("mergeDecisions — a family's notes and private flag", () => {
+  const main = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1875\n1 CHAN\n2 DATE 1 JAN 2020\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1875\n1 NOTE Poročena v Kranju\n1 RESN privacy\n",
+    ),
+  );
+  const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }, { mainId: "@I2@", compareId: "@P2@" }] } as never;
+
+  it("copies the incoming family's note ahead of the CHAN stamp and flags the family private", () => {
+    // Both spouses confirmed: a confirmation outranks the identity vetoes
+    // an undated partner would otherwise fail, so @G1@ resolves to @F1@.
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.notes": "incoming", "fam.@G1@.private": "incoming" } }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const fam = records.find((r) => r.xref === "@F1@")!;
+    const tags = fam.children.map((c) => c.tag);
+    expect(fam.children.find((c) => c.tag === "NOTE")?.value).toBe("Poročena v Kranju");
+    expect(tags.indexOf("NOTE")).toBeLessThan(tags.indexOf("CHAN"));
+    expect(fam.children.some((c) => c.tag === "RESN" && c.value === "privacy")).toBe(true);
+    expect(report.changes.some((c) => c.recordId === "@F1@" && c.field === "field.notes" && c.to === "Poročena v Kranju")).toBe(true);
+    expect(report.changes.some((c) => c.recordId === "@F1@" && c.field === "field.private" && c.to.startsWith("🔒"))).toBe(true);
+    // Only one FAM in the output: the incoming family was matched, not imported.
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+  });
+});
+
+describe("formatReport — the verb shapes", () => {
+  const report = (changes: FieldChange[]): ChangeReport => ({
+    changes,
+    deferred: [],
+    graftJoins: [],
+    recordsChanged: 1,
+    newPersons: 0,
+    newFamilies: 0,
+    recordLabels: { "@I1@": "Janez Novak", "@I2@": "Ana Kos" },
+    recordKinds: { "@I1@": "individual", "@I2@": "individual" },
+    familySpouses: {},
+    customTags: {},
+  });
+
+  it("an added citation reads as its title and page", () => {
+    const text = formatReport(report([
+      { recordId: "@I1@", field: "Birth", from: "", to: "", action: "incoming", sources: [{ title: "Krstna knjiga", page: "42" }] as never },
+    ]), { t: tr });
+    expect(text).toContain('Birth: changeReport.verb.added "Krstna knjiga, p. 42"');
+  });
+
+  it("a value that went away reads as removed, a replaced one as changed", () => {
+    const text = formatReport(report([
+      { recordId: "@I1@", field: "Occupation", from: "kmet", to: "", action: "incoming" },
+      { recordId: "@I1@", field: "Birth", from: "1850", to: "1851", action: "incoming" },
+    ]), { t: tr });
+    expect(text).toContain('Occupation: changeReport.verb.removed "kmet"');
+    expect(text).toContain('Birth: changeReport.verb.changed "1850" → "1851"');
+  });
+
+  it("records changed in ways the report cannot describe are listed once each, under their own heading", () => {
+    const text = formatReport(report([
+      { recordId: "@I2@", field: "", from: "", to: "", action: "incoming", undescribed: true },
+      { recordId: "@I2@", field: "", from: "", to: "", action: "incoming", undescribed: true },
+    ]), { t: tr });
+    expect(text).toContain("changeReport.undescribed");
+    expect(text).toContain("changeReport.undescribedHint");
+    expect(text.split("Ana Kos").length - 1).toBeGreaterThanOrEqual(1);
+    const section = text.slice(text.indexOf("changeReport.undescribed"));
+    expect(section.match(/Ana Kos/g)?.length).toBe(1);
+  });
+});
+
+// A file that hangs each cited page's image on the event as an `OBJE` pointer
+// beside its citation — the main already cites the same pages without them.
+describe("event media links beside the citations", () => {
+  const BOOK = "1 TITL Births 1759-1812, Ravna Gora\n";
+  const MAIN_CITED = wrap(
+    "0 @I1@ INDI\n1 NAME Martin /Novak/\n1 SEX M\n1 BIRT\n2 DATE 25 NOV 1802\n" +
+      "2 SOUR @S1@\n3 PAGE 52\n2 SOUR @S1@\n3 PAGE 38\n0 @S1@ SOUR\n" + BOOK +
+      "0 @88120791@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5CK1?i=37&cc=2040054\n",
+  );
+  const COMPARE_IMAGED = wrap(
+    "0 @P1@ INDI\n1 NAME Martin /Novak/\n1 SEX M\n1 BIRT\n2 DATE 25 NOV 1802\n" +
+      "2 SOUR @19524725@\n3 PAGE 52\n2 OBJE @O5@\n2 SOUR @19524725@\n3 PAGE 38\n2 OBJE @88120791@\n" +
+      "0 @19524725@ SOUR\n" + BOOK +
+      "0 @O5@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-899C-5CGN\n" +
+      "0 @88120791@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5CK1\n",
+  );
+  const birthOf = (out: string) => out.slice(out.indexOf("1 BIRT"), out.indexOf("0 @", out.indexOf("1 BIRT")));
+
+  it("takes the images on a plain confirm, citing each page once", () => {
+    const { records } = mergeDecisions(dataset(MAIN_CITED), dataset(COMPARE_IMAGED), confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    const birth = birthOf(out);
+    expect(birth.match(/2 SOUR @S1@/g)).toHaveLength(2);
+    expect(birth).toContain("2 OBJE @O5@");
+    // The second image is the main's own record of that page, not a copy of it.
+    expect(birth).toContain("2 OBJE @88120791@");
+    expect(out.match(/3QSQ-G99C-5CK1/g)).toHaveLength(1);
+    expect(out).toContain("0 @O5@ OBJE");
+  });
+
+  it("writes nothing more once the main has them", () => {
+    const first = serializeGedcom(mergeDecisions(dataset(MAIN_CITED), dataset(COMPARE_IMAGED), confirmed(), NO_MATCHES, tr).records);
+    const again = mergeDecisions(dataset(first), dataset(COMPARE_IMAGED), confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
+    expect(serializeGedcom(again.records)).toBe(first);
+  });
+
+  it("keeps the main's own pages when the incoming side differs", () => {
+    const main = dataset(MAIN_CITED.replace("3 PAGE 38", "3 PAGE 40"));
+    const { records } = mergeDecisions(main, dataset(COMPARE_IMAGED), confirmed(), NO_MATCHES, tr);
+    expect(birthOf(serializeGedcom(records))).not.toContain("OBJE");
   });
 });

@@ -3,7 +3,8 @@ import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type KinColour, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { COLOR_AXES, GROUP_AXES } from "../chart/nodeColor";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
 // that opens a small popover for the layered-chart alignment (left→right /
@@ -34,9 +35,6 @@ const MARRIAGE_FIELDS: { key: "showMarriageDate" | "showMarriagePlace"; label: s
 /** Whose bars carry event dots on the Timeline (the timeline-only group). */
 const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
 
-/** What a dot's colour says on the Contemporaries wheel. */
-const KIN_COLOURS: KinColour[] = ["generation", "branch", "living"];
-
 /** `lockedType` pins the effective diagram type (used by the Relationship
  *  chart, which always lays out as a tree, and by the Timeline and the
  *  Ahnentafel report, the Contemporaries wheel and the places map) so the
@@ -63,6 +61,15 @@ export function ChartSettings({
   // The effective type drives which extra rows show; with a locked type it wins
   // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
+  // The Contemporaries surname rings draw one mark per band of people, so they
+  // only offer the axes a band can answer for all of them at once — on Sex or
+  // Living a band holds both, and one fill would have to pick a side.
+  const axesHere =
+    effectiveType === "kin" && settings.kinLayout === "surnames" ? GROUP_AXES : COLOR_AXES;
+  // An axis chosen elsewhere that this chart cannot answer is not the one in
+  // force here: the chart fell back to Plain, so Plain is what shows as chosen.
+  // Leaving none of them lit reads as a broken control.
+  const axisHere = axesHere.includes(settings.colorAxis) ? settings.colorAxis : "plain";
   // Generations currently drawn: the limit, or — with no limit — everything this
   // view has. Stepping starts from what the user sees, so "−" from "All" lands
   // one generation shallower than the tree in front of them.
@@ -86,7 +93,7 @@ export function ChartSettings({
           {/* Alignment applies to every layered chart — the tidy tree, the grid
               that shares its layout axes, and the relationship diagram (which
               reaches here as a locked "tree"); radial charts ignore it. */}
-          {(effectiveType === "tree" || effectiveType === "grid") && (
+          {effectiveType === "tree" && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.alignment")}</span>
               <div className="chart-settings-segmented">
@@ -148,7 +155,7 @@ export function ChartSettings({
             <div className="chart-settings-segmented chart-settings-toggles">
               {DISPLAY_FIELDS.filter(({ key }) => key !== "showPhoto" || folderName).map(({ key, label }) => {
                 // The radial fan / circle charts don't draw a kinship line.
-                const disabled = key === "showKinship" && (effectiveType === "fan" || effectiveType === "circle");
+                const disabled = key === "showKinship" && effectiveType === "fan";
                 return (
                   <button
                     key={key}
@@ -217,22 +224,30 @@ export function ChartSettings({
               </div>
             </div>
           )}
-          {/* Contemporaries-only: what a dot's colour says, and whether the
-              closest kin are named on the chart. */}
-          {effectiveType === "kin" && (
+          {/* What a person's fill says — one shared choice for every chart
+              that draws people. The report has no fills and the map colours
+              its markers by event kind. */}
+          {effectiveType !== "report" && effectiveType !== "map" && (
             <div className="chart-settings-group">
-              <span className="chart-settings-heading">{t("kin.settings.colour")}</span>
-              <div className="chart-settings-segmented">
-                {KIN_COLOURS.map((c) => (
+              <span className="chart-settings-heading">{t("chartColor.heading")}</span>
+              <div className="chart-settings-segmented chart-settings-toggles chart-settings-axes">
+                {axesHere.map((axis) => (
                   <button
-                    key={c}
-                    className={settings.kinColour === c ? "active" : ""}
-                    onClick={() => set({ kinColour: c })}
+                    key={axis}
+                    className={axisHere === axis ? "active" : ""}
+                    aria-pressed={axisHere === axis}
+                    title={t(`chartColor.axis.${axis}.tip`)}
+                    onClick={() => set({ colorAxis: axis })}
                   >
-                    {t(`kin.settings.colour.${c}`)}
+                    {t(`chartColor.axis.${axis}`)}
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+          {/* Contemporaries-only: whether the closest kin are named on the chart. */}
+          {effectiveType === "kin" && (
+            <div className="chart-settings-group">
               <div className="chart-settings-segmented chart-settings-toggles">
                 <button
                   className={settings.kinNames ? "active" : ""}

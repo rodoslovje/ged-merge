@@ -13,29 +13,31 @@
 // about the vertical, so every label on a side reads the same way. The font
 // shrinks by generation so names are never truncated, and inner rings can carry a
 // small photo rotated to the ring, sitting before the name. Input is the ancestor
-// `TreeNode` from `buildPersonTree(..., "ancestors")`.
+// `TreeNode` from `buildPersonTree(..., "ancestors")`. The descendant direction
+// is laid out by `descendantFan.ts`, which reuses the geometry, label and ring
+// constants exported from here.
 
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
-import { ALL_DISPLAY, formatMarriage, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 
 export type FanShape = "fan" | "circle";
 
-const TAU = Math.PI * 2;
-const HALF = Math.PI / 2;
-const FAN_DEG = 230;
+export const TAU = Math.PI * 2;
+export const HALF = Math.PI / 2;
+export const FAN_DEG = 230;
 
 // Centre disk + ring thickness. Inner rings (those that may carry a photo) are
 // drawn thicker than the text-only outer rings; the outermost ring gets extra
 // depth so its (radial) full name + lifespan have room.
-const ROOT_R = 64;
-const PHOTO_RING_W = 96;
-const RING_W = 86;
-const LAST_RING_EXTRA = 22;
+export const ROOT_R = 64;
+export const PHOTO_RING_W = 96;
+export const RING_W = 86;
+export const LAST_RING_EXTRA = 22;
 
 // Label font size per generation (px); shrinks outward so names always fit. The
 // last entry is reused for any deeper rings.
-const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
+export const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
 
 // Eight rings of ancestors — as deep as the label rules above still have an
 // answer for: the seventh drops the place, the eighth keeps the name alone in a
@@ -43,11 +45,11 @@ const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
 // Anything above the cap is counted onto the last ring's "+N" marker (see
 // cutByRings) rather than drawn too small to make out, and one click there
 // re-roots the chart and carries on up the line.
-const DEFAULT_MAX_GEN = 8;
+export const DEFAULT_MAX_GEN = 8;
 // Half the widest "+N" pill (the compact NodeBadge sizes it ~7 + 4.2 per
 // character), used to keep the outer marker inside its wedge.
-const BADGE_HALF_W = 10;
-const DEFAULT_PHOTO_RINGS = 3;
+export const BADGE_HALF_W = 10;
+export const DEFAULT_PHOTO_RINGS = 3;
 // A dedicated thin "collar" ring reserved between generations for the marriage
 // label (only when a marriage field is shown). The couple's collar sits at the
 // inner edge of their (the parents') ring, centred under husband + wife.
@@ -57,12 +59,12 @@ const COLLAR_W = 26;
 const MARRIAGE_TWO_LINE_FROM = 6;
 // The deep, narrow rings can't fit every line: from this generation the place is
 // dropped (capping the label at two lines — the name plus the lifespan)…
-const TWO_LINE_FROM = 7;
+export const TWO_LINE_FROM = 7;
 // …and from this one only the name remains, in a lighter weight.
-const NAME_ONLY_FROM = 8;
+export const NAME_ONLY_FROM = 8;
 // From this generation the label uses the lighter weight (also applied to the
 // outermost two rings of any chart).
-const LIGHT_FROM = 8;
+export const LIGHT_FROM = 8;
 
 /** One label line: a name part or the lifespan/place. */
 export interface FanLine {
@@ -93,6 +95,9 @@ export interface FanSegment {
   fontPx: number;
   /** Lighter-weight label (the two outermost rings). */
   light?: boolean;
+  /** Hover text: the full name and lifespan (a redacted living person shows
+   *  only their placeholder), whatever the wedge itself had room for. */
+  title: string;
   /** True when the lines ride curved arcs; false for straight radial / centre. */
   curved: boolean;
   /** `translate(anchor) rotate(deg)` for straight (radial / centre) labels. */
@@ -111,6 +116,20 @@ export interface FanSegment {
    *  ring's share of what {@link TreeNode.hidden} says for the generation limit.
    *  Absent unless the rings ran out with ancestors still to draw. */
   hidden?: number;
+  /** Descendant charts: a spouse's thin band on the outside of their partner's
+   *  wedge (one per marriage), rather than a person's own generation ring. */
+  band?: boolean;
+  /** Fill strength (percent of the state colour mixed into the panel); the
+   *  descendant chart pales each generation outward. Default 16. */
+  tint?: number;
+  /** Descendant charts: which child of the root this line descends from
+   *  (0-based, in drawing order), for the per-branch colouring. Absent on the
+   *  root and their spouses. */
+  branch?: number;
+  /** The ring cap of the half this segment belongs to, when the chart joins
+   *  two halves with caps of their own (the radial bowtie); else the chart's
+   *  {@link FanChart.maxGen} applies. */
+  cap?: number;
 }
 
 /** A marriage "collar": a curved label riding the ring boundary between a child's
@@ -137,6 +156,12 @@ export interface FanChart {
   /** How many rings the chart drew at most — the cap behind {@link FanSegment.hidden},
    *  named in that marker's tooltip. */
   maxGen: number;
+  /** How many rings the chart actually drew. */
+  rings: number;
+  /** Descendant charts: how many children of the root head a line (the range
+   *  {@link FanSegment.branch} runs over), so a host can space the branch hues
+   *  evenly around the colour wheel. */
+  branches?: number;
   width: number;
   height: number;
 }
@@ -150,7 +175,7 @@ interface Placed {
 /** Father/mother for the next ring: slot bit 0 = father, 1 = mother. Assign by
  *  sex first (so a lone parent stays in their half), then by order for any
  *  ambiguous remainder. */
-function splitParents(kids: TreeNode[]): [TreeNode | undefined, TreeNode | undefined] {
+export function splitParents(kids: TreeNode[]): [TreeNode | undefined, TreeNode | undefined] {
   let father: TreeNode | undefined;
   let mother: TreeNode | undefined;
   for (const k of kids) {
@@ -173,28 +198,43 @@ function nameLines(name: string): string[] {
   return [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
 }
 
-export function buildFanChart(
-  root: TreeNode,
-  shape: FanShape,
-  opts: {
-    maxGen?: number;
-    photoRings?: number;
-    hasPhoto?: (node: TreeNode) => boolean;
-    /** Which fields to show (and whether to redact living people). */
-    display?: NodeDisplayOptions;
-    /** Localized "Living" placeholder for a redacted living person, resolved
-     *  per node so it can follow the person's sex. */
-    livingLabelOf?: (node: TreeNode) => string;
-    /** Fully-localized standalone age phrase ("age 40" / "star 40 let"),
-     *  resolved per node so it can follow the person's sex and age. */
-    ageTextOf?: (node: TreeNode) => string | undefined;
-    /** Relationship of a node to the chart root ("Father", "Grandmother", …),
-     *  shown in place of a redacted living person's name. */
-    kinshipOf?: (node: TreeNode) => string | undefined;
-  } = {},
-): FanChart {
-  const maxGen = opts.maxGen ?? DEFAULT_MAX_GEN;
-  const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
+export interface FanChartOptions {
+  maxGen?: number;
+  photoRings?: number;
+  /** Draw on this arc (radians, clockwise from 3 o'clock) instead of the
+   *  shape's own sweep — the radial bowtie gives each half its own share of
+   *  one circle. Pass the "circle" shape with it so the lower half's labels
+   *  flip upright. */
+  arc?: { start: number; sweep: number };
+  /** Centre the chart as if its outer radius were at least this — so two
+   *  halves of different depth share one centre. */
+  radius?: number;
+  /** Size and weight the labels as if the chart had this many rings — so
+   *  two halves of different depth read alike ring for ring. Defaults to the
+   *  rings actually drawn. */
+  fontRings?: number;
+  hasPhoto?: (node: TreeNode) => boolean;
+  /** Which fields to show (and whether to redact living people). */
+  display?: NodeDisplayOptions;
+  /** Localized "Living" placeholder for a redacted living person, resolved
+   *  per node so it can follow the person's sex. */
+  livingLabelOf?: (node: TreeNode) => string;
+  /** Fully-localized standalone age phrase ("age 40" / "star 40 let"),
+   *  resolved per node so it can follow the person's sex and age. */
+  ageTextOf?: (node: TreeNode) => string | undefined;
+  /** Relationship of a node to the chart root ("Father", "Grandmother", …),
+   *  shown in place of a redacted living person's name. */
+  kinshipOf?: (node: TreeNode) => string | undefined;
+}
+
+/** The per-node display resolvers both radial layouts share: which fields a
+ *  node shows under the current settings, and whether its photo slot is used. */
+export function fanResolvers(opts: FanChartOptions): {
+  display: NodeDisplayOptions;
+  hasPhoto: (node: TreeNode) => boolean;
+  dispOf: (node: TreeNode) => NodeDisplay;
+  titleOf: (node: TreeNode) => string;
+} {
   const display = opts.display ?? ALL_DISPLAY;
   const livingLabelOf = opts.livingLabelOf ?? (() => "Living");
   const ageTextOf = opts.ageTextOf ?? (() => undefined);
@@ -221,6 +261,31 @@ export function buildFanChart(
       livingLabel: livingLabelOf(node),
     });
   };
+  /** The hover text: the full name and lifespan regardless of what the wedge
+   *  could fit, then the fields the settings show (see nodeTooltip) — the
+   *  kinship among them, which the wedge itself never draws. */
+  const titleOf = (node: TreeNode): string =>
+    nodeTooltip(display, {
+      name: node.name,
+      years: node.years,
+      age: node.age,
+      ageText: ageTextOf(node),
+      place: node.place,
+      kinship: opts.kinshipOf?.(node),
+      living: node.living,
+      livingLabel: livingLabelOf(node),
+    });
+  return { display, hasPhoto, dispOf, titleOf };
+}
+
+export function buildFanChart(
+  root: TreeNode,
+  shape: FanShape,
+  opts: FanChartOptions = {},
+): FanChart {
+  const maxGen = opts.maxGen ?? DEFAULT_MAX_GEN;
+  const photoRings = opts.photoRings ?? DEFAULT_PHOTO_RINGS;
+  const { display, hasPhoto, dispOf, titleOf } = fanResolvers(opts);
 
   // 1. Walk ancestors into positioned slots (positions are unique, so pedigree
   //    collapse repeats a person rather than being deduped).
@@ -242,6 +307,7 @@ export function buildFanChart(
     if (mother) walk(mother, gen + 1, slot * 2 + 1);
   })(root, 0, 0);
   const usedMaxGen = placed.reduce((m, p) => Math.max(m, p.gen), 0);
+  const fontRings = opts.fontRings ?? usedMaxGen;
 
   // 2. Inner radius per generation (root disk + cumulative ring widths; the
   //    outermost ring is deepened for its radial labels). Text-only rings taper
@@ -264,20 +330,21 @@ export function buildFanChart(
     rInnerOf[g] = acc;
     acc += ringW(g);
   }
-  const rMax = usedMaxGen === 0 ? ROOT_R : rInnerOf[usedMaxGen] + ringW(usedMaxGen);
+  const rMax = Math.max(usedMaxGen === 0 ? ROOT_R : rInnerOf[usedMaxGen] + ringW(usedMaxGen), opts.radius ?? 0);
   const cx = rMax;
   const cy = rMax;
 
-  // 3. Sweep geometry, centred on the upward vertical (notch at the bottom).
-  const sweep = shape === "circle" ? TAU : (FAN_DEG / 360) * TAU;
-  const start = -HALF - sweep / 2;
+  // 3. Sweep geometry, centred on the upward vertical (notch at the bottom) —
+  //    or the arc the caller asked for.
+  const sweep = opts.arc?.sweep ?? (shape === "circle" ? TAU : (FAN_DEG / 360) * TAU);
+  const start = opts.arc?.start ?? -HALF - sweep / 2;
 
   const segments: FanSegment[] = placed.map(({ node, gen, slot }) => {
     // Deep rings get a smaller, lighter-weight label so the cramped deep rings stay
     // legible without dominating: from LIGHT_FROM outward, plus the outermost two
     // rings of any chart; the very last ring is smaller still.
-    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= usedMaxGen - 1);
-    const fontScale = gen > 0 && gen === usedMaxGen ? 0.7 : light ? 0.82 : 1;
+    const light = gen > 0 && (gen >= LIGHT_FROM || gen >= fontRings - 1);
+    const fontScale = gen > 0 && gen === fontRings ? 0.7 : light ? 0.82 : 1;
     const fontPx = (FONT_BY_GEN[Math.min(gen, FONT_BY_GEN.length - 1)] ?? 6.5) * fontScale;
     const lineGap = round(fontPx * 1.22);
 
@@ -292,6 +359,7 @@ export function buildFanChart(
         node,
         gen,
         slot,
+        title: titleOf(node),
         d: circlePath(cx, cy, ROOT_R),
         x: cx,
         y: cy,
@@ -350,11 +418,12 @@ export function buildFanChart(
     const off = Math.max(0, delta / 2 - BADGE_HALF_W / rBadge);
     const badgeMid = mid + (flip ? -off : off);
 
-    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "hidden" | "fontPx" | "light"> = {
+    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "title" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "hidden" | "fontPx" | "light"> = {
       key: `${gen}:${slot}`,
       node,
       gen,
       slot,
+      title: titleOf(node),
       d: sectorPath(cx, cy, rIn, rOut, a0, a1),
       x: cx + rMid * Math.cos(mid),
       y: cy + rMid * Math.sin(mid),
@@ -370,9 +439,7 @@ export function buildFanChart(
       // Curved rings split the name into given / surname lines, wrapping a long
       // given name onto extra lines so it never overflows the arc. The line gap
       // tightens if needed so every line stays inside the ring.
-      const bandLo = photo ? rIn + photo.size + 14 : rIn + 8;
-      const bandHi = rOut - 8;
-      const centre = (bandLo + bandHi) / 2;
+      const { lo: bandLo, hi: bandHi, mid: centre } = labelBand(rIn, rOut, photo);
       // On the wide inner rings (gen 1–3), keep the name on a single line when both
       // the lifespan and place are shown — otherwise the given/surname split would
       // push the label to four lines and crowd the ring.
@@ -397,16 +464,19 @@ export function buildFanChart(
     // is split onto given / surname lines so it wraps instead of overflowing.
     // Rotate to point outward, flipped to read upright on the left half. Deep rings
     // drop the place, then the lifespan, via `genDisp` (so ring 8+ is name-only).
-    const tooLong = genDisp.name.length * fontPx * 0.5 > w - 16;
+    // The band starts outside the photo, so the outward-reading name begins
+    // where the face ends instead of running over it.
+    const band = labelBand(rIn, rOut, photo);
+    const tooLong = genDisp.name.length * fontPx * 0.5 > band.depth;
     const texts = labelTexts(genDisp, tooLong);
     const n = texts.length;
     // Lines stack tangentially within the rotated frame — tighten the gap so they
     // fit the wedge's angular width.
-    const gap = Math.min(lineGap, Math.max(1, (rMid * delta - 2) / n));
+    const gap = Math.min(lineGap, Math.max(1, (band.mid * delta - 2) / n));
     let deg = (mid * 180) / Math.PI;
     if (flip) deg += 180;
-    const ax = cx + rMid * Math.cos(mid);
-    const ay = cy + rMid * Math.sin(mid);
+    const ax = cx + band.mid * Math.cos(mid);
+    const ay = cy + band.mid * Math.sin(mid);
     return {
       ...base,
       curved: false,
@@ -451,10 +521,12 @@ export function buildFanChart(
       let lines: { text: string; arc: string }[] = [];
       let fontPx = round(Math.min(baseFont * 0.82, collarW * 0.55));
 
-      // Redacting the living hides the couple's own label too — see
-      // MarriageInfo.living. The collar band still draws, blank, so the ring
-      // spacing doesn't shift between a private couple and a known one.
-      const redactMarriage = display.privacyLiving && (node.living || !!node.marriage?.living);
+      // Redacting the living hides a couple's own label when one of them is
+      // living — see MarriageInfo.living — and only then: the collar is the
+      // parents' wedding, and a living child is no reason to hide it. The band
+      // still draws, blank, so the ring spacing doesn't shift between a
+      // private couple and a known one.
+      const redactMarriage = display.privacyLiving && !!node.marriage?.living;
       if (node.marriage && !redactMarriage) {
         const { year, place } = node.marriage;
         // Deep rings stack the year over the place on two concentric lines (the arc
@@ -495,6 +567,7 @@ export function buildFanChart(
     r0: ROOT_R,
     rootKey: "0:0",
     maxGen,
+    rings: usedMaxGen,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
   };
@@ -503,7 +576,7 @@ export function buildFanChart(
 /** The label lines for a person: given/surname split when there's arc room
  *  (`split`), else the full name on one line — with the lifespan, then any place,
  *  beneath. `disp` already reflects which fields the settings show. */
-function labelTexts(disp: NodeDisplay, split: boolean): { text: string; kind: FanLine["kind"] }[] {
+export function labelTexts(disp: NodeDisplay, split: boolean): { text: string; kind: FanLine["kind"] }[] {
   const names = split ? nameLines(disp.name) : [disp.name];
   return [
     ...names.map((text) => ({ text, kind: "name" as const })),
@@ -516,7 +589,7 @@ function labelTexts(disp: NodeDisplay, split: boolean): { text: string; kind: Fa
  *  name(s) word-wrapped to the arc width above it; with `splitName` false the whole
  *  name wraps as one block (so it stays on one line when the ring is wide). The
  *  lifespan and any place follow beneath. */
-function curvedTexts(
+export function curvedTexts(
   disp: NodeDisplay,
   availWidth: number,
   fontPx: number,
@@ -552,7 +625,7 @@ function wrapWords(words: string[], availWidth: number, charPx: number): string[
 
 /** A photo box for an inner wedge, rotated so it aligns with the ring (bottom
  *  edge along the arc), sitting before the name. Undefined when too narrow. */
-function photoBox(
+export function photoBox(
   cx: number,
   cy: number,
   rIn: number,
@@ -577,9 +650,23 @@ function photoBox(
   };
 }
 
+/** The radial band a wedge's label may use: the ring, less the photo sitting at
+ *  its inner edge. Both label shapes read it, so a name never lands across a
+ *  face — the curved lines stack inside the band, the radial ones read outward
+ *  from its inner edge. */
+export function labelBand(
+  rIn: number,
+  rOut: number,
+  photo?: { size: number },
+): { lo: number; hi: number; mid: number; depth: number } {
+  const lo = photo ? rIn + photo.size + 14 : rIn + 8;
+  const hi = rOut - 8;
+  return { lo, hi, mid: (lo + hi) / 2, depth: hi - lo };
+}
+
 /** A curved text baseline spanning a wedge at radius `r`, mirrored about the
  *  vertical: left→right on the right half, reversed on the left half. */
-function arcPath(cx: number, cy: number, r: number, a0: number, a1: number, flip: boolean): string {
+export function arcPath(cx: number, cy: number, r: number, a0: number, a1: number, flip: boolean): string {
   const pt = (a: number) => `${round(cx + r * Math.cos(a))},${round(cy + r * Math.sin(a))}`;
   // Large-arc flag must follow the span: the root's-parents collar wraps the whole
   // sweep (>180°), where a hardcoded 0 would draw the minor arc through the notch.
@@ -590,7 +677,7 @@ function arcPath(cx: number, cy: number, r: number, a0: number, a1: number, flip
 }
 
 /** Annular sector between two radii and two angles (PAD-relative coords). */
-function sectorPath(cx: number, cy: number, rIn: number, rOut: number, a0: number, a1: number): string {
+export function sectorPath(cx: number, cy: number, rIn: number, rOut: number, a0: number, a1: number): string {
   const large = a1 - a0 >= Math.PI ? 1 : 0;
   const p = (r: number, a: number) => `${round(cx + r * Math.cos(a))},${round(cy + r * Math.sin(a))}`;
   return (
@@ -600,7 +687,7 @@ function sectorPath(cx: number, cy: number, rIn: number, rOut: number, a0: numbe
 }
 
 /** Full circle (the root disk), drawn as two semicircle arcs. */
-function circlePath(cx: number, cy: number, r: number): string {
+export function circlePath(cx: number, cy: number, r: number): string {
   return (
     `M${round(cx - r)},${round(cy)} ` +
     `A${round(r)},${round(r)} 0 1 1 ${round(cx + r)},${round(cy)} ` +
@@ -610,7 +697,7 @@ function circlePath(cx: number, cy: number, r: number): string {
 
 /** A full-circle text baseline starting at the bottom and running clockwise, so a
  *  `<textPath>` at 50% lands centred at the top (the circle chart's root collar). */
-function circleBaseline(cx: number, cy: number, r: number): string {
+export function circleBaseline(cx: number, cy: number, r: number): string {
   return (
     `M${round(cx)},${round(cy + r)} ` +
     `A${round(r)},${round(r)} 0 1 1 ${round(cx)},${round(cy - r)} ` +
@@ -620,7 +707,7 @@ function circleBaseline(cx: number, cy: number, r: number): string {
 
 /** A full annular ring (donut) between two radii — the circle chart's root collar
  *  band. Outer circle clockwise, inner counter-clockwise, so the hole is cut out. */
-function donutPath(cx: number, cy: number, rIn: number, rOut: number): string {
+export function donutPath(cx: number, cy: number, rIn: number, rOut: number): string {
   const ring = (r: number, sweep: 0 | 1) =>
     `M${round(cx - r)},${round(cy)} ` +
     `A${round(r)},${round(r)} 0 1 ${sweep} ${round(cx + r)},${round(cy)} ` +
@@ -628,6 +715,6 @@ function donutPath(cx: number, cy: number, rIn: number, rOut: number): string {
   return `${ring(rOut, 1)} ${ring(rIn, 0)}`;
 }
 
-function round(n: number): number {
+export function round(n: number): number {
   return Math.round(n * 100) / 100;
 }

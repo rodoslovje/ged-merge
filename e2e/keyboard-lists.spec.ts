@@ -42,18 +42,34 @@ async function openMerge(page: Page) {
   await expect(page.locator(".candidate")).toHaveCount(2);
 }
 
-test("↓ and ↑ step the match list, Home and End go to its ends", async ({ page }) => {
+test("← and → step the match list, Home and End go to its ends", async ({ page }) => {
   await openMerge(page);
   const rows = page.locator(".candidate");
   await expect(rows.nth(0)).toHaveClass(/selected/);
-  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
   await expect(rows.nth(1)).toHaveClass(/selected/);
   await expect(rows.nth(1)).toHaveAttribute("aria-current", "true");
-  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowLeft");
   await expect(rows.nth(0)).toHaveClass(/selected/);
   await page.keyboard.press("End");
   await expect(rows.nth(1)).toHaveClass(/selected/);
   await page.keyboard.press("Home");
+  await expect(rows.nth(0)).toHaveClass(/selected/);
+});
+
+test("↓ and ↑ scroll the comparison and leave the match where it is", async ({ page }) => {
+  // Short enough that the comparison overflows its section.
+  await page.setViewportSize({ width: 1280, height: 420 });
+  await openMerge(page);
+  const rows = page.locator(".candidate");
+  const body = page.locator(".section-body:has(> .compare-panel)");
+  await expect(rows.nth(0)).toHaveClass(/selected/);
+  await expect.poll(() => body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await expect(rows.nth(0)).toHaveClass(/selected/);
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBe(0);
   await expect(rows.nth(0)).toHaveClass(/selected/);
 });
 

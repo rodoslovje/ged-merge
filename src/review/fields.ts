@@ -1213,7 +1213,11 @@ function pushSourcesRow(
   incomingPool: SourceCitation[] = [],
 ): void {
   const mBase = main ?? [];
-  const iBase = incoming ?? [];
+  // An incoming citation of the very page the main cites — named by its
+  // address where the main names it by number — is shown as the main's own
+  // citation, which is what the merge would write for it.
+  const iCit = citedAsMain(incoming ?? [], [...mBase, ...mainPool]);
+  const iBase = iCit.sources;
   // A plain link that resolves to the exact same archival page as a citation
   // already on the other side is the same record, just not yet itself a
   // citation on this side — show it as that citation (with the other side's
@@ -1228,11 +1232,12 @@ function pushSourcesRow(
   // person), it isn't in this row's other column yet — put it there too, so the
   // row reads as agreement instead of offering to import a page the other file
   // already cites.
-  const m = withCitations(mRec.sources, iRec.matched);
+  const m = withCitations(withCitations(mRec.sources, iRec.matched), iCit.matched);
   const i = withCitations(iRec.sources, mRec.matched);
   const mIcons = linksNotCitedAsSource(mRemainingLinks, m);
   const iIcons = linksNotCitedAsSource(iRemainingLinks, i);
   if (m.length === 0 && i.length === 0 && mIcons.length === 0 && iIcons.length === 0) return;
+  const state = sourcesState(m, i, mIcons, iIcons);
   rows.push({
     key,
     label,
@@ -1241,12 +1246,44 @@ function pushSourcesRow(
     // too, not just the citations.
     main: [...m.map((c) => c.title ?? c.sourceId), ...mIcons].join("\n"),
     incoming: [...i.map((c) => c.title ?? c.sourceId), ...iIcons].join("\n"),
-    state: sourcesState(m, i, mIcons, iIcons),
+    state,
+    incomingAddsOnly: state === "conflict" && coversAll(i, m, iIcons, mIcons) ? true : undefined,
     mainSources: m.length ? m : undefined,
     incomingSources: i.length ? i : undefined,
     mainLinkIcons: mIcons.length ? mIcons : undefined,
     incomingLinkIcons: iIcons.length ? iIcons : undefined,
   });
+}
+
+/**
+ * Incoming citations, each shown as the main's citation of the same page where
+ * the main has one: a citation naming its page by address
+ * (`PAGE https://…/?pg=86`) and the main's citation of that page by number,
+ * with its image, are the same archival record — and the merge writes the
+ * incoming one as the main's (see `placeCitation`) — so the two must read as
+ * agreement, not as a second source to add. `matched` is the subset of
+ * `mainSources` hit, for the caller to surface in the main column when it
+ * came from elsewhere on the record.
+ */
+function citedAsMain(
+  incoming: SourceCitation[],
+  mainSources: SourceCitation[],
+): { sources: SourceCitation[]; matched: SourceCitation[] } {
+  if (!incoming.length || !mainSources.length) return { sources: incoming, matched: [] };
+  const matched: SourceCitation[] = [];
+  const seen = new Set<string>();
+  const sources: SourceCitation[] = [];
+  for (const c of incoming) {
+    const key = c.exact && c.url ? linkKey(c.url) : undefined;
+    const match = key ? mainSources.find((mc) => mc.exact && mc.url && linkKey(mc.url) === key) : undefined;
+    if (match) matched.push(match);
+    const shown = match ?? c;
+    const shownKey = sourceCitationKey(shown);
+    if (seen.has(shownKey)) continue;
+    seen.add(shownKey);
+    sources.push(shown);
+  }
+  return { sources, matched };
 }
 
 /** An event's own links, minus any already reachable via one of its source citations' URLs. */
@@ -1283,7 +1320,9 @@ function reconcileLinksAsCitations(
     if (match) matched.push(match);
     else remainingLinks.push(url);
   }
-  return { sources: matched.length ? [...ownSources, ...matched] : ownSources, matched, remainingLinks };
+  // A link the side's own citation already covers (the address a citation
+  // names its page by is harvested as a link too) adds nothing.
+  return { sources: withCitations(ownSources, matched), matched, remainingLinks };
 }
 
 /** `sources` plus any of `extra` it doesn't already carry (by citation identity). */
@@ -1388,6 +1427,13 @@ function sourcesState(
   const sameCitations = m.size === i.size && [...m].every((x) => i.has(x));
   const sameIcons = mi.size === ii.size && [...mi].every((x) => ii.has(x));
   return sameCitations && sameIcons ? "agree" : "conflict";
+}
+
+/** Whether `side` carries every citation and link `other` does. */
+function coversAll(side: SourceCitation[], other: SourceCitation[], sideIcons: string[], otherIcons: string[]): boolean {
+  const s = new Set(side.map(sourceCitationKey));
+  const si = new Set(sideIcons.map(linkKey));
+  return other.every((c) => s.has(sourceCitationKey(c))) && otherIcons.every((u) => si.has(linkKey(u)));
 }
 
 function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {
@@ -1622,7 +1668,9 @@ export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnch
     // let a contemporaneous life-zone event from the other side (a `1818`
     // residence) sort ahead of the birth. Clamping down to `minBirthKey` keeps
     // the birth row first while still letting a genuinely pre-birth event lead.
-    if (tag === "BIRT" && a.minBirthKey != null && key > a.minBirthKey) return a.minBirthKey;
+    // The birth itself is never pushed after the latest birth: a vaguer `1899`
+    // on the other side would otherwise sort it past a `3 NOV 1899` death.
+    if (tag === "BIRT") return a.minBirthKey != null ? Math.min(key, a.minBirthKey) : key;
     return clampAfterBirthZone(tag, key, a.maxBirthKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);

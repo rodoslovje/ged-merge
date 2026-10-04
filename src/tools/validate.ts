@@ -1,4 +1,5 @@
-import type { Association, Dataset, Family, GedEvent, GedNode, Individual } from "../gedcom/types";
+import type { Association, Dataset, Family, GedDate, GedEvent, GedNode, Individual } from "../gedcom/types";
+import { dateText } from "../gedcom/date";
 import { DEATH_TAGS, birthDateOf, birthYear, deathYear, isDeceased } from "../gedcom/lifespan";
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
 
@@ -47,6 +48,7 @@ export type IssueScope = "individual" | "family";
 export type IssueCategory =
   | "brokenLink"
   | "duplicatePointer"
+  | "duplicateFamily"
   | "pedigreeLoop"
   | "roleSexConflict"
   | "multiSpouseSlot"
@@ -57,6 +59,7 @@ export type IssueCategory =
   | "missingVitals"
   | "island"
   | "orphan"
+  | "duplicateVital"
   | "deathBeforeBirth"
   | "eventOrder"
   | "ageAtDeath"
@@ -104,6 +107,7 @@ export interface ValidationReport {
 const EMPTY_COUNTS: Record<IssueCategory, number> = {
   brokenLink: 0,
   duplicatePointer: 0,
+  duplicateFamily: 0,
   pedigreeLoop: 0,
   roleSexConflict: 0,
   multiSpouseSlot: 0,
@@ -114,6 +118,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   missingVitals: 0,
   island: 0,
   orphan: 0,
+  duplicateVital: 0,
   deathBeforeBirth: 0,
   eventOrder: 0,
   ageAtDeath: 0,
@@ -328,6 +333,43 @@ function coupleLabel(fam: Family, ds: Dataset): string {
   return names.length ? `${names.join(" & ")} (${fam.id})` : fam.id;
 }
 
+/**
+ * The same two people recorded as a couple in more than one family — each group
+ * in file order. Adding a partner twice by hand, or a merge that re-pointed a
+ * duplicate's family without folding it, leaves two family blocks under both
+ * partners; the children, marriage and notes may be split between them. Only
+ * families naming both spouses count: one parent alone with children could
+ * genuinely stand for two different unknown partners.
+ */
+export function duplicateFamilyGroups(ds: Dataset): Family[][] {
+  const byCouple = new Map<string, Family[]>();
+  for (const fam of ds.families.values()) {
+    if (!fam.husband || !fam.wife) continue;
+    const key = `${fam.husband}\0${fam.wife}`;
+    const group = byCouple.get(key);
+    if (group) group.push(fam);
+    else byCouple.set(key, [fam]);
+  }
+  return [...byCouple.values()].filter((g) => g.length > 1);
+}
+
+/**
+ * Whether date `a` certainly falls before date `b` — compared at the coarser of
+ * the two precisions, so `1950` against `3 MAR 1950` is not a contradiction
+ * either way, and a `BEF`/`AFT`/`BET`/`FROM`/`TO` on either side is left alone.
+ * Used where the years alone cannot settle it: a burial the day before a death.
+ */
+export function certainlyBefore(a: GedDate, b: GedDate): boolean {
+  const OPEN = new Set(["before", "after", "between", "from", "to", "range"]);
+  if (a.year === undefined || b.year === undefined) return false;
+  if (OPEN.has(a.qualifier) || OPEN.has(b.qualifier)) return false;
+  if (a.year !== b.year) return a.year < b.year;
+  if (a.month === undefined || b.month === undefined) return false;
+  if (a.month !== b.month) return a.month < b.month;
+  if (a.day === undefined || b.day === undefined) return false;
+  return a.day < b.day;
+}
+
 /** A dated birth of one child, as a month index so partial dates still compare. */
 interface ChildBirth {
   indi: Individual;
@@ -470,6 +512,15 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       add("missingSex", "warning", "tools.validate.issue.missingSex");
     }
 
+    // A second birth or death record: only the first is used for the dates
+    // everything else is checked against, so a contradicting one goes unseen.
+    for (const tag of ["BIRT", "DEAT"] as const) {
+      const evs = indi.events.filter((e) => e.tag === tag);
+      if (evs.length < 2) continue;
+      const list = evs.map((e) => [e.date?.raw ?? "?", e.place?.raw].filter(Boolean).join(", ")).join("; ");
+      add("duplicateVital", "warning", tag === "BIRT" ? "tools.validate.issue.duplicateBirth" : "tools.validate.issue.duplicateDeath", { events: list });
+    }
+
     // Vital dates
     const by = birthYear(indi);
     const dy = deathYear(indi);
@@ -514,6 +565,25 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
           if (year !== undefined && year > dy) {
             add("eventOrder", "warning", "tools.validate.issue.eventAfterDeath", { tag: e.tag, year, death: dy });
           }
+        }
+      }
+    }
+
+    // A burial or cremation dated before the death it follows. The lifespan
+    // bounds above are years, and the death year is what a burial is measured
+    // against, so this is the one order the loop cannot see — and a same-year
+    // slip (burial 3 MAR, death 5 MAR) needs the full dates. Either the death
+    // or the burial carries the wrong date, often a christening's or a
+    // namesake's; the finding quotes both so the wrong one is easy to spot.
+    const deathDate = indi.events.find((e) => e.tag === "DEAT")?.date;
+    if (deathDate) {
+      for (const e of indi.events) {
+        if ((e.tag === "BURI" || e.tag === "CREM") && e.date && certainlyBefore(e.date, deathDate)) {
+          add("eventOrder", "warning", "tools.validate.issue.buriedBeforeDeath", {
+            tag: e.tag,
+            date: dateText(e.date),
+            death: dateText(deathDate),
+          });
         }
       }
     }
@@ -751,6 +821,27 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         partnerB: subjectOf(p.partnerB),
         spanA: `${p.spanA[0]}–${p.spanA[1]}`,
         child: subjectOf(p.child.indi),
+      },
+    });
+  }
+
+  // The same couple recorded in more than one family — reported once per
+  // couple, on the husband (or the wife when his record is missing), naming
+  // the partner and the family records. The row's own fix folds them into one.
+  for (const group of duplicateFamilyGroups(ds)) {
+    const husband = ds.individuals.get(group[0].husband!);
+    const wife = ds.individuals.get(group[0].wife!);
+    const person = husband ?? wife;
+    if (!person) continue;
+    const partnerId = person === husband ? group[0].wife! : group[0].husband!;
+    const partner = ds.individuals.get(partnerId);
+    push({
+      scope: "individual", id: person.id, category: "duplicateFamily", severity: "warning",
+      subject: subjectOf(person), sexContext: sexOf(person),
+      messageKey: "tools.validate.issue.duplicateFamily",
+      messageVars: {
+        partner: partner ? subjectOf(partner) : partnerId,
+        families: group.map((f) => f.id).join(", "),
       },
     });
   }

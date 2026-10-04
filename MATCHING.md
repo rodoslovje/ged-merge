@@ -80,8 +80,15 @@ table the given name, the only part that tells siblings apart, contributed
 nothing to a Latin-against-Slovenian comparison, leaving the shared surname
 and the birth year to carry the identity alone. Names that merely share a
 root but name two different children (`Matej`/`Matija`, `Neža`/`Ana`) are
-deliberately in separate rows; diminutives appear only where registers use
-them (`Meta` for Marjeta, `Polona` for Apolonija).
+deliberately in separate rows; diminutives appear only where registers or
+trees use them for the same person (`Meta` for Marjeta, `Polona` for
+Apolonija, `Pepa`/`Pepca` for Jožefa, `Mica` for Marija). Croatian parish forms
+sit in the same rows (`Ignjat` for Ignacij, `Gjuro` for Jurij, `Mihovil` for
+Mihael), as do old Slovenian ones (`Jedrt` for Gertruda, `Rotija` for
+Doroteja). A pet name shared by two full names stays out of the table: `Pepi`
+is Jože or Jožefa. `Agata` shares Neža's row by choice, not by etymology
+(Agatha and Agnes are two saints): the Ravna Gora trees record the same girl
+under both names.
 
 ### ½. UID identity pre-match (`matchByUid`, `src/match/engine.ts`)
 
@@ -133,6 +140,18 @@ Pairs failing any gate are never scored:
   class of false positive (the dead infant paired with its adult namesake)
   that names and birth years alone score in the 90s. A same-year marriage is
   allowed: a widow's wedding and a spouse's death can share a year.
+- **Two people**: no given name in common — not even two forms of one name
+  from the variant table — *and* births that are not one birth: years more
+  than 3 apart (`birthYearsApart`, the same veto the merge applies before
+  joining on an unconfirmed match), or two exact day-month-year dates more
+  than 31 days apart (`exactBirthsApart` — a misread year keeps its day and
+  month). Either half alone is left to the score; together they mark siblings
+  or cousins whose families agree on everything else (a Barbara born 1841
+  against an Agata born 1864; an Anton of 18 OCT 1882 against his brother
+  Jakob of 29 JUN 1879, same parents and house, scored above 80). On the
+  benchmark: Renko ↔ Renko-Rakar unchanged, Renko ↔ Trobec −24 false pairs
+  (all with different given names), two sibling pairs gone from Pratnekar's
+  duplicates.
 
 ### 3. Scoring (`scoreIndividualPair`, `src/match/scoreIndividual.ts`)
 

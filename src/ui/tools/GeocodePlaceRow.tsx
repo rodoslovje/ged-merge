@@ -13,7 +13,7 @@ import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, t
 import { replaceLocality } from "../../tools/addresses";
 import type { KinshipResolver } from "../../match/kinship";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import type { PlaceSuggestions } from "../edit/placeSuggestions";
+import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
@@ -55,7 +55,7 @@ interface Props {
   /** Context dots for the mini map: every coordinate the file carries. */
   fileCoords: FileCoord[];
   /** Suggestions for the rename input (the Edit fields' lists). */
-  placeSug: PlaceSuggestions;
+  placeSug: FieldSuggestions;
   placeCombos: { place: string; addr: string }[];
   kinship?: KinshipResolver;
   /** Hover list of the people this place is missing at (precomputed). */

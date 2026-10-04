@@ -14,6 +14,11 @@ import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
 import { LookupAction } from "./LookupAction";
 import { useSettingsSlice } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
+import { usePlacePeople } from "./PlacePeopleContext";
+import { personsOfRecord } from "../../tools/places";
+import { birthYear } from "../../gedcom/lifespan";
+import type { PersonRef } from "../../tools/sources";
+import { UsageList } from "../tools/shared";
 import { usePhone } from "../usePhone";
 
 // Per-event coordinate control in the Edit view: the pin beside a place, and the
@@ -190,7 +195,7 @@ export function EventCoordPicker({
     voidLookups();
     setRn((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
     setOsm((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
-   
+
   }, [open]);
    
   useEffect(() => () => voidLookups(), []);
@@ -205,6 +210,7 @@ export function EventCoordPicker({
    *  events should all have — unticking is the exception. */
   const [shareAll, setShareAll] = useState(true);
   const share = useCoordShare();
+  const people = usePlacePeople();
   const phone = usePhone();
   const boxRef = useRef<HTMLDivElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
@@ -243,7 +249,7 @@ export function EventCoordPicker({
         return;
       }
       const panel = popRef.current?.getBoundingClientRect();
-      const width = panel?.width ?? Math.min(720, window.innerWidth * 0.92);
+      const width = panel?.width ?? Math.min(820, window.innerWidth * 0.92);
       const height = panel?.height ?? 320;
       const left = Math.max(EDGE, Math.min(anchor.left, window.innerWidth - width - EDGE));
       // Below the pin, or above it when the window has no room underneath.
@@ -351,8 +357,49 @@ export function EventCoordPicker({
   };
 
   // Other events in the file at this very place and address: their coordinate
-  // should be the same one, so picking here offers to set theirs too.
-  const others = share ? share.countOthers(place, address) : 0;
+  // should be the same one, so picking here offers to set theirs too. Asked
+  // only of an open panel: the count comes from a walk over every PLAC in the
+  // file, and every event row of a person carries one of these pins.
+  const others = open && share ? share.countOthers(place, address) : 0;
+
+  // Who else the file puts at this place and address — the names that say
+  // whether the house on the map is the right one. Same rule: only once open.
+  const peopleUses = open && people ? people.usesAt(place, address) : undefined;
+  /** One line per person, not per record: a couple's marriage at the house
+   *  names the two who are already there, and listing them twice says nothing
+   *  the two lines above it did not.
+   *
+   *  Oldest first, by the year each was born: a house read from its earliest
+   *  inhabitant down reads as its own history, where the file's order is the
+   *  order some export happened to write. Whoever carries no birth year at all
+   *  keeps the file's order, at the end. */
+  const peopleRows = useMemo(() => {
+    if (!peopleUses || !people) return [];
+    const seen = new Map<string, { person: PersonRef; year: number | undefined; eventTags: string[] }>();
+    const rows: { person: PersonRef; year: number | undefined; eventTags: string[] }[] = [];
+    for (const record of peopleUses.records) {
+      for (const person of personsOfRecord(people.dataset, record.id)) {
+        const already = seen.get(person.id);
+        if (already) {
+          // The spouses of a marriage held here are already listed from their
+          // own events; the wedding's mark still belongs on both their lines.
+          for (const tag of record.eventTags) if (!already.eventTags.includes(tag)) already.eventTags.push(tag);
+          continue;
+        }
+        const row = {
+          person,
+          year: birthYear(people.dataset.individuals.get(person.id)),
+          eventTags: [...record.eventTags],
+        };
+        seen.set(person.id, row);
+        rows.push(row);
+      }
+    }
+    return rows
+      .map((row, i) => ({ ...row, i }))
+      .sort((a, b) => (a.year ?? Infinity) - (b.year ?? Infinity) || a.i - b.i)
+      .map((row) => ({ persons: [row.person], eventTags: row.eventTags }));
+  }, [peopleUses, people]);
 
   /** What the file itself already knows about this address / place. Anything
    *  equal to the current coordinate is left out — it would propose a no-op.
@@ -394,6 +441,41 @@ export function EventCoordPicker({
   const shownRn = rn.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
   const shownOsm = osm.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
 
+  /**
+   * A number for every option the panel offers, in the order its list prints
+   * them — the caller's answers, then the file's own positions, then what the
+   * two searches found.
+   *
+   * The geocoding lists have always numbered their answers and put the same
+   * number on the pin, because "which of these three is the house" is a
+   * question only the map answers, and a line and a circle are only read
+   * together if something ties them. In here only the answers handed in by such
+   * a list carried numbers, and the panel's own lookups — the three GURS and
+   * OpenStreetMap hits it found itself — stood unnumbered beside them.
+   *
+   * Keyed by position, so the same house reached twice (the file's coordinate
+   * that a search answers with again) keeps one number, on one pin.
+   */
+  const optionNumbers = new Map<string, number>();
+  let lastNumber = 0;
+  const numberFor = (c: GeoCoord, explicit?: number) => {
+    const key = `${c.lat},${c.lon}`;
+    const had = optionNumbers.get(key);
+    if (had !== undefined) return had;
+    // A caller numbering its own lines wins: the panel is showing that list's
+    // answers, and renumbering them would break the row it opened from.
+    const n = explicit ?? lastNumber + 1;
+    lastNumber = Math.max(lastNumber, n);
+    optionNumbers.set(key, n);
+    return n;
+  };
+  (candidates ?? []).forEach((c, i) => numberFor(c.coord, c.number ?? i + 1));
+  for (const f of fromFile) numberFor(f.coord);
+  for (const r of shownRn) numberFor(r.coord);
+  for (const r of shownOsm) numberFor(r.coord);
+  /** What a list line and its pin both print. */
+  const numberOf = (c: GeoCoord) => optionNumbers.get(`${c.lat},${c.lon}`);
+
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
   // the map renders its detail panel (house, post office, source, and that a
   // click takes it) rather than a bare one-line tooltip — with several numbers
@@ -404,13 +486,13 @@ export function EventCoordPicker({
   // The caller's own answers first, numbered as its list numbers them — the
   // numbers are the only way to read a pin back to the line it came from when
   // several hits share one name.
-  (candidates ?? []).forEach((c, i) => {
+  (candidates ?? []).forEach((c) => {
     pins.push({
       coord: c.coord,
       label: c.label,
       lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
       kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
-      badge: c.number ?? i + 1,
+      badge: numberOf(c.coord),
       onPick: () => take(c.coord, c.label),
     });
   });
@@ -420,6 +502,7 @@ export function EventCoordPicker({
       label: f.label,
       lines: [t("event.coord.source.file"), t("event.coord.pinPick")],
       kind: "candidate",
+      badge: numberOf(f.coord),
       // The settlement's position is not a house: a wide neutral ring, so it
       // frames the candidates standing on it instead of competing with them.
       ...(f.place ? { colorVar: "--map-other", area: true } : {}),
@@ -433,6 +516,7 @@ export function EventCoordPicker({
       label: r.address,
       lines: [r.label === r.address ? "" : r.label, t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
+      badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.label),
     });
   }
@@ -444,6 +528,7 @@ export function EventCoordPicker({
       label: r.name,
       lines: [short === r.name ? "" : short, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
+      badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.name),
     });
   }
@@ -486,9 +571,13 @@ export function EventCoordPicker({
           // are set here.
           style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxH } : { visibility: "hidden" }}
         >
-          {/* Head: what the event carries now, and the manual entry that can
-              replace it — the two things that act on the value itself. */}
+          {/* Head: two columns. What the event carries now and the manual entry
+              that can replace it — the things that act on the value itself — and
+              the searches beside them. Columns rather than one wrapping row:
+              the searches used to wrap onto a line of their own at the right,
+              leaving the head's left half empty above the map. */}
           <div className="edit-coord-head">
+           <div className="edit-coord-value">
             {coord && (
               <div className="edit-coord-current">
                 <span className="gm-data gm-coord gm-coord--set">
@@ -527,6 +616,45 @@ export function EventCoordPicker({
               >
                 {t("event.coord.set")}
               </button>
+            </div>
+           </div>
+            {/* The searches, in the room the head has left over beside the
+                value's own controls: from the top of the side column they
+                pushed every answer — the file's, the register's, the people at
+                the address — down the panel, and what a list is read for is
+                its contents, not the button that filled it.
+                The register is offered whenever it can answer without the
+                network — a Croatian address is already in this browser, and
+                the online opt-in governs what leaves the device. The
+                OpenStreetMap search beside it always needs it. */}
+            <div className="edit-coord-lookups">
+              {settings.allowLinkFetch || registerLocal ? (
+                <div className="edit-coord-actions">
+                  {/* A search that has answered puts its own button away, as
+                      every list on the geocoding pages does — and "no hits" is
+                      an answer too, which is why LookupAction turns it into a
+                      note rather than a button that would ask the same service
+                      the same question again. A search that *failed* keeps its
+                      button: that is a service unreachable, not an answer.
+                      Both searches share one queue here, so either one running
+                      greys them both. */}
+                  {queries.length > 0 && (
+                    <LookupAction kind="rn" state={rn} onRun={runRegister} disabled={busy} noteClass="edit-coord-note" />
+                  )}
+                  {settings.allowLinkFetch && (
+                    <LookupAction kind="online" state={osm} onRun={runOnline} disabled={busy} noteClass="edit-coord-note" />
+                  )}
+                </div>
+              ) : (
+                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+              )}
+              {/* Why the register isn't on offer — only where it could have been:
+                  a Slovenian or Croatian place just needs a house number.
+                  Anywhere else the register was never a candidate, so saying so
+                  is noise. */}
+              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
+                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
+              )}
             </div>
           </div>
 
@@ -567,50 +695,20 @@ export function EventCoordPicker({
             )}
 
             <div className="edit-coord-side">
-              {/* The searches lead the side panel, and everything below them is
-                  what they and the file have to say — a control standing under
-                  its own results reads as being about something else.
-                  The register is offered whenever it can answer without the
-                  network — a Croatian address is already in this browser, and
-                  the online opt-in governs what leaves the device. The
-                  OpenStreetMap search beside it always needs it. */}
-              {settings.allowLinkFetch || registerLocal ? (
-                <div className="edit-coord-actions">
-                  {/* A search that has answered puts its own button away, as
-                      every list on the geocoding pages does — and "no hits" is
-                      an answer too, which is why LookupAction turns it into a
-                      note rather than a button that would ask the same service
-                      the same question again. A search that *failed* keeps its
-                      button: that is a service unreachable, not an answer.
-                      Both searches share one queue here, so either one running
-                      greys them both. */}
-                  {queries.length > 0 && (
-                    <LookupAction kind="rn" state={rn} onRun={runRegister} disabled={busy} noteClass="edit-coord-note" />
-                  )}
-                  {settings.allowLinkFetch && (
-                    <LookupAction kind="online" state={osm} onRun={runOnline} disabled={busy} noteClass="edit-coord-note" />
-                  )}
-                </div>
-              ) : (
-                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-              )}
-              {/* Why the register isn't on offer — only where it could have been:
-                  a Slovenian or Croatian place just needs a house number.
-                  Anywhere else the register was never a candidate, so saying so
-                  is noise. */}
-              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
-                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
-              )}
-
+             {/* Every answer the panel has, each under the number its own pin
+                 wears on the map — what separates three hits spelled exactly
+                 alike. In the stacked layout this whole block rises above the
+                 map (see .edit-coord-answers), so the numbers are read before
+                 the circles they name. */}
+             <div className="edit-coord-answers">
               {/* The answers the caller already has, under the numbers its own
-                  list shows — the map above draws the same numbers, which is
-                  what separates three hits spelled exactly alike. */}
+                  list shows. */}
               {!!candidates?.length && (
                 <ul className="edit-coord-results">
                   {candidates.map((c, i) => (
                     <li key={`cand-${i}`}>
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{c.number ?? i + 1}</span>
+                        <span className="tools-geo-cand-num">{numberOf(c.coord)}</span>
                         <button type="button" className="tools-issue-link" title={c.label} onClick={() => take(c.coord, c.label)}>
                           {c.label}
                         </button>
@@ -629,9 +727,12 @@ export function EventCoordPicker({
                 <ul className="edit-coord-results">
                   {fromFile.map((f, i) => (
                     <li key={`file-${i}`}>
-                      <button type="button" className="tools-issue-link" onClick={() => take(f.coord, f.label)}>
-                        {f.label}
-                      </button>
+                      <span className="edit-coord-cand-line">
+                        <span className="tools-geo-cand-num">{numberOf(f.coord)}</span>
+                        <button type="button" className="tools-issue-link" onClick={() => take(f.coord, f.label)}>
+                          {f.label}
+                        </button>
+                      </span>
                       <span className="gm-data">{at(f.coord)}</span>
                     </li>
                   ))}
@@ -642,9 +743,12 @@ export function EventCoordPicker({
                 <ul className="edit-coord-results">
                   {shownRn.map((r, i) => (
                     <li key={`rn-${i}`}>
-                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
-                        {r.label}
-                      </button>
+                      <span className="edit-coord-cand-line">
+                        <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
+                        <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
+                          {r.label}
+                        </button>
+                      </span>
                       <span className="gm-data gm-coord">
                         {formatCoord(r.coord)}{" "}
                         <span className="tools-reshape-badge official">GURS</span>
@@ -655,9 +759,12 @@ export function EventCoordPicker({
                     <li key={`osm-${i}`}>
                       {/* The short composed line; the raw display chain, with
                           its quarters and postcodes, stays in the tooltip. */}
-                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
-                        {osmShortLabel(r)}
-                      </button>
+                      <span className="edit-coord-cand-line">
+                        <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
+                        <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
+                          {osmShortLabel(r)}
+                        </button>
+                      </span>
                       <span className="edit-coord-cand-line">
                         {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
                         <span className="gm-data gm-coord">
@@ -668,6 +775,24 @@ export function EventCoordPicker({
                     </li>
                   ))}
                 </ul>
+              )}
+             </div>
+
+              {/* Who else the file has at this address — the check on whether
+                  the house being pinned is this family's at all, so it stands
+                  open: a name read without asking for it is the whole point.
+                  Last in the column, and everyone at the pair is listed, so a
+                  settlement's address-less events — a whole village — cannot
+                  push the lookups and their answers out of reach. */}
+              {peopleRows.length > 0 && people && (
+                <div className="edit-coord-people">
+                  <p className="edit-coord-note">
+                    {t(address.trim() ? "event.coord.people.address" : "event.coord.people.place", { count: peopleRows.length })}
+                  </p>
+                  {/* A long list scrolls in a box of its own rather than
+                      growing the panel down the screen. */}
+                  <UsageList dataset={people.dataset} uses={peopleRows} onNavigate={people.onNavigate} />
+                </div>
               )}
             </div>
           </div>

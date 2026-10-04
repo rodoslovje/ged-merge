@@ -21,6 +21,7 @@ import type { BrokenLinkRef } from "../tools/fixLinks";
 import type { BadDateRef } from "../tools/fixDates";
 import type { DanglingRef } from "../tools/fixDanglingRefs";
 import type { RecordPatch } from "./historyTypes";
+import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/PlacePeopleContext";
 import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
@@ -103,6 +104,10 @@ interface Props {
   /** Remove redundant duplicate CHIL/FAMS/FAMC pointer lines and push to the undo
    *  stack. Returns the number of records changed, so the panel can re-validate. */
   onFixDuplicatePointers: (only?: string) => number;
+  /** Fold the family records of a couple recorded more than once into one and
+   *  push to the undo stack. Returns the number of records changed, so the
+   *  panel can re-validate. */
+  onFixDuplicateFamilies: (only?: string) => number;
   /** Remove pointer lines whose target record is missing (citations, notes,
    *  media, nested family links) and push to the undo stack. Returns the number
    *  of records changed, so the panel can re-validate. */
@@ -146,7 +151,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Places leads the tabs and is where most work starts,
@@ -159,6 +164,15 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
   // the results live here (not in the panels) so switching sub-tabs or modes
   // neither restarts a scan nor loses a finished one.
   const scans = useToolsScans(dataset, editVersionRef);
+
+  // Who the file puts at a place+address pair, for the coordinate panel the
+  // place pages open. Walked on the panel's first ask and kept until an edit
+  // bumps the version — nothing else reads it, so nothing else pays for it.
+  const placeUsesAt = usePlaceAddrUses(dataset, editVersion);
+  const placePeople = useMemo<PlacePeople>(
+    () => ({ dataset, usesAt: placeUsesAt, onNavigate }),
+    [dataset, placeUsesAt, onNavigate],
+  );
 
   // Whole-file counts for the header overview; recomputed only per dataset,
   // and only once Tools is on screen — the view stays mounted behind Edit,
@@ -217,7 +231,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDanglingRefs={onFixDanglingRefs} onFillPlaceCoords={onFillPlaceCoords} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFillPlaceCoords={onFillPlaceCoords} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
@@ -231,8 +245,13 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />
         )}
+        {/* The coordinate panel the three place pages share lists who else the
+            file puts at the address it is positioning — the same lookup Edit
+            provides it with, over the same file. */}
         {tool === "places" && (
+          <PlacePeopleProvider value={placePeople}>
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onClearPlaceCoords={onClearPlaceCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddresses={onRenameAddresses} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} view={view} onViewChange={onViewChange} />
+          </PlacePeopleProvider>
         )}
       </div>
       </ToolSummarySlotProvider>

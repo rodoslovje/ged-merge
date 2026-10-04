@@ -2,8 +2,11 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { isItemizedChange, reportTotals, type ChangeReport, type FieldChange, type GraftJoinPerson } from "../merge/merge";
-import type { Dataset, Individual } from "../gedcom/types";
-import { lifespanOf } from "../gedcom/lifespan";
+import type { Dataset, GedNode, Individual } from "../gedcom/types";
+import { downloadOptions, type SerializeOptions } from "../gedcom/serialize";
+import { diffRecord, recordsByXref, type RecordDiff } from "../save/recordDiff";
+import { Segmented } from "./Segmented";
+import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { isPrivateNode } from "../gedcom/private";
 import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
@@ -13,11 +16,12 @@ import { charsetNotices } from "./charsetNotice";
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
-import { useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { recordLabeller } from "./recordLabel";
 
-/** The one preference this dialog reads (and writes): whether the save also
- *  downloads the change report. */
-const SAVE_REPORT_KEYS = ["saveReport"] as const satisfies readonly (keyof AppSettings)[];
+/** The preferences this dialog reads (and writes): whether the save also
+ *  downloads the change report, and which reading of the changes it opens on. */
+const SAVE_REPORT_KEYS = ["saveReport", "saveDiffView"] as const satisfies readonly (keyof AppSettings)[];
 
 /** A change with no text value — it carries only source/link icons to render inline. */
 function isIconChange(c: FieldChange): boolean {
@@ -47,6 +51,10 @@ function PrivateMark({ t, off }: { t: Translate; off?: boolean }) {
 interface Props {
   report: ChangeReport;
   title: string;
+  /** The record forest this save writes, and each changed record as it read
+   *  before — the two sides of the line diff (see {@link SavePreview}). */
+  records: GedNode[];
+  beforeRecords: Map<string, GedNode>;
   /** The save's filenames: the GEDCOM first, then the change report — which is
    *  written only when the reader ticks it (see {@link AppSettings.saveReport}). */
   files: string[];
@@ -88,6 +96,8 @@ interface RecordGroup {
 export function SaveDialog({
   report,
   title,
+  records,
+  beforeRecords,
   files,
   downloadLabel,
   onConfirm,
@@ -107,8 +117,26 @@ export function SaveDialog({
     onConfirm: () => { if (groups.length > 0) handleConfirm(); },
     initialFocus: downloadBtn,
   });
-  const { saveReport } = useSettingsSlice(SAVE_REPORT_KEYS);
+  const { saveReport, saveDiffView } = useSettingsSlice(SAVE_REPORT_KEYS);
   const setSettings = useSetSettings();
+  // The two readings of the same pending save: the field rows, which say what
+  // the changes mean, and the GEDCOM lines, which say what the file receives.
+  const view: PreviewView = saveDiffView ? "diff" : "fields";
+  // Built only for the view that needs it: the forest is the whole file, and
+  // most saves are read as field rows and never ask for this.
+  const afterRecords = useMemo(
+    () => (view === "diff" ? recordsByXref(records) : null),
+    [view, records],
+  );
+  // The lines are diffed exactly as the download will write them — same
+  // line-endings, same 5.5.1 CONC wrapping — so what the reader checks here is
+  // what lands in the file.
+  const diffOptions = useMemo(() => (dataset ? downloadOptions(dataset) : {}), [dataset]);
+  // The card heads name people the way the rest of the app does — display
+  // order, married surname, capitals (see recordLabeller). The downloaded
+  // change report is headed by the same function, so the two agree.
+  const nameOf = useNameOf();
+  const labelOf = useMemo(() => recordLabeller(report, dataset, nameOf), [report, dataset, nameOf]);
 
   // `files` is [GEDCOM, change report]; the report leaves with the file only
   // when the reader has asked for it.
@@ -269,7 +297,7 @@ export function SaveDialog({
               <ul className="preview-deferred">
                 {report.deferred.map((d, i) => (
                   <li key={i}>
-                    <span className="preview-rec">{report.recordLabels[d.recordId] ?? d.recordId}</span>
+                    <span className="preview-rec">{labelOf(d.recordId)}</span>
                     {" — "}
                     <span className="preview-field">{d.field}</span>: {d.reason}
                   </li>
@@ -280,7 +308,18 @@ export function SaveDialog({
 
           {groups.length > 0 ? (
             <section className="preview-section">
-              <h3>{t("preview.changes")}</h3>
+              <div className="preview-section-head">
+                <h3>{t("preview.changes")}</h3>
+                <Segmented
+                  items={[
+                    { key: "fields", label: t("preview.view.fields"), title: t("preview.view.fieldsHint") },
+                    { key: "diff", label: t("preview.view.diff"), title: t("preview.view.diffHint") },
+                  ]}
+                  value={view}
+                  onChange={(next) => setSettings({ saveDiffView: next === "diff" })}
+                  label={t("preview.view.label")}
+                />
+              </div>
               {groups.map((g) => {
                 const isEditRecord = editRecordIds?.has(g.id);
                 const kind = report.recordKinds[g.id];
@@ -315,6 +354,8 @@ export function SaveDialog({
                 // point.
                 const facts = newIndi && !g.isImported ? personFacts(newIndi, t, i18n.language) : [];
                 const lifespan = indi ? lifespanOf(indi) : undefined;
+                // The record that took this one over, when the save removes it.
+                const successor = g.isRemoved ? mergedInto(report, g) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
                 // Whether the record itself is flagged private, as it will stand
                 // in the saved file. A removed record has nothing left to read it
@@ -340,8 +381,13 @@ export function SaveDialog({
                     return (
                       <span key={s.id ?? i} className={sIndi ? sexClass(sIndi.sex) : undefined}>
                         {i > 0 && " + "}
-                        {s.name}
-                        {sLifespan && <span className="person-years gm-data"> {sLifespan}</span>}
+                        {sIndi ? nameOf(sIndi) : s.name}
+                        {sLifespan && (
+                          <span className="person-years gm-data" title={datesTooltipOf(sIndi) || undefined}>
+                            {" "}
+                            {sLifespan}
+                          </span>
+                        )}
                       </span>
                     );
                   })}
@@ -351,8 +397,13 @@ export function SaveDialog({
                   </>
                 ) : (
                   <>
-                    {g.label}
-                    {lifespan && <span className="person-years gm-data"> {lifespan}</span>}
+                    {labelOf(g.id)}
+                    {lifespan && (
+                      <span className="person-years gm-data" title={datesTooltipOf(indi) || undefined}>
+                        {" "}
+                        {lifespan}
+                      </span>
+                    )}
                   </>
                 );
                 return (
@@ -392,6 +443,30 @@ export function SaveDialog({
                         )}
                       </span>
                     </div>
+                    {view === "diff" ? (
+                      <>
+                        {/* Where the record went — the lines alone can only
+                            show it leaving. */}
+                        {successor && (
+                          <p className="preview-note">
+                            {t("preview.mergedInto", { target: successor })}
+                          </p>
+                        )}
+                        <RecordLines
+                          // A new record has no earlier copy, whatever
+                          // `beforeRecords` holds for its id: a merge reads
+                          // the live forest, where a record added in the
+                          // editor already stands, and would diff it against
+                          // itself.
+                          before={g.isNew ? undefined : beforeRecords.get(g.id)}
+                          after={afterRecords?.get(g.id)}
+                          isNew={g.isNew}
+                          options={diffOptions}
+                          t={t}
+                        />
+                      </>
+                    ) : (
+                      <>
                     {facts.length > 0 && (
                       <ul className="preview-fields">
                         {facts.map((f, i) => (
@@ -441,14 +516,16 @@ export function SaveDialog({
                         gets its sentence — there the card would say nothing. */}
                     {fieldRows.length === 0 && facts.length === 0 && (
                       <>
-                        {g.isRemoved && mergedInto(report, g) && (
+                        {successor && (
                           <p className="preview-note">
-                            {t("preview.mergedInto", { target: mergedInto(report, g) })}
+                            {t("preview.mergedInto", { target: successor })}
                           </p>
                         )}
                         {!g.isRemoved && g.isUndescribed && (
                           <p className="preview-note">{t("preview.undescribedHint")}</p>
                         )}
+                      </>
+                    )}
                       </>
                     )}
                   </div>
@@ -542,6 +619,60 @@ function personFacts(indi: Individual, t: Translate, lang: string): { label: str
       return { label: custom || eventDisplayLabel(e.tag, t), text: parts.join(" · ") };
     })
     .filter((f): f is { label: string; text: string } => !!f);
+}
+
+/** Which reading of the pending changes the preview is showing. */
+type PreviewView = "fields" | "diff";
+
+/**
+ * One record's contribution to the save, as the lines the file will carry.
+ *
+ * Three things it may have to say, and each is said in words rather than left
+ * to an empty box: the record is going out exactly as it came in; the save
+ * knows it changed but kept no earlier copy to hold it against (a change the
+ * audit caught rather than the tracking); or here are the lines.
+ */
+function RecordLines({
+  before,
+  after,
+  isNew,
+  options,
+  t,
+}: {
+  before?: GedNode;
+  after?: GedNode;
+  /** A record the file did not have: every line of it is an addition, and the
+   *  missing "before" is the news rather than a gap in what we know. */
+  isNew: boolean;
+  options: SerializeOptions;
+  t: Translate;
+}) {
+  const diff: RecordDiff | null = useMemo(
+    () => (before || isNew ? diffRecord(before, after, options) : null),
+    [before, after, isNew, options],
+  );
+  if (!diff) return <p className="preview-note">{t("preview.diff.noBefore")}</p>;
+  if (diff.lines.length === 0) return <p className="preview-note">{t("preview.diff.same")}</p>;
+  return (
+    <>
+      {diff.coarse && <p className="preview-note">{t("preview.diff.coarse")}</p>}
+      <div className="preview-diff" role="group" aria-label={t("preview.diff.linesLabel")}>
+        {diff.lines.map((line, i) =>
+          line.kind === "gap" ? (
+            <div key={i} className="diff-line is-gap" aria-hidden="true">⋯</div>
+          ) : (
+            <div key={i} className={`diff-line is-${line.kind}`}>
+              {/* Kept as text, not as a background colour alone: the block is
+                  meant to be copied out into a mail or a bug report, and a
+                  pasted diff has to still read as one. */}
+              <span className="diff-sign">{line.kind === "add" ? "+" : line.kind === "del" ? "-" : " "}</span>
+              {line.text}
+            </div>
+          ),
+        )}
+      </div>
+    </>
+  );
 }
 
 /** Renders one event group's rows: text/segment rows as lines, with any
@@ -659,7 +790,12 @@ function PersonLabel({ person }: { person: GraftJoinPerson }) {
   return (
     <span className={`preview-rec ${sexClass(person.sex)}`}>
       {person.name}
-      {person.years && <span className="person-years gm-data"> {person.years}</span>}
+      {person.years && (
+        <span className="person-years gm-data" title={person.dates || undefined}>
+          {" "}
+          {person.years}
+        </span>
+      )}
     </span>
   );
 }

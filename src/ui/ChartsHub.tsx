@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { TreeMode } from "../chart/personTree";
+import type { ChartDirection } from "../chart/treeLayout";
 import type { CandidateDecision } from "../review/types";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
@@ -48,15 +48,21 @@ interface Props {
   onNavigate: (id: string) => void;
   /** Set the app-wide start person (from the relationship kind's inline prompt). */
   onPickStart?: (id: string) => void;
+  /** Open Tools → Places → Geocode places (the Contemporaries map's unplaced list). */
+  onOpenGeocode?: () => void;
 }
 
-export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
-  // The user's ancestors/descendants choice — owned here (not by EditTree) so
-  // it survives kind switches, including a relationship round-trip that
-  // remounts the pedigree chart.
-  const [treeMode, setTreeMode] = useState<TreeMode>("ancestors");
+  // The user's ancestors/descendants/both choice — owned here (not by
+  // EditTree) so it survives kind switches, including a relationship
+  // round-trip that remounts the pedigree chart. Every kind that has a
+  // direction draws both at once: the pedigree charts as a bowtie, the map as
+  // one point cloud, the report as its two lists one after the other.
+  // Both to begin with: the bowtie shows the whole picture, and the counts on
+  // the direction row say which side is worth opening on its own.
+  const [direction, setDirection] = useState<ChartDirection>("both");
 
   // Digits 1–8 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only
@@ -91,8 +97,8 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         onNavigate={onNavigate}
         onRootChange={onRootChange}
         kindSwitcher={kindSwitcher}
-        mode={treeMode}
-        onModeChange={setTreeMode}
+        mode={direction}
+        onModeChange={setDirection}
       />
     );
   }
@@ -108,6 +114,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         onNavigate={onNavigate}
         onRootChange={onRootChange}
         kindSwitcher={kindSwitcher}
+        onOpenGeocode={onOpenGeocode}
       />
     );
   }
@@ -123,8 +130,8 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
           onBack={onBack}
           onNavigate={onNavigate}
           kindSwitcher={kindSwitcher}
-          mode={treeMode}
-          onModeChange={setTreeMode}
+          mode={direction}
+          onModeChange={setDirection}
         />
       </Suspense>
     );
@@ -198,8 +205,8 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
       backLabel={backLabel}
       onBack={onBack}
       onNavigate={onNavigate}
-      mode={treeMode}
-      onModeChange={setTreeMode}
+      direction={direction}
+      onDirectionChange={setDirection}
       onRootChange={onRootChange}
       kindSwitcher={kindSwitcher}
     />

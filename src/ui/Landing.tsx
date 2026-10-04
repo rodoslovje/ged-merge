@@ -70,8 +70,8 @@ const CAPS: { key: string; icon: React.ReactNode }[] = [
 ];
 
 /** Proof strip: numbers only, no prose. Each figure is verified against the
- *  app — 8 = the chart hub's kinds (tree, grid, fan, circle, timeline,
- *  relationship, map, report); "offline" = the PWA precaches everything. */
+ *  app — 7 = the chart hub's kinds (tree, fan, timeline, relationship,
+ *  contemporaries, map, report); "offline" = the PWA precaches everything. */
 const PROOF_KEYS = ["views", "versions", "offline", "account"] as const;
 
 /** Screenshot strip: image basename + the app's own label for the caption.

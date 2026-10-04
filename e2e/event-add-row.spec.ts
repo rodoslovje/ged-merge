@@ -39,14 +39,15 @@ test("an event the person can only have one of leads to the one they have", asyn
   await page.locator(".global-search-open").first().click();
   await expect(page.locator(".edit-name-input").first()).toHaveValue(/Elizabeta/);
 
-  // Birth and Death are recorded, so their buttons drop the "+" and lead there.
+  // Birth and Death are recorded, so their buttons lead there instead of
+  // adding a second one — said by their solid border and their tooltip, where
+  // the button itself reads as the row it leads to: the event's mark and name.
   const recorded = page.locator(".edit-name-chip--recorded");
-  await expect(recorded).toHaveText(["Birth", "Death"]);
+  await expect(recorded).toHaveText([/^\*\s?Birth$/, /^†\s?Death$/]);
   await expect(recorded.first()).toHaveAttribute("title", /already recorded/i);
 
   // Clicking one puts the keyboard in that event rather than adding a second.
   await recorded.first().click();
-  const focused = await page.evaluate(() => document.activeElement?.className ?? "");
-  expect(focused).toContain("edit-event-date");
-  expect(await page.locator(".edit-event").filter({ hasText: "Birth" }).count()).toBe(1);
+  await expect(page.locator(".edit-event-date:focus")).toHaveCount(1);
+  await expect(page.locator(".edit-event").filter({ hasText: "Birth" })).toHaveCount(1);
 });
