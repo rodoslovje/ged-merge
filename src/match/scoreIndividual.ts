@@ -1,5 +1,5 @@
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
-import { BIRTH_TAGS, DEATH_TAGS, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
+import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
 import type { NameFrequencies } from "./nameFrequency";
 import { displayName, pairTitle, primaryName } from "./relatives";
@@ -630,7 +630,27 @@ export function plausibleIndividualMatch(
  * given name, used to reach the list as a weak candidate.
  */
 function twoPeople(a: Individual, b: Individual): boolean {
-  return birthYearsApart(a, b) && noGivenNameInCommon(a, b);
+  return (birthYearsApart(a, b) || exactBirthsApart(a, b)) && noGivenNameInCommon(a, b);
+}
+
+/** Days apart beyond which two exact birth dates are two births: a baptism
+ *  entered as the birth lands a day or a week off, never a season. */
+const EXACT_BIRTH_GAP_DAYS = 31;
+
+/**
+ * Both records give a full, exact birth date (day, month and year) and the two
+ * are more than a month apart. A misread year keeps its day and month; a
+ * different day, month *and* year is a different birth — the brother born
+ * three years earlier in the same house (an Anton of 18 OCT 1882 against a
+ * Jakob of 29 JUN 1879), whom the year gap alone lets through.
+ */
+function exactBirthsApart(a: Individual, b: Individual): boolean {
+  const da = birthDateOf(a);
+  const db = birthDateOf(b);
+  if (!da || !db || da.qualifier !== "exact" || db.qualifier !== "exact") return false;
+  if (da.day === undefined || da.month === undefined || db.day === undefined || db.month === undefined) return false;
+  const days = Math.abs(Date.UTC(da.year!, da.month - 1, da.day) - Date.UTC(db.year!, db.month - 1, db.day)) / 86_400_000;
+  return days > EXACT_BIRTH_GAP_DAYS;
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {

@@ -190,6 +190,22 @@ describe("plausibility gates", () => {
     ).toHaveLength(0);
   });
 
+  it("rejects a brother: no given name in common, full birth dates years apart, same parents", () => {
+    const fam = (kid: string, given: string, birt: string) =>
+      dataset(
+        "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n" +
+          "0 @F@ INDI\n1 NAME Matija /Liker/\n1 SEX M\n1 BIRT\n2 DATE 1842\n1 FAMS @X@\n" +
+          "0 @M@ INDI\n1 NAME Marija /Bajt/\n1 SEX F\n1 BIRT\n2 DATE 1845\n1 FAMS @X@\n" +
+          `0 @${kid}@ INDI\n1 NAME ${given} /Liker/\n1 SEX M\n1 BIRT\n2 DATE ${birt}\n2 PLAC Stara Sušica\n2 ADDR Sušica 49\n1 FAMC @X@\n` +
+          `0 @X@ FAM\n1 HUSB @F@\n1 WIFE @M@\n1 CHIL @${kid}@\n0 TRLR\n`,
+      );
+    const result = matchDatasets(fam("A", "Anton", "18 OCT 1882"), fam("J", "Jakob", "29 JUN 1879"));
+    expect(result.individuals.some((c) => c.mainId === "@A@")).toBe(false);
+    // A misread year on one exact date is still the same person.
+    const slip = matchDatasets(fam("A", "Anton", "18 OCT 1882"), fam("J", "Anton", "18 OCT 1879"));
+    expect(slip.individuals.some((c) => c.mainId === "@A@" && c.compareId === "@J@")).toBe(true);
+  });
+
   it("keeps a pair whose given names are two forms of one name, or whose years are a slip apart", () => {
     expect(
       pair(
