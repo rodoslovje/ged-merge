@@ -39,8 +39,23 @@ export function ChartHoverCard({
         <span className={`person-name ${sexClass(info.sex)}`}>{info.name}</span>
         {info.years && <span className="person-years gm-data">{info.years}</span>}
       </div>
+      {info.subtitle && <div className="chart-hover-line">{info.subtitle}</div>}
       {info.place && <div className="chart-hover-line">{info.place}</div>}
       {info.kinship && <div className={`chart-hover-kin ${lineageClass(info.kinshipLineage)}`}>{info.kinship}</div>}
+      {/* A card for several people: each row written the way the head is, so a
+          band of a dozen reads like a dozen person cards rather than a list. */}
+      {info.people && (
+        <ul className="chart-hover-people">
+          {info.people.map((p) => (
+            <li key={p.id}>
+              <span className={`person-name ${sexClass(p.sex)}`}>{p.name}</span>
+              {p.years && <span className="person-years gm-data">{p.years}</span>}
+              {p.kinship && <span className="person-kinship">{p.kinship}</span>}
+            </li>
+          ))}
+          {info.moreLabel && <li className="chart-hover-more">{info.moreLabel}</li>}
+        </ul>
+      )}
       {info.hint && <div className="chart-hover-hint">{info.hint}</div>}
     </div>
   );

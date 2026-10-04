@@ -1,6 +1,15 @@
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
-import type { SharedNoteChange } from "../gedcom/edit";
+import {
+  bumpSourceCacheVersion,
+  insertRecord,
+  insertRecordAt,
+  rebuildFamily,
+  rebuildIndividual,
+  rebuildNoteReferrers,
+  type SharedNoteChange,
+} from "../gedcom/edit";
+import { clearObjeNodeCache } from "../gedcom/source";
 
 export interface RecordPatch {
   /** "record" covers a top-level non-INDI/FAM record (e.g. a `SOUR`/`OBJE`
@@ -160,6 +169,89 @@ export function patchesFromSnapshots(dataset: Dataset, before: RecordSnapshots):
   for (const [id, raw] of before.individuals) diff("individual", id, raw, dataset.individuals.get(id)?.raw);
   for (const [id, raw] of before.families) diff("family", id, raw, dataset.families.get(id)?.raw);
   return patches;
+}
+
+/**
+ * Apply a patch batch to the dataset in one direction — `"undo"` puts every
+ * record back to its `before`, `"redo"` to its `after` — keeping the typed
+ * maps in step. Undo/redo use it, and so does an action that builds its
+ * patches first and then applies them forward. Returns whether a shared `NOTE`
+ * record was among them, whose referrers' editors must re-read it.
+ */
+export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], direction: "undo" | "redo"): boolean {
+  const pick: "before" | "after" = direction === "undo" ? "before" : "after";
+  // First pass: remove records that need to go away.
+  for (const patch of patches) {
+    if (patch[pick] === null) {
+      const ri = dataset.records.findIndex((r) => r.xref === patch.id);
+      if (ri !== -1) dataset.records.splice(ri, 1);
+      if (patch.type === "individual") dataset.individuals.delete(patch.id);
+      else if (patch.type === "family") dataset.families.delete(patch.id);
+      else if (patch.type === "record") { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
+    }
+  }
+  // Second pass: restore or re-add generic top-level records (e.g. a
+  // SOUR/OBJE created or pruned by "Add Source") *before* any
+  // individual/family rebuild below — that rebuild re-resolves source
+  // citations via getMediaAndSourceCtx(dataset.records) (each iteration here
+  // also bumps its cache, so the rebuild can't reuse a stale pre-undo
+  // version), so a SOUR/OBJE this same batch touched must already be back
+  // in place, or a citation pointer resolves dangling (no title/url) until
+  // the next edit.
+  for (const patch of patches) {
+    if (patch.type !== "record") continue;
+    const target = patch[pick];
+    if (target === null) continue;
+    const restored = cloneRaw(target);
+    const existing = dataset.records.find((r) => r.xref === patch.id);
+    if (existing) {
+      existing.value = restored.value;
+      existing.children = restored.children;
+    } else {
+      insertRecord(dataset.records, restored);
+    }
+    // A SOUR/OBJE this patch touches may now have a different FILE value or
+    // existence than `getMediaAndSourceCtx`'s cache last saw.
+    bumpSourceCacheVersion(dataset.records);
+    clearObjeNodeCache(dataset.records);
+  }
+  // Third pass: restore individual/family records and rebuild them. Sorted by
+  // original position so re-added records (undo of a deletion) land back at
+  // their original indices — inserting ascending keeps every later index valid.
+  const byPosition = [...patches].sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
+  for (const patch of byPosition) {
+    const target = patch[pick];
+    if (target === null) continue;
+    const restored = cloneRaw(target);
+    if (patch.type === "individual") {
+      const existing = dataset.individuals.get(patch.id);
+      if (existing) {
+        existing.raw.value = restored.value;
+        existing.raw.children = restored.children;
+        rebuildIndividual(dataset, existing);
+      } else {
+        insertRecordAt(dataset.records, restored, patch.index);
+        rebuildIndividual(dataset, { raw: restored } as Individual);
+      }
+    } else if (patch.type === "family") {
+      const existing = dataset.families.get(patch.id);
+      if (existing) {
+        existing.raw.value = restored.value;
+        existing.raw.children = restored.children;
+        rebuildFamily(dataset, existing);
+      } else {
+        insertRecordAt(dataset.records, restored, patch.index);
+        rebuildFamily(dataset, { raw: restored } as Family);
+      }
+    }
+  }
+  // Shared NOTE records restored above: referrers other than the patched
+  // owner still project the pre-undo text — refresh them.
+  const noteChanges = patches
+    .filter((p) => p.type === "record" && (p.before ?? p.after)?.tag === "NOTE")
+    .map((p) => ({ xref: p.id }));
+  if (noteChanges.length) rebuildNoteReferrers(dataset, noteChanges);
+  return noteChanges.length > 0;
 }
 
 /** Queued by App.tsx after an undo/redo; consumed by EditView once it is mounted. */

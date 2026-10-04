@@ -32,7 +32,9 @@ export interface PatchApplyOps {
  *                               the change; a session-created one clears both
  *  B  redo + before === null   → redo of creation  → add dirty (new record)
  *  C  current == snapshot      → fully reverted    → clear dirty + clear snapshot
- *  D  redo of modification     → add dirty; restore missing snapshot from before
+ *  D  redo of modification     → add dirty; restore missing snapshot from before,
+ *                               unless the record was created in this session
+ *                               and so never had one
  *  E  undo, not fully reverted → add dirty
  *
  * A `type: "record"` patch with an `owner` (a shared SOUR/OBJE edited from a
@@ -53,8 +55,9 @@ export function computePatchApplyOps(
    * this owner — i.e. the owner may still carry a different shared-record edit. */
   hasOtherOwnedRecordSnapshot: (owner: { kind: RecordKind; id: string }, excludeId: string) => boolean = () => false,
   /** Whether the record was in the file when it loaded, as opposed to created
-   *  during the session. Decides case A — see below. Defaults to "no" so a
-   *  caller that can't tell keeps the pre-existing behaviour. */
+   *  during the session. Decides case A, and whether case D has a snapshot to
+   *  restore at all — see below. Defaults to "no" so a caller that can't tell
+   *  keeps the pre-existing behaviour. */
   wasLoaded: (kind: SnapshotKind, id: string) => boolean = () => false,
 ): PatchApplyOps {
   const dirty: DirtyOp[] = [];
@@ -96,7 +99,7 @@ export function computePatchApplyOps(
         } else {
           dirty.push({ action: "add", kind: "record", id });
           // Mirror case D: restore a record snapshot a prior undo deleted.
-          if (direction === "redo" && recSnapshot === undefined && before !== null) {
+          if (direction === "redo" && recSnapshot === undefined && before !== null && wasLoaded("record", id)) {
             snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before) });
           }
         }
@@ -118,7 +121,7 @@ export function computePatchApplyOps(
       } else {
         dirty.push({ action: "add", kind: owner.kind, id: owner.id });
         // Mirror case D: restore a record snapshot a prior undo deleted.
-        if (direction === "redo" && recSnapshot === undefined && before !== null) {
+        if (direction === "redo" && recSnapshot === undefined && before !== null && wasLoaded("record", id)) {
           snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before), owner });
         }
       }
@@ -164,9 +167,12 @@ export function computePatchApplyOps(
     }
 
     // D: redo of modification — still dirty; restore snapshot cleared by a prior undo.
+    // A session-created record has none to restore: `before` here is its own
+    // creation state, and adopting it as a baseline is what
+    // `computePushCaptureOps` refuses in the first place.
     if (direction === "redo") {
       dirty.push({ action: "add", kind, id });
-      if (snapshot === undefined && before !== null) {
+      if (snapshot === undefined && before !== null && wasLoaded(kind, id)) {
         snapshots.push({ action: "set", kind, id, value: cloneRaw(before) });
       }
       continue;
@@ -192,15 +198,27 @@ export interface PushCaptureOp {
  * true pre-edit baseline), so all subsequent edits stack on top without overwriting it.
  * Shared-record (`type: "record"`) patches with a pre-edit state are captured too,
  * so undo/redo can tell when the shared record is back to its original.
+ *
+ * A record created during the session stays snapshot-less, the same rule the
+ * `onDirty` path follows (see {@link shouldCaptureFallbackSnapshot}). Its
+ * creation patch carries no `before` to capture, but the *second* patch on it
+ * does — the record as it stood the moment it was made — and taking that as a
+ * baseline would make the save preview draw the new record against its own
+ * first lines, showing the `0 @I…@ INDI` and `1 NAME` lines as unchanged
+ * context on a record the file has never had.
  */
 export function computePushCaptureOps(
   patches: RecordPatch[],
   hasSnapshot: (kind: SnapshotKind, id: string) => boolean,
+  /** Whether the record was in the file when it loaded. Defaults to "yes" so a
+   *  caller that can't tell keeps the pre-existing behaviour. */
+  wasLoaded: (kind: SnapshotKind, id: string) => boolean = () => true,
 ): PushCaptureOp[] {
   const ops: PushCaptureOp[] = [];
   for (const patch of patches) {
     if (patch.before === null) continue;
     const kind: SnapshotKind = patch.type;
+    if (!wasLoaded(kind, patch.id)) continue;
     if (hasSnapshot(kind, patch.id) || ops.some((o) => o.kind === kind && o.id === patch.id)) continue;
     const op: PushCaptureOp = { kind, id: patch.id, value: cloneRaw(patch.before) };
     if (patch.type === "record" && patch.owner) op.owner = patch.owner;

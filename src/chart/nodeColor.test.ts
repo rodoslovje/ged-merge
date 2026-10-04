@@ -137,6 +137,12 @@ describe("createNodeColorer", () => {
     expect(c.legend[0].label).toContain("Slovenia");
   });
 
+  it("falls back on the burial place when birth, residence and death name none", () => {
+    const c = createNodeColorer("country", ctx, subjects);
+    const buried = { ...indi("I4"), events: [{ ...indi("I2").events[0], tag: "BURI" }] } as Individual;
+    expect(c.categoryOf(buried)).toBe("at");
+  });
+
   it("folds a long tail of surnames into other", () => {
     const many = Array.from({ length: 20 }, (_, i) => ({
       indi: { ...indi("I1"), names: [{ given: "X", surname: `S${i}`, full: `X S${i}` }] } as Individual,

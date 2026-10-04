@@ -59,6 +59,7 @@ export type IssueCategory =
   | "missingVitals"
   | "island"
   | "orphan"
+  | "duplicateVital"
   | "deathBeforeBirth"
   | "eventOrder"
   | "ageAtDeath"
@@ -117,6 +118,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   missingVitals: 0,
   island: 0,
   orphan: 0,
+  duplicateVital: 0,
   deathBeforeBirth: 0,
   eventOrder: 0,
   ageAtDeath: 0,
@@ -511,6 +513,15 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     }
     if (indi.sex === "U") {
       add("missingSex", "warning", "tools.validate.issue.missingSex");
+    }
+
+    // A second birth or death record: only the first is used for the dates
+    // everything else is checked against, so a contradicting one goes unseen.
+    for (const tag of ["BIRT", "DEAT"] as const) {
+      const evs = indi.events.filter((e) => e.tag === tag);
+      if (evs.length < 2) continue;
+      const list = evs.map((e) => [e.date?.raw ?? "?", e.place?.raw].filter(Boolean).join(", ")).join("; ");
+      add("duplicateVital", "warning", tag === "BIRT" ? "tools.validate.issue.duplicateBirth" : "tools.validate.issue.duplicateDeath", { events: list });
     }
 
     // Vital dates

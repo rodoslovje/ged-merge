@@ -76,6 +76,11 @@ export interface SavePreviewInput {
 export interface SavePreview {
   /** The record forest to serialize. Always independent of `main.records`. */
   records: GedNode[];
+  /** Each changed record as it stood before this session touched it, by xref —
+   *  the other side of the preview's line diff (see {@link diffRecord}). A
+   *  record missing from it has no readable "before": either it is new, or the
+   *  save audit caught it changing without the tracking seeing how. */
+  beforeRecords: Map<string, GedNode>;
   report: ChangeReport;
   title: string;
   /** The two download filenames, already date-stamped. */
@@ -179,6 +184,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
 
   return {
     records,
+    beforeRecords: beforeRecords(input, isMerge),
     report,
     title: t("save.preview.title"),
     files: [savedName(base, "ged", now), savedName(base, "report.txt", now)],
@@ -190,6 +196,38 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     pendingSourceLookups,
     integrityWarnings: integrityWarnings(records, decisions, main, t),
   };
+}
+
+/**
+ * The "before" side of the preview's line diff: every record this save may
+ * change, as it read before the change.
+ *
+ * Two sources, in this order:
+ *
+ *  - the editor's snapshots, taken from the first patch that touched a record,
+ *    which is the record as the file delivered it (nothing edits a record
+ *    without going through a patch); and
+ *  - for a merge, the live main forest, which the merge never mutates — it
+ *    works on a clone (see {@link mergeDecisions}) — so a record no edit
+ *    touched still stands there exactly as it was loaded.
+ *
+ * The second source is deliberately *not* used on the edit-only path: there
+ * the live forest is the edited state, and offering it as a "before" would
+ * draw a diff of a record against itself and call the record unchanged.
+ * Absent is the honest answer, and the card says so in words instead.
+ */
+function beforeRecords(input: SavePreviewInput, isMerge: boolean): Map<string, GedNode> {
+  const { main, personSnapshots, familySnapshots, recordSnapshots } = input;
+  const before = new Map<string, GedNode>();
+  for (const [id, node] of personSnapshots) before.set(id, node);
+  for (const [id, node] of familySnapshots) before.set(id, node);
+  for (const [id, snap] of recordSnapshots) before.set(id, snap.value);
+  if (isMerge) {
+    for (const record of main.records) {
+      if (record.xref && !before.has(record.xref)) before.set(record.xref, record);
+    }
+  }
+  return before;
 }
 
 /**

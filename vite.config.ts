@@ -134,21 +134,23 @@ export default defineConfig({
       reporter: ["text", "text-summary", "html"],
       // Per-directory floors — a regression ratchet, set a few points below the
       // current numbers so a genuine drop fails CI without flaking on small
-      // edits. Re-run `npm run test:coverage` and raise these as coverage grows.
+      // edits. Re-run `npm run test:coverage` and raise these as coverage grows
+      // (last ratcheted 2026-09-18). `src/keyboard` is tiny (~40 statements),
+      // so its floors sit further below: one uncovered branch moves it 8 points.
       thresholds: {
-        "src/chart/**": { statements: 86, branches: 73, functions: 89, lines: 88 },
-        "src/csv/**": { statements: 93, branches: 78, functions: 95, lines: 96 },
-        "src/edit-state/**": { statements: 95, branches: 90, functions: 95, lines: 95 },
-        "src/gedcom/**": { statements: 87, branches: 79, functions: 90, lines: 90 },
-        "src/geo/**": { statements: 76, branches: 71, functions: 69, lines: 80 },
-        "src/keyboard/**": { statements: 87, branches: 70, functions: 62, lines: 86 },
-        "src/match/**": { statements: 85, branches: 75, functions: 87, lines: 90 },
-        "src/merge/**": { statements: 75, branches: 66, functions: 78, lines: 80 },
-        "src/normalize/**": { statements: 92, branches: 84, functions: 91, lines: 94 },
-        "src/report/**": { statements: 88, branches: 78, functions: 92, lines: 92 },
-        "src/review/**": { statements: 88, branches: 84, functions: 90, lines: 91 },
-        "src/state/**": { statements: 85, branches: 71, functions: 95, lines: 84 },
-        "src/tools/**": { statements: 87, branches: 79, functions: 89, lines: 91 },
+        "src/chart/**": { statements: 90, branches: 77, functions: 91, lines: 92 },
+        "src/csv/**": { statements: 92, branches: 81, functions: 95, lines: 95 },
+        "src/edit-state/**": { statements: 95, branches: 91, functions: 97, lines: 95 },
+        "src/gedcom/**": { statements: 90, branches: 82, functions: 93, lines: 92 },
+        "src/geo/**": { statements: 87, branches: 80, functions: 84, lines: 90 },
+        "src/keyboard/**": { statements: 80, branches: 75, functions: 75, lines: 82 },
+        "src/match/**": { statements: 90, branches: 86, functions: 93, lines: 93 },
+        "src/merge/**": { statements: 87, branches: 79, functions: 89, lines: 90 },
+        "src/normalize/**": { statements: 91, branches: 84, functions: 90, lines: 93 },
+        "src/report/**": { statements: 91, branches: 82, functions: 97, lines: 94 },
+        "src/review/**": { statements: 89, branches: 85, functions: 91, lines: 91 },
+        "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
+        "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
       },
     },
   },

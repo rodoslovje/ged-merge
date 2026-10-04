@@ -12,6 +12,7 @@ import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
+import { NOT_GEDCOM } from "./gedcom/parser";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { isTableFile } from "./csv/compareCsv";
@@ -19,6 +20,7 @@ import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividu
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { materializeAdds } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
@@ -26,8 +28,9 @@ import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
+import { datesTooltipOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -60,12 +63,14 @@ import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
+import { recordLabeller } from "./ui/recordLabel";
 import { charsetNotices } from "./ui/charsetNotice";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
 import { AppFooter } from "./ui/AppFooter";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
+import { IconTipLayer } from "./ui/IconTip";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
@@ -185,6 +190,8 @@ function AppContent() {
   mainDatasetRef.current = mainDataset;
   const compareDatasetRef = useRef(compareDataset);
   compareDatasetRef.current = compareDataset;
+  const matchesRef = useRef(matches);
+  matchesRef.current = matches;
   // `setPairStatus` is a []-dep callback, so it would otherwise stamp snapshots
   // with the language that was active on first render.
   const tRef = useRef(t);
@@ -241,6 +248,10 @@ function AppContent() {
   // even in a merge-only session where it still sat at 0) without making the
   // freshly-saved dataset look edited to the persistence writer.
   const cleanEditVersionRef = useRef(0);
+  // The editVersion the gedcom worker's copy of the main was built from. The
+  // worker matches a compare against *its* main, so when this drifts from
+  // editVersionRef the worker is re-fed before a compare loads (see loadFile).
+  const workerMainVersionRef = useRef(0);
   const bumpEdit = useCallback(() => {
     editVersionRef.current += 1;
     setEditVersion((v) => v + 1);
@@ -405,6 +416,9 @@ function AppContent() {
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
+          // The worker built its main from the same bytes as this one: it
+          // holds the edit version the load reset to (see loadFile).
+          workerMainVersionRef.current = editVersionRef.current;
           // Restore the cached start person as soon as the main is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
           // loaded, so a main-only workspace would otherwise never restore it.
@@ -434,7 +448,9 @@ function AppContent() {
           if (!persistence.expectCompareRef.current) persistence.hydratedRef.current = true;
         }
       } else {
-        dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: msg.message });
+        // The worker has no i18n: it names the not-a-GEDCOM case by a code.
+        const message = msg.message === NOT_GEDCOM ? t("load.notGedcom") : msg.message;
+        dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message });
         // A file that fails to parse must not stay cached, or every reload would
         // re-load it into an error and never reach the landing page.
         void deleteFile(msg.role);
@@ -505,8 +521,18 @@ function AppContent() {
   }
 
   async function loadSample(role: DatasetRole, fileName: string) {
-    const res = await fetch(`samples/${fileName}`);
-    const blob = await res.blob();
+    // A stale deploy answers a missing sample with the host's fallback HTML
+    // (status 200 or 404 alike): checked here, and by the parser refusing a
+    // file with no records, so an HTML page never lands in the slot.
+    let blob: Blob;
+    try {
+      const res = await fetch(`samples/${fileName}`);
+      if (!res.ok) throw new Error(String(res.status));
+      blob = await res.blob();
+    } catch {
+      dispatch({ type: "slotError", role, fileName, message: t("load.unreadable") });
+      return;
+    }
     loadFile(role, new File([blob], fileName, { type: "text/plain" }));
   }
 
@@ -610,23 +636,39 @@ function AppContent() {
         feed(newMsg, [buffer]); // new main first
         await refeedCompare(); // kept compare second (re-parsed from its raw bytes)
       } else if (keptMain) {
-        // Silent re-feed rebuilds the worker's main without touching the main
-        // thread's (possibly edited) main file or the edit tracking bound to it.
-        const text = serializeGedcom(keptMain.dataset.records, {
-          eol: keptMain.dataset.eol,
-          finalNewline: keptMain.dataset.finalNewline,
-        });
-        const mainBuf = await new Blob([text]).arrayBuffer();
-        post(
-          { type: "parse", role: "main", fileName: keptMain.fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
-          [mainBuf],
-        );
-        if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
+        await refeedWorkerMain(serializeMainForWorker(keptMain.dataset), keptMain.fileName);
         feed(newMsg, [buffer]); // new compare last
       }
       return;
     }
+    // A compare is matched against the worker's copy of the main, which is
+    // the file as loaded (or as last saved). Edits made since — a person
+    // deleted, one added — are not in it, so a compare loaded now would match
+    // people who no longer exist and miss those who do. Bring the worker's
+    // copy up to date first.
+    if (role === "compare" && keptMain && workerMainVersionRef.current !== editVersionRef.current) {
+      await refeedWorkerMain(serializeMainForWorker(keptMain.dataset), keptMain.fileName);
+    }
     feed(newMsg, [buffer]); // transfer ownership — avoids copying large files
+  }
+
+  function serializeMainForWorker(ds: Dataset): string {
+    return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+  }
+
+  /** Silently rebuild the worker's main from `text` (the main thread's current
+   *  main file, serialized) without touching this side's main file or the edit
+   *  tracking bound to it, and restore the kinship ranking's start person.
+   *  Records which edit version the worker now holds. */
+  async function refeedWorkerMain(text: string, fileName: string): Promise<void> {
+    const version = editVersionRef.current;
+    const mainBuf = await new Blob([text]).arrayBuffer();
+    post(
+      { type: "parse", role: "main", fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
+      [mainBuf],
+    );
+    if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
+    workerMainVersionRef.current = version;
   }
 
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
@@ -808,7 +850,7 @@ function AppContent() {
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
-    navigateFromPage, goToPage, canGoBack, goBackPage,
+    navigateFromPage, selectFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
@@ -816,10 +858,22 @@ function AppContent() {
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
 
+  // A person a confirmed decision added ahead of the save is their new record:
+  // their name — on either side of the comparison — opens it in Edit, even
+  // when the matcher also paired them with someone else (that weaker
+  // candidate is not who they are).
+  const addedPerson = useMemo(() => {
+    const pinned = pinnedAdds(decisions);
+    const mainIds = new Set(pinned.values());
+    return (side: "main" | "incoming", id: string): string | undefined => {
+      const mainId = side === "main" ? (mainIds.has(id) ? id : undefined) : pinned.get(id);
+      return mainId && mainDatasetRef.current?.individuals.has(mainId) ? mainId : undefined;
+    };
+  }, [decisions]);
   const canNavigatePerson = useCallback(
     (side: "main" | "incoming", id: string) =>
-      (side === "main" ? indexByMain : indexByCompare).has(id),
-    [indexByMain, indexByCompare],
+      (side === "main" ? indexByMain : indexByCompare).has(id) || !!addedPerson(side, id),
+    [indexByMain, indexByCompare, addedPerson],
   );
 
 
@@ -881,20 +935,25 @@ function AppContent() {
   }
 
   // Jump the compare view to a relative's own match row, pushing a history entry
-  // so the browser Back button returns to where we were.
+  // so the browser Back button returns to where we were. The history helper
+  // is rebuilt each render; read through a ref so this callback stays stable.
+  const selectFromPageRef = useRef(selectFromPage);
+  selectFromPageRef.current = selectFromPage;
+  const navigateFromPageRef = useRef(navigateFromPage);
+  navigateFromPageRef.current = navigateFromPage;
   const navigatePerson = useCallback(
     (side: "main" | "incoming", id: string) => {
+      const added = addedPerson(side, id);
+      if (added) { navigateFromPageRef.current(added); return; }
       const target = (side === "main" ? indexByMain : indexByCompare).get(id);
       if (!target) return;
       if (target.mainId === current?.mainId && target.compareId === current?.compareId) return;
-      if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
-      window.history.pushState({ gedSel: { mainId: target.mainId, compareId: target.compareId } }, "");
-      setSelectedId({ mainId: target.mainId, compareId: target.compareId });
+      selectFromPageRef.current({ mainId: target.mainId, compareId: target.compareId });
       if (window.innerWidth <= 880) {
         setTimeout(() => { compareRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
       }
     },
-    [indexByMain, indexByCompare, current],
+    [indexByMain, indexByCompare, current, addedPerson],
   );
 
   function handleUndo() {
@@ -912,6 +971,7 @@ function AppContent() {
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
+      if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "undo" });
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.before });
       });
@@ -934,6 +994,7 @@ function AppContent() {
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
+      if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "redo" });
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.after });
       });
@@ -941,7 +1002,7 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
-  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {} });
+  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
   globalShortcutRef.current.undo = handleUndo;
   globalShortcutRef.current.redo = handleRedo;
 
@@ -996,6 +1057,17 @@ function AppContent() {
       // (Alt+N is Edit's "add note"), and a key a view already handled must
       // not fire a second action.
       if (e.altKey || e.defaultPrevented) return;
+
+      // ⌫ is the browser's Back, everywhere — one handler for the whole app,
+      // so the key and the button can never disagree about where Back goes:
+      // the person before in Edit, the match a relative was opened from in
+      // Merge, the Tools page before, the page a chart was opened on. Swallowed
+      // even with nowhere to go, so it never leaves the app on its own.
+      if (e.key === "Backspace" && !e.shiftKey) {
+        e.preventDefault();
+        globalShortcutRef.current.back();
+        return;
+      }
 
       // `/` opens the whole-file global search from any mode (Merge/Edit/Tools).
       if (e.key === "/") {
@@ -1091,14 +1163,47 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
+  /**
+   * Record a decision change as one undo step, together with the people it
+   * adds to (or takes back from) the main file right away — see
+   * `materializeAdds`: a confirmed child, parent or partner becomes a record
+   * of its own at once, so it can be edited before the save.
+   */
+  function commitDecisions(
+    before: ReadonlyMap<string, CandidateDecision>,
+    after: Map<string, CandidateDecision>,
+    mainId: string,
+    compareId: string,
+  ) {
+    const mainDs = mainDatasetRef.current;
+    const compareDs = compareDatasetRef.current;
+    const result = mainDs && compareDs && matchesRef.current
+      ? materializeAdds(mainDs, compareDs, matchesRef.current, before, after, tRef.current, formatOverridesRef.current)
+      : { decisions: after, patches: [] };
+    const patches = dropNoopPatches(result.patches);
+    undoRedo.pushRef.current({
+      mode: "merge",
+      before: new Map(before),
+      after: result.decisions,
+      mainId,
+      compareId,
+      ...(patches.length ? { patches } : {}),
+    });
+    dispatch({ type: "decisionsSet", decisions: result.decisions });
+    if (patches.length) {
+      dirty.captureSnapshotsForPush(patches);
+      bumpEdit();
+    }
+  }
+  const commitDecisionsRef = useRef(commitDecisions);
+  commitDecisionsRef.current = commitDecisions;
+
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
     const key = decisionKey("individual", current.mainId, current.compareId);
     const wasRejected = decisions.get(key)?.status === "rejected";
-    const before = new Map(decisions);
     const after = withFreshDecision(decisions, key, stampMainRows(next, current.mainId, current.compareId));
-    undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
-    dispatch({ type: "decisionsSet", decisions: after });
+    commitDecisions(decisions, after, current.mainId, current.compareId);
     if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
   }
 
@@ -1112,10 +1217,7 @@ function AppContent() {
     const parsed = parseDecisionKey(key);
     if (!parsed) return;
     const { mainId, compareId } = parsed;
-    const before = new Map(decisions);
-    const after = withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId));
-    undoRedo.push({ mode: "merge", before, after, mainId, compareId });
-    dispatch({ type: "decisionsSet", decisions: after });
+    commitDecisions(decisions, withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId)), mainId, compareId);
   }
 
   // Set a pair's status while keeping the rest of its decision; clicking the
@@ -1126,12 +1228,9 @@ function AppContent() {
       const key = decisionKey("individual", mainId, compareId);
       const before = decisionsRef.current;
       const next = toggleDecisionStatus(before.get(key), status);
-      const after = withFreshDecision(before, key, stampMainRows(next, mainId, compareId));
-      undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
-      dispatch({ type: "decisionsSet", decisions: after });
+      commitDecisionsRef.current(before, withFreshDecision(before, key, stampMainRows(next, mainId, compareId)), mainId, compareId);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [], // undoRedo.pushRef/decisionsRef are stable refs — no re-registration needed
+    [], // commitDecisionsRef/decisionsRef are stable refs — no re-registration needed
   );
 
   // Toggle a "bring in this incoming person's ancestors/descendants on save"
@@ -1301,6 +1400,9 @@ function AppContent() {
     (id: string): SearchRowMeta => {
       const meta: SearchRowMeta = {};
       if (settings.showXref) meta.xref = xrefLabel(id);
+      // The row writes bare years; the full dates ride along for their tooltip.
+      const indi = mainDataset?.individuals.get(id);
+      if (indi) meta.dates = datesTooltipOf(indi) || undefined;
       if (settings.showKinship && startId && mainDataset && startId !== id) {
         let cached = kinshipCacheRef.current.get(id);
         if (cached === undefined) {
@@ -1532,6 +1634,7 @@ function AppContent() {
   globalShortcutRef.current.save = () => void handleSave();
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
+  globalShortcutRef.current.back = goBackPage;
 
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (!mainDataset) return;
@@ -1620,6 +1723,8 @@ function AppContent() {
         compareFileName: preview.isMerge && compare.status === "loaded" ? compare.file.fileName : undefined,
         savedAt: new Date(),
         fileNotes,
+        // Headed like the preview's cards the reader has just been through.
+        labelOf: recordLabeller(preview.report, mainDataset, nameOf),
       }));
     }
 
@@ -1654,6 +1759,9 @@ function AppContent() {
       warnings: mainDataset.warnings,
       eol: mainDataset.eol,
       finalNewline: mainDataset.finalNewline,
+      // The file's byte-order mark is a property of the file, not of this
+      // save: without it the second download of the session would lose it.
+      bom: mainDataset.bom,
     });
     Object.assign(mainDataset, rebuilt);
     dirty.resetOnSave(mainDataset);
@@ -1682,6 +1790,11 @@ function AppContent() {
     // (sole main writer) then leaves it alone until the next edit.
     cleanEditVersionRef.current = editVersionRef.current;
     persistence.mainCachedRef.current = true;
+    // The worker's main is still the file as loaded; matched against it, a
+    // later compare would report people this save just imported as new. Hand
+    // it the saved text so its copy is the new baseline too. After the bump
+    // above, so the version it records is the one the rebuilt dataset has.
+    void refeedWorkerMain(text, mainFileName);
   }
 
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
@@ -2008,6 +2121,7 @@ function AppContent() {
     <DatasetProvider dataset={mainDataset}>
     <DatasetDerivationsProvider dataset={mainDataset} version={editVersion}>
     <PwaReloadPrompt />
+    <IconTipLayer />
     {treeOverlay}
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
@@ -2497,6 +2611,8 @@ function AppContent() {
         <SaveDialog
           report={preview.report}
           title={preview.title}
+          records={preview.records}
+          beforeRecords={preview.beforeRecords}
           files={preview.files}
           downloadLabel={preview.downloadLabel}
           editRecordIds={preview.editRecordIds}

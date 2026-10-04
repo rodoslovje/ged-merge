@@ -63,9 +63,9 @@ export type { ChartAlignment };
 /** Whose lifespan bars carry event dots on the Timeline. */
 export type TimelineEventScope = "person" | "all" | "off";
 
-/** Contemporaries: the wheel of blood distance, or the same people as bars on a
- *  year axis. */
-export type KinLayout = "wheel" | "bars" | "map";
+/** Contemporaries: the wheel of blood distance, the same people as bars on a
+ *  year axis or as dots on a map, or their surnames banded on continuous rings. */
+export type KinLayout = "wheel" | "surnames" | "bars" | "map";
 
 /** Contemporaries: which blood relatives are drawn — the ones whose life
  *  overlapped the root's, or every one of them. */
@@ -112,7 +112,7 @@ export interface ChartSettings {
   showResidence: boolean;
   /** Report: add ⚒ occupation fact lines. */
   showOccupation: boolean;
-  /** Report: add ✎ education fact lines. */
+  /** Report: add 🎓 education fact lines. */
   showEducation: boolean;
   /** Report: show person notes under the name and event notes under the fact. */
   showNotes: boolean;
@@ -255,7 +255,10 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       showEducation: bool(parsed.showEducation, DEFAULTS.showEducation),
       showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
       showSources: bool(parsed.showSources, DEFAULTS.showSources),
-      kinLayout: parsed.kinLayout === "bars" || parsed.kinLayout === "map" ? parsed.kinLayout : DEFAULTS.kinLayout,
+      kinLayout:
+        parsed.kinLayout === "bars" || parsed.kinLayout === "map" || parsed.kinLayout === "surnames"
+          ? parsed.kinLayout
+          : DEFAULTS.kinLayout,
       kinScope: parsed.kinScope === "all" ? "all" : DEFAULTS.kinScope,
       // The Contemporaries' own colour axis became the shared one; a blob from
       // then carries it as `kinColour`.

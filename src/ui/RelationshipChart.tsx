@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
-import { lifespanAge } from "../gedcom/age";
+import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -33,6 +33,7 @@ import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
+import { ArrowIcon } from "./icons/ArrowIcon";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -245,7 +246,11 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         title={t("relpath.replace")}
       >
         <span className={`tree-title-name ${sexClass(indi?.sex)}`}>{nameOf(id)}</span>
-        {yearsOf(id) && <span className="tree-title-years gm-data">{yearsOf(id)}</span>}
+        {yearsOf(id) && (
+          <span className="tree-title-years gm-data" title={lifespanTooltipOf(indi, settings.showAge, t) || undefined}>
+            {yearsOf(id)}
+          </span>
+        )}
         <span className="relchart-endpoint-edit" aria-hidden="true">✎</span>
       </button>
     );
@@ -258,7 +263,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       title={
         <>
           {renderEndpoint("start", startSel)}
-          <span className="tree-title-arrow" aria-hidden="true">→</span>
+          <span className="tree-title-arrow" aria-hidden="true"><ArrowIcon dir="right" /></span>
           {renderEndpoint("target", targetSel)}
           {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
@@ -321,7 +326,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       )}
 
       <div className="tree-canvas-wrap">
-        <ChartLegend entries={colorer.legend} />
+        <ChartLegend entries={colorer.legend} tint={tint} />
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
             <ChartZoom width={chart.width} height={chart.height} zoom={zoom} layerRef={zoomLayerRef}>

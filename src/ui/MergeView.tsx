@@ -219,11 +219,19 @@ export function MergeView({
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       // Already answered where it was pressed — the comparison's own rows.
       if (e.defaultPrevented) return;
-      // ↑/↓ step the match list, as every list; ←/→ too, the keys Merge
-      // always had. Enter takes the keyboard into the comparison, whose rows
-      // then answer the arrows. PageUp/PageDown scroll the comparison without
-      // leaving the list, so a long table can be read without losing your
-      // place in the matches.
+      // ←/→ step the match list; ↑/↓ and PageUp/PageDown scroll the
+      // comparison, as Edit's arrows scroll its person, so a long table can be
+      // read without losing your place in the matches. Enter takes the
+      // keyboard into the comparison, whose rows then answer ↑/↓.
+      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown") {
+        const el = compareBodyRef.current;
+        if (!el || el.scrollHeight <= el.clientHeight) return;
+        e.preventDefault();
+        const step = e.key.startsWith("Page") ? el.clientHeight * 0.9 : 96;
+        const down = e.key === "ArrowDown" || e.key === "PageDown";
+        el.scrollBy({ top: down ? step : -step, behavior: "smooth" });
+        return;
+      }
       if (handleListKey(e, {
         count: visibleCount,
         index: visibleIndex,
@@ -231,13 +239,6 @@ export function MergeView({
         horizontal: true,
         onEnter: () => compareBodyRef.current?.querySelector<HTMLElement>(".compare-panel")?.focus(),
       })) return;
-      if (e.key === "PageUp" || e.key === "PageDown") {
-        const el = compareBodyRef.current;
-        if (!el || el.scrollHeight <= el.clientHeight) return;
-        e.preventDefault();
-        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: "smooth" });
-        return;
-      }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
       if (key === KEY.filter) {

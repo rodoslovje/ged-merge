@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildPlaceSuggestions, type PlaceSuggestions } from "./edit/placeSuggestions";
+import { buildFieldSuggestions, type FieldSuggestions } from "./edit/fieldSuggestions";
 import { scanAddresses, type AddressRow } from "../tools/addresses";
 import { createKinshipResolver, type KinshipResolver } from "../match/kinship";
 import { buildAssociationIndex, type AssociationIndex } from "../gedcom/assoc";
@@ -35,7 +35,7 @@ export interface DatasetDerivations {
   /** Bumped on every dataset mutation — safe to use as a memo key. */
   version: number;
   /** Place/address suggestions from every value the file holds. */
-  placeSuggestions: () => PlaceSuggestions;
+  fieldSuggestions: () => FieldSuggestions;
   /** The place+address rows of the whole file (the Addresses tab's unit). */
   addressRows: () => AddressRow[];
   /** Every coordinate the file already carries — the faint context dots on
@@ -89,7 +89,7 @@ export function DatasetDerivationsProvider({
     const placeValues = lazy(() => collectPlaceValues(dataset));
     return {
       version,
-      placeSuggestions: lazy(() => buildPlaceSuggestions(dataset)),
+      fieldSuggestions: lazy(() => buildFieldSuggestions(dataset)),
       addressRows: lazy(() => scanAddresses(dataset)),
       fileCoords: lazy(() => collectFileCoords(dataset)),
       placeValues,

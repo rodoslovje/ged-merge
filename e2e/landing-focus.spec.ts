@@ -7,5 +7,5 @@ test("the landing drop zone opens focused", async ({ page }) => {
   const drop = page.locator(".lb-drop");
   await expect(drop).toBeFocused();
   // Focusing must not scroll the hero out of view on a small screen.
-  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });

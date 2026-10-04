@@ -66,7 +66,14 @@ export function ChartSettings({
   // The effective type drives which extra rows show; with a locked type it wins
   // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
-  const axes = colorAxesFor(colorAxes);
+  // The Contemporaries surname rings draw one mark per band of people, so they
+  // only offer the axes a band can answer for all of them at once — on Sex or
+  // Living a band holds both, and one fill would have to pick a side.
+  const axes = colorAxesFor(effectiveType === "kin" && settings.kinLayout === "surnames" ? "group" : colorAxes);
+  // An axis chosen elsewhere that this chart cannot answer is not the one in
+  // force here: the chart fell back to Plain, so Plain is what shows as chosen.
+  // Leaving none of them lit reads as a broken control.
+  const axisHere = axes.includes(settings.colorAxis) ? settings.colorAxis : "plain";
   // Generations currently drawn: the limit, or — with no limit — everything this
   // view has. Stepping starts from what the user sees, so "−" from "All" lands
   // one generation shallower than the tree in front of them.
@@ -231,8 +238,8 @@ export function ChartSettings({
                 {axes.map((axis) => (
                   <button
                     key={axis}
-                    className={settings.colorAxis === axis ? "active" : ""}
-                    aria-pressed={settings.colorAxis === axis}
+                    className={axisHere === axis ? "active" : ""}
+                    aria-pressed={axisHere === axis}
                     title={t(`chartColor.axis.${axis}.tip`)}
                     onClick={() => set({ colorAxis: axis })}
                   >

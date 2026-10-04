@@ -960,12 +960,11 @@ describe("normalizeDataset (main-learned place hierarchy)", () => {
     expect(report.placesReshaped).toBe(0);
   });
 
-  it("takes the municipality of the locality the street moved the record to", () => {
-    // The street says Stražišče, which the main files under Kranj — so the
-    // incoming Naklo, brought along from the place the record used to name,
-    // must go with it. The two chains are the same length, and the backfill
-    // used to fire only on a longer one, leaving "Stražišče,Naklo,Slovenia":
-    // the right village under the wrong municipality.
+  it("does not carry a record into another municipality on the strength of a street name", () => {
+    // The main ties "Hafnarjeva pot" to Stražišče, under Kranj. A record that
+    // names Naklo — a municipality of its own — is not made more precise by
+    // that: street names repeat from place to place, and Stražišče is nowhere
+    // under Naklo. The street may narrow a locality, never replace one.
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @P1@ INDI
@@ -976,7 +975,7 @@ describe("normalizeDataset (main-learned place hierarchy)", () => {
 `);
     const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
     const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
-    expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+    expect(resi.place?.raw).toBe("Naklo,Naklo,Slovenia");
   });
 
   it("does not append a country to itself as its own parent level", () => {

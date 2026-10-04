@@ -27,6 +27,11 @@ export const FAM_CHILD_ORDER = [
   ...ATTACHMENT_CHILD_ORDER,
 ];
 
+/** Canonical sub-tag order within an `ASSO` node. The two dialects name their
+ *  role differently (`ROLE` in 7.0, `RELA` in 5.5.1) and only one of each pair
+ *  is ever present; notes and citations close it, as they do everywhere else. */
+export const ASSO_CHILD_ORDER = ["PHRASE", "TYPE", "ROLE", "RELA", "NOTE", "SNOTE", "SOUR"];
+
 /** Canonical sub-tag order within a `NAME` node. */
 export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "_MARNM", "NSFX", "TYPE", "NOTE", "SOUR"];
 

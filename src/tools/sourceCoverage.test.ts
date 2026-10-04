@@ -32,6 +32,22 @@ describe("normalizeSourceCoverage → standard", () => {
     expect(text).not.toContain("1 FILN");
   });
 
+  it("names the source each example was read from", () => {
+    // The register type comes from the title, so the row has to carry the
+    // title: "EVEN BURI" appearing beside a place says nothing about where it
+    // came from, and reads as invention.
+    const recs = records([
+      "0 HEAD", "1 CHAR UTF-8",
+      "0 @S1@ SOUR",
+      "1 TITL Pokopališče Preddvor - Geneanet Cemeteries",
+      "1 PLAC Preddvor, Preddvor, Slovenia",
+      "0 TRLR",
+    ]);
+    const { examples } = normalizeSourceCoverage(recs, "standard", "BIRT");
+    expect(examples[0].context).toBe("Pokopališče Preddvor - Geneanet Cemeteries");
+    expect(examples[0].after).toContain("EVEN BURI");
+  });
+
   it("moves the filing number of a source that is already standard", () => {
     // What an earlier run (or another program) leaves: coverage already in the
     // standard shape, the id still in the vendor field. The pass used to skip

@@ -37,12 +37,21 @@ export {
   addIndividual, addFamily, addParent, addPartner, addChild,
   connectExistingParent, connectExistingPartner, connectExistingChild,
   pruneDegenerateFamily, detachSpouseRole, detachChildFromFamily,
-  removeIndividual, removeFamily, foldFamily,
+  removeIndividual, removeFamily, foldFamily, familiesNaming,
 } from "./family";
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 
-export { addAssociation, removeAssociation, moveAssociation, writeAssociation, canWriteNameOnly } from "./assoc";
+export {
+  addAssociation,
+  removeAssociation,
+  moveAssociation,
+  writeAssociation,
+  canWriteNameOnly,
+  canWriteEventAssociation,
+  canWriteFamilyAssociation,
+  setAssociationNotes,
+} from "./assoc";
 export type { AssociationSpec } from "./assoc";
 
 export {

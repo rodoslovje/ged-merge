@@ -418,7 +418,18 @@ export function useAppHistory(opts: AppHistoryOptions) {
    *  browser Back button returns here after a person-link or tree push. */
   function rememberSelection() {
     const { current } = opts;
-    if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
+    // Merged into the entry, not written over it: the entry also says which
+    // page it is, and the bottom entry's marker is what keeps Back in the app.
+    if (current) window.history.replaceState({ ...window.history.state, gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
+  }
+
+  /** Select another pair in Merge as a step of its own — a relative's name
+   *  followed from the comparison — so Back (the browser's, ⌫, a view's own
+   *  button) returns to the pair it was followed from. */
+  function selectFromPage(next: SelRef) {
+    rememberSelection();
+    pushEntry({ ...window.history.state, gedSel: next });
+    opts.setSelectedId(next);
   }
 
   function openTree(mainId: string, compareId: string) {
@@ -451,7 +462,8 @@ export function useAppHistory(opts: AppHistoryOptions) {
     setTreeView((cur) => {
       if (!cur) return cur;
       const next = { ...cur, mode };
-      window.history.replaceState({ gedTree: next }, "");
+      // Merged into the entry: it also records the page it stands on.
+      window.history.replaceState({ ...window.history.state, gedTree: next }, "");
       return next;
     });
   }
@@ -499,6 +511,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     goToPageFromOverlay,
     navigateFromOverlay,
     navigateFromPage,
+    selectFromPage,
     goToPage,
     canGoBack,
     goBackPage,

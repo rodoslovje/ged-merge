@@ -16,7 +16,7 @@ import { formatCoord } from "../../geo/points";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceLookupProvider, usePlaceLookup } from "../edit/PlaceLookupContext";
 import { usePlaceFields } from "../edit/usePlaceFields";
-import type { PlaceSuggestions } from "../edit/placeSuggestions";
+import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import { renameInValue } from "../../tools/placeEdit";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { PinIcon } from "../icons/PinIcon";
@@ -499,7 +499,7 @@ function PlaceTreeRow({
   /** Rebuild the tree after either of them wrote. */
   onCoordChange: () => void;
   /** The file's own places, for the rename box's completions. */
-  placeSug: PlaceSuggestions;
+  placeSug: FieldSuggestions;
   /** And the place+address pairs it writes, for the split's two fields. */
   placeCombos: { place: string; addr: string }[];
   /** Every coordinate the file carries — the faint dots on the row's map, where

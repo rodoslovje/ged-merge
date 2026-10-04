@@ -404,8 +404,10 @@
               different version than your main file (5.5.1 vs 7.0), it is migrated to your file's version on load: shared
               notes (<code>NOTE</code> ⇄ <code>SNOTE</code>), date phrases and dual-year dates, age keywords, association
               roles, legacy identifiers (<code>AFN</code>/<code>RFN</code> ⇄ <code>EXID</code>), transliterated names and
-              media types are all rewritten to the target spec, so merged records stay valid. The load summary lists what
-              was migrated, with examples on hover.
+              media types are all rewritten to the target spec, so merged records stay valid. Associations move as well
+              as change wording: coming down to 5.5.1, which knows them on a person only, a baptism's godparents go to
+              the child's own record and a wedding's witnesses to a spouse's (<a href="#associates">§8</a>). The load
+              summary lists what was migrated, with examples on hover.
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
@@ -571,8 +573,9 @@
               does the same, in the buttons' order, and <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span>
               opens the full menu. Which events appear here is set under
               <strong>Settings → General → Editing</strong>, where a button can be removed or another
-              event added. An event a person can have only one of and already has — their birth, death or burial —
-              keeps its button without the <strong>+</strong>: it leads to the row that holds it instead of adding a second.
+              event added. Each button is its event's mark and name (<a href="#legend">§15</a>), and its border says what
+              it does: dashed adds the event, solid leads to the row already holding it — which is what a button becomes
+              for an event a person can have only one of, their birth, death or burial, once they have it.
             </p>
             <div>
               Birth is always shown. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
@@ -591,12 +594,22 @@
                 <li><strong>Death</strong> — Death, Cremation, Burial, Interment, Funeral</li>
               </ul>
               <p>
+                Each row is led by its event's own genealogy mark — <span class="gm-glyph">*</span> a birth,
+                <span class="gm-glyph">⚭</span> a marriage, <span class="gm-glyph">†</span> a death — so a long life
+                can be read down the column at a glance; <a href="#legend">§15</a> lists them all.
                 An event row shows only the fields it actually carries, starting with the <strong>date</strong> and the
                 <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
                 address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
                 never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field. The
                 <strong>agency</strong> field completes from the ones your file already names — the parishes and
-                offices its events record — so a parish's own name is typed out once and picked thereafter.
+                offices its events record — so a parish's own name is typed out once and picked thereafter. The
+                <strong>cause</strong>, the <strong>type</strong> and an attribute's own <strong>value</strong> —
+                an Occupation, a Religion, an Education — complete the same way, and offer their list, most used
+                first, the moment you enter the field: a register's deaths run on a few repeated causes and its
+                people on a few occupations, and the wording already written is the one to repeat. Values are kept
+                apart by kind of event, so an occupation is never completed from a religion, and the two fields
+                that identify one person alone — <em>Reference number</em> and <em>Number of children</em> —
+                complete from nothing at all.
                 A whole row can be filled in without the mouse: <span class="gm-key">Enter</span> steps from the date to
                 the place and then onto the <strong>+ Add</strong> button, where <span class="gm-key">Enter</span> opens
                 the menu and the arrow keys pick the field to add
@@ -733,27 +746,70 @@
             <h3 id="associates">Associations</h3>
             <p>
               Records name people who are not relatives: the godparents at a baptism, the witnesses at a wedding, the
-              priest who officiated — and, outside the registers, a teacher or a neighbour. They belong to the event
-              that names them, so that is where they are edited: the event's
-              <strong>+ Add</strong> menu gains an <strong>Association</strong> entry, which searches for the person
-              and then asks for the role, and each associate sits on the event's own row as a name, a role, and the
-              <span class="gm-glyph">✎</span> / <span class="gm-glyph danger">✕</span> to change or remove it. Roles
-              offered are godparent, witness, clergy, officiant, friend, neighbour, born at the same birth, and a
-              free-text one for anything else. A marriage's witnesses go on the family's marriage row the same way.
+              priest who officiated — and, outside the registers, a teacher or a neighbour. Where one of these may be
+              written is the standard's decision, not the app's, and the two GEDCOM versions differ, so what is offered
+              follows the file you have loaded.
+            </p>
+            <p>
+              A <strong>GEDCOM 7</strong> file holds an association in three places. On an event, which says the most
+              and so comes first: the event's <strong>+ Add</strong> menu gains an <strong>Association</strong> entry,
+              which searches for the person and then asks for the role, and each associate sits on the event's own row
+              as a name and a role. On the person's own record, under <strong>Associations</strong> below the event list,
+              where <strong>+ Add associate</strong> records a connection no single event accounts for — a lifelong
+              neighbour, a DNA match. And on a family's record, under the same heading in the family panel, for
+              witnesses who belong to the marriage rather than to one spouse. Roles offered are godparent, witness,
+              clergy, officiant, friend, neighbour, born at the same birth, and a free-text one for anything else.
+              Picking somebody writes them there and then, the way adding an event or another name does — there is
+              nothing to confirm. They land in the role a register names most often, with an empty
+              <strong>note</strong> already open and the caret in it: an association carries <code>NOTE</code> in both
+              GEDCOM versions, and what the register said about a godparent — or the centimorgans behind a DNA match —
+              belongs there rather than on the person as a whole. It locks like every other note in the app.
+            </p>
+            <p>
+              An associate is edited where they stand, like the fields of an event: the role is a field holding the
+              words your file holds, so typing over it keeps <em>your</em> wording, and the note is edited in its own
+              chip — an associate who has none is offered an empty one as you reach their row. Beside the role, a
+              <strong>▾</strong> appears at the same moment and carries what typing cannot do: the roles to pick from,
+              moving the person to one of this record's events, and taking them off the record. The last two live
+              there rather than out on the row precisely because one of them cannot be undone by reading. Picking
+              <em>other</em> from that list empties the field and waits for your word, since "other" is the absence of
+              one in the vocabulary and not a word to write into your file.
+            </p>
+            <p>
+              A file written to the older <strong>GEDCOM 5.5.1</strong> layout has only the middle one: that standard
+              defines an association on a person and nowhere else. So there the event rows and the family panel offer
+              none, and <strong>+ Add associate</strong> on the person is the way in — a wedding's witness goes on a
+              spouse's record, which is what the dialect has to say it with. Associations such a file already carries on
+              an event stay visible and editable where they sit; none of them is moved or hidden.
+            </p>
+            <p>
+              A <strong>DNA match</strong> has no place of its own in GEDCOM: neither version defines a test, a match, a
+              shared-centimorgan figure or a segment. An association is the closest honest fit, and it belongs on the
+              person's own record rather than on an event — a match is not something that happened to them on a day.
+              Type <em>DNA match</em> over the role — your wording is what the file keeps — and put the numbers —
+              shared centimorgans, segments, which company tested — in the <strong>note</strong> beside it, where
+              they stay attached to the match rather than to the person as a whole. Nothing in the app reads those
+              numbers as DNA — the
+              matching engine does not use them and no chart draws them; they are stored as you wrote them and saved
+              back unchanged.
             </p>
             <p>
               A godparent who is <em>not</em> in your tree can be recorded by name alone — type the name and choose
-              <strong>Record the typed name only</strong>. This needs GEDCOM 7; a 5.5.1 file has no way to name
-              somebody it holds no record for, so there the picker offers only people your file already has.
+              <strong>Record the typed name only</strong>. That name is text your file holds rather than a person it
+              records, so it is a field like the role: it is typed over where it stands, and it keeps its dotted
+              underline to say it answers for nobody. (Emptying it would leave the association naming no one, so the
+              previous name stands.) Typing in it also <strong>searches your file</strong>, because such a godparent
+              often turns out to be somebody it holds after all: pick one of the people it offers and the association
+              points at their record from then on, keeping its role and its note; type on without picking and the
+              text stays text. This needs GEDCOM 7; a 5.5.1 file has no way to name somebody it holds no record
+              for, so there the picker offers only people your file already has.
             </p>
             <p>
               Below the event list, <strong>Where this person is named</strong> lists it the other way round — every
-              baptism they stood godparent at. That side is a view, not a second entry to keep in step: the link is
-              stored once, on the event that names them. A file written to the older GEDCOM 5.5.1 layout — and some
-              programs' GEDCOM 7 output — carries associations on the record rather than on an event, saying who a
-              person was associated with but not at what. Those are listed there too, and the
-              <span class="gm-glyph">↧</span> beside one files it under the event it belongs to: pick the baptism they
-              stood godparent at, and the role, the date and any note or citation travel with it. The
+              baptism they stood godparent at, and every record naming them with no event to go with it. That side is a
+              view, not a second entry to keep in step: the link is stored once, on the record that names them. The
+              <span class="gm-glyph">↧</span> beside a record-level one files it under the event it belongs to: pick the
+              baptism they stood godparent at, and the role, the date and any note or citation travel with it. The
               <a href="#validate">Health check</a> reads all of these under
               <strong>Associations</strong>, where it reports a person named without a role, a person named as their
               own witness, and an associate who was not alive on the day.
@@ -913,7 +969,8 @@
               <li><span class="gm-badge m">M</span> — keep the <strong>Main</strong> file's value</li>
               <li><span class="gm-badge i">I</span> — take the <strong>Incoming</strong> value</li>
               <li><span class="gm-badge b">B</span> — keep <strong>Both</strong> (offered only on fields that can
-                hold more than one value, such as notes, sources and names)</li>
+                hold more than one value, such as notes, sources and names); when the incoming file cites everything
+                your file does and more, this is already chosen</li>
             </ul>
             <p>
               The buttons unlock when you <strong>confirm</strong> the match (see below): only confirmed matches merge
@@ -951,6 +1008,16 @@
               birth year alongside: the year tells two same-named siblings apart, and a year read a year or two apart on
               the two sides — a baptism entered a season later, a slip of the pen — still pairs, but the year alone never
               joins two children whose given names disagree.
+            </p>
+            <p>
+              <strong>New relatives join your file at once.</strong> On a confirmed match, a child you add with
+              <strong>+ add</strong> — and an incoming parent or partner your file has no record for — is added to your
+              file straight away, in the family the save would put them in. Open them in <strong>Edit</strong>
+              (<a href="#edit">§8</a>) to correct anything before you save — a click on their name in the comparison takes
+              you there. A child listed under both parents is added
+              once: on the other parent's match that child already stands opposite their counterpart, marked
+              <strong>✓ added</strong>. Unticking the child, or taking the confirmation back, removes the person again,
+              together with your edits to them. Relatives your file already has are linked on save, as before.
             </p>
             <h3>Marking each match</h3>
             <p>
@@ -1079,7 +1146,8 @@
               and adoptive or foster links, whether marked with a pedigree type or by an adoption event, are
               <em>not</em> flagged), <strong>family without parents</strong> (a second parent family that names neither
               parent, and family records nobody is in at all — remove the first kind with the <span class="gm-glyph danger">−</span>
-              on that parent block in <span class="gm-pill">Edit</span>), future-dated events,
+              on that parent block in <span class="gm-pill">Edit</span>), <strong>repeated birth or death</strong> (a
+              person with two birth or two death records — every other check reads only the first), future-dated events,
               death before birth, <strong>events outside the lifespan</strong> (an occupation dated before the birth, a
               residence or marriage after the death — burial, cremation and probate may follow a death and are not
               flagged, though a burial or cremation dated <em>before</em> the death is, compared to the day), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
@@ -1096,7 +1164,7 @@
               disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
               usually an import that never got attached, or a duplicate of a branch you already have. One finding per
               group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
-              is never a group. <strong>Associations</strong> checks the people an event names
+              is never a group. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
@@ -1238,7 +1306,8 @@
               places, rewriting Matricula or Geneanet links to a consistent form, and restating each source's coverage
               in the file's own shape (or the one chosen in <a href="#workspace">Settings › GEDCOM</a> — program fields
               or the standard's <em>DATA</em> structure). A preview lists examples of each change before you download
-              the normalized copy.
+              the normalized copy; a source-coverage example carries the title of the source it was read from, since
+              that is where the register type comes from.
             </p>
             <p>
               One pass is left unticked until you ask for it: <strong>note shape</strong> rewrites every note as your
@@ -1281,7 +1350,9 @@
               scanned pages, cutouts, the unattached bucket — show as a thumbnail tray with each tile's usage count
               overlaid; clicking a tile opens the full viewer, where the media's title, date, place, description and
               private flag are editable in place and the side panel lists the people and families referencing the
-              image, plus the sources it is attached to (clicking one filters the tree to that source). A <strong>Potential duplicates</strong> view groups records
+              image — each name followed by the marks of the events that cite it, so a register page says which
+              baptism or burial it documents for whom — plus the sources it is attached to (clicking one filters the
+              tree to that source). A <strong>Potential duplicates</strong> view groups records
               that describe the same media, source or repository under different ids — pick groups to collapse and
               download a deduplicated file with every citation re-pointed.
             </p>
@@ -1409,8 +1480,9 @@
               this asks the opposite question, which no link can answer: the citation is already a proper citation and
               its page image sits under the source, but the person or the event does not link it, so a program showing
               scans beside the facts has nothing to show. Each row is one source with the citations missing theirs;
-              opened, it names the person, whether the citation sits on an event or on the record itself, and the page
-              it cites. Ticking and applying adds one image pointer beside each of those citations and changes nothing
+              opened, it names the person, whether the citation sits on an event or on the record itself, the page
+              it cites and what the image it would gain is called — a citation naming no page has only that name to
+              say which scan is meant. Ticking and applying adds one image pointer beside each of those citations and changes nothing
               else. Which image a citation means has to be beyond doubt: a source holding a single page image answers
               for every citation of it, and where it holds several, only the cited page tells them apart. A citation
               that names no page, or names one no image answers to, is left exactly as it is — and said so under the
@@ -1435,7 +1507,9 @@
             <p>
               Lists every place in a country → locality → house → address hierarchy, with a usage count per place. Open
               a place to see the places under it, and <strong>click its count</strong> to list the records written at
-              exactly that place — a settlement with hundreds of them stays browsable either way. The <strong>✎</strong>
+              exactly that place — a settlement with hundreds of them stays browsable either way. Each name in that
+              list carries the marks of the events that put the person there (<a href="#legend">§15</a>), so someone
+              born in the village reads apart from someone who only died in it. The <strong>✎</strong>
               beside a name on any level renames or merges that place segment across every record at once — ideal for
               standardizing spelling variants. What it completes to are the names beside it under the same parent, so
               two towns that both number a <em>Breg 13</em> never offer each other's houses — and, below those, every
@@ -1905,12 +1979,20 @@
               address outside Slovenia, which the register does not cover), type or paste a coordinate, or remove the one
               it has. This is where to sharpen an address whose settlement is already pinned, since the geocoding
               worklist only offers places missing a coordinate altogether (the <a href="#places">Places</a> tree reaches
-              the placed ones). When the file holds other events at the same place
+              the placed ones). Every offer the panel makes is numbered and its pin on the map wears that number, as the
+              lists above number theirs; on a narrow window the offers stand above the map, so the numbers are read
+              before the circles they name. When the file holds other events at the same place
               <em>and</em> address, the panel offers — ticked by default — to write the pick onto all of them, since one
               house has one position; unticking keeps the coordinate on this event alone. The offer stands even when
               those events already share a coordinate, which is how a whole address is moved to a better position at
               once. (The copy is its own undo step,
               so one undo takes the other events back and a second undo this one.)
+              The panel also names <strong>the people your file puts at that place and address</strong>, counted on a line
+              of their own and listed beneath it, each a link into Edit — which is how you tell that the house on the map
+              is this family's and not a neighbour's. Each name carries the marks of the events that put the person
+              there (<a href="#legend">§15</a>) — born at the house, married from it, died in it. Everyone is listed,
+              oldest first by year of birth, so a house reads as its own history; an event with no address is counted by its place alone, so there the line speaks for
+              the whole settlement and its list scrolls. It reads the same wherever this panel opens, the three lists above included.
             </p>
             <p>
               Choosing a place or address that the file already knows brings its coordinate along, so a newly typed event
@@ -2012,7 +2094,7 @@
                 <em>Plain</em> is the chart's own colouring; <em>Generation</em> and <em>Family line</em> read the
                 person's place on the chart, so <em>Generation</em> serves every kind while <em>Family line</em> is
                 offered where the lines are actually drawn — the pedigree charts and Contemporaries; <em>Sex</em>,
-                <em>Living</em>, <em>Country</em> (of the birth, residence or death place, whichever is recorded
+                <em>Living</em>, <em>Country</em> (of the birth, residence, death or burial place, whichever is recorded
                 first), <em>Birth place</em>, <em>Surname</em>, <em>Parents' age</em> at the person's birth (the average of
                 the two), <em>Lifespan</em>, <em>Century</em> of birth and <em>Sources</em> (how much of the
                 birth, death and marriages is cited) read the record. A key along the bottom of the chart names each colour with
@@ -2144,6 +2226,32 @@
               directions at once (distance 1 is your parents <em>and</em> your children), and the elder generation sits
               on the inner row of the ring with the younger one outside it. Ring captions run down the gap at the
               bottom; the closest relatives are named on the chart, as many as fit without overlapping.
+            </p>
+            <p>
+              <strong>Surnames</strong> keeps those same rings and asks something else of them: <em>which names is this
+              family made of, and how far out does each one sit?</em> A ring here is one continuous circle shared out
+              among the relatives in it, and neighbours carrying the same surname read as a single band, as wide as the
+              number of people in it. The relatives run in one sweep: the ancestors first, gathered over the top of the
+              circle, then clockwise through everyone reached sideways, then the issue, the furthest of whom comes
+              round to meet the furthest ancestor again. The same surname arriving from two family lines stays two bands — that is
+              how a name which entered the tree twice remains visible. Nothing is drawn per person under a band, so the
+              people are read off it: hover one for who is in it, or click it for the list, which gives the blood
+              distance and then names each person in their sex colour, with the lifespan beside it and how they are
+              related to the person at the centre. A band holds one ring at one generation, so everyone in it stands in
+              the same relation — a band of great-aunts is all great-aunts — and the firmer hairlines in a ring fall
+              where a direct line ends: the ring's own ancestors, then everyone reached by going up and back down
+              again, then its own issue. Opening one also picks out every other band of the same surname, wherever on the chart it
+              sits, so a name that arrived twice shows its whole reach at once. A band answers about
+              its blood relatives and never opens a person's own panel — naming a family is what this layout is for,
+              and a person belongs to the wheel. With
+              <em>Color</em> (<a href="#charts">§11</a>) left at <em>Plain</em> the bands are tinted by that direction
+              alone. The other choices offered here are <em>Generation</em>, <em>Family line</em> and <em>Surname</em>
+              — the three a whole band can answer, since a band is one surname in one family line at one generation.
+              The rest are left out rather than made to guess: a band holds men and women, living and dead, and a
+              single fill would have to pick one and misreport the others. Choose one of them on another chart and
+              these rings fall back to <em>Plain</em>, leaving your choice where it was. <em>Names</em> turns the
+              captions off. The rings carry no scale of their own — a continuous ring has no gutter to print one in, and every
+              band names its own blood distance.
             </p>
             <p>
               <strong>Bars</strong> draws the same people as lifespan bars on a year axis, grouped into bands by blood
@@ -2527,8 +2635,10 @@
               link it placed beside itself. Beside the source icons a person or event may also carry plain
               <strong>link chips</strong>: a link attached as a media record shows as a 🔗 and opens the small
               <strong>Edit Link</strong> dialog, where the URL can be edited, opened, or removed (a media record
-              nothing else references is deleted with it). Hovering any source or link icon reveals an ↗ that opens
-              its page directly. A link written inside a note's text stays a read-only chip — edit or remove it in the
+              nothing else references is deleted with it). Hovering any source or link icon shows what it cites and
+              reveals an ↗ that opens its page directly. On a touch screen the first tap on an icon shows the same
+              description with <strong>Edit</strong> and <strong>Open link in new tab</strong> buttons, and a second
+              tap acts as a click. A link written inside a note's text stays a read-only chip — edit or remove it in the
               note itself. To see and tidy sources across the entire
               file — including duplicates — use <span class="gm-pill">Tools</span> › <strong>Sources</strong>, and to
               convert scattered links into proper citations in bulk, <strong>Organize sources</strong> (<a href="#tools">§10</a>).
@@ -2602,6 +2712,17 @@
               even if it came from something other than the edits above, in which case there is no field-by-field
               account of it. The point is that nothing reaches your file unmentioned — a record with no detail is still
               a record to look at.
+            </p>
+            <p>
+              <strong>Fields</strong> and <strong>GEDCOM lines</strong>, the switch beside <em>Changes</em>, are two
+              readings of the same pending save. Fields is the one described above: what each change means, in the
+              app's own words. GEDCOM lines shows what the file will literally receive — every changed line against
+              the one it replaces, under the tags that own it, so a changed date reads under its own event instead of
+              adrift among the record's other lines. Untouched lines are left out — except the person's name line,
+              which stays above every change as a caption — and a “⋯” marks where the view moves on to another part
+              of the record. The change-date stamps are not there: they are written once you
+              confirm the download. A record whose earlier version the app did not keep says so rather than showing
+              lines. Your choice of reading is remembered for the next save.
             </p>
             <p>
               <strong>Download GEDCOM</strong> writes the new <em>.ged</em>. The downloaded file becomes your new working
@@ -2760,6 +2881,30 @@
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>
+            <p><strong>Lifespan years</strong> — the short <span class="gm-data">1817–1921</span> that follows a
+              person's name wherever people are listed or carded: the search results, the match candidates and their
+              relatives, the chart headings and side panels, the pickers, and the save preview. Hover the years for the
+              birth and death dates as your file writes them, an approximate date included (<em>ABT 1908</em>).</p>
+            <p><strong>Event marks</strong> — the classic genealogy symbols, the same everywhere an event is drawn
+              rather than named: leading each event row in Edit (<a href="#edit">§8</a>), following a name in the place
+              lists (<a href="#places">§10</a>), on the Timeline's bars and in the text reports (<a href="#charts">§11</a>).
+              Hover one for the event's name.</p>
+            <table class="gm-table">
+              <thead><tr><th>Mark</th><th>Event</th></tr></thead>
+              <tbody>
+                <tr><td><span class="gm-glyph">*</span></td><td>Birth</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Baptism or christening</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚯</span></td><td>Engagement, marriage, divorce, partnership</td></tr>
+                <tr><td><span class="gm-glyph">†</span></td><td>Death</td></tr>
+                <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Burial, cremation</td></tr>
+                <tr><td><span class="gm-glyph">⌂</span></td><td>Residence</td></tr>
+                <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Occupation, education</td></tr>
+                <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Emigration, immigration, naturalization</td></tr>
+                <tr><td><span class="gm-glyph">▤</span></td><td>Census</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Will, probate, legal transaction, deed</td></tr>
+                <tr><td><span class="gm-glyph">·</span></td><td>Any other event type — one with no traditional symbol of its own</td></tr>
+              </tbody>
+            </table>
             <p><strong>Status badges</strong> — round chips on candidate rows (Merge), on the relatives listed in the
               compare panel, and on the Compare Tree's nodes, where a decision is what the view is for. The other
               charts leave them off: they draw the family, not your working state. On the Merge match list, confirmed
@@ -2827,7 +2972,8 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Show the shortcut list — F1 works from inside a field too</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Leave the field you're typing in, keeping what you typed (Edit) / close a dialog / leave a chart page</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
-                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Step the highlighted row of the list you are in — the matches, the duplicate pairs, the health check's findings, the search results</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the comparison (Merge); after <span class="gm-key">Enter</span> they step its fields</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Step the highlighted row of the list you are in — the comparison's fields, the duplicate pairs, the health check's findings, the search results</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Previous / next match — in Merge and Edit, and in the duplicates list</td></tr>
                 <tr><td><span class="gm-key">Home</span> / <span class="gm-key">End</span></td><td>First / last row of the list</td></tr>
                 <tr><td><span class="gm-key">PgUp</span> / <span class="gm-key">PgDn</span></td><td>Scroll the open panel — the comparison in Merge</td></tr>
@@ -2840,7 +2986,7 @@
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Open the previous · next sibling, by birth (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↓</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span></td><td>Open the eldest · the youngest child (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span></td><td>Open the previous · next partner (Edit)</td></tr>
-                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Back — the previous page in Edit (the person before, or the Tools list they were opened from) or leave a chart page; the chord goes back from inside a field too</td></tr>
+                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Back — always the same step as the browser's Back button: the person before in Edit (or the Tools list they were opened from), the match you opened a relative from in Merge, the Tools page before, or out of a chart page; the chord goes back from inside a field too (Edit)</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Add a new person (linked to nobody)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Open the <strong>+ Add Event</strong> menu (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Add a quick event to the open person (Edit) — the buttons under the event list, in their order</td></tr>

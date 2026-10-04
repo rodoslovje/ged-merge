@@ -431,9 +431,7 @@ export function buildFanChart(
       // Curved rings split the name into given / surname lines, wrapping a long
       // given name onto extra lines so it never overflows the arc. The line gap
       // tightens if needed so every line stays inside the ring.
-      const bandLo = photo ? rIn + photo.size + 14 : rIn + 8;
-      const bandHi = rOut - 8;
-      const centre = (bandLo + bandHi) / 2;
+      const { lo: bandLo, hi: bandHi, mid: centre } = labelBand(rIn, rOut, photo);
       // On the wide inner rings (gen 1–3), keep the name on a single line when both
       // the lifespan and place are shown — otherwise the given/surname split would
       // push the label to four lines and crowd the ring.
@@ -458,16 +456,19 @@ export function buildFanChart(
     // is split onto given / surname lines so it wraps instead of overflowing.
     // Rotate to point outward, flipped to read upright on the left half. Deep rings
     // drop the place, then the lifespan, via `genDisp` (so ring 8+ is name-only).
-    const tooLong = genDisp.name.length * fontPx * 0.5 > w - 16;
+    // The band starts outside the photo, so the outward-reading name begins
+    // where the face ends instead of running over it.
+    const band = labelBand(rIn, rOut, photo);
+    const tooLong = genDisp.name.length * fontPx * 0.5 > band.depth;
     const texts = labelTexts(genDisp, tooLong);
     const n = texts.length;
     // Lines stack tangentially within the rotated frame — tighten the gap so they
     // fit the wedge's angular width.
-    const gap = Math.min(lineGap, Math.max(1, (rMid * delta - 2) / n));
+    const gap = Math.min(lineGap, Math.max(1, (band.mid * delta - 2) / n));
     let deg = (mid * 180) / Math.PI;
     if (flip) deg += 180;
-    const ax = cx + rMid * Math.cos(mid);
-    const ay = cy + rMid * Math.sin(mid);
+    const ax = cx + band.mid * Math.cos(mid);
+    const ay = cy + band.mid * Math.sin(mid);
     return {
       ...base,
       curved: false,
@@ -639,6 +640,20 @@ export function photoBox(
     cy: round(cy + rPhoto * Math.sin(mid)),
     rot: round(rot),
   };
+}
+
+/** The radial band a wedge's label may use: the ring, less the photo sitting at
+ *  its inner edge. Both label shapes read it, so a name never lands across a
+ *  face — the curved lines stack inside the band, the radial ones read outward
+ *  from its inner edge. */
+export function labelBand(
+  rIn: number,
+  rOut: number,
+  photo?: { size: number },
+): { lo: number; hi: number; mid: number; depth: number } {
+  const lo = photo ? rIn + photo.size + 14 : rIn + 8;
+  const hi = rOut - 8;
+  return { lo, hi, mid: (lo + hi) / 2, depth: hi - lo };
 }
 
 /** A curved text baseline spanning a wedge at radius `r`, mirrored about the

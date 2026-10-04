@@ -21,6 +21,7 @@ import type { BrokenLinkRef } from "../tools/fixLinks";
 import type { BadDateRef } from "../tools/fixDates";
 import type { DanglingRef } from "../tools/fixDanglingRefs";
 import type { RecordPatch } from "./historyTypes";
+import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/PlacePeopleContext";
 import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
@@ -164,6 +165,15 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
   // neither restarts a scan nor loses a finished one.
   const scans = useToolsScans(dataset, editVersionRef);
 
+  // Who the file puts at a place+address pair, for the coordinate panel the
+  // place pages open. Walked on the panel's first ask and kept until an edit
+  // bumps the version — nothing else reads it, so nothing else pays for it.
+  const placeUsesAt = usePlaceAddrUses(dataset, editVersion);
+  const placePeople = useMemo<PlacePeople>(
+    () => ({ dataset, usesAt: placeUsesAt, onNavigate }),
+    [dataset, placeUsesAt, onNavigate],
+  );
+
   // Whole-file counts for the header overview; recomputed only per dataset,
   // and only once Tools is on screen — the view stays mounted behind Edit,
   // and the distinct-place count walks every record.
@@ -235,8 +245,13 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />
         )}
+        {/* The coordinate panel the three place pages share lists who else the
+            file puts at the address it is positioning — the same lookup Edit
+            provides it with, over the same file. */}
         {tool === "places" && (
+          <PlacePeopleProvider value={placePeople}>
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onClearPlaceCoords={onClearPlaceCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddresses={onRenameAddresses} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} view={view} onViewChange={onViewChange} />
+          </PlacePeopleProvider>
         )}
       </div>
       </ToolSummarySlotProvider>

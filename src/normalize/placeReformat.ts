@@ -4,10 +4,12 @@ import {
   disambiguatesLocality,
   isCountryName,
   looksLikeFacility,
+  looksLikeStreet,
   sharesPlaceWord,
   stripHouseNumber,
 } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
+import type { PlaceComponents } from "../gedcom/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
 /** Whether a main layout triggers reshaping (others are copied verbatim). */
@@ -41,6 +43,19 @@ export function reformatPlace(
 
   const p = placRaw ? decomposePlace(placRaw) : undefined;
   const a = addrRaw ? decomposePlace(addrRaw) : undefined;
+
+  // A trailing number is a house number only where the name before it is a
+  // settlement ("Zgornje Bitnje 165"). Where that name is a whole path the
+  // parser never broke up — a file writing its levels with slashes, as in
+  // "Kranj/Ulica Janeza Puharja 9/Grosova ulica 18" — or names a street, the
+  // split leaves a place that exists nowhere and an address repeating the
+  // entire value. Such a value is passed through as written, whether it is the
+  // PLAC or an ADDR standing in for one.
+  const unreadableHouse = (d: PlaceComponents | undefined): boolean =>
+    !!d?.houseNumber && !d.street && !!d.locality && (d.locality.includes("/") || looksLikeStreet(d.locality));
+  if (unreadableHouse(p) || (!p?.locality && unreadableHouse(a))) {
+    return { plac: respellSeparator(clean(placRaw), fmt), addr: clean(addrRaw) };
+  }
 
   let jurisdiction = p?.jurisdiction.length ? p.jurisdiction : a?.locality ? [a.locality] : [];
   let locality = p?.locality ?? a?.locality;
@@ -96,13 +111,42 @@ export function reformatPlace(
       !knownNames.has(name.toLowerCase()) &&
       (chain ?? []).some((level) => !isCountryName(level) && sharesPlaceWord(name, level));
 
+    /**
+     * Whether a street's learned locality only *narrows* the place already
+     * written — the hamlet the file ties the street to must sit under the
+     * locality the record itself names ("Hafnarjeva pot" → Stražišče, under
+     * this record's own Kranj).
+     *
+     * A street name is no identifier of a settlement: "Šolska ulica" is in a
+     * hundred of them. Without this, the one village whose records happen to
+     * spell that street out teaches it, and every other record carrying the
+     * same street name is moved there — Kranj's "Šolska ulica 3" becoming
+     * "Spodnje Jarše, Domžale". Moving a record to the wrong village is data
+     * loss; leaving it as written never is.
+     */
+    const narrowsLocality = (candidate: string): boolean => {
+      if (!locality) return true;
+      if (candidate.toLowerCase() === locality.toLowerCase()) return true;
+      const chain = parentOf.get(candidate.toLowerCase()) ?? [];
+      if (chain.some((level) => canonicalPlaceToken(level) === canonicalPlaceToken(locality!))) return true;
+      // The one name that may be replaced outright rather than narrowed: a
+      // leading name that is no place of this file's own yet says where the
+      // street's village lies ("Kranj - Šmartin" over Stražišče's Kranj) — the
+      // parish that kept the register, not a settlement. It goes to AGNC
+      // below. A real place the file simply hasn't spelt out in full ("Naklo"
+      // over Stražišče's chain) shares no word with it and stays put.
+      return namesTheAreaOf(locality, chain);
+    };
+
     // First the street the main itself ties to a particular hamlet. Failing
     // that, the address's own settlement — for a value whose leading name is
     // no place this file knows ("Kranj - Šmartin, Zgornje Bitnje 14", the
     // parish first and the house after it), where the address is the only
     // part naming somewhere the main can place.
     const hinted =
-      addressNames.map((s) => localityOfStreet.get(s.toLowerCase())).find(Boolean) ??
+      addressNames
+        .map((s) => localityOfStreet.get(s.toLowerCase()))
+        .find((h): h is string => !!h && narrowsLocality(h)) ??
       addressNames.find((s) => namesTheAreaOf(locality, parentOf.get(s.toLowerCase())));
     const displaced = locality;
     let relocated = false;

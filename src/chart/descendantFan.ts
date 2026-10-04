@@ -45,6 +45,7 @@ import {
   curvedTexts,
   donutPath,
   fanResolvers,
+  labelBand,
   labelTexts,
   photoBox,
   round,
@@ -366,9 +367,7 @@ export function buildDescendantFanChart(
     };
 
     if (curved) {
-      const bandLo = photo ? rIn + photo.size + 14 : rIn + 8;
-      const bandHi = rOut - 8;
-      const centre = (bandLo + bandHi) / 2;
+      const { lo: bandLo, hi: bandHi, mid: centre } = labelBand(rIn, rOut, photo);
       // The longest form whose wrapped lines fit the ring's depth; none when
       // even one name alone would not.
       let texts: { text: string; kind: FanLine["kind"] }[] = [];
@@ -394,17 +393,29 @@ export function buildDescendantFanChart(
     // it, the lifespan and place beneath — down to a single fitted name line,
     // and none at all when even that would overflow (the wedge stays, coloured
     // and clickable; the panel names the person).
-    const arcIn = rIn * delta;
-    const maxLines = Math.floor(arcIn / (fontPx * 1.05));
-    const texts = maxLines >= 1 ? radialNameLines(forms, maxLines, w - 16, fontPx) : [];
+    // The name starts outside the photo rather than across it. Where the band
+    // left beside a face holds no form of the name, the name wins: the photo is
+    // dropped and the whole ring goes to the label.
+    const fitted = (p?: typeof photo) => {
+      const band = labelBand(rIn, rOut, p);
+      const maxLines = Math.floor((band.lo * delta) / (fontPx * 1.05));
+      return { band, texts: maxLines >= 1 ? radialNameLines(forms, maxLines, band.depth, fontPx) : [] };
+    };
+    let { band, texts } = fitted(photo);
+    let shown = photo;
+    if (!texts.length && photo) {
+      shown = undefined;
+      ({ band, texts } = fitted(undefined));
+    }
     const n = texts.length;
-    const gap = Math.min(lineGap, Math.max(1, (rMid * delta - 2) / Math.max(n, 1)));
+    const gap = Math.min(lineGap, Math.max(1, (band.mid * delta - 2) / Math.max(n, 1)));
     let deg = (mid * 180) / Math.PI;
     if (flip) deg += 180;
-    const ax = cx + rMid * Math.cos(mid);
-    const ay = cy + rMid * Math.sin(mid);
+    const ax = cx + band.mid * Math.cos(mid);
+    const ay = cy + band.mid * Math.sin(mid);
     segments.push({
       ...base,
+      photo: shown,
       curved: false,
       labelTransform: `translate(${round(ax)},${round(ay)}) rotate(${round(deg)})`,
       lines: texts.map((l, i) => ({ ...l, dy: round((i - (n - 1) / 2) * gap) })),

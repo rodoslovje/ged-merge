@@ -162,7 +162,7 @@ describe("buildAhnentafel", () => {
     ]);
   });
 
-  it("adds optional ⚒/✎/⌂ occupation, education and residence lines between ⚭ and †", () => {
+  it("adds optional ⚒/🎓/⌂ occupation, education and residence lines between ⚭ and †", () => {
     const busy = wrap(
       "0 @I1@ INDI\n1 NAME Solo /One/\n1 BIRT\n2 DATE 1900\n1 DEAT\n2 DATE 1980\n" +
         "1 OCCU Farmer\n2 DATE 1930\n1 EDUC Gimnazija\n2 DATE 1918\n1 OCCU Miller\n" +
@@ -181,7 +181,8 @@ describe("buildAhnentafel", () => {
     // dated run.
     expect(on.generations[0].entries[0].facts).toMatchObject([
       { tag: "BIRT", glyph: "*", date: "1900", place: undefined },
-      { tag: "EDUC", glyph: "✎", value: "Gimnazija", date: "1918", place: undefined },
+      // The cap carries U+FE0E: the mark is a text symbol, never a colour emoji.
+      { tag: "EDUC", glyph: "🎓︎", value: "Gimnazija", date: "1918", place: undefined },
       { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
       { tag: "RESI", glyph: "⌂", date: "1950", place: "Dunajska 5, Kranj" },
       { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
@@ -190,7 +191,7 @@ describe("buildAhnentafel", () => {
     // The rendered line leads with the date, the value follows.
     const text = reportToText(tr, on, "ancestors", "T");
     expect(text).toContain("⚒ 1930, Farmer");
-    expect(text).toContain("✎ 1918, Gimnazija");
+    expect(text).toContain("🎓︎ 1918, Gimnazija");
   });
 
   it("carries person and event notes when the notes option is on", () => {

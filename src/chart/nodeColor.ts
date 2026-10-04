@@ -43,18 +43,33 @@ export const COLOR_AXES: ColorAxis[] = [
 ];
 
 /**
+ * The axes a *group* of people can answer exactly, because they read nothing
+ * off a person but where they stand in the tree and what they are called.
+ *
+ * A chart that draws one mark per person can offer every axis. One that draws a
+ * mark per group — the Contemporaries surname rings, where a band is a surname
+ * in one family line at one generation — can only offer these: on any other,
+ * the band holds men and women, living and dead, four countries, and a single
+ * fill would have to speak for a majority and quietly misreport the rest.
+ */
+export const GROUP_AXES: ColorAxis[] = ["plain", "generation", "branch", "surname"];
+
+/**
  * What a chart can colour its people by. A chart that paints them by something
  * of its own — the Compare tree's match status — takes `none` and is offered
  * no Color setting at all. A chart that knows each person's generation but not
  * the family line they come down through — the Timeline's rows, the
  * Relationship chart's path — takes `noBranch`: a line axis there would paint
- * every person the one colour. Everything else offers the lot.
+ * every person the one colour. A chart that draws one mark per group — the
+ * Contemporaries surname rings — takes `group` and offers {@link GROUP_AXES}.
+ * Everything else offers the lot.
  */
-export type ColorAxisScope = "all" | "noBranch" | "none";
+export type ColorAxisScope = "all" | "noBranch" | "group" | "none";
 
 /** The axes a chart of this scope offers, in popover order. */
 export function colorAxesFor(scope: ColorAxisScope): ColorAxis[] {
   if (scope === "none") return [];
+  if (scope === "group") return GROUP_AXES;
   return scope === "noBranch" ? COLOR_AXES.filter((a) => a !== "branch") : COLOR_AXES;
 }
 
@@ -201,9 +216,10 @@ const OTHER = "\u0000other";
 
 // ─── Per-person readings ─────────────────────────────────────────────────────
 
-const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
+// Burial last: someone buried in a country is taken to have lived there.
+const PLACE_TAGS = ["BIRT", "RESI", "DEAT", "BURI"] as const;
 
-/** The country of the first of birth, residence and death that names a place. */
+/** The country of the first of birth, residence, death and burial that names a place. */
 function countryOf(indi: Individual, home: string): string {
   for (const tag of PLACE_TAGS) {
     const place = findEvent(indi, tag)?.place;

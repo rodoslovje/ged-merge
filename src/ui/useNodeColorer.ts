@@ -8,7 +8,8 @@ import { useHomeCountry } from "./DatasetDerivations";
 /** The colorer for the Color axis in force, built from the people a chart
  *  draws. Rebuilt when the axis, the people or the file change. `scope` says
  *  which axes this chart can honour: an axis it cannot (the choice was made on
- *  another chart, and the setting is shared) falls back to plain. */
+ *  another chart, and the setting is shared) falls back to plain — the shared
+ *  choice itself is left alone for the charts that can answer it. */
 export function useNodeColorer(
   ds: Dataset,
   subjects: ColorSubject[],

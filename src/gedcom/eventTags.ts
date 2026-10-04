@@ -34,6 +34,78 @@ export const INDI_EVENT_TAG_ORDER = [
 export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV", "EVEN", "_MSTAT"];
 
 /**
+ * Classic genealogy symbols for the event types that have one — language-
+ * neutral, so they need no translation: * born, ~ baptized, ⚭ married,
+ * † died, ▭ buried, ⌂ residence, →/← emigrated/immigrated. The union marks
+ * come from Unicode's own genealogy block (U+26AC…U+26AF: ⚬ betrothed,
+ * ⚭ married, ⚮ divorced, ⚯ unmarried partnership), which is where a reader of
+ * German or Slovenian parish registers already expects to find them.
+ *
+ * Two marks are conventions of this app rather than of the craft: no symbol
+ * exists for occupation or education, and ⚒ and the graduation cap are the
+ * closest widely understood ones. The cap carries U+FE0E after it, the text
+ * presentation selector: it is an emoji codepoint, and without that the system
+ * would draw its own colour emoji instead of the plain outline the subset in
+ * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
+ * the app ✎ is the button that edits a record, and a mark that looks like the
+ * control beside it is worse than an approximate symbol.)
+ * A tag with no honest mark is left out on purpose — the
+ * UI draws those as a neutral dot and the charts as their generic one, rather
+ * than inventing a symbol nobody reads.
+ *
+ * One map for every surface — the Timeline marks, the text reports' fact
+ * lines, the Edit event rows and the place worklists — so an event type is
+ * drawn the same way wherever it appears. The glyphs outside the Latin-1
+ * range are carried by the subset in `theme/fonts.css`, so they render
+ * identically on every platform instead of falling to a system font.
+ */
+export const EVENT_GLYPHS: Record<string, string> = {
+  BIRT: "*",
+  BAPM: "~",
+  CHR: "~",
+  ENGA: "⚬",
+  MARR: "⚭",
+  DIV: "⚮",
+  _MSTAT: "⚯",
+  DEAT: "†",
+  BURI: "▭",
+  CREM: "⚱",
+  RESI: "⌂",
+  OCCU: "⚒",
+  EDUC: "🎓︎",
+  EMIG: "→",
+  IMMI: "←",
+  NATU: "⚑",
+  CENS: "▤",
+  WILL: "§",
+  PROB: "§",
+  LATR: "§",
+  DEED: "§",
+};
+
+/** The mark an event tag is drawn with, or the neutral one for a tag the
+ *  vocabulary has no symbol for — a dot says "an event happened here" without
+ *  claiming to say which, and the name always travels with it in a tooltip. */
+export const GENERIC_EVENT_GLYPH = "·";
+
+/** Distinct tags in canonical life-cycle order — a person's events before a
+ *  family's, each in its own order, and anything unknown at the end in the
+ *  order it arrived. What a list of glyphs beside a name is sorted by, so the
+ *  same set of events always reads the same way round. */
+export function orderedEventTags(tags: Iterable<string>): string[] {
+  const rank = (tag: string) => {
+    const indi = INDI_EVENT_TAG_ORDER.indexOf(tag);
+    if (indi >= 0) return indi;
+    const fam = FAM_EVENT_TAG_ORDER.indexOf(tag);
+    return fam >= 0 ? INDI_EVENT_TAG_ORDER.length + fam : Number.MAX_SAFE_INTEGER;
+  };
+  return [...new Set(tags)]
+    .map((tag, i) => ({ tag, i }))
+    .sort((a, b) => rank(a.tag) - rank(b.tag) || a.i - b.i)
+    .map((e) => e.tag);
+}
+
+/**
  * Localized display name for an event tag. Non-standard (`_`-prefixed vendor)
  * tags get the raw tag appended — "Funeral (_FNRL)" — so they read apart from
  * similarly named standard events (BURI "Burial"). `fallback` replaces the

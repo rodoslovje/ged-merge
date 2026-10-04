@@ -278,18 +278,34 @@ export function connectExistingChild(
 
 /**
  * Remove a family that has fewer than two members — a lone spouse, a single
- * child, or nothing at all. A family needs at least two members (a couple, or
- * a parent/sibling group) to mean anything; once a deletion or detach drops it
- * below that, the now-meaningless `FAM` record (which may still carry only
- * CREA/CHAN/MARR stubs) is dropped via `removeFamily`, which also unlinks the
- * `FAMS`/`FAMC` pointer of any sole surviving member. Returns `true` if it was
- * removed.
+ * child, or nothing at all — *and* nothing recorded about it. A family needs at
+ * least two members (a couple, or a parent/sibling group) to mean anything;
+ * once a deletion or detach drops it below that, the now-meaningless `FAM`
+ * record (which may still carry only CREA/CHAN stamps and empty `1 MARR`
+ * stubs) is dropped via `removeFamily`, which also unlinks the `FAMS`/`FAMC`
+ * pointer of any sole surviving member. Returns `true` if it was removed.
+ *
+ * A family that still carries content — a marriage date or place, a citation,
+ * a note, a divorce — is kept with its one remaining member: the widow's
+ * wedding is a fact about her, and the confirm dialog promised to remove the
+ * deleted person's relationships, not the marriage record itself.
  */
 export function pruneDegenerateFamily(dataset: Dataset, fam: Family): boolean {
   const memberCount = (fam.husband ? 1 : 0) + (fam.wife ? 1 : 0) + fam.children.length;
   if (memberCount >= 2) return false;
+  if (!isBareFamily(fam)) return false;
   removeFamily(dataset, fam);
   return true;
+}
+
+/** Whether the family record holds nothing beyond member pointers, its own
+ *  record stamps and empty stub lines (`1 MARR` with nothing under it). */
+function isBareFamily(fam: Family): boolean {
+  return fam.raw.children.every(
+    (c) =>
+      c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL" || RECORD_OWN_TAGS.has(c.tag) ||
+      (!c.value && c.children.length === 0),
+  );
 }
 
 /** Remove a spouse role (HUSB or WIFE) from a family and the matching FAMS from the individual. */
@@ -328,7 +344,11 @@ export function detachChildFromFamily(dataset: Dataset, fam: Family, childId: st
  * holds cannot stay pointed at from the baptism, or every delete would leave
  * the health check a dangling reference to report. */
 export function removeIndividual(dataset: Dataset, indi: Individual): void {
-  const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf]);
+  // The person's own FAMS/FAMC lines name their families — but a file can be
+  // one-sided (a `CHIL` with no `FAMC` back-link, a `HUSB` without `FAMS`), and
+  // a pointer left on such a family would dangle. So the family side is
+  // scanned too.
+  const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf, ...familiesNaming(dataset, indi.id)]);
   for (const id of repointAssociations(dataset.records, indi.id)) {
     const named = dataset.individuals.get(id);
     if (named) rebuildIndividual(dataset, named);
@@ -337,18 +357,12 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
       if (fam) rebuildFamily(dataset, fam);
     }
   }
-  for (const famId of indi.spouseOf) {
+  for (const famId of affectedFamilyIds) {
     const fam = dataset.families.get(famId);
     if (!fam) continue;
-    if (fam.husband === indi.id) removeChild(fam.raw, "HUSB");
-    else if (fam.wife === indi.id) removeChild(fam.raw, "WIFE");
-    rebuildFamily(dataset, fam);
-  }
-  for (const famId of indi.childOf) {
-    const fam = dataset.families.get(famId);
-    if (!fam) continue;
-    const ci = fam.raw.children.findIndex((c) => c.tag === "CHIL" && c.value === indi.id);
-    if (ci !== -1) fam.raw.children.splice(ci, 1);
+    fam.raw.children = fam.raw.children.filter(
+      (c) => !((c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL") && c.value === indi.id),
+    );
     rebuildFamily(dataset, fam);
   }
   const ri = dataset.records.findIndex((r) => r.xref === indi.id);
@@ -358,6 +372,16 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
     const fam = dataset.families.get(famId);
     if (fam) pruneDegenerateFamily(dataset, fam);
   }
+}
+
+/** Families whose HUSB/WIFE/CHIL lines name `indiId`, whether or not the
+ *  person's own record links back to them. */
+export function familiesNaming(dataset: Dataset, indiId: string): string[] {
+  const ids: string[] = [];
+  for (const fam of dataset.families.values()) {
+    if (fam.husband === indiId || fam.wife === indiId || fam.children.includes(indiId)) ids.push(fam.id);
+  }
+  return ids;
 }
 
 /** Fully remove a family from the dataset, cleaning up FAMS/FAMC pointers on all members. */

@@ -42,6 +42,7 @@ import { TreeNodePanel } from "./TreeNodePanel";
 import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
+import { lifespanTooltipOf } from "../gedcom/age";
 import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
@@ -526,6 +527,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             name={tree.name}
             sexCls={rootPerson ? sexClass(rootPerson.sex) : ""}
             years={rootYears}
+            yearsTitle={lifespanTooltipOf(rootPerson, display.showAge, t)}
             kinship={rootKinship}
             lineage={rootLineage}
             kind={chartKind}
@@ -563,7 +565,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
-        <ChartLegend entries={colorer.legend} />
+        <ChartLegend entries={colorer.legend} tint={tint} />
         <div
           className={`tree-canvas${panning ? " panning" : ""}`}
           ref={canvasRef}

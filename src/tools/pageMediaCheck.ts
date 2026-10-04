@@ -33,6 +33,10 @@ export interface MissingPageMedia {
   page?: string;
   /** The image the record would link. */
   objeXref: string;
+  /** What that image is called, so the row says which page it will hang there
+   *  — the citation itself often names no page, and then the image's own title
+   *  is the only thing that does. */
+  objeTitle?: string;
 }
 
 /** A page image beside a citation that its own book does not hold — the same
@@ -309,6 +313,7 @@ export function findMissingPageMedia(dataset: Dataset, style: PageMediaStyle): P
         eventTag: container === record ? undefined : container.tag,
         page,
         objeXref,
+        objeTitle: objes.get(objeXref)?.title,
       });
     },
     (sourceXref) => {

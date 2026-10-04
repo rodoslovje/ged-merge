@@ -164,6 +164,17 @@ export function lifeSpan(indi: Individual, ds: Dataset, now: number): LifeSpan {
   return { from, to, openEnd: died === undefined, living };
 }
 
+/**
+ * The stretch the "contemporaries" scope measures everyone against, and the
+ * band the bars chart shades behind them: the root's own life, read with the
+ * very rule that draws their bar, so the shading and the bar share both ends.
+ * Undefined for a root with no datable life — nothing to compare against.
+ */
+export function rootWindow(indi: Individual, ds: Dataset, now: number): { from: number; to: number } | undefined {
+  const { from, to } = lifeSpan(indi, ds, now);
+  return from !== undefined && to !== undefined ? { from, to } : undefined;
+}
+
 /** Whether the two stretches of years touch at all. */
 export function overlaps(span: LifeSpan, from: number, to: number): boolean {
   if (span.from === undefined && span.to === undefined) return false;
@@ -189,6 +200,10 @@ export interface KinPerson {
    *  the parsed NAME rather than split off the display string, which puts the
    *  surname first under some name settings. */
   given: string;
+  /** The surname alone, as the record spells it — the surname rings' band. Empty
+   *  when the record carries no surname, which is a band of its own rather than
+   *  a person quietly folded in with the next name along. */
+  surname: string;
   /** "1817–1921" / "1817" / "" — {@link formatLifespan}. */
   years: string;
   sex: Sex;
@@ -248,6 +263,7 @@ export function collectKin(input: KinInput): KinPerson[] {
       side: line?.side ?? "own",
       name,
       given: primaryName(indi)?.given?.trim() || name.split(/\s+/)[0] || name,
+      surname: primaryName(indi)?.surname?.trim() ?? "",
       years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
       sex: indi.sex,
       span,
@@ -692,6 +708,328 @@ function placeLabels(
   return out;
 }
 
+// ── The surname rings ────────────────────────────────────────────────────────
+//
+// The same people and the same rings as the wheel — blood distance is still the
+// radius — but a ring is one continuous circle shared out among the relatives in
+// it, and neighbours carrying the same surname read as one band. It answers a
+// different question from the wheel's: not "who are they and how close", but
+// "which surnames is this family made of, and how far out does each one sit".
+//
+// Within a ring the relatives run ancestor-ward to descendant-ward, with the
+// elders' run centred on 12 o'clock, so ancestors stay on top and the issue sit
+// at the bottom. Because the mix changes with distance, a generation offset has
+// no fixed angle here: the colour says which direction a band lies in, and a
+// separator marks where the elders end and the issue begin.
+
+/** Band caption sizes, and the shortest a surname may be cut to before the band
+ *  gives up and leaves the name to the tooltip — two letters is noise.
+ *
+ *  A caption written across a band, rather than along it, is bounded by the
+ *  ring's thickness and nothing else, so it is set smaller than one that runs
+ *  along the arc: at the bigger size most of the outer rings carried no name at
+ *  all, which is where the surnames actually are. */
+const SURNAME_PX_MIN = 7;
+const SURNAME_PX_MAX = 16;
+const SURNAME_MIN_CHARS = 4;
+/** A band this wide, in degrees, can carry its caption along the arc. */
+const SURNAME_ARC_DEG = 12;
+
+/** Where a relative sits relative to the root: elders, own generation, issue.
+ *  The three run in this order around every ring, and they are what the bands
+ *  are coloured by on the plain axis. */
+export type KinDirection = "up" | "same" | "down";
+
+export const kinDirection = (generation: number): KinDirection =>
+  generation > 0 ? "up" : generation === 0 ? "same" : "down";
+
+/** What a relative *is* to the root — a direct ancestor, a direct descendant,
+ *  or anybody reached by going up and then back down again.
+ *
+ *  Inside one ring the blood distance is fixed, and a band holds one generation
+ *  offset, so `up` and `down` are the same for everyone in it: a band is exactly
+ *  one kinship class and can be named as one. Ordering the ring by generation
+ *  puts the classes in this order too — the pure ancestors are the deepest
+ *  elders, the pure issue the deepest young — so they come out contiguous. */
+export type KinKind = "ancestor" | "relative" | "descendant";
+
+export const kinKind = (up: number, down: number): KinKind =>
+  down === 0 ? "ancestor" : up === 0 ? "descendant" : "relative";
+
+/** Hairline of ground between one ring and the next. The rings are solid here,
+ *  so they are told apart by the gap rather than by the wheel's dotted circles —
+ *  and a hairline is all that takes, the bands' own stroke adding to it. */
+const RING_INSET = 0.5;
+
+/** A surname's caption, already fitted to the band that carries it. */
+export interface SurnameLabel {
+  text: string;
+  /** Shown beside the name when the band has room for it too. */
+  count?: number;
+  fontPx: number;
+  /** Set along this arc, for a band wide enough to carry the name tangentially. */
+  pathD?: string;
+  /** …otherwise set across the band, at this point and rotation. */
+  x?: number;
+  y?: number;
+  rotate?: number;
+}
+
+/** One drawn section: the relatives of one ring who share a surname, a family
+ *  line and a generation, and who came out next to each other. The people are
+ *  the band's own — nothing below it is drawn, so the names are read off the
+ *  tooltip rather than off a slice each. */
+export interface SurnameBand {
+  /** Empty for a record with no surname — the caption is the caller's to word. */
+  surname: string;
+  people: KinPerson[];
+  count: number;
+  distance: number;
+  /** Elders / own generation / issue — what the band is coloured by. */
+  direction: KinDirection;
+  /** Ancestor / relative / descendant — what the ring's marks are cut on: they
+   *  fall where a direct line ends. Not written anywhere, because every row of
+   *  a band shows the same kinship and says it in plainer words. */
+  kind: KinKind;
+  /** Generations above (+) or below (−) the root — one value for the whole
+   *  band, so a colour axis keyed on it paints the section exactly. */
+  generation: number;
+  branch: string;
+  a0: number;
+  a1: number;
+  rInner: number;
+  rOuter: number;
+  pathD: string;
+  /** The band's middle, for Find and for scrolling a person into view. */
+  x: number;
+  y: number;
+  label?: SurnameLabel;
+}
+
+/** The hairline between the elders' run and the issue's, on one ring. */
+export interface SurnameSplit {
+  distance: number;
+  angle: number;
+  rInner: number;
+  rOuter: number;
+}
+
+export interface SurnameRingsChart {
+  cx: number;
+  cy: number;
+  radius: number;
+  width: number;
+  height: number;
+  /** The rings that hold anybody, innermost first. There is no scale drawn on
+   *  them: a continuous ring has no gutter to set one in, and every band names
+   *  its own blood distance. */
+  rings: { distance: number; rInner: number; rOuter: number; count: number }[];
+  bands: SurnameBand[];
+  splits: SurnameSplit[];
+  maxDistance: number;
+}
+
+/** Elders first, then the root's own generation, then the issue — and inside a
+ *  direction the deepest generation first, so the sweep runs monotonically from
+ *  the furthest ancestor round to the furthest descendant. */
+function surnameOrder(a: KinPerson, b: KinPerson): number {
+  const rank = (p: KinPerson) => (p.generation > 0 ? 0 : p.generation === 0 ? 1 : 2);
+  return (
+    rank(a) - rank(b) ||
+    b.generation - a.generation ||
+    (a.branch < b.branch ? -1 : a.branch > b.branch ? 1 : 0) ||
+    a.surname.localeCompare(b.surname) ||
+    (a.span.from ?? 9999) - (b.span.from ?? 9999) ||
+    (a.id < b.id ? -1 : 1)
+  );
+}
+
+/** An annulus sector, from `a0` to `a1` clockwise. */
+function sectorPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
+  const at = (r: number, a: number) => `${(cx + r * Math.cos(rad(a))).toFixed(2)} ${(cy + r * Math.sin(rad(a))).toFixed(2)}`;
+  const big = a1 - a0 > 180 ? 1 : 0;
+  // A full circle has no two distinct ends to draw an arc between: split it.
+  if (a1 - a0 >= 359.99) {
+    const mid = a0 + 180;
+    return (
+      `M${at(r0, a0)}L${at(r1, a0)}A${r1} ${r1} 0 0 1 ${at(r1, mid)}A${r1} ${r1} 0 0 1 ${at(r1, a0)}` +
+      `L${at(r0, a0)}A${r0} ${r0} 0 0 0 ${at(r0, mid)}A${r0} ${r0} 0 0 0 ${at(r0, a0)}Z`
+    );
+  }
+  return (
+    `M${at(r0, a0)}L${at(r1, a0)}A${r1} ${r1} 0 ${big} 1 ${at(r1, a1)}` +
+    `L${at(r0, a1)}A${r0} ${r0} 0 ${big} 0 ${at(r0, a0)}Z`
+  );
+}
+
+/** An arc a caption can be set on, drawn so the text reads upright: left to
+ *  right over the top of the circle, right to left under it. A band wider than
+ *  half the circle keeps its caption to the middle of its own span — a path
+ *  round the whole ring has no two ends to run between. */
+function captionArc(cx: number, cy: number, r: number, a0: number, a1: number): string {
+  const mid = (a0 + a1) / 2;
+  const half = Math.min((a1 - a0) / 2, 85);
+  const upright = Math.sin(rad(mid)) < 0;
+  const [from, to, sweep] = upright ? [mid - half, mid + half, 1] : [mid + half, mid - half, 0];
+  const at = (a: number) => `${(cx + r * Math.cos(rad(a))).toFixed(2)} ${(cy + r * Math.sin(rad(a))).toFixed(2)}`;
+  return `M${at(from)}A${r} ${r} 0 0 ${sweep} ${at(to)}`;
+}
+
+/** Fit a surname to its band: along the arc where the band is wide, across it
+ *  where it is narrow, and nowhere at all when neither leaves room to read. */
+function fitLabel(
+  cx: number,
+  cy: number,
+  band: { a0: number; a1: number; rInner: number; rOuter: number; count: number },
+  text: string,
+): SurnameLabel | undefined {
+  if (!text) return undefined;
+  const spanDeg = band.a1 - band.a0;
+  const rMid = (band.rInner + band.rOuter) / 2;
+  const thickness = band.rOuter - band.rInner;
+  const arcPx = rad(spanDeg) * rMid;
+  const counted = `${text} ${band.count}`;
+
+  if (spanDeg >= SURNAME_ARC_DEG) {
+    const fontPx = Math.max(SURNAME_PX_MIN + 1, Math.min(SURNAME_PX_MAX, thickness * 0.34));
+    const width = (s: string) => s.length * fontPx * 0.58;
+    if (arcPx > width(text)) {
+      return {
+        text,
+        count: band.count > 1 && arcPx > width(counted) ? band.count : undefined,
+        fontPx,
+        pathD: captionArc(cx, cy, rMid, band.a0, band.a1),
+      };
+    }
+  }
+
+  const fontPx = Math.max(SURNAME_PX_MIN, Math.min(12, thickness * 0.24));
+  if (arcPx < fontPx + 1.5) return undefined;
+  const room = thickness - 5;
+  const fits = Math.floor(room / (fontPx * 0.55));
+  if (fits < SURNAME_MIN_CHARS && text.length > fits) return undefined;
+  const mid = (band.a0 + band.a1) / 2;
+  // Radial text is upside down on the left half; turn it to read outward-in.
+  const flip = Math.cos(rad(mid)) < 0;
+  return {
+    text: text.length > fits ? `${text.slice(0, fits - 1)}…` : text,
+    count: text.length <= fits - 3 && band.count > 1 && arcPx > fontPx * 2.6 ? band.count : undefined,
+    fontPx,
+    x: cx + rMid * Math.cos(rad(mid)),
+    y: cy + rMid * Math.sin(rad(mid)),
+    rotate: mid + (flip ? 180 : 0),
+  };
+}
+
+/**
+ * Lay every blood relative out on continuous rings, grouped into surname bands.
+ * Callers pass `people` to reuse the one data pass the other layouts share.
+ */
+export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): SurnameRingsChart {
+  const people = (input.people ?? collectKin(input)).filter((p) => p.distance > 0);
+  const maxDistance = Math.max(1, ...people.map((p) => p.distance));
+  // Same growth rule as the wheel, so switching layouts keeps the chart's size.
+  const radius = Math.round(Math.max(360, Math.min(900, 260 + Math.sqrt(people.length) * 4)));
+  // Nothing is captioned outside the rim here, so the padding only has to keep
+  // the outermost band clear of the canvas edge.
+  const pad = 46;
+  const cx = radius + pad;
+  const cy = radius + pad;
+
+  const counts: number[] = [];
+  for (const p of people) counts[p.distance] = (counts[p.distance] ?? 0) + 1;
+  const edges = ringRadii(counts, maxDistance, radius - HUB_R);
+
+  const byRing = new Map<number, KinPerson[]>();
+  for (const p of people) {
+    const at = byRing.get(p.distance);
+    if (at) at.push(p); else byRing.set(p.distance, [p]);
+  }
+
+  const bands: SurnameBand[] = [];
+  const splits: SurnameSplit[] = [];
+  const rings: SurnameRingsChart["rings"] = [];
+
+  for (let m = 1; m <= maxDistance; m++) {
+    const cell = byRing.get(m);
+    const rInner = edges[m - 1] + RING_INSET;
+    const rOuter = edges[m] - RING_INSET;
+    if (!cell?.length || rOuter <= rInner) continue;
+    rings.push({ distance: m, rInner, rOuter, count: cell.length });
+
+    cell.sort(surnameOrder);
+    const per = 360 / cell.length;
+    const elders = cell.filter((p) => p.generation > 0).length;
+    const start = -90 - (elders * per) / 2;
+    const rMid = (rInner + rOuter) / 2;
+
+    // One band per run of neighbours sharing a surname inside one family line
+    // and one generation: the same surname arriving from two lines stays two
+    // bands, which is how a name entering the tree twice stays visible. The
+    // band is the whole section — nothing is drawn per person under it, so it
+    // is also the unit that is hovered, clicked and coloured.
+    let open: { from: number; key: string; people: KinPerson[] } | undefined;
+    const close = (to: number) => {
+      if (!open) return;
+      const first = open.people[0];
+      const shape = {
+        surname: first.surname,
+        count: open.people.length,
+        distance: m,
+        direction: kinDirection(first.generation),
+        kind: kinKind(first.up, first.down),
+        generation: first.generation,
+        branch: first.branch,
+        a0: open.from,
+        a1: to,
+        rInner,
+        rOuter,
+      };
+      const a = rad((open.from + to) / 2);
+      bands.push({
+        ...shape,
+        people: open.people,
+        pathD: sectorPath(cx, cy, rInner, rOuter, open.from, to),
+        x: cx + rMid * Math.cos(a),
+        y: cy + rMid * Math.sin(a),
+        label: fitLabel(cx, cy, shape, first.surname),
+      });
+      open = undefined;
+    };
+
+    // The mark goes where the direct line ends: after the ring's own ancestors
+    // and before its own issue, with everyone reached sideways in between.
+    const kinds = new Set(cell.map((p) => kinKind(p.up, p.down)));
+    cell.forEach((p, i) => {
+      const a0 = start + i * per;
+      const prev = cell[i - 1];
+      if (prev && kinKind(prev.up, prev.down) !== kinKind(p.up, p.down)) {
+        splits.push({ distance: m, angle: a0, rInner, rOuter });
+      }
+      const key = `${kinDirection(p.generation)}|${p.generation}|${p.branch}|${p.surname}`;
+      if (open && open.key !== key) close(a0);
+      if (!open) open = { from: a0, key, people: [] };
+      open.people.push(p);
+    });
+    close(start + 360);
+    // Where the ring holds more than one kind, the wrap is a boundary too: the
+    // furthest ancestor meets the furthest descendant across it.
+    if (kinds.size > 1) splits.push({ distance: m, angle: start, rInner, rOuter });
+  }
+
+  return {
+    cx,
+    cy,
+    radius,
+    width: cx + radius + pad,
+    height: cy + radius + pad,
+    rings,
+    bands,
+    splits,
+    maxDistance,
+  };
+}
+
 // ── The bars ─────────────────────────────────────────────────────────────────
 
 /** Row height per ring. The close rings are sized for their text rather than
@@ -807,14 +1145,15 @@ export function buildKinBars(input: KinInput & { width: number; people?: KinPers
   };
 }
 
-/** The name written beside a bar: small rows drop the years, which the tooltip
- *  carries anyway, so more of them fit in the margin. */
+/** The size the name beside a bar is written at, from the row's own height. */
 export function barNameFont(rowH: number): number {
   return Math.max(6.5, Math.min(11, rowH * 0.62));
 }
 
-export function barNameText(person: KinPerson, font: number): string {
-  return font < 8 || !person.years ? person.name : `${person.name}  ${person.years}`;
+/** Whether that label has room for the lifespan after the name: the small rows
+ *  carry the name alone, and the tooltip holds the years anyway. */
+export function barShowsYears(font: number): boolean {
+  return font >= 8;
 }
 
 /** Full-date hover text for a bar or dot, matching the other charts' tooltips. */

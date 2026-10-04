@@ -3,6 +3,7 @@ import {
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
+  getMediaAndSourceCtx,
   INDI_CHILD_ORDER,
   insertGrouped,
   insertOrdered,
@@ -12,13 +13,14 @@ import {
   SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { buildObjeIndex, matchesPage, newSourceCitations, sourceContentKey } from "../gedcom/source";
+import { buildObjeIndex, matchesPage, newSourceCitations, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { parseName } from "../gedcom/name";
+import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
@@ -765,7 +767,16 @@ function copyCitation(
   collectCustomTags(clone, customTags);
   const page = placement && incomingCitationPage(citation, placement);
   if (page && placeCitation(container, clone, page.url, records, placement, reservedXrefs(sourMap), page.source)) return;
+  // The very citation already on the container — the main's own, kept under
+  // "both" — is not written a second time.
+  const shape = nodeShape(clone);
+  if (childrenByTag(container, clone.tag).some((c) => nodeShape(c) === shape)) return;
   insertOrdered(container, clone, order);
+}
+
+/** A subtree's tags and values, levels aside — equal for identical citations. */
+function nodeShape(n: GedNode): string {
+  return `${n.tag} ${n.value ?? ""}{${n.children.map(nodeShape).join("|")}}`;
 }
 
 /** Tags an event's own attached link can use (besides a `SOUR` citation) —
@@ -778,10 +789,23 @@ function eventLinkUrls(event: GedNode | undefined): string[] {
   return event.children.filter((c) => EVENT_LINK_TAGS.has(c.tag) && c.value?.trim()).map((c) => c.value!.trim());
 }
 
+/** An event's `OBJE` pointers to a web address — the media review shows as
+ *  links beside its citations — each with the address its record names. */
+function eventObjeLinks(event: GedNode | undefined, objeIndex: ObjeIndex | undefined): { node: GedNode; url: string }[] {
+  if (!event || !objeIndex) return [];
+  const out: { node: GedNode; url: string }[] = [];
+  for (const c of childrenByTag(event, "OBJE")) {
+    const url = c.value && isPointer(c.value) ? objeIndex.get(c.value)?.url : undefined;
+    if (url) out.push({ node: c, url });
+  }
+  return out;
+}
+
 /**
- * Copy an event's `SOUR` citations and plain attached links (`WWW`/`_LINK`/…,
- * shown alongside the citations in review) from incoming to main: "incoming"
- * replaces the main's, "both" appends the incoming ones alongside them.
+ * Copy an event's `SOUR` citations and attached links (`WWW`/`_LINK`/…, or an
+ * `OBJE` naming a web address — shown alongside the citations in review) from
+ * incoming to main: "incoming" replaces the main's, "both" appends the
+ * incoming ones alongside them.
  * Citation values that point at a compare-file `SOUR`/`REPO` record are
  * remapped to that record's id in the merged output.
  */
@@ -809,16 +833,20 @@ export function applyEventSources(
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
   const incLinks = [...eventLinkUrls(incEvent), ...recordLinks];
-  if (incSours.length === 0 && incLinks.length === 0) return false;
+  const incObjeLinks = eventObjeLinks(incEvent, placement.incoming?.sourceCtx.objeIndex);
+  if (incSours.length === 0 && incLinks.length === 0 && incObjeLinks.length === 0) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
     if (choice !== "both") removeChildren(event, "SOUR");
     for (const s of incSours) copyCitation(event, s, EVENT_CHILD_ORDER, sourMap, records, placement, customTags);
   }
-  if (incLinks.length) {
-    const existing = new Set(eventLinkUrls(event).map(linkKey));
+  if (incLinks.length || incObjeLinks.length) {
+    const mainObjeLinks = eventObjeLinks(event, getMediaAndSourceCtx(records).sourceCtx.objeIndex);
+    const existing = new Set([...eventLinkUrls(event), ...mainObjeLinks.map((l) => l.url)].map(linkKey));
     if (choice !== "both") {
       removeChildren(event, [...EVENT_LINK_TAGS]);
+      const dropped = new Set(mainObjeLinks.map((l) => l.node));
+      event.children = event.children.filter((c) => !dropped.has(c));
       existing.clear();
     }
     for (const url of incLinks) {
@@ -832,6 +860,16 @@ export function applyEventSources(
       // would not place the link at all when nobody asked for the report.
       const placed = placeEventLink(event, url, records, placement, reservedXrefs(sourMap));
       placedOut?.push(placed);
+    }
+    // A link the incoming file keeps as a media record comes across as one:
+    // the pointer is remapped, and the record follows with the shared records
+    // (or is the main's own record of the same address).
+    for (const { node, url } of incObjeLinks) {
+      const key = linkKey(url);
+      if (existing.has(key)) continue;
+      existing.add(key);
+      insertOrdered(event, cloneNodeRemapped(node, sourMap), EVENT_CHILD_ORDER);
+      markEventTouched(event, "changed");
     }
   }
   return true;
@@ -1009,7 +1047,10 @@ const SHARED_XREF_PREFIX: Record<string, string> = { SOUR: "S", REPO: "R", NOTE:
 function sharedContentKey(rec: GedNode): string | undefined {
   if (rec.tag === "SOUR" || rec.tag === "REPO") return sourceContentKey(rec) || undefined;
   if (rec.tag === "NOTE") return rec.value?.trim() || undefined;
-  return childText(rec, "FILE"); // OBJE
+  // OBJE: a web address by the page it names, so two spellings of one
+  // FamilySearch image (with and without `?i=37&cc=…`) are one record.
+  const file = childText(rec, "FILE");
+  return file && looksLikeUrl(file) ? linkKey(file) : file;
 }
 
 /**

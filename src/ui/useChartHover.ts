@@ -16,9 +16,18 @@ export interface HoverInfo {
   /** The lifespan, with the age when shown — beside the name, as Edit's cards
    *  and the people list write it. */
   years?: string;
+  /** A muted line under the head, saying what the mark is — the Contemporaries
+   *  rings name the direction and the blood distance a surname band stands at. */
+  subtitle?: string;
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
+  /** A mark that stands for several people — a surname band on the
+   *  Contemporaries rings — carries them instead of one name and lifespan: the
+   *  head names the group, and these are its rows. */
+  people?: HoverPerson[];
+  /** "…and 12 more", already worded by the host. */
+  moreLabel?: string;
   /** A muted last line ("Click to see full details"). */
   hint?: string;
 }
@@ -38,6 +47,15 @@ export function hoverInfoFrom(
 ): HoverInfo {
   const h = nodeHover(display, input);
   return { ...h, sex: h.redacted ? undefined : sex, hint };
+}
+
+/** One person on a card that lists several, written as the head is. */
+export interface HoverPerson {
+  id: string;
+  name: string;
+  sex?: Sex | string;
+  years?: string;
+  kinship?: string;
 }
 
 export interface ChartHover {
