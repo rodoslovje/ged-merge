@@ -26,7 +26,7 @@ jobs:
       contents: write # push the release tag
       deployments: read # find what the test site serves
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -58,9 +58,10 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Releasing $(git log -1 --format='%h %s')" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Explicit, not .nvmrc: a rollback may build a commit that predates it.
+          node-version: 24
           cache: npm
 
       - run: npm ci

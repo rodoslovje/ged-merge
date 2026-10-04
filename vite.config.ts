@@ -83,18 +83,18 @@ export default defineConfig({
       // they have a durable, linkable, printable address — and so their text
       // lives in exactly one place per language.
       input: {
-        main: resolve(__dirname, "index.html"),
-        guide: resolve(__dirname, "guide/index.html"),
+        main: resolve(import.meta.dirname, "index.html"),
+        guide: resolve(import.meta.dirname, "guide/index.html"),
         // Slovenian translation of the guide, on a localized slug for SLO SEO.
-        navodila: resolve(__dirname, "navodila/index.html"),
-        changelog: resolve(__dirname, "changelog/index.html"),
+        navodila: resolve(import.meta.dirname, "navodila/index.html"),
+        changelog: resolve(import.meta.dirname, "changelog/index.html"),
         // Slovenian translation of the changelog, on a localized slug for SLO SEO.
-        posodobitve: resolve(__dirname, "posodobitve/index.html"),
-        privacy: resolve(__dirname, "privacy/index.html"),
+        posodobitve: resolve(import.meta.dirname, "posodobitve/index.html"),
+        privacy: resolve(import.meta.dirname, "privacy/index.html"),
         // Slovenian legal pages, on localized slugs like the guide/changelog.
-        zasebnost: resolve(__dirname, "zasebnost/index.html"),
-        terms: resolve(__dirname, "terms/index.html"),
-        pogoji: resolve(__dirname, "pogoji/index.html"),
+        zasebnost: resolve(import.meta.dirname, "zasebnost/index.html"),
+        terms: resolve(import.meta.dirname, "terms/index.html"),
+        pogoji: resolve(import.meta.dirname, "pogoji/index.html"),
       },
     },
   },
