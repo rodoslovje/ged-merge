@@ -20,6 +20,7 @@ import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividu
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { materializeAdds } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
@@ -29,7 +30,7 @@ import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import { datesTooltipOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -69,6 +70,7 @@ import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
 import { AppFooter } from "./ui/AppFooter";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
+import { IconTipLayer } from "./ui/IconTip";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
@@ -188,6 +190,8 @@ function AppContent() {
   mainDatasetRef.current = mainDataset;
   const compareDatasetRef = useRef(compareDataset);
   compareDatasetRef.current = compareDataset;
+  const matchesRef = useRef(matches);
+  matchesRef.current = matches;
   // `setPairStatus` is a []-dep callback, so it would otherwise stamp snapshots
   // with the language that was active on first render.
   const tRef = useRef(t);
@@ -846,7 +850,7 @@ function AppContent() {
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
-    navigateFromPage, goToPage, canGoBack, goBackPage,
+    navigateFromPage, selectFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
@@ -854,10 +858,22 @@ function AppContent() {
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
 
+  // A person a confirmed decision added ahead of the save is their new record:
+  // their name — on either side of the comparison — opens it in Edit, even
+  // when the matcher also paired them with someone else (that weaker
+  // candidate is not who they are).
+  const addedPerson = useMemo(() => {
+    const pinned = pinnedAdds(decisions);
+    const mainIds = new Set(pinned.values());
+    return (side: "main" | "incoming", id: string): string | undefined => {
+      const mainId = side === "main" ? (mainIds.has(id) ? id : undefined) : pinned.get(id);
+      return mainId && mainDatasetRef.current?.individuals.has(mainId) ? mainId : undefined;
+    };
+  }, [decisions]);
   const canNavigatePerson = useCallback(
     (side: "main" | "incoming", id: string) =>
-      (side === "main" ? indexByMain : indexByCompare).has(id),
-    [indexByMain, indexByCompare],
+      (side === "main" ? indexByMain : indexByCompare).has(id) || !!addedPerson(side, id),
+    [indexByMain, indexByCompare, addedPerson],
   );
 
 
@@ -919,20 +935,25 @@ function AppContent() {
   }
 
   // Jump the compare view to a relative's own match row, pushing a history entry
-  // so the browser Back button returns to where we were.
+  // so the browser Back button returns to where we were. The history helper
+  // is rebuilt each render; read through a ref so this callback stays stable.
+  const selectFromPageRef = useRef(selectFromPage);
+  selectFromPageRef.current = selectFromPage;
+  const navigateFromPageRef = useRef(navigateFromPage);
+  navigateFromPageRef.current = navigateFromPage;
   const navigatePerson = useCallback(
     (side: "main" | "incoming", id: string) => {
+      const added = addedPerson(side, id);
+      if (added) { navigateFromPageRef.current(added); return; }
       const target = (side === "main" ? indexByMain : indexByCompare).get(id);
       if (!target) return;
       if (target.mainId === current?.mainId && target.compareId === current?.compareId) return;
-      if (current) window.history.replaceState({ gedSel: { mainId: current.mainId, compareId: current.compareId } }, "");
-      window.history.pushState({ gedSel: { mainId: target.mainId, compareId: target.compareId } }, "");
-      setSelectedId({ mainId: target.mainId, compareId: target.compareId });
+      selectFromPageRef.current({ mainId: target.mainId, compareId: target.compareId });
       if (window.innerWidth <= 880) {
         setTimeout(() => { compareRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
       }
     },
-    [indexByMain, indexByCompare, current],
+    [indexByMain, indexByCompare, current, addedPerson],
   );
 
   function handleUndo() {
@@ -950,6 +971,7 @@ function AppContent() {
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
+      if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "undo" });
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.before });
       });
@@ -972,6 +994,7 @@ function AppContent() {
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
+      if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "redo" });
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.after });
       });
@@ -979,7 +1002,7 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
-  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {} });
+  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
   globalShortcutRef.current.undo = handleUndo;
   globalShortcutRef.current.redo = handleRedo;
 
@@ -1034,6 +1057,17 @@ function AppContent() {
       // (Alt+N is Edit's "add note"), and a key a view already handled must
       // not fire a second action.
       if (e.altKey || e.defaultPrevented) return;
+
+      // ⌫ is the browser's Back, everywhere — one handler for the whole app,
+      // so the key and the button can never disagree about where Back goes:
+      // the person before in Edit, the match a relative was opened from in
+      // Merge, the Tools page before, the page a chart was opened on. Swallowed
+      // even with nowhere to go, so it never leaves the app on its own.
+      if (e.key === "Backspace" && !e.shiftKey) {
+        e.preventDefault();
+        globalShortcutRef.current.back();
+        return;
+      }
 
       // `/` opens the whole-file global search from any mode (Merge/Edit/Tools).
       if (e.key === "/") {
@@ -1129,14 +1163,47 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
+  /**
+   * Record a decision change as one undo step, together with the people it
+   * adds to (or takes back from) the main file right away — see
+   * `materializeAdds`: a confirmed child, parent or partner becomes a record
+   * of its own at once, so it can be edited before the save.
+   */
+  function commitDecisions(
+    before: ReadonlyMap<string, CandidateDecision>,
+    after: Map<string, CandidateDecision>,
+    mainId: string,
+    compareId: string,
+  ) {
+    const mainDs = mainDatasetRef.current;
+    const compareDs = compareDatasetRef.current;
+    const result = mainDs && compareDs && matchesRef.current
+      ? materializeAdds(mainDs, compareDs, matchesRef.current, before, after, tRef.current, formatOverridesRef.current)
+      : { decisions: after, patches: [] };
+    const patches = dropNoopPatches(result.patches);
+    undoRedo.pushRef.current({
+      mode: "merge",
+      before: new Map(before),
+      after: result.decisions,
+      mainId,
+      compareId,
+      ...(patches.length ? { patches } : {}),
+    });
+    dispatch({ type: "decisionsSet", decisions: result.decisions });
+    if (patches.length) {
+      dirty.captureSnapshotsForPush(patches);
+      bumpEdit();
+    }
+  }
+  const commitDecisionsRef = useRef(commitDecisions);
+  commitDecisionsRef.current = commitDecisions;
+
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
     const key = decisionKey("individual", current.mainId, current.compareId);
     const wasRejected = decisions.get(key)?.status === "rejected";
-    const before = new Map(decisions);
     const after = withFreshDecision(decisions, key, stampMainRows(next, current.mainId, current.compareId));
-    undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
-    dispatch({ type: "decisionsSet", decisions: after });
+    commitDecisions(decisions, after, current.mainId, current.compareId);
     if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
   }
 
@@ -1150,10 +1217,7 @@ function AppContent() {
     const parsed = parseDecisionKey(key);
     if (!parsed) return;
     const { mainId, compareId } = parsed;
-    const before = new Map(decisions);
-    const after = withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId));
-    undoRedo.push({ mode: "merge", before, after, mainId, compareId });
-    dispatch({ type: "decisionsSet", decisions: after });
+    commitDecisions(decisions, withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId)), mainId, compareId);
   }
 
   // Set a pair's status while keeping the rest of its decision; clicking the
@@ -1164,12 +1228,9 @@ function AppContent() {
       const key = decisionKey("individual", mainId, compareId);
       const before = decisionsRef.current;
       const next = toggleDecisionStatus(before.get(key), status);
-      const after = withFreshDecision(before, key, stampMainRows(next, mainId, compareId));
-      undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
-      dispatch({ type: "decisionsSet", decisions: after });
+      commitDecisionsRef.current(before, withFreshDecision(before, key, stampMainRows(next, mainId, compareId)), mainId, compareId);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [], // undoRedo.pushRef/decisionsRef are stable refs — no re-registration needed
+    [], // commitDecisionsRef/decisionsRef are stable refs — no re-registration needed
   );
 
   // Toggle a "bring in this incoming person's ancestors/descendants on save"
@@ -1573,6 +1634,7 @@ function AppContent() {
   globalShortcutRef.current.save = () => void handleSave();
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
+  globalShortcutRef.current.back = goBackPage;
 
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (!mainDataset) return;
@@ -2059,6 +2121,7 @@ function AppContent() {
     <DatasetProvider dataset={mainDataset}>
     <DatasetDerivationsProvider dataset={mainDataset} version={editVersion}>
     <PwaReloadPrompt />
+    <IconTipLayer />
     {treeOverlay}
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>

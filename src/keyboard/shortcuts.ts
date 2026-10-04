@@ -199,6 +199,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     titleKey: "shortcuts.group.navigation",
     category: "app",
     items: [
+      { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scrollCompare", scope: ["merge"] },
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll", scope: ["merge", "tools"] },
       { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext", scope: ["merge", "edit", "tools"] },
       { keys: [["Home"], ["End"]], descKey: "shortcuts.item.homeEnd", scope: ["merge", "tools"] },
@@ -216,7 +217,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home", scope: ["edit"] },
       // The chord is the same step taken from inside a field, where the bare
       // key belongs to the text being typed.
-      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back", scope: ["edit", "chart"] },
+      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back", scope: ["edit", "merge", "tools", "chart"] },
     ],
   },
   {

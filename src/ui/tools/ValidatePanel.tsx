@@ -47,6 +47,7 @@ const CATEGORIES: IssueCategory[] = [
   "multiSpouseSlot",
   "multipleParents",
   "parentlessFamily",
+  "duplicateVital",
   "deathBeforeBirth",
   "eventOrder",
   "ageAtDeath",

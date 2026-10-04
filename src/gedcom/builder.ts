@@ -218,7 +218,10 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
   if (noteRefs.length) indi.noteRefs = noteRefs;
   if (sources.length) indi.sources = sources;
-  if (associations.length) indi.associations = associations;
+  if (associations.length) {
+    readAssocNotes(associations, noteIndex, media);
+    indi.associations = associations;
+  }
   if (isPrivateNode(record)) indi.private = true;
   return indi;
 }
@@ -280,7 +283,10 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
   if (noteRefs.length) fam.noteRefs = noteRefs;
   if (sources.length) fam.sources = sources;
-  if (associations.length) fam.associations = associations;
+  if (associations.length) {
+    readAssocNotes(associations, noteIndex, media);
+    fam.associations = associations;
+  }
   if (isPrivateNode(record)) fam.private = true;
   return fam;
 }
@@ -335,7 +341,10 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const mediaLinks = collectMediaLinks(node, media);
   if (mediaLinks.length) event.mediaLinks = dedupe(mediaLinks);
   const associations = associationsIn(node);
-  if (associations.length) event.associations = associations;
+  if (associations.length) {
+    readAssocNotes(associations, noteIndex, media);
+    event.associations = associations;
+  }
   const sources = node.children
     .filter((c) => c.tag === "SOUR")
     .map((c) => resolveSourceCitation(c, sourceCtx))
@@ -452,6 +461,25 @@ function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): str
  *  flag) — including notes the display arrays drop because only a URL
  *  remains after stripping, so an edit round-trip can't silently discard
  *  them. */
+/**
+ * Read each association's own notes, which both dialects allow it to carry.
+ *
+ * Runs here rather than in `parseAssociation` because resolving a shared-note
+ * pointer to its text needs the file-wide note index, which the parser has no
+ * business knowing about. The note's URLs stay the note's own: they are not
+ * harvested into the record's link list, where a godparent's remark would read
+ * as a source for the person.
+ */
+function readAssocNotes(associations: Association[], notes: NoteIndex, media: MediaLinks): void {
+  for (const assoc of associations) {
+    const refs: NoteRef[] = [];
+    for (const child of assoc.raw.children) {
+      if (child.tag === "NOTE" || child.tag === "SNOTE") collectNote(child, notes, media, [], [], [], refs);
+    }
+    if (refs.length) assoc.noteRefs = refs;
+  }
+}
+
 function collectNote(
   node: GedNode, notes: NoteIndex, media: MediaLinks,
   out: string[], links: string[], outFull: string[], outRefs?: NoteRef[],

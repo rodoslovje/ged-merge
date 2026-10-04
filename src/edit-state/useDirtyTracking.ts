@@ -158,6 +158,14 @@ export function useDirtyTracking() {
 
   // ── public API ────────────────────────────────────────────────────────────
 
+  /** Whether the record was in the file when it loaded, as opposed to created
+   *  during the session. A shared record has no loaded-id set of its own; the
+   *  baseline knows every record the file arrived with, which is the same
+   *  question. Only valid after {@link ensureBaseline}. */
+  function wasLoaded(kind: SnapshotKind, id: string): boolean {
+    return kind === "record" ? baseline.current.has(id) : loadedIdsFor(kind).current.has(id);
+  }
+
   /** Mark a record dirty from a direct Edit-mode mutation (the `onDirty` path).
    *  Captures the pre-edit snapshot the first time a *pre-existing* record
    *  becomes dirty — fallback only; `captureSnapshotsForPush` covers the normal
@@ -165,7 +173,7 @@ export function useDirtyTracking() {
    *  {@link shouldCaptureFallbackSnapshot}). */
   function markDirty(kind: RecordKind, id: string, dataset: Dataset) {
     const snaps = snapshotsFor(kind);
-    if (shouldCaptureFallbackSnapshot(snaps.current.has(id), loadedIdsFor(kind).current.has(id))) {
+    if (shouldCaptureFallbackSnapshot(snaps.current.has(id), wasLoaded(kind, id))) {
       const raw =
         kind === "individual"
           ? dataset.individuals.get(id)?.raw
@@ -182,19 +190,14 @@ export function useDirtyTracking() {
    *  say) as their own dirty subject — the flag, not the audit, is what keeps
    *  them in the save report across a cached-session restore. */
   function captureSnapshotsForPush(patches: RecordPatch[]) {
-    ensureBaseline(); // before any record changes, and the ownership check below reads it
+    ensureBaseline(); // before any record changes, and `wasLoaded` below reads it
     bumpSubstantiveCounts(substantiveCounts.current, patches, 1);
-    const ops = computePushCaptureOps(patches, hasSnapshot);
+    const ops = computePushCaptureOps(patches, hasSnapshot, wasLoaded);
     for (const op of ops) {
       if (op.kind === "record") recordSnapshots.current.set(op.id, { value: op.value, owner: op.owner });
       else snapshotsFor(op.kind).current.set(op.id, op.value);
     }
-    // After the captures: a session-created record's deletion drops the
-    // snapshot the loop above just took from the deletion patch's `before`.
-    const { dirty, snapshots } = computePushDirtyOps(
-      patches,
-      (kind, id) => (kind === "record" ? baseline.current.has(id) : loadedIdsFor(kind).current.has(id)),
-    );
+    const { dirty, snapshots } = computePushDirtyOps(patches, wasLoaded);
     applyOps(dirty, snapshots);
   }
 
@@ -224,9 +227,7 @@ export function useDirtyTracking() {
         }
         return false;
       },
-      // A shared record has no loaded-id set of its own; the baseline knows
-      // every record the file arrived with, which is the same question.
-      (kind, id) => (kind === "record" ? baseline.current.has(id) : loadedIdsFor(kind).current.has(id)),
+      wasLoaded,
     );
     applyOps(dirty, snapshots);
   }

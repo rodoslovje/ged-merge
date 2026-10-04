@@ -453,7 +453,12 @@ export function SaveDialog({
                           </p>
                         )}
                         <RecordLines
-                          before={beforeRecords.get(g.id)}
+                          // A new record has no earlier copy, whatever
+                          // `beforeRecords` holds for its id: a merge reads
+                          // the live forest, where a record added in the
+                          // editor already stands, and would diff it against
+                          // itself.
+                          before={g.isNew ? undefined : beforeRecords.get(g.id)}
                           after={afterRecords?.get(g.id)}
                           isNew={g.isNew}
                           options={diffOptions}

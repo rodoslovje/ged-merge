@@ -50,12 +50,39 @@ test("edit mode: an event's + Add menu records a godparent on that event", async
   await picker.fill("Jozefa");
   await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
 
-  // Then the role, defaulting to godparent.
-  await bapm.getByRole("button", { name: "Save" }).click();
-
-  // The associate now sits on the baptism row.
+  // Picking writes them — nothing to confirm — and the associate now sits on
+  // the baptism row, in the role a register names most.
   await expect(bapm.locator(".edit-event-assoc")).toHaveCount(1);
   await expect(bapm.locator(".edit-event-assoc")).toContainText("Jozefa");
+});
+
+test("an event's associate takes a role in your own words", async ({ page }) => {
+  // The register's word for somebody is often not one of the eight in the
+  // vocabulary — "pater", "kum", "svedok" — so the role is typed here as it is
+  // on a record, and the file keeps exactly what was typed.
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const bapm = page.locator(".edit-event").filter({ hasText: "Baptism" }).first();
+  await bapm.locator(".edit-event-addfield").click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
+  await bapm.locator(".relative-picker-input").fill("Jozefa");
+  await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
+
+  const role = bapm.locator(".edit-assoc-role-field");
+  await role.fill("pater");
+  await role.blur();
+  await expect(role).toHaveValue("pater");
+
+  // And the vocabulary's own entry for a role it has no word for reads "other",
+  // not a sentence about the absence of one.
+  await bapm.locator(".edit-event-assoc").first().hover();
+  await bapm.locator(".edit-assoc-role-menu").first().click();
+  const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
+  expect(items).toContain("other");
 });
 
 test("the association row keeps to itself and to the row's scale", async ({ page }) => {
@@ -71,12 +98,11 @@ test("the association row keeps to itself and to the row's scale", async ({ page
   await bapm.locator(".relative-picker-input").fill("Jozefa");
   await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
 
-  // The role form is on screen with the person it is about.
-  const form = bapm.locator(".edit-assoc-roleform");
-  await expect(form).toBeVisible();
-  await expect(form).toContainText("Jozefa");
+  // The associate is on the row, with the role field and note beside them.
+  await expect(bapm.locator(".edit-event-assoc")).toContainText("Jozefa");
+  await expect(bapm.locator(".edit-assoc-role-field")).toHaveValue("godmother");
 
-  // It stays inside the event row rather than running across the note beside it.
+  // They stay inside the event row rather than running across the note beside it.
   const overflow = await bapm.evaluate((row) => {
     const slot = row.querySelector<HTMLElement>('[data-detail="assoc"]');
     const note = row.querySelector<HTMLElement>('[data-detail="note"]');
@@ -95,24 +121,6 @@ test("the association row keeps to itself and to the row's scale", async ({ page
   expect(overflow.missing).toBe(false);
   expect(overflow.over).toBe(0);
   expect(overflow.notes).toBe(0);
-
-  // The form's own buttons are words, not glyphs: clamped like the hover-only
-  // ✎ and ✕ they were cut to 1.4em and printed on top of each other.
-  const buttons = await form.evaluate((el) => {
-    const [save, cancel] = [...el.querySelectorAll<HTMLElement>(".edit-assoc-action")];
-    if (!save || !cancel) return { found: false, overlap: 0, clipped: true };
-    const a = save.getBoundingClientRect();
-    const b = cancel.getBoundingClientRect();
-    return {
-      found: true,
-      overlap: Math.max(0, Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left))),
-      // A word narrower than its own text is a clamped one.
-      clipped: save.scrollWidth > Math.ceil(a.width) + 1,
-    };
-  });
-  expect(buttons.found).toBe(true);
-  expect(buttons.overlap).toBe(0);
-  expect(buttons.clipped).toBe(false);
 });
 
 /** How a picker row reads: the name's size and leading, and the row's height.
@@ -208,24 +216,14 @@ test("an event added this session is named with its date in the move menu", asyn
   await date.blur();
   await expect(date).toHaveValue("1980");
 
-  // The ↧ is revealed by hovering its row, like the ✎ and ✕ beside it.
-  const assocRow = page.locator(".edit-assoc .edit-assoc-row").first();
+  // The move hangs off the caret beside the role, which comes up with the row.
+  const assocRow = page.locator(".edit-assoc .edit-event-assoc").first();
   await assocRow.hover();
+  await assocRow.locator(".edit-assoc-role-menu").click();
 
-  // The three read as one set: same vertical centre, none noticeably smaller.
-  const glyphs = await assocRow.evaluate((row) => {
-    return [...row.querySelectorAll<HTMLElement>(".edit-assoc-glyph")].map((el) => {
-      const r = el.getBoundingClientRect();
-      return { mid: Math.round(r.top + r.height / 2), h: Math.round(r.height) };
-    });
-  });
-  expect(glyphs).toHaveLength(3);
-  const mids = glyphs.map((g) => g.mid);
-  expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(1);
-  const heights = glyphs.map((g) => g.h);
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(4);
-
-  await assocRow.getByRole("button", { name: "Move to an event" }).click();
   const items = await page.locator(".dd-menu [role=option]").allInnerTexts();
   expect(items).toContain("Education 1980");
+  // The destructive one keeps it company rather than standing exposed beside
+  // the role, a click away from an edit.
+  expect(items.some((i) => /Remove this person/.test(i))).toBe(true);
 });

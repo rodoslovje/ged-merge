@@ -409,7 +409,9 @@
               (<code>NOTE</code> ⇄ <code>SNOTE</code>), datumske fraze in dvojna letna števila, starostne ključne besede,
               vloge povezav, starejši identifikatorji (<code>AFN</code>/<code>RFN</code> ⇄ <code>EXID</code>),
               transliterirana imena in vrste medijev se prepišejo v ciljno specifikacijo, tako da združeni zapisi ostanejo
-              veljavni. Povzetek nalaganja navede, kaj je bilo pretvorjeno, s primeri ob prehodu z miško.
+              veljavni. Povezane osebe ne spremenijo le besed, ampak tudi mesto: pri pretvorbi v 5.5.1, ki jih pozna samo
+              pri osebi, gredo botri s krsta k zapisu otroka, poročne priče pa k zapisu enega od zakoncev
+              (<a href="#associates">§8</a>). Povzetek nalaganja navede, kaj je bilo pretvorjeno, s primeri ob prehodu z miško.
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Namig</span>
@@ -749,27 +751,70 @@
             <h3 id="associates">Povezane osebe</h3>
             <p>
               Zapisi imenujejo tudi osebe, ki niso sorodniki: botre pri krstu, priče pri poroki in duhovnika, ki je
-              vodil obred, zunaj matičnih knjig pa tudi učitelja ali soseda. Pripadajo dogodku, ki jih imenuje, zato jih
-              tam tudi urejate: meni <strong>+ Dodaj</strong> pri dogodku dobi vnos <strong>Povezana oseba</strong>, ki
-              poišče osebo in nato vpraša po vlogi, vsaka povezana oseba pa stoji na vrstici dogodka z imenom, vlogo in
-              gumboma <span class="gm-glyph">✎</span> in <span class="gm-glyph danger">✕</span> za spremembo ali
-              odstranitev. Na voljo so vloge boter/botra, priča, duhovnik, voditelj obreda, prijatelj/prijateljica,
-              sosed/soseda, iz istega poroda in prosto besedilo za vse drugo. Poročne priče vpišete enako, na vrstici
-              poroke pri družini.
+              vodil obred, zunaj matičnih knjig pa tudi učitelja ali soseda. Kam je tako osebo dovoljeno zapisati,
+              določa standard in ne program, različici GEDCOM pa se v tem razlikujeta — ponujeno je torej tisto, kar
+              zmore naložena datoteka.
+            </p>
+            <p>
+              Datoteka <strong>GEDCOM 7</strong> nosi povezano osebo na treh mestih. Prvo mesto je dogodek, ki pove
+              največ in je zato ponujen prvi: meni <strong>+ Dodaj</strong> pri dogodku dobi vnos
+              <strong>Povezana oseba</strong>, ki poišče osebo in nato vpraša po vlogi, vsaka povezana oseba pa stoji na
+              vrstici dogodka z imenom in vlogo. Drugo mesto je zapis osebe same: v
+              razdelku <strong>Povezane osebe</strong> pod seznamom dogodkov z gumbom
+              <strong>+ Dodaj povezano osebo</strong> zapišete zvezo, ki je ne pojasni noben posamezen dogodek —
+              dolgoletni sosed, ujemanje DNK. Tretje mesto je zapis družine: pod istim naslovom v družinskem razdelku
+              zapišete priče, ki pripadajo poroki in ne enemu od zakoncev. Na voljo so vloge boter/botra, priča,
+              duhovnik, voditelj obreda, prijatelj/prijateljica, sosed/soseda, iz istega poroda in prosto besedilo za
+              vse drugo. Ko osebo izberete, se zapiše takoj, tako kot dodani dogodek ali dodatno ime — ničesar ni
+              treba potrditi. Dobi vlogo, ki jo matične knjige imenujejo najpogosteje, ob njej pa se odpre prazna
+              <strong>opomba</strong> s kazalcem v njej: opombo pri povezani osebi dopuščata obe različici GEDCOM, kaj
+              je knjiga povedala o botru ali koliko centimorganov stoji za ujemanjem DNK pa sodi prav tja in ne k
+              osebi kot celoti. Z njo ravnate enako kot z vsemi drugimi opombami.
+            </p>
+            <p>
+              Povezano osebo urejate kar tam, kjer stoji, tako kot polja pri dogodku: vloga je polje z
+              besedami, ki jih nosi vaša datoteka, zato ostane vaše besedilo, če ga prepišete, opombo pa uredite v
+              njenem čipu — osebi, ki opombe nima, se prazna ponudi, ko se z miško približate njeni vrstici. Ob vlogi
+              se takrat pokaže tudi <strong>▾</strong> in ponudi to, česar se ne da natipkati: seznam vlog, premik
+              osebe k enemu od dogodkov tega zapisa in odstranitev osebe z zapisa. Zadnji dve sta v meniju prav zato,
+              ker enega od njiju ni mogoče razveljaviti z branjem. Če v tem seznamu izberete <em>drugo</em>, se polje
+              izprazni in počaka na vašo besedo: »drugo« pomeni, da slovar zanjo besede nima, in ni beseda, ki bi jo
+              zapisali v datoteko.
+            </p>
+            <p>
+              Starejša oblika <strong>GEDCOM 5.5.1</strong> pozna le drugo od teh mest: ta standard dopušča povezano
+              osebo samo pri zapisu osebe in nikjer drugje. Zato vrstice dogodkov in družinski razdelek tam ne ponudijo
+              ničesar, pot pa vodi prek gumba <strong>+ Dodaj povezano osebo</strong> pri osebi — poročno pričo zapišete
+              pri zapisu enega od zakoncev, saj druge možnosti ta oblika nima. Povezane osebe, ki jih taka datoteka že
+              nosi pri dogodku, ostanejo vidne in jih tam tudi uredite; nobena se ne premakne in nobena se ne skrije.
+            </p>
+            <p>
+              <strong>Ujemanje DNK</strong> v obliki GEDCOM nima svojega mesta: nobena od različic ne pozna ne testa, ne
+              ujemanja, ne skupnih centimorganov in ne odsekov. Najbolj primeren zapis je povezana oseba, in sicer pri
+              zapisu osebe in ne pri dogodku — ujemanje ni nekaj, kar bi se osebi zgodilo nekega dne. Čez vlogo vpišite
+              »ujemanje DNK«, saj datoteka ohrani vaše besedilo, številke — skupne centimorgane, odseke in ponudnika
+              testa — pa v <strong>opombo</strong> ob njej, kjer ostanejo pri ujemanju samem in ne pri osebi kot
+              celoti. Teh številk program ne bere kot podatkov o DNK — ujemanje jih ne upošteva in
+              noben diagram jih ne izriše; shranjene so tako, kot jih vpišete.
             </p>
             <p>
               Botra, ki ga v vašem drevesu ni, lahko zapišete samo po imenu — vpišite ime in izberite
-              <strong>Zapiši samo vpisano ime</strong>. To zmore le GEDCOM 7; datoteka 5.5.1 nima oblike, s katero bi
+              <strong>Zapiši samo vpisano ime</strong>. Tako ime je besedilo, ki ga nosi vaša datoteka, in ne oseba, ki
+              jo ta vodi, zato je polje tako kot vloga: prepišete ga kar tam, kjer stoji, pikčasta podčrtava pod njim
+              pa pove, da za njim ni nikogar. (Če ga izpraznite, povezava ne bi imenovala nikogar več, zato ostane
+              prejšnje ime.) Ko vanj tipkate, se po vaši datoteki tudi <strong>išče</strong>, saj se tak boter
+              pogosto izkaže za osebo, ki jo datoteka vendarle ima: izberite eno od ponujenih oseb in povezava odslej
+              kaže na njen zapis, vlogo in opombo pa obdrži; če tipkate naprej in ne izberete nikogar, ostane
+              besedilo besedilo. To zmore le GEDCOM 7; datoteka 5.5.1 nima oblike, s katero bi
               imenovala osebo brez svojega zapisa, zato tam izbirnik ponudi samo osebe, ki jih datoteka že ima.
             </p>
             <p>
               Pod seznamom dogodkov razdelek <strong>Kje je ta oseba imenovana</strong> pokaže obratno smer — vse
-              krste, pri katerih je bila ta oseba boter ali botra. Ta stran je le pogled in ne drugi vnos, ki bi ga bilo
-              treba usklajevati: povezava se shrani enkrat, pri dogodku, ki osebo imenuje. Datoteka v starejši obliki
-              GEDCOM 5.5.1 — in izhod nekaterih programov v obliki GEDCOM 7 — povezane osebe nosi pri zapisu in ne pri
-              dogodku, torej pove, s kom je bila oseba povezana, ne pa tudi pri čem. Te so naštete prav tam, gumb
-              <span class="gm-glyph">↧</span> ob posamezni pa jo uvrsti k dogodku, ki ji pripada: izberete krst, pri
-              katerem je botrovala, z njo pa se preselijo vloga, datum ter morebitna opomba in navedba vira.
+              krste, pri katerih je bila ta oseba boter ali botra, in vse zapise, ki jo imenujejo brez dogodka. Ta stran
+              je le pogled in ne drugi vnos, ki bi ga bilo treba usklajevati: povezava se shrani enkrat, pri zapisu, ki
+              osebo imenuje. Gumb <span class="gm-glyph">↧</span> ob povezani osebi pri zapisu jo uvrsti k dogodku, ki
+              ji pripada: izberete krst, pri katerem je botrovala, z njo pa se preselijo vloga, datum ter morebitna
+              opomba in navedba vira.
               <a href="#validate">Pregled</a> vse te povezave preveri v
               skupini <strong>Povezane osebe</strong>, kjer poroča o osebi brez navedene vloge, o osebi, ki je navedena
               kot priča sama pri sebi, in o tisti, ki na dan dogodka ni bila živa.
@@ -928,7 +973,8 @@
               <li><span class="gm-badge m">G</span> — ohrani vrednost <strong>glavne</strong> datoteke</li>
               <li><span class="gm-badge i">V</span> — vzemi <strong>vhodno</strong> vrednost</li>
               <li><span class="gm-badge b">O</span> — ohrani <strong>oboje</strong> (na voljo le pri poljih, ki lahko
-                hranijo več vrednosti, kot so opombe, viri in imena)</li>
+                hranijo več vrednosti, kot so opombe, viri in imena); kadar vhodna datoteka navaja vse vire vaše
+                datoteke in še kaj več, je ta izbira že označena</li>
             </ul>
             <p>
               Gumbi se odklenejo, ko ujemanje <strong>potrdite</strong> (glejte spodaj): ob shranjevanju se združijo
@@ -965,6 +1011,16 @@
               letnica loči enako imenovana brata ali sestri, otrok, ki mu je letnica na obeh straneh zapisana leto ali
               dve narazen — krst, vpisan sezono pozneje, ali spodrsljaj pri prepisu — pa se še vedno poveže v par; sama
               letnica nikoli ne poveže dveh otrok z različnima osebnima imenoma.
+            </p>
+            <p>
+              <strong>Novi sorodniki se v datoteko dodajo takoj.</strong> Ko je ujemanje potrjeno, se novi sorodnik
+              doda v vašo datoteko že pred shranjevanjem, in sicer v družino, v katero bi ga postavilo shranjevanje. To
+              velja za otroka, ki ga dodate z gumbom »+ dodaj«, in za vhodnega starša ali partnerja, ki ga vaša datoteka
+              še nima. Pred shranjevanjem ga lahko odprete v <strong>Urejanju</strong> (<a href="#edit">§8</a>) in
+              popravite; tja vas pripelje klik na njegovo ime v primerjavi. Otrok, ki je naveden pri obeh starših, se doda le enkrat: pri ujemanju drugega starša že stoji
+              nasproti svojemu dvojniku in je označen z »✓ dodano«. Če izbiro otroka izklopite ali potrditev ujemanja
+              prekličete, se oseba znova odstrani, skupaj z vašimi popravki. Sorodniki, ki jih vaša datoteka že ima, se
+              tako kot doslej povežejo ob shranjevanju.
             </p>
             <h3>Označevanje ujemanj</h3>
             <p>
@@ -1105,6 +1161,8 @@
                 <li><strong>družina brez staršev</strong> — druga starševska družina, ki ne navaja nobenega starša, in
                   družinski zapisi, v katerih ni nikogar; prve odstranite z ikono
                   <span class="gm-glyph danger">−</span> pri tem sklopu staršev v načinu <span class="gm-pill">Urejanje</span>;</li>
+                <li><strong>podvojeno rojstvo ali smrt</strong> — oseba z dvema zapisoma o rojstvu ali o smrti; vsa
+                  druga preverjanja upoštevajo le prvega;</li>
                 <li>dogodki z datumom v prihodnosti in smrt pred rojstvom;</li>
                 <li><strong>dogodki zunaj življenjske dobe</strong> — poklic z datumom pred rojstvom, bivališče ali
                   poroka po smrti; pokop, upepelitev in zapuščinska obravnava smrti smejo slediti in niso označeni,
@@ -1125,7 +1183,7 @@
                   oseb, ki so povezane samo med sabo in z nikomer drugim v datoteki — navadno uvoz, ki ni bil nikoli
                   pripet, ali dvojnik veje, ki jo že imate. Ena najdba na skupino, pri njenem najmlajšem članu, da ga
                   odprete in se sprehodite po sorodnikih skupine; glavno drevo datoteke ni nikoli skupina.</li>
-                <li><strong>povezane osebe</strong> — osebe, ki jih imenuje dogodek (<a href="#associates">§8</a>):
+                <li><strong>povezane osebe</strong> — osebe, ki jih imenuje zapis ali dogodek (<a href="#associates">§8</a>):
                   oseba brez navedene vloge, oseba, ki je navedena kot priča sama pri sebi, in tista, ki je bila rojena
                   po dogodku ali je umrla pred njim.</li>
               </ul>
@@ -2100,7 +2158,7 @@
               <li><strong>Barva</strong> (vse vrste razen Poročila in Zemljevida) — kaj pove barva osebe.
                 <em>Enobarvno</em> je lastno barvanje diagrama; <em>Rod</em> in <em>Družinska veja</em> bereta mesto
                 osebe na diagramu, zato obarvata rodovniška diagrama in Sodobnike; <em>Spol</em>, <em>Živi</em>,
-                <em>Država</em> (kraja rojstva, bivanja ali smrti, prvega, ki je zapisan), <em>Kraj rojstva</em>,
+                <em>Država</em> (kraja rojstva, bivanja, smrti ali pokopa, prvega, ki je zapisan), <em>Kraj rojstva</em>,
                 <em>Priimek</em>, <em>Starost staršev</em> ob rojstvu osebe (povprečje obeh),
                 <em>Življenjska doba</em>, <em>Stoletje</em> rojstva in <em>Viri</em> (kolikšen del rojstva, smrti in
                 porok ima naveden vir) berejo zapis. Ključ nad diagramom poimenuje vsako barvo s številom oseb;
@@ -2651,7 +2709,9 @@
               povezav: povezava, pripeta kot medijski zapis, se pokaže kot 🔗 in odpre okno
               <strong>Uredi povezavo</strong>, kjer naslov URL uredite, odprete ali odstranite (skupaj z njo se
               izbriše tudi medijski zapis, ki ga ne uporablja nič drugega). Če se z miško ustavite nad katero koli
-              ikono vira ali povezave, se ob njej pokaže puščica ↗, ki stran odpre neposredno. Povezava, zapisana v
+              ikono vira ali povezave, se pokaže njen opis, ob ikoni pa puščica ↗, ki stran odpre neposredno. Na
+              zaslonu na dotik prvi dotik ikone pokaže isti opis z gumboma <strong>Uredi</strong> in
+              <strong>Odpri povezavo v novem zavihku</strong>, drugi dotik pa deluje kot klik. Povezava, zapisana v
               besedilu opombe, ostane ikona samo za branje — v opombi jo uredite ali odstranite. Za pregled in
               urejanje virov po celotni
               datoteki — vključno z dvojniki — uporabite <span class="gm-pill">Orodja</span> › <strong>Viri</strong>, za
@@ -2997,7 +3057,8 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Prikaži seznam bližnjic — F1 deluje tudi iz polja, ki ga urejate</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Zapusti polje, ki ga urejate, in ohrani vpisano (Urejanje) / zapri okno / zapusti stran z diagramom</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Preklopi na Urejanje · Združevanje · Orodja</td></tr>
-                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premakni označeno vrstico seznama, v katerem ste — ujemanja, pari dvojnikov, ugotovitve Pregleda, zadetki iskanja</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Pomakni primerjavo (Združevanje); po tipki <span class="gm-key">Enter</span> se s puščicama premikate po njenih poljih</td></tr>
+                <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premakni označeno vrstico seznama, v katerem ste — polja primerjave, pari dvojnikov, ugotovitve Pregleda, zadetki iskanja</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Prejšnje / naslednje ujemanje — v Združevanju in Urejanju ter na seznamu dvojnikov</td></tr>
                 <tr><td><span class="gm-key">Home</span> / <span class="gm-key">End</span></td><td>Prva / zadnja vrstica seznama</td></tr>
                 <tr><td><span class="gm-key">PgUp</span> / <span class="gm-key">PgDn</span></td><td>Pomakni odprto okno — v Združevanju primerjavo</td></tr>
@@ -3010,7 +3071,7 @@
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega brata ali sestro, po rojstvu (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↓</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span></td><td>Odpri najstarejšega · najmlajšega otroka (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega partnerja (Urejanje)</td></tr>
-                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Nazaj — prejšnja stran v Urejanju (prejšnja oseba ali seznam v Orodjih, s katerega ste jo odprli) ali izhod iz strani z diagramom; kombinacija deluje tudi iz polja, ki ga urejate</td></tr>
+                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Nazaj — vedno isti korak kot gumb Nazaj v brskalniku: v Urejanju prejšnja oseba (ali seznam v Orodjih, s katerega ste jo odprli), v Združevanju ujemanje, iz katerega ste odprli sorodnika, v Orodjih prejšnja stran, sicer izhod iz strani z diagramom; kombinacija deluje tudi iz polja, ki ga urejate (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Dodaj novo osebo (brez povezav)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Odpri meni <strong>+ Dodaj dogodek</strong> (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Dodaj hitri dogodek odprti osebi (Urejanje) — gumbi pod seznamom dogodkov, v njihovem vrstnem redu</td></tr>

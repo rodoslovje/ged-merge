@@ -700,6 +700,15 @@ describe("event ordering", () => {
     expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.0.header"));
   });
 
+  it("keeps the birth before a same-year death when the incoming birth is vaguer", () => {
+    // Main `MAY 1899`, incoming year-only `1899` (sorts at year end), death 3 NOV 1899.
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE MAY 1899\n1 DEAT\n2 DATE 3 NOV 1899\n0 TRLR\n`);
+    const c = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1899\n1 DEAT\n2 DATE 3 NOV 1899\n0 TRLR\n`);
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@I1@"));
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys).toEqual(["BIRT.header", "DEAT.header"]);
+  });
+
   it("orders undated terminal events by when they happen", () => {
     // None of the five carries a date, so only the death-zone order decides:
     // death, then what becomes of the body, then the funeral service.

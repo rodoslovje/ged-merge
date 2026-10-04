@@ -33,6 +33,7 @@ import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { useChartHover, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
+import { ArrowIcon } from "./icons/ArrowIcon";
 
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
@@ -259,7 +260,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       title={
         <>
           {renderEndpoint("start", startSel)}
-          <span className="tree-title-arrow" aria-hidden="true">→</span>
+          <span className="tree-title-arrow" aria-hidden="true"><ArrowIcon dir="right" /></span>
           {renderEndpoint("target", targetSel)}
           {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>

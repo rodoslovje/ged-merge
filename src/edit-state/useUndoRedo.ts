@@ -19,6 +19,9 @@ export type UndoEntry =
       after: Map<string, CandidateDecision>;
       mainId: string;
       compareId: string;
+      /** The people the change added to or took back from the main file (see
+       *  `materializeAdds`), undone and redone with the decisions. */
+      patches?: RecordPatch[];
     }
   | {
       // A compare-tree "bring in this branch" toggle. Holds the before/after of
