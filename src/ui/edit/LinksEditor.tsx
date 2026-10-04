@@ -5,6 +5,7 @@ import type { RecordPatch } from "../historyTypes";
 import type { NewCitation } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
+import { tipProps } from "../IconTip";
 import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
 
@@ -127,12 +128,12 @@ export function LinksEditor({
           <button
             type="button"
             className={`${linkGlyph(link).cls} edit-link-icon`}
-            title={linkTooltip(link, t)}
+            {...tipProps(linkTooltip(link, t), { edit: true, href: linkHref(link) })}
             onClick={() => openEditLink(i)}
           >
             {linkGlyph(link).icon}
           </button>
-          <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
+          <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" {...tipProps(linkTooltip(link, t, t("edit.openLink")))}>
             ↗
           </a>
         </span>
@@ -142,12 +143,12 @@ export function LinksEditor({
           <button
             type="button"
             className="link-icon edit-link-icon"
-            title={linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`)}
+            {...tipProps(linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`), { edit: true, href: linkHref(url) })}
             onClick={() => onOpenMediaLink?.(url)}
           >
             🔗
           </button>
-          <a className="source-ref-open" href={linkHref(url)} target="_blank" rel="noopener noreferrer" title={linkTooltip(url, t, t("edit.openLink"))}>
+          <a className="source-ref-open" href={linkHref(url)} target="_blank" rel="noopener noreferrer" {...tipProps(linkTooltip(url, t, t("edit.openLink")))}>
             ↗
           </a>
         </span>
@@ -159,7 +160,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className={linkGlyph(url).cls}
-          title={linkTooltip(url, t, `${url}\n${t("edit.harvestedLink")}`)}
+          {...tipProps(linkTooltip(url, t, `${url}\n${t("edit.harvestedLink")}`))}
         >
           {linkGlyph(url).icon}
         </a>
@@ -171,7 +172,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className={`${linkGlyph(url).cls} link-new`}
-          title={linkTooltip(url, t)}
+          {...tipProps(linkTooltip(url, t))}
         >
           {linkGlyph(url).icon}
         </a>
@@ -185,7 +186,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className="link-icon link-new"
-          title={linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`)}
+          {...tipProps(linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`))}
         >
           🔗
         </a>

@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
+import { tipProps } from "./IconTip";
 import type { RelativeCell, RelativePair } from "../review/types";
 import { linkKey } from "../normalize/links";
 import { isWebAddress } from "../gedcom/uri";
@@ -68,7 +69,7 @@ export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: str
           target="_blank"
           rel="noopener noreferrer"
           className={linkGlyph(url).cls + (otherKeys && !otherKeys.has(linkKey(url)) ? " link-new" : "")}
-          title={linkTooltip(url, t)}
+          {...tipProps(linkTooltip(url, t))}
         >
           {linkGlyph(url).icon}
         </a>

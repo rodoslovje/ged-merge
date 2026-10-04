@@ -1084,6 +1084,7 @@ export const en = {
   "edit.removeNote": "Remove this note",
   "edit.addLinkTooltip": "Attach a source to this person",
   "edit.openLink": "Open link in new tab",
+  "iconTip.edit": "Edit",
   "links.needsAccount": "FamilySearch shows this page only to signed-in visitors — an account is free.",
   "edit.addNameTooltip": "Add an alternative name (married, name at birth, aka…)",
   "edit.addEvent": "Add Event",

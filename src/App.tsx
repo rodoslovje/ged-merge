@@ -70,6 +70,7 @@ import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
 import { AppFooter } from "./ui/AppFooter";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
+import { IconTipLayer } from "./ui/IconTip";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
@@ -2120,6 +2121,7 @@ function AppContent() {
     <DatasetProvider dataset={mainDataset}>
     <DatasetDerivationsProvider dataset={mainDataset} version={editVersion}>
     <PwaReloadPrompt />
+    <IconTipLayer />
     {treeOverlay}
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
