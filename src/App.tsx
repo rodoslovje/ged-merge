@@ -985,7 +985,7 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
-  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {} });
+  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
   globalShortcutRef.current.undo = handleUndo;
   globalShortcutRef.current.redo = handleRedo;
 
@@ -1040,6 +1040,17 @@ function AppContent() {
       // (Alt+N is Edit's "add note"), and a key a view already handled must
       // not fire a second action.
       if (e.altKey || e.defaultPrevented) return;
+
+      // ⌫ is the browser's Back, everywhere — one handler for the whole app,
+      // so the key and the button can never disagree about where Back goes:
+      // the person before in Edit, the match a relative was opened from in
+      // Merge, the Tools page before, the page a chart was opened on. Swallowed
+      // even with nowhere to go, so it never leaves the app on its own.
+      if (e.key === "Backspace" && !e.shiftKey) {
+        e.preventDefault();
+        globalShortcutRef.current.back();
+        return;
+      }
 
       // `/` opens the whole-file global search from any mode (Merge/Edit/Tools).
       if (e.key === "/") {
@@ -1606,6 +1617,7 @@ function AppContent() {
   globalShortcutRef.current.save = () => void handleSave();
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
+  globalShortcutRef.current.back = goBackPage;
 
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (!mainDataset) return;
@@ -2338,7 +2350,6 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecision}
               onOpenTree={openTree}
-              onGoBack={goBackPage}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
               compareRef={compareRef}

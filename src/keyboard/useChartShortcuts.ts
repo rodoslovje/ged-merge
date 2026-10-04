@@ -30,10 +30,10 @@ interface Handlers {
   /** E opens the selected person in Edit. Omitted while nobody is selected,
    *  or where the page has no Edit to open into. */
   onEdit?: () => void;
-  /** Escape / Backspace leave the page (each chart registers its own — never
-   *  the hub too, or one keypress would pop two history entries). Backspace
-   *  mirrors "back to the previous person" in Edit: the overlays are history
-   *  entries, so going back is what leaving means here. */
+  /** Escape leaves the page (each chart registers its own — never the hub
+   *  too, or one keypress would pop two history entries). Backspace is not
+   *  handled here: it is the browser's Back app-wide (App's key handler), and
+   *  the overlays are history entries, so it leaves them just the same. */
   onLeave?: () => void;
 }
 
@@ -69,7 +69,7 @@ export function useChartShortcuts(handlers: Handlers) {
         h.scrollBy(0, key === "PageDown" ? 1 : -1, "page");
         return;
       }
-      if (key === "Escape" || key === "Backspace") {
+      if (key === "Escape") {
         if (h.onLeave) { e.preventDefault(); h.onLeave(); }
         return;
       }

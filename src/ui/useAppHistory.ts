@@ -462,7 +462,8 @@ export function useAppHistory(opts: AppHistoryOptions) {
     setTreeView((cur) => {
       if (!cur) return cur;
       const next = { ...cur, mode };
-      window.history.replaceState({ gedTree: next }, "");
+      // Merged into the entry: it also records the page it stands on.
+      window.history.replaceState({ ...window.history.state, gedTree: next }, "");
       return next;
     });
   }

@@ -477,7 +477,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // own keys. The view behind must not act on it a second time.
       if (e.defaultPrevented) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, goBack: back, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
+      const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) {
         // A pedigree chart (the last one used) — never the relationship diagram,
@@ -491,13 +491,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }
       if (key === KEY.home) {
         if (hId) { e.preventDefault(); nav(hId); }
-        return;
-      }
-      if (e.key === "Backspace") {
-        // Swallow it even with empty history, so it never triggers the
-        // browser's page-back navigation.
-        e.preventDefault();
-        back();
         return;
       }
       const statusHit = KEY_STATUS[key];
