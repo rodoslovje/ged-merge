@@ -4315,6 +4315,12 @@ button:focus-visible {
   font-size: 0.78rem;
   color: var(--state-main);
 }
+/* A relative a confirmed match has already added to the main file. */
+.gm-added-tag {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--status-new);
+}
 /* GEDCOM filenames in the Load header, coloured by their role. */
 .gm-file.main { color: var(--state-main); }
 .gm-file.incoming { color: var(--state-incoming); }

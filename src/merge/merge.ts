@@ -13,7 +13,7 @@ import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import { applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
-import { decisionKey, parseDecisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
+import { decisionKey, parseDecisionKey, pinnedAdds, type CandidateDecision, type FieldChoice } from "../review/types";
 import type { Translate } from "../locales/i18n";
 import {
   applyRows,
@@ -296,6 +296,45 @@ export function mergePlaceFormat(main: Dataset, overrides?: FormatOverrides): Pl
   return applyPlaceOverrides(inferPlaceExportFormat(main), overrides);
 }
 
+/** The `${mainId}|${compareId}` pairs the user rejected and confirmed. */
+export function decisionPairs(decisions: ReadonlyMap<string, CandidateDecision>): {
+  /** Dropped from the merge's identity map so a rejected pair is never reused
+   *  to stitch relationships — the incoming person is imported as a new record
+   *  instead of folded into the wrong main. */
+  rejectedPairs: Set<string>;
+  /** The only identities that outrank the files' own evidence against a
+   *  pairing — everything else in the map is a suggestion. */
+  confirmedPairs: Set<string>;
+} {
+  const rejectedPairs = new Set<string>();
+  const confirmedPairs = new Set<string>();
+  for (const [key, decision] of decisions) {
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind !== "individual") continue;
+    if (decision.status === "rejected") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
+    else if (decision.status === "confirmed") confirmedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
+  }
+  return { rejectedPairs, confirmedPairs };
+}
+
+/** Every confirmed decision's family-row choices in one record, the later
+ *  confirmation winning a key both spouses chose (see `mergeDecisions`). */
+export function confirmedFamilyFields(
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  keep: (mainId: string, compareId: string) => boolean = () => true,
+): Record<string, FieldChoice> {
+  const famFields: Record<string, FieldChoice> = {};
+  for (const [key, decision] of decisions) {
+    if (decision.status !== "confirmed") continue;
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind !== "individual" || !keep(parsed.mainId, parsed.compareId)) continue;
+    for (const [k, v] of Object.entries(decision.fields)) {
+      if (k.startsWith("fam.")) famFields[k] = v;
+    }
+  }
+  return famFields;
+}
+
 /**
  * Apply confirmed match decisions to a clone of the main tree, taking each
  * field the user chose from the incoming side (or "both"). Untouched records are
@@ -362,20 +401,8 @@ export function mergeDecisions(
   // line, Family Historian's _WEBTAG block, an OBJE/FILE record; a page image
   // beside the citation or only under its source).
   const placement = linkPlacementFor(main, overrides, compare);
-  // Matches the user explicitly rejected: dropped from the merge's identity map
-  // so a rejected pair is never reused to stitch relationships — the incoming
-  // person is imported as a new record instead of folded into the wrong main.
-  const rejectedPairs = new Set<string>();
-  // Matches the user confirmed: the only identities that outrank the files' own
-  // evidence against a pairing — everything else in the map is a suggestion.
-  const confirmedPairs = new Set<string>();
-  for (const [key, decision] of decisions) {
-    const parsed = parseDecisionKey(key);
-    if (parsed?.kind !== "individual") continue;
-    if (decision.status === "rejected") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
-    else if (decision.status === "confirmed") confirmedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
-  }
-  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs, placement);
+  const { rejectedPairs, confirmedPairs } = decisionPairs(decisions);
+  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs, placement, { pinned: pinnedAdds(decisions) });
 
   // A family with both spouses confirmed is stitched only once — on the first
   // spouse's turn (see processedFamIds). Its rows, though, were reviewed on
@@ -385,22 +412,19 @@ export function mergeDecisions(
   // confirmation order. When both spouses chose the same key, the later
   // confirmation wins — the app moves an updated decision to the end of the
   // map (see withFreshDecision), so iteration order here IS recency order.
-  const famFields: Record<string, FieldChoice> = {};
+  // A stale decision whose records are gone (its main person deleted in Edit,
+  // or the compare id no longer present) is skipped by the merge loop below —
+  // its shared-family picks and child ticks must not leak in through the
+  // surviving spouse's stitch either.
+  const live = (mainId: string, compareId: string) =>
+    !!indiNodes.get(mainId) && !!main.individuals.get(mainId) && !!compare.individuals.get(compareId);
+  const famFields = confirmedFamilyFields(decisions, live);
   const allTakenChildren = new Set<string>();
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
     const parsed = parseDecisionKey(key);
-    if (parsed?.kind !== "individual") continue;
-    // A stale decision whose records are gone (its main person deleted in
-    // Edit, or the compare id no longer present) is skipped by the merge loop
-    // below — its shared-family picks and child ticks must not leak in through
-    // the surviving spouse's stitch either.
-    if (!indiNodes.get(parsed.mainId) || !main.individuals.get(parsed.mainId) || !compare.individuals.get(parsed.compareId))
-      continue;
+    if (parsed?.kind !== "individual" || !live(parsed.mainId, parsed.compareId)) continue;
     for (const id of decision.takenChildren ?? []) allTakenChildren.add(id);
-    for (const [k, v] of Object.entries(decision.fields)) {
-      if (k.startsWith("fam.")) famFields[k] = v;
-    }
   }
 
   for (const [key, decision] of decisions) {
@@ -570,15 +594,30 @@ function reportAddedSourcePages(records: GedNode[], main: Dataset, report: Chang
  * claim more than the coordinate does.
  */
 function fillWrittenPlaceCoords(records: readonly GedNode[], inherited: ReadonlySet<GedNode>): void {
-  const events = records.filter(isPersonOrFamily);
+  fillPlaceCoords(records.filter(isPersonOrFamily), records, (plac) => !inherited.has(plac));
+}
+
+/** The same fill for records added to the file ahead of the save (see
+ *  `materializeAdds`): only their places are written, and `records` is the
+ *  whole file they now belong to. */
+export function fillAddedPlaceCoords(added: readonly GedNode[], records: readonly GedNode[]): void {
+  fillPlaceCoords(added.filter(isPersonOrFamily), records, () => true);
+}
+
+function fillPlaceCoords(
+  written: readonly GedNode[],
+  records: readonly GedNode[],
+  isWritten: (plac: GedNode) => boolean,
+): void {
   const gaps: { plac: GedNode; key: string }[] = [];
-  for (const rec of events) {
+  for (const rec of written) {
     walkPlaceAddr(rec, (plac, addr) => {
-      if (inherited.has(plac) || coordOf(plac)) return;
+      if (!isWritten(plac) || coordOf(plac)) return;
       gaps.push({ plac, key: placeAddrKey(plac.value!.trim(), addr) });
     });
   }
   if (!gaps.length) return;
+  const events = records.filter(isPersonOrFamily);
   // Read after the merge, so a place the incoming file coordinated for one of
   // its own events completes that person's other events too.
   const known = agreedPairCoords(events);

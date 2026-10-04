@@ -20,6 +20,7 @@ import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividu
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { materializeAdds } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
@@ -188,6 +189,8 @@ function AppContent() {
   mainDatasetRef.current = mainDataset;
   const compareDatasetRef = useRef(compareDataset);
   compareDatasetRef.current = compareDataset;
+  const matchesRef = useRef(matches);
+  matchesRef.current = matches;
   // `setPairStatus` is a []-dep callback, so it would otherwise stamp snapshots
   // with the language that was active on first render.
   const tRef = useRef(t);
@@ -950,6 +953,7 @@ function AppContent() {
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
+      if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "undo" });
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.before });
       });
@@ -972,6 +976,7 @@ function AppContent() {
     } else {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
+      if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "redo" });
       requestAnimationFrame(() => {
         dispatch({ type: "decisionsSet", decisions: entry.after });
       });
@@ -1129,14 +1134,47 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
+  /**
+   * Record a decision change as one undo step, together with the people it
+   * adds to (or takes back from) the main file right away — see
+   * `materializeAdds`: a confirmed child, parent or partner becomes a record
+   * of its own at once, so it can be edited before the save.
+   */
+  function commitDecisions(
+    before: ReadonlyMap<string, CandidateDecision>,
+    after: Map<string, CandidateDecision>,
+    mainId: string,
+    compareId: string,
+  ) {
+    const mainDs = mainDatasetRef.current;
+    const compareDs = compareDatasetRef.current;
+    const result = mainDs && compareDs && matchesRef.current
+      ? materializeAdds(mainDs, compareDs, matchesRef.current, before, after, tRef.current, formatOverridesRef.current)
+      : { decisions: after, patches: [] };
+    const patches = dropNoopPatches(result.patches);
+    undoRedo.pushRef.current({
+      mode: "merge",
+      before: new Map(before),
+      after: result.decisions,
+      mainId,
+      compareId,
+      ...(patches.length ? { patches } : {}),
+    });
+    dispatch({ type: "decisionsSet", decisions: result.decisions });
+    if (patches.length) {
+      dirty.captureSnapshotsForPush(patches);
+      bumpEdit();
+    }
+  }
+  const commitDecisionsRef = useRef(commitDecisions);
+  commitDecisionsRef.current = commitDecisions;
+
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
     const key = decisionKey("individual", current.mainId, current.compareId);
     const wasRejected = decisions.get(key)?.status === "rejected";
-    const before = new Map(decisions);
     const after = withFreshDecision(decisions, key, stampMainRows(next, current.mainId, current.compareId));
-    undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
-    dispatch({ type: "decisionsSet", decisions: after });
+    commitDecisions(decisions, after, current.mainId, current.compareId);
     if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
   }
 
@@ -1150,10 +1188,7 @@ function AppContent() {
     const parsed = parseDecisionKey(key);
     if (!parsed) return;
     const { mainId, compareId } = parsed;
-    const before = new Map(decisions);
-    const after = withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId));
-    undoRedo.push({ mode: "merge", before, after, mainId, compareId });
-    dispatch({ type: "decisionsSet", decisions: after });
+    commitDecisions(decisions, withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId)), mainId, compareId);
   }
 
   // Set a pair's status while keeping the rest of its decision; clicking the
@@ -1164,12 +1199,9 @@ function AppContent() {
       const key = decisionKey("individual", mainId, compareId);
       const before = decisionsRef.current;
       const next = toggleDecisionStatus(before.get(key), status);
-      const after = withFreshDecision(before, key, stampMainRows(next, mainId, compareId));
-      undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
-      dispatch({ type: "decisionsSet", decisions: after });
+      commitDecisionsRef.current(before, withFreshDecision(before, key, stampMainRows(next, mainId, compareId)), mainId, compareId);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [], // undoRedo.pushRef/decisionsRef are stable refs — no re-registration needed
+    [], // commitDecisionsRef/decisionsRef are stable refs — no re-registration needed
   );
 
   // Toggle a "bring in this incoming person's ancestors/descendants on save"
