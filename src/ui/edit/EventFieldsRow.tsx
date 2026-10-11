@@ -405,6 +405,10 @@ export function EventFieldsRow({
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
   // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  // The field the caret is in stays shown though its last character is
+  // deleted: hidden, it would drop the focus to the page, where the next ⌫
+  // is Back.
+  const [focusedDetail, setFocusedDetail] = useState<string | null>(null);
   // Bumped by "+ Detail › Note" to open one more empty chip in the note list.
   const [noteAddTrigger, setNoteAddTrigger] = useState(0);
   // Bumped by ⌥⇧D to open the "+ Detail" menu from wherever the keyboard is.
@@ -506,15 +510,16 @@ export function EventFieldsRow({
   // A field renders when it has content OR the user added it from the "+ Detail"
   // menu. Empty, un-added fields stay hidden — no more revealing every empty
   // field on hover, which read as a crowded row of blank labelled inputs.
+  const kept = (key: string) => revealed.has(key) || focusedDetail === key;
   const show = {
-    date: dateShown || revealed.has("date"),
-    value: valueExtraShown || revealed.has("value"),
-    place: placeShown || revealed.has("place"),
-    addr: addrShown || revealed.has("addr"),
-    type: typeShown || revealed.has("type"),
-    agency: agencyShown || revealed.has("agency"),
-    cause: causeShown || revealed.has("cause"),
-    note: noteShown || revealed.has("note"),
+    date: dateShown || kept("date"),
+    value: valueExtraShown || kept("value"),
+    place: placeShown || kept("place"),
+    addr: addrShown || kept("addr"),
+    type: typeShown || kept("type"),
+    agency: agencyShown || kept("agency"),
+    cause: causeShown || kept("cause"),
+    note: noteShown || kept("note"),
     assoc: Boolean(ev?.associations?.length) || revealed.has("assoc"),
   };
   // Fields offered by the "+ Detail" menu: source is always addable; the rest
@@ -823,8 +828,12 @@ export function EventFieldsRow({
    * one-line note stays in the flow, where it reads on after the fields.
    * Judged on the committed notes, not the draft being typed, so a row does
    * not re-lay itself out under the cursor. */
-  const noteTall = noteField.isMerge
-    ? noteField.value.includes("\n") || noteField.value.length > NOTE_CHIP_CH
+  // A merge-proposed note keeps its single field while it is typed into, not
+  // only while it still reads as proposed: swapping the field for the list on
+  // the first keystroke took the caret with it, and the next ⌫ went Back.
+  const noteProposed = noteMergeVal !== undefined;
+  const noteTall = noteProposed
+    ? noteMergeVal.includes("\n") || noteMergeVal.length > NOTE_CHIP_CH
     : isTallNoteList(ev?.noteRefs ?? []);
   const noteEl = (
       <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
@@ -838,7 +847,7 @@ export function EventFieldsRow({
             this field — accepted by committing, discarded by clearing — and
             the list has no such state. Once the merge is resolved the row is
             rebuilt from the record and the list takes over again. */}
-        {noteField.isMerge ? (
+        {noteProposed ? (
           <ClearableTextarea
             wrapClassName="edit-event-extra-field"
             wrapStyle={noteW(noteField.value)}
@@ -863,7 +872,13 @@ export function EventFieldsRow({
   );
 
   return (
-    <div className="edit-event" ref={rootRef} onKeyDown={onRowKeyDown}>
+    <div
+      className="edit-event"
+      ref={rootRef}
+      onKeyDown={onRowKeyDown}
+      onFocus={(e) => setFocusedDetail((e.target as HTMLElement).closest("[data-detail]")?.getAttribute("data-detail") ?? null)}
+      onBlur={() => setFocusedDetail(null)}
+    >
       {/* The fields wrap among themselves inside this group, and the note stands
           beside the group rather than under it: a note of seven lines used to
           push the whole event a line down and then sit alone below the fields,
