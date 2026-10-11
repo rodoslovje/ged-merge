@@ -823,8 +823,12 @@ export function EventFieldsRow({
    * one-line note stays in the flow, where it reads on after the fields.
    * Judged on the committed notes, not the draft being typed, so a row does
    * not re-lay itself out under the cursor. */
-  const noteTall = noteField.isMerge
-    ? noteField.value.includes("\n") || noteField.value.length > NOTE_CHIP_CH
+  // A merge-proposed note keeps its single field while it is typed into, not
+  // only while it still reads as proposed: swapping the field for the list on
+  // the first keystroke took the caret with it, and the next ⌫ went Back.
+  const noteProposed = noteMergeVal !== undefined;
+  const noteTall = noteProposed
+    ? noteMergeVal.includes("\n") || noteMergeVal.length > NOTE_CHIP_CH
     : isTallNoteList(ev?.noteRefs ?? []);
   const noteEl = (
       <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
@@ -838,7 +842,7 @@ export function EventFieldsRow({
             this field — accepted by committing, discarded by clearing — and
             the list has no such state. Once the merge is resolved the row is
             rebuilt from the record and the list takes over again. */}
-        {noteField.isMerge ? (
+        {noteProposed ? (
           <ClearableTextarea
             wrapClassName="edit-event-extra-field"
             wrapStyle={noteW(noteField.value)}
