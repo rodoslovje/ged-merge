@@ -10517,20 +10517,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
     flex: 0 1 auto;
     min-width: 0;
   }
-  /* Sized to the longest kind name rather than a round number — the labels top
-     out at 67px (sl) / ~86px (en) plus the caret, gap, padding and border. A
-     fixed width, not `max-content`: the Ancestors/Descendants toggle sits beside
-     it and would shift every time the kind changed. */
-  .charts-kind-picker {
-    width: 128px;
-  }
-  /* The gear and download glyphs say it all on a phone — drop the "Chart" /
-     "Export" lettering so the toolbar fits. The buttons keep their
-     aria-labels and tooltips. */
-  .chart-settings-label,
-  .export-menu-label {
-    display: none;
-  }
   /* The find box takes the next row — its field stretching to whatever is left
      beside the ‹ ›. */
   .chart-find {
