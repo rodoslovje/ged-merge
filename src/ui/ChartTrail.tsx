@@ -48,7 +48,13 @@ export function ChartTrailNav() {
         onSelect={(v) => ctx.onStep(Number(v))}
         // Newest first, the way a recent list reads.
         groups={[{ items: trail.ids.map((id, i) => ({ value: String(i), label: ctx.labelOf(id) })).reverse() }]}
-        trigger={<span aria-hidden="true">▾</span>}
+        // A drawn chevron at the arrows' size and weight: the ▾ glyph came out
+        // too small to read as a menu beside them.
+        trigger={
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="5,9 12,16 19,9" />
+          </svg>
+        }
       />
       <button className="tree-open-btn chart-trail-btn" onClick={() => ctx.onStep(idx + 1)} disabled={idx === len - 1} title={next} aria-label={next}>
         <ArrowIcon dir="right" size={14} />
