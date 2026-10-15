@@ -178,6 +178,10 @@ function AppContent() {
   // Below 880px the file pills would be a letter each: they move into the ☰.
   const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The chart's header has a ☰ of its own: the app's stays mounted (hidden)
+  // under the chart, and sharing one open flag opened both — the hidden one's
+  // outside-click handler then closed the visible one before a click landed.
+  const [chartMenuOpen, setChartMenuOpen] = useState(false);
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
@@ -2147,8 +2151,8 @@ function AppContent() {
               file loaded it simply holds less. */}
           {phone && (
             <AppMenu
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
+              open={onChart ? chartMenuOpen : menuOpen}
+              onOpenChange={onChart ? setChartMenuOpen : setMenuOpen}
               files={menuFiles}
               onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
               onCharts={mainDataset ? openChartsFromHeader : undefined}
@@ -2162,8 +2166,8 @@ function AppContent() {
               the three icons it displaces — and, below 880px, the files. */}
           {compactHead && (
             <AppMenu
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
+              open={onChart ? chartMenuOpen : menuOpen}
+              onOpenChange={onChart ? setChartMenuOpen : setMenuOpen}
               files={filesInMenu ? menuFiles : []}
               onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
               onAddPerson={mainDataset ? (onChart ? addPersonFromChart : () => requestAddPerson()) : undefined}

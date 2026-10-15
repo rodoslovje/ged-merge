@@ -124,6 +124,25 @@ test("the chart's header leaves for a mode or the files", async ({ page }) => {
   await expect(page.locator(".info-panel")).toBeVisible();
 });
 
+// The chart's ☰ (a narrower window) works: the app's own ☰, hidden under the
+// chart, once shared its open state and closed this one before a click landed.
+test("the chart's ☰ opens the files and adds a person", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 700 });
+  await openChartsFromEdit(page);
+  await page.locator(".tree-shell .app-menu-btn").click();
+  await page.locator(".tree-shell .app-menu-files-more").click();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await expect(page.locator(".info-panel")).toBeVisible();
+
+  await page.goBack();
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+  await page.locator(".tree-shell .app-menu-btn").click();
+  await page.locator(".tree-shell .app-menu-item", { hasText: "Add new person" }).click();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await expect(page.locator(".edit-person .edit-name-input").first()).toHaveValue("");
+  await expect(page.locator(".app-head-actions .export-btn").first()).toBeEnabled();
+});
+
 // V opens the charts from any mode, as the header button does — in Tools,
 // where no view answers it, on the start person.
 test("V opens the charts from Tools", async ({ page }) => {
