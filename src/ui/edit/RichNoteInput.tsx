@@ -126,7 +126,10 @@ export const RichNoteInput = forwardRef<
         title={title}
         data-placeholder={placeholder}
         onInput={readBack}
-        onBlur={onBlur}
+        onBlur={(e) => {
+          holdToolbar(e.currentTarget.parentElement);
+          onBlur();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
@@ -167,6 +170,25 @@ export const RichNoteInput = forwardRef<
     </div>
   );
 });
+
+/** A mouse button is down somewhere on the page. Tracked once for every note,
+ *  so a blur can tell a press that took the focus from a Tab or an Escape. */
+let pointerDown = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+  window.addEventListener("pointerup", () => { pointerDown = false; }, true);
+}
+
+/** Keeps a blurred note's toolbar up until the press that blurred it has
+ *  become a click. Dropped at mousedown, the toolbar's line shifted everything
+ *  under it — or, at the foot of a scrolled pane, everything above — and the
+ *  release landed beside whatever was pressed. */
+function holdToolbar(wrap: HTMLElement | null): void {
+  if (!wrap || !pointerDown) return;
+  wrap.classList.add("clearable-wrap--held");
+  // pointerup → mouseup → click run in one task; the timeout runs after it.
+  window.addEventListener("pointerup", () => setTimeout(() => wrap.classList.remove("clearable-wrap--held")), { once: true });
+}
 
 function escapeText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
