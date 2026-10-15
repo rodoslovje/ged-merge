@@ -4,6 +4,7 @@ import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { GearIcon } from "./icons/GearIcon";
 import { HelpIcon } from "./icons/HelpIcon";
+import { MenuIcon } from "./icons/MenuIcon";
 import { SearchIcon } from "./icons/SearchIcon";
 
 // The header's ☰ menu. On a phone the header can hold the brand, the mode tabs
@@ -69,7 +70,7 @@ export function AppMenu({
         title={t("menu.title")}
         aria-label={t("menu.title")}
       >
-        <span className="app-menu-glyph" aria-hidden="true">☰</span>
+        <MenuIcon size={18} />
       </button>
       {open && (
         <div className="app-menu-panel" role="menu" aria-label={t("menu.title")}>

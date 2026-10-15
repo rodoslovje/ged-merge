@@ -223,6 +223,17 @@ button:focus-visible {
   background: var(--border);
   flex: none;
 }
+/* One box for every icon button in the group: an inline SVG, a ↩ glyph and the
+   ☰ glyph each set their own line box, so left to themselves they came out
+   27.6, 28.6 and 30.6px tall and the ☰ sat lower than its neighbours. */
+.lang-switcher .nav-btn.icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 30px;
+  min-width: 40px;
+}
 .lang-switcher .app-head-actions .export-btn {
   align-self: stretch;
   margin-left: 4px;
@@ -367,10 +378,6 @@ button:focus-visible {
    media query of their own. */
 .app-menu {
   position: relative;
-}
-.app-menu-glyph {
-  font-size: 1.15rem;
-  line-height: 1;
 }
 .app-menu-btn.open {
   color: var(--accent);
