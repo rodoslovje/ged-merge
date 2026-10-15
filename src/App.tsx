@@ -2188,7 +2188,8 @@ function AppContent() {
                   tabs and ☰ fit beside it. */}
               <Wordmark size={phone ? 17 : 22} />
             </h1>
-            {(lastMainFile || compare.status === "loaded") && (
+            {/* Below 880px (and on a phone) the ☰ lists the files instead. */}
+            {!filesInMenu && (lastMainFile || compare.status === "loaded") && (
               <div className="app-head-file-pills">
                 {lastMainFile && (
                   <button className="header-file-btn gm-file main" onClick={toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>

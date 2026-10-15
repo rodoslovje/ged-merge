@@ -187,15 +187,30 @@ button:focus-visible {
   display: none;
 }
 
-/* One header row in three zones: brand + file pills · mode tabs · file actions
-   and tools. The equal outer tracks keep the tabs centred; `1fr` never shrinks a
-   track below its content, so a crowded side pushes the tabs off-centre rather
-   than overlapping them. The brand's min-width 0 lets its pills truncate first. */
+/* One header row in three zones, at every width: brand + file pills · mode tabs
+   · file actions and tools. The equal outer tracks keep the tabs centred; `1fr`
+   never shrinks the tools' track below its content, so a crowded side pushes
+   the tabs off-centre rather than overlapping them. The brand is a size
+   container, so it contributes no width of its own: it takes what is left,
+   and gives it up first. The tabs' track can shrink to nothing (a phone at
+   320px), and only once the brand has nothing left to give. */
 .app-head-top {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
   align-items: center;
   column-gap: 16px;
+}
+.app-head-top > .app-head-brand { container: head-brand / inline-size; }
+/* The lettering shows whenever it fits beside what shares the brand's zone —
+   the pills keep a readable name each before the lettering takes their room. */
+@container head-brand (max-width: 160px) {
+  .gm-wordmark-text { display: none; }
+}
+@container head-brand (max-width: 300px) {
+  .app-head-brand:has(.app-head-file-pills) .gm-wordmark-text { display: none; }
+}
+@container head-brand (max-width: 400px) {
+  .app-head-brand:has(.header-file-btn + .header-file-btn) .gm-wordmark-text { display: none; }
 }
 .app-head-top > .app-head-brand { grid-column: 1; }
 .app-head-top > .mode-tabs { grid-column: 2; }
@@ -8587,21 +8602,6 @@ kbd {
   .export-btn-label-short {
     display: inline;
   }
-  /* The lettering would leave two file pills a letter each — and Slovenian
-     ("Urejanje · Združevanje · Orodja") is half again as wide as the English.
-     Keep the mark: it is the brand and the click target, and the filenames are
-     what tell the user where they are. The landing page, with no tabs, keeps
-     the full lockup. */
-  .app-head-top:has(.mode-tabs) .gm-wordmark-text {
-    display: none;
-  }
-}
-/* Two pills would be a letter each here: the ☰ lists the files instead
-   (App.tsx, FILES_IN_MENU_QUERY). */
-@media (max-width: 880px) {
-  .app-head-file-pills {
-    display: none;
-  }
 }
 
 /* Phone: one header row — wordmark, mode tabs, ☰. The pills and the five icon
@@ -8609,25 +8609,8 @@ kbd {
    that swap, so nothing here is a hidden duplicate), and the second row exists
    only when there is something to save or undo. */
 @media (max-width: 720px) {
-  /* One row, and it stays one row: wordmark · tabs · ☰, as a grid. The tabs
-     sit centred in the middle track and are the only thing that gives up width
-     (the track's minimum is 0). The ☰ keeps the right edge whatever the hidden
-     file pills would do to a flex row's auto margins. */
   .app-head-top {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
     column-gap: 8px;
-  }
-  .app-head-top > .mode-tabs {
-    justify-self: center;
-    max-width: 100%;
-  }
-  /* The filenames move into the ☰ menu, which lists them and opens the same
-     info panel the pills toggle. (This used to say `display: none` from 880px
-     down with nothing taking over, which left no way at all to see or change
-     the loaded files on a phone.) */
-  .app-head-file-pills {
-    display: none;
   }
   .mode-tabs {
     /* The one flexible item on the row: it shrinks before the wordmark or ☰ do,
