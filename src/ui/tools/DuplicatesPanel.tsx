@@ -946,6 +946,7 @@ function DuplicateCompare({
                       <FieldValue
                         text={row.main}
                         links={row.mainLinks}
+                        fsIds={row.key === "fsid"}
                         linkIcons={row.mainLinkIcons}
                         otherLinkIcons={row.incomingLinkIcons}
                         person={row.mainRefs ? { refs: row.mainRefs, ...nav } : undefined}
@@ -955,6 +956,7 @@ function DuplicateCompare({
                       <FieldValue
                         text={row.incoming}
                         links={row.incomingLinks}
+                        fsIds={row.key === "fsid"}
                         otherLinks={row.mainLinks}
                         linkIcons={row.incomingLinkIcons}
                         otherLinkIcons={row.mainLinkIcons}

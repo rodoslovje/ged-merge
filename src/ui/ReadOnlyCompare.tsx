@@ -118,6 +118,7 @@ export function ReadOnlyCompare({
                     <FieldValue
                       text={row.main}
                       links={row.mainLinks}
+                      fsIds={row.key === "fsid"}
                       person={row.mainRefs ? { refs: row.mainRefs, ...mainPerson } : undefined}
                     />
                   </td>
@@ -129,6 +130,7 @@ export function ReadOnlyCompare({
                       <FieldValue
                         text={row.incoming}
                         links={row.incomingLinks}
+                        fsIds={row.key === "fsid"}
                         otherLinks={row.mainLinks}
                         person={row.incomingRefs ? { refs: row.incomingRefs, ...incomingPerson } : undefined}
                       />
