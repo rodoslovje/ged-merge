@@ -165,30 +165,12 @@ button:focus-visible {
 }
 .header-file-btn:hover .header-file-caret { color: inherit; }
 
-/* Second header row: start selector (grows) + save/undo/redo (right) */
+/* The phone's second header row: Save/Undo/Redo, right-aligned (phone block). */
 .app-head-controls {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-}
-.app-head-controls .start-selector {
-  /* Compact: prefer a narrow ~190px and shrink to a small floor rather than
-     filling the row, so the mode tabs stay on this line — they wrap to a new
-     row only when the selector is squeezed to its minimum. */
-  /* Default width matches the Edit-toolbar search-person field (max-width 360px). */
-  flex: 0 1 360px;
-  min-width: 84px;
-}
-/* Let the input shrink with the selector (the wrapper's min-width is the real
-   floor) instead of holding a wide 120px minimum. */
-.app-head-controls .start-selector input {
-  min-width: 0;
-}
-/* Push the save/undo group (and the mode tabs after them) to the right edge of
-   the controls row, away from the compact start selector on the left. */
-.app-head-controls .app-head-actions {
-  margin-left: auto;
 }
 .app-head-actions {
   display: flex;
@@ -199,8 +181,8 @@ button:focus-visible {
 .app-head-actions .export-btn {
   font-size: 0.85rem;
 }
-/* The Save button shows "Save GEDCOM" by default and the short "Save" on small
-   screens (toggled in the 880px header media query below). */
+/* The Save button shows "Save GEDCOM" by default and the short "Save" on
+   narrower screens (toggled in the 1100px header media query below). */
 .export-btn-label-short {
   display: none;
 }
@@ -8266,8 +8248,8 @@ kbd {
 
 /* --- Responsive adjustments for narrow screens (phones, tablets) ---
    Breakpoint scale (max-width), used throughout the file:
-     1100px — wordmark/file-pills/mode-tabs no longer fit on one header row
-      880px — header collapses; Save button switches to its short label
+     1100px — header folds three icons into a ☰, wordmark keeps its mark only
+      880px — modals go full-screen; sections lose their side borders
       720px — tablet/large-phone layout (single column, stacked panels)
       560px — phone: one field per full-width row
    Some component-local responsive rules live next to their component
@@ -8408,13 +8390,6 @@ kbd {
      wrapping to a row below while the selector stays full-width. */
   .app-head-actions {
     flex-shrink: 1;
-  }
-  /* Shorten the Save button to just "Save" to save horizontal space. */
-  .export-btn-label-full {
-    display: none;
-  }
-  .export-btn-label-short {
-    display: inline;
   }
   /* On small screens shrink the outer columns and let the labels wrap rather
      than forcing a wide fixed column. The compare table is `table-layout: fixed`,
@@ -8565,14 +8540,6 @@ kbd {
 @media (max-width: 560px) {
   /* Stack the name-display preview so the person sample gets its own row
      instead of being squeezed next to the "Preview" label. */
-  /* The narrowest phones, and Slovenian ("Urejanje · Združevanje · Orodja" is
-     half again as wide as the English), no longer fit the lettering beside the
-     mode tabs. Keep the mark — it is the brand and the click target; the tabs
-     are what the user came for. Only where the tabs actually are, though: the
-     landing page has the row to itself and keeps the full lockup. */
-  .app-head-top:has(.mode-tabs) .gm-wordmark-text {
-    display: none;
-  }
   /* Every pixel here buys a whole label: at 320px the Slovenian tabs
      ("Urejanje · Združevanje · Orodja") are ~10px short of fitting beside the
      mark and the ☰, and the difference is between "Orodja" and "Oro…". */
@@ -8610,65 +8577,35 @@ kbd {
   .report-gen-head > * { flex: 0 0 auto; }
 }
 
-/* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer
-   fit comfortably on one line (especially with two files loaded). Flatten the
-   brand so the wordmark, pills, tabs, and lang/theme switcher become direct flex
-   items of the header row. The pills (flex-basis 0) yield space first, so the
-   tabs and switcher stay on row 1 as long as they fit; the pills just truncate.
-   This avoids the awkward state where the pills wrapped beneath the wordmark
-   while the tabs floated off to the right. */
+/* Below ~1100px the header stays one row: Add person, Settings and Help fold
+   into a ☰ (App.tsx renders that swap) and Save drops "GEDCOM" from its label.
+   The file pills give up their width first and truncate. */
 @media (max-width: 1100px) {
-  .app-head-top {
-    display: flex;
-    flex-wrap: wrap;
-    row-gap: 8px;
-    column-gap: 12px;
-    align-items: center;
+  .export-btn-label-full {
+    display: none;
   }
-  .app-head-brand {
-    display: contents;
+  .export-btn-label-short {
+    display: inline;
   }
-  .app-head-brand h1 {
-    order: 0;
+  /* The lettering would leave two file pills a letter each — and Slovenian
+     ("Urejanje · Združevanje · Orodja") is half again as wide as the English.
+     Keep the mark: it is the brand and the click target, and the filenames are
+     what tell the user where they are. The landing page, with no tabs, keeps
+     the full lockup. */
+  .app-head-top:has(.mode-tabs) .gm-wordmark-text {
+    display: none;
   }
-  /* Brand, actions and tools no longer leave the tabs room between them: the
-     tabs take a line of their own, right-aligned under the tools. Left to wrap
-     by itself the row would push the tools down instead, and which half moved
-     would depend on the filename's length. */
-  .app-head-top:has(.mode-tabs)::after {
-    content: "";
-    order: 4;
-    flex-basis: 100%;
-  }
-  .mode-tabs {
-    order: 5;
-    margin-left: auto;
-  }
-  /* flex-basis 0 so the pills never bump the tabs or switcher to the next line:
-     the wordmark, mode tabs, and switcher always reserve their space first and
-     the pills take only the leftover — growing to fill it when there's room and
-     truncating when the names are long. This keeps the tabs (and theme +
-     language) up on the first row whenever they fit. */
+}
+/* Two pills would be a letter each here: the ☰ lists the files instead
+   (App.tsx, FILES_IN_MENU_QUERY). */
+@media (max-width: 880px) {
   .app-head-file-pills {
-    order: 1;
-    flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .lang-switcher {
-    order: 3;
-    margin-left: auto;
-  }
-  /* When file pills are present they already grow to push the tabs + switcher
-     right, so drop the auto margin (which would otherwise starve the pills'
-     growth). With no files the auto margin keeps the switcher pinned right. */
-  .app-head-brand:has(.app-head-file-pills) ~ .lang-switcher {
-    margin-left: 0;
+    display: none;
   }
 }
 
-/* Phone: one header row — wordmark, mode tabs, ☰. The pills, the start-person
-   picker and the four icon buttons all move into the ☰ menu (App.tsx renders
+/* Phone: one header row — wordmark, mode tabs, ☰. The pills and the five icon
+   buttons all move into the ☰ menu (App.tsx renders
    that swap, so nothing here is a hidden duplicate), and the second row exists
    only when there is something to save or undo. */
 @media (max-width: 720px) {
@@ -8692,15 +8629,9 @@ kbd {
   .app-head-file-pills {
     display: none;
   }
-  .app-head-top:has(.mode-tabs)::after {
-    display: none;
-  }
   .mode-tabs {
-    order: 2;
-    margin-left: 0;
     /* The one flexible item on the row: it shrinks before the wordmark or ☰ do,
        and its buttons ellipsis rather than push them off the edge. */
-    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     padding: 2px;
@@ -8712,10 +8643,6 @@ kbd {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .lang-switcher {
-    order: 3;
-    margin-left: auto;
   }
   .app-head-controls {
     margin-top: 8px;

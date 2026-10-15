@@ -35,7 +35,6 @@ import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, t
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
-import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
 import { SettingsModal } from "./ui/SettingsModal";
@@ -90,7 +89,7 @@ import { useSearchIndex } from "./ui/useSearchIndex";
 import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
 import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
-import { usePhone } from "./ui/usePhone";
+import { FILES_IN_MENU_QUERY, useCompactHeader, useMediaQuery, usePhone } from "./ui/usePhone";
 import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
@@ -171,17 +170,14 @@ function AppContent() {
   const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
-  // When the first matches arrive with no start person, focus the picker so the
-  // user can start typing immediately.
-  const [focusStart, setFocusStart] = useState(false);
   // Phone layout: the header's ☰ menu, and whether it is open.
   const phone = usePhone();
+  // 720–1100px: Add person, Settings and Help fold into a ☰, so the mode tabs
+  // keep their place in the one header row.
+  const compactHead = useCompactHeader() && !phone;
+  // Below 880px the file pills would be a letter each: they move into the ☰.
+  const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
-  // The start picker lives inside the menu on a phone, so a request to focus it
-  // has to open the menu first — otherwise the nudge lands on nothing.
-  useEffect(() => {
-    if (phone && focusStart) setMenuOpen(true);
-  }, [phone, focusStart]);
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
@@ -610,7 +606,6 @@ function AppContent() {
       setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
       dispatch({ type: "rejectedDuplicatesCleared" }); // rejects reference this main's xrefs only
-      setFocusStart(false);
       autoStartRef.current = false; // allow the default start person for the new file
     } else {
       // Incoming reload: edit entries remain valid (they only touch main data).
@@ -797,11 +792,9 @@ function AppContent() {
     if (startId) return;
     // A file of one is that one person — no point asking.
     const start = defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
-    if (start) {
-      changeStart(start);
-    } else {
-      setFocusStart(true);
-    }
+    // With no evident root the start person stays unset: Edit's kinship chip
+    // offers "Set start person" on every person until one is chosen.
+    if (start) changeStart(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [main.status, editVersion]);
 
@@ -813,11 +806,7 @@ function AppContent() {
     if (startId) return;
     const ds = main.status === "loaded" ? main.file.dataset : undefined;
     const start = ds ? defaultStartId(ds) : undefined;
-    if (start) {
-      changeStart(start);
-    } else if (ds && ds.individuals.size > 0) {
-      setFocusStart(true);
-    }
+    if (start) changeStart(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
@@ -1109,11 +1098,6 @@ function AppContent() {
     setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, name }));
   }
 
-  // Clicking the start icon jumps Edit mode to the chosen start person.
-  function goToStartPerson() {
-    if (!startId) return;
-    navigateFromPage(startId);
-  }
 
   // Switch to Merge, pointing it at the match candidate for whichever person
   // Edit is currently showing (so the person carries over the other way too) —
@@ -2145,22 +2129,6 @@ function AppContent() {
       </button>
     </div>
   );
-  // Hidden on a file with nobody in it: there is no one to pick, and the empty
-  // Edit view already offers the only thing to do. Only the phone's ☰ menu
-  // carries it; on a wider screen the start person is set from the kinship
-  // chip in Edit's name row (StartPersonChip).
-  const startSelector = mainDataset && mainDataset.individuals.size > 0 && (
-    <StartPersonSelector
-      individuals={mainDataset.individuals}
-      version={editVersion}
-      startId={startId}
-      onChange={changeStart}
-      onClear={() => changeStart(undefined)}
-      onStartClick={goToStartPerson}
-      autoFocus={focusStart}
-      onAutoFocused={() => setFocusStart(false)}
-    />
-  );
   const menuFiles: AppMenuFile[] = [
     ...(lastMainFile ? [{ label: t("tree.main"), fileName: lastMainFile.fileName, accent: "main" as const }] : []),
     ...(compare.status === "loaded" ? [{ label: t("tree.incoming"), fileName: compare.file.fileName, accent: "incoming" as const }] : []),
@@ -2268,7 +2236,7 @@ function AppContent() {
                 <SearchIcon size={18} />
               </button>
             )}
-            {!phone && mainDataset && (
+            {!phone && !compactHead && mainDataset && (
               <button
                 className="nav-btn icon-only"
                 onClick={() => requestAddPerson()}
@@ -2278,7 +2246,7 @@ function AppContent() {
                 <AddPersonIcon size={18} />
               </button>
             )}
-            {!phone && (
+            {!phone && !compactHead && (
               <button
                 className="nav-btn icon-only"
                 onClick={() => setShowSettings(true)}
@@ -2288,7 +2256,7 @@ function AppContent() {
                 <GearIcon size={18} />
               </button>
             )}
-            {!phone && (
+            {!phone && !compactHead && (
               <button
                 className="nav-btn icon-only shortcuts-btn"
                 onClick={() => setShowShortcuts(true)}
@@ -2307,9 +2275,21 @@ function AppContent() {
                 onOpenChange={setMenuOpen}
                 files={menuFiles}
                 onOpenFiles={openInfoPanel}
-                startSelector={mainDataset ? startSelector : undefined}
                 onCharts={mainDataset ? openChartsFromHeader : undefined}
                 onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
+                onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
+                onSettings={() => setShowSettings(true)}
+                onShortcuts={() => setShowShortcuts(true)}
+              />
+            )}
+            {/* Narrow desktop: Charts and Search stay in the row, so the ☰ holds
+                the three icons it displaces — and, below 880px, the files. */}
+            {compactHead && (
+              <AppMenu
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                files={filesInMenu ? menuFiles : []}
+                onOpenFiles={openInfoPanel}
                 onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
                 onSettings={() => setShowSettings(true)}
                 onShortcuts={() => setShowShortcuts(true)}

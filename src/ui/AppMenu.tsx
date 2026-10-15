@@ -6,16 +6,15 @@ import { GearIcon } from "./icons/GearIcon";
 import { HelpIcon } from "./icons/HelpIcon";
 import { SearchIcon } from "./icons/SearchIcon";
 
-// The phone header's ☰ menu. On a narrow screen the header can hold the brand,
-// the mode tabs and one button — not the file pills, the start-person picker and
-// four icon buttons as well. Everything that doesn't fit lives here, in one
-// panel, rather than being hidden: the file pills used to be `display: none`
-// below 880px, which left no way at all to see or change the loaded files.
+// The header's ☰ menu. On a phone the header can hold the brand, the mode tabs
+// and one button — not the file pills and five icon buttons as well; on a
+// narrow desktop it holds the three icons the row gives up. Everything that
+// doesn't fit lives here, in one panel, rather than being hidden: the file
+// pills used to be `display: none` below 880px, which left no way at all to see
+// or change the loaded files.
 //
 // Toggle-button + outside-click popover, like ExportMenu / ChartSettings, with
-// the same menu keyboard. Open state is owned by the caller so it can open the
-// panel by itself (the app pops it when no start person could be picked
-// automatically).
+// the same menu keyboard. Open state is owned by the caller.
 
 export interface AppMenuFile {
   /** "Main" / "Incoming". */
@@ -30,8 +29,6 @@ interface Props {
   files: AppMenuFile[];
   /** Opens the file-info panel, where the loaders live. */
   onOpenFiles: () => void;
-  /** The start-person picker, rendered inside the panel on a phone. */
-  startSelector?: React.ReactNode;
   onCharts?: () => void;
   onSearch?: () => void;
   onAddPerson?: () => void;
@@ -45,7 +42,6 @@ export function AppMenu({
   onOpenChange,
   files,
   onOpenFiles,
-  startSelector,
   onCharts,
   onSearch,
   onAddPerson,
@@ -94,12 +90,6 @@ export function AppMenu({
               <button role="menuitem" className="app-menu-item app-menu-files-more" onClick={() => pick(onOpenFiles)}>
                 {t("menu.files.manage")}
               </button>
-            </div>
-          )}
-          {startSelector && (
-            <div className="app-menu-group">
-              <p className="app-menu-label">{t("menu.start")}</p>
-              {startSelector}
             </div>
           )}
           <div className="app-menu-group">

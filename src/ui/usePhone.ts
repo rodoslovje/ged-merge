@@ -43,14 +43,30 @@ export function useStickyHeaderInset(): number {
 }
 
 export function usePhone(): boolean {
-  const [phone, setPhone] = useState(() => window.matchMedia(PHONE_QUERY).matches);
+  return useMediaQuery(PHONE_QUERY);
+}
+
+/** The narrow-desktop header breakpoint, in step with the `1100px` queries in
+ *  index.css: below it the header folds its less-used icons into the ☰. */
+export const COMPACT_HEADER_QUERY = "(max-width: 1100px)";
+
+export function useCompactHeader(): boolean {
+  return useMediaQuery(COMPACT_HEADER_QUERY);
+}
+
+/** Below this the file pills leave the header row for the ☰, in step with the
+ *  `880px` header query in index.css. */
+export const FILES_IN_MENU_QUERY = "(max-width: 880px)";
+
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
   useEffect(() => {
-    const mq = window.matchMedia(PHONE_QUERY);
-    const onChange = () => setPhone(mq.matches);
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
     mq.addEventListener("change", onChange);
     // The query can have changed between the initial state and this effect.
     onChange();
     return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return phone;
+  }, [query]);
+  return matches;
 }
