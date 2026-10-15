@@ -68,7 +68,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await page.locator(".edit-person").waitFor();
 
   const saveBtn = page.locator(".app-head-actions .export-btn");
-  await expect(saveBtn).toHaveCount(0);
+  await expect(saveBtn).toBeDisabled();
 
   const given = page.locator(".edit-name-input").first();
   const surname = page.locator(".edit-name-input").nth(1);

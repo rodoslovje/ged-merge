@@ -2814,6 +2814,7 @@ export const sl = {
   "save": "Shrani",
   "save.gedcom": "Shrani GEDCOM",
   "save.gedcom.tooltip": "Predogled sprememb in prenos datoteke GEDCOM",
+  "save.nothing.tooltip": "Ni neshranjenih sprememb",
   "save.readingSources": "Berem strani knjig…",
   "save.preview.title": "Predogled shranjevanja",
   "save.preview.persons": "Spremembe oseb",

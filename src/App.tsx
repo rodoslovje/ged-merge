@@ -2159,6 +2159,42 @@ function AppContent() {
   ];
   const hasSaveAction = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
   const hasHistoryAction = !!lastMainFile && (canUndo || canRedo);
+  // Save · Undo · Redo. On a wider screen they sit in the header row for good —
+  // disabled while there is nothing to save or undo — so they never pop in and
+  // shove the row about. On a phone they keep their own row, shown only when
+  // one of them has something to do.
+  const fileActions = (persistent: boolean) => (
+    <div className="app-head-actions">
+      {(persistent || hasHistoryAction) && (
+        <>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
+            ↩{!persistent && <> <span className="undo-btn-label">{t("undo")}</span></>}
+          </button>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
+            {!persistent && <><span className="undo-btn-label">{t("redo")}</span> </>}↪
+          </button>
+        </>
+      )}
+      {(persistent || hasSaveAction) && (
+        <button
+          className="export-btn"
+          onClick={() => void handleSave()}
+          disabled={readingSources || !hasSaveAction}
+          title={readingSources ? t("save.readingSources") : hasSaveAction ? keyHint(t("save.gedcom.tooltip"), modLabel("S")) : t("save.nothing.tooltip")}
+        >
+          {readingSources ? (
+            <span>{t("save.readingSources")}</span>
+          ) : (
+            <>
+              <span className="export-btn-label-full">{t("save.gedcom")}</span>
+              <span className="export-btn-label-short">{t("save")}</span>
+              {hasSaveAction && <>{" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})</>}
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <DatasetProvider dataset={mainDataset}>
@@ -2193,11 +2229,17 @@ function AppContent() {
               </div>
             )}
           </div>
-          {/* On a phone the mode tabs come up to the brand row — see the header
-              note above: the second row then only exists when there is something
-              to save or undo. */}
-          {phone && mainDataset && modeTabs}
+          {/* One row: brand · mode tabs (centred) · file actions + tools. A phone
+              keeps the tabs here too, but its Save/Undo/Redo drop to a row of
+              their own below, shown only when there is something to save or undo. */}
+          {mainDataset && modeTabs}
           <div className="lang-switcher">
+            {!phone && mainDataset && (
+              <>
+                {fileActions(true)}
+                <span className="app-head-divider" aria-hidden="true" />
+              </>
+            )}
             {!phone && mainDataset && (
               <button
                 className="nav-btn icon-only"
@@ -2267,39 +2309,9 @@ function AppContent() {
             )}
           </div>
         </div>
-        {mainDataset && (!phone || hasSaveAction || hasHistoryAction) && (
+        {phone && mainDataset && (hasSaveAction || hasHistoryAction) && (
           <div className="app-head-controls">
-            <div className="app-head-actions">
-              {hasSaveAction && (
-                <button
-                  className="export-btn"
-                  onClick={() => void handleSave()}
-                  disabled={readingSources}
-                  title={readingSources ? t("save.readingSources") : keyHint(t("save.gedcom.tooltip"), modLabel("S"))}
-                >
-                  {readingSources ? (
-                    <span>{t("save.readingSources")}</span>
-                  ) : (
-                    <>
-                      <span className="export-btn-label-full">{t("save.gedcom")}</span>
-                      <span className="export-btn-label-short">{t("save")}</span>
-                      {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
-                    </>
-                  )}
-                </button>
-              )}
-              {hasHistoryAction && (
-                <>
-                  <button className="tree-open-btn undo-btn" onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
-                    ↩ <span className="undo-btn-label">{t("undo")}</span>
-                  </button>
-                  <button className="tree-open-btn undo-btn" onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
-                    <span className="undo-btn-label">{t("redo")}</span> ↪
-                  </button>
-                </>
-              )}
-            </div>
-            {!phone && modeTabs}
+            {fileActions(false)}
           </div>
         )}
       </header>

@@ -199,10 +199,30 @@ button:focus-visible {
   display: none;
 }
 
+/* One header row in three zones: brand + file pills · mode tabs · file actions
+   and tools. The equal outer tracks keep the tabs centred; `1fr` never shrinks a
+   track below its content, so a crowded side pushes the tabs off-centre rather
+   than overlapping them. The brand's min-width 0 lets its pills truncate first. */
 .app-head-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 16px;
+}
+.app-head-top > .app-head-brand { grid-column: 1; }
+.app-head-top > .mode-tabs { grid-column: 2; }
+.app-head-top > .lang-switcher { grid-column: 3; justify-self: end; }
+/* Undo/Redo/Save beside the tool icons, set off from them by a hairline. */
+.app-head-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 10px;
+  background: var(--border);
+  flex: none;
+}
+.lang-switcher .app-head-actions .export-btn {
+  align-self: stretch;
+  margin-left: 4px;
 }
 .mode-tabs {
   display: inline-flex;
@@ -8601,6 +8621,7 @@ kbd {
    while the tabs floated off to the right. */
 @media (max-width: 1100px) {
   .app-head-top {
+    display: flex;
     flex-wrap: wrap;
     row-gap: 8px;
     column-gap: 12px;
@@ -8611,6 +8632,19 @@ kbd {
   }
   .app-head-brand h1 {
     order: 0;
+  }
+  /* Brand, actions and tools no longer leave the tabs room between them: the
+     tabs take a line of their own, right-aligned under the tools. Left to wrap
+     by itself the row would push the tools down instead, and which half moved
+     would depend on the filename's length. */
+  .app-head-top:has(.mode-tabs)::after {
+    content: "";
+    order: 4;
+    flex-basis: 100%;
+  }
+  .mode-tabs {
+    order: 5;
+    margin-left: auto;
   }
   /* flex-basis 0 so the pills never bump the tabs or switcher to the next line:
      the wordmark, mode tabs, and switcher always reserve their space first and
@@ -8656,8 +8690,12 @@ kbd {
   .app-head-file-pills {
     display: none;
   }
+  .app-head-top:has(.mode-tabs)::after {
+    display: none;
+  }
   .mode-tabs {
     order: 2;
+    margin-left: 0;
     /* The one flexible item on the row: it shrinks before the wordmark or ☰ do,
        and its buttons ellipsis rather than push them off the edge. */
     flex: 0 1 auto;

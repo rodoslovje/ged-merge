@@ -2498,6 +2498,7 @@ export const en = {
   "save": "Save",
   "save.gedcom": "Save GEDCOM",
   "save.gedcom.tooltip": "Preview changes and download the GEDCOM",
+  "save.nothing.tooltip": "No unsaved changes",
   "save.readingSources": "Reading the books…",
   "save.preview.title": "Save preview",
   "save.preview.persons": "Persons changed",
