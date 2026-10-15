@@ -1095,10 +1095,11 @@ function AppContent() {
 
   // Add a person attached to nobody — a new branch, or the first person in a
   // file that has none. The work happens in Edit mode (which owns the person
-  // view and the name focus), so switch there and hand the request over.
+  // view and the name focus), so switch there and hand the request over —
+  // from a chart, leaving it first (pushed on top, so Back returns to it).
   function requestAddPerson(name?: string) {
     if (!mainDataset) return;
-    goToPage({ mode: "edit" });
+    (overlayOpen ? goToPageFromOverlay : goToPage)({ mode: "edit" });
     setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, name }));
   }
 
@@ -1957,6 +1958,39 @@ function AppContent() {
         initialTab={settingsTab}
       />
       {confirmDialogElement}
+      {/* Save is in the header on a chart too, so its preview and toast must
+          show over the chart rather than in the hidden app beneath it. */}
+      {preview && (
+        <SaveDialog
+          report={preview.report}
+          title={preview.title}
+          records={preview.records}
+          beforeRecords={preview.beforeRecords}
+          files={preview.files}
+          downloadLabel={preview.downloadLabel}
+          editRecordIds={preview.editRecordIds}
+          integrityWarnings={preview.integrityWarnings}
+          dataset={mainDataset}
+          onConfirm={handleConfirmSave}
+          onClose={() => setPreview(null)}
+          onNavigate={(id) => {
+            setPreview(null);
+            if (overlayOpen) navigateFromOverlay(id);
+            else setNavigateToId(id);
+          }}
+          onRemove={handleRemoveFromSave}
+          onOpenPair={(mainId, compareId) => {
+            setPreview(null);
+            setSelectedId({ mainId, compareId });
+            (overlayOpen ? goToPageFromOverlay : goToPage)({ mode: "merge" });
+          }}
+        />
+      )}
+      {saveToast && (
+        <div className="save-toast" role="status" onClick={() => setSaveToast(null)}>
+          {saveToast}
+        </div>
+      )}
     </>
   );
 
@@ -2004,11 +2038,6 @@ function AppContent() {
   const openFilesFromChart = () => {
     leaveOverlayFor(mode);
     setShowInfoPanel(true);
-  };
-  // Add person works in Edit; from a chart it leaves the chart for Edit first.
-  const addPersonFromChart = () => {
-    goToPageFromOverlay({ mode: "edit" });
-    setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1 }));
   };
   const menuFiles: AppMenuFile[] = [
     ...(lastMainFile ? [{ label: t("tree.main"), fileName: lastMainFile.fileName, accent: "main" as const }] : []),
@@ -2119,7 +2148,7 @@ function AppContent() {
           {!phone && !compactHead && mainDataset && (
             <button
               className="nav-btn icon-only"
-              onClick={onChart ? addPersonFromChart : () => requestAddPerson()}
+              onClick={() => requestAddPerson()}
               title={keyHint(t("edit.addNewPerson.tooltip"), KEY.addPerson.toUpperCase())}
               aria-label={t("edit.addNewPerson")}
             >
@@ -2157,7 +2186,7 @@ function AppContent() {
               onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
               onCharts={mainDataset ? openChartsFromHeader : undefined}
               onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
-              onAddPerson={mainDataset ? (onChart ? addPersonFromChart : () => requestAddPerson()) : undefined}
+              onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
               onSettings={() => setShowSettings(true)}
               onShortcuts={() => setShowShortcuts(true)}
             />
@@ -2170,7 +2199,7 @@ function AppContent() {
               onOpenChange={onChart ? setChartMenuOpen : setMenuOpen}
               files={filesInMenu ? menuFiles : []}
               onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
-              onAddPerson={mainDataset ? (onChart ? addPersonFromChart : () => requestAddPerson()) : undefined}
+              onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
               onSettings={() => setShowSettings(true)}
               onShortcuts={() => setShowShortcuts(true)}
             />
@@ -2623,33 +2652,6 @@ function AppContent() {
             </ErrorBoundary>
           </div>
         </>
-      )}
-      {preview && (
-        <SaveDialog
-          report={preview.report}
-          title={preview.title}
-          records={preview.records}
-          beforeRecords={preview.beforeRecords}
-          files={preview.files}
-          downloadLabel={preview.downloadLabel}
-          editRecordIds={preview.editRecordIds}
-          integrityWarnings={preview.integrityWarnings}
-          dataset={mainDataset}
-          onConfirm={handleConfirmSave}
-          onClose={() => setPreview(null)}
-          onNavigate={(id) => { setPreview(null); setNavigateToId(id); }}
-          onRemove={handleRemoveFromSave}
-          onOpenPair={(mainId, compareId) => {
-            setPreview(null);
-            setSelectedId({ mainId, compareId });
-            goToPage({ mode: "merge" });
-          }}
-        />
-      )}
-      {saveToast && (
-        <div className="save-toast" role="status" onClick={() => setSaveToast(null)}>
-          {saveToast}
-        </div>
       )}
       {appFooter}
       {/* While a full-page overlay is up, its own shell renders the modals —
