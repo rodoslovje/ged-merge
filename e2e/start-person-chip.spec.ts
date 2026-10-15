@@ -44,10 +44,10 @@ test("the kinship chip sets, changes, follows and clears the start person", asyn
   // Choose the other one instead: the chip now names this person's kinship.
   await chip.click();
   await item("choose").click();
-  const input = page.locator(".start-chip-picker input");
+  const input = page.locator(".edit-name-row .relative-picker-input");
   await expect(input).toBeFocused();
   await input.fill(other);
-  await page.locator(".start-option", { hasText: other }).first().click();
+  await page.locator(".edit-name-row .relative-picker-option", { hasText: other }).first().click();
   await expect(chip).not.toHaveText("Start Person");
   await expect(chip).toHaveClass(/person-kinship/);
 

@@ -1,9 +1,9 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { KEY, keyHint } from "../../keyboard/shortcuts";
 import { DropdownMenu, type DropdownItem } from "../DropdownMenu";
-import { StartPersonSelector } from "../StartPersonSelector";
+import { RelativePickerCard } from "./RelativePickerCard";
 import { HomeIcon } from "../icons/HomeIcon";
 
 /**
@@ -39,36 +39,18 @@ export function StartPersonChip({
   onGoToStart: () => void;
 }) {
   const [choosing, setChoosing] = useState(false);
-  const wrapRef = useRef<HTMLSpanElement>(null);
 
   if (choosing) {
+    // The same person search the relative slots open, so its rows read at the
+    // size and in the style of every other person lookup in Edit.
     return (
-      <span
-        ref={wrapRef}
-        className="start-chip-picker"
-        onKeyDown={(e) => {
-          // Swallowed: a stay-mounted panel's window Esc handler must not see it.
-          if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setChoosing(false); }
-        }}
-        onBlur={() => {
-          // The option list is clicked after the input blurs; give the click
-          // its turn before deciding the user left.
-          setTimeout(() => {
-            if (!wrapRef.current?.contains(document.activeElement)) setChoosing(false);
-          }, 200);
-        }}
-      >
-        <StartPersonSelector
-          individuals={individuals}
-          startId={startId}
-          onChange={(id) => { setChoosing(false); onChange(id); }}
-          icon="search"
-          selectedAsPlaceholder={false}
-          placeholder={t("start.chip.choose")}
-          tooltip={t("start.tooltip")}
-          autoFocus
-        />
-      </span>
+      <RelativePickerCard
+        individuals={individuals}
+        excludeId={startId ?? ""}
+        onPickExisting={(id) => { setChoosing(false); onChange(id); }}
+        onCancel={() => setChoosing(false)}
+        t={t}
+      />
     );
   }
 
