@@ -106,6 +106,24 @@ test("E / M / T leave a chart for their mode", async ({ page }) => {
     .toBe(root);
 });
 
+// A chart carries the app's own header: no mode tab is lit, the Charts button
+// is, and a tab or a file pill leaves the chart (Back returns to it).
+test("the chart's header leaves for a mode or the files", async ({ page }) => {
+  await openChartsFromEdit(page);
+  await expect(page.locator(".tree-shell .mode-tabs .seg-btn.active")).toHaveCount(0);
+  await expect(page.locator(".tree-shell .charts-open-btn")).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator(".tree-shell .mode-tabs").getByRole("button", { name: "Tools", exact: true }).click();
+  await expect(page.locator(".tools-view")).toBeVisible();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+
+  await page.locator(".tree-shell .header-file-btn.main").click();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await expect(page.locator(".info-panel")).toBeVisible();
+});
+
 // V opens the charts from any mode, as the header button does — in Tools,
 // where no view answers it, on the start person.
 test("V opens the charts from Tools", async ({ page }) => {
