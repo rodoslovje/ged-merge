@@ -88,6 +88,24 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
             dist/ "$TARGET"
 
+      # Cloudflare caches .js for hours, sw.js included — and a stale service
+      # worker keeps every browser on the previous release until it expires.
+      # The un-hashed files are dropped from its cache; hashed assets never
+      # change under their name, and index.html is not cached.
+      # CLOUDFLARE_API_TOKEN: a token with Zone → Cache Purge on gedmerge.com.
+      - name: Purge the service worker from Cloudflare
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: b141f4b058219eb6acbf299f4274c607 # gedmerge.com
+        run: |
+          curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"files":["https://gedmerge.com/sw.js","https://gedmerge.com/manifest.webmanifest"]}' \
+            | grep -Eq '"success": ?true' \
+            || { echo "::error::Cloudflare cache purge failed"; exit 1; }
+          echo "Purged sw.js and manifest.webmanifest from Cloudflare" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Tag the release
         run: |
           sha=${{ steps.commit.outputs.sha }}
