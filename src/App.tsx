@@ -21,6 +21,7 @@ import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividu
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
@@ -1523,6 +1524,16 @@ function AppContent() {
     return out;
   }, [importBranches]);
 
+  // The people and families the marked branches would add, so the Save badge
+  // counts a whole branch by its size, not as one.
+  const importRecordCount = useMemo(
+    () => mainDataset && compareDataset && importRequests.length
+      ? branchImportRecords(importRequests, mainDataset, compareDataset, decisions, matches).size
+      : 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [importRequests, mainDataset, compareDataset, decisions, matches, editVersion],
+  );
+
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
 
   async function handleTitleClick() {
@@ -2074,7 +2085,7 @@ function AppContent() {
             <>
               <span className="export-btn-label-full">{t("save.gedcom")}</span>
               <span className="export-btn-label-short">{t("save")}</span>
-              {hasSaveAction && <>{" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})</>}
+              {hasSaveAction && <>{" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importRecordCount})</>}
             </>
           )}
         </button>
