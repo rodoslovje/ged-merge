@@ -3911,7 +3911,8 @@ button:focus-visible {
   padding: 2px 2px 1px;
   border-top: 1px solid var(--border);
 }
-.clearable-wrap--rich:focus-within .note-toolbar { display: flex; }
+.clearable-wrap--rich:focus-within .note-toolbar,
+.clearable-wrap--held .note-toolbar { display: flex; }
 .note-tool {
   min-width: 20px;
   height: 18px;
