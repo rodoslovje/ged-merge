@@ -4725,6 +4725,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   align-items: center;
   gap: 6px;
 }
+/* The Charts hub's ‹ ▾ › trail of people, between Back and the title. */
+.chart-trail {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.tree-open-btn.chart-trail-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 6px;
+}
 /* Keep the decision chip centred against the baseline-aligned title text. */
 .tree-title .status-chip {
   align-self: center;

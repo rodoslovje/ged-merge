@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BackButton } from "./BackButton";
+import { ChartTrailNav } from "./ChartTrail";
 
 // The shared full-page chart/report scaffold: Back button + title toolbar with
 // the settings/export actions on the right, then the controls row (kind
@@ -31,6 +32,7 @@ export function ChartPage({ backLabel, onBack, title, actions, controlsLeft, con
     <div className="tree-page">
       <div className="tree-toolbar">
         <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
+        <ChartTrailNav />
         <h2 className="tree-title">{title}</h2>
         {actions}
       </div>
