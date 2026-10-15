@@ -102,6 +102,7 @@ import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
 import { recordsNaming } from "../gedcom/assoc";
 import { NameEditor } from "./edit/NameEditor";
+import { StartPersonChip } from "./edit/StartPersonChip";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
@@ -1923,9 +1924,20 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               hasMatch={!!matchCompareId}
               matchStatus={matchStatus}
               onToggleMatchStatus={toggleMatchStatus}
-              kinship={kinship}
-              kinshipLineage={kinshipLineage}
-              kinshipTooltip={kinshipTooltip}
+              kinship={
+                <StartPersonChip
+                  t={t}
+                  personId={person.id}
+                  startId={startId}
+                  startName={startPersonName}
+                  kinship={kinship}
+                  kinshipLineage={kinshipLineage}
+                  kinshipTooltip={kinshipTooltip}
+                  individuals={dataset.individuals}
+                  onChange={changeStart}
+                  onGoToStart={() => startId && navigate(startId)}
+                />
+              }
               modified={changedPersonIds.has(person.id)}
               controls={
                 <button

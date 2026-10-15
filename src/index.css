@@ -2169,6 +2169,37 @@ button:focus-visible {
 .tree-title-kinship.lineage-maternal { color: var(--lineage-maternal); }
 .person-kinship.lineage-both,
 .tree-title-kinship.lineage-both { color: var(--accent); }
+/* Edit's name row: the kinship label is the start person's control
+   (StartPersonChip). It reads as the label until hovered; with no start
+   person a faint dashed chip offers to set one. */
+.person-kinship.start-chip:hover,
+.person-kinship.start-chip[aria-expanded="true"] {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.start-chip--unset,
+.start-chip--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+.start-chip--unset {
+  padding: 1px 8px;
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-pill);
+}
+.start-chip--icon { padding: 2px; border-radius: var(--radius-sm); }
+.start-chip--unset:hover,
+.start-chip--icon:hover,
+.start-chip--unset[aria-expanded="true"],
+.start-chip--icon[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.start-chip-picker { flex: 0 1 260px; min-width: 160px; }
 .tree-node-kinship.lineage-paternal { fill: var(--lineage-paternal); }
 .tree-node-kinship.lineage-maternal { fill: var(--lineage-maternal); }
 .tree-node-kinship.lineage-both { fill: var(--accent); }
