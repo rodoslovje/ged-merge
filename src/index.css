@@ -225,8 +225,10 @@ button:focus-visible {
 }
 /* One box for every icon button in the group: an inline SVG, a ↩ glyph and the
    ☰ glyph each set their own line box, so left to themselves they came out
-   27.6, 28.6 and 30.6px tall and the ☰ sat lower than its neighbours. */
-.lang-switcher .nav-btn.icon-only {
+   27.6, 28.6 and 30.6px tall and the ☰ sat lower than its neighbours. The
+   phone chart's ☰ takes the same box, so the two ☰ buttons match. */
+.lang-switcher .nav-btn.icon-only,
+.chart-menu-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
