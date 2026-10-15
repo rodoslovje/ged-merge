@@ -8672,14 +8672,18 @@ kbd {
    that swap, so nothing here is a hidden duplicate), and the second row exists
    only when there is something to save or undo. */
 @media (max-width: 720px) {
+  /* One row, and it stays one row: wordmark · tabs · ☰, as a grid. The tabs
+     sit centred in the middle track and are the only thing that gives up width
+     (the track's minimum is 0). The ☰ keeps the right edge whatever the hidden
+     file pills would do to a flex row's auto margins. */
   .app-head-top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     column-gap: 8px;
-    /* One row, and it stays one row. A wrapping flex container breaks the line
-       on each item's *content* size and only then shrinks what is on it — so
-       the ☰ dropped to a second row while the mode tabs, which were willing to
-       shrink, never got the chance. With `nowrap` the tabs give up their width
-       instead (they are the only flexible item here). */
-    flex-wrap: nowrap;
+  }
+  .app-head-top > .mode-tabs {
+    justify-self: center;
+    max-width: 100%;
   }
   /* The filenames move into the ☰ menu, which lists them and opens the same
      info panel the pills toggle. (This used to say `display: none` from 880px
