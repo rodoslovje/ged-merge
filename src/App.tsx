@@ -35,7 +35,6 @@ import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, t
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
-import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
 import { SettingsModal } from "./ui/SettingsModal";
@@ -90,7 +89,7 @@ import { useSearchIndex } from "./ui/useSearchIndex";
 import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
 import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
-import { usePhone } from "./ui/usePhone";
+import { FILES_IN_MENU_QUERY, useCompactHeader, useMediaQuery, usePhone } from "./ui/usePhone";
 import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
@@ -171,17 +170,18 @@ function AppContent() {
   const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
-  // When the first matches arrive with no start person, focus the picker so the
-  // user can start typing immediately.
-  const [focusStart, setFocusStart] = useState(false);
   // Phone layout: the header's ☰ menu, and whether it is open.
   const phone = usePhone();
+  // 720–1100px: Add person, Settings and Help fold into a ☰, so the mode tabs
+  // keep their place in the one header row.
+  const compactHead = useCompactHeader() && !phone;
+  // Below 880px the file pills would be a letter each: they move into the ☰.
+  const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
-  // The start picker lives inside the menu on a phone, so a request to focus it
-  // has to open the menu first — otherwise the nudge lands on nothing.
-  useEffect(() => {
-    if (phone && focusStart) setMenuOpen(true);
-  }, [phone, focusStart]);
+  // The chart's header has a ☰ of its own: the app's stays mounted (hidden)
+  // under the chart, and sharing one open flag opened both — the hidden one's
+  // outside-click handler then closed the visible one before a click landed.
+  const [chartMenuOpen, setChartMenuOpen] = useState(false);
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
@@ -610,7 +610,6 @@ function AppContent() {
       setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
       dispatch({ type: "rejectedDuplicatesCleared" }); // rejects reference this main's xrefs only
-      setFocusStart(false);
       autoStartRef.current = false; // allow the default start person for the new file
     } else {
       // Incoming reload: edit entries remain valid (they only touch main data).
@@ -797,11 +796,9 @@ function AppContent() {
     if (startId) return;
     // A file of one is that one person — no point asking.
     const start = defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
-    if (start) {
-      changeStart(start);
-    } else {
-      setFocusStart(true);
-    }
+    // With no evident root the start person stays unset: Edit's kinship chip
+    // offers "Set start person" on every person until one is chosen.
+    if (start) changeStart(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [main.status, editVersion]);
 
@@ -813,11 +810,7 @@ function AppContent() {
     if (startId) return;
     const ds = main.status === "loaded" ? main.file.dataset : undefined;
     const start = ds ? defaultStartId(ds) : undefined;
-    if (start) {
-      changeStart(start);
-    } else if (ds && ds.individuals.size > 0) {
-      setFocusStart(true);
-    }
+    if (start) changeStart(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
@@ -1109,11 +1102,6 @@ function AppContent() {
     setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, name }));
   }
 
-  // Clicking the start icon jumps Edit mode to the chosen start person.
-  function goToStartPerson() {
-    if (!startId) return;
-    navigateFromPage(startId);
-  }
 
   // Switch to Merge, pointing it at the match candidate for whichever person
   // Edit is currently showing (so the person carries over the other way too) —
@@ -1133,8 +1121,8 @@ function AppContent() {
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
   // Kept locale-independent — label-derived first letters collided across
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
-  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor });
-  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor };
+  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader });
+  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader };
 
   // A mode letter on a full-page chart leaves it for that mode, the person the
   // chart stands on carried along as a mode switch carries Merge's selection.
@@ -1165,6 +1153,14 @@ function AppContent() {
       if (key === KEY.modeEdit && cur !== "edit") { e.preventDefault(); se(); }
       else if (key === KEY.modeMerge && cur !== "merge") { e.preventDefault(); sme(); }
       else if (key === KEY.modeTools && cur !== "tools") { e.preventDefault(); st(); }
+      else if (key === KEY.tree) {
+        // V opens the charts from anywhere, as the header button does. Edit and
+        // Merge answer it first with their own person or pair; this only
+        // catches the key they left alone (Tools, an empty match list). Their
+        // listeners may sit before or after this one on `window`, so wait for
+        // the dispatch to finish before reading whether one of them took it.
+        setTimeout(() => { if (!e.defaultPrevented) modeSwitchRef.current.openCharts(); });
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1964,38 +1960,153 @@ function AppContent() {
     </>
   );
 
-  const appFooter = <AppFooter onShortcuts={() => setShowShortcuts(true)} />;
+  // Panel is forced open whenever Merge mode has no matches yet; otherwise
+  // follows the user's showInfoPanel toggle.
+  const infoPanelOpen = showInfoPanel || (mode === "merge" && !matches);
+  const canClosePanel = !(mode === "merge" && !matches);
+  // Show the incoming column in the panel when in Merge mode or a file was loaded.
+  const showCompareInPanel = mode === "merge" || compare.status !== "empty";
 
-  // Full-page tree views (Compare / Edit) keep the app brand title and footer
-  // around the tree so the page never feels detached from the rest of the app.
-  // Not on a phone: the shell is a fixed frame around a canvas that wants every
-  // pixel, and the brand row repeats what the page underneath already shows —
-  // the view's own Back button is one tap from it.
-  const wrapTree = (content: React.ReactNode) => (
-    <div className="app tree-shell">
-      {!phone && (
-      <header className="app-head tree-shell-head">
-        <div className="app-head-top">
-          <div className="app-head-brand">
-            <h1 onClick={handleTitleClick} className="brand-clickable" title={t("app.brand.tooltip")}>
-              <Wordmark />
-            </h1>
-            {(lastMainFile || compare.status === "loaded") && (
-              <div className="app-head-file-pills">
-                {lastMainFile && (
-                  <button className="header-file-btn gm-file main" onClick={() => window.history.back()} title={`${t("tree.main")}: ${lastMainFile.fileName}`}>
-                    {lastMainFile.fileName}
-                  </button>
-                )}
-                {compare.status === "loaded" && (
-                  <button className="header-file-btn gm-file incoming" onClick={() => window.history.back()} title={`${t("tree.incoming")}: ${compare.file.fileName}`}>
-                    {compare.file.fileName}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="lang-switcher">
+  function toggleInfoPanel() {
+    if (canClosePanel) setShowInfoPanel((p) => !p);
+  }
+
+  /** From the ☰ menu, where the panel is out of sight: always open, never toggle. */
+  function openInfoPanel() {
+    setShowInfoPanel(true);
+  }
+
+  // ── Header pieces ────────────────────────────────────────────────────────
+  // On a phone the header is one row — brand, mode tabs, ☰ — and everything the
+  // desktop header shows beside them (file pills, start person, the four icon
+  // buttons) moves into the ☰ menu. The two pieces that swap places between the
+  // layouts are built once here and placed by `phone` below.
+  const modeTabs = (onChart: boolean) => {
+    const tab = (m: Mode, label: string, tooltip: string, key: string, go: () => void) => (
+      <button
+        className={`seg-btn ${!onChart && mode === m ? "active" : ""}`}
+        onClick={() => { if (onChart) leaveOverlayFor(m); else if (mode !== m) go(); }}
+        title={keyHint(tooltip, key.toUpperCase())}
+      >
+        {label}
+      </button>
+    );
+    return (
+      <div className="mode-tabs">
+        {tab("edit", t("mode.edit"), t("mode.edit.tooltip"), KEY.modeEdit, switchToEdit)}
+        {tab("merge", t("mode.merge"), t("mode.merge.tooltip"), KEY.modeMerge, switchToMerge)}
+        {tab("tools", t("mode.tools"), t("mode.tools.tooltip"), KEY.modeTools, switchToTools)}
+      </div>
+    );
+  };
+  // From a chart, the file pills and the ☰'s files leave the chart for the
+  // page it was opened over, with the file panel open there.
+  const openFilesFromChart = () => {
+    leaveOverlayFor(mode);
+    setShowInfoPanel(true);
+  };
+  // Add person works in Edit; from a chart it leaves the chart for Edit first.
+  const addPersonFromChart = () => {
+    goToPageFromOverlay({ mode: "edit" });
+    setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1 }));
+  };
+  const menuFiles: AppMenuFile[] = [
+    ...(lastMainFile ? [{ label: t("tree.main"), fileName: lastMainFile.fileName, accent: "main" as const }] : []),
+    ...(compare.status === "loaded" ? [{ label: t("tree.incoming"), fileName: compare.file.fileName, accent: "incoming" as const }] : []),
+  ];
+  const hasSaveAction = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+  const hasHistoryAction = !!lastMainFile && (canUndo || canRedo);
+  // Save · Undo · Redo. On a wider screen they sit in the header row for good —
+  // disabled while there is nothing to save or undo — so they never pop in and
+  // shove the row about. On a phone they keep their own row, shown only when
+  // one of them has something to do.
+  const fileActions = (persistent: boolean) => (
+    <div className="app-head-actions">
+      {(persistent || hasHistoryAction) && (
+        <>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
+            ↩{!persistent && <> <span className="undo-btn-label">{t("undo")}</span></>}
+          </button>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
+            {!persistent && <><span className="undo-btn-label">{t("redo")}</span> </>}↪
+          </button>
+        </>
+      )}
+      {(persistent || hasSaveAction) && (
+        <button
+          className="export-btn"
+          onClick={() => void handleSave()}
+          disabled={readingSources || !hasSaveAction}
+          title={readingSources ? t("save.readingSources") : hasSaveAction ? keyHint(t("save.gedcom.tooltip"), modLabel("S")) : t("save.nothing.tooltip")}
+        >
+          {readingSources ? (
+            <span>{t("save.readingSources")}</span>
+          ) : (
+            <>
+              <span className="export-btn-label-full">{t("save.gedcom")}</span>
+              <span className="export-btn-label-short">{t("save")}</span>
+              {hasSaveAction && <>{" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})</>}
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+
+  // The one app header, on the app's pages and on a full-page chart alike, so
+  // every control keeps its place wherever the user is. On a chart no mode tab
+  // is lit — the chart is not a mode — and the tabs, the file pills and Add
+  // person each leave the chart (pushed on top of it, so Back returns to it).
+  const appHeader = (onChart: boolean) => (
+    <header className={onChart ? "app-head tree-shell-head" : "app-head"}>
+      <div className="app-head-top">
+        <div className="app-head-brand">
+          <h1 onClick={handleTitleClick} className="brand-clickable" title={t("app.brand.tooltip")}>
+            {/* One header row on a phone: the lockup steps down so the mode
+                tabs and ☰ fit beside it. */}
+            <Wordmark size={phone ? 17 : 22} />
+          </h1>
+          {/* Below 880px (and on a phone) the ☰ lists the files instead. */}
+          {!filesInMenu && (lastMainFile || compare.status === "loaded") && (
+            <div className="app-head-file-pills">
+              {lastMainFile && (
+                <button className="header-file-btn gm-file main" onClick={onChart ? openFilesFromChart : toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>
+                  <span className="header-file-name">{lastMainFile.fileName}</span>
+                  <span className="header-file-caret" aria-hidden="true">{!onChart && infoPanelOpen ? "▴" : "▾"}</span>
+                </button>
+              )}
+              {compare.status === "loaded" && (
+                <button className="header-file-btn gm-file incoming" onClick={onChart ? openFilesFromChart : toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
+                  <span className="header-file-name">{compare.file.fileName}</span>
+                  <span className="header-file-caret" aria-hidden="true">{!onChart && infoPanelOpen ? "▴" : "▾"}</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {/* One row: brand · mode tabs (centred) · file actions + tools. A phone
+            keeps the tabs here too, but its Save/Undo/Redo drop to a row of
+            their own below, shown only when there is something to save or undo. */}
+        {mainDataset && modeTabs(onChart)}
+        <div className="lang-switcher">
+          {!phone && mainDataset && (
+            <>
+              {fileActions(true)}
+              <span className="app-head-divider" aria-hidden="true" />
+            </>
+          )}
+          {!phone && mainDataset && (
+            <button
+              className={`nav-btn icon-only charts-open-btn${onChart ? " active" : ""}`}
+              onClick={onChart ? undefined : openChartsFromHeader}
+              aria-pressed={onChart || undefined}
+              title={keyHint(t("charts.header.tooltip"), KEY.tree.toUpperCase())}
+              aria-label={t("edit.charts.button")}
+            >
+              <ChartIcon size={18} />
+            </button>
+          )}
+          {!phone && mainDataset && (
             <button
               className="nav-btn icon-only"
               onClick={() => setShowGlobalSearch(true)}
@@ -2004,6 +2115,18 @@ function AppContent() {
             >
               <SearchIcon size={18} />
             </button>
+          )}
+          {!phone && !compactHead && mainDataset && (
+            <button
+              className="nav-btn icon-only"
+              onClick={onChart ? addPersonFromChart : () => requestAddPerson()}
+              title={keyHint(t("edit.addNewPerson.tooltip"), KEY.addPerson.toUpperCase())}
+              aria-label={t("edit.addNewPerson")}
+            >
+              <AddPersonIcon size={18} />
+            </button>
+          )}
+          {!phone && !compactHead && (
             <button
               className="nav-btn icon-only"
               onClick={() => setShowSettings(true)}
@@ -2012,10 +2135,65 @@ function AppContent() {
             >
               <GearIcon size={18} />
             </button>
-          </div>
+          )}
+          {!phone && !compactHead && (
+            <button
+              className="nav-btn icon-only shortcuts-btn"
+              onClick={() => setShowShortcuts(true)}
+              title={keyHint(t("shortcuts.title"), "?")}
+              aria-label={t("shortcuts.title")}
+            >
+              <HelpIcon size={18} />
+            </button>
+          )}
+          {/* The ☰ is the phone header's one button from the landing page on,
+              so it never changes identity under the user's thumb — with no
+              file loaded it simply holds less. */}
+          {phone && (
+            <AppMenu
+              open={onChart ? chartMenuOpen : menuOpen}
+              onOpenChange={onChart ? setChartMenuOpen : setMenuOpen}
+              files={menuFiles}
+              onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
+              onCharts={mainDataset ? openChartsFromHeader : undefined}
+              onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
+              onAddPerson={mainDataset ? (onChart ? addPersonFromChart : () => requestAddPerson()) : undefined}
+              onSettings={() => setShowSettings(true)}
+              onShortcuts={() => setShowShortcuts(true)}
+            />
+          )}
+          {/* Narrow desktop: Charts and Search stay in the row, so the ☰ holds
+              the three icons it displaces — and, below 880px, the files. */}
+          {compactHead && (
+            <AppMenu
+              open={onChart ? chartMenuOpen : menuOpen}
+              onOpenChange={onChart ? setChartMenuOpen : setMenuOpen}
+              files={filesInMenu ? menuFiles : []}
+              onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
+              onAddPerson={mainDataset ? (onChart ? addPersonFromChart : () => requestAddPerson()) : undefined}
+              onSettings={() => setShowSettings(true)}
+              onShortcuts={() => setShowShortcuts(true)}
+            />
+          )}
         </div>
-      </header>
+      </div>
+      {phone && mainDataset && (hasSaveAction || hasHistoryAction) && (
+        <div className="app-head-controls">
+          {fileActions(false)}
+        </div>
       )}
+    </header>
+  );
+
+  const appFooter = <AppFooter onShortcuts={() => setShowShortcuts(true)} />;
+
+  // Full-page tree views (Compare / the Charts hub) keep the app's own header
+  // and footer around the tree so the page never feels detached from the rest
+  // of the app. Not on a phone: the shell is a fixed frame around a canvas that
+  // wants every pixel, and the view's own Back button is one tap from it.
+  const wrapTree = (content: React.ReactNode) => (
+    <div className="app tree-shell">
+      {!phone && appHeader(true)}
       {content}
       {appFooter}
       {appModals}
@@ -2091,75 +2269,6 @@ function AppContent() {
     );
   }
 
-  // Panel is forced open whenever Merge mode has no matches yet; otherwise
-  // follows the user's showInfoPanel toggle.
-  const infoPanelOpen = showInfoPanel || (mode === "merge" && !matches);
-  const canClosePanel = !(mode === "merge" && !matches);
-  // Show the incoming column in the panel when in Merge mode or a file was loaded.
-  const showCompareInPanel = mode === "merge" || compare.status !== "empty";
-
-  function toggleInfoPanel() {
-    if (canClosePanel) setShowInfoPanel((p) => !p);
-  }
-
-  /** From the ☰ menu, where the panel is out of sight: always open, never toggle. */
-  function openInfoPanel() {
-    setShowInfoPanel(true);
-  }
-
-  // ── Header pieces ────────────────────────────────────────────────────────
-  // On a phone the header is one row — brand, mode tabs, ☰ — and everything the
-  // desktop header shows beside them (file pills, start person, the four icon
-  // buttons) moves into the ☰ menu. The two pieces that swap places between the
-  // layouts are built once here and placed by `phone` below.
-  const modeTabs = (
-    <div className="mode-tabs">
-      <button
-        className={`seg-btn ${mode === "edit" ? "active" : ""}`}
-        onClick={() => { if (mode !== "edit") switchToEdit(); }}
-        title={keyHint(t("mode.edit.tooltip"), KEY.modeEdit.toUpperCase())}
-      >
-        {t("mode.edit")}
-      </button>
-      <button
-        className={`seg-btn ${mode === "merge" ? "active" : ""}`}
-        onClick={() => { if (mode !== "merge") switchToMerge(); }}
-        title={keyHint(t("mode.merge.tooltip"), KEY.modeMerge.toUpperCase())}
-      >
-        {t("mode.merge")}
-      </button>
-      <button
-        className={`seg-btn ${mode === "tools" ? "active" : ""}`}
-        onClick={() => { if (mode !== "tools") switchToTools(); }}
-        title={keyHint(t("mode.tools.tooltip"), KEY.modeTools.toUpperCase())}
-      >
-        {t("mode.tools")}
-      </button>
-    </div>
-  );
-  // Hidden on a file with nobody in it: there is no one to pick, and the empty
-  // Edit view already offers the only thing to do. Only the phone's ☰ menu
-  // carries it; on a wider screen the start person is set from the kinship
-  // chip in Edit's name row (StartPersonChip).
-  const startSelector = mainDataset && mainDataset.individuals.size > 0 && (
-    <StartPersonSelector
-      individuals={mainDataset.individuals}
-      version={editVersion}
-      startId={startId}
-      onChange={changeStart}
-      onClear={() => changeStart(undefined)}
-      onStartClick={goToStartPerson}
-      autoFocus={focusStart}
-      onAutoFocused={() => setFocusStart(false)}
-    />
-  );
-  const menuFiles: AppMenuFile[] = [
-    ...(lastMainFile ? [{ label: t("tree.main"), fileName: lastMainFile.fileName, accent: "main" as const }] : []),
-    ...(compare.status === "loaded" ? [{ label: t("tree.incoming"), fileName: compare.file.fileName, accent: "incoming" as const }] : []),
-  ];
-  const hasSaveAction = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
-  const hasHistoryAction = !!lastMainFile && (canUndo || canRedo);
-
   return (
     <DatasetProvider dataset={mainDataset}>
     <DatasetDerivationsProvider dataset={mainDataset} version={editVersion}>
@@ -2168,141 +2277,7 @@ function AppContent() {
     {treeOverlay}
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
-      <header className="app-head">
-        <div className="app-head-top">
-          <div className="app-head-brand">
-            <h1 onClick={handleTitleClick} className="brand-clickable" title={t("app.brand.tooltip")}>
-              {/* One header row on a phone: the lockup steps down so the mode
-                  tabs and ☰ fit beside it. */}
-              <Wordmark size={phone ? 17 : 22} />
-            </h1>
-            {(lastMainFile || compare.status === "loaded") && (
-              <div className="app-head-file-pills">
-                {lastMainFile && (
-                  <button className="header-file-btn gm-file main" onClick={toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>
-                    {lastMainFile.fileName}
-                    <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
-                  </button>
-                )}
-                {compare.status === "loaded" && (
-                  <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
-                    {compare.file.fileName}
-                    <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-          {/* On a phone the mode tabs come up to the brand row — see the header
-              note above: the second row then only exists when there is something
-              to save or undo. */}
-          {phone && mainDataset && modeTabs}
-          <div className="lang-switcher">
-            {!phone && mainDataset && (
-              <button
-                className="nav-btn icon-only"
-                onClick={openChartsFromHeader}
-                title={t("charts.header.tooltip")}
-                aria-label={t("edit.charts.button")}
-              >
-                <ChartIcon size={18} />
-              </button>
-            )}
-            {!phone && mainDataset && (
-              <button
-                className="nav-btn icon-only"
-                onClick={() => setShowGlobalSearch(true)}
-                title={keyHint(t("globalSearch.tooltip"), "/")}
-                aria-label={t("globalSearch.title")}
-              >
-                <SearchIcon size={18} />
-              </button>
-            )}
-            {!phone && mainDataset && (
-              <button
-                className="nav-btn icon-only"
-                onClick={() => requestAddPerson()}
-                title={keyHint(t("edit.addNewPerson.tooltip"), KEY.addPerson.toUpperCase())}
-                aria-label={t("edit.addNewPerson")}
-              >
-                <AddPersonIcon size={18} />
-              </button>
-            )}
-            {!phone && (
-              <button
-                className="nav-btn icon-only"
-                onClick={() => setShowSettings(true)}
-                title={t("settings.title")}
-                aria-label={t("settings.title")}
-              >
-                <GearIcon size={18} />
-              </button>
-            )}
-            {!phone && (
-              <button
-                className="nav-btn icon-only shortcuts-btn"
-                onClick={() => setShowShortcuts(true)}
-                title={keyHint(t("shortcuts.title"), "?")}
-                aria-label={t("shortcuts.title")}
-              >
-                <HelpIcon size={18} />
-              </button>
-            )}
-            {/* The ☰ is the phone header's one button from the landing page on,
-                so it never changes identity under the user's thumb — with no
-                file loaded it simply holds less. */}
-            {phone && (
-              <AppMenu
-                open={menuOpen}
-                onOpenChange={setMenuOpen}
-                files={menuFiles}
-                onOpenFiles={openInfoPanel}
-                startSelector={mainDataset ? startSelector : undefined}
-                onCharts={mainDataset ? openChartsFromHeader : undefined}
-                onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
-                onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
-                onSettings={() => setShowSettings(true)}
-                onShortcuts={() => setShowShortcuts(true)}
-              />
-            )}
-          </div>
-        </div>
-        {mainDataset && (!phone || hasSaveAction || hasHistoryAction) && (
-          <div className="app-head-controls">
-            <div className="app-head-actions">
-              {hasSaveAction && (
-                <button
-                  className="export-btn"
-                  onClick={() => void handleSave()}
-                  disabled={readingSources}
-                  title={readingSources ? t("save.readingSources") : keyHint(t("save.gedcom.tooltip"), modLabel("S"))}
-                >
-                  {readingSources ? (
-                    <span>{t("save.readingSources")}</span>
-                  ) : (
-                    <>
-                      <span className="export-btn-label-full">{t("save.gedcom")}</span>
-                      <span className="export-btn-label-short">{t("save")}</span>
-                      {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
-                    </>
-                  )}
-                </button>
-              )}
-              {hasHistoryAction && (
-                <>
-                  <button className="tree-open-btn undo-btn" onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
-                    ↩ <span className="undo-btn-label">{t("undo")}</span>
-                  </button>
-                  <button className="tree-open-btn undo-btn" onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
-                    <span className="undo-btn-label">{t("redo")}</span> ↪
-                  </button>
-                </>
-              )}
-            </div>
-            {!phone && modeTabs}
-          </div>
-        )}
-      </header>
+      {appHeader(false)}
 
       {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
       {infoPanelOpen && lastMainFile && (

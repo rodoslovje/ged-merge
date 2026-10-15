@@ -14,7 +14,6 @@ import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { useNameOf, useSetSettings, useSettingsSlice } from "./SettingsContext";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { BackButton } from "./BackButton";
-import { ChartIcon } from "./icons/ChartIcon";
 import { MapIcon } from "./icons/MapIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { decisionKey, decisionStatusByMainId, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
@@ -93,7 +92,7 @@ import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
-import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, keyHint, modLabel } from "../keyboard/shortcuts";
+import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
@@ -1885,14 +1884,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               disabled={!canGoBack}
               onClick={goBack}
             />
-            <button
-              className="tree-open-btn charts-open-btn"
-              onClick={() => selectedId && onShowCharts(selectedId)}
-              disabled={!selectedId}
-              title={keyHint(t("edit.charts.tooltip"), KEY.tree.toUpperCase())}
-            >
-              <ChartIcon size={14} /> {t("edit.charts.button")}
-            </button>
           </div>
         </div>
 

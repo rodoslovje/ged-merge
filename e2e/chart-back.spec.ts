@@ -105,3 +105,75 @@ test("E / M / T leave a chart for their mode", async ({ page }) => {
     })
     .toBe(root);
 });
+
+// A chart carries the app's own header: no mode tab is lit, the Charts button
+// is, and a tab or a file pill leaves the chart (Back returns to it).
+test("the chart's header leaves for a mode or the files", async ({ page }) => {
+  await openChartsFromEdit(page);
+  await expect(page.locator(".tree-shell .mode-tabs .seg-btn.active")).toHaveCount(0);
+  await expect(page.locator(".tree-shell .charts-open-btn")).toHaveAttribute("aria-pressed", "true");
+
+  await page.locator(".tree-shell .mode-tabs").getByRole("button", { name: "Tools", exact: true }).click();
+  await expect(page.locator(".tools-view")).toBeVisible();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+
+  await page.locator(".tree-shell .header-file-btn.main").click();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await expect(page.locator(".info-panel")).toBeVisible();
+});
+
+// The chart's ☰ (a narrower window) works: the app's own ☰, hidden under the
+// chart, once shared its open state and closed this one before a click landed.
+test("the chart's ☰ opens the files and adds a person", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 700 });
+  await openChartsFromEdit(page);
+  await page.locator(".tree-shell .app-menu-btn").click();
+  await page.locator(".tree-shell .app-menu-files-more").click();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await expect(page.locator(".info-panel")).toBeVisible();
+
+  await page.goBack();
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+  await page.locator(".tree-shell .app-menu-btn").click();
+  await page.locator(".tree-shell .app-menu-item", { hasText: "Add new person" }).click();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
+  await expect(page.locator(".edit-person .edit-name-input").first()).toHaveValue("");
+  await expect(page.locator(".app-head-actions .export-btn").first()).toBeEnabled();
+});
+
+// On a phone the chart's toolbar is Back, the title and a ☰; the kind, the
+// direction, Find and the settings/export pair live in the ☰'s panel.
+test("a phone chart folds its controls into a ☰", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 760 });
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator(".edit-person").waitFor();
+  await page.keyboard.press("v");
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+  await expect(page.locator(".tree-page > .tree-controls")).toHaveCount(0);
+  await expect(page.locator(".chart-find-input, .tree-page input[type=search]")).toHaveCount(0);
+
+  await page.locator(".chart-menu-btn").click();
+  await page.locator(".chart-menu-panel .picker-menu-btn").click();
+  await page.locator(".chart-menu-panel .picker-menu-item", { hasText: "Fan" }).click();
+  await expect(page.locator(".chart-menu-panel .picker-menu-btn")).toContainText("Fan");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".chart-menu-panel")).toHaveCount(0);
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+});
+
+// V opens the charts from any mode, as the header button does — in Tools,
+// where no view answers it, on the start person.
+test("V opens the charts from Tools", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator(".edit-person").waitFor();
+  await page.keyboard.press("t");
+  await expect(page.locator(".tools-view")).toBeVisible();
+  await page.keyboard.press("v");
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator(".tools-view")).toBeVisible();
+});

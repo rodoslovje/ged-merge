@@ -58,7 +58,7 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
   // Confirm the single candidate (first button in the decision bar = "confirm").
   await page.locator(".candidate-main").first().click();
   await page.locator(".decision-bar button").first().click();
-  await expect(saveBtn(page)).toBeVisible();
+  await expect(saveBtn(page)).toBeEnabled();
 
   await waitForCache(page, { mainContains: "Kukic", decisions: true, compare: true });
   await page.reload();
@@ -68,7 +68,7 @@ test("reload restores a confirmed merge decision", async ({ page }) => {
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
   await page.getByRole("button", { name: "Merge", exact: true }).click();
   await page.locator(".candidate").first().waitFor({ timeout: 30000 });
-  await expect(saveBtn(page)).toBeVisible({ timeout: 15000 });
+  await expect(saveBtn(page)).toBeEnabled({ timeout: 15000 });
 
   // Re-selecting the candidate shows its decision is still "confirmed".
   await page.locator(".candidate-main").first().click();
@@ -82,14 +82,14 @@ test("reload restores unsaved edits", async ({ page }) => {
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
-  // No pending changes yet → no Save button.
-  await expect(saveBtn(page)).toHaveCount(0);
+  // No pending changes yet → Save is disabled.
+  await expect(saveBtn(page)).toBeDisabled();
 
   const given = page.locator(".edit-name-input").first();
   const original = await given.inputValue();
   await given.fill(`${original} TEST`);
   await page.locator(".edit-name-input").nth(1).click(); // blur to commit
-  await expect(saveBtn(page)).toBeVisible();
+  await expect(saveBtn(page)).toBeEnabled();
 
   await waitForCache(page, { mainContains: `${original} TEST` });
   await page.reload();
@@ -98,7 +98,7 @@ test("reload restores unsaved edits", async ({ page }) => {
   // still marked as a pending change.
   await page.locator(".edit-person").waitFor();
   await expect(page.locator(".edit-name-input").first()).toHaveValue(`${original} TEST`, { timeout: 15000 });
-  await expect(saveBtn(page)).toBeVisible();
+  await expect(saveBtn(page)).toBeEnabled();
 });
 
 test("reload restores undo history, so an edit can be undone after reloading", async ({ page }) => {

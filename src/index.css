@@ -112,7 +112,13 @@ button:focus-visible {
   flex: 0 1 auto;     /* pills shrink (truncate) before forcing a wrap */
   min-width: 0;
 }
+/* The pill is a flex box, and an ellipsis does not reach text loose inside
+   one — the name was cut off mid-letter at the border, caret and all. The name
+   truncates in its own span, inside the pill's padding, beside the caret. */
 .app-head-file-pills .header-file-btn {
+  min-width: 0;
+}
+.header-file-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -159,30 +165,12 @@ button:focus-visible {
 }
 .header-file-btn:hover .header-file-caret { color: inherit; }
 
-/* Second header row: start selector (grows) + save/undo/redo (right) */
+/* The phone's second header row: Save/Undo/Redo, right-aligned (phone block). */
 .app-head-controls {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-}
-.app-head-controls .start-selector {
-  /* Compact: prefer a narrow ~190px and shrink to a small floor rather than
-     filling the row, so the mode tabs stay on this line — they wrap to a new
-     row only when the selector is squeezed to its minimum. */
-  /* Default width matches the Edit-toolbar search-person field (max-width 360px). */
-  flex: 0 1 360px;
-  min-width: 84px;
-}
-/* Let the input shrink with the selector (the wrapper's min-width is the real
-   floor) instead of holding a wide 120px minimum. */
-.app-head-controls .start-selector input {
-  min-width: 0;
-}
-/* Push the save/undo group (and the mode tabs after them) to the right edge of
-   the controls row, away from the compact start selector on the left. */
-.app-head-controls .app-head-actions {
-  margin-left: auto;
 }
 .app-head-actions {
   display: flex;
@@ -193,16 +181,64 @@ button:focus-visible {
 .app-head-actions .export-btn {
   font-size: 0.85rem;
 }
-/* The Save button shows "Save GEDCOM" by default and the short "Save" on small
-   screens (toggled in the 880px header media query below). */
+/* The Save button shows "Save GEDCOM" by default and the short "Save" on
+   narrower screens (toggled in the 1100px header media query below). */
 .export-btn-label-short {
   display: none;
 }
 
+/* One header row in three zones, at every width: brand + file pills · mode tabs
+   · file actions and tools. The equal outer tracks keep the tabs centred; `1fr`
+   never shrinks the tools' track below its content, so a crowded side pushes
+   the tabs off-centre rather than overlapping them. The brand is a size
+   container, so it contributes no width of its own: it takes what is left,
+   and gives it up first. The tabs' track can shrink to nothing (a phone at
+   320px), and only once the brand has nothing left to give. */
 .app-head-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, auto) 1fr;
+  align-items: center;
+  column-gap: 16px;
+}
+.app-head-top > .app-head-brand { container: head-brand / inline-size; }
+/* The lettering shows whenever it fits beside what shares the brand's zone —
+   the pills keep a readable name each before the lettering takes their room. */
+@container head-brand (max-width: 160px) {
+  .gm-wordmark-text { display: none; }
+}
+@container head-brand (max-width: 300px) {
+  .app-head-brand:has(.app-head-file-pills) .gm-wordmark-text { display: none; }
+}
+@container head-brand (max-width: 400px) {
+  .app-head-brand:has(.header-file-btn + .header-file-btn) .gm-wordmark-text { display: none; }
+}
+.app-head-top > .app-head-brand { grid-column: 1; }
+.app-head-top > .mode-tabs { grid-column: 2; }
+.app-head-top > .lang-switcher { grid-column: 3; justify-self: end; }
+/* Undo/Redo/Save beside the tool icons, set off from them by a hairline. */
+.app-head-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 10px;
+  background: var(--border);
+  flex: none;
+}
+/* One box for every icon button in the group: an inline SVG, a ↩ glyph and the
+   ☰ glyph each set their own line box, so left to themselves they came out
+   27.6, 28.6 and 30.6px tall and the ☰ sat lower than its neighbours. The
+   phone chart's ☰ takes the same box, so the two ☰ buttons match. */
+.lang-switcher .nav-btn.icon-only,
+.chart-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 30px;
+  min-width: 40px;
+}
+.lang-switcher .app-head-actions .export-btn {
+  align-self: stretch;
+  margin-left: 4px;
 }
 .mode-tabs {
   display: inline-flex;
@@ -344,10 +380,6 @@ button:focus-visible {
    media query of their own. */
 .app-menu {
   position: relative;
-}
-.app-menu-glyph {
-  font-size: 1.15rem;
-  line-height: 1;
 }
 .app-menu-btn.open {
   color: var(--accent);
@@ -4654,14 +4686,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 5px;
 }
 .tree-export-btn svg { flex: 0 0 auto; }
-/* Charts-hub triggers pair the app's tree glyph with the label, matching the
-   icon-only header trigger so the glyph reads as "charts" everywhere. */
-.charts-open-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.charts-open-btn svg { flex: 0 0 auto; }
 .tree-export-btn.open { border-color: var(--accent); }
 /* Export dropdown: one menu for every download format (mirrors the
    chart-settings popover placement). */
@@ -4722,6 +4746,55 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .tree-shell-head {
   margin-bottom: 0;
+}
+/* The phone chart's ☰ (ChartPage): its panel holds the settings/export pair
+   and the controls row, one control per line. No scroll box of its own — the
+   gear's and Export's popovers open out of it and must not be clipped. */
+.chart-menu {
+  position: relative;
+  flex: none;
+}
+.chart-menu-btn.open {
+  color: var(--accent);
+}
+.chart-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 70;
+  width: min(340px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+.chart-menu-actions {
+  display: flex;
+  gap: 8px;
+}
+/* In the toolbar the gear and Export sit at the right edge and open leftwards;
+   in the panel they sit at its left, so their popovers open rightwards. */
+.chart-menu-actions .chart-settings-popover,
+.chart-menu-actions .export-menu-popover {
+  left: 0;
+  right: auto;
+  max-width: calc(100vw - 32px);
+}
+.chart-menu-panel .tree-controls.chart-menu-controls {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.chart-menu-controls .tree-controls-left {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 .tree-toolbar {
   flex: 0 0 auto;
@@ -8249,8 +8322,8 @@ kbd {
 
 /* --- Responsive adjustments for narrow screens (phones, tablets) ---
    Breakpoint scale (max-width), used throughout the file:
-     1100px — wordmark/file-pills/mode-tabs no longer fit on one header row
-      880px — header collapses; Save button switches to its short label
+     1100px — header folds three icons into a ☰, wordmark keeps its mark only
+      880px — modals go full-screen; sections lose their side borders
       720px — tablet/large-phone layout (single column, stacked panels)
       560px — phone: one field per full-width row
    Some component-local responsive rules live next to their component
@@ -8391,13 +8464,6 @@ kbd {
      wrapping to a row below while the selector stays full-width. */
   .app-head-actions {
     flex-shrink: 1;
-  }
-  /* Shorten the Save button to just "Save" to save horizontal space. */
-  .export-btn-label-full {
-    display: none;
-  }
-  .export-btn-label-short {
-    display: inline;
   }
   /* On small screens shrink the outer columns and let the labels wrap rather
      than forcing a wide fixed column. The compare table is `table-layout: fixed`,
@@ -8548,14 +8614,6 @@ kbd {
 @media (max-width: 560px) {
   /* Stack the name-display preview so the person sample gets its own row
      instead of being squeezed next to the "Preview" label. */
-  /* The narrowest phones, and Slovenian ("Urejanje · Združevanje · Orodja" is
-     half again as wide as the English), no longer fit the lettering beside the
-     mode tabs. Keep the mark — it is the brand and the click target; the tabs
-     are what the user came for. Only where the tabs actually are, though: the
-     landing page has the row to itself and keeps the full lockup. */
-  .app-head-top:has(.mode-tabs) .gm-wordmark-text {
-    display: none;
-  }
   /* Every pixel here buys a whole label: at 320px the Slovenian tabs
      ("Urejanje · Združevanje · Orodja") are ~10px short of fitting beside the
      mark and the ☰, and the difference is between "Orodja" and "Oro…". */
@@ -8593,75 +8651,29 @@ kbd {
   .report-gen-head > * { flex: 0 0 auto; }
 }
 
-/* Below ~1100px the wordmark + file pills + mode tabs + lang switcher no longer
-   fit comfortably on one line (especially with two files loaded). Flatten the
-   brand so the wordmark, pills, tabs, and lang/theme switcher become direct flex
-   items of the header row. The pills (flex-basis 0) yield space first, so the
-   tabs and switcher stay on row 1 as long as they fit; the pills just truncate.
-   This avoids the awkward state where the pills wrapped beneath the wordmark
-   while the tabs floated off to the right. */
+/* Below ~1100px the header stays one row: Add person, Settings and Help fold
+   into a ☰ (App.tsx renders that swap) and Save drops "GEDCOM" from its label.
+   The file pills give up their width first and truncate. */
 @media (max-width: 1100px) {
-  .app-head-top {
-    flex-wrap: wrap;
-    row-gap: 8px;
-    column-gap: 12px;
-    align-items: center;
+  .export-btn-label-full {
+    display: none;
   }
-  .app-head-brand {
-    display: contents;
-  }
-  .app-head-brand h1 {
-    order: 0;
-  }
-  /* flex-basis 0 so the pills never bump the tabs or switcher to the next line:
-     the wordmark, mode tabs, and switcher always reserve their space first and
-     the pills take only the leftover — growing to fill it when there's room and
-     truncating when the names are long. This keeps the tabs (and theme +
-     language) up on the first row whenever they fit. */
-  .app-head-file-pills {
-    order: 1;
-    flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .lang-switcher {
-    order: 3;
-    margin-left: auto;
-  }
-  /* When file pills are present they already grow to push the tabs + switcher
-     right, so drop the auto margin (which would otherwise starve the pills'
-     growth). With no files the auto margin keeps the switcher pinned right. */
-  .app-head-brand:has(.app-head-file-pills) ~ .lang-switcher {
-    margin-left: 0;
+  .export-btn-label-short {
+    display: inline;
   }
 }
 
-/* Phone: one header row — wordmark, mode tabs, ☰. The pills, the start-person
-   picker and the four icon buttons all move into the ☰ menu (App.tsx renders
+/* Phone: one header row — wordmark, mode tabs, ☰. The pills and the five icon
+   buttons all move into the ☰ menu (App.tsx renders
    that swap, so nothing here is a hidden duplicate), and the second row exists
    only when there is something to save or undo. */
 @media (max-width: 720px) {
   .app-head-top {
     column-gap: 8px;
-    /* One row, and it stays one row. A wrapping flex container breaks the line
-       on each item's *content* size and only then shrinks what is on it — so
-       the ☰ dropped to a second row while the mode tabs, which were willing to
-       shrink, never got the chance. With `nowrap` the tabs give up their width
-       instead (they are the only flexible item here). */
-    flex-wrap: nowrap;
-  }
-  /* The filenames move into the ☰ menu, which lists them and opens the same
-     info panel the pills toggle. (This used to say `display: none` from 880px
-     down with nothing taking over, which left no way at all to see or change
-     the loaded files on a phone.) */
-  .app-head-file-pills {
-    display: none;
   }
   .mode-tabs {
-    order: 2;
     /* The one flexible item on the row: it shrinks before the wordmark or ☰ do,
        and its buttons ellipsis rather than push them off the edge. */
-    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     padding: 2px;
@@ -8673,10 +8685,6 @@ kbd {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .lang-switcher {
-    order: 3;
-    margin-left: auto;
   }
   .app-head-controls {
     margin-top: 8px;
@@ -10511,20 +10519,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   .tree-controls-left {
     flex: 0 1 auto;
     min-width: 0;
-  }
-  /* Sized to the longest kind name rather than a round number — the labels top
-     out at 67px (sl) / ~86px (en) plus the caret, gap, padding and border. A
-     fixed width, not `max-content`: the Ancestors/Descendants toggle sits beside
-     it and would shift every time the kind changed. */
-  .charts-kind-picker {
-    width: 128px;
-  }
-  /* The gear and download glyphs say it all on a phone — drop the "Chart" /
-     "Export" lettering so the toolbar fits. The buttons keep their
-     aria-labels and tooltips. */
-  .chart-settings-label,
-  .export-menu-label {
-    display: none;
   }
   /* The find box takes the next row — its field stretching to whatever is left
      beside the ‹ ›. */

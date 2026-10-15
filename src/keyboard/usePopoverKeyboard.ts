@@ -49,8 +49,16 @@ export function usePopoverKeyboard<T extends HTMLElement = HTMLDivElement, B ext
     const items = () =>
       node ? Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null) : [];
 
+    // A dropdown opened from inside the panel renders its list in a portal at
+    // the end of <body>; a click or focus there is still inside — else the
+    // panel would close on mousedown and take the dropdown, and the pick,
+    // with it (the phone chart's ☰ holds the chart-kind dropdown).
     function inside(target: EventTarget | null): boolean {
-      return !!target && (!!node?.contains(target as Node) || !!triggerRef.current?.contains(target as Node));
+      return !!target && (
+        !!node?.contains(target as Node) ||
+        !!triggerRef.current?.contains(target as Node) ||
+        (target instanceof Element && !!target.closest(".dd-menu"))
+      );
     }
 
     // The first control takes focus, so the arrows and Enter have something to
