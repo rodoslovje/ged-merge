@@ -1597,6 +1597,7 @@ export const sl = {
   "tree.both": "Oboje",
   "tree.both.tooltip": "Predniki na eni strani osebe, potomci na drugi",
   "tree.bowtie": "Predniki in potomci",
+  "tree.bothTitle": "Predniki in potomci",
   "tree.direction": "Smer",
   "tree.kind.tree": "Drevo",
   "tree.kind.grid": "Mreža",
