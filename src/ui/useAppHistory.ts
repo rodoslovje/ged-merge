@@ -29,6 +29,12 @@ interface SelRef {
   compareId: string;
 }
 
+/** The Compare Tree's twin of {@link ChartsTrail}: its root is a pair. */
+export interface TreeTrail {
+  items: SelRef[];
+  idx: number;
+}
+
 /**
  * Where the app is: the view on screen, and — in Tools — which tool and which
  * of its pages. One record per history entry, so a Back press can put the app
@@ -89,6 +95,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
   // Full-page "Compare tree" view, kept in sync with browser history so the
   // back button returns to the main view.
   const [treeView, setTreeView] = useState<TreeView | null>(null);
+  const [treeTrail, setTreeTrail] = useState<TreeTrail>({ items: [], idx: 0 });
   // Charts hub: the full-page per-person diagram overlay (pedigree charts +
   // relationship). Which diagram it shows is the persisted chart "kind".
   const [chartsRootId, setChartsRootId] = useState<string | null>(null);
@@ -182,7 +189,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
 
     function onPop(e: PopStateEvent) {
       const st = (e.state ?? {}) as {
-        gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
+        gedPage?: string; gedTree?: TreeView; gedTreeTrail?: TreeTrail; gedSel?: SelRef;
         gedChartsId?: string; gedChartsBack?: string;
         gedChartsFrom?: string; gedChartsTrail?: ChartsTrail;
         gedEditTreeId?: string; gedRelId?: string;
@@ -213,6 +220,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
       // ours is left beneath it.
       setCanGoBack(st.gedPage !== "main");
       setTreeView(st.gedTree ?? null);
+      setTreeTrail(st.gedTreeTrail ?? { items: st.gedTree ? [{ mainId: st.gedTree.mainId, compareId: st.gedTree.compareId }] : [], idx: 0 });
       // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
       // history can still carry them, so they map onto the hub too.
       const chartsId = st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null;
@@ -455,19 +463,37 @@ export function useAppHistory(opts: AppHistoryOptions) {
   function openTree(mainId: string, compareId: string) {
     rememberSelection();
     const view: TreeView = { mainId, compareId, mode: "ancestors" };
-    pushEntry({ gedTree: view });
+    const trail: TreeTrail = { items: [{ mainId, compareId }], idx: 0 };
+    pushEntry({ gedTree: view, gedTreeTrail: trail });
     setTreeView(view);
+    setTreeTrail(trail);
     setChartsRootId(null); // overlays are exclusive (see openCharts)
   }
 
-  /** Re-root the open tree on another person, as a new history entry. */
+  /** Draw the open Compare Tree for another pair in place — its one history
+   *  entry rewritten, like the Charts hub's (see {@link showChartsAt}). */
+  function showTreeAt(trail: TreeTrail) {
+    const view: TreeView = { ...trail.items[trail.idx], mode: treeView?.mode ?? "ancestors" };
+    window.history.replaceState({ ...window.history.state, gedTree: view, gedTreeTrail: trail }, "");
+    setTreeTrail(trail);
+    setTreeView(view);
+  }
+
+  /** Step to another pair of the Compare Tree's trail. */
+  function stepTreeTrail(idx: number) {
+    if (idx < 0 || idx >= treeTrail.items.length || idx === treeTrail.idx) return;
+    showTreeAt({ ...treeTrail, idx });
+  }
+
+  /** Re-root the open tree on another person: they join the tree's trail. */
   function rerootTree(mainId?: string, compareId?: string) {
     if (!mainId && !compareId) return;
-    setTreeView((cur) => {
-      const view: TreeView = { mainId: mainId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
-      pushEntry({ gedTree: view });
-      return view;
-    });
+    const pair = { mainId: mainId ?? "", compareId: compareId ?? "" };
+    const same = (s: SelRef) => s.mainId === pair.mainId && s.compareId === pair.compareId;
+    if (treeView && same(treeView)) return;
+    const kept = treeTrail.items.slice(0, treeTrail.idx + 1).filter((s) => !same(s));
+    const items = [...kept, pair].slice(-TRAIL_MAX);
+    showTreeAt({ items, idx: items.length - 1 });
   }
 
   /** Leave the open tree and select this pair back in the Matches list. Pushes a
@@ -546,6 +572,8 @@ export function useAppHistory(opts: AppHistoryOptions) {
 
   return {
     treeView,
+    treeTrail,
+    stepTreeTrail,
     chartsRootId,
     setChartsRootId,
     chartsBackKey,
