@@ -1403,7 +1403,7 @@ export const en = {
   "tree.descendants": "Descendants",
   "tree.both": "Both",
   "tree.both.tooltip": "Ancestors on one side of the person, descendants on the other",
-  "tree.bowtie": "Bowtie",
+  "tree.bowtie": "Ancestors and Descendants",
   "tree.bothTitle": "Ancestors and Descendants",
   "tree.direction": "Direction",
   "tree.kind.tree": "Tree",
