@@ -21,6 +21,7 @@ export const en = {
   "section.matches": "Matches",
   "section.compare": "Compare",
   "menu.title": "Menu",
+  "chart.menu.title": "Chart options",
   "menu.files": "Files",
   "menu.files.manage": "Load or change files…",
   "menu.start": "Start person",

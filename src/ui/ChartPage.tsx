@@ -1,6 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { BackButton } from "./BackButton";
 import { ChartTrailNav } from "./ChartTrail";
+import { MenuIcon } from "./icons/MenuIcon";
+import { usePhone } from "./usePhone";
 
 // The shared full-page chart/report scaffold: Back button + title toolbar with
 // the settings/export actions on the right, then the controls row (kind
@@ -8,6 +12,9 @@ import { ChartTrailNav } from "./ChartTrail";
 // trees, relationship, timeline, report) renders inside this one skeleton, so
 // the layout and its CSS hooks stay identical across kinds; the pages differ
 // only in what they pour into the slots and the canvas below.
+//
+// On a phone the toolbar is one row — Back, the title, a ☰ — and the actions
+// and the controls row fold into the ☰'s panel, so the chart keeps the screen.
 
 interface Props {
   /** Translated label for where Back lands. */
@@ -28,21 +35,59 @@ interface Props {
 }
 
 export function ChartPage({ backLabel, onBack, title, actions, controlsLeft, controlsRight, children }: Props) {
+  const phone = usePhone();
+  const hasControls = !!(controlsLeft || controlsRight);
   return (
     <div className="tree-page">
       <div className="tree-toolbar">
         <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
         <ChartTrailNav />
         <h2 className="tree-title">{title}</h2>
-        {actions}
+        {phone ? (
+          <ChartMenu>
+            {actions && <div className="chart-menu-actions">{actions}</div>}
+            {hasControls && (
+              <div className="tree-controls chart-menu-controls">
+                <div className="tree-controls-left">{controlsLeft}</div>
+                {controlsRight}
+              </div>
+            )}
+          </ChartMenu>
+        ) : (
+          actions
+        )}
       </div>
-      {(controlsLeft || controlsRight) && (
+      {!phone && hasControls && (
         <div className="tree-controls">
           <div className="tree-controls-left">{controlsLeft}</div>
           {controlsRight}
         </div>
       )}
       {children}
+    </div>
+  );
+}
+
+/** The phone chart's ☰: a toggle and the panel holding the chart's controls. */
+function ChartMenu({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const { containerRef, triggerRef, onTriggerKeyDown } = usePopoverKeyboard(open, setOpen);
+  return (
+    <div className="chart-menu" ref={containerRef}>
+      <button
+        ref={triggerRef}
+        className={`nav-btn icon-only chart-menu-btn${open ? " open" : ""}`}
+        onClick={() => setOpen(!open)}
+        onKeyDown={onTriggerKeyDown}
+        aria-haspopup="true"
+        aria-expanded={open}
+        title={t("chart.menu.title")}
+        aria-label={t("chart.menu.title")}
+      >
+        <MenuIcon size={18} />
+      </button>
+      {open && <div className="chart-menu-panel">{children}</div>}
     </div>
   );
 }

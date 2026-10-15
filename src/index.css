@@ -4744,6 +4744,55 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-shell-head {
   margin-bottom: 0;
 }
+/* The phone chart's ☰ (ChartPage): its panel holds the settings/export pair
+   and the controls row, one control per line. No scroll box of its own — the
+   gear's and Export's popovers open out of it and must not be clipped. */
+.chart-menu {
+  position: relative;
+  flex: none;
+}
+.chart-menu-btn.open {
+  color: var(--accent);
+}
+.chart-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 70;
+  width: min(340px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+.chart-menu-actions {
+  display: flex;
+  gap: 8px;
+}
+/* In the toolbar the gear and Export sit at the right edge and open leftwards;
+   in the panel they sit at its left, so their popovers open rightwards. */
+.chart-menu-actions .chart-settings-popover,
+.chart-menu-actions .export-menu-popover {
+  left: 0;
+  right: auto;
+  max-width: calc(100vw - 32px);
+}
+.chart-menu-panel .tree-controls.chart-menu-controls {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.chart-menu-controls .tree-controls-left {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
 .tree-toolbar {
   flex: 0 0 auto;
   display: flex;

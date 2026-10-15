@@ -21,6 +21,7 @@ export const sl = {
   "section.matches": "Ujemanja",
   "section.compare": "Primerjava",
   "menu.title": "Meni",
+  "chart.menu.title": "Možnosti diagrama",
   "menu.files": "Datoteke",
   "menu.files.manage": "Naloži ali zamenjaj datoteke…",
   "menu.start": "Izhodiščna oseba",
