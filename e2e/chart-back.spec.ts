@@ -105,3 +105,17 @@ test("E / M / T leave a chart for their mode", async ({ page }) => {
     })
     .toBe(root);
 });
+
+// V opens the charts from any mode, as the header button does — in Tools,
+// where no view answers it, on the start person.
+test("V opens the charts from Tools", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.locator(".edit-person").waitFor();
+  await page.keyboard.press("t");
+  await expect(page.locator(".tools-view")).toBeVisible();
+  await page.keyboard.press("v");
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator(".tools-view")).toBeVisible();
+});

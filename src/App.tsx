@@ -1133,8 +1133,8 @@ function AppContent() {
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
   // Kept locale-independent — label-derived first letters collided across
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
-  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor });
-  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor };
+  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader });
+  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader };
 
   // A mode letter on a full-page chart leaves it for that mode, the person the
   // chart stands on carried along as a mode switch carries Merge's selection.
@@ -1165,6 +1165,14 @@ function AppContent() {
       if (key === KEY.modeEdit && cur !== "edit") { e.preventDefault(); se(); }
       else if (key === KEY.modeMerge && cur !== "merge") { e.preventDefault(); sme(); }
       else if (key === KEY.modeTools && cur !== "tools") { e.preventDefault(); st(); }
+      else if (key === KEY.tree) {
+        // V opens the charts from anywhere, as the header button does. Edit and
+        // Merge answer it first with their own person or pair; this only
+        // catches the key they left alone (Tools, an empty match list). Their
+        // listeners may sit before or after this one on `window`, so wait for
+        // the dispatch to finish before reading whether one of them took it.
+        setTimeout(() => { if (!e.defaultPrevented) modeSwitchRef.current.openCharts(); });
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -2242,9 +2250,9 @@ function AppContent() {
             )}
             {!phone && mainDataset && (
               <button
-                className="nav-btn icon-only"
+                className="nav-btn icon-only charts-open-btn"
                 onClick={openChartsFromHeader}
-                title={t("charts.header.tooltip")}
+                title={keyHint(t("charts.header.tooltip"), KEY.tree.toUpperCase())}
                 aria-label={t("edit.charts.button")}
               >
                 <ChartIcon size={18} />
