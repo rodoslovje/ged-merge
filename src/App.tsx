@@ -1992,12 +1992,12 @@ function AppContent() {
               <div className="app-head-file-pills">
                 {lastMainFile && (
                   <button className="header-file-btn gm-file main" onClick={() => window.history.back()} title={`${t("tree.main")}: ${lastMainFile.fileName}`}>
-                    {lastMainFile.fileName}
+                    <span className="header-file-name">{lastMainFile.fileName}</span>
                   </button>
                 )}
                 {compare.status === "loaded" && (
                   <button className="header-file-btn gm-file incoming" onClick={() => window.history.back()} title={`${t("tree.incoming")}: ${compare.file.fileName}`}>
-                    {compare.file.fileName}
+                    <span className="header-file-name">{compare.file.fileName}</span>
                   </button>
                 )}
               </div>
@@ -2224,13 +2224,13 @@ function AppContent() {
               <div className="app-head-file-pills">
                 {lastMainFile && (
                   <button className="header-file-btn gm-file main" onClick={toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>
-                    {lastMainFile.fileName}
+                    <span className="header-file-name">{lastMainFile.fileName}</span>
                     <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
                   </button>
                 )}
                 {compare.status === "loaded" && (
                   <button className="header-file-btn gm-file incoming" onClick={toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
-                    {compare.file.fileName}
+                    <span className="header-file-name">{compare.file.fileName}</span>
                     <span className="header-file-caret" aria-hidden="true">{infoPanelOpen ? "▴" : "▾"}</span>
                   </button>
                 )}

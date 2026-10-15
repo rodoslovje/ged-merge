@@ -112,7 +112,13 @@ button:focus-visible {
   flex: 0 1 auto;     /* pills shrink (truncate) before forcing a wrap */
   min-width: 0;
 }
+/* The pill is a flex box, and an ellipsis does not reach text loose inside
+   one — the name was cut off mid-letter at the border, caret and all. The name
+   truncates in its own span, inside the pill's padding, beside the caret. */
 .app-head-file-pills .header-file-btn {
+  min-width: 0;
+}
+.header-file-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
