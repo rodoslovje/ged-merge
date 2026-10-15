@@ -31,6 +31,7 @@ export function FieldValue({
   otherLinks,
   linkIcons,
   otherLinkIcons,
+  fsIds,
 }: {
   text: string;
   links?: string[];
@@ -41,9 +42,22 @@ export function FieldValue({
   linkIcons?: string[];
   /** The other side's inline link icons, to highlight new ones. */
   otherLinkIcons?: string[];
+  /** Each line is a FamilySearch person id: give it the 🌳 link to its tree page. */
+  fsIds?: boolean;
 }) {
   if (links && links.length > 0) {
     return <LinkIcons urls={links} otherUrls={otherLinks} />;
+  }
+  if (fsIds) {
+    return (
+      <>
+        {text.split("\n").map((id, i) => (
+          <div key={i} className="val-line">
+            {id ? <><FsIdLink id={id} /> {id}</> : " "}
+          </div>
+        ))}
+      </>
+    );
   }
   if (linkIcons && linkIcons.length > 0) {
     return (
@@ -75,6 +89,22 @@ export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: str
         </a>
       ))}
     </span>
+  );
+}
+
+/** The public FamilySearch tree page for a person id. */
+export function familySearchPersonUrl(id: string): string {
+  return `https://www.familysearch.org/tree/person/details/${encodeURIComponent(id)}`;
+}
+
+/** The 🌳 icon that opens a FamilySearch person id's tree page. */
+export function FsIdLink({ id, className = "link-icon" }: { id: string; className?: string }) {
+  const { t } = useTranslation();
+  const url = familySearchPersonUrl(id);
+  return (
+    <a className={className} href={url} target="_blank" rel="noopener noreferrer" {...tipProps(linkTooltip(url, t, t("edit.fsIdOpen")))}>
+      🌳
+    </a>
   );
 }
 

@@ -1,16 +1,11 @@
 import { useState } from "react";
-import { linkTooltip } from "../FieldValue";
+import { FsIdLink } from "../FieldValue";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFsIds, type FsIdTag } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
 import { fieldWidth } from "./editConstants";
-
-/** The public FamilySearch tree page for a person id. */
-export function familySearchPersonUrl(id: string): string {
-  return `https://www.familysearch.org/tree/person/details/${encodeURIComponent(id)}`;
-}
 
 /** The person's FamilySearch ids (`_FID`/`_FSFTID`) as chips: each links out to
  * the FamilySearch tree page and turns into an editable field on click. Renders
@@ -98,15 +93,7 @@ export function FsIdEditor({
             </span>
           ) : (
             <span key={i} className="edit-name-chip-wrap">
-              <a
-                className="link-icon edit-link-icon"
-                href={familySearchPersonUrl(id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={linkTooltip(familySearchPersonUrl(id), t, t("edit.fsIdOpen"))}
-              >
-                🌳
-              </a>
+              <FsIdLink id={id} className="link-icon edit-link-icon" />
               <button
                 type="button"
                 className="edit-name-chip"
