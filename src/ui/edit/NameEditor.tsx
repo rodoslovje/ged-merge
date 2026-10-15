@@ -30,8 +30,6 @@ export function NameEditor({
   matchStatus,
   onToggleMatchStatus,
   kinship,
-  kinshipLineage,
-  kinshipTooltip,
   modified,
   controls,
 }: {
@@ -49,11 +47,9 @@ export function NameEditor({
   hasMatch?: boolean;
   matchStatus?: MatchDecisionStatus;
   onToggleMatchStatus?: (status: MatchDecisionStatus) => void;
-  /** Kinship label shown inline in the name row (e.g. "Great-grandmother ×9"). */
-  kinship?: string;
-  /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-maternal"). */
-  kinshipLineage?: string;
-  kinshipTooltip?: string;
+  /** Kinship slot shown inline in the name row — the start-person chip, whose
+   *  label reads e.g. "Great-grandmother". */
+  kinship?: ReactNode;
   /** True when this person's record has unsaved edits — shows the same "modified"
    *  chip the relative cards and tree nodes use. */
   modified?: boolean;
@@ -133,7 +129,7 @@ export function NameEditor({
         {settings.showXref && <span className="person-xref gm-data">{xrefLabel(person.id)}</span>}
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
       </div>
-      {kinship && <span className={`person-kinship ${kinshipLineage ?? ""}`} title={kinshipTooltip}>{kinship}</span>}
+      {kinship}
       {matchStatus && matchStatus !== "undecided" && (
         <span className={`status-chip ${matchStatus}`} title={t(`status.${matchStatus}`)}>
           {t(`status.${matchStatus}`).charAt(0)}

@@ -55,11 +55,16 @@ test("the start-person lookup carries it too", async ({ page }) => {
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
-  const input = page.locator(".start-selector input, .start-wrap input").first();
-  await input.click();
+  // The start person is chosen from the kinship chip in the name row.
+  await page.locator(".edit-name-row .start-chip").click();
+  await page.locator('.dd-menu .dd-item[data-value="choose"]').click();
+  const input = page.locator(".edit-name-row .relative-picker-input");
+  await expect(input).toBeFocused();
   await input.fill("Ana");
-  const row = page.locator(".start-option", { hasText: "Ana" }).first();
+  const row = page.locator(".edit-name-row .relative-picker-option", { hasText: "Ana" }).first();
   await expect(row.locator(".person-label")).toHaveClass(/sex-f/);
+  // At the lookup's own size, not the 1.1rem/600 of the name row it opens in.
+  await expect(row.locator(".person-label")).toHaveCSS("font-weight", "400");
   await expect(row.locator(".person-xref")).toHaveText("I2");
   await expect(row.locator(".person-years")).toHaveText("1903–1961 (58)");
 });

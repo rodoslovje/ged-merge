@@ -2128,7 +2128,9 @@ function AppContent() {
     </div>
   );
   // Hidden on a file with nobody in it: there is no one to pick, and the empty
-  // Edit view already offers the only thing to do.
+  // Edit view already offers the only thing to do. Only the phone's ☰ menu
+  // carries it; on a wider screen the start person is set from the kinship
+  // chip in Edit's name row (StartPersonChip).
   const startSelector = mainDataset && mainDataset.individuals.size > 0 && (
     <StartPersonSelector
       individuals={mainDataset.individuals}
@@ -2257,7 +2259,6 @@ function AppContent() {
         </div>
         {mainDataset && (!phone || hasSaveAction || hasHistoryAction) && (
           <div className="app-head-controls">
-            {!phone && startSelector}
             <div className="app-head-actions">
               {hasSaveAction && (
                 <button

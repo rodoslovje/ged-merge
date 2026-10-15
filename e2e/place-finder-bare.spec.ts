@@ -47,7 +47,6 @@ async function antonsAddressField(page: import("@playwright/test").Page) {
   await page.locator("input.file-input").first().setInputFiles(FILE);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
-  await page.locator(".edit-search-input, .start-selector input, .start-wrap input").first().click();
   await page.getByRole("button", { name: /Search everyone/i }).click();
   await page.locator(".global-search-input, .global-search input").first().fill("Anton");
   await page.locator(".global-search-open").first().click();

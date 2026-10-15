@@ -9,6 +9,7 @@ import { foldSearch, matchesTerms, nameCollator, queryTerms } from "./globalSear
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { SearchIcon } from "./icons/SearchIcon";
+import { HomeIcon } from "./icons/HomeIcon";
 
 /** The preferences the rows read — the same the person cards honour, so a name
  *  reads identically wherever it appears. */
@@ -174,25 +175,7 @@ export function StartPersonSelector({
     }
   }
 
-  const glyph =
-    icon === "house" ? (
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3 9.5 12 3l9 6.5" />
-        <path d="M5 10v10h14V10" />
-      </svg>
-    ) : (
-      <SearchIcon size={14} />
-    );
+  const glyph = icon === "house" ? <HomeIcon size={14} /> : <SearchIcon size={14} />;
 
   // When a start person is set and a handler is provided, the start icon is a
   // button that jumps back to that person; otherwise it's a static glyph.

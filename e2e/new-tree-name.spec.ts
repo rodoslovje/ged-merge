@@ -9,7 +9,7 @@ test("a new tree names itself after its first person", async ({ page }) => {
 
   // Nobody in the file yet: there is no start person to pick, and the one thing
   // to do holds the focus.
-  await expect(page.locator(".start-selector")).toHaveCount(0);
+  await expect(page.locator(".start-chip")).toHaveCount(0);
   await expect(page.locator(".edit-empty-add")).toBeFocused();
 
   await page.keyboard.press("Enter"); // adds the first person
@@ -19,10 +19,9 @@ test("a new tree names itself after its first person", async ({ page }) => {
   await page.keyboard.type("Novak");
   await page.keyboard.press("Tab");
 
-  // The first person becomes the start person without being asked for.
-  await expect(page.locator(".start-selector")).toHaveCount(1);
-  // The chosen person shows as the field's placeholder, not its value.
-  await expect(page.locator(".start-selector input")).toHaveAttribute("placeholder", /Janez Novak/);
+  // The first person becomes the start person without being asked for: the
+  // kinship chip in their name row names them as such.
+  await expect(page.locator(".edit-name-row .start-chip")).toHaveText("Start Person");
 
   await page.keyboard.press("ControlOrMeta+s");
   const files = page.locator(".preview-files code");
