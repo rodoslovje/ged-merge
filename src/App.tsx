@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
-import { useMode } from "./ui/useMode";
+import { useMode, type Mode } from "./ui/useMode";
+import { ChartTrailContext } from "./ui/ChartTrail";
 import { useAppHistory } from "./ui/useAppHistory";
 import { useMatchList } from "./ui/useMatchList";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
@@ -27,7 +28,7 @@ import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { removeRecordFromReport } from "./gedcom/editReport";
-import { defaultStartId } from "./match/relatives";
+import { defaultStartId, lifespanLabel } from "./match/relatives";
 import { datesTooltipOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
@@ -846,13 +847,13 @@ function AppContent() {
   // Tree / Charts hub), popstate restoration of mode/selection/navigation, and
   // the unsaved-changes leave guards (history entry + beforeunload).
   const {
-    treeView, chartsRootId, setChartsRootId, chartsBackKey,
+    treeView, chartsRootId, setChartsRootId, chartsBackKey, chartsFromId, chartsTrail, stepChartsTrail,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
     navigateFromPage, selectFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
-    confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
+    confirmDialog, current, editPersonId, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
     setHistoryPersonId,
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
@@ -1132,14 +1133,34 @@ function AppContent() {
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
   // Kept locale-independent — label-derived first letters collided across
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
-  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools });
-  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools };
+  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor });
+  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor };
+
+  // A mode letter on a full-page chart leaves it for that mode, the person the
+  // chart stands on carried along as a mode switch carries Merge's selection.
+  // Pushed on top of the chart, so Back returns to it.
+  function leaveOverlayFor(target: Mode) {
+    const personId = chartsRootId ?? treeView?.mainId;
+    if (target === "edit" && personId) return navigateFromOverlay(personId);
+    if (target === "merge" && personId) {
+      const c = allSorted.find((c) => c.mainId === personId);
+      if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
+    }
+    goToPageFromOverlay({ mode: target });
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen() || overlayOpenRef.current) return;
+      if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
+      if (overlayOpenRef.current) {
+        // A chart that took the key (E on a selected node) has the say.
+        if (e.defaultPrevented) return;
+        const target = key === KEY.modeEdit ? "edit" : key === KEY.modeMerge ? "merge" : key === KEY.modeTools ? "tools" : undefined;
+        if (target) { e.preventDefault(); modeSwitchRef.current.leaveOverlayFor(target); }
+        return;
+      }
       const { mode: cur, switchToEdit: se, switchToMerge: sme, switchToTools: st } = modeSwitchRef.current;
       if (key === KEY.modeEdit && cur !== "edit") { e.preventDefault(); se(); }
       else if (key === KEY.modeMerge && cur !== "merge") { e.preventDefault(); sme(); }
@@ -2029,23 +2050,34 @@ function AppContent() {
       />
     );
   } else if (chartsRootId && mainDataset) {
+    const ds = mainDataset;
+    const personLabel = (id: string) => {
+      const indi = ds.individuals.get(id);
+      return indi ? lifespanLabel(indi) : id;
+    };
+    // Back names the person it returns to, apart from whoever the chart now
+    // shows — the E key and "Open in Edit" are for that one.
+    const backLabel = chartsFromId && ds.individuals.has(chartsFromId)
+      ? t("charts.back.withPerson", { back: t(chartsBackKey), name: personLabel(chartsFromId) })
+      : t(chartsBackKey);
     treeOverlay = wrapTree(
-      <ChartsHub
-        mainDs={mainDataset}
-        rootId={chartsRootId}
-        // Re-rooting is a history entry of its own (openCharts pushes one), so
-        // the browser Back button walks back through the people the user
-        // re-rooted on before it closes the hub.
-        onRootChange={(id) => openCharts(id)}
-        startId={startId}
-        changedPersonIds={changedPersonIds}
-        decisions={decisions}
-        backLabel={t(chartsBackKey)}
-        onBack={goBackPage}
-        onNavigate={navigateFromOverlay}
-        onPickStart={changeStart}
-        onOpenGeocode={() => goToPageFromOverlay({ mode: "tools", tool: "places", toolView: "geocode" })}
-      />
+      <ChartTrailContext.Provider value={{ trail: chartsTrail, onStep: stepChartsTrail, labelOf: personLabel }}>
+        <ChartsHub
+          mainDs={ds}
+          rootId={chartsRootId}
+          // Re-rooting joins the hub's trail (openCharts) rather than stacking
+          // history entries, so Back leaves the hub in one press.
+          onRootChange={(id) => openCharts(id)}
+          startId={startId}
+          changedPersonIds={changedPersonIds}
+          decisions={decisions}
+          backLabel={backLabel}
+          onBack={goBackPage}
+          onNavigate={navigateFromOverlay}
+          onPickStart={changeStart}
+          onOpenGeocode={() => goToPageFromOverlay({ mode: "tools", tool: "places", toolView: "geocode" })}
+        />
+      </ChartTrailContext.Provider>
     );
   }
 

@@ -18,7 +18,7 @@ interface Props {
   /** Kinship-to-start label; omitted when kinship display is off. */
   kinship?: string;
   lineage?: Lineage;
-  /** Page-kind label ("Ancestors Fan Chart", "Places Map", …). */
+  /** Page-kind label ("Ancestors — Fan Chart", "Timeline", …). */
   kind: string;
 }
 

@@ -12,6 +12,17 @@ export interface TreeView {
   mode: TreeMode;
 }
 
+/** The people the Charts hub has been drawn for since it opened, oldest
+ *  first, and which of them is on screen. Kept in the hub's one history entry
+ *  rather than as entries of its own, so leaving the hub is one Back press. */
+export interface ChartsTrail {
+  ids: string[];
+  idx: number;
+}
+
+/** How many re-roots the trail remembers. */
+const TRAIL_MAX = 10;
+
 /** A compare selection remembered in browser history (for the Back button). */
 interface SelRef {
   mainId: string;
@@ -38,6 +49,8 @@ export interface AppHistoryOptions {
   confirmDialog: (message: string, confirmLabel: string, onConfirmAction?: () => void) => Promise<boolean>;
   /** Merge's currently selected candidate, remembered into history entries. */
   current: SelRef | null | undefined;
+  /** The person Edit shows — named on the hub's Back when Edit is its origin. */
+  editPersonId: string | undefined;
   mode: Mode;
   /** The Tools tab and its open page — recorded with the mode, so returning to
    *  Tools returns to the tool and the page, not merely to the mode. */
@@ -80,8 +93,11 @@ export function useAppHistory(opts: AppHistoryOptions) {
   // relationship). Which diagram it shows is the persisted chart "kind".
   const [chartsRootId, setChartsRootId] = useState<string | null>(null);
   // i18n key for where the hub's Back lands (the history entry beneath the
-  // hub's): the previous chart on a re-root, the Compare Tree, or the mode view.
+  // hub's): the Compare Tree or the mode view it was opened from.
   const [chartsBackKey, setChartsBackKey] = useState("edit.tree.back");
+  // The person that page showed when the hub opened, so Back can name them.
+  const [chartsFromId, setChartsFromId] = useState<string | undefined>(undefined);
+  const [chartsTrail, setChartsTrail] = useState<ChartsTrail>({ ids: [], idx: 0 });
 
   // Tracks whether there are unsaved changes — assigned by App each render so
   // the stable popstate/beforeunload handlers can check without stale-closure
@@ -168,6 +184,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
       const st = (e.state ?? {}) as {
         gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
         gedChartsId?: string; gedChartsBack?: string;
+        gedChartsFrom?: string; gedChartsTrail?: ChartsTrail;
         gedEditTreeId?: string; gedRelId?: string;
         gedMode?: Mode; gedTool?: string; gedToolView?: string;
         gedNavigateTo?: string; gedEditPerson?: string;
@@ -198,10 +215,13 @@ export function useAppHistory(opts: AppHistoryOptions) {
       setTreeView(st.gedTree ?? null);
       // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
       // history can still carry them, so they map onto the hub too.
-      setChartsRootId(st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null);
+      const chartsId = st.gedChartsId ?? st.gedEditTreeId ?? st.gedRelId ?? null;
+      setChartsRootId(chartsId);
       // Each charts entry records where its Back returns to (set at push time),
       // so forward/back through several chart entries keeps the label honest.
       setChartsBackKey(st.gedChartsBack ?? "edit.tree.back");
+      setChartsFromId(st.gedChartsFrom);
+      setChartsTrail(st.gedChartsTrail ?? { ids: chartsId ? [chartsId] : [], idx: 0 });
       // Restore the mode recorded for this entry (e.g. returning to the Tools tab
       // after opening a person from it). Absent on older/plain entries, in which
       // case the current mode is left untouched.
@@ -468,25 +488,56 @@ export function useAppHistory(opts: AppHistoryOptions) {
     });
   }
 
+  /** Draw the open hub for another person without a history entry of its own:
+   *  the hub's entry is rewritten in place, so Back always leaves the hub in one
+   *  press, and the trail is how the reader walks the people in between. */
+  function showChartsAt(trail: ChartsTrail) {
+    const id = trail.ids[trail.idx];
+    window.history.replaceState({ ...window.history.state, gedChartsId: id, gedChartsTrail: trail }, "");
+    setChartsTrail(trail);
+    setChartsRootId(id);
+  }
+
+  /** Step to another person of the hub's trail — the ‹ › arrows and the list. */
+  function stepChartsTrail(idx: number) {
+    if (idx < 0 || idx >= chartsTrail.ids.length || idx === chartsTrail.idx) return;
+    showChartsAt({ ...chartsTrail, idx });
+  }
+
   /** Open the Charts hub on a person — at the last-used kind, or a specific one.
-   *  Also how the open hub re-roots: each person is its own history entry, so
-   *  Back returns to the chart the user came from. */
+   *  Also how the open hub re-roots: the person joins the hub's trail (see
+   *  {@link showChartsAt}) rather than stacking a history entry. */
   function openCharts(id: string, kind?: ChartKind) {
-    // Re-rooting on the person already drawn (clicking the root node, picking
-    // the current target) is not a navigation — don't stack an entry for it.
-    if (id === chartsRootId && !kind) return;
     if (kind) opts.setChartKind(kind);
-    const backKey = chartsRootId
-      ? "edit.back" // re-root on top of an open chart: Back = the previous chart
-      : treeView
-        ? "charts.back.tree"
-        : opts.mode === "merge"
-          ? "charts.back.merge"
-          : opts.mode === "tools"
-            ? "charts.back.tools"
-            : "edit.tree.back";
-    pushEntry({ gedChartsId: id, gedChartsBack: backKey });
+    if (chartsRootId) {
+      // Re-rooting on the person already drawn is not a step.
+      if (id === chartsRootId) return;
+      // Like the browser's own history: a new person drops the ones stepped
+      // back past, and someone already on the trail moves to its end.
+      const kept = chartsTrail.ids.slice(0, chartsTrail.idx + 1).filter((x) => x !== id);
+      const ids = [...kept, id].slice(-TRAIL_MAX);
+      showChartsAt({ ids, idx: ids.length - 1 });
+      return;
+    }
+    const backKey = treeView
+      ? "charts.back.tree"
+      : opts.mode === "merge"
+        ? "charts.back.merge"
+        : opts.mode === "tools"
+          ? "charts.back.tools"
+          : "edit.tree.back";
+    const fromId = treeView
+      ? undefined
+      : opts.mode === "merge"
+        ? opts.current?.mainId
+        : opts.mode === "edit"
+          ? opts.editPersonId
+          : undefined;
+    const trail = { ids: [id], idx: 0 };
+    pushEntry({ gedChartsId: id, gedChartsBack: backKey, gedChartsFrom: fromId, gedChartsTrail: trail });
     setChartsBackKey(backKey);
+    setChartsFromId(fromId);
+    setChartsTrail(trail);
     setChartsRootId(id);
     // The overlays are exclusive; opened from inside the Compare Tree, the hub
     // replaces it on screen and the browser Back button returns to the tree.
@@ -498,6 +549,9 @@ export function useAppHistory(opts: AppHistoryOptions) {
     chartsRootId,
     setChartsRootId,
     chartsBackKey,
+    chartsFromId,
+    chartsTrail,
+    stepChartsTrail,
     overlayOpen,
     overlayOpenRef,
     hasUnsavedChangesRef,
