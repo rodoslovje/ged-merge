@@ -847,7 +847,7 @@ function AppContent() {
   // Tree / Charts hub), popstate restoration of mode/selection/navigation, and
   // the unsaved-changes leave guards (history entry + beforeunload).
   const {
-    treeView, chartsRootId, setChartsRootId, chartsBackKey, chartsFromId, chartsTrail, stepChartsTrail,
+    treeView, treeTrail, stepTreeTrail, chartsRootId, setChartsRootId, chartsBackKey, chartsFromId, chartsTrail, stepChartsTrail,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
@@ -2028,7 +2028,16 @@ function AppContent() {
   // returns — important on mobile, where the page is a single tall scroll.
   let treeOverlay: React.ReactNode = null;
   if (treeView && mainDataset && compareDataset && matches) {
+    const mainDs = mainDataset;
+    const compareDs = compareDataset;
+    // A pair is named by its main-file person, or the incoming one when the
+    // main side is empty.
+    const pairLabel = ({ mainId, compareId }: { mainId: string; compareId: string }) => {
+      const indi = (mainId && mainDs.individuals.get(mainId)) || (compareId && compareDs.individuals.get(compareId));
+      return indi ? lifespanLabel(indi) : mainId || compareId;
+    };
     treeOverlay = wrapTree(
+      <ChartTrailContext.Provider value={{ labels: treeTrail.items.map(pairLabel), idx: treeTrail.idx, onStep: stepTreeTrail }}>
       <CompareTree
         mainDs={mainDataset}
         compareDs={compareDataset}
@@ -2048,6 +2057,7 @@ function AppContent() {
         startId={startId}
         onOpenInEdit={navigateFromOverlay}
       />
+      </ChartTrailContext.Provider>
     );
   } else if (chartsRootId && mainDataset) {
     const ds = mainDataset;
@@ -2061,7 +2071,7 @@ function AppContent() {
       ? t("charts.back.withPerson", { back: t(chartsBackKey), name: personLabel(chartsFromId) })
       : t(chartsBackKey);
     treeOverlay = wrapTree(
-      <ChartTrailContext.Provider value={{ trail: chartsTrail, onStep: stepChartsTrail, labelOf: personLabel }}>
+      <ChartTrailContext.Provider value={{ labels: chartsTrail.ids.map(personLabel), idx: chartsTrail.idx, onStep: stepChartsTrail }}>
         <ChartsHub
           mainDs={ds}
           rootId={chartsRootId}

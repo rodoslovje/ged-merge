@@ -4,20 +4,18 @@ import { ArrowIcon } from "./icons/ArrowIcon";
 import { DropdownMenu } from "./DropdownMenu";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { CHART_KEY, keyHint } from "../keyboard/shortcuts";
-import type { ChartsTrail } from "./useAppHistory";
-
-// The people the Charts hub has been drawn for since it opened: ‹ › step
-// between them, the ▾ list jumps to any of them. Re-roots used to be browser
-// history entries, so getting back to Edit took one Back per person; now the
-// hub is one entry and this trail is how the reader retraces the people.
-// Provided by App around the hub only, so the Compare Tree (which shares
-// ChartPage) draws nothing.
+// The people a full-page chart (the Charts hub, the Compare Tree) has been
+// drawn for since it opened: ‹ › step between them, the ▾ list jumps to any of
+// them. Re-roots used to be browser history entries, so getting back to Edit
+// took one Back per person; now the chart is one entry and this trail is how
+// the reader retraces the people. App provides it around each overlay, with
+// the labels already made, since the two roots differ (a person, a pair).
 
 export interface ChartTrailValue {
-  trail: ChartsTrail;
+  /** "Name 1817–1921" per trail entry, oldest first. */
+  labels: string[];
+  idx: number;
   onStep: (idx: number) => void;
-  /** "Name 1817–1921" for a trail entry. */
-  labelOf: (id: string) => string;
 }
 
 export const ChartTrailContext = createContext<ChartTrailValue | null>(null);
@@ -25,14 +23,13 @@ export const ChartTrailContext = createContext<ChartTrailValue | null>(null);
 export function ChartTrailNav() {
   const ctx = useContext(ChartTrailContext);
   const { t } = useTranslation();
-  const trail = ctx?.trail;
-  const idx = trail?.idx ?? 0;
-  const len = trail?.ids.length ?? 0;
+  const idx = ctx?.idx ?? 0;
+  const len = ctx?.labels.length ?? 0;
   useChartShortcuts({
     onTrail: ctx && len > 1 ? (step) => ctx.onStep(idx + step) : undefined,
   });
   // A trail of one is just the chart: nothing to step to yet.
-  if (!ctx || !trail || len < 2) return null;
+  if (!ctx || len < 2) return null;
   const prev = keyHint(t("charts.trail.prev"), CHART_KEY.trailBack);
   const next = keyHint(t("charts.trail.next"), CHART_KEY.trailForward);
   return (
@@ -47,7 +44,7 @@ export function ChartTrailNav() {
         current={String(idx)}
         onSelect={(v) => ctx.onStep(Number(v))}
         // Newest first, the way a recent list reads.
-        groups={[{ items: trail.ids.map((id, i) => ({ value: String(i), label: ctx.labelOf(id) })).reverse() }]}
+        groups={[{ items: ctx.labels.map((label, i) => ({ value: String(i), label })).reverse() }]}
         // A drawn chevron at the arrows' size and weight: the ▾ glyph came out
         // too small to read as a menu beside them.
         trigger={
