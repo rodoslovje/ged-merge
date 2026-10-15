@@ -34,6 +34,8 @@ interface Handlers {
    *  handled here: it is the browser's Back app-wide (App's key handler), and
    *  the overlays are history entries, so it leaves them just the same. */
   onLeave?: () => void;
+  /** , / . step back / forward through the hub's trail of people. */
+  onTrail?: (step: -1 | 1) => void;
 }
 
 const ARROW: Record<string, [number, number]> = {
@@ -47,9 +49,14 @@ export function useChartShortcuts(handlers: Handlers) {
   // Ref-fed closure so the listener registers once and always sees fresh handlers.
   const ref = useRef(handlers);
   ref.current = handlers;
+  // On `document`, not `window`: a key event reaches the document before the
+  // window, so a key a chart handles is already marked handled when App's
+  // window-level handler sees it. E opens the selected node in Edit here, and
+  // App's mode keys stand down for it; with nobody selected App takes E and
+  // opens the chart's own person instead.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (isEditableTarget(e.target) || isModalOpen()) return;
+      if (e.defaultPrevented || isEditableTarget(e.target) || isModalOpen()) return;
       // Shift stays allowed: "+" is Shift+"=" on most layouts.
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const h = ref.current;
@@ -97,6 +104,10 @@ export function useChartShortcuts(handlers: Handlers) {
         if (h.onEdit) { e.preventDefault(); h.onEdit(); }
         return;
       }
+      if (key === CHART_KEY.trailBack || key === CHART_KEY.trailForward) {
+        if (h.onTrail) { e.preventDefault(); h.onTrail(key === CHART_KEY.trailBack ? -1 : 1); }
+        return;
+      }
       if (lower === CHART_KEY.ancestors) {
         if (h.onMode) { e.preventDefault(); h.onMode("ancestors"); }
         return;
@@ -110,7 +121,7 @@ export function useChartShortcuts(handlers: Handlers) {
         if (kind) { e.preventDefault(); h.onKind(kind); }
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 }

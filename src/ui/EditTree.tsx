@@ -470,13 +470,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
   const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
 
-  // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart"
-  // or "Bowtie Tree", plus "4 of 9 generations" while the limit is cutting —
+  // Chart "kind" label = direction — diagram type, e.g. "Ancestors — Fan Chart"
+  // or "Bowtie — Tree", plus "4 of 9 generations" while the limit is cutting —
   // on the page and in every export header, so a partial chart never passes
   // for a whole one.
   const directionLabel = t(bowtie ? "tree.bowtie" : `tree.${mode}`);
   const chartKind =
-    `${directionLabel} ${t(`tree.kind.${variant}`)}` +
+    `${directionLabel} — ${t(`tree.kind.${variant}`)}` +
     (limited ? ` · ${t("tree.gen.shown", { n: limit, of: shownDepth })}` : "");
   // The direction row: the two directions with their head-counts, and both at
   // once.

@@ -48,6 +48,9 @@ export const CHART_KEY = {
   edit: KEY.modeEdit,
   /** Show or hide the overview map in the corner. */
   minimap: "o",
+  /** Step back / forward through the people the hub has been drawn for. */
+  trailBack: ",",
+  trailForward: ".",
 } as const;
 
 /**
@@ -174,11 +177,11 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.modes",
     category: "app",
-    // Not on a chart page: the letters are held back there, where a mode
-    // switch would happen invisibly behind the overlay.
-    scope: ["edit", "merge", "tools"],
+    // On a chart page too, where a mode letter leaves the chart for that mode
+    // (E there is the Charts group's own: open the chart's person in Edit).
+    scope: ["edit", "merge", "tools", "chart"],
     items: [
-      { keys: [[KEY.modeEdit.toUpperCase()]], descKey: "shortcuts.item.modeEdit" },
+      { keys: [[KEY.modeEdit.toUpperCase()]], descKey: "shortcuts.item.modeEdit", scope: ["edit", "merge", "tools"] },
       { keys: [[KEY.modeMerge.toUpperCase()]], descKey: "shortcuts.item.modeMerge" },
       { keys: [[KEY.modeTools.toUpperCase()]], descKey: "shortcuts.item.modeTools" },
     ],
@@ -254,6 +257,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
       { keys: [[CHART_KEY.fit.toUpperCase()]], descKey: "shortcuts.item.chartFit" },
       { keys: [[CHART_KEY.home.toUpperCase()]], descKey: "shortcuts.item.chartHome" },
+      { keys: [[CHART_KEY.trailBack], [CHART_KEY.trailForward]], descKey: "shortcuts.item.chartTrail" },
       { keys: [[CHART_KEY.edit.toUpperCase()]], descKey: "shortcuts.item.chartEdit" },
       { keys: [["Tab"], ["Enter"]], descKey: "shortcuts.item.chartNode" },
       { keys: [["←"], ["→"], ["↑"], ["↓"]], descKey: "shortcuts.item.chartScroll" },
