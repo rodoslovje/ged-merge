@@ -1899,7 +1899,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               title={t(settings.widerFamily.open ? "edit.wider.hide" : "edit.wider.show")}
               onClick={() => setSettings({ widerFamily: { ...settings.widerFamily, open: !settings.widerFamily.open } })}
             >
-              <RelativesIcon size={18} />
+              <RelativesIcon size={16} />
             </button>
           </div>
         </div>
