@@ -1,4 +1,4 @@
-import { Fragment, memo } from "react";
+import { Fragment, memo, type CSSProperties } from "react";
 import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
 import { sexClass } from "../sex";
@@ -361,7 +361,10 @@ function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
     const lifespan = lifespanWithAge(indi, settings.showAge);
     const body = (
       <>
-        <span className="person-name">{formatName(indi)}{isHalf && <span className="edit-sibling-half">½</span>}</span>
+        <span className="person-name edit-sibling-name">
+          <span className="edit-sibling-name-text">{formatName(indi)}</span>
+          {isHalf && <span className="edit-sibling-half">½</span>}
+        </span>
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
       </>
     );
@@ -372,7 +375,7 @@ function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
         key={id}
         type="button"
         className={`edit-sibling ${sexClass(indi.sex)}${isHalf ? " half" : ""}`}
-        title={title ?? lifespanTooltipOf(indi, settings.showAge, t)}
+        title={[formatName(indi), title ?? lifespanTooltipOf(indi, settings.showAge, t)].filter(Boolean).join(" · ")}
         onClick={() => navigate(id)}
       >
         {body}
@@ -386,12 +389,23 @@ function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
     return other ? `${kin} · ${t("edit.siblings.otherParent", { name: formatName(other) })}` : kin;
   };
 
+  // One width for every box and the "other family" label: the longest name
+  // (a half-sibling's ½ counts), in ch; CSS caps it at a parent card's width.
+  const nameLength = (id: string) => {
+    const indi = dataset.individuals.get(id);
+    return indi ? formatName(indi).length : 0;
+  };
+  const longest = Math.max(
+    ...full.map(nameLength),
+    ...half.flatMap((g) => g.siblings.map((s) => nameLength(s.id) + 3)),
+  );
+
   return (
     <div className="edit-siblings">
       <div className="person-card-role" title={keyHint(t("shortcuts.item.goSibling"), `${altLabel("←")} ${altLabel("→")}`)}>
         {t("edit.siblings.title")}
       </div>
-      <div className="edit-sibling-row">
+      <div className="edit-sibling-row" style={{ "--sibling-name-ch": longest } as CSSProperties}>
         {full.map((id) => chip(id))}
         {half.map((group) => (
           <Fragment key={group.via}>

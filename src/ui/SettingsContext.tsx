@@ -102,6 +102,8 @@ export interface MapOverlay {
 /** The Edit view's Wider family panel: open or folded, and its three depths. */
 export interface WiderFamilySettings extends WiderFamilyDepth {
   open: boolean;
+  /** The depth steppers and the partners tick box are shown, not folded away. */
+  controls: boolean;
 }
 
 export interface AppSettings extends NameDisplayOptions {
@@ -174,7 +176,7 @@ const DEFAULTS: AppSettings = {
   allowLinkFetch: false,
   allowMapTiles: false,
   showEditMap: true,
-  widerFamily: { open: true, ancestors: 2, descendants: 1, others: 1, partners: false },
+  widerFamily: { open: true, controls: false, ancestors: 2, descendants: 1, others: 1, partners: false },
   mapBasemap: "",
   mapTileUrl: "",
   mapOverlays: [],
@@ -230,6 +232,7 @@ function sanitizeWiderFamily(v: unknown): WiderFamilySettings {
   };
   return {
     open: typeof o.open === "boolean" ? o.open : d.open,
+    controls: typeof o.controls === "boolean" ? o.controls : d.controls,
     ancestors: depth("ancestors"),
     descendants: depth("descendants"),
     others: depth("others"),

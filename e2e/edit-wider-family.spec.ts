@@ -34,18 +34,27 @@ test("the Wider family panel lists relatives, reaches further and opens one", as
   await expect(names).toHaveText(["Gregor Novak", "Gala Novak", "Urban Novak"]);
   await expect(panel.locator(".edit-wider-side-label")).toHaveText(["Father's side", "Father's side"]);
 
+  // The depth controls start folded; the gear opens them.
+  await expect(panel.locator(".edit-wider-depths")).toHaveCount(0);
+  await panel.locator(".edit-wider-gear").click();
+
   // One more generation of other relatives brings the first cousin.
   await panel.locator(".edit-wider-depth", { hasText: "Other relatives" }).getByRole("button", { name: /more/ }).click();
   await expect(names).toHaveText(["Gregor Novak", "Gala Novak", "Urban Novak", "Cene Novak"]);
 
   // Partners of relatives: the uncle's wife, beside him.
   await panel.getByLabel("Partners of relatives").check();
-  await expect(panel.locator(".edit-wider-person.in-law")).toContainText("partner of Urban Novak");
+  const inLaw = panel.locator(".edit-wider-person.in-law");
+  await expect(inLaw).toContainText("Urša Lah");
+  await expect(inLaw).toHaveAttribute("title", /partner of Urban Novak/);
 
-  // A click opens the cousin; folding leaves the narrow tab.
+  // A click opens the cousin; the toggle under Back closes and reopens the panel.
   await names.filter({ hasText: "Cene" }).click();
   await expect(page.locator(".edit-name-input").first()).toHaveValue("Cene");
-  await panel.getByTitle("Hide the wider family").click();
-  await expect(page.locator(".edit-wider-tab")).toBeVisible();
+  const toggle = page.locator(".edit-wider-toggle");
+  await toggle.click();
   await expect(panel).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(panel).toBeVisible();
 });

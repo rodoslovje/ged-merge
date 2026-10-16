@@ -222,7 +222,7 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner"] as const;
+const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
 
 /** Events a person has at most one of: adding again focuses the existing row
  *  (Birth's always-present row included) instead of writing a duplicate, and
@@ -1889,6 +1889,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               disabled={!canGoBack}
               onClick={goBack}
             />
+            <button
+              type="button"
+              className={`tree-open-btn edit-wider-toggle${settings.widerFamily.open ? " active" : ""}`}
+              aria-pressed={settings.widerFamily.open}
+              aria-controls="edit-wider"
+              title={t(settings.widerFamily.open ? "edit.wider.hide" : "edit.wider.show")}
+              onClick={() => setSettings({ widerFamily: { ...settings.widerFamily, open: !settings.widerFamily.open } })}
+            >
+              {t("edit.wider.title")}
+            </button>
           </div>
         </div>
 
