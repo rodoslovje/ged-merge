@@ -1,5 +1,7 @@
-import { memo } from "react";
-import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
+import { Fragment, memo } from "react";
+import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
+import { familySiblings } from "../../gedcom/familyNav";
+import { sexClass } from "../sex";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
@@ -8,7 +10,7 @@ import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
 import { customEventLabel, eventDisplayLabel, famEventNodes } from "../../gedcom/eventTags";
-import { coupleAgesDisplay } from "../../gedcom/age";
+import { coupleAgesDisplay, lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import type { TagSuggestions } from "./fieldSuggestions";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
@@ -328,9 +330,83 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           &minus;
         </button>
       )}
+      {fam && <SiblingsRow fam={fam} personId={personId} dataset={dataset} t={t} navigate={navigate} sameSexParents={sameSexParents} />}
     </div>
   );
 });
+
+/**
+ * The person's siblings under one parent family: the family's own children by
+ * birth with the person marked in their place, then each parent's children
+ * from other unions as half-siblings. One click opens a sibling; ⌥←/→ keep
+ * walking the family's own run (familyStepTarget). Absent for an only child.
+ */
+function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
+  fam: Family;
+  personId: string;
+  dataset: Dataset;
+  t: Translate;
+  navigate: (id: string) => void;
+  sameSexParents: boolean;
+}) {
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatName = useNameOf();
+  const { full, half } = familySiblings(dataset, fam.id, personId);
+  if (full.length <= 1 && half.length === 0) return null;
+
+  const chip = (id: string, title?: string, isHalf = false) => {
+    const indi = dataset.individuals.get(id);
+    if (!indi) return null;
+    const self = id === personId;
+    const lifespan = lifespanWithAge(indi, settings.showAge);
+    const body = (
+      <>
+        <span className="person-name">{formatName(indi)}{isHalf && <span className="edit-sibling-half">½</span>}</span>
+        {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+      </>
+    );
+    return self ? (
+      <div key={id} className={`edit-sibling self ${sexClass(indi.sex)}`} aria-current="true" title={t("edit.siblings.self")}>{body}</div>
+    ) : (
+      <button
+        key={id}
+        type="button"
+        className={`edit-sibling ${sexClass(indi.sex)}${isHalf ? " half" : ""}`}
+        title={title ?? lifespanTooltipOf(indi, settings.showAge, t)}
+        onClick={() => navigate(id)}
+      >
+        {body}
+      </button>
+    );
+  };
+  const halfTitle = (id: string, otherParentId: string | undefined) => {
+    const sex = dataset.individuals.get(id)?.sex;
+    const kin = t(sex === "M" ? "kinship.halfBrother" : sex === "F" ? "kinship.halfSister" : "timeline.role.halfsibling");
+    const other = otherParentId && dataset.individuals.get(otherParentId);
+    return other ? `${kin} · ${t("edit.siblings.otherParent", { name: formatName(other) })}` : kin;
+  };
+
+  return (
+    <div className="edit-siblings">
+      <div className="person-card-role" title={keyHint(t("shortcuts.item.goSibling"), `${altLabel("←")} ${altLabel("→")}`)}>
+        {t("edit.siblings.title")}
+      </div>
+      <div className="edit-sibling-row">
+        {full.map((id) => chip(id))}
+        {half.map((group) => (
+          <Fragment key={group.via}>
+            <span className="edit-sibling-group">
+              {sameSexParents
+                ? t("edit.siblings.viaParent")
+                : t(group.via === "husband" ? "edit.siblings.viaFather" : "edit.siblings.viaMother")}
+            </span>
+            {group.siblings.map((s) => chip(s.id, halfTitle(s.id, s.otherParentId), true))}
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Spouse-family band ───────────────────────────────────────────────────────
 

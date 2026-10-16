@@ -555,8 +555,8 @@
               mother, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span> the
               youngest child, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> /
               <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span> a partner.
-              Siblings are the children of the parent family in birth order, half-siblings among them, and the run
-              stops at the eldest and the youngest. The partner keys work as a hop: with one union they move between
+              The sibling keys walk the children of the parent family in birth order and stop at the eldest and the
+              youngest; a half-sibling from a parent's other family is opened from the siblings row instead. The partner keys work as a hop: with one union they move between
               the two spouses, with several they tour the partners one after another. When only one parent is
               recorded, both <span class="gm-key">↑</span> keys reach that one. Nothing happens where a step has
               nobody to go to, and the keys stay out of a field you are typing in — leave it with
@@ -731,9 +731,10 @@
             </p>
             <h3>Family relationships</h3>
             <div>
-              The panel shows three family sections:
+              The panel shows four family sections:
               <ul>
                 <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. Naming the second parent completes a couple: if those two already have a family of their own, the child joins it — alongside their marriage and any other children — rather than a fresh record for the same pair. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record. A parent block that names <em>neither</em> parent — usually a leftover second family from an import or a merge — carries its own <span class="gm-glyph danger">−</span> at the end of the row: it unlinks this person from that family, and the family record goes with it unless other children remain. The <a href="#validate">Health check</a> lists these under <strong>Family without parents</strong>.</li>
+                <li><strong>Siblings</strong> — under the parents, the family's children in birth order, with this person marked in their place. Children a parent had in another union follow as half-siblings, after a <em>Father's other family</em> or <em>Mother's other family</em> label and with a dashed border; hovering one names the other parent. A click opens any of them. An only child has no siblings row.</li>
                 <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Once every family already names a partner, one more <strong>+ Add Partner</strong> card follows the last one and starts a new union — a remarriage gets its own family this way. Each family shows the events it actually records; <strong>+ Add Family Event</strong> adds Marriage, Engagement, Separation, Divorce, a partnership <em>Status</em> or a custom event, and the event's own <span class="gm-glyph">▾</span> menu removes it again. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph danger">−</span> unlinks a child without deleting them. Picking somebody who is already a child in another family <em>moves</em> them here: only one family can be the birth family, so you confirm the move first and the question names the parents they leave. An adoptive or foster link stays put.</li>
               </ul>
