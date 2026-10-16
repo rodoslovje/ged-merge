@@ -60,7 +60,7 @@ interface AncestorLine {
 
 /** The person's parents, each tagged by the role they hold in the family
  *  record — HUSB/WIFE, not their own SEX, so a missing SEX still picks a side. */
-function parentsOf(ds: Dataset, id: string): { id: string; role: "father" | "mother" }[] {
+export function parentsOf(ds: Dataset, id: string): { id: string; role: "father" | "mother" }[] {
   const out: { id: string; role: "father" | "mother" }[] = [];
   for (const famId of ds.individuals.get(id)?.childOf ?? []) {
     const fam = ds.families.get(famId);
@@ -71,7 +71,7 @@ function parentsOf(ds: Dataset, id: string): { id: string; role: "father" | "mot
   return out;
 }
 
-function childrenOf(ds: Dataset, id: string): string[] {
+export function childrenOf(ds: Dataset, id: string): string[] {
   const out: string[] = [];
   for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
     const fam = ds.families.get(famId);

@@ -96,6 +96,7 @@ import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModa
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
+import { WiderFamilyPanel } from "./edit/WiderFamilyPanel";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
@@ -1848,6 +1849,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     <AssocProvider value={assocApi}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
+        {/* The person's page beside the Wider family rail (under it when narrow).
+            The page's own blocks keep their indentation below. */}
+        <div className="edit-layout">
+        <div className="edit-main">
         <div className="edit-parents">
           {/* One row per parent family, stacked and divided like the spouse
               families below — two families side by side read as one couple. */}
@@ -2246,6 +2251,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 addRelative={addRelative}
               />
             )}
+        </div>
+        </div>
+        <WiderFamilyPanel
+          dataset={dataset}
+          personId={person.id}
+          navigate={navigate}
+          relationsGen={relationsGenRef.current}
+        />
         </div>
       </div>
       <AddSourceDialog
