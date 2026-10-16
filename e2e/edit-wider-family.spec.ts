@@ -21,7 +21,7 @@ const GED = [
   "0 TRLR", "",
 ].join("\n");
 
-test("the Wider family panel lists relatives, reaches further and opens one", async ({ page }) => {
+test("the Relatives panel lists relatives, reaches further and opens one", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first()
     .setInputFiles({ name: "wider.ged", mimeType: "text/plain", buffer: Buffer.from(GED, "utf-8") });
