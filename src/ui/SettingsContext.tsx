@@ -21,6 +21,7 @@ import {
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
+import type { WiderFamilyDepth } from "../chart/widerFamily";
 import type { NativePyramid } from "./map/tilePlan";
 import { CUSTOM_BASEMAP, isKnownBasemap } from "./map/basemapPresets";
 
@@ -98,6 +99,11 @@ export interface MapOverlay {
   maxZoom?: number;
 }
 
+/** The Edit view's Wider family panel: open or folded, and its three depths. */
+export interface WiderFamilySettings extends WiderFamilyDepth {
+  open: boolean;
+}
+
 export interface AppSettings extends NameDisplayOptions {
   /** Show each person's record id (xref) alongside their name. */
   showXref: boolean;
@@ -118,6 +124,9 @@ export interface AppSettings extends NameDisplayOptions {
   allowMapTiles: boolean;
   /** Show the small per-person places map under the Edit view's events. */
   showEditMap: boolean;
+  /** The Edit view's "Wider family" panel: whether it is open, and how far
+   *  it reaches (see widerFamily in src/chart/widerFamily.ts). */
+  widerFamily: WiderFamilySettings;
   /** Which base map the Map chart draws: a {@link BASEMAPS} preset id ("" =
    *  the default), or CUSTOM_BASEMAP to use {@link mapTileUrl}. */
   mapBasemap: string;
@@ -165,6 +174,7 @@ const DEFAULTS: AppSettings = {
   allowLinkFetch: false,
   allowMapTiles: false,
   showEditMap: true,
+  widerFamily: { open: true, ancestors: 2, descendants: 1, others: 1, partners: false },
   mapBasemap: "",
   mapTileUrl: "",
   mapOverlays: [],
@@ -199,6 +209,32 @@ function sanitizeQuickEventTags(v: unknown): string[] {
 function sanitizeHomeCountry(v: unknown): string {
   if (v === HOME_COUNTRY_AUTO || v === HOME_COUNTRY_NONE) return v;
   return typeof v === "string" && /^[a-z]{2}$/i.test(v) ? v.toLowerCase() : DEFAULTS.homeCountry;
+}
+
+/** The ranges the Wider family steppers offer. */
+export const WIDER_FAMILY_LIMITS = {
+  ancestors: [1, 4],
+  descendants: [1, 3],
+  others: [0, 3],
+} as const satisfies Record<string, readonly [number, number]>;
+
+/** A saved Wider family panel state, each depth clamped to its stepper's range. */
+function sanitizeWiderFamily(v: unknown): WiderFamilySettings {
+  const d = DEFAULTS.widerFamily;
+  if (!v || typeof v !== "object") return d;
+  const o = v as Partial<Record<keyof WiderFamilySettings, unknown>>;
+  const depth = (k: keyof typeof WIDER_FAMILY_LIMITS) => {
+    const [lo, hi] = WIDER_FAMILY_LIMITS[k];
+    const n = o[k];
+    return typeof n === "number" && Number.isInteger(n) ? Math.min(hi, Math.max(lo, n)) : d[k];
+  };
+  return {
+    open: typeof o.open === "boolean" ? o.open : d.open,
+    ancestors: depth("ancestors"),
+    descendants: depth("descendants"),
+    others: depth("others"),
+    partners: typeof o.partners === "boolean" ? o.partners : d.partners,
+  };
 }
 
 const STORAGE_KEY = "gedmerge.settings";
@@ -349,6 +385,7 @@ function load(): AppSettings {
       allowMapTiles: bool(parsed.allowMapTiles, DEFAULTS.allowMapTiles),
       // Legacy home of this preference (before it moved into Settings).
       showEditMap: bool(parsed.showEditMap, localStorage.getItem("gedmerge-edit-map-hidden") !== "true"),
+      widerFamily: sanitizeWiderFamily(parsed.widerFamily),
       mapTileUrl: typeof parsed.mapTileUrl === "string" ? parsed.mapTileUrl : DEFAULTS.mapTileUrl,
       mapBasemap:
         typeof parsed.mapBasemap === "string" && isKnownBasemap(parsed.mapBasemap)
