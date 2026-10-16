@@ -2310,14 +2310,17 @@ button:focus-visible {
   align-items: flex-end;
   gap: 8px;
 }
-.edit-wider-toggle.active { border-color: var(--accent); color: var(--accent); }
 /* Once the actions column costs the parents more room than they can spare —
    the couple's marriage line no longer fits between the two cards — move the
    actions onto their own row above the parents and give the band the width. */
 @container parentsband (max-width: 960px) {
+  /* On a row of their own the buttons sit side by side: stacked, they would
+     leave a two-button-tall gap beside them. */
   .edit-actions {
     order: -1;
     flex: 0 0 100%;
+    flex-direction: row;
+    justify-content: flex-end;
   }
 }
 

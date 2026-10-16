@@ -1891,7 +1891,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             />
             <button
               type="button"
-              className={`tree-open-btn edit-wider-toggle${settings.widerFamily.open ? " active" : ""}`}
+              className="tree-open-btn edit-wider-toggle"
               aria-pressed={settings.widerFamily.open}
               aria-controls="edit-wider"
               title={t(settings.widerFamily.open ? "edit.wider.hide" : "edit.wider.show")}
