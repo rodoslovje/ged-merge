@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
@@ -6,12 +6,10 @@ import { kinshipLabelFor } from "../../match/kinship";
 import { widerFamily, type WiderGroup, type WiderRelative, type WiderSide } from "../../chart/widerFamily";
 import { useNameOf, useSetSettings, useSettingsSlice, WIDER_FAMILY_LIMITS, type WiderFamilySettings } from "../SettingsContext";
 import { sexClass } from "../sex";
+import { GearIcon } from "../icons/GearIcon";
 
 /** The preferences this file reads — subscribed field by field. */
 const SETTINGS_KEYS = ["widerFamily", "showAge"] as const;
-
-/** A group longer than this folds the rest behind "+N more". */
-const GROUP_CAP = 6;
 
 type DepthKey = keyof typeof WIDER_FAMILY_LIMITS;
 const DEPTHS: DepthKey[] = ["ancestors", "descendants", "others"];
@@ -20,8 +18,8 @@ const DEPTHS: DepthKey[] = ["ancestors", "descendants", "others"];
  * The Edit view's right-hand rail: the person's relatives beyond the cards —
  * grandparents, uncles and aunts, cousins, nephews, grandchildren — grouped by
  * relationship, nearest first, each one click from their own page. Three
- * steppers set how far it reaches (see {@link widerFamily}); folded, it is a
- * narrow tab and computes nothing.
+ * steppers set how far it reaches (see {@link widerFamily}). The toggle under
+ * Edit's Back button opens and closes it; closed, it computes nothing.
  */
 export const WiderFamilyPanel = memo(function WiderFamilyPanel({ dataset, personId, navigate, relationsGen }: {
   dataset: Dataset;
@@ -42,42 +40,30 @@ export const WiderFamilyPanel = memo(function WiderFamilyPanel({ dataset, person
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cfg, dataset, personId, relationsGen],
   );
-  // Groups unfolded past the cap, per person: another person starts folded.
-  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
 
-  if (!cfg.open) {
-    return (
-      <button
-        type="button"
-        className="edit-wider-tab"
-        aria-expanded={false}
-        title={t("edit.wider.show")}
-        onClick={() => update({ open: true })}
-      >
-        <span aria-hidden="true">«</span>
-        <span className="edit-wider-tab-label">{t("edit.wider.title")}</span>
-      </button>
-    );
-  }
+  if (!cfg.open) return null;
 
   const total = groups.reduce((n, g) => n + g.members.length, 0);
   return (
-    <aside className="edit-wider" aria-labelledby="edit-wider-title">
+    <aside className="edit-wider" id="edit-wider" aria-labelledby="edit-wider-title">
       <div className="edit-wider-head">
         <div className="edit-wider-title">
           <strong id="edit-wider-title">{t("edit.wider.title")}</strong>
           <span className="edit-wider-count gm-data">{total}</span>
           <button
             type="button"
-            className="edit-wider-fold"
-            aria-expanded={true}
-            title={t("edit.wider.hide")}
-            onClick={() => update({ open: false })}
+            className={`edit-wider-gear${cfg.controls ? " active" : ""}`}
+            aria-expanded={cfg.controls}
+            aria-controls="edit-wider-depths"
+            aria-label={t("edit.wider.controls")}
+            title={t("edit.wider.controls")}
+            onClick={() => update({ controls: !cfg.controls })}
           >
-            »
+            <GearIcon size={14} />
           </button>
         </div>
-        <div className="edit-wider-depths">
+        {cfg.controls && (
+        <div className="edit-wider-depths" id="edit-wider-depths">
           {DEPTHS.map((k) => {
             const [lo, hi] = WIDER_FAMILY_LIMITS[k];
             return (
@@ -112,43 +98,35 @@ export const WiderFamilyPanel = memo(function WiderFamilyPanel({ dataset, person
             {t("edit.wider.partners")}
           </label>
         </div>
+        )}
       </div>
       <div className="edit-wider-body">
         {groups.length === 0 && <p className="edit-wider-empty muted">{t("edit.wider.empty")}</p>}
-        {groups.map((g) => {
-          const key = `${personId}|${g.up}:${g.down}`;
-          return (
-            <WiderGroupBlock
-              key={key}
-              group={g}
-              dataset={dataset}
-              navigate={navigate}
-              showAge={settings.showAge}
-              unfolded={unfolded.has(key)}
-              onUnfold={() => setUnfolded((prev) => new Set(prev).add(key))}
-            />
-          );
-        })}
+        {groups.map((g) => (
+          <WiderGroupBlock
+            key={`${g.up}:${g.down}`}
+            group={g}
+            dataset={dataset}
+            navigate={navigate}
+            showAge={settings.showAge}
+          />
+        ))}
       </div>
     </aside>
   );
 });
 
-function WiderGroupBlock({ group, dataset, navigate, showAge, unfolded, onUnfold }: {
+function WiderGroupBlock({ group, dataset, navigate, showAge }: {
   group: WiderGroup;
   dataset: Dataset;
   navigate: (id: string) => void;
   showAge: boolean;
-  unfolded: boolean;
-  onUnfold: () => void;
 }) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const male = kinshipLabelFor(group.up, group.down, "M", t);
   const female = kinshipLabelFor(group.up, group.down, "F", t);
   const heading = male === female ? male : `${male} · ${female}`;
-  const members = unfolded ? group.members : group.members.slice(0, GROUP_CAP);
-  const hidden = group.members.length - members.length;
 
   const chip = (r: WiderRelative) => {
     const indi = dataset.individuals.get(r.id);
@@ -168,7 +146,6 @@ function WiderGroupBlock({ group, dataset, navigate, showAge, unfolded, onUnfold
       >
         <span className="edit-wider-person-name person-name">{formatName(indi)}</span>
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-        {partnerOf && <span className="edit-wider-person-kin">{kin}</span>}
       </button>
     );
   };
@@ -182,12 +159,12 @@ function WiderGroupBlock({ group, dataset, navigate, showAge, unfolded, onUnfold
         <span className="edit-wider-count gm-data">{group.members.length}</span>
       </h3>
       {sides.map((side) => {
-        const list = members.filter((r) => r.side === side);
+        const list = group.members.filter((r) => r.side === side);
         if (!list.length) return null;
         return (
           <div key={side} className="edit-wider-side">
             {side !== "own" && (
-              <div className={`edit-wider-side-label ${side === "father" ? "paternal" : "maternal"}`}>
+              <div className="edit-wider-side-label">
                 {t(side === "father" ? "edit.wider.fatherSide" : "edit.wider.motherSide")}
               </div>
             )}
@@ -195,11 +172,6 @@ function WiderGroupBlock({ group, dataset, navigate, showAge, unfolded, onUnfold
           </div>
         );
       })}
-      {hidden > 0 && (
-        <button type="button" className="edit-wider-more" onClick={onUnfold}>
-          {t("edit.wider.more", { count: hidden })}
-        </button>
-      )}
     </section>
   );
 }

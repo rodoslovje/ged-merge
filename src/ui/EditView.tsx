@@ -97,6 +97,7 @@ import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { WiderFamilyPanel } from "./edit/WiderFamilyPanel";
+import { RelativesIcon } from "./icons/RelativesIcon";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
@@ -222,7 +223,7 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner"] as const;
+const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
 
 /** Events a person has at most one of: adding again focuses the existing row
  *  (Birth's always-present row included) instead of writing a duplicate, and
@@ -1889,6 +1890,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               disabled={!canGoBack}
               onClick={goBack}
             />
+            <button
+              type="button"
+              className="tree-open-btn edit-wider-toggle"
+              aria-pressed={settings.widerFamily.open}
+              aria-controls="edit-wider"
+              aria-label={t("edit.wider.title")}
+              title={t(settings.widerFamily.open ? "edit.wider.hide" : "edit.wider.show")}
+              onClick={() => setSettings({ widerFamily: { ...settings.widerFamily, open: !settings.widerFamily.open } })}
+            >
+              <RelativesIcon size={16} />
+            </button>
           </div>
         </div>
 
