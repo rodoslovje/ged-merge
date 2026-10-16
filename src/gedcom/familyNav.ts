@@ -106,3 +106,49 @@ export function familyStepTarget(
   const delta = step === "nextPartner" ? 1 : -1;
   return partners[(from + delta + partners.length) % partners.length];
 }
+
+/** The children one parent had in other unions — one half of
+ *  {@link FamilySiblings}. */
+export interface HalfSiblingGroup {
+  /** "husband" when they share the family's father, "wife" its mother. */
+  via: "husband" | "wife";
+  /** Each half-sibling with the parent they do not share, when recorded —
+   *  unions by marriage, children by birth within each. */
+  siblings: { id: string; otherParentId?: string }[];
+}
+
+/** The siblings Edit shows under one parent family. */
+export interface FamilySiblings {
+  /** The family's children by birth, the person among them. */
+  full: string[];
+  /** Children of either parent's other unions, the father's first. A union the
+   *  person is a child of is skipped: it has a parents row of its own. */
+  half: HalfSiblingGroup[];
+}
+
+/** The siblings of `personId` through the parent family `famId`. */
+export function familySiblings(ds: Dataset, famId: string, personId: string): FamilySiblings {
+  const fam = ds.families.get(famId);
+  if (!fam) return { full: [], half: [] };
+  const full = childrenByBirth(fam, ds.individuals);
+  const ownFams = new Set(ds.individuals.get(personId)?.childOf ?? []);
+  const seen = new Set([personId, ...full]);
+  const half: HalfSiblingGroup[] = [];
+  for (const via of ["husband", "wife"] as const) {
+    const parentId = fam[via];
+    const parent = parentId ? ds.individuals.get(parentId) : undefined;
+    if (!parent) continue;
+    const siblings: HalfSiblingGroup["siblings"] = [];
+    for (const other of familiesByMarriage(ds, parent.spouseOf)) {
+      if (other.id === fam.id || ownFams.has(other.id)) continue;
+      const partner = other.husband === parent.id ? other.wife : other.husband;
+      for (const id of childrenByBirth(other, ds.individuals)) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        siblings.push({ id, otherParentId: partner });
+      }
+    }
+    if (siblings.length) half.push({ via, siblings });
+  }
+  return { full, half };
+}

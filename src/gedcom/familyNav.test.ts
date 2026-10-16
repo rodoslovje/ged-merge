@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { parseGedcom } from "./parser";
-import { familyStepTarget } from "./familyNav";
+import { familySiblings, familyStepTarget } from "./familyNav";
 import { familyStepFor } from "../keyboard/shortcuts";
 
 function dataset(text: string) {
@@ -131,5 +131,37 @@ describe("familyStepFor", () => {
   it("leaves every other key alone", () => {
     expect(familyStepFor("a", false)).toBeUndefined();
     expect(familyStepFor("Enter", true)).toBeUndefined();
+  });
+});
+
+describe("familySiblings", () => {
+  const ds = dataset(TREE);
+
+  it("lists the family's children by birth, the person among them", () => {
+    expect(familySiblings(ds, "@F1@", "@I1@").full).toEqual(["@I4@", "@I1@", "@I5@"]);
+  });
+
+  it("finds the father's other family as half-siblings, naming the other parent", () => {
+    expect(familySiblings(ds, "@F1@", "@I1@").half).toEqual([
+      { via: "husband", siblings: [{ id: "@I6@", otherParentId: "@I11@" }] },
+    ]);
+  });
+
+  it("gives the half-sibling's own family back as full, and the other one as half", () => {
+    const s = familySiblings(ds, "@F2@", "@I6@");
+    expect(s.full).toEqual(["@I6@"]);
+    expect(s.half).toEqual([
+      { via: "husband", siblings: [{ id: "@I4@", otherParentId: "@I3@" }, { id: "@I1@", otherParentId: "@I3@" }, { id: "@I5@", otherParentId: "@I3@" }] },
+    ]);
+  });
+
+  it("skips a union the person is a child of", () => {
+    // Ana is also recorded in F2 (say, raised there): it is her own row, not half-siblings.
+    const both = dataset(TREE.replace("1 FAMC @F1@\n1 FAMS @F3@", "1 FAMC @F1@\n1 FAMC @F2@\n1 FAMS @F3@"));
+    expect(familySiblings(both, "@F1@", "@I1@").half).toEqual([]);
+  });
+
+  it("returns nothing for an unknown family", () => {
+    expect(familySiblings(ds, "@F99@", "@I1@")).toEqual({ full: [], half: [] });
   });
 });

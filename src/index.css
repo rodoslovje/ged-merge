@@ -2363,6 +2363,70 @@ button:focus-visible {
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
+/* The siblings under the parents: compact chips in birth order, the person
+   marked in their place, each parent's other unions after a small label. */
+.edit-siblings {
+  order: 4;
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.edit-sibling-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+}
+.edit-sibling {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 120px;
+  padding: 3px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.edit-sibling.sex-m {
+  background: color-mix(in oklch, var(--sex-male) 6%, transparent);
+  border-color: color-mix(in oklch, var(--sex-male) 32%, var(--border));
+}
+.edit-sibling.sex-f {
+  background: color-mix(in oklch, var(--sex-female) 6%, transparent);
+  border-color: color-mix(in oklch, var(--sex-female) 32%, var(--border));
+}
+.edit-sibling:hover { border-color: var(--accent); }
+.edit-sibling.sex-m:hover { border-color: var(--sex-male); }
+.edit-sibling.sex-f:hover { border-color: var(--sex-female); }
+.edit-sibling.half { border-style: dashed; }
+.edit-sibling.self {
+  cursor: default;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.edit-sibling-half {
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 0.75em;
+}
+.edit-sibling-group {
+  align-self: center;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 0.78rem;
+}
 /* Too narrow for the marriage line to sit between the parents: keep the two
    cards side by side and move that line onto its own row underneath. */
 @container parents (max-width: 760px) {

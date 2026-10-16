@@ -299,3 +299,8 @@ function isMacKeyboard(): boolean {
 export function altShiftLabel(key: string): string {
   return isMacKeyboard() ? `⌥⇧${key}` : `Alt+Shift+${key}`;
 }
+
+/** The ⌥ combination, likewise ("⌥←" / "Alt+←"). */
+export function altLabel(key: string): string {
+  return isMacKeyboard() ? `⌥${key}` : `Alt+${key}`;
+}
