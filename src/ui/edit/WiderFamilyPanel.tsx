@@ -164,7 +164,7 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
         return (
           <div key={side} className="edit-wider-side">
             {side !== "own" && (
-              <div className={`edit-wider-side-label ${side === "father" ? "paternal" : "maternal"}`}>
+              <div className="edit-wider-side-label">
                 {t(side === "father" ? "edit.wider.fatherSide" : "edit.wider.motherSide")}
               </div>
             )}

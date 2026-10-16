@@ -2450,9 +2450,9 @@ button:focus-visible {
 }
 .edit-wider-side { display: flex; flex-direction: column; gap: 2px; }
 .edit-wider-side + .edit-wider-side { margin-top: 4px; }
-.edit-wider-side-label { font-size: 0.75rem; color: var(--faint); margin: 2px 0; }
-.edit-wider-side-label.paternal { color: var(--lineage-paternal); }
-.edit-wider-side-label.maternal { color: var(--lineage-maternal); }
+/* Neutral on purpose: the lineage colours elsewhere follow kinship to the
+   start person, which these sides (the edited person's) need not match. */
+.edit-wider-side-label { font-size: 0.75rem; color: var(--muted); margin: 2px 0; }
 .edit-wider-person {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
