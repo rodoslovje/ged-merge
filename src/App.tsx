@@ -951,6 +951,12 @@ function AppContent() {
     [indexByMain, indexByCompare, current, addedPerson],
   );
 
+  // Jump the compare view to one exact pair — a join the save will make, which
+  // the review flags for inspection (see `CandidateDecision.joins`).
+  const openPair = useCallback((mainId: string, compareId: string) => {
+    selectFromPageRef.current({ mainId, compareId });
+  }, []);
+
   function handleUndo() {
     const entry = undoRedo.undo();
     if (!entry) return;
@@ -2428,6 +2434,7 @@ function AppContent() {
               onShowCharts={openCharts}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
+              onOpenPair={openPair}
               compareRef={compareRef}
               active={mode === "merge" && !overlayOpen}
             />

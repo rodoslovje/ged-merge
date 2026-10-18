@@ -150,7 +150,48 @@ describe("materializeAdds", () => {
     const original = serializeGedcom(main.records);
     const { decisions, patches } = step(main, compare, new Map(), FATHER, { status: "confirmed", fields: { father: "main" } });
     expect(decisions.get(FATHER)?.added).toBeUndefined();
+    expect(decisions.get(FATHER)?.joins).toEqual({ "@P2@": "@I2@" });
     expect(patches).toEqual([]);
     expect(serializeGedcom(main.records)).toBe(original);
+  });
+
+  // Main also holds Marko on his own; the matcher pairs the incoming Marko with him.
+  const LONE_MARKO = "0 @I9@ INDI\n1 NAME Marko /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1883\n";
+  const MARKO_MATCHED = {
+    individuals: [...(MATCHES as { individuals: object[] }).individuals, { mainId: "@I9@", compareId: "@P4@" }],
+  } as never;
+
+  it("names a ticked child the save joins to a matched record, and adds them once the match is rejected", () => {
+    const main = dataset(MAIN.replace("0 TRLR", `${LONE_MARKO}0 TRLR`));
+    const compare = dataset(COMPARE);
+    const original = serializeGedcom(main.records);
+    const tick = new Map([[FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] } as CandidateDecision]]);
+    const first = materializeAdds(main, compare, MARKO_MATCHED, new Map(), tick, tr);
+    expect(first.decisions.get(FATHER)?.joins).toEqual({ "@P4@": "@I9@" });
+    expect(first.decisions.get(FATHER)?.added).toBeUndefined();
+    expect(serializeGedcom(main.records)).toBe(original);
+
+    // Rejecting the pair: no join is left, and the tick adds Marko as new.
+    const rejected = new Map(first.decisions).set(decisionKey("individual", "@I9@", "@P4@"), { status: "rejected", fields: {} });
+    const second = materializeAdds(main, compare, MARKO_MATCHED, first.decisions, rejected, tr);
+    expect(second.decisions.get(FATHER)?.joins).toBeUndefined();
+    const markoId = second.decisions.get(FATHER)?.added?.["@P4@"];
+    expect(markoId).toBeDefined();
+    expect(markoId).not.toBe("@I9@");
+    expect(main.families.get("@F1@")?.children).toContain(markoId);
+  });
+
+  it("adds a ticked child whose match already has other parents, as the save would", () => {
+    const main = dataset(MAIN.replace(
+      "0 TRLR",
+      `${LONE_MARKO}1 FAMC @F9@\n0 @I8@ INDI\n1 NAME Luka /Novak/\n1 SEX M\n1 FAMS @F9@\n0 @F9@ FAM\n1 HUSB @I8@\n1 CHIL @I9@\n0 TRLR`,
+    ));
+    const compare = dataset(COMPARE);
+    const tick = new Map([[FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] } as CandidateDecision]]);
+    const { decisions } = materializeAdds(main, compare, MARKO_MATCHED, new Map(), tick, tr);
+    expect(decisions.get(FATHER)?.joins).toBeUndefined();
+    const markoId = decisions.get(FATHER)?.added?.["@P4@"];
+    expect(markoId).toBeDefined();
+    expect(markoId).not.toBe("@I9@");
   });
 });

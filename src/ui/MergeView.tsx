@@ -60,6 +60,7 @@ interface Props {
   onShowCharts: (id: string, kind?: ChartKind) => void;
   canNavigatePerson: (side: "main" | "incoming", id: string) => boolean;
   onNavigatePerson: (side: "main" | "incoming", id: string) => void;
+  onOpenPair: (mainId: string, compareId: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
   /** False when Merge is mounted but hidden behind Edit mode — kept mounted
    * across mode switches so toggling modes with a large match list doesn't
@@ -103,6 +104,7 @@ export function MergeView({
   onShowCharts,
   canNavigatePerson,
   onNavigatePerson,
+  onOpenPair,
   compareRef,
   active,
 }: Props) {
@@ -390,6 +392,7 @@ export function MergeView({
                       onChange={onUpdateDecision}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
+                      onOpenPair={onOpenPair}
                       onLeave={() => document.querySelector<HTMLElement>(".candidate-list")?.focus()}
               />
                   ) : (

@@ -113,17 +113,28 @@ export function materializeAdds(
   }
   if (gone.length) patches.push(...removePeople(main, gone));
 
-  // Add what a changed, confirmed decision asks for.
+  // Add what a changed, confirmed decision asks for. A decision with joins
+  // left to the save is asked again on every pass: rejecting the matched pair
+  // turns its join into an addition, and confirming it settles the flag.
   const pinned = pinnedAdds(decisions);
   for (const [key, d] of decisions) {
-    if (d.status !== "confirmed" || before.get(key) === after.get(key)) continue;
+    if (d.status !== "confirmed") {
+      if (d.joins) decisions.set(key, withJoins(d, {}));
+      continue;
+    }
+    if (before.get(key) === after.get(key) && !d.joins) continue;
     // Most changes (a field choice) ask for nobody new; skip the stitching then.
-    if (![...wantedAdds(new Map([[key, d]]), main, compare)].some((id) => !pinned.has(id))) continue;
-    const added = addFor(main, compare, matches, decisions, key, d, pinned, t, overrides);
-    if (!added) continue;
-    patches.push(...added.patches);
-    for (const [incomingId, mainId] of added.ids) pinned.set(incomingId, mainId);
-    decisions.set(key, withAdded(d, { ...d.added, ...Object.fromEntries(added.ids) }));
+    const asks = [...wantedAdds(new Map([[key, d]]), main, compare)].some((id) => !pinned.has(id));
+    const added = asks ? addFor(main, compare, matches, decisions, key, d, pinned, t, overrides) : undefined;
+    if (added) {
+      patches.push(...added.patches);
+      for (const [incomingId, mainId] of added.ids) pinned.set(incomingId, mainId);
+    }
+    const next = withJoins(
+      added?.ids.size ? withAdded(d, { ...d.added, ...Object.fromEntries(added.ids) }) : d,
+      Object.fromEntries(added?.joins ?? []),
+    );
+    if (added?.ids.size || JSON.stringify(next.joins) !== JSON.stringify(d.joins)) decisions.set(key, next);
   }
 
   return { decisions, patches: coalescePatches(patches) };
@@ -133,6 +144,13 @@ function withAdded(d: CandidateDecision, added: Record<string, string>): Candida
   const next = { ...d };
   if (Object.keys(added).length) next.added = added;
   else delete next.added;
+  return next;
+}
+
+function withJoins(d: CandidateDecision, joins: Record<string, string>): CandidateDecision {
+  const next = { ...d };
+  if (Object.keys(joins).length) next.joins = joins;
+  else delete next.joins;
   return next;
 }
 
@@ -190,7 +208,8 @@ class CopyOnRead extends Map<string, GedNode> {
   }
 }
 
-/** Add the new people one decision asks for; undefined when it adds nobody. */
+/** Add the new people one decision asks for, and name the ones the save will
+ *  join to an existing record instead; undefined when it is no person's match. */
 function addFor(
   main: Dataset,
   compare: Dataset,
@@ -201,7 +220,7 @@ function addFor(
   pinned: ReadonlyMap<string, string>,
   t: Translate,
   overrides?: FormatOverrides,
-): { patches: RecordPatch[]; ids: Map<string, string> } | undefined {
+): { patches: RecordPatch[]; ids: Map<string, string>; joins: Map<string, string> } | undefined {
   const parsed = parseDecisionKey(key);
   if (parsed?.kind !== "individual") return undefined;
   const mainIndi = main.individuals.get(parsed.mainId);
@@ -236,7 +255,7 @@ function addFor(
     parsed.mainId, mainIndi, incoming, rows, { ...d.fields, ...confirmedFamilyFields(decisions) },
     main, compare, ctx, taken, true,
   );
-  if (!ctx.added.size) return undefined;
+  if (!ctx.added.size) return { patches: [], ids: new Map(), joins: ctx.joins };
 
   dropLoneFamilies(records, liveIds, individuals, families);
   const people = records.filter((r) => r.xref && !liveIds.has(r.xref));
@@ -267,7 +286,7 @@ function addFor(
     }
   }
   applyRecordPatches(main, patches, "redo");
-  return { patches, ids: new Map(ctx.added) };
+  return { patches, ids: new Map(ctx.added), joins: ctx.joins };
 }
 
 /**

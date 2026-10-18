@@ -4602,6 +4602,19 @@ button:focus-visible {
   font-size: 0.78rem;
   color: var(--status-new);
 }
+/* A relative the save will join to a record the main file already has, on the
+   matcher's suggestion — flagged for inspection; a click opens that pair. */
+.gm-join-flag {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--state-major);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
 /* GEDCOM filenames in the Load header, coloured by their role. */
 .gm-file.main { color: var(--state-main); }
 .gm-file.incoming { color: var(--state-incoming); }

@@ -11,6 +11,7 @@ import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import {
   defaultChoice,
+  pendingJoins,
   pinnedAdds,
   type CandidateDecision,
   type FieldChoice,
@@ -20,8 +21,9 @@ import {
 import { rowCanKeepBoth } from "../merge/applyFields";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useSettingsSlice } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useNodeStatus } from "./useNodeStatus";
+import { lifespanOf } from "../gedcom/lifespan";
 import { collectMediaRefs } from "../gedcom/media";
 
 /** Which dataset a relative id belongs to. */
@@ -43,6 +45,8 @@ interface Props {
   canNavigate: (side: RelativeSide, id: string) => boolean;
   /** Jump the compare view to the person on `side` with this id. */
   onNavigate: (side: RelativeSide, id: string) => void;
+  /** Open one exact match pair — the warning on a join left to the save. */
+  onOpenPair: (mainId: string, compareId: string) => void;
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -61,9 +65,11 @@ export function ComparePanel({
   onChange,
   canNavigate,
   onNavigate,
+  onOpenPair,
   onLeave,
 }: Props) {
   const { t } = useTranslation();
+  const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const mainPerson = {
     linkable: (id: string) => canNavigate("main", id),
@@ -140,6 +146,29 @@ export function ComparePanel({
       <span className="gm-added-tag" title={t(own ? "compare.added.title" : "compare.addedElsewhere.title")}>
         {t("compare.childTaken.label")}
       </span>
+    );
+  }
+  // Relatives the save will join to a record the main file already has, on
+  // the matcher's word alone: incoming id → that main id.
+  const joins = useMemo(() => pendingJoins(decisions), [decisions]);
+  /** The warning beside a relative the save joins to an existing record. The
+   *  record is named in the tooltip only; a click opens the pair to judge it. */
+  function joinFlag(incomingId: string | undefined) {
+    const mainId = incomingId && joins.get(incomingId);
+    if (!incomingId || !mainId) return null;
+    const indi = mainDs.individuals.get(mainId);
+    const years = lifespanOf(indi);
+    const name = `${indi ? formatName(indi) : mainId}${years ? ` ${years}` : ""} (${mainId.replace(/@/g, "")})`;
+    return (
+      <button
+        type="button"
+        className="gm-join-flag"
+        data-tip={t("compare.join.title", { name })}
+        aria-label={t("compare.join.title", { name })}
+        onClick={() => onOpenPair(mainId, incomingId)}
+      >
+        ⚠
+      </button>
     );
   }
   // A rejected/deferred match never applies any incoming data on save (see
@@ -257,7 +286,7 @@ export function ComparePanel({
     return {
       mainChosen: false,
       incomingChosen: taken,
-      choice: lockable(takeButton),
+      choice: <>{lockable(takeButton)}{taken && joinFlag(incId)}</>,
     };
   }
 
@@ -312,7 +341,8 @@ export function ComparePanel({
       // two values, so "Both" would just replace — don't offer a choice that
       // doesn't mean what it says.
       const offered = rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
-      return lockable(offered.map((c) => (
+      const joined = choice !== "main" ? row.incomingRefs?.find((id) => id && joins.has(id)) : undefined;
+      return <>{lockable(offered.map((c) => (
         <button
           key={c}
           className={`choice ${c}${choice === c ? " active" : ""}`}
@@ -322,7 +352,7 @@ export function ComparePanel({
         >
           {choiceLabel(t, c)}
         </button>
-      )));
+      )))}{joinFlag(joined)}</>;
     }
     if (row.state === "agree") {
       const added = [...(row.mainRefs ?? []), ...(row.relatives ?? []).map((p) => p.main?.id)].find((id) => id && addedMain.has(id));
