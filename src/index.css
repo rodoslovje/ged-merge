@@ -2490,6 +2490,12 @@ button:focus-visible {
   white-space: nowrap;
 }
 .edit-wider-person.in-law .edit-wider-person-name { font-style: italic; }
+/* An in-law is there by marriage: the marriage symbol leads their name. */
+.edit-wider-marriage {
+  margin-right: 0.35em;
+  color: var(--muted);
+  font-style: normal;
+}
 @media (max-width: 1100px) {
   .edit-layout { grid-template-columns: minmax(0, 1fr); }
   .edit-wider { position: static; width: auto; max-height: none; }

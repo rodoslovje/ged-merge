@@ -6,6 +6,7 @@ import { kinshipLabelFor } from "../../match/kinship";
 import { widerFamily, type WiderGroup, type WiderRelative, type WiderSide } from "../../chart/widerFamily";
 import { useNameOf, useSetSettings, useSettingsSlice, WIDER_FAMILY_LIMITS, type WiderFamilySettings } from "../SettingsContext";
 import { sexClass } from "../sex";
+import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
 import { GearIcon } from "../icons/GearIcon";
 
 /** The preferences this file reads — subscribed field by field. */
@@ -144,7 +145,10 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
         title={[kin, lifespanTooltipOf(indi, showAge, t)].filter(Boolean).join(" · ")}
         onClick={() => navigate(r.id)}
       >
-        <span className="edit-wider-person-name person-name">{formatName(indi)}</span>
+        <span className="edit-wider-person-name person-name">
+          {partnerOf && <span className="edit-wider-marriage" aria-hidden="true">{MARRIAGE_SYMBOL}</span>}
+          {formatName(indi)}
+        </span>
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
       </button>
     );
