@@ -10,6 +10,7 @@ import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
+import type { ChartKind } from "./ChartSettingsContext";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
@@ -55,6 +56,8 @@ interface Props {
   compareDataset: Dataset | undefined;
   onUpdateDecision: (next: CandidateDecision) => void;
   onOpenTree: (mainId: string, compareId: string) => void;
+  /** Opens the Charts hub on a main-file person — S, the relationship diagram. */
+  onShowCharts: (id: string, kind?: ChartKind) => void;
   canNavigatePerson: (side: "main" | "incoming", id: string) => boolean;
   onNavigatePerson: (side: "main" | "incoming", id: string) => void;
   compareRef: RefObject<HTMLDivElement | null>;
@@ -97,6 +100,7 @@ export function MergeView({
   compareDataset,
   onUpdateDecision,
   onOpenTree,
+  onShowCharts,
   canNavigatePerson,
   onNavigatePerson,
   compareRef,
@@ -241,6 +245,12 @@ export function MergeView({
       })) return;
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
+      if (key === KEY.relationship) {
+        // The diagram draws the main file, so it relates the pair's main person
+        // to the start person — there is nothing to draw for the start person.
+        if (current!.mainId !== startId) { e.preventDefault(); onShowCharts(current!.mainId, "relationship"); }
+        return;
+      }
       if (key === KEY.filter) {
         // The filter row lives in the match section, so showing it opens that too.
         e.preventDefault();
@@ -253,7 +263,7 @@ export function MergeView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, onSelectIndex, visibleCount, visibleIndex, setOpenMatches, setShowFilters]); // STATUSES/onOpenTree/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
+  }, [active, current, onUpdateDecision, status, fields, t, onSelectPrev, onSelectNext, onSelectIndex, visibleCount, visibleIndex, setOpenMatches, setShowFilters, startId]); // STATUSES/onOpenTree/onShowCharts/shortcutOf/toggleStatus intentionally omitted — module constants or stable-ref callbacks
 
   const currentLifespan = current ? candidateLifespan(current, mainDataset, settings.showAge, t) : undefined;
   const compareHeader = current ? (

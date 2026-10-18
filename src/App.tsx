@@ -2425,6 +2425,7 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecision}
               onOpenTree={openTree}
+              onShowCharts={openCharts}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
               compareRef={compareRef}
