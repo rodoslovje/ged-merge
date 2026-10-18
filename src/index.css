@@ -3394,6 +3394,8 @@ button:focus-visible {
    down to their weight — as a transform, so the slot it sits in keeps its
    width and the names after it stay in one column. */
 .event-glyph--pictograph { transform: scale(0.78); opacity: 0.92; }
+/* Two rings set close, so the pair fits the slot one mark is given. */
+.event-glyph--pair { letter-spacing: -0.12em; white-space: nowrap; }
 /* A run of marks after a person's name — which of their events happened at the
    place the row is about. */
 .event-glyphs { display: inline-flex; align-items: baseline; margin-left: 6px; }
