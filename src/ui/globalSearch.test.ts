@@ -159,6 +159,14 @@ describe("searchPeople — query", () => {
     expect(searchPeople(placed, "", filters({ place: "skofja" }), noCtx)).toHaveLength(1);
   });
 
+  it("finds a person by record id, with or without the @s, in any case", () => {
+    const id = rows.find((r) => r.name === "Marko Novak")!.id;
+    for (const q of [id, id.replace(/@/g, ""), ` ${id.toLowerCase()} `]) {
+      expect(searchPeople(rows, q, NO_FILTERS, noCtx).map((r) => r.name)).toEqual(["Marko Novak"]);
+    }
+    expect(searchPeople(rows, "@I999999@", NO_FILTERS, noCtx)).toHaveLength(0);
+  });
+
   it("caps the result count", () => {
     const many = buildSearchRows(
       toMap(Array.from({ length: MAX_RESULTS + 10 }, () => indi([{ full: "Ana Test" }]))),

@@ -407,6 +407,15 @@ export function searchPeople(
   filters: GlobalFilters,
   ctx: FilterContext,
 ): SearchRow[] {
+  // A record id — "@I1262@", or "I1262" without the @s — names one person
+  // exactly, whatever the facets say. No name or year has this shape, so an id
+  // with no such record falls through to the ordinary search (and finds no one).
+  const idQuery = /^@?([a-z][a-z0-9_]*\d[a-z0-9_]*)@?$/i.exec(query.trim());
+  if (idQuery) {
+    const id = `@${idQuery[1]}@`.toUpperCase();
+    const hit = rows.find((r) => r.id.toUpperCase() === id);
+    if (hit) return [hit];
+  }
   const terms = queryTerms(query);
   const active = hasActiveFilters(filters);
   const out: SearchRow[] = [];
