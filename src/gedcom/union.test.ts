@@ -19,12 +19,12 @@ describe("unionMark", () => {
     expect(unionMark(fam("1 ANUL Y\n"))).toEqual({ glyph: "⚮", ended: "divorced" });
   });
 
-  it("keeps a separated marriage married, and names the separation", () => {
-    expect(unionMark(fam("1 MARR Y\n1 SEPA\n2 DATE 1905\n"))).toEqual({ glyph: "⚭", ended: "separated" });
+  it("marks a separated marriage as separated", () => {
+    expect(unionMark(fam("1 MARR Y\n1 SEPA\n2 DATE 1905\n"))).toEqual({ glyph: "⚬⚬", ended: "separated" });
   });
 
-  it("marks a recorded unmarried partnership, separated or not", () => {
+  it("marks a recorded unmarried partnership, and its separation", () => {
     expect(unionMark(fam("1 _MSTAT Partners\n"))).toEqual({ glyph: "⚯" });
-    expect(unionMark(fam("1 _MSTAT Partners\n1 SEPA\n"))).toEqual({ glyph: "⚯", ended: "separated" });
+    expect(unionMark(fam("1 _MSTAT Partners\n1 SEPA\n"))).toEqual({ glyph: "⚬⚬", ended: "separated" });
   });
 });
