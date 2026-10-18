@@ -181,6 +181,17 @@ describe("materializeAdds", () => {
     expect(main.families.get("@F1@")?.children).toContain(markoId);
   });
 
+  it("drops the flag once the matched pair is confirmed", () => {
+    const main = dataset(MAIN.replace("0 TRLR", `${LONE_MARKO}0 TRLR`));
+    const compare = dataset(COMPARE);
+    const tick = new Map([[FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] } as CandidateDecision]]);
+    const first = materializeAdds(main, compare, MARKO_MATCHED, new Map(), tick, tr);
+    const confirmed = new Map(first.decisions).set(decisionKey("individual", "@I9@", "@P4@"), { status: "confirmed", fields: {} });
+    const second = materializeAdds(main, compare, MARKO_MATCHED, first.decisions, confirmed, tr);
+    expect(second.decisions.get(FATHER)?.joins).toBeUndefined();
+    expect(second.decisions.get(FATHER)?.added).toBeUndefined();
+  });
+
   it("adds a ticked child whose match already has other parents, as the save would", () => {
     const main = dataset(MAIN.replace(
       "0 TRLR",

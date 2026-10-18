@@ -328,7 +328,8 @@ export function makeContext(
       const matched = matchedJoin(incomingId);
       if (matched === undefined) return addNewIndividual(incomingId);
       if (opts.newOnly && !pinned.has(incomingId)) {
-        joins.set(incomingId, matched);
+        // Only the matcher's word needs flagging: a pair you confirmed is yours.
+        if (!confirmed.has(`${matched}|${incomingId}`)) joins.set(incomingId, matched);
         return undefined;
       }
       noteGraftJoin(matched, incomingId);
