@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { tipProps } from "./IconTip";
 import type { RelativeCell, RelativePair } from "../review/types";
 import { linkKey } from "../normalize/links";
-import { isWebAddress } from "../gedcom/uri";
+import { isWebAddress, withScheme } from "../gedcom/uri";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import { sexClass } from "./sex";
 import type { Translate } from "../locales/i18n";
@@ -249,9 +249,7 @@ function renderLine(line: React.ReactNode, id: string | undefined, person?: Pers
 }
 
 /** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */
-export function linkHref(url: string): string {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
+export const linkHref = withScheme;
 
 /**
  * The href for a value that may be no address at all — a source's title, a

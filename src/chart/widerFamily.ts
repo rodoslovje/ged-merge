@@ -11,6 +11,7 @@
 
 import type { Dataset } from "../gedcom/types";
 import { birthSortKey } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 import { childrenOf, parentsOf } from "./kinshipWheel";
 
 export interface WiderFamilyDepth {
@@ -107,9 +108,8 @@ export function widerFamily(ds: Dataset, rootId: string, depth: WiderFamilyDepth
     const listed = new Set(shown.map((r) => r.id));
     for (const r of [...shown]) {
       if (r.down === 0) continue; // an ancestor's partner is an ancestor, or a step-grandparent
-      for (const famId of ds.individuals.get(r.id)?.spouseOf ?? []) {
-        const fam = ds.families.get(famId);
-        const partner = fam && (fam.husband === r.id ? fam.wife : fam.husband);
+      for (const fam of familiesByMarriage(ds, ds.individuals.get(r.id)?.spouseOf ?? [])) {
+        const partner = fam.husband === r.id ? fam.wife : fam.husband;
         if (!partner || partner === rootId || listed.has(partner) || placed.has(partner) || ownPartners.has(partner)) continue;
         listed.add(partner);
         shown.push({ id: partner, up: r.up, down: r.down, side: r.side, partnerOf: r.id });
@@ -123,13 +123,17 @@ export function widerFamily(ds: Dataset, rootId: string, depth: WiderFamilyDepth
     if (!groups.has(key)) groups.set(key, { up: r.up, down: r.down, members: [] });
     groups.get(key)!.members.push(r);
   }
-  // A partner sorts with the relative it belongs to: same side, same birth key.
-  const anchor = (r: WiderRelative) => ds.individuals.get(r.partnerOf ?? r.id);
+  // A partner follows the relative it belongs to, even when two relatives
+  // share a birth key (twins) — in the order of the relative's unions.
   for (const g of groups.values()) {
-    g.members.sort((a, b) =>
-      SIDE_ORDER[a.side] - SIDE_ORDER[b.side]
-      || birthSortKey(anchor(a)) - birthSortKey(anchor(b))
-      || (a.partnerOf ? 1 : 0) - (b.partnerOf ? 1 : 0));
+    const partnersOf = new Map<string, WiderRelative[]>();
+    for (const r of g.members) if (r.partnerOf) (partnersOf.get(r.partnerOf) ?? partnersOf.set(r.partnerOf, []).get(r.partnerOf)!).push(r);
+    g.members = g.members
+      .filter((r) => !r.partnerOf)
+      .sort((a, b) =>
+        SIDE_ORDER[a.side] - SIDE_ORDER[b.side]
+        || birthSortKey(ds.individuals.get(a.id)) - birthSortKey(ds.individuals.get(b.id)))
+      .flatMap((r) => [r, ...(partnersOf.get(r.id) ?? [])]);
   }
   return [...groups.values()].sort((a, b) => a.up + a.down - (b.up + b.down) || b.up - a.up);
 }

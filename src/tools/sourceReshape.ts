@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
 import { stripTrailingPunct, URL_RE } from "../gedcom/builder";
+import { withScheme } from "../gedcom/uri";
 import {
   bookKeyOf,
   buildObjeIndex,
@@ -512,7 +513,10 @@ function quotedCollection(text: string | undefined): string | undefined {
 
 /** Recognize a URL for one of the reshapeable sites. `contextText` is the
  *  citation/note text around the URL (collection titles, type hints). */
-function recognize(url: string, contextText: string | undefined, sites: ReadonlySet<ReshapeSite>): Recognized | undefined {
+function recognize(rawUrl: string, contextText: string | undefined, sites: ReadonlySet<ReshapeSite>): Recognized | undefined {
+  // A media FILE may hold a link without its scheme ("www.familysearch.org/…")
+  // — every site below is read off the full address.
+  const url = withScheme(rawUrl);
   const mat = parseMatriculaUrl(url);
   if (mat) {
     if (!sites.has("matricula")) return undefined;

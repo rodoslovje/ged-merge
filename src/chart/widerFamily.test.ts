@@ -88,6 +88,45 @@ describe("widerFamily", () => {
     expect(uncles.map((m) => [m.id, m.partnerOf])).toEqual([["@U@", undefined], ["@UW@", "@U@"], ["@A@", undefined]]);
   });
 
+  it("keeps each twin's partner beside that twin, not after both twins", () => {
+    // Root T's parents' siblings A and B are twins (1950); each is married.
+    const twins = dataset("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+      indi("T", "Tim /Kos/", "M", 1980, "1 FAMC @F0@\n") +
+      indi("D", "Dan /Kos/", "M", 1952, "1 FAMC @F1@\n1 FAMS @F0@\n") +
+      indi("A", "Ana /Kos/", "F", 1950, "1 FAMC @F1@\n1 FAMS @F2@\n") +
+      indi("B", "Bor /Kos/", "M", 1950, "1 FAMC @F1@\n1 FAMS @F3@\n") +
+      indi("AH", "Aleš /Lah/", "M", 1940, "1 FAMS @F2@\n") +
+      indi("BW", "Bina /Rus/", "F", 1960, "1 FAMS @F3@\n") +
+      "0 @F0@ FAM\n1 HUSB @D@\n1 CHIL @T@\n" +
+      indi("G", "Gal /Kos/", "M", 1920, "1 FAMS @F1@\n") +
+      "0 @F1@ FAM\n1 HUSB @G@\n1 CHIL @D@\n1 CHIL @A@\n1 CHIL @B@\n" +
+      "0 @F2@ FAM\n1 HUSB @AH@\n1 WIFE @A@\n" +
+      "0 @F3@ FAM\n1 HUSB @B@\n1 WIFE @BW@\n" +
+      "0 TRLR\n");
+    const aunts = widerFamily(twins, "@T@", { ancestors: 2, descendants: 1, others: 1, partners: true })
+      .find((g) => g.up === 2 && g.down === 1)!.members.map((m) => m.id.replace(/@/g, ""));
+    expect([aunts.indexOf("AH") - aunts.indexOf("A"), aunts.indexOf("BW") - aunts.indexOf("B")]).toEqual([1, 1]);
+  });
+
+  it("lists a relative's partners in the order of their unions, not the file's", () => {
+    // Uncle U's second marriage (to W2, 1990) is listed before his first (W1, 1980).
+    const twice = dataset("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+      indi("T", "Tim /Kos/", "M", 1985, "1 FAMC @F0@\n") +
+      indi("D", "Dan /Kos/", "M", 1955, "1 FAMC @F1@\n1 FAMS @F0@\n") +
+      indi("G", "Gal /Kos/", "M", 1920, "1 FAMS @F1@\n") +
+      indi("U", "Urh /Kos/", "M", 1950, "1 FAMC @F1@\n1 FAMS @F3@\n1 FAMS @F2@\n") +
+      indi("W1", "Vida /Lah/", "F", 1952, "1 FAMS @F2@\n") +
+      indi("W2", "Zala /Rus/", "F", 1960, "1 FAMS @F3@\n") +
+      "0 @F0@ FAM\n1 HUSB @D@\n1 CHIL @T@\n" +
+      "0 @F1@ FAM\n1 HUSB @G@\n1 CHIL @D@\n1 CHIL @U@\n" +
+      "0 @F2@ FAM\n1 HUSB @U@\n1 WIFE @W1@\n1 MARR\n2 DATE 1980\n" +
+      "0 @F3@ FAM\n1 HUSB @U@\n1 WIFE @W2@\n1 MARR\n2 DATE 1990\n" +
+      "0 TRLR\n");
+    const uncles = widerFamily(twice, "@T@", { ancestors: 2, descendants: 1, others: 1, partners: true })
+      .find((g) => g.up === 2 && g.down === 1)!.members.map((m) => m.id.replace(/@/g, ""));
+    expect(uncles).toEqual(["U", "W1", "W2"]);
+  });
+
   it("returns nothing for an unknown person", () => {
     expect(widerFamily(ds, "@X@", { ancestors: 4, descendants: 3, others: 3, partners: true })).toEqual([]);
   });

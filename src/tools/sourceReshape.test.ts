@@ -234,6 +234,28 @@ describe("findReshapableLinks — scan", () => {
     expect(report.groups[0].bookType).toBe("baptism");
   });
 
+  it("reads a media link written without its scheme as the site it is", () => {
+    const report = scan(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE www.familysearch.org/ark:/61903/3:1:939V-5RTW-6
+0 TRLR`);
+    expect(report.groups.map((g) => g.site)).toEqual(["familysearch"]);
+    expect(report.groups[0].members[0].url).toBe("www.familysearch.org/ark:/61903/3:1:939V-5RTW-6");
+    // And it converts: the person cites a FamilySearch source in place of the pointer.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE www.familysearch.org/ark:/61903/3:1:939V-5RTW-6
+0 TRLR`);
+    expect(text).toMatch(/0 @I1@ INDI\n1 SOUR @S\d+@/);
+    expect(text).not.toMatch(/0 @I1@ INDI\n1 OBJE @O1@/);
+  });
+
   it("converts person-level OBJE pointers — free ones and, in a links-on-events file, sour-owned page media too", () => {
     const report = scan(`0 HEAD
 1 CHAR UTF-8

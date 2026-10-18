@@ -96,6 +96,19 @@ test("every offer is numbered, and its pin on the map wears that number", async 
   await expect(page.locator(".edit-coord-map .mini-pin-badge")).toHaveText(["1", "2"]);
 });
 
+test("a list line's number takes that offer, as its label does", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(OFFERS);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  const trigger = page.locator(".edit-event .edit-event-coord").first();
+  await expect(trigger).toHaveClass(/edit-event-coord--empty/);
+  await trigger.click();
+  await page.locator(".edit-coord-answers .tools-geo-cand-num", { hasText: "1" }).click();
+  await expect(trigger).not.toHaveClass(/edit-event-coord--empty/);
+  await expect(trigger).toHaveAttribute("title", /46\.22269/);
+});
+
 test("the same list reads off the address the geocoding page is positioning", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
