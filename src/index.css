@@ -2490,7 +2490,7 @@ button:focus-visible {
   white-space: nowrap;
 }
 .edit-wider-person.in-law .edit-wider-person-name { font-style: italic; }
-/* An in-law is there by marriage: the marriage symbol leads their name. */
+/* An in-law is there by marriage: the union's mark (⚭ ⚮ ⚯) leads their name. */
 .edit-wider-marriage {
   margin-right: 0.35em;
   color: var(--muted);

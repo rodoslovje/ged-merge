@@ -6,7 +6,7 @@ import { kinshipLabelFor } from "../../match/kinship";
 import { widerFamily, type WiderGroup, type WiderRelative, type WiderSide } from "../../chart/widerFamily";
 import { useNameOf, useSetSettings, useSettingsSlice, WIDER_FAMILY_LIMITS, type WiderFamilySettings } from "../SettingsContext";
 import { sexClass } from "../sex";
-import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
+import { unionMark } from "../../gedcom/union";
 import { GearIcon } from "../icons/GearIcon";
 
 /** The preferences this file reads — subscribed field by field. */
@@ -134,8 +134,15 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
     if (!indi) return null;
     const partnerOf = r.partnerOf ? dataset.individuals.get(r.partnerOf) : undefined;
     const lifespan = lifespanWithAge(indi, showAge);
+    // The couple's family says how they were joined, and whether that ended.
+    const union = partnerOf
+      ? unionMark(indi.spouseOf.map((f) => dataset.families.get(f)).find((f) => f?.husband === partnerOf.id || f?.wife === partnerOf.id))
+      : undefined;
     const kin = partnerOf
-      ? t("edit.wider.partnerOf", { name: formatName(partnerOf) })
+      ? [
+          t("edit.wider.partnerOf", { name: formatName(partnerOf) }),
+          union?.ended && t(union.ended === "divorced" ? "event.DIV" : "event.SEPA"),
+        ].filter(Boolean).join(" · ")
       : kinshipLabelFor(r.up, r.down, indi.sex, t);
     return (
       <button
@@ -146,7 +153,7 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
         onClick={() => navigate(r.id)}
       >
         <span className="edit-wider-person-name person-name">
-          {partnerOf && <span className="edit-wider-marriage" aria-hidden="true">{MARRIAGE_SYMBOL}</span>}
+          {union && <span className="edit-wider-marriage" aria-hidden="true">{union.glyph}</span>}
           {formatName(indi)}
         </span>
         {lifespan && <span className="person-years gm-data">{lifespan}</span>}
