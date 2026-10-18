@@ -9993,6 +9993,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    to the full width of the side panel. */
 .edit-coord-cand-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .edit-coord-cand-line .tools-reshape-badge { flex: none; }
+/* The number picks the line, so it is a button worn as the plain circle. */
+.edit-coord-cand-line button.tools-geo-cand-num { background: none; padding: 0; font-family: inherit; cursor: pointer; }
+.edit-coord-cand-line button.tools-geo-cand-num:hover { border-color: var(--accent); color: var(--accent); }
 .edit-coord-manual { display: flex; align-items: center; gap: 6px; }
 .edit-coord-manual input {
   flex: 1; min-width: 0; padding: 4px 6px;

@@ -475,6 +475,14 @@ export function EventCoordPicker({
   for (const r of shownOsm) numberFor(r.coord);
   /** What a list line and its pin both print. */
   const numberOf = (c: GeoCoord) => optionNumbers.get(`${c.lat},${c.lon}`);
+  /** A list line's number takes the option, as the label beside it does — on
+   *  the geocoding lists the number is part of the option's radio label. Kept
+   *  out of the tab order: the label is the line's one stop. */
+  const pickNumber = (c: GeoCoord, label: string) => (
+    <button type="button" className="tools-geo-cand-num" tabIndex={-1} aria-hidden="true" onClick={() => take(c, label)}>
+      {numberOf(c)}
+    </button>
+  );
 
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
   // the map renders its detail panel (house, post office, source, and that a
@@ -708,7 +716,7 @@ export function EventCoordPicker({
                   {candidates.map((c, i) => (
                     <li key={`cand-${i}`}>
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{numberOf(c.coord)}</span>
+                        {pickNumber(c.coord, c.label)}
                         <button type="button" className="tools-issue-link" title={c.label} onClick={() => take(c.coord, c.label)}>
                           {c.label}
                         </button>
@@ -728,7 +736,7 @@ export function EventCoordPicker({
                   {fromFile.map((f, i) => (
                     <li key={`file-${i}`}>
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{numberOf(f.coord)}</span>
+                        {pickNumber(f.coord, f.label)}
                         <button type="button" className="tools-issue-link" onClick={() => take(f.coord, f.label)}>
                           {f.label}
                         </button>
@@ -744,7 +752,7 @@ export function EventCoordPicker({
                   {shownRn.map((r, i) => (
                     <li key={`rn-${i}`}>
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
+                        {pickNumber(r.coord, r.label)}
                         <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
                           {r.label}
                         </button>
@@ -760,7 +768,7 @@ export function EventCoordPicker({
                       {/* The short composed line; the raw display chain, with
                           its quarters and postcodes, stays in the tooltip. */}
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
+                        {pickNumber(r.coord, r.name)}
                         <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
                           {osmShortLabel(r)}
                         </button>
