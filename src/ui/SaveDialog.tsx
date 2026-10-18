@@ -258,7 +258,7 @@ export function SaveDialog({
               while the download can still be called off. */}
           {report.graftJoins.length > 0 && (
             <section className="preview-section">
-              <h3>{t("preview.grafted")}</h3>
+              <h3><span className="gm-join-mark" aria-hidden="true">⚠</span> {t("preview.grafted")}</h3>
               <p className="preview-note">{t("preview.graftedHint")}</p>
               <ul className="preview-deferred preview-joins">
                 {report.graftJoins.map((j, i) => (

@@ -6,7 +6,7 @@ import { removeIndividual } from "../gedcom/edit";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { applyRecordPatches } from "../ui/historyTypes";
 import { mergeDecisions } from "./merge";
-import { materializeAdds } from "./materialize";
+import { materializeAdds, previewBranchJoins, refreshJoins } from "./materialize";
 
 const dataset = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
@@ -190,6 +190,28 @@ describe("materializeAdds", () => {
     const second = materializeAdds(main, compare, MARKO_MATCHED, first.decisions, confirmed, tr);
     expect(second.decisions.get(FATHER)?.joins).toBeUndefined();
     expect(second.decisions.get(FATHER)?.added).toBeUndefined();
+  });
+
+  it("works out a restored decision's joins without changing the file", () => {
+    const main = dataset(MAIN.replace("0 TRLR", `${LONE_MARKO}0 TRLR`));
+    const compare = dataset(COMPARE);
+    const original = serializeGedcom(main.records);
+    const restored = new Map([[FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] } as CandidateDecision]]);
+    const refreshed = refreshJoins(main, compare, MARKO_MATCHED, restored, tr);
+    expect(refreshed.get(FATHER)?.joins).toEqual({ "@P4@": "@I9@" });
+    expect(serializeGedcom(main.records)).toBe(original);
+  });
+
+  it("names the people a marked branch would join to existing records, dry", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(COMPARE);
+    const original = serializeGedcom(main.records);
+    const decisions = new Map([[FATHER, { status: "confirmed", fields: { father: "main" } } as CandidateDecision]]);
+    const joins = previewBranchJoins(main, compare, MATCHES, decisions, [{ incomingId: "@P1@", direction: "descendants" }], tr);
+    expect(joins.map((j) => [j.compareId, j.mainId])).toEqual(expect.arrayContaining([["@P2@", "@I2@"], ["@P3@", "@I3@"]]));
+    // The confirmed anchor is yours, not the matcher's.
+    expect(joins.some((j) => j.compareId === "@P1@")).toBe(false);
+    expect(serializeGedcom(main.records)).toBe(original);
   });
 
   it("adds a ticked child whose match already has other parents, as the save would", () => {

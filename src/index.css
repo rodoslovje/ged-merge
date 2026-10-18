@@ -4615,6 +4615,8 @@ button:focus-visible {
   cursor: pointer;
   vertical-align: middle;
 }
+/* The same ⚠ heading the save preview's list of those joins. */
+.gm-join-mark { color: var(--state-major); }
 /* GEDCOM filenames in the Load header, coloured by their role. */
 .gm-file.main { color: var(--state-main); }
 .gm-file.incoming { color: var(--state-incoming); }

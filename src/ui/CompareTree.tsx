@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
-import { decisionKey, importKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, importKey, parseImportKey, pendingJoins, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
+import { previewBranchJoins } from "../merge/materialize";
+import type { ImportBranchRequest } from "../merge/applyRelations";
+import { lifespanOf } from "../gedcom/lifespan";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import type { Lineage } from "../match/relationshipPath";
@@ -368,10 +371,35 @@ export function CompareTree({
     return set;
   }, [laid, importBranches, mode]);
 
-  // The badge a node shows next to its lifespan: a decided match's C/D/R, or "I"
-  // (Incoming) for an incoming-only person an active graft will bring in.
+  // Incoming people the save will join to a record the main file already has
+  // on the matcher's word alone — a relative a confirmed match takes, or a
+  // person a marked branch reaches: incoming id → that main id. The branches
+  // are walked the way the save walks them, dry.
+  const joins = useMemo(() => {
+    const out = pendingJoins(decisions);
+    const requests: ImportBranchRequest[] = [];
+    for (const key of importBranches) {
+      const parsed = parseImportKey(key);
+      if (parsed) requests.push({ incomingId: parsed.incomingId, direction: parsed.direction });
+    }
+    if (requests.length) {
+      for (const j of previewBranchJoins(mainDs, compareDs, matches, decisions, requests, t)) out.set(j.compareId, j.mainId);
+    }
+    return out;
+  }, [mainDs, compareDs, matches, decisions, importBranches, t]);
+
+  // The badge a node shows next to its lifespan: a join left to the save (⚠,
+  // named in its tooltip), a decided match's C/D/R, or "I" (Incoming) for an
+  // incoming-only person an active graft will bring in.
   const badgeOf = useCallback(
-    (n: TreeNode): { status: string; letter: string } | undefined => {
+    (n: TreeNode): { status: string; letter: string; title?: string } | undefined => {
+      const joinedTo = n.incoming ? joins.get(n.incoming.id) : undefined;
+      if (joinedTo) {
+        const indi = mainDs.individuals.get(joinedTo);
+        const years = lifespanOf(indi);
+        const name = `${indi ? nameOf(indi) : joinedTo}${years ? ` ${years}` : ""} (${joinedTo.replace(/@/g, "")})`;
+        return { status: "join", letter: "⚠", title: t("tree.join.title", { name }) };
+      }
       const dec = decisionOf(n);
       if (dec) return dec;
       if (n.status === "incoming-only" && willImport.has(n.key)) {
@@ -379,7 +407,7 @@ export function CompareTree({
       }
       return undefined;
     },
-    [decisionOf, willImport, t],
+    [decisionOf, willImport, joins, mainDs, nameOf, t],
   );
 
   const rootName = tree?.name ?? "";

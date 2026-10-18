@@ -16,7 +16,13 @@ import {
   type RecordPatch,
 } from "../ui/historyTypes";
 import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords } from "./applyFields";
-import { applyIndividualFamilies, applyIndividualRelations, makeContext } from "./applyRelations";
+import {
+  applyImportBranches,
+  applyIndividualFamilies,
+  applyIndividualRelations,
+  makeContext,
+  type ImportBranchRequest,
+} from "./applyRelations";
 import { linkPlacementFor } from "./linkPlacement";
 import {
   confirmedFamilyFields,
@@ -24,6 +30,7 @@ import {
   fillAddedPlaceCoords,
   mergePlaceFormat,
   type ChangeReport,
+  type GraftJoin,
 } from "./merge";
 
 /**
@@ -208,25 +215,21 @@ class CopyOnRead extends Map<string, GedNode> {
   }
 }
 
-/** Add the new people one decision asks for, and name the ones the save will
- *  join to an existing record instead; undefined when it is no person's match. */
-function addFor(
+/**
+ * The merge's stitching context over the live file: records are copied the
+ * first time they are touched, so the walk can run without changing the file
+ * and its copies can be diffed into patches afterwards.
+ */
+function liveContext(
   main: Dataset,
   compare: Dataset,
   matches: MatchResult,
   decisions: ReadonlyMap<string, CandidateDecision>,
-  key: string,
-  d: CandidateDecision,
   pinned: ReadonlyMap<string, string>,
   t: Translate,
-  overrides?: FormatOverrides,
-): { patches: RecordPatch[]; ids: Map<string, string>; joins: Map<string, string> } | undefined {
-  const parsed = parseDecisionKey(key);
-  if (parsed?.kind !== "individual") return undefined;
-  const mainIndi = main.individuals.get(parsed.mainId);
-  const incoming = compare.individuals.get(parsed.compareId);
-  if (!mainIndi || !incoming) return undefined;
-
+  overrides: FormatOverrides | undefined,
+  newOnly: boolean,
+) {
   const individuals = new CopyOnRead(main.individuals);
   const families = new CopyOnRead(main.families);
   const liveIds = new Set<string>();
@@ -244,8 +247,77 @@ function addFor(
   const ctx = makeContext(
     main, compare, matches, records, individuals, families, report, new Set(), t, sourXrefMap,
     rejectedPairs, confirmedPairs, linkPlacementFor(main, overrides, compare),
-    { pinned, afterHighest: true, newOnly: true },
+    { pinned, afterHighest: true, newOnly },
   );
+  return { ctx, individuals, families, records, liveIds, sourXrefMap, report };
+}
+
+/**
+ * Every join the save would make while importing the marked branches: incoming
+ * people it takes to be someone the main file already has, on the matcher's
+ * suggestion alone. A dry run of the save's own walk — nothing is written.
+ */
+export function previewBranchJoins(
+  main: Dataset,
+  compare: Dataset,
+  matches: MatchResult,
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  requests: Iterable<ImportBranchRequest>,
+  t: Translate,
+): GraftJoin[] {
+  const { ctx } = liveContext(main, compare, matches, decisions, pinnedAdds(decisions), t, undefined, false);
+  ctx.beginGraftPhase();
+  applyImportBranches(requests, main, compare, ctx);
+  return ctx.report.graftJoins;
+}
+
+/**
+ * Work out every confirmed decision's joins afresh, without changing the file
+ * — for decisions that arrive without them, like a restored session's.
+ */
+export function refreshJoins(
+  main: Dataset,
+  compare: Dataset,
+  matches: MatchResult,
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  t: Translate,
+  overrides?: FormatOverrides,
+): Map<string, CandidateDecision> {
+  const out = new Map(decisions);
+  const pinned = pinnedAdds(decisions);
+  for (const [key, d] of decisions) {
+    if (d.status !== "confirmed") continue;
+    const asks = [...wantedAdds(new Map([[key, d]]), main, compare)].some((id) => !pinned.has(id));
+    const run = asks ? addFor(main, compare, matches, decisions, key, d, pinned, t, overrides, true) : undefined;
+    const next = withJoins(d, Object.fromEntries(run?.joins ?? []));
+    if (JSON.stringify(next.joins) !== JSON.stringify(d.joins)) out.set(key, next);
+  }
+  return out;
+}
+
+/** Add the new people one decision asks for, and name the ones the save will
+ *  join to an existing record instead; undefined when it is no person's match.
+ *  A dry run only names them, adding nobody. */
+function addFor(
+  main: Dataset,
+  compare: Dataset,
+  matches: MatchResult,
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  key: string,
+  d: CandidateDecision,
+  pinned: ReadonlyMap<string, string>,
+  t: Translate,
+  overrides?: FormatOverrides,
+  dry = false,
+): { patches: RecordPatch[]; ids: Map<string, string>; joins: Map<string, string> } | undefined {
+  const parsed = parseDecisionKey(key);
+  if (parsed?.kind !== "individual") return undefined;
+  const mainIndi = main.individuals.get(parsed.mainId);
+  const incoming = compare.individuals.get(parsed.compareId);
+  if (!mainIndi || !incoming) return undefined;
+
+  const { ctx, individuals, families, records, liveIds, sourXrefMap, report } =
+    liveContext(main, compare, matches, decisions, pinned, t, overrides, true);
   const rejectedEvents = d.rejectedEvents?.length ? new Set(d.rejectedEvents) : undefined;
   const rows = individualFieldRows(t, mainIndi, incoming, main, compare, mergePlaceFormat(main, overrides), rejectedEvents);
   applyIndividualRelations(parsed.mainId, mainIndi, incoming, rows, d.fields, main, compare, ctx);
@@ -255,7 +327,7 @@ function addFor(
     parsed.mainId, mainIndi, incoming, rows, { ...d.fields, ...confirmedFamilyFields(decisions) },
     main, compare, ctx, taken, true,
   );
-  if (!ctx.added.size) return { patches: [], ids: new Map(), joins: ctx.joins };
+  if (dry || !ctx.added.size) return { patches: [], ids: new Map(), joins: ctx.joins };
 
   dropLoneFamilies(records, liveIds, individuals, families);
   const people = records.filter((r) => r.xref && !liveIds.has(r.xref));
