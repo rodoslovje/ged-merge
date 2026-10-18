@@ -16,6 +16,12 @@ export function looksLikeUrl(v: string): boolean {
   return /^(https?:\/\/|www\.)/i.test(v);
 }
 
+/** Ensure scheme-less links (e.g. "www.example.com") get an absolute href —
+ *  what {@link looksLikeUrl} lets through has to be read as the site it is. */
+export function withScheme(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 /** File names a `FILE` line can hold, so a bare `krst.jpg` is never read as a
  *  host — `.jpg` is no top-level domain, but it has the shape of one. */
 const FILE_NAME_RE =
