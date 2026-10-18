@@ -22,7 +22,7 @@ import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/priv
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
-import { materializeAdds } from "./merge/materialize";
+import { materializeAdds, refreshJoins } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
@@ -362,7 +362,19 @@ function AppContent() {
           const restored = persistence.pendingSessionRef.current;
           if (restored) {
             persistence.pendingSessionRef.current = null;
-            if (restored.decisions.length) dispatch({ type: "decisionsSet", decisions: new Map(restored.decisions) });
+            if (restored.decisions.length) {
+              // Joins left to the save are worked out when a decision changes,
+              // so a session saved before they existed carries none.
+              const mainDs = mainDatasetRef.current;
+              const compareDs = compareDatasetRef.current;
+              const decisions = new Map(restored.decisions);
+              dispatch({
+                type: "decisionsSet",
+                decisions: mainDs && compareDs
+                  ? refreshJoins(mainDs, compareDs, msg.result, decisions, tRef.current, formatOverridesRef.current)
+                  : decisions,
+              });
+            }
             if (restored.importBranches.length) dispatch({ type: "importBranchesSet", branches: new Set(restored.importBranches) });
           }
           persistence.hydratedRef.current = true; // restore settled — persistence may resume
@@ -950,6 +962,12 @@ function AppContent() {
     },
     [indexByMain, indexByCompare, current, addedPerson],
   );
+
+  // Jump the compare view to one exact pair — a join the save will make, which
+  // the review flags for inspection (see `CandidateDecision.joins`).
+  const openPair = useCallback((mainId: string, compareId: string) => {
+    selectFromPageRef.current({ mainId, compareId });
+  }, []);
 
   function handleUndo() {
     const entry = undoRedo.undo();
@@ -2425,8 +2443,10 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecision}
               onOpenTree={openTree}
+              onShowCharts={openCharts}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
+              onOpenPair={openPair}
               compareRef={compareRef}
               active={mode === "merge" && !overlayOpen}
             />

@@ -12,6 +12,7 @@ import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { firstChild } from "../gedcom/node";
+import { unionMarriage, type UnionMarriage } from "../gedcom/union";
 import { isPrivateNode } from "../gedcom/private";
 import {
   attachInlineMedia,
@@ -696,44 +697,9 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
   };
 }
 
-/**
- * How married a union looks, judged only on what the file itself records:
- *  - `married` — a `MARR` event (even undated or a bare `Y`: its presence is
- *    the assertion), a `DIV`/`DIVF`/`ANUL` that presupposes one, `_MSTAT
- *    Married` or Brother's Keeper's `_MARRIED Y`;
- *  - `unmarried` — the file says so: `_MSTAT Partners` (the canonical form
- *    {@link normalizeFamilyStatus} consolidates the vendor vocabularies into),
- *    a bare `_NMR` ("never married"), `_MARRIED N`;
- *  - `unknown` — no signal either way, the ordinary case in files built from
- *    parish records.
- *
- * A status the file spells out always wins over an inferred one.
- */
-export type UnionMarriage = "married" | "unmarried" | "unknown";
-
-/** `_MSTAT` values asserting the couple never married. `Unknown` (MyHeritage's
- *  REL_UNKNOWN) is deliberately absent — it states the opposite of knowing. */
-const UNMARRIED_STATUS = new Set(["partners", "partner", "unmarried", "never married", "not married", "single"]);
-/** Family events that only exist if a marriage did. */
-const MARRIAGE_EVIDENCE_TAGS = new Set(["MARR", "DIV", "DIVF", "ANUL"]);
-
-export function unionMarriage(fam: Family): UnionMarriage {
-  let unmarried = false;
-  for (const node of fam.raw.children) {
-    if (MARRIAGE_EVIDENCE_TAGS.has(node.tag)) return "married";
-    const value = node.value?.trim().toLowerCase() ?? "";
-    if (node.tag === "_MSTAT") {
-      if (value === "married") return "married";
-      if (UNMARRIED_STATUS.has(value)) unmarried = true;
-    }
-    if (node.tag === "_MARRIED") {
-      if (value === "y") return "married";
-      if (value === "n") unmarried = true;
-    }
-    if (node.tag === "_NMR" && !value) unmarried = true;
-  }
-  return unmarried ? "unmarried" : "unknown";
-}
+// How married a union looks lives with the GEDCOM model (the Relatives panel
+// reads it too); re-exported for this module's own users.
+export { unionMarriage, type UnionMarriage } from "../gedcom/union";
 
 /**
  * The children's-surname reading of an otherwise undocumented union: a child

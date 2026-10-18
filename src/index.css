@@ -2490,6 +2490,12 @@ button:focus-visible {
   white-space: nowrap;
 }
 .edit-wider-person.in-law .edit-wider-person-name { font-style: italic; }
+/* An in-law is there by marriage: the union's mark (⚭ ⚮ ⚯) leads their name. */
+.edit-wider-marriage {
+  margin-right: 0.35em;
+  color: var(--muted);
+  font-style: normal;
+}
 @media (max-width: 1100px) {
   .edit-layout { grid-template-columns: minmax(0, 1fr); }
   .edit-wider { position: static; width: auto; max-height: none; }
@@ -3388,6 +3394,8 @@ button:focus-visible {
    down to their weight — as a transform, so the slot it sits in keeps its
    width and the names after it stay in one column. */
 .event-glyph--pictograph { transform: scale(0.78); opacity: 0.92; }
+/* Two rings set close, so the pair fits the slot one mark is given. */
+.event-glyph--pair { letter-spacing: -0.12em; white-space: nowrap; }
 /* A run of marks after a person's name — which of their events happened at the
    place the row is about. */
 .event-glyphs { display: inline-flex; align-items: baseline; margin-left: 6px; }
@@ -4602,6 +4610,21 @@ button:focus-visible {
   font-size: 0.78rem;
   color: var(--status-new);
 }
+/* A relative the save will join to a record the main file already has, on the
+   matcher's suggestion — flagged for inspection; a click opens that pair. */
+.gm-join-flag {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--state-major);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+/* The same ⚠ heading the save preview's list of those joins. */
+.gm-join-mark { color: var(--state-major); }
 /* GEDCOM filenames in the Load header, coloured by their role. */
 .gm-file.main { color: var(--state-main); }
 .gm-file.incoming { color: var(--state-incoming); }

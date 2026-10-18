@@ -21,12 +21,16 @@ export function EventGlyph({ tag, t, named = false }: { tag: string; t: Translat
   // The ones outside the Basic Multilingual Plane are exactly the pictographs,
   // and the class scales that weight back to theirs.
   const pictograph = (glyph.codePointAt(0) ?? 0) > 0xffff;
+  // A mark drawn from two characters (separation's ⚬⚬) is drawn tighter, so
+  // it keeps to the one-mark slot the column is built on.
+  const pair = !pictograph && [...glyph].length > 1;
   return (
     <span
       className={
         "event-glyph" +
         (glyph === "*" ? " event-glyph--high" : "") +
-        (pictograph ? " event-glyph--pictograph" : "")
+        (pictograph ? " event-glyph--pictograph" : "") +
+        (pair ? " event-glyph--pair" : "")
       }
       title={name}
       {...(named ? { role: "img", "aria-label": name } : { "aria-hidden": true })}

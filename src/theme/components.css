@@ -161,6 +161,9 @@
 .tree-node-decision.deferred text    { fill: var(--state-minor); }
 .tree-node-decision.rejected text    { fill: var(--state-major); }
 .tree-node-decision.incoming text    { fill: var(--state-incoming); }
+/* A join the save makes on the matcher's word alone — the review's ⚠. */
+.tree-node-decision.join circle      { fill: color-mix(in oklch, var(--state-major) 22%, transparent); }
+.tree-node-decision.join text        { fill: var(--state-major); }
 
 /* The same working-state letters on a Timeline row — plain text chips (an SVG
    tspan can't carry the circle), coloured from the same state tokens. */

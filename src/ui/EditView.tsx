@@ -1862,6 +1862,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               <ParentFamilyGroup
                 key={fam?.id ?? `empty-${i}`}
                 fam={fam}
+                self={person}
                 personId={person.id}
                 dataset={dataset}
                 t={t}

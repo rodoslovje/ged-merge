@@ -3,7 +3,7 @@ import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
 import { sexClass } from "../sex";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
+import type { Dataset, Family, GedNode, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
 import { childrenByBirth } from "../../gedcom/familySort";
 import type { Translate } from "../../locales/i18n";
@@ -170,6 +170,10 @@ interface SharedSectionProps {
 interface ParentFamilyGroupProps extends SharedSectionProps {
   /** The parent family — undefined renders the empty add-parents slots. */
   fam: Family | undefined;
+  /** The person's own record, rebuilt on each of their edits: their box in the
+   *  siblings row shows their name and dates. Unused directly — it exists for
+   *  the memo's prop comparison. */
+  self: Individual;
 }
 
 export const ParentFamilyGroup = memo(function ParentFamilyGroup({

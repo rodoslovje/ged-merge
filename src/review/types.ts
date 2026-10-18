@@ -180,6 +180,13 @@ export interface CandidateDecision {
    * clean-up carry it with the decision it belongs to (see `materializeAdds`).
    */
   added?: Record<string, string>;
+  /**
+   * Incoming people this confirmed decision asks for whom the main file
+   * already holds a matched record — the save will join them to it rather than
+   * add them — as incoming id → that main id. The join is the matcher's
+   * proposal, not yours, so the review flags it (see `materializeAdds`).
+   */
+  joins?: Record<string, string>;
 }
 
 /** Every person the decisions have added ahead of the save, incoming id →
@@ -190,6 +197,16 @@ export function pinnedAdds(decisions: ReadonlyMap<string, CandidateDecision>): M
     for (const [incomingId, mainId] of Object.entries(d.added ?? {})) pinned.set(incomingId, mainId);
   }
   return pinned;
+}
+
+/** Every join the confirmed decisions leave to the save, incoming id → the
+ *  existing main id (see `CandidateDecision.joins`). */
+export function pendingJoins(decisions: ReadonlyMap<string, CandidateDecision>): Map<string, string> {
+  const joins = new Map<string, string>();
+  for (const d of decisions.values()) {
+    for (const [incomingId, mainId] of Object.entries(d.joins ?? {})) joins.set(incomingId, mainId);
+  }
+  return joins;
 }
 
 /**

@@ -81,6 +81,11 @@ describe("the genealogy marks", () => {
     ]);
   });
 
+  it("draws a separation as two rings no longer linked, apart from a divorce", () => {
+    expect(EVENT_GLYPHS.SEPA).toBe("⚬⚬");
+    expect(EVENT_GLYPHS.SEPA).not.toBe(EVENT_GLYPHS.DIV);
+  });
+
   it("tells a burial from a cremation", () => {
     expect(EVENT_GLYPHS.BURI).not.toBe(EVENT_GLYPHS.CREM);
   });

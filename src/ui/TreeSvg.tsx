@@ -23,7 +23,7 @@ interface Props {
   /** State colour for a node's border + tinted fill. */
   colorOf: (n: Placed) => string;
   /** Letter badge in themed status colours (decision / import), when any. */
-  badgeOf?: (n: Placed) => { status: string; letter: string } | undefined;
+  badgeOf?: (n: Placed) => { status: string; letter: string; title?: string } | undefined;
   /** "Modified" badge for a main record with unsaved edits. */
   modifiedOf?: (n: Placed) => boolean;
   /** Whether to mark repeated positions (`TreeNode.repeat`) — follows the same

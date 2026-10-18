@@ -65,6 +65,9 @@ export const EVENT_GLYPHS: Record<string, string> = {
   CHR: "~",
   ENGA: "⚬",
   MARR: "⚭",
+  // No standard mark exists for living apart: two rings no longer linked,
+  // the app's own reading of the ⚬ ⚭ ⚯ ⚮ family.
+  SEPA: "⚬⚬",
   DIV: "⚮",
   _MSTAT: "⚯",
   DEAT: "†",

@@ -216,7 +216,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner", scope: ["edit", "chart"] },
       { keys: [["Enter"]], descKey: "shortcuts.item.enter", scope: ["merge", "tools"] },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree", scope: ["edit", "merge", "tools"] },
-      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship", scope: ["edit"] },
+      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship", scope: ["edit", "merge"] },
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home", scope: ["edit"] },
       // The chord is the same step taken from inside a field, where the bare
       // key belongs to the text being typed.

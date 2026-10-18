@@ -80,7 +80,7 @@ export function NodeBadge({
  *  when there is nothing to draw, so the box skips the badges layer entirely.
  *  Shared by the layered TreeSvg and the relationship chart's boxes. */
 export function nodeStatusBadges(
-  badge: { status: string; letter: string } | undefined,
+  badge: { status: string; letter: string; title?: string } | undefined,
   modified: boolean,
   modifiedLetter: string,
 ): ((ctx: { yearsY: number; textX: number; years?: string }) => ReactNode) | undefined {
@@ -92,7 +92,7 @@ export function nodeStatusBadges(
     const modX = badge ? badgeX + 18 : badgeX;
     return (
       <>
-        {badge && <NodeBadge x={badgeX} y={yearsY - 4} cls={`tree-node-decision ${badge.status}`} letter={badge.letter} />}
+        {badge && <NodeBadge x={badgeX} y={yearsY - 4} cls={`tree-node-decision ${badge.status}`} letter={badge.letter} title={badge.title} />}
         {modified && <NodeBadge x={modX} y={yearsY - 4} fill="var(--node-minor)" textFill="var(--bg)" letter={modifiedLetter} />}
       </>
     );

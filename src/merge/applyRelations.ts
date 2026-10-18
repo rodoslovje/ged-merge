@@ -91,6 +91,10 @@ export interface MergeContext {
   /** Incoming id → main id of every person this context added as a new
    *  record, so a caller can tell which records it created for whom. */
   added: ReadonlyMap<string, string>;
+  /** Under `newOnly`: incoming id → the existing main record `resolve` would
+   *  have joined them to, a link left to the save. Steps that find the save
+   *  would not join after all take their entry out. */
+  joins: Map<string, string>;
   /** Translator for human-readable change/deferred labels. */
   t: Translate;
   /** Compare SOUR/REPO xref → output xref. Used to remap nodes cloned from compare. */
@@ -200,6 +204,7 @@ export function makeContext(
 
   const addedLabels = new Map<string, string>();
   const addedFromIncoming = new Map<string, string>(); // incomingId → new main id
+  const joins = new Map<string, string>(); // incomingId → existing main id, left to the save
 
   /**
    * Does a suggested pairing hold up well enough to fuse two records on?
@@ -322,7 +327,11 @@ export function makeContext(
       if (suppressed.has(incomingId)) return undefined;
       const matched = matchedJoin(incomingId);
       if (matched === undefined) return addNewIndividual(incomingId);
-      if (opts.newOnly && !pinned.has(incomingId)) return undefined;
+      if (opts.newOnly && !pinned.has(incomingId)) {
+        // Only the matcher's word needs flagging: a pair you confirmed is yours.
+        if (!confirmed.has(`${matched}|${incomingId}`)) joins.set(incomingId, matched);
+        return undefined;
+      }
       noteGraftJoin(matched, incomingId);
       return matched;
     },
@@ -350,6 +359,7 @@ export function makeContext(
     familyLinks: [],
     processedFamIds: new Set<string>(),
     added: addedFromIncoming,
+    joins,
     t,
     sourXrefMap,
     records,
@@ -405,7 +415,12 @@ export function applyFamilyStructure(
     for (const [role, incSlot] of spouses) {
       if (!incSlot) continue;
       const targetId = ctx.resolve(incSlot);
-      if (!targetId) continue;
+      if (!targetId) {
+        // A join left to the save into a slot already taken is no join: the
+        // save keeps the slot's occupant.
+        if (slotValue(role)) ctx.joins.delete(incSlot);
+        continue;
+      }
       const mainSlot = slotValue(role);
       // One person cannot be both spouses: a sex-unknown record the main
       // placed as HUSB, whose incoming family lists them as WIFE, would
@@ -462,6 +477,22 @@ export function applyFamilyStructure(
         opts.explicitPicks && !!known && existing.has(known) && !ctx.confirmedPair(known, incChild) &&
         !ctx.pairedAsRelatives(known, incChild);
       let targetId = takeOver ? ctx.importNew(incChild) : ctx.resolve(incChild);
+      // A join left to the save (`newOnly`) is judged here as the save would
+      // judge it: no join for a child the family already lists, and a match
+      // already born into another family is a person of their own unless you
+      // confirmed the pair — then the save leaves the child out.
+      const pending = targetId ? undefined : ctx.joins.get(incChild);
+      if (pending) {
+        const elsewhere = childFamilyOf(pending, ctx);
+        if (existing.has(pending)) ctx.joins.delete(incChild);
+        else if (elsewhere && elsewhere !== famId) {
+          ctx.joins.delete(incChild);
+          if (!ctx.confirmedPair(pending, incChild)) {
+            ctx.incToMain.delete(incChild);
+            targetId = ctx.importNew(incChild);
+          }
+        }
+      }
       if (!targetId || existing.has(targetId)) continue;
       // A person is born into exactly one family, so a record that is already
       // somebody else's child cannot also be born here: the pairing and the two
