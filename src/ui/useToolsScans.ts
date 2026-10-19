@@ -9,6 +9,7 @@ import type { ReshapeReport } from "../tools/sourceReshape";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
 import { useSettingsSlice } from "./SettingsContext";
+import { afterPaint, holdBusyCursor } from "./busyCursor";
 
 /** Lifecycle of one whole-file scan. */
 export type AsyncState<T> =
@@ -244,11 +245,21 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
       scanKeysRef.current.set(kind, scanKey(kind));
       statesRef.current = { ...statesRef.current, [kind]: { status: "running" } };
       setScan(kind, { status: "running" });
-      // Defer the post one macrotask so React paints the spinner first: when
-      // the worker's dataset copy is stale, `post` structured-clones the whole
+      // Defer the post behind a paint so the spinner shows first: when the
+      // worker's dataset copy is stale, `post` structured-clones the whole
       // file — seconds of blocked main thread on an index-scale dataset — and
       // an effect can run before the browser has painted the "running" state.
-      setTimeout(() => {
+      // That copy runs under the progress cursor too.
+      const copying = uploadedKeyRef.current !== `${datasetSeqRef.current}:${editVersionRef.current}`;
+      const release = copying ? holdBusyCursor() : undefined;
+      void afterPaint().then(() => {
+        try {
+          postScan();
+        } finally {
+          release?.();
+        }
+      });
+      function postScan() {
         // Dropped meanwhile: cancelled, dataset replaced, or hook unmounted.
         if (disposedRef.current || statesRef.current[kind].status !== "running") return;
         // Supersede a pending scan of the same kind (refresh while running).
@@ -289,9 +300,9 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
             onError: (message) => setScan(kind, { status: "error", message }),
           },
         );
-      }, 0);
+      }
     },
-    [post, setScan, scanKey],
+    [post, setScan, scanKey, editVersionRef],
   );
 
   const ensure = useCallback(

@@ -10,6 +10,7 @@ import {
   type ClusterRelativeGroup,
 } from "../../tools/mergeCluster";
 import { useModalKeyboard } from "../../keyboard/useModalKeyboard";
+import { withBusyCursor } from "../busyCursor";
 import { PersonRefLabel } from "../PersonLink";
 
 /**
@@ -46,7 +47,8 @@ export function ClusterMergeDialog({
     [dataset, survivorId, cluster.memberIds, t],
   );
   const picked = groups.filter((g) => ticked.has(g.key));
-  const ref = useModalKeyboard(true, onCancel, { onConfirm: () => onConfirm(survivorId, picked) });
+  // Keyboard confirm: no press to paint the progress cursor in (see busyCursor).
+  const ref = useModalKeyboard(true, onCancel, { onConfirm: () => void withBusyCursor(() => onConfirm(survivorId, picked)) });
   const indirect = membersWithoutDirectPair(cluster, survivorId);
   const removedCount =
     cluster.memberIds.length - 1 + picked.reduce((n, g) => n + g.memberIds.length - 1, 0);
@@ -145,6 +147,7 @@ export function ClusterMergeDialog({
           </button>
           <button
             type="button"
+            data-busy-cursor
             className="confirm-dialog-confirm danger"
             onClick={() => onConfirm(survivorId, picked)}
           >

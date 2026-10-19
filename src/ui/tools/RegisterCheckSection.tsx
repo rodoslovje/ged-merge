@@ -493,6 +493,7 @@ export function RegisterCheckSection({
     <>
       {bulk.length > 0 && (
         <button
+          data-busy-cursor
           className="nav-btn primary tools-run"
           onClick={() => {
             setApplied(onApplyOfficialNames(bulk));

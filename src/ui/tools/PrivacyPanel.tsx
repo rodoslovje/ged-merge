@@ -262,7 +262,7 @@ export function PrivacyPanel({
         </div>
       )}
 
-      <button className="nav-btn primary tools-run" onClick={download} disabled={flagged.length === 0}>
+      <button data-busy-cursor className="nav-btn primary tools-run" onClick={download} disabled={flagged.length === 0}>
         {t("tools.privacy.download")}
       </button>
     </div>

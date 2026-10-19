@@ -480,7 +480,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
         {confirming ? (
           <div className="batch-confirm">
             <span>{t("tools.batch.confirm", { count: targets.length })}</span>
-            <button className="nav-btn primary" onClick={apply}>
+            <button data-busy-cursor className="nav-btn primary" onClick={apply}>
               {t("confirm.continue")}
             </button>
             <button className="nav-btn" onClick={() => setConfirming(false)}>

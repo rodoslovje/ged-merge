@@ -141,7 +141,7 @@ export function CoordConflicts({
         {t("tools.validate.coordConflict.title")}
         <span className="tools-chip-count">{conflicts.length}</span>
         <div className="tools-dup-bulk">
-          <button className="nav-btn primary tools-run" onClick={apply} disabled={!picked.size}>
+          <button data-busy-cursor className="nav-btn primary tools-run" onClick={apply} disabled={!picked.size}>
             {t("tools.validate.coordConflict.apply", { count: picked.size })}
           </button>
           <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={!picked.size}>

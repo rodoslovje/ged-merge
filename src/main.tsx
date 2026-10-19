@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
+import { installBusyCursorOnPress } from "./ui/busyCursor";
 // Load order matters (see design README): fonts + tokens before the app's
 // index.css so they redefine --bg/--text/etc., then components.css last so its
 // overrides win the cascade.
@@ -28,6 +29,8 @@ if (legalPage === "privacy" || legalPage === "terms") {
   const slug = legalPage === "privacy" ? (sl ? "zasebnost/" : "privacy/") : sl ? "pogoji/" : "terms/";
   window.location.replace(new URL(slug, window.location.href).toString());
 }
+
+installBusyCursorOnPress();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found");

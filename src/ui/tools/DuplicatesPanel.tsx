@@ -993,6 +993,7 @@ function DuplicateCompare({
       {confirming && (
         <ConfirmDialog
           danger
+          busy
           // Both sides usually carry the same name, so the ids and the
           // left/right wording are what tells the two records apart.
           message={

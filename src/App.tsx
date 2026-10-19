@@ -8,7 +8,7 @@ import { useAppHistory } from "./ui/useAppHistory";
 import { useMatchList } from "./ui/useMatchList";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
-import { useBusyCursor } from "./ui/useBusyCursor";
+import { withBusyCursor } from "./ui/busyCursor";
 import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
@@ -302,9 +302,6 @@ function AppContent() {
   // The save is reading the pages of books it is about to write sources for —
   // see `handleSave`. Holds the Save button until the answers are in.
   const [readingSources, setReadingSources] = useState(false);
-  // Building the save preview (and writing the file) is seconds of main-thread
-  // work on a large file — the cursor says so while it runs.
-  const withBusyCursor = useBusyCursor();
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
   const compareRef = useRef<HTMLDivElement>(null);
@@ -1019,9 +1016,23 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
+  /** Undo/redo as the buttons and shortcuts run them: a whole-file Tools pass
+   *  (pushed with `stay`) costs as much to take back as it did to apply, so
+   *  that step runs a paint later, under the progress cursor. */
+  function undoStep(direction: "undo" | "redo") {
+    const run = direction === "undo" ? handleUndo : handleRedo;
+    const next = undoRedo.peek(direction);
+    if (next?.mode !== "edit" || !next.stay) return run();
+    // EditView applies the patches a frame later; the cursor stays until it has.
+    void withBusyCursor(() => new Promise<void>((resolve) => {
+      patchesAppliedRef.current = resolve;
+      run();
+    }));
+  }
+
   const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
-  globalShortcutRef.current.undo = handleUndo;
-  globalShortcutRef.current.redo = handleRedo;
+  globalShortcutRef.current.undo = () => undoStep("undo");
+  globalShortcutRef.current.redo = () => undoStep("redo");
 
   // Global "standard" shortcuts: modifier chords (undo/redo/save) plus the
   // universal find (`/`) and shortcut-help (`?`/F1) keys. Bare app-specific keys
@@ -1502,8 +1513,11 @@ function AppContent() {
 
   // Called by EditView after undo/redo patches have been applied to the dataset.
   // Delegates to useDirtyTracking which handles all the case logic as pure ops.
+  const patchesAppliedRef = useRef<(() => void) | null>(null);
   const handlePatchApplied = useCallback(
     (patches: RecordPatch[], direction: "undo" | "redo") => {
+      patchesAppliedRef.current?.();
+      patchesAppliedRef.current = null;
       if (!mainDataset) return;
       dirty.onPatchApplied(patches, direction, mainDataset);
       bumpEdit();
@@ -2089,10 +2103,10 @@ function AppContent() {
     <div className="app-head-actions">
       {(persistent || hasHistoryAction) && (
         <>
-          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={() => undoStep("undo")} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
             ↩{!persistent && <> <span className="undo-btn-label">{t("undo")}</span></>}
           </button>
-          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={() => undoStep("redo")} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
             {!persistent && <><span className="undo-btn-label">{t("redo")}</span> </>}↪
           </button>
         </>
