@@ -8,6 +8,7 @@ import { useAppHistory } from "./ui/useAppHistory";
 import { useMatchList } from "./ui/useMatchList";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
+import { useBusyCursor } from "./ui/useBusyCursor";
 import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
@@ -301,6 +302,9 @@ function AppContent() {
   // The save is reading the pages of books it is about to write sources for —
   // see `handleSave`. Holds the Save button until the answers are in.
   const [readingSources, setReadingSources] = useState(false);
+  // Building the save preview (and writing the file) is seconds of main-thread
+  // work on a large file — the cursor says so while it runs.
+  const withBusyCursor = useBusyCursor();
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
   const compareRef = useRef<HTMLDivElement>(null);
@@ -1660,7 +1664,7 @@ function AppContent() {
    * has that book) asks nothing of the network, and neither does a save with
    * lookups switched off; both open the preview straight away.
    */
-  async function handleSave() {
+  async function openSavePreview() {
     if (!mainDataset || main.status !== "loaded") return;
     const next = buildSavePreview(savePreviewInput(mainDataset, main.file.fileName));
     if (!next) return;
@@ -1675,6 +1679,9 @@ function AppContent() {
     // and building the same preview twice would only cost the user a wait.
     const enriched = read > 0 ? buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)) : null;
     setPreview(enriched ?? next);
+  }
+  function handleSave() {
+    return withBusyCursor(openSavePreview);
   }
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
@@ -2000,7 +2007,7 @@ function AppContent() {
           editRecordIds={preview.editRecordIds}
           integrityWarnings={preview.integrityWarnings}
           dataset={mainDataset}
-          onConfirm={handleConfirmSave}
+          onConfirm={(excludedTags) => void withBusyCursor(() => handleConfirmSave(excludedTags))}
           onClose={() => setPreview(null)}
           onNavigate={(id) => {
             setPreview(null);
