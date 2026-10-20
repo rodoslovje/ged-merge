@@ -14,7 +14,7 @@ import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } 
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
 import { newSourceCitations } from "../gedcom/source";
-import type { ChangeReport } from "./merge";
+import type { ChangeReport, GraftJoinPerson } from "./merge";
 import type { PlacedLink } from "./linkPlacement";
 import type { Translate } from "../locales/i18n";
 import {
@@ -76,6 +76,10 @@ export interface MergeContext {
   childPedigree: (incomingId: string, incomingFamId: string) => string | undefined;
   /** Display label for a main id, for the change report. */
   label: (id: string) => string;
+  /** A main id (or a record this merge added) as the preview writes a person. */
+  person: (id: string) => GraftJoinPerson;
+  /** An incoming record as the preview writes a person — it has no main id. */
+  incomingPerson: (incomingId: string) => GraftJoinPerson;
   report: ChangeReport;
   touched: Set<string>;
   /** Family pointers written back onto individuals, reported once the merge is
@@ -269,13 +273,7 @@ export function makeContext(
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
     if (!m || !c) return;
-    const person = (indi: import("../gedcom/types").Individual) => ({
-      name: displayName(indi.names[0]),
-      years: lifespanOf(indi),
-      dates: datesTooltipOf(indi),
-      sex: indi.sex,
-    });
-    report.graftJoins.push({ mainId, compareId: incomingId, main: person(m), incoming: person(c) });
+    report.graftJoins.push({ mainId, compareId: incomingId, main: personOf(m), incoming: personOf(c) });
   };
 
   const addNewIndividual = (incomingId: string): string | undefined => {
@@ -351,6 +349,17 @@ export function makeContext(
     },
     label: (id) =>
       addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
+    person: (id) => {
+      const indi = main.individuals.get(id);
+      const added = report.newIndividuals?.[id];
+      if (indi) return { ...personOf(indi), id };
+      if (added) return { ...personOf(added), name: addedLabels.get(id) ?? displayName(added.names[0]) };
+      return { name: id, years: "", dates: "", sex: "U" };
+    },
+    incomingPerson: (incomingId) => {
+      const indi = compare.individuals.get(incomingId);
+      return indi ? personOf(indi) : { name: incomingId, years: "", dates: "", sex: "U" };
+    },
     beginGraftPhase: () => {
       graftPhase = true;
     },
@@ -428,14 +437,13 @@ export function applyFamilyStructure(
       if (slotValue(role === "HUSB" ? "WIFE" : "HUSB") === targetId) continue;
       if (mainSlot) {
         if (mainSlot !== targetId) {
-          ctx.report.deferred.push({
-            recordId: famId,
-            field: ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
-            reason: ctx.t("merge.reason.mainHasSpouse", {
-              kept: ctx.label(mainSlot),
-              incoming: ctx.label(targetId),
-            }),
-          });
+          deferNamingPeople(
+            ctx,
+            famId,
+            ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
+            "merge.reason.mainHasSpouse",
+            { kept: [ctx.person(mainSlot)], incoming: [ctx.person(targetId)] },
+          );
         }
         continue;
       }
@@ -506,15 +514,14 @@ export function applyFamilyStructure(
           // about the parents, not the identity — and that is yours to settle.
           // The child is left out and the preview names the parents your file
           // keeps, the way the ancestor walk reports a disagreeing parent.
-          const parents = coupleLabel(otherFamId, ctx);
-          ctx.report.deferred.push({
-            recordId: famId,
-            field: ctx.t("merge.field.child"),
-            reason: ctx.t(parents ? "merge.reason.childHasParents" : "merge.reason.childHasFamily", {
-              child: ctx.label(targetId),
-              kept: parents,
-            }),
-          });
+          const parents = coupleOf(otherFamId, ctx);
+          deferNamingPeople(
+            ctx,
+            famId,
+            ctx.t("merge.field.child"),
+            parents.length ? "merge.reason.childHasParents" : "merge.reason.childHasFamily",
+            parents.length ? { child: [ctx.person(targetId)], kept: parents } : { child: [ctx.person(targetId)] },
+          );
           refusedChildren.add(incChild);
           continue;
         }
@@ -564,16 +571,38 @@ function childFamilyOf(mainId: string, ctx: MergeContext, main?: Dataset): strin
   );
 }
 
-/** "Janez Novak & Ana Kovač" for a family — empty when it names no parent. */
-function coupleLabel(famId: string, ctx: MergeContext): string {
+/** A family's parents, husband first — empty when it names none. */
+function coupleOf(famId: string, ctx: MergeContext): GraftJoinPerson[] {
   const famNode = ctx.famNode(famId);
-  if (!famNode) return "";
+  if (!famNode) return [];
   return (["HUSB", "WIFE"] as const)
     .map((role) => firstChild(famNode, role)?.value)
     .filter((id): id is string => !!id)
-    .map((id) => ctx.label(id))
-    .filter(Boolean)
-    .join(" & ");
+    .map((id) => ctx.person(id));
+}
+
+/** A person as the preview writes one: name, years, sex colour. */
+function personOf(indi: import("../gedcom/types").Individual): GraftJoinPerson {
+  return { name: displayName(indi.names[0]), years: lifespanOf(indi), dates: datesTooltipOf(indi), sex: indi.sex };
+}
+
+/**
+ * File a note on what the merge left as your file has it, naming people. The
+ * text report reads `reason` — the names alone, a couple joined by " & " — and
+ * the preview rebuilds the same sentence from `reasonKey` with each person
+ * written out in full.
+ */
+function deferNamingPeople(
+  ctx: Pick<MergeContext, "report" | "t">,
+  recordId: string,
+  field: string,
+  reasonKey: string,
+  people: Record<string, GraftJoinPerson[]>,
+): void {
+  const names = Object.fromEntries(
+    Object.entries(people).map(([k, ps]) => [k, ps.map((p) => p.name).join(" & ")]),
+  );
+  ctx.report.deferred.push({ recordId, field, reason: ctx.t(reasonKey, names), reasonKey, people });
 }
 
 /** True when the user's choice for a row means "take from incoming". */
@@ -617,13 +646,9 @@ export function applyIndividualRelations(
     const occupant = existingFamNode ? firstChild(existingFamNode, role)?.value : undefined;
     if (occupant && occupant !== ctx.resolved(incParentId)) {
       const incName = compare.individuals.get(incParentId)?.names[0];
-      ctx.report.deferred.push({
-        recordId: existingFamId!,
-        field: ctx.t(labelKey),
-        reason: ctx.t("merge.reason.mainHasSpouse", {
-          kept: ctx.label(occupant),
-          incoming: incName ? displayName(incName) : incParentId,
-        }),
+      deferNamingPeople(ctx, existingFamId!, ctx.t(labelKey), "merge.reason.mainHasSpouse", {
+        kept: [ctx.person(occupant)],
+        incoming: [{ ...ctx.incomingPerson(incParentId), name: incName ? displayName(incName) : incParentId }],
       });
       continue;
     }
@@ -947,13 +972,9 @@ function setSpouseSlot(
       // nothing the user can act on, while "your file keeps Martin Drinovec, so
       // Martin Drinovc was not linked" tells them exactly which two records to
       // look at — and, usually, that the two are the same man spelled twice.
-      ctx.report.deferred.push({
-        recordId: famId,
-        field: label,
-        reason: ctx.t("merge.reason.mainHasSpouse", {
-          kept: ctx.label(existing.value!),
-          incoming: ctx.label(personId),
-        }),
+      deferNamingPeople(ctx, famId, label, "merge.reason.mainHasSpouse", {
+        kept: [ctx.person(existing.value!)],
+        incoming: [ctx.person(personId)],
       });
     }
     return;
@@ -1122,19 +1143,18 @@ function importAncestors(
     // preview reports whose parent was kept and what was left behind.
     const occupant = firstChild(childFam.node, role)?.value;
     if (occupant && ctx.resolved(incParentId) !== occupant) {
-      ctx.report.deferred.push({
-        recordId: childFam.id,
-        field: ctx.t(labelKey),
-        reason: ctx.t(
-          hasIncomingAncestors(incParentId, compare)
-            ? "merge.reason.parentKeptAncestors"
-            : "merge.reason.parentKept",
-          {
-            kept: ctx.label(occupant),
-            incoming: displayName(compare.individuals.get(incParentId)?.names[0]),
-          },
-        ),
-      });
+      deferNamingPeople(
+        ctx,
+        childFam.id,
+        ctx.t(labelKey),
+        hasIncomingAncestors(incParentId, compare)
+          ? "merge.reason.parentKeptAncestors"
+          : "merge.reason.parentKept",
+        {
+          kept: [ctx.person(occupant)],
+          incoming: [{ ...ctx.incomingPerson(incParentId), name: displayName(compare.individuals.get(incParentId)?.names[0]) }],
+        },
+      );
       continue;
     }
     const parentMainId = ctx.resolve(incParentId);

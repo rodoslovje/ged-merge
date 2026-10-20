@@ -2399,6 +2399,11 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
           d.reason.includes("kept=Matija Novak"),
       ),
     ).toBe(true);
+    // The preview writes the named people out in full, so the note carries
+    // them as records — Marija and the parents her file keeps.
+    const note = report.deferred.find((d) => d.reasonKey === "merge.reason.childHasParents");
+    expect(note?.people?.child.map((p) => p.id)).toEqual(["@I2@"]);
+    expect(note?.people?.kept[0]).toMatchObject({ name: "Matija Novak", id: expect.stringMatching(/^@I/) });
   });
 
   // A graft walks far past the person the user was looking at, joining onto
