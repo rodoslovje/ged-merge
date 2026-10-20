@@ -157,7 +157,16 @@ export function useAppHistory(opts: AppHistoryOptions) {
     // read as "nothing left of ours" one press in, and the views' own Back
     // buttons would go dead in the middle of a trail they could still walk.
     const { gedPage: _bottom, ...rest } = state;
-    window.history.pushState(rest, "");
+    // Picking a match from the list is not a step, so the entry being left may
+    // still name a pair chosen before it — Back would then restore that one
+    // instead of the pair the reader left from.
+    rememberSelection();
+    // A push that does not name its page stands on the one on screen — an
+    // overlay over it, a pair shown in Matches. The sync below writes the page
+    // only when it changes, so without this the entry would name none, and
+    // Back returning to it after a later step would leave the app wherever
+    // that step had gone.
+    window.history.pushState({ gedMode: opts.mode, gedTool: opts.tool, gedToolView: opts.toolView, ...rest }, "");
     setCanGoBack(true);
   }
 
@@ -320,6 +329,15 @@ export function useAppHistory(opts: AppHistoryOptions) {
     }
     if (id === editEntryPersonRef.current) return;
     editEntryPersonRef.current = id;
+    // Edit is not on screen: it is following along in the background — the
+    // first candidate of a fresh match result, an undo's person in Tools. Not a
+    // step the reader took, so it is noted on the entry we are on rather than
+    // pushed as an Edit page that Back would then open in place of this one.
+    if (optsRef.current.mode !== "edit" || overlayOpenRef.current) {
+      editEntryStartedRef.current = true;
+      window.history.replaceState({ ...window.history.state, gedEditPerson: id }, "");
+      return;
+    }
     if (!editEntryStartedRef.current) {
       // First person of the session: name them on the entry we're already on.
       editEntryStartedRef.current = true;
