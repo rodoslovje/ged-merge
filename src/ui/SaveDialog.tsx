@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
-import { isItemizedChange, reportTotals, type ChangeReport, type FieldChange, type GraftJoinPerson } from "../merge/merge";
+import { isItemizedChange, reportTotals, type ChangeReport, type DeferredChange, type FieldChange, type GraftJoinPerson } from "../merge/merge";
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
 import { downloadOptions, type SerializeOptions } from "../gedcom/serialize";
 import { diffRecord, recordsByXref, type RecordDiff } from "../save/recordDiff";
@@ -137,6 +137,19 @@ export function SaveDialog({
   // change report is headed by the same function, so the two agree.
   const nameOf = useNameOf();
   const labelOf = useMemo(() => recordLabeller(report, dataset, nameOf), [report, dataset, nameOf]);
+  // A person the merge names, written the way this dialog writes anyone: a
+  // record the file has (or the merge adds) is read afresh, so the name
+  // follows the display settings and the years and colour are its own. The id
+  // stays only on a record the file already has — the one Edit can open.
+  const showPerson = (p: GraftJoinPerson): GraftJoinPerson => {
+    const known = p.id ? dataset?.individuals.get(p.id) : undefined;
+    const indi = known ?? (p.id ? report.newIndividuals?.[p.id] : undefined);
+    if (!indi) return { ...p, id: undefined };
+    return { id: known ? p.id : undefined, name: nameOf(indi), years: lifespanOf(indi), dates: datesTooltipOf(indi), sex: indi.sex };
+  };
+  const openPerson = onNavigate
+    ? (id: string) => { onNavigate(id); onClose(); }
+    : undefined;
 
   // `files` is [GEDCOM, change report]; the report leaves with the file only
   // when the reader has asked for it.
@@ -295,13 +308,28 @@ export function SaveDialog({
               <h3>{t("preview.notMerged")}</h3>
               <p className="preview-note">{t("preview.notMergedHint")}</p>
               <ul className="preview-deferred">
-                {report.deferred.map((d, i) => (
-                  <li key={i}>
-                    <span className="preview-rec">{labelOf(d.recordId)}</span>
-                    {" — "}
-                    <span className="preview-field">{d.field}</span>: {d.reason}
-                  </li>
-                ))}
+                {report.deferred.map((d, i) => {
+                  // A family is headed by its couple, each written as a person
+                  // — the whole point of the list is telling apart people who
+                  // share a name, and a bare "Jožef Simonič" cannot do that.
+                  const spouses = report.familySpouses[d.recordId];
+                  return (
+                    <li key={i}>
+                      {spouses?.length ? (
+                        <PersonList
+                          people={spouses.map((s) => showPerson({ id: s.id, name: s.name, years: "", dates: "", sex: "U" }))}
+                          joiner=" + "
+                          onOpen={openPerson}
+                        />
+                      ) : (
+                        <span className="preview-rec">{labelOf(d.recordId)}</span>
+                      )}
+                      {" — "}
+                      <span className="preview-field">{d.field}</span>:{" "}
+                      <DeferredReason d={d} t={t} show={showPerson} onOpen={openPerson} />
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}
@@ -797,6 +825,70 @@ function PersonLabel({ person }: { person: GraftJoinPerson }) {
         </span>
       )}
     </span>
+  );
+}
+
+/** People named in a sentence, each in their colour and years, and each one
+ *  the file has a way into Edit. */
+function PersonList({
+  people,
+  joiner,
+  onOpen,
+}: {
+  people: GraftJoinPerson[];
+  joiner: string;
+  onOpen?: (id: string) => void;
+}) {
+  return (
+    <>
+      {people.map((p, i) => (
+        <Fragment key={i}>
+          {i > 0 && joiner}
+          {p.id && onOpen ? (
+            <button type="button" className="person-link" onClick={() => onOpen(p.id!)}>
+              <PersonLabel person={p} />
+            </button>
+          ) : (
+            <PersonLabel person={p} />
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Why the merge kept your file's version, with the people it names written out
+ * as people rather than as the bare names the text report carries. The
+ * sentence is rebuilt from its message with a marker in each name's place, so
+ * the translation's word order decides where each person lands.
+ */
+function DeferredReason({
+  d,
+  t,
+  show,
+  onOpen,
+}: {
+  d: DeferredChange;
+  t: Translate;
+  show: (p: GraftJoinPerson) => GraftJoinPerson;
+  onOpen?: (id: string) => void;
+}) {
+  const people = d.people;
+  if (!d.reasonKey || !people) return <>{d.reason}</>;
+  const marks = Object.fromEntries(Object.keys(people).map((k) => [k, `\u0001${k}\u0001`]));
+  // split() with a capture group alternates text and placeholder names.
+  const parts = t(d.reasonKey, marks).split(/\u0001(\w+)\u0001/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 0 ? (
+          <Fragment key={i}>{part}</Fragment>
+        ) : (
+          <PersonList key={i} people={(people[part] ?? []).map(show)} joiner=" & " onOpen={onOpen} />
+        ),
+      )}
+    </>
   );
 }
 

@@ -127,6 +127,11 @@ export interface DeferredChange {
   recordId: string;
   field: string;
   reason: string;
+  /** The message `reason` was rendered from, and the people it names by
+   *  placeholder — so the preview can write each of them the way it writes
+   *  anyone (sex colour, years, a way into Edit) instead of as bare text. */
+  reasonKey?: string;
+  people?: Record<string, GraftJoinPerson[]>;
 }
 
 /** A spouse shown on a family's preview card (husband first, then wife). */
@@ -170,6 +175,8 @@ export interface GraftJoin {
  *  the main dataset, and the main one may be untouched), so the pieces travel
  *  with the entry rather than being looked up there. */
 export interface GraftJoinPerson {
+  /** The main file's record, when the person has one there. */
+  id?: string;
   name: string;
   /** "1944–2017", "1972", or "" when no year is known ({@link lifespanOf}). */
   years: string;
