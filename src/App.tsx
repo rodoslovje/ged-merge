@@ -2025,8 +2025,10 @@ function AppContent() {
           onClose={() => setPreview(null)}
           onNavigate={(id) => {
             setPreview(null);
+            // Opened in Edit as a step of its own — from Merge or Tools, a bare
+            // setNavigateToId only moved the Edit view hidden behind them.
             if (overlayOpen) navigateFromOverlay(id);
-            else setNavigateToId(id);
+            else navigateFromPage(id);
           }}
           onRemove={handleRemoveFromSave}
           onOpenPair={(mainId, compareId) => {
