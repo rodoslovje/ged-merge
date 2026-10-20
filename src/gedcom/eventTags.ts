@@ -234,7 +234,7 @@ export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "EVEN", "
 export const VALUE_EVENT_TAGS: Set<string> = new Set([
   "OCCU", "EDUC", "RETI",
   "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "ILL", "REFN",
-  "RESI",
+  "RESI", "DEAT",
   "_MILT", "_MILI", "_MEDC",
   "_MSTAT",
 ]);
@@ -243,5 +243,12 @@ export const VALUE_EVENT_TAGS: Set<string> = new Set([
  *  substance. An occupation is its value ("Farmer"), so that value leads the
  *  row; a residence reads as a date and a place, and its value line — where
  *  many exporters write the street address (`1 RESI Bojanja vas 17, Metlika`)
- *  — belongs beside them on the extras line, not in the headline slot. */
-export const SECONDARY_VALUE_EVENT_TAGS: Set<string> = new Set(["RESI"]);
+ *  — belongs beside them on the extras line, not in the headline slot. A death
+ *  likewise: some exporters write a description there (`1 DEAT died young`). */
+export const SECONDARY_VALUE_EVENT_TAGS: Set<string> = new Set(["RESI", "DEAT"]);
+
+/** The `Y` GEDCOM writes on an event line for "this happened and no more is
+ *  known" — a flag, not a value, so it is never shown as one. */
+export function isOccurrenceFlag(value: string | undefined): boolean {
+  return value?.trim().toUpperCase() === "Y";
+}

@@ -166,6 +166,15 @@ describe("attribute tags and vendor events (BK premium support)", () => {
     expect(byKey(rows, "DEAT.date")?.displayLabel).toBeUndefined();
   });
 
+  it("labels a death's line value as a value, and hides the bare Y flag", () => {
+    const described = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 DEAT exact date unknown\n2 DATE 20 APR 1918\n0 TRLR\n`);
+    const rows = individualFieldRows(tr, described.individuals.get("@I1@"), undefined);
+    expect(byKey(rows, "DEAT.value")?.main).toBe("exact date unknown");
+    expect(byKey(rows, "DEAT.value")?.label).toBe("event.colValue");
+    const flagged = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 DEAT Y\n2 DATE 1918\n0 TRLR\n`);
+    expect(byKey(individualFieldRows(tr, flagged.individuals.get("@I1@"), undefined), "DEAT.value")).toBeUndefined();
+  });
+
   it("lifts Brother's Keeper _INTE/_FNRL/_MILT as events with date and place", () => {
     const rows = individualFieldRows(tr,
       dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n1 DEAT\n2 DATE 20 APR 1910\n1 _MILT vojak\n2 DATE 1871\n1 _FNRL\n2 DATE 24 APR 1910\n2 PLAC Tunjice\n1 _INTE\n2 PLAC Tunjice\n0 TRLR\n`).individuals.get("@I1@"),
