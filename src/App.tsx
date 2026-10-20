@@ -8,6 +8,7 @@ import { useAppHistory } from "./ui/useAppHistory";
 import { useMatchList } from "./ui/useMatchList";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
+import { withBusyCursor } from "./ui/busyCursor";
 import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
@@ -1015,9 +1016,23 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
+  /** Undo/redo as the buttons and shortcuts run them: a whole-file Tools pass
+   *  (pushed with `stay`) costs as much to take back as it did to apply, so
+   *  that step runs a paint later, under the progress cursor. */
+  function undoStep(direction: "undo" | "redo") {
+    const run = direction === "undo" ? handleUndo : handleRedo;
+    const next = undoRedo.peek(direction);
+    if (next?.mode !== "edit" || !next.stay) return run();
+    // EditView applies the patches a frame later; the cursor stays until it has.
+    void withBusyCursor(() => new Promise<void>((resolve) => {
+      patchesAppliedRef.current = resolve;
+      run();
+    }));
+  }
+
   const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
-  globalShortcutRef.current.undo = handleUndo;
-  globalShortcutRef.current.redo = handleRedo;
+  globalShortcutRef.current.undo = () => undoStep("undo");
+  globalShortcutRef.current.redo = () => undoStep("redo");
 
   // Global "standard" shortcuts: modifier chords (undo/redo/save) plus the
   // universal find (`/`) and shortcut-help (`?`/F1) keys. Bare app-specific keys
@@ -1498,8 +1513,11 @@ function AppContent() {
 
   // Called by EditView after undo/redo patches have been applied to the dataset.
   // Delegates to useDirtyTracking which handles all the case logic as pure ops.
+  const patchesAppliedRef = useRef<(() => void) | null>(null);
   const handlePatchApplied = useCallback(
     (patches: RecordPatch[], direction: "undo" | "redo") => {
+      patchesAppliedRef.current?.();
+      patchesAppliedRef.current = null;
       if (!mainDataset) return;
       dirty.onPatchApplied(patches, direction, mainDataset);
       bumpEdit();
@@ -1660,7 +1678,7 @@ function AppContent() {
    * has that book) asks nothing of the network, and neither does a save with
    * lookups switched off; both open the preview straight away.
    */
-  async function handleSave() {
+  async function openSavePreview() {
     if (!mainDataset || main.status !== "loaded") return;
     const next = buildSavePreview(savePreviewInput(mainDataset, main.file.fileName));
     if (!next) return;
@@ -1675,6 +1693,9 @@ function AppContent() {
     // and building the same preview twice would only cost the user a wait.
     const enriched = read > 0 ? buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)) : null;
     setPreview(enriched ?? next);
+  }
+  function handleSave() {
+    return withBusyCursor(openSavePreview);
   }
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
@@ -2000,7 +2021,7 @@ function AppContent() {
           editRecordIds={preview.editRecordIds}
           integrityWarnings={preview.integrityWarnings}
           dataset={mainDataset}
-          onConfirm={handleConfirmSave}
+          onConfirm={(excludedTags) => void withBusyCursor(() => handleConfirmSave(excludedTags))}
           onClose={() => setPreview(null)}
           onNavigate={(id) => {
             setPreview(null);
@@ -2082,10 +2103,10 @@ function AppContent() {
     <div className="app-head-actions">
       {(persistent || hasHistoryAction) && (
         <>
-          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleUndo} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={() => undoStep("undo")} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
             ↩{!persistent && <> <span className="undo-btn-label">{t("undo")}</span></>}
           </button>
-          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={handleRedo} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
+          <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={() => undoStep("redo")} disabled={!canRedo} title={keyHint(t("redo.tooltip"), modShiftLabel("Z"))} aria-label={t("redo")}>
             {!persistent && <><span className="undo-btn-label">{t("redo")}</span> </>}↪
           </button>
         </>

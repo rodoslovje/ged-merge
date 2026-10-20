@@ -23,6 +23,13 @@ button {
   cursor: pointer;
 }
 
+/* A slow action is running (useBusyCursor) — the progress cursor wins over
+   every control's own pointer until its result is on screen. */
+html.app-busy,
+html.app-busy * {
+  cursor: progress !important;
+}
+
 /* Native form controls use the brand green, not browser blue. */
 input[type="checkbox"],
 input[type="radio"] {

@@ -553,6 +553,7 @@ export function ValidatePanel({
         <ConfirmDialog
           message={`${t("tools.validate.placeCoord.fix", { count: splitFills })}\n\n${t("tools.validate.placeCoord.fixHint")}`}
           confirmLabel={t("tools.validate.applyFix")}
+          busy
           onConfirm={applyPlaceCoordFix}
           onCancel={() => setPlaceCoordPending(false)}
         />
@@ -581,6 +582,7 @@ export function ValidatePanel({
         <ConfirmDialog
           message={`${t(`tools.validate.fix${FIX_SUFFIX[pendingFix]}`, { count: pendingCount })}\n\n${t(`tools.validate.fix${FIX_SUFFIX[pendingFix]}Hint`)}`}
           confirmLabel={t("tools.validate.applyFix")}
+          busy
           onConfirm={() => applyFix(pendingFix)}
           onCancel={() => setPendingFix(null)}
         />

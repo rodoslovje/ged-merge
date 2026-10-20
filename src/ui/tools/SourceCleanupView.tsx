@@ -669,7 +669,7 @@ export function SourceCleanupView({
   const pageMediaCount = selectedPageMediaGroups.reduce((n, g) => n + g.missing.length + g.unfiled.length, 0);
   const applyAction = (
     <>
-      <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
+      <button data-busy-cursor className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
         {/* Named after what it will actually do to the ticked rows: convert
             links into sources, merge duplicates away, gather sources under
             their repository — or, with more than one list in play, the lot at

@@ -80,6 +80,13 @@ export function useUndoRedo() {
     return entry;
   }, []);
 
+  /** The entry the next undo (or redo) would take, left in place. */
+  const peek = useCallback(
+    (direction: "undo" | "redo"): UndoEntry | undefined =>
+      (direction === "undo" ? undoStack.current : redoStack.current).at(-1),
+    [],
+  );
+
   const clearAll = useCallback(() => {
     undoStack.current = [];
     redoStack.current = [];
@@ -115,5 +122,5 @@ export function useUndoRedo() {
     setCanRedo(redoStack.current.length > 0);
   }, []);
 
-  return { canUndo, canRedo, push, pushRef, undo, redo, clearAll, dropMergeEntries, hydrate, serialize };
+  return { canUndo, canRedo, push, pushRef, undo, redo, peek, clearAll, dropMergeEntries, hydrate, serialize };
 }

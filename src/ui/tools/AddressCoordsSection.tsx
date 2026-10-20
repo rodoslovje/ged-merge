@@ -1269,6 +1269,7 @@ export function AddressCoordsSection({
   const actions = (
     <>
       <button
+        data-busy-cursor
         className="nav-btn primary tools-run"
         onClick={() => void apply()}
         disabled={picked.size === 0 && noMatch.size === 0 && restored.length === 0}
@@ -2062,6 +2063,7 @@ function BulkCoordPanel({
         {selected.size < group.rows.length ? t("tools.geocode.addr.moveAll") : t("tools.geocode.addr.moveNone")}
       </button>
       <button
+        data-busy-cursor
         className="nav-btn primary tools-place-rename-apply"
         onClick={onApply}
         disabled={!pick || selected.size === 0}
@@ -2149,7 +2151,7 @@ function MovePanel({
       <button className="tools-issue-link" onClick={() => onSelectAll(selected.size < group.rows.length)}>
         {selected.size < group.rows.length ? t("tools.geocode.addr.moveAll") : t("tools.geocode.addr.moveNone")}
       </button>
-      <button className="nav-btn primary tools-place-rename-apply" onClick={onApply} disabled={disabled}>
+      <button data-busy-cursor className="nav-btn primary tools-place-rename-apply" onClick={onApply} disabled={disabled}>
         {t("tools.geocode.addr.moveApply", { count: selected.size })}
       </button>
       <button className="nav-btn" onClick={onCancel}>

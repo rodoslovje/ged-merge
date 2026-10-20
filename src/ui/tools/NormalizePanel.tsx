@@ -172,7 +172,7 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
             {selected.sourceCoverage && <NormExamples title={t("tools.normalize.exSourceCoverage")} examples={report.coverageExamples ?? []} />}
             {selected.noteShape && <NormExamples title={t("tools.normalize.exNoteShape")} examples={report.noteShapeExamples ?? []} />}
             {selected.stripInternal && <NormExamples title={t("tools.normalize.exStripInternal")} examples={report.internalExamples} />}
-            <button className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0 || downloading}>
+            <button data-busy-cursor className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0 || downloading}>
               {t("tools.normalize.download")}
             </button>
           </>

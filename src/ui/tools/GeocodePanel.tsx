@@ -579,6 +579,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
           <div className="tools-dup-bulk">
             <button
+              data-busy-cursor
               className="nav-btn primary tools-run"
               onClick={() => void apply()}
               disabled={chosen.size === 0 && noMatch.size === 0 && restoredCount === 0}

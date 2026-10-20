@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+import { withBusyCursor } from "./busyCursor";
 
 interface Props {
   message: string;
@@ -17,6 +18,9 @@ interface Props {
    *  most callers here ask before discarding work (replace the file, clear the
    *  cache, reload), where Enter must not be the answer. Ignored for `danger`. */
   defaultConfirm?: boolean;
+  /** The confirm runs a slow main-thread action — show the progress cursor
+   *  from the press until it is done (see busyCursor). */
+  busy?: boolean;
   /** When set, renders a checkbox above the actions. `checked`/`onCheckedChange`
    *  let the caller persist the choice (e.g. a "Never ask again" preference). */
   checkboxLabel?: string;
@@ -28,9 +32,11 @@ interface Props {
   onAlt?: () => void;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, defaultConfirm, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, defaultConfirm, busy, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
   const { t } = useTranslation();
-  const ref = useModalKeyboard(true, onCancel, { onConfirm });
+  // A key press has no pointerdown to paint the cursor in, so a busy confirm
+  // taken from the keyboard starts a paint later instead.
+  const ref = useModalKeyboard(true, onCancel, { onConfirm: busy ? () => void withBusyCursor(onConfirm) : onConfirm });
   // The trap parks focus on the first focusable control, which the optional
   // checkbox would win — leaving Enter doing nothing. Hand it to the button
   // that answers the question: the confirm when the caller says Enter should
@@ -64,6 +70,7 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
             type="button"
             className={`confirm-dialog-confirm ${danger ? "danger" : ""}`}
             ref={focusConfirm ? defaultBtn : undefined}
+            data-busy-cursor={busy || undefined}
             onClick={onConfirm}
           >
             {confirmLabel}
