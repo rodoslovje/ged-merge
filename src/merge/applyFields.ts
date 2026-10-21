@@ -13,7 +13,7 @@ import {
   SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { buildObjeIndex, matchesPage, newSourceCitations, sourceContentKey, type ObjeIndex } from "../gedcom/source";
+import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
@@ -1096,10 +1096,16 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
     if (key && !mainByContent.has(`${rec.tag}:${key}`)) mainByContent.set(`${rec.tag}:${key}`, rec.xref);
   }
 
+  // A source the incoming file knows less about than the main — the same
+  // title and repository, without the main's call number or DATA — is still
+  // the main's source, not a new one: matching on the whole content alone
+  // copied it in as a second, image-less record of the same register.
+  const fuller = fullerSourceOf(compareRecords, mainRecords);
+
   for (const rec of compareRecords) {
     if (!SHARED_RECORD_TAGS.has(rec.tag) || !rec.xref) continue;
     const key = sharedContentKey(rec);
-    const existing = key ? mainByContent.get(`${rec.tag}:${key}`) : undefined;
+    const existing = (key ? mainByContent.get(`${rec.tag}:${key}`) : undefined) ?? fuller.get(rec.xref);
     if (existing) {
       map.set(rec.xref, existing);
       continue;

@@ -729,6 +729,48 @@ const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
  * treat that as "no match", not match every other empty one).
  */
 export function sourceContentKey(node: GedNode): string {
+  return sourceContentParts(node).join("|");
+}
+
+/**
+ * For each `SOUR`/`REPO` record that says less than another of its title — the
+ * same title (a repository's `NAME`) and nothing the other lacks, but not all
+ * the other says — the xref of that fuller record. Only one fuller record
+ * may qualify: two (two films of one title, told apart by their `CALN`) leave
+ * the choice open and the record is not listed. `among` defaults to `records`.
+ */
+export function fullerSourceOf(records: GedNode[], among: GedNode[] = records): Map<string, string> {
+  const titleOf = (rec: GedNode, parts: string[]) => {
+    const t = parts.find((p) => p.startsWith(rec.tag === "SOUR" ? "TITL=" : "NAME="));
+    return t && !t.endsWith("=") ? `${rec.tag}:${t}` : undefined;
+  };
+  const byTitle = new Map<string, { xref: string; parts: Set<string>; key: string }[]>();
+  for (const m of among) {
+    if ((m.tag !== "SOUR" && m.tag !== "REPO") || !m.xref) continue;
+    const parts = sourceContentParts(m);
+    const t = titleOf(m, parts);
+    if (t) (byTitle.get(t) ?? byTitle.set(t, []).get(t)!).push({ xref: m.xref, parts: new Set(parts), key: parts.join("|") });
+  }
+  const out = new Map<string, string>();
+  for (const rec of records) {
+    if ((rec.tag !== "SOUR" && rec.tag !== "REPO") || !rec.xref) continue;
+    const parts = sourceContentParts(rec);
+    const t = titleOf(rec, parts);
+    if (!t) continue;
+    const key = parts.join("|");
+    const fuller = (byTitle.get(t) ?? []).filter((m) => m.key !== key && parts.every((p) => m.parts.has(p)));
+    // The fullest of them: a record that says less than another candidate is
+    // a step on the way, not a second choice.
+    const fullest = fuller.filter((m) => !fuller.some((o) => o.key !== m.key && [...m.parts].every((p) => o.parts.has(p))));
+    // Identical copies of the one fullest record are one candidate, not two.
+    if (fullest.length && fullest.every((m) => m.key === fullest[0].key)) out.set(rec.xref, fullest[0].xref);
+  }
+  return out;
+}
+
+/** The `tag=value` pairs {@link sourceContentKey} joins, for a caller that
+ *  compares two records part by part rather than as a whole. */
+export function sourceContentParts(node: GedNode): string[] {
   const parts: string[] = [];
   const walk = (n: GedNode): void => {
     for (const child of n.children) {
@@ -744,7 +786,7 @@ export function sourceContentKey(node: GedNode): string {
     }
   };
   walk(node);
-  return parts.join("|");
+  return parts;
 }
 
 /** Depth-first visit of every sub-record `SOUR` citation's value (skips top-level `SOUR` records, which have an xref). */

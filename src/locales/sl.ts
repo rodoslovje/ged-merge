@@ -941,7 +941,7 @@ export const sl = {
   "tools.sources.mediaInSources_few": "Priloženo {{count}} virom",
   "tools.sources.mediaInSources_other": "Priloženo {{count}} virom",
   "tools.sources.dupHeading": "Možni dvojniki",
-  "tools.sources.dupIntro": "Zapisi, ki opisujejo isti medij, vir ali hrambo pod različnimi oznakami. Izberite skupine za združitev in jih uveljavite: vsaka skupina se v vaši datoteki strne v en zapis, vse navedbe pa se preusmerijo nanj, in to v enem koraku.",
+  "tools.sources.dupIntro": "Zapisi, ki opisujejo isti medij, vir ali hrambo pod različnimi oznakami. Zapis, ki pove manj kot drug zapis z enakim naslovom (na primer matična knjiga brez signature), se pridruži skupini tega zapisa, ohrani pa se popolnejši zapis. Izberite skupine za združitev in jih uveljavite: vsaka skupina se v vaši datoteki strne v en zapis, vse navedbe pa se preusmerijo nanj, in to v enem koraku.",
   "tools.sources.dupFound_one": "Najdena {{count}} skupina dvojnikov",
   "tools.sources.dupFound_two": "Najdeni {{count}} skupini dvojnikov",
   "tools.sources.dupFound_few": "Najdene {{count}} skupine dvojnikov",

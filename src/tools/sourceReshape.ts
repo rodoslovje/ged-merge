@@ -3085,17 +3085,27 @@ export function reshapeSources(
         continue;
       }
 
+      // A link that names no page of its own (a FamilySearch ark kept without
+      // its `?i=`) is the page its one citation beside it cites. Read as "no
+      // page", the move missed both that citation and the event's own one of
+      // the same page, and wrote a third, page-less citation beside them.
+      const besideCitations =
+        page === undefined && container !== hit.container
+          ? childrenByTag(hit.container, "SOUR").filter((c) => c.value?.trim() === sourceXref)
+          : [];
+      const citedPage = page ?? (besideCitations.length === 1 ? childText(besideCitations[0], "PAGE") : undefined);
+
       // Relocating takes an identical citation at the link's old spot along —
       // the record-level citation an earlier run wrote while the marriage
       // family was still unresolved — instead of leaving a redundant copy.
       if (container !== hit.container) {
         const stale = childrenByTag(hit.container, "SOUR").find(
-          (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+          (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (citedPage ?? ""),
         );
         if (stale) {
           spliceChild(hit.container, stale);
           const existing = childrenByTag(container, "SOUR").find(
-            (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (page ?? ""),
+            (c) => c.value?.trim() === sourceXref && (childText(c, "PAGE") ?? "") === (citedPage ?? ""),
           );
           if (existing) {
             // Folds into the citation already there; carry its QUAY over.
@@ -3111,7 +3121,7 @@ export function reshapeSources(
         }
       }
 
-      if (attachCitation(container, sourceXref, page, quayFor, order)) counts.citationsAdded++;
+      if (attachCitation(container, sourceXref, citedPage, quayFor, order)) counts.citationsAdded++;
 
       if (hit.shape === "note") {
         if (hit.node.value !== undefined) {

@@ -379,3 +379,57 @@ describe("dedupeSources", () => {
     expect(indi.children.filter((c) => c.tag === "SOUR")).toHaveLength(1);
   });
 });
+
+describe("findSourceDuplicates — a source that says less", () => {
+  // Ravna Gora, 3 Oct 2026: a merge copied the register in as @S2@ with only
+  // its title and repository, beside the full @S1@ the file already had.
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Čop/
+1 DEAT
+2 DATE 4 APR 1893
+2 SOUR @S2@
+3 PAGE 186
+2 SOUR @S1@
+3 PAGE 186
+3 QUAY 3
+1 BURI
+2 SOUR @S2@
+3 PAGE 187
+0 @S1@ SOUR
+1 TITL Deaths (Umrli) 1858-1896, Ravna Gora
+1 DATA
+2 EVEN DEAT
+1 REPO @R1@
+2 CALN 004679930
+0 @S2@ SOUR
+1 TITL Deaths (Umrli) 1858-1896, Ravna Gora
+1 REPO @R1@
+0 @R1@ REPO
+1 NAME FamilySearch
+0 TRLR`;
+
+  it("groups it with the one fuller record of its title, which is kept", () => {
+    const groups = ofKind(FILE, "source");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members.map((m) => [m.xref, m.survivor])).toEqual([["@S1@", true], ["@S2@", false]]);
+  });
+
+  it("leaves it alone when two different fuller records share its title", () => {
+    // @S2@ (no CALN) is covered by @S1@ and by @S3@ — two films of one title.
+    const twoFilms = FILE.replace(
+      "0 @R1@ REPO",
+      "0 @S3@ SOUR\n1 TITL Deaths (Umrli) 1858-1896, Ravna Gora\n1 REPO @R1@\n2 CALN 004679931\n0 @R1@ REPO",
+    );
+    expect(ofKind(twoFilms, "source")).toHaveLength(0);
+  });
+
+  it("drops the lean citation the fold makes say the same page twice", () => {
+    const ds = dataset(FILE);
+    const { records } = dedupeSources(ds.records, findSourceDuplicates(ds).groups);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 DEAT\n2 DATE 4 APR 1893\n2 SOUR @S1@\n3 PAGE 186\n3 QUAY 3\n1 BURI\n2 SOUR @S1@\n3 PAGE 187\n");
+    expect(out).not.toContain("0 @S2@ SOUR");
+  });
+});

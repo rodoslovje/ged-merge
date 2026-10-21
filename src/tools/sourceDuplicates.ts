@@ -6,7 +6,9 @@ import {
   looksLikeUrl,
   objeInfoOf,
   objeNodesFor,
+  fullerSourceOf,
   sourceContentKey,
+  sourceContentParts,
   sourceTitle,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
@@ -34,7 +36,9 @@ import { linkKey } from "../normalize/links";
  *    every descriptive field (a repo link's `CALN` included, so two films of
  *    one collection stay apart) except relational pointers and `CHAN`/`CREA`
  *    stamps. Identical content ⇒ same real-world source/repository even
- *    under different xrefs.
+ *    under different xrefs. A record that says less than one other of its
+ *    title — the same register imported without its call number or `DATA` —
+ *    joins that record's group, which keeps the fuller one.
  */
 
 export type DupKind = "media" | "source" | "repo";
@@ -128,8 +132,9 @@ function sourceUrlOf(rec: GedNode, objes: Map<string, GedNode>): string | undefi
 }
 
 /** Bucket top-level `tag` records by `keyOf` and emit a {@link DupGroup} per
- *  bucket with 2+ members. The survivor (kept) is the richest record, then the
- *  most-cited, then the first in file order — minimizing data loss and changes. */
+ *  bucket with 2+ members. The survivor (kept) is the one saying the most
+ *  (`fullness`, where given), then the richest record, then the most-cited,
+ *  then the first in file order — minimizing data loss and changes. */
 function groupRecords(
   records: GedNode[],
   tag: string,
@@ -138,6 +143,7 @@ function groupRecords(
   describe: (rec: GedNode) => { title: string; detail?: string; url?: string },
   refs: Map<string, number>,
   out: DupGroup[],
+  fullness: (rec: GedNode) => number = () => 0,
 ): void {
   const buckets = new Map<string, GedNode[]>();
   for (const rec of records) {
@@ -152,8 +158,8 @@ function groupRecords(
   for (const [key, recs] of buckets) {
     if (recs.length < 2) continue;
     const ranked = recs
-      .map((rec, i) => ({ rec, i, rich: richness(rec), use: refs.get(rec.xref!) ?? 0 }))
-      .sort((a, b) => b.rich - a.rich || b.use - a.use || a.i - b.i);
+      .map((rec, i) => ({ rec, i, full: fullness(rec), rich: richness(rec), use: refs.get(rec.xref!) ?? 0 }))
+      .sort((a, b) => b.full - a.full || b.rich - a.rich || b.use - a.use || a.i - b.i);
     const members: DupMember[] = ranked.map(({ rec }, idx) => {
       const d = describe(rec);
       return {
@@ -209,18 +215,29 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
     refs, groups,
   );
 
+  // A source or repository saying less than one other of its title is keyed
+  // as that fuller record, so it lands in the fuller record's group.
+  const fuller = fullerSourceOf(ds.records);
+  const byXref = new Map(ds.records.filter((r) => r.xref).map((r) => [r.xref!, r]));
+  const contentKey = (rec: GedNode) => {
+    const to = fuller.get(rec.xref!);
+    const k = sourceContentKey((to && byXref.get(to)) || rec);
+    return k ? `c:${k}` : undefined;
+  };
+  const fullness = (rec: GedNode) => sourceContentParts(rec).length;
+
   groupRecords(
     ds.records, "SOUR", "source",
-    (rec) => { const k = sourceContentKey(rec); return k ? `c:${k}` : undefined; },
+    contentKey,
     (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: childText(rec, "FILN"), url: sourceUrlOf(rec, objes) }),
-    refs, groups,
+    refs, groups, fullness,
   );
 
   groupRecords(
     ds.records, "REPO", "repo",
-    (rec) => { const k = sourceContentKey(rec); return k ? `c:${k}` : undefined; },
+    contentKey,
     (rec) => ({ title: childText(rec, "NAME") || rec.xref!, detail: childText(rec, "WWW"), url: childText(rec, "WWW") }),
-    refs, groups,
+    refs, groups, fullness,
   );
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -248,22 +265,30 @@ function nodeSig(n: GedNode): string {
 /**
  * Remove pointer children of `node` that duplicate an earlier sibling *only*
  * when the duplication was introduced by re-pointing — i.e. one of the two
- * identical pointers is in `repointed`. Two pointers count as identical only
- * when their whole subtree matches (so distinct `PAGE`s are preserved), and
+ * identical pointers is in `repointed`. A pointer counts as duplicated only
+ * when a sibling carries every line of its subtree (so distinct `PAGE`s are
+ * preserved, and of a bare and a `QUAY`-graded citation the graded stays), and
  * pre-existing duplicates the merge didn't create are left untouched, keeping
  * the output a minimal change.
  */
 function collapseRepointedDuplicates(node: GedNode, repointed: Set<GedNode>): void {
-  const seen = new Map<string, GedNode>();
-  node.children = node.children.filter((c) => {
-    const v = c.value?.trim();
-    if (!v || !isPointer(v)) return true;
-    const sig = nodeSig(c);
-    const prev = seen.get(sig);
-    if (prev && (repointed.has(c) || repointed.has(prev))) return false;
-    if (!prev) seen.set(sig, c);
-    return true;
+  const pointers = node.children.filter((c) => { const v = c.value?.trim(); return !!v && isPointer(v); });
+  const subSigs = new Map(pointers.map((c) => [c, new Set(c.children.map(nodeSig))]));
+  // `c` is said again by `o`: the same pointer, and every line under `c` is
+  // under `o` too — `SOUR @S1@ / PAGE 186` beside `SOUR @S1@ / PAGE 186 /
+  // QUAY 3` once a lean copy of the source is folded into the full one.
+  const coveredBy = (c: GedNode, o: GedNode) =>
+    o !== c && o.tag === c.tag && o.value?.trim() === c.value?.trim() && [...subSigs.get(c)!].every((s) => subSigs.get(o)!.has(s));
+  const dropped = new Set<GedNode>();
+  pointers.forEach((c, i) => {
+    const by = pointers.find((o, j) => {
+      if (dropped.has(o) || !coveredBy(c, o) || !(repointed.has(c) || repointed.has(o))) return false;
+      // Of two identical ones the first stays; otherwise the fuller one does.
+      return !coveredBy(o, c) || j < i;
+    });
+    if (by) dropped.add(c);
   });
+  if (dropped.size) node.children = node.children.filter((c) => !dropped.has(c));
 }
 
 /**
