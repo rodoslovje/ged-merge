@@ -289,6 +289,13 @@ describe("findMissingPageMedia", () => {
     ).toBe(0);
   });
 
+  it("leaves a record-level citation alone when its event already shows the page", () => {
+    // The record-level citation is the birth's leftover twin. Hanging the
+    // image beside it too was undone by Organize sources on every run.
+    const twin = ONE_IMAGE.replace("1 BIRT\n", "1 SOUR @S1@\n2 PAGE 11\n1 BIRT\n2 OBJE @M1@\n");
+    expect(findMissingPageMedia(dataset(twin), "event").total).toBe(0);
+  });
+
   it("covers a citation on the record itself, and a family's", () => {
     const report = findMissingPageMedia(
       dataset(`0 HEAD

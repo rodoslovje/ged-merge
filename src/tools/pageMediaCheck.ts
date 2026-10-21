@@ -180,6 +180,20 @@ function containersOf(record: GedNode): GedNode[] {
   return [record, ...record.children.filter((c) => eventTags.has(c.tag))];
 }
 
+/** The page images the record's own events already link. */
+function eventLinkedImages(record: GedNode): Set<string> {
+  const eventTags = record.tag === "INDI" ? INDI_EVENT_TAGS : FAM_EVENT_TAGS;
+  const out = new Set<string>();
+  for (const event of record.children) {
+    if (!eventTags.has(event.tag)) continue;
+    for (const c of childrenByTag(event, "OBJE")) {
+      const v = c.value?.trim();
+      if (v) out.add(v);
+    }
+  }
+  return out;
+}
+
 /**
  * Which citation on this container a stray page belongs to — and whether it is
  * a page of that book at all. Every candidate citation is held against
@@ -231,6 +245,7 @@ function collect(
 
   for (const record of records) {
     if ((record.tag !== "INDI" && record.tag !== "FAM") || !record.xref) continue;
+    const onEvents = eventLinkedImages(record);
     for (const container of containersOf(record)) {
       const linked = new Set(
         childrenByTag(container, "OBJE").map((c) => c.value?.trim()).filter((v): v is string => !!v),
@@ -273,6 +288,11 @@ function collect(
           continue;
         }
         if (linked.has(image.xref)) continue;
+        // A record-level citation of a page one of its own events already
+        // shows is that event citation's leftover twin: the page is on the fact
+        // already, and a second copy on the record is what Organize sources
+        // moves back onto the event — the two passes undid each other.
+        if (container === record && onEvents.has(image.xref)) continue;
         onMissing(container, record, sourceXref, image.xref, page);
         // Written or merely reported, this page is spoken for on this
         // container: a record citing the same page twice needs one pointer.
