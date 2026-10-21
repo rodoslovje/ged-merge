@@ -338,7 +338,9 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
     const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
     const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
 
-    const ev = report.changes.filter((c) => c.group === "event._KRST");
+    // A non-standard tag's group names it: the identity translator's
+    // "event._KRST", then the raw tag.
+    const ev = report.changes.filter((c) => c.group === "event._KRST (_KRST)");
     expect(ev).toHaveLength(1);
   });
 

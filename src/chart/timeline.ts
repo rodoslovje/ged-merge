@@ -15,7 +15,7 @@ import {
   isPresumedLiving,
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
-import { EVENT_GLYPHS } from "../gedcom/eventTags";
+import { EVENT_GLYPHS, eventDisplayLabel } from "../gedcom/eventTags";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
@@ -347,7 +347,7 @@ function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
   const out: TimelineMark[] = [];
   for (const e of indi.events) {
     if (e.date?.year === undefined) continue;
-    const label = t(`event.${e.tag}`, { defaultValue: e.type || e.tag });
+    const label = eventDisplayLabel(e.tag, t, e.type || e.tag);
     const place = eventPlace(e);
     out.push({
       year: e.date.year,

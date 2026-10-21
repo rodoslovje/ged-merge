@@ -167,7 +167,7 @@ export function SaveDialog({
   // of in whatever order the merge/edit steps happened to record them.
   const eventOrder = useMemo(() => {
     const map = new Map<string, number>();
-    EVENT_ORDER.forEach((tag, i) => map.set(t(`event.${tag}`), i));
+    EVENT_ORDER.forEach((tag, i) => map.set(eventDisplayLabel(tag, t), i));
     return map;
   }, [t]);
 

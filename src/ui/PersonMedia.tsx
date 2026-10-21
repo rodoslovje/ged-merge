@@ -7,6 +7,7 @@ import { useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaVie
 import { collectMediaRefs, isPrimaryMedia, type MediaAddress, type MediaRef } from "../gedcom/media";
 import { mediaKindOf } from "./mediaPath";
 import { cropFit } from "./cropFit";
+import { eventDisplayLabel } from "../gedcom/eventTags";
 
 /** Edit-mode controls for a record's media tray. When supplied, the tray always
  *  renders (even with no photos), each thumb gains a delete affordance and can
@@ -151,7 +152,7 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
     <div className="person-media">
       {items.map((item, i) => {
         const { ref } = item;
-        const eventLabel = ref.eventTag ? t(`event.${ref.eventTag}`, { defaultValue: ref.eventTag }) : undefined;
+        const eventLabel = ref.eventTag ? eventDisplayLabel(ref.eventTag, t) : undefined;
         return (
         <span
           key={`${ref.eventTag ?? ""}.${ref.eventIndex ?? 0}.${ref.objeIndex}`}

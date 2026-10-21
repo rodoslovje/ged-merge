@@ -15,6 +15,7 @@ import { resolveOverlay } from "./map/overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./map/overlayLayer";
 import { useDocTheme } from "./map/useDocTheme";
 import { sexClass } from "./sex";
+import { eventDisplayLabel } from "../gedcom/eventTags";
 
 // The Contemporaries chart's Map layout: the wheel's dots on a Leaflet map,
 // one per relative at their anchor place (see `src/chart/kinMap.ts`). Lazy,
@@ -318,7 +319,7 @@ export default function KinMapBody({
         for (const line of tooltipPlaces([m.point])) card.appendChild(placeRow(line));
         const kin = kinshipOf(m.person);
         if (kin) card.appendChild(row(`chart-hover-kin ${kinClass(m.person)}`, kin));
-        card.appendChild(row("chart-hover-hint", t(`event.${m.point.tag}`, { defaultValue: m.point.tag })));
+        card.appendChild(row("chart-hover-hint", eventDisplayLabel(m.point.tag, t)));
       } else {
         marker.on("click", () => openCluster(cluster));
         const places = tooltipPlaces(cluster.points);
