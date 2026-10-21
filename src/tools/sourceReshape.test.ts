@@ -1639,6 +1639,37 @@ describe("reshapeSources — citation placement", () => {
     expect(again.groups).toHaveLength(0);
   });
 
+  it("moves a page link that names no page onto the event's citation of its page, no third one", () => {
+    // renko-ged @I1246@: page 43 cited on the record and on the birth, the
+    // image (a FamilySearch ark without ?i=) beside both. Read as "no page",
+    // the move left the record's citation behind and added a page-less one.
+    // The file's habits as renko-ged's: page images on events, links not doubled.
+    const HOUSE = { pageMedia: "event", doubledLinks: "fold" } as const;
+    const { text, report } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Grbac/
+1 OBJE @M1@
+1 SOUR @S1@
+2 PAGE 43
+1 BIRT
+2 OBJE @M1@
+2 SOUR @S1@
+3 PAGE 43
+3 QUAY 3
+0 @S1@ SOUR
+1 TITL Births (Rođeni) 1815-1843, Ravna Gora
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-899C-5WZS
+2 TITL #43 - Births (Rođeni) 1815-1843, Ravna Gora
+0 TRLR`, HOUSE);
+    expect(report.totalOccurrences).toBe(1);
+    const ana = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(ana).toBe("0 @I1@ INDI\n1 NAME Ana /Grbac/\n1 BIRT\n2 OBJE @M1@\n2 SOUR @S1@\n3 PAGE 43\n3 QUAY 3");
+    expect(findReshapableLinks(dataset(text), undefined, HOUSE).groups).toHaveLength(0);
+  });
+
   it("a converted pointer settles without a citation quality, so the row clears", () => {
     // What a run leaves when the reader never picked a citation quality: the
     // citation is there, the page image beside it, and no QUAY on either.
