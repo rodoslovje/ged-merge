@@ -13,7 +13,7 @@ import {
   SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { buildObjeIndex, matchesPage, newSourceCitations, sourceContentKey, sourceContentParts, type ObjeIndex } from "../gedcom/source";
+import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
@@ -1100,34 +1100,12 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
   // title and repository, without the main's call number or DATA — is still
   // the main's source, not a new one: matching on the whole content alone
   // copied it in as a second, image-less record of the same register.
-  let mainByTitle: Map<string, { xref: string; parts: Set<string> }[]> | undefined;
-  const coveringMain = (rec: GedNode): string | undefined => {
-    if (rec.tag !== "SOUR" && rec.tag !== "REPO") return undefined;
-    const parts = sourceContentParts(rec);
-    const title = parts.find((p) => p.startsWith(rec.tag === "SOUR" ? "TITL=" : "NAME="));
-    if (!title || title.endsWith("=")) return undefined;
-    if (!mainByTitle) {
-      mainByTitle = new Map();
-      for (const m of mainRecords) {
-        if ((m.tag !== "SOUR" && m.tag !== "REPO") || !m.xref) continue;
-        const mParts = sourceContentParts(m);
-        for (const p of new Set(mParts)) {
-          if (!p.startsWith(m.tag === "SOUR" ? "TITL=" : "NAME=")) continue;
-          const k = `${m.tag}:${p}`;
-          (mainByTitle.get(k) ?? mainByTitle.set(k, []).get(k)!).push({ xref: m.xref, parts: new Set(mParts) });
-        }
-      }
-    }
-    const covering = (mainByTitle.get(`${rec.tag}:${title}`) ?? []).filter((m) => parts.every((p) => m.parts.has(p)));
-    // Two main records that both cover it (two films of one title) leave the
-    // choice open — copy it in rather than guess which register it means.
-    return covering.length === 1 ? covering[0].xref : undefined;
-  };
+  const fuller = fullerSourceOf(compareRecords, mainRecords);
 
   for (const rec of compareRecords) {
     if (!SHARED_RECORD_TAGS.has(rec.tag) || !rec.xref) continue;
     const key = sharedContentKey(rec);
-    const existing = (key ? mainByContent.get(`${rec.tag}:${key}`) : undefined) ?? coveringMain(rec);
+    const existing = (key ? mainByContent.get(`${rec.tag}:${key}`) : undefined) ?? fuller.get(rec.xref);
     if (existing) {
       map.set(rec.xref, existing);
       continue;
