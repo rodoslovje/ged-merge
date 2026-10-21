@@ -166,6 +166,20 @@ describe("attribute tags and vendor events (BK premium support)", () => {
     expect(byKey(rows, "DEAT.date")?.displayLabel).toBeUndefined();
   });
 
+  it("surfaces the standard attributes CAST/NMR/PROP/IDNO/SSN as value rows", () => {
+    const rows = individualFieldRows(tr,
+      person("1 CAST kmet\n1 NMR 2\n1 PROP Nakup posestva na Razdrtem\n2 DATE 1887\n1 IDNO 5\n2 TYPE EMŠO\n1 SSN 058-38-8893"),
+      undefined,
+    );
+    expect(byKey(rows, "CAST.value")?.main).toBe("kmet");
+    expect(byKey(rows, "NMR.value")?.main).toBe("2");
+    expect(byKey(rows, "PROP.value")?.main).toBe("Nakup posestva na Razdrtem");
+    expect(byKey(rows, "PROP.date")?.main).toBe("1887");
+    expect(byKey(rows, "IDNO.value")?.main).toBe("5");
+    expect(byKey(rows, "IDNO.type")?.main).toBe("EMŠO");
+    expect(byKey(rows, "SSN.value")?.main).toBe("058-38-8893");
+  });
+
   it("labels a death's line value as a value, and hides the bare Y flag", () => {
     const described = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 DEAT exact date unknown\n2 DATE 20 APR 1918\n0 TRLR\n`);
     const rows = individualFieldRows(tr, described.individuals.get("@I1@"), undefined);

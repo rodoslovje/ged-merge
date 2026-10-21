@@ -40,6 +40,7 @@ const EVENT_LABELS: Record<string, string> = {
   _MILI: "Military service",
   TITL: "Title",
   DSCR: "Physical description",
+  CAST: "Social standing",
   RELI: "Religion",
   NATI: "Nationality",
   RACE: "Race / ethnicity",
@@ -48,9 +49,13 @@ const EVENT_LABELS: Record<string, string> = {
   DEED: "Deed",
   ILL: "Illness",
   NCHI: "Number of children",
+  NMR: "Number of marriages",
+  PROP: "Property",
   _MEDC: "Medical",
   FACT: "Fact",
   REFN: "Reference number",
+  IDNO: "Identification number",
+  SSN: "Social security number",
   _FNRL: "Funeral",
   _INTE: "Interment",
   RESI: "Residence",
@@ -1567,7 +1572,7 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"])
  */
 export const LIFE_ZONE_TAGS = new Set([
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
-  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "PROP", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
 ]);
 

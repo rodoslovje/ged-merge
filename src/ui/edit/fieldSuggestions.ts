@@ -24,10 +24,11 @@ export interface TagSuggestions {
   types: Map<string, Suggestions>;
 }
 
-/** Value-bearing tags that complete from nothing: a reference number belongs
- *  to one person and a child count is a number, so a list of the file's other
- *  answers would offer a wrong one rather than a shortcut. */
-const NO_VALUE_COMPLETION = new Set(["REFN", "NCHI"]);
+/** Value-bearing tags that complete from nothing: a reference or identity
+ *  number belongs to one person and a child or marriage count is a number, so
+ *  a list of the file's other answers would offer a wrong one rather than a
+ *  shortcut. */
+const NO_VALUE_COMPLETION = new Set(["REFN", "IDNO", "SSN", "NCHI", "NMR"]);
 
 export interface FieldSuggestions {
   placeSuggestions: string[];
