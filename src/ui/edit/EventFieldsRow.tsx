@@ -1137,7 +1137,7 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className={`${linkGlyph(link).cls} edit-link-icon`}
-                {...tipProps(linkTooltip(link, t, t("source.kindLink")), { edit: true, href: linkHref(link), heading: link })}
+                {...tipProps(linkTooltip(link, t, ""), { edit: true, href: linkHref(link), heading: link, kind: t("source.kindLink") })}
                 onClick={() => openEditLink(i)}
               >
                 {linkGlyph(link).icon}
@@ -1155,7 +1155,7 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className="link-icon edit-link-icon"
-                {...tipProps(mediaLinkTooltip(link, t, ev?.mediaTitles?.[link]), { edit: true, href: linkHref(link), heading: ev?.mediaTitles?.[link] ?? link })}
+                {...tipProps(mediaLinkTooltip(link, t, ev?.mediaTitles?.[link]), { edit: true, href: linkHref(link), heading: ev?.mediaTitles?.[link] ?? link, kind: t("source.kindMedia") })}
                 onClick={() => onOpenMediaLink?.(link)}
               >
                 🔗
@@ -1186,7 +1186,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noopener noreferrer"
-              {...tipProps(mediaLinkTooltip(link, t), { heading: link })}
+              {...tipProps(mediaLinkTooltip(link, t), { heading: link, kind: t("source.kindMedia") })}
             >
               🔗
             </a>

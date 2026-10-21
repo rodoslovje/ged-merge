@@ -228,7 +228,7 @@ test("edit mode: clicking a source citation opens an editable dialog, prefilled,
   await expect(editDialog).toHaveCount(0);
 
   await expect(page.locator(".source-ref").first()).toHaveAttribute("data-tip-heading", "Updated Title");
-  await expect(page.locator(".source-ref").first()).toHaveAttribute("data-tip", /Source citation \(SOUR\)/);
+  await expect(page.locator(".source-ref").first()).toHaveAttribute("data-tip-kind", "Source citation");
 
   // Re-opening confirms the save actually persisted to the dataset, not just the icon's tooltip.
   await page.locator(".source-ref").first().click();

@@ -20,9 +20,9 @@ import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, isInternalEventType, v
 export const INDI_EVENT_TAG_ORDER = [
   "BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP",
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
-  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "PROP", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
+  "PROP", "WILL", "PROB",
   "EVEN", "FACT", "REFN", "IDNO", "SSN",
   "DEAT", "CREM", "BURI", "_INTE", "_FNRL",
 ];
@@ -233,8 +233,8 @@ export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "EVEN", "
  *  value field and compared as a `.value` row. */
 export const VALUE_EVENT_TAGS: Set<string> = new Set([
   "OCCU", "EDUC", "RETI",
-  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "PROP", "NOBI", "LATR", "DEED", "ILL",
-  "REFN", "IDNO", "SSN",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "ILL",
+  "REFN", "IDNO", "SSN", "PROP",
   "RESI", "DEAT",
   "_MILT", "_MILI", "_MEDC",
   "_MSTAT",

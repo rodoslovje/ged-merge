@@ -128,7 +128,7 @@ export function LinksEditor({
           <button
             type="button"
             className={`${linkGlyph(link).cls} edit-link-icon`}
-            {...tipProps(linkTooltip(link, t, t("source.kindLink")), { edit: true, href: linkHref(link), heading: link })}
+            {...tipProps(linkTooltip(link, t, ""), { edit: true, href: linkHref(link), heading: link, kind: t("source.kindLink") })}
             onClick={() => openEditLink(i)}
           >
             {linkGlyph(link).icon}
@@ -143,7 +143,7 @@ export function LinksEditor({
           <button
             type="button"
             className="link-icon edit-link-icon"
-            {...tipProps(mediaLinkTooltip(url, t), { edit: true, href: linkHref(url), heading: url })}
+            {...tipProps(mediaLinkTooltip(url, t), { edit: true, href: linkHref(url), heading: url, kind: t("source.kindMedia") })}
             onClick={() => onOpenMediaLink?.(url)}
           >
             🔗
@@ -186,7 +186,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className="link-icon link-new"
-          {...tipProps(mediaLinkTooltip(url, t), { heading: url })}
+          {...tipProps(mediaLinkTooltip(url, t), { heading: url, kind: t("source.kindMedia") })}
         >
           🔗
         </a>

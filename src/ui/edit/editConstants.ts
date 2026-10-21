@@ -12,9 +12,9 @@ export const INDIVIDUAL_EVENT_GROUPS = [
   // adoption last, since it is not tied to a point in that sequence.
   { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "FCOM", "CONF", "ADOP"] },
   { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "RETI", "_MILT"] },
-  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "PROP", "NOBI", "LATR", "DEED", "_MEDC", "ILL", "REFN", "IDNO", "SSN"] },
+  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL", "REFN", "IDNO", "SSN"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
-  { labelKey: "eventGroup.estate",     tags: ["WILL", "PROB", "EVEN", "FACT"] },
+  { labelKey: "eventGroup.estate",     tags: ["PROP", "WILL", "PROB", "EVEN", "FACT"] },
   // Death, then what becomes of the body in sequence (cremation precedes the
   // laying to rest of the ashes), with the funeral service last.
   { labelKey: "eventGroup.death",      tags: ["DEAT", "CREM", "BURI", "_INTE", "_FNRL"] },

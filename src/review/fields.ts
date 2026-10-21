@@ -1572,7 +1572,7 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"])
  */
 export const LIFE_ZONE_TAGS = new Set([
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
-  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "PROP", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
 ]);
 
