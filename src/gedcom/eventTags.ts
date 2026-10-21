@@ -48,7 +48,10 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
  * would draw its own colour emoji instead of the plain outline the subset in
  * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
  * the app ✎ is the button that edits a record, and a mark that looks like the
- * control beside it is worse than an approximate symbol.)
+ * control beside it is worse than an approximate symbol.) The same goes for
+ * ⚔ military service (in a register it more often marks one who fell, a
+ * reading close enough), ⚕ illness, ♔ a title or award, # an identifying
+ * number, and § for property beside the will and deeds it belongs with.
  * A tag with no honest mark is left out on purpose — the
  * UI draws those as a neutral dot and the charts as their generic one, rather
  * than inventing a symbol nobody reads.
@@ -72,14 +75,27 @@ export const EVENT_GLYPHS: Record<string, string> = {
   _MSTAT: "⚯",
   DEAT: "†",
   BURI: "▭",
+  // Interment is the burial itself, under Brother's Keeper's own tag.
+  _INTE: "▭",
   CREM: "⚱",
   RESI: "⌂",
   OCCU: "⚒",
   EDUC: "🎓︎",
+  GRAD: "🎓︎",
+  _MILT: "⚔",
+  _MILI: "⚔",
+  ILL: "⚕",
+  _MEDC: "⚕",
+  TITL: "♔",
+  NOBI: "♔",
+  REFN: "#",
+  IDNO: "#",
+  SSN: "#",
   EMIG: "→",
   IMMI: "←",
   NATU: "⚑",
   CENS: "▤",
+  PROP: "§",
   WILL: "§",
   PROB: "§",
   LATR: "§",
@@ -90,6 +106,17 @@ export const EVENT_GLYPHS: Record<string, string> = {
  *  vocabulary has no symbol for — a dot says "an event happened here" without
  *  claiming to say which, and the name always travels with it in a tooltip. */
 export const GENERIC_EVENT_GLYPH = "·";
+
+/** The neutral mark's hollow twin, for a program's own (`_`-prefixed) tag the
+ *  vocabulary has no symbol for: still "an event happened here", but one the
+ *  GEDCOM standard does not define. */
+export const VENDOR_EVENT_GLYPH = "◦";
+
+/** The mark an event row or menu entry draws for `tag`: its own symbol, else
+ *  the neutral one — hollow for a non-standard tag, solid for a standard one. */
+export function eventGlyph(tag: string): string {
+  return EVENT_GLYPHS[tag] ?? (tag.startsWith("_") ? VENDOR_EVENT_GLYPH : GENERIC_EVENT_GLYPH);
+}
 
 /** Distinct tags in canonical life-cycle order — a person's events before a
  *  family's, each in its own order, and anything unknown at the end in the
