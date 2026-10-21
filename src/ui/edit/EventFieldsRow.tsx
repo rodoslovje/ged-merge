@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
+import { linkGlyph, linkHref, linkTooltip, mediaLinkTooltip } from "../FieldValue";
 import { tipProps } from "../IconTip";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { customEventLabel, customEventTooltip, vendorEventTooltip } from "../../gedcom/eventTags";
+import { customEventLabel, customEventTooltip, isOccurrenceFlag, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
 import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
@@ -233,7 +233,10 @@ export function EventFieldsRow({
   // The registers behind the place and address fields; null outside the Edit
   // view, where the fields stay file-only.
   const lookup = usePlaceLookup();
-  const valueField = useField(ev?.value ?? "", valueMergeVal);
+  // A bare `Y` (`1 DEAT Y`) only says the event happened: the field shows it
+  // empty, and an empty field writes the flag back rather than erasing it.
+  const flagOnly = !isEven && isOccurrenceFlag(ev?.value);
+  const valueField = useField(flagOnly ? "" : ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   // The coordinate this event actually carries (PLAC.MAP). Read from the model,
@@ -660,7 +663,7 @@ export function EventFieldsRow({
   function commitAll(override: Partial<EventFieldUpdate>) {
     const merged: EventFieldUpdate = {
       date: dateField.value,
-      value: valueField.value,
+      value: flagOnly && !valueField.value.trim() ? ev?.value : valueField.value,
       place: placeField.value,
       address: addrField.value,
       note: noteField.value,
@@ -697,7 +700,7 @@ export function EventFieldsRow({
     const unchanged =
       !nonTextChange &&
       (merged.date ?? "") === dateField.initial &&
-      (merged.value ?? "") === valueField.initial &&
+      (flagOnly && merged.value === ev?.value || (merged.value ?? "") === valueField.initial) &&
       (merged.place === undefined || merged.place === placeField.initial) &&
       (merged.address ?? "") === addrField.initial &&
       (merged.note === undefined || merged.note === noteField.initial) &&
@@ -1134,7 +1137,7 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className={`${linkGlyph(link).cls} edit-link-icon`}
-                {...tipProps(linkTooltip(link, t), { edit: true, href: linkHref(link) })}
+                {...tipProps(linkTooltip(link, t, ""), { edit: true, href: linkHref(link), heading: link, kind: t("source.kindLink") })}
                 onClick={() => openEditLink(i)}
               >
                 {linkGlyph(link).icon}
@@ -1152,7 +1155,7 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className="link-icon edit-link-icon"
-                {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`), { edit: true, href: linkHref(link) })}
+                {...tipProps(mediaLinkTooltip(link, t, ev?.mediaTitles?.[link]), { edit: true, href: linkHref(link), heading: ev?.mediaTitles?.[link] ?? link, kind: t("source.kindMedia") })}
                 onClick={() => onOpenMediaLink?.(link)}
               >
                 🔗
@@ -1169,7 +1172,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noreferrer"
-              {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`))}
+              {...tipProps(linkTooltip(link, t, t("edit.harvestedLink")), { heading: link })}
             >
               {linkGlyph(link).icon}
             </a>
@@ -1183,7 +1186,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noopener noreferrer"
-              {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`))}
+              {...tipProps(mediaLinkTooltip(link, t), { heading: link, kind: t("source.kindMedia") })}
             >
               🔗
             </a>

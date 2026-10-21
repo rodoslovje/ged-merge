@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { EVENT_GLYPHS, GENERIC_EVENT_GLYPH, eventDisplayLabel, orderedEventTags } from "../gedcom/eventTags";
+import { eventDisplayLabel, eventGlyph, orderedEventTags } from "../gedcom/eventTags";
 import type { Translate } from "../locales/i18n";
 
 /**
@@ -14,7 +14,7 @@ import type { Translate } from "../locales/i18n";
  * person's name, the name is the only thing it says, so it is read out.
  */
 export function EventGlyph({ tag, t, named = false }: { tag: string; t: Translate; named?: boolean }) {
-  const glyph = EVENT_GLYPHS[tag] ?? GENERIC_EVENT_GLYPH;
+  const glyph = eventGlyph(tag);
   const name = eventDisplayLabel(tag, t);
   // A pictograph (the graduation cap) is drawn solid and full-height, where
   // every other mark is a few thin strokes, so beside them it reads as bold.

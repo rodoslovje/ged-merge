@@ -1,5 +1,5 @@
 import type { Family } from "./types";
-import { EVENT_GLYPHS } from "./eventTags";
+import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "./eventTags";
 
 /**
  * How married a union looks, judged only on what the file itself records:
@@ -53,5 +53,5 @@ export function unionMark(fam: Family | undefined): { glyph: string; ended?: "di
   if (!fam) return { glyph: EVENT_GLYPHS.MARR };
   if (fam.raw.children.some((c) => DISSOLUTION_TAGS.has(c.tag))) return { glyph: EVENT_GLYPHS.DIV, ended: "divorced" };
   if (fam.raw.children.some((c) => c.tag === "SEPA")) return { glyph: EVENT_GLYPHS.SEPA, ended: "separated" };
-  return { glyph: unionMarriage(fam) === "unmarried" ? EVENT_GLYPHS._MSTAT : EVENT_GLYPHS.MARR };
+  return { glyph: unionMarriage(fam) === "unmarried" ? UNMARRIED_UNION_GLYPH : EVENT_GLYPHS.MARR };
 }

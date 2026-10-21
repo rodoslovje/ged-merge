@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, VALUE_EVENT_TAGS, eventDisplayLabel } from "../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
@@ -40,6 +40,7 @@ const EVENT_LABELS: Record<string, string> = {
   _MILI: "Military service",
   TITL: "Title",
   DSCR: "Physical description",
+  CAST: "Social standing",
   RELI: "Religion",
   NATI: "Nationality",
   RACE: "Race / ethnicity",
@@ -48,9 +49,13 @@ const EVENT_LABELS: Record<string, string> = {
   DEED: "Deed",
   ILL: "Illness",
   NCHI: "Number of children",
+  NMR: "Number of marriages",
+  PROP: "Property",
   _MEDC: "Medical",
   FACT: "Fact",
   REFN: "Reference number",
+  IDNO: "Identification number",
+  SSN: "Social security number",
   _FNRL: "Funeral",
   _INTE: "Interment",
   RESI: "Residence",
@@ -280,7 +285,11 @@ function buildEventRows(
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
-    pushRow(subRows, `${keyBase}.value`, isEven ? t("event.colAgency") : formatFieldLabel(t, `${tag}.value`),
+    // A supplementary value (a residence's address, a death's description) is
+    // not the event itself, so it is labelled as Edit labels it, not by the tag.
+    const valueLabel = isEven ? t("event.colAgency")
+      : SECONDARY_VALUE_EVENT_TAGS.has(tag) ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
+    pushRow(subRows, `${keyBase}.value`, valueLabel,
       eventValueText(me, isEven), eventValueText(ce, isEven));
     // Places are already reshaped into the main's layout when the incoming
     // file was loaded (see normalize/normalize.ts), so the raw values can be
@@ -871,7 +880,7 @@ function pushRow(
  */
 function eventValueText(event: GedEvent | undefined, isEven: boolean): string | undefined {
   const value = event?.value;
-  if (isEven || value?.trim().toUpperCase() !== "Y") return value;
+  if (isEven || !isOccurrenceFlag(value)) return value;
   return undefined;
 }
 
@@ -1563,7 +1572,7 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"])
  */
 export const LIFE_ZONE_TAGS = new Set([
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
-  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
 ]);
 

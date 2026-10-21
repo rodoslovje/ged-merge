@@ -4,7 +4,7 @@ import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { formatCoord } from "../../geo/points";
-import { customEventLabel } from "../../gedcom/eventTags";
+import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
@@ -189,7 +189,7 @@ export function GeoPeopleList({
           const placeEventsTitle = placeEvents
             .map((ev) => {
               const custom = ev.tag === "EVEN" ? customEventLabel(ev.type, t, i18n.language) : "";
-              const label = custom || t(`event.${ev.tag}`, { defaultValue: ev.tag });
+              const label = custom || eventDisplayLabel(ev.tag, t);
               return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
             })
             .join("\n");

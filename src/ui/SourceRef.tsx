@@ -65,7 +65,12 @@ export function SourceRefs({
 
 function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation: SourceCitation; isNew: boolean; onEdit?: () => void }) {
   const pageText = citation.page ? t("source.page", { page: citation.page }) : undefined;
-  const tooltip = [citation.title, citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
+  // The source's title heads the tip in bold, followed by what this is — a
+  // citation, which a 🔗 beside a media link cannot say by itself. An untitled
+  // one is headed by that kind alone.
+  const heading = citation.title || t("source.kindCitation");
+  const kind = citation.title ? t("source.kindCitation") : undefined;
+  const tooltip = [citation.agency, citation.filingNumber ? `#${citation.filingNumber}` : undefined, pageText]
     .filter(Boolean)
     .join("\n");
   // A recognized site's own glyph (⛪ Matricula, 🪦 graves, …) tells the
@@ -84,7 +89,7 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
   ]
     .filter(Boolean)
     .join(" ");
-  const title = linkTooltip(citation.url, t, tooltip || t("source.untitled"));
+  const title = linkTooltip(citation.url, t, tooltip);
   // Edit mode: clicking opens the edit dialog (which has its own explicit
   // Open/Save/Remove actions) rather than navigating straight to the link —
   // a hover-revealed ↗ *beside* the icon (not on its corner, where the old ×
@@ -95,7 +100,7 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
         <button
           type="button"
           className={cls}
-          {...tipProps(title, { edit: true, href: citation.url ? linkHref(citation.url) : undefined })}
+          {...tipProps(title, { edit: true, href: citation.url ? linkHref(citation.url) : undefined, heading, kind })}
           onClick={onEdit}
         >
           {icon}
@@ -115,11 +120,11 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
     );
   }
   return citation.url ? (
-    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" {...tipProps(title)}>
+    <a className={cls} href={linkHref(citation.url)} target="_blank" rel="noopener noreferrer" {...tipProps(title, { heading, kind })}>
       {icon}
     </a>
   ) : (
-    <span className={cls} role="img" {...tipProps(title)}>
+    <span className={cls} role="img" {...tipProps(title, { heading, kind })}>
       {icon}
     </span>
   );

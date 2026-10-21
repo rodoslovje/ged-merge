@@ -13,10 +13,16 @@ import { useTranslation } from "react-i18next";
  * tip with the chip's actions (Edit, Open link) and the second tap acts as a
  * click always did.
  */
-export function tipProps(text: string, opts?: { href?: string; edit?: boolean }) {
+export function tipProps(text: string, opts?: { href?: string; edit?: boolean; heading?: string; kind?: string }) {
+  const head = [opts?.heading, opts?.kind].filter(Boolean).join(" — ");
   return {
     "data-tip": text,
-    "aria-label": text,
+    "aria-label": [head, text].filter(Boolean).join("\n"),
+    // What the chip is — a source's or a media link's title — set in bold on
+    // the first line, with the kind of record it is after it, so it reads
+    // apart from the lines describing it.
+    ...(opts?.heading ? { "data-tip-heading": opts.heading } : {}),
+    ...(opts?.kind ? { "data-tip-kind": opts.kind } : {}),
     ...(opts?.href ? { "data-tip-href": opts.href } : {}),
     ...(opts?.edit ? { "data-tip-edit": "" } : {}),
   };
@@ -161,6 +167,8 @@ export function IconTipLayer() {
   if (!shown) return null;
   const { el, touch } = shown;
   const text = el.dataset.tip ?? "";
+  const heading = el.dataset.tipHeading;
+  const kind = el.dataset.tipKind;
   const href = el instanceof HTMLAnchorElement ? el.href : el.dataset.tipHref;
   const canEdit = el.dataset.tipEdit !== undefined;
   const showActions = touch && (href || canEdit);
@@ -172,7 +180,13 @@ export function IconTipLayer() {
       role="tooltip"
       style={{ visibility: "hidden" }}
     >
-      <div className="icon-tip-text">{text}</div>
+      {heading && (
+        <div className="icon-tip-text">
+          <span className="icon-tip-heading">{heading}</span>
+          {kind && ` — ${kind}`}
+        </div>
+      )}
+      {text && <div className="icon-tip-text">{text}</div>}
       {showActions && (
         <div className="icon-tip-actions">
           {canEdit && (

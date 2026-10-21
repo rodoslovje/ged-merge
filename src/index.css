@@ -4792,6 +4792,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .icon-tip--touch { pointer-events: auto; }
 .icon-tip-text { white-space: pre-line; overflow-wrap: anywhere; }
+.icon-tip-heading { font-weight: 600; }
 .icon-tip-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .icon-tip-actions .btn-secondary { text-decoration: none; padding: 8px 14px; }
 /* Edit mode: a legacy link row collapsed to its icon (click to edit). */

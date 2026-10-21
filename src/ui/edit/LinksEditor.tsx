@@ -4,7 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { NewCitation } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
-import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
+import { linkGlyph, linkHref, linkTooltip, mediaLinkTooltip } from "../FieldValue";
 import { tipProps } from "../IconTip";
 import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
@@ -128,7 +128,7 @@ export function LinksEditor({
           <button
             type="button"
             className={`${linkGlyph(link).cls} edit-link-icon`}
-            {...tipProps(linkTooltip(link, t), { edit: true, href: linkHref(link) })}
+            {...tipProps(linkTooltip(link, t, ""), { edit: true, href: linkHref(link), heading: link, kind: t("source.kindLink") })}
             onClick={() => openEditLink(i)}
           >
             {linkGlyph(link).icon}
@@ -143,7 +143,7 @@ export function LinksEditor({
           <button
             type="button"
             className="link-icon edit-link-icon"
-            {...tipProps(linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`), { edit: true, href: linkHref(url) })}
+            {...tipProps(mediaLinkTooltip(url, t), { edit: true, href: linkHref(url), heading: url, kind: t("source.kindMedia") })}
             onClick={() => onOpenMediaLink?.(url)}
           >
             🔗
@@ -160,7 +160,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className={linkGlyph(url).cls}
-          {...tipProps(linkTooltip(url, t, `${url}\n${t("edit.harvestedLink")}`))}
+          {...tipProps(linkTooltip(url, t, t("edit.harvestedLink")), { heading: url })}
         >
           {linkGlyph(url).icon}
         </a>
@@ -186,7 +186,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className="link-icon link-new"
-          {...tipProps(linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`))}
+          {...tipProps(mediaLinkTooltip(url, t), { heading: url, kind: t("source.kindMedia") })}
         >
           🔗
         </a>

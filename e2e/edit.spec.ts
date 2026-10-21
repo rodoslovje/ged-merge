@@ -227,7 +227,8 @@ test("edit mode: clicking a source citation opens an editable dialog, prefilled,
   await editDialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(editDialog).toHaveCount(0);
 
-  await expect(page.locator(".source-ref").first()).toHaveAttribute("data-tip", /Updated Title/);
+  await expect(page.locator(".source-ref").first()).toHaveAttribute("data-tip-heading", "Updated Title");
+  await expect(page.locator(".source-ref").first()).toHaveAttribute("data-tip-kind", "Source citation");
 
   // Re-opening confirms the save actually persisted to the dataset, not just the icon's tooltip.
   await page.locator(".source-ref").first().click();
@@ -255,7 +256,7 @@ test("edit mode: a legacy link opens the Edit Source dialog prefilled with just 
 
   // Still a plain link icon, not promoted to a source citation.
   await expect(page.locator(".source-ref")).toHaveCount(0);
-  await expect(page.locator(".edit-link-icon").first()).toHaveAttribute("data-tip", "https://example.com/legacy-renamed");
+  await expect(page.locator(".edit-link-icon").first()).toHaveAttribute("data-tip-heading", "https://example.com/legacy-renamed");
 
   // Remove it via the same dialog.
   await page.locator(".edit-link-icon").first().click();

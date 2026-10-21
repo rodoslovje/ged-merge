@@ -596,14 +596,17 @@
                   <em>Baptism</em> is baptism in general (GEDCOM <code>BAPM</code>), <em>Christening</em> the baptism
                   and naming of a child (<code>CHR</code>); GED Merge treats Baptism as the usual one, and it is what
                   the baptism-citation setting writes to.</li>
-                <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service</li>
-                <li><strong>Attributes</strong> — Title, Physical description, Religion, Nationality, Race / ethnicity,
-                  Number of children, Award, Legal transaction, Deed, Medical, Illness, Reference number. These are
+                <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service (<code>_MILT</code>)</li>
+                <li><strong>Attributes</strong> — Title, Physical description, Social standing, Religion, Nationality,
+                  Number of children, Number of marriages, Reference number, Identification number, Social security
+                  number, Race / ethnicity (<code>RACE</code>), Award (<code>NOBI</code>), Illness (<code>ILL</code>),
+                  Medical (<code>_MEDC</code>). These are
                   GEDCOM <em>attributes</em> rather than events: most carry a value on the row itself
                   (<code>1 OCCU Farmer</code>) as well as the usual date, place and sources.</li>
                 <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
-                <li><strong>Estate</strong> — Will, Probate, and the two generic kinds, Event and Fact</li>
-                <li><strong>Death</strong> — Death, Cremation, Burial, Interment, Funeral</li>
+                <li><strong>Estate</strong> — Property, Will, Probate, Legal transaction (<code>LATR</code>), Deed (<code>DEED</code>)</li>
+                <li><strong>Death</strong> — Death, Cremation, Burial, Interment (<code>_INTE</code>), Funeral (<code>_FNRL</code>)</li>
+                <li><strong>Other</strong> — the two generic kinds, Event and Fact</li>
               </ul>
               <p>
                 Each row is led by its event's own genealogy mark — <span class="gm-glyph">*</span> a birth,
@@ -632,9 +635,10 @@
                 straight from the field.
               </p>
               <p>
-                A <strong>Residence</strong> row also offers a <strong>value</strong> field, because a residence may
-                carry text on the row itself (<code>1 RESI Bojanja vas 17, Metlika</code>) — where several programs
-                write the address instead of using the place and address fields. It shows whenever the event has such
+                A <strong>Residence</strong> or <strong>Death</strong> row also offers a <strong>value</strong> field,
+                because the event may carry text on the row itself. For a residence several programs write the address
+                there instead of using the place and address fields (<code>1 RESI Bojanja vas 17, Metlika</code>), and
+                for a death a short description (<code>1 DEAT died young</code>). It shows whenever the event has such
                 text, and is otherwise available from <strong>+ Add</strong>.
               </p>
               <p>
@@ -2662,8 +2666,9 @@
               link it placed beside itself. Beside the source icons a person or event may also carry plain
               <strong>link chips</strong>: a link attached as a media record shows as a 🔗 and opens the small
               <strong>Edit Link</strong> dialog, where the URL can be edited, opened, or removed (a media record
-              nothing else references is deleted with it). Hovering any source or link icon shows what it cites and
-              reveals an ↗ that opens its page directly. On a touch screen the first tap on an icon shows the same
+              nothing else references is deleted with it). Hovering any source or link icon shows its title in bold,
+              followed by the kind of record it is — a source citation, a media link or a web link — and reveals an
+              ↗ that opens its page directly. On a touch screen the first tap on an icon shows the same
               description with <strong>Edit</strong> and <strong>Open link in new tab</strong> buttons, and a second
               tap acts as a click. A link written inside a note's text stays a read-only chip — edit or remove it in the
               note itself. To see and tidy sources across the entire
@@ -2928,11 +2933,14 @@
                 <tr><td><span class="gm-glyph">†</span></td><td>Death</td></tr>
                 <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Burial, cremation</td></tr>
                 <tr><td><span class="gm-glyph">⌂</span></td><td>Residence</td></tr>
-                <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Occupation, education</td></tr>
+                <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Occupation, education or graduation</td></tr>
+                <tr><td><span class="gm-glyph">♔</span></td><td>Title</td></tr>
+                <tr><td><span class="gm-glyph">#</span></td><td>Number of children or marriages; reference, identification or social security number</td></tr>
                 <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Emigration, immigration, naturalization</td></tr>
                 <tr><td><span class="gm-glyph">▤</span></td><td>Census</td></tr>
-                <tr><td><span class="gm-glyph">§</span></td><td>Will, probate, legal transaction, deed</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Property, will, probate</td></tr>
                 <tr><td><span class="gm-glyph">·</span></td><td>Any other event type — one with no traditional symbol of its own</td></tr>
+                <tr><td><span class="gm-glyph">◦</span></td><td>Any non-standard event type — a tag that a program added to GEDCOM (<code>_MILT</code>, <code>NOBI</code> and the like)</td></tr>
               </tbody>
             </table>
             <p><strong>Status badges</strong> — round chips on candidate rows (Merge), on the relatives listed in the

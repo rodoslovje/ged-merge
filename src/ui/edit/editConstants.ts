@@ -5,19 +5,22 @@ import type { MatchDecisionStatus } from "../../review/types";
 export { VALUE_EVENT_TAGS, SECONDARY_VALUE_EVENT_TAGS } from "../../gedcom/eventTags";
 
 /** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded.
- * The generic `EVEN` ("Event") and `FACT` live under Estate so they can be
- * added and switched to/from like any other event. */
+ * The generic `EVEN` ("Event") and `FACT` close the menu under Other so they
+ * can be added and switched to/from like any other event. A non-standard tag
+ * (`isNonStandardTag`) closes its group, after every standard one. */
 export const INDIVIDUAL_EVENT_GROUPS = [
   // Life order: the two baptisms, then first communion, then confirmation;
   // adoption last, since it is not tied to a point in that sequence.
   { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "FCOM", "CONF", "ADOP"] },
   { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "RETI", "_MILT"] },
-  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL", "REFN"] },
+  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "NCHI", "NMR", "REFN", "IDNO", "SSN", "RACE", "NOBI", "ILL", "_MEDC"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
-  { labelKey: "eventGroup.estate",     tags: ["WILL", "PROB", "EVEN", "FACT"] },
+  // What a person owned and the legal acts about it, in life and after it.
+  { labelKey: "eventGroup.estate",     tags: ["PROP", "WILL", "PROB", "LATR", "DEED"] },
   // Death, then what becomes of the body in sequence (cremation precedes the
   // laying to rest of the ashes), with the funeral service last.
   { labelKey: "eventGroup.death",      tags: ["DEAT", "CREM", "BURI", "_INTE", "_FNRL"] },
+  { labelKey: "eventGroup.other",      tags: ["EVEN", "FACT"] },
 ] as const;
 
 /** Tags a main individual event's type can be changed to/from (matches

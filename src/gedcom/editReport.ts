@@ -1,4 +1,4 @@
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "./eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "./eventTags";
 import type { Association, Dataset, GedNode, Sex } from "./types";
 import { associationsIn, isVoidAssociation } from "./assoc";
 import { parseDate } from "./date";
@@ -528,7 +528,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffAdditionalNames(id, before, after, t));
 
   const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource, nameMedia));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
@@ -589,7 +589,7 @@ function diffFamilyNodes(
   diffs.push(...diffFamilyMembership(id, before, after, t, resolveName));
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource, nameMedia));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
@@ -638,7 +638,7 @@ function associationSummaries(
     // Educations, and "Education" alone does not say which one gained a name.
     let where = "";
     if (event) {
-      const name = t(`event.${event.tag}`, { defaultValue: event.tag });
+      const name = eventDisplayLabel(event.tag, t);
       const year = parseDate(firstChild(event, "DATE")?.value ?? "")?.year;
       where = `${year ? `${name} ${year}` : name} — `;
     }

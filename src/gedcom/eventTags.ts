@@ -20,10 +20,10 @@ import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, isInternalEventType, v
 export const INDI_EVENT_TAG_ORDER = [
   "BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP",
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
-  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
-  "WILL", "PROB",
-  "EVEN", "FACT", "REFN",
+  "PROP", "WILL", "PROB",
+  "EVEN", "FACT", "REFN", "IDNO", "SSN",
   "DEAT", "CREM", "BURI", "_INTE", "_FNRL",
 ];
 
@@ -48,7 +48,11 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
  * would draw its own colour emoji instead of the plain outline the subset in
  * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
  * the app ✎ is the button that edits a record, and a mark that looks like the
- * control beside it is worse than an approximate symbol.)
+ * control beside it is worse than an approximate symbol.) The same goes for
+ * ♔ a title, # a number (an identifying one or a count of children or
+ * marriages), and § for property beside the will it belongs with.
+ * A non-standard tag (`isNonStandardTag`) never has one: it is drawn with the
+ * hollow `VENDOR_EVENT_GLYPH`, so a non-standard event reads as one at a glance.
  * A tag with no honest mark is left out on purpose — the
  * UI draws those as a neutral dot and the charts as their generic one, rather
  * than inventing a symbol nobody reads.
@@ -69,27 +73,56 @@ export const EVENT_GLYPHS: Record<string, string> = {
   // the app's own reading of the ⚬ ⚭ ⚯ ⚮ family.
   SEPA: "⚬⚬",
   DIV: "⚮",
-  _MSTAT: "⚯",
   DEAT: "†",
   BURI: "▭",
   CREM: "⚱",
   RESI: "⌂",
   OCCU: "⚒",
   EDUC: "🎓︎",
+  GRAD: "🎓︎",
+  TITL: "♔",
+  REFN: "#",
+  IDNO: "#",
+  SSN: "#",
+  NCHI: "#",
+  NMR: "#",
   EMIG: "→",
   IMMI: "←",
   NATU: "⚑",
   CENS: "▤",
+  PROP: "§",
   WILL: "§",
   PROB: "§",
-  LATR: "§",
-  DEED: "§",
 };
 
 /** The mark an event tag is drawn with, or the neutral one for a tag the
  *  vocabulary has no symbol for — a dot says "an event happened here" without
  *  claiming to say which, and the name always travels with it in a tooltip. */
 export const GENERIC_EVENT_GLYPH = "·";
+
+/** The neutral mark's hollow twin, for a program's own tag: still "an event
+ *  happened here", but one the GEDCOM standard does not define. */
+export const VENDOR_EVENT_GLYPH = "◦";
+
+/** A tag the GEDCOM standard does not define: a program's own `_` tag, or one
+ *  a program writes without the underscore — MacFamilyTree's `NOBI`, `LATR`,
+ *  `DEED`, `ILL`, `RACE` — which the vendor registry names. Such a tag is
+ *  drawn hollow, named with its tag and listed last in its menu group. */
+export function isNonStandardTag(tag: string): boolean {
+  return tag.startsWith("_") || tag in VENDOR_TAGS;
+}
+
+/** The mark an event row or menu entry draws for `tag`: hollow for every
+ *  non-standard tag, else its own symbol or the solid neutral one. */
+export function eventGlyph(tag: string): string {
+  if (isNonStandardTag(tag)) return VENDOR_EVENT_GLYPH;
+  return EVENT_GLYPHS[tag] ?? GENERIC_EVENT_GLYPH;
+}
+
+/** The mark for a couple the file records as unmarried partners — the last of
+ *  the ⚬ ⚭ ⚮ ⚯ union family. A mark for the couple (see `unionMark`), not for
+ *  an event row: the `_MSTAT` that records it is a vendor tag. */
+export const UNMARRIED_UNION_GLYPH = "⚯";
 
 /** Distinct tags in canonical life-cycle order — a person's events before a
  *  family's, each in its own order, and anything unknown at the end in the
@@ -109,14 +142,15 @@ export function orderedEventTags(tags: Iterable<string>): string[] {
 }
 
 /**
- * Localized display name for an event tag. Non-standard (`_`-prefixed vendor)
- * tags get the raw tag appended — "Funeral (_FNRL)" — so they read apart from
- * similarly named standard events (BURI "Burial"). `fallback` replaces the
- * default untranslated-name fallback (the tag itself).
+ * Localized display name for an event tag. Non-standard tags (see
+ * `isNonStandardTag`) get the raw tag appended — "Funeral (_FNRL)",
+ * "Award (NOBI)" — so they read apart from similarly named standard events
+ * (BURI "Burial"). `fallback` replaces the default untranslated-name fallback
+ * (the tag itself).
  */
 export function eventDisplayLabel(tag: string, t: Translate, fallback?: string): string {
   const name = t(`event.${tag}`, { defaultValue: fallback ?? tag });
-  return tag.startsWith("_") && name !== tag ? `${name} (${tag})` : name;
+  return isNonStandardTag(tag) && name !== tag ? `${name} (${tag})` : name;
 }
 
 /**
@@ -205,7 +239,7 @@ export function customEventTooltip(type: string | undefined, t: Translate, lang:
  * (Brother's Keeper): funeral" — or undefined for standard tags.
  */
 export function vendorEventTooltip(tag: string, t: Translate, lang: string): string | undefined {
-  if (!tag.startsWith("_")) return undefined;
+  if (!isNonStandardTag(tag)) return undefined;
   const info = VENDOR_TAGS[tag] ?? VENDOR_TAGS[VENDOR_TAG_ALIASES[tag]];
   if (!info) return t("event.vendorTooltip", { tag });
   const meaning = lang.startsWith("sl") ? info.meaning.sl : info.meaning.en;
@@ -233,8 +267,9 @@ export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "EVEN", "
  *  value field and compared as a `.value` row. */
 export const VALUE_EVENT_TAGS: Set<string> = new Set([
   "OCCU", "EDUC", "RETI",
-  "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "ILL", "REFN",
-  "RESI",
+  "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "ILL",
+  "REFN", "IDNO", "SSN", "PROP",
+  "RESI", "DEAT",
   "_MILT", "_MILI", "_MEDC",
   "_MSTAT",
 ]);
@@ -243,5 +278,12 @@ export const VALUE_EVENT_TAGS: Set<string> = new Set([
  *  substance. An occupation is its value ("Farmer"), so that value leads the
  *  row; a residence reads as a date and a place, and its value line — where
  *  many exporters write the street address (`1 RESI Bojanja vas 17, Metlika`)
- *  — belongs beside them on the extras line, not in the headline slot. */
-export const SECONDARY_VALUE_EVENT_TAGS: Set<string> = new Set(["RESI"]);
+ *  — belongs beside them on the extras line, not in the headline slot. A death
+ *  likewise: some exporters write a description there (`1 DEAT died young`). */
+export const SECONDARY_VALUE_EVENT_TAGS: Set<string> = new Set(["RESI", "DEAT"]);
+
+/** The `Y` GEDCOM writes on an event line for "this happened and no more is
+ *  known" — a flag, not a value, so it is never shown as one. */
+export function isOccurrenceFlag(value: string | undefined): boolean {
+  return value?.trim().toUpperCase() === "Y";
+}

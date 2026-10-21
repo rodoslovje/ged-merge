@@ -27,6 +27,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { useSettingsSlice } from "./SettingsContext";
 import { usePhone } from "./usePhone";
 import { basename } from "./mediaPath";
+import { eventDisplayLabel } from "../gedcom/eventTags";
 
 /**
  * One full-screen photo viewer shared by every part of the app (Edit, Merge,
@@ -326,7 +327,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
         // Media attached to an event (rather than the record itself) shows the
         // event's label so it's clear what the photo documents.
         const eventLabel = ref.eventTag
-          ? t(`event.${ref.eventTag}`, { defaultValue: ref.eventTag })
+          ? eventDisplayLabel(ref.eventTag, t)
           : undefined;
         const metaRows = mediaMetaRows(ref, t);
         if (eventLabel) metaRows.unshift({ label: t("media.field.event"), value: eventLabel });

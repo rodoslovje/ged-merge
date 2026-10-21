@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_GLYPHS,
+  GENERIC_EVENT_GLYPH,
+  UNMARRIED_UNION_GLYPH,
+  VENDOR_EVENT_GLYPH,
   customEventLabel,
   customEventTooltip,
   eventDisplayLabel,
+  eventGlyph,
   orderedEventTags,
   vendorEventTooltip,
 } from "./eventTags";
@@ -73,7 +77,7 @@ describe("customEventLabel", () => {
 
 describe("the genealogy marks", () => {
   it("gives the union its own Unicode family, so the four read as a set", () => {
-    expect([EVENT_GLYPHS.ENGA, EVENT_GLYPHS.MARR, EVENT_GLYPHS.DIV, EVENT_GLYPHS._MSTAT]).toEqual([
+    expect([EVENT_GLYPHS.ENGA, EVENT_GLYPHS.MARR, EVENT_GLYPHS.DIV, UNMARRIED_UNION_GLYPH]).toEqual([
       "⚬",
       "⚭",
       "⚮",
@@ -93,6 +97,12 @@ describe("the genealogy marks", () => {
   it("leaves a tag with no honest mark unmapped, for the caller's neutral dot", () => {
     expect(EVENT_GLYPHS.DSCR).toBeUndefined();
     expect(EVENT_GLYPHS.RELI).toBeUndefined();
+  });
+
+  it("draws every non-standard tag hollow, and an unmarked standard one solid", () => {
+    expect(["_MILT", "_MSTAT", "_FNRL", "_INTE"].map(eventGlyph)).toEqual(Array(4).fill(VENDOR_EVENT_GLYPH));
+    expect(eventGlyph("RELI")).toBe(GENERIC_EVENT_GLYPH);
+    expect(eventGlyph("DEAT")).toBe("†");
   });
 });
 

@@ -126,6 +126,7 @@ import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { mediaKindOf } from "./mediaPath";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
+import { eventDisplayLabel } from "../gedcom/eventTags";
 
 
 interface Props {
@@ -1739,7 +1740,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     >();
     for (const p of points) {
       const k = `${p.coord.lat}:${p.coord.lon}`;
-      const label = `${t(`event.${p.tag}`, { defaultValue: p.tag })}${p.year !== undefined ? ` ${p.year}` : ""}`;
+      const label = `${eventDisplayLabel(p.tag, t)}${p.year !== undefined ? ` ${p.year}` : ""}`;
       const hit = byCoord.get(k);
       if (hit) {
         hit.labels.push(label);
