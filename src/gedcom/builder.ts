@@ -2,7 +2,7 @@ import { parseDate } from "./date";
 import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childrenByTag, firstChild } from "./node";
-import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
+import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
@@ -339,7 +339,11 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const editable = collectEditableLinks(node);
   if (editable.length) event.editableLinks = dedupe(editable);
   const mediaLinks = collectMediaLinks(node, media);
-  if (mediaLinks.length) event.mediaLinks = dedupe(mediaLinks);
+  if (mediaLinks.length) {
+    event.mediaLinks = dedupe(mediaLinks);
+    const titles = collectMediaTitles(node, media, sourceCtx);
+    if (titles) event.mediaTitles = titles;
+  }
   const associations = associationsIn(node);
   if (associations.length) {
     readAssocNotes(associations, noteIndex, media);
@@ -543,6 +547,24 @@ function collectMediaLinks(node: GedNode, media: MediaLinks): string[] {
     const v = child.value?.trim();
     if (v && isPointer(v)) out.push(...(media.get(v) ?? []));
     else collectLinks(child, media, out);
+  }
+  return out;
+}
+
+/** The titles of `node`'s own `OBJE` links, keyed by each link's URL — a shared
+ *  media record's from the source context's index, an inline one's from its own
+ *  `TITL`. Undefined when none of them is titled, the usual case. */
+function collectMediaTitles(node: GedNode, media: MediaLinks, sourceCtx: SourceContext): Record<string, string> | undefined {
+  let out: Record<string, string> | undefined;
+  for (const child of node.children) {
+    if (child.tag !== "OBJE") continue;
+    const v = child.value?.trim();
+    const pointer = v && isPointer(v) ? v : undefined;
+    const title = pointer ? sourceCtx.objeIndex.get(pointer)?.title : objeInfoOf(child).title;
+    if (!title) continue;
+    for (const url of pointer ? media.get(pointer) ?? [] : collectLinks(child, media)) {
+      (out ??= {})[url] ??= title;
+    }
   }
   return out;
 }

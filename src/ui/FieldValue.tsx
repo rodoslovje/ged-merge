@@ -290,3 +290,9 @@ export function linkGlyph(url: string | undefined, forceGeneric = false): { icon
 export function linkTooltip(url: string | undefined, t: Translate, label?: string): string {
   return [label ?? url, needsFreeAccount(url) && t("links.needsAccount")].filter(Boolean).join("\n");
 }
+
+/** The body of a media link's (`OBJE`) tip, under a heading that is its title
+ *  when it has one — the URL then follows beneath — or else the URL itself. */
+export function mediaLinkTooltip(url: string, t: Translate, title?: string): string {
+  return linkTooltip(url, t, [title ? url : undefined, t("edit.mediaLinkChip")].filter(Boolean).join("\n"));
+}

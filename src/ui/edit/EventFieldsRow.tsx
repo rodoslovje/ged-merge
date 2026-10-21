@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
+import { linkGlyph, linkHref, linkTooltip, mediaLinkTooltip } from "../FieldValue";
 import { tipProps } from "../IconTip";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
@@ -1137,7 +1137,7 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className={`${linkGlyph(link).cls} edit-link-icon`}
-                {...tipProps(linkTooltip(link, t), { edit: true, href: linkHref(link) })}
+                {...tipProps(linkTooltip(link, t, t("source.kindLink")), { edit: true, href: linkHref(link), heading: link })}
                 onClick={() => openEditLink(i)}
               >
                 {linkGlyph(link).icon}
@@ -1155,7 +1155,7 @@ export function EventFieldsRow({
               <button
                 type="button"
                 className="link-icon edit-link-icon"
-                {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`), { edit: true, href: linkHref(link) })}
+                {...tipProps(mediaLinkTooltip(link, t, ev?.mediaTitles?.[link]), { edit: true, href: linkHref(link), heading: ev?.mediaTitles?.[link] ?? link })}
                 onClick={() => onOpenMediaLink?.(link)}
               >
                 🔗
@@ -1172,7 +1172,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noreferrer"
-              {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`))}
+              {...tipProps(linkTooltip(link, t, t("edit.harvestedLink")), { heading: link })}
             >
               {linkGlyph(link).icon}
             </a>
@@ -1186,7 +1186,7 @@ export function EventFieldsRow({
               href={linkHref(link)}
               target="_blank"
               rel="noopener noreferrer"
-              {...tipProps(linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`))}
+              {...tipProps(mediaLinkTooltip(link, t), { heading: link })}
             >
               🔗
             </a>

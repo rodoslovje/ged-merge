@@ -446,3 +446,32 @@ describe("AGNC and CAUS extraction", () => {
     expect(death.cause).toBe("Heart failure");
   });
 });
+
+describe("media link titles", () => {
+  it("names an event's OBJE links by their TITL, shared or inline", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @M1@ OBJE
+1 FILE https://example.org/page-149.jpg
+2 TITL Births 1815-1843, Ravna Gora, p. 149
+0 @M2@ OBJE
+1 FILE https://example.org/untitled.jpg
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 DATE 1 JAN 1900
+2 OBJE @M1@
+2 OBJE @M2@
+2 OBJE
+3 FILE https://example.org/inline.jpg
+4 TITL Inline page
+0 TRLR
+`;
+    const birth = buildFromText(text).individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birth.mediaTitles).toEqual({
+      "https://example.org/page-149.jpg": "Births 1815-1843, Ravna Gora, p. 149",
+      "https://example.org/inline.jpg": "Inline page",
+    });
+  });
+});

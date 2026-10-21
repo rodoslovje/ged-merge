@@ -385,6 +385,9 @@ export interface GedEvent {
    *  not rewritable as WWW lines, so they are neither editable nor merely
    *  harvested. */
   mediaLinks?: string[];
+  /** A media link's title (the `OBJE`'s `TITL`), keyed by its URL in
+   *  `mediaLinks` — only for the links that carry one. */
+  mediaTitles?: Record<string, string>;
   /** Source citations (`SOUR`) attached to this event. */
   sources?: SourceCitation[];
   /** People this event names who are not the record's relatives — the
