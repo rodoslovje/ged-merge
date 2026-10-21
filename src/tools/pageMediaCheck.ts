@@ -94,14 +94,26 @@ function pageOfImage(url: string): string | undefined {
   return pageParamOf(url) ?? parseFamilySearchUrl(url)?.image;
 }
 
+/** The page an image says it is: its address, else its title (`#190 - Births
+ *  …`, how every page image this app writes is named) — a FamilySearch ark
+ *  stored without its `?i=` names no page in the address at all. */
+function pageOfPageImage(url: string, title: string | undefined): string | undefined {
+  return pageOfImage(url) ?? (title ? /^#0*(\d+)\b/.exec(title.trim())?.[1] : undefined);
+}
+
+/** Two page numbers as one, leading zeros aside (`007` and `7`). */
+function samePage(a: string, b: string): boolean {
+  return a.replace(/^0+(?=\d)/, "") === b.replace(/^0+(?=\d)/, "");
+}
+
 /** The page images a `SOUR` record holds, in file order. */
 function pageImagesOf(source: GedNode, objes: ObjeIndex): { xref: string; url: string; page?: string }[] {
   const out: { xref: string; url: string; page?: string }[] = [];
   for (const child of childrenByTag(source, "OBJE")) {
     const xref = child.value?.trim();
     if (!xref || !isPointer(xref)) continue;
-    const url = objes.get(xref)?.url;
-    if (url) out.push({ xref, url, page: pageOfImage(url) });
+    const info = objes.get(xref);
+    if (info?.url) out.push({ xref, url: info.url, page: pageOfPageImage(info.url, info.title) });
   }
   return out;
 }
@@ -141,19 +153,22 @@ function isPageOfSource(
 
 /**
  * Which image a citation means, or why it cannot be said. A source with one
- * page image answers for every citation of it; with several, only the cited
- * page tells them apart, and a citation that names no page (or names one no
- * image carries) is left alone.
+ * page image answers for every citation of it that does not cite another page;
+ * with several, only the cited page tells them apart, and a citation that
+ * names no page (or names one no image carries) is left alone.
  */
 function imageForCitation(
   images: { xref: string; url: string; page?: string }[],
   page: string | undefined,
 ): { xref: string } | "ambiguous" | undefined {
   if (images.length === 0) return undefined; // not a paginated source at all
-  if (images.length === 1) return images[0];
   const cited = page?.trim();
+  // The one image a book holds is not every page of it: page 224 offered
+  // image #190, and Organize sources took the pointer away again as not that
+  // citation's page — the two passes undid each other on every run.
+  if (images.length === 1) return !cited || !images[0].page || samePage(images[0].page, cited) ? images[0] : "ambiguous";
   if (!cited) return "ambiguous";
-  const matches = images.filter((i) => i.page && i.page === cited);
+  const matches = images.filter((i) => i.page && samePage(i.page, cited));
   return matches.length === 1 ? matches[0] : "ambiguous";
 }
 

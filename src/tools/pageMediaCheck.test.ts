@@ -45,6 +45,16 @@ describe("findMissingPageMedia", () => {
     });
   });
 
+  it("does not offer a book's one image to a citation of another page", () => {
+    // Ravna Gora: @S5@ held only image #190 (a FamilySearch ark without its
+    // ?i=, so only the title says which page) — and every citation of it,
+    // page 224 or 153, was offered #190.
+    const fs = ONE_IMAGE.replace(`1 FILE ${BOOK}/?pg=11`, "1 FILE https://www.familysearch.org/ark:/61903/3:1:939V-5RTW-6\n2 TITL #190 - Krstna knjiga - 03869");
+    expect(findMissingPageMedia(dataset(fs.replace("3 PAGE 11", "3 PAGE 224")), "event").total).toBe(0);
+    expect(findMissingPageMedia(dataset(fs.replace("3 PAGE 11", "3 PAGE 0190")), "event").total).toBe(1);
+    expect(findMissingPageMedia(dataset(ONE_IMAGE.replace("3 PAGE 11", "3 PAGE 12")), "event").total).toBe(0);
+  });
+
   it("says nothing about a file that keeps page images under the source alone", () => {
     // The same file, read the other way: there the pointer would be the
     // mistake, and the main scan is the one that offers to fold it away.
