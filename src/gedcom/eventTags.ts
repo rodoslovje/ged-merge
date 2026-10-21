@@ -49,7 +49,8 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
  * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
  * the app ✎ is the button that edits a record, and a mark that looks like the
  * control beside it is worse than an approximate symbol.) The same goes for
- * ⚕ illness, ♔ a title or award, # an identifying number, and § for property
+ * ⚕ illness, ♔ a title or award, # a number (an identifying one or a count of
+ * children or marriages), and § for property
  * beside the will and deeds it belongs with.
  * A program's own `_` tag never has one: it is drawn with the hollow
  * `VENDOR_EVENT_GLYPH`, so a non-standard event reads as one at a glance.
@@ -86,6 +87,8 @@ export const EVENT_GLYPHS: Record<string, string> = {
   REFN: "#",
   IDNO: "#",
   SSN: "#",
+  NCHI: "#",
+  NMR: "#",
   EMIG: "→",
   IMMI: "←",
   NATU: "⚑",
