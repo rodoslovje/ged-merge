@@ -49,11 +49,10 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
  * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
  * the app ✎ is the button that edits a record, and a mark that looks like the
  * control beside it is worse than an approximate symbol.) The same goes for
- * ⚕ illness, ♔ a title or award, # a number (an identifying one or a count of
- * children or marriages), and § for property
- * beside the will and deeds it belongs with.
- * A program's own `_` tag never has one: it is drawn with the hollow
- * `VENDOR_EVENT_GLYPH`, so a non-standard event reads as one at a glance.
+ * ♔ a title, # a number (an identifying one or a count of children or
+ * marriages), and § for property beside the will it belongs with.
+ * A non-standard tag (`isNonStandardTag`) never has one: it is drawn with the
+ * hollow `VENDOR_EVENT_GLYPH`, so a non-standard event reads as one at a glance.
  * A tag with no honest mark is left out on purpose — the
  * UI draws those as a neutral dot and the charts as their generic one, rather
  * than inventing a symbol nobody reads.
@@ -81,9 +80,7 @@ export const EVENT_GLYPHS: Record<string, string> = {
   OCCU: "⚒",
   EDUC: "🎓︎",
   GRAD: "🎓︎",
-  ILL: "⚕",
   TITL: "♔",
-  NOBI: "♔",
   REFN: "#",
   IDNO: "#",
   SSN: "#",
@@ -96,8 +93,6 @@ export const EVENT_GLYPHS: Record<string, string> = {
   PROP: "§",
   WILL: "§",
   PROB: "§",
-  LATR: "§",
-  DEED: "§",
 };
 
 /** The mark an event tag is drawn with, or the neutral one for a tag the
@@ -105,15 +100,22 @@ export const EVENT_GLYPHS: Record<string, string> = {
  *  claiming to say which, and the name always travels with it in a tooltip. */
 export const GENERIC_EVENT_GLYPH = "·";
 
-/** The neutral mark's hollow twin, for a program's own (`_`-prefixed) tag the
- *  vocabulary has no symbol for: still "an event happened here", but one the
- *  GEDCOM standard does not define. */
+/** The neutral mark's hollow twin, for a program's own tag: still "an event
+ *  happened here", but one the GEDCOM standard does not define. */
 export const VENDOR_EVENT_GLYPH = "◦";
+
+/** A tag the GEDCOM standard does not define: a program's own `_` tag, or one
+ *  a program writes without the underscore — MacFamilyTree's `NOBI`, `LATR`,
+ *  `DEED`, `ILL`, `RACE` — which the vendor registry names. Such a tag is
+ *  drawn hollow, named with its tag and listed last in its menu group. */
+export function isNonStandardTag(tag: string): boolean {
+  return tag.startsWith("_") || tag in VENDOR_TAGS;
+}
 
 /** The mark an event row or menu entry draws for `tag`: hollow for every
  *  non-standard tag, else its own symbol or the solid neutral one. */
 export function eventGlyph(tag: string): string {
-  if (tag.startsWith("_")) return VENDOR_EVENT_GLYPH;
+  if (isNonStandardTag(tag)) return VENDOR_EVENT_GLYPH;
   return EVENT_GLYPHS[tag] ?? GENERIC_EVENT_GLYPH;
 }
 
@@ -140,14 +142,15 @@ export function orderedEventTags(tags: Iterable<string>): string[] {
 }
 
 /**
- * Localized display name for an event tag. Non-standard (`_`-prefixed vendor)
- * tags get the raw tag appended — "Funeral (_FNRL)" — so they read apart from
- * similarly named standard events (BURI "Burial"). `fallback` replaces the
- * default untranslated-name fallback (the tag itself).
+ * Localized display name for an event tag. Non-standard tags (see
+ * `isNonStandardTag`) get the raw tag appended — "Funeral (_FNRL)",
+ * "Award (NOBI)" — so they read apart from similarly named standard events
+ * (BURI "Burial"). `fallback` replaces the default untranslated-name fallback
+ * (the tag itself).
  */
 export function eventDisplayLabel(tag: string, t: Translate, fallback?: string): string {
   const name = t(`event.${tag}`, { defaultValue: fallback ?? tag });
-  return tag.startsWith("_") && name !== tag ? `${name} (${tag})` : name;
+  return isNonStandardTag(tag) && name !== tag ? `${name} (${tag})` : name;
 }
 
 /**
@@ -236,7 +239,7 @@ export function customEventTooltip(type: string | undefined, t: Translate, lang:
  * (Brother's Keeper): funeral" — or undefined for standard tags.
  */
 export function vendorEventTooltip(tag: string, t: Translate, lang: string): string | undefined {
-  if (!tag.startsWith("_")) return undefined;
+  if (!isNonStandardTag(tag)) return undefined;
   const info = VENDOR_TAGS[tag] ?? VENDOR_TAGS[VENDOR_TAG_ALIASES[tag]];
   if (!info) return t("event.vendorTooltip", { tag });
   const meaning = lang.startsWith("sl") ? info.meaning.sl : info.meaning.en;

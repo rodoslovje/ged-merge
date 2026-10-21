@@ -2004,6 +2004,7 @@ export const en = {
   "eventGroup.residence": "Residence & Movement",
   "eventGroup.estate":    "Estate",
   "eventGroup.death":     "Death",
+  "eventGroup.other":     "Other",
   "kinship.spouse":           "Spouse",
   "kinship.father":           "Father",
   "kinship.mother":           "Mother",

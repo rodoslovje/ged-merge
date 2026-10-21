@@ -603,14 +603,16 @@
                   otroka (<code>CHR</code>) — oznaka, ki jo pišejo predvsem angleški programi. Za slovenske župnijske
                   vpise izberite <em>Krst</em>.</li>
                 <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Upokojitev, Vojaška služba (<code>_MILT</code>)</li>
-                <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Stan, Veroizpoved, Narodnost, Etnična pripadnost,
-                  Število otrok, Število zakonov, Priznanje, Pravni posel, Listina, Bolezen,
-                  Referenčna številka, Identifikacijska številka, Številka socialnega zavarovanja, Zdravstveno stanje (<code>_MEDC</code>). To so po
+                <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Stan, Veroizpoved, Narodnost, Število otrok,
+                  Število zakonov, Referenčna številka, Identifikacijska številka, Številka socialnega zavarovanja,
+                  Etnična pripadnost (<code>RACE</code>), Priznanje (<code>NOBI</code>), Bolezen (<code>ILL</code>),
+                  Zdravstveno stanje (<code>_MEDC</code>). To so po
                   standardu GEDCOM <em>lastnosti</em> in ne dogodki: večina jih poleg običajnega datuma, kraja in virov
                   nosi vsebino kar v sami vrstici (<code>1 OCCU Kmet</code>).</li>
                 <li><strong>Bivanje in selitve</strong> — Prebivališče, Izselitev, Priselitev, Naturalizacija, Popis</li>
-                <li><strong>Zapuščina</strong> — Premoženje, Oporoka, Zapuščinska obravnava ter splošni vrsti Dogodek in Dejstvo</li>
+                <li><strong>Premoženje</strong> — Premoženje, Oporoka, Zapuščinska obravnava, Pravni posel (<code>LATR</code>), Listina (<code>DEED</code>)</li>
                 <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob (<code>_INTE</code>), Pogreb (<code>_FNRL</code>)</li>
+                <li><strong>Drugo</strong> — splošni vrsti Dogodek in Dejstvo</li>
               </ul>
               <p>
                 Vsako vrstico uvaja rodoslovno znamenje njenega dogodka — <span class="gm-glyph">*</span> za rojstvo,
@@ -3021,14 +3023,13 @@
                 <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Pokop, upepelitev</td></tr>
                 <tr><td><span class="gm-glyph">⌂</span></td><td>Prebivališče</td></tr>
                 <tr><td><span class="gm-glyph">⚒</span> <span class="gm-glyph">🎓︎</span></td><td>Poklic, izobrazba ali zaključek šolanja</td></tr>
-                <tr><td><span class="gm-glyph">⚕</span></td><td>Bolezen</td></tr>
-                <tr><td><span class="gm-glyph">♔</span></td><td>Naziv, priznanje</td></tr>
+                <tr><td><span class="gm-glyph">♔</span></td><td>Naziv</td></tr>
                 <tr><td><span class="gm-glyph">#</span></td><td>Število otrok ali zakonov; referenčna številka, identifikacijska številka, številka socialnega zavarovanja</td></tr>
                 <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Izselitev, priselitev, naturalizacija</td></tr>
                 <tr><td><span class="gm-glyph">▤</span></td><td>Popis</td></tr>
-                <tr><td><span class="gm-glyph">§</span></td><td>Premoženje, oporoka, zapuščinska obravnava, pravni posel, listina</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Premoženje, oporoka, zapuščinska obravnava</td></tr>
                 <tr><td><span class="gm-glyph">·</span></td><td>Vsaka druga vrsta dogodka — takšna, ki nima svojega ustaljenega znaka</td></tr>
-                <tr><td><span class="gm-glyph">◦</span></td><td>Vsaka nestandardna vrsta dogodka — oznaka, ki jo je standardu GEDCOM dodal kak program (<code>_MILT</code>, <code>_FNRL</code> in podobne)</td></tr>
+                <tr><td><span class="gm-glyph">◦</span></td><td>Vsaka nestandardna vrsta dogodka — oznaka, ki jo je standardu GEDCOM dodal kak program (<code>_MILT</code>, <code>NOBI</code> in podobne)</td></tr>
               </tbody>
             </table>
             <p><strong>Oznake stanja</strong> — okrogle oznake na vrsticah kandidatov (Združevanje), ob sorodnikih na

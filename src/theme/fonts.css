@@ -284,7 +284,7 @@
   font-weight: 400;
   font-display: swap;
   src: url('./fonts/NotoSansSymbols-geneal.woff2') format('woff2');
-  unicode-range: U+2190, U+2192, U+2302, U+2691-2692, U+2695, U+26AD-26AF, U+26B1;
+  unicode-range: U+2190, U+2192, U+2302, U+2691-2692, U+26AD-26AF, U+26B1;
 }
 @font-face {
   font-family: 'Geneal Symbols';
