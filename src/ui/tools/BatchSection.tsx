@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
-import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
+import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
 import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
 import {
@@ -123,7 +123,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     return INDI_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
   /** Non-standard tags the file actually uses — the convert action's sources. */
-  const vendorEventOptions = useMemo(() => eventOptions.filter((tag) => tag.startsWith("_")), [eventOptions]);
+  const vendorEventOptions = useMemo(() => eventOptions.filter(isNonStandardTag), [eventOptions]);
   /** Tags offered by the family-event filter: marriage always (the point of the
    *  filter is finding unions without it) plus whatever the file's unions use. */
   const familyEventOptions = useMemo(() => {
@@ -855,6 +855,12 @@ function ActionEditor({
   const { t } = useTranslation();
   /** The natural TYPE for a converted vendor event: its localized name. */
   const typeFor = (tag: string) => t(`event.${tag}`, { defaultValue: "" });
+  /** What picking `fromTag` proposes: its standard target, named by the
+   *  vendor tag's own name when that target is a generic EVEN/FACT. */
+  const conversionFor = (fromTag: string) => {
+    const toTag = standardConversionTarget(fromTag);
+    return { fromTag, toTag, type: toTag === "EVEN" || toTag === "FACT" ? typeFor(fromTag) : undefined };
+  };
   const firstVendor = vendorEventOptions[0] ?? "";
   const fresh: Record<BatchActionSpec["kind"], BatchActionSpec> = {
     addMedia: { kind: "addMedia", file: "" },
@@ -863,7 +869,7 @@ function ActionEditor({
     markDeceased: { kind: "markDeceased" },
     estimateBirth: { kind: "estimateBirth" },
     addMarriedName: { kind: "addMarriedName" },
-    convertEvent: { kind: "convertEvent", fromTag: firstVendor, toTag: "EVEN", type: typeFor(firstVendor) },
+    convertEvent: { kind: "convertEvent", ...conversionFor(firstVendor) },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
   // "new image" choice — picking an existing option clears the title again.
@@ -976,10 +982,7 @@ function ActionEditor({
           <SelectMenu
             className="batch-select"
             value={action.fromTag}
-            onChange={(v) => {
-              const named = action.toTag === "EVEN" || action.toTag === "FACT";
-              onChange({ ...action, fromTag: v, type: named ? typeFor(v) : action.type });
-            }}
+            onChange={(v) => onChange({ ...action, ...conversionFor(v) })}
             options={vendorEventOptions.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) }))}
           />
           <span className="batch-sep">→</span>

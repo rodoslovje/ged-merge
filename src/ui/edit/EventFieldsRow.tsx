@@ -185,14 +185,15 @@ export function EventFieldsRow({
   // A generic `EVEN`/`FACT` wears its descriptive `TYPE` as the event label
   // ("Civil Partnership"), so it reads like any built-in event — the label's
   // tooltip is what says it's custom. The TYPE itself is edited in an
-  // always-shown "Title" extra, and the tag's own line value (`1 EVEN <v>`)
-  // in the "Agency" slot (see the field bindings below).
+  // always-shown "Title" extra, and the tag's own line value (`1 EVEN <v>`,
+  // `1 FACT <v>`) in the "Value" extra, the description GEDCOM 7 gives it.
   const isEven = tag === "EVEN" || tag === "FACT";
   const showValue = isEven || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
   // A residence's value is supplementary, not its headline (see
   // `SECONDARY_VALUE_EVENT_TAGS`): the row still leads with the date, and the
-  // value rides on the extras line like the agency or the cause.
-  const valueIsExtra = showValue && !isEven && tag !== undefined && SECONDARY_VALUE_EVENT_TAGS.has(tag);
+  // value rides on the extras line like the agency or the cause. A custom
+  // event's value is too, since its name is the TYPE.
+  const valueIsExtra = showValue && tag !== undefined && (isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag));
 
   // Compute merge values before hooks so they can be used as initial state.
   const kBase = mergeKeyBase ?? tag ?? "";
@@ -436,9 +437,9 @@ export function EventFieldsRow({
   const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Agency slot to its line value; every other event keeps the
   // normal value/agency mapping.
-  const agencySlotField = isEven ? valueField : agencyField;
-  const agencySlotForced = isEven ? valueForced : agencyForced;
-  const agencySlotLabel = isEven ? t("event.colAgency") : t("event.agency", { event: label });
+  const agencySlotField = agencyField;
+  const agencySlotForced = agencyForced;
+  const agencySlotLabel = t("event.agency", { event: label });
 
   // What the value and the type fields complete from: this tag's own values,
   // and nobody else's — the occupations for an Occupation, the words other
@@ -1098,14 +1099,11 @@ export function EventFieldsRow({
           },
         )}
         {/* The agency completes from the ones the file already names — a tree
-            keeps returning to the same handful of parishes and offices. On a
-            custom event this slot hosts the event's own value instead, which
-            those names have nothing to do with, so there it completes from the
-            other custom events' values. */}
+            keeps returning to the same handful of parishes and offices. */}
         {extraField("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, {
-          ...(isEven
-            ? { ...valueCompletion, commit: (val: string) => commitAll({ value: val }) }
-            : { suggestions: agencySuggestions, canonical: agencyCanonical, commit: (val: string) => commitAll({ agency: val }) }),
+          suggestions: agencySuggestions,
+          canonical: agencyCanonical,
+          commit: (val: string) => commitAll({ agency: val }),
           cls: "edit-event-agency",
         })}
         {/* The cause completes from the ones the file already names, and offers

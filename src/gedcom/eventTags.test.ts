@@ -9,6 +9,7 @@ import {
   eventDisplayLabel,
   eventGlyph,
   orderedEventTags,
+  standardConversionTarget,
   vendorEventTooltip,
 } from "./eventTags";
 
@@ -103,6 +104,14 @@ describe("the genealogy marks", () => {
     expect(["_MILT", "_MSTAT", "_FNRL", "_INTE"].map(eventGlyph)).toEqual(Array(4).fill(VENDOR_EVENT_GLYPH));
     expect(eventGlyph("RELI")).toBe(GENERIC_EVENT_GLYPH);
     expect(eventGlyph("DEAT")).toBe("†");
+  });
+});
+
+describe("standardConversionTarget", () => {
+  it("sends a tag to its exact equivalent, a state to FACT and a happening to EVEN", () => {
+    expect(standardConversionTarget("_INTE")).toBe("BURI");
+    expect(["_MEDC", "ILL", "RACE"].map(standardConversionTarget)).toEqual(["FACT", "FACT", "FACT"]);
+    expect(["_FNRL", "_MILT", "NOBI", "LATR", "DEED"].map(standardConversionTarget)).toEqual(Array(5).fill("EVEN"));
   });
 });
 

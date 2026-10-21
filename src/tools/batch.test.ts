@@ -827,6 +827,48 @@ describe("applyBatchAction", () => {
     expect(ds.individuals.get("@I2@")!.events.map((e) => e.tag)).toEqual(["BURI"]);
   });
 
+  it("keeps the line value where the target holds one, and makes it a note where it does not", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME A //
+1 NOBI Velika plaketa Občine Preddvor
+2 DATE 2025
+1 _INTE Žale
+2 DATE 1950
+1 _FNRL Y
+2 DATE 1950
+0 TRLR`);
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "NOBI", toTag: "EVEN", type: "Priznanje" });
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI" });
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_FNRL", toTag: "BURI" });
+    const raw = ds.individuals.get("@I1@")!.raw.children;
+    const even = raw.find((c) => c.tag === "EVEN")!;
+    expect(even.value).toBe("Velika plaketa Občine Preddvor");
+    const [buri, fnrl] = raw.filter((c) => c.tag === "BURI");
+    expect(buri.value).toBeUndefined();
+    expect(buri.children.map((c) => [c.tag, c.value])).toEqual([["DATE", "1950"], ["NOTE", "Žale"]]);
+    // A bare Y only said the event happened, which the event still says.
+    expect(fnrl.value).toBeUndefined();
+    expect(fnrl.children.map((c) => c.tag)).toEqual(["DATE"]);
+  });
+
+  it("counts the program's own tags without an underscore as non-standard events", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME A //
+1 LATR Pogodba o vzdrževanju
+0 @I2@ INDI
+1 NAME B //
+1 BIRT
+2 DATE 1900
+0 TRLR`);
+    const rows = buildBatchRows(ds, nameOf);
+    const has = rows.filter((r) => matchesBatch(r, [{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "has" }], { lineSides: null, kinship: null }));
+    expect(has.map((r) => r.id)).toEqual(["@I1@"]);
+  });
+
   it("attaches an existing shared image as a pointer and skips holders", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

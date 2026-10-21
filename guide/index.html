@@ -638,7 +638,8 @@
                 A <strong>Residence</strong> or <strong>Death</strong> row also offers a <strong>value</strong> field,
                 because the event may carry text on the row itself. For a residence several programs write the address
                 there instead of using the place and address fields (<code>1 RESI Bojanja vas 17, Metlika</code>), and
-                for a death a short description (<code>1 DEAT died young</code>). It shows whenever the event has such
+                for a death a short description (<code>1 DEAT died young</code>). A custom Event or Fact keeps its own
+                description in the same field. It shows whenever the event has such
                 text, and is otherwise available from <strong>+ Add</strong>.
               </p>
               <p>
@@ -1315,7 +1316,9 @@
               tag, comma-joined when there are several, or one name record per union); every union contributes, in
               marriage order, so a second marriage adds a second name, and surnames the person already carries are
               left untouched — or convert a non-standard event to a standard
-              type or to a named custom event, keeping its dates, places and sources. Each match has a checkbox so you can drop individuals before
+              type or to a named custom event, keeping its dates, places and sources; the target is proposed per tag
+              (an interment becomes a burial, a state such as an illness a fact, anything else a custom event), and
+              text the new type cannot carry on its own line moves into the event's note. Each match has a checkbox so you can drop individuals before
               applying — with the estimate action, each row also previews the year that person would get, and with the
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or

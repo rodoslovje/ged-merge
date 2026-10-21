@@ -112,6 +112,30 @@ export function isNonStandardTag(tag: string): boolean {
   return tag.startsWith("_") || tag in VENDOR_TAGS;
 }
 
+/** A non-standard tag that means exactly what a standard one does. */
+const STANDARD_EQUIVALENTS: Record<string, string> = {
+  // Interment is the burial itself.
+  _INTE: "BURI",
+};
+
+/** Non-standard tags that record a state of the person rather than something
+ *  that happened, so the standard home for them is a `FACT`, not an `EVEN`. */
+const FACT_LIKE_TAGS = new Set(["_MEDC", "ILL", "RACE"]);
+
+/** The standard tag a non-standard one converts to by default: its exact
+ *  standard equivalent where it has one, else a `FACT` for a state of the
+ *  person, else an `EVEN` for a happening — the last two named by a `TYPE`. */
+export function standardConversionTarget(tag: string): string {
+  return STANDARD_EQUIVALENTS[tag] ?? (FACT_LIKE_TAGS.has(tag) ? "FACT" : "EVEN");
+}
+
+/** Whether an event tag holds text on its own line in the standard (or in
+ *  the files this app reads): a custom `EVEN`/`FACT`, an attribute, a
+ *  residence. A converted event's line text is kept only on one of these. */
+export function carriesLineValue(tag: string): boolean {
+  return tag === "EVEN" || tag === "FACT" || VALUE_EVENT_TAGS.has(tag);
+}
+
 /** The mark an event row or menu entry draws for `tag`: hollow for every
  *  non-standard tag, else its own symbol or the solid neutral one. */
 export function eventGlyph(tag: string): string {

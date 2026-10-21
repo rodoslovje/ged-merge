@@ -20,7 +20,8 @@ import {
   createMediaRecord,
   findSharedMediaByFile,
 } from "../gedcom/edit/media";
-import { INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref } from "../gedcom/edit/shared";
+import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref } from "../gedcom/edit/shared";
+import { carriesLineValue, isNonStandardTag, isOccurrenceFlag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
 import { buildSearchRows, foldSearch, type SearchRow } from "../ui/globalSearch";
 import { cloneRaw, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
@@ -323,7 +324,7 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
       case "event": {
         const has =
           c.tag === ANY_VENDOR_EVENT
-            ? row.eventTags.some((tg) => tg.startsWith("_"))
+            ? row.eventTags.some(isNonStandardTag)
             : row.eventTags.includes(c.tag);
         if (c.mode === "has" ? !has : has) return false;
         break;
@@ -493,9 +494,10 @@ export type BatchActionSpec =
    *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
-   *  (dates, places, sources) and any line value. When the target is a generic
-   *  `EVEN`/`FACT`, `type` writes its `TYPE` name (unless one exists already).
-   *  People without a `fromTag` event are skipped. */
+   *  (dates, places, sources). The line value stays where the target holds
+   *  one (`carriesLineValue`) and becomes a note where it does not. When the
+   *  target is a generic `EVEN`/`FACT`, `type` writes its `TYPE` name (unless
+   *  one exists already). People without a `fromTag` event are skipped. */
   | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
@@ -560,6 +562,17 @@ function convertEventBatch(
       node.tag = toTag;
       if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
         node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+      }
+      // A target with no line value of its own (a burial) cannot hold the
+      // text the old tag carried there (`1 _INTE Žale`), so it becomes the
+      // event's note instead of being lost. The bare `Y` flag says only that
+      // the event happened, which the event now says by itself.
+      const value = node.value?.trim();
+      if (value && !carriesLineValue(toTag)) {
+        if (!isOccurrenceFlag(value)) {
+          insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
+        }
+        node.value = undefined;
       }
       markEventTouched(node, "changed");
     }
