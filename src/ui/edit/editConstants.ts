@@ -6,13 +6,14 @@ export { VALUE_EVENT_TAGS, SECONDARY_VALUE_EVENT_TAGS } from "../../gedcom/event
 
 /** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded.
  * The generic `EVEN` ("Event") and `FACT` live under Estate so they can be
- * added and switched to/from like any other event. */
+ * added and switched to/from like any other event. A program's own `_` tags
+ * close their group, after every standard one. */
 export const INDIVIDUAL_EVENT_GROUPS = [
   // Life order: the two baptisms, then first communion, then confirmation;
   // adoption last, since it is not tied to a point in that sequence.
   { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "FCOM", "CONF", "ADOP"] },
   { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "RETI", "_MILT"] },
-  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL", "REFN", "IDNO", "SSN"] },
+  { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "ILL", "REFN", "IDNO", "SSN", "_MEDC"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
   { labelKey: "eventGroup.estate",     tags: ["PROP", "WILL", "PROB", "EVEN", "FACT"] },
   // Death, then what becomes of the body in sequence (cremation precedes the
