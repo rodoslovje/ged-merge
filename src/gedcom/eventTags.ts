@@ -49,9 +49,10 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
  * `theme/fonts.css` serves. (A pencil read as education in the reports, but in
  * the app ✎ is the button that edits a record, and a mark that looks like the
  * control beside it is worse than an approximate symbol.) The same goes for
- * ⚔ military service (in a register it more often marks one who fell, a
- * reading close enough), ⚕ illness, ♔ a title or award, # an identifying
- * number, and § for property beside the will and deeds it belongs with.
+ * ⚕ illness, ♔ a title or award, # an identifying number, and § for property
+ * beside the will and deeds it belongs with.
+ * A program's own `_` tag never has one: it is drawn with the hollow
+ * `VENDOR_EVENT_GLYPH`, so a non-standard event reads as one at a glance.
  * A tag with no honest mark is left out on purpose — the
  * UI draws those as a neutral dot and the charts as their generic one, rather
  * than inventing a symbol nobody reads.
@@ -72,20 +73,14 @@ export const EVENT_GLYPHS: Record<string, string> = {
   // the app's own reading of the ⚬ ⚭ ⚯ ⚮ family.
   SEPA: "⚬⚬",
   DIV: "⚮",
-  _MSTAT: "⚯",
   DEAT: "†",
   BURI: "▭",
-  // Interment is the burial itself, under Brother's Keeper's own tag.
-  _INTE: "▭",
   CREM: "⚱",
   RESI: "⌂",
   OCCU: "⚒",
   EDUC: "🎓︎",
   GRAD: "🎓︎",
-  _MILT: "⚔",
-  _MILI: "⚔",
   ILL: "⚕",
-  _MEDC: "⚕",
   TITL: "♔",
   NOBI: "♔",
   REFN: "#",
@@ -112,11 +107,17 @@ export const GENERIC_EVENT_GLYPH = "·";
  *  GEDCOM standard does not define. */
 export const VENDOR_EVENT_GLYPH = "◦";
 
-/** The mark an event row or menu entry draws for `tag`: its own symbol, else
- *  the neutral one — hollow for a non-standard tag, solid for a standard one. */
+/** The mark an event row or menu entry draws for `tag`: hollow for every
+ *  non-standard tag, else its own symbol or the solid neutral one. */
 export function eventGlyph(tag: string): string {
-  return EVENT_GLYPHS[tag] ?? (tag.startsWith("_") ? VENDOR_EVENT_GLYPH : GENERIC_EVENT_GLYPH);
+  if (tag.startsWith("_")) return VENDOR_EVENT_GLYPH;
+  return EVENT_GLYPHS[tag] ?? GENERIC_EVENT_GLYPH;
 }
+
+/** The mark for a couple the file records as unmarried partners — the last of
+ *  the ⚬ ⚭ ⚮ ⚯ union family. A mark for the couple (see `unionMark`), not for
+ *  an event row: the `_MSTAT` that records it is a vendor tag. */
+export const UNMARRIED_UNION_GLYPH = "⚯";
 
 /** Distinct tags in canonical life-cycle order — a person's events before a
  *  family's, each in its own order, and anything unknown at the end in the
