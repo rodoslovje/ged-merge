@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import type { GedNode } from "../gedcom/types";
-import { eventOrderSignature, sortEventsByDate } from "./applyFields";
+import { buildSourXrefMap, eventOrderSignature, sortEventsByDate } from "./applyFields";
 
 /** The one INDI in a snippet, parsed. `body` is the record's `1`-level lines. */
 function indi(body: string): GedNode {
@@ -80,5 +80,37 @@ describe("eventOrderSignature", () => {
     // Order-sensitive by design — the sort is what changes it, and only the
     // sort. The tags are the same set, so the pieces are merely reshuffled.
     expect(eventOrderSignature(record).split("|").sort()).toEqual(signature.split("|").sort());
+  });
+});
+
+describe("buildSourXrefMap", () => {
+  const records = (body: string): GedNode[] =>
+    parseGedcom(new TextEncoder().encode(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer).records;
+  const REGISTER =
+    "1 TITL Deaths (Umrli) 1858-1896, Ravna Gora\n1 DATA\n2 EVEN DEAT\n3 DATE FROM 1858 TO 1896\n" +
+    "1 OBJE @O1@\n1 REPO @R1@\n2 CALN 004679930\n";
+
+  it("maps a source the incoming file describes with less to the main's fuller one", () => {
+    // Ravna Gora, 3 Oct 2026: the incoming register carried only its title and
+    // repository, the main's the call number and DATA too — it was copied in
+    // as @S2@, a second, image-less record of the same register.
+    const main = records(`0 @81434866@ SOUR\n1 _STE @T62@\n${REGISTER}`);
+    const compare = records("0 @S2@ SOUR\n1 TITL Deaths (Umrli) 1858-1896, Ravna Gora\n1 REPO @R9@\n");
+    expect(buildSourXrefMap(compare, main).get("@S2@")).toBe("@81434866@");
+  });
+
+  it("keeps a source apart when it says something the main's does not", () => {
+    const main = records(`0 @S1@ SOUR\n${REGISTER}`);
+    const compare = records("0 @S2@ SOUR\n1 TITL Deaths (Umrli) 1858-1896, Ravna Gora\n1 REPO @R9@\n2 CALN 004679931\n");
+    expect(buildSourXrefMap(compare, main).get("@S2@")).toBe("@S2@");
+  });
+
+  it("leaves the choice open when two main sources of that title both cover it", () => {
+    const main = records(
+      "0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 REPO @R1@\n2 CALN 1\n" +
+        "0 @S3@ SOUR\n1 TITL Krstna knjiga\n1 REPO @R1@\n2 CALN 2\n",
+    );
+    const compare = records("0 @S1@ SOUR\n1 TITL Krstna knjiga\n");
+    expect(buildSourXrefMap(compare, main).get("@S1@")).toBe("@S2@");
   });
 });

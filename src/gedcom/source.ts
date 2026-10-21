@@ -729,6 +729,12 @@ const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
  * treat that as "no match", not match every other empty one).
  */
 export function sourceContentKey(node: GedNode): string {
+  return sourceContentParts(node).join("|");
+}
+
+/** The `tag=value` pairs {@link sourceContentKey} joins, for a caller that
+ *  compares two records part by part rather than as a whole. */
+export function sourceContentParts(node: GedNode): string[] {
   const parts: string[] = [];
   const walk = (n: GedNode): void => {
     for (const child of n.children) {
@@ -744,7 +750,7 @@ export function sourceContentKey(node: GedNode): string {
     }
   };
   walk(node);
-  return parts.join("|");
+  return parts;
 }
 
 /** Depth-first visit of every sub-record `SOUR` citation's value (skips top-level `SOUR` records, which have an xref). */
