@@ -276,7 +276,7 @@ function buildEventRows(
     // Partnership") as the event name itself, so it reads like any built-in
     // event — the header's tooltip is what says it's custom. The TYPE stays
     // editable/comparable under the "Title" label and the tag's own line
-    // value (`1 EVEN <v>`) under the "Agency" label.
+    // value (`1 EVEN <v>`) under the "Value" label, as Edit shows it.
     const isEven = tag === "EVEN" || tag === "FACT";
     const baseLabel = eventDisplayLabel(tag, t, EVENT_LABELS[tag]);
     const headerType = isEven ? (me?.type ?? ce?.type) : undefined;
@@ -287,8 +287,7 @@ function buildEventRows(
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
     // A supplementary value (a residence's address, a death's description) is
     // not the event itself, so it is labelled as Edit labels it, not by the tag.
-    const valueLabel = isEven ? t("event.colAgency")
-      : SECONDARY_VALUE_EVENT_TAGS.has(tag) ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
+    const valueLabel = isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag) ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
     pushRow(subRows, `${keyBase}.value`, valueLabel,
       eventValueText(me, isEven), eventValueText(ce, isEven));
     // Places are already reshaped into the main's layout when the incoming
@@ -308,9 +307,7 @@ function buildEventRows(
     // as text (name + role), one per line, the way the notes row shows notes.
     pushRow(subRows, `${keyBase}.assoc`, t("assoc.heading"),
       associatesText(me, mainDs, t), associatesText(ce, compareDs, t));
-    // EVEN's line value already occupies the "Agency" label, so its real AGNC
-    // sub-tag (rare) isn't shown as a second Agency row.
-    if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
+    pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
     const moved = movedHolder.get(tag) === keyIdx ? (movedLinks.get(tag) ?? []) : [];
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links,
@@ -457,12 +454,12 @@ function buildFamilyRows(
       if (!mEv && !cEv) continue;
       // A family `EVEN` gets the same custom-event treatment as on a person:
       // the TYPE is the event's name (header + "Title" sub-row) and its line
-      // value compares under the "Agency" label.
+      // value compares under the "Value" label.
       const isEven = etag === "EVEN";
       const etagRows: FieldRow[] = [];
       pushRow(etagRows, `${famKey}.${etag}.type`, isEven ? t("event.colTitle") : t("event.colType"), mEv?.type, cEv?.type);
       if (isEven) {
-        pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colAgency"), mEv?.value, cEv?.value);
+        pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"), mEv?.value, cEv?.value);
       } else if (VALUE_EVENT_TAGS.has(etag)) {
         pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"),
           eventValueText(mEv, isEven), eventValueText(cEv, isEven));
@@ -471,9 +468,7 @@ function buildFamilyRows(
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
-      // EVEN's line value already occupies the "Agency" label (above), so its
-      // real AGNC sub-tag (rare) isn't shown as a second Agency row.
-      if (!isEven) pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
+      pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
       const movedHere = famMoved.byTag.get(etag) ?? [];
       pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links,

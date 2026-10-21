@@ -223,7 +223,7 @@ describe("generic EVEN with a TYPE", () => {
     dataset(`0 HEAD\n0 ${id} INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n${body}\n0 TRLR\n`)
       .individuals.get(id);
 
-  it("names the event by its TYPE, the TYPE as Title and the line value as Agency", () => {
+  it("names the event by its TYPE, the TYPE as Title and the line value as Value", () => {
     const rows = individualFieldRows(tr,
       even("1 EVEN LDHD-PNT\n2 TYPE FamilySearch ID", "@I1@"),
       undefined,
@@ -233,23 +233,23 @@ describe("generic EVEN with a TYPE", () => {
     const header = rows.find((r) => r.isEventHeader && r.key === "EVEN.header");
     expect(header?.label).toBe("FamilySearch ID");
     expect(header?.labelTitle).toBe("event.customTooltip");
-    // TYPE → "Title", line value → "Agency".
+    // TYPE → "Title", line value → "Value" (GEDCOM 7's description).
     const title = byKey(rows, "EVEN.type");
     expect(title?.label).toBe("event.colTitle");
     expect(title?.main).toBe("FamilySearch ID");
-    const agency = byKey(rows, "EVEN.value");
-    expect(agency?.label).toBe("event.colAgency");
-    expect(agency?.main).toBe("LDHD-PNT");
+    const value = byKey(rows, "EVEN.value");
+    expect(value?.label).toBe("event.colValue");
+    expect(value?.main).toBe("LDHD-PNT");
   });
 
-  it("does not surface a real AGNC as a second Agency row", () => {
+  it("shows a real AGNC as the Agency row, apart from the line value", () => {
     const rows = individualFieldRows(tr,
       even("1 EVEN code\n2 TYPE Some Type\n2 AGNC Parish", "@I1@"),
       undefined,
     );
     const agencyRows = rows.filter((r) => r.label === "event.colAgency");
-    expect(agencyRows).toHaveLength(1);
-    expect(agencyRows[0].key).toBe("EVEN.value");
+    expect(agencyRows.map((r) => [r.key, r.main])).toEqual([["EVEN.agency", "Parish"]]);
+    expect(byKey(rows, "EVEN.value")?.main).toBe("code");
   });
 });
 
@@ -1516,7 +1516,7 @@ describe("family custom EVEN rows on the spouse", () => {
     `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F@\n` +
     `0 @F@ FAM\n1 HUSB @H@\n${body}0 TRLR\n`;
 
-  it("surfaces a family EVEN named by its TYPE, with Title and Agency sub-rows", () => {
+  it("surfaces a family EVEN named by its TYPE, with Title and Value sub-rows", () => {
     const m = dataset(doc("1 EVEN reg-042\n2 TYPE Civil Partnership\n2 DATE 18 APR 1998\n"));
     const c = dataset(doc("1 EVEN reg-042\n2 TYPE Civil Partnership\n2 DATE 18 APR 1998\n2 PLAC Preddvor\n"));
     const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
@@ -1524,12 +1524,12 @@ describe("family custom EVEN rows on the spouse", () => {
     expect(header?.label).toBe("Civil Partnership");
     expect(header?.labelTitle).toBe("event.customTooltip");
     expect(byKey(rows, "fam.@F@.EVEN.type")?.label).toBe("event.colTitle");
-    const agency = byKey(rows, "fam.@F@.EVEN.value");
-    expect(agency?.label).toBe("event.colAgency");
-    expect(agency?.main).toBe("reg-042");
+    const value = byKey(rows, "fam.@F@.EVEN.value");
+    expect(value?.label).toBe("event.colValue");
+    expect(value?.main).toBe("reg-042");
     expect(byKey(rows, "fam.@F@.EVEN.date")?.state).toBe("agree");
     expect(byKey(rows, "fam.@F@.EVEN.place")?.state).toBe("incoming-only");
-    // The EVEN line value owns the Agency label — no second agency row.
+    // No AGNC on either side, so no Agency row.
     expect(byKey(rows, "fam.@F@.EVEN.agency")).toBeUndefined();
   });
 });
