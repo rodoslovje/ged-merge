@@ -144,6 +144,18 @@ describe("decodeGedcom charset detection", () => {
   });
 });
 
+describe("decodeGedcom ANSEL table", () => {
+  it("decodes the GEDCOM and MARC-8 additions to ANSEL", () => {
+    // CF ß (GEDCOM), C7 ß and C8 € (MARC-8), BE □ and BF ■ (GEDCOM boxes),
+    // B7 ʺ hard sign, CD/CE midline e/o, FC slash through the letter.
+    const { text, warnings } = decodeGedcom(
+      ged("ANSEL", [0xcf, 0xc7, 0xc8, 0xbe, 0xbf, 0xb7, 0xcd, 0xce, 0xfc, 0x6f]),
+    );
+    expect(text).toContain("ßß€□■ʺeo" + "o\u0338");
+    expect(warnings.some((w) => /unmapped/.test(w.message))).toBe(false);
+  });
+});
+
 describe("decodeGedcom with classic-Mac (CR-only) line endings", () => {
   it("reads the declared CHAR from a CR-only header", () => {
     // ANSEL 0xE2 = combining acute before its letter: "é".

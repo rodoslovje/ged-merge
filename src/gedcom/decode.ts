@@ -485,8 +485,7 @@ function decodeUtf16(bytes: Uint8Array, littleEndian: boolean): string {
  * is ASCII. 0xA0-0xCF are spacing special characters; 0xE0-0xFE are *combining*
  * diacritics that precede the base letter (the reverse of Unicode order).
  *
- * This covers the common Latin diacritics; unmapped bytes are passed through and
- * a single warning is raised. A full ANSEL table can be slotted in later.
+ * Unmapped bytes are replaced with � and a single warning is raised.
  */
 function decodeAnsel(bytes: Uint8Array, warnings: ParseWarning[]): string {
   let out = "";
@@ -561,11 +560,17 @@ const ANSEL_COMBINING: Record<number, string> = {
   0xf8: "̮", // breve below
   0xf9: "͠", // double tilde left half
   0xfa: "͢", // double inverted breve
+  0xfc: "\u0338", // slash through the letter (GEDCOM)
   0xfe: "̓", // comma above
 };
 
-/** ANSEL spacing special characters (0xA0-0xCF). */
+/**
+ * ANSEL spacing special characters (0xA0-0xCF), with GEDCOM 5.5.1 Appendix D's
+ * additions and the MARC-8 ones files written by library software carry.
+ */
 const ANSEL_SPECIAL: Record<number, string> = {
+  0x8d: "\u200d", // zero-width joiner (MARC-8)
+  0x8e: "\u200c", // zero-width non-joiner (MARC-8)
   0xa1: "Ł", // Ł
   0xa2: "Ø", // Ø
   0xa3: "Đ", // Đ
@@ -587,11 +592,14 @@ const ANSEL_SPECIAL: Record<number, string> = {
   0xb4: "þ", // þ
   0xb5: "æ", // æ
   0xb6: "œ", // œ
+  0xb7: "ʺ", // modifier double prime (hard sign)
   0xb8: "ı", // ı dotless i
   0xb9: "£", // £
   0xba: "ð", // ð
   0xbc: "ơ", // ơ
   0xbd: "ư", // ư
+  0xbe: "□", // empty box (GEDCOM)
+  0xbf: "■", // black box (GEDCOM)
   0xc0: "°", // °
   0xc1: "ℓ", // ℓ
   0xc2: "℗", // ℗
@@ -599,4 +607,9 @@ const ANSEL_SPECIAL: Record<number, string> = {
   0xc4: "♯", // music sharp
   0xc5: "¿", // ¿
   0xc6: "¡", // ¡
+  0xc7: "ß", // ß (MARC-8)
+  0xc8: "€", // € (MARC-8)
+  0xcd: "e", // midline e (GEDCOM)
+  0xce: "o", // midline o (GEDCOM)
+  0xcf: "ß", // ß (GEDCOM)
 };
