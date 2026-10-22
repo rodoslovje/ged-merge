@@ -38,6 +38,19 @@ describe("bulkNormalize", () => {
     expect(again).toBe(once);
   });
 
+  it("keeps a year below 100 as written, so a second run cannot read it as 20xx", () => {
+    const event = (i: number, date: string) => `0 @I${i}@ INDI\n1 NAME A /B${i}/\n1 DEAT\n2 DATE ${date}`;
+    const text = [
+      "0 HEAD\n1 CHAR UTF-8\n1 GEDC\n2 VERS 5.5.1",
+      ...[1, 2, 3, 4].map((i) => event(i, `${i} MAY 1900`)),
+      event(5, "MAY 017"),
+      "0 TRLR",
+    ].join("\n");
+    const { once, again } = twice(new TextEncoder().encode(text).buffer);
+    expect(once).toContain("2 DATE MAY 017\n");
+    expect(again).toBe(once);
+  });
+
   it("reaches a fixed point after one run on every corpus file", () => {
     const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../__fixtures__/corpus");
     for (const file of readdirSync(dir).filter((f) => f.endsWith(".ged"))) {
