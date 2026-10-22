@@ -120,19 +120,7 @@ describe("parseDate — existing forms still work", () => {
   });
 });
 
-describe("parseDate — a GEDCOM date's year is the year it writes", () => {
-  it("reads a short year after a GEDCOM month literally", () => {
-    expect(parseDate("JAN 50")).toMatchObject({ qualifier: "exact", month: 1, year: 50 });
-    expect(parseDate("5 JAN 50")).toMatchObject({ day: 5, month: 1, year: 50 });
-    expect(parseDate("BET 3 MAR 12 AND DEC 99")).toMatchObject({ year: 12, year2: 99 });
-  });
-
-  it("reads a short year after a qualifier literally", () => {
-    expect(parseDate("ABT 50")).toMatchObject({ qualifier: "about", year: 50 });
-    expect(parseDate("BEF 5")).toMatchObject({ qualifier: "before", year: 5 });
-    expect(parseDate("BET 10 AND 20")).toMatchObject({ qualifier: "between", year: 10, year2: 20 });
-  });
-
+describe("parseDate — house-style short years", () => {
   it("keeps the two-digit window for house-style dates", () => {
     expect(parseDate("21. marca 89").year).toBe(1989);
     expect(parseDate("AVG 31 97").year).toBe(1997);
@@ -306,5 +294,46 @@ describe("parseDate — impossible days", () => {
       expect(parseDate(raw).impossible).toBeUndefined();
     }
     expect(parseDate("29 FEB 1849").impossible).toBe(true);
+  });
+});
+
+describe("parseDate — Slovenian and German qualifier words", () => {
+  it("reads the words a user types into a date field", () => {
+    expect(parseDate("okrog 1850")).toMatchObject({ qualifier: "about", year: 1850 });
+    expect(parseDate("um 1850")).toMatchObject({ qualifier: "about", year: 1850 });
+    expect(parseDate("vor 1850")).toMatchObject({ qualifier: "before", year: 1850 });
+    expect(parseDate("nach 1850")).toMatchObject({ qualifier: "after", year: 1850 });
+    expect(parseDate("med 1850 in 1860")).toMatchObject({ qualifier: "between", year: 1850, year2: 1860 });
+    expect(parseDate("zwischen 1850 und 1860")).toMatchObject({ qualifier: "between", year2: 1860 });
+    expect(parseDate("od 1850 do 1860")).toMatchObject({ qualifier: "range", year: 1850, year2: 1860 });
+    expect(parseDate("von 1850 bis 1860")).toMatchObject({ qualifier: "range", year2: 1860 });
+    expect(parseDate("od 1850")).toMatchObject({ qualifier: "from", year: 1850 });
+    expect(parseDate("do 1860")).toMatchObject({ qualifier: "to", year: 1860 });
+  });
+});
+
+describe("parseDate — two-digit years", () => {
+  it("marks a year widened from two digits", () => {
+    expect(parseDate("5.3.45")).toMatchObject({ year: 1945, shortYear: true });
+    expect(parseDate("5 MAR 88")).toMatchObject({ year: 1988, shortYear: true });
+    expect(parseDate("BET 1850 AND 5.3.60").shortYear).toBe(true);
+  });
+
+  it("leaves written-out years and BCE years alone", () => {
+    for (const raw of ["5.3.1905", "1905", "MAR 1905", "1 JAN 44 BC", "850"]) {
+      expect(parseDate(raw).shortYear).toBeFalsy();
+    }
+  });
+});
+
+describe("parseDate — a file's order settles only what is ambiguous", () => {
+  it("still reads a day over 12 as the day", () => {
+    expect(parseDate("13.6.1850", "MDY")).toMatchObject({ day: 13, month: 6 });
+    expect(parseDate("6/13/1850", "DMY")).toMatchObject({ day: 13, month: 6 });
+  });
+
+  it("follows the order when both numbers could be the month", () => {
+    expect(parseDate("5.6.1850", "DMY")).toMatchObject({ day: 5, month: 6 });
+    expect(parseDate("5.6.1850", "MDY")).toMatchObject({ day: 6, month: 5 });
   });
 });

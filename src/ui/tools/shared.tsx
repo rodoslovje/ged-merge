@@ -5,6 +5,7 @@ import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { formatCoord } from "../../geo/points";
 import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
+import { displayDate } from "../../gedcom/dateDisplay";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
@@ -190,7 +191,7 @@ export function GeoPeopleList({
             .map((ev) => {
               const custom = ev.tag === "EVEN" ? customEventLabel(ev.type, t, i18n.language) : "";
               const label = custom || eventDisplayLabel(ev.tag, t);
-              return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
+              return ev.date?.raw ? `${label}: ${displayDate(ev.date)}` : label;
             })
             .join("\n");
           return (

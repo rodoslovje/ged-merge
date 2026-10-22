@@ -1057,6 +1057,59 @@ describe("validateStructure", () => {
     expect(bad[0].fix).toBeUndefined();
   });
 
+  it("reports a range that ends before it starts, and a two-digit year", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE BET 1860 AND 1850
+1 RESI
+2 DATE FROM MAR 1850 TO JAN 1850
+1 OCCU
+2 DATE BET 1850 AND 1860
+1 DEAT
+2 DATE 5 MAR 88
+0 TRLR`);
+    const report = validateStructure(ds);
+    expect(report.issues.filter((i) => i.category === "reversedRange").map((i) => i.sample)).toEqual([
+      "BET 1860 AND 1850",
+      "FROM MAR 1850 TO JAN 1850",
+    ]);
+    expect(report.issues.filter((i) => i.category === "shortYear").map((i) => i.sample)).toEqual(["5 MAR 88"]);
+  });
+
+  it("reports a date written unlike the rest of the file, by format rather than spelling", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 5 MAR 1850
+1 BAPM
+2 DATE 06 MAR 1850
+1 CHR
+2 DATE 7 March 1850
+1 DEAT
+2 DATE 5.3.1910
+1 BURI
+2 DATE okoli 1910
+1 CHAN
+2 DATE 01.02.2024
+0 @I2@ INDI
+1 BIRT
+2 DATE 1 JAN 1900
+1 DEAT
+2 DATE 2 FEB 1950
+0 TRLR`);
+    const style = validateStructure(ds).issues.filter((i) => i.category === "dateStyle");
+    // Padding and month spelling are not a format; a change stamp is the program's own.
+    expect(style.map((i) => i.sample)).toEqual(["5.3.1910", "okoli 1910"]);
+    expect(style[0]).toMatchObject({ severity: "info", tooltip: "2 DATE 5.3.1910 → 5 MAR 1910" });
+    // Measured against the format chosen in Settings when there is one.
+    const numeric = validateStructure(ds, { date: "DD.MM.YYYY" }).issues.filter((i) => i.category === "dateStyle");
+    expect(numeric.map((i) => i.sample)).toContain("5 MAR 1850");
+    expect(numeric.map((i) => i.sample)).not.toContain("5.3.1910");
+  });
+
   it("does not flag a date that names its calendar or its era", () => {
     // These are valid dates the standard defines; reporting them as broken sent
     // the user hunting for damage in correct data.

@@ -21,6 +21,11 @@ import {
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
+import { setDateDisplay } from "../gedcom/dateDisplay";
+import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS, dateDisplayFormatter } from "./dateDisplayFormat";
+// The global i18next instance (what `locales/i18n.ts` initializes) — read
+// here without importing that module, which would initialize it on import.
+import i18n from "i18next";
 import type { WiderFamilyDepth } from "../chart/widerFamily";
 import type { NativePyramid } from "./map/tilePlan";
 import { CUSTOM_BASEMAP, isKnownBasemap } from "./map/basemapPresets";
@@ -117,6 +122,12 @@ export interface AppSettings extends NameDisplayOptions {
    *  person's age next to each event date, and the parents'/spouses' ages on
    *  birth and family events. */
   showAge: boolean;
+  /** How dates appear on screen: "" as the file writes them, "words" in the
+   *  reader's language ("about 5 March 1850"), or one of the date patterns
+   *  ("DD.MM.YYYY"). Display only — the file keeps its format, and a date
+   *  field shows the file's text while it is being edited. See
+   *  `gedcom/dateDisplay.ts` and {@link DATE_DISPLAY_CHOICES}. */
+  dateDisplay: string;
   /** Allow looking up link metadata through the public CORS relay (opt-in:
    *  this is the one feature that sends a URL off the user's machine). */
   allowLinkFetch: boolean;
@@ -173,6 +184,7 @@ const DEFAULTS: AppSettings = {
   showXref: false,
   showKinship: true,
   showAge: false,
+  dateDisplay: "",
   allowLinkFetch: false,
   allowMapTiles: false,
   showEditMap: true,
@@ -267,8 +279,16 @@ interface SettingsStore {
   set: (patch: Partial<AppSettings>) => void;
 }
 
+/** Put the "Date display" choice into force for every date shown on screen
+ *  (see `gedcom/dateDisplay.ts`). The language is read per date, so a
+ *  language switch needs no reinstall. */
+function applyDateDisplay(s: AppSettings): void {
+  setDateDisplay(dateDisplayFormatter(s.dateDisplay, () => i18n.language));
+}
+
 function createSettingsStore(): SettingsStore {
   let current = load();
+  applyDateDisplay(current);
   const listeners = new Set<() => void>();
   return {
     get: () => current,
@@ -281,6 +301,7 @@ function createSettingsStore(): SettingsStore {
     set(patch) {
       current = { ...current, ...patch };
       save(current);
+      if ("dateDisplay" in patch) applyDateDisplay(current);
       // Copy first: a listener may unsubscribe as it runs.
       for (const listener of [...listeners]) listener();
     },
@@ -384,6 +405,11 @@ function load(): AppSettings {
       showXref: bool(parsed.showXref, DEFAULTS.showXref),
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showAge: bool(parsed.showAge, DEFAULTS.showAge),
+      dateDisplay: typeof parsed.dateDisplay === "string" && DATE_DISPLAY_CHOICES.includes(parsed.dateDisplay)
+        ? parsed.dateDisplay
+        : (parsed as { datesInWords?: unknown }).datesInWords === true // the first form of this choice: a checkbox
+          ? DATE_DISPLAY_WORDS
+          : DEFAULTS.dateDisplay,
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
       allowMapTiles: bool(parsed.allowMapTiles, DEFAULTS.allowMapTiles),
       // Legacy home of this preference (before it moved into Settings).

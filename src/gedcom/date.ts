@@ -29,6 +29,7 @@ interface SimpleDate {
   month?: number;
   day?: number;
   impossible?: boolean;
+  shortYear?: boolean;
 }
 
 const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -44,15 +45,19 @@ function checkDay(d: SimpleDate): SimpleDate {
 /**
  * Qualifier keyword variants. Genealogy software and hand entry use many
  * spellings/abbreviations for the same modifier ("ABT", "Abt.", "About",
- * "Circa", Slovenian "okoli"/"približno"), so each group is matched
- * case-insensitively with an optional trailing period.
+ * "Circa", Slovenian "okoli"/"približno", German "um"), so each group is
+ * matched case-insensitively with an optional trailing period. The Slovenian
+ * and German words are what a user types into a date field; writing the date
+ * re-renders them as the standard keyword (see `normalize/date.ts`).
  */
-const ABOUT = "ABT|ABOUT|CIRCA|CCA|CIR|CA|EST|ESTIMATED|CAL|CALCULATED|OKOLI|OKO|PRIBLIŽNO|PRIBL";
-const BEFORE = "BEF|BEFORE|PRED";
-const AFTER = "AFT|AFTER|PO";
-const BETWEEN = "BET|BETWEEN";
+const ABOUT = "ABT|ABOUT|CIRCA|CCA|CIR|CA|EST|ESTIMATED|CAL|CALCULATED|OKOLI|OKROG|OKO|PRIBLIŽNO|PRIBL|UM";
+const BEFORE = "BEF|BEFORE|PRED|VOR";
+const AFTER = "AFT|AFTER|PO|NACH";
+const BETWEEN = "BET|BETWEEN|MED|ZWISCHEN";
 const INTERPRETED = "INT|INTERPRETED";
-const AND = "AND|&";
+const AND = "AND|&|IN|UND";
+const FROM = "FROM|OD|VON";
+const TO = "TO|DO|BIS";
 
 const kw = (alts: string) => `(?:${alts})\\.?`;
 
@@ -70,6 +75,9 @@ const RE_ABOUT = new RegExp(`^(${ABOUT})\\.?\\s+(.+)$`);
 const RE_BEFORE = new RegExp(`^${kw(BEFORE)}\\s+(.+)$`);
 const RE_AFTER = new RegExp(`^${kw(AFTER)}\\s+(.+)$`);
 const RE_INTERPRETED = new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?$`);
+const RE_FROM_TO = new RegExp(`^${kw(FROM)}\\s+(.+?)\\s+${kw(TO)}\\s+(.+)$`);
+const RE_FROM = new RegExp(`^${kw(FROM)}\\s+(.+)$`);
+const RE_TO = new RegExp(`^${kw(TO)}\\s+(.+)$`);
 
 /**
  * A calendar declaration, in either spelling: 5.5.1's escape `@#DJULIAN@` (and
@@ -183,13 +191,13 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   let m = upper.match(RE_BETWEEN);
   if (m) return withSecond("between", m[1], m[2], raw, order);
 
-  m = upper.match(/^FROM\s+(.+?)\s+TO\s+(.+)$/);
+  m = upper.match(RE_FROM_TO);
   if (m) return withSecond("range", m[1], m[2], raw, order);
 
-  m = upper.match(/^FROM\s+(.+)$/);
+  m = upper.match(RE_FROM);
   if (m) return withFirst("from", m[1], raw, order);
 
-  m = upper.match(/^TO\s+(.+)$/);
+  m = upper.match(RE_TO);
   if (m) return withFirst("to", m[1], raw, order);
 
   // Single-endpoint qualifiers. "~" means about; "<"/">" mean before/after.
@@ -305,6 +313,7 @@ function withBce(rest: string, raw: string, order?: DateOrder): GedDate | undefi
     raw,
     qualifier: inner.qualifier === "unknown" ? "exact" : inner.qualifier,
     year: -Number(written[1]),
+    shortYear: undefined, // the year is the one written, not a widened one
   };
 }
 
@@ -391,7 +400,7 @@ function withFirst(
   raw: string,
   order?: DateOrder,
 ): GedDate {
-  return { raw, qualifier, ...(qualifiedAtom(part, order) ?? {}) };
+  return { raw, qualifier, ...(parseSimple(part.toUpperCase(), order) ?? {}) };
 }
 
 function withSecond(
@@ -401,12 +410,13 @@ function withSecond(
   raw: string,
   order?: DateOrder,
 ): GedDate {
-  const first = qualifiedAtom(a, order) ?? {};
-  const second = qualifiedAtom(b, order) ?? {};
+  const first = parseSimple(a.toUpperCase(), order) ?? {};
+  const second = parseSimple(b.toUpperCase(), order) ?? {};
   return {
     raw,
     qualifier,
     ...(first.impossible || second.impossible ? { impossible: true } : {}),
+    ...(first.shortYear || second.shortYear ? { shortYear: true } : {}),
     year: first.year,
     month: first.month,
     day: first.day,
@@ -421,7 +431,11 @@ const mon = (tok: string): number | undefined => MONTHS[tok.toUpperCase()];
 /** Parse a single date atom (already upper-cased): month-word or numeric. */
 function parseSimple(s: string, order?: DateOrder): SimpleDate | undefined {
   const d = parseAtom(s, order);
-  return d && checkDay(d);
+  if (!d) return undefined;
+  // A year the atom does not spell out was widened from two digits ("5.3.05"
+  // → 2005) — see `GedDate.shortYear`.
+  const short = d.year !== undefined && !s.includes(String(d.year));
+  return checkDay(short ? { ...d, shortYear: true } : d);
 }
 
 function parseAtom(s: string, order?: DateOrder): SimpleDate | undefined {
@@ -432,7 +446,7 @@ function parseAtom(s: string, order?: DateOrder): SimpleDate | undefined {
   m = t.match(RE_DAY_MON_YEAR);
   if (m && mon(m[2])) {
     const day = /^\d{1,2}$/.test(m[1]) ? +m[1] : undefined;
-    return { day, month: mon(m[2]), year: wordYear(m[2], m[3]) };
+    return { day, month: mon(m[2]), year: toYear(m[3]) };
   }
   // MON DD YYYY (month-first) — "AVG 31 1897", "okt 7 2019"
   m = t.match(RE_MON_DAY_YEAR);
@@ -442,7 +456,7 @@ function parseAtom(s: string, order?: DateOrder): SimpleDate | undefined {
   if (m && mon(m[2])) return { day: +m[1], month: mon(m[2]), year: toYear(m[3]) };
   // MON YYYY[/YY]
   m = t.match(RE_MON_YEAR);
-  if (m && mon(m[1])) return { month: mon(m[1]), year: wordYear(m[1], m[2]) };
+  if (m && mon(m[1])) return { month: mon(m[1]), year: toYear(m[2]) };
   // Numeric, three components: DD.MM.YYYY / MM/DD/YYYY / YYYY-MM-DD, etc.
   m = t.match(/^(\d{1,4})([./-])(\d{1,4})\2(\d{1,4})$/);
   if (m) {
@@ -522,30 +536,6 @@ function isYearField(g: string): boolean {
   return g.length >= 3 || +g > 31;
 }
 
-/** GEDCOM's own month codes, which only its own date grammar writes. */
-const GEDCOM_MONTHS = new Set(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]);
-
-/**
- * The year after a month word. GEDCOM's grammar writes the year it means, so
- * after one of its month codes "JAN 50" is the year 50; only a house-style
- * month word ("21. marca 89") gets the two-digit window.
- */
-function wordYear(month: string, g: string): number {
-  return GEDCOM_MONTHS.has(month.toUpperCase()) ? +g : toYear(g);
-}
-
-/**
- * A qualifier's date that is nothing but a short number: GEDCOM writes a year
- * in as few digits as it has, so "ABT 50" is about the year 50. (A bare "50"
- * with no qualifier stays unread — alone it is more often a fragment.)
- */
-function qualifiedAtom(part: string, order?: DateOrder): SimpleDate | undefined {
-  const atom = parseSimple(part.toUpperCase(), order);
-  if (atom) return atom;
-  const t = part.trim();
-  return /^\d{1,2}$/.test(t) ? { year: +t } : undefined;
-}
-
 /** Numeric value of a year field, expanding 2-digit years to four digits. */
 function toYear(g: string): number {
   const n = +g;
@@ -591,16 +581,18 @@ function resolveDayMonth(
 ): SimpleDate | undefined {
   // a/b are the two non-year fields in textual order. Decide which is the day.
   let dayFirst: boolean;
+  // A number over 12 can only be the day, whatever order the file prefers: the
+  // order settles the ambiguous dates, it does not make the plain ones unreadable.
   if (yearFirst) {
     dayFirst = false; // year-first is YMD (month before day).
+  } else if (a > 12 && b <= 12) {
+    dayFirst = true; // a can't be a month.
+  } else if (b > 12 && a <= 12) {
+    dayFirst = false; // b can't be a month.
   } else if (order === "DMY") {
     dayFirst = true;
   } else if (order === "MDY") {
     dayFirst = false;
-  } else if (a > 12) {
-    dayFirst = true; // a can't be a month.
-  } else if (b > 12) {
-    dayFirst = false; // b can't be a month.
   } else {
     dayFirst = sep !== "/"; // ambiguous: "/" → US MDY, "." / "-" → DMY.
   }

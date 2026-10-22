@@ -298,7 +298,7 @@
               <li><strong>Language</strong> — English or Slovenščina.</li>
               <li><strong>Appearance</strong> — <em>Theme</em>: Automatic, Light or Dark (Automatic follows your operating system).</li>
               <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač) — someone married more than once shows all married surnames, comma-separated in marriage order — and <em>Uppercase surnames</em> (e.g. Ana NOVAK). A live sample above the options shows the result. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
-              <li><strong>Display</strong> — <em>Show ages</em> adds ages after lifespans and beside event dates; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>) throughout the app; and <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name.</li>
+              <li><strong>Display</strong> — <em>Date display</em> shows dates as the file writes them, in words (<em>about 5 March 1850</em>) or in a format of your choice (<em>ABT 05.03.1850</em>) while the file keeps its own format, and a date field turns back into the file's text when you click into it; <em>Show ages</em> adds ages after lifespans and beside event dates; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>) throughout the app; and <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name.</li>
             </ul>
             <p>The other three tabs:</p>
             <ul>
@@ -633,6 +633,16 @@
                 you typed, so <span class="gm-key">⌫</span> is free to take you back to the person you came from —
                 as does <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span>
                 straight from the field.
+              </p>
+              <p>
+                A <strong>date</strong> can be typed the way you would write it: <em>5. 3. 1850</em>,
+                <em>okoli 1850</em>, <em>~1850</em>, <em>&lt;1850</em> for before, <em>1850-1860</em> or
+                <em>med 1850 in 1860</em> for a range. While you type, a line under the field says how the date reads
+                (<em>about 5 March 1850</em>) and what will be written. A date such as <em>5.6.1850</em>, whose day
+                and month could swap, is read in your file's order, and the line offers the other reading a click
+                away. When you leave the field, the date is written in your file's own date format with the standard
+                GEDCOM words (<code>ABT 5 MAR 1850</code>); text that is not a date is kept as typed and marked red
+                while you type it. Hover a date field at any time to read its date in words.
               </p>
               <p>
                 A <strong>Residence</strong> or <strong>Death</strong> row also offers a <strong>value</strong> field,
@@ -1193,8 +1203,11 @@
               is never a group. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
-              flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags, unparseable
-              dates and dates naming a day their month does not have (31 FEB) — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
+              flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
+              dates — many with a one-click <strong>Fix</strong>. Readable dates are checked as well, for a day the
+              month does not have (<em>31 FEB 1850</em>), a range that ends before it starts, a two-digit year
+              (<em>5 MAR 88</em>) and a date written in another format than the rest of the file; hover such a date
+              to see how <a href="#normalize">Normalize file</a> would write it. When a media folder is connected, <strong>Check media
               folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
               coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
               coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to

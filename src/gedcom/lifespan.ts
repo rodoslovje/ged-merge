@@ -1,5 +1,5 @@
 import type { Dataset, GedDate, Individual } from "./types";
-import { dateText } from "./date";
+import { displayDate } from "./dateDisplay";
 
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
 export const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
@@ -50,7 +50,7 @@ export function deathDateText(indi: Individual | undefined): string | undefined 
 function dateRawOf(indi: Individual | undefined, tags: readonly string[]): string | undefined {
   for (const tag of tags) {
     const date = indi?.events.find((e) => e.tag === tag)?.date;
-    if (date?.raw) return dateText(date);
+    if (date?.raw) return displayDate(date);
   }
   return undefined;
 }

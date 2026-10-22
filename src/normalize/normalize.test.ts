@@ -10,7 +10,7 @@ import {
   placeFormFor,
 } from "./profile";
 import { normalizeDataset } from "./normalize";
-import { formatGedDate } from "./date";
+import { entryDate, formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
 
 function dataset(text: string) {
@@ -1089,6 +1089,33 @@ describe("formatGedDate — CAL and EST", () => {
   });
 });
 
+describe("entryDate — a typed date in the file's style", () => {
+  const numeric = inferDateProfile(["20.02.1989", "01.12.1990", "31.07.1888"]);
+  const words = inferDateProfile([]);
+
+  it("writes shorthand and local words as the standard keywords", () => {
+    expect(entryDate("~1850", words, "DMY")).toBe("ABT 1850");
+    expect(entryDate("okoli 5. 3. 1850", words, "DMY")).toBe("ABT 5 MAR 1850");
+    expect(entryDate("<1850", words, "DMY")).toBe("BEF 1850");
+    expect(entryDate("1850-1860", words, "DMY")).toBe("BET 1850 AND 1860");
+    expect(entryDate("med 1850 in 1860", words, "DMY")).toBe("BET 1850 AND 1860");
+    expect(entryDate("od 1850 do 1860", words, "DMY")).toBe("FROM 1850 TO 1860");
+  });
+
+  it("writes the file's own layout, reading numbers in the file's order", () => {
+    expect(entryDate("5 mar 1850", numeric, "DMY")).toBe("05.03.1850");
+    expect(entryDate("5.3.1850", words, "DMY")).toBe("5 MAR 1850");
+    expect(entryDate("5.3.1850", words, "MDY")).toBe("3 MAY 1850");
+  });
+
+  it("keeps what it cannot restate as typed", () => {
+    expect(entryDate("  ", words, "DMY")).toBe("");
+    expect(entryDate("pred vojno", words, "DMY")).toBe("pred vojno");
+    expect(entryDate("1850/51", words, "DMY")).toBe("1850/51");
+    expect(entryDate("@#DJULIAN@ 5 MAR 1700", words, "DMY")).toBe("@#DJULIAN@ 5 MAR 1700");
+  });
+});
+
 describe("inferDateProfile (numeric)", () => {
   it("detects DD.MM.YYYY (European, dotted)", () => {
     const p = inferDateProfile(["20.02.1989", "01.12.1990", "31.07.1888"]);
@@ -1161,8 +1188,8 @@ describe("formatGedDate (numeric output)", () => {
   it("keeps a date in the first century exactly as written", () => {
     // "05.01.50" would read back as 1950.
     const profile = inferDateProfile(["20.02.1989"]);
-    expect(formatGedDate(parseDate("5 JAN 50"), profile)).toBe("5 JAN 50");
-    expect(formatGedDate(parseDate("BET 1900 AND 3 MAR 12"), profile)).toBe("BET 1900 AND 3 MAR 12");
+    expect(formatGedDate(parseDate("5 JAN 050"), profile)).toBe("5 JAN 050");
+    expect(formatGedDate(parseDate("BET 1900 AND 3 MAR 012"), profile)).toBe("BET 1900 AND 3 MAR 012");
   });
 });
 
@@ -1349,9 +1376,9 @@ describe("parseDate (2-digit years)", () => {
     expect(parseDate("3/7/76", "MDY")).toMatchObject({ month: 3, day: 7, year: 1976 });
   });
 
-  it("takes the short year of a GEDCOM month date literally", () => {
-    expect(parseDate("5 JAN 89")).toMatchObject({ day: 5, month: 1, year: 89 });
-    expect(parseDate("JAN 50")).toMatchObject({ month: 1, year: 50 });
+  it("expands 2-digit years disambiguated by a month word", () => {
+    expect(parseDate("5 JAN 89")).toMatchObject({ day: 5, month: 1, year: 1989 });
+    expect(parseDate("JAN 50")).toMatchObject({ month: 1, year: 1950 });
   });
 
   it("re-renders an expanded 2-digit year in the main's full-year style", () => {
