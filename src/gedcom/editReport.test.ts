@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { parseGedcom } from "./parser";
 import type { ChangeReport } from "../merge/merge";
-import { buildEditReport, combineReports, enrichEditReport, removeRecordFromReport } from "./editReport";
+import { buildEditReport, combineReports, enrichEditReport, removeRecordFromReport, sharedRecordTitle } from "./editReport";
 import { cloneNode } from "./node";
 
 function dataset(text: string) {
@@ -1031,6 +1031,30 @@ describe("enrichEditReport — a family membership folded away by a duplicate me
 
     const spouseOf = report.changes.filter((c) => c.recordId === "@I1@" && c.field === "field.spouseOf");
     expect(spouseOf).toEqual([{ recordId: "@I1@", field: "field.spouseOf", from: "@F9@", to: "", action: "incoming" }]);
+  });
+});
+
+describe("enrichEditReport — GEDCOM 7 SNOTE notes", () => {
+  const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+  const NOTES = "0 @N1@ SNOTE Shared family story\n0 @N2@ SNOTE Private remark\n1 RESN PRIVACY\n";
+
+  it("reads an SNOTE pointer as its record's text and privacy", () => {
+    const before = dataset(wrap7(`0 @I1@ INDI\n1 NAME Ana /Novak/\n1 SNOTE @N1@\n${NOTES}`));
+    const after = dataset(wrap7(`0 @I1@ INDI\n1 NAME Ana /Novak/\n1 SNOTE @N2@\n${NOTES}`));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toEqual([
+      { recordId: "@I1@", field: "field.notes", from: "Shared family story", to: "", action: "incoming", private: undefined },
+      { recordId: "@I1@", field: "field.notes", from: "", to: "Private remark", action: "both", private: true },
+    ]);
+    expect(report.changes.some((c) => c.field === "field.otherLines")).toBe(false);
+  });
+
+  it("names a shared SNOTE record by its text", () => {
+    const ds = dataset(wrap7(NOTES));
+    expect(sharedRecordTitle("@N1@", ds.records.find((r) => r.xref === "@N1@")!)).toBe("Shared family story");
   });
 });
 
