@@ -2543,6 +2543,7 @@ function AppContent() {
               key={`tools-${mainLoadGen}`}
               dataset={mainDataset}
               editVersionRef={editVersionRef}
+              changeJournal={changeJournal}
               editVersion={editVersion}
               fileName={lastMainFile.fileName}
               // Tags the current entry as Tools and pushes an Edit entry, so

@@ -155,6 +155,8 @@ describe("gedcom.worker pipeline", () => {
     const other = buildDataset(parseGedcom(enc(MAIN2)));
     send({ type: "patchMain", patch: recordsPatch(other, new Set(["@I9@"]))! });
     send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    // Made before the whole main below was sent: that main supersedes it.
+    send({ type: "patchMain", patch: recordsPatch(buildDataset(parseGedcom(enc(MAIN))), new Set(["@I1@"]))! });
     expect(types()).toEqual(["mainOutOfStep"]); // the compare waits
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN2), silent: true });
     expect(types()).toEqual(["mainOutOfStep", "parsed", "matching", "matched"]);

@@ -81,7 +81,9 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     const waiting = held;
     held = undefined;
     handle(req);
-    for (const r of waiting) handle(r);
+    // A patch that waited was made against a copy older than the whole main
+    // just parsed, which already holds its records as they are now.
+    for (const r of waiting) if (r.type !== "patchMain") handle(r);
     return;
   }
   handle(req);

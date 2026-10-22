@@ -8,6 +8,7 @@ import type { DuplicateReport } from "../tools/sourceDuplicates";
 import type { ReshapeReport } from "../tools/sourceReshape";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
+import { mainSnapshot, recordsPatch, type ChangeJournal, type SyncMark } from "../state/mainSync";
 import { useSettingsSlice } from "./SettingsContext";
 import { afterPaint, holdBusyCursor } from "./busyCursor";
 
@@ -106,15 +107,20 @@ interface Pending {
  * in the per-sub-tab panels, so results survive tab switches and an in-flight
  * scan keeps running when the user browses elsewhere and comes back.
  *
- * The dataset is structured-cloned into the worker — a multi-second,
- * main-thread cost on an index-scale file — so the upload happens once per
- * content version, not per scan: the worker caches it, and it is re-sent only
- * when the dataset object is replaced (file load, save rebuild) or
- * `editVersionRef` says its contents changed. The ref is bumped synchronously
- * by every dataset mutation, so a fix followed by an immediate `refresh()`
- * re-validates against the just-fixed data.
+ * The worker keeps its own copy of the main. It is sent whole once (a
+ * serialized snapshot — still a second or two of main-thread work on an
+ * index-scale file) and then kept in step with the records the edits since
+ * touched (`changes`), so a scan after an edit costs a patch, not the file.
+ * The upload happens before the first scan of each content version:
+ * `editVersionRef` is bumped synchronously by every dataset mutation, so a
+ * fix followed by an immediate `refresh()` re-validates against the
+ * just-fixed data. A replaced dataset (file load) is sent whole again.
  */
-export function useToolsScans(dataset: Dataset, editVersionRef: { readonly current: number }): ToolsScans {
+export function useToolsScans(
+  dataset: Dataset,
+  editVersionRef: { readonly current: number },
+  changes: ChangeJournal,
+): ToolsScans {
   const [states, setStates] = useState<ScanStates>(ALL_IDLE);
   // The source-reshape and normalize scans depend on the user's format
   // overrides (the report must match what the apply writes). Kept in a ref so
@@ -142,6 +148,9 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   const nextIdRef = useRef(1);
   /** Content version currently cached in the worker; null when none is. */
   const uploadedKeyRef = useRef<string | null>(null);
+  /** The same, as the dataset it was and the journal mark it stood at — what
+   *  the next patch is made from. */
+  const uploadedRef = useRef<{ seq: number; mark: SyncMark } | null>(null);
   /** Bumped when the dataset *object* is replaced (load / save rebuild). */
   const datasetSeqRef = useRef(0);
   const datasetRef = useRef(dataset);
@@ -154,6 +163,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
     workerRef.current?.terminate();
     workerRef.current = null;
     uploadedKeyRef.current = null;
+    uploadedRef.current = null;
     pendingRef.current.clear();
   }, []);
 
@@ -181,16 +191,42 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
     setStates((s) => ({ ...s, [kind]: value }));
   }, []);
 
-  /** Post a request, re-feeding the worker the current dataset if what it has
-   *  cached (if anything) is a different content version. */
+  /** Bring the worker's copy to the current content: the edited records when
+   *  the journal can name them, the whole file otherwise (or when asked). */
+  const upload = useCallback(
+    (worker: Worker, whole = false) => {
+      const seq = datasetSeqRef.current;
+      const version = editVersionRef.current;
+      const up = uploadedRef.current;
+      const changed = !whole && up?.seq === seq ? changes.since(up.mark) : null;
+      if (!changed || changed.size) {
+        const patch = changed && recordsPatch(datasetRef.current, changed);
+        worker.postMessage(
+          patch ? { type: "patchMain", patch } : { type: "setMain", snapshot: mainSnapshot(datasetRef.current) },
+        );
+      }
+      uploadedRef.current = { seq, mark: changes.mark(version) };
+      uploadedKeyRef.current = `${seq}:${version}`;
+    },
+    [changes, editVersionRef],
+  );
+
+  /** Post a request, first bringing the worker's copy of the dataset to the
+   *  current content version if it holds another. */
   const post = useCallback(
-    (req: Exclude<ToolsRequest, { type: "setDataset" }>, pending: Pending) => {
+    (req: Exclude<ToolsRequest, { type: "setMain" | "patchMain" }>, pending: Pending) => {
       if (!workerRef.current) {
         const worker = new Worker(new URL("../worker/tools.worker.ts", import.meta.url), {
           type: "module",
         });
         worker.onmessage = (e: MessageEvent<ToolsResponse>) => {
           const res = e.data;
+          if (res.type === "resync") {
+            // Its copy did not take the last patch; it holds the scans
+            // posted since until the whole file arrives.
+            if (workerRef.current === worker) upload(worker, true);
+            return;
+          }
           const p = pendingRef.current.get(res.requestId);
           if (!p) return; // superseded — drop the late reply
           if (res.type === "progress") {
@@ -221,15 +257,11 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         worker.onmessageerror = () => fail("The background worker sent an unreadable message.");
         workerRef.current = worker;
       }
-      const key = `${datasetSeqRef.current}:${editVersionRef.current}`;
-      if (uploadedKeyRef.current !== key) {
-        workerRef.current.postMessage({ type: "setDataset", dataset: datasetRef.current });
-        uploadedKeyRef.current = key;
-      }
+      if (uploadedKeyRef.current !== `${datasetSeqRef.current}:${editVersionRef.current}`) upload(workerRef.current);
       pendingRef.current.set(req.requestId, pending);
       workerRef.current.postMessage(req);
     },
-    [editVersionRef, terminate],
+    [editVersionRef, terminate, upload],
   );
 
   /** Content version each scan's latest result was computed against. */
@@ -248,10 +280,10 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
       statesRef.current = { ...statesRef.current, [kind]: { status: "running" } };
       setScan(kind, { status: "running" });
       // Defer the post behind a paint so the spinner shows first: when the
-      // worker's dataset copy is stale, `post` structured-clones the whole
-      // file — seconds of blocked main thread on an index-scale dataset — and
-      // an effect can run before the browser has painted the "running" state.
-      // That copy runs under the progress cursor too.
+      // worker's dataset copy is stale, `post` may serialize the whole file —
+      // a second or more of blocked main thread on an index-scale dataset —
+      // and an effect can run before the browser has painted the "running"
+      // state. That upload runs under the progress cursor too.
       const copying = uploadedKeyRef.current !== `${datasetSeqRef.current}:${editVersionRef.current}`;
       const release = copying ? holdBusyCursor() : undefined;
       void afterPaint().then(() => {

@@ -7,24 +7,51 @@ import { findSourceDuplicates } from "../tools/sourceDuplicates";
 import { ALL_SITES, findReshapableLinks, reshapeOptionsFromOverrides } from "../tools/sourceReshape";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../gedcom/serialize";
+import { applyRecordsPatch, datasetFromSnapshot } from "../state/mainSync";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "./toolsMessages";
 
 /**
  * Off-main-thread whole-file Tools scans, so a long pass (the duplicate scan
  * takes minutes on an index-scale file) never freezes the tab. Deliberately
  * separate from the gedcom worker: a running scan must not delay a parse or
- * match. The dataset arrives once via `setDataset` and stays cached — the
- * price of one resident copy buys scans that start without re-cloning a
- * possibly huge file. The main thread may terminate this worker at any time
+ * match. The main arrives once via `setMain` and stays cached, kept up to
+ * date by the edited records (`patchMain`) — the price of one resident copy
+ * buys scans that start without re-sending a possibly huge file. The main thread may terminate this worker at any time
  * to cancel (a synchronous scan can't be interrupted any other way); it is
  * respawned and re-fed lazily on the next run.
  */
 let dataset: Dataset | undefined;
+/** Set while a `patchMain` that did not fit waits for the `setMain` it asked
+ *  for: the scans posted meanwhile run once the whole file is here. */
+let held: ToolsRequest[] | undefined;
 
 self.onmessage = (e: MessageEvent<ToolsRequest>) => {
   const req = e.data;
-  if (req.type === "setDataset") {
-    dataset = req.dataset;
+  if (held && req.type !== "setMain") {
+    held.push(req);
+    return;
+  }
+  const waiting = req.type === "setMain" ? held : undefined;
+  held = undefined;
+  handle(req);
+  // A patch that waited was made against a copy older than the whole main
+  // just taken, which already holds its records as they are now.
+  for (const r of waiting ?? []) if (r.type !== "patchMain") handle(r);
+};
+
+function handle(req: ToolsRequest): void {
+  if (req.type === "setMain") {
+    dataset = datasetFromSnapshot(req.snapshot);
+    return;
+  }
+  if (req.type === "patchMain") {
+    const next = dataset && applyRecordsPatch(dataset, req.patch);
+    if (next) dataset = next;
+    else {
+      dataset = undefined;
+      held = [];
+      post({ type: "resync" });
+    }
     return;
   }
   try {
@@ -36,9 +63,9 @@ self.onmessage = (e: MessageEvent<ToolsRequest>) => {
       message: err instanceof Error ? err.message : String(err),
     });
   }
-};
+}
 
-function run(req: Exclude<ToolsRequest, { type: "setDataset" }>): ToolsResultMap[keyof ToolsResultMap] {
+function run(req: Exclude<ToolsRequest, { type: "setMain" | "patchMain" }>): ToolsResultMap[keyof ToolsResultMap] {
   if (!dataset) throw new Error("no dataset loaded");
   switch (req.type) {
     case "findDuplicates": {
