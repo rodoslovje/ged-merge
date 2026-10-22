@@ -95,6 +95,13 @@ describe("parseDate — ranges, dual dating, parentheses", () => {
     expect(parseDate("(okt 7 2019)")).toMatchObject({ day: 7, month: 10, year: 2019 });
   });
 
+  it("reads a parenthesised date as a phrase, never as an exact date", () => {
+    // GEDCOM's date phrase: the text is what the file states, and the year in
+    // it only how we read it.
+    expect(parseDate("(1900)")).toMatchObject({ qualifier: "interpreted", year: 1900 });
+    expect(parseDate("(okt 7 2019)").qualifier).toBe("interpreted");
+  });
+
   it("still rejects genuine junk", () => {
     expect(parseDate("xxx-template").qualifier).toBe("unknown");
     expect(parseDate("Y").qualifier).toBe("unknown");
