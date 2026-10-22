@@ -101,10 +101,51 @@ export function snapshotRecords(
     if (fam) families.set(id, cloneRaw(fam.raw));
   }
   const indices = new Map<string, number>();
-  dataset.records.forEach((r, i) => {
-    if (r.xref && (individuals.has(r.xref) || families.has(r.xref))) indices.set(r.xref, i);
-  });
+  const missing: string[] = [];
+  const place = (id: string, raw: GedNode) => {
+    const i = recordPosition(dataset.records, raw);
+    if (i === undefined) missing.push(id);
+    else indices.set(id, i);
+  };
+  for (const id of individuals.keys()) place(id, dataset.individuals.get(id)!.raw);
+  for (const id of families.keys()) place(id, dataset.families.get(id)!.raw);
+  // A record the list does not hold by its typed node: asked of the list itself.
+  if (missing.length) {
+    const wanted = new Set(missing);
+    dataset.records.forEach((r, i) => {
+      if (r.xref && wanted.has(r.xref)) indices.set(r.xref, i);
+    });
+  }
   return { individuals, families, indices };
+}
+
+const positionCaches = new WeakMap<GedNode[], Map<GedNode, number>>();
+
+/**
+ * Where `node` sits in `records`, without a walk of the list per snapshot: a
+ * remembered position, checked by identity, and searched for nearby when the
+ * records before it have moved by a few (a chain of merges removing one
+ * record per step). The whole list is read again only when that fails.
+ */
+function recordPosition(records: GedNode[], node: GedNode): number | undefined {
+  let positions = positionCaches.get(records);
+  const near = (from: number): number | undefined => {
+    for (let d = 0; d <= 64; d++) {
+      if (records[from - d] === node) return from - d;
+      if (d && records[from + d] === node) return from + d;
+    }
+    return undefined;
+  };
+  const cached = positions?.get(node);
+  let i = cached === undefined ? undefined : near(cached);
+  if (i === undefined) {
+    positions = new Map();
+    records.forEach((r, j) => positions!.set(r, j));
+    positionCaches.set(records, positions);
+    i = positions.get(node);
+  }
+  if (i !== undefined) positions!.set(node, i);
+  return i;
 }
 
 /**
