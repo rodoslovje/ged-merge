@@ -362,6 +362,9 @@ export function pruneDegenerateFamily(dataset: Dataset, fam: Family): boolean {
   const memberCount = (fam.husband ? 1 : 0) + (fam.wife ? 1 : 0) + fam.children.length;
   if (memberCount >= 2) return false;
   if (!isBareFamily(fam)) return false;
+  // Asked of both sides only now that the cheap count has said "too few": a
+  // one-sided file can hold a child whose FAMC names the family no CHIL answers.
+  if (familyMembers(dataset, fam).length >= 2) return false;
   removeFamily(dataset, fam);
   return true;
 }
@@ -452,22 +455,27 @@ export function familiesNaming(dataset: Dataset, indiId: string): string[] {
   return ids;
 }
 
-/** Fully remove a family from the dataset, cleaning up FAMS/FAMC pointers on all members. */
+/** Everyone the family holds, read from both sides: the people its HUSB/WIFE/CHIL
+ *  lines name, and the people whose own FAMS/FAMC lines name it — a one-sided
+ *  file can carry either half without the other. */
+export function familyMembers(dataset: Dataset, fam: Family): string[] {
+  const ids = new Set([fam.husband, fam.wife, ...fam.children].filter((id): id is string => !!id));
+  for (const indi of dataset.individuals.values()) {
+    if (indi.childOf.includes(fam.id) || indi.spouseOf.includes(fam.id)) ids.add(indi.id);
+  }
+  return [...ids];
+}
+
+/** Fully remove a family from the dataset, cleaning up the FAMS/FAMC pointers
+ *  of every record naming it — its listed members and any back-linked only. */
 export function removeFamily(dataset: Dataset, fam: Family): void {
-  for (const indiId of [fam.husband, fam.wife]) {
-    if (!indiId) continue;
+  for (const indiId of familyMembers(dataset, fam)) {
     const indi = dataset.individuals.get(indiId);
     if (!indi) continue;
-    const i = indi.raw.children.findIndex((c) => c.tag === "FAMS" && c.value === fam.id);
-    if (i !== -1) indi.raw.children.splice(i, 1);
+    const kept = indi.raw.children.filter((c) => !((c.tag === "FAMS" || c.tag === "FAMC") && c.value === fam.id));
+    if (kept.length === indi.raw.children.length) continue;
+    indi.raw.children = kept;
     rebuildIndividual(dataset, indi);
-  }
-  for (const childId of fam.children) {
-    const child = dataset.individuals.get(childId);
-    if (!child) continue;
-    const i = child.raw.children.findIndex((c) => c.tag === "FAMC" && c.value === fam.id);
-    if (i !== -1) child.raw.children.splice(i, 1);
-    rebuildIndividual(dataset, child);
   }
   const ri = dataset.records.findIndex((r) => r.xref === fam.id);
   if (ri !== -1) dataset.records.splice(ri, 1);

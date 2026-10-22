@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
-import { insertRecordAt } from "../gedcom/edit";
+import { applyRecordPatches, coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
+import { familyMembers, insertRecordAt, removeIndividual } from "../gedcom/edit";
+import { parseGedcom } from "../gedcom/parser";
+import { buildDataset } from "../gedcom/builder";
+import { serializeGedcom } from "../gedcom/serialize";
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -143,5 +146,28 @@ describe("dropNoopPatches", () => {
       { type: "family", id: "@F1@", before: node("gone"), after: null, index: 4 },
     ];
     expect(dropNoopPatches(patches)).toEqual(patches);
+  });
+});
+
+// ── a delete in a one-sided file is undone whole ───────────────────────────
+// Regression: @I3@'s FAMC names @F1@, which lists no CHIL. Deleting @F1@'s only
+// HUSB prunes the family and strips that FAMC — so @I3@ must be in the
+// snapshot, or the change is never marked dirty and undo cannot restore it.
+
+describe("deleting a person from a one-sided family", () => {
+  it("snapshots the back-linked child, so undo restores its FAMC", () => {
+    const text = [
+      "0 HEAD", "0 @I1@ INDI", "1 FAMS @F1@", "0 @I3@ INDI", "1 FAMC @F1@", "0 @F1@ FAM", "1 HUSB @I1@", "0 TRLR",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+    const before = serializeGedcom(ds.records);
+    // What EditView's delete snapshots: the person, and every member of their families.
+    const fam = ds.families.get("@F1@")!;
+    const snap = snapshotRecords(ds, new Set(["@I1@", ...familyMembers(ds, fam)]), new Set(["@F1@"]));
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+    const patches = patchesFromSnapshots(ds, snap);
+    expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@", "@I3@"]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(before);
   });
 });
