@@ -1022,7 +1022,7 @@ export function collectCustomTags(node: GedNode, registry: Record<string, Custom
 }
 
 // ---------------------------------------------------------------------------
-// Shared-record (SOUR / REPO / NOTE / OBJE) import helpers
+// Shared-record (SOUR / REPO / NOTE / SNOTE / OBJE) import helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -1032,21 +1032,23 @@ export function collectCustomTags(node: GedNode, registry: Record<string, Custom
  * (INDI/FAM pointers are handled structurally by the merge instead, and
  * anything else — see `stripForeignPointers` — has no import path.)
  */
-const SHARED_RECORD_TAGS = new Set(["SOUR", "REPO", "NOTE", "OBJE"]);
+const SHARED_RECORD_TAGS = new Set(["SOUR", "REPO", "NOTE", "SNOTE", "OBJE"]);
 
-/** Fresh-xref prefix per shared record type. */
-const SHARED_XREF_PREFIX: Record<string, string> = { SOUR: "S", REPO: "R", NOTE: "N", OBJE: "O" };
+/** Fresh-xref prefix per shared record type. A 7.0 shared note (`SNOTE`,
+ *  also what normalize upgrades an incoming 5.5.1 `NOTE` record to) is a
+ *  note all the same. */
+const SHARED_XREF_PREFIX: Record<string, string> = { SOUR: "S", REPO: "R", NOTE: "N", SNOTE: "N", OBJE: "O" };
 
 /**
  * A content-identity key for a shared record, so a compare record describing
  * the same thing as an existing main one maps to the main's xref instead
  * of minting a duplicate. SOUR/REPO key on their descriptive fields
- * (`sourceContentKey`), a NOTE on its full text, an OBJE on the file/URL it
+ * (`sourceContentKey`), a NOTE/SNOTE on its full text, an OBJE on the file/URL it
  * wraps. Undefined means "no identity-bearing content" — never match on it.
  */
 function sharedContentKey(rec: GedNode): string | undefined {
   if (rec.tag === "SOUR" || rec.tag === "REPO") return sourceContentKey(rec) || undefined;
-  if (rec.tag === "NOTE") return rec.value?.trim() || undefined;
+  if (rec.tag === "NOTE" || rec.tag === "SNOTE") return rec.value?.trim() || undefined;
   // OBJE: a web address by the page it names, so two spellings of one
   // FamilySearch image (with and without `?i=37&cc=…`) are one record.
   const file = childText(rec, "FILE");
@@ -1054,7 +1056,7 @@ function sharedContentKey(rec: GedNode): string | undefined {
 }
 
 /**
- * Map from a compare file's shared-record (SOUR/REPO/NOTE/OBJE) xref to the
+ * Map from a compare file's shared-record (SOUR/REPO/NOTE/SNOTE/OBJE) xref to the
  * xref it will carry in the merged output. Usually the same; only differs when
  * the compare xref collides with a main xref that points to a different
  * record.
@@ -1075,7 +1077,7 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
 
 /**
  * Pre-compute the xref translation table for all compare shared records
- * (SOUR/REPO/NOTE/OBJE). A compare record describing the same content as an
+ * (SOUR/REPO/NOTE/SNOTE/OBJE). A compare record describing the same content as an
  * existing main one (per `sharedContentKey`, regardless of xref) maps
  * straight to that main xref, so merging never mints a duplicate record for
  * content the main already has. Otherwise: records whose xref does not
@@ -1125,7 +1127,7 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
   return map;
 }
 
-/** Deep-clone `n`, substituting any SOUR/REPO/NOTE/OBJE pointer values via `sourMap`. */
+/** Deep-clone `n`, substituting any SOUR/REPO/NOTE/SNOTE/OBJE pointer values via `sourMap`. */
 export function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
   const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map((ch) => cloneNodeRemapped(ch, sourMap)) };
   if (n.xref !== undefined) c.xref = n.xref;
@@ -1182,7 +1184,7 @@ export function stripForeignPointers(node: GedNode): string[] {
 
 /**
  * After all merge decisions have been applied, scan the merged output for
- * shared-record (SOUR/REPO/NOTE/OBJE) xref pointers that don't yet have a
+ * shared-record (SOUR/REPO/NOTE/SNOTE/OBJE) xref pointers that don't yet have a
  * corresponding top-level record and import them from the compare file.
  * Handles transitive dependencies (a SOUR that references a REPO or OBJE that
  * also needs importing) by iterating to fixpoint. The `sourMap` ensures

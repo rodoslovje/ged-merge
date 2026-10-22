@@ -1487,6 +1487,32 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     expect(out).toContain("0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 REPO @CR1@");
     expect(out).toContain("0 @CR1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana");
   });
+
+  it("imports a 7.0 shared note (SNOTE) under a fresh xref when the main uses that xref for another note", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @N1@ SNOTE Main's unrelated note\n",
+    ));
+    const compare = dataset(wrap7(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SNOTE @N1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @N1@ SNOTE Tone emigrated to Argentina\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @N1@ SNOTE Main's unrelated note");
+    const child = records.find((r) => r.tag === "INDI" && r.children.some((c) => c.tag === "NAME" && c.value === "Tone /Novak/"))!;
+    const ptr = child.children.find((c) => c.tag === "SNOTE")?.value;
+    expect(ptr).toBeDefined();
+    expect(ptr).not.toBe("@N1@");
+    expect(out).toContain(`0 ${ptr} SNOTE Tone emigrated to Argentina`);
+  });
 });
 
 describe("mergeDecisions — custom tag detection", () => {
