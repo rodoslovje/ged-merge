@@ -423,7 +423,7 @@ function AppContent() {
         // a table compare, the one the message carries); a copy this side
         // failed to build while the worker succeeded is reported as a failed
         // slot rather than left spinning.
-        const dataset = localLoads.resolve(msg, compare.status === "loaded" ? compare.file.dataset : undefined);
+        const dataset = localLoads.resolve(msg);
         if (!dataset) {
           dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: t("load.unreadable") });
           void deleteFile(msg.role);
