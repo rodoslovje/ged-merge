@@ -193,12 +193,12 @@ function utf8LeadLen(b: number): number {
   return 1;
 }
 
-/** Matches `(\r\n|\n)<digits> (CONC|CONT) ` at `pos`; returns its byte length, or undefined. */
+/** Matches `(\r\n|\n|\r)<digits> (CONC|CONT) ` at `pos`; returns its byte length, or undefined. */
 function matchConcOrContBreak(bytes: Uint8Array, pos: number): number | undefined {
   let i = pos;
   const n = bytes.length;
   if (bytes[i] === 0x0d && bytes[i + 1] === 0x0a) i += 2;
-  else if (bytes[i] === 0x0a) i += 1;
+  else if (bytes[i] === 0x0a || bytes[i] === 0x0d) i += 1;
   else return undefined;
   const digitsStart = i;
   while (i < n && bytes[i] >= 0x30 && bytes[i] <= 0x39) i++;
@@ -376,7 +376,8 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
   const head = bytes.subarray(0, Math.min(bytes.length, 2048));
   let ascii = "";
   for (const b of head) ascii += String.fromCharCode(b);
-  const m = ascii.match(/\n\s*1\s+CHAR\s+([\w-]+)/i);
+  // `[\r\n]`: a classic-Mac export ends its lines with a bare CR.
+  const m = ascii.match(/[\r\n]\s*1\s+CHAR\s+([\w-]+)/i);
   if (!m) return undefined;
   const v = m[1].toUpperCase();
   if (v === "UTF-8" || v === "UTF8") return "UTF-8";

@@ -144,6 +144,29 @@ describe("decodeGedcom charset detection", () => {
   });
 });
 
+describe("decodeGedcom with classic-Mac (CR-only) line endings", () => {
+  it("reads the declared CHAR from a CR-only header", () => {
+    // ANSEL 0xE2 = combining acute before its letter: "é".
+    const bytes = new Uint8Array([...ascii("0 HEAD\r1 CHAR ANSEL\r1 NAME Ren"), 0xe2, 0x65, 0x0d]);
+    const { text, charset } = decodeGedcom(bytes.buffer);
+    expect(charset).toBe("ANSEL");
+    expect(text).toContain("René");
+  });
+
+  it("heals a UTF-8 character split across a CR-only CONC wrap", () => {
+    const bytes = new Uint8Array([
+      ...ascii("0 HEAD\r1 CHAR UTF-8\r1 NAME Kra"),
+      0xc4,
+      ...ascii("\r2 CONC "),
+      0x87,
+      ...ascii("an\r"),
+    ]);
+    const { text } = decodeGedcom(bytes.buffer);
+    expect(text).toContain("Krać");
+    expect(text).not.toContain("�");
+  });
+});
+
 describe("decodeTableText (CSV bytes with no charset header)", () => {
   const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 
