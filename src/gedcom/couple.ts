@@ -1,4 +1,5 @@
 import type { Dataset, Family, Individual } from "./types";
+import { firstChild } from "./node";
 
 /**
  * Whether two spouses form a same-sex couple — both present and sharing the
@@ -51,7 +52,7 @@ export function birthParentFamilies(indi: Individual, ds: Dataset): Family[] {
     if (node.tag !== "FAMC" || !node.value) continue;
     const id = node.value.trim();
     if (seen.has(id) || adoptive.has(id)) continue;
-    const pedi = node.children.find((c) => c.tag === "PEDI" || c.tag === "_MREL")?.value;
+    const pedi = firstChild(node, ["PEDI", "_MREL"])?.value;
     if (pedi !== undefined && !BIOLOGICAL_PEDI.has(pedi.trim().toLowerCase())) continue;
     const fam = ds.families.get(id);
     if (!fam) continue;
