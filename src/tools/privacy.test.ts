@@ -83,6 +83,51 @@ describe("findLiving", () => {
     expect(findLiving(ds, opts({ unknownBirthPolicy: "skip" }), NOW)).toEqual([]);
   });
 
+  it("a recent dated event of their own outranks an old estimate from kin", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Father /Old/
+1 BIRT
+2 DATE 1890
+1 DEAT
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bride /Old/
+1 RESI
+2 DATE 2020
+1 FAMC @F1@
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Sister /Old/
+1 FAMC @F1@
+1 FAMS @F3@
+0 @I4@ INDI
+1 NAME Aunt /Old/
+1 FAMC @F1@
+1 RESI
+2 DATE 1910
+0 @F1@ FAM
+1 HUSB @I1@
+1 CHIL @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+0 @F2@ FAM
+1 WIFE @I2@
+1 MARR
+2 DATE 2015
+0 @F3@ FAM
+1 WIFE @I3@
+1 MARR
+2 DATE 2015
+0 TRLR`);
+    const byId = new Map(findLiving(ds, opts(), NOW).map((f) => [f.id, f.reason]));
+    expect(byId.get("@I2@")).toBe("event"); // RESI 2020, father b. 1890 → est. 1918
+    expect(byId.get("@I3@")).toBe("event"); // only her marriage is dated
+    expect(byId.has("@I4@")).toBe(false); // last seen 1910, est. 1918 — presumed dead
+    const out = serializeGedcom(privatizeDataset(ds, opts(), NOW).records);
+    expect(out).not.toContain("Bride /Old/");
+  });
+
   it("optionally flags recently deceased people", () => {
     const ds = dataset(SAMPLE);
     const flagged = findLiving(ds, opts({ alsoRecentlyDeceasedYears: 100 }), NOW);

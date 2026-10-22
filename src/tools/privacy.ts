@@ -29,7 +29,7 @@ export type ResnMode = "stripStamp" | "stripOnly" | "markOnly";
 export type StripCategory = "events" | "notes" | "sources" | "media" | "contact";
 
 /** Why an individual was flagged as living — surfaced in the preview breakdown. */
-export type LivingReason = "birth" | "relative" | "unknown" | "recentDeath" | "declared";
+export type LivingReason = "birth" | "relative" | "event" | "unknown" | "recentDeath" | "declared";
 
 export interface PrivacyOptions {
   /** Treat an undated, un-dead person as living if their (estimated) birth is
@@ -148,10 +148,27 @@ function livingReason(
   const by = birthYear(indi);
   if (by !== undefined) return currentYear - by < opts.livingThresholdYears ? { reason: "birth" } : undefined;
   const est = estimateBirthYear(indi, ds);
-  if (est !== undefined) {
-    return currentYear - est.estimatedYear < opts.livingThresholdYears ? { reason: "relative", estimate: est } : undefined;
+  if (est !== undefined && currentYear - est.estimatedYear < opts.livingThresholdYears) {
+    return { reason: "relative", estimate: est };
   }
+  // Their own dated life outranks a guess from kin: a bride married in 2015
+  // was alive then, whatever her father's 1890 birth suggests.
+  const last = latestOwnEventYear(indi, ds);
+  if (last !== undefined) return currentYear - last < opts.livingThresholdYears ? { reason: "event" } : undefined;
+  if (est !== undefined) return undefined;
   return opts.unknownBirthPolicy === "living" ? { reason: "unknown" } : undefined;
+}
+
+/** The latest year among the person's own dated events and those of the
+ *  families they are a spouse in — the last time they are known to be alive. */
+function latestOwnEventYear(indi: Individual, ds: Dataset): number | undefined {
+  let last: number | undefined;
+  const consider = (year: number | undefined) => {
+    if (year !== undefined && (last === undefined || year > last)) last = year;
+  };
+  for (const e of indi.events) consider(e.date?.year);
+  for (const famId of indi.spouseOf) for (const e of ds.families.get(famId)?.events ?? []) consider(e.date?.year);
+  return last;
 }
 
 /** A short label for the preview list: primary name + life years. */
@@ -391,7 +408,7 @@ export function privatizeDataset(
     }
   }
 
-  const byReason: Record<LivingReason, number> = { birth: 0, relative: 0, unknown: 0, recentDeath: 0, declared: 0 };
+  const byReason: Record<LivingReason, number> = { birth: 0, relative: 0, event: 0, unknown: 0, recentDeath: 0, declared: 0 };
   for (const f of flaggedList) byReason[f.reason]++;
 
   const report: PrivacyReport = {
