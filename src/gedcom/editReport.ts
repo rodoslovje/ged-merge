@@ -11,6 +11,7 @@ import { isPrivateNode } from "./private";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
 import { EDITABLE_LINK_TAGS } from "./edit/shared";
+import { formatCoord } from "../geo/points";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -165,13 +166,14 @@ const PLACE_FIELD_KEYS: EventFieldKey[] = ["place", "coord", "addr"];
  *  two unrelated events into one "modified" row. */
 const OVERLAP_KEYS = EVENT_FIELD_KEYS.filter((k) => k !== "coord");
 
-/** The place's MAP coordinate as a display string ("46.0511, 14.5051"), so a
+/** The place's MAP coordinate as a display string ("46.05110, 14.50510" —
+ *  the shared 5-decimal spelling, so a move of a few metres shows), so a
  *  geocode write-back (MAP LATI/LONG added under an existing PLAC) shows in
  *  the diff instead of silently disappearing. */
 function placeCoord(node: GedNode): string {
   const plac = firstChild(node, "PLAC");
   const coord = plac && placeNodeCoord(plac);
-  return coord ? `${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : "";
+  return coord ? formatCoord(coord) : "";
 }
 
 /**

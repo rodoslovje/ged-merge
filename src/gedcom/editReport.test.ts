@@ -229,8 +229,22 @@ describe("enrichEditReport — event diffing", () => {
     expect(birt[0].segments).toEqual([
       { text: "1901", state: "same" },
       { text: "Kranj", state: "same" },
-      { text: "46.2389, 14.3556", state: "changed" },
+      { text: "46.23890, 14.35560", state: "changed" },
     ]);
+  });
+
+  it("shows a coordinate nudged by a few metres, finer than four decimals", () => {
+    const place = "2 PLAC Kranj\n3 MAP\n4 LATI N46.23890\n4 LONG E14.35560\n";
+    const before = dataset(wrap(`0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n${place}`));
+    const after = dataset(
+      wrap(`0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n${place.replace("N46.23890", "N46.23893")}`),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].segments).toContainEqual({ text: "46.23893, 14.35560", from: "46.23890, 14.35560", state: "changed" });
   });
 
   it("renders a brand-new event as a plain addition (no segments)", () => {
@@ -290,7 +304,7 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
 
     const chra = report.changes.filter((c) => c.group === "event.CHRA");
     expect(chra).toHaveLength(1);
-    expect(chra[0].segments).toContainEqual({ text: "46.2389, 14.3556", state: "changed" });
+    expect(chra[0].segments).toContainEqual({ text: "46.23890, 14.35560", state: "changed" });
   });
 
   it("shows a place rename on a family MARB (banns) event", () => {
