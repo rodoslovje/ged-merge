@@ -232,6 +232,20 @@ describe("regroupRepositories", () => {
     expect(records.some((r) => r.xref === "@R3@")).toBe(false);
   });
 
+  it("keeps a repository another source still names in its second REPO link", () => {
+    // S4 is held by the Matricula archive first and by the Croatian
+    // collection's record second: moving S3 must not delete @R3@ under it.
+    const before = dataset(PER_COLLECTION.flatMap((l) => (l === "1 REPO @R4@" ? [l, "1 REPO @R3@"] : [l]))).records;
+    const report = scanRepoRegroup(before);
+    expect(report.groups.find((g) => g.id === "hr")?.emptied ?? []).toEqual([]);
+    const { records } = regroupRepositories(before, report.groups);
+    expect(records.some((r) => r.xref === "@R3@")).toBe(true);
+    expect(childrenByTag(records.find((r) => r.xref === "@S4@")!, "REPO").map((c) => c.value)).toEqual(["@R4@", "@R3@"]);
+    // Applied with a stale report that still lists @R3@ as emptied: kept too.
+    const stale = report.groups.map((g) => (g.id === "hr" ? { ...g, emptied: [{ xref: "@R3@", name: "x" }] } : g));
+    expect(regroupRepositories(before, stale).records.some((r) => r.xref === "@R3@")).toBe(true);
+  });
+
   it("gives a source that had no repository one, stating its id where the file does", () => {
     const before = dataset([
       "0 HEAD",
