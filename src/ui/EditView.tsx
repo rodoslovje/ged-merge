@@ -127,7 +127,7 @@ import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { mediaKindOf } from "./mediaPath";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
-import { eventDisplayLabel } from "../gedcom/eventTags";
+import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 
 
 interface Props {
@@ -226,11 +226,6 @@ interface Props {
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
 const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
-
-/** Events a person has at most one of: adding again focuses the existing row
- *  (Birth's always-present row included) instead of writing a duplicate, and
- *  the "+ Add event" menu stops offering them once present. */
-const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
