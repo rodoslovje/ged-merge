@@ -78,7 +78,7 @@ import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider, useMediaFolder } from "./ui/MediaFolderContext";
 import { saveFile, deleteFile } from "./persist/idb";
-import { LocalLoads } from "./state/localLoad";
+import { LocalLoads, SUPERSEDED } from "./state/localLoad";
 import { ChangeJournal, recordsPatch, type SyncMark } from "./state/mainSync";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
@@ -352,7 +352,7 @@ function AppContent() {
 
   // Dispatch a message from the GEDCOM worker to the right state. Invoked on
   // every worker message via useGedcomWorker's latest-handler ref.
-  const handleWorkerMessage = (msg: WorkerResponse) => {
+  const handleWorkerMessage = async (msg: WorkerResponse): Promise<void> => {
       if (msg.type === "mainOutOfStep") {
         // The worker's main did not take the edits sent to it (see
         // syncWorkerMain): send the whole file. The worker holds what came
@@ -453,8 +453,11 @@ function AppContent() {
         // The dataset the message stands for is this side's own copy (or, for
         // a table compare, the one the message carries); a copy this side
         // failed to build while the worker succeeded is reported as a failed
-        // slot rather than left spinning.
-        const dataset = localLoads.resolve(msg);
+        // slot rather than left spinning. The copy may still be building: the
+        // queue below holds every later message until this one is done.
+        const dataset = await localLoads.resolve(msg);
+        // A newer load of the slot overtook the build: its own answer follows.
+        if (dataset === SUPERSEDED) return;
         if (!dataset) {
           dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: t("load.unreadable") });
           void deleteFile(msg.role);
@@ -530,14 +533,32 @@ function AppContent() {
     persistence.hydratedRef.current = true; // a failed restore must not block persistence
   };
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
-  const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage, handleWorkerFailure);
+  // Worker messages are handled one at a time, in order: a `parsed` waits for
+  // this side's own copy of the dataset, which is built in slices (see
+  // LocalLoads), and nothing that follows it may overtake it. Messages from a
+  // worker since torn down (resetWorker) are dropped unhandled.
+  const handleWorkerMessageRef = useRef(handleWorkerMessage);
+  handleWorkerMessageRef.current = handleWorkerMessage;
+  const workerQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const workerEpochRef = useRef(0);
+  const queueWorkerMessage = useCallback((msg: WorkerResponse) => {
+    const epoch = workerEpochRef.current;
+    workerQueueRef.current = workerQueueRef.current
+      .then(() => (epoch === workerEpochRef.current ? handleWorkerMessageRef.current(msg) : undefined))
+      .catch((err: unknown) => console.error("gedcom worker message:", err));
+  }, []);
+  const { post, reset: respawnWorker } = useGedcomWorker(queueWorkerMessage, handleWorkerFailure);
+  const resetWorker = () => {
+    workerEpochRef.current++;
+    respawnWorker();
+  };
   // A match row's score tooltip asks the worker for the pair's breakdown.
   useEffect(() => {
     connectScoreDetails((mainId, compareId, generation) => post({ type: "scoreDetail", mainId, compareId, generation }));
     return () => connectScoreDetails(undefined);
   }, [post]);
-  // Every load goes through here: the worker gets the bytes, and this side
-  // builds the same dataset from a copy before the worker can answer.
+  // Every load goes through here: this side decodes the bytes, the worker
+  // gets them, and this side builds the same dataset in slices meanwhile.
   const feed = useCallback(
     (msg: WorkerRequest, transfer?: Transferable[]) => localLoads.feed(post, msg, transfer),
     [localLoads, post],

@@ -1,14 +1,25 @@
-import { buildDataset } from "../gedcom/builder";
-import { parseGedcom } from "../gedcom/parser";
+import { buildDatasetSteps } from "../gedcom/builder";
+import { decodeGedcom, type DecodeResult } from "../gedcom/decode";
+import { parseGedcomSteps } from "../gedcom/parser";
+import type { Steps } from "../gedcom/steps";
 import type { Dataset, ParseResult } from "../gedcom/types";
 import { normalizeDataset } from "../normalize/normalize";
 import { applyNormPatch } from "../normalize/normPatch";
 import { collectLayoutValues, primePlaceExportFormat } from "../normalize/profile";
 import type { MainProfile } from "../normalize/types";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
-import type { DatasetRole, WorkerRequest, WorkerResponse } from "../worker/messages";
+import type { WorkerRequest, WorkerResponse } from "../worker/messages";
 
 type Parsed = Extract<WorkerResponse, { type: "parsed" }>;
+
+/** What {@link LocalLoads.resolve} answers for an announcement a later load
+ *  of the same slot has overtaken while this side was still building it —
+ *  not a failure: the newer load's own announcement is on its way. */
+export const SUPERSEDED = "superseded";
+
+/** How long one slice of a main-thread build may run before the page gets a
+ *  turn to paint and take input. */
+const SLICE_MS = 40;
 
 /**
  * The main thread's own copies of the GEDCOM datasets, built from the same
@@ -23,17 +34,24 @@ type Parsed = Extract<WorkerResponse, { type: "parsed" }>;
  * confirmed-default `mergeDuplicate` of consolidated incoming duplicates
  * (posted as `consolidated`) — so the two copies agree record for record.
  *
+ * The bytes are decoded here before they are handed to the worker, so the
+ * buffer is transferred, not copied; and the parse and build run in slices
+ * of {@link SLICE_MS} (a 500k-person file is ~6 s of work), so the page keeps
+ * painting while they run. An announcement is answered once its build is done.
+ *
  * Memory: the main holds its dataset (as it always did); the compare holds
- * its normalized dataset plus the file's bytes, parsed afresh whenever a new
- * main means the compare is normalized again. The parse taken at load time is
- * dropped once it has been built.
+ * its normalized dataset plus the file's decoded text, parsed afresh whenever
+ * a new main means the compare is normalized again.
  */
 export class LocalLoads {
-  private main: { fileName: string; dataset: Dataset } | undefined;
-  private compareBytes: { fileName: string; buffer: ArrayBuffer } | undefined;
-  /** A parse of the compare's bytes not yet built (so not yet patched): what
+  /** The main being built or built, per load. */
+  private main: { fileName: string; gen: number; dataset: Promise<Dataset | undefined> } | undefined;
+  private mainGen = 0;
+  private compareText: { fileName: string; gen: number; decoded: DecodeResult } | undefined;
+  /** A parse of the compare's text not yet built (so not yet patched): what
    *  the worker's first announcement of the compare is replayed onto. */
-  private compareParsed: { fileName: string; parsed: ParseResult } | undefined;
+  private compareParsed: { fileName: string; parsed: Promise<ParseResult | undefined> } | undefined;
+  private compareGen = 0;
   private profile: MainProfile | undefined;
   /** The compare dataset last resolved — what a consolidation replays onto.
    *  Kept here, not read from React state: the worker posts the compare and
@@ -43,9 +61,9 @@ export class LocalLoads {
 
   /**
    * Send a request to the worker, and for a GEDCOM `parse` that will be
-   * announced, build the same dataset here first — synchronously, so the
-   * worker's `parsed` cannot be handled before the local copy exists. The
-   * buffer is copied before it is transferred away.
+   * announced, decode its bytes first and start building the same dataset
+   * here. Announcements must be resolved in the order they arrive (each
+   * awaited before the next), as the app's worker queue does.
    */
   feed(post: (msg: WorkerRequest, transfer?: Transferable[]) => void, msg: WorkerRequest, transfer?: Transferable[]): void {
     if (msg.type === "parseCsv" || msg.type === "clearCompare") this.clearCompare();
@@ -53,30 +71,30 @@ export class LocalLoads {
       post(msg, transfer);
       return;
     }
-    const copy = msg.buffer.slice(0);
+    // Decoded before the bytes are transferred away: the text is what both
+    // the parse below and any later re-parse of the compare read.
+    let decoded: DecodeResult | undefined;
+    try {
+      decoded = decodeGedcom(msg.buffer);
+    } catch {
+      // The worker decodes the same bytes and reports the failure for the slot.
+    }
     post(msg, transfer);
-    this.build(msg.role, msg.fileName, copy);
-  }
-
-  /** Build the local dataset for a GEDCOM parse request (see {@link feed}). */
-  build(role: DatasetRole, fileName: string, buffer: ArrayBuffer): void {
-    if (role === "compare") {
-      // Parsed only: the build waits for the worker's word on how the file
-      // was normalized, which is applied to this parse first.
-      this.compareBytes = { fileName, buffer };
-      this.compareParsed = undefined;
-      try {
-        this.compareParsed = { fileName, parsed: parseGedcom(buffer) };
-      } catch {
-        // The worker parses the same bytes and reports the failure for the slot.
-      }
+    if (msg.role === "main") {
+      const gen = ++this.mainGen;
+      const alive = () => this.mainGen === gen;
+      this.main = {
+        fileName: msg.fileName,
+        gen,
+        dataset: decoded ? buildSliced(decoded, alive) : Promise.resolve(undefined),
+      };
       return;
     }
-    try {
-      this.main = { fileName, dataset: buildDataset(parseGedcom(buffer)) };
-    } catch {
-      this.main = undefined; // as above
-    }
+    const gen = ++this.compareGen;
+    this.compareText = decoded && { fileName: msg.fileName, gen, decoded };
+    // Parsed only: the build waits for the worker's word on how the file was
+    // normalized, which is applied to this parse first.
+    this.compareParsed = decoded && { fileName: msg.fileName, parsed: this.parseCompare(decoded, gen) };
   }
 
   /**
@@ -85,26 +103,32 @@ export class LocalLoads {
    * normalization replayed, or the last resolved compare with the announced
    * consolidation replayed.
    * Undefined when the local copy is missing — a parse the worker accepted but
-   * this side did not, which the caller reports as a failed slot.
+   * this side did not, which the caller reports as a failed slot; and
+   * {@link SUPERSEDED} when a newer load of the slot overtook the build.
    */
-  resolve(msg: Parsed): Dataset | undefined {
+  async resolve(msg: Parsed): Promise<Dataset | undefined | typeof SUPERSEDED> {
     if (msg.role === "main") return this.resolveMain(msg);
-    const dataset = this.resolveCompare(msg);
+    const gen = this.compareGen;
+    const dataset = await this.resolveCompare(msg).catch(() => undefined);
+    if (gen !== this.compareGen) return SUPERSEDED;
     this.lastCompare = dataset ? { fileName: msg.fileName, dataset } : undefined;
     return dataset;
   }
 
-  private resolveMain(msg: Parsed): Dataset | undefined {
+  private async resolveMain(msg: Parsed): Promise<Dataset | undefined | typeof SUPERSEDED> {
     this.profile = msg.profile;
     if (msg.dataset) return msg.dataset;
-    const main = this.main?.fileName === msg.fileName ? this.main.dataset : undefined;
+    const local = this.main?.fileName === msg.fileName ? this.main : undefined;
+    if (!local) return undefined;
+    const main = await local.dataset;
+    if (local.gen !== this.mainGen) return SUPERSEDED;
     // The worker already walked the file for its place format; hand the
     // answer to this side's copy so the first place field need not.
     if (main && msg.placeFmt) primePlaceExportFormat(main, msg.placeFmt);
     return main;
   }
 
-  private resolveCompare(msg: Parsed): Dataset | undefined {
+  private async resolveCompare(msg: Parsed): Promise<Dataset | undefined> {
     // A compare normalized by the worker names the profile it used: after a
     // silent main re-feed that is the only word this side gets of it.
     if (msg.profile) this.profile = msg.profile;
@@ -118,42 +142,89 @@ export class LocalLoads {
       return { ...currentCompare };
     }
     if (msg.dataset) return msg.dataset;
-    let parsed = this.freshCompareParse(msg.fileName);
+    const gen = this.compareGen;
+    const alive = () => this.compareGen === gen;
+    let parsed = await this.freshCompareParse(msg.fileName);
     if (!parsed) return undefined;
     if (msg.normalized) {
-      if (applyNormPatch(parsed.records, msg.normalized)) return buildDataset(parsed);
+      if (applyNormPatch(parsed.records, msg.normalized)) return runSliced(buildDatasetSteps(parsed), alive);
       // Not the forest the edits were made against — never expected, as both
       // sides parse the same bytes. Normalize here instead, as a fallback.
-      parsed = this.freshCompareParse(msg.fileName);
+      parsed = await this.freshCompareParse(msg.fileName);
       if (!parsed) return undefined;
     }
-    const raw = buildDataset(parsed);
+    const raw = await runSliced(buildDatasetSteps(parsed), alive);
     // No main yet: announced raw, as the worker does.
-    if (!msg.report || !this.profile) return raw;
+    if (!raw || !msg.report || !this.profile) return raw;
     const { dateValues } = collectLayoutValues(raw);
     return normalizeDataset(raw, this.profile, dateValues).dataset;
   }
 
-  /** A parse of the compare's bytes no build has touched yet — the one taken
-   *  at load time, once, and a new one from the kept bytes after that. */
-  private freshCompareParse(fileName: string): ParseResult | undefined {
+  private parseCompare(decoded: DecodeResult, gen: number): Promise<ParseResult | undefined> {
+    return runSliced(parseGedcomSteps(decoded), () => this.compareGen === gen).catch(() => undefined);
+  }
+
+  /** A parse of the compare's text no build has touched yet — the one taken
+   *  at load time, once, and a new one from the kept text after that. */
+  private freshCompareParse(fileName: string): Promise<ParseResult | undefined> {
     const kept = this.compareParsed;
     this.compareParsed = undefined;
     if (kept?.fileName === fileName) return kept.parsed;
-    if (this.compareBytes?.fileName !== fileName) return undefined;
-    try {
-      return parseGedcom(this.compareBytes.buffer);
-    } catch {
-      return undefined;
-    }
+    const text = this.compareText;
+    if (text?.fileName !== fileName) return Promise.resolve(undefined);
+    return this.parseCompare(text.decoded, text.gen);
   }
 
   /** Forget the compare (the slot was unloaded or replaced by a table). */
   clearCompare(): void {
-    this.compareBytes = undefined;
+    this.compareGen++;
+    this.compareText = undefined;
     this.compareParsed = undefined;
     this.lastCompare = undefined;
   }
+}
+
+/** Parse and build decoded text in slices; undefined when it fails or a
+ *  newer load overtakes it (`alive` turns false). */
+function buildSliced(decoded: DecodeResult, alive: () => boolean): Promise<Dataset | undefined> {
+  return (async () => {
+    const parsed = await runSliced(parseGedcomSteps(decoded), alive);
+    return parsed && runSliced(buildDatasetSteps(parsed), alive);
+  })().catch(() => undefined);
+}
+
+/**
+ * Run a stepped pass (see `gedcom/steps.ts`) in slices of {@link SLICE_MS},
+ * giving the page a turn between them. Undefined once `alive` turns false.
+ * The first slice runs at once, in the caller's task.
+ */
+async function runSliced<T>(steps: Steps<T>, alive: () => boolean): Promise<T | undefined> {
+  let deadline = performance.now() + SLICE_MS;
+  for (;;) {
+    const r = steps.next();
+    if (r.done) return r.value;
+    if (performance.now() < deadline) continue;
+    await nextTask();
+    if (!alive()) return undefined;
+    deadline = performance.now() + SLICE_MS;
+  }
+}
+
+/** Resolve in a later task, so rendering and input get their turn. A message
+ *  to ourselves rather than a timer: nested timers are clamped to 4 ms, which
+ *  over a few hundred slices adds up. */
+function nextTask(): Promise<void> {
+  if (typeof MessageChannel === "undefined" || typeof document === "undefined") {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return new Promise((resolve) => {
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = () => {
+      port1.close();
+      resolve();
+    };
+    port2.postMessage(undefined);
+  });
 }
 
 /** The worker merges with a no-op translator (it has no i18n); the replay must

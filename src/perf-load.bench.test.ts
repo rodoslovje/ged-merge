@@ -18,6 +18,7 @@ import { collectLayoutValues, inferMainProfile } from "./normalize/profile";
 import { rebuildIndividual } from "./gedcom/edit/cache";
 import type { GedNode } from "./gedcom/types";
 import { SerializedMain } from "./persist/serializedMain";
+import { LocalLoads } from "./state/localLoad";
 import { buildFieldSuggestions, FieldSuggestionIndex } from "./ui/edit/fieldSuggestions";
 import { applyRecordsPatch, ChangeJournal, datasetFromSnapshot, mainSnapshot, recordsPatch } from "./state/mainSync";
 
@@ -35,6 +36,33 @@ const bytes = (path: string): ArrayBuffer => {
   const buf = readFileSync(path);
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 };
+
+describe.skipIf(!mainFile)("main load blocking", () => {
+  it("times the longest stretch the main thread is blocked loading the main", async () => {
+    const buf = bytes(mainFile!);
+    console.log(`main ${mainFile}`);
+    const local = new LocalLoads();
+    const gaps: number[] = [];
+    let last = performance.now();
+    let done = false;
+    const tick = () => setTimeout(() => {
+      const now = performance.now();
+      gaps.push(now - last);
+      last = now;
+      if (!done) tick();
+    }, 0);
+    let t0 = performance.now();
+    tick();
+    local.feed(() => {}, { type: "parse", role: "main", fileName: "m.ged", buffer: buf.slice(0) });
+    const ds = await local.resolve({ type: "parsed", role: "main", fileName: "m.ged" });
+    done = true;
+    const worst = gaps.map((g, i) => `${g.toFixed(0)}@${i}`).sort((a, b) => parseFloat(b) - parseFloat(a)).slice(0, 5).join(", ");
+    console.log(`after: built ${typeof ds === "object" ? ds.individuals.size : ds} people in ${(performance.now() - t0).toFixed(0)} ms over ${gaps.length} tasks; longest blocks ${worst} ms`);
+    t0 = performance.now();
+    buildDataset(parseGedcom(buf.slice(0)));
+    console.log(`before: copy + parse + build in one task: ${(performance.now() - t0).toFixed(0)} ms`);
+  }, 600_000);
+});
 
 describe.skipIf(!mainFile)("main sync cost profile", () => {
   it("times handing the main to a worker", () => {
