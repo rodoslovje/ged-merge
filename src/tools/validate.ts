@@ -345,7 +345,9 @@ export function duplicateFamilyGroups(ds: Dataset): Family[][] {
   const byCouple = new Map<string, Family[]>();
   for (const fam of ds.families.values()) {
     if (!fam.husband || !fam.wife) continue;
-    const key = `${fam.husband}\0${fam.wife}`;
+    // Order-free: the same couple with the roles swapped (one record writes
+    // her as HUSB) is still the same couple twice.
+    const key = [fam.husband, fam.wife].sort().join("\0");
     const group = byCouple.get(key);
     if (group) group.push(fam);
     else byCouple.set(key, [fam]);

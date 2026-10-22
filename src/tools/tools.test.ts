@@ -2937,6 +2937,16 @@ describe("fixDuplicateFamilies", () => {
     expect([...byId.keys()].sort()).toEqual(["@F1@", "@F2@", "@I1@", "@I2@", "@I4@"]);
   });
 
+  it("groups the same couple recorded with the spouse roles swapped", () => {
+    const swapped = twice.replace("0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I2@", "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I1@");
+    const ds = dataset(swapped);
+    expect(validateDataset(ds, 2026).counts.duplicateFamily).toBe(1);
+    fixDuplicateFamilies(ds);
+    expect(ds.families.size).toBe(1);
+    expect(ds.families.get("@F1@")!.children).toEqual(["@I4@", "@I3@"]);
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(0);
+  });
+
   it("repoints every other line naming the dropped family to the kept one", () => {
     // A third person names F2 in an association, an adoption and a vendor tag;
     // F1 names its twin, a line that would point at itself after the fold.
