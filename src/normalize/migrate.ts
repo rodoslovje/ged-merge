@@ -1,5 +1,5 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
-import { RELA_TO_ROLE, ROLE_TO_RELA } from "../gedcom/assoc";
+import { RELA_TO_ROLE, ROLE_TO_RELA, VOID_XREF } from "../gedcom/assoc";
 import { cloneNode, firstChild } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
@@ -32,7 +32,10 @@ import { walkNodes } from "./walk";
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
- *                                        `NO` → `_NO`, `SEX X` → `U`
+ *                                        `NO` → `_NO`, `SDATE` → `_SDATE`, a
+ *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
+ *                                        `@VOID@` pointers (see below),
+ *                                        `SEX X` → `U`
  *
  * Not attempted (would create new records rather than rewrite in place):
  * extracting inline `OBJE`/text `SOUR` substructures into pointed records.
@@ -367,7 +370,70 @@ const UNDERSCORE_DOWNGRADES: Record<string, string> = {
   UID: "_UID",
   CREA: "_CREA",
   NO: "_NO",
+  SDATE: "_SDATE",
 };
+
+/** A 7.0 note's substructures, none of which 5.5.1's NOTE has. */
+const NOTE_DOWNGRADES: Record<string, string> = {
+  MIME: "_MIME",
+  LANG: "_LANG",
+  TRAN: "_TRAN",
+};
+
+function isVoidPointer(value: string | undefined): boolean {
+  return value?.trim().toUpperCase() === VOID_XREF;
+}
+
+/**
+ * 7.0's `@VOID@` pointer — "someone or something this file does not record" —
+ * has no 5.5.1 form. A family link to nobody says nothing and is dropped. One
+ * that names its target in a `PHRASE` becomes a note with that name, and an
+ * association's note says the role too ("Ana Novak (botra)"); its other lines
+ * go with it, since a reader can still find an unexpected line but not a
+ * dropped one. A citation of an unrecorded source becomes 5.5.1's own form for
+ * that: a text citation, described by its page, with the transcript as TEXT.
+ *
+ * Runs first, while an association's role is still 7.0's `ROLE`.
+ */
+function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
+  walkNodes(records, (node) => {
+    if (!node.children.some((c) => isVoidPointer(c.value))) return;
+    const kept: GedNode[] = [];
+    for (const child of node.children) {
+      if (!isVoidPointer(child.value)) {
+        kept.push(child);
+        continue;
+      }
+      const before = `${node.tag}.${child.tag} ${VOID_XREF}`;
+      const replaced = child.tag === "SOUR" ? voidCitation(child) : voidAsNote(child);
+      ctx.changed++;
+      ctx.onChange(before, replaced ? `${node.tag}.${describe(replaced)}` : "—");
+      if (replaced) kept.push(replaced);
+    }
+    node.children = kept;
+  });
+}
+
+function voidAsNote(node: GedNode): GedNode | undefined {
+  const phrase = firstChild(node, "PHRASE")?.value?.trim();
+  if (!phrase) return undefined;
+  const role = node.tag === "ASSO" ? firstChild(node, "ROLE") : undefined;
+  const roleText = role && (firstChild(role, "PHRASE")?.value?.trim() || ROLE_TO_RELA[role.value?.trim().toUpperCase() ?? ""]);
+  const note = plain("NOTE", roleText ? `${phrase} (${roleText})` : phrase);
+  note.level = node.level;
+  note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE");
+  return note;
+}
+
+function voidCitation(node: GedNode): GedNode | undefined {
+  const page = firstChild(node, "PAGE")?.value?.trim();
+  const texts = firstChild(node, "DATA")?.children.filter((c) => c.tag === "TEXT") ?? [];
+  if (!page && texts.length === 0) return undefined;
+  const rest = node.children.filter((c) => c.tag !== "PAGE" && c.tag !== "DATA");
+  node.value = page ?? "";
+  node.children = [...texts, ...rest];
+  return node;
+}
 
 /**
  * 5.5.1 defines `ASSO` in one place: under an `INDI` record. Both of the other
@@ -421,6 +487,7 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
 }
 
 function downgrade(records: GedNode[], ctx: MigrateCtx): void {
+  downgradeVoidPointers(records, ctx);
   const snoteXrefs = new Set(
     records.filter((r) => r.tag === "SNOTE" && r.xref).map((r) => r.xref!),
   );
@@ -431,6 +498,13 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
   }
 
   walkNodes(records, (node) => {
+    // A note is visited before its lines, so its TRAN is renamed before the
+    // name-variant rewrite below could take it for a ROMN/FONE.
+    if (node.tag === "NOTE" && !isPointer(node.value)) {
+      for (const c of node.children) {
+        if (c.tag in NOTE_DOWNGRADES) report(ctx, retag(c, NOTE_DOWNGRADES[c.tag]), `NOTE.${describe(c)}`);
+      }
+    }
     if (node.tag === "SNOTE" && isPointer(node.value) && snoteXrefs.has(node.value)) {
       report(ctx, retag(node, "NOTE"), `SNOTE ${node.value}`);
     } else if (node.tag === "DATE") {

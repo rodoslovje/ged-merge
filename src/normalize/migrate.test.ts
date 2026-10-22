@@ -6,6 +6,7 @@ import { childrenByTag, childValue, findByPath, firstChild } from "../gedcom/nod
 import { inferMainProfile } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { migrateVersion } from "./migrate";
+import { serializeGedcom } from "../gedcom/serialize";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -408,6 +409,41 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(childValue(form, "TYPE")).toBe("PHOTO");
   });
 
+  it("keeps a note's MIME, LANG and TRAN as extension tags, not as a name variant", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 NOTE <b>Hi</b>\n2 MIME text/html\n2 LANG en\n2 TRAN Živjo\n3 LANG sl\n" +
+        "0 @N1@ SNOTE Shared\n1 LANG en\n",
+      "5.5.1",
+    );
+    const note = firstChild(record(records, "@I1@"), "NOTE")!;
+    expect(note.children.map((c) => c.tag)).toEqual(["_MIME", "_LANG", "_TRAN"]);
+    expect(childValue(note, "_TRAN")).toBe("Živjo");
+    expect(record(records, "@N1@").children.map((c) => c.tag)).toEqual(["_LANG"]);
+  });
+
+  it("writes @VOID@ pointers the way 5.5.1 can, or drops them", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 FAMC @VOID@\n1 BAPM\n2 ASSO @VOID@\n3 PHRASE Ana Novak\n3 ROLE GODP\n4 PHRASE botra\n" +
+        "2 SOUR @VOID@\n3 PAGE Parish book, p. 4\n3 DATA\n4 TEXT baptized\n2 SDATE 3 MAR 1900\n" +
+        "0 @F1@ FAM\n1 HUSB @VOID@\n2 PHRASE unknown soldier\n1 WIFE @I1@\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(firstChild(indi, "FAMC")).toBeUndefined();
+    const bapm = firstChild(indi, "BAPM")!;
+    expect(firstChild(bapm, "ASSO")).toBeUndefined();
+    expect(childValue(bapm, "NOTE")).toBe("Ana Novak (botra)");
+    const sour = firstChild(bapm, "SOUR")!;
+    expect(sour.value).toBe("Parish book, p. 4");
+    expect(sour.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["TEXT baptized"]);
+    expect(childValue(bapm, "_SDATE")).toBe("3 MAR 1900");
+    const fam = record(records, "@F1@");
+    expect(firstChild(fam, "HUSB")).toBeUndefined();
+    expect(childValue(fam, "NOTE")).toBe("unknown soldier");
+  });
+
   it("downgrades every FILE of a multi-FILE OBJE, none dropped", () => {
     const { records } = migrated(
       "7.0",
@@ -418,6 +454,19 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(files.map((f) => f.value)).toEqual(["a.jpg", "b.png"]);
     expect(files.map((f) => childValue(f, "FORM"))).toEqual(["jpg", "png"]);
     expect(childValue(files[0], "TITL")).toBe("Poroka");
+  });
+});
+
+describe("migrateVersion 5.5.1 → 7.0 → 5.5.1", () => {
+  it("brings a 5.5.1 file back as it was", () => {
+    const body =
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710\n" +
+      "1 DEAT\n2 DATE ABT @#DJULIAN@ 1750\n1 BURI\n2 DATE BET 300 B.C. AND 100 B.C.\n" +
+      "1 ASSO @I2@\n2 RELA Godmother\n1 NOTE @N1@\n1 OBJE\n2 FILE scan.djvu\n3 FORM djvu\n" +
+      "0 @I2@ INDI\n1 NAME Eva /Kos/\n0 @N1@ NOTE Shared\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
   });
 });
 
