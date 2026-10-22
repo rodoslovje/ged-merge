@@ -200,3 +200,41 @@ describe("sharedNotesUsedTwice", () => {
     ]))).toBe(1);
   });
 });
+
+describe("reshapeNotes — GEDCOM 7 SNOTE", () => {
+  const V7 = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 7.0",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 SNOTE @N1@",
+    "1 BIRT",
+    "2 SNOTE @N1@",
+    "0 @I2@ INDI",
+    "1 NAME Ana /Kos/",
+    "1 NOTE an inline note",
+    "0 @N1@ SNOTE a shared note",
+    "0 TRLR",
+    "",
+  ];
+
+  it("counts SNOTE pointers as shared notes", () => {
+    expect(detectNoteShapes(parse(V7))).toEqual({ record: "inline", event: "shared" });
+    expect(sharedNotesUsedTwice(parse(V7))).toBe(1);
+  });
+
+  it("flattens an SNOTE pointer into an inline NOTE and drops the record", () => {
+    const { text, changed } = out(V7, "inline");
+    expect(changed).toBe(2);
+    expect(text).toContain("1 NOTE a shared note\n1 BIRT\n2 NOTE a shared note");
+    expect(text).not.toContain("SNOTE");
+  });
+
+  it("lifts an inline note into an SNOTE record and pointer", () => {
+    const { text } = out(V7, "shared");
+    expect(text).toContain("1 SNOTE @N2@");
+    expect(text).toContain("0 @N2@ SNOTE an inline note");
+    expect(text).not.toMatch(/^\d NOTE /m);
+  });
+});
