@@ -81,7 +81,7 @@ export function detectNoteStyle(records: GedNode[]): NoteStyle {
   for (const rec of records) {
     if (!rec.xref) continue;
     for (const child of rec.children) {
-      if (child.tag !== "NOTE") continue;
+      if (!NOTE_TAGS.includes(child.tag)) continue;
       const v = child.value?.trim();
       if (v && isPointer(v)) shared++;
       else inline++;
@@ -96,13 +96,14 @@ function noteStyleOf(ctx: SharedNoteCtx): NoteStyle {
 }
 
 /**
- * Create a shared `0 @N…@ NOTE` record holding `text`, and return its xref for
- * the pointer that will refer to it. Recorded in `ctx` like every other shared
- * change, so undo removes the record along with the pointer.
+ * Create a shared `0 @N…@ NOTE` record holding `text` (`SNOTE` in a GEDCOM 7
+ * file, which is also how its pointer then gets written), and return its xref
+ * for the pointer that will refer to it. Recorded in `ctx` like every other
+ * shared change, so undo removes the record along with the pointer.
  */
 function createNoteRecord(ctx: SharedNoteCtx, text: string): string {
   const xref = nextXref(ctx.records, "N");
-  const rec: GedNode = { level: 0, xref, tag: "NOTE", value: text, children: [] };
+  const rec: GedNode = { level: 0, xref, tag: isV7(ctx.records) ? "SNOTE" : "NOTE", value: text, children: [] };
   syncNoteMime(rec, ctx.records);
   insertRecord(ctx.records, rec);
   bumpSourceCacheVersion(ctx.records);
