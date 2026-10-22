@@ -23,6 +23,13 @@ describe("dateDisplayFormatter", () => {
     expect(show("DD.MM.YYYY", "MAR 1850")).toBe("03.1850");
   });
 
+  it("writes the Slovenian form with a space after each dot", () => {
+    expect(show("D. M. YYYY", "5 MAR 1850")).toBe("5. 3. 1850");
+    expect(show("D. M. YYYY", "ABT 05.03.1850")).toBe("ABT 5. 3. 1850");
+    expect(show("D. M. YYYY", "MAR 1850")).toBe("3. 1850");
+    expect(show("D. M. YYYY", "1850")).toBe("1850");
+  });
+
   it("keeps the text of what no pattern can hold", () => {
     expect(show("DD.MM.YYYY", "@#DJULIAN@ 5 MAR 1700")).toBe("@#DJULIAN@ 5 MAR 1700");
     expect(show("DD.MM.YYYY", "v vojni")).toBe("v vojni");
