@@ -977,6 +977,85 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
   });
 });
 
+describe("mergeDecisions — a child's parents who are already a couple", () => {
+  // The main already records Jakob & Neza's marriage (with another child);
+  // Janez is in the file with no parents. The incoming file names Jakob & Neza
+  // as his parents.
+  const main = dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "0 @I4@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n",
+  ));
+  const compare = dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+      "0 @P2@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 FAMS @PF@\n" +
+      "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+      "0 @PF@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n",
+  ));
+  const matches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I3@", compareId: "@P3@" },
+    ],
+  } as never;
+
+  it("adds the confirmed child to the couple's family instead of making a second one", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n1 CHIL @I3@\n");
+    expect(out).toContain("0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n");
+    expect(report.newFamilies).toBe(0);
+  });
+
+  it("an ancestor graft joins the couple's family too", () => {
+    const { records } = mergeDecisions(main, compare, new Map(), matches, tr, [
+      { incomingId: "@P3@", direction: "ancestors" },
+    ]);
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+    expect(serializeGedcom(records)).toContain("1 CHIL @I4@\n1 CHIL @I3@\n");
+  });
+
+  it("a father alone does not take a family whose wife the incoming file never named", () => {
+    const fatherOnly = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P3@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records } = mergeDecisions(main, fatherOnly, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n");
+    expect(out).toMatch(/0 @F2@ FAM\n1 HUSB @I1@\n1 CHIL @I3@\n/);
+  });
+
+  it("an ancestor walk that links no parent leaves no parentless family behind", () => {
+    // The father is pinned to a main record that no longer exists, so the
+    // walk cannot link him — and nobody else.
+    const fatherOnly = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P3@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "rejected", fields: {}, added: { "@P1@": "@I99@" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, fatherOnly, decisions, matches, tr, [
+      { incomingId: "@P3@", direction: "ancestors" },
+    ]);
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+    expect(report.newFamilies).toBe(0);
+  });
+});
+
 describe("mergeDecisions — links", () => {
   it("adds a new incoming link the main lacks", () => {
     const main = dataset(MAIN);
