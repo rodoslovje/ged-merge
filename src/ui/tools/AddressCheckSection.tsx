@@ -34,6 +34,7 @@ import {
   RenameEditor,
   RenameToggle,
   RowMap,
+  useRenameDraft,
 } from "./shared";
 import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -150,8 +151,7 @@ export function AddressCheckSection({
   const [mapOpen, setMapOpen] = useState<string | null>(null);
   /** The one row whose ✎ is open, and its draft — the same one-at-a-time editor
    *  the other three lists keep. */
-  const [renameKey, setRenameKey] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
+  const rename = useRenameDraft();
 
   const toggleGroup = (place: string) =>
     setOpenGroups((prev) => {
@@ -272,13 +272,14 @@ export function AddressCheckSection({
    * Its own rename, not a spelling taken: the row leaves the report afterwards,
    * because what the check judged is no longer what the file says.
    */
-  const applyRename = (f: AddressFinding) => {
-    const to = renameDraft.trim();
-    setRenameKey(null);
-    if (!to || to === f.written) return;
-    setApplied(onRenameAddresses([{ rawKeys: f.rawKeys, from: f.written, to }]));
-    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
-  };
+  const applyRename = (f: AddressFinding) =>
+    rename.apply(
+      (to) => to === f.written,
+      (to) => {
+        setApplied(onRenameAddresses([{ rawKeys: f.rawKeys, from: f.written, to }]));
+        setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
+      },
+    );
 
   /** File this house where the register files it: the events at it get the
    *  settlement the register names, and their address lines are left alone —
@@ -622,12 +623,9 @@ export function AddressCheckSection({
                             findings keep theirs: right after the value, before
                             whatever the register proposes about it. */}
                         <RenameToggle
-                          open={renameKey === f.key}
-                          onOpen={() => {
-                            setRenameKey(f.key);
-                            setRenameDraft(f.written);
-                          }}
-                          onClose={() => setRenameKey(null)}
+                          open={rename.key === f.key}
+                          onOpen={() => rename.open(f.key, f.written)}
+                          onClose={rename.close}
                           title={t("tools.geocode.addr.renameOpen")}
                         />
                         {/* Whose house it is, beside the value and its ✎ — the
@@ -712,22 +710,22 @@ export function AddressCheckSection({
                           </button>
                         </span>
                       </GeoRowHeader>
-                      {renameKey === f.key && (
+                      {rename.key === f.key && (
                         // Completed from the other houses of the same place, as
                         // on the geocoding addresses list: a hand-written fix
                         // here is usually a straggler being joined to a spelling
                         // the place already has.
                         <RenameEditor
-                          value={renameDraft}
+                          value={rename.draft}
                           suggestions={(placeSug.placeToAddrs.get(placeKey(f.place)) ?? []).filter(
                             (a) => a !== f.written,
                           )}
                           canonical={placeSug.addrCanonical}
                           placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                          applyDisabled={!renameDraft.trim() || renameDraft.trim() === f.written}
-                          onChange={setRenameDraft}
+                          applyDisabled={!rename.draft.trim() || rename.draft.trim() === f.written}
+                          onChange={rename.setDraft}
                           onApply={() => applyRename(f)}
-                          onCancel={() => setRenameKey(null)}
+                          onCancel={rename.close}
                         />
                       )}
                       {isOpen && (

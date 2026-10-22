@@ -30,6 +30,7 @@ import {
   MapToggle,
   RenameEditor,
   RenameToggle,
+  useRenameDraft,
 } from "./shared";
 import { sameCoord } from "../../geo/points";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
@@ -180,11 +181,8 @@ export function RegisterCheckSection({
   /** Answers a row asked for beyond the ones its name matches outright — see
    *  {@link searchWider}. Kept per row, since each is its own question. */
   const [wider, setWider] = useState<Map<string, GazEntry[]>>(new Map());
-  /** The row whose name is being edited, and the text so far. One at a time:
-   *  the box replaces the row's own line, so two open at once would be two
-   *  rows claiming the same edit. */
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
+  /** The row whose name is being edited, and the text so far. */
+  const rename = useRenameDraft();
   /** The house to take out of the value while renaming it, as the places list's
    *  rename offers: the correction to a value with a house in it is usually
    *  both — the settlement spelt the register's way, and the house on its own
@@ -203,11 +201,12 @@ export function RegisterCheckSection({
    *  close the box. A draft that says nothing new is simply a cancel — unless
    *  it names a house to move out, which is a change on its own. */
   const applyRename = (from: string) => {
-    const to = renameDraft.trim();
     const addr = renameAddrDraft.trim();
-    setRenaming(null);
     setRenameAddrDraft("");
-    if (to && (to !== from || addr)) void renameAndPlace(from, to, addr);
+    rename.apply(
+      (to) => to === from && !addr,
+      (to) => void renameAndPlace(from, to, addr),
+    );
   };
 
   /**
@@ -461,16 +460,18 @@ export function RegisterCheckSection({
     [onApplyOfficialNames],
   );
 
-  const openRename = useCallback((key: string) => {
-    setRenaming(key);
-    setRenameDraft(key);
-    // Empty, not the house the check would take out: the place box opens on
-    // the *raw* value, which still has that house in it, and filling both
-    // would write it twice. What goes in the address box is the part being
-    // taken out of what the place box ends up saying.
-    setRenameAddrDraft("");
-  }, []);
-  const closeRename = useCallback(() => setRenaming(null), []);
+  const { open: openRenameDraft, close: closeRename } = rename;
+  const openRename = useCallback(
+    (key: string) => {
+      openRenameDraft(key, key);
+      // Empty, not the house the check would take out: the place box opens on
+      // the *raw* value, which still has that house in it, and filling both
+      // would write it twice. What goes in the address box is the part being
+      // taken out of what the place box ends up saying.
+      setRenameAddrDraft("");
+    },
+    [openRenameDraft],
+  );
 
   if (!report || !view) return null;
 
@@ -521,13 +522,13 @@ export function RegisterCheckSection({
    *  one row rather than every mounted one. */
   const renameEditor = (key: string): ReactNode => (
     <RenameEditor
-      value={renameDraft}
+      value={rename.draft}
       suggestions={placeSug.placeSuggestions}
       canonical={placeSug.placeCanonical}
       placeholder={t("tools.places.rename.placeholder")}
-      onChange={setRenameDraft}
+      onChange={rename.setDraft}
       onApply={() => applyRename(key)}
-      onCancel={() => setRenaming(null)}
+      onCancel={closeRename}
       // The file's own places cannot help here: the row is open
       // because what it writes is not a name the register holds,
       // and the correct name may appear nowhere in the file. So
@@ -537,7 +538,7 @@ export function RegisterCheckSection({
       onLookup={lookup ? (q) => lookup.search(q) : undefined}
       lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
       onPickProposal={(proposal) => {
-        setRenameDraft(proposal.plac);
+        rename.setDraft(proposal.plac);
         setRenameAddrDraft(proposal.addr ?? "");
         setRenamePick({
           place: proposal.plac,
@@ -671,7 +672,7 @@ export function RegisterCheckSection({
                 peopleShown={peopleOpen.has(f.key)}
                 mapShown={mapOpen === f.key}
                 widerCount={wider.get(f.key)?.length}
-                editor={renaming === f.key ? renameEditor(f.key) : undefined}
+                editor={rename.key === f.key ? renameEditor(f.key) : undefined}
                 dataset={dataset}
                 kinship={kinship}
                 onNavigate={onNavigate}

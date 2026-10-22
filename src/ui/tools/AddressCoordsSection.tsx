@@ -33,12 +33,13 @@ import {
   GeoPeopleList,
   GeoRowHeader,
   MapToggle,
+  personMatches,
   RenameEditor,
   RenameToggle,
   RowCaret,
   RowMap,
-  personMatches,
   usePersonNameIndex,
+  useRenameDraft,
 } from "./shared";
 import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -486,8 +487,7 @@ export function AddressCoordsSection({
   // Rows whose people list is open — asked for by clicking the person count.
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
   // The one row whose rename editor is open, and its draft.
-  const [renameKey, setRenameKey] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
+  const rename = useRenameDraft();
   /** The one group whose place rename is open, and its draft. Held apart from
    *  the row rename above: a place and a house are different values, and the
    *  two editors sit on different lines. */
@@ -1030,11 +1030,10 @@ export function AddressCoordsSection({
   /** Rename the row's address on every event that carries it, then close the
    *  editor — the rescan (edit version) merges it into an existing row when
    *  the new spelling already has one, which is how duplicates are joined. */
-  const applyRename = (row: AddressRow, target?: string) => {
-    const to = (target ?? renameDraft).trim();
-    if (!to || to === row.address) return;
+  const applyRename = (row: AddressRow, target?: string) =>
+    rename.apply((to) => to === row.address, (to) => renameRow(row, to), target);
+  const renameRow = (row: AddressRow, to: string) => {
     onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to }]);
-    setRenameKey(null);
     // The row's key changes with its address, so state tied to the old key has
     // to travel with it. A position staged here is about the *house*, not its
     // spelling — dropping it silently lost a pick the row still displayed, and
@@ -1078,7 +1077,7 @@ export function AddressCoordsSection({
    */
   const applyRemove = (row: AddressRow) => {
     onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to: "" }]);
-    setRenameKey(null);
+    rename.close();
     setCoordOpen((prev) => (prev === row.key ? null : prev));
     const drop = <V,>(prev: Map<string, V>) => {
       const next = new Map(prev);
@@ -1639,13 +1638,12 @@ export function AddressCoordsSection({
                             {row.address}
                           </button>
                           <RenameToggle
-                            open={renameKey === row.key}
+                            open={rename.key === row.key}
                             onOpen={() => {
-                              setRenameKey(row.key);
-                              setRenameDraft(row.address);
+                              rename.open(row.key, row.address);
                               setFocusEditor(`addr:${row.key}`);
                             }}
-                            onClose={() => setRenameKey(null)}
+                            onClose={rename.close}
                             title={t("tools.geocode.addr.renameOpen")}
                           />
                           {/* Who the events belong to — count as the toggle,
@@ -1849,21 +1847,21 @@ export function AddressCoordsSection({
                             {noMatch.has(row.key) ? t("tools.geocode.restore") : t("tools.geocode.hide")}
                           </button>
                         </div>
-                        {renameKey === row.key && (
+                        {rename.key === row.key && (
                           // Completed from the other houses of this same place: a
                           // rename here is usually a straggler being joined to a
                           // spelling the place already has, and typing it out again
                           // by hand is how the two miss each other by a character.
                           <RenameEditor
                             autoFocus={focusEditor === `addr:${row.key}`}
-                            value={renameDraft}
+                            value={rename.draft}
                             suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
                             canonical={places.addrCanonical}
                             placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                            applyDisabled={!renameDraft.trim() || renameDraft.trim() === row.address}
-                            onChange={setRenameDraft}
+                            applyDisabled={!rename.draft.trim() || rename.draft.trim() === row.address}
+                            onChange={rename.setDraft}
                             onApply={() => applyRename(row)}
-                            onCancel={() => setRenameKey(null)}
+                            onCancel={rename.close}
                             // Emptying the field is the one other thing a
                             // researcher wants of an address, and the ✎ is where
                             // they already are when they want it. Not offered
