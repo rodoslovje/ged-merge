@@ -1,4 +1,5 @@
 import { decodeGedcom } from "./decode";
+import { isPointer } from "./uri";
 import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types";
 
 // Leading whitespace is tolerated: 5.5.1 asks readers to accept an indented
@@ -168,7 +169,9 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
 
     stack[level] = node;
     stack.length = level + 1; // discard deeper, now-stale entries
-    textBlob = tag === "TEXT" || tag === "NOTE" ? node : undefined;
+    // A pointer (`1 NOTE @N1@`) holds no text to continue: folding the next
+    // stray line into it would turn `3 DATE 1900` into note text.
+    textBlob = (tag === "TEXT" || tag === "NOTE") && !(value && isPointer(value.trim())) ? node : undefined;
   }
 
   // A photo, a zip, a .docx, an empty file: none of it is GEDCOM, yet every

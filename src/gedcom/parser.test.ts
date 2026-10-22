@@ -208,6 +208,18 @@ describe("parseGedcom", () => {
     expect(out).toContain("1 TITL Dr. med.\n");
   });
 
+  it("does not fold a level-skipping line into a NOTE pointer", () => {
+    const text = ["0 HEAD", "0 @I1@ INDI", "1 NOTE @N1@", "3 DATE 1900", "0 @N1@ NOTE story", "0 TRLR", ""].join("\n");
+    const parsed = parseGedcom(toBuffer(text));
+    const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+    const note = indi.children.find((c) => c.tag === "NOTE")!;
+    expect(note.value).toBe("@N1@");
+    // Clamped into the record like any other level skip, not turned into text.
+    expect(note.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["DATE 1900"]);
+    expect(parsed.warnings.some((w) => /level 3 has no parent/.test(w.message))).toBe(true);
+    expect(serializeGedcom(parsed.records)).not.toContain("CONT");
+  });
+
   it("warns when two records define the same xref (last one wins)", () => {
     const text = [
       "0 HEAD",
