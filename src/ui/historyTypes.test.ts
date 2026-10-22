@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { applyRecordPatches, coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
-import { familyMembers, insertRecordAt, removeIndividual } from "../gedcom/edit";
+import { applyRecordPatches, coalescePatches, dropNoopPatches, markMechanical, noteChangePatches, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
+import { familyMembers, insertRecordAt, noteCtx, removeIndividual, removeNoteRecordIfOrphaned } from "../gedcom/edit";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeGedcom } from "../gedcom/serialize";
@@ -146,6 +146,47 @@ describe("dropNoopPatches", () => {
       { type: "family", id: "@F1@", before: node("gone"), after: null, index: 4 },
     ];
     expect(dropNoopPatches(patches)).toEqual(patches);
+  });
+});
+
+// ── undo puts a pruned shared record back where it was ─────────────────────
+// Regression: undo re-added a deleted NOTE/SOUR/OBJE record after the last
+// record of its tag, ignoring its recorded index — the file came back
+// reordered, and later index-based restores landed one slot off.
+
+describe("undo of a pruned shared note", () => {
+  it("restores the record at its index, byte-identical", () => {
+    const text = [
+      "0 HEAD", "0 @I1@ INDI", "1 NOTE @N1@", "0 @N1@ NOTE First", "0 @N2@ NOTE Second",
+      "0 @I2@ INDI", "1 NOTE @N2@", "0 TRLR",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+    const before = serializeGedcom(ds.records);
+    const snap = snapshotRecords(ds, ["@I1@"], []);
+    const indi = ds.individuals.get("@I1@")!;
+    indi.raw.children = indi.raw.children.filter((c) => c.tag !== "NOTE");
+    const ctx = noteCtx(ds.records);
+    removeNoteRecordIfOrphaned(ctx, "@N1@");
+    const patches = [
+      ...patchesFromSnapshots(ds, snap),
+      ...noteChangePatches(ctx.changes, { kind: "individual", id: "@I1@" }),
+    ];
+    expect(ds.records.some((r) => r.xref === "@N1@")).toBe(false);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("restores records of every type in one ascending pass", () => {
+    const records = [rec("HEAD", "@H@"), rec("INDI", "@I1@"), rec("NOTE", "@N1@"), rec("INDI", "@I2@"), rec("NOTE", "@N2@"), rec("TRLR", "@T@")];
+    const ds = datasetOf(records);
+    const patches: RecordPatch[] = [
+      { type: "record", id: "@N1@", before: rec("NOTE", "@N1@"), after: null, index: 2 },
+      { type: "individual", id: "@I2@", before: rec("INDI", "@I2@"), after: null, index: 3 },
+    ];
+    applyRecordPatches(ds, patches, "redo");
+    expect(ds.records.map((r) => r.xref)).toEqual(["@H@", "@I1@", "@N2@", "@T@"]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(ds.records.map((r) => r.xref)).toEqual(["@H@", "@I1@", "@N1@", "@I2@", "@N2@", "@T@"]);
   });
 });
 
