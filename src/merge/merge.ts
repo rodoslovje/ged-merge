@@ -19,6 +19,7 @@ import {
   applyRows,
   buildSourXrefMap,
   cloneNode,
+  currentFieldChoices,
   linkPlacementFor,
   foldMatchedSourcePages,
   importSourRecords,
@@ -473,15 +474,18 @@ export function mergeDecisions(
     report.recordLabels[mainId] = displayName(mainIndi.names[0]);
     const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
     const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
-    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
-    applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
+    // The choices keyed by the rows as they stand now — an event added in Edit
+    // since the choice was made re-keys its tag's rows.
+    const fields = currentFieldChoices(decision.fields, decision.fieldAnchors, rows);
+    applyRows(target, incoming.raw, mainId, rows, fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
+    applyIndividualRelations(mainId, mainIndi, incoming, rows, fields, main, compare, ctx);
     // A family row stands down like a person's row when the main family was
     // edited after the choice was made (see `CandidateDecision.mainFields`).
     const editedSinceConfirm = (rowKey: string, liveMain: string): boolean => {
       const snap = famSnapshots.has(rowKey) ? famSnapshots.get(rowKey) : decision.mainFields;
       return !!snap && liveMain !== (snap[rowKey] ?? "");
     };
-    applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...decision.fields, ...famFields }, main, compare, ctx, allTakenChildren, false, editedSinceConfirm);
+    applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...fields, ...famFields }, main, compare, ctx, allTakenChildren, false, editedSinceConfirm);
     // Canonical event order, but only when this decision actually wrote
     // something — a confirmed match that took no fields must leave the record
     // byte-identical (the minimal-diff guarantee), not silently reorder it.

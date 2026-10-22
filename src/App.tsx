@@ -25,7 +25,7 @@ import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest 
 import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
-import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
+import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
@@ -215,7 +215,9 @@ function AppContent() {
    * Settings overrides), no ages — so the two sets of strings are comparable.
    * Re-stamped on every update while confirmed, including a change to a single
    * field choice: choosing again is a fresh decision about the value on screen
-   * at that moment.
+   * at that moment. The same stamp anchors each event-row choice to its
+   * incoming event (`CandidateDecision.fieldAnchors`), reading the previous
+   * decision to tell the choices this update made from earlier ones.
    */
   function stampMainRows(next: CandidateDecision, mainId: string, compareId: string): CandidateDecision {
     if (next.status !== "confirmed") return next;
@@ -227,7 +229,8 @@ function AppContent() {
     const rejected = next.rejectedEvents?.length ? new Set(next.rejectedEvents) : undefined;
     const placeFmt = mergePlaceFormat(mainDs, formatOverridesRef.current);
     const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, placeFmt, rejected);
-    return { ...next, mainFields: snapshotMainValues(rows, INDI_HANDLED) };
+    const prev = decisionsRef.current.get(decisionKey("individual", mainId, compareId));
+    return stampConfirmedDecision(next, prev, rows, INDI_HANDLED);
   }
 
   // Opt-in "graft this whole incoming branch on save" selections, made from the

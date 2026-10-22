@@ -149,6 +149,16 @@ export interface CandidateDecision {
    */
   mainFields?: Record<string, string>;
   /**
+   * For each event-row key in `fields`, the incoming event the choice was made
+   * for, as `"<tag>:<compareIdx>"` (the `rejectedEvents` form). An event row's
+   * key changes shape and index with the main's event count and pairing, so an
+   * event added in Edit would otherwise leave a choice on a key no row has —
+   * or on a different event's row. The merge (and the next update) move each
+   * anchored choice onto its event's current row; see `currentFieldChoices`.
+   * Absent on decisions stamped before anchors existed, which keep their keys.
+   */
+  fieldAnchors?: Record<string, string>;
+  /**
    * Incoming events the user has fully rejected — by editing them into a new
    * main event, or by deleting/dismissing an event that was already paired
    * with (or created from) them — as `"<tag>:<compareIdx>"`, where `compareIdx`

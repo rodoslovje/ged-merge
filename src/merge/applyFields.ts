@@ -23,7 +23,7 @@ import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
-import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
+import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
@@ -185,6 +185,9 @@ export function isOverwritableRow(row: Row, handled: Set<string>): boolean {
  * The main side's current value for every overwritable row, for stamping onto a
  * decision as it is confirmed (see `CandidateDecision.mainFields`).
  *
+ * An event row is recorded under its incoming event (`"<tag>:<n>.<sub>"`), not
+ * its row key, so the snapshot still finds it after Edit re-keys the rows.
+ *
  * Empty values are omitted: a missing key and an empty string mean the same
  * thing here — the main had nothing in that field — so storing every blank row
  * would only bloat the persisted session.
@@ -196,9 +199,109 @@ export function snapshotMainValues(rows: Row[], handled: Set<string>): Record<st
   const out: Record<string, string> = {};
   for (const row of rows) {
     if (!isOverwritableRow(row, handled) || !row.main) continue;
-    out[row.key] = row.main;
+    out[snapshotKey(row)] = row.main;
   }
   return out;
+}
+
+/**
+ * The incoming event an event row belongs to, as `"<tag>:<compareIdx>"` (the
+ * `rejectedEvents` form) — stable for the session, unlike the row's key, whose
+ * shape (`TAG.<sub>` vs `TAG.<n>.<sub>`) and index follow the main's event count
+ * and pairing. Undefined for non-event rows and main-only events.
+ */
+function rowEventAnchor(row: Row): string | undefined {
+  const parsed = parseEventRowKey(row.key);
+  if (!parsed || row.eventCompareIdx === undefined || row.eventCompareIdx < 0) return undefined;
+  return `${parsed.tag}:${row.eventCompareIdx}`;
+}
+
+/** The key a row's main value is snapshotted under: anchored to its incoming
+ *  event where it has one (see {@link rowEventAnchor}), else the row key. */
+function snapshotKey(row: Row): string {
+  const anchor = rowEventAnchor(row);
+  return anchor ? `${anchor}.${parseEventRowKey(row.key)!.sub}` : row.key;
+}
+
+/** The snapshotted main value for a row; reads the plain row key too, which is
+ *  how snapshots stamped before the anchored form held every row. */
+function snapshotValue(row: Row, snap: Record<string, string>): string {
+  const key = snapshotKey(row);
+  return (key in snap ? snap[key] : snap[row.key]) ?? "";
+}
+
+/**
+ * A decision's field choices keyed by the rows as they stand now: each choice
+ * with an anchor (`CandidateDecision.fieldAnchors`) moves to the current row of
+ * the same incoming event and sub-field — so an event added or removed in Edit,
+ * which re-keys the rows, cannot detach a choice from the value it was made
+ * for. A choice whose incoming event has no row any more is dropped (nothing is
+ * left to apply it to); unanchored choices are kept as they are.
+ */
+export function currentFieldChoices(
+  fields: Record<string, FieldChoice>,
+  anchors: Record<string, string> | undefined,
+  rows: Row[],
+): Record<string, FieldChoice> {
+  if (!anchors || Object.keys(anchors).length === 0) return fields;
+  const keyNow = new Map<string, string>();
+  for (const row of rows) {
+    const anchor = rowEventAnchor(row);
+    if (anchor) keyNow.set(`${anchor}.${parseEventRowKey(row.key)!.sub}`, row.key);
+  }
+  const kept: Record<string, FieldChoice> = {};
+  const moved: Record<string, FieldChoice> = {};
+  for (const [key, choice] of Object.entries(fields)) {
+    const anchor = anchors[key];
+    const sub = anchor ? parseEventRowKey(key)?.sub : undefined;
+    if (!anchor || !sub) { kept[key] = choice; continue; }
+    const now = keyNow.get(`${anchor}.${sub}`);
+    if (now) moved[now] = choice;
+  }
+  return { ...kept, ...moved };
+}
+
+/**
+ * Stamp a decision being saved as confirmed: the main's current value for every
+ * row the merge could overwrite (`mainFields`, see {@link snapshotMainValues}),
+ * and the incoming event every event-row choice was made for (`fieldAnchors`).
+ *
+ * A choice this update made or changed (it differs from `prev`) was made
+ * against `rows`; every other choice keeps the event it was anchored to and is
+ * moved onto that event's current row — so the stored keys always match the
+ * rows the review shows at the time of the stamp.
+ *
+ * `rows` must be built the way the merge builds them (see `mergeDecisions`).
+ */
+export function stampConfirmedDecision(
+  next: CandidateDecision,
+  prev: CandidateDecision | undefined,
+  rows: Row[],
+  handled: Set<string>,
+): CandidateDecision {
+  const prevFields = prev?.fields ?? {};
+  const prevAnchors = prev?.fieldAnchors ?? {};
+  const fresh: Record<string, FieldChoice> = {};
+  const earlier: Record<string, FieldChoice> = {};
+  for (const [key, choice] of Object.entries(next.fields)) {
+    if (prevFields[key] === choice && prevAnchors[key]) earlier[key] = choice;
+    else fresh[key] = choice;
+  }
+  const fields = { ...currentFieldChoices(earlier, prevAnchors, rows), ...fresh };
+  const anchorOf = new Map<string, string>();
+  for (const row of rows) {
+    const anchor = rowEventAnchor(row);
+    if (anchor) anchorOf.set(row.key, anchor);
+  }
+  const fieldAnchors: Record<string, string> = {};
+  for (const key of Object.keys(fields)) {
+    const anchor = anchorOf.get(key);
+    if (anchor) fieldAnchors[key] = anchor;
+  }
+  const stamped: CandidateDecision = { ...next, fields, mainFields: snapshotMainValues(rows, handled) };
+  if (Object.keys(fieldAnchors).length) stamped.fieldAnchors = fieldAnchors;
+  else delete stamped.fieldAnchors;
+  return stamped;
 }
 
 export function applyRows(
@@ -263,7 +366,7 @@ export function applyRows(
       choice === "incoming" &&
       mainAtConfirm &&
       isOverwritableRow(row, handled) &&
-      row.main !== (mainAtConfirm[row.key] ?? "")
+      row.main !== snapshotValue(row, mainAtConfirm)
     ) {
       report.deferred.push({ recordId, field: row.label, reason: t("merge.reason.editedAfterConfirm") });
       continue;
