@@ -411,9 +411,11 @@ export function detachChildFromFamily(dataset: Dataset, fam: Family, childId: st
  * too (see `pruneDegenerateFamily`), so deleting people out of a family doesn't
  * leave a lone-member or empty `FAM` record behind.
  *
- * Associations naming this person go with them: a godparent the file no longer
- * holds cannot stay pointed at from the baptism, or every delete would leave
- * the health check a dangling reference to report. */
+ * Every other line naming this person goes with them — an association, an
+ * `ALIA`, `ANCI`/`DESI`, a vendor pointer, at any depth: a godparent the file no
+ * longer holds cannot stay pointed at from the baptism, or every delete would
+ * leave the health check a dangling reference to report. Callers snapshot the
+ * holders with `recordsNaming`. */
 export function removeIndividual(dataset: Dataset, indi: Individual): void {
   // The person's own FAMS/FAMC lines name their families — but a file can be
   // one-sided (a `CHIL` with no `FAMC` back-link, a `HUSB` without `FAMS`), and

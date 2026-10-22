@@ -4,6 +4,7 @@ import { familyMembers, insertRecordAt, noteCtx, removeIndividual, removeNoteRec
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeGedcom } from "../gedcom/serialize";
+import { recordsNaming } from "../gedcom/assoc";
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -187,6 +188,31 @@ describe("undo of a pruned shared note", () => {
     expect(ds.records.map((r) => r.xref)).toEqual(["@H@", "@I1@", "@N2@", "@T@"]);
     applyRecordPatches(ds, patches, "undo");
     expect(ds.records.map((r) => r.xref)).toEqual(["@H@", "@I1@", "@N1@", "@I2@", "@N2@", "@T@"]);
+  });
+});
+
+// ── a delete leaves no pointer to the person behind ────────────────────────
+// Regression: deleting a person stripped only ASSO/_ASSO lines at levels 1–2;
+// an ALIA, ANCI/DESI, a level-3 _ASSO or a vendor pointer kept naming them.
+
+describe("deleting a person named by non-association pointers", () => {
+  it("drops every line naming them, and undo puts each back", () => {
+    const text = [
+      "0 HEAD",
+      "0 @I1@ INDI", "1 ALIA @I2@", "1 ANCI @I2@", "1 BAPM", "2 SOUR @S1@", "3 _ASSO @I2@", "4 RELA Witness",
+      "0 @I2@ INDI", "1 NAME Ana /Novak/",
+      "0 @I3@ INDI", "1 _LINK @I2@", "1 DESI @I2@",
+      "0 @S1@ SOUR", "0 TRLR",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+    const before = serializeGedcom(ds.records);
+    const naming = recordsNaming(ds.records, new Set(["@I2@"]));
+    expect(naming.sort()).toEqual(["@I1@", "@I3@"]);
+    const snap = snapshotRecords(ds, ["@I2@", ...naming], naming);
+    removeIndividual(ds, ds.individuals.get("@I2@")!);
+    expect(serializeGedcom(ds.records)).not.toContain("@I2@");
+    applyRecordPatches(ds, patchesFromSnapshots(ds, snap), "undo");
+    expect(serializeGedcom(ds.records)).toBe(before);
   });
 });
 

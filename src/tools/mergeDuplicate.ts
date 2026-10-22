@@ -1,6 +1,6 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
-import { recordsNaming } from "../gedcom/assoc";
+import { recordsNaming, repointAssociations } from "../gedcom/assoc";
 import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
 import { LINK_TAGS } from "../gedcom/builder";
 import { cloneNode, mergeSubLines, nodeFingerprint } from "../gedcom/node";
@@ -98,7 +98,6 @@ export function mergeDuplicate(
   // the snapshot the undo patch is cut from.
   const naming = new Set([
     ...recordsNaming(dataset.records, new Set([survivorId, removedId])),
-    ...recordsPointingAt(dataset.records, removedId),
     // A fold of the survivor's doubled families repoints whatever names them.
     ...familyPointerHolders(dataset.records, famIds),
   ]);
@@ -172,7 +171,7 @@ export function mergeDuplicate(
   // 4. Whoever named the duplicate names the survivor now — the two records are
   //    one person, so the godparent of a baptism did not stop being one.
   //    Done before the removal, which would otherwise drop these lines.
-  for (const id of repointPointers(dataset.records, removedId, survivorId)) {
+  for (const id of repointAssociations(dataset.records, removedId, survivorId)) {
     const indi = dataset.individuals.get(id);
     if (indi) rebuildIndividual(dataset, indi);
     else {
@@ -554,62 +553,6 @@ function carryUncoveredEventLines(
 function isSubsetOf(part: GedNode, whole: GedNode): boolean {
   const lines = new Set(whole.children.map(nodeFingerprint));
   return part.children.every((c) => lines.has(nodeFingerprint(c)));
-}
-
-// ── Pointers to the absorbed record ──────────────────────────────────────────
-
-/** A family's own member lines — re-pointed (or dropped) by the relationship
- *  steps and `removeIndividual`, never by the generic pass. */
-function isMemberLine(record: GedNode, line: GedNode, depth: number): boolean {
-  return record.tag === "FAM" && depth === 1 && (line.tag === "HUSB" || line.tag === "WIFE" || line.tag === "CHIL");
-}
-
-/** The INDI/FAM records (besides `id`'s own) holding a pointer to `id` at any
- *  depth, family member lines aside — see {@link repointPointers}. */
-function recordsPointingAt(records: GedNode[], id: string): string[] {
-  const out: string[] = [];
-  const names = (record: GedNode, node: GedNode, depth: number): boolean =>
-    node.children.some((c) => (c.value?.trim() === id && !isMemberLine(record, c, depth + 1)) || names(record, c, depth + 1));
-  for (const r of records) {
-    if ((r.tag === "INDI" || r.tag === "FAM") && r.xref && r.xref !== id && names(r, r, 0)) out.push(r.xref);
-  }
-  return out;
-}
-
-/**
- * Point every line naming `fromId` — `ASSO`, `ALIA`, a vendor `_` pointer, at
- * any depth of any person or family — at `toId` instead. A line that would
- * then point at its own record (an `ALIA` between the two duplicates) is
- * dropped, as are those the survivor carried over from the absorbed record.
- * Returns the ids of the records changed.
- */
-function repointPointers(records: GedNode[], fromId: string, toId: string): string[] {
-  const touched: string[] = [];
-  const inNode = (record: GedNode, node: GedNode, depth: number): boolean => {
-    let changed = false;
-    const kept: GedNode[] = [];
-    for (const child of node.children) {
-      const v = child.value?.trim();
-      const repointed = v === fromId && !isMemberLine(record, child, depth + 1);
-      if (repointed) {
-        child.value = toId;
-        changed = true;
-      }
-      if ((repointed || record.xref === toId) && child.value?.trim() === record.xref) {
-        changed = true;
-        continue;
-      }
-      changed = inNode(record, child, depth + 1) || changed;
-      kept.push(child);
-    }
-    if (changed) node.children = kept;
-    return changed;
-  };
-  for (const record of records) {
-    if ((record.tag !== "INDI" && record.tag !== "FAM") || !record.xref || record.xref === fromId) continue;
-    if (inNode(record, record, 0)) touched.push(record.xref);
-  }
-  return touched;
 }
 
 // ── Relationship re-pointing ─────────────────────────────────────────────────
