@@ -198,12 +198,18 @@ export function scoreIndividualPair(
   // wrong date on one record than a second person (the death component already
   // weighs it), and the benchmark's duplicates of exactly that shape would
   // otherwise drop out of review altogether.
-  const contradicted = sexConflicts(main, compare) || parentsConflict;
-  const keyPerfect = !contradicted && KEY_FIELDS.every((k) => {
+  const sexConflict = sexConflicts(main, compare);
+  const keyExact = KEY_FIELDS.every((k) => {
     const c = components.find((x) => x.key === k);
     return c !== undefined && !c.missing && c.score === 1;
   });
+  const keyPerfect = keyExact && !sexConflict && !parentsConflict;
   if (keyPerfect) score01 = 1;
+  // Parents wrong on one record are a routine copying error, so an exact key
+  // whose only contradiction is its parents stays in review as probable rather
+  // than dropping out of the list: the user decides, the score just stops
+  // claiming certainty.
+  else if (keyExact && !sexConflict) score01 = Math.max(score01, config.probableThreshold);
 
   let score = Math.round(score01 * 1000) / 10;
   if (!keyPerfect && score >= 100) score = 99.9;

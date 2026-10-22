@@ -36,6 +36,17 @@ describe("a perfect identity key does not outrank contrary evidence", () => {
   it("does not lift a pair whose parents both conflict to 100", () => {
     expect(score(person("M", "Jakob", "Marija"), person("M", "Tomaž", "Helena"))).toBeLessThan(DEFAULT_CONFIG.strongThreshold * 100);
   });
+
+  it("keeps a perfect key whose parents both conflict in review as probable", () => {
+    // Parents copied wrong onto one record must not hide the duplicate, even
+    // when its death disagrees too (that pair scores 62.5 on its components).
+    const died = (text: string, deat: string, plac: string) =>
+      text.replace("2 PLAC Kranj\n", `2 PLAC Kranj\n1 DEAT\n2 DATE ${deat}\n2 PLAC ${plac}\n`);
+    expect(score(
+      died(person("M", "Jakob", "Marija"), "1900", "Kranj"),
+      died(person("M", "Tomaž", "Helena"), "1931", "Celje"),
+    )).toBeGreaterThanOrEqual(DEFAULT_CONFIG.probableThreshold * 100);
+  });
 });
 
 describe("a suggested match of opposite sex is never a join point", () => {
