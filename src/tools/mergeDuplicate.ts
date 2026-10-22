@@ -82,6 +82,11 @@ export function mergeDuplicate(
     if (!fam) continue;
     for (const m of [fam.husband, fam.wife, ...fam.children]) if (m) indiIds.add(m);
   }
+  // A one-sided file can link a person to one of those families from their own
+  // side only (a FAMC the family never lists); a fold or prune unlinks them too.
+  for (const indi of dataset.individuals.values()) {
+    if (indi.childOf.some((f) => famIds.has(f)) || indi.spouseOf.some((f) => famIds.has(f))) indiIds.add(indi.id);
+  }
   // An association can be carried by any record in the file — a third person's
   // baptism naming the removed duplicate as its godparent — and so can an ALIA
   // or a vendor pointer. Those records are repointed below, so they belong in

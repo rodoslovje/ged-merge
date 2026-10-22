@@ -552,6 +552,22 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     insertOrdered(keep.raw, cloneNode(line), FAM_CHILD_ORDER);
   }
 
+  // A person a one-sided file links to the dropped family from their own side
+  // only (a FAMC the family never lists) moves with it too: removeFamily would
+  // otherwise unlink them, and they would lose their parents or their marriage.
+  for (const id of familyMembers(dataset, drop)) {
+    const indi = dataset.individuals.get(id);
+    if (!indi) continue;
+    let moved = false;
+    for (const line of indi.raw.children) {
+      if ((line.tag !== "FAMC" && line.tag !== "FAMS") || line.value !== dropId) continue;
+      const kept = indi.raw.children.find((c) => c.tag === line.tag && c.value === keepId);
+      if (kept) mergeSubLines(kept, line);
+      else { line.value = keepId; moved = true; }
+    }
+    if (moved) rebuildIndividual(dataset, indi);
+  }
+
   rebuildFamily(dataset, keep);
   removeFamily(dataset, drop); // unlinks every member's FAMS/FAMC to the dropped record
 }

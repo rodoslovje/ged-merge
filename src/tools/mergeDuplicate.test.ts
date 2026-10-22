@@ -431,6 +431,28 @@ describe("mergeDuplicate", () => {
     expect(validateDataset(ds).issues.some((i) => i.category === "brokenLink")).toBe(false);
   });
 
+  it("moves a child linked only from its own side into the kept family", () => {
+    // @F2@ never lists @I3@; only @I3@'s FAMC names it. Folding @F2@ into @F1@
+    // must carry that link (and its PEDI), and the undo patch must hold @I3@.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Renko/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Renko/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F2@\n" +
+      "0 @I5@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Tone /Renko/\n1 FAMC @F2@\n2 PEDI adopted\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I5@\n" +
+      "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I5@\n",
+    ));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    const patches = mergeDuplicate(ds, "@I1@", "@I2@", decide(duplicateDefaults(rows)), tr);
+
+    expect(ds.families.has("@F2@")).toBe(false);
+    const famc = ds.individuals.get("@I3@")!.raw.children.filter((c) => c.tag === "FAMC");
+    expect(famc.map((c) => c.value)).toEqual(["@F1@"]);
+    expect(famc[0].children.find((c) => c.tag === "PEDI")?.value).toBe("adopted");
+    const p3 = patches.find((p) => p.id === "@I3@");
+    expect(p3?.before && serializeGedcom([p3.before])).toContain("1 FAMC @F2@");
+  });
+
   it("drops an association naming a person a delete removed", () => {
     const ds = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n" +
