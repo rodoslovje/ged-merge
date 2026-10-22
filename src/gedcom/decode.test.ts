@@ -184,6 +184,25 @@ describe("decodeGedcom other declared charsets", () => {
   });
 });
 
+describe("decodeGedcom UTF-16 without a BOM", () => {
+  const src = "0 HEAD\n1 CHAR UNICODE\n1 NAME Žan\n";
+  const utf16 = (littleEndian: boolean): ArrayBuffer => {
+    const out = new Uint8Array(src.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < src.length; i++) view.setUint16(i * 2, src.charCodeAt(i), littleEndian);
+    return out.buffer;
+  };
+
+  it.each([
+    ["little-endian", true],
+    ["big-endian", false],
+  ])("recognises %s UTF-16 from its NUL-interleaved header", (_, le) => {
+    const { text, charset } = decodeGedcom(utf16(le));
+    expect(charset).toBe("UNICODE");
+    expect(text).toBe(src);
+  });
+});
+
 describe("decodeGedcom with classic-Mac (CR-only) line endings", () => {
   it("reads the declared CHAR from a CR-only header", () => {
     // ANSEL 0xE2 = combining acute before its letter: "é".

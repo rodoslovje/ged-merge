@@ -32,6 +32,15 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
     return { text: decodeUtf16(bytes.subarray(2), false), charset: "UNICODE", warnings };
   }
 
+  // UTF-16 without a BOM: the header's "0 " is NUL-interleaved, and no 8-bit
+  // GEDCOM starts with a NUL byte.
+  if (bytes.length >= 4 && bytes[1] === 0 && bytes[3] === 0 && bytes[0] === 0x30 && bytes[2] === 0x20) {
+    return { text: decodeUtf16(bytes, true), charset: "UNICODE", warnings };
+  }
+  if (bytes.length >= 4 && bytes[0] === 0 && bytes[2] === 0 && bytes[1] === 0x30 && bytes[3] === 0x20) {
+    return { text: decodeUtf16(bytes, false), charset: "UNICODE", warnings };
+  }
+
   // 2. Read the declared charset from the header (ASCII-safe peek).
   const declared = sniffDeclaredCharset(bytes);
 
