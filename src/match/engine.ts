@@ -3,6 +3,7 @@ import { CrossBlockIndex } from "./blocking";
 import {
   plausibleIndividualMatch,
   scoreIndividualPair,
+  scoreIndividualPairValue,
   sexConflicts,
 } from "./scoreIndividual";
 import { buildNameFrequencies, type NameFrequencies } from "./nameFrequency";
@@ -56,22 +57,45 @@ function matchIndividuals(
   const uidMain = new Set(uidPairs.map((p) => p.mainId));
   const uidCompare = new Set(uidPairs.map((p) => p.compareId));
 
-  const scored: IndividualCandidate[] = [...uidPairs];
-  for (const compare of compareDs.individuals.values()) {
-    if (uidCompare.has(compare.id)) continue; // identity already established
+  const mainList = index.records;
+  const compareList = [...compareDs.individuals.values()];
+  const mainPos = new Map(mainList.map((indi, i) => [indi.id, i]));
+  const comparePos = new Map(compareList.map((indi, i) => [indi.id, i]));
+
+  // Every pair that clears `minScore` is kept as two positions and a score —
+  // the identity pairs first, so a tie at 100 goes to them.
+  const scored = new ScoredPairs();
+  for (const p of uidPairs) scored.push(mainPos.get(p.mainId)!, comparePos.get(p.compareId)!, p.score);
+  compareList.forEach((compare, ci) => {
+    if (uidCompare.has(compare.id)) return; // identity already established
     index.forEachCandidate(compare, compareDs, (mi) => {
-      const main = index.records[mi];
+      const main = mainList[mi];
       // Hard plausibility gates: different sex, dissimilar names, or
       // incompatible lifespans => never the same person; skip before scoring.
       if (sexConflicts(main, compare)) return;
       if (!plausibleIndividualMatch(main, compare, config.gates, mainDs, compareDs)) return;
-      const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config, freq);
-      if (cand.score / 100 >= config.minScore) scored.push(cand);
+      const score = scoreIndividualPairValue(main, compare, mainDs, compareDs, config, freq);
+      if (score / 100 >= config.minScore) scored.push(mi, ci, score);
     });
-  }
-  const linked = linkByRelationships(assignOneToOne(scored), mainDs, compareDs, config, freq, uidMain, uidCompare);
+  });
+
+  // Only the pairs the assignment keeps become full candidates — rescored
+  // with their review payload, to the same score.
+  const assigned = assignOneToOne(scored, mainList.length, compareList.length).map((k) =>
+    k < uidPairs.length
+      ? uidPairs[k]
+      : scoreIndividualPair(mainList[scored.main[k]], compareList[scored.compare[k]], mainDs, compareDs, config, freq),
+  );
+  const linked = linkByRelationships(assigned, mainDs, compareDs, config, freq, uidMain, uidCompare);
   const individuals = boostByMatchedRelatives(linked, mainDs, compareDs, config);
-  const incomingDuplicates = findIncomingDuplicateClusters(scored, individuals, compareDs, config, freq);
+  const incomingDuplicates = findIncomingDuplicateClusters(
+    runnersUp(scored, mainList.length, compareList),
+    individuals,
+    mainPos,
+    compareDs,
+    config,
+    freq,
+  );
   return incomingDuplicates.length ? { individuals, incomingDuplicates } : { individuals };
 }
 
@@ -186,34 +210,28 @@ const DUP_PAIR_SCORE = 85;
  * tolerates a birth-year difference — the whole point here.
  */
 function findIncomingDuplicateClusters(
-  scored: IndividualCandidate[],
+  /** Every incoming record scored against the main record at a position. */
+  scoredAgainst: (mainPos: number) => Individual[],
   matches: IndividualCandidate[],
+  mainPos: Map<string, number>,
   compareDs: Dataset,
   config: MatchConfig,
   freq: NameFrequencies,
 ): IncomingDuplicateCluster[] {
   const matchedCompare = new Set(matches.map((m) => m.compareId));
   const winnerOf = new Map(matches.map((m) => [m.mainId, m.compareId]));
-  const byMain = new Map<string, IndividualCandidate[]>();
-  for (const s of scored) {
-    const arr = byMain.get(s.mainId);
-    if (arr) arr.push(s);
-    else byMain.set(s.mainId, [s]);
-  }
 
   const consumed = new Set<string>(); // each incoming id consolidated at most once
   const clusters: IncomingDuplicateCluster[] = [];
   for (const [mainId, keepId] of winnerOf) {
     if (consumed.has(keepId)) continue;
-    const cands = byMain.get(mainId);
+    const pos = mainPos.get(mainId);
     const keep = compareDs.individuals.get(keepId);
-    if (!cands || !keep) continue;
+    if (pos === undefined || !keep) continue;
     const mergeIds: string[] = [];
-    for (const s of cands) {
-      if (s.compareId === keepId || consumed.has(s.compareId)) continue;
-      if (matchedCompare.has(s.compareId)) continue; // matched to another main → distinct
-      const cand = compareDs.individuals.get(s.compareId);
-      if (!cand) continue;
+    for (const cand of scoredAgainst(pos)) {
+      if (cand.id === keepId || consumed.has(cand.id)) continue;
+      if (matchedCompare.has(cand.id)) continue; // matched to another main → distinct
       // Hard vetoes a weighted-average score can't be trusted to enforce:
       // a distinct sibling (given name), a namesake (birth years far apart), or
       // a same-named cousin (conflicting parents) is never one person. The
@@ -224,9 +242,9 @@ function findIncomingDuplicateClusters(
       if (sexConflicts(keep, cand) || !plausibleIndividualMatch(keep, cand, config.gates, compareDs, compareDs)) continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.
-      if (scoreIndividualPair(keep, cand, compareDs, compareDs, config, freq).score < DUP_PAIR_SCORE) continue;
-      mergeIds.push(s.compareId);
-      consumed.add(s.compareId);
+      if (scoreIndividualPairValue(keep, cand, compareDs, compareDs, config, freq) < DUP_PAIR_SCORE) continue;
+      mergeIds.push(cand.id);
+      consumed.add(cand.id);
     }
     if (mergeIds.length) {
       clusters.push({ keepId, mergeIds });
@@ -554,9 +572,9 @@ function childrenOfMatchedCouples(
           if (!cChild) continue;
           if (sexConflicts(mChild, cChild)) continue;
           if (!plausibleIndividualMatch(mChild, cChild, config.gates, mainDs, compareDs)) continue;
-          const cand = scoreIndividualPair(mChild, cChild, mainDs, compareDs, config, freq);
-          if (cand.score / 100 < config.minScore) continue;
-          pairs.push({ main: mChild, compare: cChild, score: cand.score });
+          const score = scoreIndividualPairValue(mChild, cChild, mainDs, compareDs, config, freq);
+          if (score / 100 < config.minScore) continue;
+          pairs.push({ main: mChild, compare: cChild, score });
         }
       }
       // One child to one child within this family, best pair first — so the
@@ -582,20 +600,76 @@ function childrenOfMatchedCouples(
  * This is the right model for a merge (a record maps to at most one counterpart)
  * and removes the many-to-one noise of similarly-named people.
  */
-function assignOneToOne<T extends { mainId: string; compareId: string; score: number }>(
-  candidates: T[],
-): T[] {
-  const sorted = [...candidates].sort(byScoreDesc);
-  const usedMain = new Set<string>();
-  const usedCompare = new Set<string>();
-  const out: T[] = [];
-  for (const c of sorted) {
-    if (usedMain.has(c.mainId) || usedCompare.has(c.compareId)) continue;
-    usedMain.add(c.mainId);
-    usedCompare.add(c.compareId);
-    out.push(c);
+function assignOneToOne(pairs: ScoredPairs, mainCount: number, compareCount: number): number[] {
+  // Descending score, ties in the order the pairs were found.
+  const order = new Uint32Array(pairs.length);
+  for (let k = 0; k < order.length; k++) order[k] = k;
+  order.sort((a, b) => pairs.score[b] - pairs.score[a] || a - b);
+  const usedMain = new Uint8Array(mainCount);
+  const usedCompare = new Uint8Array(compareCount);
+  const out: number[] = [];
+  for (const k of order) {
+    const m = pairs.main[k];
+    const c = pairs.compare[k];
+    if (usedMain[m] || usedCompare[c]) continue;
+    usedMain[m] = 1;
+    usedCompare[c] = 1;
+    out.push(k);
   }
   return out;
+}
+
+/**
+ * The scored pairs, as positions into the main and incoming record lists and
+ * a score. A large file clears `minScore` on millions of pairs and keeps one
+ * per record, so the pairs are not candidates until the assignment picks them.
+ */
+class ScoredPairs {
+  main = new Int32Array(1024);
+  compare = new Int32Array(1024);
+  score = new Float64Array(1024);
+  length = 0;
+
+  push(main: number, compare: number, score: number): void {
+    if (this.length === this.main.length) {
+      const grow = <A extends Int32Array | Float64Array>(a: A): A => {
+        const b = new (a.constructor as new (n: number) => A)(a.length * 2);
+        b.set(a);
+        return b;
+      };
+      this.main = grow(this.main);
+      this.compare = grow(this.compare);
+      this.score = grow(this.score);
+    }
+    this.main[this.length] = main;
+    this.compare[this.length] = compare;
+    this.score[this.length] = score;
+    this.length++;
+  }
+}
+
+/** Per main record (by position), the incoming records it was scored
+ *  against, in the order they were scored. Built on first use. */
+function runnersUp(
+  pairs: ScoredPairs,
+  mainCount: number,
+  compareList: Individual[],
+): (mainPos: number) => Individual[] {
+  let start: Uint32Array | undefined;
+  let list: Int32Array | undefined;
+  return (mainPos) => {
+    if (!start || !list) {
+      start = new Uint32Array(mainCount + 1);
+      for (let k = 0; k < pairs.length; k++) start[pairs.main[k] + 1]++;
+      for (let m = 0; m < mainCount; m++) start[m + 1] += start[m];
+      const fill = start.slice(0, mainCount);
+      list = new Int32Array(pairs.length);
+      for (let k = 0; k < pairs.length; k++) list[fill[pairs.main[k]]++] = pairs.compare[k];
+    }
+    const out: Individual[] = [];
+    for (let k = start[mainPos]; k < start[mainPos + 1]; k++) out.push(compareList[list[k]]);
+    return out;
+  };
 }
 
 function byScoreDesc(a: { score: number }, b: { score: number }): number {
