@@ -3460,17 +3460,21 @@ button:focus-visible {
  * the field so typing never moves the row (a shift under the pointer would
  * also lose the click on "or …"). */
 .edit-date-preview {
+  /* Hung from the field's left edge so it grows into the row, where there is
+   * room — grown leftwards it ran off the panel — and wrapped past a width. */
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   z-index: 20;
+  width: max-content;
+  max-width: min(40em, 80vw);
   margin-top: 2px;
   padding: 2px 8px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 0.85em;
-  white-space: nowrap;
+  white-space: normal;
   color: var(--muted);
 }
 .edit-date-preview-label { color: var(--text); }
@@ -3479,6 +3483,7 @@ button:focus-visible {
 .edit-date-preview.is-unreadable .edit-date-preview-label,
 .edit-date-preview.is-impossible .edit-date-preview-warn { color: var(--danger); }
 .edit-date-preview-swap {
+  white-space: nowrap;
   margin-left: 0.6em;
   padding: 0;
   border: 0;
