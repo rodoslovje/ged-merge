@@ -3453,6 +3453,46 @@ button:focus-visible {
   justify-content: flex-end;
 }
 .edit-event-date-cell > .clearable-wrap { flex: 1 1 auto; min-width: 0; }
+.edit-event-date-cell { position: relative; }
+/* Dates in words ("okoli 5. marca 1850") run longer than the file's own. */
+.edit-event-date-cell.is-words { flex-basis: 13em; }
+/* How a date being typed reads, and what it will be written as — floated under
+ * the field so typing never moves the row (a shift under the pointer would
+ * also lose the click on "or …"). */
+.edit-date-preview {
+  /* Hung from the field's left edge so it grows into the row, where there is
+   * room — grown leftwards it ran off the panel — and wrapped past a width. */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: min(40em, 80vw);
+  margin-top: 2px;
+  padding: 2px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85em;
+  white-space: normal;
+  color: var(--muted);
+}
+.edit-date-preview-label { color: var(--text); }
+.edit-date-preview.is-unreadable,
+.edit-date-preview.is-impossible { border-color: var(--danger); }
+.edit-date-preview.is-unreadable .edit-date-preview-label,
+.edit-date-preview.is-impossible .edit-date-preview-warn { color: var(--danger); }
+.edit-date-preview-swap {
+  white-space: nowrap;
+  margin-left: 0.6em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.edit-date-preview-swap:hover { text-decoration: underline; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
 .edit-event-age {

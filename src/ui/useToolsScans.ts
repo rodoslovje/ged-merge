@@ -55,6 +55,8 @@ const REQUEST_TYPE = {
  *  of these must re-run that scan (and only that one). Scans absent here are
  *  independent of the reader's format choices. */
 const SALT_KEYS: Partial<Record<ScanKind, readonly (keyof FormatOverrides)[]>> = {
+  // The structure check measures dates against the chosen date format.
+  validate: ["date", "datePlaceholder"],
   sourceReshape: ["pageMedia", "sourceLayout", "baptism", "doubledLinks"],
   // `sourceCoverage` and `baptism` drive the normalize run's coverage pass —
   // the one that restates a source's PLAC/DATE as the standard's DATA > EVEN
@@ -272,7 +274,9 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
             ? { type: "sourceReshape", requestId, formatOverrides: formatOverridesRef.current }
             : kind === "normalize"
               ? { type: "normalizePreview", requestId, formatOverrides: formatOverridesRef.current }
-              : { type: REQUEST_TYPE[kind], requestId },
+              : kind === "validate"
+                ? { type: "validate", requestId, formatOverrides: formatOverridesRef.current }
+                : { type: REQUEST_TYPE[kind], requestId },
           {
             kind,
             onResult: (data) => {

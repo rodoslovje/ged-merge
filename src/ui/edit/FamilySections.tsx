@@ -3,7 +3,8 @@ import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
 import { sexClass } from "../sex";
 import { YearsText } from "../YearsText";
-import { lifespanApproxOf } from "../../gedcom/lifespan";
+import { isApproximate, lifespanApproxOf } from "../../gedcom/lifespan";
+import { displayDate } from "../../gedcom/dateDisplay";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
@@ -289,11 +290,16 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
         <div className="edit-parent-fam-events">
           <span
             className="edit-parent-fam-event"
-            title={`${coupleEventLabel}: ${[coupleEvent.date?.raw, coupleEvent.place?.raw].filter(Boolean).join(", ")}`}
+            title={`${coupleEventLabel}: ${[coupleEvent.date && displayDate(coupleEvent.date), coupleEvent.place?.raw].filter(Boolean).join(", ")}`}
           >
             <span>
               {coupleEvent.tag === "MARR" ? MARRIAGE_SYMBOL : coupleEventLabel}
-              {coupleEvent.date && <> <span className="gm-data">{coupleEvent.date.raw}</span></>}
+              {coupleEvent.date && (
+                <>
+                  {" "}
+                  <span className={"gm-data" + (isApproximate(coupleEvent.date) ? " gm-approx" : "")}>{displayDate(coupleEvent.date)}</span>
+                </>
+              )}
               {coupleAges && (
                 <> <span className="gm-data edit-event-age">
                   {coupleAges.map((a, j2) => (

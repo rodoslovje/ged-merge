@@ -301,7 +301,7 @@
               <li><strong>Jezik</strong> — angleščina ali slovenščina.</li>
               <li><strong>Videz</strong> — <em>Tema</em>: Samodejno, Svetla ali Temna (Samodejno sledi operacijskemu sistemu).</li>
               <li><strong>Prikaz imen</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač) — pri osebi, poročeni več kot enkrat, so prikazani vsi poročni priimki, ločeni z vejico po vrstnem redu porok — in <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK). Predogled nad možnostmi sproti pokaže izid. To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
-              <li><strong>Prikaz</strong> — <em>Prikaži starosti</em> doda starosti ob razponih let in datumih dogodkov; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (<a href="#home-person">§7</a>) po vsej aplikaciji; <em>Prikaži oznake zapisov</em> pa postavi oznako zapisa GEDCOM (xref) ob ime osebe.</li>
+              <li><strong>Prikaz</strong> — <em>Prikaz datumov</em> prikaže datume tako, kot jih zapisuje datoteka, z besedami (<em>okoli 5. marca 1850</em>) ali v obliki po vaši izbiri (<em>ABT 05.03.1850</em>), pri tem pa datoteka ohrani svojo obliko — ko kliknete v polje za datum, se v njem spet pokaže zapis iz datoteke; <em>Prikaži starosti</em> doda starosti ob razponih let in datumih dogodkov; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (<a href="#home-person">§7</a>) po vsej aplikaciji; <em>Prikaži oznake zapisov</em> pa postavi oznako zapisa GEDCOM (xref) ob ime osebe.</li>
               <li><strong>Urejanje</strong> — <em>Poročni priimek po partnerju</em> ob dodajanju žene možu z znanim priimkom zapiše njegov priimek kot njen poročni priimek, <em>Hitro dodajanje dogodkov</em> pa določa gumbe pod seznamom dogodkov (<a href="#edit">§8</a>).</li>
             </ul>
             <p>Preostali trije zavihki:</p>
@@ -640,6 +640,17 @@
                 njej se vrnete tudi s kombinacijo
                 <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span>, ne da bi polje
                 prej zapustili.
+              </p>
+              <p>
+                <strong>Datum</strong> lahko vpišete tako, kot bi ga zapisali na roko: <em>5. 3. 1850</em>,
+                <em>okoli 1850</em>, <em>~1850</em>, <em>&lt;1850</em> za »pred«, <em>1850-1860</em> ali
+                <em>med 1850 in 1860</em> za razpon. Med vpisovanjem se pod poljem izpiše, kako se datum prebere
+                (<em>okoli 5. marca 1850</em>) in kako se bo zapisal. Pri datumu, kot je <em>5.6.1850</em>, sta lahko
+                dan in mesec zamenjana, zato se prebere v vrstnem redu, ki ga uporablja vaša datoteka, pod poljem pa
+                se ponudi še obratna izbira dneva in meseca. Ko polje zapustite, se datum zapiše v obliki datumov vaše
+                datoteke in s standardnimi oznakami GEDCOM (<code>ABT 5 MAR 1850</code>). Besedilo, ki ni datum, se
+                ohrani tako, kot ste ga vpisali, opozorilo pod poljem pa je med vpisovanjem rdeče. Če se z miško ustavite
+                na polju za datum, se datum vedno izpiše tudi z besedami.
               </p>
               <p>
                 Vrstici <strong>Prebivališče</strong> in <strong>Smrt</strong> ponujata tudi polje
@@ -1218,9 +1229,18 @@
               </ul>
               <p>
                 Ločen pregled <strong>strukture GEDCOM</strong> označi težave s kodiranjem, pokvarjene vrstice in
-                ravni, zaostale CONT/CONC, različico, neznane ali lastne oznake, neberljive datume in
-                datume z dnevom, ki ga v tistem mesecu ni (31. februar) — mnoge z enim klikom
-                na <strong>Popravi</strong>. Ko je povezana mapa z mediji, <strong>Preveri mapo z mediji</strong>
+                ravni, zaostale CONT/CONC, različico, neznane ali lastne oznake in neberljive datume — mnoge z enim
+                klikom na <strong>Popravi</strong>. Pregled preveri tudi berljive datume in označi:
+              </p>
+              <ul>
+                <li>dan, ki ga v mesecu ni (<em>31 FEB 1850</em>),</li>
+                <li>razpon, ki se konča pred začetkom,</li>
+                <li>dvomestno letnico (<em>5 MAR 88</em>),</li>
+                <li>datum, zapisan v drugačni obliki kot ostali datumi v datoteki. Če se z miško ustavite na takem
+                  datumu, se izpiše, kako bi ga zapisalo orodje <a href="#normalize">Poenoti datoteko</a>.</li>
+              </ul>
+              <p>
+                Ko je povezana mapa z mediji, <strong>Preveri mapo z mediji</strong>
                 našteje navedene medijske datoteke, ki v njej manjkajo. Našteje tudi <strong>kraje s koordinatami v
                 nekaterih zapisih, v drugih pa ne</strong> — ime kraja, ki je geokodirano pri večini dogodkov, pri nekaterih
                 pa mu manjka koordinata (pogosto, ko je dogodek dodan ali na novo vpisan po geokodiranju datoteke) — in

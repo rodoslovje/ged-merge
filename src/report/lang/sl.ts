@@ -51,6 +51,26 @@ function datePhrase(d: GedDate): string {
   return phrase && d.calendar === "JULIAN" ? `${phrase} (po julijanskem koledarju)` : phrase;
 }
 
+const NOM = [
+  "januar", "februar", "marec", "april", "maj", "junij",
+  "julij", "avgust", "september", "oktober", "november", "december",
+];
+
+/** The label form: an exact date stands as written on a form — "5. maja 1848"
+ *  keeps the genitive, a month alone is nominative ("maj 1848") and a year is
+ *  bare; a qualified date reads as its phrase does. */
+function dateLabel(d: GedDate): string {
+  let label: string;
+  if (d.qualifier === "exact" && !d.placeholder && d.year !== undefined && d.day === undefined) {
+    label = d.month ? `${NOM[d.month - 1]} ${yearText(d.year)}` : yearText(d.year);
+  } else {
+    label = plainPhrase(d);
+  }
+  const how = d.approx === "CAL" ? " (izračunano)" : d.approx === "EST" ? " (ocenjeno)" : "";
+  if (label && d.qualifier === "about") label += how;
+  return label && d.calendar === "JULIAN" ? `${label} (po julijanskem koledarju)` : label;
+}
+
 function plainPhrase(d: GedDate): string {
   if (d.placeholder) return "";
   if (!core(GENITIVE, d.day, d.month, d.year)) return dateText(d); // unparseable — keep the recorded text
@@ -95,6 +115,7 @@ function childCount(n: number): string {
 export const narrativeSl: NarrativeLang = {
   lang: "sl",
   datePhrase,
+  dateLabel,
   // Nominative-safe frames — place names are never declined. An address reads
   // postal-style ("na naslovu Dunajska 5, Kranj"), a bare place gets "v kraju".
   placePhrase: (addr, place) =>

@@ -19,6 +19,13 @@ import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { parseDate } from "../../gedcom/date";
 import { isApproximate } from "../../gedcom/lifespan";
+import { entryDate, isReadable } from "../../normalize/date";
+import { narrativeLangFor } from "../../report/narrativeText";
+import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
+import { displayDate } from "../../gedcom/dateDisplay";
+import { useSettingsSlice } from "../SettingsContext";
+import { useDateEntryStyle } from "./DateEntryContext";
+import { previewDate, type DatePreview } from "./dateEntry";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
@@ -55,6 +62,41 @@ function markedLabel(tag: string | undefined, text: string, t: Translate) {
       </span>
       {at < 0 ? null : text.slice(at)}
     </>
+  );
+}
+
+const DATE_DISPLAY_KEYS = ["dateDisplay"] as const;
+
+/** The line under a date being typed: the date in words, what it will be
+ *  written as, and — for a numeric date whose day and month could swap — the
+ *  other reading, a click away. */
+function DatePreviewLine({ preview, t, onSwap }: { preview: DatePreview; t: Translate; onSwap: (saved: string) => void }) {
+  if (preview.kind === "unreadable") {
+    return (
+      <div className="edit-date-preview is-unreadable" role="status">
+        <span className="edit-date-preview-label">{t("event.dateEntry.unreadable")}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`edit-date-preview is-${preview.kind}`} role="status">
+      <span className={"edit-date-preview-label" + (preview.approx ? " gm-approx" : "")}>{preview.label}</span>
+      {preview.kind === "impossible" && <span className="edit-date-preview-warn"> · {t("event.dateEntry.impossible")}</span>}
+      {preview.saved && <span className="gm-data"> · {t("event.dateEntry.savedAs", { value: preview.saved })}</span>}
+      {preview.swap && (
+        <button
+          type="button"
+          className="edit-date-preview-swap"
+          title={t("event.dateEntry.swapTitle")}
+          // Keep the focus in the field: a blur would write the first reading
+          // and take this line away before the click lands.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onSwap(preview.swap!.saved)}
+        >
+          {t("event.dateEntry.swap", { value: preview.swap.label })}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -241,6 +283,28 @@ export function EventFieldsRow({
   const flagOnly = !isEven && isOccurrenceFlag(ev?.value);
   const valueField = useField(flagOnly ? "" : ev?.value ?? "", valueMergeVal);
   const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
+  // What a typed date is written as, and how it reads while it is being typed.
+  const dateStyle = useDateEntryStyle();
+  const [dateFocused, setDateFocused] = useState(false);
+  const datePreview =
+    dateFocused && dateField.value.trim() && dateField.value !== dateField.initial
+      ? previewDate(dateField.value, dateStyle(), i18n.language)
+      : undefined;
+  // With another date display chosen, the field reads that way at rest ("about
+  // 5 March 1850", "05.03.1850") and turns back into the file's text the
+  // moment it is entered to be edited.
+  const { dateDisplay } = useSettingsSlice(DATE_DISPLAY_KEYS);
+  const parsedDate = dateField.value.trim() ? parseDate(dateField.value) : undefined;
+  const dateText = dateDisplay && !dateFocused && parsedDate ? displayDate(parsedDate) : dateField.value;
+  // The hover says how the date reads, in words — and the file's own text
+  // when the field is showing something else.
+  const dateTitle = [
+    t("event.date", { event: label }),
+    parsedDate && isReadable(parsedDate) ? narrativeLangFor(i18n.language).dateLabel(parsedDate) : undefined,
+    dateText !== dateField.value ? dateField.value : undefined,
+  ]
+    .filter((line, i, all) => line && all.indexOf(line) === i && line !== dateText)
+    .join("\n");
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   // The coordinate this event actually carries (PLAC.MAP). Read from the model,
   // not the edited text, so it reflects what is in the file.
@@ -664,8 +728,17 @@ export function EventFieldsRow({
    * chance to fill in the field they clicked into.
    */
   function commitAll(override: Partial<EventFieldUpdate>) {
+    // A date the user typed is written in the file's style ("~1850" → "ABT
+    // 1850"), and the field shows what was written. One left as it mounted —
+    // the saved value, or a merge suggestion — is the file's own already.
+    let date = dateField.value;
+    if (override.date === undefined && date !== dateField.initial) {
+      const style = dateStyle();
+      date = entryDate(date, style.profile, style.order);
+      if (date !== dateField.value) dateField.set(date);
+    }
     const merged: EventFieldUpdate = {
-      date: dateField.value,
+      date,
       value: flagOnly && !valueField.value.trim() ? ev?.value : valueField.value,
       place: placeField.value,
       address: addrField.value,
@@ -948,7 +1021,7 @@ export function EventFieldsRow({
       {/* Leading item 2: the date — the input fills its fixed slot (text kept
        * right-aligned so the years line up in a column); the age badge follows
        * outside the slot so it never changes the date's position or size. */}
-      <div className={"edit-event-date-cell" + optCls(show.date)}>
+      <div className={"edit-event-date-cell" + (dateDisplay === DATE_DISPLAY_WORDS ? " is-words" : "") + optCls(show.date)}>
         <ClearableInput
           data-detail="date"
           className={fieldCls(
@@ -956,15 +1029,23 @@ export function EventFieldsRow({
             dateField.isMerge,
             dateField.isDirty || dateForced,
           )}
-          value={dateField.value}
+          value={dateText}
           placeholder={t("event.colDate")}
-          title={t("event.date", { event: label })}
+          title={dateTitle}
           autoFocus={autoFocusLead}
           onChange={dateField.onChange}
           onKeyDown={entryKeyDown("date")}
-          onBlur={() => commitAll({})}
+          onFocus={() => setDateFocused(true)}
+          onBlur={() => { setDateFocused(false); commitAll({}); }}
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
+        {datePreview && (
+          <DatePreviewLine
+            preview={datePreview}
+            t={t}
+            onSwap={(saved) => dateField.set(saved)}
+          />
+        )}
       </div>
       {age && (
         <span className="edit-event-age gm-data">

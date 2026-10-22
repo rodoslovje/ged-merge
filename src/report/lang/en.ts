@@ -24,7 +24,15 @@ function datePhrase(d: GedDate): string {
   return phrase && d.calendar === "JULIAN" ? `${phrase} (Julian calendar)` : phrase;
 }
 
-function plainPhrase(d: GedDate): string {
+function dateLabel(d: GedDate): string {
+  const phrase = plainPhrase(d, true);
+  const how = d.approx === "CAL" ? " (calculated)" : d.approx === "EST" ? " (estimated)" : "";
+  const label = phrase && d.qualifier === "about" ? phrase + how : phrase;
+  return label && d.calendar === "JULIAN" ? `${label} (Julian calendar)` : label;
+}
+
+/** `bare` writes the label form: no "on/in" before an exact date. */
+function plainPhrase(d: GedDate, bare = false): string {
   if (d.placeholder) return "";
   const c = core(d.day, d.month, d.year);
   if (!c) return dateText(d); // unparseable — keep the recorded text
@@ -47,6 +55,7 @@ function plainPhrase(d: GedDate): string {
     default:
       // exact / interpreted / unknown-qualifier: a full date reads "on …",
       // anything coarser "in …".
+      if (bare) return c;
       return d.day && d.month ? `on ${c}` : `in ${c}`;
   }
 }
@@ -56,6 +65,7 @@ const PRONOUNS: Record<Sex, string> = { M: "He", F: "She", U: "" };
 export const narrativeEn: NarrativeLang = {
   lang: "en",
   datePhrase,
+  dateLabel,
   placePhrase: (addr, place) => (addr ? `at ${[addr, place].filter(Boolean).join(", ")}` : `in ${place}`),
   pronoun: (sex) => PRONOUNS[sex],
   nameList: (names) =>
