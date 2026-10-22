@@ -184,7 +184,8 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "FAMS":
         if (child.value && !isVoidPointer(child.value)) spouseOf.push(child.value.trim());
         break;
-      case "NOTE": {
+      case "NOTE":
+      case "SNOTE": {
         collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
         break;
       }
@@ -252,7 +253,8 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
       case "CHIL":
         if (child.value && !isVoidPointer(child.value)) children.push(child.value.trim());
         break;
-      case "NOTE": {
+      case "NOTE":
+      case "SNOTE": {
         collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
         break;
       }
@@ -320,7 +322,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
   const links = collectLinks(node, media);
-  const noteNode = firstChild(node, "NOTE");
+  const noteNode = firstChild(node, NOTE_TAGS);
   if (noteNode) {
     const notePtr = noteNode.value?.trim() ?? "";
     if (isPointer(notePtr)) event.noteXref = notePtr;
@@ -334,7 +336,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   // first one only, which is all the display projections ever wanted. GEDCOM
   // puts no limit on them, and one the editor cannot see is one it can lose.
   const eventNoteRefs: NoteRef[] = [];
-  for (const child of childrenByTag(node, "NOTE")) {
+  for (const child of childrenByTag(node, NOTE_TAGS)) {
     collectNote(child, noteIndex, media, [], links, [], eventNoteRefs);
   }
   if (eventNoteRefs.length) event.noteRefs = eventNoteRefs;
@@ -423,17 +425,22 @@ export function buildMediaLinks(records: GedNode[]): MediaLinks {
   return map;
 }
 
+/** The tags a note line goes by: 5.5.1's `NOTE` and GEDCOM 7's shared-note
+ *  pointer `SNOTE`. */
+export const NOTE_TAGS: readonly string[] = ["NOTE", "SNOTE"];
+
 /**
  * Index every top-level NOTE record by its xref, mapping to the text it holds
  * (CONT/CONC continuations are already folded into the record's value by the
  * parser). Records reference these by pointer (`1 NOTE @xref@`), so this lets
  * `resolveNoteText` turn that pointer back into real text instead of leaking
- * the raw `@N@` id into the UI.
+ * the raw `@N@` id into the UI. GEDCOM 7 spells the shared record and its
+ * pointer `SNOTE` (`0 @N1@ SNOTE text`, `1 SNOTE @N1@`); both read alike.
  */
 export function buildNoteIndex(records: GedNode[]): NoteIndex {
   const map: NoteIndex = new Map();
   for (const rec of records) {
-    if (rec.tag === "NOTE" && rec.xref && rec.value !== undefined) {
+    if (NOTE_TAGS.includes(rec.tag) && rec.xref && rec.value !== undefined) {
       map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec) });
     }
   }
