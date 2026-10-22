@@ -164,6 +164,24 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(childValue(other, "PHRASE")).toBe("family lawyer");
   });
 
+  it("keeps the file's own wording of a role on the ROLE's PHRASE", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 ASSO @I2@\n2 RELA Godmother\n1 ASSO @I2@\n2 RELA godparent\n0 @I2@ INDI\n",
+      "7.0",
+    );
+    const [godmother, godparent] = childrenByTag(record(records, "@I1@"), "ASSO").map((a) => firstChild(a, "ROLE")!);
+    expect(godmother.value).toBe("GODP");
+    expect(childValue(godmother, "PHRASE")).toBe("Godmother");
+    // The enumeration's own word needs no phrase.
+    expect(firstChild(godparent, "PHRASE")).toBeUndefined();
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(childrenByTag(record(records, "@I1@"), "ASSO").map((a) => childValue(a, "RELA"))).toEqual([
+      "Godmother",
+      "godparent",
+    ]);
+  });
+
   it("drops an ASSO's TYPE INDI, which 7.0 does not define, and keeps TYPE FAM", () => {
     const { records } = migrated(
       "5.5.1",

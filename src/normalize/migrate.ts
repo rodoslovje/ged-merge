@@ -311,6 +311,9 @@ function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
   rela.tag = "ROLE";
   if (role) {
     rela.value = role;
+    // "Godmother" is GODP, but GODP comes back as "godparent": the file's own
+    // wording rides on the ROLE's PHRASE, which the downgrade restores.
+    if (text !== ROLE_TO_RELA[role]) rela.children.unshift(plain("PHRASE", text));
   } else {
     rela.value = "OTHER";
     if (text) rela.children.unshift(plain("PHRASE", text));
