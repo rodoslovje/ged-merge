@@ -39,6 +39,7 @@ import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates"
 import type { NormChange, SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { decodeHtmlEntities, fetchDirect, pageTitleOf, type DirectResponse } from "../normalize/urlMetadata";
+import { createThrottledQueue, retryOnce } from "../geo/net";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord, SOUR_FIELD_TRAILING, SOUR_TRAILING_TAGS } from "../gedcom/edit/sources";
 import {
@@ -3575,16 +3576,7 @@ const FS_GAP_MS = 600;
  *  try that one link again — a whole file's worth of lookups must not be lost
  *  to a single refusal partway through. */
 const FS_RETRY_MS = 5000;
-let fsChain: Promise<unknown> = Promise.resolve();
-
-function pacedFsFetch<T>(run: () => Promise<T>): Promise<T> {
-  const result = fsChain.then(run, run);
-  fsChain = result.then(
-    () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
-    () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
-  );
-  return result;
-}
+const pacedFsFetch = createThrottledQueue(FS_GAP_MS, { fromEnd: true });
 
 /** A refused request worth trying again: the edge's block/rate-limit answers,
  *  and a connection that produced no answer at all. A 401 (a record page
@@ -3597,11 +3589,11 @@ async function fetchFsArk(
   fetchArk: (url: string, accept: string) => Promise<DirectResponse>,
   url: string,
 ): Promise<string | undefined> {
-  const first = await fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse);
-  if (first.text || !fsWorthRetrying(first.status)) return first.text;
-  await new Promise((r) => setTimeout(r, FS_RETRY_MS));
-  const second = await fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse);
-  return second.text;
+  const res = await retryOnce(
+    () => fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse),
+    (first) => (first.text || !fsWorthRetrying(first.status) ? undefined : FS_RETRY_MS),
+  );
+  return res.text;
 }
 
 /** Parse one fetched book/record page into source metadata — the per-site

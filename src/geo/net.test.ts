@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createThrottledQueue, timeoutSignal } from "./net";
+import { createThrottledQueue, retryOnce, timeoutSignal } from "./net";
 
 describe("timeoutSignal", () => {
   it("aborts on its own after the deadline", async () => {
@@ -51,5 +51,24 @@ describe("createThrottledQueue", () => {
     const doomed = enqueue(() => Promise.resolve("never"), ctrl.signal);
     ctrl.abort();
     await expect(doomed).rejects.toThrow();
+  });
+
+  it("fromEnd measures the gap from the previous task's finish", async () => {
+    const enqueue = createThrottledQueue(40, { fromEnd: true });
+    let ended = 0;
+    let secondStart = 0;
+    const slow = () => new Promise<void>((r) => setTimeout(() => ((ended = Date.now()), r()), 60));
+    await Promise.all([enqueue(slow), enqueue(async () => void (secondStart = Date.now()))]);
+    expect(secondStart - ended).toBeGreaterThanOrEqual(35);
+  });
+});
+
+describe("retryOnce", () => {
+  it("retries once when asked, and not otherwise", async () => {
+    let calls = 0;
+    const attempt = async () => ++calls;
+    expect(await retryOnce(attempt, () => undefined)).toBe(1);
+    expect(await retryOnce(attempt, (n) => (n === 2 ? 1 : undefined))).toBe(3);
+    expect(calls).toBe(3);
   });
 });
