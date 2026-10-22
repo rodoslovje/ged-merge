@@ -261,6 +261,8 @@ export function buildAssociationIndex(dataset: Dataset): AssociationIndex {
 export interface UnresolvedAssociation {
   /** The record that carries it, in the merged output. */
   recordId: string;
+  /** The associate's id in the incoming file. */
+  incomingId: string;
   /** The associate's name, where the incoming file could supply one. */
   name?: string;
 }
@@ -285,38 +287,42 @@ export function remapMergedAssociations(
 ): UnresolvedAssociation[] {
   const dropped: UnresolvedAssociation[] = [];
 
+  // `ASSO` and the vendor tags the merge marked alike (`_SHAR`, …): any
+  // marked node is the compare file's pointer, wherever it sits.
+  const slotKey = (child: GedNode, id: string) =>
+    `${child.tag}|${id}|${firstChild(child, "ROLE")?.value ?? firstChild(child, "RELA")?.value ?? ""}`;
   const inContainer = (recordId: string, container: GedNode) => {
+    if (!container.children.length) return;
     const seen = new Set<string>();
     // Associations already in the main's own namespace claim their slot first,
     // so an incoming copy of one is recognised as the duplicate it is.
     for (const child of container.children) {
-      if (child.tag !== "ASSO" || child.foreignPointer) continue;
-      seen.add(`${child.value ?? ""}|${firstChild(child, "ROLE")?.value ?? firstChild(child, "RELA")?.value ?? ""}`);
+      if (child.foreignPointer || (child.tag !== "ASSO" && !child.tag.startsWith("_"))) continue;
+      seen.add(slotKey(child, child.value ?? ""));
     }
     container.children = container.children.filter((child) => {
-      if (child.tag !== "ASSO" || !child.foreignPointer) return true;
+      if (!child.foreignPointer) return true;
       delete child.foreignPointer;
       const incomingId = child.value?.trim() ?? "";
       // A name-only association names nobody to resolve — it travels as it is.
       if (incomingId.toUpperCase() === VOID_XREF) return true;
       const mainId = resolve(incomingId);
       if (!mainId) {
-        dropped.push({ recordId, name: child.children.find((c) => c.tag === "PHRASE")?.value });
+        dropped.push({ recordId, incomingId, name: child.children.find((c) => c.tag === "PHRASE")?.value });
         return false;
       }
       child.value = mainId;
-      const key = `${mainId}|${firstChild(child, "ROLE")?.value ?? firstChild(child, "RELA")?.value ?? ""}`;
+      const key = slotKey(child, mainId);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+    for (const child of container.children) inContainer(recordId, child);
   };
 
   for (const record of records) {
     if (record.tag !== "INDI" && record.tag !== "FAM") continue;
-    const id = record.xref ?? "";
-    inContainer(id, record);
-    for (const child of record.children) inContainer(id, child);
+    inContainer(record.xref ?? "", record);
   }
   return dropped;
 }

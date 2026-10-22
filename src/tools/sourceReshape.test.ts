@@ -725,6 +725,49 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("3 PAGE list 12"); // no page number: URL removed, prose kept
   });
 
+  it("gives each site its own citation when one citation names links to two sites", () => {
+    const FAG = "https://www.findagrave.com/memorial/12345";
+    for (const shape of [
+      `2 SOUR ${BOOK}/?pg=9 ${FAG}`,
+      `2 SOUR @S9@\n3 PAGE ${BOOK}/?pg=9 ${FAG}\n0 @S9@ SOUR\n1 TITL Misc`,
+    ]) {
+      const { text, records } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+${shape}
+0 TRLR`);
+      const xrefOf = (title: string) =>
+        records.find((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "TITL" && c.value?.startsWith(title)))
+          ?.xref;
+      const matricula = xrefOf("Matricula");
+      const grave = xrefOf("Find a Grave");
+      expect(matricula && grave).toBeTruthy();
+      // Both new sources are cited; the page number stays on Matricula's.
+      expect(text).toContain(`2 SOUR ${matricula}\n3 PAGE 9\n`);
+      expect(text).toContain(`2 SOUR ${grave}\n`);
+      expect(text).not.toContain(`2 SOUR ${grave}\n3 PAGE`);
+      expect(text).not.toContain("3 NOTE https://"); // a link is no prose to keep
+      expect(findReshapableLinks(dataset(text)).groups).toHaveLength(0);
+    }
+  });
+
+  it("keeps an inline citation's own PAGE text beside the link's page number", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR ${BOOK}/?pg=9
+3 PAGE line 12
+1 BIRT
+2 SOUR ${BOOK}/?pg=4
+3 PAGE p. 4
+0 TRLR`);
+    expect(text).toContain("3 PAGE 9, line 12"); // the reader's words survive
+    expect(text).toContain("3 PAGE p. 4"); // already names the page: unchanged
+    expect(text).not.toMatch(/PAGE 4, p\. 4/);
+  });
+
   it("matches per-reference QUAY by occurrence key, tolerating member-list drift", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -1157,6 +1200,29 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 SOUR @S1@"); // the Ancestry citation itself stays
     expect(text).not.toContain("2 WWW"); // the bare link field is dropped
     expect(counts.linksRemoved).toBe(1);
+  });
+
+  it("removeLinks keeps a link-only inline citation's page, transcription and quality", () => {
+    const url = "http://www.legacy.com/obituaries/gettysburgtimes/obituary.aspx?n=mary&pid=161495515";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR ${url}
+3 PAGE line 12
+3 DATA
+4 TEXT Died of influenza.
+3 QUAY 2
+1 BURI
+2 SOUR ${url}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const groups = report.groups.map((g) => (g.site === "legacy" ? { ...g, removeLinks: true } : g));
+    const text = serializeGedcom(reshapeSources(ds.records, groups).records);
+    expect(text).not.toContain("legacy.com");
+    expect(text).toContain("1 DEAT\n2 SOUR\n3 PAGE line 12\n3 DATA\n4 TEXT Died of influenza.\n3 QUAY 2\n");
+    expect(text).toContain("1 BURI\n0 TRLR"); // nothing but the link: the citation goes
+    expect(findReshapableLinks(dataset(text)).groups).toHaveLength(0);
   });
 
   it("folds duplicated identical citations into one (Ancestry re-exports them verbatim)", () => {

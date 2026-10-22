@@ -77,6 +77,19 @@ describe("reformatPlace → packed-plac (the reverse direction)", () => {
     const fac = "Kranj (Slovenija), Kidričeva 38/a (porodnišnica)";
     expect(reformatPlace(fac, undefined, KOVACIC).plac).toBe(fac);
   });
+
+  it("never gives a lone country itself as its parent", () => {
+    // "Peru, Južna Amerika" packs to "Peru"; a second pass must leave it be.
+    expect(reformatPlace("Peru, Južna Amerika", undefined, KOVACIC).plac).toBe("Peru");
+    for (const name of ["Peru", "Srbija", "Slovenija"]) {
+      expect(reformatPlace(name, undefined, KOVACIC).plac).toBe(name);
+    }
+    const preferred: PlaceTargetFormat = { ...KOVACIC, countryPreferred: new Map([["slovenia", "Slovenija"]]) };
+    expect(reformatPlace("Slovenia", undefined, preferred).plac).toBe("Slovenija");
+    // A settlement named like its country keeps the country as its parent.
+    expect(reformatPlace("Luxembourg (Luxembourg)", undefined, KOVACIC).plac).toBe("Luxembourg (Luxembourg)");
+    expect(reformatPlace("Luxembourg, Luxembourg", undefined, KOVACIC).plac).toBe("Luxembourg (Luxembourg)");
+  });
 });
 
 describe("reformatPlace → ADDR locality differs from PLAC locality", () => {

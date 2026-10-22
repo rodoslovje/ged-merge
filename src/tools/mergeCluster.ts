@@ -3,7 +3,7 @@ import { individualFieldRows } from "../review/fields";
 import { DEFAULT_CONFIG } from "../match/types";
 import type { Translate } from "../locales/i18n";
 import type { RecordPatch } from "../ui/historyTypes";
-import { makeDuplicatePair, relationshipCount } from "./duplicates";
+import { closeKin, makeDuplicatePair, relationshipCount } from "./duplicates";
 import {
   mergeDuplicateChain,
   relatedMergeOrder,
@@ -227,10 +227,12 @@ export function clusterMergeSteps(
 
 /** The order the survivor absorbs the rest: richest record first, so whatever a
  *  later step has to choose between is already the fuller side. Deterministic —
- *  the same cluster always merges the same way. */
+ *  the same cluster always merges the same way. A member who is the survivor's
+ *  own parent, child or partner (see `closeKin`) is a different person and
+ *  stays out of the plan. */
 function absorbOrder(dataset: Dataset, survivorId: string, memberIds: string[]): string[] {
   return memberIds
-    .filter((id) => id !== survivorId && dataset.individuals.has(id))
+    .filter((id) => id !== survivorId && dataset.individuals.has(id) && !closeKin(dataset, survivorId, id))
     .sort((a, b) => {
       const ia = dataset.individuals.get(a)!;
       const ib = dataset.individuals.get(b)!;

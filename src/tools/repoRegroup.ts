@@ -46,6 +46,16 @@ export interface RepoRegroupReport {
   total: number;
 }
 
+/** Every repository a `SOUR` record links to, each once. */
+function repoLinks(rec: GedNode): Set<string> {
+  const out = new Set<string>();
+  for (const c of childrenByTag(rec, "REPO")) {
+    const v = c.value?.trim();
+    if (v) out.add(v);
+  }
+  return out;
+}
+
 /** Whether a `REPO` record is FamilySearch's: by its website, or by a name
  *  that opens with the site's own. */
 function isFsRepo(rec: GedNode): boolean {
@@ -118,7 +128,9 @@ export function scanRepoRegroup(records: GedNode[]): RepoRegroupReport {
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     const fromXref = firstChild(rec, "REPO")?.value?.trim() || undefined;
-    if (fromXref) held.set(fromXref, (held.get(fromXref) ?? 0) + 1);
+    // Every repository the source names holds it, not only the first: a
+    // second `REPO` link is still a citation the move does not touch.
+    for (const r of repoLinks(rec)) held.set(r, (held.get(r) ?? 0) + 1);
     if (!isFsSource(rec, fsRepos, objeUrl)) continue;
     if (!fromXref && !adoptRepoless) continue;
     const fromNode = fromXref ? repoNodes.get(fromXref) : undefined;
@@ -214,8 +226,7 @@ export function regroupRepositories(
   const stillCited = new Set<string>();
   for (const rec of clone) {
     if (rec.tag !== "SOUR") continue;
-    const link = firstChild(rec, "REPO")?.value?.trim();
-    if (link) stillCited.add(link);
+    for (const r of repoLinks(rec)) stillCited.add(r);
   }
   const next = clone.filter((rec) => {
     const drop = rec.tag === "REPO" && rec.xref && removed.has(rec.xref) && !stillCited.has(rec.xref);

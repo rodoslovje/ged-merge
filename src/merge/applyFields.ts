@@ -313,7 +313,7 @@ export function applyRows(
       } else if (sub === "sources") {
         applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
       } else if (sub === "assoc") {
-        applied = applyEventAssociations(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
+        applied = applyEventAssociations(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
       } else {
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
@@ -497,9 +497,10 @@ export function applyNamePart(
 
 /**
  * Copy NOTE children from the incoming record. "incoming" replaces any existing
- * notes; "both" appends them. Used for both individual and family notes — pass
- * the matching canonical order so a brand-new NOTE lands before any trailing
- * CHAN/CREA rather than after it.
+ * notes; "both" appends the ones the target does not already carry (the same
+ * text, or the same shared note once its pointer is remapped). Used for
+ * individual, family and event notes — pass the matching canonical order so a
+ * brand-new NOTE lands before any trailing CHAN/CREA rather than after it.
  */
 export function applyNotes(
   target: GedNode,
@@ -512,12 +513,18 @@ export function applyNotes(
   const incNotes = childrenByTag(incoming, "NOTE");
   if (!incNotes.length) return false;
   if (choice !== "both") removeChildren(target, "NOTE");
+  const present = new Set(childrenByTag(target, "NOTE").map(nodeShape));
+  let added = false;
   for (const n of incNotes) {
     const clone = cloneNodeRemapped(n, sourMap);
+    const shape = nodeShape(clone);
+    if (present.has(shape)) continue;
+    present.add(shape);
     collectCustomTags(clone, customTags);
     insertOrdered(target, clone, order);
+    added = true;
   }
-  return true;
+  return added || choice !== "both";
 }
 
 /**
@@ -688,6 +695,9 @@ export function applyEventSub(
   const incSub = incEvent ? firstChild(incEvent, subTag) : undefined;
   if (!incSub) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
+  // An event may carry any number of notes, so its note row is a list like
+  // the record's own notes row — every one of them, not the first.
+  if (subTag === "NOTE") return applyNotes(event, incEvent!, choice, sourMap, EVENT_CHILD_ORDER, customTags);
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
 }
 
@@ -699,7 +709,8 @@ export function applyEventSub(
  * `foreignPointer`: which main record each names is not knowable until every
  * person the merge brings across has one, so `remapMergedAssociations` settles
  * them at the end — including the duplicates that appear when both files name
- * the same godparent at the same baptism.
+ * the same godparent at the same baptism. Their own citations and notes are
+ * shared-record pointers like any other, remapped via `sourMap`.
  */
 export function applyEventAssociations(
   target: GedNode,
@@ -709,6 +720,8 @@ export function applyEventAssociations(
   mainIdx: number,
   compareIdx: number,
   order: string[],
+  sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]>,
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
@@ -717,7 +730,8 @@ export function applyEventAssociations(
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (choice !== "both") removeChildren(event, "ASSO");
   for (const assoc of incAssocs) {
-    const clone = cloneNode(assoc);
+    const clone = cloneNodeRemapped(assoc, sourMap);
+    collectCustomTags(clone, customTags);
     clone.foreignPointer = true;
     insertOrdered(event, clone, EVENT_CHILD_ORDER);
   }
@@ -1022,7 +1036,7 @@ export function collectCustomTags(node: GedNode, registry: Record<string, Custom
 }
 
 // ---------------------------------------------------------------------------
-// Shared-record (SOUR / REPO / NOTE / OBJE) import helpers
+// Shared-record (SOUR / REPO / NOTE / SNOTE / OBJE) import helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -1032,21 +1046,23 @@ export function collectCustomTags(node: GedNode, registry: Record<string, Custom
  * (INDI/FAM pointers are handled structurally by the merge instead, and
  * anything else — see `stripForeignPointers` — has no import path.)
  */
-const SHARED_RECORD_TAGS = new Set(["SOUR", "REPO", "NOTE", "OBJE"]);
+const SHARED_RECORD_TAGS = new Set(["SOUR", "REPO", "NOTE", "SNOTE", "OBJE"]);
 
-/** Fresh-xref prefix per shared record type. */
-const SHARED_XREF_PREFIX: Record<string, string> = { SOUR: "S", REPO: "R", NOTE: "N", OBJE: "O" };
+/** Fresh-xref prefix per shared record type. A 7.0 shared note (`SNOTE`,
+ *  also what normalize upgrades an incoming 5.5.1 `NOTE` record to) is a
+ *  note all the same. */
+const SHARED_XREF_PREFIX: Record<string, string> = { SOUR: "S", REPO: "R", NOTE: "N", SNOTE: "N", OBJE: "O" };
 
 /**
  * A content-identity key for a shared record, so a compare record describing
  * the same thing as an existing main one maps to the main's xref instead
  * of minting a duplicate. SOUR/REPO key on their descriptive fields
- * (`sourceContentKey`), a NOTE on its full text, an OBJE on the file/URL it
+ * (`sourceContentKey`), a NOTE/SNOTE on its full text, an OBJE on the file/URL it
  * wraps. Undefined means "no identity-bearing content" — never match on it.
  */
 function sharedContentKey(rec: GedNode): string | undefined {
   if (rec.tag === "SOUR" || rec.tag === "REPO") return sourceContentKey(rec) || undefined;
-  if (rec.tag === "NOTE") return rec.value?.trim() || undefined;
+  if (rec.tag === "NOTE" || rec.tag === "SNOTE") return rec.value?.trim() || undefined;
   // OBJE: a web address by the page it names, so two spellings of one
   // FamilySearch image (with and without `?i=37&cc=…`) are one record.
   const file = childText(rec, "FILE");
@@ -1054,7 +1070,7 @@ function sharedContentKey(rec: GedNode): string | undefined {
 }
 
 /**
- * Map from a compare file's shared-record (SOUR/REPO/NOTE/OBJE) xref to the
+ * Map from a compare file's shared-record (SOUR/REPO/NOTE/SNOTE/OBJE) xref to the
  * xref it will carry in the merged output. Usually the same; only differs when
  * the compare xref collides with a main xref that points to a different
  * record.
@@ -1075,7 +1091,7 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
 
 /**
  * Pre-compute the xref translation table for all compare shared records
- * (SOUR/REPO/NOTE/OBJE). A compare record describing the same content as an
+ * (SOUR/REPO/NOTE/SNOTE/OBJE). A compare record describing the same content as an
  * existing main one (per `sharedContentKey`, regardless of xref) maps
  * straight to that main xref, so merging never mints a duplicate record for
  * content the main already has. Otherwise: records whose xref does not
@@ -1125,7 +1141,7 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
   return map;
 }
 
-/** Deep-clone `n`, substituting any SOUR/REPO/NOTE/OBJE pointer values via `sourMap`. */
+/** Deep-clone `n`, substituting any SOUR/REPO/NOTE/SNOTE/OBJE pointer values via `sourMap`. */
 export function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
   const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map((ch) => cloneNodeRemapped(ch, sourMap)) };
   if (n.xref !== undefined) c.xref = n.xref;
@@ -1159,12 +1175,22 @@ const FOREIGN_POINTER_TAGS = new Set(["FAMC", "FAMS", "ASSO", "ALIA", "SUBM", "A
  * `foreignPointer` and resolved once every record is placed (see
  * `remapMergedAssociations`). Only what the merge cannot resolve is dropped —
  * and it says so then, when it is actually true.
+ *
+ * A vendor tag (`_SHAR`, `_ASSO`, …) whose pointer names a person or family
+ * of the incoming file (per `isIncomingRecord`) is an association by another
+ * name and is marked the same way: no fixed list knows every vendor's tags,
+ * and one left alone would land on whatever main record shares the xref.
  */
-export function stripForeignPointers(node: GedNode): string[] {
+export function stripForeignPointers(node: GedNode, isIncomingRecord?: (xref: string) => boolean): string[] {
   const removed: string[] = [];
   const walk = (n: GedNode): void => {
     n.children = n.children.filter((c) => {
-      if (FOREIGN_POINTER_TAGS.has(c.tag) && c.value && /^@[^@]+@$/.test(c.value.trim())) {
+      const pointer = c.value && /^@[^@]+@$/.test(c.value.trim()) ? c.value.trim() : undefined;
+      if (pointer && c.tag.startsWith("_") && isIncomingRecord?.(pointer)) {
+        c.foreignPointer = true;
+        return true;
+      }
+      if (FOREIGN_POINTER_TAGS.has(c.tag) && pointer) {
         if (c.tag === "ASSO") {
           c.foreignPointer = true;
           return true;
@@ -1182,7 +1208,7 @@ export function stripForeignPointers(node: GedNode): string[] {
 
 /**
  * After all merge decisions have been applied, scan the merged output for
- * shared-record (SOUR/REPO/NOTE/OBJE) xref pointers that don't yet have a
+ * shared-record (SOUR/REPO/NOTE/SNOTE/OBJE) xref pointers that don't yet have a
  * corresponding top-level record and import them from the compare file.
  * Handles transitive dependencies (a SOUR that references a REPO or OBJE that
  * also needs importing) by iterating to fixpoint. The `sourMap` ensures

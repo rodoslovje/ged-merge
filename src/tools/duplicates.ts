@@ -210,6 +210,7 @@ export function findDuplicates(
         if (distinctRelatives(a, b, ds)) continue;
         const cand = scoreIndividualPair(a, b, ds, ds, config, freq);
         if (cand.score / 100 < minScore) continue;
+        if (closeKin(ds, a.id, b.id)) continue;
 
         // Orient the pair so the left/survivor is the record with more linked
         // relatives. Merging keeps the left record and re-points the right's
@@ -247,7 +248,7 @@ export function makeDuplicatePair(
 ): DuplicatePair | undefined {
   const a = ds.individuals.get(aId);
   const b = ds.individuals.get(bId);
-  if (!a || !b || aId === bId) return undefined;
+  if (!a || !b || aId === bId || closeKin(ds, aId, bId)) return undefined;
   // The same counts the scan used, so the ad-hoc pair scores like a listed one.
   const cand = scoreIndividualPair(a, b, ds, ds, config, nameFrequenciesFor(ds, config.gates.maxYearGap));
   const [left, right] = relationshipCount(b, ds) > relationshipCount(a, ds) ? [b, a] : [a, b];
@@ -259,6 +260,43 @@ export function makeDuplicatePair(
     score: cand.score,
     category: cand.category,
   };
+}
+
+/**
+ * True when the two records are linked as different people of one family —
+ * spouses of each other, or one an ancestor of the other. Such a pair is never
+ * one person entered twice, and merging it would make someone their own
+ * parent or partner (a family with `HUSB @I1@` and `CHIL @I1@`). Siblings —
+ * the same role in one family — stay mergeable: a child entered twice is the
+ * commonest duplicate there is.
+ */
+export function closeKin(ds: Dataset, aId: string, bId: string): boolean {
+  const a = ds.individuals.get(aId);
+  if (!a) return false;
+  for (const famId of a.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (fam && (fam.husband === bId || fam.wife === bId)) return true;
+  }
+  return isAncestor(ds, aId, bId) || isAncestor(ds, bId, aId);
+}
+
+/** Whether `ancestorId` is reached by walking `id`'s parent families upward. */
+function isAncestor(ds: Dataset, ancestorId: string, id: string): boolean {
+  const seen = new Set<string>([id]);
+  const stack = [id];
+  while (stack.length) {
+    const indi = ds.individuals.get(stack.pop()!);
+    for (const famId of indi?.childOf ?? []) {
+      const fam = ds.families.get(famId);
+      for (const p of [fam?.husband, fam?.wife]) {
+        if (!p || seen.has(p)) continue;
+        if (p === ancestorId) return true;
+        seen.add(p);
+        stack.push(p);
+      }
+    }
+  }
+  return false;
 }
 
 /** Number of distinct linked relatives (parents, partners, children) a person

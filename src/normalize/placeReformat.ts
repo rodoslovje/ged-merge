@@ -211,7 +211,12 @@ export function reformatPlace(
   if (fmt.layout === "packed-plac") {
     // Recompose into a single PLAC; drop unused middle jurisdiction levels.
     let plac = locality ?? jurisdiction[0] ?? "";
-    if (country) plac += ` (${country})`;
+    // A value naming nothing but its country ("Slovenija") is that country,
+    // not a place in it: "Slovenija (Slovenija)" gives it itself as a parent.
+    // A real settlement of the country's name keeps it ("Luxembourg
+    // (Luxembourg)") — there the parsed locality says so.
+    if (country && !locality && canonicalPlaceToken(plac) === canonicalPlaceToken(country)) plac = country;
+    else if (country) plac += ` (${country})`;
     if (address) plac += `, ${address}`;
     if (parish) plac += ` - župnija ${parish}`;
     // The ", facility" form only survives a re-parse when the text contains a

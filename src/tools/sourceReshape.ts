@@ -1261,9 +1261,12 @@ function scanContainer(
           hits.push({ ...base, node: child, shape: "pageUrl", url, recognized, typeText: ownerTitle });
         }
       } else if (value) {
-        for (const { url, recognized } of recognizedUrls(value, value, sites)) {
-          const prefix = value
-            .replace(url, "")
+        const found = recognizedUrls(value, value, sites);
+        // The citation's prose without ANY of its links — a second site's URL
+        // is that site's own occurrence, not text to keep in a NOTE.
+        const prose = found.reduce((text, f) => text.replace(f.url, ""), value);
+        for (const { url, recognized } of found) {
+          const prefix = prose
             .replace(/\(\s*\)/g, "")
             .replace(/[\s:–—-]+$/, "")
             .trim();
@@ -1809,6 +1812,18 @@ function removeUrlFromText(text: string, url: string): string {
 }
 
 /** Whether leftover note text still says anything (letters or digits). */
+/** A citation's own PAGE text with the link's page number worked in — the
+ *  reader's words ("line 12") are evidence too, so they stay beside it
+ *  ("9, line 12"), the way a PAGE's prose survives its URL being swapped for
+ *  the page. A text already naming that page, or holding the link itself
+ *  (swapped in place), needs no prefix. */
+function withPage(text: string, page: string, url: string): string {
+  if (text.includes(url)) return text.replace(url, page).replace(/[ \t]{2,}/g, " ").trim();
+  const escaped = page.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "u").test(text)) return text;
+  return `${page}, ${text.trim()}`;
+}
+
 function hasContent(text: string): boolean {
   return /[\p{L}\p{N}]/u.test(text);
 }
@@ -2690,6 +2705,9 @@ export function reshapeSources(
   const ctx: RelocationContext = { byXref, urlOfObje };
   const { resolve: resolvePlace, structuredAddr } = buildPlaceResolver(clone);
   const houseDate = houseDateFormatter(clone);
+  /** Citations re-pointed this run — one naming two sites' links is two hits
+   *  of two groups on the same node (see the citation rewrite below). */
+  const convertedCitations = new Set<GedNode>();
 
   for (const [key, state] of groups) {
     const selection = selectedById.get(key);
@@ -2717,6 +2735,13 @@ export function reshapeSources(
           if (hasContent(remaining)) {
             hit.node.value = remaining;
             counts.notesRewritten++;
+            continue;
+          }
+          // A citation is more than its link: its page, transcription or
+          // quality stay, only the dead link line goes.
+          if (hit.shape === "inline" && hit.node.children.length > 0) {
+            hit.node.value = undefined;
+            counts.linksRemoved++;
             continue;
           }
         }
@@ -3037,8 +3062,22 @@ export function reshapeSources(
       }
 
       if (hit.shape === "inline" || hit.shape === "pageUrl") {
-        // Convert the citation node itself, preserving its other children.
-        const citation = hit.node;
+        // Convert the citation node itself, preserving its other children —
+        // unless another site's link in the same citation already converted
+        // it this run: re-pointing it again would leave that site's new
+        // source cited by nothing, so this site gets a citation of its own
+        // beside it, and its link leaves the first one's PAGE.
+        const twin = convertedCitations.has(hit.node);
+        const citation: GedNode = twin ? { level: hit.node.level, tag: "SOUR", children: [] } : hit.node;
+        if (twin && hit.shape === "pageUrl") {
+          const ownPage = firstChild(hit.node, "PAGE");
+          if (ownPage?.value) {
+            const remaining = removeUrlFromText(ownPage.value, hit.url);
+            if (hasContent(remaining)) ownPage.value = remaining;
+            else spliceChild(hit.node, ownPage);
+          }
+        }
+        convertedCitations.add(hit.node);
         citation.value = sourceXref;
         const pageChild = firstChild(citation, "PAGE");
         if (hit.shape === "pageUrl" && pageChild?.value) {
@@ -3051,10 +3090,11 @@ export function reshapeSources(
           if (hasContent(replaced)) pageChild.value = replaced;
           else spliceChild(citation, pageChild);
         } else if (page) {
-          if (pageChild) pageChild.value = page;
+          if (pageChild?.value?.trim()) pageChild.value = withPage(pageChild.value, page, hit.url);
+          else if (pageChild) pageChild.value = page;
           else citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
         }
-        if (hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {
+        if (!twin && hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {
           citation.children.push({ level: citation.level + 1, tag: "NOTE", value: hit.prefix, children: [] });
         }
         if (quayFor && !firstChild(citation, "QUAY")) {
@@ -3071,8 +3111,8 @@ export function reshapeSources(
         if (duplicate && quayFor && !firstChild(duplicate, "QUAY")) {
           duplicate.children.push({ level: duplicate.level + 1, tag: "QUAY", value: quayFor, children: [] });
         }
-        if (container !== hit.container) {
-          spliceChild(hit.container, citation);
+        if (container !== hit.container || twin) {
+          if (!twin) spliceChild(hit.container, citation);
           if (!duplicate) {
             relevel(citation, container.level + 1);
             insertOrdered(container, citation, order);

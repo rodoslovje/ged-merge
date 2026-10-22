@@ -178,27 +178,77 @@ describe("parseGedcom", () => {
     });
   });
 
-  it("warns when two records define the same xref (last one wins)", () => {
+  it("keeps a CONT/CONC at the wrong level with the text it continues", () => {
+    const text = [
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE first",
+      "1 CONT second", // one level too shallow: would land on the INDI itself
+      "1 BIRT",
+      "2 DATE 1900",
+      "2 NOTE born at home",
+      "4 CONC  in the village", // two levels too deep: had no parent at all
+      "1 TITL Dr.",
+      "1 CONC  med.", // shallow, with no NOTE in progress
+      "0 TRLR",
+      "",
+    ].join("\n");
+    const parsed = parseGedcom(toBuffer(text));
+    const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+    expect(indi.value).toBeUndefined();
+    expect(indi.children.find((c) => c.tag === "NOTE")?.value).toBe("first\nsecond");
+    const birt = indi.children.find((c) => c.tag === "BIRT")!;
+    expect(birt.children.find((c) => c.tag === "NOTE")?.value).toBe("born at home in the village");
+    expect(indi.children.find((c) => c.tag === "TITL")?.value).toBe("Dr. med.");
+    expect(parsed.warnings.filter((w) => w.kind === "structure" && /CONT|CONC/.test(w.message))).toHaveLength(3);
+    // Written back at the level the continuation belongs to.
+    const out = serializeGedcom(parsed.records);
+    expect(out).toContain("1 NOTE first\n2 CONT second\n");
+    expect(out).toContain("2 NOTE born at home in the village\n");
+    expect(out).toContain("1 TITL Dr. med.\n");
+  });
+
+  it("does not fold a level-skipping line into a NOTE pointer", () => {
+    const text = ["0 HEAD", "0 @I1@ INDI", "1 NOTE @N1@", "3 DATE 1900", "0 @N1@ NOTE story", "0 TRLR", ""].join("\n");
+    const parsed = parseGedcom(toBuffer(text));
+    const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+    const note = indi.children.find((c) => c.tag === "NOTE")!;
+    expect(note.value).toBe("@N1@");
+    // Clamped into the record like any other level skip, not turned into text.
+    expect(note.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["DATE 1900"]);
+    expect(parsed.warnings.some((w) => /level 3 has no parent/.test(w.message))).toBe(true);
+    expect(serializeGedcom(parsed.records)).not.toContain("CONT");
+  });
+
+  it("keeps both records that share an xref, renaming the earlier one", () => {
     const text = [
       "0 HEAD",
       "0 @I1@ INDI",
       "1 NAME Ana /Novak/",
       "0 @I1@ INDI",
       "1 NAME Bo /Kos/",
+      "1 FAMS @F1@",
+      "0 @I2@ INDI",
+      "1 NAME Cene /Kos/",
+      "0 @F1@ FAM",
+      "1 HUSB @I1@",
       "0 TRLR",
       "",
     ].join("\n");
     const ds = buildDataset(parseGedcom(toBuffer(text)));
-    expect(ds.individuals.size).toBe(1);
+    // The pointer still binds to the last copy, as it always has.
     expect(ds.individuals.get("@I1@")?.names[0].full).toContain("Bo");
+    expect(ds.families.get("@F1@")?.husband).toBe("@I1@");
     expect(
-      ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@")),
+      ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@") && w.message.includes("@I3@")),
     ).toBe(true);
-    // The shadowed earlier record is dropped from records[] too — otherwise
-    // both would serialize and the *saved* file would carry @I1@ twice.
-    const copies = ds.records.filter((r) => r.xref === "@I1@");
-    expect(copies).toHaveLength(1);
-    expect(copies[0].children.find((c) => c.tag === "NAME")?.value).toBe("Bo /Kos/");
+    // The shadowed earlier person is kept under a fresh id — dropping it lost
+    // them from the save, keeping both ids would write @I1@ twice.
+    expect(ds.individuals.size).toBe(3);
+    expect(ds.individuals.get("@I3@")?.names[0].full).toContain("Ana");
+    expect(ds.records.filter((r) => r.xref === "@I1@")).toHaveLength(1);
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("0 @I3@ INDI\n1 NAME Ana /Novak/\n0 @I1@ INDI\n1 NAME Bo /Kos/");
   });
 
   it("folds a doubled leading at-sign (@@) back to a literal @", () => {

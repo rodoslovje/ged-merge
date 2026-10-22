@@ -18,7 +18,7 @@ import { NOT_GEDCOM } from "./gedcom/parser";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { isTableFile } from "./csv/compareCsv";
-import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
+import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, familyMembers, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
@@ -1911,7 +1911,7 @@ function AppContent() {
           rebuildFamily(mainDataset, fam);
           patches.push({ type: "family", id, before: beforeFam, after: cloneRaw(fam.raw) });
         } else {
-          const memberIds = [fam.husband, fam.wife, ...fam.children].filter(Boolean) as string[];
+          const memberIds = familyMembers(mainDataset, fam);
           const memberBefores = new Map<string, GedNode>();
           for (const indiId of memberIds) {
             const indi = mainDataset.individuals.get(indiId);
