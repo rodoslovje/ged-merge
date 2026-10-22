@@ -5,6 +5,7 @@ import type { PlaceExportFormat } from "../normalize/profile";
 import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
 import type { IncomingDuplicateCluster, MatchResult, ScoreComponent } from "../match/types";
 import type { KinshipRanking } from "../match/distance";
+import type { NormPatch } from "../normalize/normPatch";
 
 /** Which slot a loaded file occupies. */
 export type DatasetRole = "main" | "compare";
@@ -90,6 +91,13 @@ export interface ParseSuccess {
    * deterministic), so the two stay identical without the dataset travelling.
    */
   consolidated?: IncomingDuplicateCluster[];
+  /**
+   * Compare only, when the worker normalized a GEDCOM compare: what that
+   * changed, for the main thread to replay on its own parse of the bytes
+   * (`applyNormPatch`) rather than normalize them a second time — which cost
+   * ~8 s of blocked main thread on a 500k-person file.
+   */
+  normalized?: NormPatch;
   /** Present for the compare slot once it has been normalized to the main. */
   report?: NormalizationReport;
   /** Detected place-formatting convention of this file. */

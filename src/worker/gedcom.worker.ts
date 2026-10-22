@@ -10,6 +10,7 @@ import type { Dataset } from "../gedcom/types";
 import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
+import { diffNormalized } from "../normalize/normPatch";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
@@ -262,10 +263,22 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
   // The profile travels with the compare: a silent main re-feed changes it
-  // without announcing the main, and the main thread must normalize its copy
-  // against the same one.
+  // without announcing the main, and should the edits below be missing, the
+  // main thread normalizes its copy against the same one.
   lastCompareMeta = { fileName, profile, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage };
-  post({ type: "parsed", role: "compare", ...(withDataset ? { dataset } : {}), ...lastCompareMeta });
+  if (withDataset) {
+    post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
+    return;
+  }
+  // What normalizing changed, for the main thread to replay on its own parse
+  // of the bytes instead of normalizing them a second time. Kept out of
+  // `lastCompareMeta`: its buffers are transferred, and the re-announcement
+  // after consolidation has nothing to replay.
+  const normalized = diffNormalized(rawDataset.records, dataset.records);
+  post(
+    { type: "parsed", role: "compare", ...lastCompareMeta, ...(normalized ? { normalized } : {}) },
+    normalized ? [normalized.ops.buffer, normalized.lens.buffer] : undefined,
+  );
 }
 
 /** Run matching once both sides are available, ranked if a start person is set. */

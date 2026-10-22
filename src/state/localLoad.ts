@@ -1,7 +1,8 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, ParseResult } from "../gedcom/types";
 import { normalizeDataset } from "../normalize/normalize";
+import { applyNormPatch } from "../normalize/normPatch";
 import { collectLayoutValues, primePlaceExportFormat } from "../normalize/profile";
 import type { MainProfile } from "../normalize/types";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
@@ -16,21 +17,23 @@ type Parsed = Extract<WorkerResponse, { type: "parsed" }>;
  *
  * The worker stays the authority on *when* a slot is announced and with which
  * detections; this class mirrors *what* it holds. Every step the worker takes
- * on a GEDCOM dataset is a pure function of inputs the main thread has too —
- * parse and build of the bytes, `normalizeDataset` against the main profile
- * (posted with the main's `parsed`), the confirmed-default `mergeDuplicate`
- * of consolidated incoming duplicates (posted as `consolidated`) — so the two
- * copies agree record for record.
+ * on a GEDCOM dataset is replayed here from the bytes and what the worker
+ * posts — parse and build of the bytes, the edits normalizing made (posted as
+ * `normalized`, applied to this side's own parse before it is built), the
+ * confirmed-default `mergeDuplicate` of consolidated incoming duplicates
+ * (posted as `consolidated`) — so the two copies agree record for record.
  *
  * Memory: the main holds its dataset (as it always did); the compare holds
- * its normalized dataset plus the file's bytes, from which a raw dataset is
- * rebuilt whenever a new main means the compare must normalize again. The
- * raw compare built at load time is dropped once normalized.
+ * its normalized dataset plus the file's bytes, parsed afresh whenever a new
+ * main means the compare is normalized again. The parse taken at load time is
+ * dropped once it has been built.
  */
 export class LocalLoads {
   private main: { fileName: string; dataset: Dataset } | undefined;
   private compareBytes: { fileName: string; buffer: ArrayBuffer } | undefined;
-  private compareRaw: { fileName: string; dataset: Dataset } | undefined;
+  /** A parse of the compare's bytes not yet built (so not yet patched): what
+   *  the worker's first announcement of the compare is replayed onto. */
+  private compareParsed: { fileName: string; parsed: ParseResult } | undefined;
   private profile: MainProfile | undefined;
   /** The compare dataset last resolved — what a consolidation replays onto.
    *  Kept here, not read from React state: the worker posts the compare and
@@ -58,25 +61,29 @@ export class LocalLoads {
   /** Build the local dataset for a GEDCOM parse request (see {@link feed}). */
   build(role: DatasetRole, fileName: string, buffer: ArrayBuffer): void {
     if (role === "compare") {
+      // Parsed only: the build waits for the worker's word on how the file
+      // was normalized, which is applied to this parse first.
       this.compareBytes = { fileName, buffer };
-      this.compareRaw = undefined;
-    }
-    let dataset: Dataset;
-    try {
-      dataset = buildDataset(parseGedcom(buffer));
-    } catch {
-      // The worker parses the same bytes and reports the failure for the slot.
-      if (role === "main") this.main = undefined;
+      this.compareParsed = undefined;
+      try {
+        this.compareParsed = { fileName, parsed: parseGedcom(buffer) };
+      } catch {
+        // The worker parses the same bytes and reports the failure for the slot.
+      }
       return;
     }
-    if (role === "main") this.main = { fileName, dataset };
-    else this.compareRaw = { fileName, dataset };
+    try {
+      this.main = { fileName, dataset: buildDataset(parseGedcom(buffer)) };
+    } catch {
+      this.main = undefined; // as above
+    }
   }
 
   /**
    * The dataset a `parsed` message stands for: the message's own (a table
-   * compare), the local main, the local compare normalized to the profile, or
-   * the last resolved compare with the announced consolidation replayed.
+   * compare), the local main, the local compare with the worker's
+   * normalization replayed, or the last resolved compare with the announced
+   * consolidation replayed.
    * Undefined when the local copy is missing — a parse the worker accepted but
    * this side did not, which the caller reports as a failed slot.
    */
@@ -111,22 +118,31 @@ export class LocalLoads {
       return { ...currentCompare };
     }
     if (msg.dataset) return msg.dataset;
-    const raw = this.rawCompare(msg.fileName);
-    if (!raw) return undefined;
-    if (!this.profile) return raw; // no main yet: announced raw, as the worker does
+    let parsed = this.freshCompareParse(msg.fileName);
+    if (!parsed) return undefined;
+    if (msg.normalized) {
+      if (applyNormPatch(parsed.records, msg.normalized)) return buildDataset(parsed);
+      // Not the forest the edits were made against — never expected, as both
+      // sides parse the same bytes. Normalize here instead, as a fallback.
+      parsed = this.freshCompareParse(msg.fileName);
+      if (!parsed) return undefined;
+    }
+    const raw = buildDataset(parsed);
+    // No main yet: announced raw, as the worker does.
+    if (!msg.report || !this.profile) return raw;
     const { dateValues } = collectLayoutValues(raw);
-    const { dataset } = normalizeDataset(raw, this.profile, dateValues);
-    this.compareRaw = undefined; // rebuilt from the bytes if a later main needs it
-    return dataset;
+    return normalizeDataset(raw, this.profile, dateValues).dataset;
   }
 
-  private rawCompare(fileName: string): Dataset | undefined {
-    if (this.compareRaw?.fileName === fileName) return this.compareRaw.dataset;
+  /** A parse of the compare's bytes no build has touched yet — the one taken
+   *  at load time, once, and a new one from the kept bytes after that. */
+  private freshCompareParse(fileName: string): ParseResult | undefined {
+    const kept = this.compareParsed;
+    this.compareParsed = undefined;
+    if (kept?.fileName === fileName) return kept.parsed;
     if (this.compareBytes?.fileName !== fileName) return undefined;
     try {
-      const dataset = buildDataset(parseGedcom(this.compareBytes.buffer));
-      this.compareRaw = { fileName, dataset };
-      return dataset;
+      return parseGedcom(this.compareBytes.buffer);
     } catch {
       return undefined;
     }
@@ -135,7 +151,7 @@ export class LocalLoads {
   /** Forget the compare (the slot was unloaded or replaced by a table). */
   clearCompare(): void {
     this.compareBytes = undefined;
-    this.compareRaw = undefined;
+    this.compareParsed = undefined;
     this.lastCompare = undefined;
   }
 }
