@@ -313,7 +313,7 @@ export function applyRows(
       } else if (sub === "sources") {
         applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
       } else if (sub === "assoc") {
-        applied = applyEventAssociations(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
+        applied = applyEventAssociations(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, report.customTags, newEventNodes);
       } else {
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
@@ -699,7 +699,8 @@ export function applyEventSub(
  * `foreignPointer`: which main record each names is not knowable until every
  * person the merge brings across has one, so `remapMergedAssociations` settles
  * them at the end — including the duplicates that appear when both files name
- * the same godparent at the same baptism.
+ * the same godparent at the same baptism. Their own citations and notes are
+ * shared-record pointers like any other, remapped via `sourMap`.
  */
 export function applyEventAssociations(
   target: GedNode,
@@ -709,6 +710,8 @@ export function applyEventAssociations(
   mainIdx: number,
   compareIdx: number,
   order: string[],
+  sourMap: SourXrefMap,
+  customTags: Record<string, CustomTagNode[]>,
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
@@ -717,7 +720,8 @@ export function applyEventAssociations(
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (choice !== "both") removeChildren(event, "ASSO");
   for (const assoc of incAssocs) {
-    const clone = cloneNode(assoc);
+    const clone = cloneNodeRemapped(assoc, sourMap);
+    collectCustomTags(clone, customTags);
     clone.foreignPointer = true;
     insertOrdered(event, clone, EVENT_CHILD_ORDER);
   }

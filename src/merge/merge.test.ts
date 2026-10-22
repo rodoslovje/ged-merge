@@ -3087,6 +3087,25 @@ describe("associations across a merge", () => {
     expect(JSON.stringify(records).includes("foreignPointer")).toBe(false);
   });
 
+  it("brings an event association's own citation with it, to the incoming source", () => {
+    // The main's @S1@ is an unrelated source; the godmother's citation must
+    // not land on it, and the source it names must arrive.
+    const main = dataset(MAIN.replace("0 TRLR", "0 @S1@ SOUR\n1 TITL Davčna knjiga\n0 TRLR"));
+    const inc = dataset(
+      INC.replace("3 RELA botra\n", "3 RELA botra\n3 SOUR @S1@\n4 PAGE fol. 12\n").replace(
+        "0 TRLR",
+        "0 @S1@ SOUR\n1 TITL Krstna knjiga Kranj\n0 TRLR",
+      ),
+    );
+    const { records } = mergeDecisions(main, inc, decisions(), matches, tr);
+    const out = serializeGedcom(records);
+    const sour = /2 ASSO @I2@\n3 TYPE INDI\n3 RELA botra\n3 SOUR (@[^@]+@)\n4 PAGE fol\. 12\n/.exec(out)?.[1];
+    expect(sour).toBeDefined();
+    expect(sour).not.toBe("@S1@");
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Davčna knjiga");
+    expect(out).toContain(`0 ${sour} SOUR\n1 TITL Krstna knjiga Kranj`);
+  });
+
   it("points a vendor tag naming a person at that person's merged record, or drops it and says so", () => {
     // The main's @I2@ is someone else; the incoming child's shared-event tags
     // name its father (matched to @I1@) and the incoming @I2@, who never
