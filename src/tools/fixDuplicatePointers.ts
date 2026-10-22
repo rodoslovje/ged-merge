@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { mergeSubLines } from "../gedcom/node";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 
 /**
@@ -8,21 +9,27 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
  * Purely subtractive, like `fixBrokenLinks`: it drops redundant pointer lines
  * that repeat an xref already present on the same record — a `FAMC`/`FAMS`
  * listed twice on an individual, or a `CHIL` listed twice on a family. Common in
- * merged exports. The first occurrence (with any subordinate lines) is kept; the
- * later duplicate line is removed, so no relationship is lost.
+ * merged exports. The first occurrence is kept and the later duplicate line is
+ * removed, its subordinate lines (`PEDI adopted`, `_FREL`) folded into the kept
+ * one, so neither a relationship nor its qualifiers are lost.
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
 
 /** Remove every `tag` child of `node` whose pointer value was already seen on an
- *  earlier `tag` child — keeping the first occurrence. Returns whether it changed. */
+ *  earlier `tag` child — keeping the first occurrence, with the removed twin's
+ *  subordinate lines merged into it. Returns whether it changed. */
 function dedupeRefs(node: GedNode, tag: string): boolean {
-  const seen = new Set<string>();
+  const seen = new Map<string, GedNode>();
   const before = node.children.length;
   node.children = node.children.filter((c) => {
     if (c.tag !== tag || c.value === undefined) return true;
-    if (seen.has(c.value)) return false;
-    seen.add(c.value);
+    const kept = seen.get(c.value);
+    if (kept) {
+      mergeSubLines(kept, c);
+      return false;
+    }
+    seen.set(c.value, c);
     return true;
   });
   return node.children.length !== before;

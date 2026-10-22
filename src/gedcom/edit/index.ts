@@ -35,9 +35,9 @@ export type { NameVariantUpdate } from "./names";
 
 export {
   addIndividual, addFamily, addParent, addPartner, addChild,
-  connectExistingParent, connectExistingPartner, connectExistingChild,
+  connectExistingParent, connectExistingPartner, connectExistingChild, impossibleRelatives,
   pruneDegenerateFamily, detachSpouseRole, detachChildFromFamily,
-  removeIndividual, removeFamily, foldFamily, familiesNaming,
+  removeIndividual, removeFamily, foldFamily, familiesNaming, familyMembers, RECORD_OWN_TAGS,
 } from "./family";
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";

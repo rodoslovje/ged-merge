@@ -78,7 +78,7 @@ export function PrivacyPanel({
 
   const flagged = useMemo(() => (ready ? findLiving(dataset, options) : []), [ready, dataset, options]);
   const counts = useMemo(() => {
-    const c = { birth: 0, relative: 0, unknown: 0, recentDeath: 0, declared: 0 };
+    const c = { birth: 0, relative: 0, event: 0, unknown: 0, recentDeath: 0, declared: 0 };
     for (const f of flagged) c[f.reason]++;
     return c;
   }, [flagged]);
@@ -232,6 +232,7 @@ export function PrivacyPanel({
           <ToolSummary>{t("tools.privacy.affected", { count: flagged.length })}</ToolSummary>
           <p className="tools-fix-hint">
             {t("tools.privacy.breakdown", counts)}
+            {counts.event > 0 && t("tools.privacy.breakdownEvent", counts)}
             {counts.recentDeath > 0 && t("tools.privacy.breakdownRecent", counts)}
           </p>
           <button className="tools-issue-link" onClick={() => setShowList((s) => !s)}>

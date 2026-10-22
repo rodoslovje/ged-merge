@@ -25,6 +25,7 @@ import {
   removeFamilyEvent,
   setFamilyLinks,
   setFamilyNotes,
+  impossibleRelatives,
 } from "../../gedcom/edit";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
@@ -60,6 +61,13 @@ import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } 
 type RelativeKind = "father" | "mother" | "partner" | "child";
 export type PickingSlot = { kind: RelativeKind; fam: Family | undefined } | null;
 
+/** The people a relative picker leaves out: anyone the connect would refuse
+ *  (see {@link impossibleRelatives}), so an impossible pick is never offered. */
+function blockedRelatives(dataset: Dataset, personId: string, kind: RelativeKind, fam: Family | undefined): ReadonlySet<string> | undefined {
+  const person = dataset.individuals.get(personId);
+  return person ? impossibleRelatives(dataset, person, kind, fam) : undefined;
+}
+
 /**
  * The slot for a union that does not exist yet: a lone "+ Add Partner" card
  * after the last spouse family, opening the same picker an empty family
@@ -86,6 +94,7 @@ export function NewUnionSection({
             <RelativePickerCard
               individuals={dataset.individuals}
               excludeId={personId}
+              excludeIds={blockedRelatives(dataset, personId, "partner", undefined)}
               onPickExisting={(id) => connectRelative("partner", id, undefined)}
               onAddNew={(typed) => { setPickingSlot(null); addRelative("partner", undefined, typed); }}
               onCancel={() => setPickingSlot(null)}
@@ -256,6 +265,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           roleLabel={fatherLabel}
           individuals={dataset.individuals}
           excludeId={personId}
+          excludeIds={blockedRelatives(dataset, personId, "father", fam)}
           onPickExisting={(id) => connectRelative("father", id, fam)}
           onAddNew={(typed) => { setPickingSlot(null); addRelative("father", fam, typed); }}
           onCancel={() => setPickingSlot(null)}
@@ -307,6 +317,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           roleLabel={motherLabel}
           individuals={dataset.individuals}
           excludeId={personId}
+          excludeIds={blockedRelatives(dataset, personId, "mother", fam)}
           onPickExisting={(id) => connectRelative("mother", id, fam)}
           onAddNew={(typed) => { setPickingSlot(null); addRelative("mother", fam, typed); }}
           onCancel={() => setPickingSlot(null)}
@@ -599,6 +610,7 @@ export const FamilySection = memo(function FamilySection({
             <RelativePickerCard
               individuals={dataset.individuals}
               excludeId={personId}
+              excludeIds={blockedRelatives(dataset, personId, "partner", fam)}
               onPickExisting={(id) => connectRelative("partner", id, fam)}
               onAddNew={(typed) => { setPickingSlot(null); addRelative("partner", fam, typed); }}
               onCancel={() => setPickingSlot(null)}
@@ -724,6 +736,7 @@ export const FamilySection = memo(function FamilySection({
             <RelativePickerCard
               individuals={dataset.individuals}
               excludeId={personId}
+              excludeIds={blockedRelatives(dataset, personId, "child", fam)}
               onPickExisting={(id) => connectRelative("child", id, fam)}
               onAddNew={(typed) => { setPickingSlot(null); addRelative("child", fam, typed); }}
               onCancel={() => setPickingSlot(null)}

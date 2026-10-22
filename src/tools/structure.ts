@@ -1,6 +1,7 @@
 import type { Dataset, GedDate, GedNode, ParseWarning } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { vendorTagInfo } from "../gedcom/vendorTags";
+import { isVoidPointer } from "../gedcom/uri";
 import { hasDualYear, normalizeDateString } from "../normalize/date";
 import { applyDateOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { isMonthWord } from "../normalize/profile";
@@ -202,10 +203,11 @@ export function isFamilyLinkPointer(recordTag: string | undefined, tag: string, 
 }
 
 /** Is this node's value a pointer (`@X1@`) rather than plain text? "@#…@" is a
- *  GEDCOM escape (e.g. a DATE calendar escape), not a pointer. */
+ *  GEDCOM escape (e.g. a DATE calendar escape), not a pointer, and `@VOID@` is
+ *  the 7.0 null pointer — it names no record, so it can never dangle. */
 export function isPointerValue(value: string | undefined): value is string {
   const v = value?.trim();
-  return !!v && /^@[^@]+@$/.test(v) && !v.startsWith("@#");
+  return !!v && /^@[^@]+@$/.test(v) && !v.startsWith("@#") && !isVoidPointer(v);
 }
 
 /**

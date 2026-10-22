@@ -83,6 +83,51 @@ describe("findLiving", () => {
     expect(findLiving(ds, opts({ unknownBirthPolicy: "skip" }), NOW)).toEqual([]);
   });
 
+  it("a recent dated event of their own outranks an old estimate from kin", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Father /Old/
+1 BIRT
+2 DATE 1890
+1 DEAT
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bride /Old/
+1 RESI
+2 DATE 2020
+1 FAMC @F1@
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Sister /Old/
+1 FAMC @F1@
+1 FAMS @F3@
+0 @I4@ INDI
+1 NAME Aunt /Old/
+1 FAMC @F1@
+1 RESI
+2 DATE 1910
+0 @F1@ FAM
+1 HUSB @I1@
+1 CHIL @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+0 @F2@ FAM
+1 WIFE @I2@
+1 MARR
+2 DATE 2015
+0 @F3@ FAM
+1 WIFE @I3@
+1 MARR
+2 DATE 2015
+0 TRLR`);
+    const byId = new Map(findLiving(ds, opts(), NOW).map((f) => [f.id, f.reason]));
+    expect(byId.get("@I2@")).toBe("event"); // RESI 2020, father b. 1890 → est. 1918
+    expect(byId.get("@I3@")).toBe("event"); // only her marriage is dated
+    expect(byId.has("@I4@")).toBe(false); // last seen 1910, est. 1918 — presumed dead
+    const out = serializeGedcom(privatizeDataset(ds, opts(), NOW).records);
+    expect(out).not.toContain("Bride /Old/");
+  });
+
   it("optionally flags recently deceased people", () => {
     const ds = dataset(SAMPLE);
     const flagged = findLiving(ds, opts({ alsoRecentlyDeceasedYears: 100 }), NOW);
@@ -204,6 +249,27 @@ describe("privatizeDataset — file-level scrubs", () => {
     expect(out).not.toContain("1 SUBM @U1@");
   });
 
+  it("strips every pointer to a removed submitter, file-wide", () => {
+    const ds = dataset(`0 HEAD
+1 SUBM @U1@
+0 @U1@ SUBM
+1 NAME Researcher
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 DEAT
+1 SUBM @U1@
+1 ANCI @U1@
+1 DESI @U1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 SUBM @U1@
+0 TRLR`);
+    const o = opts({ file: { stripSubmitter: true, stripExternalIds: false, scrubAddress: false, scrubEmail: false, scrubPhone: false } });
+    const out = serializeGedcom(privatizeDataset(ds, o, NOW).records);
+    expect(out).not.toContain("@U1@");
+    expect(out).toContain("1 HUSB @I1@");
+  });
+
   it("strips external ids globally", () => {
     const ds = dataset(SAMPLE);
     // mark-only so the _UID survives phase 1 and must be removed by the scrub.
@@ -273,5 +339,51 @@ describe("privatizeDataset — file-level scrubs", () => {
     const { records, report } = privatizeDataset(ds, o, NOW);
     expect(serializeGedcom(records)).not.toContain("me@example.com");
     expect(report.contactScrubbed).toBe(1);
+  });
+});
+
+describe("privatizeDataset — shared records of a scrubbed person", () => {
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 BIRT
+2 DATE 1990
+1 NOTE @N1@
+1 OBJE @O1@
+1 SOUR @S1@
+0 @I2@ INDI
+1 NAME Old /Man/
+1 BIRT
+2 DATE 1850
+1 NOTE @N3@
+0 @N1@ NOTE Jane lives at 12 Main St
+1 OBJE @O2@
+0 @N2@ NOTE Already an orphan
+0 @N3@ NOTE Shared by the dead
+0 @O1@ OBJE
+1 FILE jane_passport.jpg
+0 @O2@ OBJE
+1 FILE jane_house.jpg
+0 @S1@ SOUR
+1 TITL Parish register
+0 TRLR`;
+
+  it("drops notes and media the scrub left without a referrer, keeps sources and prior orphans", () => {
+    const { records } = privatizeDataset(dataset(FILE), opts(), NOW);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("12 Main St");
+    expect(out).not.toContain("jane_passport.jpg");
+    expect(out).not.toContain("jane_house.jpg"); // its only referrer was the dropped note
+    expect(out).toContain("0 @N2@ NOTE Already an orphan");
+    expect(out).toContain("0 @N3@ NOTE Shared by the dead");
+    expect(out).toContain("0 @S1@ SOUR");
+  });
+
+  it("keeps the records when the categories are not stripped", () => {
+    const o = opts({ strip: { events: true, notes: false, sources: true, media: false, contact: true } });
+    const out = serializeGedcom(privatizeDataset(dataset(FILE), o, NOW).records);
+    expect(out).toContain("12 Main St");
+    expect(out).toContain("jane_passport.jpg");
   });
 });

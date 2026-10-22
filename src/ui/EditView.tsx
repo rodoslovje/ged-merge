@@ -57,6 +57,7 @@ import {
   rebuildNoteReferrers,
   removeIndividual,
   familiesNaming,
+  familyMembers,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
   sourceCitationNodes,
@@ -1558,9 +1559,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   });
 
   // Member ids of a family, for snapshotting before a detach/delete — pruning a
-  // family that drops below two members also unlinks its sole surviving member.
+  // family that drops below two members also unlinks its sole surviving member,
+  // including one whose own FAMC/FAMS is the only side naming the family.
   function familyMemberIds(fam: Family): string[] {
-    return [fam.husband, fam.wife, ...fam.children].filter(Boolean) as string[];
+    return familyMembers(dataset, fam);
   }
 
   const handleDetachSpouseRole = useStableHandler((fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) => {

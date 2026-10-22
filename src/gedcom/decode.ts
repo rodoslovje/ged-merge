@@ -413,19 +413,33 @@ const MOJIBAKE_SIGNATURE = /[ÂÃÄÅĹĂ][\u0080-\uffff]/;
  * as Windows-1250 bytes and decode those *strictly* as UTF-8. The strict decode
  * only succeeds for genuine mojibake, so correctly-encoded text (incl. legitimate
  * German umlauts) is left untouched.
+ *
+ * A strict decode alone still lets valid text through: Romanian "BRĂŞOV" holds
+ * "ĂŞ", which round-trips to "ê" just as real mojibake would. So the repair is
+ * all-or-nothing, made only when the file is double-encoded throughout: at
+ * least half of its non-ASCII runs must repair, from two or more distinct
+ * runs. Genuine Romanian, Latvian or Czech text carries plenty of lone accented
+ * letters that never repair; a double-encoded file has almost nothing else.
  */
 function repairMojibake(text: string): { text: string; count: number } {
   if (!MOJIBAKE_SIGNATURE.test(text)) return { text, count: 0 };
+  let runs = 0;
+  const repairs = new Map<string, string>();
+  for (const [run] of text.matchAll(/[\u0080-\uffff]+/g)) {
+    runs++;
+    if (repairs.has(run) || !/[ÂÃÄÅĹĂ]/.test(run)) continue;
+    const fixed = roundTripCp1250(run);
+    if (fixed !== undefined && fixed !== run) repairs.set(run, fixed);
+  }
+  if (repairs.size < 2) return { text, count: 0 };
   let count = 0;
   const out = text.replace(/[\u0080-\uffff]+/g, (run) => {
-    if (!/[ÂÃÄÅĹĂ]/.test(run)) return run;
-    const fixed = roundTripCp1250(run);
-    if (fixed !== undefined && fixed !== run) {
-      count++;
-      return fixed;
-    }
-    return run;
+    const fixed = repairs.get(run);
+    if (fixed === undefined) return run;
+    count++;
+    return fixed;
   });
+  if (count * 2 < runs) return { text, count: 0 };
   return { text: out, count };
 }
 

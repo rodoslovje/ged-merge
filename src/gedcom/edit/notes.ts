@@ -1,10 +1,11 @@
-import { cloneNode, removeChildren } from "../node";
+import { cloneNode } from "../node";
 import { isPointer } from "../uri";
 import { detectPrivacyStyle, isPrivateNode, isV7, setPrivateFlag, type PrivacyTagStyle } from "../private";
 import { isHtmlNote } from "../noteHtml";
 import type { Dataset, GedNode, NoteRef } from "../types";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { insertOrdered, insertRecord, nextXref } from "./shared";
+import { NOTE_TAGS } from "../builder";
 
 /**
  * Shared-note aware note editing.
@@ -17,6 +18,9 @@ import { insertOrdered, insertRecord, nextXref } from "./shared";
  * helpers here keep pointer notes as pointers: a text edit is applied inside
  * the shared record (all referrers see it — that is what "shared" means), and
  * only removing the last reference deletes the record itself.
+ *
+ * GEDCOM 7 spells the shared record and its pointer `SNOTE`; the helpers here
+ * treat it as `NOTE`, and a pointer keeps whichever tag it was written with.
  *
  * Mutations to shared records are reported as {@link SharedNoteChange}s so the
  * UI layer can turn them into undo/redo record patches — this module stays
@@ -118,7 +122,7 @@ function syncNoteMime(node: GedNode, records: GedNode[]): void {
 }
 
 function findNoteRecord(records: GedNode[], xref: string): GedNode | undefined {
-  return records.find((r) => r.tag === "NOTE" && r.xref === xref);
+  return records.find((r) => NOTE_TAGS.includes(r.tag) && r.xref === xref);
 }
 
 /** Count `NOTE @xref@` pointers anywhere in the dataset (all records, all levels). */
@@ -126,7 +130,7 @@ export function countNoteRefs(records: GedNode[], xref: string): number {
   let n = 0;
   const walk = (node: GedNode): void => {
     for (const child of node.children) {
-      if (child.tag === "NOTE" && child.value?.trim() === xref) n++;
+      if (NOTE_TAGS.includes(child.tag) && child.value?.trim() === xref) n++;
       walk(child);
     }
   };
@@ -172,7 +176,7 @@ export function removeNoteRecordIfOrphaned(ctx: SharedNoteCtx, xref: string): vo
 /** Unconditional removal half of {@link removeNoteRecordIfOrphaned} — the
  *  caller has already established the record is orphaned. */
 function removeNoteRecord(ctx: SharedNoteCtx, xref: string): void {
-  const index = ctx.records.findIndex((r) => r.tag === "NOTE" && r.xref === xref);
+  const index = ctx.records.findIndex((r) => NOTE_TAGS.includes(r.tag) && r.xref === xref);
   if (index === -1) return;
   const [rec] = ctx.records.splice(index, 1);
   bumpSourceCacheVersion(ctx.records);
@@ -187,7 +191,7 @@ function countNoteRefsMulti(records: GedNode[], xrefs: ReadonlySet<string>): Map
   for (const x of xrefs) counts.set(x, 0);
   const walk = (node: GedNode): void => {
     for (const child of node.children) {
-      const v = child.tag === "NOTE" ? child.value?.trim() : undefined;
+      const v = NOTE_TAGS.includes(child.tag) ? child.value?.trim() : undefined;
       if (v !== undefined && counts.has(v)) counts.set(v, counts.get(v)! + 1);
       walk(child);
     }
@@ -204,8 +208,12 @@ function countNoteRefsMulti(records: GedNode[], xrefs: ReadonlySet<string>): Map
  */
 export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteRef[], order: string[]): void {
   const prevXrefs = ownerRaw.children
-    .filter((c) => c.tag === "NOTE" && c.value && isPointer(c.value.trim()))
+    .filter((c) => NOTE_TAGS.includes(c.tag) && c.value && isPointer(c.value.trim()))
     .map((c) => c.value!.trim());
+  // A pointer written as 7.0's `SNOTE` is written back as one.
+  const prevSnote = new Set(
+    ownerRaw.children.filter((c) => c.tag === "SNOTE" && c.value).map((c) => c.value!.trim()),
+  );
 
   // Read the file's note shape before this owner's notes are torn down and
   // rebuilt below: asking mid-rebuild would sample a tree holding only the
@@ -231,31 +239,93 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     }
   }
 
-  removeChildren(ownerRaw, "NOTE");
+  // Each ref is matched to the NOTE line it was read from, and only what the
+  // edit changed is written: the old teardown-and-rebuild wrote every note back
+  // from its text alone, so editing one note dropped the others' SOUR, LANG,
+  // TRAN and vendor sub-lines, their CONC wrap, and their place in the record.
+  // A ref carries no position, so identity is its xref (pointer) or its text
+  // (inline); an inline note left over after that — the one being edited —
+  // pairs with a leftover line standing between the same matched neighbours,
+  // which is how the editor keeps its list (a note added at the end never
+  // takes over one removed from the front).
+  const existing = ownerRaw.children.filter(
+    // Only the lines the editor was shown: an inline NOTE with no text of its
+    // own never became a ref, so it cannot have been removed.
+    (c) => NOTE_TAGS.includes(c.tag) && !!c.value?.trim(),
+  );
+  const live = refs.filter((r) => r.xref || r.text.trim());
+  const matched: (GedNode | undefined)[] = live.map(() => undefined);
+  const used = new Set<GedNode>();
+  const claim = (i: number, pick: (c: GedNode) => boolean): void => {
+    const node = existing.find((c) => !used.has(c) && pick(c));
+    if (node) { matched[i] = node; used.add(node); }
+  };
+  live.forEach((ref, i) => {
+    if (ref.xref) claim(i, (c) => c.value!.trim() === ref.xref);
+    else claim(i, (c) => !isPointer(c.value!.trim()) && c.value!.trim() === ref.text.trim());
+  });
+  live.forEach((ref, i) => {
+    if (ref.xref || matched[i]) return;
+    const before = matched.slice(0, i).reverse().find(Boolean);
+    const after = matched.slice(i + 1).find(Boolean);
+    const lo = before ? existing.indexOf(before) : -1;
+    const hi = after ? existing.indexOf(after) : existing.length;
+    claim(i, (c) => {
+      const at = existing.indexOf(c);
+      return at > lo && at < hi && !isPointer(c.value!.trim());
+    });
+  });
+
+  for (const node of existing) {
+    if (!used.has(node)) ownerRaw.children.splice(ownerRaw.children.indexOf(node), 1);
+  }
+
+  // `SNOTE` joins the `NOTE` group of the caller's order, so an added one
+  // stays among the notes rather than dropping to the end of the record.
+  const noteOrder = order.includes("SNOTE") ? order : order.flatMap((t) => (t === "NOTE" ? ["NOTE", "SNOTE"] : [t]));
   const written: (string | undefined)[] = [];
-  for (const ref of refs) {
+  let prev: GedNode | undefined;
+  live.forEach((ref, i) => {
+    const node = matched[i];
+    if (node) {
+      written.push(ref.xref);
+      if (!ref.xref) {
+        // An inline note: rewrite its value only when the text really moved
+        // (the editor trims; a trailing space in the file is not an edit), and
+        // its marker only when the flag flipped.
+        if (node.value!.trim() !== ref.text.trim()) {
+          node.value = ref.text.trim();
+          syncNoteMime(node, ctx.records);
+        }
+        if (isPrivateNode(node) !== !!ref.private) setPrivateFlag(node, !!ref.private, privacyStyleOf(ctx), ctx.records);
+      }
+      prev = node;
+      return;
+    }
     // A note the file has no record for yet is written the way this file writes
     // notes — as a shared record it points at, or inline. Following the file's
     // own habit is the courtesy the date, place and privacy-marker conventions
     // already get; writing inline regardless left a file of shared notes with a
     // handful of this app's inline ones sitting among them.
     let xref = ref.xref;
-    if (!xref && ref.text.trim() && style === "shared" && !wasInline.has(ref.text.trim())) {
+    if (!xref && style === "shared" && !wasInline.has(ref.text.trim())) {
       xref = createNoteRecord(ctx, ref.text.trim());
       if (ref.private) setSharedNotePrivate(ctx, xref, true);
     }
     written.push(xref);
-    const value = xref ?? ref.text.trim();
-    // An inline note with no text left is a removal; a pointer stays even when
-    // its record text is empty (the record may carry sub-structure).
-    if (!value) continue;
-    const node: GedNode = { level: ownerRaw.level + 1, tag: "NOTE", value, children: [] };
-    if (!xref) syncNoteMime(node, ctx.records);
+    // A pointer to a 7.0 `SNOTE` record is written as one.
+    const tag = xref && (prevSnote.has(xref) || findNoteRecord(ctx.records, xref)?.tag === "SNOTE") ? "SNOTE" : "NOTE";
+    const added: GedNode = { level: ownerRaw.level + 1, tag, value: xref ?? ref.text.trim(), children: [] };
+    if (!xref) syncNoteMime(added, ctx.records);
     // An inline note carries its own private marker; a pointer's lives in the
     // shared record (set above).
-    if (!xref && ref.private) setPrivateFlag(node, true, privacyStyleOf(ctx), ctx.records);
-    insertOrdered(ownerRaw, node, order);
-  }
+    if (!xref && ref.private) setPrivateFlag(added, true, privacyStyleOf(ctx), ctx.records);
+    // Right after the note before it, so a new note lands where the list has it.
+    const at = prev ? ownerRaw.children.indexOf(prev) : -1;
+    if (at !== -1) ownerRaw.children.splice(at + 1, 0, added);
+    else insertOrdered(ownerRaw, added, noteOrder);
+    prev = added;
+  });
 
   const kept = new Set(written.filter(Boolean));
   const dropped = new Set(prevXrefs.filter((x) => !kept.has(x)));
@@ -279,7 +349,7 @@ export function rebuildNoteReferrers(dataset: Dataset, changes: { xref: string }
   const referencesChanged = (raw: GedNode): boolean => {
     const walk = (node: GedNode): boolean =>
       node.children.some(
-        (c) => (c.tag === "NOTE" && c.value && xrefs.has(c.value.trim())) || walk(c),
+        (c) => (NOTE_TAGS.includes(c.tag) && c.value && xrefs.has(c.value.trim())) || walk(c),
       );
     return walk(raw);
   };

@@ -1,10 +1,10 @@
 changeReport.title
 ==================
 
-changeReport.stat.records:        124
+changeReport.stat.records:        123
 changeReport.stat.fields:         108
 changeReport.stat.newFields:      107
-changeReport.stat.added:           81
+changeReport.stat.added:           80
 changeReport.stat.removed:          0
 changeReport.stat.undescribed:      0
 changeReport.stat.deferred:         7
@@ -221,114 +221,113 @@ changeReport.added
     merge.field.husband: changeReport.verb.added "Thomas"
     event.colDate: changeReport.verb.added "1412"
   Thomas  @I355@
+  Tudor Fychan of_Pemmynydd  @I356@
   Tudor Fychan of_Pemmynydd + Margaret  @F203@
     merge.field.father: changeReport.verb.added "Tudor Fychan of_Pemmynydd"
     merge.field.mother: changeReport.verb.added "Margaret"
-  Tudor Fychan of_Pemmynydd  @I356@
+  Goronwy_Ap Tudor  @I357@
   Goronwy_Ap Tudor  @F204@
     merge.field.father: changeReport.verb.added "Goronwy_Ap Tudor"
-  Goronwy_Ap Tudor  @I357@
+  Tudor Hen  @I358@
   Tudor Hen  @F205@
     merge.field.father: changeReport.verb.added "Tudor Hen"
-  Tudor Hen  @I358@
+  Goronwy  @I359@
   Goronwy  @F206@
     merge.field.father: changeReport.verb.added "Goronwy"
-  Goronwy  @I359@
+  Ednyfed Fychan  @I360@
   Ednyfed Fychan + Gwenllian  @F207@
     merge.field.father: changeReport.verb.added "Ednyfed Fychan"
     merge.field.mother: changeReport.verb.added "Gwenllian"
-  Ednyfed Fychan  @I360@
   Gwenllian  @I361@
+  Rhys_Ap Gruffydd  @I362@
   Rhys_Ap Gruffydd  @F208@
     merge.field.father: changeReport.verb.added "Rhys_Ap Gruffydd"
-  Rhys_Ap Gruffydd  @I362@
+  Gruffydd  @I363@
   Gruffydd  @F209@
     merge.field.father: changeReport.verb.added "Gruffydd"
-  Gruffydd  @I363@
+  Rhys_Ap Twedwr  @I364@
   Rhys_Ap Twedwr  @F210@
     merge.field.father: changeReport.verb.added "Rhys_Ap Twedwr"
-  Rhys_Ap Twedwr  @I364@
+  Tewdwr Mawr the_Great  @I365@
   Tewdwr Mawr the_Great  @F211@
     merge.field.father: changeReport.verb.added "Tewdwr Mawr the_Great"
-  Tewdwr Mawr the_Great  @I365@
+  Cadell  @I366@
   Cadell  @F212@
     merge.field.father: changeReport.verb.added "Cadell"
-  Cadell  @I366@
+  Einion  @I367@
   Einion  @F213@
     merge.field.father: changeReport.verb.added "Einion"
-  Einion  @I367@
+  Owain  @I368@
   Owain  @F214@
     merge.field.father: changeReport.verb.added "Owain"
-  Owain  @I368@
+  Hywel Dda (the_Good)  @I369@
   Hywel Dda (the_Good)  @F215@
     merge.field.father: changeReport.verb.added "Hywel Dda (the_Good)"
-  Hywel Dda (the_Good)  @I369@
+  Cadell  @I370@
   Cadell  @F216@
     merge.field.father: changeReport.verb.added "Cadell"
-  Cadell  @I370@
+  Rhodri Mawr (the_Great)  @I371@
   Rhodri Mawr (the_Great)  @F217@
     merge.field.father: changeReport.verb.added "Rhodri Mawr (the_Great)"
-  Rhodri Mawr (the_Great)  @I371@
+    merge.field.child: changeReport.verb.added "Anarawd"
   Margaret  @I372@
+  Thomas  @I373@
   Thomas  @F218@
     merge.field.father: changeReport.verb.added "Thomas"
-  Thomas  @I373@
+  Llywelyn  @I374@
   Llywelyn  @F219@
     merge.field.father: changeReport.verb.added "Llywelyn"
-  Llywelyn  @I374@
+  Owain  @I375@
   Owain  @F220@
     merge.field.father: changeReport.verb.added "Owain"
-  Owain  @I375@
+  Maredudd Ap_Owain  @I376@
   Maredudd Ap_Owain + Eleanor  @F221@
     merge.field.father: changeReport.verb.added "Maredudd Ap_Owain"
     merge.field.mother: changeReport.verb.added "Eleanor"
-  Maredudd Ap_Owain  @I376@
   Eleanor  @I377@
+  Maelgwn Fychan  @I378@
   Maelgwn Fychan + Angharad  @F222@
     merge.field.father: changeReport.verb.added "Maelgwn Fychan"
     merge.field.mother: changeReport.verb.added "Angharad"
-  Maelgwn Fychan  @I378@
   Angharad  @I379@
+  Llywelyn Fawr the_Great  @I380@
   Llywelyn Fawr the_Great + ...  @F223@
     merge.field.father: changeReport.verb.added "Llywelyn Fawr the_Great"
     merge.field.mother: changeReport.verb.added "..."
-  Llywelyn Fawr the_Great  @I380@
+  Iorwerth Drwyndwn  @I381@
   Iorwerth Drwyndwn  @F224@
     merge.field.father: changeReport.verb.added "Iorwerth Drwyndwn"
-  Iorwerth Drwyndwn  @I381@
+  Owain Gwynedd  @I382@
   Owain Gwynedd + ...  @F225@
     merge.field.father: changeReport.verb.added "Owain Gwynedd"
     merge.field.mother: changeReport.verb.added "..."
-  Owain Gwynedd  @I382@
+  Gruffydd Ap_Cynan  @I383@
   Gruffydd Ap_Cynan  @F226@
     merge.field.father: changeReport.verb.added "Gruffydd Ap_Cynan"
-  Gruffydd Ap_Cynan  @I383@
+  Cynan  @I384@
   Cynan  @F227@
     merge.field.father: changeReport.verb.added "Cynan"
-  Cynan  @I384@
+  Iago  @I385@
   Iago  @F228@
     merge.field.father: changeReport.verb.added "Iago"
-  Iago  @I385@
+  Idwal  @I386@
   Idwal  @F229@
     merge.field.father: changeReport.verb.added "Idwal"
-  Idwal  @I386@
+  Meurig  @I387@
   Meurig  @F230@
     merge.field.father: changeReport.verb.added "Meurig"
-  Meurig  @I387@
+  Idwal Foel (the_Bald)  @I388@
   Idwal Foel (the_Bald) + ...  @F231@
     merge.field.father: changeReport.verb.added "Idwal Foel (the_Bald)"
     merge.field.mother: changeReport.verb.added "..."
-  Idwal Foel (the_Bald)  @I388@
+  Anarawd  @I389@
   Anarawd  @F232@
     merge.field.father: changeReport.verb.added "Anarawd"
-  Anarawd  @I389@
-  Rhodri Mawr (the_Great)  @F233@
-    merge.field.father: changeReport.verb.added "Rhodri Mawr (the_Great)"
   ...  @I390@
   ...  @I391@
   ...  @I392@
   Philip_II  @I393@
-  Henry Tudor + Anne of_Cleves  @F234@
+  Henry Tudor + Anne of_Cleves  @F233@
     merge.field.wife: changeReport.verb.added "Anne of_Cleves"
   Anne of_Cleves  @I394@
 

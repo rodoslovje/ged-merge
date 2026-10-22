@@ -6,6 +6,8 @@ import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
 import { removeIndividual } from "../gedcom/edit";
+import { findDuplicates, makeDuplicatePair } from "./duplicates";
+import { clusterMergeSteps } from "./mergeCluster";
 import {
   mergeDuplicate,
   mergeDuplicateChain,
@@ -429,6 +431,28 @@ describe("mergeDuplicate", () => {
     expect(validateDataset(ds).issues.some((i) => i.category === "brokenLink")).toBe(false);
   });
 
+  it("moves a child linked only from its own side into the kept family", () => {
+    // @F2@ never lists @I3@; only @I3@'s FAMC names it. Folding @F2@ into @F1@
+    // must carry that link (and its PEDI), and the undo patch must hold @I3@.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Renko/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Renko/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F2@\n" +
+      "0 @I5@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Tone /Renko/\n1 FAMC @F2@\n2 PEDI adopted\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I5@\n" +
+      "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I5@\n",
+    ));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    const patches = mergeDuplicate(ds, "@I1@", "@I2@", decide(duplicateDefaults(rows)), tr);
+
+    expect(ds.families.has("@F2@")).toBe(false);
+    const famc = ds.individuals.get("@I3@")!.raw.children.filter((c) => c.tag === "FAMC");
+    expect(famc.map((c) => c.value)).toEqual(["@F1@"]);
+    expect(famc[0].children.find((c) => c.tag === "PEDI")?.value).toBe("adopted");
+    const p3 = patches.find((p) => p.id === "@I3@");
+    expect(p3?.before && serializeGedcom([p3.before])).toContain("1 FAMC @F2@");
+  });
+
   it("drops an association naming a person a delete removed", () => {
     const ds = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n" +
@@ -440,5 +464,105 @@ describe("mergeDuplicate", () => {
     expect(bapm.children.some((c) => c.tag === "ASSO")).toBe(false);
     // The domain projection is rebuilt too, not just the raw tree.
     expect(ds.individuals.get("@I3@")!.events[0].associations).toBeUndefined();
+  });
+});
+
+describe("mergeDuplicate — lines no row compares", () => {
+  const FILE = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 SUBM @U1@\n1 _UID AAA\n" +
+    "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O2@\n2 _X birth extra\n" +
+    "1 DEAT\n2 DATE 1900\n2 _X death extra\n1 BURI\n2 _GRAVE row 4\n" +
+    "1 OBJE @O1@\n1 _PHOTO @O1@\n1 _CUSTOM keep me\n1 SUBM @U1@\n1 _UID BBB\n1 RIN 7\n" +
+    "0 @O1@ OBJE\n1 FILE portrait.jpg\n0 @O2@ OBJE\n1 FILE birth.jpg\n0 @U1@ SUBM\n1 NAME Me\n",
+  );
+
+  for (const [label, seeded] of [["seeded defaults", true], ["empty choices (cluster merge)", false]] as const) {
+    it(`carries the absorbed record's media, custom tags and event extras — ${label}`, () => {
+      const ds = dataset(FILE);
+      const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+      mergeDuplicate(ds, "@I1@", "@I2@", decide(seeded ? duplicateDefaults(rows) : {}), tr);
+      const out = serializeGedcom(ds.records);
+      const i1 = out.slice(out.indexOf("0 @I1@ INDI"), out.indexOf("0 @O1@"));
+      expect(i1).toContain("1 OBJE @O1@");
+      expect(i1).toContain("1 _PHOTO @O1@");
+      expect(i1).toContain("1 _CUSTOM keep me");
+      expect(i1.match(/1 SUBM @U1@/g)).toHaveLength(1); // not doubled
+      expect(i1).toContain("1 _UID AAA");
+      expect(i1).not.toContain("BBB");
+      expect(i1).not.toContain("1 RIN 7");
+      expect(i1).toMatch(/1 BIRT\n2 DATE 1850\n(2 .*\n)*2 OBJE @O2@/);
+      expect(i1).toContain("2 _X birth extra");
+      expect(i1).toMatch(/1 DEAT\n2 DATE 1900\n(2 .*\n)*2 _X death extra/);
+      expect(i1).toMatch(/1 BURI\n2 _GRAVE row 4/);
+    });
+  }
+
+  it("repoints ALIA and vendor pointers to the absorbed record and drops self-references", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 ALIA @I2@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 ALIA @I1@\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Ana /Novak/\n1 ALIA @I2@\n1 EVEN\n2 TYPE Visit\n2 _WITN @I2@\n3 _XREF @I2@\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 _SPONSOR @I2@\n",
+    ));
+    const patches = mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    const out = serializeGedcom(ds.records);
+    expect(out).not.toContain("@I2@");
+    const i1 = out.slice(out.indexOf("0 @I1@ INDI"), out.indexOf("0 @I3@"));
+    expect(i1).not.toContain("ALIA"); // both directions would point at itself
+    expect(out).toContain("1 ALIA @I1@\n1 EVEN\n2 TYPE Visit\n2 _WITN @I1@\n3 _XREF @I1@\n1 FAMS @F1@");
+    expect(out).toContain("1 HUSB @I1@");
+    expect(out).toContain("1 _SPONSOR @I1@");
+    // Every changed record is in the undo batch.
+    expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@", "@I2@", "@I3@"]);
+  });
+
+  it("refuses to merge a person with their own parent or partner", () => {
+    const text = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n1 FAMS @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
+      "0 @I4@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F3@\n" +
+      "0 @I5@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F3@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 CHIL @I2@\n" +
+      "0 @F2@ FAM\n1 HUSB @I2@\n1 CHIL @I3@\n" +
+      "0 @F3@ FAM\n1 WIFE @I4@\n1 HUSB @I5@\n",
+    );
+    for (const [a, b] of [["@I1@", "@I2@"], ["@I3@", "@I1@"], ["@I4@", "@I5@"]]) {
+      const ds = dataset(text);
+      expect(mergeDuplicate(ds, a, b, decide({}), tr)).toEqual([]);
+      expect(serializeGedcom(ds.records)).toBe(serializeGedcom(dataset(text).records));
+    }
+    const ds = dataset(text);
+    expect(makeDuplicatePair(ds, "@I1@", "@I3@")).toBeUndefined();
+    expect(clusterMergeSteps(ds, "@I1@", ["@I1@", "@I2@", "@I3@"], [])).toEqual([]);
+    expect(findDuplicates(ds, 0).some((p) => [p.aId, p.bId].includes("@I1@") && [p.aId, p.bId].includes("@I3@"))).toBe(false);
+  });
+
+  it("keeps PEDI and _FREL/_MREL on the links it moves", () => {
+    const ds = dataset(wrap(
+      // I1 has no parents; I2 is the adopted child of F1. I1 and I2 each
+      // married I3 in their own family record (F2, F3), folded into one.
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F2@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n2 PEDI adopted\n1 FAMS @F3@\n" +
+      "0 @I3@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F2@\n1 FAMS @F3@\n" +
+      "0 @I4@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I5@ INDI\n1 NAME Miha /Novak/\n1 SEX M\n1 FAMC @F3@\n2 PEDI foster\n" +
+      "0 @F1@ FAM\n1 HUSB @I4@\n1 CHIL @I2@\n2 _FREL Adopted\n" +
+      "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n" +
+      "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I5@\n2 _MREL Foster\n",
+    ));
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 FAMC @F1@\n2 PEDI adopted");
+    expect(out).toContain("1 CHIL @I1@\n2 _FREL Adopted");
+    const kept = ds.individuals.get("@I5@")!.childOf[0];
+    expect(out).toContain(`1 FAMC ${kept}\n2 PEDI foster`);
+    expect(out).toContain("1 CHIL @I5@\n2 _MREL Foster");
+  });
+
+  it("leaves the extras of an event whose rows were declined", () => {
+    const ds = dataset(FILE);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ "DEAT.date": "main" }), tr);
+    expect(serializeGedcom(ds.records)).not.toContain("death extra");
   });
 });

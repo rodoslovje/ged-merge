@@ -3,6 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { decisionKey, type CandidateDecision } from "../review/types";
+import { individualFieldRows } from "../review/fields";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
@@ -198,6 +199,44 @@ describe("mergeDecisions — event TYPE and CAUS sub-fields", () => {
     const out = serializeGedcom(records);
     expect(out).toContain("2 CAUS Pljučnica");
     expect(out).not.toContain("2 CAUS Starost");
+  });
+});
+
+describe("mergeDecisions — an event's several notes", () => {
+  const main = dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 NOTE Krščen doma\n2 NOTE Babica Ana\n" +
+      "0 @N1@ NOTE Main's unrelated shared note\n",
+  ));
+  const compare = dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 NOTE Babica Ana\n2 NOTE Rojen ob polnoči\n2 NOTE @N1@\n" +
+      "0 @N1@ NOTE Incoming shared note\n",
+  ));
+  const notesOf = (records: GedNode[]) =>
+    records.find((r) => r.xref === "@I1@")!.children.find((c) => c.tag === "BIRT")!.children
+      .filter((c) => c.tag === "NOTE").map((c) => c.value);
+
+  it("both keeps the main's notes and adds every incoming one it lacks", () => {
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.note": "both" }), NO_MATCHES, tr);
+    const notes = notesOf(records);
+    expect(notes.slice(0, 3)).toEqual(["Krščen doma", "Babica Ana", "Rojen ob polnoči"]);
+    expect(notes).toHaveLength(4);
+    // The shared note is the incoming one, under an xref of its own.
+    expect(notes[3]).not.toBe("@N1@");
+    expect(serializeGedcom(records)).toContain(`0 ${notes[3]} NOTE Incoming shared note`);
+  });
+
+  it("incoming replaces all the main's notes with all the incoming ones", () => {
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.note": "incoming" }), NO_MATCHES, tr);
+    const notes = notesOf(records);
+    expect(notes.slice(0, 2)).toEqual(["Babica Ana", "Rojen ob polnoči"]);
+    expect(notes).toHaveLength(3);
+  });
+
+  it("the review row shows every note on each side", () => {
+    const row = individualFieldRows(tr, main.individuals.get("@I1@"), compare.individuals.get("@P1@"))
+      .find((r) => r.key === "BIRT.note");
+    expect(row?.main).toBe("Krščen doma\nBabica Ana");
+    expect(row?.incoming).toBe("Babica Ana\nRojen ob polnoči\nIncoming shared note");
   });
 });
 
@@ -977,6 +1016,85 @@ describe("mergeDecisions — individual relations (parents & partners)", () => {
   });
 });
 
+describe("mergeDecisions — a child's parents who are already a couple", () => {
+  // The main already records Jakob & Neza's marriage (with another child);
+  // Janez is in the file with no parents. The incoming file names Jakob & Neza
+  // as his parents.
+  const main = dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "0 @I4@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n",
+  ));
+  const compare = dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+      "0 @P2@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 FAMS @PF@\n" +
+      "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+      "0 @PF@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n",
+  ));
+  const matches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I3@", compareId: "@P3@" },
+    ],
+  } as never;
+
+  it("adds the confirmed child to the couple's family instead of making a second one", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n1 CHIL @I3@\n");
+    expect(out).toContain("0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n");
+    expect(report.newFamilies).toBe(0);
+  });
+
+  it("an ancestor graft joins the couple's family too", () => {
+    const { records } = mergeDecisions(main, compare, new Map(), matches, tr, [
+      { incomingId: "@P3@", direction: "ancestors" },
+    ]);
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+    expect(serializeGedcom(records)).toContain("1 CHIL @I4@\n1 CHIL @I3@\n");
+  });
+
+  it("a father alone does not take a family whose wife the incoming file never named", () => {
+    const fatherOnly = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P3@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records } = mergeDecisions(main, fatherOnly, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n");
+    expect(out).toMatch(/0 @F2@ FAM\n1 HUSB @I1@\n1 CHIL @I3@\n/);
+  });
+
+  it("an ancestor walk that links no parent leaves no parentless family behind", () => {
+    // The father is pinned to a main record that no longer exists, so the
+    // walk cannot link him — and nobody else.
+    const fatherOnly = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P3@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "rejected", fields: {}, added: { "@P1@": "@I99@" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, fatherOnly, decisions, matches, tr, [
+      { incomingId: "@P3@", direction: "ancestors" },
+    ]);
+    expect(records.filter((r) => r.tag === "FAM")).toHaveLength(1);
+    expect(report.newFamilies).toBe(0);
+  });
+});
+
 describe("mergeDecisions — links", () => {
   it("adds a new incoming link the main lacks", () => {
     const main = dataset(MAIN);
@@ -1486,6 +1604,32 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     const out = serializeGedcom(records);
     expect(out).toContain("0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 REPO @CR1@");
     expect(out).toContain("0 @CR1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana");
+  });
+
+  it("imports a 7.0 shared note (SNOTE) under a fresh xref when the main uses that xref for another note", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @N1@ SNOTE Main's unrelated note\n",
+    ));
+    const compare = dataset(wrap7(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SNOTE @N1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @N1@ SNOTE Tone emigrated to Argentina\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @N1@ SNOTE Main's unrelated note");
+    const child = records.find((r) => r.tag === "INDI" && r.children.some((c) => c.tag === "NAME" && c.value === "Tone /Novak/"))!;
+    const ptr = child.children.find((c) => c.tag === "SNOTE")?.value;
+    expect(ptr).toBeDefined();
+    expect(ptr).not.toBe("@N1@");
+    expect(out).toContain(`0 ${ptr} SNOTE Tone emigrated to Argentina`);
   });
 });
 
@@ -3058,6 +3202,52 @@ describe("associations across a merge", () => {
 
   it("leaves no runtime marker in the saved file", () => {
     const { records } = mergeDecisions(dataset(MAIN), dataset(INC), decisions(), matches, tr);
+    expect(JSON.stringify(records).includes("foreignPointer")).toBe(false);
+  });
+
+  it("brings an event association's own citation with it, to the incoming source", () => {
+    // The main's @S1@ is an unrelated source; the godmother's citation must
+    // not land on it, and the source it names must arrive.
+    const main = dataset(MAIN.replace("0 TRLR", "0 @S1@ SOUR\n1 TITL Davčna knjiga\n0 TRLR"));
+    const inc = dataset(
+      INC.replace("3 RELA botra\n", "3 RELA botra\n3 SOUR @S1@\n4 PAGE fol. 12\n").replace(
+        "0 TRLR",
+        "0 @S1@ SOUR\n1 TITL Krstna knjiga Kranj\n0 TRLR",
+      ),
+    );
+    const { records } = mergeDecisions(main, inc, decisions(), matches, tr);
+    const out = serializeGedcom(records);
+    const sour = /2 ASSO @I2@\n3 TYPE INDI\n3 RELA botra\n3 SOUR (@[^@]+@)\n4 PAGE fol\. 12\n/.exec(out)?.[1];
+    expect(sour).toBeDefined();
+    expect(sour).not.toBe("@S1@");
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Davčna knjiga");
+    expect(out).toContain(`0 ${sour} SOUR\n1 TITL Krstna knjiga Kranj`);
+  });
+
+  it("points a vendor tag naming a person at that person's merged record, or drops it and says so", () => {
+    // The main's @I2@ is someone else; the incoming child's shared-event tags
+    // name its father (matched to @I1@) and the incoming @I2@, who never
+    // arrives — that pointer must not land on the main's @I2@.
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n",
+    ));
+    const compare = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 CENS\n2 DATE 1900\n2 _SHAR @P1@\n3 ROLE Head\n2 _SHAR @I2@\n1 FAMC @PF@\n" +
+        "0 @I2@ INDI\n1 NAME Micka /Zupan/\n1 SEX F\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 CENS\n2 DATE 1900\n2 _SHAR @I1@\n3 ROLE Head\n");
+    expect(out).not.toContain("_SHAR @I2@");
+    expect(out).not.toContain("@P1@");
+    expect(report.deferred.some((d) => d.reason.includes("assocTargetMissing"))).toBe(true);
     expect(JSON.stringify(records).includes("foreignPointer")).toBe(false);
   });
 });

@@ -4,15 +4,20 @@ import path from "path";
 import { tmpdir } from "./tmpdir";
 
 /** A married woman (maiden Stare, married Kalan) plus her husband, so the
- *  picker's rows have a sex, a lifespan and a married surname to show. */
+ *  picker's rows have a sex, a lifespan and a married surname to show. The
+ *  picker opens on Jakob, who is no kin of hers — his own wife could never be
+ *  offered as his child. */
 function writeFixture(): string {
   const ged = [
     "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
-    "0 @I1@ INDI", "1 NAME Jakob /Kalan/", "1 SEX M", "1 FAMS @F1@",
-    "1 BIRT", "2 DATE 20 JUL 1898", "1 DEAT", "2 DATE 29 OCT 1966",
+    "0 @I1@ INDI", "1 NAME Jakob /Kalan/", "1 SEX M", "1 FAMS @F2@",
+    "1 BIRT", "2 DATE 20 JUL 1870", "1 DEAT", "2 DATE 29 OCT 1936",
     "0 @I2@ INDI", "1 NAME Ana /Stare/", "2 _MARNM Kalan", "1 SEX F", "1 FAMS @F1@",
     "1 BIRT", "2 DATE 1 MAR 1903", "1 DEAT", "2 DATE 4 JUN 1961",
-    "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@",
+    "0 @I3@ INDI", "1 NAME Peter /Kalan/", "1 SEX M", "1 FAMS @F1@",
+    "0 @I4@ INDI", "1 NAME Eva /Novak/", "1 SEX F", "1 FAMS @F2@",
+    "0 @F1@ FAM", "1 HUSB @I3@", "1 WIFE @I2@",
+    "0 @F2@ FAM", "1 HUSB @I1@", "1 WIFE @I4@",
     "0 TRLR", "",
   ].join("\n");
   const file = path.join(tmpdir(), `picker-${Date.now()}.ged`);
@@ -101,4 +106,17 @@ test("picker finds a person by the opening letters of each name", async ({ page 
   // And the order of the two doesn't matter.
   await picker.locator(".relative-picker-input").fill("sta an");
   await expect(picker.locator(".relative-picker-option", { hasText: "Ana" })).toHaveCount(1);
+});
+
+test("picker never offers a person's own wife as their child", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // Ana, no kin of Jakob's, is offered; Eva, his wife, is not.
+  const picker = await search(page, "Ana");
+  await expect(picker.locator(".relative-picker-option", { hasText: "Ana" })).toHaveCount(1);
+  await picker.locator(".relative-picker-input").fill("Eva");
+  await expect(picker.locator(".relative-picker-option", { hasText: "Eva" })).toHaveCount(0);
 });

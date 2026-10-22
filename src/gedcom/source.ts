@@ -714,6 +714,21 @@ const SOURCE_RELATIONAL_TAGS = new Set(["OBJE", "REPO"]);
  * exporter's internal automated id, same nature. */
 const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
 
+/** The custom tags of the same bookkeeping nature — a program's change stamp
+ *  (MyHeritage `_UPD`) and its own record id — skipped even where `_` tags
+ *  otherwise count (see {@link SourceKeyOptions.sameFile}). */
+const SOURCE_CUSTOM_STAMP_TAGS = new Set(["_UPD", "_UID"]);
+
+export interface SourceKeyOptions {
+  /** Both records live in ONE file (the duplicates tool), so what is
+   *  file-local there means something: the repository a source's `REPO`
+   *  points at (two "Census 1900" held by different archives are two
+   *  sources), and the exporter's own `_` tags (a `_TMPLT` citation template
+   *  must not be dropped with its record). Across two files the pointers are
+   *  unrelated numbering and vendor markup differs, so neither counts. */
+  sameFile?: boolean;
+}
+
 /**
  * A content-identity key for a top-level `SOUR` or `REPO` record: every
  * descendant tag/value pair except relational pointers (`OBJE`, `REPO`),
@@ -728,8 +743,8 @@ const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
  * the record has no identity-bearing content to key on (the caller should
  * treat that as "no match", not match every other empty one).
  */
-export function sourceContentKey(node: GedNode): string {
-  return sourceContentParts(node).join("|");
+export function sourceContentKey(node: GedNode, opts?: SourceKeyOptions): string {
+  return sourceContentParts(node, opts).join("|");
 }
 
 /**
@@ -739,7 +754,11 @@ export function sourceContentKey(node: GedNode): string {
  * may qualify: two (two films of one title, told apart by their `CALN`) leave
  * the choice open and the record is not listed. `among` defaults to `records`.
  */
-export function fullerSourceOf(records: GedNode[], among: GedNode[] = records): Map<string, string> {
+export function fullerSourceOf(
+  records: GedNode[],
+  among: GedNode[] = records,
+  opts?: SourceKeyOptions,
+): Map<string, string> {
   const titleOf = (rec: GedNode, parts: string[]) => {
     const t = parts.find((p) => p.startsWith(rec.tag === "SOUR" ? "TITL=" : "NAME="));
     return t && !t.endsWith("=") ? `${rec.tag}:${t}` : undefined;
@@ -747,14 +766,14 @@ export function fullerSourceOf(records: GedNode[], among: GedNode[] = records): 
   const byTitle = new Map<string, { xref: string; parts: Set<string>; key: string }[]>();
   for (const m of among) {
     if ((m.tag !== "SOUR" && m.tag !== "REPO") || !m.xref) continue;
-    const parts = sourceContentParts(m);
+    const parts = sourceContentParts(m, opts);
     const t = titleOf(m, parts);
     if (t) (byTitle.get(t) ?? byTitle.set(t, []).get(t)!).push({ xref: m.xref, parts: new Set(parts), key: parts.join("|") });
   }
   const out = new Map<string, string>();
   for (const rec of records) {
     if ((rec.tag !== "SOUR" && rec.tag !== "REPO") || !rec.xref) continue;
-    const parts = sourceContentParts(rec);
+    const parts = sourceContentParts(rec, opts);
     const t = titleOf(rec, parts);
     if (!t) continue;
     const key = parts.join("|");
@@ -770,15 +789,22 @@ export function fullerSourceOf(records: GedNode[], among: GedNode[] = records): 
 
 /** The `tag=value` pairs {@link sourceContentKey} joins, for a caller that
  *  compares two records part by part rather than as a whole. */
-export function sourceContentParts(node: GedNode): string[] {
+export function sourceContentParts(node: GedNode, opts?: SourceKeyOptions): string[] {
+  const sameFile = !!opts?.sameFile;
   const parts: string[] = [];
+  const repos = new Set<string>();
   const walk = (n: GedNode): void => {
     for (const child of n.children) {
-      if (child.tag.startsWith("_") || SOURCE_BOOKKEEPING_TAGS.has(child.tag)) continue;
+      if (SOURCE_BOOKKEEPING_TAGS.has(child.tag) || SOURCE_CUSTOM_STAMP_TAGS.has(child.tag)) continue;
+      if (child.tag.startsWith("_") && !sameFile) continue;
       if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
         // The xref the link carries is file-local, but a repo link's own
         // subtree (CALN, its MEDI) identifies which film/book this is.
-        if (child.tag === "REPO") walk(child);
+        if (child.tag === "REPO") {
+          const v = child.value?.trim();
+          if (sameFile && v && isPointer(v)) repos.add(v);
+          walk(child);
+        }
         continue;
       }
       parts.push(`${child.tag}=${(child.value ?? "").trim()}`);
@@ -786,6 +812,8 @@ export function sourceContentParts(node: GedNode): string[] {
     }
   };
   walk(node);
+  // Order-free: which repositories hold it, not the order they are listed.
+  for (const r of [...repos].sort()) parts.push(`REPO=${r}`);
   return parts;
 }
 

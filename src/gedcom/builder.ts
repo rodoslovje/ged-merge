@@ -3,7 +3,7 @@ import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childrenByTag, firstChild } from "./node";
 import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceContext } from "./source";
-import { isPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
+import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 
@@ -25,7 +25,7 @@ import type {
 
 import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, isChangeStampEvent } from "./eventTags";
 import { UPD_STAMP_TYPE } from "./vendorTags";
-import { EDITABLE_LINK_TAGS } from "./edit/shared";
+import { EDITABLE_LINK_TAGS, nextXref } from "./edit/shared";
 import { decodeEntities, isHtmlNote, noteToText } from "./noteHtml";
 
 /** An empty, fully-typed `Dataset` — for callers that need a valid compare side
@@ -50,43 +50,38 @@ export function emptyDataset(): Dataset {
 export function buildDataset(parsed: ParseResult): Dataset {
   const individuals = new Map<string, Individual>();
   const families = new Map<string, Family>();
+  const records = parsed.records;
+
+  // Two records with one xref: pointers have always bound to the last copy
+  // (every index below is last-wins), so that one keeps the id. Each earlier
+  // copy is a whole person (or family, source …) of its own and must not be
+  // lost, nor serialize under the same id a second time (strict importers
+  // reject that) — it takes a fresh, unused xref instead, and the warning
+  // names it. Deterministic, so the worker's parse and the main thread's agree.
+  const lastIndex = new Map<string, number>();
+  records.forEach((r, i) => {
+    if (r.xref) lastIndex.set(r.xref, i);
+  });
+  records.forEach((record, i) => {
+    if (!record.xref || lastIndex.get(record.xref) === i) return;
+    const prefix = record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
+    const fresh = nextXref(records, prefix);
+    parsed.warnings.push({
+      kind: "structure",
+      message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
+    });
+    record.xref = fresh;
+  });
+
   // Shared multimedia (OBJE) records hold their URL in a FILE line; records
   // attach them by pointer (`1 OBJE @xref@`), so resolve those up front.
-  const media = buildMediaLinks(parsed.records);
+  const media = buildMediaLinks(records);
   // Likewise, source (SOUR) and repository (REPO) records are shared and
   // referenced by pointer from event-level citations.
-  const sourceCtx = buildSourceContext(parsed.records);
+  const sourceCtx = buildSourceContext(records);
   // Shared NOTE records hold their text; records reference them by pointer
   // (`1 NOTE @xref@`), so resolve those to real text up front.
-  const notes = buildNoteIndex(parsed.records);
-
-  // Duplicate xrefs last-win in the Maps below (and in every shared-record
-  // index above), leaving matching/merge working against a half-hidden record.
-  // Surface that — and drop the shadowed raw records too, or both would still
-  // serialize and a saved file would carry the same id twice (strict importers
-  // reject that, or bind every pointer to whichever copy they read last).
-  const seenXrefs = new Set<string>();
-  let hasDuplicate = false;
-  for (const record of parsed.records) {
-    if (!record.xref) continue;
-    if (seenXrefs.has(record.xref)) {
-      hasDuplicate = true;
-      parsed.warnings.push({
-        kind: "structure",
-        message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is dropped.`,
-      });
-    } else {
-      seenXrefs.add(record.xref);
-    }
-  }
-  let records = parsed.records;
-  if (hasDuplicate) {
-    const lastIndex = new Map<string, number>();
-    records.forEach((r, i) => {
-      if (r.xref) lastIndex.set(r.xref, i);
-    });
-    records = records.filter((r, i) => !r.xref || lastIndex.get(r.xref) === i);
-  }
+  const notes = buildNoteIndex(records);
 
   for (const record of records) {
     if (record.tag === "INDI" && record.xref) {
@@ -176,13 +171,16 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "SEX":
         sex = normalizeSex(child.value);
         break;
+      // `@VOID@` links to no family: the line stays in the raw tree, but it is
+      // no relationship to follow (or to prune as broken).
       case "FAMC":
-        if (child.value) childOf.push(child.value.trim());
+        if (child.value && !isVoidPointer(child.value)) childOf.push(child.value.trim());
         break;
       case "FAMS":
-        if (child.value) spouseOf.push(child.value.trim());
+        if (child.value && !isVoidPointer(child.value)) spouseOf.push(child.value.trim());
         break;
-      case "NOTE": {
+      case "NOTE":
+      case "SNOTE": {
         collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
         break;
       }
@@ -240,16 +238,18 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
 
   for (const child of record.children) {
     switch (child.tag) {
+      // `@VOID@` names no person — the slot is empty, as for an INDI's FAMC.
       case "HUSB":
-        husband = child.value?.trim();
+        if (!isVoidPointer(child.value)) husband = child.value?.trim();
         break;
       case "WIFE":
-        wife = child.value?.trim();
+        if (!isVoidPointer(child.value)) wife = child.value?.trim();
         break;
       case "CHIL":
-        if (child.value) children.push(child.value.trim());
+        if (child.value && !isVoidPointer(child.value)) children.push(child.value.trim());
         break;
-      case "NOTE": {
+      case "NOTE":
+      case "SNOTE": {
         collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
         break;
       }
@@ -317,7 +317,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
   const links = collectLinks(node, media);
-  const noteNode = firstChild(node, "NOTE");
+  const noteNode = firstChild(node, NOTE_TAGS);
   if (noteNode) {
     const notePtr = noteNode.value?.trim() ?? "";
     if (isPointer(notePtr)) event.noteXref = notePtr;
@@ -331,7 +331,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   // first one only, which is all the display projections ever wanted. GEDCOM
   // puts no limit on them, and one the editor cannot see is one it can lose.
   const eventNoteRefs: NoteRef[] = [];
-  for (const child of childrenByTag(node, "NOTE")) {
+  for (const child of childrenByTag(node, NOTE_TAGS)) {
     collectNote(child, noteIndex, media, [], links, [], eventNoteRefs);
   }
   if (eventNoteRefs.length) event.noteRefs = eventNoteRefs;
@@ -420,17 +420,22 @@ export function buildMediaLinks(records: GedNode[]): MediaLinks {
   return map;
 }
 
+/** The tags a note line goes by: 5.5.1's `NOTE` and GEDCOM 7's shared-note
+ *  pointer `SNOTE`. */
+export const NOTE_TAGS: readonly string[] = ["NOTE", "SNOTE"];
+
 /**
  * Index every top-level NOTE record by its xref, mapping to the text it holds
  * (CONT/CONC continuations are already folded into the record's value by the
  * parser). Records reference these by pointer (`1 NOTE @xref@`), so this lets
  * `resolveNoteText` turn that pointer back into real text instead of leaking
- * the raw `@N@` id into the UI.
+ * the raw `@N@` id into the UI. GEDCOM 7 spells the shared record and its
+ * pointer `SNOTE` (`0 @N1@ SNOTE text`, `1 SNOTE @N1@`); both read alike.
  */
 export function buildNoteIndex(records: GedNode[]): NoteIndex {
   const map: NoteIndex = new Map();
   for (const rec of records) {
-    if (rec.tag === "NOTE" && rec.xref && rec.value !== undefined) {
+    if (NOTE_TAGS.includes(rec.tag) && rec.xref && rec.value !== undefined) {
       map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec) });
     }
   }

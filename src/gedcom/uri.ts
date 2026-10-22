@@ -10,6 +10,13 @@ export function isPointer(v: string): boolean {
   return /^@[^@]+@$/.test(v);
 }
 
+/** GEDCOM 7's null pointer `@VOID@` — "a record this file does not have". It
+ *  points nowhere on purpose, so it is neither a link to follow nor a broken
+ *  one to repair. */
+export function isVoidPointer(v: string | undefined): boolean {
+  return v?.trim().toUpperCase() === "@VOID@";
+}
+
 /** A `FILE`/link value that is an absolute URL rather than a bare local
  *  filename (`"12345.jpg"`) — only the former is a usable link. */
 export function looksLikeUrl(v: string): boolean {

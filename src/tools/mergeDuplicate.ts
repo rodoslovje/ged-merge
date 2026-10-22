@@ -1,9 +1,16 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
-import { recordsNaming, repointAssociations } from "../gedcom/assoc";
+import { recordsNaming } from "../gedcom/assoc";
+import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
+import { LINK_TAGS } from "../gedcom/builder";
+import { cloneNode, mergeSubLines, nodeFingerprint } from "../gedcom/node";
+import { URL_RE, looksLikeUrl } from "../gedcom/uri";
 import {
+  EDITABLE_LINK_TAGS,
+  EVENT_CHILD_ORDER,
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
+  RECORD_OWN_TAGS,
   detachChildFromFamily,
   foldFamily,
   insertOrdered,
@@ -12,8 +19,9 @@ import {
   removeIndividual,
 } from "../gedcom/edit";
 import { applyRows, linkPlacementFor } from "../merge/applyFields";
+import { closeKin } from "./duplicates";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
-import { individualFieldRows } from "../review/fields";
+import { individualFieldRows, orderedEventTags } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
 import {
   patchesFromSnapshots,
@@ -53,6 +61,10 @@ export function mergeDuplicate(
   const survivor = dataset.individuals.get(survivorId);
   const removed = dataset.individuals.get(removedId);
   if (!survivor || !removed || survivorId === removedId) return [];
+  // A parent, child or partner of the survivor is a different person, whatever
+  // the names say — refused here too, so no path (a cluster chain, a pair made
+  // by hand) can make anyone their own parent.
+  if (closeKin(dataset, survivorId, removedId)) return [];
 
   // Snapshot every record that could change: both individuals, all their
   // families, and every member of those families (a re-point or a prune can
@@ -70,10 +82,20 @@ export function mergeDuplicate(
     if (!fam) continue;
     for (const m of [fam.husband, fam.wife, ...fam.children]) if (m) indiIds.add(m);
   }
+  // A one-sided file can link a person to one of those families from their own
+  // side only (a FAMC the family never lists); a fold or prune unlinks them too.
+  for (const indi of dataset.individuals.values()) {
+    if (indi.childOf.some((f) => famIds.has(f)) || indi.spouseOf.some((f) => famIds.has(f))) indiIds.add(indi.id);
+  }
   // An association can be carried by any record in the file — a third person's
-  // baptism naming the removed duplicate as its godparent. Those records are
-  // repointed below, so they belong in the snapshot the undo patch is cut from.
-  for (const id of recordsNaming(dataset.records, new Set([survivorId, removedId]))) {
+  // baptism naming the removed duplicate as its godparent — and so can an ALIA
+  // or a vendor pointer. Those records are repointed below, so they belong in
+  // the snapshot the undo patch is cut from.
+  const naming = new Set([
+    ...recordsNaming(dataset.records, new Set([survivorId, removedId])),
+    ...recordsPointingAt(dataset.records, removedId),
+  ]);
+  for (const id of naming) {
     if (dataset.individuals.has(id)) indiIds.add(id);
     else famIds.add(id);
   }
@@ -81,8 +103,14 @@ export function mergeDuplicate(
 
   // 1. Scalar/event individual fields → survivor. `applyRows` already skips the
   //    relationship rows (father/mother via INDI_HANDLED, partners/children via
-  //    the `fam.` key prefix), so it only touches individual-level data.
+  //    the `fam.` key prefix), so it only touches individual-level data. The
+  //    lines no row compares (photos, media, custom tags, …) are carried first,
+  //    so a link they bear reads as the survivor's own in the rows built after.
+  carryUncoveredLines(dataset, survivor.raw, removed.raw, decision.fields);
+  rebuildIndividual(dataset, survivor);
   const rows = individualFieldRows(t, survivor, removed, dataset, dataset);
+  const events = eventTargets(survivor, removed);
+  const ownEvents = new Set(survivor.raw.children);
   applyRows(
     survivor.raw,
     removed.raw,
@@ -97,6 +125,7 @@ export function mergeDuplicate(
     dataset.records,
     new Map(),
   );
+  carryUncoveredEventLines(survivor.raw, events, ownEvents, rows);
   rebuildIndividual(dataset, survivor);
 
   // 2. Parents: one either/or choice for the whole block — "main" keeps the
@@ -112,7 +141,7 @@ export function mergeDuplicate(
     // parent whose only tie to the tree it was. An extra parent line the user
     // can undo beats a person the tree can no longer reach, so keep the family.
     if (parents === "main" && !strandsAParent(dataset, rFam, removedId)) continue;
-    addSurvivorAsChild(dataset, survivor, rFam);
+    addSurvivorAsChild(dataset, survivor, removed, rFam);
   }
   if (parents === "incoming") {
     for (const famId of ownParentFams) {
@@ -135,7 +164,7 @@ export function mergeDuplicate(
   // 4. Whoever named the duplicate names the survivor now — the two records are
   //    one person, so the godparent of a baptism did not stop being one.
   //    Done before the removal, which would otherwise drop these lines.
-  for (const id of repointAssociations(dataset.records, removedId, survivorId)) {
+  for (const id of repointPointers(dataset.records, removedId, survivorId)) {
     const indi = dataset.individuals.get(id);
     if (indi) rebuildIndividual(dataset, indi);
     else {
@@ -394,16 +423,197 @@ function datePrecision(raw: string): number {
   return d.year != null ? 1 : 0;
 }
 
+// ── Lines no comparison row covers ───────────────────────────────────────────
+
+/** Record-level tags the comparison rows decide on (names, sex, notes, sources,
+ *  links, FamilySearch ids, the private flag) or the relationship steps
+ *  re-point (FAMC/FAMS). Events are recognized by tag on their own. */
+const ROW_INDI_TAGS = new Set([
+  "NAME", "SEX", "NOTE", "SOUR", "FAMC", "FAMS", "_FID", "_FSFTID", "PRIV", "_PRIV", "RESN", ...LINK_TAGS,
+]);
+/** Event sub-tags the event rows decide on. */
+const ROW_EVENT_TAGS = new Set([
+  "TYPE", "DATE", "PLAC", "ADDR", "NOTE", "AGNC", "CAUS", "SOUR", "ASSO", "_ASSO", ...EDITABLE_LINK_TAGS,
+]);
+/** Uncovered tags that hold one value: the survivor's own wins when it has one. */
+const SINGLE_VALUED = new Set(["_PHOTO", "AGE", "RELI", "RESN", "PRIV", "_PRIV"]);
+
+/** Clone onto `target` each line of `from` that `skip` lets through, unless
+ *  the target holds an identical line or already has a value for a
+ *  one-value tag. Compared on what the line says, as `foldFamily` does. */
+function carryLines(target: GedNode, from: GedNode, order: string[], skip: (line: GedNode) => boolean): void {
+  const have = new Set(target.children.map(nodeFingerprint));
+  for (const line of from.children) {
+    if (RECORD_OWN_TAGS.has(line.tag) || skip(line)) continue;
+    if (have.has(nodeFingerprint(line))) continue;
+    if (SINGLE_VALUED.has(line.tag) && target.children.some((c) => c.tag === line.tag)) continue;
+    insertOrdered(target, cloneNode(line), order);
+  }
+}
+
+/**
+ * Carry the absorbed record's record-level lines that no comparison row offers
+ * — media (`OBJE`, `_PHOTO`), `SUBM`, `ALIA`, `ASSO`, custom `_` tags — onto
+ * the survivor, the way `foldFamily` keeps a dropped family's lines. With the
+ * links row set to keep the survivor's own, a line that carries a web address
+ * stays behind with the rest of the absorbed record's links.
+ */
+function carryUncoveredLines(
+  dataset: Dataset,
+  survivor: GedNode,
+  removed: GedNode,
+  fields: Record<string, FieldChoice>,
+): void {
+  const keepOwnLinks = fields.links === "main";
+  carryLines(survivor, removed, INDI_CHILD_ORDER, (line) =>
+    ROW_INDI_TAGS.has(line.tag) || INDI_EVENT_TAGS.has(line.tag) || (keepOwnLinks && carriesLink(line, dataset.records)));
+}
+
+/** Whether a line names a web address — in a value, or as a media record whose file is one. */
+function carriesLink(line: GedNode, records: GedNode[]): boolean {
+  const v = line.value?.trim() ?? "";
+  if (line.tag === "OBJE" && /^@[^@]+@$/.test(v)) {
+    const file = records.find((r) => r.xref === v)?.children.find((c) => c.tag === "FILE")?.value?.trim();
+    if (file && looksLikeUrl(file)) return true;
+  } else if (new RegExp(URL_RE.source, "i").test(v)) return true;
+  return line.children.some((c) => carriesLink(c, records));
+}
+
+/** One absorbed event and the survivor event its rows write to. */
+interface EventTarget {
+  tag: string;
+  compareIdx: number;
+  from: GedNode;
+  /** The survivor's paired event; absent for an event only the absorbed record has. */
+  into?: GedNode;
+}
+
+/** An individual's raw event lines of `tag`, indexed as its typed events are. */
+function rawEvents(record: GedNode, tag: string): GedNode[] {
+  return record.children.filter((c) => c.tag === tag && !isChangeStampEvent(c));
+}
+
+/** The absorbed record's events with the survivor event each pairs with —
+ *  the same pairing the event rows are built from. Read before the rows are
+ *  applied, while the survivor's events still sit at the indices it names. */
+function eventTargets(survivor: Individual, removed: Individual): EventTarget[] {
+  const out: EventTarget[] = [];
+  for (const { tag, mainIdx, compareIdx } of orderedEventTags(survivor, removed)) {
+    const from = compareIdx >= 0 ? rawEvents(removed.raw, tag)[compareIdx] : undefined;
+    if (!from) continue;
+    out.push({ tag, compareIdx, from, into: mainIdx >= 0 ? rawEvents(survivor.raw, tag)[mainIdx] : undefined });
+  }
+  return out;
+}
+
+/**
+ * Merge each absorbed event's lines no row covers (`OBJE`, `AGE`, custom `_`
+ * tags, …) into the survivor event it was paired with. An event only the
+ * absorbed record has lands as the node its rows created (found among the
+ * survivor's new lines); one with no comparable field at all — nothing its rows
+ * could create it from — comes across whole. One whose rows were all declined
+ * stays behind.
+ */
+function carryUncoveredEventLines(
+  survivor: GedNode,
+  events: EventTarget[],
+  ownLines: ReadonlySet<GedNode>,
+  rows: FieldRow[],
+): void {
+  const created = survivor.children.filter((c) => !ownLines.has(c));
+  const skip = (line: GedNode) => ROW_EVENT_TAGS.has(line.tag);
+  for (const ev of events) {
+    let into = ev.into;
+    if (!into) {
+      const i = created.findIndex((c) => c.tag === ev.tag && isSubsetOf(c, ev.from));
+      if (i !== -1) into = created.splice(i, 1)[0];
+    }
+    if (into) {
+      carryLines(into, ev.from, EVENT_CHILD_ORDER, skip);
+      continue;
+    }
+    const offered = rows.some((r) =>
+      !r.isGroupHeader && r.eventCompareIdx === ev.compareIdx && r.key.split(".")[0] === ev.tag);
+    if (!offered) insertOrdered(survivor, cloneNode(ev.from), INDI_CHILD_ORDER);
+  }
+}
+
+/** Every line of `part` appears, identically, among `whole`'s lines. */
+function isSubsetOf(part: GedNode, whole: GedNode): boolean {
+  const lines = new Set(whole.children.map(nodeFingerprint));
+  return part.children.every((c) => lines.has(nodeFingerprint(c)));
+}
+
+// ── Pointers to the absorbed record ──────────────────────────────────────────
+
+/** A family's own member lines — re-pointed (or dropped) by the relationship
+ *  steps and `removeIndividual`, never by the generic pass. */
+function isMemberLine(record: GedNode, line: GedNode, depth: number): boolean {
+  return record.tag === "FAM" && depth === 1 && (line.tag === "HUSB" || line.tag === "WIFE" || line.tag === "CHIL");
+}
+
+/** The INDI/FAM records (besides `id`'s own) holding a pointer to `id` at any
+ *  depth, family member lines aside — see {@link repointPointers}. */
+function recordsPointingAt(records: GedNode[], id: string): string[] {
+  const out: string[] = [];
+  const names = (record: GedNode, node: GedNode, depth: number): boolean =>
+    node.children.some((c) => (c.value?.trim() === id && !isMemberLine(record, c, depth + 1)) || names(record, c, depth + 1));
+  for (const r of records) {
+    if ((r.tag === "INDI" || r.tag === "FAM") && r.xref && r.xref !== id && names(r, r, 0)) out.push(r.xref);
+  }
+  return out;
+}
+
+/**
+ * Point every line naming `fromId` — `ASSO`, `ALIA`, a vendor `_` pointer, at
+ * any depth of any person or family — at `toId` instead. A line that would
+ * then point at its own record (an `ALIA` between the two duplicates) is
+ * dropped, as are those the survivor carried over from the absorbed record.
+ * Returns the ids of the records changed.
+ */
+function repointPointers(records: GedNode[], fromId: string, toId: string): string[] {
+  const touched: string[] = [];
+  const inNode = (record: GedNode, node: GedNode, depth: number): boolean => {
+    let changed = false;
+    const kept: GedNode[] = [];
+    for (const child of node.children) {
+      const v = child.value?.trim();
+      const repointed = v === fromId && !isMemberLine(record, child, depth + 1);
+      if (repointed) {
+        child.value = toId;
+        changed = true;
+      }
+      if ((repointed || record.xref === toId) && child.value?.trim() === record.xref) {
+        changed = true;
+        continue;
+      }
+      changed = inNode(record, child, depth + 1) || changed;
+      kept.push(child);
+    }
+    if (changed) node.children = kept;
+    return changed;
+  };
+  for (const record of records) {
+    if ((record.tag !== "INDI" && record.tag !== "FAM") || !record.xref || record.xref === fromId) continue;
+    if (inNode(record, record, 0)) touched.push(record.xref);
+  }
+  return touched;
+}
+
 // ── Relationship re-pointing ─────────────────────────────────────────────────
 
 /** Add the survivor as a child of `fam` (so it inherits the removed record's
- *  parents), with the reciprocal FAMC. The removed record is dropped from `fam`
- *  later by `removeIndividual`. */
-function addSurvivorAsChild(dataset: Dataset, survivor: Individual, fam: Family): void {
+ *  parents), with the reciprocal FAMC. Both lines take the removed record's
+ *  qualifiers (`_FREL`/`_MREL`, `PEDI adopted`) — the link is the same one. The
+ *  removed record is dropped from `fam` later by `removeIndividual`. */
+function addSurvivorAsChild(dataset: Dataset, survivor: Individual, removed: Individual, fam: Family): void {
   if (fam.children.includes(survivor.id)) return;
-  insertOrdered(fam.raw, ptr(fam.raw, "CHIL", survivor.id), FAM_CHILD_ORDER);
+  const chil = ptr(fam.raw, "CHIL", survivor.id);
+  const oldChil = fam.raw.children.find((c) => c.tag === "CHIL" && c.value === removed.id);
+  if (oldChil) mergeSubLines(chil, oldChil);
+  insertOrdered(fam.raw, chil, FAM_CHILD_ORDER);
   rebuildFamily(dataset, fam);
-  addLink(dataset, survivor, "FAMC", fam.id);
+  addLink(dataset, survivor, "FAMC", fam.id, removed.raw.children.find((c) => c.tag === "FAMC" && c.value === fam.id));
 }
 
 /** Replace the removed record's spouse role in `fam` with the survivor, moving
@@ -466,10 +676,13 @@ function ptr(parent: GedNode, tag: string, id: string): GedNode {
   return { level: parent.level + 1, tag, value: id, children: [] };
 }
 
-/** Add a FAMC/FAMS pointer on an individual if it's not already there. */
-function addLink(dataset: Dataset, indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
+/** Add a FAMC/FAMS pointer on an individual if it's not already there, with
+ *  the subordinate lines of `like` (the line it replaces), if given. */
+function addLink(dataset: Dataset, indi: Individual, tag: "FAMC" | "FAMS", famId: string, like?: GedNode): void {
   if (indi.raw.children.some((c) => c.tag === tag && c.value === famId)) return;
-  insertOrdered(indi.raw, ptr(indi.raw, tag, famId), INDI_CHILD_ORDER);
+  const line = ptr(indi.raw, tag, famId);
+  if (like) mergeSubLines(line, like);
+  insertOrdered(indi.raw, line, INDI_CHILD_ORDER);
   rebuildIndividual(dataset, indi);
 }
 

@@ -2,6 +2,7 @@ import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/type
 import { cloneNode, hasChild } from "../gedcom/node";
 import { VENDOR_PRIVACY_TAGS } from "../gedcom/vendorTags";
 import { birthYear, deathYear, estimateBirthYear, isDeceased, lifespanOf, type BirthEstimate } from "../gedcom/lifespan";
+import { isPointerValue } from "./structure";
 
 /**
  * Privacy / anonymization for living people.
@@ -28,7 +29,7 @@ export type ResnMode = "stripStamp" | "stripOnly" | "markOnly";
 export type StripCategory = "events" | "notes" | "sources" | "media" | "contact";
 
 /** Why an individual was flagged as living — surfaced in the preview breakdown. */
-export type LivingReason = "birth" | "relative" | "unknown" | "recentDeath" | "declared";
+export type LivingReason = "birth" | "relative" | "event" | "unknown" | "recentDeath" | "declared";
 
 export interface PrivacyOptions {
   /** Treat an undated, un-dead person as living if their (estimated) birth is
@@ -147,10 +148,27 @@ function livingReason(
   const by = birthYear(indi);
   if (by !== undefined) return currentYear - by < opts.livingThresholdYears ? { reason: "birth" } : undefined;
   const est = estimateBirthYear(indi, ds);
-  if (est !== undefined) {
-    return currentYear - est.estimatedYear < opts.livingThresholdYears ? { reason: "relative", estimate: est } : undefined;
+  if (est !== undefined && currentYear - est.estimatedYear < opts.livingThresholdYears) {
+    return { reason: "relative", estimate: est };
   }
+  // Their own dated life outranks a guess from kin: a bride married in 2015
+  // was alive then, whatever her father's 1890 birth suggests.
+  const last = latestOwnEventYear(indi, ds);
+  if (last !== undefined) return currentYear - last < opts.livingThresholdYears ? { reason: "event" } : undefined;
+  if (est !== undefined) return undefined;
   return opts.unknownBirthPolicy === "living" ? { reason: "unknown" } : undefined;
+}
+
+/** The latest year among the person's own dated events and those of the
+ *  families they are a spouse in — the last time they are known to be alive. */
+function latestOwnEventYear(indi: Individual, ds: Dataset): number | undefined {
+  let last: number | undefined;
+  const consider = (year: number | undefined) => {
+    if (year !== undefined && (last === undefined || year > last)) last = year;
+  };
+  for (const e of indi.events) consider(e.date?.year);
+  for (const famId of indi.spouseOf) for (const e of ds.families.get(famId)?.events ?? []) consider(e.date?.year);
+  return last;
 }
 
 /** A short label for the preview list: primary name + life years. */
@@ -287,9 +305,18 @@ function familyIsEmpty(rec: GedNode): boolean {
 }
 
 /** Recursively remove external-id / contact / account-trace children, counting removals. */
-function scrubGeneric(node: GedNode, opts: PrivacyOptions, counts: { ids: number; contact: number }): GedNode {
+function scrubGeneric(
+  node: GedNode,
+  opts: PrivacyOptions,
+  counts: { ids: number; contact: number },
+  removedSubmitters: ReadonlySet<string>,
+): GedNode {
   const children: GedNode[] = [];
   for (const child of node.children) {
+    // A pointer to a dropped submitter — SUBM on a record, ANCI/DESI interest
+    // flags, a vendor `_SUBM` — would dangle in the shared file.
+    const v = child.value?.trim();
+    if (v && removedSubmitters.has(v)) continue;
     if (opts.file.stripExternalIds && EXTERNAL_ID_TAGS.has(child.tag)) {
       counts.ids++;
       continue;
@@ -309,9 +336,45 @@ function scrubGeneric(node: GedNode, opts: PrivacyOptions, counts: { ids: number
       counts.contact++;
       continue;
     }
-    children.push(scrubGeneric(child, opts, counts));
+    children.push(scrubGeneric(child, opts, counts, removedSubmitters));
   }
   return { ...node, children };
+}
+
+// Shared records that describe whoever points at them: a note's text or a
+// photo is the living person's own detail once their pointer is stripped.
+// SOUR records are deliberately not here — a source describes a register or an
+// archive, not a person, and stays in the shared file like any other source.
+const PERSONAL_SHARED_RECORDS = new Set(["NOTE", "SNOTE", "OBJE"]);
+
+/** Every xref some record points at, a record's pointers to itself excluded. */
+function referencedXrefs(records: GedNode[]): Set<string> {
+  const out = new Set<string>();
+  const visit = (node: GedNode, owner: string | undefined): void => {
+    const v = node.value?.trim();
+    if (isPointerValue(v) && v !== owner) out.add(v);
+    for (const child of node.children) visit(child, owner);
+  };
+  for (const rec of records) for (const child of rec.children) visit(child, rec.xref);
+  return out;
+}
+
+/**
+ * Drop the shared NOTE/SNOTE/OBJE records the pass left with no referrer, so a
+ * scrubbed person's note text or passport scan isn't exported as a free-standing
+ * record. Only records that had a referrer in the input go — an orphan the file
+ * already carried is the user's own business. Repeats until stable, since a
+ * dropped note can have been the last referrer of a media record.
+ */
+function dropOrphanedPersonalRecords(records: GedNode[], referencedBefore: Set<string>): GedNode[] {
+  for (;;) {
+    const referenced = referencedXrefs(records);
+    const kept = records.filter(
+      (r) => !(r.xref && PERSONAL_SHARED_RECORDS.has(r.tag) && referencedBefore.has(r.xref) && !referenced.has(r.xref)),
+    );
+    if (kept.length === records.length) return kept;
+    records = kept;
+  }
 }
 
 /** Collect an individual and all their descendants (children, grandchildren…). */
@@ -354,7 +417,7 @@ export function privatizeDataset(
     }
   }
 
-  const byReason: Record<LivingReason, number> = { birth: 0, relative: 0, unknown: 0, recentDeath: 0, declared: 0 };
+  const byReason: Record<LivingReason, number> = { birth: 0, relative: 0, event: 0, unknown: 0, recentDeath: 0, declared: 0 };
   for (const f of flaggedList) byReason[f.reason]++;
 
   const report: PrivacyReport = {
@@ -437,7 +500,11 @@ export function privatizeDataset(
   const needsScrub =
     options.file.stripExternalIds || options.file.stripSubmitter ||
     options.file.scrubAddress || options.file.scrubEmail || options.file.scrubPhone;
-  const records = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts)) : interim;
+  const removedSubmitters = new Set(
+    options.file.stripSubmitter ? ds.records.filter((r) => r.tag === "SUBM" && r.xref).map((r) => r.xref!) : [],
+  );
+  const scrubbed = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts, removedSubmitters)) : interim;
+  const records = dropOrphanedPersonalRecords(scrubbed, referencedXrefs(ds.records));
   report.externalIdsStripped = counts.ids;
   report.contactScrubbed = counts.contact;
 

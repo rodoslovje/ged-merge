@@ -1577,6 +1577,25 @@ describe("fixSwappedRoles", () => {
 });
 
 describe("fixDuplicatePointers", () => {
+  it("folds a removed twin's qualifiers into the line it keeps", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 FAMC @F1@
+1 FAMC @F1@
+2 PEDI adopted
+0 @F1@ FAM
+1 CHIL @I1@
+2 _FREL Natural
+1 CHIL @I1@
+2 _FREL Natural
+2 _MREL Adopted
+0 TRLR`);
+    fixDuplicatePointers(ds);
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 FAMC @F1@\n2 PEDI adopted\n");
+    expect(out).toContain("1 CHIL @I1@\n2 _FREL Natural\n2 _MREL Adopted\n0 TRLR");
+  });
+
   it("drops repeated CHIL/FAMS/FAMC lines, keeping one of each", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -1757,6 +1776,40 @@ describe("fixDanglingRefs", () => {
 0 TRLR`);
     expect(countDanglingRefs(ds)).toBe(0);
     expect(fixDanglingRefs(ds)).toHaveLength(0);
+  });
+
+  it("leaves GEDCOM 7's @VOID@ null pointer alone, wherever it stands", () => {
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 FAMC @VOID@
+1 ASSO @VOID@
+2 PHRASE Godfather Janez
+2 ROLE GODP
+1 BIRT
+2 SOUR @void@
+3 PAGE p. 12
+0 @F1@ FAM
+1 HUSB @VOID@
+1 WIFE @I2@
+1 CHIL @VOID@
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 FAMS @F1@
+0 TRLR`);
+    const before = serializeGedcom(ds.records);
+    expect(validateStructure(ds).counts.danglingXref ?? 0).toBe(0);
+    expect(countDanglingRefs(ds)).toBe(0);
+    expect(fixDanglingRefs(ds)).toHaveLength(0);
+    // Not a family link either: nothing for the broken-links fix to prune.
+    expect(ds.individuals.get("@I1@")!.childOf).toEqual([]);
+    expect(ds.families.get("@F1@")!.husband).toBeUndefined();
+    expect(ds.families.get("@F1@")!.children).toEqual([]);
+    expect(validateDataset(ds, 2026).counts.brokenLink ?? 0).toBe(0);
+    expect(fixBrokenLinks(ds)).toHaveLength(0);
+    expect(serializeGedcom(ds.records)).toBe(before);
   });
 });
 

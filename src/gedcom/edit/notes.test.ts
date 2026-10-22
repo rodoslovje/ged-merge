@@ -8,6 +8,7 @@ import {
 } from "../edit";
 import { INDI_CHILD_ORDER } from "./shared";
 import { firstChild } from "../node";
+import type { NoteRef } from "../types";
 
 function buildFromText(lines: string[]) {
   const buf = new TextEncoder().encode(lines.join("\n"));
@@ -148,6 +149,145 @@ describe("applyNoteRefs (record-level notes)", () => {
     expect(out).toContain("1 NOTE https://example.com/x");
     expect(out).toContain("1 NOTE brand new note");
     expect(ctx.changes).toHaveLength(0);
+  });
+});
+
+describe("applyNoteRefs keeps the notes it was not asked to change", () => {
+  const LINES = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "0 @I1@ INDI",
+    "1 NAME Ana /Novak/",
+    "1 NOTE one",
+    "2 SOUR @S1@",
+    "1 SEX F",
+    "1 NOTE two",
+    "2 LANG Slovenian",
+    "1 NOTE three ",
+    "2 _CUSTOM x",
+    "0 @S1@ SOUR",
+    "1 TITL Register",
+    "0 TRLR",
+  ];
+  /** What the notes editor commits: inline texts trimmed, the rest carried. */
+  const committed = (refs: NoteRef[]) => refs.map((r) => (r.xref ? r : { ...r, text: r.text.trim() }));
+
+  it("editing one note leaves the others' sub-structure, order and place intact", () => {
+    const ds = buildFromText(LINES);
+    const indi = ds.individuals.get("@I1@")!;
+    const refs = committed(indi.noteRefs!);
+    refs[1] = { ...refs[1], text: "two, corrected" };
+    setNotes(noteCtx(ds.records), indi, refs);
+    expect(serializeGedcom(ds.records)).toContain(
+      "1 NOTE one\n2 SOUR @S1@\n1 SEX F\n1 NOTE two, corrected\n2 LANG Slovenian\n1 NOTE three \n2 _CUSTOM x",
+    );
+  });
+
+  it("an unchanged commit leaves the record byte-identical", () => {
+    const ds = buildFromText(LINES);
+    const before = serializeGedcom(ds.records);
+    const indi = ds.individuals.get("@I1@")!;
+    setNotes(noteCtx(ds.records), indi, committed(indi.noteRefs!));
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("removing one note and adding another touches only those two", () => {
+    const ds = buildFromText(LINES);
+    const indi = ds.individuals.get("@I1@")!;
+    const refs = committed(indi.noteRefs!).filter((_, i) => i !== 0);
+    setNotes(noteCtx(ds.records), indi, [...refs, { text: "four" }]);
+    const out = serializeGedcom(ds.records);
+    expect(out).not.toContain("1 NOTE one");
+    expect(out).not.toContain("2 SOUR @S1@");
+    expect(out).toContain("1 SEX F\n1 NOTE two\n2 LANG Slovenian\n1 NOTE three \n2 _CUSTOM x\n1 NOTE four");
+  });
+
+  it("ticking 🔒 on one inline note keeps its sub-structure", () => {
+    const ds = buildFromText(LINES);
+    const indi = ds.individuals.get("@I1@")!;
+    const refs = committed(indi.noteRefs!).map((r, i) => (i === 0 ? { ...r, private: true } : r));
+    setNotes(noteCtx(ds.records), indi, refs);
+    const note = indi.raw.children.find((c) => c.tag === "NOTE")!;
+    expect(note.children.map((c) => c.tag)[0]).toBe("SOUR");
+    expect(note.children).toHaveLength(2);
+  });
+
+  it("an event's notes keep theirs too", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 NOTE first",
+      "3 SOUR @S1@",
+      "2 NOTE second",
+      "0 @S1@ SOUR",
+      "0 TRLR",
+    ]);
+    const indi = ds.individuals.get("@I1@")!;
+    const birt = firstChild(indi.raw, "BIRT")!;
+    applyEventNodeUpdate(indi.raw, birt, { noteRefs: [{ text: "first" }, { text: "second, corrected" }] }, noteCtx(ds.records));
+    expect(serializeGedcom(ds.records)).toContain("2 NOTE first\n3 SOUR @S1@\n2 NOTE second, corrected");
+  });
+});
+
+describe("GEDCOM 7 SNOTE shared notes", () => {
+  const V7 = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 7.0",
+    "0 @I1@ INDI",
+    "1 NAME Ana /Novak/",
+    "1 BIRT",
+    "2 DATE 1 JAN 1900",
+    "2 SNOTE @N2@",
+    "1 SNOTE @N1@",
+    "0 @F1@ FAM",
+    "1 WIFE @I1@",
+    "1 SNOTE @N1@",
+    "0 @N1@ SNOTE Shared family story",
+    "0 @N2@ SNOTE Baptism register remark",
+    "0 TRLR",
+  ];
+
+  it("resolves SNOTE records and pointers like NOTE ones", () => {
+    const ds = buildFromText(V7);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.notes).toEqual(["Shared family story"]);
+    expect(indi.noteRefs).toEqual([{ xref: "@N1@", text: "Shared family story" }]);
+    const birt = indi.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.note).toBe("Baptism register remark");
+    expect(birt.noteRefs).toEqual([{ xref: "@N2@", text: "Baptism register remark" }]);
+    expect(ds.families.get("@F1@")!.noteRefs).toEqual([{ xref: "@N1@", text: "Shared family story" }]);
+  });
+
+  it("an unchanged commit writes the SNOTE pointers back as they were", () => {
+    const ds = buildFromText(V7);
+    const before = serializeGedcom(ds.records);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, indi.noteRefs!);
+    const birt = firstChild(indi.raw, "BIRT")!;
+    applyEventNodeUpdate(indi.raw, birt, { noteRefs: indi.events[0].noteRefs }, ctx);
+    expect(ctx.changes).toHaveLength(0);
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("edits an SNOTE's text inside the shared record, and a removal releases it", () => {
+    const ds = buildFromText(V7);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, [{ xref: "@N1@", text: "Corrected story" }]);
+    let out = serializeGedcom(ds.records);
+    expect(out).toContain("0 @N1@ SNOTE Corrected story");
+    expect(out).toContain("1 SNOTE @N1@");
+    expect(out).not.toContain("1 NOTE @N1@");
+
+    const birt = firstChild(indi.raw, "BIRT")!;
+    applyEventNodeUpdate(indi.raw, birt, { noteRefs: [] }, ctx);
+    out = serializeGedcom(ds.records);
+    expect(out).not.toContain("@N2@"); // its only reference is gone
+    expect(countNoteRefs(ds.records, "@N1@")).toBe(2);
   });
 });
 

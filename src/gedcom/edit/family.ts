@@ -1,6 +1,6 @@
 import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
-import { cloneNode, nodeFingerprint } from "../node";
+import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { rebuildFamily, rebuildIndividual } from "./cache";
@@ -143,6 +143,74 @@ function isBareParentStub(fam: Family, childId: string): boolean {
   return fam.raw.children.every((c) => c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL");
 }
 
+/** Everyone `fromIds` descends from (`up`) or who descends from them (down),
+ *  read from both sides of the links so a one-sided file is walked as well. */
+function lineOf(dataset: Dataset, fromIds: (string | undefined)[], up: boolean): Set<string> {
+  // The family side indexed once (a child's CHIL, a parent's HUSB/WIFE).
+  const named = new Map<string, string[]>();
+  for (const fam of dataset.families.values()) {
+    for (const id of up ? fam.children : [fam.husband, fam.wife]) {
+      if (!id) continue;
+      const list = named.get(id);
+      if (list) list.push(fam.id);
+      else named.set(id, [fam.id]);
+    }
+  }
+  const seen = new Set<string>();
+  const queue = fromIds.filter((id): id is string => !!id);
+  while (queue.length) {
+    const id = queue.pop()!;
+    const indi = dataset.individuals.get(id);
+    const famIds = new Set([...((up ? indi?.childOf : indi?.spouseOf) ?? []), ...(named.get(id) ?? [])]);
+    for (const famId of famIds) {
+      const fam = dataset.families.get(famId);
+      if (!fam) continue;
+      for (const next of up ? [fam.husband, fam.wife] : fam.children) {
+        if (next && !seen.has(next)) { seen.add(next); queue.push(next); }
+      }
+    }
+  }
+  return seen;
+}
+
+/**
+ * The people who cannot be connected to `person` as this kind of relative —
+ * the picker leaves them out and the connect refuses them. Connecting any of
+ * them would write a structure no family can have: the same person as both
+ * parents of one family, someone as their own ancestor (a descendant taken as
+ * a parent, an ancestor taken as a child), or a child or parent taken as a
+ * partner. `fam` is the family the relative joins, when there is one.
+ */
+export function impossibleRelatives(
+  dataset: Dataset,
+  person: Individual,
+  kind: "father" | "mother" | "partner" | "child",
+  fam: Family | undefined,
+): Set<string> {
+  const out = new Set<string>([person.id]);
+  const add = (ids: Iterable<string | undefined>) => { for (const id of ids) if (id) out.add(id); };
+  if (kind === "child") {
+    // The child becomes the child of both spouses of the family.
+    const parents = fam ? [fam.husband, fam.wife, person.id] : [person.id];
+    add(parents);
+    add(lineOf(dataset, parents, true));
+    return out;
+  }
+  // A parent or partner becomes the parent of the family's children — of
+  // `person` too, when the family is their birth family.
+  const children = [...(fam?.children ?? []), ...(kind === "partner" ? [] : [person.id])];
+  add(children);
+  add(lineOf(dataset, children, false));
+  if (fam && kind !== "partner") add([kind === "father" ? fam.wife : fam.husband]);
+  if (kind === "partner") {
+    for (const f of dataset.families.values()) {
+      if (f.children.includes(person.id) || person.childOf.includes(f.id)) add([f.husband, f.wife]);
+      if (f.husband === person.id || f.wife === person.id || person.spouseOf.includes(f.id)) add(f.children);
+    }
+  }
+  return out;
+}
+
 /**
  * Connect an existing individual as a parent of `person`.
  * If `fam` is given (an existing parent family missing that role), the
@@ -163,7 +231,7 @@ export function connectExistingParent(
 ): void {
   const tag: "HUSB" | "WIFE" = role === "father" ? "HUSB" : "WIFE";
   const parent = dataset.individuals.get(parentId);
-  if (!parent) return;
+  if (!parent || impossibleRelatives(dataset, person, role, fam).has(parentId)) return;
 
   const otherParentId = fam ? (tag === "HUSB" ? fam.wife : fam.husband) : undefined;
   if (fam && otherParentId && otherParentId !== parentId && isBareParentStub(fam, person.id)) {
@@ -210,7 +278,7 @@ export function connectExistingPartner(
   fam: Family | undefined,
 ): void {
   const partner = dataset.individuals.get(partnerId);
-  if (!partner) return;
+  if (!partner || impossibleRelatives(dataset, person, "partner", fam).has(partnerId)) return;
 
   const personTag: "HUSB" | "WIFE" = fam
     ? fam.husband === person.id ? "HUSB" : "WIFE"
@@ -251,7 +319,7 @@ export function connectExistingChild(
   fam: Family | undefined,
 ): void {
   const child = dataset.individuals.get(childId);
-  if (!child) return;
+  if (!child || impossibleRelatives(dataset, person, "child", fam).has(childId)) return;
 
   if (!fam) {
     fam = addFamily(dataset);
@@ -294,6 +362,9 @@ export function pruneDegenerateFamily(dataset: Dataset, fam: Family): boolean {
   const memberCount = (fam.husband ? 1 : 0) + (fam.wife ? 1 : 0) + fam.children.length;
   if (memberCount >= 2) return false;
   if (!isBareFamily(fam)) return false;
+  // Asked of both sides only now that the cheap count has said "too few": a
+  // one-sided file can hold a child whose FAMC names the family no CHIL answers.
+  if (familyMembers(dataset, fam).length >= 2) return false;
   removeFamily(dataset, fam);
   return true;
 }
@@ -384,22 +455,27 @@ export function familiesNaming(dataset: Dataset, indiId: string): string[] {
   return ids;
 }
 
-/** Fully remove a family from the dataset, cleaning up FAMS/FAMC pointers on all members. */
+/** Everyone the family holds, read from both sides: the people its HUSB/WIFE/CHIL
+ *  lines name, and the people whose own FAMS/FAMC lines name it — a one-sided
+ *  file can carry either half without the other. */
+export function familyMembers(dataset: Dataset, fam: Family): string[] {
+  const ids = new Set([fam.husband, fam.wife, ...fam.children].filter((id): id is string => !!id));
+  for (const indi of dataset.individuals.values()) {
+    if (indi.childOf.includes(fam.id) || indi.spouseOf.includes(fam.id)) ids.add(indi.id);
+  }
+  return [...ids];
+}
+
+/** Fully remove a family from the dataset, cleaning up the FAMS/FAMC pointers
+ *  of every record naming it — its listed members and any back-linked only. */
 export function removeFamily(dataset: Dataset, fam: Family): void {
-  for (const indiId of [fam.husband, fam.wife]) {
-    if (!indiId) continue;
+  for (const indiId of familyMembers(dataset, fam)) {
     const indi = dataset.individuals.get(indiId);
     if (!indi) continue;
-    const i = indi.raw.children.findIndex((c) => c.tag === "FAMS" && c.value === fam.id);
-    if (i !== -1) indi.raw.children.splice(i, 1);
+    const kept = indi.raw.children.filter((c) => !((c.tag === "FAMS" || c.tag === "FAMC") && c.value === fam.id));
+    if (kept.length === indi.raw.children.length) continue;
+    indi.raw.children = kept;
     rebuildIndividual(dataset, indi);
-  }
-  for (const childId of fam.children) {
-    const child = dataset.individuals.get(childId);
-    if (!child) continue;
-    const i = child.raw.children.findIndex((c) => c.tag === "FAMC" && c.value === fam.id);
-    if (i !== -1) child.raw.children.splice(i, 1);
-    rebuildIndividual(dataset, child);
   }
   const ri = dataset.records.findIndex((r) => r.xref === fam.id);
   if (ri !== -1) dataset.records.splice(ri, 1);
@@ -409,7 +485,7 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
 /** Lines that belong to the record they sit on, not to the family it describes:
  *  change stamps and record identifiers. A fold leaves the kept record's own
  *  and does not carry the dropped record's over. */
-const RECORD_OWN_TAGS = new Set(["CHAN", "CREA", "_UPD", "RIN", "_UID", "UID"]);
+export const RECORD_OWN_TAGS = new Set(["CHAN", "CREA", "_UPD", "RIN", "_UID", "UID"]);
 
 /**
  * Merge family `dropId` into family `keepId` and remove it — for two records
@@ -433,11 +509,19 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     // Asked of the record, not of the typed list: the list is rebuilt only
     // after the loop, so a child listed twice in the dropped family would
     // otherwise be written twice into the kept one.
-    if (keep.raw.children.some((c) => c.tag === "CHIL" && c.value === childId)) continue;
+    // The link's qualifiers (`_FREL`/`_MREL` on the CHIL line, `PEDI` on the
+    // child's FAMC) move with it: an adoption is not a birth on the kept record.
+    const pointer = (record: GedNode, tag: string, id: string) =>
+      record.children.find((c) => c.tag === tag && c.value === id);
+    const dropChil = pointer(drop.raw, "CHIL", childId);
+    if (pointer(keep.raw, "CHIL", childId)) continue;
     addFamilyChild(dataset, keep, childId);
+    if (dropChil) mergeSubLines(pointer(keep.raw, "CHIL", childId)!, dropChil);
     const child = dataset.individuals.get(childId);
-    if (child && !child.raw.children.some((c) => c.tag === "FAMC" && c.value === keepId)) {
+    if (child && !pointer(child.raw, "FAMC", keepId)) {
       addFamilyLink(child, "FAMC", keepId);
+      const dropFamc = pointer(child.raw, "FAMC", dropId);
+      if (dropFamc) mergeSubLines(pointer(child.raw, "FAMC", keepId)!, dropFamc);
       rebuildIndividual(dataset, child);
     }
   }
@@ -466,6 +550,22 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     const stub = !line.value && line.children.length === 0;
     if (stub && keep.raw.children.some((c) => c.tag === line.tag)) continue;
     insertOrdered(keep.raw, cloneNode(line), FAM_CHILD_ORDER);
+  }
+
+  // A person a one-sided file links to the dropped family from their own side
+  // only (a FAMC the family never lists) moves with it too: removeFamily would
+  // otherwise unlink them, and they would lose their parents or their marriage.
+  for (const id of familyMembers(dataset, drop)) {
+    const indi = dataset.individuals.get(id);
+    if (!indi) continue;
+    let moved = false;
+    for (const line of indi.raw.children) {
+      if ((line.tag !== "FAMC" && line.tag !== "FAMS") || line.value !== dropId) continue;
+      const kept = indi.raw.children.find((c) => c.tag === line.tag && c.value === keepId);
+      if (kept) mergeSubLines(kept, line);
+      else { line.value = keepId; moved = true; }
+    }
+    if (moved) rebuildIndividual(dataset, indi);
   }
 
   rebuildFamily(dataset, keep);

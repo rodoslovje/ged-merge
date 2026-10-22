@@ -1,6 +1,7 @@
 import { indiEventNodes } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
+import { NOTE_TAGS } from "../builder";
 import type { Family, GedNode, GeoCoord, Individual, NoteRef } from "../types";
 import { reconcilePlaceForm, setPlaceCoord } from "./geo";
 import {
@@ -85,7 +86,9 @@ function setLinks(event: GedNode, links: string[]): void {
  * nothing else uses it).
  */
 function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx): void {
-  const noteNode = firstChild(eventNode, "NOTE");
+  // The same first note the builder reads into `event.note` — a 7.0 `SNOTE`
+  // pointer included.
+  const noteNode = firstChild(eventNode, NOTE_TAGS);
   const ptr = noteNode?.value?.trim();
   if (noteNode && ptr && isPointer(ptr) && notes) {
     if (!note.trim()) {
@@ -104,6 +107,8 @@ function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx)
   }
   if (trimmed) {
     noteNode.value = trimmed;
+    // Text written in place is an inline note, which only `NOTE` can carry.
+    noteNode.tag = "NOTE";
     return;
   }
   const i = eventNode.children.indexOf(noteNode);
