@@ -1223,7 +1223,7 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
   // its record is missing: an incoming record given that xref would quietly
   // become the target of the main's dangling citation.
   const reservePointers = (n: GedNode): void => {
-    if (SHARED_RECORD_TAGS.has(n.tag) && n.value && /^@[^@]+@$/.test(n.value)) used.add(n.value);
+    if ((SHARED_RECORD_TAGS.has(n.tag) || n.tag.startsWith("_")) && n.value && /^@[^@]+@$/.test(n.value)) used.add(n.value);
     for (const c of n.children) reservePointers(c);
   };
   for (const rec of mainRecords) reservePointers(rec);
@@ -1264,13 +1264,17 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
   return map;
 }
 
-/** Deep-clone `n`, substituting any SOUR/REPO/NOTE/SNOTE/OBJE pointer values via `sourMap`. */
+/** Deep-clone `n`, substituting any SOUR/REPO/NOTE/SNOTE/OBJE pointer values —
+ *  and vendor-tag pointers to a record `sourMap` knows — via `sourMap`. */
 export function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
   const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map((ch) => cloneNodeRemapped(ch, sourMap)) };
   if (n.xref !== undefined) c.xref = n.xref;
   if (n.verbatim !== undefined) c.verbatim = n.verbatim;
   if (n.value !== undefined) {
-    const isSharedPointer = SHARED_RECORD_TAGS.has(n.tag) && /^@[^@]+@$/.test(n.value);
+    // A vendor tag (`_PHOTO @O1@`) naming one of the incoming file's shared
+    // records points at it as surely as the standard tag does.
+    const isSharedPointer = /^@[^@]+@$/.test(n.value) &&
+      (SHARED_RECORD_TAGS.has(n.tag) || (n.tag.startsWith("_") && sourMap.has(n.value)));
     c.value = isSharedPointer ? (sourMap.get(n.value) ?? n.value) : n.value;
   }
   return c;
@@ -1355,8 +1359,10 @@ export function importSourRecords(
     if (SHARED_RECORD_TAGS.has(rec.tag) && rec.xref) compareIndex.set(rec.xref, rec);
   }
 
+  // Vendor tags count too (`_PHOTO @O1@`): only an xref the map promised to an
+  // incoming shared record is ever imported (below), whatever names it.
   const collectSourRefs = (node: GedNode, out: Set<string>): void => {
-    if (SHARED_RECORD_TAGS.has(node.tag) && node.value && /^@[^@]+@$/.test(node.value)) {
+    if ((SHARED_RECORD_TAGS.has(node.tag) || node.tag.startsWith("_")) && node.value && /^@[^@]+@$/.test(node.value)) {
       out.add(node.value);
     }
     for (const child of node.children) collectSourRefs(child, out);
