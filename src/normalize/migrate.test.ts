@@ -205,6 +205,18 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(childValue(m2File, "TITL")).toBe("Scan");
   });
 
+  it("gives a media format with no registered type a media type that keeps it", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @M1@ OBJE\n1 FILE a.djvu\n2 FORM djvu\n1 FILE b.xyz\n2 FORM xyz\n",
+      "7.0",
+    );
+    const files = record(records, "@M1@").children.filter((c) => c.tag === "FILE");
+    expect(files.map((f) => childValue(f, "FORM"))).toEqual(["image/vnd.djvu", "application/x-xyz"]);
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(files.map((f) => childValue(f, "FORM"))).toEqual(["djvu", "xyz"]);
+  });
+
   it("does not touch the header", () => {
     const { records } = migrated("5.5.1", "0 @N1@ NOTE x\n", "7.0");
     const headRec = records.find((r) => r.tag === "HEAD")!;

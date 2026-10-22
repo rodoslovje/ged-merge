@@ -346,7 +346,11 @@ function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
     const form = firstChild(file, "FORM");
     if (!form?.value || form.value.includes("/")) continue;
     const before = describe(form);
-    form.value = EXT_TO_MIME[form.value.trim().toLowerCase()] ?? "application/octet-stream";
+    // A format with no registered type keeps its name in a private subtype
+    // (`application/x-xyz`), which the downgrade reads back; octet-stream
+    // would say only "some bytes".
+    const ext = form.value.trim().toLowerCase();
+    form.value = EXT_TO_MIME[ext] ?? (/^[a-z0-9]+$/.test(ext) ? `application/x-${ext}` : "application/octet-stream");
     const type = firstChild(form, "TYPE");
     if (type) type.tag = "MEDI";
     report(ctx, form, before);
@@ -539,7 +543,7 @@ function downgradeObje(node: GedNode, ctx: MigrateCtx): void {
     if (!form?.value?.includes("/")) continue;
     const before = describe(form);
     const ext = MIME_TO_EXT[form.value.trim().toLowerCase()];
-    form.value = ext ?? form.value.split("/").pop()!;
+    form.value = ext ?? form.value.split("/").pop()!.replace(/^x-/i, "");
     const medi = firstChild(form, "MEDI");
     if (medi) medi.tag = "TYPE";
     report(ctx, form, before);
