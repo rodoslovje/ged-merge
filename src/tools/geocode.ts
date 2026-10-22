@@ -1,5 +1,5 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
-import { cloneNode, firstChild } from "../gedcom/node";
+import { cloneNode, firstChild, removeChildren } from "../gedcom/node";
 import { decomposePlace, parseCoordPair, placeAddressDetail, placeCollator } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
@@ -516,7 +516,7 @@ export function renamePlaceValues(dataset: Dataset, renames: readonly OfficialRe
       }
       if (r.addrTarget) {
         // The ADDR sibling lives on the PLAC's parent event.
-        const existing = parent.children.find((c) => c.tag === "ADDR");
+        const existing = firstChild(parent, "ADDR");
         if (!existing) {
           const at = parent.children.indexOf(plac) + 1;
           parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: r.addrTarget, children: [] });
@@ -703,7 +703,7 @@ export function clearPlaceCoords(dataset: Dataset, pairs: ReadonlySet<string>): 
     walkPlaceAddr(raw, (plac, addr) => {
       if (!pairs.has(placeAddrKey(plac.value!.trim(), addr))) return;
       if (!coordOf(plac)) return;
-      plac.children = plac.children.filter((c) => c.tag !== "MAP");
+      removeChildren(plac, "MAP");
       clearPlaceGov(plac);
       changed = true;
     });

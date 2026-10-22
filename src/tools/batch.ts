@@ -11,7 +11,7 @@ import { rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
-import { cloneNode, firstChild } from "../gedcom/node";
+import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { unionMarriage, type UnionMarriage } from "../gedcom/union";
 import { isPrivateNode } from "../gedcom/private";
 import { NOTE_TAGS } from "../gedcom/builder";
@@ -554,7 +554,7 @@ function convertEventBatch(
   for (const id of ids) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
-    const nodes = indi.raw.children.filter((c) => c.tag === fromTag);
+    const nodes = childrenByTag(indi.raw, fromTag);
     if (nodes.length === 0) {
       skipped++;
       continue;
@@ -599,7 +599,7 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
       continue;
     }
     addEventNode(indi, "DEAT");
-    const deat = indi.raw.children.filter((c) => c.tag === "DEAT").pop()!;
+    const deat = childrenByTag(indi.raw, "DEAT").pop()!;
     deat.value = "Y";
     // Rebuild, or `isDeceased` (and so the `living` filter) still says alive.
     rebuildIndividual(ds, indi);
@@ -857,7 +857,7 @@ function addMarriedNameBatch(ds: Dataset, ids: string[]): BatchApplyResult {
         // The surname-only `1 NAME /Novak/` + `2 TYPE married` pair the standard
         // (and every file observed) uses — the given name stays on the primary.
         addAdditionalName(indi, target.form === "record" ? target.type! : "married");
-        const added = indi.raw.children.filter((c) => c.tag === "NAME").length - 2;
+        const added = childrenByTag(indi.raw, "NAME").length - 2;
         setAdditionalName(indi, added, { given: "", surname });
       }
     }

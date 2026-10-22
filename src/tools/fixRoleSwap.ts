@@ -1,6 +1,6 @@
 import type { Dataset, Family, GedNode } from "../gedcom/types";
 import { rebuildFamily } from "../gedcom/edit";
-import { cloneNode } from "../gedcom/node";
+import { cloneNode, childrenByTag } from "../gedcom/node";
 import { type RecordPatch } from "../ui/historyTypes";
 
 /**
@@ -38,8 +38,8 @@ function swappedSlots(dataset: Dataset, fam: Family): { husb: GedNode; wife: Ged
   if (!husband || !wife) return undefined;
   if (husband.sex !== "F" || wife.sex !== "M") return undefined;
 
-  const husbLines = fam.raw.children.filter((c) => c.tag === "HUSB");
-  const wifeLines = fam.raw.children.filter((c) => c.tag === "WIFE");
+  const husbLines = childrenByTag(fam.raw, "HUSB");
+  const wifeLines = childrenByTag(fam.raw, "WIFE");
   if (husbLines.length !== 1 || wifeLines.length !== 1) return undefined;
   const [husb] = husbLines;
   const [wifeLine] = wifeLines;
