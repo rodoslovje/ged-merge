@@ -1,5 +1,6 @@
 import type { Dataset } from "../gedcom/types";
-import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
+import { YearsText } from "./YearsText";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { xrefLabel } from "../gedcom/nameDisplay";
@@ -70,7 +71,7 @@ export function PersonRefLabel({ dataset, id, fallback, forceXref = false }: Omi
     <>
       <span className={`person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</span>
       {(settings.showXref || forceXref) && <span className="person-xref gm-data">{xrefLabel(indi.id)}</span>}
-      {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+      {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(indi)} /></span>}
     </>
   );
 }

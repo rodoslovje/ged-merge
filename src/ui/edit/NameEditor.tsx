@@ -6,6 +6,8 @@ import { lifespanTooltipOf } from "../../gedcom/age";
 import { primaryName } from "../../match/relatives";
 import { xrefLabel } from "../../gedcom/nameDisplay";
 import { sexClass } from "../sex";
+import { YearsText } from "../YearsText";
+import { lifespanApproxOf } from "../../gedcom/lifespan";
 import { useSettingsSlice } from "../SettingsContext";
 import { setName } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
@@ -127,7 +129,7 @@ export function NameEditor({
         />
         {/* Record id and lifespan, in the same order the relative cards use. */}
         {settings.showXref && <span className="person-xref gm-data">{xrefLabel(person.id)}</span>}
-        {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+        {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(person)} /></span>}
       </div>
       {kinship}
       {matchStatus && matchStatus !== "undecided" && (

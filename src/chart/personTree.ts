@@ -1,13 +1,17 @@
 import type { Dataset, Family, Individual, Sex } from "../gedcom/types";
 import {
+  birthDateOf,
   birthDateText,
   birthYear,
   datesTooltip,
+  deathDateOf,
   deathDateText,
   deathYear,
   formatLifespan,
   isDeceased,
   isPresumedLiving,
+  yearsApprox,
+  type YearsApprox,
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
@@ -43,6 +47,8 @@ export interface TreeNode {
   name: string;
   /** Lifespan label: "1817–1921", "1817–" (dead), "1817" (living), or "". */
   years: string;
+  /** Which of `years` stand on an approximate date, when any does. */
+  yearsApprox?: YearsApprox;
   /** The same lifespan in the files' own full date text ("26 Jan 1817 – 3 Mar
    *  1921"), for the hover behind the bare years where they are listed. Absent
    *  when neither side dates the person. */
@@ -620,6 +626,7 @@ function makeNode(
     status,
     name: nameOf(primary),
     years: birthYears(main, incoming),
+    yearsApprox: birthYearsApprox(main, incoming),
     dates: birthDates(main, incoming) || undefined,
     age: lifespanAge(primary),
     place: placeLabel(primary),
@@ -708,6 +715,16 @@ function birthYears(
   const d = deathYear(main) ?? deathYear(incoming);
   const dead = isDeceased(main) || isDeceased(incoming);
   return formatLifespan(b, d, dead);
+}
+
+/** {@link birthYears}' approximate ends, each taken from the side that gave the year. */
+function birthYearsApprox(
+  main: Individual | undefined,
+  incoming: Individual | undefined,
+): YearsApprox | undefined {
+  const b = birthYear(main) !== undefined ? birthDateOf(main) : birthDateOf(incoming);
+  const d = deathYear(main) !== undefined ? deathDateOf(main) : deathDateOf(incoming);
+  return yearsApprox(b, d);
 }
 
 /**

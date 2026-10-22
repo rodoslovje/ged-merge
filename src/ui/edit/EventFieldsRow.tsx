@@ -17,6 +17,8 @@ import { SuggestInput } from "./SuggestInput";
 import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
+import { parseDate } from "../../gedcom/date";
+import { isApproximate } from "../../gedcom/lifespan";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
@@ -949,7 +951,11 @@ export function EventFieldsRow({
       <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
           data-detail="date"
-          className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
+          className={fieldCls(
+            "edit-input edit-event-date" + (isApproximate(parseDate(dateField.value)) ? " is-approx" : ""),
+            dateField.isMerge,
+            dateField.isDirty || dateForced,
+          )}
           value={dateField.value}
           placeholder={t("event.colDate")}
           title={t("event.date", { event: label })}

@@ -242,6 +242,65 @@ export function lifespanOf(indi: Individual | undefined): string {
   return formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi));
 }
 
+/** Which end of a lifespan label stands on a date that is not stated exactly. */
+export interface YearsApprox {
+  birth?: boolean;
+  death?: boolean;
+}
+
+/** True for a date that names a neighbourhood rather than a day or a year:
+ *  ABT/CAL/EST, BEF, AFT, BET…AND and the FROM/TO periods. */
+export function isApproximate(d: GedDate | undefined): boolean {
+  switch (d?.qualifier) {
+    case "about": case "before": case "after": case "between": case "range": case "from": case "to":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** {@link YearsApprox} from the dates that gave the label its years, or
+ *  undefined when both are exact (nearly always — so callers can skip it). */
+export function yearsApprox(birth: GedDate | undefined, death: GedDate | undefined): YearsApprox | undefined {
+  const b = isApproximate(birth);
+  const d = isApproximate(death);
+  return b || d ? { ...(b ? { birth: true } : {}), ...(d ? { death: true } : {}) } : undefined;
+}
+
+/** {@link yearsApprox} for the label {@link lifespanOf} gives the same person. */
+export function lifespanApproxOf(indi: Individual | undefined): YearsApprox | undefined {
+  return yearsApprox(birthDateOf(indi), deathDateOf(indi));
+}
+
+/**
+ * A lifespan line cut into runs so the approximate years can be set apart
+ * (in italics). The line may carry more than the years — "1817–1890 (73)" —
+ * so only the first number on each side of the dash is marked.
+ */
+export function yearsSegments(text: string, approx: YearsApprox | undefined): { text: string; approx: boolean }[] {
+  if (!approx) return [{ text, approx: false }];
+  const dash = text.indexOf("–");
+  const out: { text: string; approx: boolean }[] = [];
+  const side = (part: string, mark: boolean | undefined) => {
+    const m = mark ? part.match(/-?\d+/) : null;
+    if (!m || m.index === undefined) {
+      if (part) out.push({ text: part, approx: false });
+      return;
+    }
+    if (m.index > 0) out.push({ text: part.slice(0, m.index), approx: false });
+    out.push({ text: m[0], approx: true });
+    const rest = part.slice(m.index + m[0].length);
+    if (rest) out.push({ text: rest, approx: false });
+  };
+  if (dash < 0) side(text, approx.birth);
+  else {
+    side(text.slice(0, dash), approx.birth);
+    out.push({ text: "–", approx: false });
+    side(text.slice(dash + 1), approx.death);
+  }
+  return out;
+}
+
 /**
  * Full-date version of {@link formatLifespan} for hover tooltips — the original
  * birth/death date text instead of bare years, e.g. "26 Jan 1908 – 3 Mar 1970",

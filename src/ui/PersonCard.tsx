@@ -4,6 +4,8 @@ import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
+import { lifespanApproxOf } from "../gedcom/lifespan";
 import { CardPhoto } from "./PersonMedia";
 import type { MediaRefContext } from "./MediaViewer";
 
@@ -91,7 +93,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
                 ghosts hang off this block, so a dateless person's card can
                 still reserve the year/kinship rows its neighbours have. */}
             <div className="person-card-meta">
-              {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+              {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(individual)} /></span>}
               {decisionStatus && (
                 <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
                   {decisionLetter}

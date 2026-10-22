@@ -6,10 +6,11 @@ import type { Dataset, GedNode, Individual } from "../gedcom/types";
 import { downloadOptions, type SerializeOptions } from "../gedcom/serialize";
 import { diffRecord, recordsByXref, type RecordDiff } from "../save/recordDiff";
 import { Segmented } from "./Segmented";
-import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { isPrivateNode } from "../gedcom/private";
 import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
 import { EVENT_ORDER } from "../review/fields";
 import { vendorTagInfo } from "../gedcom/vendorTags";
 import { charsetNotices } from "./charsetNotice";
@@ -145,7 +146,7 @@ export function SaveDialog({
     const known = p.id ? dataset?.individuals.get(p.id) : undefined;
     const indi = known ?? (p.id ? report.newIndividuals?.[p.id] : undefined);
     if (!indi) return { ...p, id: undefined };
-    return { id: known ? p.id : undefined, name: nameOf(indi), years: lifespanOf(indi), dates: datesTooltipOf(indi), sex: indi.sex };
+    return { id: known ? p.id : undefined, name: nameOf(indi), years: lifespanOf(indi), yearsApprox: lifespanApproxOf(indi), dates: datesTooltipOf(indi), sex: indi.sex };
   };
   const openPerson = onNavigate
     ? (id: string) => { onNavigate(id); onClose(); }
@@ -413,7 +414,7 @@ export function SaveDialog({
                         {sLifespan && (
                           <span className="person-years gm-data" title={datesTooltipOf(sIndi) || undefined}>
                             {" "}
-                            {sLifespan}
+                            <YearsText text={sLifespan} approx={lifespanApproxOf(sIndi)} />
                           </span>
                         )}
                       </span>
@@ -429,7 +430,7 @@ export function SaveDialog({
                     {lifespan && (
                       <span className="person-years gm-data" title={datesTooltipOf(indi) || undefined}>
                         {" "}
-                        {lifespan}
+                        <YearsText text={lifespan} approx={lifespanApproxOf(indi)} />
                       </span>
                     )}
                   </>
@@ -821,7 +822,7 @@ function PersonLabel({ person }: { person: GraftJoinPerson }) {
       {person.years && (
         <span className="person-years gm-data" title={person.dates || undefined}>
           {" "}
-          {person.years}
+          <YearsText text={person.years} approx={person.yearsApprox} />
         </span>
       )}
     </span>

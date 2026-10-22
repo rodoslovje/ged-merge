@@ -8,6 +8,8 @@ import { xrefLabel } from "../gedcom/nameDisplay";
 import { foldSearch, matchesTerms, nameCollator, queryTerms } from "./globalSearch";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
+import { lifespanApproxOf } from "../gedcom/lifespan";
 import { SearchIcon } from "./icons/SearchIcon";
 import { HomeIcon } from "./icons/HomeIcon";
 
@@ -238,7 +240,7 @@ export function StartPersonSelector({
                     <span className={`person-label ${sexClass(o.sex)}`}>
                       <span className="person-name">{o.name}</span>
                       {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
-                      {o.span && <span className="person-years gm-data">{o.span}</span>}
+                      {o.span && <span className="person-years gm-data"><YearsText text={o.span} approx={lifespanApproxOf(individuals.get(o.id))} /></span>}
                     </span>
                   </button>
                 </li>

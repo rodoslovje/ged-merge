@@ -20,6 +20,7 @@ import type { Dataset } from "../gedcom/types";
 import { candidateLifespan, formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 import { useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
 import { useVirtualList } from "./useVirtualList";
 
 interface Props {
@@ -388,7 +389,7 @@ const CandidateRow = memo(function CandidateRow({
             <span className="person-name">{candidate.name}</span>
             {lifespan.span && (
               <span className="person-years gm-data" title={lifespan.title}>
-                {lifespan.span}
+                <YearsText text={lifespan.span} approx={lifespan.approx} />
               </span>
             )}
             {candidate.relationshipLinked && (

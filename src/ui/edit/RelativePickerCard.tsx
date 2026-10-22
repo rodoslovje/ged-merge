@@ -6,6 +6,8 @@ import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import { xrefLabel } from "../../gedcom/nameDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
+import { YearsText } from "../YearsText";
+import { lifespanApproxOf } from "../../gedcom/lifespan";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
 import { handleListKey } from "../../keyboard/useListKeyboard";
 
@@ -117,7 +119,7 @@ export function PersonOptionRow({
       <span className={`person-label ${sexClass(option.sex)}`}>
         <span className="person-name">{option.name}</span>
         {settings.showXref && <span className="person-xref gm-data">{option.xref}</span>}
-        {option.span && <span className="person-years gm-data">{option.span}</span>}
+        {option.span && <span className="person-years gm-data"><YearsText text={option.span} approx={lifespanApproxOf(option.indi)} /></span>}
       </span>
     </button>
   );

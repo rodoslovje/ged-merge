@@ -4,6 +4,7 @@
 // node shows, and how living people are redacted for privacy.
 
 import type { Individual, Sex } from "../gedcom/types";
+import type { YearsApprox } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import type { Lineage } from "../match/kinship";
 import { findEvent } from "../match/relatives";
@@ -119,6 +120,8 @@ export function placeLabel(indi: Individual | undefined): string | undefined {
 export interface NodeDisplayInput {
   name: string;
   years?: string;
+  /** Which of `years` stand on an approximate date — set in italics. */
+  yearsApprox?: YearsApprox;
   /** The person's whole-years age (at death, or current for the living), when
    *  known — see `lifespanAge`. Folded into the shown lifespan line. */
   age?: number;
@@ -142,6 +145,8 @@ export interface NodeDisplay {
   name: string;
   /** Lifespan line, present only when shown and not redacted. */
   years?: string;
+  /** The input's `yearsApprox`, kept only while the line shows the years. */
+  yearsApprox?: YearsApprox;
   /** Place line, present only when shown and not redacted. */
   place?: string;
   /** Kinship line, present only when shown and not redacted. */
@@ -188,6 +193,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
   return {
     name: input.name,
     years: lifespanLine(opts, input),
+    yearsApprox: opts.showLifespan ? input.yearsApprox : undefined,
     place: opts.showPlace ? input.place : undefined,
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
@@ -214,6 +220,7 @@ export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): 
 export interface NodeHover {
   name: string;
   years?: string;
+  yearsApprox?: YearsApprox;
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
@@ -227,6 +234,7 @@ export function nodeHover(opts: NodeDisplayOptions, input: NodeDisplayInput): No
   return {
     name: input.name,
     years: lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age }) || undefined,
+    yearsApprox: input.yearsApprox,
     place: disp.place,
     kinship: disp.kinship,
     kinshipLineage: disp.kinshipLineage,

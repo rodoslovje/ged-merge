@@ -52,6 +52,7 @@ import {
   sectorPath,
   type FanChart,
   type FanChartOptions,
+  type FanText,
   type FanLine,
   type FanSegment,
   type FanShape,
@@ -370,7 +371,7 @@ export function buildDescendantFanChart(
       const { lo: bandLo, hi: bandHi, mid: centre } = labelBand(rIn, rOut, photo);
       // The longest form whose wrapped lines fit the ring's depth; none when
       // even one name alone would not.
-      let texts: { text: string; kind: FanLine["kind"] }[] = [];
+      let texts: FanText[] = [];
       for (const form of forms) {
         const lines = curvedTexts({ ...genDisp, name: form }, centre * delta, fontPx, true);
         if (lines.length * lineGap <= bandHi - bandLo) { texts = lines; break; }

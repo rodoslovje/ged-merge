@@ -1,4 +1,6 @@
 import { lineageClass, type Lineage } from "../match/kinship";
+import type { YearsApprox } from "../gedcom/lifespan";
+import { YearsText } from "./YearsText";
 
 // The shared chart-page title: root person's name in their sex colour, the
 // lifespan (with age when the Age display toggle is on — the caller builds
@@ -12,6 +14,8 @@ interface Props {
   sexCls?: string;
   /** Lifespan (+ age) line, already formatted by lifespanLine. */
   years?: string;
+  /** Which of `years` stand on an approximate date — set in italics. */
+  yearsApprox?: YearsApprox;
   /** Full birth/death dates behind those years, for their hover (the caller
    *  builds the string via lifespanTooltipOf). */
   yearsTitle?: string;
@@ -22,13 +26,13 @@ interface Props {
   kind: string;
 }
 
-export function ChartRootTitle({ name, sexCls = "", years, yearsTitle, kinship, lineage, kind }: Props) {
+export function ChartRootTitle({ name, sexCls = "", years, yearsApprox, yearsTitle, kinship, lineage, kind }: Props) {
   return (
     <>
       <span className={`tree-title-name ${sexCls}`}>{name}</span>
       {years && (
         <span className="tree-title-years gm-data" title={yearsTitle || undefined}>
-          {years}
+          <YearsText text={years} approx={yearsApprox} />
         </span>
       )}
       <span className="tree-title-break" aria-hidden="true" />

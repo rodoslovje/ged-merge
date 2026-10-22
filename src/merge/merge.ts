@@ -180,6 +180,8 @@ export interface GraftJoinPerson {
   name: string;
   /** "1944–2017", "1972", or "" when no year is known ({@link lifespanOf}). */
   years: string;
+  /** Which of `years` stand on an approximate date — set in italics. */
+  yearsApprox?: import("../gedcom/lifespan").YearsApprox;
   /** The same lifespan written out in full dates, for the years' hover
    *  ({@link datesTooltipOf}); "" when the record carries no date text. */
   dates: string;

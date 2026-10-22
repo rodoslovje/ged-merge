@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatLifespan, deathYear, isDeceased, isPresumedLiving } from "./lifespan";
+import { formatLifespan, deathYear, isDeceased, isPresumedLiving, lifespanApproxOf, yearsSegments, type YearsApprox } from "./lifespan";
+import { parseDate } from "./date";
 import type { Individual } from "./types";
 import { buildDataset } from "./builder";
 import { parseGedcom } from "./parser";
@@ -35,6 +36,32 @@ const indi = (events: Individual["events"]): Individual => ({
   childOf: [],
   spouseOf: [],
   raw: { level: 0, tag: "INDI", children: [] },
+});
+
+describe("approximate years", () => {
+  const ev = (tag: string, date: string) => ({ tag, date: parseDate(date) }) as Individual["events"][number];
+
+  it("marks each end whose date is not stated exactly", () => {
+    expect(lifespanApproxOf(indi([ev("BIRT", "ABT 1817"), ev("DEAT", "3 MAR 1890")]))).toEqual({ birth: true });
+    expect(lifespanApproxOf(indi([ev("BIRT", "1817"), ev("DEAT", "BEF 1890")]))).toEqual({ death: true });
+    expect(lifespanApproxOf(indi([ev("BIRT", "CAL 1817"), ev("DEAT", "BET 1889 AND 1890")]))).toEqual({ birth: true, death: true });
+  });
+
+  it("is undefined when both ends are exact, whatever their precision", () => {
+    expect(lifespanApproxOf(indi([ev("BIRT", "1817"), ev("DEAT", "MAR 1890")]))).toBeUndefined();
+    expect(lifespanApproxOf(indi([]))).toBeUndefined();
+  });
+
+  it("cuts out only the first year on each side of the dash", () => {
+    const marked = (text: string, approx: YearsApprox) =>
+      yearsSegments(text, approx).map((s) => (s.approx ? `[${s.text}]` : s.text)).join("");
+    expect(marked("1817–1890", { birth: true })).toBe("[1817]–1890");
+    expect(marked("1817–1890 (73)", { death: true })).toBe("1817–[1890] (73)");
+    expect(marked("1817 (75)", { birth: true })).toBe("[1817] (75)");
+    expect(marked("–1890", { death: true })).toBe("–[1890]");
+    expect(marked("1817–", { birth: true, death: true })).toBe("[1817]–");
+    expect(yearsSegments("1817–1890", undefined)).toEqual([{ text: "1817–1890", approx: false }]);
+  });
 });
 
 describe("isDeceased / deathYear", () => {

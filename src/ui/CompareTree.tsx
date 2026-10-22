@@ -12,6 +12,7 @@ import { TreeNodePanel } from "./TreeNodePanel";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import type { Lineage } from "../match/relationshipPath";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
 import {
   buildPersonTree,
   buildMatchMaps,
@@ -510,7 +511,7 @@ export function CompareTree({
             <span className={`tree-title-name ${sexClass(tree?.sex ?? "U")}`}>{rootName}</span>
             {rootYears && (
               <span className="tree-title-years gm-data" title={tree?.dates}>
-                {rootYears}
+                <YearsText text={rootYears} approx={tree?.yearsApprox} />
               </span>
             )}
             <span className="tree-title-break" aria-hidden="true" />
@@ -754,7 +755,7 @@ function TreeLegend({
                         <span className={`tree-person-name ${sexClass(n.sex)}`}>{n.name}</span>
                         {n.years && (
                           <span className="tree-person-years gm-data" title={n.dates}>
-                            {n.years}
+                            <YearsText text={n.years} approx={n.yearsApprox} />
                           </span>
                         )}
                       </span>

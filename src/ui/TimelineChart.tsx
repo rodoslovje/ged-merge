@@ -13,6 +13,8 @@ import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
+import { YearsText } from "./YearsText";
+import { lifespanApproxOf } from "../gedcom/lifespan";
 import { useStableHandler } from "./edit/useStableHandler";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -340,6 +342,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             name={rowName(rootRow)}
             sexCls={sexClass(rootRow.sex)}
             years={rootYears}
+            yearsApprox={lifespanApproxOf(mainDs.individuals.get(rootRow.id))}
             yearsTitle={lifespanTooltipOf(mainDs.individuals.get(rootRow.id), settings.showAge, t)}
             kinship={showKinship ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
@@ -559,7 +562,11 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                           edge — just above the bar — so both read as one block. */}
                       <text className="timeline-row-name" x={nameX} y={photosOn ? PHOTO_Y + PHOTO_SIZE : 16} style={{ fill: sexColorVar(row.sex) }}>
                         {rowName(row)}
-                        {meta && <tspan className="timeline-row-meta" dx={8}>{meta}</tspan>}
+                        {meta && (
+                          <tspan className="timeline-row-meta" dx={8}>
+                            <YearsText text={meta} approx={settings.showLifespan ? lifespanApproxOf(indi) : undefined} svg />
+                          </tspan>
+                        )}
                         {/* The role chip, coloured by blood lineage from the
                             chart root — non-relatives (spouses, families) get
                             no lineage and stay muted. */}
