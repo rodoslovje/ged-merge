@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NOT_GEDCOM, parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
+import { cloneNode } from "./node";
 import { downloadOptions, serializeGedcom } from "./serialize";
 
 const SAMPLE = `0 HEAD
@@ -346,6 +347,24 @@ describe("parseGedcom", () => {
       expect(name.surname).toBe("Novak");
       expect(name.suffix).toBeUndefined();
     });
+  });
+});
+
+describe("parseGedcom keeps a tag's own spelling", () => {
+  const src = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 Name Jo /X/\n1 _myTag val\n2 _Sub x\n0 TRLR\n";
+
+  it("matches tags case-insensitively but writes them back as written", () => {
+    const parsed = parseGedcom(toBuffer(src));
+    const indi = parsed.records[1];
+    expect(indi.children.map((c) => c.tag)).toEqual(["NAME", "_MYTAG"]);
+    expect(serializeGedcom(parsed.records)).toBe(src);
+    expect(serializeGedcom(parsed.records.map(cloneNode))).toBe(src);
+  });
+
+  it("drops the spelling once the tag itself is changed", () => {
+    const parsed = parseGedcom(toBuffer(src));
+    parsed.records[1].children[1].tag = "_OTHER";
+    expect(serializeGedcom(parsed.records)).toContain("1 _OTHER val\n");
   });
 });
 

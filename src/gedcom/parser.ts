@@ -74,6 +74,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     const level = Number(m[1]);
     const xref = m[2];
     const tag = m[3].toUpperCase();
+    const spelling = m[3] !== tag ? m[3] : undefined;
     let value = m[4];
     // GEDCOM doubles a leading at-sign (`@@`) so a value can start with a
     // literal `@` without reading as a pointer. Fold it back to a single `@`;
@@ -133,6 +134,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     const node: GedNode = { level, tag, children: [] };
     if (xref) node.xref = xref;
     if (value !== undefined) node.value = value;
+    if (spelling) node.spelling = spelling;
 
     if (level === 0) {
       roots.push(node);

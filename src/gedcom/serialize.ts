@@ -49,8 +49,8 @@ export const LINE_LIMIT_551 = 253;
  * `maxLineLength`. Either way a diff of the saved file shows the records you
  * changed and nothing else. Without `maxLineLength` a folded value re-emits as
  * a single line (what the internal parse↔serialize round-trips rely on).
- * `CONT` (line break) round-trips exactly. Tag case is normalized to
- * upper-case.
+ * `CONT` (line break) round-trips exactly. A tag keeps the case the file
+ * wrote it in (`GedNode.spelling`).
  */
 export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {}): string {
   const eol = opts.eol ?? "\n";
@@ -182,9 +182,11 @@ function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number
     return;
   }
 
+  // The file's own spelling of the tag, while it still names this tag.
+  const tag = node.spelling?.toUpperCase() === node.tag ? node.spelling : node.tag;
   const head = node.xref
-    ? `${depth} ${node.xref} ${node.tag}`
-    : `${depth} ${node.tag}`;
+    ? `${depth} ${node.xref} ${tag}`
+    : `${depth} ${tag}`;
 
   if (node.value === undefined) {
     lines.push(head);

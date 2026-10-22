@@ -40,7 +40,15 @@ export interface GedNode {
   level: number;
   /** Cross-reference id this line *defines*, e.g. `@I1@` on a record line. */
   xref?: string;
+  /** The tag, upper-cased: every comparison in the app is made against this. */
   tag: string;
+  /**
+   * The tag as the file wrote it, when that was not upper-case (`_myTag`).
+   * GEDCOM tags are case-insensitive, so `tag` folds them; the serializer
+   * writes this spelling back while it still names the same tag, so an
+   * untouched line saves as it was read.
+   */
+  spelling?: string;
   /** Line value, with CONT/CONC already folded in. May be an xref pointer. */
   value?: string;
   children: GedNode[];
