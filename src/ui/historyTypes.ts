@@ -6,6 +6,7 @@ import {
   rebuildFamily,
   rebuildIndividual,
   rebuildNoteReferrers,
+  recordPosition,
   removeRecordsByXref,
   type SharedNoteChange,
 } from "../gedcom/edit";
@@ -118,35 +119,6 @@ export function snapshotRecords(
     });
   }
   return { individuals, families, indices };
-}
-
-const positionCaches = new WeakMap<GedNode[], Map<GedNode, number>>();
-
-/**
- * Where `node` sits in `records`, without a walk of the list per snapshot: a
- * remembered position, checked by identity, and searched for nearby when the
- * records before it have moved by a few (a chain of merges removing one
- * record per step). The whole list is read again only when that fails.
- */
-function recordPosition(records: GedNode[], node: GedNode): number | undefined {
-  let positions = positionCaches.get(records);
-  const near = (from: number): number | undefined => {
-    for (let d = 0; d <= 64; d++) {
-      if (records[from - d] === node) return from - d;
-      if (d && records[from + d] === node) return from + d;
-    }
-    return undefined;
-  };
-  const cached = positions?.get(node);
-  let i = cached === undefined ? undefined : near(cached);
-  if (i === undefined) {
-    positions = new Map();
-    records.forEach((r, j) => positions!.set(r, j));
-    positionCaches.set(records, positions);
-    i = positions.get(node);
-  }
-  if (i !== undefined) positions!.set(node, i);
-  return i;
 }
 
 /**

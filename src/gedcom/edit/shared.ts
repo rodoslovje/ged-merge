@@ -237,6 +237,33 @@ export function insertRecord(records: GedNode[], record: GedNode): void {
   else records.splice(trlrIndex, 0, record);
 }
 
+const positionCaches = new WeakMap<GedNode[], WeakMap<GedNode, number>>();
+
+/**
+ * Where `node` sits in `records`: the position it was last found at, checked
+ * by identity and searched for nearby when the records before it have moved by
+ * a few (a chain of merges removing one record per step), else an identity
+ * search of the list — native, far cheaper than a walk comparing xrefs.
+ */
+export function recordPosition(records: GedNode[], node: GedNode): number | undefined {
+  let positions = positionCaches.get(records);
+  if (!positions) positionCaches.set(records, (positions = new WeakMap()));
+  const cached = positions.get(node);
+  let i: number | undefined;
+  if (cached !== undefined) {
+    for (let d = 0; d <= 64 && i === undefined; d++) {
+      if (records[cached - d] === node) i = cached - d;
+      else if (records[cached + d] === node) i = cached + d;
+    }
+  }
+  if (i === undefined) {
+    const found = records.indexOf(node);
+    if (found !== -1) i = found;
+  }
+  if (i !== undefined) positions.set(node, i);
+  return i;
+}
+
 /**
  * Take records out of `records` in place, in one pass however many go: for
  * each xref listed, the first record carrying it (listed twice, the first

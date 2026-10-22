@@ -2,7 +2,7 @@ import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
 import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
-import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild, removeRecordsByXref } from "./shared";
+import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, recordPosition, removeChild, removeRecordsByXref } from "./shared";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { repointAssociations } from "../assoc";
 import { isPointer } from "../uri";
@@ -441,13 +441,23 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
     );
     rebuildFamily(dataset, fam);
   }
-  const ri = dataset.records.findIndex((r) => r.xref === indi.id);
+  const ri = recordIndexOf(dataset.records, indi.raw, indi.id);
   if (ri !== -1) unindexRecord(dataset.records, dataset.records.splice(ri, 1)[0]);
   dataset.individuals.delete(indi.id);
   for (const famId of affectedFamilyIds) {
     const fam = dataset.families.get(famId);
     if (fam) pruneDegenerateFamily(dataset, fam);
   }
+}
+
+/** Where a person's or family's record sits — found by its node, from a
+ *  remembered position (see `recordPosition`), or by its xref as before. */
+function recordIndexOf(records: GedNode[], raw: GedNode, xref: string): number {
+  if (raw.xref === xref) {
+    const i = recordPosition(records, raw);
+    if (i !== undefined) return i;
+  }
+  return records.findIndex((r) => r.xref === xref);
 }
 
 /** Shared records a deleted person can leave behind with nobody pointing at
@@ -530,7 +540,7 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
     indi.raw.children = kept;
     rebuildIndividual(dataset, indi);
   }
-  const ri = dataset.records.findIndex((r) => r.xref === fam.id);
+  const ri = recordIndexOf(dataset.records, fam.raw, fam.id);
   if (ri !== -1) unindexRecord(dataset.records, dataset.records.splice(ri, 1)[0]);
   dataset.families.delete(fam.id);
 }
