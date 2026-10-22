@@ -221,13 +221,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
 
   // Dual (Old Style/New Style) years: `1648/49` → `1649`, original kept as
   // phrase. Guarded against numeric slash dates (`1989/01/05`), which the
-  // house-style date pass handles — they are not dual years.
+  // house-style date pass handles — they are not dual years. Nor is anything
+  // whose second half is not the following year: `1890/12` may be a month.
   if (!/^\d{1,4}([/.-])\d{1,2}\1\d{1,4}$/.test(value)) {
-    const dual = value.replace(/\b(\d{3,4})\/(\d{2})\b(?!\/)/g, (_m, y: string, suffix: string) => {
-      const year = Number(y);
-      let next = Math.floor(year / 100) * 100 + Number(suffix);
-      if (next <= year) next += 100;
-      return String(next);
+    const dual = value.replace(/\b(\d{3,4})\/(\d{2})\b(?!\/)/g, (m, y: string, suffix: string) => {
+      const next = Number(y) + 1;
+      return next % 100 === Number(suffix) ? String(next) : m;
     });
     if (dual !== value) {
       phrase ??= value;

@@ -99,6 +99,20 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(changed).toBe(0);
   });
 
+  it("reads only a following year as the second half of a dual year", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE 1890/12\n1 DEAT\n2 DATE 1699/00\n1 BURI\n2 DATE 1890/91\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    const birt = findByPath(indi, ["BIRT", "DATE"])!;
+    expect(birt.value).toBe("1890/12");
+    expect(firstChild(birt, "PHRASE")).toBeUndefined();
+    expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("1700");
+    expect(findByPath(indi, ["BURI", "DATE"])!.value).toBe("1891");
+  });
+
   it("reorders a reversed BET range and converts calendar escapes", () => {
     const { records } = migrated(
       "5.5.1",
