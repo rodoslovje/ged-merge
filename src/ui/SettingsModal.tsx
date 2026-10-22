@@ -506,20 +506,8 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           <section className="settings-section">
             <h3>{t("settings.display.title")}</h3>
-            {/* Ages first: they show on every file, whereas kinship only says
-                anything once a start person is set. */}
-            <label className="settings-row settings-row-toggle">
-              <input
-                type="checkbox"
-                checked={settings.showAge}
-                onChange={(e) => set({ showAge: e.target.checked })}
-              />
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.display.age")}</span>
-                <span className="settings-hint">{t("settings.display.age.hint")}</span>
-              </span>
-            </label>
-
+            {/* Dates first, then ages: both show on every file, whereas
+                kinship only says anything once a start person is set. */}
             <label className="settings-row settings-format-row" title={t("settings.display.dates.hint")}>
               <span className="settings-row-label">{t("settings.display.dates")}</span>
               <span className="settings-format-example gm-data">
@@ -533,6 +521,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   label: c === "" ? t("settings.display.dates.file") : c === DATE_DISPLAY_WORDS ? t("settings.display.dates.words") : c,
                 }))}
               />
+            </label>
+
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showAge}
+                onChange={(e) => set({ showAge: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.display.age")}</span>
+                <span className="settings-hint">{t("settings.display.age.hint")}</span>
+              </span>
             </label>
 
             <label className="settings-row settings-row-toggle">
