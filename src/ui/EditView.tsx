@@ -101,7 +101,6 @@ import { WiderFamilyPanel } from "./edit/WiderFamilyPanel";
 import { RelativesIcon } from "./icons/RelativesIcon";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
-import { DateEntryProvider } from "./edit/DateEntryContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
 import { recordsNaming } from "../gedcom/assoc";
 import { NameEditor } from "./edit/NameEditor";
@@ -1852,7 +1851,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
-    <DateEntryProvider dataset={dataset} overrides={settings.formatOverrides}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
         {/* The person's page beside the Wider family rail (under it when narrow).
@@ -2331,7 +2329,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         />
       )}
     </div>
-    </DateEntryProvider>
     </AssocProvider>
     </PlaceLookupProvider>
     </PlacePeopleProvider>

@@ -1108,6 +1108,12 @@ describe("entryDate — a typed date in the file's style", () => {
     expect(entryDate("5.3.1850", words, "MDY")).toBe("3 MAY 1850");
   });
 
+  it("reads a year span as a period in a field that holds one", () => {
+    expect(entryDate("1850-1900", words, "DMY", { period: true })).toBe("FROM 1850 TO 1900");
+    expect(entryDate("BET 1850 AND 1900", words, "DMY", { period: true })).toBe("BET 1850 AND 1900");
+    expect(entryDate("1850-1900", words, "DMY")).toBe("BET 1850 AND 1900");
+  });
+
   it("keeps what it cannot restate as typed", () => {
     expect(entryDate("  ", words, "DMY")).toBe("");
     expect(entryDate("pred vojno", words, "DMY")).toBe("pred vojno");

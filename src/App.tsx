@@ -61,6 +61,7 @@ import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
 import { fetchPageHtml } from "./normalize/urlMetadata";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
+import { useDateEntrySource } from "./ui/edit/DateEntryContext";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
@@ -171,6 +172,8 @@ function AppContent() {
   // values keep every read site (and the sync refs below) unchanged.
   const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
+  // Every date field, wherever it sits, writes a typed date in this file's style.
+  useDateEntrySource(mainDataset, settings.formatOverrides);
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
   // Phone layout: the header's ☰ menu, and whether it is open.
   const phone = usePhone();

@@ -3,6 +3,7 @@ import type { Translate } from "../../locales/i18n";
 import { NonStandard, nonStandardTag, type SourceFieldKey } from "./standardFields";
 import { SelectMenu } from "../DropdownMenu";
 import { quayOptions } from "./quay";
+import { DateInput } from "../edit/DateInput";
 
 /** The records a source dialog writes to besides the source itself: this
  *  citation of it (which lives on the person or event, not on the source), the
@@ -108,12 +109,25 @@ export function SourceFieldsForm({
           {t(labelKey)}
           <NonStandard tag={tag} t={t} />
         </span>
-        <input
-          className="edit-input"
-          autoFocus={autoFocus}
-          value={values[key]}
-          onChange={(e) => onChange(key, e.target.value)}
-        />
+        {key === "dateRange" ? (
+          // The years the source covers: a date field like any other, read
+          // as a span — "1850-1900" is written FROM 1850 TO 1900.
+          <DateInput
+            className="edit-input"
+            autoFocus={autoFocus}
+            value={values[key]}
+            onChange={(v) => onChange(key, v)}
+            label={t(labelKey)}
+            period
+          />
+        ) : (
+          <input
+            className="edit-input"
+            autoFocus={autoFocus}
+            value={values[key]}
+            onChange={(e) => onChange(key, e.target.value)}
+          />
+        )}
       </label>
     );
   };

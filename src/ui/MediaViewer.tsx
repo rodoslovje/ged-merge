@@ -27,6 +27,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { useSettingsSlice } from "./SettingsContext";
 import { usePhone } from "./usePhone";
 import { basename } from "./mediaPath";
+import { DateInput } from "./edit/DateInput";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 
 /**
@@ -454,7 +455,11 @@ function MediaInfoEditor({
 }) {
   const [fields, setFields] = useState<MediaEditFields>(seed);
   const set = (key: keyof MediaEditFields) => (value: string) => setFields((f) => ({ ...f, [key]: value }));
-  const commit = () => { onSaved(fields); edit.onSave(fields); };
+  const commit = (patch?: Partial<MediaEditFields>) => {
+    const next = { ...fields, ...patch };
+    onSaved(next);
+    edit.onSave(next);
+  };
   const blurOnEnter = (e: ReactKeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") e.currentTarget.blur(); };
   return (
     <div className="media-lightbox-edit">
@@ -464,19 +469,27 @@ function MediaInfoEditor({
       </div>
       <label className="media-edit-field">
         <span>{t("media.field.title")}</span>
-        <input className="edit-input" autoFocus={autoFocus} value={fields.title} onChange={(e) => set("title")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />
+        <input className="edit-input" autoFocus={autoFocus} value={fields.title} onChange={(e) => set("title")(e.target.value)} onBlur={() => commit()} onKeyDown={blurOnEnter} />
       </label>
       <label className="media-edit-field">
         <span>{t("media.field.date")}</span>
-        <input className="edit-input" value={fields.date} onChange={(e) => set("date")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />
+        {/* A typed date is written in the file's style as the field is left. */}
+        <DateInput
+          className="edit-input"
+          value={fields.date}
+          onChange={set("date")}
+          onBlur={(date) => commit({ date })}
+          onKeyDown={blurOnEnter}
+          label={t("media.field.date")}
+        />
       </label>
       <label className="media-edit-field">
         <span>{t("media.field.place")}</span>
-        <input className="edit-input" value={fields.place} onChange={(e) => set("place")(e.target.value)} onBlur={commit} onKeyDown={blurOnEnter} />
+        <input className="edit-input" value={fields.place} onChange={(e) => set("place")(e.target.value)} onBlur={() => commit()} onKeyDown={blurOnEnter} />
       </label>
       <label className="media-edit-field">
         <span>{t("media.field.description")}</span>
-        <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} onBlur={commit} />
+        <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} onBlur={() => commit()} />
       </label>
       <div className="media-edit-field">
         <span>{t("edit.privateLabel")}</span>

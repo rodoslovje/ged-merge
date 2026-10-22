@@ -1,6 +1,6 @@
 import { isApproximate } from "../../gedcom/lifespan";
 import type { DateOrder } from "../../gedcom/types";
-import { entryDate, isReadable, parseTypedDate } from "../../normalize/date";
+import { entryDate, isReadable, parseTypedDate, type TypedDateOptions } from "../../normalize/date";
 import { narrativeLangFor } from "../../report/narrativeText";
 import type { DateEntryStyle } from "./DateEntryContext";
 
@@ -24,12 +24,12 @@ export type DatePreview =
  * order, and the other reading is offered beside it, since a slip there moves
  * the date by months without anything looking wrong.
  */
-export function previewDate(typed: string, style: DateEntryStyle, lang: string): DatePreview {
+export function previewDate(typed: string, style: DateEntryStyle, lang: string, opts?: TypedDateOptions): DatePreview {
   const raw = typed.trim();
-  const d = parseTypedDate(raw, style.order);
+  const d = parseTypedDate(raw, style.order, opts);
   if (!isReadable(d)) return { kind: "unreadable" };
   const words = narrativeLangFor(lang);
-  const saved = entryDate(raw, style.profile, style.order);
+  const saved = entryDate(raw, style.profile, style.order, opts);
   const preview: DatePreview = {
     kind: d.impossible ? "impossible" : "ok",
     label: words.dateLabel(d),
