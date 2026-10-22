@@ -27,6 +27,7 @@ const JARO_WINKLER_CACHE_MAX = 1_000_000;
 /** Reset the memo caches — called at the start of each match run. */
 export function clearTextCaches(): void {
   foldCache.clear();
+  placeholderCache.clear();
   jaroWinklerCache = new Map();
   jaroWinklerCacheSize = 0;
 }
@@ -77,12 +78,21 @@ const PLACEHOLDER_NAME_TOKENS = new Set([
  * text — this is a matching-layer judgement only.
  */
 export function isPlaceholderName(value: string): boolean {
-  const tokens = foldToken(value)
-    .split(/[^\p{L}]+/u)
-    .filter(Boolean);
-  if (tokens.length === 0) return true; // no letters at all: "?", "___", "..."
-  return tokens.every((t) => t.length <= 1 || PLACEHOLDER_NAME_TOKENS.has(t));
+  let verdict = placeholderCache.get(value);
+  if (verdict === undefined) {
+    const tokens = foldToken(value)
+      .split(/[^\p{L}]+/u)
+      .filter(Boolean);
+    // No letters at all ("?", "___", "...") is a placeholder too.
+    verdict = tokens.every((t) => t.length <= 1 || PLACEHOLDER_NAME_TOKENS.has(t));
+    placeholderCache.set(value, verdict);
+  }
+  return verdict;
 }
+
+/** {@link isPlaceholderName} per spelling — a file has far fewer distinct name
+ *  parts than the scorer has comparisons. Emptied with the other text caches. */
+const placeholderCache = new Map<string, boolean>();
 
 /** Jaro similarity (0..1). */
 function jaro(a: string, b: string): number {

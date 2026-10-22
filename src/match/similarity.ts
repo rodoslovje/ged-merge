@@ -25,6 +25,20 @@ import { foldedGivenTokenSimilarity, givenTokenSimilarity } from "./givenVariant
  */
 export function comparableName(n: PersonName | undefined): PersonName | undefined {
   if (!n) return undefined;
+  const hit = comparableCache.get(n);
+  if (hit !== undefined) return hit ?? undefined;
+  const out = filterPlaceholders(n);
+  comparableCache.set(n, out ?? null);
+  return out;
+}
+
+/** {@link comparableName} per name object: a relative's name is filtered for
+ *  every pair the relative's kin are scored in — on a 500k-person match that
+ *  was a fifth of the scoring time. Keyed by object identity; an edit builds
+ *  new name objects, so a stale entry is orphaned, never wrong. */
+const comparableCache = new WeakMap<PersonName, PersonName | null>();
+
+function filterPlaceholders(n: PersonName): PersonName | undefined {
   const given = n.given && !isPlaceholderName(n.given) ? n.given : undefined;
   const surname = n.surname && !isPlaceholderName(n.surname) ? n.surname : undefined;
   const full = n.full && !isPlaceholderName(n.full) ? n.full : "";
