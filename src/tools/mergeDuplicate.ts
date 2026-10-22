@@ -1,9 +1,16 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { recordsNaming, repointAssociations } from "../gedcom/assoc";
+import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
+import { LINK_TAGS } from "../gedcom/builder";
+import { cloneNode, nodeFingerprint } from "../gedcom/node";
+import { URL_RE, looksLikeUrl } from "../gedcom/uri";
 import {
+  EDITABLE_LINK_TAGS,
+  EVENT_CHILD_ORDER,
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
+  RECORD_OWN_TAGS,
   detachChildFromFamily,
   foldFamily,
   insertOrdered,
@@ -13,7 +20,7 @@ import {
 } from "../gedcom/edit";
 import { applyRows, linkPlacementFor } from "../merge/applyFields";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
-import { individualFieldRows } from "../review/fields";
+import { individualFieldRows, orderedEventTags } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
 import {
   patchesFromSnapshots,
@@ -81,8 +88,14 @@ export function mergeDuplicate(
 
   // 1. Scalar/event individual fields → survivor. `applyRows` already skips the
   //    relationship rows (father/mother via INDI_HANDLED, partners/children via
-  //    the `fam.` key prefix), so it only touches individual-level data.
+  //    the `fam.` key prefix), so it only touches individual-level data. The
+  //    lines no row compares (photos, media, custom tags, …) are carried first,
+  //    so a link they bear reads as the survivor's own in the rows built after.
+  carryUncoveredLines(dataset, survivor.raw, removed.raw, decision.fields);
+  rebuildIndividual(dataset, survivor);
   const rows = individualFieldRows(t, survivor, removed, dataset, dataset);
+  const events = eventTargets(survivor, removed);
+  const ownEvents = new Set(survivor.raw.children);
   applyRows(
     survivor.raw,
     removed.raw,
@@ -97,6 +110,7 @@ export function mergeDuplicate(
     dataset.records,
     new Map(),
   );
+  carryUncoveredEventLines(survivor.raw, events, ownEvents, rows);
   rebuildIndividual(dataset, survivor);
 
   // 2. Parents: one either/or choice for the whole block — "main" keeps the
@@ -392,6 +406,127 @@ function datePrecision(raw: string): number {
   const d = parseDate(raw);
   if (d.qualifier === "exact") return d.day ? 4 : d.month ? 3 : 2;
   return d.year != null ? 1 : 0;
+}
+
+// ── Lines no comparison row covers ───────────────────────────────────────────
+
+/** Record-level tags the comparison rows decide on (names, sex, notes, sources,
+ *  links, FamilySearch ids, the private flag) or the relationship steps
+ *  re-point (FAMC/FAMS). Events are recognized by tag on their own. */
+const ROW_INDI_TAGS = new Set([
+  "NAME", "SEX", "NOTE", "SOUR", "FAMC", "FAMS", "_FID", "_FSFTID", "PRIV", "_PRIV", "RESN", ...LINK_TAGS,
+]);
+/** Event sub-tags the event rows decide on. */
+const ROW_EVENT_TAGS = new Set([
+  "TYPE", "DATE", "PLAC", "ADDR", "NOTE", "AGNC", "CAUS", "SOUR", "ASSO", "_ASSO", ...EDITABLE_LINK_TAGS,
+]);
+/** Uncovered tags that hold one value: the survivor's own wins when it has one. */
+const SINGLE_VALUED = new Set(["_PHOTO", "AGE", "RELI", "RESN", "PRIV", "_PRIV"]);
+
+/** Clone onto `target` each line of `from` that `skip` lets through, unless
+ *  the target holds an identical line or already has a value for a
+ *  one-value tag. Compared on what the line says, as `foldFamily` does. */
+function carryLines(target: GedNode, from: GedNode, order: string[], skip: (line: GedNode) => boolean): void {
+  const have = new Set(target.children.map(nodeFingerprint));
+  for (const line of from.children) {
+    if (RECORD_OWN_TAGS.has(line.tag) || skip(line)) continue;
+    if (have.has(nodeFingerprint(line))) continue;
+    if (SINGLE_VALUED.has(line.tag) && target.children.some((c) => c.tag === line.tag)) continue;
+    insertOrdered(target, cloneNode(line), order);
+  }
+}
+
+/**
+ * Carry the absorbed record's record-level lines that no comparison row offers
+ * — media (`OBJE`, `_PHOTO`), `SUBM`, `ALIA`, `ASSO`, custom `_` tags — onto
+ * the survivor, the way `foldFamily` keeps a dropped family's lines. With the
+ * links row set to keep the survivor's own, a line that carries a web address
+ * stays behind with the rest of the absorbed record's links.
+ */
+function carryUncoveredLines(
+  dataset: Dataset,
+  survivor: GedNode,
+  removed: GedNode,
+  fields: Record<string, FieldChoice>,
+): void {
+  const keepOwnLinks = fields.links === "main";
+  carryLines(survivor, removed, INDI_CHILD_ORDER, (line) =>
+    ROW_INDI_TAGS.has(line.tag) || INDI_EVENT_TAGS.has(line.tag) || (keepOwnLinks && carriesLink(line, dataset.records)));
+}
+
+/** Whether a line names a web address — in a value, or as a media record whose file is one. */
+function carriesLink(line: GedNode, records: GedNode[]): boolean {
+  const v = line.value?.trim() ?? "";
+  if (line.tag === "OBJE" && /^@[^@]+@$/.test(v)) {
+    const file = records.find((r) => r.xref === v)?.children.find((c) => c.tag === "FILE")?.value?.trim();
+    if (file && looksLikeUrl(file)) return true;
+  } else if (new RegExp(URL_RE.source, "i").test(v)) return true;
+  return line.children.some((c) => carriesLink(c, records));
+}
+
+/** One absorbed event and the survivor event its rows write to. */
+interface EventTarget {
+  tag: string;
+  compareIdx: number;
+  from: GedNode;
+  /** The survivor's paired event; absent for an event only the absorbed record has. */
+  into?: GedNode;
+}
+
+/** An individual's raw event lines of `tag`, indexed as its typed events are. */
+function rawEvents(record: GedNode, tag: string): GedNode[] {
+  return record.children.filter((c) => c.tag === tag && !isChangeStampEvent(c));
+}
+
+/** The absorbed record's events with the survivor event each pairs with —
+ *  the same pairing the event rows are built from. Read before the rows are
+ *  applied, while the survivor's events still sit at the indices it names. */
+function eventTargets(survivor: Individual, removed: Individual): EventTarget[] {
+  const out: EventTarget[] = [];
+  for (const { tag, mainIdx, compareIdx } of orderedEventTags(survivor, removed)) {
+    const from = compareIdx >= 0 ? rawEvents(removed.raw, tag)[compareIdx] : undefined;
+    if (!from) continue;
+    out.push({ tag, compareIdx, from, into: mainIdx >= 0 ? rawEvents(survivor.raw, tag)[mainIdx] : undefined });
+  }
+  return out;
+}
+
+/**
+ * Merge each absorbed event's lines no row covers (`OBJE`, `AGE`, custom `_`
+ * tags, …) into the survivor event it was paired with. An event only the
+ * absorbed record has lands as the node its rows created (found among the
+ * survivor's new lines); one with no comparable field at all — nothing its rows
+ * could create it from — comes across whole. One whose rows were all declined
+ * stays behind.
+ */
+function carryUncoveredEventLines(
+  survivor: GedNode,
+  events: EventTarget[],
+  ownLines: ReadonlySet<GedNode>,
+  rows: FieldRow[],
+): void {
+  const created = survivor.children.filter((c) => !ownLines.has(c));
+  const skip = (line: GedNode) => ROW_EVENT_TAGS.has(line.tag);
+  for (const ev of events) {
+    let into = ev.into;
+    if (!into) {
+      const i = created.findIndex((c) => c.tag === ev.tag && isSubsetOf(c, ev.from));
+      if (i !== -1) into = created.splice(i, 1)[0];
+    }
+    if (into) {
+      carryLines(into, ev.from, EVENT_CHILD_ORDER, skip);
+      continue;
+    }
+    const offered = rows.some((r) =>
+      !r.isGroupHeader && r.eventCompareIdx === ev.compareIdx && r.key.split(".")[0] === ev.tag);
+    if (!offered) insertOrdered(survivor, cloneNode(ev.from), INDI_CHILD_ORDER);
+  }
+}
+
+/** Every line of `part` appears, identically, among `whole`'s lines. */
+function isSubsetOf(part: GedNode, whole: GedNode): boolean {
+  const lines = new Set(whole.children.map(nodeFingerprint));
+  return part.children.every((c) => lines.has(nodeFingerprint(c)));
 }
 
 // ── Relationship re-pointing ─────────────────────────────────────────────────

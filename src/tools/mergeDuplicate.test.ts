@@ -442,3 +442,40 @@ describe("mergeDuplicate", () => {
     expect(ds.individuals.get("@I3@")!.events[0].associations).toBeUndefined();
   });
 });
+
+describe("mergeDuplicate — lines no row compares", () => {
+  const FILE = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 SUBM @U1@\n1 _UID AAA\n" +
+    "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O2@\n2 _X birth extra\n" +
+    "1 DEAT\n2 DATE 1900\n2 _X death extra\n1 BURI\n2 _GRAVE row 4\n" +
+    "1 OBJE @O1@\n1 _PHOTO @O1@\n1 _CUSTOM keep me\n1 SUBM @U1@\n1 _UID BBB\n1 RIN 7\n" +
+    "0 @O1@ OBJE\n1 FILE portrait.jpg\n0 @O2@ OBJE\n1 FILE birth.jpg\n0 @U1@ SUBM\n1 NAME Me\n",
+  );
+
+  for (const [label, seeded] of [["seeded defaults", true], ["empty choices (cluster merge)", false]] as const) {
+    it(`carries the absorbed record's media, custom tags and event extras — ${label}`, () => {
+      const ds = dataset(FILE);
+      const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+      mergeDuplicate(ds, "@I1@", "@I2@", decide(seeded ? duplicateDefaults(rows) : {}), tr);
+      const out = serializeGedcom(ds.records);
+      const i1 = out.slice(out.indexOf("0 @I1@ INDI"), out.indexOf("0 @O1@"));
+      expect(i1).toContain("1 OBJE @O1@");
+      expect(i1).toContain("1 _PHOTO @O1@");
+      expect(i1).toContain("1 _CUSTOM keep me");
+      expect(i1.match(/1 SUBM @U1@/g)).toHaveLength(1); // not doubled
+      expect(i1).toContain("1 _UID AAA");
+      expect(i1).not.toContain("BBB");
+      expect(i1).not.toContain("1 RIN 7");
+      expect(i1).toMatch(/1 BIRT\n2 DATE 1850\n(2 .*\n)*2 OBJE @O2@/);
+      expect(i1).toContain("2 _X birth extra");
+      expect(i1).toMatch(/1 DEAT\n2 DATE 1900\n(2 .*\n)*2 _X death extra/);
+      expect(i1).toMatch(/1 BURI\n2 _GRAVE row 4/);
+    });
+  }
+
+  it("leaves the extras of an event whose rows were declined", () => {
+    const ds = dataset(FILE);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ "DEAT.date": "main" }), tr);
+    expect(serializeGedcom(ds.records)).not.toContain("death extra");
+  });
+});

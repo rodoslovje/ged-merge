@@ -485,7 +485,7 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
 /** Lines that belong to the record they sit on, not to the family it describes:
  *  change stamps and record identifiers. A fold leaves the kept record's own
  *  and does not carry the dropped record's over. */
-const RECORD_OWN_TAGS = new Set(["CHAN", "CREA", "_UPD", "RIN", "_UID", "UID"]);
+export const RECORD_OWN_TAGS = new Set(["CHAN", "CREA", "_UPD", "RIN", "_UID", "UID"]);
 
 /**
  * Merge family `dropId` into family `keepId` and remove it — for two records
