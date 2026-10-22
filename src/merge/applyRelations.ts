@@ -13,6 +13,7 @@ import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
+import { sexConflicts } from "../match/scoreIndividual";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport, GraftJoinPerson } from "./merge";
 import type { PlacedLink } from "./linkPlacement";
@@ -221,7 +222,9 @@ export function makeContext(
    * asks, in their cross-file form: a weighted average lets an agreeing
    * surname, place and sex drown out a given name or a birth year that settles
    * the question on its own, and a wrong join hangs the incoming person's
-   * spouse and children off a main record that was never them.
+   * spouse and children off a main record that was never them. A recorded
+   * sex that disagrees settles it too — the matcher gates on it, but a
+   * suggestion can also come from an imported matches table or a shared _UID.
    *
    * Parents are deliberately *not* asked about here: a walk that meets a
    * disagreeing parent has its own answer for it — the ancestor walk stops and
@@ -242,7 +245,7 @@ export function makeContext(
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
     if (!m || !c) return true; // nothing to judge on — leave the match alone
-    return identityEvidence(m, c) && !noGivenNameInCommon(m, c) && !birthYearsApart(m, c);
+    return identityEvidence(m, c) && !sexConflicts(m, c) && !noGivenNameInCommon(m, c) && !birthYearsApart(m, c);
   };
 
   /** The main record an incoming person is matched to, once the vetoes have
