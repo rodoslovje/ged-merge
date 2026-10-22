@@ -1688,6 +1688,40 @@ describe("fixDanglingRefs", () => {
     expect(countDanglingRefs(ds)).toBe(0);
     expect(fixDanglingRefs(ds)).toHaveLength(0);
   });
+
+  it("leaves GEDCOM 7's @VOID@ null pointer alone, wherever it stands", () => {
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 FAMC @VOID@
+1 ASSO @VOID@
+2 PHRASE Godfather Janez
+2 ROLE GODP
+1 BIRT
+2 SOUR @void@
+3 PAGE p. 12
+0 @F1@ FAM
+1 HUSB @VOID@
+1 WIFE @I2@
+1 CHIL @VOID@
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 FAMS @F1@
+0 TRLR`);
+    const before = serializeGedcom(ds.records);
+    expect(validateStructure(ds).counts.danglingXref ?? 0).toBe(0);
+    expect(countDanglingRefs(ds)).toBe(0);
+    expect(fixDanglingRefs(ds)).toHaveLength(0);
+    // Not a family link either: nothing for the broken-links fix to prune.
+    expect(ds.individuals.get("@I1@")!.childOf).toEqual([]);
+    expect(ds.families.get("@F1@")!.husband).toBeUndefined();
+    expect(ds.families.get("@F1@")!.children).toEqual([]);
+    expect(validateDataset(ds, 2026).counts.brokenLink ?? 0).toBe(0);
+    expect(fixBrokenLinks(ds)).toHaveLength(0);
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
 });
 
 describe("findDuplicates", () => {

@@ -3,7 +3,7 @@ import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childrenByTag, firstChild } from "./node";
 import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceContext } from "./source";
-import { isPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
+import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 
@@ -176,11 +176,13 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "SEX":
         sex = normalizeSex(child.value);
         break;
+      // `@VOID@` links to no family: the line stays in the raw tree, but it is
+      // no relationship to follow (or to prune as broken).
       case "FAMC":
-        if (child.value) childOf.push(child.value.trim());
+        if (child.value && !isVoidPointer(child.value)) childOf.push(child.value.trim());
         break;
       case "FAMS":
-        if (child.value) spouseOf.push(child.value.trim());
+        if (child.value && !isVoidPointer(child.value)) spouseOf.push(child.value.trim());
         break;
       case "NOTE": {
         collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
@@ -240,14 +242,15 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
 
   for (const child of record.children) {
     switch (child.tag) {
+      // `@VOID@` names no person — the slot is empty, as for an INDI's FAMC.
       case "HUSB":
-        husband = child.value?.trim();
+        if (!isVoidPointer(child.value)) husband = child.value?.trim();
         break;
       case "WIFE":
-        wife = child.value?.trim();
+        if (!isVoidPointer(child.value)) wife = child.value?.trim();
         break;
       case "CHIL":
-        if (child.value) children.push(child.value.trim());
+        if (child.value && !isVoidPointer(child.value)) children.push(child.value.trim());
         break;
       case "NOTE": {
         collectNote(child, noteIndex, media, notes, links, notesFull, noteRefs);
