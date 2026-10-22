@@ -1039,6 +1039,23 @@ describe("validateStructure", () => {
     expect(bad[0].fix).toBeUndefined();
   });
 
+  it("reports a day its month does not have, apart from unparseable dates", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 31 FEB 1850
+1 DEAT
+2 DATE 29 FEB 1848
+0 TRLR`);
+    const report = validateStructure(ds);
+    expect(report.counts.badDate).toBe(0);
+    const bad = report.issues.filter((i) => i.category === "impossibleDate");
+    expect(bad).toHaveLength(1);
+    expect(bad[0]).toMatchObject({ sample: "31 FEB 1850", recordId: "@I1@", tooltip: "2 DATE 31 FEB 1850" });
+    expect(bad[0].fix).toBeUndefined();
+  });
+
   it("does not flag a date that names its calendar or its era", () => {
     // These are valid dates the standard defines; reporting them as broken sent
     // the user hunting for damage in correct data.

@@ -28,7 +28,8 @@ export type StructCategory =
   | "version"
   | "unknownTag"
   | "customTag"
-  | "badDate";
+  | "badDate"
+  | "impossibleDate";
 
 export type StructSeverity = "error" | "warning" | "info";
 
@@ -74,6 +75,7 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   unknownTag: 0,
   customTag: 0,
   badDate: 0,
+  impossibleDate: 0,
 };
 
 /**
@@ -346,6 +348,19 @@ export function validateStructure(ds: Dataset): StructureReport {
           messageKey: "tools.validate.struct.issue.badDate",
           messageVars: { sample: truncate(node.value) },
         });
+      } else if (d.impossible) {
+        // Readable, but naming a day its month does not have (31 FEB). Which
+        // part is wrong is a question for the record, so there is no fix.
+        push({
+          category: "impossibleDate",
+          severity: "warning",
+          recordId,
+          recordTag,
+          sample: truncate(node.value),
+          tooltip: nodeLine(node),
+          messageKey: "tools.validate.struct.issue.impossibleDate",
+          messageVars: { sample: truncate(node.value) },
+        });
       }
     }
 
@@ -413,7 +428,7 @@ export function validateStructure(ds: Dataset): StructureReport {
   }
 
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "customTag"];
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "impossibleDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);

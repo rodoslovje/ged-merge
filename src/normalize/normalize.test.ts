@@ -1080,6 +1080,15 @@ describe("detectPlaceLayout", () => {
 
 // --- numeric date formats --------------------------------------------------
 
+describe("formatGedDate — CAL and EST", () => {
+  it("writes the approximation keyword back instead of ABT", () => {
+    const profile = inferDateProfile(["20.02.1989", "01.12.1990", "31.07.1888"]);
+    expect(formatGedDate(parseDate("CAL 5 MAR 1850"), profile)).toBe("CAL 05.03.1850");
+    expect(formatGedDate(parseDate("Estimated 1850"), profile)).toBe("EST 1850");
+    expect(formatGedDate(parseDate("ca. 1850"), profile)).toBe("ABT 1850");
+  });
+});
+
 describe("inferDateProfile (numeric)", () => {
   it("detects DD.MM.YYYY (European, dotted)", () => {
     const p = inferDateProfile(["20.02.1989", "01.12.1990", "31.07.1888"]);
@@ -1347,13 +1356,16 @@ describe("parseDate (2-digit years)", () => {
 describe("date qualifiers", () => {
   const profile = inferDateProfile(["20 Feb 1989"]); // D Mmm YYYY, abbr, title
 
-  it("treats ABT / ABOUT / ~ / EST / CCA / CIRCA / CA as the same 'about'", () => {
-    for (const raw of ["ABT 1900", "ABOUT 1900", "~1900", "~ 1900", "EST 1900",
+  it("treats ABT / ABOUT / ~ / CCA / CIRCA / CA as the same 'about'", () => {
+    for (const raw of ["ABT 1900", "ABOUT 1900", "~1900", "~ 1900",
       "CCA 1900", "CCA. 1900", "CIRCA 1900", "CA 1900", "Cir 1900"]) {
       expect(parseDate(raw).qualifier).toBe("about");
       // All normalize to a single canonical token in the output.
       expect(formatGedDate(parseDate(raw), profile)).toBe("ABT 1900");
     }
+    // EST is "about" too, but a standard keyword of its own that is kept.
+    expect(parseDate("EST 1900").qualifier).toBe("about");
+    expect(formatGedDate(parseDate("EST 1900"), profile)).toBe("EST 1900");
   });
 
   it("normalizes an about-qualified full date and its inner date style", () => {

@@ -709,6 +709,7 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "version",
   "unknownTag",
   "badDate",
+  "impossibleDate",
   "customTag",
 ];
 
