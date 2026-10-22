@@ -82,10 +82,31 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
 
     // CONT (new line) and CONC (no separator) extend the parent's value.
     if (tag === "CONT" || tag === "CONC") {
-      const parent = stack[level - 1];
-      if (!parent) {
-        warnings.push({ kind: "structure", message: `${tag} with no parent`, line: i + 1 });
-        continue;
+      let parent: GedNode | undefined = stack[level - 1];
+      // A continuation at the wrong level still continues the text above it.
+      // Taken at its level, `1 NOTE first` / `1 CONT second` would append to
+      // the INDI record's own (empty) value, and a `3 CONT` under a level-1
+      // NOTE would find no parent at all; either way the text leaves the note.
+      // It is misleveled when it misses the text being continued, or — with no
+      // such text in progress — lands on a valueless line that is not the one
+      // just above it. The serializer writes it back at its parent's level.
+      const misleveled = !parent ||
+        (textBlob ? parent !== textBlob : parent !== stack[stack.length - 1] && parent.value === undefined);
+      if (misleveled) {
+        let target = textBlob;
+        for (let l = stack.length - 1; l >= 0 && !target; l--) {
+          if (stack[l]?.value !== undefined) target = stack[l];
+        }
+        if (!target) {
+          warnings.push({ kind: "structure", message: `${tag} with no parent`, line: i + 1 });
+          continue;
+        }
+        warnings.push({
+          kind: "structure",
+          message: `${tag} at level ${level} does not fit the line above it; attached to the ${target.tag} line it continues.`,
+          line: i + 1,
+        });
+        parent = target;
       }
       const sep = tag === "CONT" ? "\n" : "";
       const before = parent.value ?? "";

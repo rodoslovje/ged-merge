@@ -178,6 +178,36 @@ describe("parseGedcom", () => {
     });
   });
 
+  it("keeps a CONT/CONC at the wrong level with the text it continues", () => {
+    const text = [
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE first",
+      "1 CONT second", // one level too shallow: would land on the INDI itself
+      "1 BIRT",
+      "2 DATE 1900",
+      "2 NOTE born at home",
+      "4 CONC  in the village", // two levels too deep: had no parent at all
+      "1 TITL Dr.",
+      "1 CONC  med.", // shallow, with no NOTE in progress
+      "0 TRLR",
+      "",
+    ].join("\n");
+    const parsed = parseGedcom(toBuffer(text));
+    const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+    expect(indi.value).toBeUndefined();
+    expect(indi.children.find((c) => c.tag === "NOTE")?.value).toBe("first\nsecond");
+    const birt = indi.children.find((c) => c.tag === "BIRT")!;
+    expect(birt.children.find((c) => c.tag === "NOTE")?.value).toBe("born at home in the village");
+    expect(indi.children.find((c) => c.tag === "TITL")?.value).toBe("Dr. med.");
+    expect(parsed.warnings.filter((w) => w.kind === "structure" && /CONT|CONC/.test(w.message))).toHaveLength(3);
+    // Written back at the level the continuation belongs to.
+    const out = serializeGedcom(parsed.records);
+    expect(out).toContain("1 NOTE first\n2 CONT second\n");
+    expect(out).toContain("2 NOTE born at home in the village\n");
+    expect(out).toContain("1 TITL Dr. med.\n");
+  });
+
   it("warns when two records define the same xref (last one wins)", () => {
     const text = [
       "0 HEAD",
