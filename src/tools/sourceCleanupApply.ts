@@ -9,6 +9,7 @@ import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type Reshape
 import { dedupeSources, findSourceDuplicates, type DupGroup } from "./sourceDuplicates";
 import { regroupRepositories, scanRepoRegroup, type RepoRegroupGroup } from "./repoRegroup";
 import { linkMissingPageMedia, type PageMediaGroup } from "./pageMediaCheck";
+import { applyPassSafely } from "./passSafety";
 
 /**
  * Apply the Sources tools — Organize sources' reshape and the duplicate-source
@@ -74,23 +75,28 @@ export function applySourceCleanup(
 
   const patches = diffRecordForests(dataset.records, next);
   if (patches.length === 0) return [];
-  transplant(dataset, next);
+  // The live file changes only from here on; a throw while it does puts it
+  // back from the patches' own `before` clones (see applyPassSafely).
+  applyPassSafely(dataset, (journal) => {
+    for (const p of patches) if (p.before) journal.keep(p.id, p.before);
+    transplant(dataset, next);
 
-  for (const p of patches) {
-    if (p.type === "individual") {
-      const indi = dataset.individuals.get(p.id);
-      if (p.after === null) dataset.individuals.delete(p.id);
-      else if (indi) rebuildIndividual(dataset, indi);
-    } else if (p.type === "family") {
-      const fam = dataset.families.get(p.id);
-      if (p.after === null) dataset.families.delete(p.id);
-      else if (fam) rebuildFamily(dataset, fam);
+    for (const p of patches) {
+      if (p.type === "individual") {
+        const indi = dataset.individuals.get(p.id);
+        if (p.after === null) dataset.individuals.delete(p.id);
+        else if (indi) rebuildIndividual(dataset, indi);
+      } else if (p.type === "family") {
+        const fam = dataset.families.get(p.id);
+        if (p.after === null) dataset.families.delete(p.id);
+        else if (fam) rebuildFamily(dataset, fam);
+      }
     }
-  }
-  // Sources and media the run created, retitled or merged away: the caches
-  // that resolve a citation pointer must not answer from the old forest.
-  bumpSourceCacheVersion(dataset.records);
-  clearObjeNodeCache(dataset.records);
+    // Sources and media the run created, retitled or merged away: the caches
+    // that resolve a citation pointer must not answer from the old forest.
+    bumpSourceCacheVersion(dataset.records);
+    clearObjeNodeCache(dataset.records);
+  });
   return patches;
 }
 

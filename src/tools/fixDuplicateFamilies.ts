@@ -2,6 +2,7 @@ import type { Dataset, Family } from "../gedcom/types";
 import { familyPointerHolders, foldFamily } from "../gedcom/edit";
 import { patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 import { duplicateFamilyGroups } from "./validate";
+import { applyPassSafely, keepSnapshots } from "./passSafety";
 
 /**
  * One-button repair for the "Same couple twice" health-check category.
@@ -49,12 +50,15 @@ export function fixDuplicateFamilies(dataset: Dataset, only?: string): RecordPat
   }
   const before = snapshotRecords(dataset, indiIds, famIds);
 
-  for (const group of groups) {
-    const keep = fullest(group);
-    for (const fam of group) {
-      if (fam.id !== keep.id) foldFamily(dataset, keep.id, fam.id);
+  applyPassSafely(dataset, (journal) => {
+    keepSnapshots(journal, before);
+    for (const group of groups) {
+      const keep = fullest(group);
+      for (const fam of group) {
+        if (fam.id !== keep.id) foldFamily(dataset, keep.id, fam.id);
+      }
     }
-  }
+  });
 
   return patchesFromSnapshots(dataset, before);
 }

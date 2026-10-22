@@ -21,6 +21,7 @@ import {
 } from "../gedcom/edit";
 import { applyRows, linkPlacementFor } from "../merge/applyFields";
 import { closeKin } from "./duplicates";
+import { applyPassSafely, keepSnapshots, type PassJournal } from "./passSafety";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
 import { individualFieldRows, orderedEventTags } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
@@ -58,6 +59,9 @@ export function mergeDuplicate(
   removedId: string,
   decision: CandidateDecision,
   t: Translate,
+  /** Told about every record the merge snapshots, when it runs inside
+   *  {@link applyPassSafely} (as every chain does). */
+  journal?: PassJournal,
 ): RecordPatch[] {
   const survivor = dataset.individuals.get(survivorId);
   const removed = dataset.individuals.get(removedId);
@@ -103,6 +107,7 @@ export function mergeDuplicate(
     else famIds.add(id);
   }
   const before = snapshotRecords(dataset, indiIds, famIds);
+  keepSnapshots(journal, before);
 
   // 1. Scalar/event individual fields → survivor. `applyRows` already skips the
   //    relationship rows (father/mother via INDI_HANDLED, partners/children via
@@ -213,13 +218,17 @@ export function mergeDuplicateChain(
   t: Translate,
 ): RecordPatch[] {
   const byKey = new Map<string, RecordPatch>();
-  for (const step of steps) {
-    for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t)) {
-      const key = `${p.type}:${p.id}`;
-      const first = byKey.get(key);
-      byKey.set(key, first ? { ...p, before: first.before, ...(first.index !== undefined ? { index: first.index } : {}) } : p);
+  // A step that throws takes the whole chain back with it — the earlier steps'
+  // merges included, whose patches would otherwise never reach the undo stack.
+  applyPassSafely(dataset, (journal) => {
+    for (const step of steps) {
+      for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t, journal)) {
+        const key = `${p.type}:${p.id}`;
+        const first = byKey.get(key);
+        byKey.set(key, first ? { ...p, before: first.before, ...(first.index !== undefined ? { index: first.index } : {}) } : p);
+      }
     }
-  }
+  });
   // A record both created and removed inside the chain (none today, but the
   // composition should stay honest) has nothing to record.
   return [...byKey.values()].filter((p) => p.before !== null || p.after !== null);
