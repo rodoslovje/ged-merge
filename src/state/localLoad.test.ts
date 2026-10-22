@@ -97,6 +97,21 @@ describe("LocalLoads", () => {
     expect(birthDate(second!, "@P1@")).toBe("2 FEB 1850");
   });
 
+  it("normalizes a compare against the profile its own announcement carries", () => {
+    // A silent main re-feed (an override changed, an edited main re-sent)
+    // posts no main `parsed`: the worker's profile moved, and the compare it
+    // re-announces says so itself.
+    const local = new LocalLoads();
+    const w = stub();
+    local.feed(w.post, { type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    local.resolve(parsed({ role: "main", fileName: "a.ged", profile: profileOf(MAIN) }));
+    local.feed(w.post, { type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    local.resolve(parsed({ role: "compare", fileName: "b.ged" }));
+    const gedcomStyle = wrap("0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n2 PLAC Kranj\n");
+    const again = local.resolve(parsed({ role: "compare", fileName: "b.ged", profile: profileOf(gedcomStyle) }));
+    expect(birthDate(again!, "@P1@")).toBe("2 FEB 1850");
+  });
+
   it("replays the announced consolidation on the current compare, under a fresh identity", () => {
     const local = new LocalLoads();
     const w = stub();

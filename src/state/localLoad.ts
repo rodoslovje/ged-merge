@@ -98,6 +98,9 @@ export class LocalLoads {
   }
 
   private resolveCompare(msg: Parsed): Dataset | undefined {
+    // A compare normalized by the worker names the profile it used: after a
+    // silent main re-feed that is the only word this side gets of it.
+    if (msg.profile) this.profile = msg.profile;
     if (msg.consolidated) {
       const currentCompare = this.lastCompare?.fileName === msg.fileName ? this.lastCompare.dataset : undefined;
       if (!currentCompare) return undefined;

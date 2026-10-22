@@ -61,8 +61,10 @@ export interface ParseSuccess {
    * the ids and records agree on both sides.
    */
   dataset?: Dataset;
-  /** Main only: the inferred profile with the user's overrides applied — what
-   *  the main thread normalizes an incoming GEDCOM against. */
+  /** The inferred main profile with the user's overrides applied — what the
+   *  main thread normalizes an incoming GEDCOM against. Posted with the main,
+   *  and with a compare the worker normalized: a silent main re-feed changes
+   *  the profile without announcing the main. */
   profile?: MainProfile;
   /** Main only: how the file itself writes places (no overrides), as
    *  `inferPlaceExportFormat` would answer — computed here anyway for the
