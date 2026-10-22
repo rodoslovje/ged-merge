@@ -1261,9 +1261,12 @@ function scanContainer(
           hits.push({ ...base, node: child, shape: "pageUrl", url, recognized, typeText: ownerTitle });
         }
       } else if (value) {
-        for (const { url, recognized } of recognizedUrls(value, value, sites)) {
-          const prefix = value
-            .replace(url, "")
+        const found = recognizedUrls(value, value, sites);
+        // The citation's prose without ANY of its links — a second site's URL
+        // is that site's own occurrence, not text to keep in a NOTE.
+        const prose = found.reduce((text, f) => text.replace(f.url, ""), value);
+        for (const { url, recognized } of found) {
+          const prefix = prose
             .replace(/\(\s*\)/g, "")
             .replace(/[\s:–—-]+$/, "")
             .trim();
@@ -2702,6 +2705,9 @@ export function reshapeSources(
   const ctx: RelocationContext = { byXref, urlOfObje };
   const { resolve: resolvePlace, structuredAddr } = buildPlaceResolver(clone);
   const houseDate = houseDateFormatter(clone);
+  /** Citations re-pointed this run — one naming two sites' links is two hits
+   *  of two groups on the same node (see the citation rewrite below). */
+  const convertedCitations = new Set<GedNode>();
 
   for (const [key, state] of groups) {
     const selection = selectedById.get(key);
@@ -3049,8 +3055,22 @@ export function reshapeSources(
       }
 
       if (hit.shape === "inline" || hit.shape === "pageUrl") {
-        // Convert the citation node itself, preserving its other children.
-        const citation = hit.node;
+        // Convert the citation node itself, preserving its other children —
+        // unless another site's link in the same citation already converted
+        // it this run: re-pointing it again would leave that site's new
+        // source cited by nothing, so this site gets a citation of its own
+        // beside it, and its link leaves the first one's PAGE.
+        const twin = convertedCitations.has(hit.node);
+        const citation: GedNode = twin ? { level: hit.node.level, tag: "SOUR", children: [] } : hit.node;
+        if (twin && hit.shape === "pageUrl") {
+          const ownPage = firstChild(hit.node, "PAGE");
+          if (ownPage?.value) {
+            const remaining = removeUrlFromText(ownPage.value, hit.url);
+            if (hasContent(remaining)) ownPage.value = remaining;
+            else spliceChild(hit.node, ownPage);
+          }
+        }
+        convertedCitations.add(hit.node);
         citation.value = sourceXref;
         const pageChild = firstChild(citation, "PAGE");
         if (hit.shape === "pageUrl" && pageChild?.value) {
@@ -3067,7 +3087,7 @@ export function reshapeSources(
           else if (pageChild) pageChild.value = page;
           else citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
         }
-        if (hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {
+        if (!twin && hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {
           citation.children.push({ level: citation.level + 1, tag: "NOTE", value: hit.prefix, children: [] });
         }
         if (quayFor && !firstChild(citation, "QUAY")) {
@@ -3084,8 +3104,8 @@ export function reshapeSources(
         if (duplicate && quayFor && !firstChild(duplicate, "QUAY")) {
           duplicate.children.push({ level: duplicate.level + 1, tag: "QUAY", value: quayFor, children: [] });
         }
-        if (container !== hit.container) {
-          spliceChild(hit.container, citation);
+        if (container !== hit.container || twin) {
+          if (!twin) spliceChild(hit.container, citation);
           if (!duplicate) {
             relevel(citation, container.level + 1);
             insertOrdered(container, citation, order);

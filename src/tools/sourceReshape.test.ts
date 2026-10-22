@@ -725,6 +725,33 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("3 PAGE list 12"); // no page number: URL removed, prose kept
   });
 
+  it("gives each site its own citation when one citation names links to two sites", () => {
+    const FAG = "https://www.findagrave.com/memorial/12345";
+    for (const shape of [
+      `2 SOUR ${BOOK}/?pg=9 ${FAG}`,
+      `2 SOUR @S9@\n3 PAGE ${BOOK}/?pg=9 ${FAG}\n0 @S9@ SOUR\n1 TITL Misc`,
+    ]) {
+      const { text, records } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+${shape}
+0 TRLR`);
+      const xrefOf = (title: string) =>
+        records.find((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "TITL" && c.value?.startsWith(title)))
+          ?.xref;
+      const matricula = xrefOf("Matricula");
+      const grave = xrefOf("Find a Grave");
+      expect(matricula && grave).toBeTruthy();
+      // Both new sources are cited; the page number stays on Matricula's.
+      expect(text).toContain(`2 SOUR ${matricula}\n3 PAGE 9\n`);
+      expect(text).toContain(`2 SOUR ${grave}\n`);
+      expect(text).not.toContain(`2 SOUR ${grave}\n3 PAGE`);
+      expect(text).not.toContain("3 NOTE https://"); // a link is no prose to keep
+      expect(findReshapableLinks(dataset(text)).groups).toHaveLength(0);
+    }
+  });
+
   it("keeps an inline citation's own PAGE text beside the link's page number", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
