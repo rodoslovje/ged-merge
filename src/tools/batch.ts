@@ -14,6 +14,7 @@ import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { firstChild } from "../gedcom/node";
 import { unionMarriage, type UnionMarriage } from "../gedcom/union";
 import { isPrivateNode } from "../gedcom/private";
+import { NOTE_TAGS } from "../gedcom/builder";
 import {
   attachInlineMedia,
   attachMediaPointer,
@@ -171,11 +172,11 @@ export function buildBatchRows(
   // Which shared NOTE records are private, so a pointer note can be judged
   // without re-scanning the records for every person that names one.
   const privateNoteXrefs = new Set(
-    dataset.records.filter((r) => r.tag === "NOTE" && r.xref && isPrivateNode(r)).map((r) => r.xref!),
+    dataset.records.filter((r) => NOTE_TAGS.includes(r.tag) && r.xref && isPrivateNode(r)).map((r) => r.xref!),
   );
   const hasPrivateNote = (raw: GedNode): boolean => {
     for (const child of raw.children) {
-      if (child.tag === "NOTE") {
+      if (NOTE_TAGS.includes(child.tag)) {
         const v = child.value?.trim();
         if (v && isPointer(v) ? privateNoteXrefs.has(v) : isPrivateNode(child)) return true;
       }
