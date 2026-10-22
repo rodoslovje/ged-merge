@@ -1203,8 +1203,11 @@
               is never a group. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
-              flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags, unparseable
-              dates and dates naming a day their month does not have (31 FEB) — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
+              flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
+              dates — many with a one-click <strong>Fix</strong>. Readable dates are checked as well, for a day the
+              month does not have (<em>31 FEB 1850</em>), a range that ends before it starts, a two-digit year
+              (<em>5 MAR 88</em>) and a date written in another format than the rest of the file; hover such a date
+              to see how <a href="#normalize">Normalize file</a> would write it. When a media folder is connected, <strong>Check media
               folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
               coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
               coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to

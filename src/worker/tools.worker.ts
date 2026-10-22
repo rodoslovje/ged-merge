@@ -49,7 +49,7 @@ function run(req: Exclude<ToolsRequest, { type: "setDataset" }>): ToolsResultMap
       return { pairs };
     }
     case "validate":
-      return { report: validateDataset(dataset), structure: validateStructure(dataset) };
+      return { report: validateDataset(dataset), structure: validateStructure(dataset, req.formatOverrides) };
     case "sourceDuplicates":
       return { report: findSourceDuplicates(dataset) };
     case "sourceReshape":

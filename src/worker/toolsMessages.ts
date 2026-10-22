@@ -20,7 +20,7 @@ import type { FormatOverrides } from "../normalize/formatOverrides";
 export type ToolsRequest =
   | { type: "setDataset"; dataset: Dataset }
   | { type: "findDuplicates"; requestId: number }
-  | { type: "validate"; requestId: number }
+  | { type: "validate"; requestId: number; formatOverrides?: FormatOverrides }
   | { type: "sourceDuplicates"; requestId: number }
   | { type: "sourceReshape"; requestId: number; formatOverrides?: FormatOverrides }
   | { type: "normalizePreview"; requestId: number; formatOverrides?: FormatOverrides }

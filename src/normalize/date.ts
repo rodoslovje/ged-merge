@@ -7,6 +7,12 @@ const DASH_YEAR_RANGE = /^\d{3,4}\s*[-/]\s*\d{3,4}$/;
 /** A year with its old/new-style second reading, e.g. "1850/51". */
 const DUAL_YEAR = /(?:^|\s)\d{3,4}\/\d{1,2}(?!\d)/;
 
+/** True for a value carrying old/new-style dual dating ("1850/51"), which no
+ *  house style has a slot for — re-rendering it would keep the first year only. */
+export function hasDualYear(value: string): boolean {
+  return DUAL_YEAR.test(value);
+}
+
 /**
  * Render a structured date back into a GEDCOM date string using the main's
  * format. Falls back to the original raw text whenever we cannot faithfully

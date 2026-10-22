@@ -710,6 +710,9 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "unknownTag",
   "badDate",
   "impossibleDate",
+  "reversedRange",
+  "shortYear",
+  "dateStyle",
   "customTag",
 ];
 
