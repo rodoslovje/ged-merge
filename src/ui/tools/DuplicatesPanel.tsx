@@ -34,7 +34,7 @@ import { ClusterMergeDialog } from "./ClusterMergeDialog";
 import { PersonLink } from "../PersonLink";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
-import { ToolsError, ToolsLoading, TreeSearch, someMatch, useDebounced } from "./shared";
+import { someMatch, toggledIn, ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 
 /** Default score floor for the duplicates list. Index-scale files produce
@@ -303,12 +303,7 @@ export function DuplicatesPanel({
   expandedClustersRef.current = expandedClusters;
   const toggleCluster = useCallback((id: string, rowIndex?: number) => {
     const willExpand = !expandedClustersRef.current.has(id);
-    setExpandedClusters((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setExpandedClusters((s) => toggledIn(s, id));
     if (willExpand && rowIndex !== undefined) pinRowToTop(rowIndex);
   }, [pinRowToTop]);
 

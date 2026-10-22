@@ -34,6 +34,7 @@ import {
   RenameEditor,
   RenameToggle,
   RowMap,
+  toggledIn,
   useRenameDraft,
 } from "./shared";
 import { CountryChips, countryFacet } from "./CountryChips";
@@ -154,34 +155,14 @@ export function AddressCheckSection({
   const rename = useRenameDraft();
 
   const toggleGroup = (place: string) =>
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(place)) next.delete(place);
-      else next.add(place);
-      return next;
-    });
+    setOpenGroups((prev) => toggledIn(prev, place));
 
   const toggleOpen = (key: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setOpen((prev) => toggledIn(prev, key));
   const togglePeople = (key: string) =>
-    setPeopleOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setPeopleOpen((prev) => toggledIn(prev, key));
   const toggleGroupPeople = (place: string) =>
-    setGroupPeopleOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(place)) next.delete(place);
-      else next.add(place);
-      return next;
-    });
+    setGroupPeopleOpen((prev) => toggledIn(prev, place));
   const [applied, setApplied] = useState<number | null>(null);
 
   /** The rows a stored register could answer — what the button offers, and all

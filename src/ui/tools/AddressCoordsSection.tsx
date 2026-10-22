@@ -38,8 +38,10 @@ import {
   RenameToggle,
   RowCaret,
   RowMap,
+  toggledIn,
   usePersonNameIndex,
   useRenameDraft,
+  withoutKeys,
 } from "./shared";
 import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -437,12 +439,7 @@ export function AddressCoordsSection({
     };
   }, [all, applyGen]);
   const toggleNoMatch = (key: string) =>
-    setNoMatch((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setNoMatch((prev) => toggledIn(prev, key));
   /** Houses the store still calls set aside but the reader has put back. They
    *  are work the write must carry too — forgetting the old judgement — so a
    *  restore alone is enough to offer the write. */
@@ -808,12 +805,7 @@ export function AddressCoordsSection({
   const hiddenTotal = rows.filter((r) => noMatch.has(r.key) && !picked.has(r.key)).length;
 
   const togglePeople = (key: string) =>
-    setPeopleOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setPeopleOpen((prev) => toggledIn(prev, key));
 
   const setSearch = (key: string, next: SearchState) => setSearches((prev) => new Map(prev).set(key, next));
 
@@ -911,12 +903,7 @@ export function AddressCoordsSection({
   const toggle = (place: string) => {
     // The place's houses on its map, from the moment it is opened by hand.
     setMapOpen((prev) => (open.has(place) ? (prev === place ? null : prev) : place));
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(place)) next.delete(place);
-      else next.add(place);
-      return next;
-    });
+    setOpen((prev) => toggledIn(prev, place));
   };
 
   /** Open the move panel for a group, pre-filled with what its addresses
@@ -940,12 +927,7 @@ export function AddressCoordsSection({
   };
 
   const toggleMoveRow = (key: string) =>
-    setMoveSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setMoveSel((prev) => toggledIn(prev, key));
 
   const applyMove = () => {
     const pick = movePick?.place === moveTarget.trim() ? movePick.assignment : undefined;
@@ -1007,12 +989,7 @@ export function AddressCoordsSection({
   };
 
   const toggleCoordRow = (key: string) =>
-    setCoordSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setCoordSel((prev) => toggledIn(prev, key));
 
   /** Stage the chosen position for every ticked address. Staged, not written:
    *  these rows now read like any other pick, and the page's own Write button
@@ -1051,16 +1028,8 @@ export function AddressCoordsSection({
     // The answers, by contrast, were to a question about the old spelling —
     // both services were asked for that address, so the renamed row starts
     // unasked, as the list's own comment beside the lookup says.
-    setSearches((prev) => {
-      const next = new Map(prev);
-      next.delete(row.key);
-      return next;
-    });
-    setOsmSearches((prev) => {
-      const next = new Map(prev);
-      next.delete(row.key);
-      return next;
-    });
+    setSearches((prev) => withoutKeys(prev, [row.key]));
+    setOsmSearches((prev) => withoutKeys(prev, [row.key]));
   };
 
   /**
@@ -1170,11 +1139,7 @@ export function AddressCoordsSection({
   /** Clicking the chosen option again drops the choice — a radio group has no
    *  "none" of its own, and a row picked by mistake would otherwise be written. */
   const unpick = (key: string) =>
-    setPicked((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
-    });
+    setPicked((prev) => withoutKeys(prev, [key]));
 
   /**
    * Every house found for this place, on one map — the point of grouping: the

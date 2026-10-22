@@ -447,6 +447,23 @@ export function RenameToggle({
   );
 }
 
+/** A copy of `set` with `key` flipped in or out — the open/selected sets the
+ *  lists here keep, updated as `setOpen((prev) => toggledIn(prev, key))`. */
+export function toggledIn<K>(set: ReadonlySet<K>, key: K): Set<K> {
+  const next = new Set(set);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+}
+
+/** A copy of `map` without `keys` — a row's pick, answers or staged state
+ *  dropped, as `setPicked((prev) => withoutKeys(prev, [key]))`. */
+export function withoutKeys<K, V>(map: ReadonlyMap<K, V>, keys: Iterable<K>): Map<K, V> {
+  const next = new Map(map);
+  for (const key of keys) next.delete(key);
+  return next;
+}
+
 /**
  * The state behind a list's {@link RenameToggle} and {@link RenameEditor}: the
  * one row whose ✎ is open, and its draft. One at a time — the box replaces the
