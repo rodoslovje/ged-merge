@@ -19,7 +19,7 @@ import {
   rebuildIndividual,
   removeIndividual,
 } from "../gedcom/edit";
-import { applyRows, linkPlacementFor } from "../merge/applyFields";
+import { applyRows, linkPlacementFor, type LinkPlacement } from "../merge/applyFields";
 import { closeKin } from "./duplicates";
 import { applyPassSafely, keepSnapshots, type PassJournal } from "./passSafety";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
@@ -62,6 +62,9 @@ export function mergeDuplicate(
   /** Told about every record the merge snapshots, when it runs inside
    *  {@link applyPassSafely} (as every chain does). */
   journal?: PassJournal,
+  /** The file's link-writing habits, read once for a whole chain rather than
+   *  rescanned for every pair. */
+  placement?: LinkPlacement,
 ): RecordPatch[] {
   const survivor = dataset.individuals.get(survivorId);
   const removed = dataset.individuals.get(removedId);
@@ -128,7 +131,7 @@ export function mergeDuplicate(
     new Set<string>(),
     INDI_HANDLED,
     t,
-    linkPlacementFor(dataset),
+    placement ? { ...placement, pendingLookups: [] } : linkPlacementFor(dataset),
     dataset.records,
     new Map(),
   );
@@ -220,8 +223,9 @@ export function mergeDuplicateChain(
   // A step that throws takes the whole chain back with it — the earlier steps'
   // merges included, whose patches would otherwise never reach the undo stack.
   applyPassSafely(dataset, (journal) => {
+    const placement = steps.length > 1 ? linkPlacementFor(dataset) : undefined;
     for (const step of steps) {
-      for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t, journal)) {
+      for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t, journal, placement)) {
         const key = `${p.type}:${p.id}`;
         const first = byKey.get(key);
         byKey.set(key, first ? { ...p, before: first.before, ...(first.index !== undefined ? { index: first.index } : {}) } : p);

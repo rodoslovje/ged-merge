@@ -75,6 +75,6 @@ export {
 } from "./sources";
 export type { EditSourceFields, EditRepoFields, NewSourceFields, NewCitation } from "./sources";
 
-export { bumpSourceCacheVersion, getMediaAndSourceCtx, getSourceLookup, rebuildIndividual, rebuildFamily } from "./cache";
+export { bumpContentVersion, bumpSourceCacheVersion, contentStamp, getMediaAndSourceCtx, getSourceLookup, memoOnContent, rebuildIndividual, rebuildFamily } from "./cache";
 
 export { clearPlaceGov, formatCoordValue, setPlaceCoord } from "./geo";

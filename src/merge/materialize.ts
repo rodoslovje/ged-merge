@@ -1,6 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
-import { familiesNaming, removeIndividual } from "../gedcom/edit";
+import { contentStamp, familiesNaming, memoOnContent, removeIndividual } from "../gedcom/edit";
 import { recordsNaming, remapMergedAssociations } from "../gedcom/assoc";
 import type { MatchResult } from "../match/types";
 import type { Translate } from "../locales/i18n";
@@ -286,13 +286,25 @@ function liveContext(
 ) {
   const individuals = new CopyOnRead(main.individuals);
   const families = new CopyOnRead(main.families);
-  const liveIds = new Set<string>();
-  for (const r of main.records) if (r.xref) liveIds.add(r.xref);
+  // Both are whole-file scans of the main as it stands, so they are kept until
+  // the main changes (see `memoOnContent`) — one per confirmed decision, as a
+  // restored session's `refreshJoins` asks, was seconds on a large file.
+  const liveIds = memoOnContent(main.records, "liveIds", () => {
+    const ids = new Set<string>();
+    for (const r of main.records) if (r.xref) ids.add(r.xref);
+    return ids as ReadonlySet<string>;
+  });
   // Sources are the one kind of shared record the stitching edits in place
   // (a matched source gains the page images its new citations name), so
   // they are copied up front; every other record is only read or added to.
   const records = main.records.map((r) => (r.tag === "SOUR" ? cloneNode(r) : r));
-  const sourXrefMap = buildSourXrefMap(compare.records, records);
+  const sourXrefMap = memoOnContent(
+    main.records,
+    "sourXrefMap",
+    // `records` reads as the main does: its sources are copies, not changes.
+    () => buildSourXrefMap(compare.records, records),
+    `${recordsId(compare.records)}:${contentStamp(compare.records)}`,
+  );
   const report: ChangeReport = {
     changes: [], deferred: [], graftJoins: [], recordsChanged: 0, newPersons: 0, newFamilies: 0,
     recordLabels: {}, recordKinds: {}, familySpouses: {}, newIndividuals: {}, customTags: {},
@@ -301,9 +313,18 @@ function liveContext(
   const ctx = makeContext(
     main, compare, matches, records, individuals, families, report, new Set(), t, sourXrefMap,
     rejectedPairs, confirmedPairs, linkPlacementFor(main, overrides, compare),
-    { pinned, afterHighest: true, newOnly },
+    { pinned, afterHighest: true, newOnly, recordXrefs: liveIds },
   );
   return { ctx, individuals, families, records, liveIds, sourXrefMap, report };
+}
+
+const recordsIds = new WeakMap<GedNode[], number>();
+let lastRecordsId = 0;
+/** A stable number for a record list, naming the other file in a memo stamp. */
+function recordsId(records: GedNode[]): number {
+  let id = recordsIds.get(records);
+  if (id === undefined) recordsIds.set(records, (id = ++lastRecordsId));
+  return id;
 }
 
 /**
