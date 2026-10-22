@@ -19,6 +19,7 @@ import { eventDisplayLabel } from "../gedcom/eventTags";
 import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
+import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
@@ -618,10 +619,16 @@ export function applyNotes(
   order: string[],
   customTags: Record<string, CustomTagNode[]>,
 ): boolean {
-  const incNotes = childrenByTag(incoming, "NOTE");
+  // A shared note (`1 SNOTE @N1@`) is a note like an inline one: the row
+  // shows both, so both are taken, replaced and deduplicated together, each
+  // keeping its own tag.
+  const isNote = (c: GedNode) => NOTE_TAGS.includes(c.tag);
+  const incNotes = incoming.children.filter(isNote);
   if (!incNotes.length) return false;
-  if (choice !== "both") removeChildren(target, "NOTE");
-  const present = new Set(childrenByTag(target, "NOTE").map(nodeShape));
+  if (choice !== "both") target.children = target.children.filter((c) => !isNote(c));
+  const present = new Set(target.children.filter(isNote).map(nodeShape));
+  // The canonical orders rank NOTE only; a SNOTE sits in the same place.
+  const noteOrder = order.flatMap((tag) => (tag === "NOTE" ? ["NOTE", "SNOTE"] : [tag]));
   let added = false;
   for (const n of incNotes) {
     const clone = cloneNodeRemapped(n, sourMap);
@@ -629,7 +636,7 @@ export function applyNotes(
     if (present.has(shape)) continue;
     present.add(shape);
     collectCustomTags(clone, customTags);
-    insertOrdered(target, clone, order);
+    insertOrdered(target, clone, noteOrder);
     added = true;
   }
   return added || choice !== "both";
