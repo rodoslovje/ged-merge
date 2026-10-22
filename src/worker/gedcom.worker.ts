@@ -2,12 +2,12 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { detectCitationPageStyle, inferSourceFormat, type CitationPageStyle } from "../gedcom/source";
-import { applyFormatOverrides, applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
 import { detectFormatDefaults } from "../normalize/formatDefaults";
 import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
-import type { Dataset, Individual } from "../gedcom/types";
-import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
+import type { Dataset } from "../gedcom/types";
+import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MainProfile } from "../normalize/types";
@@ -18,7 +18,6 @@ import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
 import type { MatchResult } from "../match/types";
 import { parseCompareTable } from "../csv/compareCsv";
 import type { GiPair } from "../csv/giMatches";
-import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
@@ -280,43 +279,15 @@ function maybeMatch(): void {
     // merges on its own copy (see ParseSuccess.consolidated).
     if (lastCompareMeta) post({ type: "parsed", role: "compare", consolidated: clusters, ...lastCompareMeta });
   }
-  result = annotateCounts(result, mainDataset, compareNormalized);
+  result = annotateCounts(result, mainDataset, compareNormalized, mainOverrides);
   if (startId) result = applyDistanceRanking(result, mainDataset, startId);
   lastResult = result;
   post({ type: "matched", result });
 }
 
-/** Field labels are irrelevant to the counts computed here, so use a no-op
+/** Field labels are irrelevant to the merges replayed here, so use a no-op
  * translator (the worker has no i18n context). */
 const rawLabel = (key: string) => key;
-
-/** Attach per-candidate "new" and "differing" field counts plus the importable
- *  ancestor/descendant counts for the results table. */
-function annotateCounts(result: MatchResult, main: Dataset, compare: Dataset): MatchResult {
-  // The same format the review rows and the merge use (mergePlaceFormat):
-  // counted without the overrides, a diff badge could disagree with the rows
-  // the panel actually shows.
-  const placeFmt = applyPlaceOverrides(inferPlaceExportFormat(main), mainOverrides);
-  const maps = buildMatchMaps(result);
-  const importable = (mainInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
-    const tree = buildPersonTree(rawLabel, mainInd, compareInd, main, compare, maps, mode);
-    return tree ? countImportable(tree) : 0;
-  };
-  return {
-    individuals: result.individuals.map((c) => {
-      const mainInd = main.individuals.get(c.mainId);
-      const compareInd = compare.individuals.get(c.compareId);
-      return {
-        ...c,
-        ...fieldDiffCounts(
-          individualFieldRows(rawLabel, mainInd, compareInd, main, compare, placeFmt),
-        ),
-        ancestorCount: importable(mainInd, compareInd, "ancestors"),
-        descendantCount: importable(mainInd, compareInd, "descendants"),
-      };
-    }),
-  };
-}
 
 function post(res: WorkerResponse): void {
   (self as DedicatedWorkerGlobalScope).postMessage(res);

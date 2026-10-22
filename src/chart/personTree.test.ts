@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "../match/engine";
-import { buildPersonTree, buildMatchMaps, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "./personTree";
+import {
+  buildPersonTree,
+  buildMatchMaps,
+  countImportable,
+  countImportableRelatives,
+  countTreePeople,
+  importableMemo,
+  pruneTree,
+  treeDepth,
+  type TreeMode,
+  type TreeNode,
+} from "./personTree";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -389,6 +400,29 @@ describe("buildPersonTree (pedigree collapse)", () => {
     );
     const root = buildPersonTree(tr, remarried.individuals.get("@I4@"), undefined, remarried, remarried, emptyMaps, "descendants")!;
     expect(allNodes(root).some((n) => n.main?.id === "@I7@")).toBe(true);
+  });
+
+  it("counts what an import would bring in exactly as the built tree does", () => {
+    // The incoming file is the collapsed family; the main knows one person of
+    // it, matched, with no relatives — so every relative is incoming-only, and
+    // the grandparents are reached twice (ancestors) and the couple's union
+    // twice (descendants).
+    const main = dataset(wrap("0 @M1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n0 @M4@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n"));
+    const maps = {
+      mainToCompare: new Map([["@M1@", "@I1@"], ["@M4@", "@I4@"]]),
+      compareToMain: new Map([["@I1@", "@M1@"], ["@I4@", "@M4@"]]),
+    };
+    const memo = importableMemo();
+    for (const [m, c] of [["@M1@", "@I1@"], ["@M4@", "@I4@"]]) {
+      for (const mode of ["ancestors", "descendants"] as const) {
+        const tree = buildPersonTree(tr, main.individuals.get(m), ds.individuals.get(c), main, ds, maps, mode)!;
+        const walked = countImportableRelatives(main.individuals.get(m), ds.individuals.get(c), main, ds, maps, mode, memo);
+        expect(walked, `${m} ${mode}`).toBe(countImportable(tree));
+      }
+    }
+    // Father, mother and both grandparents twice — the repeats are nodes too.
+    const janez = buildPersonTree(tr, main.individuals.get("@M1@"), ds.individuals.get("@I1@"), main, ds, maps, "ancestors")!;
+    expect(countImportable(janez)).toBe(6);
   });
 });
 
