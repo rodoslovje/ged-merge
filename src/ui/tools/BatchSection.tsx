@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
+import { applyPassSafely } from "../../tools/passSafety";
 import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
 import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
@@ -283,7 +284,12 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 
   function apply() {
     if (!action || !actionReady || targets.length === 0) return;
-    const res = applyBatchAction(dataset, targets.map((r) => r.id), action);
+    const ids = targets.map((r) => r.id);
+    // A throw partway puts the targets back as they were (see applyPassSafely).
+    const res = applyPassSafely(dataset, (journal) => {
+      for (const id of ids) journal.touch(id);
+      return applyBatchAction(dataset, ids, action);
+    });
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });
     setConfirming(false);

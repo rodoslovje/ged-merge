@@ -228,3 +228,34 @@ describe("materializeAdds", () => {
     expect(markoId).not.toBe("@I9@");
   });
 });
+
+describe("materializeAdds — the shared records an addition brought", () => {
+  // Marko's birth cites a source (with its repository) only the incoming file has.
+  const SOURCED = COMPARE.replace(
+    "2 DATE 1883\n2 PLAC Kranj\n",
+    "2 DATE 1883\n2 PLAC Kranj\n2 SOUR @S7@\n3 PAGE 12\n",
+  ).replace("0 TRLR", "0 @S7@ SOUR\n1 TITL Krstna knjiga Kranj\n1 REPO @R1@\n0 @R1@ REPO\n1 NAME Župnija Kranj\n0 TRLR");
+
+  it("removes them with the person when the tick is taken back", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(SOURCED);
+    const original = serializeGedcom(main.records);
+    const first = step(main, compare, new Map(), FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] });
+    expect(serializeGedcom(main.records)).toContain("1 TITL Krstna knjiga Kranj");
+    step(main, compare, first.decisions, FATHER, { status: "confirmed", fields: { father: "main" } });
+    expect(serializeGedcom(main.records)).toBe(original);
+  });
+
+  it("keeps a source the file cites elsewhere since", () => {
+    const main = dataset(MAIN);
+    const compare = dataset(SOURCED);
+    const first = step(main, compare, new Map(), FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] });
+    const sourceId = /0 (@[^@]+@) SOUR\n1 TITL Krstna knjiga Kranj/.exec(serializeGedcom(main.records))![1];
+    // Cited on Peter in Edit after the addition.
+    main.individuals.get("@I3@")!.raw.children.push({ level: 1, tag: "SOUR", value: sourceId, children: [] });
+    step(main, compare, first.decisions, FATHER, { status: "confirmed", fields: { father: "main" } });
+    const out = serializeGedcom(main.records);
+    expect(out).toContain("1 TITL Krstna knjiga Kranj");
+    expect(out).toContain("1 NAME Župnija Kranj");
+  });
+});

@@ -6,6 +6,7 @@ import { createSourceRecord } from "../gedcom/edit";
 import { applySourceCleanup } from "./sourceCleanupApply";
 import { findReshapableLinks } from "./sourceReshape";
 import { findSourceDuplicates } from "./sourceDuplicates";
+import { scanRepoRegroup } from "./repoRegroup";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -104,6 +105,44 @@ describe("applySourceCleanup", () => {
     expect(ds.records.filter((r) => r.tag === "OBJE")).toHaveLength(1);
     expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-L99C-53BC\n");
     expect(text).not.toContain("view=index");
+  });
+
+  it("regroups onto the repository the dedupe kept, minting none", () => {
+    // Two records of FamilySearch's Croatia repository, and a source still
+    // hanging off a per-collection one. The regroup was scanned while @R1@ was
+    // the country's record; the dedupe keeps @R2@ and drops @R1@.
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - Croatia",
+      "0 @R2@ REPO",
+      "1 NAME FamilySearch.org - Croatia",
+      "0 @R3@ REPO",
+      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "0 @S1@ SOUR",
+      "1 TITL Croatia, Births",
+      "1 REPO @R1@",
+      "0 @S2@ SOUR",
+      "1 TITL Croatia, Deaths",
+      "1 REPO @R2@",
+      "0 @S3@ SOUR",
+      "1 TITL Croatia, Church Books, 1516-1994",
+      "1 PLAC Ravna Gora, Primorje-Gorski Kotar, Croatia",
+      "1 REPO @R3@",
+      "0 TRLR",
+    ].join("\n"));
+    const regroup = scanRepoRegroup(ds.records).groups;
+    expect(regroup.map((g) => g.targetXref)).toEqual(["@R1@"]);
+    const dup = findSourceDuplicates(ds).groups.find((g) => g.kind === "repo")!;
+    const keepR2 = { ...dup, members: dup.members.map((m) => ({ ...m, survivor: m.xref === "@R2@" })) };
+    applySourceCleanup(ds, { groups: [], enrichment: new Map(), options: {} }, [keepR2], regroup);
+
+    const repos = ds.records.filter((r) => r.tag === "REPO").map((r) => r.xref);
+    expect(repos).toEqual(["@R2@"]);
+    const s3 = ds.records.find((r) => r.xref === "@S3@")!;
+    expect(s3.children.find((c) => c.tag === "REPO")?.value).toBe("@R2@");
   });
 
   it("touches nothing when nothing is selected", () => {

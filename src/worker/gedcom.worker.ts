@@ -249,7 +249,10 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   }
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
-  lastCompareMeta = { fileName, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage };
+  // The profile travels with the compare: a silent main re-feed changes it
+  // without announcing the main, and the main thread must normalize its copy
+  // against the same one.
+  lastCompareMeta = { fileName, profile, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage };
   post({ type: "parsed", role: "compare", ...(withDataset ? { dataset } : {}), ...lastCompareMeta });
 }
 

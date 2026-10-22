@@ -5,6 +5,7 @@ import { rnQueriesFrom } from "../geo/rn";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
 import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { applyPassSafely } from "./passSafety";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
 import { placeCountryFacet } from "../geo/placeCountry";
 import type { GeocodeDecision } from "../persist/geoDb";
@@ -86,10 +87,27 @@ export function walkPlacNodes(node: GedNode, visit: (plac: GedNode, parent: GedN
  * captures that: same pair ⇒ same place, so the coordinates should agree.
  */
 export function walkPlaceAddr(node: GedNode, visit: (plac: GedNode, addr: string, event: GedNode) => void): void {
-  walkPlacNodes(node, (plac, event) => {
-    const addr = event.children.find((c) => c.tag === "ADDR" && c.value?.trim())?.value?.trim() ?? "";
-    visit(plac, addr, event);
-  });
+  walkPlacNodes(node, (plac, event) => visit(plac, eventAddress(event), event));
+}
+
+/** The address lines of a structured ADDR, read when the ADDR has no text of its own. */
+const ADDRESS_LINE_TAGS = new Set(["ADR1", "ADR2", "ADR3", "CITY", "POST"]);
+
+/** An event's address as one string ("" when it has none): the ADDR's own
+ *  text, or — for an ADDR that carries only its structured lines, as some
+ *  programs write it — those lines joined. Either way it is a house, not the
+ *  settlement. */
+function eventAddress(event: GedNode): string {
+  for (const addr of event.children) {
+    if (addr.tag !== "ADDR") continue;
+    const own = addr.value?.trim();
+    if (own) return own;
+    const lines = addr.children
+      .filter((c) => ADDRESS_LINE_TAGS.has(c.tag) && c.value?.trim())
+      .map((c) => c.value!.trim());
+    if (lines.length) return lines.join(", ");
+  }
+  return "";
 }
 
 /** Grouping key for a place+address pair. NUL cannot occur in GEDCOM text. */
@@ -97,27 +115,38 @@ export function placeAddrKey(place: string, addr: string): string {
   return `${place}\0${addr}`;
 }
 
-/** Run `apply` over every INDI/FAM record, rebuilding the changed ones and
- *  collecting the before/after RecordPatch pairs for the unified undo stack —
- *  the shared tail of every whole-file place edit here (and of the address
- *  coordinates in ./addresses.ts). */
-export function patchRecords(dataset: Dataset, apply: (raw: GedNode) => boolean): RecordPatch[] {
-  const patches: RecordPatch[] = [];
-  for (const indi of dataset.individuals.values()) {
-    const before = cloneRaw(indi.raw);
-    if (apply(indi.raw)) {
-      rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+/** Run `apply` over every INDI/FAM record (or those in `only`), rebuilding the
+ *  changed ones and collecting the before/after RecordPatch pairs for the
+ *  unified undo stack — the shared tail of every whole-file place edit here
+ *  (and of the address coordinates in ./addresses.ts). A pass that throws
+ *  partway leaves the file as it found it (see `applyPassSafely`). */
+export function patchRecords(
+  dataset: Dataset,
+  apply: (raw: GedNode) => boolean,
+  only?: ReadonlySet<string>,
+): RecordPatch[] {
+  return applyPassSafely(dataset, (journal) => {
+    const patches: RecordPatch[] = [];
+    for (const indi of dataset.individuals.values()) {
+      if (only && !only.has(indi.id)) continue;
+      const before = cloneRaw(indi.raw);
+      journal.keep(indi.id, before);
+      if (apply(indi.raw)) {
+        rebuildIndividual(dataset, indi);
+        patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+      } else journal.release(indi.id);
     }
-  }
-  for (const fam of dataset.families.values()) {
-    const before = cloneRaw(fam.raw);
-    if (apply(fam.raw)) {
-      rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+    for (const fam of dataset.families.values()) {
+      if (only && !only.has(fam.id)) continue;
+      const before = cloneRaw(fam.raw);
+      journal.keep(fam.id, before);
+      if (apply(fam.raw)) {
+        rebuildFamily(dataset, fam);
+        patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+      } else journal.release(fam.id);
     }
-  }
-  return patches;
+    return patches;
+  });
 }
 
 /** A row's currently proposed/selected coordinate with its display label. */

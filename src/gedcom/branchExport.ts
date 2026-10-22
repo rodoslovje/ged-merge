@@ -18,12 +18,14 @@ import type { Dataset, GedNode } from "./types";
  * - a clone of the main's HEAD (so version/charset conventions carry over)
  *   and the TRLR.
  *
- * Every remaining pointer whose target did not make it into the output is
- * scrubbed — a FAMS to a dropped family, a CHIL to an excluded sibling, an
- * ASSO to a person outside the branch — so the file never contains dangling
- * xrefs. Vendor-extension (`_`) subtrees are left untouched (their vocabulary
- * is not ours to edit), but pointer targets found inside them still count as
- * reachable and are carried along when they are supporting records.
+ * Every pointer to a person or family outside the branch — a FAMS to a dropped
+ * family, a CHIL to an excluded sibling, an ASSO or `_ASSO` to a person outside
+ * the branch — is scrubbed first, at any depth, so nothing cited only beneath
+ * it comes along. Then every remaining pointer whose target did not make it
+ * into the output is scrubbed too, so the file never contains dangling xrefs.
+ * Other vendor-extension (`_`) pointers are left untouched (their vocabulary
+ * is not ours to edit), but their targets still count as reachable and are
+ * carried along when they are supporting records.
  */
 
 export interface BranchExport {
@@ -58,6 +60,34 @@ export function extractBranch(ds: Dataset, personIds: Iterable<string>): BranchE
   const byXref = new Map<string, GedNode>();
   for (const rec of ds.records) if (rec.xref) byXref.set(rec.xref, rec);
 
+  // First drop every pointer to a person or family left out of the branch, at
+  // any depth and inside vendor subtrees too (`_ASSO @I9@` names a person as
+  // surely as `ASSO` does). Only then are the supporting records chased, on
+  // these scrubbed copies — a source cited only under a dropped `ASSO` belongs
+  // to someone outside the branch and must not come along.
+  const isOutsider = (v: string): boolean => {
+    const tag = byXref.get(v)?.tag;
+    return (tag === "INDI" && !keepIndi.has(v)) || (tag === "FAM" && !keepFam.has(v));
+  };
+  const scrubOutsiders = (node: GedNode): void => {
+    node.children = node.children.filter((child) => {
+      const v = pointerValue(child);
+      if (v && isOutsider(v)) return false;
+      scrubOutsiders(child);
+      return true;
+    });
+  };
+  const clones = new Map<GedNode, GedNode>();
+  const cloneOf = (rec: GedNode): GedNode => {
+    let clone = clones.get(rec);
+    if (!clone) {
+      clone = cloneNode(rec);
+      scrubOutsiders(clone);
+      clones.set(rec, clone);
+    }
+    return clone;
+  };
+
   // Chase pointers out of the kept records (and HEAD) into the supporting
   // records they cite, transitively — SOUR → REPO/NOTE/OBJE, OBJE → NOTE, the
   // header's SUBM, … INDI/FAM targets are never pulled in this way: people are
@@ -65,9 +95,9 @@ export function extractBranch(ds: Dataset, personIds: Iterable<string>): BranchE
   const supporting = new Set<string>();
   const queue: GedNode[] = [];
   const head = ds.records.find((r) => r.tag === "HEAD");
-  if (head) queue.push(head);
+  if (head) queue.push(cloneOf(head));
   for (const rec of ds.records) {
-    if (rec.xref && (keepIndi.has(rec.xref) || keepFam.has(rec.xref))) queue.push(rec);
+    if (rec.xref && (keepIndi.has(rec.xref) || keepFam.has(rec.xref))) queue.push(cloneOf(rec));
   }
   const chase = (node: GedNode) => {
     const v = pointerValue(node);
@@ -75,7 +105,7 @@ export function extractBranch(ds: Dataset, personIds: Iterable<string>): BranchE
       const target = byXref.get(v);
       if (target && target.tag !== "INDI" && target.tag !== "FAM") {
         supporting.add(v);
-        queue.push(target);
+        queue.push(cloneOf(target));
       }
     }
     for (const child of node.children) chase(child);
@@ -102,7 +132,7 @@ export function extractBranch(ds: Dataset, personIds: Iterable<string>): BranchE
     const keep =
       rec.tag === "HEAD" || rec.tag === "TRLR" || (rec.xref !== undefined && kept.has(rec.xref));
     if (!keep) continue;
-    const clone = cloneNode(rec);
+    const clone = cloneOf(rec);
     scrub(clone);
     records.push(clone);
   }

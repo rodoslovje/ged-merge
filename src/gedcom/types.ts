@@ -21,7 +21,13 @@ export type GedcomCharset =
   | "ASCII"
   | "ANSI" // non-standard but common; ambiguous, resolved by detection
   | "WINDOWS-1252" // Western European (the usual meaning of "ANSI")
-  | "WINDOWS-1250"; // Central European (Brother's Keeper etc. on CE locales)
+  | "WINDOWS-1250" // Central European (Brother's Keeper etc. on CE locales)
+  | "ISO-8859-1"
+  | "ISO-8859-2"
+  | "ISO-8859-15"
+  | "MACINTOSH" // Mac OS Roman
+  | "IBM437" // DOS "IBMPC"
+  | "IBM850"; // DOS Western European
 
 /**
  * A single parsed GEDCOM line and its children.
@@ -34,7 +40,15 @@ export interface GedNode {
   level: number;
   /** Cross-reference id this line *defines*, e.g. `@I1@` on a record line. */
   xref?: string;
+  /** The tag, upper-cased: every comparison in the app is made against this. */
   tag: string;
+  /**
+   * The tag as the file wrote it, when that was not upper-case (`_myTag`).
+   * GEDCOM tags are case-insensitive, so `tag` folds them; the serializer
+   * writes this spelling back while it still names the same tag, so an
+   * untouched line saves as it was read.
+   */
+  spelling?: string;
   /** Line value, with CONT/CONC already folded in. May be an xref pointer. */
   value?: string;
   children: GedNode[];

@@ -1,3 +1,4 @@
+import { splitSlashName } from "../name";
 import { childrenByTag } from "../node";
 import type { GedNode, Individual, Sex } from "../types";
 import { getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, NAME_CHILD_ORDER, removeChild, setOrRemoveValue } from "./shared";
@@ -31,8 +32,8 @@ export function writeNameValue(node: GedNode, given: string, surname: string): v
   // back with surname "Ivan "). Replace it with a space to keep the name legible.
   const g = given.replace(/\s*\/\s*/g, " ").trim();
   const s = surname.replace(/\s*\/\s*/g, " ").trim();
-  const slash = (node.value ?? "").match(/^(.*?)\/[^/]*\/(.*)$/);
-  const suffix = slash && slash[1].trim() ? slash[2].trim() : "";
+  const slash = splitSlashName(node.value ?? "");
+  const suffix = slash && slash.before.trim() ? slash.after.trim() : "";
   const base = s ? `${g} /${s}/`.trim() : g;
   node.value = [base, suffix].filter(Boolean).join(" ");
   syncNamePart(node, "GIVN", g);

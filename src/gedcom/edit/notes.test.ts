@@ -289,6 +289,17 @@ describe("GEDCOM 7 SNOTE shared notes", () => {
     expect(out).not.toContain("@N2@"); // its only reference is gone
     expect(countNoteRefs(ds.records, "@N1@")).toBe(2);
   });
+
+  it("a new note in a file of SNOTE records is written as an SNOTE record and pointer", () => {
+    const ds = buildFromText(V7);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, [...indi.noteRefs!, { text: "A new remark" }]);
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("0 @N3@ SNOTE A new remark");
+    expect(out).toContain("1 SNOTE @N1@\n1 SNOTE @N3@");
+    expect(out).not.toMatch(/^\d NOTE /m);
+  });
 });
 
 describe("private notes", () => {

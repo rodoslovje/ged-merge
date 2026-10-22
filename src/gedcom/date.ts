@@ -151,9 +151,14 @@ const RE_MON_YEAR = new RegExp(`^(${MON})\\.?\\s+(\\d{2,4})(?:/\\d{1,4})?$`);
 export function parseDate(raw: string, order?: DateOrder): GedDate {
   const trimmed = raw.trim();
 
-  // A whole date wrapped in parentheses, e.g. "(ABT 1810)", "(okt 7 2019)".
+  // A whole date wrapped in parentheses, e.g. "(ABT 1810)", "(okt 7 2019)". In
+  // GEDCOM that is a date phrase, free text: what it reads as is our reading,
+  // so a date in it is never exact — it is interpreted, like `INT … (…)`.
   const wrapped = trimmed.match(/^\((.+)\)$/);
-  if (wrapped) return { ...parseDate(wrapped[1], order), raw };
+  if (wrapped) {
+    const inner = parseDate(wrapped[1], order);
+    return { ...inner, raw, qualifier: inner.qualifier === "exact" ? "interpreted" : inner.qualifier };
+  }
 
   const upper = trimmed.toUpperCase();
 

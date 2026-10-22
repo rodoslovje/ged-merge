@@ -41,6 +41,20 @@ export type UndoEntry =
 
 const MAX_STACK = 100;
 
+/** A history stack without the entries that reference the incoming file
+ *  (merge decisions, import branches). A merge entry that also changed the
+ *  main file (`materializeAdds`' people) keeps that change as an edit entry:
+ *  the added records stay in the main file, and the edit entries around it
+ *  snapshot records it touched — dropped, undo would step over its change and
+ *  restore a state that never existed. */
+export function withoutMergeEntries(stack: UndoEntry[]): UndoEntry[] {
+  const out: UndoEntry[] = [];
+  for (const e of stack) {
+    if (e.mode === "edit" || e.mode === "rejectDup") out.push(e);
+    else if (e.mode === "merge" && e.patches?.length) out.push({ mode: "edit", patches: e.patches, stay: true });
+  }
+  return out;
+}
 
 export function useUndoRedo() {
   const undoStack = useRef<UndoEntry[]>([]);
@@ -115,9 +129,8 @@ export function useUndoRedo() {
    *  branches) — called when the compare is replaced or unloaded. Edit and
    *  duplicate-rejection entries only touch main data and stay valid. */
   const dropMergeEntries = useCallback(() => {
-    const keep = (e: UndoEntry) => e.mode === "edit" || e.mode === "rejectDup";
-    undoStack.current = undoStack.current.filter(keep);
-    redoStack.current = redoStack.current.filter(keep);
+    undoStack.current = withoutMergeEntries(undoStack.current);
+    redoStack.current = withoutMergeEntries(redoStack.current);
     setCanUndo(undoStack.current.length > 0);
     setCanRedo(redoStack.current.length > 0);
   }, []);

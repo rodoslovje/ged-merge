@@ -123,7 +123,7 @@ describe("extractBranch", () => {
   });
 
   it("ignores unknown ids and leaves vendor subtrees untouched", () => {
-    const withVendor = BASE.replace("1 ASSO @I9@", "1 ASSO @I9@\n1 _VENDOR @I9@\n2 _KIND friend");
+    const withVendor = BASE.replace("1 ASSO @I9@", "1 ASSO @I9@\n1 _VENDOR @N1@\n2 _KIND friend");
     const ds = buildFromText(withVendor);
     const out = extractBranch(ds, ["@I1@", "@NOPE@"]);
     expect(out.individuals).toBe(1);
@@ -132,9 +132,32 @@ describe("extractBranch", () => {
     // pointer verbatim (the validator skips vendor subtrees too).
     expect(i1.children.some((c) => c.tag === "ASSO")).toBe(false);
     const vendor = i1.children.find((c) => c.tag === "_VENDOR")!;
-    expect(vendor.value).toBe("@I9@");
+    expect(vendor.value).toBe("@N1@");
     expect(vendor.children).toHaveLength(1);
     expect(findDanglingXrefs(out.records)).toEqual([]);
+  });
+
+  it("carries nothing reachable only through a person left out of the branch", () => {
+    // @I1@'s ASSO and _ASSO name @I9@, who stays behind; the source and note
+    // cited beneath them are about that association, so they stay behind too.
+    const text = BASE.replace(
+      "1 ASSO @I9@",
+      "1 ASSO @I9@\n2 RELA Godfather\n2 SOUR @S9@\n1 _ASSO @I9@\n2 NOTE @N9@",
+    ).replace("0 TRLR", "0 @S9@ SOUR\n1 TITL Baptisms\n0 @N9@ NOTE About Tone\n0 TRLR");
+    const out = extractBranch(buildFromText(text), ["@I1@", "@I2@", "@I3@"]);
+    expect(xrefs(out.records)).not.toContain("@S9@");
+    expect(xrefs(out.records)).not.toContain("@N9@");
+    const i1 = out.records.find((r) => r.xref === "@I1@")!;
+    expect(i1.children.some((c) => c.tag === "ASSO" || c.tag === "_ASSO")).toBe(false);
+    // No pointer at any depth, vendor subtrees included, names a missing record.
+    const defined = new Set(xrefs(out.records));
+    const pointers: string[] = [];
+    const walk = (n: GedNode) => {
+      if (n.value && /^@[^@#][^@]*@$/.test(n.value.trim())) pointers.push(n.value.trim());
+      n.children.forEach(walk);
+    };
+    out.records.forEach(walk);
+    expect(pointers.filter((p) => !defined.has(p))).toEqual([]);
   });
 
   it("does not touch the source dataset", () => {

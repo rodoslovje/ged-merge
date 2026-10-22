@@ -15,6 +15,7 @@ export const EXT_TO_MIME: Record<string, string> = {
   webp: "image/webp",
   tif: "image/tiff",
   tiff: "image/tiff",
+  djvu: "image/vnd.djvu",
   pdf: "application/pdf",
   wav: "audio/wav",
   mp3: "audio/mpeg",

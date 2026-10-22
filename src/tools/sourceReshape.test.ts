@@ -2177,6 +2177,23 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 FILN URN:NBN:SI:DOC-2CEAMMVU");
   });
 
+  it("keeps an inline media block's own title, note and form on the record made from it", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE
+2 FILE https://www.dlib.si/stream/URN:NBN:SI:DOC-2CEAMMVU/51a3aa79-0f72-45c6-8746-f6ed95898f33/PDF
+3 FORM pdf
+2 TITL Osmrtnica v Slovencu
+2 NOTE Stran 3, spodaj levo
+0 TRLR`);
+    const media = text.slice(text.indexOf(" OBJE\n1 FILE"));
+    expect(media).toContain("2 FORM pdf");
+    expect(media).toContain("1 TITL Osmrtnica v Slovencu");
+    expect(media).toContain("1 NOTE Stran 3, spodaj levo");
+    expect(text).not.toMatch(/\n1 OBJE\n2 FILE/); // the inline block itself is gone
+  });
+
   it("treats SIstory.si WW records as death evidence with the quoted person name", () => {
     const { text, report } = applyAll(`0 HEAD
 1 CHAR UTF-8

@@ -3,8 +3,10 @@ import { birthSortKey } from "../lifespan";
 import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
-import { rebuildFamily, rebuildIndividual } from "./cache";
+import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { repointAssociations } from "../assoc";
+import { isPointer } from "../uri";
+import { clearObjeNodeCache } from "../source";
 
 /** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
 function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
@@ -411,9 +413,11 @@ export function detachChildFromFamily(dataset: Dataset, fam: Family, childId: st
  * too (see `pruneDegenerateFamily`), so deleting people out of a family doesn't
  * leave a lone-member or empty `FAM` record behind.
  *
- * Associations naming this person go with them: a godparent the file no longer
- * holds cannot stay pointed at from the baptism, or every delete would leave
- * the health check a dangling reference to report. */
+ * Every other line naming this person goes with them — an association, an
+ * `ALIA`, `ANCI`/`DESI`, a vendor pointer, at any depth: a godparent the file no
+ * longer holds cannot stay pointed at from the baptism, or every delete would
+ * leave the health check a dangling reference to report. Callers snapshot the
+ * holders with `recordsNaming`. */
 export function removeIndividual(dataset: Dataset, indi: Individual): void {
   // The person's own FAMS/FAMC lines name their families — but a file can be
   // one-sided (a `CHIL` with no `FAMC` back-link, a `HUSB` without `FAMS`), and
@@ -443,6 +447,53 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
     const fam = dataset.families.get(famId);
     if (fam) pruneDegenerateFamily(dataset, fam);
   }
+}
+
+/** Shared records a deleted person can leave behind with nobody pointing at
+ *  them. `SOUR` is among them as citation removal already treats it (see
+ *  `pruneUnreferencedSource`); a `REPO` is an archive and always stays. */
+const LEFT_BEHIND_TAGS = new Set(["NOTE", "SNOTE", "OBJE", "SOUR"]);
+
+/** Every pointer value held at any depth below `node`. */
+export function pointersHeld(node: GedNode, into = new Set<string>()): Set<string> {
+  for (const child of node.children) {
+    const v = child.value?.trim();
+    if (v && isPointer(v)) into.add(v);
+    pointersHeld(child, into);
+  }
+  return into;
+}
+
+/**
+ * Delete the shared NOTE/SNOTE/OBJE/SOUR records among `candidates` (the
+ * pointers a just-deleted person held) that nothing points at any more, and in
+ * turn those only a deleted record pointed at — a note's photo, a source's page
+ * image. A record's pointer to itself doesn't keep it. Returns the removed
+ * records in removal order, for the caller's undo patches.
+ */
+export function pruneRecordsLeftBehind(dataset: Dataset, candidates: Iterable<string>): GedNode[] {
+  const records = dataset.records;
+  const removed: GedNode[] = [];
+  let pending = new Set(candidates);
+  while (pending.size) {
+    const referenced = new Set<string>();
+    for (const rec of records) for (const v of pointersHeld(rec)) if (v !== rec.xref && pending.has(v)) referenced.add(v);
+    const next = new Set<string>();
+    for (const xref of pending) {
+      if (referenced.has(xref)) continue;
+      const i = records.findIndex((r) => r.xref === xref && LEFT_BEHIND_TAGS.has(r.tag));
+      if (i === -1) continue;
+      const [rec] = records.splice(i, 1);
+      removed.push(rec);
+      pointersHeld(rec, next);
+    }
+    pending = next;
+  }
+  if (removed.length) {
+    bumpSourceCacheVersion(records);
+    clearObjeNodeCache(records);
+  }
+  return removed;
 }
 
 /** Families whose HUSB/WIFE/CHIL lines name `indiId`, whether or not the
@@ -568,6 +619,45 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     if (moved) rebuildIndividual(dataset, indi);
   }
 
+  // Every other line naming the dropped family — an `ASSO @F2@`, an adoption's
+  // `FAMC` under its event, a vendor `_` pointer — names the kept one now, the
+  // two records being one family. A line left pointing at its own record (the
+  // kept family's association with its twin) goes.
+  const repoint = (record: GedNode, node: GedNode, depth: number): boolean => {
+    let changed = false;
+    const kept: GedNode[] = [];
+    for (const child of node.children) {
+      const memberLine = record.tag === "INDI" && depth === 0 && (child.tag === "FAMC" || child.tag === "FAMS");
+      if (!memberLine && child.value?.trim() === dropId) {
+        changed = true;
+        if (record.xref === keepId) continue;
+        child.value = keepId;
+      }
+      changed = repoint(record, child, depth + 1) || changed;
+      kept.push(child);
+    }
+    if (changed) node.children = kept;
+    return changed;
+  };
+  for (const record of dataset.records) {
+    if ((record.tag !== "INDI" && record.tag !== "FAM") || record.xref === dropId || !repoint(record, record, 0)) continue;
+    const indi = dataset.individuals.get(record.xref!);
+    const fam = dataset.families.get(record.xref!);
+    if (indi) rebuildIndividual(dataset, indi);
+    else if (fam && fam !== keep) rebuildFamily(dataset, fam);
+  }
+
   rebuildFamily(dataset, keep);
   removeFamily(dataset, drop); // unlinks every member's FAMS/FAMC to the dropped record
+}
+
+/** The people and families holding a line that names one of `famIds`, at any
+ *  depth — every record a {@link foldFamily} of those families can rewrite
+ *  beyond the families' own members, for a caller's undo snapshot. */
+export function familyPointerHolders(records: GedNode[], famIds: ReadonlySet<string>): string[] {
+  const names = (node: GedNode): boolean =>
+    node.children.some((c) => (c.value !== undefined && famIds.has(c.value.trim())) || names(c));
+  return records
+    .filter((r) => (r.tag === "INDI" || r.tag === "FAM") && r.xref && names(r))
+    .map((r) => r.xref!);
 }

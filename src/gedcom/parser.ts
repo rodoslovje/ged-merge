@@ -74,6 +74,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     const level = Number(m[1]);
     const xref = m[2];
     const tag = m[3].toUpperCase();
+    const spelling = m[3] !== tag ? m[3] : undefined;
     let value = m[4];
     // GEDCOM doubles a leading at-sign (`@@`) so a value can start with a
     // literal `@` without reading as a pointer. Fold it back to a single `@`;
@@ -133,6 +134,7 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
     const node: GedNode = { level, tag, children: [] };
     if (xref) node.xref = xref;
     if (value !== undefined) node.value = value;
+    if (spelling) node.spelling = spelling;
 
     if (level === 0) {
       roots.push(node);
@@ -190,7 +192,8 @@ function detectVersion(roots: GedNode[], warnings: ParseWarning[]): GedcomVersio
   const head = roots.find((r) => r.tag === "HEAD");
   const gedc = head?.children.find((c) => c.tag === "GEDC");
   const vers = gedc?.children.find((c) => c.tag === "VERS")?.value?.trim();
-  if (vers === "5.5.1" || vers === "5.5") return "5.5.1";
+  // 5.5.5 is a stricter revision of 5.5.1, so it reads as the same family.
+  if (vers === "5.5.1" || vers === "5.5" || vers === "5.5.5") return "5.5.1";
   if (vers === "7.0" || vers?.startsWith("7.")) return "7.0";
   warnings.push({
     kind: "version",

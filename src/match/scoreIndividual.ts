@@ -150,7 +150,8 @@ export function scoreIndividualPair(
   // under a cross-language variant (Jurij/Georg 0.47) is routine in bilingual
   // parish records, and mothers agreeing on a ubiquitous given name (Marija)
   // are too weak a confirmation to matter either way.
-  if (bothParentsConflict(main, compare, mainDs, compareDs)) {
+  const parentsConflict = bothParentsConflict(main, compare, mainDs, compareDs);
+  if (parentsConflict) {
     score01 *= PARENT_CONFLICT_PENALTY;
   }
 
@@ -188,11 +189,27 @@ export function scoreIndividualPair(
   // all three are present and an exact match the pair is the same person and
   // scores a flat 100. Conversely 100 is reserved for that case, so secondary
   // fields can never round an imperfect-key pair up to it.
-  const keyPerfect = KEY_FIELDS.every((k) => {
+  //
+  // Conclusive only while nothing on record contradicts it: an opposite sex or
+  // two different sets of parents describe two people who happen to share a
+  // name and a birthday, and such a pair keeps the score its evidence
+  // (penalties included) gives it. A disagreeing death date is deliberately
+  // not a contradiction here: beside a day-exact birth it is far more often a
+  // wrong date on one record than a second person (the death component already
+  // weighs it), and the benchmark's duplicates of exactly that shape would
+  // otherwise drop out of review altogether.
+  const sexConflict = sexConflicts(main, compare);
+  const keyExact = KEY_FIELDS.every((k) => {
     const c = components.find((x) => x.key === k);
     return c !== undefined && !c.missing && c.score === 1;
   });
+  const keyPerfect = keyExact && !sexConflict && !parentsConflict;
   if (keyPerfect) score01 = 1;
+  // Parents wrong on one record are a routine copying error, so an exact key
+  // whose only contradiction is its parents stays in review as probable rather
+  // than dropping out of the list: the user decides, the score just stops
+  // claiming certainty.
+  else if (keyExact && !sexConflict) score01 = Math.max(score01, config.probableThreshold);
 
   let score = Math.round(score01 * 1000) / 10;
   if (!keyPerfect && score >= 100) score = 99.9;

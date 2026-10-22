@@ -35,6 +35,7 @@ import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
 import { linkKey } from "../../normalize/links";
+import { eventRowUpdate } from "./eventRowUpdate";
 
 /** Sentinel `<option>` values for the action entries at the end of the
  * event-type dropdown (distinct from any real tag). */
@@ -712,20 +713,10 @@ export function EventFieldsRow({
   );
 
   /**
-   * Commit all of this row's current field values together, not just the one
-   * that changed. When the row is still an unapplied merge suggestion (`ev`
-   * undefined), every field's *displayed* text is its incoming-merge value
-   * even though none of it has been written to the record yet — committing
-   * only the touched field would silently drop the other still-shown values
-   * the moment the event node first comes into existence.
-   *
-   * Every field's blur (and the place/addr autocomplete's blur-commit) routes
-   * through here unconditionally, including a field the user never touched —
-   * e.g. tabbing out of a freshly-added event's empty date field to type into
-   * its value field instead. If nothing in the row actually differs from what
-   * it mounted with, skip the commit: for a still-empty new event, committing
-   * here would `applyEventNodeUpdate`-prune it as empty before the user gets a
-   * chance to fill in the field they clicked into.
+   * Commit this row's fields together, not just the one that changed — see
+   * {@link eventRowUpdate} for which ones are sent. Every field's blur (and
+   * the place/addr autocomplete's blur-commit) routes through here
+   * unconditionally, including a field the user never touched.
    */
   function commitAll(override: Partial<EventFieldUpdate>) {
     // A date the user typed is written in the file's style ("~1850" → "ABT
@@ -737,54 +728,16 @@ export function EventFieldsRow({
       date = entryDate(date, style.profile, style.order);
       if (date !== dateField.value) dateField.set(date);
     }
-    const merged: EventFieldUpdate = {
-      date,
-      value: flagOnly && !valueField.value.trim() ? ev?.value : valueField.value,
-      place: placeField.value,
-      address: addrField.value,
-      note: noteField.value,
-      agency: agencyField.value,
-      type: typeField.value,
-      cause: causeField.value,
-      ...override,
-    };
-    // An untouched note is omitted rather than re-sent: its displayed text is a
-    // stripped projection (URLs pulled into links; shared-note text resolved
-    // from the record), so rewriting it as collateral of another field's commit
-    // would flatten a shared-note pointer / drop the note's URLs. A still-shown
-    // merge-incoming value is not "untouched" — it must materialize like the
-    // other suggested fields (see the docstring above).
-    if (override.note === undefined && !noteField.isMerge && noteField.value === noteField.initial) {
-      delete merged.note;
-    }
-    // An untouched place is omitted for the same reason: re-sending it runs
-    // reconcilePlaceForm, which deletes a PLAC.FORM whose labels don't match
-    // the place's comma count — raw-layer loss as collateral of, say, a
-    // date-only edit. A merge-incoming place still materializes.
-    if (override.place === undefined && !placeField.isMerge && placeField.value === placeField.initial) {
-      delete merged.place;
-    }
-    // Fields with no text input behind them have no `initial` to compare against,
-    // so an override carrying one is a change by definition. Without this, picking
-    // a coordinate while every text field stays as it was reads as "unchanged" and
-    // is silently dropped.
-    const nonTextChange = override.coord !== undefined || override.links !== undefined || override.addSource !== undefined
-      // The note list is its own control with its own state, so like a picked
-      // coordinate it has no `initial` here to be compared against: the list
-      // only ever commits because something in it moved.
-      || override.noteRefs !== undefined;
-    const unchanged =
-      !nonTextChange &&
-      (merged.date ?? "") === dateField.initial &&
-      (flagOnly && merged.value === ev?.value || (merged.value ?? "") === valueField.initial) &&
-      (merged.place === undefined || merged.place === placeField.initial) &&
-      (merged.address ?? "") === addrField.initial &&
-      (merged.note === undefined || merged.note === noteField.initial) &&
-      (merged.agency ?? "") === agencyField.initial &&
-      (merged.type ?? "") === typeField.initial &&
-      (merged.cause ?? "") === causeField.initial;
-    if (unchanged) return;
-    commitField(merged);
+    const update = eventRowUpdate(
+      {
+        date: { ...dateField, value: date }, value: valueField, place: placeField, address: addrField,
+        note: noteField, agency: agencyField, type: typeField, cause: causeField,
+      },
+      override,
+      flagOnly,
+      ev?.value,
+    );
+    if (update) commitField(update);
   }
 
   /**

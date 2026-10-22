@@ -32,6 +32,15 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
     return { text: decodeUtf16(bytes.subarray(2), false), charset: "UNICODE", warnings };
   }
 
+  // UTF-16 without a BOM: the header's "0 " is NUL-interleaved, and no 8-bit
+  // GEDCOM starts with a NUL byte.
+  if (bytes.length >= 4 && bytes[1] === 0 && bytes[3] === 0 && bytes[0] === 0x30 && bytes[2] === 0x20) {
+    return { text: decodeUtf16(bytes, true), charset: "UNICODE", warnings };
+  }
+  if (bytes.length >= 4 && bytes[0] === 0 && bytes[2] === 0 && bytes[1] === 0x30 && bytes[3] === 0x20) {
+    return { text: decodeUtf16(bytes, false), charset: "UNICODE", warnings };
+  }
+
   // 2. Read the declared charset from the header (ASCII-safe peek).
   const declared = sniffDeclaredCharset(bytes);
 
@@ -54,6 +63,14 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
     case "WINDOWS-1252":
       if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "WINDOWS-1252");
       return { text: decodeWindows1252(bytes), charset: "WINDOWS-1252", warnings };
+    case "ISO-8859-1":
+    case "ISO-8859-2":
+    case "ISO-8859-15":
+    case "MACINTOSH":
+    case "IBM437":
+    case "IBM850":
+      if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, declared);
+      return { text: decodeCodePage(bytes, declared), charset: declared, warnings };
     case "ANSI":
       if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "ANSI");
       // "ANSI" is locale-dependent: it usually means Windows-1252 (Western), but
@@ -193,12 +210,12 @@ function utf8LeadLen(b: number): number {
   return 1;
 }
 
-/** Matches `(\r\n|\n)<digits> (CONC|CONT) ` at `pos`; returns its byte length, or undefined. */
+/** Matches `(\r\n|\n|\r)<digits> (CONC|CONT) ` at `pos`; returns its byte length, or undefined. */
 function matchConcOrContBreak(bytes: Uint8Array, pos: number): number | undefined {
   let i = pos;
   const n = bytes.length;
   if (bytes[i] === 0x0d && bytes[i + 1] === 0x0a) i += 2;
-  else if (bytes[i] === 0x0a) i += 1;
+  else if (bytes[i] === 0x0a || bytes[i] === 0x0d) i += 1;
   else return undefined;
   const digitsStart = i;
   while (i < n && bytes[i] >= 0x30 && bytes[i] <= 0x39) i++;
@@ -376,7 +393,8 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
   const head = bytes.subarray(0, Math.min(bytes.length, 2048));
   let ascii = "";
   for (const b of head) ascii += String.fromCharCode(b);
-  const m = ascii.match(/\n\s*1\s+CHAR\s+([\w-]+)/i);
+  // `[\r\n]`: a classic-Mac export ends its lines with a bare CR.
+  const m = ascii.match(/[\r\n]\s*1\s+CHAR\s+([\w-]+)/i);
   if (!m) return undefined;
   const v = m[1].toUpperCase();
   if (v === "UTF-8" || v === "UTF8") return "UTF-8";
@@ -386,7 +404,48 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
   if (v === "WINDOWS-1250" || v === "CP1250") return "WINDOWS-1250";
   if (v === "WINDOWS-1252" || v === "CP1252") return "WINDOWS-1252";
   if (v === "ANSI") return "ANSI";
-  return undefined;
+  return OTHER_CHARSETS[v.replace(/[-_]/g, "")];
+}
+
+/** Further CHAR values seen in the wild, keyed with `-`/`_` removed. */
+const OTHER_CHARSETS: Record<string, GedcomCharset> = {
+  ISO88591: "ISO-8859-1",
+  LATIN1: "ISO-8859-1",
+  ISO88592: "ISO-8859-2",
+  LATIN2: "ISO-8859-2",
+  ISO885915: "ISO-8859-15",
+  LATIN9: "ISO-8859-15",
+  MACINTOSH: "MACINTOSH",
+  MACROMAN: "MACINTOSH",
+  MAC: "MACINTOSH",
+  IBMPC: "IBM437",
+  IBM437: "IBM437",
+  CP437: "IBM437",
+  IBMDOS: "IBM437",
+  IBM850: "IBM850",
+  CP850: "IBM850",
+};
+
+/**
+ * The DOS code pages' upper halves (0x80–0xFF), which `TextDecoder` does not
+ * know; GEDCOM 5.5 itself names IBMPC, the DOS exporters' code page.
+ */
+const DOS_CODE_PAGES: Partial<Record<GedcomCharset, string>> = {
+  IBM437:
+    "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐" +
+    "└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■\u00a0",
+  IBM850:
+    "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐" +
+    "└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´\u00ad±‗¾¶§÷¸°¨·¹³²■\u00a0",
+};
+
+/** Decode a single-byte code page: a DOS table of ours, else `TextDecoder`'s. */
+function decodeCodePage(bytes: Uint8Array, charset: GedcomCharset): string {
+  const table = DOS_CODE_PAGES[charset];
+  if (!table) return new TextDecoder(charset.toLowerCase()).decode(bytes);
+  let out = "";
+  for (const b of bytes) out += b < 0x80 ? String.fromCharCode(b) : table[b - 0x80];
+  return out;
 }
 
 function decodeUtf8(bytes: Uint8Array): string {
@@ -484,8 +543,7 @@ function decodeUtf16(bytes: Uint8Array, littleEndian: boolean): string {
  * is ASCII. 0xA0-0xCF are spacing special characters; 0xE0-0xFE are *combining*
  * diacritics that precede the base letter (the reverse of Unicode order).
  *
- * This covers the common Latin diacritics; unmapped bytes are passed through and
- * a single warning is raised. A full ANSEL table can be slotted in later.
+ * Unmapped bytes are replaced with � and a single warning is raised.
  */
 function decodeAnsel(bytes: Uint8Array, warnings: ParseWarning[]): string {
   let out = "";
@@ -560,11 +618,17 @@ const ANSEL_COMBINING: Record<number, string> = {
   0xf8: "̮", // breve below
   0xf9: "͠", // double tilde left half
   0xfa: "͢", // double inverted breve
+  0xfc: "\u0338", // slash through the letter (GEDCOM)
   0xfe: "̓", // comma above
 };
 
-/** ANSEL spacing special characters (0xA0-0xCF). */
+/**
+ * ANSEL spacing special characters (0xA0-0xCF), with GEDCOM 5.5.1 Appendix D's
+ * additions and the MARC-8 ones files written by library software carry.
+ */
 const ANSEL_SPECIAL: Record<number, string> = {
+  0x8d: "\u200d", // zero-width joiner (MARC-8)
+  0x8e: "\u200c", // zero-width non-joiner (MARC-8)
   0xa1: "Ł", // Ł
   0xa2: "Ø", // Ø
   0xa3: "Đ", // Đ
@@ -586,11 +650,14 @@ const ANSEL_SPECIAL: Record<number, string> = {
   0xb4: "þ", // þ
   0xb5: "æ", // æ
   0xb6: "œ", // œ
+  0xb7: "ʺ", // modifier double prime (hard sign)
   0xb8: "ı", // ı dotless i
   0xb9: "£", // £
   0xba: "ð", // ð
   0xbc: "ơ", // ơ
   0xbd: "ư", // ư
+  0xbe: "□", // empty box (GEDCOM)
+  0xbf: "■", // black box (GEDCOM)
   0xc0: "°", // °
   0xc1: "ℓ", // ℓ
   0xc2: "℗", // ℗
@@ -598,4 +665,9 @@ const ANSEL_SPECIAL: Record<number, string> = {
   0xc4: "♯", // music sharp
   0xc5: "¿", // ¿
   0xc6: "¡", // ¡
+  0xc7: "ß", // ß (MARC-8)
+  0xc8: "€", // € (MARC-8)
+  0xcd: "e", // midline e (GEDCOM)
+  0xce: "o", // midline o (GEDCOM)
+  0xcf: "ß", // ß (GEDCOM)
 };

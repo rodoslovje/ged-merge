@@ -327,35 +327,44 @@ export function remapMergedAssociations(
   return dropped;
 }
 
-/**
- * The records naming any of `targetIds` in an association — the set a caller
- * must snapshot before repointing, since an association can be carried by any
- * record in the file, not just by the people involved.
- */
-export function recordsNaming(records: GedNode[], targetIds: ReadonlySet<string>): string[] {
-  const named = new Set<string>();
-  const scan = (owner: string, node: GedNode) => {
-    for (const child of node.children) {
-      if ((child.tag === "ASSO" || child.tag === "_ASSO") && child.value && targetIds.has(child.value.trim())) {
-        named.add(owner);
-      }
-    }
-  };
-  for (const record of records) {
-    if ((record.tag !== "INDI" && record.tag !== "FAM") || !record.xref) continue;
-    scan(record.xref, record);
-    for (const child of record.children) scan(record.xref, child);
-  }
-  return [...named];
+/** A family's own member lines — re-pointed (or dropped) by the relationship
+ *  code (`removeIndividual`, the duplicate merge's spouse/child steps), never
+ *  by the generic pointer pass below. */
+function isMemberLine(record: GedNode, line: GedNode, depth: number): boolean {
+  return record.tag === "FAM" && depth === 1 && (line.tag === "HUSB" || line.tag === "WIFE" || line.tag === "CHIL");
 }
 
 /**
- * Repoint or drop every association naming `fromId`, wherever it sits.
+ * The INDI/FAM records (besides the targets' own) holding a pointer to any of
+ * `targetIds` at any depth — an `ASSO`, an `ALIA`, `ANCI`/`DESI`, a vendor `_`
+ * pointer — family member lines aside. It is the set a caller must snapshot
+ * before {@link repointAssociations}, since such a line can be carried by any
+ * record in the file, not just by the people involved.
+ */
+export function recordsNaming(records: GedNode[], targetIds: ReadonlySet<string>): string[] {
+  const out: string[] = [];
+  const names = (record: GedNode, node: GedNode, depth: number): boolean =>
+    node.children.some((c) => {
+      const v = c.value?.trim();
+      return (!!v && targetIds.has(v) && !isMemberLine(record, c, depth + 1)) || names(record, c, depth + 1);
+    });
+  for (const r of records) {
+    if ((r.tag === "INDI" || r.tag === "FAM") && r.xref && !targetIds.has(r.xref) && names(r, r, 0)) out.push(r.xref);
+  }
+  return out;
+}
+
+/**
+ * Repoint or drop every line naming `fromId` — `ASSO`, `ALIA`, a vendor `_`
+ * pointer, at any depth of any other person or family; family member lines
+ * are the relationship code's.
  *
  * `toId` repoints (a duplicate merged into its survivor keeps being the child's
- * godparent); omitting it drops the whole `ASSO` subtree (the person is gone,
- * and a pointer to nothing is exactly the dangling reference the health check
- * would report afterwards).
+ * godparent); a line that would then point at its own record (an `ALIA`
+ * between the two duplicates) is dropped, as are those the survivor carried
+ * over from the absorbed record. Omitting `toId` drops each such line with its
+ * subtree (the person is gone, and a pointer to nothing is exactly the
+ * dangling reference the health check would report afterwards).
  *
  * Returns the ids of the records it changed, so callers can rebuild and patch
  * precisely those.
@@ -366,30 +375,29 @@ export function repointAssociations(
   toId?: string,
 ): string[] {
   const touched: string[] = [];
-
-  const inNode = (node: GedNode): boolean => {
+  const inNode = (record: GedNode, node: GedNode, depth: number): boolean => {
     let changed = false;
     const kept: GedNode[] = [];
     for (const child of node.children) {
-      if ((child.tag === "ASSO" || child.tag === "_ASSO") && child.value?.trim() === fromId) {
+      const repointed = child.value?.trim() === fromId && !isMemberLine(record, child, depth + 1);
+      if (repointed) {
         changed = true;
-        if (toId) {
-          child.value = toId;
-          kept.push(child);
-        }
-        continue; // dropped when there is nothing to point at
+        if (!toId) continue; // dropped when there is nothing to point at
+        child.value = toId;
       }
+      if (toId && (repointed || record.xref === toId) && child.value?.trim() === record.xref) {
+        changed = true;
+        continue;
+      }
+      changed = inNode(record, child, depth + 1) || changed;
       kept.push(child);
     }
     if (changed) node.children = kept;
     return changed;
   };
-
   for (const record of records) {
-    if (record.tag !== "INDI" && record.tag !== "FAM") continue;
-    let changed = inNode(record);
-    for (const child of record.children) changed = inNode(child) || changed;
-    if (changed && record.xref) touched.push(record.xref);
+    if ((record.tag !== "INDI" && record.tag !== "FAM") || !record.xref || record.xref === fromId) continue;
+    if (inNode(record, record, 0)) touched.push(record.xref);
   }
   return touched;
 }

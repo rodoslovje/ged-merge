@@ -10,6 +10,9 @@ import { placeNodeCoord } from "./place";
 import { isPrivateNode } from "./private";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
+import { EDITABLE_LINK_TAGS } from "./edit/shared";
+import { formatCoord } from "../geo/points";
+import { NOTE_TAGS } from "./builder";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -18,13 +21,15 @@ const INDIVIDUAL_EVENT_TAGS = new Set(INDI_EVENT_TAG_ORDER);
 
 const FAMILY_EVENT_TAGS = new Set(EDITABLE_FAM_EVENT_TAGS);
 
-const RECORD_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_WEBTAG"]);
+/** Record-level links: exactly the tags Edit shows and rewrites as links, so
+ *  a removed `_LINK` cannot vanish from the preview. */
+const RECORD_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS);
 
 /** Record children handled by their own dedicated diff passes (names, notes,
  *  links, citations, media, memberships, audit stamps) — never diffed as
  *  events, whatever their substructure. */
 const NON_EVENT_TAGS = new Set([
-  "NAME", "SEX", "NOTE", "SOUR", "OBJE", "FAMS", "FAMC", "HUSB", "WIFE", "CHIL",
+  "NAME", "SEX", ...NOTE_TAGS, "SOUR", "OBJE", "FAMS", "FAMC", "HUSB", "WIFE", "CHIL",
   "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI",
   ...RECORD_LINK_TAGS,
 ]);
@@ -162,13 +167,14 @@ const PLACE_FIELD_KEYS: EventFieldKey[] = ["place", "coord", "addr"];
  *  two unrelated events into one "modified" row. */
 const OVERLAP_KEYS = EVENT_FIELD_KEYS.filter((k) => k !== "coord");
 
-/** The place's MAP coordinate as a display string ("46.0511, 14.5051"), so a
+/** The place's MAP coordinate as a display string ("46.05110, 14.50510" —
+ *  the shared 5-decimal spelling, so a move of a few metres shows), so a
  *  geocode write-back (MAP LATI/LONG added under an existing PLAC) shows in
  *  the diff instead of silently disappearing. */
 function placeCoord(node: GedNode): string {
   const plac = firstChild(node, "PLAC");
   const coord = plac && placeNodeCoord(plac);
-  return coord ? `${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : "";
+  return coord ? formatCoord(coord) : "";
 }
 
 /**
@@ -179,7 +185,7 @@ function placeCoord(node: GedNode): string {
  */
 function makeNotePrivacyResolver(records: GedNode[]): (node: GedNode) => boolean {
   const privateShared = new Set(
-    records.filter((r) => r.tag === "NOTE" && r.xref && isPrivateNode(r)).map((r) => r.xref!),
+    records.filter((r) => NOTE_TAGS.includes(r.tag) && r.xref && isPrivateNode(r)).map((r) => r.xref!),
   );
   return (node) => {
     const v = node.value?.trim();
@@ -195,7 +201,7 @@ function makeNotePrivacyResolver(records: GedNode[]): (node: GedNode) => boolean
 function makeNoteTextResolver(records: GedNode[]): (value: string) => string {
   const texts = new Map<string, string>();
   for (const r of records) {
-    if (r.tag === "NOTE" && r.xref) texts.set(r.xref, (r.value ?? "").replace(/\s+/g, " ").trim());
+    if (NOTE_TAGS.includes(r.tag) && r.xref) texts.set(r.xref, (r.value ?? "").replace(/\s+/g, " ").trim());
   }
   return (value) => (isPointer(value) ? texts.get(value) || value : value);
 }
@@ -212,7 +218,7 @@ function eventFields(node: GedNode, resolveSource: SourceResolver, nameMedia: Me
   // write, and a preview that showed the citation alone left the reader asking
   // whether the page came with it.
   const media = childrenByTag(node, "OBJE").map(nameMedia).filter(Boolean).join(", ");
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), agency: get("AGNC"), note: get("NOTE"), cause: get("CAUS"), sources, media, private: isPrivateNode(node) || undefined };
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), sources, media, private: isPrivateNode(node) || undefined };
 }
 
 function eventSummary(f: EventFields): string {
@@ -529,7 +535,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
 
   const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
-  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
+  diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
@@ -590,7 +596,7 @@ function diffFamilyNodes(
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
-  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
+  diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
@@ -911,7 +917,7 @@ export function sharedRecordTitle(id: string, node: GedNode): string {
     : node.tag === "REPO" ? firstChild(node, "NAME")?.value
     // A note's text *is* its name — a card headed "NOTE N1" told the reader
     // nothing about the note the save was about to write.
-    : node.tag === "NOTE" ? noteHeading(node.value)
+    : NOTE_TAGS.includes(node.tag) ? noteHeading(node.value)
     : undefined;
   return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
 }

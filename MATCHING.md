@@ -269,7 +269,15 @@ Finally:
 
 - **Perfect key = flat 100.** All three key fields present, real, and exact —
   which for the birth date now means day-precision on both sides. 100 is
-  *reserved* for this; every other pair is capped at 99.9.
+  *reserved* for this; every other pair is capped at 99.9. A perfect key does
+  not override contrary evidence: a sex conflict or both parents conflicting
+  keeps the pair at the score its components and penalties give it (a
+  disagreeing death date does not — beside a day-exact birth it is usually a
+  wrong date on one record). A perfect key whose only contradiction is its
+  parents is floored at the probable threshold, so it stays in review (parents
+  copied wrong onto one record are routine) without claiming certainty; the
+  within-file rule that a same-day birth skips the parent *vetoes* still holds.
+  Benchmark when this landed: cross-file Renko ↔ Renko-Rakar unchanged.
 - **Relative full-name bonus**: +1.5 points each for a father, mother or
   partner whose full name matches exactly (post-placeholder), capped at 99.9.
 

@@ -25,7 +25,6 @@ import {
   addParent,
   addPartner,
   attachInlineMedia,
-  attachMediaPointer,
   attachSourceCitation,
   linkPageMedia,
   bumpSourceCacheVersion,
@@ -34,8 +33,6 @@ import {
   connectExistingPartner,
   copyEventToFamily,
   copyEventToIndividual,
-  createMediaRecord,
-  findSharedMediaByFile,
   removeMediaAt,
   reorderMedia,
   setCropRegion,
@@ -55,8 +52,6 @@ import {
   addAdditionalName,
   ensurePrimaryName,
   rebuildNoteReferrers,
-  removeIndividual,
-  familiesNaming,
   familyMembers,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
@@ -103,7 +98,9 @@ import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { DateEntryProvider } from "./edit/DateEntryContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
-import { recordsNaming } from "../gedcom/assoc";
+import { deletePerson } from "./edit/deletePerson";
+import { attachDroppedMedia } from "./edit/droppedMedia";
+import { sharedMediaMutation } from "./edit/sharedMedia";
 import { NameEditor } from "./edit/NameEditor";
 import { StartPersonChip } from "./edit/StartPersonChip";
 import { SexToggle } from "./edit/SexToggle";
@@ -126,9 +123,8 @@ import { MediaLinkDialog } from "./MediaLinkDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
-import { mediaKindOf } from "./mediaPath";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
-import { eventDisplayLabel } from "../gedcom/eventTags";
+import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 
 
 interface Props {
@@ -227,11 +223,6 @@ interface Props {
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
 const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
-
-/** Events a person has at most one of: adding again focuses the existing row
- *  (Birth's always-present row included) instead of writing a duplicate, and
- *  the "+ Add event" menu stops offering them once present. */
-const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
@@ -599,19 +590,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     noteGenRef.current++;
   }
 
-  const commit: Commit = useStableHandler((mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
-    if (!person) return;
-    const before = cloneRaw(person.raw);
+  /** {@link commit} against a given person — the one on screen, or one an
+   *  asynchronous action (a dropped photo's import) was started on. */
+  const commitTo = useStableHandler((target: Individual, mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
+    const before = cloneRaw(target.raw);
     const notes = noteCtx(dataset.records, privacyStyle);
-    mutate(person, notes);
-    const after = cloneRaw(person.raw);
-    const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: person.id })];
+    mutate(target, notes);
+    const after = cloneRaw(target.raw);
+    const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: target.id })];
     if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
-    rebuildIndividual(dataset, person);
-    onPushEdit([{ type: "individual", id: person.id, before, after }, ...extra], selectedId);
-    onDirty("individual", person.id);
-    afterNoteChanges(notes.changes, person.id);
+    rebuildIndividual(dataset, target);
+    onPushEdit([{ type: "individual", id: target.id, before, after }, ...extra], target === person ? selectedId : target.id);
+    onDirty("individual", target.id);
+    afterNoteChanges(notes.changes, target.id);
     setTick((v) => v + 1);
+  });
+  const commit: Commit = useStableHandler((mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
+    if (person) commitTo(person, mutate, extraPatches);
   });
 
   // Add an event to the selected person and focus its lead input — the "+ Add
@@ -764,13 +759,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   /** Route a raw-record mutation through the owner's commit helper. The note
    *  context comes along for mutations that touch notes (shared ones have to be
-   *  resolved against the whole file); the rest ignore it. */
+   *  resolved against the whole file); the rest ignore it. `indi` names the
+   *  person for an individual owner when it is not the one on screen. */
   function ownerCommit(
     owner: MediaOwner,
     mutate: (raw: GedNode, notes: SharedNoteCtx) => void,
     extraPatches?: RecordPatch[],
+    indi?: Individual,
   ) {
-    if (owner.kind === "individual") commit((indi, notes) => mutate(indi.raw, notes), extraPatches);
+    if (owner.kind === "individual") {
+      if (indi) commitTo(indi, (i, notes) => mutate(i.raw, notes), extraPatches);
+      else commit((i, notes) => mutate(i.raw, notes), extraPatches);
+    }
     else commitFamily(owner.fam, (f, notes) => mutate(f.raw, notes), extraPatches);
   }
 
@@ -794,20 +794,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   /** Attach a photo by folder-relative path, following the main's media mode:
    *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In
    *  shared mode an `existingXref` (or a record with the same file) is reused,
-   *  else a new top-level OBJE is created and captured as a record patch. */
-  function addMediaTo(owner: MediaOwner, file: string, existingXref?: string) {
+   *  else a new top-level OBJE is created and captured as a record patch.
+   *  `indi`: see {@link ownerCommit}. */
+  function addMediaTo(owner: MediaOwner, file: string, existingXref?: string, indi?: Individual) {
     if (mediaMode === "inline") {
-      ownerCommit(owner, (raw) => { attachInlineMedia(raw, file); });
+      ownerCommit(owner, (raw) => { attachInlineMedia(raw, file); }, undefined, indi);
       return;
     }
     const extraPatches: RecordPatch[] = [];
-    let objeXref = existingXref ?? findSharedMediaByFile(dataset.records, file)?.xref;
-    if (!objeXref) {
-      const rec = createMediaRecord(dataset.records, file);
-      objeXref = rec.xref!;
-      extraPatches.push({ type: "record", id: rec.xref!, before: null, after: cloneRaw(rec) });
-    }
-    ownerCommit(owner, (raw) => attachMediaPointer(raw, objeXref!), extraPatches);
+    ownerCommit(owner, sharedMediaMutation(dataset.records, file, existingXref, extraPatches), extraPatches, indi);
   }
 
   /** Edit a photo's metadata (title/date/place/description). An inline OBJE is
@@ -972,24 +967,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   async function resolveDroppedMedia(handlePromises: Promise<FileSystemHandle | null>[], fileCount: number) {
     if (!folderName) { infoDialog(t("media.selectFolderPrompt")); return; }
     if (!canReferenceFiles || handlePromises.length < fileCount) { infoDialog(t("media.importUnsupported")); return; }
-    let anyFailed = false;
-    let added = 0;
-    for (const promise of handlePromises) {
-      const handle = await promise;
-      if (!handle || handle.kind !== "file" || mediaKindOf(handle.name) === null) continue;
-      // Inside the folder → reference it; outside → copy it in first (the
-      // browser asks once per session to allow writing to the folder).
-      let rel = await resolveDroppedHandle(handle);
-      if (!rel) {
-        const file = await (handle as FileSystemFileHandle).getFile().catch(() => null);
-        rel = file && (await importFile(file));
-      }
-      if (rel) { addMediaTo({ kind: "individual" }, rel); added++; }
-      else anyFailed = true;
-    }
-    if (added === 1) openLastMedia({ kind: "individual" });
+    const targetId = person?.id;
+    if (!targetId) return;
+    const { added, anyFailed } = await attachDroppedMedia(targetId, handlePromises, {
+      resolveHandle: resolveDroppedHandle,
+      importFile,
+      exists: (id) => dataset.individuals.has(id),
+      attach: (id, rel) => addMediaTo({ kind: "individual" }, rel, undefined, dataset.individuals.get(id)),
+    });
+    if (added === 1) openDroppedMedia(targetId);
     if (anyFailed) infoDialog(t("media.importFailed"));
   }
+  /** Open a single dropped photo in the viewer — only while its person is
+   *  still the one on screen. */
+  const openDroppedMedia = useStableHandler((targetId: string) => {
+    if (person?.id === targetId) openLastMedia({ kind: "individual" });
+  });
 
   // ── Add Source dialog ────────────────────────────────────────────────────
   // `sourceDialogTarget` says where the confirmed citation should attach:
@@ -1607,28 +1600,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       confirmLabel: t("confirm.delete"),
       action: () => {
         const personId = person.id;
-        // The family side too: a one-sided file can name the person in a
-        // family their own record does not link back to.
-        const affectedFamilyIds = [...new Set([...person.spouseOf, ...person.childOf, ...familiesNaming(dataset, personId)])];
-
-        // Snapshot the person, their families, and all members of those families:
-        // a family pruned for dropping below two members unlinks its survivors too.
-        const memberIds = new Set<string>([personId]);
-        for (const famId of affectedFamilyIds) {
-          const fam = dataset.families.get(famId);
-          if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
-        }
-        // And every record that names the person in an association — the
-        // delete strips those ASSO lines wherever they sit, so undo must be
-        // able to put them back. `snapshotRecords` ignores an id that is not
-        // an individual (or not a family), so each list gets the whole set.
-        const naming = recordsNaming(dataset.records, new Set([personId]));
-        for (const id of naming) memberIds.add(id);
-        const before = snapshotRecords(dataset, memberIds, new Set([...affectedFamilyIds, ...naming]));
-
-        removeIndividual(dataset, person);
-
-        const patches = patchesFromSnapshots(dataset, before);
+        const patches = deletePerson(dataset, person);
 
         const nextId =
           history.filter((id) => id !== personId).pop() ??

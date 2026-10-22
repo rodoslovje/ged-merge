@@ -23,6 +23,7 @@ import {
   renamePlaceValue,
   renamePlaceValues,
   scanGeocode,
+  walkPlaceAddr,
   type GeocodeRow,
 } from "./geocode";
 
@@ -685,6 +686,33 @@ describe("applyGeocode", () => {
     expect(events.find((e) => e.tag === "RESI")!.place?.coord).toEqual({ lat: 45.91234, lon: 15.31234 });
     // The occurrence with no coordinate is filled, as any geocode write is.
     expect(events.find((e) => e.tag === "DEAT")!.place?.coord).toEqual({ lat: 45.85, lon: 15.35 });
+  });
+});
+
+describe("walkPlaceAddr", () => {
+  it("reads a structured ADDR with no text of its own as an address", () => {
+    const ds = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME A /B/
+1 RESI
+2 ADDR
+3 ADR1 Vinji Vrh 5
+3 CITY Šmarješke Toplice
+3 POST 8220
+2 PLAC Vinji Vrh, Slovenija
+3 MAP
+4 LATI N45.91234
+4 LONG E15.31234
+0 TRLR
+`);
+    const seen: string[] = [];
+    walkPlaceAddr(ds.individuals.get("@I1@")!.raw, (_plac, addr) => seen.push(addr));
+    expect(seen).toEqual(["Vinji Vrh 5, Šmarješke Toplice, 8220"]);
+    // So a settlement re-geocode with overwrite spares that house's position.
+    applyGeocode(ds, new Map([["Vinji Vrh, Slovenija", { coord: { lat: 45.85, lon: 15.35 }, overwrite: true }]]));
+    expect(ds.individuals.get("@I1@")!.events[0].place?.coord).toEqual({ lat: 45.91234, lon: 15.31234 });
   });
 });
 
