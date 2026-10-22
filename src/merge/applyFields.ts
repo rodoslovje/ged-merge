@@ -497,9 +497,10 @@ export function applyNamePart(
 
 /**
  * Copy NOTE children from the incoming record. "incoming" replaces any existing
- * notes; "both" appends them. Used for both individual and family notes — pass
- * the matching canonical order so a brand-new NOTE lands before any trailing
- * CHAN/CREA rather than after it.
+ * notes; "both" appends the ones the target does not already carry (the same
+ * text, or the same shared note once its pointer is remapped). Used for
+ * individual, family and event notes — pass the matching canonical order so a
+ * brand-new NOTE lands before any trailing CHAN/CREA rather than after it.
  */
 export function applyNotes(
   target: GedNode,
@@ -512,12 +513,18 @@ export function applyNotes(
   const incNotes = childrenByTag(incoming, "NOTE");
   if (!incNotes.length) return false;
   if (choice !== "both") removeChildren(target, "NOTE");
+  const present = new Set(childrenByTag(target, "NOTE").map(nodeShape));
+  let added = false;
   for (const n of incNotes) {
     const clone = cloneNodeRemapped(n, sourMap);
+    const shape = nodeShape(clone);
+    if (present.has(shape)) continue;
+    present.add(shape);
     collectCustomTags(clone, customTags);
     insertOrdered(target, clone, order);
+    added = true;
   }
-  return true;
+  return added || choice !== "both";
 }
 
 /**
@@ -688,6 +695,9 @@ export function applyEventSub(
   const incSub = incEvent ? firstChild(incEvent, subTag) : undefined;
   if (!incSub) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
+  // An event may carry any number of notes, so its note row is a list like
+  // the record's own notes row — every one of them, not the first.
+  if (subTag === "NOTE") return applyNotes(event, incEvent!, choice, sourMap, EVENT_CHILD_ORDER, customTags);
   return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
 }
 

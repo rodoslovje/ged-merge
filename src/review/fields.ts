@@ -16,6 +16,7 @@ import { linkKey } from "../normalize/links";
 import { reshapesLayout } from "../normalize/placeReformat";
 import type { PlaceTargetFormat } from "../normalize/types";
 import { UNNAMED } from "../gedcom/nameDisplay";
+import { stripNoteLinks } from "../gedcom/builder";
 import { previewLinkPlacement } from "../merge/linkPlacement";
 
 /** Swap the name builders' untranslatable stand-in for a person the file names
@@ -199,6 +200,18 @@ export function individualFieldRows(
 }
 
 /**
+ * Every note an event carries, one per line, the way the record's notes row
+ * shows the record's — `note` is only the first, and a second note the row
+ * never showed was one the merge could drop unseen.
+ */
+function eventNotesText(e: GedEvent | undefined): string | undefined {
+  const refs = e?.noteRefs;
+  if (!refs || refs.length < 2) return e?.note;
+  const texts = refs.map((r) => stripNoteLinks(r.text)).filter(Boolean);
+  return texts.length ? texts.join("\n") : undefined;
+}
+
+/**
  * The people an event names, as one line each: "Jožefa Pezdirc — botra". The
  * name comes from the associate's own record where the file holds one, else
  * from the association's own `PHRASE`; the role in the file's own wording where
@@ -302,7 +315,7 @@ function buildEventRows(
       : extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw, undefined, undefined, ce?.place?.originalRaw);
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
-    pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
+    pushRow(subRows, `${keyBase}.note`, t("event.colNote"), eventNotesText(me), eventNotesText(ce));
     // The people the event names — godparents, witnesses, the officiant. Shown
     // as text (name + role), one per line, the way the notes row shows notes.
     pushRow(subRows, `${keyBase}.assoc`, t("assoc.heading"),
@@ -467,7 +480,7 @@ function buildFamilyRows(
       pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
-      pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), mEv?.note, cEv?.note);
+      pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), eventNotesText(mEv), eventNotesText(cEv));
       pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
       const movedHere = famMoved.byTag.get(etag) ?? [];

@@ -3,6 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { decisionKey, type CandidateDecision } from "../review/types";
+import { individualFieldRows } from "../review/fields";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
@@ -198,6 +199,44 @@ describe("mergeDecisions — event TYPE and CAUS sub-fields", () => {
     const out = serializeGedcom(records);
     expect(out).toContain("2 CAUS Pljučnica");
     expect(out).not.toContain("2 CAUS Starost");
+  });
+});
+
+describe("mergeDecisions — an event's several notes", () => {
+  const main = dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 NOTE Krščen doma\n2 NOTE Babica Ana\n" +
+      "0 @N1@ NOTE Main's unrelated shared note\n",
+  ));
+  const compare = dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 NOTE Babica Ana\n2 NOTE Rojen ob polnoči\n2 NOTE @N1@\n" +
+      "0 @N1@ NOTE Incoming shared note\n",
+  ));
+  const notesOf = (records: GedNode[]) =>
+    records.find((r) => r.xref === "@I1@")!.children.find((c) => c.tag === "BIRT")!.children
+      .filter((c) => c.tag === "NOTE").map((c) => c.value);
+
+  it("both keeps the main's notes and adds every incoming one it lacks", () => {
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.note": "both" }), NO_MATCHES, tr);
+    const notes = notesOf(records);
+    expect(notes.slice(0, 3)).toEqual(["Krščen doma", "Babica Ana", "Rojen ob polnoči"]);
+    expect(notes).toHaveLength(4);
+    // The shared note is the incoming one, under an xref of its own.
+    expect(notes[3]).not.toBe("@N1@");
+    expect(serializeGedcom(records)).toContain(`0 ${notes[3]} NOTE Incoming shared note`);
+  });
+
+  it("incoming replaces all the main's notes with all the incoming ones", () => {
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.note": "incoming" }), NO_MATCHES, tr);
+    const notes = notesOf(records);
+    expect(notes.slice(0, 2)).toEqual(["Babica Ana", "Rojen ob polnoči"]);
+    expect(notes).toHaveLength(3);
+  });
+
+  it("the review row shows every note on each side", () => {
+    const row = individualFieldRows(tr, main.individuals.get("@I1@"), compare.individuals.get("@P1@"))
+      .find((r) => r.key === "BIRT.note");
+    expect(row?.main).toBe("Krščen doma\nBabica Ana");
+    expect(row?.incoming).toBe("Babica Ana\nRojen ob polnoči\nIncoming shared note");
   });
 });
 
