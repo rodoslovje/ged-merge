@@ -125,3 +125,27 @@ export function nodeFingerprint(n: GedNode): string {
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
 }
+
+/** Qualifiers of a family-link line that hold one value: the pedigree
+ *  (`PEDI`), the link's status (`STAT`), and the vendor father/mother
+ *  relation (`_FREL`/`_MREL`). */
+const LINK_QUALIFIERS: ReadonlySet<string> = new Set(["PEDI", "STAT", "_FREL", "_MREL"]);
+
+/**
+ * Copy `from`'s subordinate lines onto `into` — for two pointer lines of one
+ * link becoming one line (`2 PEDI adopted`, `2 _FREL Natural` must not be lost
+ * with the line that carried them). A line `into` already holds identically is
+ * skipped, and so is a one-value qualifier `into` already carries: the kept
+ * line's own word stands. Levels are re-based onto `into`.
+ */
+export function mergeSubLines(into: GedNode, from: GedNode): void {
+  const relevel = (n: GedNode, level: number): GedNode => ({ ...n, level, children: n.children.map((c) => relevel(c, level + 1)) });
+  const have = new Set(into.children.map(nodeFingerprint));
+  for (const line of from.children) {
+    const clone = relevel(cloneNode(line), into.level + 1);
+    if (have.has(nodeFingerprint(clone))) continue;
+    if (LINK_QUALIFIERS.has(line.tag) && into.children.some((c) => c.tag === line.tag)) continue;
+    into.children.push(clone);
+    have.add(nodeFingerprint(clone));
+  }
+}

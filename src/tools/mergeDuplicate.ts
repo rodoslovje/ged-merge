@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { recordsNaming } from "../gedcom/assoc";
 import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
 import { LINK_TAGS } from "../gedcom/builder";
-import { cloneNode, nodeFingerprint } from "../gedcom/node";
+import { cloneNode, mergeSubLines, nodeFingerprint } from "../gedcom/node";
 import { URL_RE, looksLikeUrl } from "../gedcom/uri";
 import {
   EDITABLE_LINK_TAGS,
@@ -136,7 +136,7 @@ export function mergeDuplicate(
     // parent whose only tie to the tree it was. An extra parent line the user
     // can undo beats a person the tree can no longer reach, so keep the family.
     if (parents === "main" && !strandsAParent(dataset, rFam, removedId)) continue;
-    addSurvivorAsChild(dataset, survivor, rFam);
+    addSurvivorAsChild(dataset, survivor, removed, rFam);
   }
   if (parents === "incoming") {
     for (const famId of ownParentFams) {
@@ -598,13 +598,17 @@ function repointPointers(records: GedNode[], fromId: string, toId: string): stri
 // ── Relationship re-pointing ─────────────────────────────────────────────────
 
 /** Add the survivor as a child of `fam` (so it inherits the removed record's
- *  parents), with the reciprocal FAMC. The removed record is dropped from `fam`
- *  later by `removeIndividual`. */
-function addSurvivorAsChild(dataset: Dataset, survivor: Individual, fam: Family): void {
+ *  parents), with the reciprocal FAMC. Both lines take the removed record's
+ *  qualifiers (`_FREL`/`_MREL`, `PEDI adopted`) — the link is the same one. The
+ *  removed record is dropped from `fam` later by `removeIndividual`. */
+function addSurvivorAsChild(dataset: Dataset, survivor: Individual, removed: Individual, fam: Family): void {
   if (fam.children.includes(survivor.id)) return;
-  insertOrdered(fam.raw, ptr(fam.raw, "CHIL", survivor.id), FAM_CHILD_ORDER);
+  const chil = ptr(fam.raw, "CHIL", survivor.id);
+  const oldChil = fam.raw.children.find((c) => c.tag === "CHIL" && c.value === removed.id);
+  if (oldChil) mergeSubLines(chil, oldChil);
+  insertOrdered(fam.raw, chil, FAM_CHILD_ORDER);
   rebuildFamily(dataset, fam);
-  addLink(dataset, survivor, "FAMC", fam.id);
+  addLink(dataset, survivor, "FAMC", fam.id, removed.raw.children.find((c) => c.tag === "FAMC" && c.value === fam.id));
 }
 
 /** Replace the removed record's spouse role in `fam` with the survivor, moving
@@ -667,10 +671,13 @@ function ptr(parent: GedNode, tag: string, id: string): GedNode {
   return { level: parent.level + 1, tag, value: id, children: [] };
 }
 
-/** Add a FAMC/FAMS pointer on an individual if it's not already there. */
-function addLink(dataset: Dataset, indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
+/** Add a FAMC/FAMS pointer on an individual if it's not already there, with
+ *  the subordinate lines of `like` (the line it replaces), if given. */
+function addLink(dataset: Dataset, indi: Individual, tag: "FAMC" | "FAMS", famId: string, like?: GedNode): void {
   if (indi.raw.children.some((c) => c.tag === tag && c.value === famId)) return;
-  insertOrdered(indi.raw, ptr(indi.raw, tag, famId), INDI_CHILD_ORDER);
+  const line = ptr(indi.raw, tag, famId);
+  if (like) mergeSubLines(line, like);
+  insertOrdered(indi.raw, line, INDI_CHILD_ORDER);
   rebuildIndividual(dataset, indi);
 }
 

@@ -516,6 +516,28 @@ describe("mergeDuplicate — lines no row compares", () => {
     expect(findDuplicates(ds, 0).some((p) => [p.aId, p.bId].includes("@I1@") && [p.aId, p.bId].includes("@I3@"))).toBe(false);
   });
 
+  it("keeps PEDI and _FREL/_MREL on the links it moves", () => {
+    const ds = dataset(wrap(
+      // I1 has no parents; I2 is the adopted child of F1. I1 and I2 each
+      // married I3 in their own family record (F2, F3), folded into one.
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F2@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n2 PEDI adopted\n1 FAMS @F3@\n" +
+      "0 @I3@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F2@\n1 FAMS @F3@\n" +
+      "0 @I4@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I5@ INDI\n1 NAME Miha /Novak/\n1 SEX M\n1 FAMC @F3@\n2 PEDI foster\n" +
+      "0 @F1@ FAM\n1 HUSB @I4@\n1 CHIL @I2@\n2 _FREL Adopted\n" +
+      "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n" +
+      "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I5@\n2 _MREL Foster\n",
+    ));
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 FAMC @F1@\n2 PEDI adopted");
+    expect(out).toContain("1 CHIL @I1@\n2 _FREL Adopted");
+    const kept = ds.individuals.get("@I5@")!.childOf[0];
+    expect(out).toContain(`1 FAMC ${kept}\n2 PEDI foster`);
+    expect(out).toContain("1 CHIL @I5@\n2 _MREL Foster");
+  });
+
   it("leaves the extras of an event whose rows were declined", () => {
     const ds = dataset(FILE);
     mergeDuplicate(ds, "@I1@", "@I2@", decide({ "DEAT.date": "main" }), tr);

@@ -1,6 +1,6 @@
 import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
-import { cloneNode, nodeFingerprint } from "../node";
+import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { rebuildFamily, rebuildIndividual } from "./cache";
@@ -509,11 +509,19 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     // Asked of the record, not of the typed list: the list is rebuilt only
     // after the loop, so a child listed twice in the dropped family would
     // otherwise be written twice into the kept one.
-    if (keep.raw.children.some((c) => c.tag === "CHIL" && c.value === childId)) continue;
+    // The link's qualifiers (`_FREL`/`_MREL` on the CHIL line, `PEDI` on the
+    // child's FAMC) move with it: an adoption is not a birth on the kept record.
+    const pointer = (record: GedNode, tag: string, id: string) =>
+      record.children.find((c) => c.tag === tag && c.value === id);
+    const dropChil = pointer(drop.raw, "CHIL", childId);
+    if (pointer(keep.raw, "CHIL", childId)) continue;
     addFamilyChild(dataset, keep, childId);
+    if (dropChil) mergeSubLines(pointer(keep.raw, "CHIL", childId)!, dropChil);
     const child = dataset.individuals.get(childId);
-    if (child && !child.raw.children.some((c) => c.tag === "FAMC" && c.value === keepId)) {
+    if (child && !pointer(child.raw, "FAMC", keepId)) {
       addFamilyLink(child, "FAMC", keepId);
+      const dropFamc = pointer(child.raw, "FAMC", dropId);
+      if (dropFamc) mergeSubLines(pointer(child.raw, "FAMC", keepId)!, dropFamc);
       rebuildIndividual(dataset, child);
     }
   }
