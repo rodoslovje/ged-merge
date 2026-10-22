@@ -1212,6 +1212,14 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
 export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode[]): Map<string, string> {
   const map = new Map<string, string>();
   const used = new Set(mainRecords.filter((r) => r.xref).map((r) => r.xref as string));
+  // A shared-record pointer the main already writes is taken too, even when
+  // its record is missing: an incoming record given that xref would quietly
+  // become the target of the main's dangling citation.
+  const reservePointers = (n: GedNode): void => {
+    if (SHARED_RECORD_TAGS.has(n.tag) && n.value && /^@[^@]+@$/.test(n.value)) used.add(n.value);
+    for (const c of n.children) reservePointers(c);
+  };
+  for (const rec of mainRecords) reservePointers(rec);
 
   const mainByContent = new Map<string, string>();
   for (const rec of mainRecords) {
@@ -1330,7 +1338,7 @@ export function importSourRecords(
   customTags: Record<string, CustomTagNode[]>,
 ): GedNode[] {
   const importedNodes: GedNode[] = [];
-  // Reverse map: output xref → compare xref (only entries that were renamed).
+  // Reverse map: output xref → compare xref.
   const reverseMap = new Map<string, string>();
   for (const [cXref, outXref] of sourMap) reverseMap.set(outXref, cXref);
 
@@ -1356,8 +1364,10 @@ export function importSourRecords(
     for (const rec of records) collectSourRefs(rec, needed);
     for (const outXref of needed) {
       if (presentXrefs.has(outXref)) continue;
-      const cXref = reverseMap.get(outXref) ?? outXref;
-      const cRec = compareIndex.get(cXref);
+      // Only an xref the map promised to an incoming record is imported: any
+      // other missing target is a pointer the main itself left dangling.
+      const cXref = reverseMap.get(outXref);
+      const cRec = cXref ? compareIndex.get(cXref) : undefined;
       if (!cRec) continue;
       const imported = cloneNodeRemapped(cRec, sourMap);
       imported.xref = outXref;
