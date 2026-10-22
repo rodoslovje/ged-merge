@@ -1,6 +1,6 @@
 import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
-import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
+import { cloneNode, mergeSubLines, nodeFingerprint, firstChild, hasChild } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
@@ -578,8 +578,8 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
   }
 
   for (const role of ["HUSB", "WIFE"] as const) {
-    if (keep.raw.children.some((c) => c.tag === role)) continue;
-    const spouseId = drop.raw.children.find((c) => c.tag === role)?.value;
+    if (hasChild(keep.raw, role)) continue;
+    const spouseId = firstChild(drop.raw, role)?.value;
     if (!spouseId) continue;
     setFamilySpouse(keep, role, spouseId);
     const spouse = dataset.individuals.get(spouseId);
@@ -599,7 +599,7 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     if (RECORD_OWN_TAGS.has(line.tag)) continue;
     if (have.has(nodeFingerprint(line))) continue;
     const stub = !line.value && line.children.length === 0;
-    if (stub && keep.raw.children.some((c) => c.tag === line.tag)) continue;
+    if (stub && hasChild(keep.raw, line.tag)) continue;
     insertOrdered(keep.raw, cloneNode(line), FAM_CHILD_ORDER);
   }
 

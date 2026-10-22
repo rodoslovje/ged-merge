@@ -120,7 +120,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   const prevPlace =
-    update.place !== undefined ? eventNode.children.find((c) => c.tag === "PLAC")?.value : undefined;
+    update.place !== undefined ? firstChild(eventNode, "PLAC")?.value : undefined;
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.place !== undefined || update.placeForm) {
     // Same rule as the coordinate below: the place has to exist to describe.
