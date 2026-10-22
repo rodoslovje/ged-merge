@@ -473,6 +473,25 @@ describe("mergeDuplicate — lines no row compares", () => {
     });
   }
 
+  it("repoints ALIA and vendor pointers to the absorbed record and drops self-references", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 ALIA @I2@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 ALIA @I1@\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Ana /Novak/\n1 ALIA @I2@\n1 EVEN\n2 TYPE Visit\n2 _WITN @I2@\n3 _XREF @I2@\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 _SPONSOR @I2@\n",
+    ));
+    const patches = mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    const out = serializeGedcom(ds.records);
+    expect(out).not.toContain("@I2@");
+    const i1 = out.slice(out.indexOf("0 @I1@ INDI"), out.indexOf("0 @I3@"));
+    expect(i1).not.toContain("ALIA"); // both directions would point at itself
+    expect(out).toContain("1 ALIA @I1@\n1 EVEN\n2 TYPE Visit\n2 _WITN @I1@\n3 _XREF @I1@\n1 FAMS @F1@");
+    expect(out).toContain("1 HUSB @I1@");
+    expect(out).toContain("1 _SPONSOR @I1@");
+    // Every changed record is in the undo batch.
+    expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@", "@I2@", "@I3@"]);
+  });
+
   it("leaves the extras of an event whose rows were declined", () => {
     const ds = dataset(FILE);
     mergeDuplicate(ds, "@I1@", "@I2@", decide({ "DEAT.date": "main" }), tr);
