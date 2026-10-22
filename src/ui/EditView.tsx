@@ -25,7 +25,6 @@ import {
   addParent,
   addPartner,
   attachInlineMedia,
-  attachMediaPointer,
   attachSourceCitation,
   linkPageMedia,
   bumpSourceCacheVersion,
@@ -34,8 +33,6 @@ import {
   connectExistingPartner,
   copyEventToFamily,
   copyEventToIndividual,
-  createMediaRecord,
-  findSharedMediaByFile,
   removeMediaAt,
   reorderMedia,
   setCropRegion,
@@ -102,6 +99,7 @@ import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
 import { deletePerson } from "./edit/deletePerson";
 import { attachDroppedMedia } from "./edit/droppedMedia";
+import { sharedMediaMutation } from "./edit/sharedMedia";
 import { NameEditor } from "./edit/NameEditor";
 import { StartPersonChip } from "./edit/StartPersonChip";
 import { SexToggle } from "./edit/SexToggle";
@@ -803,13 +801,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       return;
     }
     const extraPatches: RecordPatch[] = [];
-    let objeXref = existingXref ?? findSharedMediaByFile(dataset.records, file)?.xref;
-    if (!objeXref) {
-      const rec = createMediaRecord(dataset.records, file);
-      objeXref = rec.xref!;
-      extraPatches.push({ type: "record", id: rec.xref!, before: null, after: cloneRaw(rec) });
-    }
-    ownerCommit(owner, (raw) => attachMediaPointer(raw, objeXref!), extraPatches, indi);
+    ownerCommit(owner, sharedMediaMutation(dataset.records, file, existingXref, extraPatches), extraPatches, indi);
   }
 
   /** Edit a photo's metadata (title/date/place/description). An inline OBJE is
