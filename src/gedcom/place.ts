@@ -311,8 +311,10 @@ export function addressStreetName(addrRaw: string | undefined): string | undefin
  *  what stands there. No register knows it and none can supply it, so anything
  *  rewriting an address from a register must carry it across rather than let the
  *  official spelling swallow it. */
+const BRACKETED_TAIL = new RegExp(String.raw`(?:\s*${BRACKETED})+$`);
+
 export function bracketedTail(value: string): string {
-  const m = value.trimEnd().match(new RegExp(String.raw`(?:\s*${BRACKETED})+$`));
+  const m = value.trimEnd().match(BRACKETED_TAIL);
   return m ? ` ${m[0].trim()}` : "";
 }
 
