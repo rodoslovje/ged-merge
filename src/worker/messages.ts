@@ -3,7 +3,8 @@ import type { CitationPageStyle } from "../gedcom/source";
 import type { MainProfile, NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { PlaceExportFormat } from "../normalize/profile";
 import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
-import type { IncomingDuplicateCluster, MatchResult } from "../match/types";
+import type { IncomingDuplicateCluster, MatchResult, ScoreComponent } from "../match/types";
+import type { KinshipRanking } from "../match/distance";
 
 /** Which slot a loaded file occupies. */
 export type DatasetRole = "main" | "compare";
@@ -44,7 +45,17 @@ export interface ClearCompareRequest {
   type: "clearCompare";
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest;
+/** Ask for one match pair's score breakdown (the score badge's tooltip). The
+ *  worker re-derives it from the two records; `generation` is echoed so an
+ *  answer about an earlier match list can be told apart. */
+export interface ScoreDetailRequest {
+  type: "scoreDetail";
+  mainId: string;
+  compareId: string;
+  generation: number;
+}
+
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | ScoreDetailRequest;
 
 export interface ParseSuccess {
   type: "parsed";
@@ -123,10 +134,27 @@ export interface MatchProgress {
   type: "matching";
 }
 
-/** Emitted once both main and compare are loaded. */
+/**
+ * Emitted once both main and compare are loaded, and again whenever the start
+ * person changes. A new match carries `result`, the list in score order
+ * without the per-pair score breakdowns (see {@link ScoreDetailRequest}); a
+ * start-person change carries only `ranking`, applied to the last `result`.
+ * `ranking` is present whenever a start person is set.
+ */
 export interface MatchSuccess {
   type: "matched";
-  result: MatchResult;
+  result?: MatchResult;
+  ranking?: KinshipRanking;
+}
+
+/** One pair's score breakdown, answering a {@link ScoreDetailRequest}. */
+export interface ScoreDetailResponse {
+  type: "scoreDetail";
+  mainId: string;
+  compareId: string;
+  generation: number;
+  /** Undefined when the worker no longer holds the pair. */
+  components?: ScoreComponent[];
 }
 
 /** The match pipeline threw after the files themselves parsed fine. Distinct
@@ -138,4 +166,10 @@ export interface MatchFailure {
   message: string;
 }
 
-export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess | MatchFailure;
+export type WorkerResponse =
+  | ParseSuccess
+  | ParseFailure
+  | MatchProgress
+  | MatchSuccess
+  | MatchFailure
+  | ScoreDetailResponse;

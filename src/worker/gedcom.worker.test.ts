@@ -56,6 +56,37 @@ describe("gedcom.worker pipeline", () => {
     expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I1@", compareId: "@P1@" }]);
   });
 
+  it("posts the list without score breakdowns, and answers a row's request for one", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    const row = lastMatched()!.individuals[0];
+    expect(row).not.toHaveProperty("components");
+    expect(row).not.toHaveProperty("title");
+    send({ type: "scoreDetail", mainId: "@I1@", compareId: "@P1@", generation: 7 });
+    const answer = posted.at(-1)!;
+    if (answer.type !== "scoreDetail") throw new Error("expected a scoreDetail");
+    expect(answer.generation).toBe(7);
+    expect(answer.components?.map((c) => c.key)).toContain("birthDate");
+  });
+
+  it("a start person re-ranks with positions into the posted list, not the list again", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    posted = [];
+    send({ type: "setStart", id: "@I1@" });
+    expect(types()).toEqual(["matching", "matched"]);
+    const ranked = posted[1];
+    if (ranked.type !== "matched") throw new Error("expected matched");
+    expect(ranked.result).toBeUndefined();
+    expect([...ranked.ranking!.order]).toEqual([0]);
+    expect([...ranked.ranking!.distance]).toEqual([0]);
+    // Clearing the start person: no ranking — the list's own (score) order.
+    send({ type: "setStart", id: "" });
+    expect(posted.at(-1)).toEqual({ type: "matched" });
+  });
+
   it("compare before main: the kept compare re-emits normalized and matches", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
@@ -233,9 +264,10 @@ describe("gedcom.worker pipeline", () => {
 
   it("a match-pipeline throw is matchFailed, never a parse error", async () => {
     vi.doMock("../match/engine", () => ({
-      matchDatasets: () => {
+      matchDatasetsExplained: () => {
         throw new Error("boom");
       },
+      pairExplainer: () => () => undefined,
     }));
     try {
       const send = await freshWorker();

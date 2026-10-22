@@ -11,11 +11,11 @@ import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import type { MainProfile } from "../normalize/types";
-import { matchDatasets } from "../match/engine";
+import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
-import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
-import type { MatchResult } from "../match/types";
+import { kinshipRanking } from "../match/distance";
+import type { MatchResult, ScoredMatchResult } from "../match/types";
 import { parseCompareTable } from "../csv/compareCsv";
 import type { GiPair } from "../csv/giMatches";
 import { inferPlaceExportFormat } from "../normalize/profile";
@@ -52,7 +52,11 @@ let compareCsvPairs: GiPair[] | undefined;
  */
 let compareGeneration = 0;
 let startId: string | undefined;
+/** The last match list as posted — score order, no score breakdowns, no
+ *  distances; a start-person ranking is sent as positions into it. */
 let lastResult: MatchResult | undefined;
+/** Re-derives a pair's score breakdown for the score tooltip. */
+let explain: PairExplainer | undefined;
 /** The last compare `parsed` payload (minus the dataset), so the consolidated
  *  compare can be re-emitted with the same format reports after duplicates are
  *  merged in. */
@@ -67,14 +71,22 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     if (lastResult && mainDataset) {
       try {
         post({ type: "matching" });
-        lastResult = startId
-          ? applyDistanceRanking(lastResult, mainDataset, startId)
-          : clearDistanceRanking(lastResult);
-        post({ type: "matched", result: lastResult });
+        // Only the new order travels: the main thread holds the list.
+        postMatched(undefined, mainDataset, lastResult);
       } catch (err) {
         post({ type: "matchFailed", message: errorMessage(err) });
       }
     }
+    return;
+  }
+  if (req.type === "scoreDetail") {
+    post({
+      type: "scoreDetail",
+      mainId: req.mainId,
+      compareId: req.compareId,
+      generation: req.generation,
+      components: explain?.(req.mainId, req.compareId),
+    });
     return;
   }
   if (req.type === "clearCompare") {
@@ -85,6 +97,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     compareNormalized = undefined;
     compareCsvPairs = undefined;
     lastResult = undefined;
+    explain = undefined;
     lastCompareMeta = undefined;
     return;
   }
@@ -259,9 +272,13 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
 function maybeMatch(): void {
   if (!mainDataset || !compareNormalized) return;
   post({ type: "matching" });
-  let result = compareCsvPairs
-    ? matchGiPairs(mainDataset, compareNormalized, compareCsvPairs)
-    : matchDatasets(mainDataset, compareNormalized);
+  let result: ScoredMatchResult;
+  if (compareCsvPairs) {
+    result = matchGiPairs(mainDataset, compareNormalized, compareCsvPairs);
+    explain = pairExplainer(mainDataset, compareNormalized);
+  } else {
+    ({ result, explain } = matchDatasetsExplained(mainDataset, compareNormalized));
+  }
   // Consolidate incoming records that are the same person split across duplicates
   // (detected by matching the same main) into one, then re-emit the cleaned
   // compare so the merge and tree see a single record carrying all the data.
@@ -279,16 +296,27 @@ function maybeMatch(): void {
     // merges on its own copy (see ParseSuccess.consolidated).
     if (lastCompareMeta) post({ type: "parsed", role: "compare", consolidated: clusters, ...lastCompareMeta });
   }
-  result = annotateCounts(result, mainDataset, compareNormalized, mainOverrides);
-  if (startId) result = applyDistanceRanking(result, mainDataset, startId);
-  lastResult = result;
-  post({ type: "matched", result });
+  lastResult = annotateCounts(result, mainDataset, compareNormalized, mainOverrides);
+  postMatched(lastResult, mainDataset, lastResult);
+}
+
+/**
+ * Post a match list (`result`, when it is new) and its ranking by kinship to
+ * the start person, if one is set. The ranking is two Int32Arrays of
+ * positions into `list`, moved rather than copied.
+ */
+function postMatched(result: MatchResult | undefined, main: Dataset, list: MatchResult): void {
+  const ranking = startId ? kinshipRanking(list.individuals, main, startId) : undefined;
+  post(
+    { type: "matched", ...(result ? { result } : {}), ...(ranking ? { ranking } : {}) },
+    ranking ? [ranking.order.buffer, ranking.distance.buffer] : [],
+  );
 }
 
 /** Field labels are irrelevant to the merges replayed here, so use a no-op
  * translator (the worker has no i18n context). */
 const rawLabel = (key: string) => key;
 
-function post(res: WorkerResponse): void {
-  (self as DedicatedWorkerGlobalScope).postMessage(res);
+function post(res: WorkerResponse, transfer: Transferable[] = []): void {
+  (self as DedicatedWorkerGlobalScope).postMessage(res, transfer);
 }

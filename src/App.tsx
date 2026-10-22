@@ -29,6 +29,8 @@ import { individualFieldRows } from "./review/fields";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edit/removeFromSave";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
+import type { MatchResult } from "./match/types";
+import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui/scoreDetail";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
@@ -92,7 +94,7 @@ import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
 import { FILES_IN_MENU_QUERY, useCompactHeader, useMediaQuery, usePhone } from "./ui/usePhone";
 import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
-import { computeDistances } from "./match/distance";
+import { computeDistances, rankedCandidates } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
 import {
@@ -156,6 +158,9 @@ function AppContent() {
   // its "matched" result — see MIN_MATCHING_DISPLAY_MS below.
   const matchingStartRef = useRef<number | null>(null);
   const matchedTimerRef = useRef<number | null>(null);
+  // The match list as the worker last sent it, in score order: a start-person
+  // change arrives as a ranking of this list (see MatchSuccess).
+  const matchListRef = useRef<MatchResult | null>(null);
   // The shared workspace store (reducer) — the whole data pipeline: file slots,
   // match result, merge decisions, import branches, rejected duplicates, start
   // person. Purely-UI-local state (selection, modals, sort/filters, navigation)
@@ -349,11 +354,24 @@ function AppContent() {
         dispatch({ type: "matchingStarted" });
         return;
       }
+      if (msg.type === "scoreDetail") {
+        receiveScoreDetail(msg.mainId, msg.compareId, msg.generation, msg.components);
+        return;
+      }
       if (msg.type === "matched") {
+        // A new list replaces the one held here; a start-person change sends
+        // only the new order of the list already held.
+        if (msg.result) {
+          matchListRef.current = msg.result;
+          resetScoreDetails();
+        }
+        const list = matchListRef.current;
+        if (!list) return;
+        const result: MatchResult = msg.ranking ? { individuals: rankedCandidates(list.individuals, msg.ranking) } : list;
         const applyMatched = () => {
           matchingStartRef.current = null;
           matchedTimerRef.current = null;
-          dispatch({ type: "matched", result: msg.result });
+          dispatch({ type: "matched", result });
           setSelectedId(null);
           setOpenMatches(true);
           setShowInfoPanel(false);
@@ -373,7 +391,7 @@ function AppContent() {
               dispatch({
                 type: "decisionsSet",
                 decisions: mainDs && compareDs
-                  ? refreshJoins(mainDs, compareDs, msg.result, decisions, tRef.current, formatOverridesRef.current)
+                  ? refreshJoins(mainDs, compareDs, result, decisions, tRef.current, formatOverridesRef.current)
                   : decisions,
               });
             }
@@ -498,6 +516,11 @@ function AppContent() {
   };
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
   const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage, handleWorkerFailure);
+  // A match row's score tooltip asks the worker for the pair's breakdown.
+  useEffect(() => {
+    connectScoreDetails((mainId, compareId, generation) => post({ type: "scoreDetail", mainId, compareId, generation }));
+    return () => connectScoreDetails(undefined);
+  }, [post]);
   // Every load goes through here: the worker gets the bytes, and this side
   // builds the same dataset from a copy before the worker can answer.
   const feed = useCallback(

@@ -1,6 +1,6 @@
 import { buildMatchMaps, countImportableRelatives, importableMemo } from "../chart/personTree";
 import type { Dataset } from "../gedcom/types";
-import type { MatchResult } from "../match/types";
+import { listedCandidate, type MatchResult } from "../match/types";
 import { applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import { fieldDiffCounts, individualFieldRows } from "../review/fields";
@@ -10,7 +10,8 @@ import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 const rawLabel = (key: string) => key;
 
 /** Attach per-candidate "new" and "differing" field counts plus the importable
- *  ancestor/descendant counts for the results table. */
+ *  ancestor/descendant counts for the results table — to the list entries,
+ *  without the score breakdowns (see `MatchCandidate`). */
 export function annotateCounts(
   result: MatchResult,
   main: Dataset,
@@ -29,7 +30,7 @@ export function annotateCounts(
       const mainInd = main.individuals.get(c.mainId);
       const compareInd = compare.individuals.get(c.compareId);
       return {
-        ...c,
+        ...listedCandidate(c),
         ...fieldDiffCounts(individualFieldRows(rawLabel, mainInd, compareInd, main, compare, placeFmt)),
         ancestorCount: countImportableRelatives(mainInd, compareInd, main, compare, maps, "ancestors", memo),
         descendantCount: countImportableRelatives(mainInd, compareInd, main, compare, maps, "descendants", memo),

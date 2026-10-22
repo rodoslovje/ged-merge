@@ -15,7 +15,8 @@ import {
   type IncomingDuplicateCluster,
   type IndividualCandidate,
   type MatchConfig,
-  type MatchResult,
+  type ScoreComponent,
+  type ScoredMatchResult,
 } from "./types";
 
 /**
@@ -30,18 +31,50 @@ export function matchDatasets(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig = DEFAULT_CONFIG,
-): MatchResult {
+): ScoredMatchResult {
+  return matchDatasetsExplained(mainDs, compareDs, config).result;
+}
+
+/**
+ * Re-derive one pair's score breakdown on demand, with the same name counts
+ * the match run scored it with. The worker sends the list without the
+ * breakdowns and answers a row's request with this.
+ */
+export type PairExplainer = (mainId: string, compareId: string) => ScoreComponent[] | undefined;
+
+/** {@link matchDatasets}, plus a {@link PairExplainer} for its pairs. */
+export function matchDatasetsExplained(
+  mainDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig = DEFAULT_CONFIG,
+): { result: ScoredMatchResult; explain: PairExplainer } {
   // Reset the fold/jaro-winkler memo caches so the (per-run) jaro-winkler pair
   // cache can't accumulate across reloads; both fill back up within this run.
   clearTextCaches();
-  return matchIndividuals(mainDs, compareDs, config);
+  const { result, freq } = matchIndividuals(mainDs, compareDs, config);
+  return { result, explain: pairExplainer(mainDs, compareDs, config, freq) };
+}
+
+/** A {@link PairExplainer} over two datasets — `freq` as the run had it
+ *  (none for an import that scores without name counts). */
+export function pairExplainer(
+  mainDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig = DEFAULT_CONFIG,
+  freq?: NameFrequencies,
+): PairExplainer {
+  return (mainId, compareId) => {
+    const main = mainDs.individuals.get(mainId);
+    const compare = compareDs.individuals.get(compareId);
+    return main && compare ? scoreIndividualPair(main, compare, mainDs, compareDs, config, freq).components : undefined;
+  };
 }
 
 function matchIndividuals(
   mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
-): MatchResult {
+): { result: ScoredMatchResult; freq: NameFrequencies } {
   const gap = config.gates.maxYearGap;
   const index = new CrossBlockIndex([...mainDs.individuals.values()], mainDs, gap);
 
@@ -96,7 +129,7 @@ function matchIndividuals(
     config,
     freq,
   );
-  return incomingDuplicates.length ? { individuals, incomingDuplicates } : { individuals };
+  return { result: incomingDuplicates.length ? { individuals, incomingDuplicates } : { individuals }, freq };
 }
 
 /**
@@ -602,9 +635,11 @@ function childrenOfMatchedCouples(
  */
 function assignOneToOne(pairs: ScoredPairs, mainCount: number, compareCount: number): number[] {
   // Descending score, ties in the order the pairs were found.
-  const order = new Uint32Array(pairs.length);
+  // A plain array: a typed array's comparator sort is several times slower.
+  const order = new Array<number>(pairs.length);
   for (let k = 0; k < order.length; k++) order[k] = k;
-  order.sort((a, b) => pairs.score[b] - pairs.score[a] || a - b);
+  const score = pairs.score;
+  order.sort((a, b) => score[b] - score[a] || a - b);
   const usedMain = new Uint8Array(mainCount);
   const usedCompare = new Uint8Array(compareCount);
   const out: number[] = [];

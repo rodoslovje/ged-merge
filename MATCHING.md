@@ -315,6 +315,12 @@ Greedy by descending score: a main record and a compare record each appear in at
 most one match. Right model for a merge; kills many-to-one noise between
 similarly-named people.
 
+Until the assignment, a scored pair is only two record positions and a score
+(`ScoredPairs`, typed arrays; `scoreIndividualPairValue` computes the same
+score without the review payload). Only the winners are rescored into full
+candidates with their field breakdown — a large file clears `minScore` on
+millions of pairs and keeps one per record.
+
 ### 5. Relationship linking (`linkByRelationships`, `src/match/engine.ts`)
 
 Bootstraps from the assignment: if a main person and a compare person are
@@ -380,6 +386,14 @@ different people silently.
 When a home person is set, candidates are annotated with BFS hop distance
 (parent/spouse/child = 1 hop) from the home person and re-ranked so nearby
 relatives surface first. Scores are unchanged.
+
+The worker sends the match list once, in score order and without the score
+breakdowns (`MatchCandidate`; a row's score tooltip fetches its breakdown
+with a `scoreDetail` request, re-derived by `pairExplainer` with the run's
+name counts). A home-person change sends only a `KinshipRanking` — positions
+into that list and a distance per candidate, two `Int32Array`s — which the
+main thread applies (`rankedCandidates`), copying only the reachable
+candidates.
 
 ## Within-file duplicates (`findDuplicates`, `src/tools/duplicates.ts`)
 
