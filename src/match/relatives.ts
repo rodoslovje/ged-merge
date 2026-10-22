@@ -3,6 +3,7 @@ import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { DEFAULT_NAME_DISPLAY, formatPersonName } from "../gedcom/nameDisplay";
+import { hasChild } from "../gedcom/node";
 
 /** Conventional xrefs of "person 1" — the root individual many apps assign to
  * the start/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
@@ -22,7 +23,7 @@ export function defaultStartId(ds: Dataset): string | undefined {
   if (root && ds.individuals.has(root)) return root;
 
   for (const indi of ds.individuals.values()) {
-    if (indi.raw.children.some((c) => c.tag === "_STP")) return indi.id;
+    if (hasChild(indi.raw, "_STP")) return indi.id;
   }
 
   return DEFAULT_START_XREFS.find((id) => ds.individuals.has(id));
