@@ -3454,6 +3454,8 @@ button:focus-visible {
 }
 .edit-event-date-cell > .clearable-wrap { flex: 1 1 auto; min-width: 0; }
 .edit-event-date-cell { position: relative; }
+/* Dates in words ("okoli 5. marca 1850") run longer than the file's own. */
+.edit-event-date-cell.is-words { flex-basis: 13em; }
 /* How a date being typed reads, and what it will be written as — floated under
  * the field so typing never moves the row (a shift under the pointer would
  * also lose the click on "or …"). */

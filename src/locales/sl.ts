@@ -2631,6 +2631,8 @@ export const sl = {
   "settings.quickEvents.remove": "Odstrani ta hitri gumb",
   "settings.display.age": "Prikaži starosti",
   "settings.display.age.hint": "Prikaži starosti: za razponom let (ob smrti, za žive trenutno), poleg datuma vsakega dogodka, ob rojstvih in družinskih dogodkih pa tudi starost staršev (♂ oče, ♀ mati) oz. zakoncev.",
+  "settings.display.dateWords": "Prikaži datume z besedami",
+  "settings.display.dateWords.hint": "Datumi se prikažejo tako, kot bi jih zapisali sami (okoli 5. marca 1850), in ne tako, kot jih zapisuje datoteka (ABT 5 MAR 1850). Datoteka ohrani svojo obliko, polje za datum pa med urejanjem pokaže zapis iz datoteke.",
   "settings.links.title": "Spletna iskanja",
   "settings.links.fetch": "Poišči podatke na spletu",
   "settings.links.fetch.hint": "Eno stikalo za vsa iskanja, ki zapustijo vašo napravo: naslov strani vira, ko ga dodate iz golega URL-ja, in geokodiranje — OpenStreetMap, Genealoški imenik krajev (GOV) ter slovenski register naslovov in geografski imenik GURS. Privzeto izklopljeno. Prenos celotnega imenika krajev ni poizvedba — o vaši datoteki ne pove ničesar — in stikala ne potrebuje.",

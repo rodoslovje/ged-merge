@@ -56,3 +56,21 @@ test("a typed date reads back in words and is written in the file's style", asyn
   await death.press("Tab");
   await expect(death).toHaveValue("pred vojno");
 });
+
+test("with dates in words, a date field reads in words until it is edited", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("gedmerge.settings", JSON.stringify({ datesInWords: true })));
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const birth = page.locator(".edit-event").first().locator(".edit-event-date");
+  await expect(birth).toHaveValue("5 March 1850");
+  await birth.click();
+  await expect(birth).toHaveValue("5 MAR 1850");
+  await birth.fill("~1850");
+  await birth.press("Tab");
+  await expect(birth).toHaveValue("about 1850");
+  await birth.click();
+  await expect(birth).toHaveValue("ABT 1850");
+});

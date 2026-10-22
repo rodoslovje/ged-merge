@@ -2314,6 +2314,8 @@ export const en = {
   "settings.quickEvents.remove": "Remove this quick button",
   "settings.display.age": "Show ages",
   "settings.display.age.hint": "Show ages: after the lifespan (at death, or the current age for the living), next to each event date, and the parents' (♂ father, ♀ mother) or spouses' ages on birth and family events.",
+  "settings.display.dateWords": "Show dates in words",
+  "settings.display.dateWords.hint": "Show dates as you would write them (about 5 March 1850) instead of as the file writes them (ABT 5 MAR 1850). The file keeps its own format, and a date field shows the file's text while you edit it.",
   "settings.links.title": "Online lookups",
   "settings.links.fetch": "Look up details online",
   "settings.links.fetch.hint": "One switch for every lookup that leaves your device: a source's page title when you add it from a bare URL, and the geocoding searches — OpenStreetMap, the Genealogical Gazetteer (GOV), and Slovenia's GURS address register and gazetteer. Off by default. Downloading a whole place directory is not a lookup — it asks nothing about your file — and needs no switch.",

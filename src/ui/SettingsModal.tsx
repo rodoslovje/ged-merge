@@ -518,6 +518,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
+                checked={settings.datesInWords}
+                onChange={(e) => set({ datesInWords: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.display.dateWords")}</span>
+                <span className="settings-hint">{t("settings.display.dateWords.hint")}</span>
+              </span>
+            </label>
+
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
                 checked={settings.showKinship}
                 onChange={(e) => set({ showKinship: e.target.checked })}
               />
