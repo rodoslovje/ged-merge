@@ -24,6 +24,11 @@ let jaroWinklerCacheSize = 0;
  *  surname against its own block), so a refill costs little. */
 const JARO_WINKLER_CACHE_MAX = 1_000_000;
 
+/** Entries the fold cache may hold before it is emptied and refilled. The main
+ *  thread folds every string it searches, filters and reviews and never runs a
+ *  match to clear it, so unbounded it grew with every value the session met. */
+const FOLD_CACHE_MAX = 200_000;
+
 /** Reset the memo caches — called at the start of each match run. */
 export function clearTextCaches(): void {
   foldCache.clear();
@@ -42,6 +47,7 @@ export function foldToken(s: string): string {
       .toLowerCase()
       .replace(/\s+/g, " ")
       .trim();
+    if (foldCache.size >= FOLD_CACHE_MAX) foldCache.clear();
     foldCache.set(s, folded);
   }
   return folded;
