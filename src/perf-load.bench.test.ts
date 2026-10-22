@@ -15,7 +15,10 @@ import { forestDiff } from "./normalize/forestDiff.testutil";
 import { normalizeDataset } from "./normalize/normalize";
 import { applyNormPatch, diffNormalized } from "./normalize/normPatch";
 import { collectLayoutValues, inferMainProfile } from "./normalize/profile";
+import { rebuildIndividual } from "./gedcom/edit/cache";
+import type { GedNode } from "./gedcom/types";
 import { SerializedMain } from "./persist/serializedMain";
+import { buildFieldSuggestions, FieldSuggestionIndex } from "./ui/edit/fieldSuggestions";
 import { applyRecordsPatch, ChangeJournal, datasetFromSnapshot, mainSnapshot, recordsPatch } from "./state/mainSync";
 
 const mainFile = process.env.PERF_MAIN;
@@ -61,6 +64,23 @@ describe.skipIf(!mainFile)("main sync cost profile", () => {
     time("snapshot (main thread): structuredClone", () => structuredClone(snap));
     console.log(`${"SNAPSHOT main thread total".padEnd(52)} ${(performance.now() - t0).toFixed(0).padStart(7)} ms`);
     time("snapshot (worker): datasetFromSnapshot", () => datasetFromSnapshot(snap));
+
+    // Field suggestions after one person's place edit.
+    time("suggestions before: buildFieldSuggestions", () => buildFieldSuggestions(main));
+    const sugJournal = new ChangeJournal();
+    const sugIndex = new FieldSuggestionIndex();
+    time("suggestions after: first build", () => sugIndex.get(main, sugJournal, 0));
+    const eventWith = (tag: string) => (raw: GedNode) => raw.children.find((ev) => ev.children.some((c) => c.tag === tag));
+    const someone = [...main.individuals.values()].find((i) => eventWith("PLAC")(i.raw))!;
+    eventWith("PLAC")(someone.raw)!.children.find((c) => c.tag === "PLAC")!.value = "Novo Mesto, Dolenjska";
+    rebuildIndividual(main, someone);
+    sugJournal.record(1, [someone.id]);
+    time("suggestions after: a place edited", () => sugIndex.get(main, sugJournal, 1));
+    const date = eventWith("DATE")(someone.raw)?.children.find((c) => c.tag === "DATE");
+    if (date) date.value = "1 JAN 1900";
+    rebuildIndividual(main, main.individuals.get(someone.id)!);
+    sugJournal.record(2, [someone.id]);
+    time("suggestions after: a date edited", () => sugIndex.get(main, sugJournal, 2));
 
     // A persistence tick after those edits.
     time("persist before: serialize + Blob", () => new Blob([serializeGedcom(main.records, downloadOptions(main))]));

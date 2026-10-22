@@ -2363,7 +2363,7 @@ function AppContent() {
 
   return (
     <DatasetProvider dataset={mainDataset}>
-    <DatasetDerivationsProvider dataset={mainDataset} version={editVersion}>
+    <DatasetDerivationsProvider dataset={mainDataset} version={editVersion} changes={changeJournal}>
     <PwaReloadPrompt />
     <IconTipLayer />
     {treeOverlay}
