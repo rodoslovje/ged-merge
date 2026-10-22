@@ -54,6 +54,14 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
     case "WINDOWS-1252":
       if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "WINDOWS-1252");
       return { text: decodeWindows1252(bytes), charset: "WINDOWS-1252", warnings };
+    case "ISO-8859-1":
+    case "ISO-8859-2":
+    case "ISO-8859-15":
+    case "MACINTOSH":
+    case "IBM437":
+    case "IBM850":
+      if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, declared);
+      return { text: decodeCodePage(bytes, declared), charset: declared, warnings };
     case "ANSI":
       if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "ANSI");
       // "ANSI" is locale-dependent: it usually means Windows-1252 (Western), but
@@ -387,7 +395,48 @@ function sniffDeclaredCharset(bytes: Uint8Array): GedcomCharset | undefined {
   if (v === "WINDOWS-1250" || v === "CP1250") return "WINDOWS-1250";
   if (v === "WINDOWS-1252" || v === "CP1252") return "WINDOWS-1252";
   if (v === "ANSI") return "ANSI";
-  return undefined;
+  return OTHER_CHARSETS[v.replace(/[-_]/g, "")];
+}
+
+/** Further CHAR values seen in the wild, keyed with `-`/`_` removed. */
+const OTHER_CHARSETS: Record<string, GedcomCharset> = {
+  ISO88591: "ISO-8859-1",
+  LATIN1: "ISO-8859-1",
+  ISO88592: "ISO-8859-2",
+  LATIN2: "ISO-8859-2",
+  ISO885915: "ISO-8859-15",
+  LATIN9: "ISO-8859-15",
+  MACINTOSH: "MACINTOSH",
+  MACROMAN: "MACINTOSH",
+  MAC: "MACINTOSH",
+  IBMPC: "IBM437",
+  IBM437: "IBM437",
+  CP437: "IBM437",
+  IBMDOS: "IBM437",
+  IBM850: "IBM850",
+  CP850: "IBM850",
+};
+
+/**
+ * The DOS code pages' upper halves (0x80–0xFF), which `TextDecoder` does not
+ * know; GEDCOM 5.5 itself names IBMPC, the DOS exporters' code page.
+ */
+const DOS_CODE_PAGES: Partial<Record<GedcomCharset, string>> = {
+  IBM437:
+    "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐" +
+    "└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■\u00a0",
+  IBM850:
+    "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐" +
+    "└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´\u00ad±‗¾¶§÷¸°¨·¹³²■\u00a0",
+};
+
+/** Decode a single-byte code page: a DOS table of ours, else `TextDecoder`'s. */
+function decodeCodePage(bytes: Uint8Array, charset: GedcomCharset): string {
+  const table = DOS_CODE_PAGES[charset];
+  if (!table) return new TextDecoder(charset.toLowerCase()).decode(bytes);
+  let out = "";
+  for (const b of bytes) out += b < 0x80 ? String.fromCharCode(b) : table[b - 0x80];
+  return out;
 }
 
 function decodeUtf8(bytes: Uint8Array): string {

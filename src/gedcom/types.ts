@@ -21,7 +21,13 @@ export type GedcomCharset =
   | "ASCII"
   | "ANSI" // non-standard but common; ambiguous, resolved by detection
   | "WINDOWS-1252" // Western European (the usual meaning of "ANSI")
-  | "WINDOWS-1250"; // Central European (Brother's Keeper etc. on CE locales)
+  | "WINDOWS-1250" // Central European (Brother's Keeper etc. on CE locales)
+  | "ISO-8859-1"
+  | "ISO-8859-2"
+  | "ISO-8859-15"
+  | "MACINTOSH" // Mac OS Roman
+  | "IBM437" // DOS "IBMPC"
+  | "IBM850"; // DOS Western European
 
 /**
  * A single parsed GEDCOM line and its children.

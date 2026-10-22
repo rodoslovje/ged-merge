@@ -156,6 +156,34 @@ describe("decodeGedcom ANSEL table", () => {
   });
 });
 
+describe("decodeGedcom other declared charsets", () => {
+  it.each([
+    // Latin-2: 0xA9 Š, 0xE8 č, 0xBE ž (Windows-1250 has Š at 0x8A, ž at 0x9E).
+    ["ISO8859-2", [0xa9, 0xe8, 0xbe], "Ščž", "ISO-8859-2"],
+    ["ISO-8859-2", [0xa9, 0xe8, 0xbe], "Ščž", "ISO-8859-2"],
+    ["LATIN2", [0xa9, 0xe8, 0xbe], "Ščž", "ISO-8859-2"],
+    ["ISO-8859-1", [0xe9, 0xfc], "éü", "ISO-8859-1"],
+    ["LATIN1", [0xe9, 0xfc], "éü", "ISO-8859-1"],
+    // Mac Roman: 0x8E é, 0x9F ü, 0xA7 ß.
+    ["MACINTOSH", [0x8e, 0x9f, 0xa7], "éüß", "MACINTOSH"],
+    // DOS code pages: 0x82 é, 0x81 ü, 0xE1 ß in both; 0x9B is ¢ in 437, ø in 850.
+    ["IBMPC", [0x82, 0x81, 0xe1, 0x9b], "éüß¢", "IBM437"],
+    ["IBM850", [0x82, 0x81, 0xe1, 0x9b], "éüßø", "IBM850"],
+  ])("decodes CHAR %s with its own code page", (label, bytes, expected, charset) => {
+    const res = decodeGedcom(ged(label, bytes));
+    expect(res.text).toContain(expected);
+    expect(res.charset).toBe(charset);
+  });
+
+  it.each(["IBMPC", "IBM850"])("maps every high byte of CHAR %s to one character", (label) => {
+    const high = Array.from({ length: 128 }, (_, i) => 0x80 + i);
+    const { text } = decodeGedcom(ged(label, high));
+    const name = [...text.split("NAME ")[1].replace(/\n$/, "")];
+    expect(name).toHaveLength(128);
+    expect(name.join("")).not.toMatch(/undefined|�/);
+  });
+});
+
 describe("decodeGedcom with classic-Mac (CR-only) line endings", () => {
   it("reads the declared CHAR from a CR-only header", () => {
     // ANSEL 0xE2 = combining acute before its letter: "é".
