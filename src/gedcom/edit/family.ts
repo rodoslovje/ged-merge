@@ -568,6 +568,45 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     if (moved) rebuildIndividual(dataset, indi);
   }
 
+  // Every other line naming the dropped family — an `ASSO @F2@`, an adoption's
+  // `FAMC` under its event, a vendor `_` pointer — names the kept one now, the
+  // two records being one family. A line left pointing at its own record (the
+  // kept family's association with its twin) goes.
+  const repoint = (record: GedNode, node: GedNode, depth: number): boolean => {
+    let changed = false;
+    const kept: GedNode[] = [];
+    for (const child of node.children) {
+      const memberLine = record.tag === "INDI" && depth === 0 && (child.tag === "FAMC" || child.tag === "FAMS");
+      if (!memberLine && child.value?.trim() === dropId) {
+        changed = true;
+        if (record.xref === keepId) continue;
+        child.value = keepId;
+      }
+      changed = repoint(record, child, depth + 1) || changed;
+      kept.push(child);
+    }
+    if (changed) node.children = kept;
+    return changed;
+  };
+  for (const record of dataset.records) {
+    if ((record.tag !== "INDI" && record.tag !== "FAM") || record.xref === dropId || !repoint(record, record, 0)) continue;
+    const indi = dataset.individuals.get(record.xref!);
+    const fam = dataset.families.get(record.xref!);
+    if (indi) rebuildIndividual(dataset, indi);
+    else if (fam && fam !== keep) rebuildFamily(dataset, fam);
+  }
+
   rebuildFamily(dataset, keep);
   removeFamily(dataset, drop); // unlinks every member's FAMS/FAMC to the dropped record
+}
+
+/** The people and families holding a line that names one of `famIds`, at any
+ *  depth — every record a {@link foldFamily} of those families can rewrite
+ *  beyond the families' own members, for a caller's undo snapshot. */
+export function familyPointerHolders(records: GedNode[], famIds: ReadonlySet<string>): string[] {
+  const names = (node: GedNode): boolean =>
+    node.children.some((c) => (c.value !== undefined && famIds.has(c.value.trim())) || names(c));
+  return records
+    .filter((r) => (r.tag === "INDI" || r.tag === "FAM") && r.xref && names(r))
+    .map((r) => r.xref!);
 }

@@ -1,5 +1,5 @@
 import type { Dataset, Family } from "../gedcom/types";
-import { foldFamily } from "../gedcom/edit";
+import { familyPointerHolders, foldFamily } from "../gedcom/edit";
 import { patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 import { duplicateFamilyGroups } from "./validate";
 
@@ -40,6 +40,12 @@ export function fixDuplicateFamilies(dataset: Dataset, only?: string): RecordPat
       indiIds.add(fam.wife!);
       for (const child of fam.children) indiIds.add(child);
     }
+  }
+  // A fold also repoints whatever else names a dropped family (an `ASSO`, an
+  // adoption's `FAMC`), so those records are snapshotted too.
+  for (const id of familyPointerHolders(dataset.records, famIds)) {
+    if (dataset.individuals.has(id)) indiIds.add(id);
+    else famIds.add(id);
   }
   const before = snapshotRecords(dataset, indiIds, famIds);
 

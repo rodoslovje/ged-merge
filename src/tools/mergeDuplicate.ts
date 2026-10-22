@@ -13,6 +13,7 @@ import {
   RECORD_OWN_TAGS,
   detachChildFromFamily,
   foldFamily,
+  familyPointerHolders,
   insertOrdered,
   rebuildFamily,
   rebuildIndividual,
@@ -94,6 +95,8 @@ export function mergeDuplicate(
   const naming = new Set([
     ...recordsNaming(dataset.records, new Set([survivorId, removedId])),
     ...recordsPointingAt(dataset.records, removedId),
+    // A fold of the survivor's doubled families repoints whatever names them.
+    ...familyPointerHolders(dataset.records, famIds),
   ]);
   for (const id of naming) {
     if (dataset.individuals.has(id)) indiIds.add(id);

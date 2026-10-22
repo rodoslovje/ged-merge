@@ -16,6 +16,7 @@ import { fixDuplicateFamilies } from "./fixDuplicateFamilies";
 import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 import { serializeGedcom } from "../gedcom/serialize";
+import { applyRecordPatches } from "../ui/historyTypes";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -2934,6 +2935,24 @@ describe("fixDuplicateFamilies", () => {
     expect(byId.get("@F2@")).toMatchObject({ type: "family", after: null, index: 6 });
     expect(byId.get("@F1@")?.after).not.toBeNull();
     expect([...byId.keys()].sort()).toEqual(["@F1@", "@F2@", "@I1@", "@I2@", "@I4@"]);
+  });
+
+  it("repoints every other line naming the dropped family to the kept one", () => {
+    // A third person names F2 in an association, an adoption and a vendor tag;
+    // F1 names its twin, a line that would point at itself after the fold.
+    const text = twice
+      .replace("0 @F1@ FAM", "0 @I5@ INDI\n1 NAME Eva /Kos/\n1 ASSO @F2@\n2 RELA Witness\n1 ADOP\n2 FAMC @F2@\n1 _LINK @F2@\n0 @F1@ FAM")
+      .replace("1 NOTE First record", "1 NOTE First record\n1 _SAME @F2@");
+    const ds = dataset(text);
+    const original = serializeGedcom(ds.records);
+    const patches = fixDuplicateFamilies(ds);
+    const eva = ds.individuals.get("@I5@")!.raw;
+    expect(serializeGedcom([eva])).toBe("0 @I5@ INDI\n1 NAME Eva /Kos/\n1 ASSO @F1@\n2 RELA Witness\n1 ADOP\n2 FAMC @F1@\n1 _LINK @F1@\n");
+    expect(ds.families.get("@F1@")!.raw.children.some((c) => c.tag === "_SAME")).toBe(false);
+    expect(serializeGedcom(ds.records)).not.toContain("@F2@");
+    // Undo puts Eva back too.
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(original);
   });
 
   it("knows a line it already holds after this session stamped it, and never doubles a pointer", () => {
