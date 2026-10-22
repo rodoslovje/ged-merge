@@ -2,7 +2,7 @@ import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
 import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
-import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
+import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild, removeRecordsByXref } from "./shared";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { repointAssociations } from "../assoc";
 import { isPointer } from "../uri";
@@ -480,11 +480,12 @@ export function pruneRecordsLeftBehind(dataset: Dataset, candidates: Iterable<st
     const referenced = new Set<string>();
     for (const rec of records) for (const v of pointersHeld(rec)) if (v !== rec.xref && pending.has(v)) referenced.add(v);
     const next = new Set<string>();
-    for (const xref of pending) {
-      if (referenced.has(xref)) continue;
-      const i = records.findIndex((r) => r.xref === xref && LEFT_BEHIND_TAGS.has(r.tag));
-      if (i === -1) continue;
-      const [rec] = records.splice(i, 1);
+    // Taken out in one walk of the list, reported in the order asked.
+    const order = [...pending].filter((xref) => !referenced.has(xref));
+    const out = removeRecordsByXref(records, order, (r) => LEFT_BEHIND_TAGS.has(r.tag));
+    const rank = new Map(order.map((xref, i) => [xref, i]));
+    out.sort((a, b) => rank.get(a.xref!)! - rank.get(b.xref!)!);
+    for (const rec of out) {
       removed.push(rec);
       pointersHeld(rec, next);
     }
