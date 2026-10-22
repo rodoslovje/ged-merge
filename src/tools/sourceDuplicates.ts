@@ -34,8 +34,8 @@ import { linkKey } from "../normalize/links";
  *    lower-cased basename.
  *  - **source** (`SOUR`) / **repository** (`REPO`) — by `sourceContentKey`:
  *    every descriptive field (a repo link's `CALN` included, so two films of
- *    one collection stay apart) except relational pointers and `CHAN`/`CREA`
- *    stamps. Identical content ⇒ same real-world source/repository even
+ *    one collection stay apart), the repositories a source points at and its
+ *    `_` tags, but no media pointers and no `CHAN`/`CREA`/`_UPD` stamps. Identical content ⇒ same real-world source/repository even
  *    under different xrefs. A record that says less than one other of its
  *    title — the same register imported without its call number or `DATA` —
  *    joins that record's group, which keeps the fuller one.
@@ -217,14 +217,17 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
 
   // A source or repository saying less than one other of its title is keyed
   // as that fuller record, so it lands in the fuller record's group.
-  const fuller = fullerSourceOf(ds.records);
+  // One file: the repository a source points at, and its exporter's `_` tags,
+  // tell two records apart too (see `SourceKeyOptions`).
+  const keyOpts = { sameFile: true };
+  const fuller = fullerSourceOf(ds.records, ds.records, keyOpts);
   const byXref = new Map(ds.records.filter((r) => r.xref).map((r) => [r.xref!, r]));
   const contentKey = (rec: GedNode) => {
     const to = fuller.get(rec.xref!);
-    const k = sourceContentKey((to && byXref.get(to)) || rec);
+    const k = sourceContentKey((to && byXref.get(to)) || rec, keyOpts);
     return k ? `c:${k}` : undefined;
   };
-  const fullness = (rec: GedNode) => sourceContentParts(rec).length;
+  const fullness = (rec: GedNode) => sourceContentParts(rec, keyOpts).length;
 
   groupRecords(
     ds.records, "SOUR", "source",

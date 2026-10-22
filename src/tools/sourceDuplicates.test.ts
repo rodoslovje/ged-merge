@@ -238,6 +238,75 @@ describe("findSourceDuplicates — sources & repos", () => {
 3 TIME 10:15:00
 0 TRLR`, "source")).toHaveLength(1);
   });
+
+  it("keeps same-titled sources apart when different repositories hold them", () => {
+    expect(ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Census 1900
+1 REPO @R1@
+0 @S2@ SOUR
+1 TITL Census 1900
+1 REPO @R2@
+0 @R1@ REPO
+1 NAME National Archives
+0 @R2@ REPO
+1 NAME State Archives
+0 TRLR`, "source")).toHaveLength(0);
+  });
+
+  it("reads a source's repositories as a set, whatever their order", () => {
+    expect(ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Census 1900
+1 REPO @R1@
+1 REPO @R2@
+0 @S2@ SOUR
+1 TITL Census 1900
+1 REPO @R2@
+1 REPO @R1@
+0 @R1@ REPO
+1 NAME National Archives
+0 @R2@ REPO
+1 NAME State Archives
+0 TRLR`, "source")).toHaveLength(1);
+  });
+
+  it("keeps sources apart on their own _ tags, but not on a _UPD stamp", () => {
+    const text = (a: string, b: string) => `0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Census 1900
+${a}
+0 @S2@ SOUR
+1 TITL Census 1900
+${b}
+0 TRLR`;
+    expect(ofKind(text("1 _TMPLT\n2 FIELD\n3 NAME Page", "1 _TMPLT\n2 FIELD\n3 NAME Line"), "source")).toHaveLength(0);
+    expect(ofKind(text("1 _UPD 1 JAN 2020", "1 _UPD 2 FEB 2024"), "source")).toHaveLength(1);
+  });
+
+  it("keeps the _TMPLT block when a lean twin folds into its fuller source", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR @S1@
+1 SOUR @S2@
+0 @S1@ SOUR
+1 TITL Census 1900
+0 @S2@ SOUR
+1 TITL Census 1900
+1 _TMPLT
+2 FIELD
+3 NAME Page
+0 TRLR`);
+    const groups = findSourceDuplicates(ds).groups.filter((g) => g.kind === "source");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members[0].xref).toBe("@S2@");
+    const text = serializeGedcom(dedupeSources(ds.records, groups).records);
+    expect(text).toContain("1 _TMPLT\n2 FIELD\n3 NAME Page");
+  });
 });
 
 describe("dedupeSources", () => {
