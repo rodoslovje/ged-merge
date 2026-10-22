@@ -2737,6 +2737,13 @@ export function reshapeSources(
             counts.notesRewritten++;
             continue;
           }
+          // A citation is more than its link: its page, transcription or
+          // quality stay, only the dead link line goes.
+          if (hit.shape === "inline" && hit.node.children.length > 0) {
+            hit.node.value = undefined;
+            counts.linksRemoved++;
+            continue;
+          }
         }
         if (spliceChild(hit.container, hit.node)) counts.linksRemoved++;
       }

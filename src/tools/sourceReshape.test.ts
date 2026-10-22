@@ -1202,6 +1202,29 @@ ${shape}
     expect(counts.linksRemoved).toBe(1);
   });
 
+  it("removeLinks keeps a link-only inline citation's page, transcription and quality", () => {
+    const url = "http://www.legacy.com/obituaries/gettysburgtimes/obituary.aspx?n=mary&pid=161495515";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR ${url}
+3 PAGE line 12
+3 DATA
+4 TEXT Died of influenza.
+3 QUAY 2
+1 BURI
+2 SOUR ${url}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const groups = report.groups.map((g) => (g.site === "legacy" ? { ...g, removeLinks: true } : g));
+    const text = serializeGedcom(reshapeSources(ds.records, groups).records);
+    expect(text).not.toContain("legacy.com");
+    expect(text).toContain("1 DEAT\n2 SOUR\n3 PAGE line 12\n3 DATA\n4 TEXT Died of influenza.\n3 QUAY 2\n");
+    expect(text).toContain("1 BURI\n0 TRLR"); // nothing but the link: the citation goes
+    expect(findReshapableLinks(dataset(text)).groups).toHaveLength(0);
+  });
+
   it("folds duplicated identical citations into one (Ancestry re-exports them verbatim)", () => {
     // Real shape from an Ancestry export: the same record-level citation —
     // same source, same PAGE with the obituary URL — appears twice on the
