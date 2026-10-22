@@ -526,8 +526,10 @@ export function decomposePlace(raw: string): PlaceComponents {
       // otherwise is) it landed under "no country", so a file's "Italy" and
       // "United States" sat among the unplaceable rather than at the head of
       // their own countries. Only the *whole* value counts: a leading segment
-      // with anything after it is a locality, however it is spelt.
-      if (segments.length === 1 && isCountryName(seg)) {
+      // with anything after it is a locality, however it is spelt — and so is
+      // one a bracketed country follows: "Luxembourg (Luxembourg)" is the
+      // city, written the way the packed layout writes any settlement.
+      if (segments.length === 1 && !out.country && isCountryName(seg)) {
         out.country = seg;
         out.jurisdiction.push(seg);
         return;
