@@ -194,6 +194,13 @@ export interface CandidateDecision {
    */
   added?: Record<string, string>;
   /**
+   * The shared records (SOUR/REPO/NOTE/OBJE) those additions brought into the
+   * main file, by xref — removed again once a taken-back addition leaves
+   * nothing referencing them (see `materializeAdds`). A record the main file
+   * had before is never listed, however unreferenced it becomes.
+   */
+  addedRecords?: string[];
+  /**
    * Incoming people this confirmed decision asks for whom the main file
    * already holds a matched record — the save will join them to it rather than
    * add them — as incoming id → that main id. The join is the matcher's

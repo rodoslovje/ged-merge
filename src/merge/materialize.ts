@@ -102,7 +102,9 @@ export function materializeAdds(
   // people it added, leaving them in the file unclaimed — and the save would
   // add them a second time.
   const decisions = new Map<string, CandidateDecision>();
-  for (const [key, d] of after) decisions.set(key, withAdded(d, before.get(key)?.added ?? {}));
+  for (const [key, d] of after) {
+    decisions.set(key, withAddedRecords(withAdded(d, before.get(key)?.added ?? {}), before.get(key)?.addedRecords ?? []));
+  }
   const patches: RecordPatch[] = [];
 
   // Take back what is no longer wanted.
@@ -118,7 +120,19 @@ export function materializeAdds(
     // fresher decision (see `withFreshDecision`).
     decisions.set(key, withAdded(d, Object.fromEntries(keep)));
   }
-  if (gone.length) patches.push(...removePeople(main, gone));
+  if (gone.length) {
+    patches.push(...removePeople(main, gone));
+    // The sources, repositories, notes and media those people brought along
+    // go with them once nothing in the file points at them any more.
+    const pruned = pruneAddedRecords(main, decisions, patches);
+    if (pruned.size) {
+      for (const [key, d] of decisions) {
+        if (d.addedRecords?.some((id) => pruned.has(id))) {
+          decisions.set(key, withAddedRecords(d, d.addedRecords.filter((id) => !pruned.has(id))));
+        }
+      }
+    }
+  }
 
   // Add what a changed, confirmed decision asks for. A decision with joins
   // left to the save is asked again on every pass: rejecting the matched pair
@@ -137,11 +151,13 @@ export function materializeAdds(
       patches.push(...added.patches);
       for (const [incomingId, mainId] of added.ids) pinned.set(incomingId, mainId);
     }
-    const next = withJoins(
+    const brought = (added?.patches ?? []).filter((p) => p.type === "record" && p.before === null).map((p) => p.id);
+    let next = withJoins(
       added?.ids.size ? withAdded(d, { ...d.added, ...Object.fromEntries(added.ids) }) : d,
       Object.fromEntries(added?.joins ?? []),
     );
-    if (added?.ids.size || JSON.stringify(next.joins) !== JSON.stringify(d.joins)) decisions.set(key, next);
+    if (brought.length) next = withAddedRecords(next, [...(d.addedRecords ?? []), ...brought]);
+    if (added?.ids.size || brought.length || JSON.stringify(next.joins) !== JSON.stringify(d.joins)) decisions.set(key, next);
   }
 
   return { decisions, patches: coalescePatches(patches) };
@@ -152,6 +168,44 @@ function withAdded(d: CandidateDecision, added: Record<string, string>): Candida
   if (Object.keys(added).length) next.added = added;
   else delete next.added;
   return next;
+}
+
+function withAddedRecords(d: CandidateDecision, ids: string[]): CandidateDecision {
+  const next = { ...d };
+  if (ids.length) next.addedRecords = [...new Set(ids)];
+  else delete next.addedRecords;
+  return next;
+}
+
+/**
+ * Delete every shared record an addition brought (`addedRecords`, across all
+ * decisions — one addition may cite what another brought) that nothing in the
+ * file references any more, to a fixpoint: a source going can leave its
+ * repository unreferenced. Pushes the deletion patches; returns the xrefs.
+ */
+function pruneAddedRecords(main: Dataset, decisions: ReadonlyMap<string, CandidateDecision>, patches: RecordPatch[]): Set<string> {
+  const candidates = new Set<string>();
+  for (const d of decisions.values()) for (const id of d.addedRecords ?? []) candidates.add(id);
+  const pruned = new Set<string>();
+  for (;;) {
+    const referenced = new Set<string>();
+    const walk = (n: GedNode) => {
+      const v = n.value?.trim();
+      if (v && candidates.has(v)) referenced.add(v);
+      for (const c of n.children) walk(c);
+    };
+    for (const r of main.records) walk(r);
+    const drop = [...candidates].filter((id) => !referenced.has(id) && !pruned.has(id));
+    if (!drop.length) return pruned;
+    for (const id of drop) {
+      candidates.delete(id);
+      pruned.add(id);
+      const index = main.records.findIndex((r) => r.xref === id && r.tag !== "INDI" && r.tag !== "FAM");
+      if (index === -1) continue; // already gone (deleted in Edit)
+      patches.push({ type: "record", id, before: cloneRaw(main.records[index]), after: null, index });
+    }
+    applyRecordPatches(main, patches.filter((p) => p.type === "record" && p.after === null && drop.includes(p.id)), "redo");
+  }
 }
 
 function withJoins(d: CandidateDecision, joins: Record<string, string>): CandidateDecision {
