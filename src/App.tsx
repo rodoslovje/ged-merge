@@ -553,7 +553,7 @@ function AppContent() {
   // refs the worker handlers above and the load/save flows below share.
   const persistence = useWorkspacePersistence({
     persistEnabled: settings.persistWorkspace,
-    workspace, mainDataset, editVersion, cleanEditVersionRef, dirty, undoRedo,
+    workspace, mainDataset, editVersion, cleanEditVersionRef, changeJournal, dirty, undoRedo,
     sortEligiblePersonIdsRef, post: feed, dispatch, autoStartRef,
     loadFile, confirmDialog, setSaveToast, clearMediaFolder,
   });

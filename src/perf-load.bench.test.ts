@@ -15,7 +15,8 @@ import { forestDiff } from "./normalize/forestDiff.testutil";
 import { normalizeDataset } from "./normalize/normalize";
 import { applyNormPatch, diffNormalized } from "./normalize/normPatch";
 import { collectLayoutValues, inferMainProfile } from "./normalize/profile";
-import { applyRecordsPatch, datasetFromSnapshot, mainSnapshot, recordsPatch } from "./state/mainSync";
+import { SerializedMain } from "./persist/serializedMain";
+import { applyRecordsPatch, ChangeJournal, datasetFromSnapshot, mainSnapshot, recordsPatch } from "./state/mainSync";
 
 const mainFile = process.env.PERF_MAIN;
 const compareFile = process.env.PERF_COMPARE;
@@ -60,6 +61,15 @@ describe.skipIf(!mainFile)("main sync cost profile", () => {
     time("snapshot (main thread): structuredClone", () => structuredClone(snap));
     console.log(`${"SNAPSHOT main thread total".padEnd(52)} ${(performance.now() - t0).toFixed(0).padStart(7)} ms`);
     time("snapshot (worker): datasetFromSnapshot", () => datasetFromSnapshot(snap));
+
+    // A persistence tick after those edits.
+    time("persist before: serialize + Blob", () => new Blob([serializeGedcom(main.records, downloadOptions(main))]));
+    const journal = new ChangeJournal();
+    const cache = new SerializedMain();
+    time("persist after: first tick (whole file, chunked)", () => cache.blob(main, journal, 0));
+    for (const id of changed) main.individuals.get(id)!.raw.children.push({ level: 1, tag: "NOTE", value: "x", children: [] });
+    journal.record(1, changed);
+    time("persist after: tick after 20 edited people", () => cache.blob(main, journal, 1));
   }, 600_000);
 });
 

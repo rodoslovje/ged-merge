@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import type { WorkspaceAction, WorkspaceState } from "../state/workspace";
 import type { DatasetRole, WorkerRequest } from "../worker/messages";
 import { isTableFile } from "../csv/compareCsv";
@@ -26,6 +25,8 @@ function clearRestoreMark(): void {
 }
 import { clearDecisions } from "./geoDb";
 import { hashFile, hasPermApi } from "./fingerprint";
+import { SerializedMain } from "./serializedMain";
+import type { ChangeJournal } from "../state/mainSync";
 import { useSettingsSlice } from "../ui/SettingsContext";
 
 export interface WorkspacePersistenceOptions {
@@ -40,6 +41,9 @@ export interface WorkspacePersistenceOptions {
   /** The editVersion at which the dataset last matched the cached main blob —
    *  0 on load, advanced by App on save. */
   cleanEditVersionRef: { readonly current: number };
+  /** Which records each edit version changed — the cached serialization
+   *  re-serializes only those (see SerializedMain). */
+  changeJournal: ChangeJournal;
   dirty: ReturnType<typeof useDirtyTracking>;
   undoRedo: ReturnType<typeof useUndoRedo>;
   sortEligiblePersonIdsRef: MutableRefObject<Set<string>>;
@@ -119,6 +123,9 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // rewritten only when the dataset actually changed since the last write —
   // not on every decision click that merely re-runs the debounced effect.
   const lastMainWriteVersionRef = useRef<number | null>(null);
+  // The main's serialization kept in chunks between writes, so a write after
+  // an edit re-serializes only the chunks the edit touched.
+  const serializedMainRef = useRef(new SerializedMain());
   // A cache-write failure is reported once (per failure streak), not on every
   // 800 ms tick — and a later success re-arms the warning.
   const writeFailureToldRef = useRef(false);
@@ -326,7 +333,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // history). Debounced because these change rapidly while working; keyed to the
   // loaded main/compare so a stale restore can be skipped.
   const { main, compare, lastMainFile, decisions, importBranches, rejectedDuplicates, startId } = opts.workspace;
-  const { mainDataset, editVersion, cleanEditVersionRef, dirty, undoRedo, sortEligiblePersonIdsRef } = opts;
+  const { mainDataset, editVersion, cleanEditVersionRef, changeJournal, dirty, undoRedo, sortEligiblePersonIdsRef } = opts;
   useEffect(() => {
     if (!persistEnabled) return; // caching is opt-in
     const mainFileName = lastMainFile?.fileName;
@@ -359,7 +366,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
             // keeps the file's CONC lines: the break positions are re-read when
             // the workspace is restored, and a save after a reload still lands
             // on the lines the file arrived on (see `GedNode.conc`).
-            blob: new Blob([serializeGedcom(mainDataset.records, downloadOptions(mainDataset))]),
+            blob: serializedMainRef.current.blob(mainDataset, changeJournal, editVersion),
             savedAt: Date.now(),
             originalHash: mainOriginalHashRef.current ?? undefined,
             handle: mainHandle ?? undefined,
@@ -409,7 +416,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     if (ds && lastMainFile) {
       void saveFile("main", {
         fileName: lastMainFile.fileName,
-        blob: new Blob([serializeGedcom(ds.records, downloadOptions(ds))]),
+        blob: serializedMainRef.current.blob(ds, changeJournal, editVersion),
         savedAt: Date.now(),
         originalHash: mainOriginalHashRef.current ?? undefined,
         handle: mainHandle ?? undefined,
