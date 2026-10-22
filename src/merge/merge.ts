@@ -514,10 +514,13 @@ export function mergeDecisions(
   // associate never arrived is dropped here — and only here is it true to say
   // so, which is what the deferred note now says.
   for (const drop of remapMergedAssociations(records, (incomingId) => ctx.resolved(incomingId))) {
+    const person = compare.individuals.get(drop.incomingId);
     report.deferred.push({
       recordId: drop.recordId,
       field: t("merge.field.associations"),
-      reason: t("merge.reason.assocTargetMissing", { name: drop.name || t("assoc.unnamed") }),
+      reason: t("merge.reason.assocTargetMissing", {
+        name: drop.name || (person ? displayName(person.names[0]) : t("assoc.unnamed")),
+      }),
     });
   }
 

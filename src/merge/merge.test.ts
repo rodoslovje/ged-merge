@@ -3086,6 +3086,33 @@ describe("associations across a merge", () => {
     const { records } = mergeDecisions(dataset(MAIN), dataset(INC), decisions(), matches, tr);
     expect(JSON.stringify(records).includes("foreignPointer")).toBe(false);
   });
+
+  it("points a vendor tag naming a person at that person's merged record, or drops it and says so", () => {
+    // The main's @I2@ is someone else; the incoming child's shared-event tags
+    // name its father (matched to @I1@) and the incoming @I2@, who never
+    // arrives — that pointer must not land on the main's @I2@.
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n",
+    ));
+    const compare = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 CENS\n2 DATE 1900\n2 _SHAR @P1@\n3 ROLE Head\n2 _SHAR @I2@\n1 FAMC @PF@\n" +
+        "0 @I2@ INDI\n1 NAME Micka /Zupan/\n1 SEX F\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 CENS\n2 DATE 1900\n2 _SHAR @I1@\n3 ROLE Head\n");
+    expect(out).not.toContain("_SHAR @I2@");
+    expect(out).not.toContain("@P1@");
+    expect(report.deferred.some((d) => d.reason.includes("assocTargetMissing"))).toBe(true);
+    expect(JSON.stringify(records).includes("foreignPointer")).toBe(false);
+  });
 });
 
 /** A confirmed decision keyed to an explicit pair, with default fields. */

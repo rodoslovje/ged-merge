@@ -292,7 +292,7 @@ export function makeContext(
     // record — if kept. Dropped associations are surfaced as deferred.
     // Associations survive this (marked, then resolved once every record is
     // placed — see `remapMergedAssociations`); ALIA has no import path.
-    const dropped = stripForeignPointers(node);
+    const dropped = stripForeignPointers(node, (xref) => compare.individuals.has(xref) || compare.families.has(xref));
     if (dropped.includes("ALIA")) {
       report.deferred.push({
         recordId: newId,

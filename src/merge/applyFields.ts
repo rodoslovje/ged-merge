@@ -1161,12 +1161,22 @@ const FOREIGN_POINTER_TAGS = new Set(["FAMC", "FAMS", "ASSO", "ALIA", "SUBM", "A
  * `foreignPointer` and resolved once every record is placed (see
  * `remapMergedAssociations`). Only what the merge cannot resolve is dropped —
  * and it says so then, when it is actually true.
+ *
+ * A vendor tag (`_SHAR`, `_ASSO`, …) whose pointer names a person or family
+ * of the incoming file (per `isIncomingRecord`) is an association by another
+ * name and is marked the same way: no fixed list knows every vendor's tags,
+ * and one left alone would land on whatever main record shares the xref.
  */
-export function stripForeignPointers(node: GedNode): string[] {
+export function stripForeignPointers(node: GedNode, isIncomingRecord?: (xref: string) => boolean): string[] {
   const removed: string[] = [];
   const walk = (n: GedNode): void => {
     n.children = n.children.filter((c) => {
-      if (FOREIGN_POINTER_TAGS.has(c.tag) && c.value && /^@[^@]+@$/.test(c.value.trim())) {
+      const pointer = c.value && /^@[^@]+@$/.test(c.value.trim()) ? c.value.trim() : undefined;
+      if (pointer && c.tag.startsWith("_") && isIncomingRecord?.(pointer)) {
+        c.foreignPointer = true;
+        return true;
+      }
+      if (FOREIGN_POINTER_TAGS.has(c.tag) && pointer) {
         if (c.tag === "ASSO") {
           c.foreignPointer = true;
           return true;
