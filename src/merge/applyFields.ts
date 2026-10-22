@@ -168,11 +168,16 @@ export function combineEventEdits(recordId: string, group: string, entries: Even
  *
  * Shared by `applyRows` and {@link snapshotMainValues} so the set of rows the
  * merge can overwrite is the same set the confirm-time snapshot records.
+ *
+ * A family's event, note and private rows (`fam.<id>.…`) are overwritable too
+ * — `applyIndividualFamilies` holds them to the same gate — while its partner
+ * and children rows only ever link people and stay out.
  */
 export function isOverwritableRow(row: Row, handled: Set<string>): boolean {
   if (row.isGroupHeader || row.isEventHeader) return false;
-  if (handled.has(row.key) || row.key.startsWith("fam.")) return false;
+  if (handled.has(row.key)) return false;
   if (row.key.endsWith(".links")) return false;
+  if (row.key.startsWith("fam.") && (row.key.endsWith(".partner") || row.key.endsWith(".children"))) return false;
   return true;
 }
 

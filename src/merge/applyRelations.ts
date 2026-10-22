@@ -682,6 +682,10 @@ export function applyIndividualFamilies(
   /** Only link people — partners and children — and leave every family fact,
    *  note and source to the save (see `materializeAdds`). */
   structureOnly = false,
+  /** Whether the main side of a family row (by key, with its live value) was
+   *  edited after the choice was confirmed — an "incoming" choice on such a
+   *  row stands down, as `applyRows` does for a person's own rows. */
+  editedSinceConfirm?: (rowKey: string, liveMain: string) => boolean,
 ): void {
   // The main family each incoming family was paired with in the review — the
   // pair whose rows the user actually judged. The merge writes into exactly
@@ -740,11 +744,21 @@ export function applyIndividualFamilies(
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
     if (structureOnly) continue;
+    const famRecordId = famNode.xref!;
+    // An Edit-mode change to this family made after the match was confirmed
+    // wins over the incoming value (see `isOverwritableRow`).
+    const standsDown = (key: string, choice: FieldChoice): boolean => {
+      if (choice !== "incoming" || !editedSinceConfirm) return false;
+      const row = rows.find((r) => r.key === key);
+      if (!row || !editedSinceConfirm(key, row.main)) return false;
+      ctx.report.deferred.push({ recordId: famRecordId, field: row.label, reason: ctx.t("merge.reason.editedAfterConfirm") });
+      return true;
+    };
 
     const marrEntries: EventSubEdit[] = [];
     for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
       const choice = marriageChoice(sub);
-      if (!choice) continue;
+      if (!choice || standsDown(`${famKey}.MARR.${sub}`, choice)) continue;
       const subTag = SUB_TAG[sub];
       if (!subTag) continue;
       const rowKey = `${famKey}.MARR.${sub}`;
@@ -758,7 +772,7 @@ export function applyIndividualFamilies(
     ctx.report.changes.push(...combineEventEdits(famNode.xref!, ctx.t("event.MARR"), marrEntries));
 
     const marrSourcesChoice = marriageChoice("sources");
-    if (marrSourcesChoice) {
+    if (marrSourcesChoice && !standsDown(`${famKey}.MARR.sources`, marrSourcesChoice)) {
       const marrRow = rows.find((r) => r.key === `${famKey}.MARR.sources`);
       // Links the incoming family kept on the record itself, which the review
       // has already moved onto this event (see `FieldRow.incomingRecordLinks`).
@@ -784,6 +798,7 @@ export function applyIndividualFamilies(
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = effectiveEventSubChoice(sub, fields[key] ?? "incoming");
+        if (standsDown(key, choice)) continue;
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
         let applied: boolean;
         if (sub === "value") {
@@ -800,7 +815,7 @@ export function applyIndividualFamilies(
       }
       ctx.report.changes.push(...combineEventEdits(famNode.xref!, evName, evEntries));
       const evSourcesKey = `${famKey}.${evTag}.sources`;
-      if (wantsIncoming(rows, fields, evSourcesKey)) {
+      if (wantsIncoming(rows, fields, evSourcesKey) && !standsDown(evSourcesKey, fields[evSourcesKey] ?? "incoming")) {
         const choice = fields[evSourcesKey] ?? "incoming";
         const evRow = rows.find((r) => r.key === evSourcesKey);
         const evPlaced: PlacedLink[] = [];
@@ -834,7 +849,7 @@ export function applyIndividualFamilies(
 
     // Family notes.
     const famNotesKey = `${famKey}.notes`;
-    if (wantsIncoming(rows, fields, famNotesKey)) {
+    if (wantsIncoming(rows, fields, famNotesKey) && !standsDown(famNotesKey, fields[famNotesKey] ?? "incoming")) {
       const choice = fields[famNotesKey] ?? "incoming";
       if (applyNotes(famNode, incFam.raw, choice, ctx.sourXrefMap, FAM_CHILD_ORDER, ctx.report.customTags)) {
         ctx.report.changes.push({

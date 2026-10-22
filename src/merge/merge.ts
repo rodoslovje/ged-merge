@@ -345,6 +345,29 @@ export function confirmedFamilyFields(
 }
 
 /**
+ * For each family-row key a confirmed decision chose, the confirm-time snapshot
+ * (`CandidateDecision.mainFields`) of the decision whose choice wins in
+ * {@link confirmedFamilyFields} — so the edited-after-confirm gate compares a
+ * family row against the snapshot taken when *that* choice was made. The value
+ * is undefined for a decision confirmed before snapshots existed.
+ */
+export function confirmedFamilySnapshots(
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  keep: (mainId: string, compareId: string) => boolean = () => true,
+): Map<string, Record<string, string> | undefined> {
+  const out = new Map<string, Record<string, string> | undefined>();
+  for (const [key, decision] of decisions) {
+    if (decision.status !== "confirmed") continue;
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind !== "individual" || !keep(parsed.mainId, parsed.compareId)) continue;
+    for (const k of Object.keys(decision.fields)) {
+      if (k.startsWith("fam.")) out.set(k, decision.mainFields);
+    }
+  }
+  return out;
+}
+
+/**
  * Apply confirmed match decisions to a clone of the main tree, taking each
  * field the user chose from the incoming side (or "both"). Untouched records are
  * left as identical clones, so serializing the result yields a minimal diff
@@ -428,6 +451,7 @@ export function mergeDecisions(
   const live = (mainId: string, compareId: string) =>
     !!indiNodes.get(mainId) && !!main.individuals.get(mainId) && !!compare.individuals.get(compareId);
   const famFields = confirmedFamilyFields(decisions, live);
+  const famSnapshots = confirmedFamilySnapshots(decisions, live);
   const allTakenChildren = new Set<string>();
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
@@ -451,7 +475,13 @@ export function mergeDecisions(
     const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
     applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
-    applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...decision.fields, ...famFields }, main, compare, ctx, allTakenChildren);
+    // A family row stands down like a person's row when the main family was
+    // edited after the choice was made (see `CandidateDecision.mainFields`).
+    const editedSinceConfirm = (rowKey: string, liveMain: string): boolean => {
+      const snap = famSnapshots.has(rowKey) ? famSnapshots.get(rowKey) : decision.mainFields;
+      return !!snap && liveMain !== (snap[rowKey] ?? "");
+    };
+    applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...decision.fields, ...famFields }, main, compare, ctx, allTakenChildren, false, editedSinceConfirm);
     // Canonical event order, but only when this decision actually wrote
     // something — a confirmed match that took no fields must leave the record
     // byte-identical (the minimal-diff guarantee), not silently reorder it.
