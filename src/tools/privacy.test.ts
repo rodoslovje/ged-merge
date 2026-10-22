@@ -275,3 +275,49 @@ describe("privatizeDataset — file-level scrubs", () => {
     expect(report.contactScrubbed).toBe(1);
   });
 });
+
+describe("privatizeDataset — shared records of a scrubbed person", () => {
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jane /Doe/
+1 BIRT
+2 DATE 1990
+1 NOTE @N1@
+1 OBJE @O1@
+1 SOUR @S1@
+0 @I2@ INDI
+1 NAME Old /Man/
+1 BIRT
+2 DATE 1850
+1 NOTE @N3@
+0 @N1@ NOTE Jane lives at 12 Main St
+1 OBJE @O2@
+0 @N2@ NOTE Already an orphan
+0 @N3@ NOTE Shared by the dead
+0 @O1@ OBJE
+1 FILE jane_passport.jpg
+0 @O2@ OBJE
+1 FILE jane_house.jpg
+0 @S1@ SOUR
+1 TITL Parish register
+0 TRLR`;
+
+  it("drops notes and media the scrub left without a referrer, keeps sources and prior orphans", () => {
+    const { records } = privatizeDataset(dataset(FILE), opts(), NOW);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("12 Main St");
+    expect(out).not.toContain("jane_passport.jpg");
+    expect(out).not.toContain("jane_house.jpg"); // its only referrer was the dropped note
+    expect(out).toContain("0 @N2@ NOTE Already an orphan");
+    expect(out).toContain("0 @N3@ NOTE Shared by the dead");
+    expect(out).toContain("0 @S1@ SOUR");
+  });
+
+  it("keeps the records when the categories are not stripped", () => {
+    const o = opts({ strip: { events: true, notes: false, sources: true, media: false, contact: true } });
+    const out = serializeGedcom(privatizeDataset(dataset(FILE), o, NOW).records);
+    expect(out).toContain("12 Main St");
+    expect(out).toContain("jane_passport.jpg");
+  });
+});

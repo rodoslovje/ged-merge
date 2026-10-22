@@ -2,6 +2,7 @@ import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/type
 import { cloneNode, hasChild } from "../gedcom/node";
 import { VENDOR_PRIVACY_TAGS } from "../gedcom/vendorTags";
 import { birthYear, deathYear, estimateBirthYear, isDeceased, lifespanOf, type BirthEstimate } from "../gedcom/lifespan";
+import { isPointerValue } from "./structure";
 
 /**
  * Privacy / anonymization for living people.
@@ -314,6 +315,42 @@ function scrubGeneric(node: GedNode, opts: PrivacyOptions, counts: { ids: number
   return { ...node, children };
 }
 
+// Shared records that describe whoever points at them: a note's text or a
+// photo is the living person's own detail once their pointer is stripped.
+// SOUR records are deliberately not here — a source describes a register or an
+// archive, not a person, and stays in the shared file like any other source.
+const PERSONAL_SHARED_RECORDS = new Set(["NOTE", "SNOTE", "OBJE"]);
+
+/** Every xref some record points at, a record's pointers to itself excluded. */
+function referencedXrefs(records: GedNode[]): Set<string> {
+  const out = new Set<string>();
+  const visit = (node: GedNode, owner: string | undefined): void => {
+    const v = node.value?.trim();
+    if (isPointerValue(v) && v !== owner) out.add(v);
+    for (const child of node.children) visit(child, owner);
+  };
+  for (const rec of records) for (const child of rec.children) visit(child, rec.xref);
+  return out;
+}
+
+/**
+ * Drop the shared NOTE/SNOTE/OBJE records the pass left with no referrer, so a
+ * scrubbed person's note text or passport scan isn't exported as a free-standing
+ * record. Only records that had a referrer in the input go — an orphan the file
+ * already carried is the user's own business. Repeats until stable, since a
+ * dropped note can have been the last referrer of a media record.
+ */
+function dropOrphanedPersonalRecords(records: GedNode[], referencedBefore: Set<string>): GedNode[] {
+  for (;;) {
+    const referenced = referencedXrefs(records);
+    const kept = records.filter(
+      (r) => !(r.xref && PERSONAL_SHARED_RECORDS.has(r.tag) && referencedBefore.has(r.xref) && !referenced.has(r.xref)),
+    );
+    if (kept.length === records.length) return kept;
+    records = kept;
+  }
+}
+
 /** Collect an individual and all their descendants (children, grandchildren…). */
 function collectDescendants(id: string, ds: Dataset, into: Set<string>): void {
   const indi = ds.individuals.get(id);
@@ -437,7 +474,8 @@ export function privatizeDataset(
   const needsScrub =
     options.file.stripExternalIds || options.file.stripSubmitter ||
     options.file.scrubAddress || options.file.scrubEmail || options.file.scrubPhone;
-  const records = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts)) : interim;
+  const scrubbed = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts)) : interim;
+  const records = dropOrphanedPersonalRecords(scrubbed, referencedXrefs(ds.records));
   report.externalIdsStripped = counts.ids;
   report.contactScrubbed = counts.contact;
 
