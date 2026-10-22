@@ -6,6 +6,8 @@ import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
 import { removeIndividual } from "../gedcom/edit";
+import { findDuplicates, makeDuplicatePair } from "./duplicates";
+import { clusterMergeSteps } from "./mergeCluster";
 import {
   mergeDuplicate,
   mergeDuplicateChain,
@@ -490,6 +492,28 @@ describe("mergeDuplicate — lines no row compares", () => {
     expect(out).toContain("1 _SPONSOR @I1@");
     // Every changed record is in the undo batch.
     expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@", "@I2@", "@I3@"]);
+  });
+
+  it("refuses to merge a person with their own parent or partner", () => {
+    const text = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n1 FAMS @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
+      "0 @I4@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F3@\n" +
+      "0 @I5@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F3@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 CHIL @I2@\n" +
+      "0 @F2@ FAM\n1 HUSB @I2@\n1 CHIL @I3@\n" +
+      "0 @F3@ FAM\n1 WIFE @I4@\n1 HUSB @I5@\n",
+    );
+    for (const [a, b] of [["@I1@", "@I2@"], ["@I3@", "@I1@"], ["@I4@", "@I5@"]]) {
+      const ds = dataset(text);
+      expect(mergeDuplicate(ds, a, b, decide({}), tr)).toEqual([]);
+      expect(serializeGedcom(ds.records)).toBe(serializeGedcom(dataset(text).records));
+    }
+    const ds = dataset(text);
+    expect(makeDuplicatePair(ds, "@I1@", "@I3@")).toBeUndefined();
+    expect(clusterMergeSteps(ds, "@I1@", ["@I1@", "@I2@", "@I3@"], [])).toEqual([]);
+    expect(findDuplicates(ds, 0).some((p) => [p.aId, p.bId].includes("@I1@") && [p.aId, p.bId].includes("@I3@"))).toBe(false);
   });
 
   it("leaves the extras of an event whose rows were declined", () => {

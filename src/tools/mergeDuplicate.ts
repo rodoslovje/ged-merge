@@ -19,6 +19,7 @@ import {
   removeIndividual,
 } from "../gedcom/edit";
 import { applyRows, linkPlacementFor } from "../merge/applyFields";
+import { closeKin } from "./duplicates";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
 import { individualFieldRows, orderedEventTags } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
@@ -60,6 +61,10 @@ export function mergeDuplicate(
   const survivor = dataset.individuals.get(survivorId);
   const removed = dataset.individuals.get(removedId);
   if (!survivor || !removed || survivorId === removedId) return [];
+  // A parent, child or partner of the survivor is a different person, whatever
+  // the names say — refused here too, so no path (a cluster chain, a pair made
+  // by hand) can make anyone their own parent.
+  if (closeKin(dataset, survivorId, removedId)) return [];
 
   // Snapshot every record that could change: both individuals, all their
   // families, and every member of those families (a re-point or a prune can
