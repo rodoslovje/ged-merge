@@ -6,8 +6,8 @@ import { clearObjeNodeCache } from "../gedcom/source";
 import { familySearchPageUrl } from "../normalize/links";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
-import { dedupeSources, type DupGroup } from "./sourceDuplicates";
-import { regroupRepositories, type RepoRegroupGroup } from "./repoRegroup";
+import { dedupeSources, findSourceDuplicates, type DupGroup } from "./sourceDuplicates";
+import { regroupRepositories, scanRepoRegroup, type RepoRegroupGroup } from "./repoRegroup";
 import { linkMissingPageMedia, type PageMediaGroup } from "./pageMediaCheck";
 
 /**
@@ -36,10 +36,16 @@ export function applySourceCleanup(
   const reshaped = reshape.groups.length
     ? reshapeSources(dataset.records, reshape.groups, reshape.enrichment, reshape.options).records
     : dataset.records;
-  const deduped = dupGroups.length ? dedupeSources(reshaped, dupGroups).records : reshaped;
+  // Each later step was scanned on the file as it was before the run; it is
+  // read again on the forest the step before it left, so it acts on records
+  // that still exist — a regroup whose country repository the dedupe merged
+  // away joins the one it kept rather than minting a fresh one.
+  const dupsNow = dupGroups.length && reshaped !== dataset.records ? rescanDuplicates(reshaped, dupGroups) : dupGroups;
+  const deduped = dupsNow.length ? dedupeSources(reshaped, dupsNow).records : reshaped;
   // The regroup runs last, so the sources the reshape just created are
   // gathered under their country's repository along with the older ones.
-  const regrouped = regroupGroups.length ? regroupRepositories(deduped, regroupGroups).records : deduped;
+  const regroupNow = regroupGroups.length && deduped !== dataset.records ? rescanRegroup(deduped, regroupGroups) : regroupGroups;
+  const regrouped = regroupNow.length ? regroupRepositories(deduped, regroupNow).records : deduped;
   // Last: the page images it links are the ones the passes above have finished
   // moving and merging, so a pointer is never written to a record that another
   // pass then drops.
@@ -86,6 +92,33 @@ export function applySourceCleanup(
   bumpSourceCacheVersion(dataset.records);
   clearObjeNodeCache(dataset.records);
   return patches;
+}
+
+/**
+ * The selected duplicate groups as they stand in `records`, keeping the record
+ * the reader chose to keep. A group the scan still finds is taken as it finds
+ * it; one it no longer finds under its id (a retitle changed its key) keeps
+ * its members that still exist, and is dropped once fewer than two — or not
+ * the kept one — remain.
+ */
+function rescanDuplicates(records: GedNode[], selected: DupGroup[]): DupGroup[] {
+  const present = new Set(records.map((r) => r.xref).filter(Boolean));
+  const now = new Map(findSourceDuplicates({ records } as Dataset).groups.map((g) => [g.id, g]));
+  const out: DupGroup[] = [];
+  for (const g of selected) {
+    const keep = g.members.find((m) => m.survivor)?.xref;
+    const members = (now.get(g.id) ?? g).members.filter((m) => present.has(m.xref));
+    if (!keep || members.length < 2 || !members.some((m) => m.xref === keep)) continue;
+    out.push({ ...g, members: members.map((m) => ({ ...m, survivor: m.xref === keep })), removable: members.length - 1 });
+  }
+  return out;
+}
+
+/** The selected repository regroups as they stand in `records`: the country's
+ *  repository and the sources still to move, read afresh. */
+function rescanRegroup(records: GedNode[], selected: RepoRegroupGroup[]): RepoRegroupGroup[] {
+  const ids = new Set(selected.map((g) => g.id));
+  return scanRepoRegroup(records).groups.filter((g) => ids.has(g.id));
 }
 
 function patchType(rec: GedNode): RecordPatch["type"] {
