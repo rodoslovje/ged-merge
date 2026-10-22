@@ -1360,6 +1360,15 @@ describe("fixBrokenLinks", () => {
     expect(ds.individuals.get("@I1@")!.spouseOf).toHaveLength(0);
     expect(validateDataset(ds, 2026).counts.brokenLink).toBe(1);
   });
+
+  it("removes a broken pointer written with trailing whitespace", () => {
+    const ds = dataset("0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME Eva /Horvat/\n1 FAMC @F9@ \n0 @F2@ FAM\n1 CHIL @I9@ \n0 TRLR");
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(2);
+    expect(fixBrokenLinks(ds)).toHaveLength(2);
+    expect(ds.individuals.get("@I1@")!.childOf).toHaveLength(0);
+    expect(ds.families.get("@F2@")!.children).toHaveLength(0);
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(0);
+  });
 });
 
 describe("fixSexFromRole", () => {
