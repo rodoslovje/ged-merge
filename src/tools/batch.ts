@@ -11,7 +11,7 @@ import { rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
-import { firstChild } from "../gedcom/node";
+import { cloneNode, firstChild } from "../gedcom/node";
 import { unionMarriage, type UnionMarriage } from "../gedcom/union";
 import { isPrivateNode } from "../gedcom/private";
 import { NOTE_TAGS } from "../gedcom/builder";
@@ -25,7 +25,7 @@ import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markE
 import { carriesLineValue, isNonStandardTag, isOccurrenceFlag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
 import { buildSearchRows, foldSearch, type SearchRow } from "../ui/globalSearch";
-import { cloneRaw, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
+import { patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 
 /**
  * Batch actions (Tools → Normalize & batch): filter the whole file with
@@ -880,7 +880,7 @@ function addMediaBatch(
     undefined;
   if (!shared && detectMediaMode(ds.records) === "shared") {
     shared = createMediaRecord(ds.records, action.file, action.title);
-    extra.push({ type: "record", id: shared.xref!, before: null, after: cloneRaw(shared) });
+    extra.push({ type: "record", id: shared.xref!, before: null, after: cloneNode(shared) });
   }
   const snap = snapshotRecords(ds, ids, []);
   let changed = 0;
@@ -925,7 +925,7 @@ function addSourceBatch(
     insertRecord(ds.records, rec);
     bumpSourceCacheVersion(ds.records);
     sourXref = rec.xref!;
-    extra.push({ type: "record", id: sourXref, before: null, after: cloneRaw(rec) });
+    extra.push({ type: "record", id: sourXref, before: null, after: cloneNode(rec) });
   }
   const snap = snapshotRecords(ds, ids, []);
   let changed = 0;

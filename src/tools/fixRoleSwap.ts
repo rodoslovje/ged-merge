@@ -1,6 +1,7 @@
 import type { Dataset, Family, GedNode } from "../gedcom/types";
 import { rebuildFamily } from "../gedcom/edit";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 
 /**
  * One-button repair for the "Sex vs. role" health-check category: a family whose
@@ -81,12 +82,12 @@ export function fixSwappedRoles(dataset: Dataset, only?: string): RecordPatch[] 
     const slots = swappedSlots(dataset, fam);
     if (!slots) continue;
     if (only && fam.husband !== only && fam.wife !== only) continue;
-    const before = cloneRaw(fam.raw);
+    const before = cloneNode(fam.raw);
     const husbValue = slots.husb.value;
     slots.husb.value = slots.wife.value;
     slots.wife.value = husbValue;
     rebuildFamily(dataset, fam);
-    patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+    patches.push({ type: "family", id: fam.id, before, after: cloneNode(fam.raw) });
   }
   return patches;
 }

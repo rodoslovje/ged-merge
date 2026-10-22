@@ -4,7 +4,8 @@ import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { normalizeDateString } from "../normalize/date";
 import { inferDateProfile, collectLayoutValues, isMonthWord } from "../normalize/profile";
 import type { DateFormatProfile } from "../normalize/types";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 
 /**
  * One-button repair for the "Unparseable dates" structural-check category.
@@ -214,7 +215,7 @@ export function fixDates(dataset: Dataset, only?: BadDateRef): RecordPatch[] {
     const type = rec.tag === "INDI" ? "individual" : rec.tag === "FAM" ? "family" : "record";
     if (type === "record" && !rec.xref) continue; // can't address it for undo
 
-    const before = cloneRaw(rec);
+    const before = cloneNode(rec);
     for (const f of fixes) f.node.value = f.next;
 
     // Re-derive the typed projection so events reflect the repaired date.
@@ -226,7 +227,7 @@ export function fixDates(dataset: Dataset, only?: BadDateRef): RecordPatch[] {
       if (fam) rebuildFamily(dataset, fam);
     }
 
-    patches.push({ type, id: rec.xref ?? "", before, after: cloneRaw(rec) });
+    patches.push({ type, id: rec.xref ?? "", before, after: cloneNode(rec) });
   }
   return patches;
 }

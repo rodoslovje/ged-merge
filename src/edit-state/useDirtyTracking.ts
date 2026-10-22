@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
 import type { GedNode, Dataset } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
-import { cloneRaw } from "../ui/historyTypes";
-import { nodesEqual } from "../gedcom/node";
+import { cloneNode, nodesEqual } from "../gedcom/node";
 import { captureBaseline, type SaveBaseline } from "../gedcom/fingerprint";
 import { displayName } from "../match/relatives";
 import {
@@ -178,7 +177,7 @@ export function useDirtyTracking() {
         kind === "individual"
           ? dataset.individuals.get(id)?.raw
           : dataset.families.get(id)?.raw;
-      if (raw) snaps.current.set(id, cloneRaw(raw));
+      if (raw) snaps.current.set(id, cloneNode(raw));
     }
     setChangedFor(kind)((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }

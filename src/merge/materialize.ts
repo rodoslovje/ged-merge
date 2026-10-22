@@ -7,14 +7,7 @@ import type { Translate } from "../locales/i18n";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
 import { parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
-import {
-  applyRecordPatches,
-  coalescePatches,
-  cloneRaw,
-  patchesFromSnapshots,
-  snapshotRecords,
-  type RecordPatch,
-} from "../ui/historyTypes";
+import { applyRecordPatches, coalescePatches, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords } from "./applyFields";
 import {
   applyImportBranches,
@@ -202,7 +195,7 @@ function pruneAddedRecords(main: Dataset, decisions: ReadonlyMap<string, Candida
       pruned.add(id);
       const index = main.records.findIndex((r) => r.xref === id && r.tag !== "INDI" && r.tag !== "FAM");
       if (index === -1) continue; // already gone (deleted in Edit)
-      patches.push({ type: "record", id, before: cloneRaw(main.records[index]), after: null, index });
+      patches.push({ type: "record", id, before: cloneNode(main.records[index]), after: null, index });
     }
     applyRecordPatches(main, patches.filter((p) => p.type === "record" && p.after === null && drop.includes(p.id)), "redo");
   }
@@ -397,7 +390,7 @@ function addFor(
 
   const patches: RecordPatch[] = [];
   const changed = (type: "individual" | "family" | "record", id: string, live: GedNode, copy: GedNode) => {
-    if (JSON.stringify(live) !== JSON.stringify(copy)) patches.push({ type, id, before: cloneRaw(live), after: copy });
+    if (JSON.stringify(live) !== JSON.stringify(copy)) patches.push({ type, id, before: cloneNode(live), after: copy });
   };
   for (const id of individuals.copied) changed("individual", id, main.individuals.get(id)!.raw, individuals.get(id)!);
   for (const id of families.copied) changed("family", id, main.families.get(id)!.raw, families.get(id)!);
