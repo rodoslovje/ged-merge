@@ -3,8 +3,10 @@ import { birthSortKey } from "../lifespan";
 import { cloneNode, mergeSubLines, nodeFingerprint } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
-import { rebuildFamily, rebuildIndividual } from "./cache";
+import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { repointAssociations } from "../assoc";
+import { isPointer } from "../uri";
+import { clearObjeNodeCache } from "../source";
 
 /** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
 function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
@@ -445,6 +447,53 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
     const fam = dataset.families.get(famId);
     if (fam) pruneDegenerateFamily(dataset, fam);
   }
+}
+
+/** Shared records a deleted person can leave behind with nobody pointing at
+ *  them. `SOUR` is among them as citation removal already treats it (see
+ *  `pruneUnreferencedSource`); a `REPO` is an archive and always stays. */
+const LEFT_BEHIND_TAGS = new Set(["NOTE", "SNOTE", "OBJE", "SOUR"]);
+
+/** Every pointer value held at any depth below `node`. */
+export function pointersHeld(node: GedNode, into = new Set<string>()): Set<string> {
+  for (const child of node.children) {
+    const v = child.value?.trim();
+    if (v && isPointer(v)) into.add(v);
+    pointersHeld(child, into);
+  }
+  return into;
+}
+
+/**
+ * Delete the shared NOTE/SNOTE/OBJE/SOUR records among `candidates` (the
+ * pointers a just-deleted person held) that nothing points at any more, and in
+ * turn those only a deleted record pointed at — a note's photo, a source's page
+ * image. A record's pointer to itself doesn't keep it. Returns the removed
+ * records in removal order, for the caller's undo patches.
+ */
+export function pruneRecordsLeftBehind(dataset: Dataset, candidates: Iterable<string>): GedNode[] {
+  const records = dataset.records;
+  const removed: GedNode[] = [];
+  let pending = new Set(candidates);
+  while (pending.size) {
+    const referenced = new Set<string>();
+    for (const rec of records) for (const v of pointersHeld(rec)) if (v !== rec.xref && pending.has(v)) referenced.add(v);
+    const next = new Set<string>();
+    for (const xref of pending) {
+      if (referenced.has(xref)) continue;
+      const i = records.findIndex((r) => r.xref === xref && LEFT_BEHIND_TAGS.has(r.tag));
+      if (i === -1) continue;
+      const [rec] = records.splice(i, 1);
+      removed.push(rec);
+      pointersHeld(rec, next);
+    }
+    pending = next;
+  }
+  if (removed.length) {
+    bumpSourceCacheVersion(records);
+    clearObjeNodeCache(records);
+  }
+  return removed;
 }
 
 /** Families whose HUSB/WIFE/CHIL lines name `indiId`, whether or not the

@@ -38,6 +38,7 @@ export {
   connectExistingParent, connectExistingPartner, connectExistingChild, impossibleRelatives,
   pruneDegenerateFamily, detachSpouseRole, detachChildFromFamily,
   removeIndividual, removeFamily, foldFamily, familyPointerHolders, familiesNaming, familyMembers, RECORD_OWN_TAGS,
+  pruneRecordsLeftBehind, pointersHeld,
 } from "./family";
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";

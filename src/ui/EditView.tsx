@@ -55,8 +55,6 @@ import {
   addAdditionalName,
   ensurePrimaryName,
   rebuildNoteReferrers,
-  removeIndividual,
-  familiesNaming,
   familyMembers,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
@@ -102,7 +100,7 @@ import { RelativesIcon } from "./icons/RelativesIcon";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
-import { recordsNaming } from "../gedcom/assoc";
+import { deletePerson } from "./edit/deletePerson";
 import { NameEditor } from "./edit/NameEditor";
 import { StartPersonChip } from "./edit/StartPersonChip";
 import { SexToggle } from "./edit/SexToggle";
@@ -1601,28 +1599,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       confirmLabel: t("confirm.delete"),
       action: () => {
         const personId = person.id;
-        // The family side too: a one-sided file can name the person in a
-        // family their own record does not link back to.
-        const affectedFamilyIds = [...new Set([...person.spouseOf, ...person.childOf, ...familiesNaming(dataset, personId)])];
-
-        // Snapshot the person, their families, and all members of those families:
-        // a family pruned for dropping below two members unlinks its survivors too.
-        const memberIds = new Set<string>([personId]);
-        for (const famId of affectedFamilyIds) {
-          const fam = dataset.families.get(famId);
-          if (fam) for (const m of familyMemberIds(fam)) memberIds.add(m);
-        }
-        // And every record that names the person in an association — the
-        // delete strips those ASSO lines wherever they sit, so undo must be
-        // able to put them back. `snapshotRecords` ignores an id that is not
-        // an individual (or not a family), so each list gets the whole set.
-        const naming = recordsNaming(dataset.records, new Set([personId]));
-        for (const id of naming) memberIds.add(id);
-        const before = snapshotRecords(dataset, memberIds, new Set([...affectedFamilyIds, ...naming]));
-
-        removeIndividual(dataset, person);
-
-        const patches = patchesFromSnapshots(dataset, before);
+        const patches = deletePerson(dataset, person);
 
         const nextId =
           history.filter((id) => id !== personId).pop() ??
