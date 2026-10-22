@@ -1,7 +1,8 @@
 import type { Dataset, DateOrder, GedNode } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
-import { normalizeDateString } from "../normalize/date";
+import { hasDualYear, isReadable, normalizeDateString } from "../normalize/date";
+import { applyDateOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { inferDateProfile, collectLayoutValues, isMonthWord } from "../normalize/profile";
 import type { DateFormatProfile } from "../normalize/types";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
@@ -201,11 +202,20 @@ function isSample(value: string, sample: string): boolean {
  *  instead of every repairable date in the file. */
 export function fixDates(dataset: Dataset, only?: BadDateRef): RecordPatch[] {
   const ctx = dateFixContext(dataset);
+  return applyDateFixes(dataset, (rec, out) => collectFixes(rec, ctx, out), only);
+}
+
+/** Rewrite the dates `collect` proposes, record by record, as undo patches. */
+function applyDateFixes(
+  dataset: Dataset,
+  collect: (rec: GedNode, out: { node: GedNode; next: string }[]) => void,
+  only?: BadDateRef,
+): RecordPatch[] {
   const patches: RecordPatch[] = [];
   for (const rec of dataset.records) {
     if (only && rec.xref !== only.id) continue;
     const all: { node: GedNode; next: string }[] = [];
-    collectFixes(rec, ctx, all);
+    collect(rec, all);
     const fixes = only?.sample ? all.filter((f) => isSample(f.node.value ?? "", only.sample!)) : all;
     if (fixes.length === 0) continue;
 
@@ -229,4 +239,84 @@ export function fixDates(dataset: Dataset, only?: BadDateRef): RecordPatch[] {
     patches.push({ type, id: rec.xref ?? "", before, after: cloneRaw(rec) });
   }
   return patches;
+}
+
+// ── Non-standard dates ───────────────────────────────────────────────────────
+
+/**
+ * The date style a date is held to: the file's own, or the format chosen in
+ * Settings → GEDCOM (choosing `D MMM YYYY` there holds every date to the
+ * GEDCOM standard). Shared by the health check and its fix, so the two always
+ * agree on what is non-standard and what it becomes.
+ */
+export function dateStyleContext(dataset: { records: GedNode[] }, overrides?: FormatOverrides): DateFixContext {
+  const ctx = dateFixContext(dataset);
+  return { profile: applyDateOverrides(ctx.profile, overrides), sourceOrder: ctx.sourceOrder };
+}
+
+/**
+ * What a date's format is, without its values: numbers, placeholder runs and
+ * month names each collapse to one symbol, case aside. Two dates of one shape
+ * read alike to a person — "01 APR 1894" and "1 Apr 1894", "1 June" and
+ * "1 Jun" — so only a real difference of format (numeric against month
+ * words, a month put first, a non-standard qualifier, a placeholder) counts.
+ */
+function dateShape(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[_?]+/g, "_")
+    .replace(/\d+/g, "9")
+    .replace(/\p{L}{3,}/gu, (w) => (isMonthWord(w) ? "M" : w))
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Whether a readable date is written in another format than the style holds,
+ * and if so whether restyling it is safe:
+ *  - `fix`: one reading only — `okoli 1850`, `Abt. 1625`, `JAN 27 1809` —
+ *    with the value it becomes;
+ *  - `ambiguous`: a numeric date whose day and month could be either
+ *    (`05/06/1850`), which only the record can settle;
+ *  - undefined: in format already, or another check's to report (unreadable,
+ *    a day the month lacks, a two-digit year), or kept on purpose (a dual
+ *    year "1850/51", which no format has a slot for).
+ */
+export function nonStandardDate(
+  value: string,
+  ctx: DateFixContext,
+): { kind: "fix"; next: string } | { kind: "ambiguous" } | undefined {
+  const raw = value.trim();
+  if (!raw || hasDualYear(raw)) return undefined;
+  const d = parseDate(raw, ctx.sourceOrder);
+  if (!isReadable(d) || d.impossible || d.shortYear) return undefined;
+  const next = normalizeDateString(raw, ctx.profile, ctx.sourceOrder);
+  if (!next || dateShape(next) === dateShape(raw)) return undefined;
+  // Dotted and dashed numbers are written day first wherever they are written;
+  // a slash is where the US writes the month first, so only there can the two
+  // numbers honestly go either way.
+  const dayFirst = parseDate(raw, "DMY");
+  const monthFirst = parseDate(raw, "MDY");
+  if (raw.includes("/") && (dayFirst.day !== monthFirst.day || dayFirst.month !== monthFirst.month)) {
+    return { kind: "ambiguous" };
+  }
+  return { kind: "fix", next };
+}
+
+/** Collect the safe restylings under `node`, skipping CHAN/CREA change
+ *  stamps, whose dates are the program's own. */
+function collectStyleFixes(node: GedNode, ctx: DateFixContext, out: { node: GedNode; next: string }[]): void {
+  if (node.tag === "CHAN" || node.tag === "CREA") return;
+  if (node.tag === "DATE" && node.value) {
+    const verdict = nonStandardDate(node.value, ctx);
+    if (verdict?.kind === "fix") out.push({ node, next: verdict.next });
+  }
+  for (const child of node.children) collectStyleFixes(child, ctx, out);
+}
+
+/** Restyle every non-standard date that has one reading (or just the one a
+ *  finding names), leaving the ambiguous ones for the user. */
+export function fixNonStandardDates(dataset: Dataset, overrides?: FormatOverrides, only?: BadDateRef): RecordPatch[] {
+  const ctx = dateStyleContext(dataset, overrides);
+  return applyDateFixes(dataset, (rec, out) => collectStyleFixes(rec, ctx, out), only);
 }

@@ -642,7 +642,10 @@
                 and month could swap, is read in your file's order, and the line offers the other reading a click
                 away. When you leave the field, the date is written in your file's own date format with the standard
                 GEDCOM words (<code>ABT 5 MAR 1850</code>); text that is not a date is kept as typed and marked red
-                while you type it. Hover a date field at any time to read its date in words.
+                while you type it. Hover a date field at any time to read its date in words. Every date field works
+                this way — a source's covered years in <a href="#sources">Organize sources</a>, where
+                <em>1850-1900</em> is written as the period <code>FROM 1850 TO 1900</code>, and a photo's date in
+                the media viewer too.
               </p>
               <p>
                 A <strong>Residence</strong> or <strong>Death</strong> row also offers a <strong>value</strong> field,
@@ -1206,8 +1209,12 @@
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
               dates — many with a one-click <strong>Fix</strong>. Readable dates are checked as well, for a day the
               month does not have (<em>31 FEB 1850</em>), a range that ends before it starts, a two-digit year
-              (<em>5 MAR 88</em>) and a date written in another format than the rest of the file; hover such a date
-              to see how <a href="#normalize">Normalize file</a> would write it. When a media folder is connected, <strong>Check media
+              (<em>5 MAR 88</em>) and a <strong>non-standard date</strong> — one written outside the GEDCOM standard
+              or your file's date format (<em>okoli 1850</em>, <em>Abt. 1625</em>, <em>5.3.1910</em> in a file of
+              <em>5 MAR 1910</em>). <strong>Fix</strong> rewrites every non-standard date that has one reading, and
+              each row offers the same for its own date; a slashed date whose day and month could swap
+              (<em>05/06/1850</em>) is listed under <em>Ambiguous dates</em> for you to correct by hand. The format
+              they are held to is the one chosen in Settings → GEDCOM, else your file's own. When a media folder is connected, <strong>Check media
               folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
               coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
               coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to

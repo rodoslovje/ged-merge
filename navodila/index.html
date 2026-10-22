@@ -650,7 +650,9 @@
                 se ponudi še obratna izbira dneva in meseca. Ko polje zapustite, se datum zapiše v obliki datumov vaše
                 datoteke in s standardnimi oznakami GEDCOM (<code>ABT 5 MAR 1850</code>). Besedilo, ki ni datum, se
                 ohrani tako, kot ste ga vpisali, opozorilo pod poljem pa je med vpisovanjem rdeče. Če se z miško ustavite
-                na polju za datum, se datum vedno izpiše tudi z besedami.
+                na polju za datum, se datum vedno izpiše tudi z besedami. Enako delujejo vsa polja za datum: leta,
+                ki jih vir pokriva, v orodju <a href="#sources">Uredi vire</a>, kjer se <em>1850-1900</em> zapiše
+                kot obdobje <code>FROM 1850 TO 1900</code>, in datum fotografije v pregledovalniku medijev.
               </p>
               <p>
                 Vrstici <strong>Prebivališče</strong> in <strong>Smrt</strong> ponujata tudi polje
@@ -1236,9 +1238,17 @@
                 <li>dan, ki ga v mesecu ni (<em>31 FEB 1850</em>),</li>
                 <li>razpon, ki se konča pred začetkom,</li>
                 <li>dvomestno letnico (<em>5 MAR 88</em>),</li>
-                <li>datum, zapisan v drugačni obliki kot ostali datumi v datoteki. Če se z miško ustavite na takem
-                  datumu, se izpiše, kako bi ga zapisalo orodje <a href="#normalize">Poenoti datoteko</a>.</li>
+                <li><strong>nestandarden datum</strong>, zapisan zunaj standarda GEDCOM ali oblike datumov vaše
+                  datoteke (<em>okoli 1850</em>, <em>Abt. 1625</em>, <em>5.3.1910</em> v datoteki z zapisom
+                  <em>5 MAR 1910</em>).</li>
               </ul>
+              <p>
+                Z gumbom <strong>Popravi</strong> se na novo zapišejo vsi nestandardni datumi, ki jih je mogoče
+                prebrati samo na en način; enak gumb ima tudi vsaka vrstica za svoj datum. Datum s poševnicami, pri katerem sta
+                lahko dan in mesec zamenjana (<em>05/06/1850</em>), se izpiše med <em>dvoumnimi datumi</em>, popravite
+                pa ga sami. Datumi se zapišejo v obliki, izbrani v Nastavitvah → GEDCOM, sicer pa v obliki vaše
+                datoteke.
+              </p>
               <p>
                 Ko je povezana mapa z mediji, <strong>Preveri mapo z mediji</strong>
                 našteje navedene medijske datoteke, ki v njej manjkajo. Našteje tudi <strong>kraje s koordinatami v

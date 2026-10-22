@@ -53,7 +53,7 @@ import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addres
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
-import { fixDates } from "./tools/fixDates";
+import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
@@ -2634,6 +2634,7 @@ function AppContent() {
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
+              onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, settings.formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
