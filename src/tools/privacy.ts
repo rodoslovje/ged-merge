@@ -305,9 +305,18 @@ function familyIsEmpty(rec: GedNode): boolean {
 }
 
 /** Recursively remove external-id / contact / account-trace children, counting removals. */
-function scrubGeneric(node: GedNode, opts: PrivacyOptions, counts: { ids: number; contact: number }): GedNode {
+function scrubGeneric(
+  node: GedNode,
+  opts: PrivacyOptions,
+  counts: { ids: number; contact: number },
+  removedSubmitters: ReadonlySet<string>,
+): GedNode {
   const children: GedNode[] = [];
   for (const child of node.children) {
+    // A pointer to a dropped submitter — SUBM on a record, ANCI/DESI interest
+    // flags, a vendor `_SUBM` — would dangle in the shared file.
+    const v = child.value?.trim();
+    if (v && removedSubmitters.has(v)) continue;
     if (opts.file.stripExternalIds && EXTERNAL_ID_TAGS.has(child.tag)) {
       counts.ids++;
       continue;
@@ -327,7 +336,7 @@ function scrubGeneric(node: GedNode, opts: PrivacyOptions, counts: { ids: number
       counts.contact++;
       continue;
     }
-    children.push(scrubGeneric(child, opts, counts));
+    children.push(scrubGeneric(child, opts, counts, removedSubmitters));
   }
   return { ...node, children };
 }
@@ -491,7 +500,10 @@ export function privatizeDataset(
   const needsScrub =
     options.file.stripExternalIds || options.file.stripSubmitter ||
     options.file.scrubAddress || options.file.scrubEmail || options.file.scrubPhone;
-  const scrubbed = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts)) : interim;
+  const removedSubmitters = new Set(
+    options.file.stripSubmitter ? ds.records.filter((r) => r.tag === "SUBM" && r.xref).map((r) => r.xref!) : [],
+  );
+  const scrubbed = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts, removedSubmitters)) : interim;
   const records = dropOrphanedPersonalRecords(scrubbed, referencedXrefs(ds.records));
   report.externalIdsStripped = counts.ids;
   report.contactScrubbed = counts.contact;

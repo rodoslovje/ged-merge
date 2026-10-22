@@ -249,6 +249,27 @@ describe("privatizeDataset — file-level scrubs", () => {
     expect(out).not.toContain("1 SUBM @U1@");
   });
 
+  it("strips every pointer to a removed submitter, file-wide", () => {
+    const ds = dataset(`0 HEAD
+1 SUBM @U1@
+0 @U1@ SUBM
+1 NAME Researcher
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 DEAT
+1 SUBM @U1@
+1 ANCI @U1@
+1 DESI @U1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 SUBM @U1@
+0 TRLR`);
+    const o = opts({ file: { stripSubmitter: true, stripExternalIds: false, scrubAddress: false, scrubEmail: false, scrubPhone: false } });
+    const out = serializeGedcom(privatizeDataset(ds, o, NOW).records);
+    expect(out).not.toContain("@U1@");
+    expect(out).toContain("1 HUSB @I1@");
+  });
+
   it("strips external ids globally", () => {
     const ds = dataset(SAMPLE);
     // mark-only so the _UID survives phase 1 and must be removed by the scrub.
