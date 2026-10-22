@@ -25,7 +25,7 @@ import type {
 
 import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, isChangeStampEvent } from "./eventTags";
 import { UPD_STAMP_TYPE } from "./vendorTags";
-import { EDITABLE_LINK_TAGS } from "./edit/shared";
+import { EDITABLE_LINK_TAGS, nextXref } from "./edit/shared";
 import { decodeEntities, isHtmlNote, noteToText } from "./noteHtml";
 
 /** An empty, fully-typed `Dataset` — for callers that need a valid compare side
@@ -50,43 +50,38 @@ export function emptyDataset(): Dataset {
 export function buildDataset(parsed: ParseResult): Dataset {
   const individuals = new Map<string, Individual>();
   const families = new Map<string, Family>();
+  const records = parsed.records;
+
+  // Two records with one xref: pointers have always bound to the last copy
+  // (every index below is last-wins), so that one keeps the id. Each earlier
+  // copy is a whole person (or family, source …) of its own and must not be
+  // lost, nor serialize under the same id a second time (strict importers
+  // reject that) — it takes a fresh, unused xref instead, and the warning
+  // names it. Deterministic, so the worker's parse and the main thread's agree.
+  const lastIndex = new Map<string, number>();
+  records.forEach((r, i) => {
+    if (r.xref) lastIndex.set(r.xref, i);
+  });
+  records.forEach((record, i) => {
+    if (!record.xref || lastIndex.get(record.xref) === i) return;
+    const prefix = record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
+    const fresh = nextXref(records, prefix);
+    parsed.warnings.push({
+      kind: "structure",
+      message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
+    });
+    record.xref = fresh;
+  });
+
   // Shared multimedia (OBJE) records hold their URL in a FILE line; records
   // attach them by pointer (`1 OBJE @xref@`), so resolve those up front.
-  const media = buildMediaLinks(parsed.records);
+  const media = buildMediaLinks(records);
   // Likewise, source (SOUR) and repository (REPO) records are shared and
   // referenced by pointer from event-level citations.
-  const sourceCtx = buildSourceContext(parsed.records);
+  const sourceCtx = buildSourceContext(records);
   // Shared NOTE records hold their text; records reference them by pointer
   // (`1 NOTE @xref@`), so resolve those to real text up front.
-  const notes = buildNoteIndex(parsed.records);
-
-  // Duplicate xrefs last-win in the Maps below (and in every shared-record
-  // index above), leaving matching/merge working against a half-hidden record.
-  // Surface that — and drop the shadowed raw records too, or both would still
-  // serialize and a saved file would carry the same id twice (strict importers
-  // reject that, or bind every pointer to whichever copy they read last).
-  const seenXrefs = new Set<string>();
-  let hasDuplicate = false;
-  for (const record of parsed.records) {
-    if (!record.xref) continue;
-    if (seenXrefs.has(record.xref)) {
-      hasDuplicate = true;
-      parsed.warnings.push({
-        kind: "structure",
-        message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is dropped.`,
-      });
-    } else {
-      seenXrefs.add(record.xref);
-    }
-  }
-  let records = parsed.records;
-  if (hasDuplicate) {
-    const lastIndex = new Map<string, number>();
-    records.forEach((r, i) => {
-      if (r.xref) lastIndex.set(r.xref, i);
-    });
-    records = records.filter((r, i) => !r.xref || lastIndex.get(r.xref) === i);
-  }
+  const notes = buildNoteIndex(records);
 
   for (const record of records) {
     if (record.tag === "INDI" && record.xref) {

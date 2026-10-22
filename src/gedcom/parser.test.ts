@@ -220,27 +220,35 @@ describe("parseGedcom", () => {
     expect(serializeGedcom(parsed.records)).not.toContain("CONT");
   });
 
-  it("warns when two records define the same xref (last one wins)", () => {
+  it("keeps both records that share an xref, renaming the earlier one", () => {
     const text = [
       "0 HEAD",
       "0 @I1@ INDI",
       "1 NAME Ana /Novak/",
       "0 @I1@ INDI",
       "1 NAME Bo /Kos/",
+      "1 FAMS @F1@",
+      "0 @I2@ INDI",
+      "1 NAME Cene /Kos/",
+      "0 @F1@ FAM",
+      "1 HUSB @I1@",
       "0 TRLR",
       "",
     ].join("\n");
     const ds = buildDataset(parseGedcom(toBuffer(text)));
-    expect(ds.individuals.size).toBe(1);
+    // The pointer still binds to the last copy, as it always has.
     expect(ds.individuals.get("@I1@")?.names[0].full).toContain("Bo");
+    expect(ds.families.get("@F1@")?.husband).toBe("@I1@");
     expect(
-      ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@")),
+      ds.warnings.some((w) => w.kind === "structure" && w.message.startsWith("Duplicate xref @I1@") && w.message.includes("@I3@")),
     ).toBe(true);
-    // The shadowed earlier record is dropped from records[] too — otherwise
-    // both would serialize and the *saved* file would carry @I1@ twice.
-    const copies = ds.records.filter((r) => r.xref === "@I1@");
-    expect(copies).toHaveLength(1);
-    expect(copies[0].children.find((c) => c.tag === "NAME")?.value).toBe("Bo /Kos/");
+    // The shadowed earlier person is kept under a fresh id — dropping it lost
+    // them from the save, keeping both ids would write @I1@ twice.
+    expect(ds.individuals.size).toBe(3);
+    expect(ds.individuals.get("@I3@")?.names[0].full).toContain("Ana");
+    expect(ds.records.filter((r) => r.xref === "@I1@")).toHaveLength(1);
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("0 @I3@ INDI\n1 NAME Ana /Novak/\n0 @I1@ INDI\n1 NAME Bo /Kos/");
   });
 
   it("folds a doubled leading at-sign (@@) back to a literal @", () => {
