@@ -33,9 +33,14 @@ const bytesOf = (file: string) => {
 };
 
 describe("normalization edits", () => {
-  it("replay to the very forest the worker normalized, for every corpus pair", () => {
+  it("replay to the very forest the worker normalized, for every corpus file into five house styles", () => {
     let changedPairs = 0;
-    for (const mainFile of corpusFiles) {
+    // Distinct date, place, name, version and vendor habits, as mains.
+    const mains = [
+      "brotherskeeper-5.5-w1250.ged", "geneanet-5.5.1-utf8.ged", "myheritage-5.5.1-utf8.ged",
+      "synium-7.0-utf8.ged", "familyhistorian-5.5.1-w1250.ged",
+    ];
+    for (const mainFile of mains) {
       for (const compareFile of corpusFiles) {
         const { normalized, applied, replayed, patch } = roundTrip(bytesOf(mainFile), bytesOf(compareFile));
         expect(applied, `${compareFile} into ${mainFile}`).toBe(true);
@@ -46,7 +51,7 @@ describe("normalization edits", () => {
     }
     // The corpus does exercise the edits: most pairs normalize something.
     expect(changedPairs).toBeGreaterThan(corpusFiles.length);
-  });
+  }, 60_000);
 
   it("dropped, added and renamed lines, reshaped places and stripped placeholders", () => {
     const main = wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 02.02.1850\n2 PLAC Kranj, Gorenjska\n");

@@ -1,4 +1,4 @@
-import { decodeGedcom } from "./decode";
+import { decodeGedcom, type DecodeResult } from "./decode";
 import { isPointer } from "./uri";
 import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types";
 
@@ -19,7 +19,16 @@ export const NOT_GEDCOM = "not-gedcom";
  * by tracking a stack indexed by level → fold CONT/CONC into parent values.
  */
 export function parseGedcom(buffer: ArrayBuffer): ParseResult {
-  const { text, charset, warnings: decodeWarnings, bom } = decodeGedcom(buffer);
+  return parseGedcomText(decodeGedcom(buffer));
+}
+
+/**
+ * Parse GEDCOM text already decoded — by {@link parseGedcom}, or text this app
+ * serialized itself (a worker handed the main file as text), which `charset`
+ * and `bom` then describe as the file it came from.
+ */
+export function parseGedcomText(decoded: DecodeResult): ParseResult {
+  const { text, charset, warnings: decodeWarnings, bom } = decoded;
   const warnings: ParseWarning[] = [...decodeWarnings];
 
   // Remember the source's line-ending style and whether it ended with a newline

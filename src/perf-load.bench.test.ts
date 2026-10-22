@@ -9,11 +9,13 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "vitest";
 import { buildDataset } from "./gedcom/builder";
 import { parseGedcom } from "./gedcom/parser";
+import { downloadOptions, serializeGedcom } from "./gedcom/serialize";
 import { applyFormatOverrides } from "./normalize/formatOverrides";
 import { forestDiff } from "./normalize/forestDiff.testutil";
 import { normalizeDataset } from "./normalize/normalize";
 import { applyNormPatch, diffNormalized } from "./normalize/normPatch";
 import { collectLayoutValues, inferMainProfile } from "./normalize/profile";
+import { applyRecordsPatch, datasetFromSnapshot, mainSnapshot, recordsPatch } from "./state/mainSync";
 
 const mainFile = process.env.PERF_MAIN;
 const compareFile = process.env.PERF_COMPARE;
@@ -29,6 +31,37 @@ const bytes = (path: string): ArrayBuffer => {
   const buf = readFileSync(path);
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 };
+
+describe.skipIf(!mainFile)("main sync cost profile", () => {
+  it("times handing the main to a worker", () => {
+    const main = buildDataset(parseGedcom(bytes(mainFile!)));
+    console.log(`main ${mainFile}: ${main.records.length} records`);
+    time("structuredClone(dataset)", () => structuredClone(main));
+    time("structuredClone(records)", () => structuredClone(main.records));
+    time("serializeGedcom (download options)", () => serializeGedcom(main.records, downloadOptions(main)));
+    const order = time("record order (xrefs)", () => main.records.map((r) => r.xref ?? ""));
+    time("structuredClone(order)", () => structuredClone(order));
+
+    // An edit session touching 20 people, handed to a worker that has the file.
+    const changed = new Set([...main.individuals.keys()].slice(0, 20));
+    const copy = buildDataset(parseGedcom(bytes(mainFile!)));
+    let t0 = performance.now();
+    const text = time("before (main thread): serialize for re-feed", () => serializeGedcom(main.records, { eol: main.eol }));
+    console.log(`${"BEFORE main thread total".padEnd(52)} ${(performance.now() - t0).toFixed(0).padStart(7)} ms`);
+    time("before (worker): parse + build + profile", () =>
+      inferMainProfile(buildDataset(parseGedcom(new TextEncoder().encode(text).buffer as ArrayBuffer))));
+    t0 = performance.now();
+    const patch = time("after (main thread): recordsPatch", () => recordsPatch(main, changed)!);
+    const posted = time("after (main thread): structuredClone(patch)", () => structuredClone(patch));
+    console.log(`${"AFTER main thread total".padEnd(52)} ${(performance.now() - t0).toFixed(0).padStart(7)} ms`);
+    time("after (worker): applyRecordsPatch + profile", () => inferMainProfile(applyRecordsPatch(copy, posted)!));
+    t0 = performance.now();
+    const snap = time("snapshot (main thread): mainSnapshot", () => mainSnapshot(main));
+    time("snapshot (main thread): structuredClone", () => structuredClone(snap));
+    console.log(`${"SNAPSHOT main thread total".padEnd(52)} ${(performance.now() - t0).toFixed(0).padStart(7)} ms`);
+    time("snapshot (worker): datasetFromSnapshot", () => datasetFromSnapshot(snap));
+  }, 600_000);
+});
 
 describe.skipIf(!mainFile || !compareFile)("load cost profile", () => {
   it("times the incoming file's main-thread copy", () => {

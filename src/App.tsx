@@ -79,6 +79,7 @@ import { ChartIcon } from "./ui/icons/ChartIcon";
 import { MediaFolderProvider, useMediaFolder } from "./ui/MediaFolderContext";
 import { saveFile, deleteFile } from "./persist/idb";
 import { LocalLoads } from "./state/localLoad";
+import { ChangeJournal, recordsPatch, type SyncMark } from "./state/mainSync";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
@@ -257,14 +258,21 @@ function AppContent() {
   // even in a merge-only session where it still sat at 0) without making the
   // freshly-saved dataset look edited to the persistence writer.
   const cleanEditVersionRef = useRef(0);
-  // The editVersion the gedcom worker's copy of the main was built from. The
-  // worker matches a compare against *its* main, so when this drifts from
-  // editVersionRef the worker is re-fed before a compare loads (see loadFile).
-  const workerMainVersionRef = useRef(0);
-  const bumpEdit = useCallback(() => {
+  // Which records each bump changed, so the copies of the main kept elsewhere
+  // (the workers', the cached serialization) take only those records.
+  const changeJournal = useRef(new ChangeJournal()).current;
+  // The edit version the gedcom worker's copy of the main was built from, as a
+  // journal mark. The worker matches a compare against *its* main, so when
+  // this drifts from editVersionRef the worker is brought up to date before a
+  // compare loads (see loadFile).
+  const workerMainVersionRef = useRef<SyncMark | undefined>(undefined);
+  /** Advance the edit version. `patches` names the records the change
+   *  touched; null says it may have touched any (a save's rebuild). */
+  const bumpEdit = useCallback((patches: readonly RecordPatch[] | null) => {
     editVersionRef.current += 1;
+    changeJournal.record(editVersionRef.current, patches && patches.map((p) => p.id));
     setEditVersion((v) => v + 1);
-  }, []);
+  }, [changeJournal]);
 
   // ── Unified undo/redo (edit + merge in one stack) ─────────────────────────
   const undoRedo = useUndoRedo();
@@ -345,6 +353,13 @@ function AppContent() {
   // Dispatch a message from the GEDCOM worker to the right state. Invoked on
   // every worker message via useGedcomWorker's latest-handler ref.
   const handleWorkerMessage = (msg: WorkerResponse) => {
+      if (msg.type === "mainOutOfStep") {
+        // The worker's main did not take the edits sent to it (see
+        // syncWorkerMain): send the whole file. The worker holds what came
+        // after the patch until it arrives.
+        if (lastMainFile) void refeedWorkerMain(serializeMainForWorker(lastMainFile.dataset), lastMainFile.fileName);
+        return;
+      }
       if (msg.type === "matching") {
         if (matchedTimerRef.current != null) {
           window.clearTimeout(matchedTimerRef.current);
@@ -452,7 +467,7 @@ function AppContent() {
         if (msg.role === "main") {
           // The worker built its main from the same bytes as this one: it
           // holds the edit version the load reset to (see loadFile).
-          workerMainVersionRef.current = editVersionRef.current;
+          workerMainVersionRef.current = changeJournal.mark(editVersionRef.current);
           // Restore the cached start person as soon as the main is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
           // loaded, so a main-only workspace would otherwise never restore it.
@@ -643,6 +658,7 @@ function AppContent() {
       dirty.prepareForLoad();
       setEditVersion(0); // new file → dataset matches the cached original again
       editVersionRef.current = 0;
+      changeJournal.reset();
       cleanEditVersionRef.current = 0;
       sortEligiblePersonIdsRef.current = new Set();
       setChartsRootId(null);
@@ -684,8 +700,9 @@ function AppContent() {
     // deleted, one added — are not in it, so a compare loaded now would match
     // people who no longer exist and miss those who do. Bring the worker's
     // copy up to date first.
-    if (role === "compare" && keptMain && workerMainVersionRef.current !== editVersionRef.current) {
-      await refeedWorkerMain(serializeMainForWorker(keptMain.dataset), keptMain.fileName);
+    const workerMain = workerMainVersionRef.current;
+    if (role === "compare" && keptMain && (workerMain?.version !== editVersionRef.current || !changeJournal.since(workerMain))) {
+      await syncWorkerMain(keptMain.dataset, keptMain.fileName);
     }
     feed(newMsg, [buffer]); // transfer ownership — avoids copying large files
   }
@@ -694,19 +711,39 @@ function AppContent() {
     return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
   }
 
+  /** Bring the worker's main up to the live one by sending only the records
+   *  edited since the version it holds — re-sending the whole file cost ~10 s
+   *  on a 500k-person file (serialize, then a worker re-parse). Falls back to
+   *  the whole file when the journal cannot say what changed, or when most of
+   *  the file did; the worker asks for it too should its copy not take the
+   *  patch (`mainOutOfStep`). */
+  async function syncWorkerMain(ds: Dataset, fileName: string): Promise<void> {
+    const version = editVersionRef.current;
+    const changed = changeJournal.since(workerMainVersionRef.current);
+    if (changed?.size === 0) {
+      // Edited only in name (a restored workspace starts at version 1).
+      workerMainVersionRef.current = changeJournal.mark(version);
+      return;
+    }
+    const patch = changed && recordsPatch(ds, changed);
+    if (!patch) return refeedWorkerMain(serializeMainForWorker(ds), fileName);
+    post({ type: "patchMain", patch, formatOverrides: settings.formatOverrides });
+    workerMainVersionRef.current = changeJournal.mark(version);
+  }
+
   /** Silently rebuild the worker's main from `text` (the main thread's current
    *  main file, serialized) without touching this side's main file or the edit
    *  tracking bound to it, and restore the kinship ranking's start person.
    *  Records which edit version the worker now holds. */
   async function refeedWorkerMain(text: string, fileName: string): Promise<void> {
-    const version = editVersionRef.current;
+    const mark = changeJournal.mark(editVersionRef.current);
     const mainBuf = await new Blob([text]).arrayBuffer();
     post(
       { type: "parse", role: "main", fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
       [mainBuf],
     );
     if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
-    workerMainVersionRef.current = version;
+    workerMainVersionRef.current = mark;
   }
 
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
@@ -1268,7 +1305,7 @@ function AppContent() {
     dispatch({ type: "decisionsSet", decisions: result.decisions });
     if (patches.length) {
       dirty.captureSnapshotsForPush(patches);
-      bumpEdit();
+      bumpEdit(patches);
     }
   }
   const commitDecisionsRef = useRef(commitDecisions);
@@ -1335,7 +1372,7 @@ function AppContent() {
       if (real.length === 0) return;
       dirty.captureSnapshotsForPush(real);
       undoRedo.pushRef.current({ mode: "edit", patches: real, navigateTo, redoNavigateTo, ...(stay ? { stay } : {}) });
-      bumpEdit();
+      bumpEdit(real);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -1547,7 +1584,7 @@ function AppContent() {
       patchesAppliedRef.current = null;
       if (!mainDataset) return;
       dirty.onPatchApplied(patches, direction, mainDataset);
-      bumpEdit();
+      bumpEdit(patches);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mainDataset],
@@ -1879,7 +1916,7 @@ function AppContent() {
     // every memo and panel keyed on editVersion must see a bump — in a
     // merge-only session the counter still sits at 0, and without the bump
     // global search and kinship would keep serving the pre-merge dataset.
-    bumpEdit();
+    bumpEdit(null);
     // The cached main text (written just above) equals the rebuilt dataset:
     // remember this version as clean and mark the main cached — the debounce
     // (sole main writer) then leaves it alone until the next edit.
@@ -1930,7 +1967,7 @@ function AppContent() {
     // child was added to) is clean again. The record being taken out of the
     // save is not dirty: `dirty.removeDirty` above said so.
     handleEditRecordsSettled(patches.filter((p) => p.id !== id));
-    bumpEdit();
+    bumpEdit(patches);
     // The preview was built from the dirty state and the records as they were;
     // the removal changed both. Built again once the dirty state above has
     // landed, by the same function that built it — so the download, the report

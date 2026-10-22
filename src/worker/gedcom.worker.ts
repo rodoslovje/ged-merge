@@ -11,6 +11,7 @@ import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { diffNormalized } from "../normalize/normPatch";
+import { applyRecordsPatch } from "../state/mainSync";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
@@ -65,8 +66,44 @@ let lastCompareMeta:
   | Omit<Extract<WorkerResponse, { type: "parsed" }>, "type" | "role" | "dataset">
   | undefined;
 
+/** Set when a `patchMain` did not fit this worker's main: every request
+ *  after it waits here until the whole main the app sends in answer has been
+ *  parsed, so nothing is matched against a main that missed edits. */
+let held: WorkerRequest[] | undefined;
+
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
+  if (held) {
+    if (req.type !== "parse" || req.role !== "main") {
+      held.push(req);
+      return;
+    }
+    const waiting = held;
+    held = undefined;
+    handle(req);
+    for (const r of waiting) handle(r);
+    return;
+  }
+  handle(req);
+};
+
+function handle(req: WorkerRequest): void {
+  if (req.type === "patchMain") {
+    const next = mainDataset && applyRecordsPatch(mainDataset, req.patch);
+    if (!next) {
+      held = [];
+      post({ type: "mainOutOfStep" });
+      return;
+    }
+    // As a silent re-feed would, minus re-announcing and re-matching the
+    // compare: the app sends this only on its way to loading a new one, and
+    // the old result, matched against the old main, is not kept to re-rank.
+    mainDataset = next;
+    lastResult = undefined;
+    mainOverrides = req.formatOverrides;
+    profile = applyFormatOverrides(inferMainProfile(next), req.formatOverrides);
+    return;
+  }
   if (req.type === "setStart") {
     startId = req.id || undefined; // empty id clears the start person
     if (lastResult && mainDataset) {

@@ -6,6 +6,7 @@ import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverri
 import type { IncomingDuplicateCluster, MatchResult, ScoreComponent } from "../match/types";
 import type { KinshipRanking } from "../match/distance";
 import type { NormPatch } from "../normalize/normPatch";
+import type { RecordsPatch } from "../state/mainSync";
 
 /** Which slot a loaded file occupies. */
 export type DatasetRole = "main" | "compare";
@@ -56,7 +57,22 @@ export interface ScoreDetailRequest {
   generation: number;
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | ScoreDetailRequest;
+
+/**
+ * Bring the worker's main up to the main thread's edited one by the records
+ * edited since the version the worker holds, instead of the whole file (see
+ * `syncWorkerMain`). Silent, like a re-feed: the worker re-profiles its main
+ * and answers nothing — unless its copy does not take the patch, when it
+ * answers `mainOutOfStep` and holds every later request until a whole main
+ * arrives.
+ */
+export interface PatchMainRequest {
+  type: "patchMain";
+  patch: RecordsPatch;
+  formatOverrides?: FormatOverrides;
+}
+
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | PatchMainRequest | ScoreDetailRequest;
 
 export interface ParseSuccess {
   type: "parsed";
@@ -174,10 +190,9 @@ export interface MatchFailure {
   message: string;
 }
 
-export type WorkerResponse =
-  | ParseSuccess
-  | ParseFailure
-  | MatchProgress
-  | MatchSuccess
-  | MatchFailure
-  | ScoreDetailResponse;
+/** A `patchMain` the worker's copy could not take: send the whole main. */
+export interface MainOutOfStep {
+  type: "mainOutOfStep";
+}
+
+export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess | MatchFailure | MainOutOfStep | ScoreDetailResponse;
