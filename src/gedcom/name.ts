@@ -53,6 +53,26 @@ export function splitFullName(text: string, order: NameOrder = "given-surname"):
 }
 
 /**
+ * Split a slash-form `NAME` value into what precedes the surname, the surname
+ * and what follows it, or undefined when the value has no slash at all.
+ *
+ * Every slash-delimited part is surname: "Juan /Garcia/ /Lopez/" has the one
+ * surname "Garcia Lopez", not the suffix "/Lopez/". A slash left open runs to
+ * the end of the value ("John /Smith" is Smith), as a reader is asked to take it.
+ */
+export function splitSlashName(value: string): { before: string; surname: string; after: string } | undefined {
+  const parts = value.split("/");
+  if (parts.length < 2) return undefined;
+  // Odd indices sit between slashes; the last of them closes the surname.
+  const lastInside = parts.length % 2 === 0 ? parts.length - 1 : parts.length - 2;
+  return {
+    before: parts[0],
+    surname: parts.slice(1, lastInside + 1).join(" ").replace(/\s+/g, " ").trim(),
+    after: lastInside + 1 < parts.length ? parts[lastInside + 1] : "",
+  };
+}
+
+/**
  * Parse a `NAME` line into structured parts.
  *
  * GEDCOM stores the surname between slashes in the value (e.g.
@@ -77,14 +97,14 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   // sync with the value, e.g. a GIVN missing a middle name).
   let given: string | undefined;
   let surname: string | undefined;
-  const slash = raw.match(/^(.*?)\/([^/]*)\/(.*)$/);
+  const slash = splitSlashName(raw);
   if (slash) {
-    given = slash[1].trim() || undefined;
-    surname = slash[2].trim() || undefined;
+    given = slash.before.trim() || undefined;
+    surname = slash.surname || undefined;
     // A token after the closing slash is conventionally a suffix
     // ("John /Smith/ Jr"); when nothing precedes the slashes it's the given
     // name of a surname-first writer ("/Novak/ Janez").
-    const trailing = slash[3].trim() || undefined;
+    const trailing = slash.after.trim() || undefined;
     if (trailing) {
       if (given) suffix = trailing;
       else given = trailing;
