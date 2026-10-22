@@ -20,6 +20,7 @@ import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
+import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
@@ -764,7 +765,19 @@ function RecordRef({
       </span>
     );
   }
-  return <span className="tools-struct-rec">{[tag, id].filter(Boolean).join(" ")}</span>;
+  // A source, a media object, a repository: named by its title, so the row can
+  // be found again in the file — the bare id stays on the hover.
+  const record = id ? recordByXref(dataset.records, id) : undefined;
+  const title = record && recordTitle(record);
+  const ref = [tag, id].filter(Boolean).join(" ");
+  if (title) {
+    return (
+      <span className="tools-struct-rec" title={ref}>
+        {tag && <span className="tools-struct-rec-tag">{tag}</span>} {title}
+      </span>
+    );
+  }
+  return <span className="tools-struct-rec">{ref}</span>;
 }
 
 function StructRow({

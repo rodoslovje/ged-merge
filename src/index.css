@@ -9170,7 +9170,18 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-struct-loc { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* A non-INDI/FAM top-level record (SOUR, OBJE, NOTE, …): identified by type but
    not a link, since GED Merge can't open it. */
-.tools-struct-rec { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tools-struct-rec {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  /* A source or media title can run long: it is cut, and the hover keeps the id. */
+  display: inline-block;
+  max-width: 42ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+.tools-struct-rec-tag { font-family: var(--font-mono); font-size: 0.85em; font-weight: 400; }
 /* Marks a structural issue the one-click Fix can safely repair, previewing the
    value it would write (e.g. "→ 26.6.1912"). */
 .tools-struct-fixable {
