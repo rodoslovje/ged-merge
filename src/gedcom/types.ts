@@ -150,7 +150,7 @@ export type DateOrder = "DMY" | "MDY" | "YMD";
 /** Date qualifier per the GEDCOM date grammar. */
 export type DateQualifier =
   | "exact"
-  | "about" // ABT / EST / CAL
+  | "about" // ABT / EST / CAL — see GedDate.approx
   | "before" // BEF
   | "after" // AFT
   | "between" // BET..AND
@@ -218,6 +218,22 @@ export interface GedDate {
    * into those components and don't need this flag.)
    */
   placeholder?: boolean;
+  /**
+   * Which standard keyword an `about` date wrote, when it was not `ABT`:
+   * `CAL` (calculated from other data, e.g. an age) or `EST` (estimated from
+   * another event). All three read as "about" everywhere, but they are distinct
+   * in GEDCOM, so re-rendering the date writes this keyword back. Absent for
+   * `ABT` and for its non-standard look-alikes (`CA`, `okoli`, `~`).
+   */
+  approx?: "CAL" | "EST";
+  /**
+   * A day the month does not have (`31 FEB 1850`, `0.3.1850`). The components
+   * are kept as written, so the year still dates the person; the health check
+   * reports the value. February 29 counts as possible in every fourth year, as
+   * the Julian calendar has it, since most files do not say which calendar
+   * they use.
+   */
+  impossible?: boolean;
 }
 
 /** A decimal-degree coordinate lifted from `PLAC.MAP` (`LATI`/`LONG`). */

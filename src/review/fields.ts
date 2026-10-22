@@ -6,7 +6,7 @@ import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
-import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
+import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateToSortKey, parseDate } from "../gedcom/date";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
@@ -550,6 +550,7 @@ function partnerToRelative(partner: Individual, showAge = false): Relative {
     deathDay: death?.month != null && death.day != null ? death.month * 100 + death.day : undefined,
     displayName: displayName(partner.names[0]),
     years: relativeYears(partner, showAge),
+    yearsApprox: yearsApprox(birth, death),
     sex: partner.sex,
   };
 }
@@ -732,6 +733,7 @@ interface Relative {
   /** Display name. */
   displayName?: string;
   years?: string;
+  yearsApprox?: YearsApprox;
   sex?: Sex;
 }
 
@@ -927,6 +929,7 @@ function relativeCell(r: Relative): RelativeCell {
     title: r.full && r.full !== r.text ? r.full : undefined,
     name: r.displayName,
     years: r.years,
+    yearsApprox: r.yearsApprox,
     sex: r.sex,
   };
 }

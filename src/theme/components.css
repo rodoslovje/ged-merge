@@ -24,6 +24,10 @@
    places, notes, links) are edited via .edit-input — keep the font matching
    so a field doesn't change typeface when you switch from Compare to Edit. */
 .edit-input                 { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* A date that is not stated exactly (ABT/CAL/EST, BEF, AFT, BET…): its year in
+   a lifespan, or the whole Edit date field, is set in italics. */
+.gm-approx,
+.edit-input.edit-event-date.is-approx { font-style: italic; }
 
 /* ---------------- House addresses ---------------- */
 /* A pin before the value, wherever an address is shown: on its own "Stražišče

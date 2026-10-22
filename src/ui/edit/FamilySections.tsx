@@ -2,6 +2,8 @@ import { Fragment, memo, type CSSProperties } from "react";
 import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
 import { sexClass } from "../sex";
+import { YearsText } from "../YearsText";
+import { lifespanApproxOf } from "../../gedcom/lifespan";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
@@ -369,7 +371,7 @@ function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
           <span className="edit-sibling-name-text">{formatName(indi)}</span>
           {isHalf && <span className="edit-sibling-half">½</span>}
         </span>
-        {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+        {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(indi)} /></span>}
       </>
     );
     return self ? (

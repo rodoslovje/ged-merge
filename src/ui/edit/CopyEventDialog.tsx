@@ -3,7 +3,8 @@ import type { Dataset, GedNode, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { useModalKeyboard } from "../../keyboard/useModalKeyboard";
 import { childValue } from "../../gedcom/node";
-import { datesTooltipOf, lifespanOf } from "../../gedcom/lifespan";
+import { datesTooltipOf, lifespanApproxOf, lifespanOf, type YearsApprox } from "../../gedcom/lifespan";
+import { YearsText } from "../YearsText";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
 import { useNameOf } from "../SettingsContext";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
@@ -30,6 +31,8 @@ interface Row {
   detail: string;
   /** Full birth/death dates behind a person's bare years, for their hover. */
   detailTitle?: string;
+  /** A person's approximate years in `detail` — set in italics. */
+  detailApprox?: YearsApprox;
   /** Set when this record can't take the copy — the reason is shown inline. */
   blocked?: CopyEventBlock;
   search: string;
@@ -114,6 +117,7 @@ export function CopyEventDialog({
           name,
           detail,
           detailTitle: datesTooltipOf(indi) || undefined,
+          detailApprox: lifespanApproxOf(indi),
           blocked: individualCopyBlock(indi, node),
           search: foldSearch(`${name} ${detail} ${indi.id}`),
         });
@@ -246,7 +250,7 @@ export function CopyEventDialog({
                         <span className="copy-event-name">{r.name}</span>
                         {r.detail && (
                           <span className="copy-event-detail gm-data" title={r.detailTitle}>
-                            {r.detail}
+                            <YearsText text={r.detail} approx={r.detailApprox} />
                           </span>
                         )}
                         {r.blocked && (

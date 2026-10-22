@@ -25,6 +25,8 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
     case "exact":
       return first || date.raw;
     case "about":
+      // CAL and EST say how the date was arrived at; only ABT is the house's to restyle.
+      return first ? `${date.approx ?? q.about} ${first}` : date.raw;
     case "before":
     case "after":
     case "from":

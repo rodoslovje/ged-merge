@@ -154,6 +154,7 @@ export const TreeSvg = memo(function TreeSvg({
                 tint={tint}
                 name={n.name}
                 years={n.years}
+                yearsApprox={n.yearsApprox}
                 age={n.age}
                 place={n.place}
                 sex={n.sex}

@@ -8,6 +8,7 @@ import { TreeNodePhoto } from "./PersonMedia";
 import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge } from "./TreeNodeBox";
 import { sexColorVar } from "./sex";
+import { YearsText } from "./YearsText";
 
 /** A small badge dot a host can attach to a segment (decision / modified / import). */
 export interface FanBadge {
@@ -278,7 +279,7 @@ function Segment({
         seg.lines.map((l, i) => (
           <text key={i} {...lineProps(l)} dominantBaseline="middle">
             <textPath href={`#${arcId(seg, i)}`} startOffset="50%" textAnchor="middle">
-              {l.text}
+              <YearsText text={l.text} approx={l.approx} svg />
             </textPath>
           </text>
         ))
@@ -286,7 +287,7 @@ function Segment({
         <g transform={seg.labelTransform}>
           {seg.lines.map((l, i) => (
             <text key={i} {...lineProps(l)} x={0} y={l.dy} textAnchor="middle" dominantBaseline="middle">
-              {l.text}
+              <YearsText text={l.text} approx={l.approx} svg />
             </text>
           ))}
         </g>

@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { useChartHover, type HoverInfo } from "./useChartHover";
 import { sexClass } from "./sex";
 import { lineageClass } from "../match/kinship";
+import { YearsText } from "./YearsText";
 
 // The card a chart shows beside the pointer for the person under it, written
 // the way Edit's person cards and the people list write a person: the name in
@@ -37,7 +38,7 @@ export function ChartHoverCard({
     >
       <div className="chart-hover-head">
         <span className={`person-name ${sexClass(info.sex)}`}>{info.name}</span>
-        {info.years && <span className="person-years gm-data">{info.years}</span>}
+        {info.years && <span className="person-years gm-data"><YearsText text={info.years} approx={info.yearsApprox} /></span>}
       </div>
       {info.subtitle && <div className="chart-hover-line">{info.subtitle}</div>}
       {info.place && <div className="chart-hover-line">{info.place}</div>}
@@ -49,7 +50,7 @@ export function ChartHoverCard({
           {info.people.map((p) => (
             <li key={p.id}>
               <span className={`person-name ${sexClass(p.sex)}`}>{p.name}</span>
-              {p.years && <span className="person-years gm-data">{p.years}</span>}
+              {p.years && <span className="person-years gm-data"><YearsText text={p.years} approx={p.yearsApprox} /></span>}
               {p.kinship && <span className="person-kinship">{p.kinship}</span>}
             </li>
           ))}

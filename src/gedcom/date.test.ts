@@ -248,3 +248,36 @@ describe("parseDate — years before the common era", () => {
     expect(dateToSortKey(parseDate("44 BCE"))).toBeLessThan(dateToSortKey(parseDate("1 JAN 1")));
   });
 });
+
+describe("parseDate — CAL and EST stay distinct from ABT", () => {
+  it("records which approximation keyword the value used", () => {
+    expect(parseDate("CAL 1850")).toMatchObject({ qualifier: "about", approx: "CAL", year: 1850 });
+    expect(parseDate("EST 5 MAR 1850")).toMatchObject({ qualifier: "about", approx: "EST", day: 5 });
+    expect(parseDate("Calculated 1850").approx).toBe("CAL");
+    expect(parseDate("est. 1850").approx).toBe("EST");
+  });
+
+  it("leaves ABT and its look-alikes unmarked", () => {
+    for (const raw of ["ABT 1850", "ca. 1850", "okoli 1850", "~1850"]) {
+      expect(parseDate(raw)).toMatchObject({ qualifier: "about", year: 1850 });
+      expect(parseDate(raw).approx).toBeUndefined();
+    }
+  });
+});
+
+describe("parseDate — impossible days", () => {
+  it("flags a day the month does not have, keeping the components", () => {
+    expect(parseDate("31 FEB 1850")).toMatchObject({ impossible: true, year: 1850, month: 2, day: 31 });
+    expect(parseDate("31.04.1850")).toMatchObject({ impossible: true, year: 1850 });
+    expect(parseDate("ABT 30 FEB 1850").impossible).toBe(true);
+    expect(parseDate("BET 1 JAN 1850 AND 31 JUN 1850").impossible).toBe(true);
+    expect(parseDate("0 MAR 1850").impossible).toBe(true);
+  });
+
+  it("accepts real days, February 29 in every fourth year", () => {
+    for (const raw of ["31 JAN 1850", "30.04.1850", "29 FEB 1848", "29 FEB 1700", "MAR 1850", "1850", "__.02.1850"]) {
+      expect(parseDate(raw).impossible).toBeUndefined();
+    }
+    expect(parseDate("29 FEB 1849").impossible).toBe(true);
+  });
+});

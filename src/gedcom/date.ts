@@ -28,6 +28,17 @@ interface SimpleDate {
   year?: number;
   month?: number;
   day?: number;
+  impossible?: boolean;
+}
+
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Mark a date whose day its month does not have — see `GedDate.impossible`. */
+function checkDay(d: SimpleDate): SimpleDate {
+  if (d.day === undefined || d.month === undefined) return d;
+  const leap = d.year === undefined || d.year % 4 === 0;
+  const last = d.month === 2 && leap ? 29 : MONTH_DAYS[d.month - 1];
+  return d.day >= 1 && d.day <= last ? d : { ...d, impossible: true };
 }
 
 /**
@@ -45,12 +56,17 @@ const AND = "AND|&";
 
 const kw = (alts: string) => `(?:${alts})\\.?`;
 
+/** The `about` keywords GEDCOM keeps apart from `ABT` — see `GedDate.approx`. */
+const APPROX_KEYWORDS: Record<string, "CAL" | "EST"> = {
+  CAL: "CAL", CALCULATED: "CAL", EST: "EST", ESTIMATED: "EST",
+};
+
 // Qualifier-prefix patterns, compiled once. They're built from the constant
 // keyword strings above, so they never vary per call — and `parseDate` runs
 // once per DATE line (~1M on a large file), where re-compiling these every
 // time dominated build time.
 const RE_BETWEEN = new RegExp(`^${kw(BETWEEN)}\\s+(.+?)\\s+(?:${AND})\\s+(.+)$`);
-const RE_ABOUT = new RegExp(`^${kw(ABOUT)}\\s+(.+)$`);
+const RE_ABOUT = new RegExp(`^(${ABOUT})\\.?\\s+(.+)$`);
 const RE_BEFORE = new RegExp(`^${kw(BEFORE)}\\s+(.+)$`);
 const RE_AFTER = new RegExp(`^${kw(AFTER)}\\s+(.+)$`);
 const RE_INTERPRETED = new RegExp(`^${kw(INTERPRETED)}\\s+(.+?)(?:\\s+\\(.*\\))?$`);
@@ -182,7 +198,11 @@ export function parseDate(raw: string, order?: DateOrder): GedDate {
   if (m) return withFirst("after", m[1], raw, order);
 
   m = upper.match(RE_ABOUT);
-  if (m) return withFirst("about", m[1], raw, order);
+  if (m) {
+    const date = withFirst("about", m[2], raw, order);
+    const approx = APPROX_KEYWORDS[m[1]];
+    return approx ? { ...date, approx } : date;
+  }
 
   m = upper.match(RE_BEFORE);
   if (m) return withFirst("before", m[1], raw, order);
@@ -381,6 +401,7 @@ function withSecond(
   return {
     raw,
     qualifier,
+    ...(first.impossible || second.impossible ? { impossible: true } : {}),
     year: first.year,
     month: first.month,
     day: first.day,
@@ -394,6 +415,11 @@ const mon = (tok: string): number | undefined => MONTHS[tok.toUpperCase()];
 
 /** Parse a single date atom (already upper-cased): month-word or numeric. */
 function parseSimple(s: string, order?: DateOrder): SimpleDate | undefined {
+  const d = parseAtom(s, order);
+  return d && checkDay(d);
+}
+
+function parseAtom(s: string, order?: DateOrder): SimpleDate | undefined {
   const t = s.trim();
   let m: RegExpMatchArray | null;
 

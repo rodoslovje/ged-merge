@@ -31,6 +31,8 @@ import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import type { FindSource } from "./chartFind";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
+import { yearsSegments } from "../gedcom/lifespan";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { chartSlug, escapeHtml, printDocument } from "./exportSvg";
 import { downloadText } from "./download";
@@ -286,7 +288,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
       const ref = (r: PersonRef, k: number) => (
         <span key={k}>
           <span className={`report-name ${sexClass(r.sex)}`}>{reportName(r, exportOpts)}</span>
-          {!(privacy && r.living) && r.years && <span className="report-years gm-data">{r.years}</span>}
+          {!(privacy && r.living) && r.years && <span className="report-years gm-data"><YearsText text={r.years} approx={r.yearsApprox} /></span>}
         </span>
       );
       return template
@@ -343,6 +345,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
             name={reportName(rootEntry, exportOpts)}
             sexCls={sexClass(rootEntry.sex)}
             years={rootYears}
+            yearsApprox={rootEntry.yearsApprox}
             yearsTitle={lifespanTooltipOf(mainDs.individuals.get(currentRootId), settings.showAge, t)}
             kinship={showStartKinship ? startKinship?.label(currentRootId) : undefined}
             lineage={startKinship?.lineage(currentRootId)}
@@ -486,7 +489,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                         <div className="report-entry-body">
                           <div>
                             <span className={`report-name ${sexClass(e.sex)}`}>{reportName(e, part.opts)}</span>
-                            {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
+                            {!redacted(e) && e.years && <span className="report-years gm-data"><YearsText text={e.years} approx={e.yearsApprox} /></span>}
                             {e.dupOf !== undefined && (
                               <button
                                 className="report-dup report-jump"
@@ -649,7 +652,11 @@ function printBody(
         (e.childIndex !== undefined ? `<span class="rom">${romanIndex(e.childIndex)}.</span>` : "");
       const head =
         `${numCell} <strong>${escapeHtml(reportName(e, opts))}</strong>` +
-        (!hidden && e.years ? ` <span class="years">${escapeHtml(e.years)}</span>` : "") +
+        (!hidden && e.years
+          ? ` <span class="years">${yearsSegments(e.years, e.yearsApprox)
+              .map((s) => (s.approx ? `<i>${escapeHtml(s.text)}</i>` : escapeHtml(s.text)))
+              .join("")}</span>`
+          : "") +
         (e.dupOf !== undefined ? ` <span class="dup">→ ${escapeHtml(t("ahnentafel.dup", { n: e.dupOf }))}</span>` : "");
       const sourceDiv = (s: SourceLine, mark?: string) => {
         const label = escapeHtml(`${mark ? `${mark} ` : ""}${sourceLabel(t, s)}`);

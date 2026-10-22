@@ -385,6 +385,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
         {
           name: n.name,
           years: n.years,
+          yearsApprox: n.yearsApprox,
           age: n.age,
           ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
           place: n.place,
@@ -527,6 +528,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             name={tree.name}
             sexCls={rootPerson ? sexClass(rootPerson.sex) : ""}
             years={rootYears}
+            yearsApprox={tree.yearsApprox}
             yearsTitle={lifespanTooltipOf(rootPerson, display.showAge, t)}
             kinship={rootKinship}
             lineage={rootLineage}

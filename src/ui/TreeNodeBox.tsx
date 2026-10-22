@@ -19,6 +19,8 @@ import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import type { MediaRefContext } from "./MediaViewer";
 import { sexColorVar } from "./sex";
+import { YearsText } from "./YearsText";
+import type { YearsApprox } from "../gedcom/lifespan";
 
 /** Photo source for a node box — either side of a compare pair (main first).
  *  Mirrors {@link TreeNodePhoto}'s props; single-file views pass main only. */
@@ -102,6 +104,8 @@ export function nodeStatusBadges(
 interface Props {
   name: string;
   years?: string;
+  /** Which of `years` stand on an approximate date — set in italics. */
+  yearsApprox?: YearsApprox;
   /** Whole-years age, folded into the lifespan line when the Age toggle is on. */
   age?: number;
   /** First-available place (birth → residence → death); shown on its own row when enabled. */
@@ -145,6 +149,7 @@ interface Props {
 export function TreeNodeBox({
   name,
   years,
+  yearsApprox,
   age,
   place,
   sex,
@@ -161,7 +166,7 @@ export function TreeNodeBox({
 }: Props) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, living, livingLabel: livingLabelFor(t, sex) });
+  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, living, livingLabel: livingLabelFor(t, sex) });
   // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName
@@ -173,8 +178,8 @@ export function TreeNodeBox({
   const textX = photoPath ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const photoY = (nodeH - PHOTO_SIZE) / 2;
   // Lifespan, then place, then kinship — each on its own row beneath the name.
-  const rows: { text: string; cls: string }[] = [];
-  if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year" });
+  const rows: { text: string; cls: string; approx?: YearsApprox }[] = [];
+  if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year", approx: disp.yearsApprox });
   if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
   if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage)}` });
   return (
@@ -193,7 +198,7 @@ export function TreeNodeBox({
       </text>
       {rows.map((r, i) => (
         <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
-          {r.text}
+          <YearsText text={r.text} approx={r.approx} svg />
         </text>
       ))}
       {photoPath && photo && (

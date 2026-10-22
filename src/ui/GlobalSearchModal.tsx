@@ -10,6 +10,8 @@ import { SearchIcon } from "./icons/SearchIcon";
 import { useMediaFolder } from "./MediaFolderContext";
 import { CroppedImg } from "./PersonMedia";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
+import type { YearsApprox } from "../gedcom/lifespan";
 import {
   searchPeople,
   hasActiveFilters,
@@ -32,6 +34,8 @@ export interface SearchRowMeta {
   kinshipLineage?: string;
   /** Full birth/death dates behind the row's bare years, for their hover. */
   dates?: string;
+  /** Which of the row's years stand on an approximate date — set in italics. */
+  yearsApprox?: YearsApprox;
 }
 
 interface Props {
@@ -342,7 +346,7 @@ export function GlobalSearchModal({ isOpen, onClose, rows, indexProgress, onOpen
                   {meta.xref && <span className="global-search-xref">{meta.xref}</span>}
                   {row.span && (
                     <span className="global-search-span" title={meta.dates || undefined}>
-                      {row.span}
+                      <YearsText text={row.span} approx={meta.yearsApprox} />
                     </span>
                   )}
                   {meta.kinship && (

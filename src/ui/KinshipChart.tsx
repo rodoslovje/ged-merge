@@ -20,6 +20,8 @@ import {
 } from "../chart/kinshipWheel";
 import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
+import { lifespanApproxOf } from "../gedcom/lifespan";
+import { YearsText } from "./YearsText";
 import type { ChartNode } from "../chart/treeLayout";
 import { PAD } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -299,6 +301,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       name: nameFor(p),
       sex: redacted(p) ? undefined : p.sex,
       years: lifeOf(p),
+      yearsApprox: lifespanApproxOf(p.indi),
       dates: datesFor(p),
       kinship: kinshipOf(p),
     }),
@@ -545,7 +548,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                 {nameFor(r.person)}
                 {years && (
                   <tspan className="kin-bar-years gm-data" dx={5} fontSize={font * 0.85}>
-                    {years}
+                    <YearsText text={years} approx={lifespanApproxOf(r.person.indi)} svg />
                   </tspan>
                 )}
               </text>
@@ -566,6 +569,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             name={rootName}
             sexCls={sexClass(root.sex)}
             years={rootYears}
+            yearsApprox={lifespanApproxOf(root)}
             yearsTitle={lifespanTooltipOf(root, settings.showAge, t)}
             kinship={settings.showKinship && startId && startId !== currentRootId ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
@@ -763,7 +767,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                     <span className={`person-name ${sexClass(r.sex)}`}>{r.name}</span>
                     {r.years && (
                       <span className="person-years gm-data" title={r.dates || undefined}>
-                        {r.years}
+                        <YearsText text={r.years} approx={r.yearsApprox} />
                       </span>
                     )}
                     {r.kinship && <span className="person-kinship">{r.kinship}</span>}

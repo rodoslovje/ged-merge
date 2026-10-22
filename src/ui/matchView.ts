@@ -2,7 +2,7 @@ import type { IndividualCandidate } from "../match/types";
 import type { Dataset } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
-import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
+import { datesTooltip, formatLifespan, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
 
@@ -19,9 +19,9 @@ export function candidateLifespan(
   mainDataset: Dataset | undefined,
   showAge: boolean,
   t: Translate,
-): { span: string; title: string } {
+): { span: string; title: string; approx?: YearsApprox } {
   const indi = mainDataset?.individuals.get(c.mainId);
-  if (indi) return { span: lifespanWithAge(indi, showAge), title: lifespanTooltipOf(indi, showAge, t) };
+  if (indi) return { span: lifespanWithAge(indi, showAge), title: lifespanTooltipOf(indi, showAge, t), approx: lifespanApproxOf(indi) };
   return {
     span: formatLifespan(c.birthYear, c.deathYear, c.deceased),
     title: datesTooltip(c.birthDate, c.deathDate, c.deceased),

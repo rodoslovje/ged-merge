@@ -6,6 +6,8 @@ import { kinshipLabelFor } from "../../match/kinship";
 import { widerFamily, type WiderGroup, type WiderRelative, type WiderSide } from "../../chart/widerFamily";
 import { useNameOf, useSetSettings, useSettingsSlice, WIDER_FAMILY_LIMITS, type WiderFamilySettings } from "../SettingsContext";
 import { sexClass } from "../sex";
+import { YearsText } from "../YearsText";
+import { lifespanApproxOf } from "../../gedcom/lifespan";
 import { unionMark } from "../../gedcom/union";
 import { GearIcon } from "../icons/GearIcon";
 
@@ -156,7 +158,7 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
           {union && <span className="edit-wider-marriage" aria-hidden="true">{union.glyph}</span>}
           {formatName(indi)}
         </span>
-        {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+        {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(indi)} /></span>}
       </button>
     );
   };

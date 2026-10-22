@@ -6,6 +6,7 @@ import { linkKey } from "../normalize/links";
 import { isWebAddress, withScheme } from "../gedcom/uri";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
 import type { Translate } from "../locales/i18n";
 
 /** A person a value line can link to: its id plus a click handler. */
@@ -187,7 +188,7 @@ export function RelativeGrid({
       content = (
         <span className={`person-label ${sexClass(cell.sex)}`}>
           <span className="person-name">{cell.name}</span>
-          {cell.years && <span className="person-years gm-data">{cell.years}</span>}
+          {cell.years && <span className="person-years gm-data"><YearsText text={cell.years} approx={cell.yearsApprox} /></span>}
           {badge}
         </span>
       );

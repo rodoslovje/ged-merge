@@ -20,6 +20,7 @@
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
 import { ALL_DISPLAY, formatMarriage, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import type { YearsApprox } from "../gedcom/lifespan";
 
 export type FanShape = "fan" | "circle";
 
@@ -70,6 +71,8 @@ export const LIGHT_FROM = 8;
 export interface FanLine {
   text: string;
   kind: "name" | "years";
+  /** On the lifespan line: which of its years are approximate (italics). */
+  approx?: YearsApprox;
   /** Curved baseline (`<textPath>`); absent on straight radial / centre segments. */
   arc?: string;
   /** Straight-segment y offset within the rotated label group. */
@@ -245,6 +248,7 @@ export function fanResolvers(opts: FanChartOptions): {
     return nodeDisplay(display, {
       name: node.name,
       years: node.years,
+      yearsApprox: node.yearsApprox,
       age: node.age,
       ageText: ageTextOf(node),
       place: node.place,
@@ -568,11 +572,11 @@ export function buildFanChart(
 /** The label lines for a person: given/surname split when there's arc room
  *  (`split`), else the full name on one line — with the lifespan, then any place,
  *  beneath. `disp` already reflects which fields the settings show. */
-export function labelTexts(disp: NodeDisplay, split: boolean): { text: string; kind: FanLine["kind"] }[] {
+export function labelTexts(disp: NodeDisplay, split: boolean): FanText[] {
   const names = split ? nameLines(disp.name) : [disp.name];
   return [
     ...names.map((text) => ({ text, kind: "name" as const })),
-    ...(disp.years ? [{ text: disp.years, kind: "years" as const }] : []),
+    ...(disp.years ? [{ text: disp.years, kind: "years" as const, approx: disp.yearsApprox }] : []),
     ...(disp.place ? [{ text: disp.place, kind: "years" as const }] : []),
   ];
 }
@@ -586,17 +590,20 @@ export function curvedTexts(
   availWidth: number,
   fontPx: number,
   splitName = true,
-): { text: string; kind: FanLine["kind"] }[] {
+): FanText[] {
   const parts = disp.name.trim().split(/\s+/).filter(Boolean);
   const surname = splitName && parts.length > 1 ? parts[parts.length - 1] : undefined;
   const given = surname ? parts.slice(0, -1) : parts;
   const names = [...wrapWords(given, availWidth, fontPx * 0.52), ...(surname ? [surname] : [])];
   return [
     ...names.map((text) => ({ text, kind: "name" as const })),
-    ...(disp.years ? [{ text: disp.years, kind: "years" as const }] : []),
+    ...(disp.years ? [{ text: disp.years, kind: "years" as const, approx: disp.yearsApprox }] : []),
     ...(disp.place ? [{ text: disp.place, kind: "years" as const }] : []),
   ];
 }
+
+/** A label line before it is placed on the ring. */
+export type FanText = Pick<FanLine, "text" | "kind" | "approx">;
 
 /** Greedily pack words into lines no wider than `availWidth` (estimated). */
 function wrapWords(words: string[], availWidth: number, charPx: number): string[] {

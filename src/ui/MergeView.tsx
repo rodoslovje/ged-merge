@@ -14,6 +14,7 @@ import type { ChartKind } from "./ChartSettingsContext";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
 import {
   candidateLifespan,
   type Candidate,
@@ -275,7 +276,7 @@ export function MergeView({
           <span className="person-name">{current.name}</span>
           {currentLifespan?.span && (
             <span className="person-years gm-data" title={currentLifespan.title}>
-              {currentLifespan.span}
+              <YearsText text={currentLifespan.span} approx={currentLifespan.approx} />
             </span>
           )}
           {status !== "undecided" && (

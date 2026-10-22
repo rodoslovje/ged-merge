@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Sex } from "../gedcom/types";
+import type { YearsApprox } from "../gedcom/lifespan";
 import { nodeHover, type NodeDisplayInput, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 
@@ -16,6 +17,7 @@ export interface HoverInfo {
   /** The lifespan, with the age when shown — beside the name, as Edit's cards
    *  and the people list write it. */
   years?: string;
+  yearsApprox?: YearsApprox;
   /** A muted line under the head, saying what the mark is — the Contemporaries
    *  rings name the direction and the blood distance a surname band stands at. */
   subtitle?: string;
@@ -55,6 +57,7 @@ export interface HoverPerson {
   name: string;
   sex?: Sex | string;
   years?: string;
+  yearsApprox?: YearsApprox;
   kinship?: string;
 }
 

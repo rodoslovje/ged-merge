@@ -1,5 +1,6 @@
 import type { SourceCitation, Sex } from "../gedcom/types";
 import type { AgeBadge } from "../gedcom/age";
+import type { YearsApprox } from "../gedcom/lifespan";
 import { dateRefines } from "../gedcom/date";
 
 /** Whether a candidate match has been acted on. */
@@ -117,6 +118,8 @@ export interface RelativeCell {
   name?: string;
   /** The relative's abbreviated lifespan (e.g. "1817–1921"). */
   years?: string;
+  /** Which of `years` stand on an approximate date — set in italics. */
+  yearsApprox?: YearsApprox;
   /** The relative's sex ("M", "F", "U"). */
   sex?: Sex;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
+import { isPresumedLiving, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, placeLabel } from "../chart/nodeDisplay";
@@ -33,6 +33,7 @@ import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
+import { YearsText } from "./YearsText";
 import { ArrowIcon } from "./icons/ArrowIcon";
 
 const COLOR_SPINE = "var(--node-main)";
@@ -215,6 +216,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         {
           name: b.name,
           years: b.years,
+          yearsApprox: lifespanApproxOf(indi),
           age,
           ageText: age !== undefined ? ageStandalone(t, b.sex, age) : undefined,
           place: placeLabel(indi),
@@ -248,7 +250,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         <span className={`tree-title-name ${sexClass(indi?.sex)}`}>{nameOf(id)}</span>
         {yearsOf(id) && (
           <span className="tree-title-years gm-data" title={lifespanTooltipOf(indi, settings.showAge, t) || undefined}>
-            {yearsOf(id)}
+            <YearsText text={yearsOf(id)!} approx={lifespanApproxOf(indi)} />
           </span>
         )}
         <span className="relchart-endpoint-edit" aria-hidden="true">✎</span>
@@ -375,6 +377,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         tint={tint}
                         name={b.name}
                         years={b.years}
+                        yearsApprox={lifespanApproxOf(indi)}
                         age={lifespanAge(indi)}
                         place={placeLabel(indi)}
                         sex={b.sex}
