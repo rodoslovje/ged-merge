@@ -58,3 +58,29 @@ test("removing an edit from a merge save leaves it out of the download", async (
   // The merge itself still lands.
   expect(text).toContain("2 PLAC Kranj,Slovenia");
 });
+
+// A person whose edit linked them to a new relative cannot be reverted alone —
+// the new family would keep naming them. Taking out the new relative instead
+// deletes them, their family with them, and the person is unchanged again.
+test("a person linked to a new relative is taken out of the save through that relative", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
+  await page.locator(".edit-person").first().waitFor();
+
+  await page.locator(".edit-parents .person-card-add", { hasText: "Add mother" }).first().click();
+  await page.locator(".relative-picker-new").click();
+  await page.locator(".edit-name-input").first().waitFor();
+  await page.locator(".edit-name-input").first().fill("Pavla Kos");
+
+  await page.locator(".app-head-actions .export-btn").click();
+  const marija = page.locator(".preview-card").filter({ has: page.locator(".preview-card-head", { hasText: "Marija" }) })
+    .filter({ hasNot: page.locator(".preview-card-head", { hasText: "Pavla" }) });
+  await expect(marija).toHaveCount(1);
+  await expect(marija.locator(".preview-item-remove")).toHaveCount(0);
+
+  const pavla = page.locator(".preview-card").filter({ has: page.locator(".preview-card-head", { hasText: "Pavla" }) })
+    .filter({ hasNot: page.locator(".preview-rec-nospouse") }); // her card, not the family's
+  await pavla.locator(".preview-item-remove").click();
+  // Nothing is left to save: the dialog closes.
+  await expect(page.locator(".preview-card")).toHaveCount(0);
+});

@@ -70,6 +70,9 @@ interface Props {
   onNavigate?: (id: string) => void;
   /** Called when the user removes a record from the pending save. */
   onRemove?: (id: string, kind: "individual" | "family") => void;
+  /** Whether `onRemove` can take this record out without breaking a link —
+   *  the button is offered only where it can. */
+  canRemove?: (id: string, kind: "individual" | "family") => boolean;
   /** Called when the user clicks an unconfirmed-identity row — opens that match
    *  pair in the review, where rejecting it is one click. */
   onOpenPair?: (mainId: string, compareId: string) => void;
@@ -106,6 +109,7 @@ export function SaveDialog({
   editRecordIds,
   onNavigate,
   onRemove,
+  canRemove: canRemoveRecord,
   onOpenPair,
   dataset,
   integrityWarnings,
@@ -355,7 +359,8 @@ export function SaveDialog({
                 const canNavigate = isEditRecord && kind === "individual" && !!onNavigate;
                 // Records (SOUR/OBJE) aren't offered for removal — `onRemove`
                 // reverts a person/family snapshot, and they carry neither.
-                const canRemove = isEditRecord && !!onRemove && kind !== "record";
+                const canRemove = isEditRecord && !!onRemove && kind !== "record"
+                  && (canRemoveRecord?.(g.id, kind) ?? true);
                 const spouses = kind === "family" ? report.familySpouses[g.id] : undefined;
                 // A new person's name and sex are already in the card's header
                 // (spelled out, and colouring the label) — repeating them as
