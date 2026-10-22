@@ -15,6 +15,8 @@ import { resolveOverlay } from "./map/overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./map/overlayLayer";
 import { useDocTheme } from "./map/useDocTheme";
 import { sexClass } from "./sex";
+import { YearsText } from "./YearsText";
+import { lifespanApproxOf, yearsSegments, type YearsApprox } from "../gedcom/lifespan";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 
 // The Contemporaries chart's Map layout: the wheel's dots on a Leaflet map,
@@ -123,7 +125,13 @@ function placeRow(line: string | PlaceLine, className = "chart-hover-line"): HTM
 
 /** A person's name in the sex colour, with the lifespan beside it in the data
  *  face — the head of the chart hover card, and a cluster's list entry. */
-function personRow(name: string, sex: KinPerson["sex"], years: string | undefined, className: string): HTMLElement {
+function personRow(
+  name: string,
+  sex: KinPerson["sex"],
+  years: string | undefined,
+  className: string,
+  approx?: YearsApprox,
+): HTMLElement {
   const el = document.createElement("div");
   el.className = className;
   const nameEl = document.createElement("span");
@@ -131,9 +139,19 @@ function personRow(name: string, sex: KinPerson["sex"], years: string | undefine
   nameEl.textContent = name;
   el.appendChild(nameEl);
   if (years) {
+    // The card is built outside React, so the italic runs YearsText would
+    // render are appended by hand.
     const yearsEl = document.createElement("span");
     yearsEl.className = "person-years gm-data";
-    yearsEl.textContent = years;
+    for (const s of yearsSegments(years, approx)) {
+      if (!s.approx) yearsEl.append(s.text);
+      else {
+        const run = document.createElement("span");
+        run.className = "gm-approx";
+        run.textContent = s.text;
+        yearsEl.append(run);
+      }
+    }
     el.appendChild(yearsEl);
   }
   return el;
@@ -315,7 +333,9 @@ export default function KinMapBody({
         const m = members[0];
         marker.on("click", () => onSelect(m.person.id));
         const hidden = redacted(m.person);
-        card.appendChild(personRow(nameFor(m.person), m.person.sex, hidden ? undefined : m.person.years, "chart-hover-head"));
+        card.appendChild(
+          personRow(nameFor(m.person), m.person.sex, hidden ? undefined : m.person.years, "chart-hover-head", lifespanApproxOf(m.person.indi)),
+        );
         for (const line of tooltipPlaces([m.point])) card.appendChild(placeRow(line));
         const kin = kinshipOf(m.person);
         if (kin) card.appendChild(row(`chart-hover-kin ${kinClass(m.person)}`, kin));
@@ -422,7 +442,7 @@ export default function KinMapBody({
                   <span className="kin-map-row-name">{nameFor(m.person)}</span>
                   {m.person.years && (
                     <span className="gm-data kin-map-row-years" title={datesFor(m.person) || undefined}>
-                      {m.person.years}
+                      <YearsText text={m.person.years} approx={lifespanApproxOf(m.person.indi)} />
                     </span>
                   )}
                 </button>

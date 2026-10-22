@@ -4,7 +4,7 @@
 // glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
 
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
-import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
 import { dateText } from "../gedcom/date";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
@@ -109,6 +109,8 @@ export interface ReportEntry {
   name: string;
   /** Lifespan label ("1817–1921", "1817–", …) — may be "". */
   years: string;
+  /** Which of `years` stand on an approximate date — set in italics. */
+  yearsApprox?: YearsApprox;
   living: boolean;
   /** The person already appeared under this number (pedigree collapse /
    *  descendant intermarriage) and their line continues there — this entry
@@ -142,6 +144,7 @@ export interface PersonRef {
   name: string;
   sex: Sex;
   years: string;
+  yearsApprox?: YearsApprox;
   living: boolean;
 }
 
@@ -151,6 +154,7 @@ export function personRef(indi: Individual, nameOf: NameOf, nowYear: number, ds:
     name: nameOf(indi),
     sex: indi.sex,
     years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
+    yearsApprox: lifespanApproxOf(indi),
     living: isPresumedLiving(indi, ds, nowYear) || !!indi.private,
   };
 }
@@ -275,6 +279,7 @@ export function makeEntry(
     sex: indi.sex,
     name: nameOf(indi),
     years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
+    yearsApprox: lifespanApproxOf(indi),
     living: isPresumedLiving(indi, ds, nowYear) || !!indi.private,
     dupOf,
     facts: dupOf === undefined ? facts : [],

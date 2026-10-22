@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { datesTooltipOf, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
+import { YearsText } from "./YearsText";
 import { renderKeyToken } from "../keyboard/shortcuts";
 import { useFindShortcutOn } from "../keyboard/useFindShortcut";
 import { SearchIcon } from "./icons/SearchIcon";
@@ -128,7 +129,7 @@ export function ChartFindBox({
             {span && (
               <span className="gm-data" title={datesTooltipOf(offChart) || undefined}>
                 {" "}
-                {span}
+                <YearsText text={span} approx={lifespanApproxOf(offChart)} />
               </span>
             )}
           </button>
