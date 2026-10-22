@@ -76,6 +76,17 @@ describe("decodeGedcom charset detection", () => {
     expect(warnings.some((w) => /mojibake/.test(w.message))).toBe(true);
   });
 
+  it("leaves valid text that only looks like mojibake untouched", () => {
+    // "ĂŞ", "ÂŞ" and "Ä€" each strict-decode from CP1250 bytes to one UTF-8
+    // letter, but they stand among plain Romanian/Latvian letters that never
+    // would: the file is not double-encoded.
+    const src = "0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME Ion /MUREŞAN/\n2 NOTE BRĂŞOV, ŞTEFĂNEŞTI\n" +
+      "0 @I2@ INDI\n1 NAME Ana /Pârâu/\n2 NOTE MÂŞ, Ä€, Rīga, Jēkabpils\n";
+    const { text, warnings } = decodeGedcom(new TextEncoder().encode(src).buffer);
+    expect(text).toBe(src);
+    expect(warnings.some((w) => /mojibake/.test(w.message))).toBe(false);
+  });
+
   it("leaves correctly-encoded German umlauts untouched", () => {
     const bytes = [...new TextEncoder().encode("0 HEAD\n1 CHAR UTF-8\n1 NAME Jäger Ärzte\n")];
     const { text } = decodeGedcom(new Uint8Array(bytes).buffer);
