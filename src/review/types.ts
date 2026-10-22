@@ -258,6 +258,11 @@ export function decisionKey(kind: MatchKind, mainId: string, compareId: string):
  * update really is last: `Map.set` on an existing key keeps its original
  * position, which silently made it *first*-confirmation-wins for any pair
  * updated in place.
+ *
+ * Confirming a pair also takes back any other confirmed pair of the same
+ * incoming person (set to undecided, its field choices kept): one incoming
+ * record is one person, and confirmed against two main records its fields were
+ * applied to both. The latest confirmation wins, as it does for shared rows.
  */
 export function withFreshDecision(
   prev: ReadonlyMap<string, CandidateDecision>,
@@ -266,6 +271,14 @@ export function withFreshDecision(
 ): Map<string, CandidateDecision> {
   const next = new Map(prev);
   next.delete(key);
+  const parsed = value.status === "confirmed" ? parseDecisionKey(key) : undefined;
+  if (parsed?.kind === "individual") {
+    for (const [otherKey, other] of next) {
+      if (other.status !== "confirmed") continue;
+      const o = parseDecisionKey(otherKey);
+      if (o?.kind === "individual" && o.compareId === parsed.compareId) next.set(otherKey, { ...other, status: "undecided" });
+    }
+  }
   next.set(key, value);
   return next;
 }
