@@ -58,6 +58,7 @@ const SOUR_TRAILING = SOUR_TRAILING_TAGS;
 const MEDIA_TRAILING = ["NOTE", "CHAN", "CREA", "_UPD"] as const;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { EDITABLE_LINK_TAGS } from "../gedcom/edit/shared";
+import { memoOnContent } from "../gedcom/edit/cache";
 import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
 import { familySpouses } from "./sources";
@@ -1078,6 +1079,11 @@ function bookEventTarget(
 /** The file's own habit for baptism-book citations: whichever of BIRT/BAPM
  *  already carries more `SOUR` children (default BIRT). */
 export function baptismTargetTag(records: GedNode[]): "BIRT" | "BAPM" {
+  // A whole-file count, asked per citation placed: once per state of the file.
+  return memoOnContent(records, "baptismTargetTag", () => countBaptismTarget(records));
+}
+
+function countBaptismTarget(records: GedNode[]): "BIRT" | "BAPM" {
   let birt = 0;
   let bapm = 0;
   for (const rec of records) {
@@ -1949,6 +1955,11 @@ export function makePlaceResolver(records: GedNode[]): (place: string | undefine
 /** The file's own citation-placement habit: whether existing citations sit
  *  mostly on records or on events. */
 export function detectCitationPlacement(records: GedNode[]): "event" | "record" {
+  // A whole-file count, asked per citation placed: once per state of the file.
+  return memoOnContent(records, "citationPlacement", () => countCitationPlacement(records));
+}
+
+function countCitationPlacement(records: GedNode[]): "event" | "record" {
   let recordLevel = 0;
   let eventLevel = 0;
   for (const rec of records) {
