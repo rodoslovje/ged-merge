@@ -128,6 +128,7 @@ export function RelativePickerCard({
   roleLabel,
   individuals,
   excludeId,
+  excludeIds,
   onPickExisting,
   onAddNew,
   newLabel,
@@ -137,6 +138,8 @@ export function RelativePickerCard({
   roleLabel?: string;
   individuals: Map<string, Individual>;
   excludeId: string;
+  /** Further people left out of the list — those this pick cannot name. */
+  excludeIds?: ReadonlySet<string>;
   onPickExisting: (id: string) => void;
   /** Create a new person; the typed query rides along to seed their name.
    *  Left out where the caller has nothing to create — a 5.5.1 file cannot
@@ -171,7 +174,11 @@ export function RelativePickerCard({
     };
   }, [onCancel]);
 
-  const people = usePersonOptions(individuals, excludeId);
+  const everyone = usePersonOptions(individuals, excludeId);
+  const people = useMemo(
+    () => (excludeIds?.size ? everyone.filter((p) => !excludeIds.has(p.id)) : everyone),
+    [everyone, excludeIds],
+  );
   const options = useMemo(() => matchPersonOptions(people, query), [people, query]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);

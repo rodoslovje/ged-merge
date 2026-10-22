@@ -35,7 +35,7 @@ export type { NameVariantUpdate } from "./names";
 
 export {
   addIndividual, addFamily, addParent, addPartner, addChild,
-  connectExistingParent, connectExistingPartner, connectExistingChild,
+  connectExistingParent, connectExistingPartner, connectExistingChild, impossibleRelatives,
   pruneDegenerateFamily, detachSpouseRole, detachChildFromFamily,
   removeIndividual, removeFamily, foldFamily, familiesNaming,
 } from "./family";

@@ -143,6 +143,74 @@ function isBareParentStub(fam: Family, childId: string): boolean {
   return fam.raw.children.every((c) => c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL");
 }
 
+/** Everyone `fromIds` descends from (`up`) or who descends from them (down),
+ *  read from both sides of the links so a one-sided file is walked as well. */
+function lineOf(dataset: Dataset, fromIds: (string | undefined)[], up: boolean): Set<string> {
+  // The family side indexed once (a child's CHIL, a parent's HUSB/WIFE).
+  const named = new Map<string, string[]>();
+  for (const fam of dataset.families.values()) {
+    for (const id of up ? fam.children : [fam.husband, fam.wife]) {
+      if (!id) continue;
+      const list = named.get(id);
+      if (list) list.push(fam.id);
+      else named.set(id, [fam.id]);
+    }
+  }
+  const seen = new Set<string>();
+  const queue = fromIds.filter((id): id is string => !!id);
+  while (queue.length) {
+    const id = queue.pop()!;
+    const indi = dataset.individuals.get(id);
+    const famIds = new Set([...((up ? indi?.childOf : indi?.spouseOf) ?? []), ...(named.get(id) ?? [])]);
+    for (const famId of famIds) {
+      const fam = dataset.families.get(famId);
+      if (!fam) continue;
+      for (const next of up ? [fam.husband, fam.wife] : fam.children) {
+        if (next && !seen.has(next)) { seen.add(next); queue.push(next); }
+      }
+    }
+  }
+  return seen;
+}
+
+/**
+ * The people who cannot be connected to `person` as this kind of relative —
+ * the picker leaves them out and the connect refuses them. Connecting any of
+ * them would write a structure no family can have: the same person as both
+ * parents of one family, someone as their own ancestor (a descendant taken as
+ * a parent, an ancestor taken as a child), or a child or parent taken as a
+ * partner. `fam` is the family the relative joins, when there is one.
+ */
+export function impossibleRelatives(
+  dataset: Dataset,
+  person: Individual,
+  kind: "father" | "mother" | "partner" | "child",
+  fam: Family | undefined,
+): Set<string> {
+  const out = new Set<string>([person.id]);
+  const add = (ids: Iterable<string | undefined>) => { for (const id of ids) if (id) out.add(id); };
+  if (kind === "child") {
+    // The child becomes the child of both spouses of the family.
+    const parents = fam ? [fam.husband, fam.wife, person.id] : [person.id];
+    add(parents);
+    add(lineOf(dataset, parents, true));
+    return out;
+  }
+  // A parent or partner becomes the parent of the family's children — of
+  // `person` too, when the family is their birth family.
+  const children = [...(fam?.children ?? []), ...(kind === "partner" ? [] : [person.id])];
+  add(children);
+  add(lineOf(dataset, children, false));
+  if (fam && kind !== "partner") add([kind === "father" ? fam.wife : fam.husband]);
+  if (kind === "partner") {
+    for (const f of dataset.families.values()) {
+      if (f.children.includes(person.id) || person.childOf.includes(f.id)) add([f.husband, f.wife]);
+      if (f.husband === person.id || f.wife === person.id || person.spouseOf.includes(f.id)) add(f.children);
+    }
+  }
+  return out;
+}
+
 /**
  * Connect an existing individual as a parent of `person`.
  * If `fam` is given (an existing parent family missing that role), the
@@ -163,7 +231,7 @@ export function connectExistingParent(
 ): void {
   const tag: "HUSB" | "WIFE" = role === "father" ? "HUSB" : "WIFE";
   const parent = dataset.individuals.get(parentId);
-  if (!parent) return;
+  if (!parent || impossibleRelatives(dataset, person, role, fam).has(parentId)) return;
 
   const otherParentId = fam ? (tag === "HUSB" ? fam.wife : fam.husband) : undefined;
   if (fam && otherParentId && otherParentId !== parentId && isBareParentStub(fam, person.id)) {
@@ -210,7 +278,7 @@ export function connectExistingPartner(
   fam: Family | undefined,
 ): void {
   const partner = dataset.individuals.get(partnerId);
-  if (!partner) return;
+  if (!partner || impossibleRelatives(dataset, person, "partner", fam).has(partnerId)) return;
 
   const personTag: "HUSB" | "WIFE" = fam
     ? fam.husband === person.id ? "HUSB" : "WIFE"
@@ -251,7 +319,7 @@ export function connectExistingChild(
   fam: Family | undefined,
 ): void {
   const child = dataset.individuals.get(childId);
-  if (!child) return;
+  if (!child || impossibleRelatives(dataset, person, "child", fam).has(childId)) return;
 
   if (!fam) {
     fam = addFamily(dataset);
