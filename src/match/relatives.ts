@@ -2,7 +2,7 @@ import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types"
 import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
-import { UNNAMED } from "../gedcom/nameDisplay";
+import { DEFAULT_NAME_DISPLAY, formatPersonName } from "../gedcom/nameDisplay";
 
 /** Conventional xrefs of "person 1" — the root individual many apps assign to
  * the start/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
@@ -33,9 +33,10 @@ export function primaryName(indi: Individual): PersonName | undefined {
   return indi.names[0];
 }
 
-/** Full display name from a structured name. */
+/** Full display name from a structured name — the neutral-settings form of
+ *  {@link formatPersonName}, for code with no user preferences at hand. */
 export function displayName(n: PersonName | undefined): string {
-  return n?.full || [n?.given, n?.surname].filter(Boolean).join(" ") || UNNAMED;
+  return formatPersonName(n, DEFAULT_NAME_DISPLAY);
 }
 
 /**
