@@ -157,7 +157,7 @@ export function materializeAdds(
       Object.fromEntries(added?.joins ?? []),
     );
     if (brought.length) next = withAddedRecords(next, [...(d.addedRecords ?? []), ...brought]);
-    if (added?.ids.size || brought.length || JSON.stringify(next.joins) !== JSON.stringify(d.joins)) decisions.set(key, next);
+    if (added?.ids.size || brought.length || !sameJoins(next.joins, d.joins)) decisions.set(key, next);
   }
 
   return { decisions, patches: coalescePatches(patches) };
@@ -206,6 +206,16 @@ function pruneAddedRecords(main: Dataset, decisions: ReadonlyMap<string, Candida
     }
     applyRecordPatches(main, patches.filter((p) => p.type === "record" && p.after === null && drop.includes(p.id)), "redo");
   }
+}
+
+/** Two decisions' joins say the same, key by key in the same order — what
+ *  comparing their JSON said, without writing both out on every pass. */
+function sameJoins(a: Record<string, string> | undefined, b: Record<string, string> | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k, i) => k === kb[i] && a[k] === b[k]);
 }
 
 function withJoins(d: CandidateDecision, joins: Record<string, string>): CandidateDecision {
@@ -365,7 +375,7 @@ export function refreshJoins(
     const asks = [...wantedAdds(new Map([[key, d]]), main, compare)].some((id) => !pinned.has(id));
     const run = asks ? addFor(main, compare, matches, decisions, key, d, pinned, t, overrides, true) : undefined;
     const next = withJoins(d, Object.fromEntries(run?.joins ?? []));
-    if (JSON.stringify(next.joins) !== JSON.stringify(d.joins)) out.set(key, next);
+    if (!sameJoins(next.joins, d.joins)) out.set(key, next);
   }
   return out;
 }
