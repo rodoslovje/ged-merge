@@ -19,7 +19,9 @@ import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { parseDate } from "../../gedcom/date";
 import { isApproximate } from "../../gedcom/lifespan";
-import { entryDate } from "../../normalize/date";
+import { entryDate, isReadable } from "../../normalize/date";
+import { narrativeLangFor } from "../../report/narrativeText";
+import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { displayDate } from "../../gedcom/dateDisplay";
 import { useSettingsSlice } from "../SettingsContext";
 import { useDateEntryStyle } from "./DateEntryContext";
@@ -63,7 +65,7 @@ function markedLabel(tag: string | undefined, text: string, t: Translate) {
   );
 }
 
-const DATE_DISPLAY_KEYS = ["datesInWords"] as const;
+const DATE_DISPLAY_KEYS = ["dateDisplay"] as const;
 
 /** The line under a date being typed: the date in words, what it will be
  *  written as, and — for a numeric date whose day and month could swap — the
@@ -288,11 +290,21 @@ export function EventFieldsRow({
     dateFocused && dateField.value.trim() && dateField.value !== dateField.initial
       ? previewDate(dateField.value, dateStyle(), i18n.language)
       : undefined;
-  // With dates shown in words, the field reads "about 5 March 1850" at rest and
-  // turns back into the file's text the moment it is entered to be edited.
-  const { datesInWords } = useSettingsSlice(DATE_DISPLAY_KEYS);
-  const dateText =
-    datesInWords && !dateFocused && dateField.value.trim() ? displayDate(parseDate(dateField.value)) : dateField.value;
+  // With another date display chosen, the field reads that way at rest ("about
+  // 5 March 1850", "05.03.1850") and turns back into the file's text the
+  // moment it is entered to be edited.
+  const { dateDisplay } = useSettingsSlice(DATE_DISPLAY_KEYS);
+  const parsedDate = dateField.value.trim() ? parseDate(dateField.value) : undefined;
+  const dateText = dateDisplay && !dateFocused && parsedDate ? displayDate(parsedDate) : dateField.value;
+  // The hover says how the date reads, in words — and the file's own text
+  // when the field is showing something else.
+  const dateTitle = [
+    t("event.date", { event: label }),
+    parsedDate && isReadable(parsedDate) ? narrativeLangFor(i18n.language).dateLabel(parsedDate) : undefined,
+    dateText !== dateField.value ? dateField.value : undefined,
+  ]
+    .filter((line, i, all) => line && all.indexOf(line) === i && line !== dateText)
+    .join("\n");
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
   // The coordinate this event actually carries (PLAC.MAP). Read from the model,
   // not the edited text, so it reflects what is in the file.
@@ -1009,7 +1021,7 @@ export function EventFieldsRow({
       {/* Leading item 2: the date — the input fills its fixed slot (text kept
        * right-aligned so the years line up in a column); the age badge follows
        * outside the slot so it never changes the date's position or size. */}
-      <div className={"edit-event-date-cell" + (datesInWords ? " is-words" : "") + optCls(show.date)}>
+      <div className={"edit-event-date-cell" + (dateDisplay === DATE_DISPLAY_WORDS ? " is-words" : "") + optCls(show.date)}>
         <ClearableInput
           data-detail="date"
           className={fieldCls(
@@ -1019,7 +1031,7 @@ export function EventFieldsRow({
           )}
           value={dateText}
           placeholder={t("event.colDate")}
-          title={t("event.date", { event: label })}
+          title={dateTitle}
           autoFocus={autoFocusLead}
           onChange={dateField.onChange}
           onKeyDown={entryKeyDown("date")}

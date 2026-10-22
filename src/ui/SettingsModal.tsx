@@ -3,6 +3,8 @@ import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { SelectMenu } from "./DropdownMenu";
+import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS, dateDisplayFormatter } from "./dateDisplayFormat";
+import { parseDate } from "../gedcom/date";
 import { useSettings, useNameOf, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { eventDisplayLabel } from "../gedcom/eventTags";
@@ -174,6 +176,9 @@ const OVERLAY_COMMIT_MS = 400;
 
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
+/** The date the "Date display" row shows its choice on — approximate, so the
+ *  qualifier's rendering shows too. */
+const SAMPLE_DATE = parseDate("ABT 15 JUN 1879");
 
 /** Sentinel option value of the preset dropdown's "add every one" entry — the
  *  others carry an index into the list. */
@@ -515,16 +520,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               </span>
             </label>
 
-            <label className="settings-row settings-row-toggle">
-              <input
-                type="checkbox"
-                checked={settings.datesInWords}
-                onChange={(e) => set({ datesInWords: e.target.checked })}
-              />
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.display.dateWords")}</span>
-                <span className="settings-hint">{t("settings.display.dateWords.hint")}</span>
+            <label className="settings-row settings-format-row" title={t("settings.display.dates.hint")}>
+              <span className="settings-row-label">{t("settings.display.dates")}</span>
+              <span className="settings-format-example gm-data">
+                {dateDisplayFormatter(settings.dateDisplay, () => i18n.language)?.(SAMPLE_DATE) ?? SAMPLE_DATE.raw}
               </span>
+              <SelectMenu
+                value={settings.dateDisplay}
+                onChange={(v) => set({ dateDisplay: v })}
+                options={DATE_DISPLAY_CHOICES.map((c) => ({
+                  value: c,
+                  label: c === "" ? t("settings.display.dates.file") : c === DATE_DISPLAY_WORDS ? t("settings.display.dates.words") : c,
+                }))}
+              />
             </label>
 
             <label className="settings-row settings-row-toggle">

@@ -57,8 +57,35 @@ test("a typed date reads back in words and is written in the file's style", asyn
   await expect(death).toHaveValue("pred vojno");
 });
 
+test("a date field's hover says how the date reads", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const birth = page.locator(".edit-event").first().locator(".edit-event-date");
+  await expect(birth).toHaveAttribute("title", "Birth date\n5 March 1850");
+  await birth.fill("CAL 1850");
+  await expect(birth).toHaveAttribute("title", "Birth date\nabout 1850 (calculated)");
+});
+
+test("with a date display chosen, a date field shows it until it is edited", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("gedmerge.settings", JSON.stringify({ dateDisplay: "DD.MM.YYYY" })));
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const birth = page.locator(".edit-event").first().locator(".edit-event-date");
+  await expect(birth).toHaveValue("05.03.1850");
+  // The hover carries the file's own text beside the words.
+  await expect(birth).toHaveAttribute("title", "Birth date\n5 March 1850\n5 MAR 1850");
+  await birth.click();
+  await expect(birth).toHaveValue("5 MAR 1850");
+});
+
 test("with dates in words, a date field reads in words until it is edited", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("gedmerge.settings", JSON.stringify({ datesInWords: true })));
+  await page.addInitScript(() => localStorage.setItem("gedmerge.settings", JSON.stringify({ dateDisplay: "words" })));
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(writeFixture());
   await page.getByRole("button", { name: "Edit", exact: true }).click();

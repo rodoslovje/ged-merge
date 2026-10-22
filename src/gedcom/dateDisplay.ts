@@ -2,26 +2,27 @@ import type { GedDate } from "./types";
 import { dateText } from "./date";
 
 // How a date is shown on screen, as opposed to how the file writes it. By
-// default the two are the same text; with Settings → Display "Show dates in
-// words" on, the UI installs a formatter here that writes the date in the
-// reader's language ("about 5 March 1850", "okoli 5. marca 1850"). Installed
-// rather than imported, so this module stays below the report's language code
-// and the pure helpers that build labels and hovers need no setting passed in.
+// default the two are the same text; Settings → Display "Date display" can
+// instead show dates in words in the reader's language ("about 5 March
+// 1850", "okoli 5. marca 1850") or in a chosen pattern ("05.03.1850"). The UI
+// installs that formatter here rather than this module importing it, so it
+// stays below the report's language code and the normalizer, and the pure
+// helpers that build labels and hovers need no setting passed in.
 
-let words: ((d: GedDate) => string) | null = null;
+let formatter: ((d: GedDate) => string) | null = null;
 
-/** Install (or with null, remove) the words formatter. */
-export function setDateWords(fn: ((d: GedDate) => string) | null): void {
-  words = fn;
+/** Install (or with null, remove) the on-screen date formatter. */
+export function setDateDisplay(fn: ((d: GedDate) => string) | null): void {
+  formatter = fn;
 }
 
-/** True while dates are shown in words. */
-export function datesInWords(): boolean {
-  return words !== null;
+/** True while dates are shown otherwise than the file writes them. */
+export function datesReformatted(): boolean {
+  return formatter !== null;
 }
 
-/** A date as the screen shows it — the file's own text unless dates are shown
- *  in words; a date the words cannot express keeps its text. */
+/** A date as the screen shows it — the file's own text unless another display
+ *  is chosen; a date the display cannot express keeps its text. */
 export function displayDate(d: GedDate): string {
-  return (words && !d.placeholder && words(d)) || dateText(d);
+  return (formatter && !d.placeholder && formatter(d)) || dateText(d);
 }
