@@ -14,6 +14,10 @@ import {
   detachChildFromFamily,
   foldFamily,
   familyPointerHolders,
+  individualsScope,
+  pointerScope,
+  reindexRecord,
+  withPointerIndex,
   insertOrdered,
   rebuildFamily,
   rebuildIndividual,
@@ -92,17 +96,18 @@ export function mergeDuplicate(
   }
   // A one-sided file can link a person to one of those families from their own
   // side only (a FAMC the family never lists); a fold or prune unlinks them too.
-  for (const indi of dataset.individuals.values()) {
+  for (const indi of individualsScope(dataset, famIds)) {
     if (indi.childOf.some((f) => famIds.has(f)) || indi.spouseOf.some((f) => famIds.has(f))) indiIds.add(indi.id);
   }
   // An association can be carried by any record in the file — a third person's
   // baptism naming the removed duplicate as its godparent — and so can an ALIA
   // or a vendor pointer. Those records are repointed below, so they belong in
   // the snapshot the undo patch is cut from.
+  const pair = new Set([survivorId, removedId]);
   const naming = new Set([
-    ...recordsNaming(dataset.records, new Set([survivorId, removedId])),
+    ...recordsNaming(pointerScope(dataset, pair), pair),
     // A fold of the survivor's doubled families repoints whatever names them.
-    ...familyPointerHolders(dataset.records, famIds),
+    ...familyPointerHolders(pointerScope(dataset, famIds), famIds),
   ]);
   for (const id of naming) {
     if (dataset.individuals.has(id)) indiIds.add(id);
@@ -174,7 +179,7 @@ export function mergeDuplicate(
   // 4. Whoever named the duplicate names the survivor now — the two records are
   //    one person, so the godparent of a baptism did not stop being one.
   //    Done before the removal, which would otherwise drop these lines.
-  for (const id of repointAssociations(dataset.records, removedId, survivorId)) {
+  for (const id of repointAssociations(pointerScope(dataset, pair), removedId, survivorId)) {
     const indi = dataset.individuals.get(id);
     if (indi) rebuildIndividual(dataset, indi);
     else {
@@ -189,6 +194,12 @@ export function mergeDuplicate(
   // 6. Collapse families the survivor now belongs to twice (same couple / same parents).
   dedupSurvivorFamilies(dataset, survivorId);
 
+  // Every record this merge can change is in the snapshot: index them again,
+  // so a chain's next step sees each line they gained, rebuilt or not.
+  for (const id of [...before.individuals.keys(), ...before.families.keys()]) {
+    const raw = dataset.individuals.get(id)?.raw ?? dataset.families.get(id)?.raw;
+    if (raw) reindexRecord(dataset.records, raw);
+  }
   return patchesFromSnapshots(dataset, before);
 }
 
@@ -222,7 +233,9 @@ export function mergeDuplicateChain(
   const byKey = new Map<string, RecordPatch>();
   // A step that throws takes the whole chain back with it — the earlier steps'
   // merges included, whose patches would otherwise never reach the undo stack.
-  applyPassSafely(dataset, (journal) => {
+  // One index of who names whom for the whole chain: each step then asks the
+  // few records that name its pair instead of walking the file several times.
+  applyPassSafely(dataset, (journal) => withPointerIndex(dataset, () => {
     const placement = steps.length > 1 ? linkPlacementFor(dataset) : undefined;
     for (const step of steps) {
       for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t, journal, placement)) {
@@ -231,7 +244,7 @@ export function mergeDuplicateChain(
         byKey.set(key, first ? { ...p, before: first.before, ...(first.index !== undefined ? { index: first.index } : {}) } : p);
       }
     }
-  });
+  }));
   // A record both created and removed inside the chain (none today, but the
   // composition should stay honest) has nothing to record.
   return [...byKey.values()].filter((p) => p.before !== null || p.after !== null);

@@ -40,6 +40,7 @@ export {
   removeIndividual, removeFamily, foldFamily, familyPointerHolders, familiesNaming, familyMembers, RECORD_OWN_TAGS,
   pruneRecordsLeftBehind, pointersHeld,
 } from "./family";
+export { familiesScope, individualsScope, pointerScope, reindexRecord, withPointerIndex } from "./pointerIndex";
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 

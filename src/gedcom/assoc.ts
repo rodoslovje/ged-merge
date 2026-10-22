@@ -341,7 +341,7 @@ function isMemberLine(record: GedNode, line: GedNode, depth: number): boolean {
  * before {@link repointAssociations}, since such a line can be carried by any
  * record in the file, not just by the people involved.
  */
-export function recordsNaming(records: GedNode[], targetIds: ReadonlySet<string>): string[] {
+export function recordsNaming(records: Iterable<GedNode>, targetIds: ReadonlySet<string>): string[] {
   const out: string[] = [];
   const names = (record: GedNode, node: GedNode, depth: number): boolean =>
     node.children.some((c) => {
@@ -370,7 +370,7 @@ export function recordsNaming(records: GedNode[], targetIds: ReadonlySet<string>
  * precisely those.
  */
 export function repointAssociations(
-  records: GedNode[],
+  records: Iterable<GedNode>,
   fromId: string,
   toId?: string,
 ): string[] {

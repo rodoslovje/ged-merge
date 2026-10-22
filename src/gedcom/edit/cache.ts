@@ -1,6 +1,7 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, type MediaLinks, type NoteIndex } from "../builder";
 import { buildSourceContext, buildSourceLookup, type SourceContext, type SourceLookup } from "../source";
 import type { Dataset, Family, GedNode, Individual } from "../types";
+import { reindexRecord } from "./pointerIndex";
 
 const sourceCacheVersions = new WeakMap<GedNode[], number>();
 const sourceCaches = new WeakMap<GedNode[], { version: number; media: MediaLinks; sourceCtx: SourceContext; noteIndex: NoteIndex }>();
@@ -96,6 +97,7 @@ export function rebuildIndividual(dataset: Dataset, indi: Individual): Individua
   const rebuilt = buildIndividual(indi.raw, media, sourceCtx, noteIndex);
   dataset.individuals.set(rebuilt.id, rebuilt);
   bumpContentVersion(dataset.records);
+  reindexRecord(dataset.records, indi.raw);
   return rebuilt;
 }
 
@@ -108,5 +110,6 @@ export function rebuildFamily(dataset: Dataset, fam: Family): Family {
   const rebuilt = buildFamily(fam.raw, media, sourceCtx, noteIndex);
   dataset.families.set(rebuilt.id, rebuilt);
   bumpContentVersion(dataset.records);
+  reindexRecord(dataset.records, fam.raw);
   return rebuilt;
 }

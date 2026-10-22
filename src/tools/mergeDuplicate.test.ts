@@ -449,6 +449,39 @@ describe("mergeDuplicate", () => {
     expect(validateDataset(ds).issues.some((i) => i.category === "brokenLink")).toBe(false);
   });
 
+  it("follows within a chain a line an earlier step repointed", () => {
+    // The chain indexes who names whom once; step 1 moves @I3@'s godmother
+    // line from @I2@ to @I1@, and step 2 — absorbing @I1@ — must still find it.
+    // Likewise @I6@'s one-sided FAMC, moved from @F2@ onto @F1@ by step 1's fold.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1850\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1850\n1 FAMS @F2@\n" +
+      "0 @I4@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1850\n1 FAMS @F3@\n" +
+      "0 @I5@ INDI\n1 NAME Janez /Renko/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F2@\n1 FAMS @F3@\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 DATE 1880\n2 ASSO @I2@\n3 RELA botra\n" +
+      "0 @I6@ INDI\n1 NAME Tone /Renko/\n1 FAMC @F2@\n" +
+      "0 @F1@ FAM\n1 HUSB @I5@\n1 WIFE @I1@\n" +
+      "0 @F2@ FAM\n1 HUSB @I5@\n1 WIFE @I2@\n" +
+      "0 @F3@ FAM\n1 HUSB @I5@\n1 WIFE @I4@\n",
+    ));
+    // Compared record by record: undo of a multi-step chain restores every
+    // record's content, though not always each record's position.
+    const contents = () => ds.records.map((r) => serializeGedcom([r])).sort();
+    const original = contents();
+    const patches = mergeDuplicateChain(ds, [
+      { survivorId: "@I1@", removedId: "@I2@", decision: decide({}) },
+      { survivorId: "@I4@", removedId: "@I1@", decision: decide({}) },
+    ], tr);
+
+    const bapm = ds.individuals.get("@I3@")!.raw.children.find((c) => c.tag === "BAPM")!;
+    expect(bapm.children.filter((c) => c.tag === "ASSO").map((c) => c.value)).toEqual(["@I4@"]);
+    expect(ds.individuals.get("@I6@")!.raw.children.filter((c) => c.tag === "FAMC").map((c) => c.value)).toEqual(["@F3@"]);
+    expect([...ds.families.keys()]).toEqual(["@F3@"]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(contents()).toEqual(original);
+  });
+
   it("moves a child linked only from its own side into the kept family", () => {
     // @F2@ never lists @I3@; only @I3@'s FAMC names it. Folding @F2@ into @F1@
     // must carry that link (and its PEDI), and the undo patch must hold @I3@.
