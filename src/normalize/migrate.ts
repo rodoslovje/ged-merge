@@ -213,7 +213,7 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   }
 
   // Calendar escape → calendar tag prefix (GREGORIAN, being the default, drops).
-  value = value.replace(/@#(D[A-Z]+(?: R)?)@\s*/i, (m, esc: string) => {
+  value = value.replace(/@#(D[A-Z]+(?: R)?)@\s*/gi, (m, esc: string) => {
     const cal = CALENDAR_ESCAPES[esc.toUpperCase()];
     if (!cal) return m;
     return cal === "GREGORIAN" ? "" : `${cal} `;
@@ -236,12 +236,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   }
 
   // BC era marker → BCE.
-  value = value.replace(/\b(\d+)\s*(?:B\.C\.|BC\b)/i, "$1 BCE");
+  value = value.replace(/\b(\d+)\s*(?:B\.C\.|BC\b)/gi, "$1 BCE");
 
   // `BET a AND b` must be chronological in 7.0 — swap endpoints when reversed.
   const bet = value.match(/^BET\s+(.+?)\s+AND\s+(.+)$/i);
   if (bet) {
-    const [y1, y2] = [lastYear(bet[1]), lastYear(bet[2])];
+    const [y1, y2] = [signedYear(bet[1]), signedYear(bet[2])];
     if (y1 !== undefined && y2 !== undefined && y1 > y2) {
       value = `BET ${bet[2]} AND ${bet[1]}`;
     }
@@ -257,9 +257,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   report(ctx, node, before);
 }
 
-function lastYear(datePart: string): number | undefined {
-  const years = datePart.match(/\d{3,4}/g);
-  return years ? Number(years[years.length - 1]) : undefined;
+/** The year an endpoint ends on — GEDCOM writes the year last — negative
+ *  before the common era, so a BCE range orders by its era. */
+function signedYear(datePart: string): number | undefined {
+  const m = datePart.match(/(\d{1,4})(\s+BCE)?\s*$/i);
+  if (!m) return undefined;
+  return m[2] ? -Number(m[1]) : Number(m[1]);
 }
 
 /** 5.5.1 age keywords → bounded 7.0 ages; normalize unit casing and bare years. */
@@ -457,12 +460,14 @@ function downgradeDate(node: GedNode, ctx: MigrateCtx): void {
   const original = node.value;
   let value = node.value?.trim() ?? "";
 
-  value = value.replace(/^(GREGORIAN|JULIAN|HEBREW|FRENCH_R)\s+/i, (_m, cal: string) => {
+  // A calendar leads the date or follows a qualifier (`ABT JULIAN 1750`), and a
+  // range names it on each end; the five keywords are no month or qualifier.
+  value = value.replace(/(^|\s)(GREGORIAN|JULIAN|HEBREW|FRENCH_R)\s+/gi, (_m, lead: string, cal: string) => {
     const tag = cal.toUpperCase();
-    if (tag === "GREGORIAN") return ""; // the 5.5.1 default needs no escape
-    return `@#D${tag.replace("_", " ")}@ `;
+    if (tag === "GREGORIAN") return lead; // the 5.5.1 default needs no escape
+    return `${lead}@#D${tag.replace("_", " ")}@ `;
   });
-  value = value.replace(/\bBCE\b/i, "B.C.");
+  value = value.replace(/\bBCE\b/gi, "B.C.");
 
   if (phraseNode?.value) {
     value = value ? `INT ${value} (${phraseNode.value})` : `(${phraseNode.value})`;

@@ -110,6 +110,20 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("JULIAN 6 MAY 1682");
   });
 
+  it("converts every calendar escape and era marker of a range, ordering BCE ranges by era", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710\n" +
+        "1 DEAT\n2 DATE BET 300 BC AND 100 BC\n1 BURI\n2 DATE BET 100 BC AND 300 BC\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("BET JULIAN 1700 AND JULIAN 1710");
+    // 300 BCE comes before 100 BCE: already chronological.
+    expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("BET 300 BCE AND 100 BCE");
+    expect(findByPath(indi, ["BURI", "DATE"])!.value).toBe("BET 300 BCE AND 100 BCE");
+  });
+
   it("replaces age keywords with bounded ages plus a phrase", () => {
     const { records } = migrated(
       "5.5.1",
@@ -235,6 +249,19 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("@#DJULIAN@ 6 MAY 1682");
     expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("44 B.C.");
     expect(findByPath(indi, ["DEAT", "AGE"])!.value).toBe("363d");
+  });
+
+  it("converts a calendar keyword after a qualifier and on both ends of a range", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE ABT JULIAN 1750\n1 DEAT\n2 DATE BET JULIAN 1700 AND JULIAN 1710\n" +
+        "1 BURI\n2 DATE BET 300 BCE AND 100 BCE\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("ABT @#DJULIAN@ 1750");
+    expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710");
+    expect(findByPath(indi, ["BURI", "DATE"])!.value).toBe("BET 300 B.C. AND 100 B.C.");
   });
 
   it("converts TRAN back to ROMN/FONE and ROLE back to RELA", () => {
