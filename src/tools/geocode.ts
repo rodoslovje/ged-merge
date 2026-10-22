@@ -86,10 +86,27 @@ export function walkPlacNodes(node: GedNode, visit: (plac: GedNode, parent: GedN
  * captures that: same pair ⇒ same place, so the coordinates should agree.
  */
 export function walkPlaceAddr(node: GedNode, visit: (plac: GedNode, addr: string, event: GedNode) => void): void {
-  walkPlacNodes(node, (plac, event) => {
-    const addr = event.children.find((c) => c.tag === "ADDR" && c.value?.trim())?.value?.trim() ?? "";
-    visit(plac, addr, event);
-  });
+  walkPlacNodes(node, (plac, event) => visit(plac, eventAddress(event), event));
+}
+
+/** The address lines of a structured ADDR, read when the ADDR has no text of its own. */
+const ADDRESS_LINE_TAGS = new Set(["ADR1", "ADR2", "ADR3", "CITY", "POST"]);
+
+/** An event's address as one string ("" when it has none): the ADDR's own
+ *  text, or — for an ADDR that carries only its structured lines, as some
+ *  programs write it — those lines joined. Either way it is a house, not the
+ *  settlement. */
+function eventAddress(event: GedNode): string {
+  for (const addr of event.children) {
+    if (addr.tag !== "ADDR") continue;
+    const own = addr.value?.trim();
+    if (own) return own;
+    const lines = addr.children
+      .filter((c) => ADDRESS_LINE_TAGS.has(c.tag) && c.value?.trim())
+      .map((c) => c.value!.trim());
+    if (lines.length) return lines.join(", ");
+  }
+  return "";
 }
 
 /** Grouping key for a place+address pair. NUL cannot occur in GEDCOM text. */
