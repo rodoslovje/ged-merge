@@ -10,7 +10,7 @@ import {
   placeFormFor,
 } from "./profile";
 import { normalizeDataset } from "./normalize";
-import { formatGedDate } from "./date";
+import { entryDate, formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
 
 function dataset(text: string) {
@@ -1086,6 +1086,33 @@ describe("formatGedDate — CAL and EST", () => {
     expect(formatGedDate(parseDate("CAL 5 MAR 1850"), profile)).toBe("CAL 05.03.1850");
     expect(formatGedDate(parseDate("Estimated 1850"), profile)).toBe("EST 1850");
     expect(formatGedDate(parseDate("ca. 1850"), profile)).toBe("ABT 1850");
+  });
+});
+
+describe("entryDate — a typed date in the file's style", () => {
+  const numeric = inferDateProfile(["20.02.1989", "01.12.1990", "31.07.1888"]);
+  const words = inferDateProfile([]);
+
+  it("writes shorthand and local words as the standard keywords", () => {
+    expect(entryDate("~1850", words, "DMY")).toBe("ABT 1850");
+    expect(entryDate("okoli 5. 3. 1850", words, "DMY")).toBe("ABT 5 MAR 1850");
+    expect(entryDate("<1850", words, "DMY")).toBe("BEF 1850");
+    expect(entryDate("1850-1860", words, "DMY")).toBe("BET 1850 AND 1860");
+    expect(entryDate("med 1850 in 1860", words, "DMY")).toBe("BET 1850 AND 1860");
+    expect(entryDate("od 1850 do 1860", words, "DMY")).toBe("FROM 1850 TO 1860");
+  });
+
+  it("writes the file's own layout, reading numbers in the file's order", () => {
+    expect(entryDate("5 mar 1850", numeric, "DMY")).toBe("05.03.1850");
+    expect(entryDate("5.3.1850", words, "DMY")).toBe("5 MAR 1850");
+    expect(entryDate("5.3.1850", words, "MDY")).toBe("3 MAY 1850");
+  });
+
+  it("keeps what it cannot restate as typed", () => {
+    expect(entryDate("  ", words, "DMY")).toBe("");
+    expect(entryDate("pred vojno", words, "DMY")).toBe("pred vojno");
+    expect(entryDate("1850/51", words, "DMY")).toBe("1850/51");
+    expect(entryDate("@#DJULIAN@ 5 MAR 1700", words, "DMY")).toBe("@#DJULIAN@ 5 MAR 1700");
   });
 });
 

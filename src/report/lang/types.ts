@@ -22,6 +22,13 @@ export interface NarrativeLang {
    * placeholders render as "".
    */
   datePhrase(d: GedDate): string;
+  /**
+   * The same date standing alone, as a label rather than inside a sentence —
+   * no "on/in", a bare year, a CAL/EST date saying how it was arrived at:
+   *  en: "5 May 1848" · "May 1848" · "1848" · "about 1848 (calculated)"
+   *  sl: "5. maja 1848" · "maj 1848" · "1848" · "okoli leta 1848 (izračunano)"
+   */
+  dateLabel(d: GedDate): string;
   /** The location inside a nominative-safe frame. A street address reads
    *  postal-style, a bare place gets the locality frame:
    *  en: "at Dunajska 5, Kranj" · "at Dunajska 5" · "in Kranj"

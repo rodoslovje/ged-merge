@@ -4,13 +4,15 @@ import type { DateFormatProfile } from "./types";
 
 /** A bare year–year range, e.g. "1830-1850" or "1785 / 1810" — see parseDate. */
 const DASH_YEAR_RANGE = /^\d{3,4}\s*[-/]\s*\d{3,4}$/;
+/** A year with its old/new-style second reading, e.g. "1850/51". */
+const DUAL_YEAR = /(?:^|\s)\d{3,4}\/\d{1,2}(?!\d)/;
 
 /**
  * Render a structured date back into a GEDCOM date string using the main's
  * format. Falls back to the original raw text whenever we cannot faithfully
  * reconstruct the value (so normalization never loses information).
  */
-export function formatGedDate(date: GedDate, profile: DateFormatProfile): string {
+export function formatGedDate(date: GedDate, profile: DateFormatProfile, opts?: { formalRanges?: boolean }): string {
   // A date that names its calendar, or counts backwards from year 1, carries
   // part of its meaning in text the main's layout has no slot for: re-rendering
   // "@#DJULIAN@ 14 JAN 1700" as "14.01.1700" would quietly restate it as a
@@ -36,7 +38,7 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
       // A loose dash/slash year range ("1830-1850", "1785 - 1810") is the
       // user's shorthand; keep it exactly as written rather than rewriting it
       // to the formal BET … AND … form.
-      if (DASH_YEAR_RANGE.test(date.raw.trim())) return date.raw;
+      if (!opts?.formalRanges && DASH_YEAR_RANGE.test(date.raw.trim())) return date.raw;
       return first && second ? `BET ${first} AND ${second}` : date.raw;
     case "range":
       return first && second ? `FROM ${first} TO ${second}` : date.raw;
@@ -98,6 +100,37 @@ export function normalizeDateString(
   sourceOrder?: DateOrder,
 ): string {
   return formatGedDate(parseDate(raw, sourceOrder), profile);
+}
+
+/**
+ * What a date typed into a date field is written as: read with the day/month
+ * order the file (or the reader's language) implies, then written in the
+ * file's own style with the standard keywords — so `~1850`, `okoli 1850` and
+ * `ca. 1850` all land as `ABT 1850`, and `1850-1860` as `BET 1850 AND 1860`
+ * (typed shorthand, unlike a file's own, is not kept). Anything the grammar
+ * cannot read, and any value naming a calendar or an era, is kept as typed.
+ */
+export function entryDate(raw: string, profile: DateFormatProfile, order: DateOrder): string {
+  const typed = raw.trim();
+  if (!typed) return "";
+  // Old/new-style dual dating ("1850/51") has no slot in any house style.
+  if (DUAL_YEAR.test(typed)) return typed;
+  const date = parseTypedDate(typed, order);
+  if (!isReadable(date)) return typed;
+  return formatGedDate(date, profile, { formalRanges: true }) || typed;
+}
+
+/** Parse a date as typed by hand: "5. 3. 1850", spaced the way Slovenian is
+ *  written, reads as "5.3.1850" does. */
+export function parseTypedDate(typed: string, order: DateOrder): GedDate {
+  return parseDate(typed.trim().replace(/(\d)\.\s+(?=\d)/g, "$1."), order);
+}
+
+/** A date with something to go on: a year, a declared calendar, or a
+ *  deliberate all-unknown placeholder — not a qualifier word over free text
+ *  ("pred vojno" parses as "before" with no date in it). */
+export function isReadable(d: GedDate): boolean {
+  return d.year !== undefined || d.year2 !== undefined || d.calendar !== undefined || !!d.placeholder;
 }
 
 function formatParts(

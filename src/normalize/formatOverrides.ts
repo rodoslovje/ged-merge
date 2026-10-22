@@ -132,6 +132,18 @@ export function dateProfileFromPattern(
   };
 }
 
+/** The date part of {@link applyFormatOverrides}: a chosen pattern replaces
+ *  the detected layout, a chosen placeholder replaces the detected marker. */
+export function applyDateOverrides(date: DateFormatProfile, o: FormatOverrides | undefined): DateFormatProfile {
+  if (!o || (!o.date && !o.datePlaceholder)) return date;
+  const fromPattern = o.date ? dateProfileFromPattern(o.date, date, o.datePlaceholder) : undefined;
+  if (fromPattern) return fromPattern;
+  if (o.datePlaceholder && date.numeric) {
+    return { ...date, numeric: { ...date.numeric, placeholder: o.datePlaceholder === "none" ? undefined : o.datePlaceholder } };
+  }
+  return date;
+}
+
 /** Default sub-tag / TYPE token per alternate-name variant, for overrides. */
 const VARIANT_TAGS: Record<keyof NameProfile, { tag: string; type: string }> = {
   married: { tag: "_MARNM", type: "married" },
@@ -149,17 +161,7 @@ const VARIANT_TAGS: Record<keyof NameProfile, { tag: string; type: string }> = {
  */
 export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | undefined): MainProfile {
   if (!o) return profile;
-  const out: MainProfile = { ...profile };
-  if (o.date || o.datePlaceholder) {
-    const fromPattern = o.date ? dateProfileFromPattern(o.date, profile.date, o.datePlaceholder) : undefined;
-    if (fromPattern) out.date = fromPattern;
-    else if (o.datePlaceholder && profile.date.numeric) {
-      out.date = {
-        ...profile.date,
-        numeric: { ...profile.date.numeric, placeholder: o.datePlaceholder === "none" ? undefined : o.datePlaceholder },
-      };
-    }
-  }
+  const out: MainProfile = { ...profile, date: applyDateOverrides(profile.date, o) };
   if (o.place) out.place = { ...profile.place, layout: o.place };
   out.placeFmt = applyPlaceOverrides(profile.placeFmt, o);
   if (o.names) {

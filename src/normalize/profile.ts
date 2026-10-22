@@ -130,8 +130,9 @@ export function inferDateProfile(values: Values): DateFormatProfile {
   }
 
   const base = full > abbr ? MONTHS_FULL : MONTHS_ABBR;
+  // Ties, and a file with no month words at all, fall to the standard's casing.
   const casing: Casing =
-    lower >= upper && lower >= title ? "lower" : title >= upper ? "title" : "upper";
+    upper >= lower && upper >= title ? "upper" : lower >= title ? "lower" : "title";
   const monthTokens = base.map((t, i) => (i === 0 ? "" : applyCasing(t, casing)));
   const padDay = dayCount > 0 && paddedDay * 2 > dayCount; // majority padded
 

@@ -234,6 +234,12 @@ export interface GedDate {
    * they use.
    */
   impossible?: boolean;
+  /**
+   * The year was written with two digits and widened by a sliding window
+   * (`5.3.05` → 2005). Almost never right in a family tree, where the century
+   * is the part that matters, so the health check reports it.
+   */
+  shortYear?: boolean;
 }
 
 /** A decimal-degree coordinate lifted from `PLAC.MAP` (`LATI`/`LONG`). */

@@ -3453,6 +3453,39 @@ button:focus-visible {
   justify-content: flex-end;
 }
 .edit-event-date-cell > .clearable-wrap { flex: 1 1 auto; min-width: 0; }
+.edit-event-date-cell { position: relative; }
+/* How a date being typed reads, and what it will be written as — floated under
+ * the field so typing never moves the row (a shift under the pointer would
+ * also lose the click on "or …"). */
+.edit-date-preview {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  margin-top: 2px;
+  padding: 2px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85em;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.edit-date-preview-label { color: var(--text); }
+.edit-date-preview.is-unreadable,
+.edit-date-preview.is-impossible { border-color: var(--danger); }
+.edit-date-preview.is-unreadable .edit-date-preview-label,
+.edit-date-preview.is-impossible .edit-date-preview-warn { color: var(--danger); }
+.edit-date-preview-swap {
+  margin-left: 0.6em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.edit-date-preview-swap:hover { text-decoration: underline; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
 .edit-event-age {
