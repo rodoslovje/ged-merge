@@ -57,6 +57,7 @@ const SOUR_TRAILING = SOUR_TRAILING_TAGS;
 /** What sits at the tail of a media record — a title goes in front of it. */
 const MEDIA_TRAILING = ["NOTE", "CHAN", "CREA", "_UPD"] as const;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
+import { EDITABLE_LINK_TAGS } from "../gedcom/edit/shared";
 import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
 import { familySpouses } from "./sources";
@@ -299,7 +300,9 @@ export interface ReshapeCounts {
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
 
-const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK"]);
+/** The editable link tags whose URL sits on the line itself — all but
+ *  `_WEBTAG`, which carries it on a `URL`/`WWW` sub-line and is read apart. */
+const INLINE_VALUE_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS.filter((t) => t !== "_WEBTAG"));
 
 // ---------------------------------------------------------------------------
 // URL recognition (offline)
@@ -1220,7 +1223,7 @@ function scanContainer(
     if (isPrivateNode(child)) continue;
     if (child.tag === "OBJE" && value && isPointer(value.trim()) && privateObje?.has(value.trim())) continue;
 
-    if (LINK_TAGS.has(child.tag) && value) {
+    if (INLINE_VALUE_LINK_TAGS.has(child.tag) && value) {
       for (const { url, recognized } of recognizedUrls(value, undefined, sites)) {
         hits.push({ ...base, node: child, shape: "link", url, recognized });
       }
@@ -1299,7 +1302,7 @@ export function prefersDoubledLinks(records: GedNode[]): boolean {
   let eventOnly = 0;
   const collect = (container: GedNode, into: Set<string>): void => {
     for (const c of container.children) {
-      if (LINK_TAGS.has(c.tag) && c.value) {
+      if (INLINE_VALUE_LINK_TAGS.has(c.tag) && c.value) {
         for (const m of c.value.matchAll(URL_RE)) into.add(linkKey(cleanUrl(m[0])));
       } else if (c.tag === "OBJE") {
         const v = c.value?.trim();
@@ -1554,7 +1557,7 @@ interface RelocationContext {
  *  pointer resolving to the URL, an inline OBJE FILE, or a bare link tag. */
 function carriesLink(container: GedNode, urlKey: string, urlOfObje: (xref: string) => string | undefined): boolean {
   for (const c of container.children) {
-    if (LINK_TAGS.has(c.tag) && c.value) {
+    if (INLINE_VALUE_LINK_TAGS.has(c.tag) && c.value) {
       for (const m of c.value.matchAll(URL_RE)) if (linkKey(cleanUrl(m[0])) === urlKey) return true;
     } else if (c.tag === "OBJE") {
       const v = c.value?.trim();

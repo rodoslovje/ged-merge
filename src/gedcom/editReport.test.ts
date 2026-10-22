@@ -1019,3 +1019,17 @@ describe("enrichEditReport — a family membership folded away by a duplicate me
     expect(spouseOf).toEqual([{ recordId: "@I1@", field: "field.spouseOf", from: "@F9@", to: "", action: "incoming" }]);
   });
 });
+
+describe("enrichEditReport — record links", () => {
+  it("reports a removed _LINK record link, which Edit shows and removes like a WWW", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _LINK https://example.org/janez\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const links = report.changes.filter((c) => c.field === "field.sources");
+    expect(links).toEqual([
+      { recordId: "@I1@", field: "field.sources", from: "https://example.org/janez", to: "", action: "incoming" },
+    ]);
+  });
+});

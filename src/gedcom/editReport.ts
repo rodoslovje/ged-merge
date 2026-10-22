@@ -10,6 +10,7 @@ import { placeNodeCoord } from "./place";
 import { isPrivateNode } from "./private";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
+import { EDITABLE_LINK_TAGS } from "./edit/shared";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -18,7 +19,9 @@ const INDIVIDUAL_EVENT_TAGS = new Set(INDI_EVENT_TAG_ORDER);
 
 const FAMILY_EVENT_TAGS = new Set(EDITABLE_FAM_EVENT_TAGS);
 
-const RECORD_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_WEBTAG"]);
+/** Record-level links: exactly the tags Edit shows and rewrites as links, so
+ *  a removed `_LINK` cannot vanish from the preview. */
+const RECORD_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS);
 
 /** Record children handled by their own dedicated diff passes (names, notes,
  *  links, citations, media, memberships, audit stamps) — never diffed as
