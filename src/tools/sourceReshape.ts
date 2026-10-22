@@ -1,5 +1,5 @@
 import type { Dataset, GedNode } from "../gedcom/types";
-import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
+import { childText, childrenByTag, cloneNode, firstChild, nodeFingerprint } from "../gedcom/node";
 import { stripTrailingPunct, URL_RE } from "../gedcom/builder";
 import { withScheme } from "../gedcom/uri";
 import {
@@ -2008,6 +2008,44 @@ function relevel(node: GedNode, level: number): void {
   for (const c of node.children) relevel(c, level + 1);
 }
 
+/** What sits at the tail of a media record's `FILE` and of the record — a
+ *  carried line goes in front of it. */
+const MEDIA_STAMPS = ["CHAN", "CREA", "_UPD"] as const;
+
+/**
+ * Copy an inline `OBJE` block's own lines onto the media record that now holds
+ * its page: a title that says something (over the one this run made up, never
+ * over a record's own), the `FILE`'s form and other sub-lines, notes and any
+ * other line. Lines the record already holds are not repeated.
+ */
+function carryInlineMediaLines(record: GedNode, inline: GedNode, mintedNow: boolean, site: ReshapeSite, url: string): void {
+  const inlineFile = firstChild(inline, "FILE");
+  const title = childText(inline, "TITL") ?? (inlineFile && childText(inlineFile, "TITL"));
+  if (title && !placeholderMediaTitle(title, site, url)) {
+    const titl = firstChild(record, "TITL");
+    if (!titl) insertGrouped(record, { level: record.level + 1, tag: "TITL", value: title.trim(), children: [] }, MEDIA_TRAILING);
+    else if (mintedNow || placeholderMediaTitle(titl.value, site, url)) titl.value = title.trim();
+  }
+  const carry = (into: GedNode, from: GedNode, skip: ReadonlySet<string>) => {
+    for (const line of from.children) {
+      if (skip.has(line.tag)) continue;
+      const copy = cloneNode(line);
+      relevel(copy, into.level + 1);
+      const same = firstChild(into, line.tag);
+      // The form this run guessed from the address gives way to the one written.
+      if (same && mintedNow && line.tag === "FORM") {
+        same.value = copy.value;
+        continue;
+      }
+      if (into.children.some((c) => nodeFingerprint(c) === nodeFingerprint(copy))) continue;
+      insertGrouped(into, copy, MEDIA_STAMPS);
+    }
+  };
+  const recordFile = firstChild(record, "FILE");
+  if (inlineFile && recordFile) carry(recordFile, inlineFile, new Set(["TITL"]));
+  carry(record, inline, new Set(["FILE", "TITL", ...MEDIA_STAMPS]));
+}
+
 /** Set a single-valued field only when the record doesn't already carry one —
  *  reshape enriches, it never overwrites user data. Inserted ahead of the
  *  record's media links and bookkeeping trailer, not appended after them. */
@@ -2949,6 +2987,7 @@ export function reshapeSources(
     // same-URL bare link elsewhere in the file can't win the race and mint a
     // duplicate media record while orphaning the existing one.
     const ensureOrder = [...state.hits].sort((a, b) => Number(!!b.objeXref) - Number(!!a.objeXref));
+    const minted = new Map<string, GedNode>();
     for (const hit of ensureOrder) {
       const hitUrl = urlFor(hit);
       const urlKey = linkKey(hitUrl);
@@ -2965,10 +3004,29 @@ export function reshapeSources(
         // so a page linked twice by two readers lands as one media record and
         // still reopens where it was copied (see `familySearchPageUrl`).
         const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), objeTitle);
-        if (obje.xref) createdObjeUrls.set(obje.xref, hitUrl);
+        if (obje.xref) {
+          createdObjeUrls.set(obje.xref, hitUrl);
+          minted.set(obje.xref, obje);
+        }
         counts.mediaCreated++;
       }
       linkedKeys.add(urlKey);
+    }
+
+    // An inline media block's own lines — its title, notes, the file's form —
+    // go to the media record now holding its page, rather than leaving with
+    // the inline block when it is removed below.
+    for (const hit of state.hits) {
+      if (hit.shape !== "obje" || hit.objeXref) continue;
+      const key = linkKey(urlFor(hit));
+      const xref = childrenByTag(sourceNode, "OBJE")
+        .map((c) => c.value?.trim())
+        .find((v) => {
+          const url = v && urlOfObje(v);
+          return !!url && linkKey(url) === key;
+        });
+      const record = xref ? minted.get(xref) ?? byXref.get(xref) : undefined;
+      if (record) carryInlineMediaLines(record, hit.node, !!xref && minted.has(xref), g.site, urlFor(hit));
     }
 
     // Where each cited page's image lives — in the "event" page-media style
