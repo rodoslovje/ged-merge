@@ -27,9 +27,7 @@ import { materializeAdds, refreshJoins } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
-import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
-import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
@@ -1952,34 +1950,23 @@ function AppContent() {
       bumpEdit();
     }
 
-    // The revert above mutated the live dataset, not the preview's records (an
-    // independent clone) — re-derive them so the download actually drops what
-    // the user just removed from the save. `id` is excluded from the event sort:
-    // it has been restored to its pre-edit snapshot, so reordering it now would
-    // write a change the user just asked to leave out. (`changedPersonIds` still
-    // lists it here — `dirty.removeDirty` above only queued a state update.)
-    // Built outside the updater below so it runs exactly once.
-    const revertedRecords = buildEditSaveRecords(
-      mainDataset.records,
-      (xref) => xref !== id && isSortEligible(xref),
-    );
-
-    setPreview((prev) => {
-      if (!prev) return null;
-      const newReport = removeRecordFromReport(prev.report, id);
-      if (newReport.changes.length === 0) return null;
-      const newEditRecordIds = new Set(prev.editRecordIds);
-      newEditRecordIds.delete(id);
-      // The record was just put back the way the file had it — a stamp now
-      // would write the very change the user asked to leave out.
-      const newStampRecordIds = new Set(prev.stampRecordIds);
-      newStampRecordIds.delete(id);
-      // A merge preview is the output of `mergeDecisions` and can't be rebuilt
-      // here, so it keeps its records — unchanged from before this clone existed.
-      const records = prev.isMerge ? prev.records : revertedRecords;
-      return { ...prev, records, report: newReport, editRecordIds: newEditRecordIds, stampRecordIds: newStampRecordIds };
-    });
+    // The preview was built from the dirty state and the records as they were;
+    // the revert above changed both. Built again once the dirty state has
+    // landed, by the same function that built it — so the download, the report
+    // and the CHAN stamps all agree with the file again. A merge preview too:
+    // it is `mergeDecisions` over the live dataset, which now holds the revert.
+    setPreviewRebuild((n) => n + 1);
   }
+
+  const [previewRebuild, setPreviewRebuild] = useState(0);
+  const rebuildPreviewRef = useRef(() => {});
+  rebuildPreviewRef.current = () => {
+    if (!preview || !mainDataset || main.status !== "loaded") return;
+    setPreview(buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)));
+  };
+  useEffect(() => {
+    if (previewRebuild) rebuildPreviewRef.current();
+  }, [previewRebuild]);
 
   // Modals and the page footer are shared between the main app shell and the
   // full-page tree views, so they're built once here. The User's Guide and the
