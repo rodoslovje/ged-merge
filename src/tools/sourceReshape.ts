@@ -1809,6 +1809,18 @@ function removeUrlFromText(text: string, url: string): string {
 }
 
 /** Whether leftover note text still says anything (letters or digits). */
+/** A citation's own PAGE text with the link's page number worked in — the
+ *  reader's words ("line 12") are evidence too, so they stay beside it
+ *  ("9, line 12"), the way a PAGE's prose survives its URL being swapped for
+ *  the page. A text already naming that page, or holding the link itself
+ *  (swapped in place), needs no prefix. */
+function withPage(text: string, page: string, url: string): string {
+  if (text.includes(url)) return text.replace(url, page).replace(/[ \t]{2,}/g, " ").trim();
+  const escaped = page.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, "u").test(text)) return text;
+  return `${page}, ${text.trim()}`;
+}
+
 function hasContent(text: string): boolean {
   return /[\p{L}\p{N}]/u.test(text);
 }
@@ -3051,7 +3063,8 @@ export function reshapeSources(
           if (hasContent(replaced)) pageChild.value = replaced;
           else spliceChild(citation, pageChild);
         } else if (page) {
-          if (pageChild) pageChild.value = page;
+          if (pageChild?.value?.trim()) pageChild.value = withPage(pageChild.value, page, hit.url);
+          else if (pageChild) pageChild.value = page;
           else citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
         }
         if (hit.prefix && !childrenByTag(citation, "NOTE").some((n) => n.value?.trim() === hit.prefix)) {

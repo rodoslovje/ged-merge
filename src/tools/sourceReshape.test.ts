@@ -725,6 +725,22 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("3 PAGE list 12"); // no page number: URL removed, prose kept
   });
 
+  it("keeps an inline citation's own PAGE text beside the link's page number", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR ${BOOK}/?pg=9
+3 PAGE line 12
+1 BIRT
+2 SOUR ${BOOK}/?pg=4
+3 PAGE p. 4
+0 TRLR`);
+    expect(text).toContain("3 PAGE 9, line 12"); // the reader's words survive
+    expect(text).toContain("3 PAGE p. 4"); // already names the page: unchanged
+    expect(text).not.toMatch(/PAGE 4, p\. 4/);
+  });
+
   it("matches per-reference QUAY by occurrence key, tolerating member-list drift", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
