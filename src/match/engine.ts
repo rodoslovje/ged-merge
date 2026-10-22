@@ -1,13 +1,13 @@
 import type { Dataset, Individual } from "../gedcom/types";
+import { CrossBlockIndex } from "./blocking";
 import {
-  individualBlockKeys,
   plausibleIndividualMatch,
   scoreIndividualPair,
   sexConflicts,
 } from "./scoreIndividual";
 import { buildNameFrequencies, type NameFrequencies } from "./nameFrequency";
 import { birthYearsApart, differentGiven, parentsVerdict } from "./similarity";
-import { clearTextCaches, soundex } from "./text";
+import { clearTextCaches } from "./text";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -41,9 +41,8 @@ function matchIndividuals(
   compareDs: Dataset,
   config: MatchConfig,
 ): MatchResult {
-  const index = buildBlockIndex(mainDs.individuals.values(), (i) =>
-    individualBlockKeys(i, soundex, mainDs),
-  );
+  const gap = config.gates.maxYearGap;
+  const index = new CrossBlockIndex([...mainDs.individuals.values()], mainDs, gap);
 
   // Identity pre-pass: two records carrying the same `_UID`/`UID` are the same
   // person by construction (both exports came from the same software lineage),
@@ -52,7 +51,7 @@ function matchIndividuals(
   // keeps them.
   // Name counts over both files: a name common in either is ambiguous for a
   // pair (see nameFrequency.ts). One pass, then every scoring call reads it.
-  const freq = buildNameFrequencies([mainDs, compareDs], config.gates.maxYearGap);
+  const freq = buildNameFrequencies([mainDs, compareDs], gap);
   const uidPairs = matchByUid(mainDs, compareDs, config, freq);
   const uidMain = new Set(uidPairs.map((p) => p.mainId));
   const uidCompare = new Set(uidPairs.map((p) => p.compareId));
@@ -60,16 +59,15 @@ function matchIndividuals(
   const scored: IndividualCandidate[] = [...uidPairs];
   for (const compare of compareDs.individuals.values()) {
     if (uidCompare.has(compare.id)) continue; // identity already established
-    const mainIds = collectCandidates(index, individualBlockKeys(compare, soundex, compareDs));
-    for (const mid of mainIds) {
-      const main = mainDs.individuals.get(mid)!;
+    index.forEachCandidate(compare, compareDs, (mi) => {
+      const main = index.records[mi];
       // Hard plausibility gates: different sex, dissimilar names, or
       // incompatible lifespans => never the same person; skip before scoring.
-      if (sexConflicts(main, compare)) continue;
-      if (!plausibleIndividualMatch(main, compare, config.gates, mainDs, compareDs)) continue;
+      if (sexConflicts(main, compare)) return;
+      if (!plausibleIndividualMatch(main, compare, config.gates, mainDs, compareDs)) return;
       const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config, freq);
       if (cand.score / 100 >= config.minScore) scored.push(cand);
-    }
+    });
   }
   const linked = linkByRelationships(assignOneToOne(scored), mainDs, compareDs, config, freq, uidMain, uidCompare);
   const individuals = boostByMatchedRelatives(linked, mainDs, compareDs, config);
@@ -598,38 +596,6 @@ function assignOneToOne<T extends { mainId: string; compareId: string; score: nu
     out.push(c);
   }
   return out;
-}
-
-// --- blocking helpers ------------------------------------------------------
-
-function buildBlockIndex<T>(
-  records: IterableIterator<T>,
-  keysOf: (record: T) => string[],
-): Map<string, Set<T>> {
-  const index = new Map<string, Set<T>>();
-  for (const rec of records) {
-    for (const key of keysOf(rec)) {
-      let bucket = index.get(key);
-      if (!bucket) {
-        bucket = new Set<T>();
-        index.set(key, bucket);
-      }
-      bucket.add(rec);
-    }
-  }
-  return index;
-}
-
-function collectCandidates<T extends { id: string }>(
-  index: Map<string, Set<T>>,
-  keys: string[],
-): Set<string> {
-  const ids = new Set<string>();
-  for (const key of keys) {
-    const bucket = index.get(key);
-    if (bucket) for (const rec of bucket) ids.add(rec.id);
-  }
-  return ids;
 }
 
 function byScoreDesc(a: { score: number }, b: { score: number }): number {
