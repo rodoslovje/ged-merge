@@ -1,6 +1,6 @@
 import { cloneNode } from "../gedcom/node";
 import { isPointer } from "../gedcom/uri";
-import { isPrivateNode, isV7, setPrivateFlag, detectPrivacyStyle, type PrivacyTagStyle } from "../gedcom/private";
+import { isPrivacyMarker, isPrivateNode, isV7,setPrivateFlag, detectPrivacyStyle, type PrivacyTagStyle } from "../gedcom/private";
 import { NOTE_TAGS } from "../gedcom/builder";
 import type { GedNode } from "../gedcom/types";
 import type { NormChange } from "../normalize/types";
@@ -132,6 +132,17 @@ export function reshapeNotes(
   return { changed, examples };
 }
 
+/** A shared note record's own bookkeeping — its history and identity, which
+ *  describe the record and are not carried onto the inline note it becomes. */
+const RECORD_ONLY_TAGS = new Set(["CHAN", "CREA", "RIN", "UID", "_UID", "REFN", "EXID", "_UPD"]);
+
+/** Re-base a moved line and everything under it onto `level`. */
+function relevel(node: GedNode, level: number): GedNode {
+  node.level = level;
+  for (const c of node.children) relevel(c, level + 1);
+  return node;
+}
+
 /** Lift an inline note into a shared record and leave a pointer behind. */
 function toShared(
   noteNode: GedNode,
@@ -148,7 +159,7 @@ function toShared(
   // Everything hanging off the inline note travels with it, privacy marker
   // included — the flag belongs to the note, and on a pointer note the note is
   // the record.
-  for (const child of noteNode.children) rec.children.push(cloneNode(child));
+  for (const child of noteNode.children) rec.children.push(relevel(cloneNode(child), 1));
   // A record before TRLR, like every other record this app creates.
   const trlr = records.findIndex((r) => r.tag === "TRLR");
   records.splice(trlr === -1 ? records.length : trlr, 0, rec);
@@ -171,18 +182,21 @@ function toInline(
 ): void {
   const rec = noteRecords.get(xref);
   if (!rec) return; // dangling pointer — not this pass's business to invent text
+  // An inline note is a `NOTE` in either version — 7.0's `SNOTE` is a pointer.
+  noteNode.tag = "NOTE";
   // MacFamilyTree starts a note record's text on a `1 CONT` line, so its value
   // begins with a newline. Carried over as-is that becomes a bare `1 NOTE`
   // followed by `2 CONT …` — the record's own layout habit, not the note's
   // content, and nothing anyone wants written into 163 people.
-  // An inline note is a `NOTE` in either version — 7.0's `SNOTE` is a pointer.
-  noteNode.tag = "NOTE";
   noteNode.value = (rec.value ?? "").replace(/^\n+/, "");
-  // The record's own sub-structure does not all belong on an inline note: its
-  // CHAN/CREA are the *record's* history and mean nothing once the record is
-  // gone. The privacy flag does belong to the note, so it is the one thing
-  // carried over — rewritten in the file's dialect at the note's new level.
-  noteNode.children = [];
+  // The note's own sub-structure — its citations, LANG, TRAN, MIME — travels
+  // with its text. The record's bookkeeping does not: CHAN/CREA are the
+  // *record's* history, RIN/UID/REFN its identity, and all of it means nothing
+  // once the record is gone. The privacy flag belongs to the note, but is
+  // rewritten in the file's dialect at the note's new level.
+  noteNode.children = rec.children
+    .filter((c) => !RECORD_ONLY_TAGS.has(c.tag) && !isPrivacyMarker(c))
+    .map((c) => relevel(cloneNode(c), noteNode.level + 1));
   if (isPrivateNode(rec)) setPrivateFlag(noteNode, true, style, records);
   refCounts.set(xref, (refCounts.get(xref) ?? 1) - 1);
   note(`${xref} → ${preview(rec.value ?? "")}`, preview(rec.value ?? ""));

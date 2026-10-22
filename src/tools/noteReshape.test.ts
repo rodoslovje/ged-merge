@@ -92,6 +92,52 @@ describe("reshapeNotes — shared to inline", () => {
     expect(text).not.toContain("CHAN");
   });
 
+  it("lifting an event note keeps its sub-lines on the record, levels rebased", () => {
+    const records = parse([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 NOTE an event note",
+      "3 SOUR @S1@",
+      "4 PAGE p. 12",
+      "0 TRLR",
+      "",
+    ]);
+    reshapeNotes(records, "shared");
+    expect(serializeGedcom(records)).toContain("0 @N1@ NOTE an event note\n1 SOUR @S1@\n2 PAGE p. 12\n");
+    const rec = records.find((r) => r.xref === "@N1@")!;
+    expect(rec.children[0].level).toBe(1);
+    expect(rec.children[0].children[0].level).toBe(2);
+  });
+
+  it("keeps the record's citations and other sub-lines on the inline note, levels rebased", () => {
+    const records = parse([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 NOTE @N1@",
+      "0 @N1@ NOTE a shared note",
+      "1 SOUR @S1@",
+      "2 PAGE p. 12",
+      "1 LANG Slovenian",
+      "1 RIN 77",
+      "1 _UID ABC",
+      "1 CHAN",
+      "2 DATE 20 DEC 2025",
+      "0 @S1@ SOUR",
+      "1 TITL Register",
+      "0 TRLR",
+      "",
+    ]);
+    reshapeNotes(records, "inline");
+    const text = serializeGedcom(records);
+    expect(text).toContain("2 NOTE a shared note\n3 SOUR @S1@\n4 PAGE p. 12\n3 LANG Slovenian\n");
+    expect(text).not.toMatch(/RIN|_UID|CHAN/);
+    const note = records.find((r) => r.xref === "@I1@")!.children[0].children[0];
+    expect(note.children.map((c) => c.level)).toEqual([3, 3]);
+    expect(note.children[0].children[0].level).toBe(4);
+  });
+
   it("starts the text on the NOTE line even when the record started it on a CONT", () => {
     // MacFamilyTree writes "0 @N1@ NOTE" + "1 CONT text", so the record's value
     // begins with a newline. Carried over verbatim that flattens to a bare
