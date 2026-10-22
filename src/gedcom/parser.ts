@@ -192,7 +192,8 @@ function detectVersion(roots: GedNode[], warnings: ParseWarning[]): GedcomVersio
   const head = roots.find((r) => r.tag === "HEAD");
   const gedc = head?.children.find((c) => c.tag === "GEDC");
   const vers = gedc?.children.find((c) => c.tag === "VERS")?.value?.trim();
-  if (vers === "5.5.1" || vers === "5.5") return "5.5.1";
+  // 5.5.5 is a stricter revision of 5.5.1, so it reads as the same family.
+  if (vers === "5.5.1" || vers === "5.5" || vers === "5.5.5") return "5.5.1";
   if (vers === "7.0" || vers?.startsWith("7.")) return "7.0";
   warnings.push({
     kind: "version",

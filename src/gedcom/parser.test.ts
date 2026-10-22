@@ -350,6 +350,14 @@ describe("parseGedcom", () => {
   });
 });
 
+describe("parseGedcom version detection", () => {
+  it("reads GEDCOM 5.5.5 as the 5.5.1 family", () => {
+    const parsed = parseGedcom(toBuffer("0 HEAD\n1 GEDC\n2 VERS 5.5.5\n0 TRLR\n"));
+    expect(parsed.version).toBe("5.5.1");
+    expect(parsed.warnings.some((w) => w.kind === "version")).toBe(false);
+  });
+});
+
 describe("parseGedcom keeps a tag's own spelling", () => {
   const src = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 Name Jo /X/\n1 _myTag val\n2 _Sub x\n0 TRLR\n";
 
