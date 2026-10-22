@@ -1157,6 +1157,13 @@ describe("formatGedDate (numeric output)", () => {
     expect(formatGedDate(parseDate("1 JAN 44 B.C."), profile)).toBe("1 JAN 44 B.C.");
     expect(formatGedDate(parseDate("44 BCE"), profile)).toBe("44 BCE");
   });
+
+  it("keeps a date in the first century exactly as written", () => {
+    // "05.01.50" would read back as 1950.
+    const profile = inferDateProfile(["20.02.1989"]);
+    expect(formatGedDate(parseDate("5 JAN 50"), profile)).toBe("5 JAN 50");
+    expect(formatGedDate(parseDate("BET 1900 AND 3 MAR 12"), profile)).toBe("BET 1900 AND 3 MAR 12");
+  });
 });
 
 describe("unknown-date placeholders", () => {
@@ -1342,9 +1349,9 @@ describe("parseDate (2-digit years)", () => {
     expect(parseDate("3/7/76", "MDY")).toMatchObject({ month: 3, day: 7, year: 1976 });
   });
 
-  it("expands 2-digit years disambiguated by a month word", () => {
-    expect(parseDate("5 JAN 89")).toMatchObject({ day: 5, month: 1, year: 1989 });
-    expect(parseDate("JAN 50")).toMatchObject({ month: 1, year: 1950 });
+  it("takes the short year of a GEDCOM month date literally", () => {
+    expect(parseDate("5 JAN 89")).toMatchObject({ day: 5, month: 1, year: 89 });
+    expect(parseDate("JAN 50")).toMatchObject({ month: 1, year: 50 });
   });
 
   it("re-renders an expanded 2-digit year in the main's full-year style", () => {

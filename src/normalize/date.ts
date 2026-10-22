@@ -14,8 +14,10 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
   // A date that names its calendar, or counts backwards from year 1, carries
   // part of its meaning in text the main's layout has no slot for: re-rendering
   // "@#DJULIAN@ 14 JAN 1700" as "14.01.1700" would quietly restate it as a
-  // Gregorian date ten days from where the file put it. Keep it as written.
-  if (date.calendar !== undefined || (date.year !== undefined && date.year < 0)) return date.raw;
+  // Gregorian date ten days from where the file put it. Keep it as written —
+  // and a year before 100 too, which a two-digit layout would read back as
+  // 19xx ("5 JAN 50" is not "05.01.50").
+  if (date.calendar !== undefined || isEarlyYear(date.year) || isEarlyYear(date.year2)) return date.raw;
 
   const first = formatParts(date.year, date.month, date.day, profile);
   const second = formatParts(date.year2, date.month2, date.day2, profile);
@@ -47,6 +49,11 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile): string
       // main's placeholder layout when it has one; otherwise kept verbatim.
       return formatAllUnknown(date.placeholder === true, profile) ?? date.raw;
   }
+}
+
+/** A year before 100, including any year before the common era. */
+function isEarlyYear(year: number | undefined): boolean {
+  return year !== undefined && year < 100;
 }
 
 /**

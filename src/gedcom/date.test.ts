@@ -113,6 +113,26 @@ describe("parseDate — existing forms still work", () => {
   });
 });
 
+describe("parseDate — a GEDCOM date's year is the year it writes", () => {
+  it("reads a short year after a GEDCOM month literally", () => {
+    expect(parseDate("JAN 50")).toMatchObject({ qualifier: "exact", month: 1, year: 50 });
+    expect(parseDate("5 JAN 50")).toMatchObject({ day: 5, month: 1, year: 50 });
+    expect(parseDate("BET 3 MAR 12 AND DEC 99")).toMatchObject({ year: 12, year2: 99 });
+  });
+
+  it("reads a short year after a qualifier literally", () => {
+    expect(parseDate("ABT 50")).toMatchObject({ qualifier: "about", year: 50 });
+    expect(parseDate("BEF 5")).toMatchObject({ qualifier: "before", year: 5 });
+    expect(parseDate("BET 10 AND 20")).toMatchObject({ qualifier: "between", year: 10, year2: 20 });
+  });
+
+  it("keeps the two-digit window for house-style dates", () => {
+    expect(parseDate("21. marca 89").year).toBe(1989);
+    expect(parseDate("AVG 31 97").year).toBe(1997);
+    expect(parseDate("31.12.89").year).toBe(1989);
+  });
+});
+
 describe("dateRefines — incoming is a more exact same date", () => {
   it("treats a full date as refining a year-only one", () => {
     expect(dateRefines("1949", "12 MAR 1949")).toBe(true);

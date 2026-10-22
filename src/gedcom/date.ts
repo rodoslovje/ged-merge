@@ -386,7 +386,7 @@ function withFirst(
   raw: string,
   order?: DateOrder,
 ): GedDate {
-  return { raw, qualifier, ...(parseSimple(part.toUpperCase(), order) ?? {}) };
+  return { raw, qualifier, ...(qualifiedAtom(part, order) ?? {}) };
 }
 
 function withSecond(
@@ -396,8 +396,8 @@ function withSecond(
   raw: string,
   order?: DateOrder,
 ): GedDate {
-  const first = parseSimple(a.toUpperCase(), order) ?? {};
-  const second = parseSimple(b.toUpperCase(), order) ?? {};
+  const first = qualifiedAtom(a, order) ?? {};
+  const second = qualifiedAtom(b, order) ?? {};
   return {
     raw,
     qualifier,
@@ -427,7 +427,7 @@ function parseAtom(s: string, order?: DateOrder): SimpleDate | undefined {
   m = t.match(RE_DAY_MON_YEAR);
   if (m && mon(m[2])) {
     const day = /^\d{1,2}$/.test(m[1]) ? +m[1] : undefined;
-    return { day, month: mon(m[2]), year: toYear(m[3]) };
+    return { day, month: mon(m[2]), year: wordYear(m[2], m[3]) };
   }
   // MON DD YYYY (month-first) — "AVG 31 1897", "okt 7 2019"
   m = t.match(RE_MON_DAY_YEAR);
@@ -437,7 +437,7 @@ function parseAtom(s: string, order?: DateOrder): SimpleDate | undefined {
   if (m && mon(m[2])) return { day: +m[1], month: mon(m[2]), year: toYear(m[3]) };
   // MON YYYY[/YY]
   m = t.match(RE_MON_YEAR);
-  if (m && mon(m[1])) return { month: mon(m[1]), year: toYear(m[2]) };
+  if (m && mon(m[1])) return { month: mon(m[1]), year: wordYear(m[1], m[2]) };
   // Numeric, three components: DD.MM.YYYY / MM/DD/YYYY / YYYY-MM-DD, etc.
   m = t.match(/^(\d{1,4})([./-])(\d{1,4})\2(\d{1,4})$/);
   if (m) {
@@ -515,6 +515,30 @@ function parsePartialComponent(tok: string): number | undefined | null {
 /** A 3+ digit run, or any value too large to be a day, is taken to be a year. */
 function isYearField(g: string): boolean {
   return g.length >= 3 || +g > 31;
+}
+
+/** GEDCOM's own month codes, which only its own date grammar writes. */
+const GEDCOM_MONTHS = new Set(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]);
+
+/**
+ * The year after a month word. GEDCOM's grammar writes the year it means, so
+ * after one of its month codes "JAN 50" is the year 50; only a house-style
+ * month word ("21. marca 89") gets the two-digit window.
+ */
+function wordYear(month: string, g: string): number {
+  return GEDCOM_MONTHS.has(month.toUpperCase()) ? +g : toYear(g);
+}
+
+/**
+ * A qualifier's date that is nothing but a short number: GEDCOM writes a year
+ * in as few digits as it has, so "ABT 50" is about the year 50. (A bare "50"
+ * with no qualifier stays unread — alone it is more often a fragment.)
+ */
+function qualifiedAtom(part: string, order?: DateOrder): SimpleDate | undefined {
+  const atom = parseSimple(part.toUpperCase(), order);
+  if (atom) return atom;
+  const t = part.trim();
+  return /^\d{1,2}$/.test(t) ? { year: +t } : undefined;
 }
 
 /** Numeric value of a year field, expanding 2-digit years to four digits. */
