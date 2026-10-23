@@ -6,6 +6,8 @@ import {
   rebuildFamily,
   rebuildIndividual,
   rebuildNoteReferrers,
+  recordPosition,
+  removeRecordsByXref,
   type SharedNoteChange,
 } from "../gedcom/edit";
 import { clearObjeNodeCache } from "../gedcom/source";
@@ -97,9 +99,21 @@ export function snapshotRecords(
     if (fam) families.set(id, cloneNode(fam.raw));
   }
   const indices = new Map<string, number>();
-  dataset.records.forEach((r, i) => {
-    if (r.xref && (individuals.has(r.xref) || families.has(r.xref))) indices.set(r.xref, i);
-  });
+  const missing: string[] = [];
+  const place = (id: string, raw: GedNode) => {
+    const i = recordPosition(dataset.records, raw);
+    if (i === undefined) missing.push(id);
+    else indices.set(id, i);
+  };
+  for (const id of individuals.keys()) place(id, dataset.individuals.get(id)!.raw);
+  for (const id of families.keys()) place(id, dataset.families.get(id)!.raw);
+  // A record the list does not hold by its typed node: asked of the list itself.
+  if (missing.length) {
+    const wanted = new Set(missing);
+    dataset.records.forEach((r, i) => {
+      if (r.xref && wanted.has(r.xref)) indices.set(r.xref, i);
+    });
+  }
   return { individuals, families, indices };
 }
 
@@ -175,16 +189,17 @@ export function patchesFromSnapshots(dataset: Dataset, before: RecordSnapshots):
  */
 export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], direction: "undo" | "redo"): boolean {
   const pick: "before" | "after" = direction === "undo" ? "before" : "after";
-  // First pass: remove records that need to go away.
-  for (const patch of patches) {
-    if (patch[pick] === null) {
-      const ri = dataset.records.findIndex((r) => r.xref === patch.id);
-      if (ri !== -1) dataset.records.splice(ri, 1);
-      if (patch.type === "individual") dataset.individuals.delete(patch.id);
-      else if (patch.type === "family") dataset.families.delete(patch.id);
-      else if (patch.type === "record") { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
-    }
+  // First pass: remove records that need to go away — in one walk of the
+  // record list, however many there are.
+  const gone = patches.filter((patch) => patch[pick] === null);
+  removeRecordsByXref(dataset.records, gone.map((patch) => patch.id));
+  for (const patch of gone) {
+    if (patch.type === "individual") dataset.individuals.delete(patch.id);
+    else if (patch.type === "family") dataset.families.delete(patch.id);
   }
+  // Shared records' caches: bumped once, whatever number of them went.
+  let sharedChanged = gone.some((patch) => patch.type === "record");
+  if (sharedChanged) { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
   // Second pass: put back every record that must exist, of every type, in
   // one pass ordered by original position — so re-added records (undo of a
   // deletion) land back at their recorded indices: inserting ascending keeps
@@ -198,28 +213,41 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
   // place, or a citation pointer resolves dangling until the next edit.
   const byPosition = [...patches].sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
   const readded = new Map<RecordPatch, GedNode>();
+  const trlr: { at?: number } = {};
+  // The first record carrying each xref, read once for the shared records the
+  // batch restores rather than searched for one by one.
+  let byXref: Map<string, GedNode> | undefined;
+  const recordOf = (xref: string): GedNode | undefined => {
+    if (!byXref) {
+      byXref = new Map();
+      for (const r of dataset.records) if (r.xref && !byXref.has(r.xref)) byXref.set(r.xref, r);
+    }
+    return byXref.get(xref);
+  };
   for (const patch of byPosition) {
     const target = patch[pick];
     if (target === null) continue;
     if (patch.type === "record") {
       const restored = cloneNode(target);
-      const existing = dataset.records.find((r) => r.xref === patch.id);
+      const existing = recordOf(patch.id);
       if (existing) {
         existing.value = restored.value;
         existing.children = restored.children;
       } else {
-        insertRecordAt(dataset.records, restored, patch.index);
+        insertRecordAt(dataset.records, restored, patch.index, trlr);
+        byXref!.set(patch.id, restored);
       }
-      // A SOUR/OBJE this patch touches may now have a different FILE value or
-      // existence than `getMediaAndSourceCtx`'s cache last saw.
-      bumpSourceCacheVersion(dataset.records);
-      clearObjeNodeCache(dataset.records);
+      sharedChanged = true;
     } else if (!(patch.type === "individual" ? dataset.individuals : dataset.families).has(patch.id)) {
       const restored = cloneNode(target);
-      insertRecordAt(dataset.records, restored, patch.index);
+      insertRecordAt(dataset.records, restored, patch.index, trlr);
       readded.set(patch, restored);
     }
   }
+  // A SOUR/OBJE these patches touch may now have a different FILE value or
+  // existence than `getMediaAndSourceCtx`'s cache last saw — bumped before the
+  // rebuilds below re-resolve citations against it.
+  if (sharedChanged) { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
   // Third pass: restore individual/family records in place and rebuild them.
   for (const patch of byPosition) {
     const target = patch[pick];

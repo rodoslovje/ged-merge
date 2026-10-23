@@ -51,6 +51,53 @@ export function scoreIndividualPair(
   config: MatchConfig,
   freq?: NameFrequencies,
 ): IndividualCandidate {
+  const { score, components } = scorePair(main, compare, mainDs, compareDs, config, freq, true);
+  return {
+    mainId: main.id,
+    compareId: compare.id,
+    score,
+    // From the final score, bonus included — the badge must agree with the
+    // number beside it.
+    category: categorize(score / 100, config),
+    components,
+    title: pairTitle(main, compare),
+    name: displayName(primaryName(main)),
+    birthYear: birthYear(main),
+    deathYear: deathYear(main),
+    birthDate: birthDateText(main),
+    deathDate: deathDateText(main),
+    deceased: isDeceased(main),
+    sex: main.sex !== "U" ? main.sex : compare.sex,
+  };
+}
+
+/**
+ * Just the score (0..100) {@link scoreIndividualPair} gives the pair — the
+ * same number, without the review payload (component details, labels, the
+ * title) that only the pairs a match keeps ever need. The engine scores
+ * millions of blocked pairs on a large file and keeps one in a few hundred.
+ */
+export function scoreIndividualPairValue(
+  main: Individual,
+  compare: Individual,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig,
+  freq?: NameFrequencies,
+): number {
+  return scorePair(main, compare, mainDs, compareDs, config, freq, false).score;
+}
+
+function scorePair(
+  main: Individual,
+  compare: Individual,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig,
+  freq: NameFrequencies | undefined,
+  /** Build each component's human-readable `detail`. */
+  dt: boolean,
+): { score: number; components: ScoreComponent[] } {
   const w = config.individualWeights;
   const components: ScoreComponent[] = [];
   // Placeholder name parts ("Living", "NN", "?Ime?") are treated as missing —
@@ -73,10 +120,10 @@ export function scoreIndividualPair(
     mn?.surname && cn?.surname
       ? jaroWinkler(foldToken(mn.surname), foldToken(cn.surname))
       : undefined;
-  addKey(components, "surname", w.surname, surnameSim, config.missingKeyScore, `${mn?.surname ?? "—"} ~ ${cn?.surname ?? "—"}`, nameWeight);
+  addKey(components, "surname", w.surname, surnameSim, config.missingKeyScore, dt ? `${mn?.surname ?? "—"} ~ ${cn?.surname ?? "—"}` : undefined, nameWeight);
 
   const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
-  addKey(components, "given", w.given, givenSim, config.missingKeyScore, `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}`, nameWeight);
+  addKey(components, "given", w.given, givenSim, config.missingKeyScore, dt ? `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}` : undefined, nameWeight);
 
   const mb = keyEvent(main, BIRTH_TAGS);
   const cb = keyEvent(compare, BIRTH_TAGS);
@@ -92,20 +139,20 @@ export function scoreIndividualPair(
     ? birthScoreFromMarriage(mb?.date?.year, cb?.date?.year, main, compare, mainDs, compareDs)
       ?? config.missingKeyScore
     : config.missingKeyScore;
-  addKey(components, "birthDate", w.birthDate, birthSim, birthMissingScore, `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}`);
-  add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}`);
-  add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}`);
+  addKey(components, "birthDate", w.birthDate, birthSim, birthMissingScore, dt ? `${mb?.date?.raw ?? "—"} ~ ${cb?.date?.raw ?? "—"}` : undefined);
+  add(components, "birthPlace", w.birthPlace, placeSimilarity(mb?.place, cb?.place), dt ? `${mb?.place?.raw ?? "?"} ~ ${cb?.place?.raw ?? "?"}` : undefined);
+  add(components, "birthAddress", w.birthAddress, placeSimilarity(mb?.address, cb?.address), dt ? `${mb?.address?.raw ?? "?"} ~ ${cb?.address?.raw ?? "?"}` : undefined);
 
   // Death date/place: corroborating evidence, not part of the identity key —
   // absence (e.g. living people) is skipped rather than penalized.
   const md = keyEvent(main, DEATH_TAGS);
   const cd = keyEvent(compare, DEATH_TAGS);
   const deathSim = dateSimilarity(md?.date, cd?.date);
-  add(components, "deathDate", w.deathDate, deathSim, `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}`);
-  add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}`);
+  add(components, "deathDate", w.deathDate, deathSim, dt ? `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}` : undefined);
+  add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), dt ? `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}` : undefined);
 
   if (main.sex !== "U" && compare.sex !== "U") {
-    add(components, "sex", w.sex, main.sex === compare.sex ? 1 : 0, `${main.sex} ~ ${compare.sex}`);
+    add(components, "sex", w.sex, main.sex === compare.sex ? 1 : 0, dt ? `${main.sex} ~ ${compare.sex}` : undefined);
   }
 
   // Parents are compared role-wise (father↔father, mother↔mother) with the
@@ -223,23 +270,7 @@ export function scoreIndividualPair(
     if (bonus > 0) score = Math.min(99.9, Math.round((score + bonus) * 10) / 10);
   }
 
-  return {
-    mainId: main.id,
-    compareId: compare.id,
-    score,
-    // From the final score, bonus included — the badge must agree with the
-    // number beside it.
-    category: categorize(score / 100, config),
-    components,
-    title: pairTitle(main, compare),
-    name: displayName(primaryName(main)),
-    birthYear: birthYear(main),
-    deathYear: deathYear(main),
-    birthDate: birthDateText(main),
-    deathDate: deathDateText(main),
-    deceased: isDeceased(main),
-    sex: main.sex !== "U" ? main.sex : compare.sex,
-  };
+  return { score, components };
 }
 
 /**
@@ -579,7 +610,7 @@ function add(
   key: string,
   weight: number,
   score: number | undefined,
-  detail: string,
+  detail: string | undefined,
 ): void {
   if (score === undefined) return;
   into.push({ key, weight, score, detail });
@@ -596,7 +627,7 @@ function addKey(
   weight: number,
   similarity: number | undefined,
   missingScore: number,
-  detail: string,
+  detail: string | undefined,
   /** Weight multiplier for a real comparison (the frequency factor); a
    *  missing field keeps the full weight. */
   comparedWeight = 1,

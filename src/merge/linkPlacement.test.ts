@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { pendingBookLookups, previewLinkCitation, previewLinkPlacement } from "./linkPlacement";
+import { insertRecord, rebuildIndividual } from "../gedcom/edit";
+import { linkPlacementFor, pendingBookLookups, previewLinkCitation, previewLinkPlacement } from "./linkPlacement";
 
 function records(body: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer)).records;
@@ -107,5 +108,37 @@ describe("pendingBookLookups", () => {
         "1 WWW https://example.com/janez\n",
     );
     expect(pendingBookLookups(records(BOOK), [incoming.individuals.get("@P1@")!])).toEqual([]);
+  });
+});
+
+describe("linkPlacementFor", () => {
+  const dataset = (body: string) =>
+    buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer));
+
+  it("reads the file's habits afresh once the file has changed", () => {
+    const ds = dataset(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 OBJE @O1@\n0 @I2@ INDI\n1 NAME Ana /Novak/\n" +
+        "0 @O1@ OBJE\n1 FILE https://example.com/a\n",
+    );
+    expect(linkPlacementFor(ds).linkFormat).toBe("OBJE");
+    // Asked again with nothing changed: the same answer, from the memo.
+    expect(linkPlacementFor(ds).linkFormat).toBe("OBJE");
+
+    // An edit through the edit helpers (a person's lines, then the rebuild)
+    // turns the file's habit to plain links — the next merge must see it.
+    const ana = ds.individuals.get("@I2@")!;
+    for (const url of ["https://example.com/b", "https://example.com/c"]) {
+      ana.raw.children.push({ level: 1, tag: "WWW", value: url, children: [] });
+    }
+    rebuildIndividual(ds, ana);
+    expect(linkPlacementFor(ds).linkFormat).toBe("WWW");
+
+    // A record added (or removed) changes the answer's stamp too.
+    insertRecord(ds.records, { level: 0, tag: "OBJE", xref: "@O2@", children: [{ level: 1, tag: "FILE", value: "https://example.com/d", children: [] }] });
+    for (const id of ["@I1@", "@I2@"]) {
+      ds.individuals.get(id)!.raw.children.push({ level: 1, tag: "OBJE", value: "@O2@", children: [] });
+    }
+    ds.records.push({ level: 0, tag: "NOTE", xref: "@N1@", children: [] });
+    expect(linkPlacementFor(ds).linkFormat).toBe("OBJE");
   });
 });

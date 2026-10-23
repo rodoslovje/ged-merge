@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   categorize,
   DEFAULT_CONFIG,
-  type IndividualCandidate,
+  type MatchCandidate,
   type MatchCategory,
   type MatchResult,
 } from "../match/types";
@@ -22,6 +22,7 @@ import { useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { useVirtualList } from "./useVirtualList";
+import { useScoreDetail } from "./scoreDetail";
 
 interface Props {
   result: MatchResult;
@@ -351,7 +352,7 @@ const CandidateRow = memo(function CandidateRow({
   mainDataset,
   showAge,
 }: {
-  candidate: IndividualCandidate;
+  candidate: MatchCandidate;
   index: number;
   selected: boolean;
   status: MatchDecisionStatus | undefined;
@@ -364,13 +365,15 @@ const CandidateRow = memo(function CandidateRow({
   const { t } = useTranslation();
   const lifespan = candidateLifespan(candidate, mainDataset, showAge, t);
 
-  // Cached per candidate, so re-renders triggered only by an index shift (e.g.
-  // a filter toggle) don't rebuild this string for every row.
+  // The breakdown is fetched from the worker once the badge is hovered (the
+  // list arrives without it), and the tooltip built from it then.
+  const [scoreHovered, setScoreHovered] = useState(false);
+  const components = useScoreDetail(candidate.mainId, candidate.compareId, scoreHovered);
   const scoreTooltip = useMemo(
     () =>
-      candidate.score === 1
+      candidate.score === 1 || !components
         ? undefined
-        : candidate.components
+        : components
             .map((c) => {
               const label = formatFieldLabel(t, c.key);
               const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
@@ -378,7 +381,7 @@ const CandidateRow = memo(function CandidateRow({
               return `${label}: ${Math.round(c.score * 100)}%${missing}${detail}`;
             })
             .join("\n"),
-    [candidate, t],
+    [candidate.score, components, t],
   );
 
   return (
@@ -412,7 +415,7 @@ const CandidateRow = memo(function CandidateRow({
             <span className="status-chip status-empty" aria-hidden />
           )}
           <span className="candidate-metrics">
-            <span className={`badge ${candidate.category}`} title={scoreTooltip}>
+            <span className={`badge ${candidate.category}`} title={scoreTooltip} onMouseEnter={() => setScoreHovered(true)}>
               {formatScore(candidate.score)}
             </span>
             {showRelation && (

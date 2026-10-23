@@ -6,6 +6,7 @@ import type { CandidateDecision } from "../review/types";
 import { countDistinctPlaces } from "../tools/places";
 import type { AddressRename } from "../tools/addresses";
 import { useToolsScans } from "./useToolsScans";
+import type { ChangeJournal } from "../state/mainSync";
 import { ValidatePanel } from "./tools/ValidatePanel";
 import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
 import type { ClusterRelativeGroup } from "../tools/mergeCluster";
@@ -45,6 +46,9 @@ interface Props {
   /** Content version of the dataset, bumped synchronously on every mutation —
    *  tells the scans cache when the worker's copy of the file is stale. */
   editVersionRef: { readonly current: number };
+  /** Which records each edit version changed — the tools worker's copy of the
+   *  main takes only those (see useToolsScans). */
+  changeJournal: ChangeJournal;
   /** Bumped on every committed edit batch, including undo/redo — panels
    *  whose scans walk the in-place-mutated dataset re-run off it. */
   editVersion: number;
@@ -152,7 +156,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Places leads the tabs and is where most work starts,
@@ -164,7 +168,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
   // One shared worker runs the heavy whole-file scans off the main thread;
   // the results live here (not in the panels) so switching sub-tabs or modes
   // neither restarts a scan nor loses a finished one.
-  const scans = useToolsScans(dataset, editVersionRef);
+  const scans = useToolsScans(dataset, editVersionRef, changeJournal);
 
   // Who the file puts at a place+address pair, for the coordinate panel the
   // place pages open. Walked on the panel's first ask and kept until an edit

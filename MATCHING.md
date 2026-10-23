@@ -111,17 +111,45 @@ nothing and is skipped. On merge, the incoming record's ids are carried onto
 the merged main record (`carryUids`, `src/merge/merge.ts`) so the *next*
 import of that lineage auto-matches by identity.
 
-### 1. Blocking (`individualBlockKeys`, `src/match/scoreIndividual.ts`)
+### 1. Blocking (`CrossBlockIndex`, `src/match/blocking.ts`)
 
 A cheap recall-oriented pass so the expensive scoring is only run on
-plausible pairs. Every individual is bucketed by:
+plausible pairs. Two records are compared iff they share at least one bucket.
+The keys are **asymmetric**: a main record is indexed under its own bucket,
+and the incoming record looks up the neighbouring ones, so each key's reach is
+set in one place.
 
-- `SB:<surname-soundex>:<birth-decade>` for a known birth year (±1 decade),
-  or a relative-derived estimate (`src/match/birthEstimate.ts`, ±2 decades);
-- `S:<surname-soundex>` as a fallback for records with no usable date;
-- `SG:<surname-soundex>:<given-initial>`.
+- `B:<surname-soundex>:<birth-decade>` — the main record under its decade (a
+  relative-derived estimate, `src/match/birthEstimate.ts`, also under the
+  decades either side), the incoming record looking up its decade ±2 (±3 for
+  an estimate): two decades between two recorded births, a decade more per
+  estimate.
+- `U:<surname-soundex>` as a fallback for records with no usable date.
+- `G:<surname-soundex>:<given-initial>:<era-block>` — bounded by the era gate
+  itself: the main record in the 5-year block of its era year (the year the
+  gate reads), the incoming record looking up every block within `maxYearGap`
+  of its own. Every same-initial pair the gate can accept is reached, however
+  far apart the birth years; records without an era year meet all blocks.
+- **Crowded decade buckets** (more than `BUCKET_CAP`, 32, main records — a
+  common surname in one decade) are walked only through `BX:` sub-buckets
+  that also require one given-name token to agree: its cross-language group
+  in the variant table, else its soundex digits (`Katarina`/`Catharina`,
+  `Neža`/`Agnes`, the `Maria` of `Anna Maria` still meet; given-less records
+  always do).
 
-Two records are compared iff they share at least one bucket.
+Until 2026-10 the keys were symmetric (`SB:` ±1 decade on *both* sides, and
+`SG:<soundex>:<initial>` with no era at all): Hawlina against itself blocked
+115 M pairs (the largest `SG:` bucket held 1 681 people across four centuries)
+and spent 467 s in `matchDatasets`. The keys above block 33 M with the same
+result. Measured when they landed: Renko ↔ Renko-Rakar and Renko ↔ Trobec
+identical pair sets, Hawlina ↔ Hawlina identical; Kovačič ↔ Kovačič-B lost 7
+strong / 77 probable pairs, every strong one two different given names
+(Marija/Antonija Košir 1936, Janez/Andrej Zupančič 1910, …) reached only
+through a crowded decade bucket, and the agreeing-name probables the 1:1
+cascade re-paired with a closer record.
+
+The within-file duplicate finder still uses the symmetric
+`individualBlockKeys` (`src/match/scoreIndividual.ts`).
 
 ### 2. Hard gates (`plausibleIndividualMatch`)
 
@@ -287,6 +315,12 @@ Greedy by descending score: a main record and a compare record each appear in at
 most one match. Right model for a merge; kills many-to-one noise between
 similarly-named people.
 
+Until the assignment, a scored pair is only two record positions and a score
+(`ScoredPairs`, typed arrays; `scoreIndividualPairValue` computes the same
+score without the review payload). Only the winners are rescored into full
+candidates with their field breakdown — a large file clears `minScore` on
+millions of pairs and keeps one per record.
+
 ### 5. Relationship linking (`linkByRelationships`, `src/match/engine.ts`)
 
 Bootstraps from the assignment: if a main person and a compare person are
@@ -352,6 +386,14 @@ different people silently.
 When a home person is set, candidates are annotated with BFS hop distance
 (parent/spouse/child = 1 hop) from the home person and re-ranked so nearby
 relatives surface first. Scores are unchanged.
+
+The worker sends the match list once, in score order and without the score
+breakdowns (`MatchCandidate`; a row's score tooltip fetches its breakdown
+with a `scoreDetail` request, re-derived by `pairExplainer` with the run's
+name counts). A home-person change sends only a `KinshipRanking` — positions
+into that list and a distance per candidate, two `Int32Array`s — which the
+main thread applies (`rankedCandidates`), copying only the reachable
+candidates.
 
 ## Within-file duplicates (`findDuplicates`, `src/tools/duplicates.ts`)
 

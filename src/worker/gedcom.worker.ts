@@ -2,23 +2,24 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { detectCitationPageStyle, inferSourceFormat, type CitationPageStyle } from "../gedcom/source";
-import { applyFormatOverrides, applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
 import { detectFormatDefaults } from "../normalize/formatDefaults";
 import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
-import type { Dataset, Individual } from "../gedcom/types";
-import { buildPersonTree, buildMatchMaps, countImportable, type TreeMode } from "../chart/personTree";
+import type { Dataset } from "../gedcom/types";
+import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
+import { diffNormalized } from "../normalize/normPatch";
+import { applyRecordsPatch } from "../state/mainSync";
 import type { MainProfile } from "../normalize/types";
-import { matchDatasets } from "../match/engine";
+import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
 import { mergeDuplicate } from "../tools/mergeDuplicate";
-import { applyDistanceRanking, clearDistanceRanking } from "../match/distance";
-import type { MatchResult } from "../match/types";
+import { kinshipRanking } from "../match/distance";
+import type { MatchResult, ScoredMatchResult } from "../match/types";
 import { parseCompareTable } from "../csv/compareCsv";
 import type { GiPair } from "../csv/giMatches";
-import { fieldDiffCounts, individualFieldRows } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
@@ -53,7 +54,11 @@ let compareCsvPairs: GiPair[] | undefined;
  */
 let compareGeneration = 0;
 let startId: string | undefined;
+/** The last match list as posted — score order, no score breakdowns, no
+ *  distances; a start-person ranking is sent as positions into it. */
 let lastResult: MatchResult | undefined;
+/** Re-derives a pair's score breakdown for the score tooltip. */
+let explain: PairExplainer | undefined;
 /** The last compare `parsed` payload (minus the dataset), so the consolidated
  *  compare can be re-emitted with the same format reports after duplicates are
  *  merged in. */
@@ -61,21 +66,67 @@ let lastCompareMeta:
   | Omit<Extract<WorkerResponse, { type: "parsed" }>, "type" | "role" | "dataset">
   | undefined;
 
+/** Set when a `patchMain` did not fit this worker's main: every request
+ *  after it waits here until the whole main the app sends in answer has been
+ *  parsed, so nothing is matched against a main that missed edits. */
+let held: WorkerRequest[] | undefined;
+
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
+  if (held) {
+    if (req.type !== "parse" || req.role !== "main") {
+      held.push(req);
+      return;
+    }
+    const waiting = held;
+    held = undefined;
+    handle(req);
+    // A patch that waited was made against a copy older than the whole main
+    // just parsed, which already holds its records as they are now.
+    for (const r of waiting) if (r.type !== "patchMain") handle(r);
+    return;
+  }
+  handle(req);
+};
+
+function handle(req: WorkerRequest): void {
+  if (req.type === "patchMain") {
+    const next = mainDataset && applyRecordsPatch(mainDataset, req.patch);
+    if (!next) {
+      held = [];
+      post({ type: "mainOutOfStep" });
+      return;
+    }
+    // As a silent re-feed would, minus re-announcing and re-matching the
+    // compare: the app sends this only on its way to loading a new one, and
+    // the old result, matched against the old main, is not kept to re-rank.
+    mainDataset = next;
+    lastResult = undefined;
+    mainOverrides = req.formatOverrides;
+    profile = applyFormatOverrides(inferMainProfile(next), req.formatOverrides);
+    return;
+  }
   if (req.type === "setStart") {
     startId = req.id || undefined; // empty id clears the start person
     if (lastResult && mainDataset) {
       try {
         post({ type: "matching" });
-        lastResult = startId
-          ? applyDistanceRanking(lastResult, mainDataset, startId)
-          : clearDistanceRanking(lastResult);
-        post({ type: "matched", result: lastResult });
+        // Only the new order travels: the main thread holds the list.
+        postMatched(undefined, mainDataset, lastResult);
       } catch (err) {
         post({ type: "matchFailed", message: errorMessage(err) });
       }
     }
+    return;
+  }
+  if (req.type === "scoreDetail") {
+    post({
+      type: "scoreDetail",
+      mainId: req.mainId,
+      compareId: req.compareId,
+      generation: req.generation,
+      components: explain?.(req.mainId, req.compareId),
+    });
     return;
   }
   if (req.type === "clearCompare") {
@@ -86,6 +137,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     compareNormalized = undefined;
     compareCsvPairs = undefined;
     lastResult = undefined;
+    explain = undefined;
     lastCompareMeta = undefined;
     return;
   }
@@ -250,19 +302,35 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
   compareNormalized = dataset;
   // The profile travels with the compare: a silent main re-feed changes it
-  // without announcing the main, and the main thread must normalize its copy
-  // against the same one.
+  // without announcing the main, and should the edits below be missing, the
+  // main thread normalizes its copy against the same one.
   lastCompareMeta = { fileName, profile, report, placeLayout, dateFormat, datePlaceholder, sourceLayout, pageMediaStyle, citationPageStyle, nameLayout, unknownNameStyle, coordUsage };
-  post({ type: "parsed", role: "compare", ...(withDataset ? { dataset } : {}), ...lastCompareMeta });
+  if (withDataset) {
+    post({ type: "parsed", role: "compare", dataset, ...lastCompareMeta });
+    return;
+  }
+  // What normalizing changed, for the main thread to replay on its own parse
+  // of the bytes instead of normalizing them a second time. Kept out of
+  // `lastCompareMeta`: its buffers are transferred, and the re-announcement
+  // after consolidation has nothing to replay.
+  const normalized = diffNormalized(rawDataset.records, dataset.records);
+  post(
+    { type: "parsed", role: "compare", ...lastCompareMeta, ...(normalized ? { normalized } : {}) },
+    normalized ? [normalized.ops.buffer, normalized.lens.buffer] : undefined,
+  );
 }
 
 /** Run matching once both sides are available, ranked if a start person is set. */
 function maybeMatch(): void {
   if (!mainDataset || !compareNormalized) return;
   post({ type: "matching" });
-  let result = compareCsvPairs
-    ? matchGiPairs(mainDataset, compareNormalized, compareCsvPairs)
-    : matchDatasets(mainDataset, compareNormalized);
+  let result: ScoredMatchResult;
+  if (compareCsvPairs) {
+    result = matchGiPairs(mainDataset, compareNormalized, compareCsvPairs);
+    explain = pairExplainer(mainDataset, compareNormalized);
+  } else {
+    ({ result, explain } = matchDatasetsExplained(mainDataset, compareNormalized));
+  }
   // Consolidate incoming records that are the same person split across duplicates
   // (detected by matching the same main) into one, then re-emit the cleaned
   // compare so the merge and tree see a single record carrying all the data.
@@ -280,44 +348,27 @@ function maybeMatch(): void {
     // merges on its own copy (see ParseSuccess.consolidated).
     if (lastCompareMeta) post({ type: "parsed", role: "compare", consolidated: clusters, ...lastCompareMeta });
   }
-  result = annotateCounts(result, mainDataset, compareNormalized);
-  if (startId) result = applyDistanceRanking(result, mainDataset, startId);
-  lastResult = result;
-  post({ type: "matched", result });
+  lastResult = annotateCounts(result, mainDataset, compareNormalized, mainOverrides);
+  postMatched(lastResult, mainDataset, lastResult);
 }
 
-/** Field labels are irrelevant to the counts computed here, so use a no-op
+/**
+ * Post a match list (`result`, when it is new) and its ranking by kinship to
+ * the start person, if one is set. The ranking is two Int32Arrays of
+ * positions into `list`, moved rather than copied.
+ */
+function postMatched(result: MatchResult | undefined, main: Dataset, list: MatchResult): void {
+  const ranking = startId ? kinshipRanking(list.individuals, main, startId) : undefined;
+  post(
+    { type: "matched", ...(result ? { result } : {}), ...(ranking ? { ranking } : {}) },
+    ranking ? [ranking.order.buffer, ranking.distance.buffer] : [],
+  );
+}
+
+/** Field labels are irrelevant to the merges replayed here, so use a no-op
  * translator (the worker has no i18n context). */
 const rawLabel = (key: string) => key;
 
-/** Attach per-candidate "new" and "differing" field counts plus the importable
- *  ancestor/descendant counts for the results table. */
-function annotateCounts(result: MatchResult, main: Dataset, compare: Dataset): MatchResult {
-  // The same format the review rows and the merge use (mergePlaceFormat):
-  // counted without the overrides, a diff badge could disagree with the rows
-  // the panel actually shows.
-  const placeFmt = applyPlaceOverrides(inferPlaceExportFormat(main), mainOverrides);
-  const maps = buildMatchMaps(result);
-  const importable = (mainInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
-    const tree = buildPersonTree(rawLabel, mainInd, compareInd, main, compare, maps, mode);
-    return tree ? countImportable(tree) : 0;
-  };
-  return {
-    individuals: result.individuals.map((c) => {
-      const mainInd = main.individuals.get(c.mainId);
-      const compareInd = compare.individuals.get(c.compareId);
-      return {
-        ...c,
-        ...fieldDiffCounts(
-          individualFieldRows(rawLabel, mainInd, compareInd, main, compare, placeFmt),
-        ),
-        ancestorCount: importable(mainInd, compareInd, "ancestors"),
-        descendantCount: importable(mainInd, compareInd, "descendants"),
-      };
-    }),
-  };
-}
-
-function post(res: WorkerResponse): void {
-  (self as DedicatedWorkerGlobalScope).postMessage(res);
+function post(res: WorkerResponse, transfer: Transferable[] = []): void {
+  (self as DedicatedWorkerGlobalScope).postMessage(res, transfer);
 }

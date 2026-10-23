@@ -1,4 +1,5 @@
 import type { GedNode } from "../../gedcom/types";
+import { memoOnContent } from "../../gedcom/edit/cache";
 import { childrenByTag, childText, cloneNode, firstChild, nodeFingerprint } from "../../gedcom/node";
 import {
   EVENT_CHILD_ORDER,
@@ -212,6 +213,11 @@ export function makePlaceResolver(records: GedNode[]): (place: string | undefine
 /** The file's own citation-placement habit: whether existing citations sit
  *  mostly on records or on events. */
 export function detectCitationPlacement(records: GedNode[]): "event" | "record" {
+  // A whole-file count, asked per citation placed: once per state of the file.
+  return memoOnContent(records, "citationPlacement", () => countCitationPlacement(records));
+}
+
+function countCitationPlacement(records: GedNode[]): "event" | "record" {
   let recordLevel = 0;
   let eventLevel = 0;
   for (const rec of records) {

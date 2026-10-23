@@ -21,7 +21,7 @@ import {
   createMediaRecord,
   findSharedMediaByFile,
 } from "../gedcom/edit/media";
-import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref } from "../gedcom/edit/shared";
+import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, removeRecordsByXref } from "../gedcom/edit/shared";
 import { carriesLineValue, isNonStandardTag, isOccurrenceFlag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
 import { buildSearchRows, foldSearch, type SearchRow } from "../ui/globalSearch";
@@ -991,10 +991,7 @@ function removeMediaBatch(
 /** Undo a record creation that turned out to be unnecessary (no target changed). */
 function rollbackCreated(ds: Dataset, created: RecordPatch[]): RecordPatch[] {
   if (created.length === 0) return [];
-  for (const p of created) {
-    const i = ds.records.findIndex((r) => r.xref === p.id);
-    if (i !== -1) ds.records.splice(i, 1);
-  }
+  removeRecordsByXref(ds.records, created.map((p) => p.id));
   bumpSourceCacheVersion(ds.records);
   clearObjeNodeCache(ds.records);
   return [];

@@ -1,4 +1,4 @@
-import type { Dataset } from "../gedcom/types";
+import type { MainSnapshot, RecordsPatch } from "../state/mainSync";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
 import type { DuplicatePair } from "../tools/duplicates";
 import type { ValidationReport } from "../tools/validate";
@@ -10,15 +10,17 @@ import type { FormatOverrides } from "../normalize/formatOverrides";
 /**
  * Requests for the tools worker (whole-file Tools-tab scans).
  *
- * The dataset is uploaded once with `setDataset` and cached in the worker;
- * scan requests then reference that cached copy. Structured-cloning an
- * index-scale file blocks the main thread for seconds, so the clone must
- * happen once per content version — not once per scan (see `useToolsScans`,
- * which re-uploads only when the file or its edit version changes). Messages
- * are processed in order, so a scan always sees the upload that preceded it.
+ * The main is uploaded whole once with `setMain` and cached in the worker;
+ * scan requests then reference that cached copy. After edits only the edited
+ * records travel (`patchMain`): structured-cloning the typed dataset cost
+ * ~11 s of blocked main thread on a 500k-person file, the snapshot ~1.9 s and
+ * a patch a fraction of a second (see `useToolsScans`, which uploads only
+ * when the file or its edit version changes). Messages are processed in
+ * order, so a scan always sees the upload that preceded it.
  */
 export type ToolsRequest =
-  | { type: "setDataset"; dataset: Dataset }
+  | { type: "setMain"; snapshot: MainSnapshot }
+  | { type: "patchMain"; patch: RecordsPatch }
   | { type: "findDuplicates"; requestId: number }
   | { type: "validate"; requestId: number; formatOverrides?: FormatOverrides }
   | { type: "sourceDuplicates"; requestId: number }
@@ -38,6 +40,9 @@ export interface ToolsResultMap {
 }
 
 export type ToolsResponse =
+  /** The worker's copy did not take a `patchMain`: send `setMain`. Requests
+   *  posted meanwhile wait in the worker until it arrives. */
+  | { type: "resync" }
   | { type: "progress"; requestId: number; done: number; total: number }
   | { type: "result"; requestId: number; data: ToolsResultMap[keyof ToolsResultMap] }
   | { type: "error"; requestId: number; message: string };

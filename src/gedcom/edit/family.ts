@@ -2,11 +2,12 @@ import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
 import { cloneNode, mergeSubLines, nodeFingerprint, firstChild, hasChild } from "../node";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
-import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
+import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, recordPosition, removeChild, removeRecordsByXref } from "./shared";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
 import { repointAssociations } from "../assoc";
 import { isPointer } from "../uri";
 import { clearObjeNodeCache } from "../source";
+import { familiesScope, individualsScope, pointerScope, unindexRecord } from "./pointerIndex";
 
 /** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
 function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
@@ -424,7 +425,7 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
   // a pointer left on such a family would dangle. So the family side is
   // scanned too.
   const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf, ...familiesNaming(dataset, indi.id)]);
-  for (const id of repointAssociations(dataset.records, indi.id)) {
+  for (const id of repointAssociations(pointerScope(dataset, [indi.id]), indi.id)) {
     const named = dataset.individuals.get(id);
     if (named) rebuildIndividual(dataset, named);
     else {
@@ -440,13 +441,23 @@ export function removeIndividual(dataset: Dataset, indi: Individual): void {
     );
     rebuildFamily(dataset, fam);
   }
-  const ri = dataset.records.findIndex((r) => r.xref === indi.id);
-  if (ri !== -1) dataset.records.splice(ri, 1);
+  const ri = recordIndexOf(dataset.records, indi.raw, indi.id);
+  if (ri !== -1) unindexRecord(dataset.records, dataset.records.splice(ri, 1)[0]);
   dataset.individuals.delete(indi.id);
   for (const famId of affectedFamilyIds) {
     const fam = dataset.families.get(famId);
     if (fam) pruneDegenerateFamily(dataset, fam);
   }
+}
+
+/** Where a person's or family's record sits — found by its node, from a
+ *  remembered position (see `recordPosition`), or by its xref as before. */
+function recordIndexOf(records: GedNode[], raw: GedNode, xref: string): number {
+  if (raw.xref === xref) {
+    const i = recordPosition(records, raw);
+    if (i !== undefined) return i;
+  }
+  return records.findIndex((r) => r.xref === xref);
 }
 
 /** Shared records a deleted person can leave behind with nobody pointing at
@@ -479,11 +490,12 @@ export function pruneRecordsLeftBehind(dataset: Dataset, candidates: Iterable<st
     const referenced = new Set<string>();
     for (const rec of records) for (const v of pointersHeld(rec)) if (v !== rec.xref && pending.has(v)) referenced.add(v);
     const next = new Set<string>();
-    for (const xref of pending) {
-      if (referenced.has(xref)) continue;
-      const i = records.findIndex((r) => r.xref === xref && LEFT_BEHIND_TAGS.has(r.tag));
-      if (i === -1) continue;
-      const [rec] = records.splice(i, 1);
+    // Taken out in one walk of the list, reported in the order asked.
+    const order = [...pending].filter((xref) => !referenced.has(xref));
+    const out = removeRecordsByXref(records, order, (r) => LEFT_BEHIND_TAGS.has(r.tag));
+    const rank = new Map(order.map((xref, i) => [xref, i]));
+    out.sort((a, b) => rank.get(a.xref!)! - rank.get(b.xref!)!);
+    for (const rec of out) {
       removed.push(rec);
       pointersHeld(rec, next);
     }
@@ -500,7 +512,7 @@ export function pruneRecordsLeftBehind(dataset: Dataset, candidates: Iterable<st
  *  person's own record links back to them. */
 export function familiesNaming(dataset: Dataset, indiId: string): string[] {
   const ids: string[] = [];
-  for (const fam of dataset.families.values()) {
+  for (const fam of familiesScope(dataset, [indiId])) {
     if (fam.husband === indiId || fam.wife === indiId || fam.children.includes(indiId)) ids.push(fam.id);
   }
   return ids;
@@ -511,7 +523,7 @@ export function familiesNaming(dataset: Dataset, indiId: string): string[] {
  *  file can carry either half without the other. */
 export function familyMembers(dataset: Dataset, fam: Family): string[] {
   const ids = new Set([fam.husband, fam.wife, ...fam.children].filter((id): id is string => !!id));
-  for (const indi of dataset.individuals.values()) {
+  for (const indi of individualsScope(dataset, [fam.id])) {
     if (indi.childOf.includes(fam.id) || indi.spouseOf.includes(fam.id)) ids.add(indi.id);
   }
   return [...ids];
@@ -528,8 +540,8 @@ export function removeFamily(dataset: Dataset, fam: Family): void {
     indi.raw.children = kept;
     rebuildIndividual(dataset, indi);
   }
-  const ri = dataset.records.findIndex((r) => r.xref === fam.id);
-  if (ri !== -1) dataset.records.splice(ri, 1);
+  const ri = recordIndexOf(dataset.records, fam.raw, fam.id);
+  if (ri !== -1) unindexRecord(dataset.records, dataset.records.splice(ri, 1)[0]);
   dataset.families.delete(fam.id);
 }
 
@@ -639,7 +651,7 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
     if (changed) node.children = kept;
     return changed;
   };
-  for (const record of dataset.records) {
+  for (const record of pointerScope(dataset, [dropId])) {
     if ((record.tag !== "INDI" && record.tag !== "FAM") || record.xref === dropId || !repoint(record, record, 0)) continue;
     const indi = dataset.individuals.get(record.xref!);
     const fam = dataset.families.get(record.xref!);
@@ -654,10 +666,10 @@ export function foldFamily(dataset: Dataset, keepId: string, dropId: string): vo
 /** The people and families holding a line that names one of `famIds`, at any
  *  depth — every record a {@link foldFamily} of those families can rewrite
  *  beyond the families' own members, for a caller's undo snapshot. */
-export function familyPointerHolders(records: GedNode[], famIds: ReadonlySet<string>): string[] {
+export function familyPointerHolders(records: Iterable<GedNode>, famIds: ReadonlySet<string>): string[] {
   const names = (node: GedNode): boolean =>
     node.children.some((c) => (c.value !== undefined && famIds.has(c.value.trim())) || names(c));
-  return records
-    .filter((r) => (r.tag === "INDI" || r.tag === "FAM") && r.xref && names(r))
-    .map((r) => r.xref!);
+  const out: string[] = [];
+  for (const r of records) if ((r.tag === "INDI" || r.tag === "FAM") && r.xref && names(r)) out.push(r.xref);
+  return out;
 }

@@ -1,6 +1,7 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, type MediaLinks, type NoteIndex } from "../builder";
 import { buildSourceContext, buildSourceLookup, type SourceContext, type SourceLookup } from "../source";
 import type { Dataset, Family, GedNode, Individual } from "../types";
+import { reindexRecord } from "./pointerIndex";
 
 const sourceCacheVersions = new WeakMap<GedNode[], number>();
 const sourceCaches = new WeakMap<GedNode[], { version: number; media: MediaLinks; sourceCtx: SourceContext; noteIndex: NoteIndex }>();
@@ -17,6 +18,41 @@ const sourceLookupCaches = new WeakMap<GedNode[], { version: number; lookup: Sou
  */
 export function bumpSourceCacheVersion(records: GedNode[]): void {
   sourceCacheVersions.set(records, (sourceCacheVersions.get(records) ?? 0) + 1);
+  bumpContentVersion(records);
+}
+
+const contentVersions = new WeakMap<GedNode[], number>();
+const contentMemos = new WeakMap<GedNode[], Map<string, { stamp: string; value: unknown }>>();
+
+/** Mark `records`' contents changed, for {@link memoOnContent}. Every typed
+ *  rebuild and every source/media bump calls it, so an edit made through the
+ *  edit helpers is always seen. */
+export function bumpContentVersion(records: GedNode[]): void {
+  contentVersions.set(records, (contentVersions.get(records) ?? 0) + 1);
+}
+
+/** A stamp of `records`' contents: changes with every rebuild, source/media
+ *  bump and change of the record count. */
+export function contentStamp(records: GedNode[]): string {
+  return `${contentVersions.get(records) ?? 0}:${records.length}`;
+}
+
+/**
+ * A whole-file derivation of `records` (a habit the file shows, an index),
+ * reused until the file changes — a rebuilt person or family, a source/media
+ * bump, a record added or removed. `key` names the derivation; `extra` adds
+ * to the stamp what else it depends on (the other file of a merge).
+ * The value is shared: callers must not mutate it.
+ */
+export function memoOnContent<T>(records: GedNode[], key: string, compute: () => T, extra = ""): T {
+  const stamp = `${contentStamp(records)}|${extra}`;
+  let memos = contentMemos.get(records);
+  if (!memos) contentMemos.set(records, (memos = new Map()));
+  const hit = memos.get(key);
+  if (hit && hit.stamp === stamp) return hit.value as T;
+  const value = compute();
+  memos.set(key, { stamp, value });
+  return value;
 }
 
 /**
@@ -60,6 +96,8 @@ export function rebuildIndividual(dataset: Dataset, indi: Individual): Individua
   const { media, sourceCtx, noteIndex } = getMediaAndSourceCtx(dataset.records);
   const rebuilt = buildIndividual(indi.raw, media, sourceCtx, noteIndex);
   dataset.individuals.set(rebuilt.id, rebuilt);
+  bumpContentVersion(dataset.records);
+  reindexRecord(dataset.records, indi.raw);
   return rebuilt;
 }
 
@@ -71,5 +109,7 @@ export function rebuildFamily(dataset: Dataset, fam: Family): Family {
   const { media, sourceCtx, noteIndex } = getMediaAndSourceCtx(dataset.records);
   const rebuilt = buildFamily(fam.raw, media, sourceCtx, noteIndex);
   dataset.families.set(rebuilt.id, rebuilt);
+  bumpContentVersion(dataset.records);
+  reindexRecord(dataset.records, fam.raw);
   return rebuilt;
 }

@@ -37,6 +37,21 @@ describe("deletion patch index", () => {
     expect(snaps.indices.get("@F1@")).toBe(3);
   });
 
+  it("finds each record's index afresh after the list has changed", () => {
+    // Positions are remembered between snapshots; a list that moved since —
+    // by one record or by hundreds — must still give the current index.
+    const people = Array.from({ length: 300 }, (_, i) => rec("INDI", `@I${i}@`));
+    const records = [rec("HEAD", "@H@"), ...people, rec("TRLR", "@T@")];
+    const ds = datasetOf(records);
+    expect(snapshotRecords(ds, ["@I250@"], []).indices.get("@I250@")).toBe(251);
+    records.splice(1, 1);
+    expect(snapshotRecords(ds, ["@I250@"], []).indices.get("@I250@")).toBe(250);
+    records.splice(1, 100);
+    expect(snapshotRecords(ds, ["@I250@"], []).indices.get("@I250@")).toBe(150);
+    records.splice(1, 0, rec("NOTE", "@N1@"));
+    expect(snapshotRecords(ds, ["@I250@", "@I101@"], []).indices).toEqual(new Map([["@I250@", 151], ["@I101@", 2]]));
+  });
+
   it("patchesFromSnapshots sets index on deletion patches only", () => {
     const records = [rec("INDI", "@I1@"), rec("INDI", "@I2@", "orig"), rec("FAM", "@F1@")];
     const ds = datasetOf(records);
