@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
+import { waitForListSettled } from "./frames";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
@@ -45,6 +46,9 @@ test("the settings chips match the ones they configure", async ({ page }) => {
 test("an event can still be added to the list and taken off it", async ({ page }) => {
   await openQuickEvents(page);
   const chips = page.locator(".settings-quick-chip");
+  // The page opens with its saved list already drawn; let it settle before
+  // taking the baseline the two steps below are counted against.
+  await waitForListSettled(chips);
   const before = await chips.count();
 
   await page.locator(".settings-quick-add").click();

@@ -494,13 +494,18 @@ test("the lookup answers in the language the file writes, not the interface's", 
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
 
-  for (const group of await page.locator(".tools-geo-addr-group").all()) {
+  // One group per place, one address in each — wait for both groups before
+  // opening them, rather than opening whatever has rendered so far.
+  const groups = page.locator(".tools-geo-addr-group");
+  await expect(groups).toHaveCount(2);
+  for (const group of await groups.all()) {
     await group.locator(".tools-pair-toggle").first().click();
   }
   const search = page.getByRole("button", { name: "Search OpenStreetMap" });
   // The button goes once its row has an answer, so the list shrinks under the
-  // loop: take the count first, and always click whichever is left.
-  const rows = await search.count();
+  // loop: wait for the full count first, and always click whichever is left.
+  const rows = 2;
+  await expect(search).toHaveCount(rows);
   for (let i = 0; i < rows; i++) {
     await search.first().click();
     // Nominatim allows one request a second and the client queues to match.

@@ -25,14 +25,21 @@ writeFileSync(COMPARE, [
 ].join("\n"), "utf-8");
 
 async function rowByPlace(page: Page, place: string): Promise<Locator> {
+  // The event list re-renders after each step, so one reading of it can be a
+  // list still filling in: scan it again until the row turns up.
   const rows = page.locator(".edit-person .edit-event");
-  const n = await rows.count();
-  for (let i = 0; i < n; i++) {
-    const pl = rows.nth(i).locator(".edit-event-place");
-    if ((await pl.count()) === 0) continue;
-    if ((await pl.first().inputValue()).includes(place)) return rows.nth(i);
-  }
-  throw new Error("no event row with place " + place);
+  let found: Locator | undefined;
+  await expect(async () => {
+    found = undefined;
+    const n = await rows.count();
+    for (let i = 0; i < n && !found; i++) {
+      const pl = rows.nth(i).locator(".edit-event-place");
+      if ((await pl.count()) === 0) continue;
+      if ((await pl.first().inputValue()).includes(place)) found = rows.nth(i);
+    }
+    expect(found, `no event row with place ${place}`).toBeDefined();
+  }).toPass();
+  return found!;
 }
 
 // A residence event materialized from an incoming-only merge suggestion stays
