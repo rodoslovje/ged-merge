@@ -2918,8 +2918,7 @@
               lists each of these repairs before you download, and so does the <a href="#validate">Health check</a>.
               Text you write or edit follows the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal
               <code>@</code> (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A line you have not
-              touched keeps the at-signs it was read with, and a converted file follows the rule of its new version. A GEDCOM 7.0 file also declares
-              in its header every extension tag it carries (<code>_UID</code>, <code>_MARNM</code>, …).
+              touched keeps the at-signs it was read with, and a converted file follows the rule of its new version.
             </p>
             <p>
               <strong>GEDCOM version</strong>, under the file list, chooses the version the download is written in. It
@@ -2931,6 +2930,18 @@
               you work in the new version. To convert a file you have not changed, use <strong>Save as GEDCOM 7.0…</strong>
               (or <strong>Save as GEDCOM 5.5.1…</strong>) in Tools → Health check, which opens this preview with the
               conversion chosen.
+            </p>
+            <p id="extension-tags">
+              A GEDCOM 7.0 file lists in its header, under <code>HEAD.SCHMA</code>, every extension tag it carries: the
+              tags starting with an underscore that programs add for what the standard has no line for
+              (<code>_UPD</code>, <code>_MARNM</code>, …). The schema pairs each tag with a web address that says what the
+              tag means, and every address GED Merge writes leads to a page describing the tag — its meaning, the program
+              that writes it, where in the file it appears and its standard GEDCOM 7 form, if it has one. A tag the
+              FamilySearch GEDCOM registry documents gets the registry's address instead. When a file is converted to
+              7.0, the tags that have a standard form take it — <code>_UID</code> becomes <code>UID</code>, a
+              FamilySearch ID an <code>EXID</code>, and <code>_MARNM</code> a married name of its own — and converting
+              back to 5.5.1 restores them. All the tags are listed on the
+              <a href="../terms/extensions/">extension tags page</a>.
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
