@@ -100,7 +100,8 @@ test("timeline and relationship charts draw their people and export them", async
   const ged = await exportItem(page, /^GEDCOM \(4 people\)/);
   expect(ged.name).toBe("Janez-Kos-Jakob-Kos-Relationship-Chart.ged");
   const xrefs = ged.text.split(/\r?\n/).filter((l) => /^0 @/.test(l));
-  expect(xrefs).toEqual(["0 @I1@ INDI", "0 @I2@ INDI", "0 @I3@ INDI", "0 @I4@ INDI", "0 @F1@ FAM", "0 @F2@ FAM"]);
+  // …plus the submitter record 5.5.1 requires, which the file did not have.
+  expect(xrefs).toEqual(["0 @I1@ INDI", "0 @I2@ INDI", "0 @I3@ INDI", "0 @I4@ INDI", "0 @F1@ FAM", "0 @F2@ FAM", "0 @U1@ SUBM"]);
   expect(ged.text).not.toContain("@F3@"); // Janez's own marriage is off the route
   expect(ged.text).toContain("1 NAME Jakob /Kos/");
   expect(ged.text.trimEnd().endsWith("0 TRLR")).toBe(true);
