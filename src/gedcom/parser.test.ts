@@ -426,5 +426,7 @@ describe("parseGedcom on a file split in pieces", () => {
         [...text.split(/\r\n?|\n/).entries()].filter(([, l]) => l.startsWith("prosta")).map(([i]) => i + 1),
       );
     }
-  });
+    // Three multi-megabyte files parsed and written: on a machine busy with
+    // other suites this outlasts the 5 s default without anything being wrong.
+  }, 60_000);
 });
