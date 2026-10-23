@@ -125,14 +125,18 @@ export default defineConfig({
         "src/save/**/*.ts",
         "src/state/**/*.ts",
         "src/tools/**/*.ts",
-        // Not whole directories: geoDb.ts (IndexedDB gazetteer store) and the
-        // other workers have no unit tests yet.
+        // Single files, not whole directories: the rest of src/persist (the
+        // geoDb gazetteer store), src/worker (message types) and src/ui have
+        // no unit tests of their own.
         "src/persist/fingerprint.ts",
         "src/persist/idb.ts",
         "src/persist/serializedMain.ts",
         "src/persist/useWorkspacePersistence.ts",
         "src/worker/annotateCounts.ts",
         "src/worker/gedcom.worker.ts",
+        "src/worker/geo.worker.ts",
+        "src/worker/tools.worker.ts",
+        "src/ui/tools/geoImport.ts",
         "src/ui/useAppHistory.ts",
       ],
       // The keyboard hooks (`use*.ts` beside the pure modules they wrap) are
@@ -166,8 +170,8 @@ export default defineConfig({
         "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
         "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
         "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
-        "src/ui/**": { statements: 97, branches: 90, functions: 98, lines: 98 },
-        "src/worker/**": { statements: 93, branches: 84, functions: 98, lines: 94 },
+        "src/ui/**": { statements: 95, branches: 89, functions: 93, lines: 96 },
+        "src/worker/**": { statements: 95, branches: 87, functions: 98, lines: 95 },
       },
     },
   },
