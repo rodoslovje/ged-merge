@@ -607,23 +607,24 @@ export function EventFieldsRow({
     ...(valueIsExtra ? [{ key: "value", label: t("event.colValue") }] : []),
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
-    // The age the record states — each spouse's on a family event.
+    { key: "agency", label: t("event.colAgency") },
+    { key: "source", label: t("event.colLink") },
+    { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
+    { key: "cause", label: t("event.colCause") },
+    ...(isOrdinance ? [{ key: "temple", label: t("event.colTemple") }, { key: "status", label: t("event.colStatus") }] : []),
+    { key: "note", label: t("event.colNote") },
+    // Like a source, always offered: an event names as many godparents and
+    // witnesses as the register does, so "already shown" is no reason to stop.
+    ...(canAssoc ? [{ key: "assoc", label: t("assoc.add") }] : []),
+    // Rarely used, so last: the age a record states (each spouse's on a family
+    // event) and a sort date for an event whose own date is missing or words.
     ...(spouseAgeLabels
       ? [
           { key: "husbandAge", label: spouseAgeLabels.husband.label },
           { key: "wifeAge", label: spouseAgeLabels.wife.label },
         ]
       : [{ key: "age", label: t("event.colAge") }]),
-    { key: "agency", label: t("event.colAgency") },
-    { key: "source", label: t("event.colLink") },
-    { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
-    { key: "cause", label: t("event.colCause") },
-    ...(isOrdinance ? [{ key: "temple", label: t("event.colTemple") }, { key: "status", label: t("event.colStatus") }] : []),
     { key: "sortDate", label: t("event.colSortDate") },
-    { key: "note", label: t("event.colNote") },
-    // Like a source, always offered: an event names as many godparents and
-    // witnesses as the register does, so "already shown" is no reason to stop.
-    ...(canAssoc ? [{ key: "assoc", label: t("assoc.add") }] : []),
   ].filter((f) => f.key === "source" || f.key === "assoc" || !show[f.key as keyof typeof show]);
 
   /**
