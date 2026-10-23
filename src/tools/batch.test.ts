@@ -182,6 +182,18 @@ describe("batch criteria", () => {
     expect(match([{ kind: "private", value: false }])).toEqual(["@I1@", "@I2@", "@I3@"]);
   });
 
+  it("finds a private note behind a GEDCOM 7 SNOTE pointer", () => {
+    const ds = dataset(
+      "0 HEAD\n1 GEDC\n2 VERS 7.0\n" +
+        "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 SNOTE @N1@\n" +
+        "0 @I2@ INDI\n1 NAME Bor /Novak/\n1 BIRT\n2 SNOTE @N1@\n" +
+        "0 @I3@ INDI\n1 NAME Cene /Novak/\n1 SNOTE @N2@\n" +
+        "0 @N1@ SNOTE Private remark\n1 RESN PRIVACY\n0 @N2@ SNOTE Public remark\n0 TRLR\n",
+    );
+    const rows = buildBatchRows(ds, nameOf);
+    expect(rows.filter((r) => r.hasPrivateNote).map((r) => r.id)).toEqual(["@I1@", "@I2@"]);
+  });
+
   it("filters by media presence and one specific image", () => {
     expect(match([{ kind: "media", mode: "none" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
     expect(match([{ kind: "media", mode: "any" }])).toEqual(["@I1@"]);

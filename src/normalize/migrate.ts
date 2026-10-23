@@ -1,5 +1,5 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
-import { RELA_TO_ROLE, ROLE_TO_RELA } from "../gedcom/assoc";
+import { RELA_TO_ROLE, ROLE_TO_RELA, VOID_XREF } from "../gedcom/assoc";
 import { cloneNode, firstChild } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
@@ -32,7 +32,10 @@ import { walkNodes } from "./walk";
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
- *                                        `NO` → `_NO`, `SEX X` → `U`
+ *                                        `NO` → `_NO`, `SDATE` → `_SDATE`, a
+ *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
+ *                                        `@VOID@` pointers (see below),
+ *                                        `SEX X` → `U`
  *
  * Not attempted (would create new records rather than rewrite in place):
  * extracting inline `OBJE`/text `SOUR` substructures into pointed records.
@@ -213,7 +216,7 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   }
 
   // Calendar escape → calendar tag prefix (GREGORIAN, being the default, drops).
-  value = value.replace(/@#(D[A-Z]+(?: R)?)@\s*/i, (m, esc: string) => {
+  value = value.replace(/@#(D[A-Z]+(?: R)?)@\s*/gi, (m, esc: string) => {
     const cal = CALENDAR_ESCAPES[esc.toUpperCase()];
     if (!cal) return m;
     return cal === "GREGORIAN" ? "" : `${cal} `;
@@ -221,13 +224,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
 
   // Dual (Old Style/New Style) years: `1648/49` → `1649`, original kept as
   // phrase. Guarded against numeric slash dates (`1989/01/05`), which the
-  // house-style date pass handles — they are not dual years.
+  // house-style date pass handles — they are not dual years. Nor is anything
+  // whose second half is not the following year: `1890/12` may be a month.
   if (!/^\d{1,4}([/.-])\d{1,2}\1\d{1,4}$/.test(value)) {
-    const dual = value.replace(/\b(\d{3,4})\/(\d{2})\b(?!\/)/g, (_m, y: string, suffix: string) => {
-      const year = Number(y);
-      let next = Math.floor(year / 100) * 100 + Number(suffix);
-      if (next <= year) next += 100;
-      return String(next);
+    const dual = value.replace(/\b(\d{3,4})\/(\d{2})\b(?!\/)/g, (m, y: string, suffix: string) => {
+      const next = Number(y) + 1;
+      return next % 100 === Number(suffix) ? String(next) : m;
     });
     if (dual !== value) {
       phrase ??= value;
@@ -236,12 +238,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   }
 
   // BC era marker → BCE.
-  value = value.replace(/\b(\d+)\s*(?:B\.C\.|BC\b)/i, "$1 BCE");
+  value = value.replace(/\b(\d+)\s*(?:B\.C\.|BC\b)/gi, "$1 BCE");
 
   // `BET a AND b` must be chronological in 7.0 — swap endpoints when reversed.
   const bet = value.match(/^BET\s+(.+?)\s+AND\s+(.+)$/i);
   if (bet) {
-    const [y1, y2] = [lastYear(bet[1]), lastYear(bet[2])];
+    const [y1, y2] = [signedYear(bet[1]), signedYear(bet[2])];
     if (y1 !== undefined && y2 !== undefined && y1 > y2) {
       value = `BET ${bet[2]} AND ${bet[1]}`;
     }
@@ -257,9 +259,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   report(ctx, node, before);
 }
 
-function lastYear(datePart: string): number | undefined {
-  const years = datePart.match(/\d{3,4}/g);
-  return years ? Number(years[years.length - 1]) : undefined;
+/** The year an endpoint ends on — GEDCOM writes the year last — negative
+ *  before the common era, so a BCE range orders by its era. */
+function signedYear(datePart: string): number | undefined {
+  const m = datePart.match(/(\d{1,4})(\s+BCE)?\s*$/i);
+  if (!m) return undefined;
+  return m[2] ? -Number(m[1]) : Number(m[1]);
 }
 
 /** 5.5.1 age keywords → bounded 7.0 ages; normalize unit casing and bare years. */
@@ -309,6 +314,9 @@ function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
   rela.tag = "ROLE";
   if (role) {
     rela.value = role;
+    // "Godmother" is GODP, but GODP comes back as "godparent": the file's own
+    // wording rides on the ROLE's PHRASE, which the downgrade restores.
+    if (text !== ROLE_TO_RELA[role]) rela.children.unshift(plain("PHRASE", text));
   } else {
     rela.value = "OTHER";
     if (text) rela.children.unshift(plain("PHRASE", text));
@@ -344,7 +352,11 @@ function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
     const form = firstChild(file, "FORM");
     if (!form?.value || form.value.includes("/")) continue;
     const before = describe(form);
-    form.value = EXT_TO_MIME[form.value.trim().toLowerCase()] ?? "application/octet-stream";
+    // A format with no registered type keeps its name in a private subtype
+    // (`application/x-xyz`), which the downgrade reads back; octet-stream
+    // would say only "some bytes".
+    const ext = form.value.trim().toLowerCase();
+    form.value = EXT_TO_MIME[ext] ?? (/^[a-z0-9]+$/.test(ext) ? `application/x-${ext}` : "application/octet-stream");
     const type = firstChild(form, "TYPE");
     if (type) type.tag = "MEDI";
     report(ctx, form, before);
@@ -358,7 +370,70 @@ const UNDERSCORE_DOWNGRADES: Record<string, string> = {
   UID: "_UID",
   CREA: "_CREA",
   NO: "_NO",
+  SDATE: "_SDATE",
 };
+
+/** A 7.0 note's substructures, none of which 5.5.1's NOTE has. */
+const NOTE_DOWNGRADES: Record<string, string> = {
+  MIME: "_MIME",
+  LANG: "_LANG",
+  TRAN: "_TRAN",
+};
+
+function isVoidPointer(value: string | undefined): boolean {
+  return value?.trim().toUpperCase() === VOID_XREF;
+}
+
+/**
+ * 7.0's `@VOID@` pointer — "someone or something this file does not record" —
+ * has no 5.5.1 form. A family link to nobody says nothing and is dropped. One
+ * that names its target in a `PHRASE` becomes a note with that name, and an
+ * association's note says the role too ("Ana Novak (botra)"); its other lines
+ * go with it, since a reader can still find an unexpected line but not a
+ * dropped one. A citation of an unrecorded source becomes 5.5.1's own form for
+ * that: a text citation, described by its page, with the transcript as TEXT.
+ *
+ * Runs first, while an association's role is still 7.0's `ROLE`.
+ */
+function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
+  walkNodes(records, (node) => {
+    if (!node.children.some((c) => isVoidPointer(c.value))) return;
+    const kept: GedNode[] = [];
+    for (const child of node.children) {
+      if (!isVoidPointer(child.value)) {
+        kept.push(child);
+        continue;
+      }
+      const before = `${node.tag}.${child.tag} ${VOID_XREF}`;
+      const replaced = child.tag === "SOUR" ? voidCitation(child) : voidAsNote(child);
+      ctx.changed++;
+      ctx.onChange(before, replaced ? `${node.tag}.${describe(replaced)}` : "—");
+      if (replaced) kept.push(replaced);
+    }
+    node.children = kept;
+  });
+}
+
+function voidAsNote(node: GedNode): GedNode | undefined {
+  const phrase = firstChild(node, "PHRASE")?.value?.trim();
+  if (!phrase) return undefined;
+  const role = node.tag === "ASSO" ? firstChild(node, "ROLE") : undefined;
+  const roleText = role && (firstChild(role, "PHRASE")?.value?.trim() || ROLE_TO_RELA[role.value?.trim().toUpperCase() ?? ""]);
+  const note = plain("NOTE", roleText ? `${phrase} (${roleText})` : phrase);
+  note.level = node.level;
+  note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE");
+  return note;
+}
+
+function voidCitation(node: GedNode): GedNode | undefined {
+  const page = firstChild(node, "PAGE")?.value?.trim();
+  const texts = firstChild(node, "DATA")?.children.filter((c) => c.tag === "TEXT") ?? [];
+  if (!page && texts.length === 0) return undefined;
+  const rest = node.children.filter((c) => c.tag !== "PAGE" && c.tag !== "DATA");
+  node.value = page ?? "";
+  node.children = [...texts, ...rest];
+  return node;
+}
 
 /**
  * 5.5.1 defines `ASSO` in one place: under an `INDI` record. Both of the other
@@ -412,6 +487,7 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
 }
 
 function downgrade(records: GedNode[], ctx: MigrateCtx): void {
+  downgradeVoidPointers(records, ctx);
   const snoteXrefs = new Set(
     records.filter((r) => r.tag === "SNOTE" && r.xref).map((r) => r.xref!),
   );
@@ -422,6 +498,13 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
   }
 
   walkNodes(records, (node) => {
+    // A note is visited before its lines, so its TRAN is renamed before the
+    // name-variant rewrite below could take it for a ROMN/FONE.
+    if (node.tag === "NOTE" && !isPointer(node.value)) {
+      for (const c of node.children) {
+        if (c.tag in NOTE_DOWNGRADES) report(ctx, retag(c, NOTE_DOWNGRADES[c.tag]), `NOTE.${describe(c)}`);
+      }
+    }
     if (node.tag === "SNOTE" && isPointer(node.value) && snoteXrefs.has(node.value)) {
       report(ctx, retag(node, "NOTE"), `SNOTE ${node.value}`);
     } else if (node.tag === "DATE") {
@@ -457,12 +540,14 @@ function downgradeDate(node: GedNode, ctx: MigrateCtx): void {
   const original = node.value;
   let value = node.value?.trim() ?? "";
 
-  value = value.replace(/^(GREGORIAN|JULIAN|HEBREW|FRENCH_R)\s+/i, (_m, cal: string) => {
+  // A calendar leads the date or follows a qualifier (`ABT JULIAN 1750`), and a
+  // range names it on each end; the five keywords are no month or qualifier.
+  value = value.replace(/(^|\s)(GREGORIAN|JULIAN|HEBREW|FRENCH_R)\s+/gi, (_m, lead: string, cal: string) => {
     const tag = cal.toUpperCase();
-    if (tag === "GREGORIAN") return ""; // the 5.5.1 default needs no escape
-    return `@#D${tag.replace("_", " ")}@ `;
+    if (tag === "GREGORIAN") return lead; // the 5.5.1 default needs no escape
+    return `${lead}@#D${tag.replace("_", " ")}@ `;
   });
-  value = value.replace(/\bBCE\b/i, "B.C.");
+  value = value.replace(/\bBCE\b/gi, "B.C.");
 
   if (phraseNode?.value) {
     value = value ? `INT ${value} (${phraseNode.value})` : `(${phraseNode.value})`;
@@ -535,7 +620,7 @@ function downgradeObje(node: GedNode, ctx: MigrateCtx): void {
     if (!form?.value?.includes("/")) continue;
     const before = describe(form);
     const ext = MIME_TO_EXT[form.value.trim().toLowerCase()];
-    form.value = ext ?? form.value.split("/").pop()!;
+    form.value = ext ?? form.value.split("/").pop()!.replace(/^x-/i, "");
     const medi = firstChild(form, "MEDI");
     if (medi) medi.tag = "TYPE";
     report(ctx, form, before);

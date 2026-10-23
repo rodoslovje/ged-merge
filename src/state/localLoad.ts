@@ -32,6 +32,11 @@ export class LocalLoads {
   private compareBytes: { fileName: string; buffer: ArrayBuffer } | undefined;
   private compareRaw: { fileName: string; dataset: Dataset } | undefined;
   private profile: MainProfile | undefined;
+  /** The compare dataset last resolved — what a consolidation replays onto.
+   *  Kept here, not read from React state: the worker posts the compare and
+   *  its consolidation back to back, and both can be handled before a render
+   *  stores the first. */
+  private lastCompare: { fileName: string; dataset: Dataset } | undefined;
 
   /**
    * Send a request to the worker, and for a GEDCOM `parse` that will be
@@ -71,21 +76,33 @@ export class LocalLoads {
   /**
    * The dataset a `parsed` message stands for: the message's own (a table
    * compare), the local main, the local compare normalized to the profile, or
-   * the current compare with the announced consolidation replayed. Undefined
-   * when the local copy is missing — a parse the worker accepted but this side
-   * did not, which the caller reports as a failed slot.
+   * the last resolved compare with the announced consolidation replayed.
+   * Undefined when the local copy is missing — a parse the worker accepted but
+   * this side did not, which the caller reports as a failed slot.
    */
-  resolve(msg: Parsed, currentCompare: Dataset | undefined): Dataset | undefined {
-    if (msg.role === "main") {
-      this.profile = msg.profile;
-      if (msg.dataset) return msg.dataset;
-      const main = this.main?.fileName === msg.fileName ? this.main.dataset : undefined;
-      // The worker already walked the file for its place format; hand the
-      // answer to this side's copy so the first place field need not.
-      if (main && msg.placeFmt) primePlaceExportFormat(main, msg.placeFmt);
-      return main;
-    }
+  resolve(msg: Parsed): Dataset | undefined {
+    if (msg.role === "main") return this.resolveMain(msg);
+    const dataset = this.resolveCompare(msg);
+    this.lastCompare = dataset ? { fileName: msg.fileName, dataset } : undefined;
+    return dataset;
+  }
+
+  private resolveMain(msg: Parsed): Dataset | undefined {
+    this.profile = msg.profile;
+    if (msg.dataset) return msg.dataset;
+    const main = this.main?.fileName === msg.fileName ? this.main.dataset : undefined;
+    // The worker already walked the file for its place format; hand the
+    // answer to this side's copy so the first place field need not.
+    if (main && msg.placeFmt) primePlaceExportFormat(main, msg.placeFmt);
+    return main;
+  }
+
+  private resolveCompare(msg: Parsed): Dataset | undefined {
+    // A compare normalized by the worker names the profile it used: after a
+    // silent main re-feed that is the only word this side gets of it.
+    if (msg.profile) this.profile = msg.profile;
     if (msg.consolidated) {
+      const currentCompare = this.lastCompare?.fileName === msg.fileName ? this.lastCompare.dataset : undefined;
       if (!currentCompare) return undefined;
       for (const { keepId, mergeIds } of msg.consolidated) {
         for (const id of mergeIds) mergeDuplicate(currentCompare, keepId, id, { status: "confirmed", fields: {} }, rawLabel);
@@ -119,6 +136,7 @@ export class LocalLoads {
   clearCompare(): void {
     this.compareBytes = undefined;
     this.compareRaw = undefined;
+    this.lastCompare = undefined;
   }
 }
 

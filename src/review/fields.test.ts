@@ -627,7 +627,7 @@ describe("isMajorDifference", () => {
   it("leaves other conflicting fields, and one-sided names, alone", () => {
     const rows = rowsOf(
       `1 NAME A /B/\n1 BIRT\n2 PLAC Kranj\n1 DEAT\n2 DATE 1950\n`,
-      `1 NAME A /B/ /*/\n1 BIRT\n2 PLAC Ljubljana\n1 DEAT\n2 DATE 1970\n`,
+      `1 NAME A /B/ Jr\n1 BIRT\n2 PLAC Ljubljana\n1 DEAT\n2 DATE 1970\n`,
     );
     expect(major(rows)).toEqual([]);
   });

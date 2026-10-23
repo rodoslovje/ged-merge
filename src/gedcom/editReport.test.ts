@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { parseGedcom } from "./parser";
 import type { ChangeReport } from "../merge/merge";
-import { buildEditReport, combineReports, enrichEditReport, removeRecordFromReport } from "./editReport";
+import { buildEditReport, combineReports, enrichEditReport, removeRecordFromReport, sharedRecordTitle } from "./editReport";
 import { cloneNode } from "./node";
 
 function dataset(text: string) {
@@ -229,8 +229,22 @@ describe("enrichEditReport — event diffing", () => {
     expect(birt[0].segments).toEqual([
       { text: "1901", state: "same" },
       { text: "Kranj", state: "same" },
-      { text: "46.2389, 14.3556", state: "changed" },
+      { text: "46.23890, 14.35560", state: "changed" },
     ]);
+  });
+
+  it("shows a coordinate nudged by a few metres, finer than four decimals", () => {
+    const place = "2 PLAC Kranj\n3 MAP\n4 LATI N46.23890\n4 LONG E14.35560\n";
+    const before = dataset(wrap(`0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n${place}`));
+    const after = dataset(
+      wrap(`0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n${place.replace("N46.23890", "N46.23893")}`),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].segments).toContainEqual({ text: "46.23893, 14.35560", from: "46.23890, 14.35560", state: "changed" });
   });
 
   it("renders a brand-new event as a plain addition (no segments)", () => {
@@ -290,7 +304,7 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
 
     const chra = report.changes.filter((c) => c.group === "event.CHRA");
     expect(chra).toHaveLength(1);
-    expect(chra[0].segments).toContainEqual({ text: "46.2389, 14.3556", state: "changed" });
+    expect(chra[0].segments).toContainEqual({ text: "46.23890, 14.35560", state: "changed" });
   });
 
   it("shows a place rename on a family MARB (banns) event", () => {
@@ -1017,5 +1031,43 @@ describe("enrichEditReport — a family membership folded away by a duplicate me
 
     const spouseOf = report.changes.filter((c) => c.recordId === "@I1@" && c.field === "field.spouseOf");
     expect(spouseOf).toEqual([{ recordId: "@I1@", field: "field.spouseOf", from: "@F9@", to: "", action: "incoming" }]);
+  });
+});
+
+describe("enrichEditReport — GEDCOM 7 SNOTE notes", () => {
+  const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+  const NOTES = "0 @N1@ SNOTE Shared family story\n0 @N2@ SNOTE Private remark\n1 RESN PRIVACY\n";
+
+  it("reads an SNOTE pointer as its record's text and privacy", () => {
+    const before = dataset(wrap7(`0 @I1@ INDI\n1 NAME Ana /Novak/\n1 SNOTE @N1@\n${NOTES}`));
+    const after = dataset(wrap7(`0 @I1@ INDI\n1 NAME Ana /Novak/\n1 SNOTE @N2@\n${NOTES}`));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toEqual([
+      { recordId: "@I1@", field: "field.notes", from: "Shared family story", to: "", action: "incoming", private: undefined },
+      { recordId: "@I1@", field: "field.notes", from: "", to: "Private remark", action: "both", private: true },
+    ]);
+    expect(report.changes.some((c) => c.field === "field.otherLines")).toBe(false);
+  });
+
+  it("names a shared SNOTE record by its text", () => {
+    const ds = dataset(wrap7(NOTES));
+    expect(sharedRecordTitle("@N1@", ds.records.find((r) => r.xref === "@N1@")!)).toBe("Shared family story");
+  });
+});
+
+describe("enrichEditReport — record links", () => {
+  it("reports a removed _LINK record link, which Edit shows and removes like a WWW", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _LINK https://example.org/janez\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const links = report.changes.filter((c) => c.field === "field.sources");
+    expect(links).toEqual([
+      { recordId: "@I1@", field: "field.sources", from: "https://example.org/janez", to: "", action: "incoming" },
+    ]);
   });
 });

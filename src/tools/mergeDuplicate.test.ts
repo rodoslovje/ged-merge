@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
+import { applyRecordPatches } from "../ui/historyTypes";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
@@ -105,6 +106,23 @@ describe("mergeDuplicate", () => {
     expect(fam.wife).toBe("@I3@");
     expect(fam.children).toContain("@I4@"); // child carried over
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("repoints a third record naming the folded family, and undoes it", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Jože /Horvat/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Jože /Horvat/\n1 SEX M\n1 FAMS @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Marija /Horvat/\n1 SEX F\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+      "0 @I5@ INDI\n1 NAME Priča /Kos/\n1 ASSO @F2@\n2 RELA Witness\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n1 MARR\n2 DATE 1880\n" +
+      "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n",
+    ));
+    const original = serializeGedcom(ds.records);
+    const patches = mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    expect(ds.families.has("@F2@")).toBe(false);
+    expect(ds.individuals.get("@I5@")!.raw.children.find((c) => c.tag === "ASSO")?.value).toBe("@F1@");
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(original);
   });
 
   // A person has one set of parents, so the two parent families are an

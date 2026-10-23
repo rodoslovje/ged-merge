@@ -144,6 +144,88 @@ describe("decodeGedcom charset detection", () => {
   });
 });
 
+describe("decodeGedcom ANSEL table", () => {
+  it("decodes the GEDCOM and MARC-8 additions to ANSEL", () => {
+    // CF ß (GEDCOM), C7 ß and C8 € (MARC-8), BE □ and BF ■ (GEDCOM boxes),
+    // B7 ʺ hard sign, CD/CE midline e/o, FC slash through the letter.
+    const { text, warnings } = decodeGedcom(
+      ged("ANSEL", [0xcf, 0xc7, 0xc8, 0xbe, 0xbf, 0xb7, 0xcd, 0xce, 0xfc, 0x6f]),
+    );
+    expect(text).toContain("ßß€□■ʺeo" + "o\u0338");
+    expect(warnings.some((w) => /unmapped/.test(w.message))).toBe(false);
+  });
+});
+
+describe("decodeGedcom other declared charsets", () => {
+  it.each([
+    // Latin-2: 0xA9 Š, 0xE8 č, 0xBE ž (Windows-1250 has Š at 0x8A, ž at 0x9E).
+    ["ISO8859-2", [0xa9, 0xe8, 0xbe], "Ščž", "ISO-8859-2"],
+    ["ISO-8859-2", [0xa9, 0xe8, 0xbe], "Ščž", "ISO-8859-2"],
+    ["LATIN2", [0xa9, 0xe8, 0xbe], "Ščž", "ISO-8859-2"],
+    ["ISO-8859-1", [0xe9, 0xfc], "éü", "ISO-8859-1"],
+    ["LATIN1", [0xe9, 0xfc], "éü", "ISO-8859-1"],
+    // Mac Roman: 0x8E é, 0x9F ü, 0xA7 ß.
+    ["MACINTOSH", [0x8e, 0x9f, 0xa7], "éüß", "MACINTOSH"],
+    // DOS code pages: 0x82 é, 0x81 ü, 0xE1 ß in both; 0x9B is ¢ in 437, ø in 850.
+    ["IBMPC", [0x82, 0x81, 0xe1, 0x9b], "éüß¢", "IBM437"],
+    ["IBM850", [0x82, 0x81, 0xe1, 0x9b], "éüßø", "IBM850"],
+  ])("decodes CHAR %s with its own code page", (label, bytes, expected, charset) => {
+    const res = decodeGedcom(ged(label, bytes));
+    expect(res.text).toContain(expected);
+    expect(res.charset).toBe(charset);
+  });
+
+  it.each(["IBMPC", "IBM850"])("maps every high byte of CHAR %s to one character", (label) => {
+    const high = Array.from({ length: 128 }, (_, i) => 0x80 + i);
+    const { text } = decodeGedcom(ged(label, high));
+    const name = [...text.split("NAME ")[1].replace(/\n$/, "")];
+    expect(name).toHaveLength(128);
+    expect(name.join("")).not.toMatch(/undefined|�/);
+  });
+});
+
+describe("decodeGedcom UTF-16 without a BOM", () => {
+  const src = "0 HEAD\n1 CHAR UNICODE\n1 NAME Žan\n";
+  const utf16 = (littleEndian: boolean): ArrayBuffer => {
+    const out = new Uint8Array(src.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < src.length; i++) view.setUint16(i * 2, src.charCodeAt(i), littleEndian);
+    return out.buffer;
+  };
+
+  it.each([
+    ["little-endian", true],
+    ["big-endian", false],
+  ])("recognises %s UTF-16 from its NUL-interleaved header", (_, le) => {
+    const { text, charset } = decodeGedcom(utf16(le));
+    expect(charset).toBe("UNICODE");
+    expect(text).toBe(src);
+  });
+});
+
+describe("decodeGedcom with classic-Mac (CR-only) line endings", () => {
+  it("reads the declared CHAR from a CR-only header", () => {
+    // ANSEL 0xE2 = combining acute before its letter: "é".
+    const bytes = new Uint8Array([...ascii("0 HEAD\r1 CHAR ANSEL\r1 NAME Ren"), 0xe2, 0x65, 0x0d]);
+    const { text, charset } = decodeGedcom(bytes.buffer);
+    expect(charset).toBe("ANSEL");
+    expect(text).toContain("René");
+  });
+
+  it("heals a UTF-8 character split across a CR-only CONC wrap", () => {
+    const bytes = new Uint8Array([
+      ...ascii("0 HEAD\r1 CHAR UTF-8\r1 NAME Kra"),
+      0xc4,
+      ...ascii("\r2 CONC "),
+      0x87,
+      ...ascii("an\r"),
+    ]);
+    const { text } = decodeGedcom(bytes.buffer);
+    expect(text).toContain("Krać");
+    expect(text).not.toContain("�");
+  });
+});
+
 describe("decodeTableText (CSV bytes with no charset header)", () => {
   const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 

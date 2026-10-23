@@ -1,6 +1,7 @@
 import { cloneNode } from "../gedcom/node";
 import { isPointer } from "../gedcom/uri";
-import { isPrivateNode, setPrivateFlag, detectPrivacyStyle, type PrivacyTagStyle } from "../gedcom/private";
+import { isPrivacyMarker, isPrivateNode, isV7,setPrivateFlag, detectPrivacyStyle, type PrivacyTagStyle } from "../gedcom/private";
+import { NOTE_TAGS } from "../gedcom/builder";
 import type { GedNode } from "../gedcom/types";
 import type { NormChange } from "../normalize/types";
 import { nextXref } from "../gedcom/edit/shared";
@@ -45,7 +46,7 @@ const isRecordLevel = (depth: number) => depth === 1;
 /** Whether a top-level record's notes are this pass's business — see
  *  {@link reshapeNotes} for the two exceptions. */
 function carriesNotes(rec: GedNode): boolean {
-  return !!rec.xref && rec.tag !== "NOTE";
+  return !!rec.xref && !NOTE_TAGS.includes(rec.tag);
 }
 
 /**
@@ -82,7 +83,7 @@ export function reshapeNotes(
   const style = detectPrivacyStyle(records);
   const noteRecords = new Map<string, GedNode>();
   for (const rec of records) {
-    if (rec.tag === "NOTE" && rec.xref) noteRecords.set(rec.xref, rec);
+    if (NOTE_TAGS.includes(rec.tag) && rec.xref) noteRecords.set(rec.xref, rec);
   }
 
   /** Referrer count per shared NOTE, so a record is only deleted once the last
@@ -91,7 +92,7 @@ export function reshapeNotes(
   const refCounts = new Map<string, number>();
   const countRefs = (node: GedNode) => {
     for (const child of node.children) {
-      const v = child.tag === "NOTE" ? child.value?.trim() : undefined;
+      const v = NOTE_TAGS.includes(child.tag) ? child.value?.trim() : undefined;
       if (v && isPointer(v)) refCounts.set(v, (refCounts.get(v) ?? 0) + 1);
       countRefs(child);
     }
@@ -102,7 +103,7 @@ export function reshapeNotes(
 
   const walk = (node: GedNode, depth: number): void => {
     for (const child of node.children) {
-      if (child.tag === "NOTE" && inScope(depth)) {
+      if (NOTE_TAGS.includes(child.tag) && inScope(depth)) {
         const value = child.value?.trim() ?? "";
         if (target === "shared" && !isPointer(value) && value) {
           toShared(child, note, records, noteRecords);
@@ -123,12 +124,23 @@ export function reshapeNotes(
   if (target === "inline") {
     for (const [xref, count] of refCounts) {
       if (count > 0) continue;
-      const i = records.findIndex((r) => r.tag === "NOTE" && r.xref === xref);
+      const i = records.findIndex((r) => NOTE_TAGS.includes(r.tag) && r.xref === xref);
       if (i !== -1) records.splice(i, 1);
     }
   }
 
   return { changed, examples };
+}
+
+/** A shared note record's own bookkeeping — its history and identity, which
+ *  describe the record and are not carried onto the inline note it becomes. */
+const RECORD_ONLY_TAGS = new Set(["CHAN", "CREA", "RIN", "UID", "_UID", "REFN", "EXID", "_UPD"]);
+
+/** Re-base a moved line and everything under it onto `level`. */
+function relevel(node: GedNode, level: number): GedNode {
+  node.level = level;
+  for (const c of node.children) relevel(c, level + 1);
+  return node;
 }
 
 /** Lift an inline note into a shared record and leave a pointer behind. */
@@ -140,15 +152,19 @@ function toShared(
 ): void {
   const text = noteNode.value ?? "";
   const xref = nextXref(records, "N");
-  const rec: GedNode = { level: 0, xref, tag: "NOTE", value: text, children: [] };
+  // GEDCOM 7 spells a shared note and its pointer `SNOTE` (its `NOTE` is
+  // inline text only); 5.5.1 uses `NOTE` for both.
+  const tag = isV7(records) ? "SNOTE" : "NOTE";
+  const rec: GedNode = { level: 0, xref, tag, value: text, children: [] };
   // Everything hanging off the inline note travels with it, privacy marker
   // included — the flag belongs to the note, and on a pointer note the note is
   // the record.
-  for (const child of noteNode.children) rec.children.push(cloneNode(child));
+  for (const child of noteNode.children) rec.children.push(relevel(cloneNode(child), 1));
   // A record before TRLR, like every other record this app creates.
   const trlr = records.findIndex((r) => r.tag === "TRLR");
   records.splice(trlr === -1 ? records.length : trlr, 0, rec);
   noteRecords.set(xref, rec);
+  noteNode.tag = tag;
   noteNode.value = xref;
   noteNode.children = [];
   note(preview(text), `${xref} → ${preview(text)}`);
@@ -166,16 +182,21 @@ function toInline(
 ): void {
   const rec = noteRecords.get(xref);
   if (!rec) return; // dangling pointer — not this pass's business to invent text
+  // An inline note is a `NOTE` in either version — 7.0's `SNOTE` is a pointer.
+  noteNode.tag = "NOTE";
   // MacFamilyTree starts a note record's text on a `1 CONT` line, so its value
   // begins with a newline. Carried over as-is that becomes a bare `1 NOTE`
   // followed by `2 CONT …` — the record's own layout habit, not the note's
   // content, and nothing anyone wants written into 163 people.
   noteNode.value = (rec.value ?? "").replace(/^\n+/, "");
-  // The record's own sub-structure does not all belong on an inline note: its
-  // CHAN/CREA are the *record's* history and mean nothing once the record is
-  // gone. The privacy flag does belong to the note, so it is the one thing
-  // carried over — rewritten in the file's dialect at the note's new level.
-  noteNode.children = [];
+  // The note's own sub-structure — its citations, LANG, TRAN, MIME — travels
+  // with its text. The record's bookkeeping does not: CHAN/CREA are the
+  // *record's* history, RIN/UID/REFN its identity, and all of it means nothing
+  // once the record is gone. The privacy flag belongs to the note, but is
+  // rewritten in the file's dialect at the note's new level.
+  noteNode.children = rec.children
+    .filter((c) => !RECORD_ONLY_TAGS.has(c.tag) && !isPrivacyMarker(c))
+    .map((c) => relevel(cloneNode(c), noteNode.level + 1));
   if (isPrivateNode(rec)) setPrivateFlag(noteNode, true, style, records);
   refCounts.set(xref, (refCounts.get(xref) ?? 1) - 1);
   note(`${xref} → ${preview(rec.value ?? "")}`, preview(rec.value ?? ""));
@@ -187,7 +208,7 @@ export function sharedNotesUsedTwice(records: GedNode[]): number {
   const counts = new Map<string, number>();
   const walk = (node: GedNode) => {
     for (const child of node.children) {
-      const v = child.tag === "NOTE" ? child.value?.trim() : undefined;
+      const v = NOTE_TAGS.includes(child.tag) ? child.value?.trim() : undefined;
       if (v && isPointer(v)) counts.set(v, (counts.get(v) ?? 0) + 1);
       walk(child);
     }
@@ -228,7 +249,7 @@ function noteShapeCounts(records: GedNode[]) {
   const counts = { record: { shared: 0, inline: 0 }, event: { shared: 0, inline: 0 } };
   const walk = (node: GedNode, depth: number) => {
     for (const child of node.children) {
-      if (child.tag === "NOTE") {
+      if (NOTE_TAGS.includes(child.tag)) {
         const bucket = isRecordLevel(depth) ? counts.record : counts.event;
         const v = child.value?.trim();
         if (v && isPointer(v)) bucket.shared++;

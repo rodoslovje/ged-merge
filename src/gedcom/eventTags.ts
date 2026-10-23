@@ -277,6 +277,12 @@ export const INDI_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAG_ORDER, "M
 /** Event-bearing FAM children lifted into the typed `events` array. */
 export const FAM_EVENT_TAGS: Set<string> = new Set(FAM_EVENT_TAG_ORDER);
 
+/** Events that happen at most once in a life. Edit's "+ Add event" stops
+ *  offering one already present (adding again focuses the existing row), and
+ *  the merge review pairs a main and an incoming one of the same tag whatever
+ *  their dates and places say. */
+export const SINGLE_EVENT_TAGS: ReadonlySet<string> = new Set(["BIRT", "DEAT", "BURI", "_FNRL", "_INTE"]);
+
 /** Every event-bearing tag on either record kind. */
 export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_EVENT_TAGS]);
 

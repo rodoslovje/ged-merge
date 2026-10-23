@@ -92,6 +92,52 @@ describe("reshapeNotes — shared to inline", () => {
     expect(text).not.toContain("CHAN");
   });
 
+  it("lifting an event note keeps its sub-lines on the record, levels rebased", () => {
+    const records = parse([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 NOTE an event note",
+      "3 SOUR @S1@",
+      "4 PAGE p. 12",
+      "0 TRLR",
+      "",
+    ]);
+    reshapeNotes(records, "shared");
+    expect(serializeGedcom(records)).toContain("0 @N1@ NOTE an event note\n1 SOUR @S1@\n2 PAGE p. 12\n");
+    const rec = records.find((r) => r.xref === "@N1@")!;
+    expect(rec.children[0].level).toBe(1);
+    expect(rec.children[0].children[0].level).toBe(2);
+  });
+
+  it("keeps the record's citations and other sub-lines on the inline note, levels rebased", () => {
+    const records = parse([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 BIRT",
+      "2 NOTE @N1@",
+      "0 @N1@ NOTE a shared note",
+      "1 SOUR @S1@",
+      "2 PAGE p. 12",
+      "1 LANG Slovenian",
+      "1 RIN 77",
+      "1 _UID ABC",
+      "1 CHAN",
+      "2 DATE 20 DEC 2025",
+      "0 @S1@ SOUR",
+      "1 TITL Register",
+      "0 TRLR",
+      "",
+    ]);
+    reshapeNotes(records, "inline");
+    const text = serializeGedcom(records);
+    expect(text).toContain("2 NOTE a shared note\n3 SOUR @S1@\n4 PAGE p. 12\n3 LANG Slovenian\n");
+    expect(text).not.toMatch(/RIN|_UID|CHAN/);
+    const note = records.find((r) => r.xref === "@I1@")!.children[0].children[0];
+    expect(note.children.map((c) => c.level)).toEqual([3, 3]);
+    expect(note.children[0].children[0].level).toBe(4);
+  });
+
   it("starts the text on the NOTE line even when the record started it on a CONT", () => {
     // MacFamilyTree writes "0 @N1@ NOTE" + "1 CONT text", so the record's value
     // begins with a newline. Carried over verbatim that flattens to a bare
@@ -198,5 +244,43 @@ describe("sharedNotesUsedTwice", () => {
       "0 TRLR",
       "",
     ]))).toBe(1);
+  });
+});
+
+describe("reshapeNotes — GEDCOM 7 SNOTE", () => {
+  const V7 = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 7.0",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 SNOTE @N1@",
+    "1 BIRT",
+    "2 SNOTE @N1@",
+    "0 @I2@ INDI",
+    "1 NAME Ana /Kos/",
+    "1 NOTE an inline note",
+    "0 @N1@ SNOTE a shared note",
+    "0 TRLR",
+    "",
+  ];
+
+  it("counts SNOTE pointers as shared notes", () => {
+    expect(detectNoteShapes(parse(V7))).toEqual({ record: "inline", event: "shared" });
+    expect(sharedNotesUsedTwice(parse(V7))).toBe(1);
+  });
+
+  it("flattens an SNOTE pointer into an inline NOTE and drops the record", () => {
+    const { text, changed } = out(V7, "inline");
+    expect(changed).toBe(2);
+    expect(text).toContain("1 NOTE a shared note\n1 BIRT\n2 NOTE a shared note");
+    expect(text).not.toContain("SNOTE");
+  });
+
+  it("lifts an inline note into an SNOTE record and pointer", () => {
+    const { text } = out(V7, "shared");
+    expect(text).toContain("1 SNOTE @N2@");
+    expect(text).toContain("0 @N2@ SNOTE an inline note");
+    expect(text).not.toMatch(/^\d NOTE /m);
   });
 });

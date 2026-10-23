@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EVENT_GLYPHS,
   GENERIC_EVENT_GLYPH,
+  SINGLE_EVENT_TAGS,
   UNMARRIED_UNION_GLYPH,
   VENDOR_EVENT_GLYPH,
   customEventLabel,
@@ -137,5 +138,14 @@ describe("customEventTooltip", () => {
     expect(customEventTooltip("MYHERITAGE:REL_PARTNERS", t, "sl")).toContain("partnerja");
     expect(customEventTooltip("Civil Partnership", t, "en")).toBeUndefined();
     expect(customEventTooltip(undefined, t, "en")).toBeUndefined();
+  });
+});
+
+describe("SINGLE_EVENT_TAGS", () => {
+  // One list for Edit's "+ Add event" (which stops offering a present one) and
+  // the merge review's pairing — Edit's own copy once lacked the funeral and
+  // the interment, so it offered a second _FNRL.
+  it("holds every once-in-a-life event, the vendor funeral and interment included", () => {
+    expect([...SINGLE_EVENT_TAGS].sort()).toEqual(["BIRT", "BURI", "DEAT", "_FNRL", "_INTE"]);
   });
 });

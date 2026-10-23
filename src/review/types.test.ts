@@ -171,4 +171,27 @@ describe("withFreshDecision", () => {
     expect([...decisions.keys()]).toEqual([wife, husband]);
     expect(decisions.size).toBe(2);
   });
+
+  // One incoming person is one person: confirmed against two main records,
+  // the merge applied its fields to both.
+  it("takes back an earlier confirmation of the same incoming person", () => {
+    const first = decisionKey("individual", "@I1@", "@P1@");
+    const second = decisionKey("individual", "@I2@", "@P1@");
+    const other = decisionKey("individual", "@I3@", "@P3@");
+    let decisions = new Map<string, CandidateDecision>();
+    decisions = withFreshDecision(decisions, first, confirmed({ given: "incoming" }));
+    decisions = withFreshDecision(decisions, other, confirmed());
+    decisions = withFreshDecision(decisions, second, confirmed());
+    expect(decisions.get(second)?.status).toBe("confirmed");
+    expect(decisions.get(first)).toEqual({ status: "undecided", fields: { given: "incoming" } });
+    expect(decisions.get(other)?.status).toBe("confirmed");
+  });
+
+  it("leaves a rejected pair of the same incoming person alone", () => {
+    const first = decisionKey("individual", "@I1@", "@P1@");
+    const second = decisionKey("individual", "@I2@", "@P1@");
+    let decisions = new Map<string, CandidateDecision>([[first, rejected()]]);
+    decisions = withFreshDecision(decisions, second, confirmed());
+    expect(decisions.get(first)?.status).toBe("rejected");
+  });
 });

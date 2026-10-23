@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, isOccurrenceFlag } from "../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
@@ -1496,11 +1496,10 @@ function stateOf(key: string, main: string, incoming: string): FieldState {
 
 
 /** Events that can occur at most once per person — always paired with the incoming side, never score-gated. */
-/** Events that happen at most once in a life, so a main and an incoming one of
- *  the same tag are always the same event: they pair whatever their dates and
- *  places say (below), and an event Edit materializes from an incoming
- *  suggestion can therefore go on being compared against it (see EventList). */
-export const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI", "_FNRL", "_INTE"]);
+/** Single events pair whatever their dates and places say (below), and an
+ *  event Edit materializes from an incoming suggestion can therefore go on
+ *  being compared against it (see EventList). Re-exported for EventList. */
+export { SINGLE_EVENT_TAGS };
 
 export function orderedEventTags(
   main?: Individual,

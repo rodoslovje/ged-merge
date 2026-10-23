@@ -370,8 +370,10 @@ export interface NoteIndexEntry {
 /** Map of top-level NOTE record xref -> its text + private flag. */
 export type NoteIndex = Map<string, NoteIndexEntry>;
 
-/** Tags whose value is, by convention, a link/URL even without a scheme. */
-export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
+/** Tags whose value is, by convention, a link/URL even without a scheme: the
+ *  editable link tags plus a media `FILE` line (detection only — a link edit
+ *  never sweeps FILE). */
+export const LINK_TAGS = new Set<string>([...EDITABLE_LINK_TAGS, "FILE"]);
 
 // `URL_RE` and `stripTrailingPunct` live in `uri.ts` (the source resolver needs
 // them too) and are re-exported here for their callers.

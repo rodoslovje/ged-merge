@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode, type Mode } from "./ui/useMode";
@@ -15,21 +15,19 @@ import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
 import { NOT_GEDCOM } from "./gedcom/parser";
-import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { isTableFile } from "./csv/compareCsv";
-import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, familyMembers, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
+import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
-import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
+import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
-import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
-import { removeRecordFromReport } from "./gedcom/editReport";
+import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edit/removeFromSave";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
@@ -218,7 +216,9 @@ function AppContent() {
    * Settings overrides), no ages — so the two sets of strings are comparable.
    * Re-stamped on every update while confirmed, including a change to a single
    * field choice: choosing again is a fresh decision about the value on screen
-   * at that moment.
+   * at that moment. The same stamp anchors each event-row choice to its
+   * incoming event (`CandidateDecision.fieldAnchors`), reading the previous
+   * decision to tell the choices this update made from earlier ones.
    */
   function stampMainRows(next: CandidateDecision, mainId: string, compareId: string): CandidateDecision {
     if (next.status !== "confirmed") return next;
@@ -230,7 +230,8 @@ function AppContent() {
     const rejected = next.rejectedEvents?.length ? new Set(next.rejectedEvents) : undefined;
     const placeFmt = mergePlaceFormat(mainDs, formatOverridesRef.current);
     const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, placeFmt, rejected);
-    return { ...next, mainFields: snapshotMainValues(rows, INDI_HANDLED) };
+    const prev = decisionsRef.current.get(decisionKey("individual", mainId, compareId));
+    return stampConfirmedDecision(next, prev, rows, INDI_HANDLED);
   }
 
   // Opt-in "graft this whole incoming branch on save" selections, made from the
@@ -423,7 +424,7 @@ function AppContent() {
         // a table compare, the one the message carries); a copy this side
         // failed to build while the worker succeeded is reported as a failed
         // slot rather than left spinning.
-        const dataset = localLoads.resolve(msg, compare.status === "loaded" ? compare.file.dataset : undefined);
+        const dataset = localLoads.resolve(msg);
         if (!dataset) {
           dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: t("load.unreadable") });
           void deleteFile(msg.role);
@@ -1871,115 +1872,61 @@ function AppContent() {
     void refeedWorkerMain(text, mainFileName);
   }
 
+  /** What the dirty tracking knows about a record "Remove from save" would
+   *  take out (see `removeFromSave`). */
+  function revertTracking(id: string, kind: "individual" | "family"): RevertTracking {
+    dirty.ensureBaseline();
+    const ownedRecords: [string, GedNode][] = [];
+    for (const [xref, snap] of dirty.recordSnapshots.current) {
+      if (snap.owner?.kind === kind && snap.owner.id === id) ownedRecords.push([xref, snap.value]);
+    }
+    return {
+      loaded: (kind === "individual" ? dirty.loadedPersonIds : dirty.loadedFamilyIds).current.has(id),
+      snapshot: (kind === "individual" ? dirty.personSnapshots : dirty.familySnapshots).current.get(id),
+      ownedRecords,
+      wasLoadedRecord: (xref) => dirty.baseline.current.has(xref),
+    };
+  }
+
+  function canRemoveRecordFromSave(id: string, kind: "individual" | "family") {
+    return !!mainDataset && canRemoveFromSave(mainDataset, kind, id, revertTracking(id, kind));
+  }
+
   function handleRemoveFromSave(id: string, kind: "individual" | "family") {
     if (!mainDataset || !preview) return;
-    const patches: RecordPatch[] = [];
-
-    if (kind === "individual") {
-      const snapshot = dirty.personSnapshots.current.get(id);
-      const indi = mainDataset.individuals.get(id);
-      if (indi) {
-        const beforeIndi = cloneRaw(indi.raw);
-        if (dirty.loadedPersonIds.current.has(id) && snapshot) {
-          indi.raw.value = snapshot.value;
-          indi.raw.children = snapshot.children.map(cloneNode);
-          rebuildIndividual(mainDataset, indi);
-          patches.push({ type: "individual", id, before: beforeIndi, after: cloneRaw(indi.raw) });
-        } else {
-          // Snapshot the person's families and all their members: pruning a
-          // family that drops below two members unlinks its survivors too.
-          const affectedFamilyIds = [...indi.spouseOf, ...indi.childOf];
-          const memberIds = new Set<string>();
-          for (const famId of affectedFamilyIds) {
-            const fam = mainDataset.families.get(famId);
-            if (fam) for (const m of [fam.husband, fam.wife, ...fam.children]) if (m && m !== id) memberIds.add(m);
-          }
-          const before = snapshotRecords(mainDataset, memberIds, affectedFamilyIds);
-          const recordIndex = mainDataset.records.findIndex((r) => r.xref === id);
-          removeIndividual(mainDataset, indi);
-          patches.push({ type: "individual", id, before: beforeIndi, after: null, ...(recordIndex !== -1 && { index: recordIndex }) });
-          patches.push(...patchesFromSnapshots(mainDataset, before));
-        }
-      }
-      // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
-      dirty.removeDirty("individual", id);
-    } else {
-      const snapshot = dirty.familySnapshots.current.get(id);
-      const fam = mainDataset.families.get(id);
-      if (fam) {
-        const beforeFam = cloneRaw(fam.raw);
-        if (dirty.loadedFamilyIds.current.has(id) && snapshot) {
-          fam.raw.value = snapshot.value;
-          fam.raw.children = snapshot.children.map(cloneNode);
-          rebuildFamily(mainDataset, fam);
-          patches.push({ type: "family", id, before: beforeFam, after: cloneRaw(fam.raw) });
-        } else {
-          const memberIds = familyMembers(mainDataset, fam);
-          const memberBefores = new Map<string, GedNode>();
-          for (const indiId of memberIds) {
-            const indi = mainDataset.individuals.get(indiId);
-            if (indi) memberBefores.set(indiId, cloneRaw(indi.raw));
-          }
-          const recordIndex = mainDataset.records.findIndex((r) => r.xref === id);
-          removeFamily(mainDataset, fam);
-          patches.push({ type: "family", id, before: beforeFam, after: null, ...(recordIndex !== -1 && { index: recordIndex }) });
-          for (const [indiId, before] of memberBefores) {
-            const indi = mainDataset.individuals.get(indiId);
-            patches.push({ type: "individual", id: indiId, before, after: indi ? cloneRaw(indi.raw) : null });
-          }
-        }
-      }
-      // Keep snapshot for undo machinery — it is still needed for dirty tracking on undo/redo.
-      dirty.removeDirty("family", id);
-    }
-
-    if (patches.length > 0) {
-      // Snapshot the batch before pushing it, exactly as `handlePushEdit` does:
-      // taking a record out of the save unlinks (or prunes) everyone around it,
-      // and those records really are changed. Without this they'd reach the
-      // file with no snapshot and no dirty flag — changed, and unreported.
-      dirty.captureSnapshotsForPush(patches);
-      undoRedo.push({ mode: "edit", patches, navigateTo: id });
-      // Every record the cascade touched is dirty. The one being taken out of
-      // the save is not: it was just put back the way the file had it, and
-      // `dirty.removeDirty` above said so. (Shared-record patches were flagged
-      // by `captureSnapshotsForPush` above; `id` is a person or family, so the
-      // skip only ever concerns the typed patches here.)
-      for (const p of patches) {
-        if (p.id === id || p.type === "record") continue;
-        dirty.markDirty(p.type, p.id, mainDataset);
-      }
-      bumpEdit();
-    }
-
-    // The revert above mutated the live dataset, not the preview's records (an
-    // independent clone) — re-derive them so the download actually drops what
-    // the user just removed from the save. `id` is excluded from the event sort:
-    // it has been restored to its pre-edit snapshot, so reordering it now would
-    // write a change the user just asked to leave out. (`changedPersonIds` still
-    // lists it here — `dirty.removeDirty` above only queued a state update.)
-    // Built outside the updater below so it runs exactly once.
-    const revertedRecords = buildEditSaveRecords(
-      mainDataset.records,
-      (xref) => xref !== id && isSortEligible(xref),
-    );
-
-    setPreview((prev) => {
-      if (!prev) return null;
-      const newReport = removeRecordFromReport(prev.report, id);
-      if (newReport.changes.length === 0) return null;
-      const newEditRecordIds = new Set(prev.editRecordIds);
-      newEditRecordIds.delete(id);
-      // The record was just put back the way the file had it — a stamp now
-      // would write the very change the user asked to leave out.
-      const newStampRecordIds = new Set(prev.stampRecordIds);
-      newStampRecordIds.delete(id);
-      // A merge preview is the output of `mergeDecisions` and can't be rebuilt
-      // here, so it keeps its records — unchanged from before this clone existed.
-      const records = prev.isMerge ? prev.records : revertedRecords;
-      return { ...prev, records, report: newReport, editRecordIds: newEditRecordIds, stampRecordIds: newStampRecordIds };
-    });
+    const patches = removeFromSave(mainDataset, kind, id, revertTracking(id, kind));
+    if (patches.length === 0) return;
+    // Keep the snapshot for undo machinery — it is still needed for dirty
+    // tracking on undo/redo.
+    dirty.removeDirty(kind, id);
+    // Snapshot the batch before pushing it, exactly as `handlePushEdit` does:
+    // taking a record out of the save unlinks (or prunes) everyone around it,
+    // and those records really are changed. Without this they'd reach the
+    // file with no snapshot and no dirty flag — changed, and unreported.
+    dirty.captureSnapshotsForPush(patches);
+    undoRedo.push({ mode: "edit", patches, navigateTo: id });
+    // Every record the cascade touched is decided from what it now holds — one
+    // the removal put back the way the file had it (the parent a deleted new
+    // child was added to) is clean again. The record being taken out of the
+    // save is not dirty: `dirty.removeDirty` above said so.
+    handleEditRecordsSettled(patches.filter((p) => p.id !== id));
+    bumpEdit();
+    // The preview was built from the dirty state and the records as they were;
+    // the removal changed both. Built again once the dirty state above has
+    // landed, by the same function that built it — so the download, the report
+    // and the CHAN stamps all agree with the file again, for a merge too.
+    setPreviewRebuild((n) => n + 1);
   }
+
+  const [previewRebuild, setPreviewRebuild] = useState(0);
+  const rebuildPreviewRef = useRef(() => {});
+  rebuildPreviewRef.current = () => {
+    if (!preview || !mainDataset || main.status !== "loaded") return;
+    setPreview(buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)));
+  };
+  useEffect(() => {
+    if (previewRebuild) rebuildPreviewRef.current();
+  }, [previewRebuild]);
 
   // Modals and the page footer are shared between the main app shell and the
   // full-page tree views, so they're built once here. The User's Guide and the
@@ -2037,6 +1984,7 @@ function AppContent() {
             else navigateFromPage(id);
           }}
           onRemove={handleRemoveFromSave}
+          canRemove={canRemoveRecordFromSave}
           onOpenPair={(mainId, compareId) => {
             setPreview(null);
             setSelectedId({ mainId, compareId });

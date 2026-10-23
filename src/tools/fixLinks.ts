@@ -33,7 +33,8 @@ export interface BrokenLinkRef {
 /** Remove every `tag` child of `node` whose pointer value is in `deadValues`. */
 function pruneRefs(node: GedNode, tag: string, deadValues: Set<string>): boolean {
   const before = node.children.length;
-  node.children = node.children.filter((c) => !(c.tag === tag && c.value !== undefined && deadValues.has(c.value)));
+  // Compared trimmed, as the builder reads them: `1 FAMC @F9@ ` points at @F9@.
+  node.children = node.children.filter((c) => !(c.tag === tag && c.value !== undefined && deadValues.has(c.value.trim())));
   return node.children.length !== before;
 }
 

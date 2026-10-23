@@ -1,7 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { placeCollator } from "../gedcom/place";
-import { cloneRaw } from "../ui/historyTypes";
-import { rebuildIndividual, rebuildFamily } from "../gedcom/edit";
+import { patchRecords } from "./geocode";
 import { reconcilePlaceForm } from "../gedcom/edit/geo";
 import type { RecordPatch } from "../ui/historyTypes";
 
@@ -139,27 +138,7 @@ export function previewPlaceRename(dataset: Dataset, from: string, to: string, s
  * records whose ID is in the set are modified.
  */
 export function applyPlaceRename(dataset: Dataset, from: string, to: string, scope?: Set<string>): RecordPatch[] {
-  const patches: RecordPatch[] = [];
-
-  for (const indi of dataset.individuals.values()) {
-    if (scope && !scope.has(indi.id)) continue;
-    const before = cloneRaw(indi.raw);
-    if (renameInNode(indi.raw, from, to)) {
-      rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
-    }
-  }
-
-  for (const fam of dataset.families.values()) {
-    if (scope && !scope.has(fam.id)) continue;
-    const before = cloneRaw(fam.raw);
-    if (renameInNode(fam.raw, from, to)) {
-      rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
-    }
-  }
-
-  return patches;
+  return patchRecords(dataset, (raw) => renameInNode(raw, from, to), scope);
 }
 
 /** All distinct non-empty comma-separated segments from all PLAC/ADDR values in the dataset. */

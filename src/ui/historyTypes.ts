@@ -2,7 +2,6 @@ import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
 import {
   bumpSourceCacheVersion,
-  insertRecord,
   insertRecordAt,
   rebuildFamily,
   rebuildIndividual,
@@ -190,59 +189,66 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
       else if (patch.type === "record") { bumpSourceCacheVersion(dataset.records); clearObjeNodeCache(dataset.records); }
     }
   }
-  // Second pass: restore or re-add generic top-level records (e.g. a
-  // SOUR/OBJE created or pruned by "Add Source") *before* any
-  // individual/family rebuild below — that rebuild re-resolves source
-  // citations via getMediaAndSourceCtx(dataset.records) (each iteration here
-  // also bumps its cache, so the rebuild can't reuse a stale pre-undo
-  // version), so a SOUR/OBJE this same batch touched must already be back
-  // in place, or a citation pointer resolves dangling (no title/url) until
-  // the next edit.
-  for (const patch of patches) {
-    if (patch.type !== "record") continue;
-    const target = patch[pick];
-    if (target === null) continue;
-    const restored = cloneRaw(target);
-    const existing = dataset.records.find((r) => r.xref === patch.id);
-    if (existing) {
-      existing.value = restored.value;
-      existing.children = restored.children;
-    } else {
-      insertRecord(dataset.records, restored);
-    }
-    // A SOUR/OBJE this patch touches may now have a different FILE value or
-    // existence than `getMediaAndSourceCtx`'s cache last saw.
-    bumpSourceCacheVersion(dataset.records);
-    clearObjeNodeCache(dataset.records);
-  }
-  // Third pass: restore individual/family records and rebuild them. Sorted by
-  // original position so re-added records (undo of a deletion) land back at
-  // their original indices — inserting ascending keeps every later index valid.
+  // Second pass: put back every record that must exist, of every type, in
+  // one pass ordered by original position — so re-added records (undo of a
+  // deletion) land back at their recorded indices: inserting ascending keeps
+  // every later index valid, and a NOTE/SOUR/OBJE restored out of that order
+  // would shift every record restored after it. Generic top-level records
+  // (e.g. a SOUR/OBJE created or pruned by "Add Source") are complete here,
+  // *before* any individual/family rebuild below — that rebuild re-resolves
+  // source citations via getMediaAndSourceCtx(dataset.records) (each record
+  // here also bumps its cache, so the rebuild can't reuse a stale pre-undo
+  // version), so a SOUR/OBJE this same batch touched must already be back in
+  // place, or a citation pointer resolves dangling until the next edit.
   const byPosition = [...patches].sort((a, b) => (a.index ?? Infinity) - (b.index ?? Infinity));
+  const readded = new Map<RecordPatch, GedNode>();
   for (const patch of byPosition) {
     const target = patch[pick];
     if (target === null) continue;
-    const restored = cloneRaw(target);
+    if (patch.type === "record") {
+      const restored = cloneRaw(target);
+      const existing = dataset.records.find((r) => r.xref === patch.id);
+      if (existing) {
+        existing.value = restored.value;
+        existing.children = restored.children;
+      } else {
+        insertRecordAt(dataset.records, restored, patch.index);
+      }
+      // A SOUR/OBJE this patch touches may now have a different FILE value or
+      // existence than `getMediaAndSourceCtx`'s cache last saw.
+      bumpSourceCacheVersion(dataset.records);
+      clearObjeNodeCache(dataset.records);
+    } else if (!(patch.type === "individual" ? dataset.individuals : dataset.families).has(patch.id)) {
+      const restored = cloneRaw(target);
+      insertRecordAt(dataset.records, restored, patch.index);
+      readded.set(patch, restored);
+    }
+  }
+  // Third pass: restore individual/family records in place and rebuild them.
+  for (const patch of byPosition) {
+    const target = patch[pick];
+    if (target === null || patch.type === "record") continue;
+    const inserted = readded.get(patch);
     if (patch.type === "individual") {
-      const existing = dataset.individuals.get(patch.id);
-      if (existing) {
-        existing.raw.value = restored.value;
-        existing.raw.children = restored.children;
-        rebuildIndividual(dataset, existing);
-      } else {
-        insertRecordAt(dataset.records, restored, patch.index);
-        rebuildIndividual(dataset, { raw: restored } as Individual);
+      if (inserted) {
+        rebuildIndividual(dataset, { raw: inserted } as Individual);
+        continue;
       }
-    } else if (patch.type === "family") {
-      const existing = dataset.families.get(patch.id);
-      if (existing) {
-        existing.raw.value = restored.value;
-        existing.raw.children = restored.children;
-        rebuildFamily(dataset, existing);
-      } else {
-        insertRecordAt(dataset.records, restored, patch.index);
-        rebuildFamily(dataset, { raw: restored } as Family);
+      const existing = dataset.individuals.get(patch.id)!;
+      const restored = cloneRaw(target);
+      existing.raw.value = restored.value;
+      existing.raw.children = restored.children;
+      rebuildIndividual(dataset, existing);
+    } else {
+      if (inserted) {
+        rebuildFamily(dataset, { raw: inserted } as Family);
+        continue;
       }
+      const existing = dataset.families.get(patch.id)!;
+      const restored = cloneRaw(target);
+      existing.raw.value = restored.value;
+      existing.raw.children = restored.children;
+      rebuildFamily(dataset, existing);
     }
   }
   // Shared NOTE records restored above: referrers other than the patched

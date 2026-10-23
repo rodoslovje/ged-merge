@@ -149,6 +149,16 @@ export interface CandidateDecision {
    */
   mainFields?: Record<string, string>;
   /**
+   * For each event-row key in `fields`, the incoming event the choice was made
+   * for, as `"<tag>:<compareIdx>"` (the `rejectedEvents` form). An event row's
+   * key changes shape and index with the main's event count and pairing, so an
+   * event added in Edit would otherwise leave a choice on a key no row has —
+   * or on a different event's row. The merge (and the next update) move each
+   * anchored choice onto its event's current row; see `currentFieldChoices`.
+   * Absent on decisions stamped before anchors existed, which keep their keys.
+   */
+  fieldAnchors?: Record<string, string>;
+  /**
    * Incoming events the user has fully rejected — by editing them into a new
    * main event, or by deleting/dismissing an event that was already paired
    * with (or created from) them — as `"<tag>:<compareIdx>"`, where `compareIdx`
@@ -183,6 +193,13 @@ export interface CandidateDecision {
    * clean-up carry it with the decision it belongs to (see `materializeAdds`).
    */
   added?: Record<string, string>;
+  /**
+   * The shared records (SOUR/REPO/NOTE/OBJE) those additions brought into the
+   * main file, by xref — removed again once a taken-back addition leaves
+   * nothing referencing them (see `materializeAdds`). A record the main file
+   * had before is never listed, however unreferenced it becomes.
+   */
+  addedRecords?: string[];
   /**
    * Incoming people this confirmed decision asks for whom the main file
    * already holds a matched record — the save will join them to it rather than
@@ -248,6 +265,11 @@ export function decisionKey(kind: MatchKind, mainId: string, compareId: string):
  * update really is last: `Map.set` on an existing key keeps its original
  * position, which silently made it *first*-confirmation-wins for any pair
  * updated in place.
+ *
+ * Confirming a pair also takes back any other confirmed pair of the same
+ * incoming person (set to undecided, its field choices kept): one incoming
+ * record is one person, and confirmed against two main records its fields were
+ * applied to both. The latest confirmation wins, as it does for shared rows.
  */
 export function withFreshDecision(
   prev: ReadonlyMap<string, CandidateDecision>,
@@ -256,6 +278,14 @@ export function withFreshDecision(
 ): Map<string, CandidateDecision> {
   const next = new Map(prev);
   next.delete(key);
+  const parsed = value.status === "confirmed" ? parseDecisionKey(key) : undefined;
+  if (parsed?.kind === "individual") {
+    for (const [otherKey, other] of next) {
+      if (other.status !== "confirmed") continue;
+      const o = parseDecisionKey(otherKey);
+      if (o?.kind === "individual" && o.compareId === parsed.compareId) next.set(otherKey, { ...other, status: "undecided" });
+    }
+  }
   next.set(key, value);
   return next;
 }

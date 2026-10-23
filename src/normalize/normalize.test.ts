@@ -1190,6 +1190,13 @@ describe("formatGedDate (numeric output)", () => {
     expect(formatGedDate(parseDate("1 JAN 44 B.C."), profile)).toBe("1 JAN 44 B.C.");
     expect(formatGedDate(parseDate("44 BCE"), profile)).toBe("44 BCE");
   });
+
+  it("keeps a date in the first century exactly as written", () => {
+    // "05.01.50" would read back as 1950.
+    const profile = inferDateProfile(["20.02.1989"]);
+    expect(formatGedDate(parseDate("5 JAN 050"), profile)).toBe("5 JAN 050");
+    expect(formatGedDate(parseDate("BET 1900 AND 3 MAR 012"), profile)).toBe("BET 1900 AND 3 MAR 012");
+  });
 });
 
 describe("unknown-date placeholders", () => {

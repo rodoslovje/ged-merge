@@ -6,6 +6,7 @@ import { childrenByTag, childValue, findByPath, firstChild } from "../gedcom/nod
 import { inferMainProfile } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { migrateVersion } from "./migrate";
+import { serializeGedcom } from "../gedcom/serialize";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -99,6 +100,20 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(changed).toBe(0);
   });
 
+  it("reads only a following year as the second half of a dual year", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE 1890/12\n1 DEAT\n2 DATE 1699/00\n1 BURI\n2 DATE 1890/91\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    const birt = findByPath(indi, ["BIRT", "DATE"])!;
+    expect(birt.value).toBe("1890/12");
+    expect(firstChild(birt, "PHRASE")).toBeUndefined();
+    expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("1700");
+    expect(findByPath(indi, ["BURI", "DATE"])!.value).toBe("1891");
+  });
+
   it("reorders a reversed BET range and converts calendar escapes", () => {
     const { records } = migrated(
       "5.5.1",
@@ -108,6 +123,20 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     const indi = record(records, "@I1@");
     expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("BET 1880 AND 1900");
     expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("JULIAN 6 MAY 1682");
+  });
+
+  it("converts every calendar escape and era marker of a range, ordering BCE ranges by era", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710\n" +
+        "1 DEAT\n2 DATE BET 300 BC AND 100 BC\n1 BURI\n2 DATE BET 100 BC AND 300 BC\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("BET JULIAN 1700 AND JULIAN 1710");
+    // 300 BCE comes before 100 BCE: already chronological.
+    expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("BET 300 BCE AND 100 BCE");
+    expect(findByPath(indi, ["BURI", "DATE"])!.value).toBe("BET 300 BCE AND 100 BCE");
   });
 
   it("replaces age keywords with bounded ages plus a phrase", () => {
@@ -134,6 +163,24 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     const other = firstChild(assos[1], "ROLE")!;
     expect(other.value).toBe("OTHER");
     expect(childValue(other, "PHRASE")).toBe("family lawyer");
+  });
+
+  it("keeps the file's own wording of a role on the ROLE's PHRASE", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 ASSO @I2@\n2 RELA Godmother\n1 ASSO @I2@\n2 RELA godparent\n0 @I2@ INDI\n",
+      "7.0",
+    );
+    const [godmother, godparent] = childrenByTag(record(records, "@I1@"), "ASSO").map((a) => firstChild(a, "ROLE")!);
+    expect(godmother.value).toBe("GODP");
+    expect(childValue(godmother, "PHRASE")).toBe("Godmother");
+    // The enumeration's own word needs no phrase.
+    expect(firstChild(godparent, "PHRASE")).toBeUndefined();
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(childrenByTag(record(records, "@I1@"), "ASSO").map((a) => childValue(a, "RELA"))).toEqual([
+      "Godmother",
+      "godparent",
+    ]);
   });
 
   it("drops an ASSO's TYPE INDI, which 7.0 does not define, and keeps TYPE FAM", () => {
@@ -175,6 +222,18 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     const m2File = firstChild(m2, "FILE")!;
     expect(childValue(m2File, "FORM")).toBe("image/tiff");
     expect(childValue(m2File, "TITL")).toBe("Scan");
+  });
+
+  it("gives a media format with no registered type a media type that keeps it", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @M1@ OBJE\n1 FILE a.djvu\n2 FORM djvu\n1 FILE b.xyz\n2 FORM xyz\n",
+      "7.0",
+    );
+    const files = record(records, "@M1@").children.filter((c) => c.tag === "FILE");
+    expect(files.map((f) => childValue(f, "FORM"))).toEqual(["image/vnd.djvu", "application/x-xyz"]);
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(files.map((f) => childValue(f, "FORM"))).toEqual(["djvu", "xyz"]);
   });
 
   it("does not touch the header", () => {
@@ -235,6 +294,19 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("@#DJULIAN@ 6 MAY 1682");
     expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("44 B.C.");
     expect(findByPath(indi, ["DEAT", "AGE"])!.value).toBe("363d");
+  });
+
+  it("converts a calendar keyword after a qualifier and on both ends of a range", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE ABT JULIAN 1750\n1 DEAT\n2 DATE BET JULIAN 1700 AND JULIAN 1710\n" +
+        "1 BURI\n2 DATE BET 300 BCE AND 100 BCE\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("ABT @#DJULIAN@ 1750");
+    expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710");
+    expect(findByPath(indi, ["BURI", "DATE"])!.value).toBe("BET 300 B.C. AND 100 B.C.");
   });
 
   it("converts TRAN back to ROMN/FONE and ROLE back to RELA", () => {
@@ -337,6 +409,41 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(childValue(form, "TYPE")).toBe("PHOTO");
   });
 
+  it("keeps a note's MIME, LANG and TRAN as extension tags, not as a name variant", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 NOTE <b>Hi</b>\n2 MIME text/html\n2 LANG en\n2 TRAN Živjo\n3 LANG sl\n" +
+        "0 @N1@ SNOTE Shared\n1 LANG en\n",
+      "5.5.1",
+    );
+    const note = firstChild(record(records, "@I1@"), "NOTE")!;
+    expect(note.children.map((c) => c.tag)).toEqual(["_MIME", "_LANG", "_TRAN"]);
+    expect(childValue(note, "_TRAN")).toBe("Živjo");
+    expect(record(records, "@N1@").children.map((c) => c.tag)).toEqual(["_LANG"]);
+  });
+
+  it("writes @VOID@ pointers the way 5.5.1 can, or drops them", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 FAMC @VOID@\n1 BAPM\n2 ASSO @VOID@\n3 PHRASE Ana Novak\n3 ROLE GODP\n4 PHRASE botra\n" +
+        "2 SOUR @VOID@\n3 PAGE Parish book, p. 4\n3 DATA\n4 TEXT baptized\n2 SDATE 3 MAR 1900\n" +
+        "0 @F1@ FAM\n1 HUSB @VOID@\n2 PHRASE unknown soldier\n1 WIFE @I1@\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(firstChild(indi, "FAMC")).toBeUndefined();
+    const bapm = firstChild(indi, "BAPM")!;
+    expect(firstChild(bapm, "ASSO")).toBeUndefined();
+    expect(childValue(bapm, "NOTE")).toBe("Ana Novak (botra)");
+    const sour = firstChild(bapm, "SOUR")!;
+    expect(sour.value).toBe("Parish book, p. 4");
+    expect(sour.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["TEXT baptized"]);
+    expect(childValue(bapm, "_SDATE")).toBe("3 MAR 1900");
+    const fam = record(records, "@F1@");
+    expect(firstChild(fam, "HUSB")).toBeUndefined();
+    expect(childValue(fam, "NOTE")).toBe("unknown soldier");
+  });
+
   it("downgrades every FILE of a multi-FILE OBJE, none dropped", () => {
     const { records } = migrated(
       "7.0",
@@ -347,6 +454,19 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(files.map((f) => f.value)).toEqual(["a.jpg", "b.png"]);
     expect(files.map((f) => childValue(f, "FORM"))).toEqual(["jpg", "png"]);
     expect(childValue(files[0], "TITL")).toBe("Poroka");
+  });
+});
+
+describe("migrateVersion 5.5.1 → 7.0 → 5.5.1", () => {
+  it("brings a 5.5.1 file back as it was", () => {
+    const body =
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710\n" +
+      "1 DEAT\n2 DATE ABT @#DJULIAN@ 1750\n1 BURI\n2 DATE BET 300 B.C. AND 100 B.C.\n" +
+      "1 ASSO @I2@\n2 RELA Godmother\n1 NOTE @N1@\n1 OBJE\n2 FILE scan.djvu\n3 FORM djvu\n" +
+      "0 @I2@ INDI\n1 NAME Eva /Kos/\n0 @N1@ NOTE Shared\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
   });
 });
 
