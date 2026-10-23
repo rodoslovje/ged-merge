@@ -1,4 +1,4 @@
-import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedEvent, Individual, NegativeAssertion, PersonName, Sex, SourceCitation } from "../gedcom/types";
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, familyEventLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
@@ -106,6 +106,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.sources");
   if (key === "fsid") return t("field.fsid");
+  if (key === "noEvents" || key.endsWith(".noEvents")) return t("field.noEvents");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
   if (key === "private" || key.endsWith(".private")) return t("field.private");
 
@@ -187,6 +188,7 @@ export function individualFieldRows(
   pushRow(rows, "fsid", formatFieldLabel(t, "fsid"),
     main?.fsids?.map((s) => s.toUpperCase()).join("\n"),
     compare?.fsids?.map((s) => s.toUpperCase()).join("\n"));
+  pushRow(rows, "noEvents", formatFieldLabel(t, "noEvents"), noEventsText(t, main?.noEvents), noEventsText(t, compare?.noEvents));
 
   // Record-level sources (SOUR citations) and plain links, combined into one
   // "Sources" row — same citations-plus-link-icons shape used per event — then
@@ -557,6 +559,8 @@ function buildFamilyRows(
     pushRow(rows, `${famKey}.private`, formatFieldLabel(t, `${famKey}.private`),
       mFam?.private ? `🔒 ${t("edit.privateLabel")}` : undefined,
       cFam?.private ? `🔒 ${t("edit.privateLabel")}` : undefined);
+    pushRow(rows, `${famKey}.noEvents`, formatFieldLabel(t, `${famKey}.noEvents`),
+      noEventsText(t, mFam?.noEvents), noEventsText(t, cFam?.noEvents));
 
     const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
     const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
@@ -1885,6 +1889,20 @@ function extractEffectiveAddr(
   // Fallback: exact substring match shows the other addr verbatim (→ "=").
   if (otherAddr && placeContainsAddr(ownPlace, otherAddr)) return otherAddr;
   return undefined;
+}
+
+/** A record's "did not happen" statements, one per line: the event's name, and
+ *  the period when the statement is limited to one. Ordered by tag, so the
+ *  same statements in a different file order read as agreement. */
+function noEventsText(t: Translate, list: NegativeAssertion[] | undefined): string | undefined {
+  if (!list?.length) return undefined;
+  return [...list]
+    .sort((a, b) => a.tag.localeCompare(b.tag))
+    .map((a) => {
+      const name = eventDisplayLabel(a.tag, t, EVENT_LABELS[a.tag]);
+      return a.date?.raw ? `${name} (${a.date.raw})` : name;
+    })
+    .join("\n");
 }
 
 function sexText(t: Translate, sex: string | undefined): string {

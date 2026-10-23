@@ -107,6 +107,8 @@ import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventAddRow } from "./edit/EventAddRow";
+import { AddNoEventSelect, NoEventsRow } from "./edit/NoEventsRow";
+import { addNegativeAssertion, NO_INDI_EVENT_TAGS, removeNegativeAssertion } from "../gedcom/negative";
 import { FsIdEditor } from "./edit/FsIdEditor";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
@@ -2107,6 +2109,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 ),
               )
             }
+            trailing={
+              <AddNoEventSelect
+                assertions={person.noEvents ?? []}
+                offer={NO_INDI_EVENT_TAGS}
+                recordedTags={new Set(person.events.map((e) => e.tag))}
+                t={t}
+                tooltip={t("edit.noEvent.addTooltip")}
+                onAdd={(tag) => commit((indi) => addNegativeAssertion(indi.raw, tag, dataset.version))}
+              />
+            }
+          />
+          <NoEventsRow
+            assertions={person.noEvents ?? []}
+            t={t}
+            onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
           />
           {/* The association index is deferred like the suggestion bundle: it
               is a walk over every record, and no commit should pay for it in

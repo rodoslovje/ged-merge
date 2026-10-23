@@ -625,6 +625,16 @@
                 <li><strong>Drugo</strong> — splošni vrsti Dogodek in Dejstvo</li>
               </ul>
               <p>
+                Gumb <strong>+ Se ni zgodilo</strong> na koncu iste vrste zapiše nasprotno: da se dogodek
+                <em>ni</em> zgodil — oseba na primer ni bila krščena ali pa se par ni poročil (družina ima svoj gumb
+                poleg gumba <strong>+ Dodaj družinski dogodek</strong>). To je struktura <code>NO</code> iz GEDCOM 7;
+                datoteka GEDCOM 5.5.1 jo hrani kot <code>_NO</code>. Vsaka taka navedba se pod gumbi prikaže kot
+                oznaka <span class="gm-glyph">⊘</span> z imenom dogodka, ikona <span class="gm-glyph">×</span> pa jo
+                odstrani. <a href="#validate">Pregled</a> opozori na zapis, ki vsebuje dogodek in hkrati navedbo, da se
+                ni zgodil. V načinu <span class="gm-pill">Združevanje</span> se te navedbe primerjajo in prenesejo kot
+                vsako drugo polje.
+              </p>
+              <p>
                 Vsako vrstico uvaja rodoslovno znamenje njenega dogodka — <span class="gm-glyph">*</span> za rojstvo,
                 <span class="gm-glyph">⚭</span> za poroko, <span class="gm-glyph">†</span> za smrt — tako da se dolgo
                 življenje prebere že po stolpcu znamenj; vsa so zbrana v <a href="#legend">§15</a>.
@@ -1251,6 +1261,8 @@
                   <span class="gm-glyph danger">−</span> pri tem sklopu staršev v načinu <span class="gm-pill">Urejanje</span>;</li>
                 <li><strong>podvojeno rojstvo ali smrt</strong> — oseba z dvema zapisoma o rojstvu ali o smrti; vsa
                   druga preverjanja upoštevajo le prvega;</li>
+                <li><strong>dogodek, ki se ni zgodil</strong> — zapis vsebuje dogodek, za katerega datoteka hkrati
+                  navaja, da se ni zgodil (<code>NO</code> v GEDCOM 7);</li>
                 <li>dogodki z datumom v prihodnosti in smrt pred rojstvom;</li>
                 <li><strong>dogodki zunaj življenjske dobe</strong> — poklic z datumom pred rojstvom, bivališče ali
                   poroka po smrti; pokop, upepelitev in zapuščinska obravnava smrti smejo slediti in niso označeni,

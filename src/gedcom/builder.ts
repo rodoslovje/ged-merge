@@ -8,6 +8,7 @@ import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
 import { readSex } from "./sex";
+import { negativeAssertionsOf } from "./negative";
 import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
 
 /** Which `GedEvent` field each contact line is read into. */
@@ -251,6 +252,8 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
     indi.associations = associations;
   }
   if (isPrivateNode(record)) indi.private = true;
+  const noEvents = negativeAssertionsOf(record);
+  if (noEvents.length) indi.noEvents = noEvents;
   return indi;
 }
 
@@ -318,6 +321,8 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
     fam.associations = associations;
   }
   if (isPrivateNode(record)) fam.private = true;
+  const noEvents = negativeAssertionsOf(record);
+  if (noEvents.length) fam.noEvents = noEvents;
   return fam;
 }
 

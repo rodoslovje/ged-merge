@@ -479,6 +479,21 @@ export interface GedEvent {
   associations?: Association[];
 }
 
+/**
+ * A GEDCOM 7 negative assertion (`NO MARR`): the file states the event did not
+ * happen, over the whole life or over its `DATE` period. See `gedcom/negative.ts`.
+ */
+export interface NegativeAssertion {
+  /** The denied event's tag, upper-cased (`MARR`, `CHR`, …). */
+  tag: string;
+  /** The period the assertion covers; absent means "never". */
+  date?: GedDate;
+  /** The assertion's first inline note. */
+  note?: string;
+  /** The `NO` (or 5.5.1 `_NO`) line itself. */
+  raw: GedNode;
+}
+
 export interface Individual {
   id: string; // xref, e.g. "@I1@"
   names: PersonName[];
@@ -519,6 +534,8 @@ export interface Individual {
    *  events — where every 5.5.1 file puts them, since the dialect has no
    *  event-level form. */
   associations?: Association[];
+  /** Events the file states did not happen (`NO`) — see {@link NegativeAssertion}. */
+  noEvents?: NegativeAssertion[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }
@@ -548,6 +565,8 @@ export interface Family {
   /** Associations on the family record itself — a 5.5.1 file records a
    *  marriage witness here, pointing the other way (`ASSO @F…@ / TYPE FAM`). */
   associations?: Association[];
+  /** Events the file states did not happen to the couple (`NO MARR`). */
+  noEvents?: NegativeAssertion[];
   raw: GedNode;
 }
 

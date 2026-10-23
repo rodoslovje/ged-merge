@@ -39,7 +39,8 @@ import { walkNodes } from "./walk";
  *                                        and the sealing's `FAMC` are spelled
  *                                        alike in both
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
- *                                        `NO` → `_NO`, `SDATE` → `_SDATE`, a
+ *                                        `NO` → `_NO`, `SDATE` → `_SDATE` (both
+ *                                        restored on the way up), a
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
  *                                        `@VOID@` pointers (see below),
  *                                        `SEX X` → `SEX U` + `_SEX X` (and back)
@@ -149,6 +150,14 @@ const URI_TO_EXID_TAG: Record<string, string> = Object.fromEntries(
   Object.entries(EXID_TYPE_URI).map(([tag, uri]) => [uri, tag]),
 );
 
+/** 5.5.1 stand-ins for 7-only structures (see `UNDERSCORE_DOWNGRADES`) that
+ *  the upgrade restores. `_UID`/`_CREA` stay: they are long-standing vendor
+ *  tags in their own right, not only this app's stand-ins. */
+const UNDERSCORE_UPGRADES: Record<string, string> = {
+  _NO: "NO",
+  _SDATE: "SDATE",
+};
+
 /** Calendar escapes: 5.5.1 `@#DJULIAN@ ...` ⇄ 7.0 `JULIAN ...` prefix. */
 const CALENDAR_ESCAPES: Record<string, string> = {
   DGREGORIAN: "GREGORIAN",
@@ -203,6 +212,10 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       }
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "7.0");
+    } else if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
+      // The stand-ins this migration's own downgrade writes for 7-only
+      // structures go back to their real tags.
+      report(ctx, retag(node, UNDERSCORE_UPGRADES[node.tag]), describe(node));
     } else if (node.tag === "PEDI" && node.value !== undefined) {
       const upper = node.value.trim().toUpperCase();
       if (upper !== node.value && ["ADOPTED", "BIRTH", "FOSTER", "SEALING"].includes(upper)) {

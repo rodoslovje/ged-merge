@@ -619,6 +619,15 @@
                 <li><strong>Other</strong> — the two generic kinds, Event and Fact</li>
               </ul>
               <p>
+                <strong>+ Did not happen</strong>, at the end of the same row, records the opposite: that an event did
+                <em>not</em> take place — a person never baptised, a couple who never married (the family has its own
+                button beside <strong>+ Add Family Event</strong>). This is GEDCOM 7's <code>NO</code>; a GEDCOM 5.5.1
+                file keeps it as <code>_NO</code>. Each statement shows below the buttons as a
+                <span class="gm-glyph">⊘</span> chip with the event's name, and its <span class="gm-glyph">×</span>
+                removes it. The <a href="#validate">health check</a> reports a record that holds both the event and the
+                statement, and Merge compares and brings in these statements like any other field.
+              </p>
+              <p>
                 Each row is led by its event's own genealogy mark — <span class="gm-glyph">*</span> a birth,
                 <span class="gm-glyph">⚭</span> a marriage, <span class="gm-glyph">†</span> a death — so a long life
                 can be read down the column at a glance; <a href="#legend">§15</a> lists them all.
@@ -1224,7 +1233,9 @@
               <em>not</em> flagged), <strong>family without parents</strong> (a second parent family that names neither
               parent, and family records nobody is in at all — remove the first kind with the <span class="gm-glyph danger">−</span>
               on that parent block in <span class="gm-pill">Edit</span>), <strong>repeated birth or death</strong> (a
-              person with two birth or two death records — every other check reads only the first), future-dated events,
+              person with two birth or two death records — every other check reads only the first), <strong>an event
+              that did not happen</strong> (a record holding an event the file also states did not happen, GEDCOM 7's
+              <code>NO</code>), future-dated events,
               death before birth, <strong>events outside the lifespan</strong> (an occupation dated before the birth, a
               residence or marriage after the death — burial, cremation and probate may follow a death and are not
               flagged, though a burial or cremation dated <em>before</em> the death is, compared to the day), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the

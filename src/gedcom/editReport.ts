@@ -14,6 +14,7 @@ import { xrefLabel } from "./nameDisplay";
 import { EDITABLE_LINK_TAGS } from "./edit/shared";
 import { formatCoord } from "../geo/points";
 import { NOTE_TAGS } from "./builder";
+import { NO_TAGS } from "./negative";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -31,7 +32,7 @@ const RECORD_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS);
  *  events, whatever their substructure. */
 const NON_EVENT_TAGS = new Set([
   "NAME", "SEX", ...NOTE_TAGS, "SOUR", "OBJE", "FAMS", "FAMC", "HUSB", "WIFE", "CHIL",
-  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI",
+  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI", ...NO_TAGS,
   ...RECORD_LINK_TAGS,
 ]);
 
@@ -560,6 +561,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => NO_TAGS.includes(tag), t("field.noEvents"), false, undefined, (v) => eventDisplayLabel(v, t)));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
@@ -619,6 +621,7 @@ function diffFamilyNodes(
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => familyEventLabel(tag, t), resolveSource, nameMedia));
+  diffs.push(...diffStringSet(id, before, after, (tag) => NO_TAGS.includes(tag), t("field.noEvents"), false, undefined, (v) => eventDisplayLabel(v, t)));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));

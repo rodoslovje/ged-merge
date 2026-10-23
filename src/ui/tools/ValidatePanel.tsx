@@ -54,6 +54,7 @@ const CATEGORIES: IssueCategory[] = [
   "multipleParents",
   "parentlessFamily",
   "duplicateVital",
+  "noEventConflict",
   "deathBeforeBirth",
   "eventOrder",
   "ageAtDeath",

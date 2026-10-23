@@ -25,6 +25,7 @@ import {
   applyLinks,
   applyNotes,
   applyPrivateFlag,
+  applyNoEvents,
   applyRecordSources,
   cloneNodeRemapped,
   collectCustomTags,
@@ -748,7 +749,8 @@ export function applyIndividualFamilies(
     // the choice the reader made on that row went nowhere.
     const wantFamNotes = wantsIncoming(rows, fields, `${famKey}.notes`);
     const wantFamPrivate = wantsIncoming(rows, fields, `${famKey}.private`);
-    if (!takeSpouses && !takeChildren && (structureOnly || (!wantFamEvent && !wantFamLinks && !wantFamNotes && !wantFamPrivate))) continue;
+    const wantFamNoEvents = wantsIncoming(rows, fields, `${famKey}.noEvents`);
+    if (!takeSpouses && !takeChildren && (structureOnly || (!wantFamEvent && !wantFamLinks && !wantFamNotes && !wantFamPrivate && !wantFamNoEvents))) continue;
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
@@ -907,6 +909,22 @@ export function applyIndividualFamilies(
         });
         ctx.touched.add(famNode.xref!);
       }
+    }
+
+    // The couple's "did not happen" statements (additive — see applyNoEvents).
+    const famNoKey = `${famKey}.noEvents`;
+    if (wantFamNoEvents && applyNoEvents(famNode, incFam.raw, ctx.sourXrefMap)) {
+      const choice = fields[famNoKey] ?? "incoming";
+      const row = rows.find((r) => r.key === famNoKey);
+      ctx.report.changes.push({
+        recordId: famNode.xref!,
+        field: ctx.t("field.noEvents"),
+        from: row?.main ?? "",
+        to: row?.incoming ?? "",
+        action: choice,
+        unedited: choice === "incoming",
+      });
+      ctx.touched.add(famNode.xref!);
     }
   }
 }

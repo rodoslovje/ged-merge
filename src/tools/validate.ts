@@ -12,6 +12,7 @@ import { ageBetween } from "../gedcom/age";
  */
 export const STATED_AGE_TOLERANCE = 1;
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
+import { contradicts } from "../gedcom/negative";
 
 /**
  * Plausibility limits for age-based sanity checks, in whole years. Computed from
@@ -70,6 +71,7 @@ export type IssueCategory =
   | "island"
   | "orphan"
   | "duplicateVital"
+  | "noEventConflict"
   | "deathBeforeBirth"
   | "eventOrder"
   | "ageAtDeath"
@@ -130,6 +132,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   island: 0,
   orphan: 0,
   duplicateVital: 0,
+  noEventConflict: 0,
   deathBeforeBirth: 0,
   eventOrder: 0,
   ageAtDeath: 0,
@@ -538,6 +541,13 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       add("duplicateVital", "warning", tag === "BIRT" ? "tools.validate.issue.duplicateBirth" : "tools.validate.issue.duplicateDeath", { events: list });
     }
 
+    // A recorded event the file also says did not happen (GEDCOM 7 `NO`). The
+    // statement itself is evidence, never a gap to report — only its
+    // contradiction is.
+    for (const a of indi.noEvents ?? []) {
+      if (indi.events.some((e) => contradicts(a, e))) add("noEventConflict", "warning", "tools.validate.issue.noEventConflict", { tag: a.tag });
+    }
+
     // Vital dates
     const by = birthYear(indi);
     const dy = deathYear(indi);
@@ -914,6 +924,13 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       push({
         scope: "family", id: fam.id, category: "parentlessFamily", severity: "warning",
         subject, messageKey: "tools.validate.issue.familyNoMembers",
+      });
+    }
+    for (const a of fam.noEvents ?? []) {
+      if (!fam.events.some((e) => contradicts(a, e))) continue;
+      push({
+        scope: "family", id: fam.id, category: "noEventConflict", severity: "warning",
+        subject, messageKey: "tools.validate.issue.noEventConflict", messageVars: { tag: a.tag },
       });
     }
 

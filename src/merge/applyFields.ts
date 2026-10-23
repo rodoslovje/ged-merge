@@ -20,6 +20,7 @@ import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
+import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
 import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
@@ -416,6 +417,8 @@ export function applyRows(
       applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
     } else if (row.key === "notes") {
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
+    } else if (row.key === "noEvents") {
+      applied = applyNoEvents(target, incomingRecord, sourMap);
     } else if (row.key === "fsid") {
       applied = applyFsIds(target, incomingRecord, choice);
     } else if (row.key === "private") {
@@ -662,6 +665,28 @@ export function applyPrivateFlag(target: GedNode, records: GedNode[]): boolean {
   if (isPrivateNode(target)) return false;
   setPrivateFlag(target, true, detectPrivacyStyle(records), records);
   return true;
+}
+
+/**
+ * Copy the incoming record's negative assertions (`NO MARR` — "did not
+ * happen") onto the main record, each one the main does not already make for
+ * the same event, with its date, notes and citations. Additive whatever the
+ * choice: a statement the main record makes is never taken away by a merge.
+ * The compare file has already been migrated to the main's version, so the
+ * lines arrive in the main's own spelling (`NO`, or 5.5.1's `_NO`).
+ */
+export function applyNoEvents(target: GedNode, incomingRecord: GedNode, sourMap: SourXrefMap): boolean {
+  const have = new Set(negativeAssertionsOf(target).map((a) => a.tag));
+  let added = false;
+  for (const node of incomingRecord.children) {
+    if (!NO_TAGS.includes(node.tag)) continue;
+    const tag = node.value?.trim().toUpperCase();
+    if (!tag || have.has(tag)) continue;
+    have.add(tag);
+    insertNegativeAssertion(target, cloneNodeRemapped(node, sourMap));
+    added = true;
+  }
+  return added;
 }
 
 /** FamilySearch person-id tags (MacFamilyTree `_FID`, RootsMagic `_FSFTID`). */
@@ -1091,7 +1116,8 @@ function indiTagRank(tag: string): number {
 function isEventChild(node: GedNode): boolean {
   const rank = indiTagRank(node.tag);
   if (rank >= 2 && rank < INDI_EVENT_RANK_END) return true;
-  return rank === Infinity && node.tag.startsWith("_") && hasChild(node, "DATE");
+  // `_NO` is a dated negative assertion (see gedcom/negative), not an event.
+  return rank === Infinity && node.tag.startsWith("_") && node.tag !== "_NO" && hasChild(node, "DATE");
 }
 
 /**
