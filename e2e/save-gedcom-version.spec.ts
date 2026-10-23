@@ -27,6 +27,7 @@ const V551 = [
   "1 SEX F",
   "1 NOTE @N1@",
   "1 _UID 0123456789",
+  "1 _UPD 1 JAN 2020",
   "1 BIRT",
   "2 DATE 12 JAN 1850",
   "0 @N1@ NOTE A note shared by the record",
@@ -78,7 +79,7 @@ test("a file without header or trailer saves complete: HEAD, TRLR and a submitte
   expect(lines[lines.length - 1]).toBe("0 TRLR");
 });
 
-test("a 5.5.1 file saves as GEDCOM 7.0: version, SCHMA, SNOTE", async ({ page }) => {
+test("a 5.5.1 file saves as GEDCOM 7.0: version, UID, SCHMA, SNOTE", async ({ page }) => {
   await load(page, "v551.ged", V551);
   await page.getByRole("button", { name: "Save as GEDCOM 7.0…" }).click();
   const dialog = page.getByRole("dialog");
@@ -88,7 +89,9 @@ test("a 5.5.1 file saves as GEDCOM 7.0: version, SCHMA, SNOTE", async ({ page })
   await expect(dialog.locator(".preview-conversion")).toContainText("SNOTE");
 
   const text = await downloadGed(page);
-  expect(text.startsWith("0 HEAD\n1 GEDC\n2 VERS 7.0\n1 SCHMA\n2 TAG _UID https://gedmerge.com/terms/_UID\n")).toBe(true);
+  // _UID has a 7.0 form and takes it; _UPD has none and is declared with its page.
+  expect(text.startsWith("0 HEAD\n1 GEDC\n2 VERS 7.0\n1 SCHMA\n2 TAG _UPD https://gedmerge.com/terms/myheritage/_UPD\n")).toBe(true);
+  expect(text).toContain("1 UID 0123456789\n");
   expect(text).not.toContain("FORM LINEAGE-LINKED");
   expect(text).not.toContain("1 CHAR");
   expect(text).toContain("1 SNOTE @N1@\n");

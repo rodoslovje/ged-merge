@@ -3,7 +3,9 @@ import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
-import { completeStructure, convertVersion, outputOptions, prepareDownload, SCHEMA_BASE, writeSchema } from "./outputFile";
+import { completeStructure, convertVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
+
+const TERMS = "https://gedmerge.com/terms/";
 
 const when = new Date(Date.UTC(2026, 9, 23, 12, 0, 0));
 
@@ -46,7 +48,7 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
     expect(lines).toContain("0 @S1@ _SUBN");
     expect(lines).toContain("1 _SUBN @S1@");
     expect(lines).toContain("1 SCHMA");
-    expect(lines).toContain(`2 TAG _SUBN ${SCHEMA_BASE}_SUBN`);
+    expect(lines).toContain(`2 TAG _SUBN ${TERMS}gedmerge/_SUBN`);
     // _UID has a standard form in 7.0, so it is converted, not declared.
     expect(lines).toContain("1 UID 42");
     expect(lines.some((l) => l.includes("_UID"))).toBe(false);
@@ -98,19 +100,63 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
 describe("writeSchema — GEDCOM 7 extension tags", () => {
   it("declares every extension tag a 7.0 file uses, after GEDC, in the file's spelling", () => {
     const { lines } = download([
-      "0 HEAD", "1 GEDC", "2 VERS 7.0",
-      "0 @I1@ INDI", "1 _UID 123", "1 NAME Ana /Novak/", "2 _MARNM Kos", "1 _myTag x", "2 _UID 4",
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SOUR MYHERITAGE",
+      "0 @I1@ INDI", "1 _UID 123", "1 NAME Ana /Novak/", "2 _MARNM Kos", "1 _myTag x", "2 _UID 4", "1 _UPD 1 JAN 2020",
       "0 TRLR", "",
     ].join("\n"));
-    expect(lines.slice(0, 7)).toEqual([
+    expect(lines.slice(0, 8)).toEqual([
       "0 HEAD",
       "1 GEDC",
       "2 VERS 7.0",
       "1 SCHMA",
-      `2 TAG _MARNM ${SCHEMA_BASE}_MARNM`,
-      `2 TAG _UID ${SCHEMA_BASE}_UID`,
-      `2 TAG _myTag ${SCHEMA_BASE}_myTag`,
+      `2 TAG _MARNM ${TERMS}myheritage/_MARNM`,
+      `2 TAG _UID ${TERMS}myheritage/_UID`,
+      `2 TAG _UPD ${TERMS}myheritage/_UPD`,
+      `2 TAG _myTag ${TERMS}unknown/_myTag`,
     ]);
+    // A 7.0 file saved as 7.0 keeps its vendor lines: no conversion.
+    expect(lines).toContain("1 _UID 123");
+  });
+
+  it("points each tag at the program the file comes from, or the one the registry names", () => {
+    const records = (sour: string) => [
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", `1 SOUR ${sour}`,
+      "0 @I1@ INDI", "1 _MILT", "2 DATE 1915", "1 _UID 1", "1 _UPD x",
+      "0 TRLR", "",
+    ].join("\n");
+    const tags = (sour: string) => download(records(sour)).lines.filter((l) => l.startsWith("2 TAG"));
+    expect(tags("FTM")).toEqual([`2 TAG _MILT ${TERMS}ftm/_MILT`, `2 TAG _UID ${TERMS}ftm/_UID`, `2 TAG _UPD ${TERMS}myheritage/_UPD`]);
+    expect(tags("Geneanet")).toEqual([`2 TAG _MILT ${TERMS}brotherskeeper/_MILT`, `2 TAG _UID ${TERMS}common/_UID`, `2 TAG _UPD ${TERMS}myheritage/_UPD`]);
+    // Saved by GED Merge before: the stamp names it, and its own tags are its own.
+    expect(tags("GEDMERGE")).toContain(`2 TAG _UID ${TERMS}gedmerge/_UID`);
+  });
+
+  it("gives a tag the FamilySearch registry documents its registry URI, in the registered place only", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0",
+      "0 @S1@ SOUR", "1 REPO @R1@", "2 _DATE 1 JAN 1900", "1 _SOUR @S2@",
+      "0 @F1@ FAM", "1 _MSTAT Partners",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual([
+      "2 TAG _DATE https://github.com/dthaler/gedcom-citations/_DATE",
+      `2 TAG _MSTAT ${TERMS}brotherskeeper/_MSTAT`,
+      "2 TAG _SOUR https://github.com/dthaler/gedcom-citations/_SOUR",
+    ]);
+    expect(schemaUri("_DATE", ["INDI", "OBJE"], "MYHERITAGE")).toBe(`${TERMS}myheritage/_DATE`);
+    expect(schemaUri("_MSTAT", ["_CENR", "INDI"], undefined)).toBe("https://armidalesoftware.com/issue/tags/MSTAT.htm");
+    // 7.0 tags are case-sensitive: another spelling is not the registered tag.
+    expect(schemaUri("_date", ["SOUR", "REPO"], undefined)).not.toContain("dthaler");
+  });
+
+  it("declares a tag once, by the first place it appears", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SOUR MYHERITAGE",
+      "0 @I1@ INDI", "1 OBJE @O1@", "2 _DATE 2001",
+      "0 @S1@ SOUR", "1 REPO @R1@", "2 _DATE 1900",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual([`2 TAG _DATE ${TERMS}myheritage/_DATE`]);
   });
 
   it("keeps the header's own entries and never repeats one", () => {
@@ -121,14 +167,25 @@ describe("writeSchema — GEDCOM 7 extension tags", () => {
     ].join("\n"));
     expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual([
       "2 TAG _UID https://example.org/uid",
-      `2 TAG _FSFTID ${SCHEMA_BASE}_FSFTID`,
+      `2 TAG _FSFTID ${TERMS}rootsmagic/_FSFTID`,
     ]);
     expect(lines.filter((l) => l === "1 SCHMA")).toHaveLength(1);
   });
 
   it("writes no schema for a 7.0 file without extensions, nor for 5.5.1", () => {
     expect(writeSchema(parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n0 TRLR\n").records)).toEqual([]);
+    expect(writeSchema([])).toEqual([]);
     expect(download("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 _UID 1\n0 TRLR\n").out).not.toContain("SCHMA");
+  });
+
+  it("declares nothing for the vendor tags a conversion to 7.0 turns standard", () => {
+    const { lines } = download([
+      "0 HEAD", "1 SOUR MYHERITAGE", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Novak/", "2 _MARNM Kos", "1 _UID 1", "1 _FID GPZG-CXL", "1 _UPD x",
+      "0 TRLR", "",
+    ].join("\n"), "7.0");
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual([`2 TAG _UPD ${TERMS}myheritage/_UPD`]);
+    expect(lines).toContain("1 SOUR GEDMERGE");
   });
 });
 

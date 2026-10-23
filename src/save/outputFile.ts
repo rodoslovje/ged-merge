@@ -4,6 +4,8 @@ import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOpti
 import type { Dataset, GedNode } from "../gedcom/types";
 import { migrateVersion, versionFamily, type VersionFamily } from "../normalize/migrate";
 import { walkNodes } from "../normalize/walk";
+import { registryEntry } from "../gedcom/extensionRegistry";
+import { termsUri } from "../gedcom/extensionTerms";
 
 /**
  * What a file needs, at the level of the file rather than of any record, to be
@@ -22,16 +24,6 @@ export type OutputVersion = VersionFamily;
  *  is told to the reader once, in the save preview and in the change report
  *  (both read the `preview.fix.*` strings) and in Tools → Health check. */
 export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm";
-
-/**
- * Where an extension tag without a documented URI is declared to live in a
- * GEDCOM 7 header (`HEAD.SCHMA.TAG`). The FamilySearch extension registry
- * documents none of the vendor tags files actually carry (`_UID`, `_MARNM`,
- * `_FSFTID`, `_UPD`, …), and borrowing a registered URI for a same-named tag
- * would assert a meaning the vendor never gave it. A stable URI under the
- * app's own domain only says "this tag, as found in the file".
- */
-export const SCHEMA_BASE = "https://gedmerge.com/terms/";
 
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
@@ -221,23 +213,46 @@ function writtenTag(node: GedNode): string {
 }
 
 /**
- * Declare every extension (`_`) tag in a GEDCOM 7 forest in `HEAD.SCHMA`, as
- * 7.0 asks of a file that uses them. Entries the header already has are kept
- * and never repeated; new ones point under {@link SCHEMA_BASE}. Returns the
- * tags added.
+ * The URI `HEAD.SCHMA` declares an extension tag with, where it stands
+ * (`ancestors`: the tags above it, record first): the FamilySearch registry's
+ * URI where the registration covers that place and spelling, else the GED
+ * Merge page documenting the tag as the file's producer (`headSour`) writes
+ * it (see `gedcom/extensionTerms.ts`). A tag with a standard 7.0 form never
+ * gets here: converting to 7.0 writes the standard form instead.
  */
-export function writeSchema(records: GedNode[]): string[] {
+export function schemaUri(tag: string, ancestors: readonly string[], headSour: string | undefined): string {
+  const registered = registryEntry(tag, ancestors);
+  if (registered && registered.tag === tag) return registered.uri;
+  return termsUri(tag, headSour);
+}
+
+/**
+ * Declare every extension (`_`) tag in a GEDCOM 7 forest in `HEAD.SCHMA`, as
+ * 7.0 asks of a file that uses them, each with {@link schemaUri} for the first
+ * place it appears (a schema gives a tag one URI). Entries the header already
+ * has are kept and never repeated. `headSour` is the system that wrote the
+ * file — read before the save stamps GED Merge in its place. Returns the tags
+ * added.
+ */
+export function writeSchema(records: GedNode[], headSour?: string): string[] {
   const head = records.find((r) => r.tag === "HEAD");
   if (!head) return [];
-  const used = new Set<string>();
-  walkNodes(records, (node) => {
-    if (node.tag.startsWith("_")) used.add(writtenTag(node));
-  });
+  const used = new Map<string, string>();
+  const visit = (nodes: GedNode[], ancestors: string[]) => {
+    for (const node of nodes) {
+      if (node.tag.startsWith("_")) {
+        const tag = writtenTag(node);
+        if (!used.has(tag)) used.set(tag, schemaUri(tag, ancestors, headSour));
+      }
+      if (node.children.length) visit(node.children, [...ancestors, node.tag]);
+    }
+  };
+  visit(records, []);
   let schma = firstChild(head, "SCHMA");
   const declared = new Set(
     (schma?.children ?? []).filter((c) => c.tag === "TAG").map((c) => c.value?.trim().split(/\s+/)[0]),
   );
-  const added = [...used].filter((tag) => !declared.has(tag)).sort();
+  const added = [...used.keys()].filter((tag) => !declared.has(tag)).sort();
   if (added.length === 0) return added;
   if (!schma) {
     schma = line("SCHMA");
@@ -245,7 +260,7 @@ export function writeSchema(records: GedNode[]): string[] {
     const at = head.children.findIndex((c) => c.tag === "GEDC");
     head.children.splice(at + 1, 0, schma);
   }
-  for (const tag of added) schma.children.push(line("TAG", `${tag} ${SCHEMA_BASE}${tag}`));
+  for (const tag of added) schma.children.push(line("TAG", `${tag} ${used.get(tag)}`));
   return added;
 }
 
@@ -272,10 +287,12 @@ export function prepareDownload(
   authorName?: string,
 ): PreparedDownload {
   const from = ownVersion(ds);
-  const fixes = completeStructure(records, version, true, authorName);
+  // The program that wrote the file, before the stamp below names GED Merge.
+  const headSour = firstChild(records.find((r) => r.tag === "HEAD") ?? line("HEAD"), "SOUR")?.value;
+    const fixes = completeStructure(records, version, true, authorName);
   const conversion = from === version ? null : convertVersion(records, from, version);
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);
-  if (version === "7.0") writeSchema(records);
+  if (version === "7.0") writeSchema(records, headSour);
   return { fixes, conversion };
 }
