@@ -5,7 +5,7 @@ import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { SelectMenu } from "./DropdownMenu";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS, dateDisplayFormatter } from "./dateDisplayFormat";
 import { parseDate } from "../gedcom/date";
-import { useSettings, useNameOf, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
+import { useSettings, useNameOf, MAX_AUTHOR_NAME, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import { EventGlyph } from "./EventGlyph";
@@ -562,6 +562,20 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           <section className="settings-section">
             <h3>{t("settings.editing.title")}</h3>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.editing.authorName")}</span>
+                <span className="settings-hint">{t("settings.editing.authorName.hint")}</span>
+              </span>
+              <input
+                type="text"
+                className="settings-text-input"
+                value={settings.authorName}
+                autoComplete="name"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorName: e.target.value })}
+              />
+            </label>
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"

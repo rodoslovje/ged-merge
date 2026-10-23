@@ -2428,6 +2428,8 @@ export const en = {
   "settings.display.kinship": "Show kinship",
   "settings.display.kinship.hint": "When a start person is set, show each person's relationship to them (e.g. Son, 2nd cousin) across the app.",
   "settings.editing.title": "Editing",
+  "settings.editing.authorName": "Your name (file author)",
+  "settings.editing.authorName.hint": "Written as the file's author (SUBM) into a new file, and into a GEDCOM 5.5.1 file that has no author when it is saved. An author the file already names is never changed. Left empty, \"GED Merge\" is written instead.",
   "settings.editing.marriedFromPartner": "Married surname from partner",
   "settings.editing.marriedFromPartner.hint": "Adding a wife to a husband with a known surname records his surname as her married name, in the file's own style.",
   "settings.quickEvents.title": "Quick add events",

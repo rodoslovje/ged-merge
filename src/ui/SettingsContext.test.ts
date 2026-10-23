@@ -51,3 +51,18 @@ describe("settings store: the save report", () => {
     expect(store.get().saveReport).toBe(true);
   });
 });
+
+describe("settings store: the file author's name", () => {
+  it("is empty until the reader types one, and survives a reload as typed", () => {
+    expect(createSettingsStore().get().authorName).toBe("");
+    createSettingsStore().set({ authorName: "Ana Novak " });
+    expect(createSettingsStore().get().authorName).toBe("Ana Novak ");
+  });
+
+  it("reads a stored non-string as empty and folds a line break into a space", () => {
+    storage.set("gedmerge.settings", JSON.stringify({ authorName: 42 }));
+    expect(createSettingsStore().get().authorName).toBe("");
+    storage.set("gedmerge.settings", JSON.stringify({ authorName: "Ana\nNovak" }));
+    expect(createSettingsStore().get().authorName).toBe("Ana Novak");
+  });
+});

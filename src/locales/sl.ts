@@ -2751,6 +2751,8 @@ export const sl = {
   "settings.display.kinship": "Prikaži sorodstvo",
   "settings.display.kinship.hint": "Ko je nastavljena izhodiščna oseba, pri vsaki osebi prikaži sorodstveno razmerje do nje (npr. sin, bratranec) po vsej aplikaciji.",
   "settings.editing.title": "Urejanje",
+  "settings.editing.authorName": "Vaše ime (avtor datoteke)",
+  "settings.editing.authorName.hint": "Ime se zapiše kot avtor datoteke (SUBM) v novo datoteko in v datoteko GEDCOM 5.5.1, ki ob shranjevanju nima avtorja. Avtor, ki je v datoteki že naveden, ostane nespremenjen. Če je polje prazno, se namesto imena zapiše »GED Merge«.",
   "settings.editing.marriedFromPartner": "Poročni priimek po partnerju",
   "settings.editing.marriedFromPartner.hint": "Ob dodajanju žene možu z znanim priimkom se njegov priimek zapiše kot njen poročni priimek, v slogu datoteke.",
   "settings.quickEvents.title": "Hitro dodajanje dogodkov",
