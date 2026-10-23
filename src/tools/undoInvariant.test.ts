@@ -286,6 +286,11 @@ describe("undo invariant: Organize sources", () => {
     expect(findMissingPageMedia(ds, "event").groups.length).toBeGreaterThan(0);
     expectUndoInvariant(ds, (d) => organizeSources(d, { pages: true }));
   });
+
+  it("every part at once", () => {
+    const ds = load(interleave(corpusText("geneanet-5.5.1-utf8.ged"), SOURCE_EXTRAS));
+    expectUndoInvariant(ds, (d) => organizeSources(d, { reshape: true, dups: true, regroup: true, pages: true }));
+  });
 });
 
 // ── Places, geocoding, addresses, naming ─────────────────────────────────────
