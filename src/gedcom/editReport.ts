@@ -7,6 +7,7 @@ import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild, nodesEqual } from "./node";
 import { parseName } from "./name";
 import { placeNodeCoord } from "./place";
+import { ADDRESS_CONTACT_TAGS, ADDRESS_PART_TAGS } from "./address";
 import { isPrivateNode } from "./private";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
@@ -39,7 +40,7 @@ const NON_EVENT_TAGS = new Set([
  *  vendor events, …) is still diffed as an event — bulk tools (geocode,
  *  place rename) write into every PLAC, so a whitelist here would let those
  *  changes silently vanish from the save preview. */
-const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC", "TEMP", "STAT"]);
+const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC", "AGE", "TEMP", "STAT"]);
 
 function isEventShaped(node: GedNode): boolean {
   return node.children.some((c) => EVENT_SHAPE_TAGS.has(c.tag));
@@ -146,7 +147,7 @@ function diffSourceCitations(id: string, before: GedNode, after: GedNode, fieldL
 /** An event's sub-fields kept apart (rather than joined into one display string)
  *  so a modified — not newly added/removed — event can be diffed field by field. */
 type EventFieldKey =
-  | "type" | "value" | "date" | "place" | "coord" | "addr" | "agency" | "note" | "cause" | "temple" | "status" | "sources" | "media";
+  | "type" | "value" | "date" | "place" | "coord" | "addr" | "age" | "agency" | "note" | "cause" | "temple" | "status" | "sources" | "media";
 
 interface EventFields extends Record<EventFieldKey, string> {
   /** Flagged private — carried alongside the text fields rather than among
@@ -155,7 +156,29 @@ interface EventFields extends Record<EventFieldKey, string> {
   private?: boolean;
 }
 
-const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "agency", "note", "cause", "temple", "status", "sources", "media"];
+const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "age", "agency", "note", "cause", "temple", "status", "sources", "media"];
+
+/** The whole address as the preview shows it: the ADDR's line, its labelled
+ *  lines and the contact lines beside it — an edit to any of them must show. */
+function addressFieldText(node: GedNode): string {
+  const addr = firstChild(node, "ADDR");
+  const lines = addr ? [addr.value, ...ADDRESS_PART_TAGS.map((tag) => firstChild(addr, tag)?.value)] : [];
+  const contact = ADDRESS_CONTACT_TAGS.map((tag) => firstChild(node, tag)?.value);
+  return [...lines, ...contact].map((v) => v?.trim()).filter(Boolean).join(", ");
+}
+
+/** The ages the event states: its own `AGE`, or a family event's spouses'
+ *  (`♂27y ♀<20y`). */
+function ageFieldText(node: GedNode): string {
+  const spouseAge = (tag: string) => {
+    const spouse = node.children.find((c) => c.tag === tag && !c.value?.trim());
+    return spouse && firstChild(spouse, "AGE")?.value?.trim();
+  };
+  const own = firstChild(node, "AGE")?.value?.trim();
+  const husb = spouseAge("HUSB");
+  const wife = spouseAge("WIFE");
+  return [own, husb && `♂${husb}`, wife && `♀${wife}`].filter(Boolean).join(" ");
+}
 
 /** The location-ish sub-fields, kept in one place so the "same event, moved"
  *  pairing pass below stays in sync when another location field is added. */
@@ -218,7 +241,7 @@ function eventFields(node: GedNode, resolveSource: SourceResolver, nameMedia: Me
   // write, and a preview that showed the citation alone left the reader asking
   // whether the page came with it.
   const media = childrenByTag(node, "OBJE").map(nameMedia).filter(Boolean).join(", ");
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), temple: get("TEMP"), status: get("STAT"), sources, media, private: isPrivateNode(node) || undefined };
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: addressFieldText(node), age: ageFieldText(node), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), temple: get("TEMP"), status: get("STAT"), sources, media, private: isPrivateNode(node) || undefined };
 }
 
 function eventSummary(f: EventFields): string {
