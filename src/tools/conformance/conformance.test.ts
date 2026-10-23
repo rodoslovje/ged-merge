@@ -4,8 +4,12 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../../gedcom/builder";
 import { parseGedcom } from "../../gedcom/parser";
+import type { GedNode } from "../../gedcom/types";
+import { serializeGedcom } from "../../gedcom/serialize";
+import { applyRecordPatches } from "../../ui/historyTypes";
 import { validateStructure } from "../structure";
-import { tableFor, validateConformance, type ConformanceIssue } from "./conformance";
+import { countFixableConformance, fixConformance } from "../fixConformance";
+import { nodeAtPath, tableFor, validateConformance, type ConformanceIssue } from "./conformance";
 import { SPEC_55, SPEC_551, SPEC_555 } from "./spec551";
 import { SPEC_70 } from "./spec70";
 
@@ -282,6 +286,66 @@ describe("validateStructure integration", () => {
     expect(report.counts.pointerType).toBe(1);
     // Errors first.
     expect(report.issues[0].category).toBe("pointerType");
+  });
+});
+
+describe("fixConformance", () => {
+  const text = `${HEAD_551}
+0 @I1@ INDI
+1 SEX f
+1 SEX f
+1 FAMC @F1@
+2 PEDI Adopted
+1 BIRT
+2 DATE 1900
+2 DATE 1901
+0 @F1@ FAM
+1 CHIL @I1@
+0 @S1@ SOUR
+1 REPO @R1@
+2 CALN 1
+3 MEDI Book
+0 @R1@ REPO
+1 NAME Archive
+0 TRLR`;
+
+  it("counts and fixes recased values and exact repeats, and nothing else", () => {
+    const ds = dataset(text);
+    expect(countFixableConformance(ds, "values")).toBe(4); // two SEX, PEDI, MEDI
+    expect(countFixableConformance(ds, "repeats")).toBe(1);
+    const before = serializeGedcom(ds.records, ds);
+
+    const values = fixConformance(ds, "values");
+    expect(values.map((p) => `${p.type} ${p.id}`).sort()).toEqual(["individual @I1@", "record @S1@"]);
+    const repeats = fixConformance(ds, "repeats");
+    expect(repeats).toHaveLength(1);
+
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.sex).toBe("F");
+    expect(indi.raw.children.filter((c) => c.tag === "SEX")).toHaveLength(1);
+    expect(nodeAtPath(indi.raw, "1.0")?.value).toBe("adopted");
+    // The differing repeat stays: which DATE is right is the user's question.
+    const remaining = validateConformance(ds);
+    expect(remaining).toMatchObject([{ messageVars: { tag: "DATE", parent: "INDI.BIRT" } }]);
+
+    // Undo restores the file byte for byte.
+    applyRecordPatches(ds, repeats, "undo");
+    applyRecordPatches(ds, values, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("fixes one finding from its own row", () => {
+    const ds = dataset(text);
+    const pedi = validateConformance(ds).find((i) => i.messageVars.tag === "PEDI")!;
+    const patches = fixConformance(ds, undefined, { id: pedi.recordId!, path: pedi.path });
+    expect(patches).toHaveLength(1);
+    const sexes = ds.individuals.get("@I1@")!.raw.children.filter((c: GedNode) => c.tag === "SEX").map((c) => c.value);
+    expect(sexes).toEqual(["f", "f"]);
+    expect(fixConformance(ds, undefined, { id: "@I9@" })).toEqual([]);
+  });
+
+  it("is a no-op on a file of another version or a clean one", () => {
+    expect(fixConformance(dataset("0 HEAD\n0 @I1@ INDI\n1 SEX m\n0 TRLR"))).toEqual([]);
   });
 });
 
