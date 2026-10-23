@@ -44,7 +44,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   dangling: "danglingXref",
   values: "enumValue",
   repeats: "cardinality",
-  forms: "cardinality",
+  forms: "missingLine",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -475,7 +475,7 @@ export function ValidatePanel({
       };
     }
     // A media file's missing FORM, read off its name.
-    if (issue.category === "cardinality" && issue.fix !== undefined && issue.recordId) {
+    if (issue.category === "missingLine" && issue.fix !== undefined && issue.recordId) {
       return {
         label: t("tools.validate.fixOneAdd", { tag: issue.sample, value: issue.fix }),
         hint: t("tools.validate.fixOneAddHint"),
@@ -526,7 +526,7 @@ export function ValidatePanel({
   if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
-  const conformForms = structure?.issues.filter((i) => i.category === "cardinality" && !i.repeat && i.fix !== undefined && i.recordId).length ?? 0;
+  const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
@@ -798,6 +798,7 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "unknownTag",
   "misplacedTag",
   "cardinality",
+  "missingLine",
   "enumValue",
   "valueFormat",
   "xrefShape",

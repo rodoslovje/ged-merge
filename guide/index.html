@@ -1298,8 +1298,9 @@
             <p>
               The structure pass also holds the file to the GEDCOM standard its header declares — 5.5, 5.5.1, 5.5.5
               or 7.0 — line by line: <strong>pointers to the wrong record</strong> (a parent-family link that points
-              at a person, or the <em>@VOID@</em> null pointer outside 7.0), <strong>repeated or missing lines</strong>
-              (two SEX lines on one person, two dates on one event, a 5.5.1 header without its CHAR line),
+              at a person, or the <em>@VOID@</em> null pointer outside 7.0), <strong>repeated lines</strong>
+              (two SEX lines on one person, two dates on one event), <strong>missing lines</strong> (a 5.5.1 header
+              without its CHAR line, a media file without its FORM, a translated place without its LANG),
               <strong>tags out of place</strong> (a standard tag under a line that cannot carry it, listed once per
               habit with a count), <strong>non-standard values</strong> (a value outside the standard's list in SEX,
               PEDI, QUAY, RESN, ROLE, MEDI, a name's TYPE and the other enumerated lines), <strong>malformed

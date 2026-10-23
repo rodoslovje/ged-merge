@@ -35,6 +35,7 @@ import { SPEC_70 } from "./spec70";
 export type ConformanceCategory =
   | "pointerType"
   | "cardinality"
+  | "missingLine"
   | "misplacedTag"
   | "enumValue"
   | "valueFormat"
@@ -248,7 +249,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
         ? fileFormOf(node.value, spec.is70)
         : undefined;
       ctx.emit({
-        ...base, category: "cardinality", severity: "warning",
+        ...base, category: "missingLine", severity: "warning",
         messageKey: "tools.validate.struct.issue.missing",
         messageVars: { tag, parent: loc.where() },
         sample: tag, tooltip: add ? `${lineOf(node)} → ${tag} ${add}` : lineOf(node), path: loc.path(),

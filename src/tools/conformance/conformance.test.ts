@@ -368,14 +368,17 @@ describe("fixConformance", () => {
 0 @O2@ OBJE
 1 FILE scans/krst.JPG
 1 FILE scans/poroka
+0 @O3@ OBJE
+1 FILE www.familysearch.org/ark:/61903/3:1:939V-5RTW-6
 0 TRLR`);
     const missing = validateConformance(ds).filter((i) => i.messageVars.tag === "FORM");
-    expect(missing.map((i) => i.fix)).toEqual(["text/html", "image/jpeg", undefined]);
-    expect(countFixableConformance(ds, "forms")).toBe(2);
+    expect(missing.every((i) => i.category === "missingLine")).toBe(true);
+    expect(missing.map((i) => i.fix)).toEqual(["text/html", "image/jpeg", undefined, "text/html"]);
+    expect(countFixableConformance(ds, "forms")).toBe(3);
     const before = serializeGedcom(ds.records, ds);
 
     const patches = fixConformance(ds, "forms");
-    expect(patches.map((p) => p.id)).toEqual(["@O1@", "@O2@"]);
+    expect(patches.map((p) => p.id)).toEqual(["@O1@", "@O2@", "@O3@"]);
     expect(serializeGedcom(ds.records, ds)).toContain("1 FILE https://en.geneanet.org/cemetery/view/13234512\n2 FORM text/html\n");
     expect(serializeGedcom(ds.records, ds)).toContain("1 FILE scans/krst.JPG\n2 FORM image/jpeg\n");
     expect(validateConformance(ds).map((i) => i.messageVars.tag)).toEqual(["FORM"]);

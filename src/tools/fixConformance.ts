@@ -32,7 +32,7 @@ export interface ConformanceRef {
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.repeat ? "repeats" : issue.category === "cardinality" ? "forms" : "values";
+  return issue.repeat ? "repeats" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** How many findings of `kind` the fix would settle — the count on its button. */
@@ -74,7 +74,7 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
           const tag = issue.sample!;
           const first = node.children.find((c) => c.tag === tag);
           node.children = node.children.filter((c) => c === first || c.tag !== tag || !nodesEqual(c, first!));
-        } else if (issue.category === "cardinality" && issue.fix !== undefined) {
+        } else if (issue.category === "missingLine" && issue.fix !== undefined) {
           node.children.unshift({ level: node.level + 1, tag: issue.sample!, value: issue.fix, children: [] });
         } else if (issue.fix !== undefined) {
           node.value = issue.fix;
