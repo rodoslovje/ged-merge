@@ -28,7 +28,8 @@ npm run lint         # ESLint with --max-warnings 0
 npm run test         # vitest unit tests (run once)
 npm run test:watch   # vitest watch mode
 npm run test:coverage # unit tests with the coverage floors CI enforces
-npm run test:e2e     # Playwright end-to-end tests
+npm run test:e2e     # Playwright end-to-end tests (chromium: all; webkit: @smoke only)
+npm run test:e2e:pwa # build + service-worker specs (offline, update prompt) on vite preview
 ```
 
 To run a single test file: `npx vitest run src/gedcom/date.test.ts`

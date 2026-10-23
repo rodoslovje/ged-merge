@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
 import path from "path";
-import { enablePersist, waitForCache } from "./persist-util";
+import { enablePersist, expectNotCached, waitForCache } from "./persist-util";
 import { tmpdir } from "./tmpdir";
 
 // IndexedDB workspace persistence: a reload should restore the loaded files,
@@ -182,8 +182,8 @@ test("with caching disabled (default), a reload does not restore the workspace",
   const given = page.locator(".edit-name-input").first();
   await given.fill(`${await given.inputValue()} TEST`);
   await page.locator(".edit-name-input").nth(1).click();
-  // Give the debounce more than enough time; with caching off nothing is written.
-  await page.waitForTimeout(1500);
+  // With caching off the edit must never reach the cache, past the debounce.
+  await expectNotCached(page, { mainContains: "TEST" });
 
   await page.reload();
 

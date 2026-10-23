@@ -3,6 +3,7 @@ import { writeFileSync, existsSync } from "fs";
 import os from "os";
 import path from "path";
 import { tmpdir } from "./tmpdir";
+import { nextFrames, waitForListSettled } from "./frames";
 
 // The real file that triggered the loop for the user (index-scale, ~175k lines).
 // Used when present; otherwise fall back to the synthetic file below.
@@ -79,9 +80,9 @@ test("duplicate cluster list on a large file does not crash-loop", async ({ page
 
   // The list should render, and the recoverable error card must NOT appear.
   await expect(page.locator(".tools-pairs")).toBeVisible({ timeout: 120000 });
-  await page.waitForTimeout(800);
-
   const scroller = page.locator(".tools-view");
+  const rows = page.locator(".tools-pair, .tools-dup-cluster-head");
+  await waitForListSettled(rows, scroller);
 
   // Every COLLAPSED row (lone pair or cluster header) must measure the same
   // height. If two heights coexist, the virtual list's row-height rebase
@@ -94,8 +95,20 @@ test("duplicate cluster list on a large file does not crash-loop", async ({ page
   let sawHeader = false;
   for (let top = 0; top <= scrollHeight; top += 300) {
     await scroller.evaluate((el, y) => { el.scrollTop = y; }, top);
-    await page.waitForTimeout(50);
     if (await page.locator(".error-fallback").count()) break;
+    // The window has followed the scroll once a drawn row sits inside the
+    // scrollport after the scroll event's re-render has reached a frame —
+    // wait for that, not for a fixed delay.
+    await nextFrames(page);
+    await page.waitForFunction(() => {
+      const sc = document.querySelector(".tools-view");
+      if (!sc) return false;
+      const port = sc.getBoundingClientRect();
+      return [...document.querySelectorAll(".tools-pair, .tools-dup-cluster-head")].some((r) => {
+        const b = r.getBoundingClientRect();
+        return b.bottom > port.top && b.top < port.bottom;
+      });
+    });
     const seen = await page.evaluate(() => {
       const pairs = [...document.querySelectorAll<HTMLElement>(".tools-pair")]
         .filter((e) => !e.querySelector(".tools-pair-compare"))

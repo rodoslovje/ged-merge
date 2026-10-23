@@ -60,7 +60,7 @@ async function setEventField(row: Locator, cls: string, key: string, value: stri
   await input.fill(value);
 }
 
-test("edit mode: name, sex and event fields are editable and exportable", async ({ page }) => {
+test("edit mode: name, sex and event fields are editable and exportable", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);

@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
+import { nextFrames, waitForListSettled } from "./frames";
 
 /**
  * `useVirtualList` must never crash-loop, however wrong its measurements are.
@@ -93,7 +94,9 @@ async function wheelAndAssertNoLoop(page: Page, errors: string[], rowSelector: s
   await page.locator(rowSelector).first().hover();
   for (let i = 0; i < 80; i++) {
     await page.mouse.wheel(0, 120);
-    await page.waitForTimeout(20);
+    // Let the wheel's scroll and the re-render it triggers reach a frame
+    // before the next tick — the loop lives between those frames.
+    await nextFrames(page);
     if (await page.locator(".error-fallback").count()) break;
   }
   await expect(page.locator(".error-fallback"), "error boundary caught a crash").toHaveCount(0);
@@ -117,7 +120,7 @@ for (const zoom of [0.9, 0.8]) {
     await page.getByRole("button", { name: "Merge", exact: true }).click();
     await page.locator("input.file-input").last().setInputFiles(COMPARE);
     await page.locator(".candidate").first().waitFor({ timeout: 60000 });
-    await page.waitForTimeout(300);
+    await waitForListSettled(page.locator(".candidate"));
     await wheelAndAssertNoLoop(page, errors, ".candidate");
   });
 
@@ -128,7 +131,7 @@ for (const zoom of [0.9, 0.8]) {
     await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByText("Find duplicates", { exact: true }).first().click();
     await expect(page.locator(".tools-pair").first()).toBeVisible({ timeout: 120000 });
-    await page.waitForTimeout(300);
+    await waitForListSettled(page.locator(".tools-pair"));
     await wheelAndAssertNoLoop(page, errors, ".tools-pair");
   });
 
@@ -142,7 +145,7 @@ for (const zoom of [0.9, 0.8]) {
     // person matches — the whole 300-row file.
     await expect(page.locator(".batch-section-tab.active")).toHaveText("Batch actions");
     await expect(page.locator(".batch-row").first()).toBeVisible({ timeout: 120000 });
-    await page.waitForTimeout(300);
+    await waitForListSettled(page.locator(".batch-row"));
     await wheelAndAssertNoLoop(page, errors, ".batch-row");
   });
 }
@@ -157,17 +160,29 @@ test("the window keeps up with the scroll position on an unmanipulated list", as
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
   await expect(page.locator(".tools-issues").first()).toBeVisible({ timeout: 120000 });
-  await page.locator(".tools-chip", { hasText: "Living over 99" }).click();
-  await page.waitForTimeout(300);
+  const chip = page.locator(".tools-chip", { hasText: "Living over 99" });
+  await chip.click();
+  await expect(chip).toHaveClass(/\bactive\b/);
+  await waitForListSettled(page.locator(".tools-issue"), page.locator(".tools-view"));
 
   await page.locator(".tools-view").hover();
   for (let i = 0; i < 60; i++) {
     await page.mouse.wheel(0, 120);
-    await page.waitForTimeout(20);
+    await nextFrames(page);
   }
-  await page.waitForTimeout(300);
 
-  const covered = await page.evaluate(() => {
+  // The window catches up with the last wheel tick on its own schedule: retry
+  // the coverage reading until it holds, rather than reading it once.
+  await expect(async () => {
+    const covered = await readCoverage(page);
+    expect(covered.visible, "no findings drawn inside the scrollport").toBeGreaterThan(0);
+    expect(covered.coverage, "findings cover only part of the scrollport").toBeGreaterThan(0.9);
+  }).toPass();
+  expect(errors.filter((e) => /Maximum update depth/i.test(e))).toHaveLength(0);
+});
+
+function readCoverage(page: Page) {
+  return page.evaluate(() => {
     const sc = document.querySelector(".tools-view") as HTMLElement;
     const port = sc.getBoundingClientRect();
     const rows = [...document.querySelectorAll<HTMLElement>(".tools-issue")];
@@ -182,7 +197,4 @@ test("the window keeps up with the scroll position on an unmanipulated list", as
       : 0;
     return { visible: visible.length, coverage: spanned / port.height };
   });
-  expect(covered.visible, "no findings drawn inside the scrollport").toBeGreaterThan(0);
-  expect(covered.coverage, "findings cover only part of the scrollport").toBeGreaterThan(0.9);
-  expect(errors.filter((e) => /Maximum update depth/i.test(e))).toHaveLength(0);
-});
+}

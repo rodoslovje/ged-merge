@@ -231,6 +231,19 @@ export function mergeDuplicateChain(
   t: Translate,
 ): RecordPatch[] {
   const byKey = new Map<string, RecordPatch>();
+  // Where each record removed so far sat before the chain, ascending. A step's
+  // deletion index is read off the list as earlier steps left it; undo puts the
+  // records back into the list as the chain left it, in ascending order, so
+  // each index must be the record's position in the file *before the chain*.
+  const removedAt: number[] = [];
+  const originalIndex = (mid: number): number => {
+    let at = mid;
+    for (const r of removedAt) {
+      if (r <= at) at++;
+      else break;
+    }
+    return at;
+  };
   // A step that throws takes the whole chain back with it — the earlier steps'
   // merges included, whose patches would otherwise never reach the undo stack.
   // One index of who names whom for the whole chain: each step then asks the
@@ -238,10 +251,23 @@ export function mergeDuplicateChain(
   applyPassSafely(dataset, (journal) => withPointerIndex(dataset, () => {
     const placement = steps.length > 1 ? linkPlacementFor(dataset) : undefined;
     for (const step of steps) {
+      const removedNow: number[] = [];
       for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t, journal, placement)) {
+        if (p.after === null && p.index !== undefined) {
+          p.index = originalIndex(p.index);
+          removedNow.push(p.index);
+        }
         const key = `${p.type}:${p.id}`;
         const first = byKey.get(key);
-        byKey.set(key, first ? { ...p, before: first.before, ...(first.index !== undefined ? { index: first.index } : {}) } : p);
+        // First `before`, last `after` — and the index that goes with the
+        // deletion, wherever in the chain it happened.
+        byKey.set(key, first ? { ...p, before: first.before } : p);
+      }
+      // All of one step's indices are read off the same list, so they join the
+      // removed set only once the whole step is translated.
+      if (removedNow.length) {
+        removedAt.push(...removedNow);
+        removedAt.sort((a, b) => a - b);
       }
     }
   }));

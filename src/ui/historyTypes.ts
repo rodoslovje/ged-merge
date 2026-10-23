@@ -25,7 +25,9 @@ export interface RecordPatch {
   /** For deletion patches (`after: null`): the record's index in
    * `dataset.records` when `before` was captured, so undo can restore it at
    * its original position — keeping the serialized record order (and thus the
-   * minimal-diff-against-the-original guarantee) intact. */
+   * minimal-diff-against-the-original guarantee) intact. For creation patches
+   * (`before: null`), optionally the record's index in the list the action
+   * left, so redo puts it back where the action did. */
   index?: number;
   /** For `type: "record"` patches whose edit is surfaced through an owning
    * individual/family (e.g. a shared OBJE's metadata edited from a person's

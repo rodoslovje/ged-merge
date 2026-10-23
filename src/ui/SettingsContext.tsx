@@ -286,7 +286,9 @@ function applyDateDisplay(s: AppSettings): void {
   setDateDisplay(dateDisplayFormatter(s.dateDisplay, () => i18n.language));
 }
 
-function createSettingsStore(): SettingsStore {
+/** The preferences store the provider holds: read from localStorage once,
+ *  written back on every change. Exported for its tests. */
+export function createSettingsStore(): SettingsStore {
   let current = load();
   applyDateDisplay(current);
   const listeners = new Set<() => void>();

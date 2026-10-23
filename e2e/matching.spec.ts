@@ -67,7 +67,7 @@ writeFileSync(TRUEDUP, [
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
-test("merge candidates: day-exact pair matches, Living placeholders do not", async ({ page }) => {
+test("merge candidates: day-exact pair matches, Living placeholders do not", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(MAIN);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
@@ -116,7 +116,7 @@ test("duplicate finder: same-named cousins with conflicting fathers are not flag
   await expect(page.getByText("No likely duplicates found.")).toBeVisible({ timeout: 30000 });
 });
 
-test("duplicate finder: a true duplicate (same parents, day-exact birth) is flagged", async ({ page }) => {
+test("duplicate finder: a true duplicate (same parents, day-exact birth) is flagged", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(TRUEDUP);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });

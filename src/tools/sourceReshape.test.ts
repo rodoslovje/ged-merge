@@ -725,6 +725,26 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("3 PAGE list 12"); // no page number: URL removed, prose kept
   });
 
+  it("converts a PAGE line the citation repeats in the same run", () => {
+    // MyHeritage writes the citation's PAGE twice; the first run used to
+    // convert the first line only, and the next run found the second.
+    const doubled = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 DEAT
+2 SOUR @S1@
+3 PAGE ${BOOK}/?pg=5
+3 PAGE ${BOOK}/?pg=5
+3 QUAY 3
+0 @S1@ SOUR
+1 TITL Matična knjiga
+0 TRLR`;
+    const { text } = applyAll(doubled);
+    expect(text).not.toMatch(/PAGE https/);
+    expect(text.match(/3 PAGE 5\n/g)).toHaveLength(1);
+    expect(findReshapableLinks(dataset(text)).groups).toEqual([]);
+  });
+
   it("gives each site its own citation when one citation names links to two sites", () => {
     const FAG = "https://www.findagrave.com/memorial/12345";
     for (const shape of [

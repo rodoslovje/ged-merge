@@ -58,7 +58,7 @@ test("the sources tree nests its rows as lists, not list items inside list items
   await expect(async () => {
     const shut = page.locator('.tools-tree-row button.tools-pair-toggle[aria-expanded="false"]');
     while (await shut.count()) await shut.first().click();
-    expect(await shut.count()).toBe(0);
+    await expect(shut).toHaveCount(0, { timeout: 2000 });
   }).toPass({ timeout: 15000 });
 
   // The rows really did render: the source's two page images sit under it.

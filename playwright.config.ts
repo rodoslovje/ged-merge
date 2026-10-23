@@ -34,7 +34,14 @@ function spareWorkers(): number {
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  reporter: "list",
+  /**
+   * On CI the `github` reporter adds an annotation for every failure *and*
+   * every flaky test — one that failed and then passed on a retry — so a test
+   * the retries are quietly carrying shows on the PR instead of only in the
+   * log. Flakes are reported, not failed (`failOnFlakyTests` stays off): the
+   * suite does not yet run flake-free on a loaded machine three times running.
+   */
+  reporter: process.env.CI ? [["list"], ["github"]] : "list",
 
   /**
    * Per-test budget. Playwright's default is 30 s, which several specs already
@@ -88,7 +95,16 @@ export default defineConfig({
   },
 
   projects: [
+    // The full suite.
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    /**
+     * Safari's engine, on the tests tagged `@smoke` only: one each for load,
+     * Edit, Merge, the duplicate finder, Save and a chart. WebKit is where the
+     * app's platform bugs have come from (one download per gesture, tooltips,
+     * foreignObject photos), so the headline flows run there too — the full
+     * suite twice over would double the run for little more coverage.
+     */
+    { name: "webkit", use: { ...devices["Desktop Safari"] }, grep: /@smoke/ },
   ],
 
   webServer: {

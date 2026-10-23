@@ -17,6 +17,7 @@ import {
   RELATED_CHILD_MIN_SCORE,
 } from "./mergeCluster";
 import { validateDataset } from "./validate";
+import { applyRecordPatches } from "../ui/historyTypes";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -142,6 +143,26 @@ describe("mergeCluster", () => {
       "@I4@",
     ]);
     expect([...removedIds].sort()).toEqual(["@I2@", "@I3@", "@I4@"]);
+  });
+
+  it("undoes a cluster with its relative groups back to the file byte for byte", () => {
+    // Wives, husbands and families interleaved in the file: the chain removes
+    // records from all over the list, and a record touched early (a survivor of
+    // one step) can be removed by a later one.
+    const ds = dataset(threeCouples);
+    const original = serializeGedcom(ds.records);
+    const members = ["@W1@", "@W2@", "@W3@"];
+    const survivor = pickClusterSurvivor(ds, members)!;
+    const groups = clusterRelativeGroups(ds, survivor, members, tr);
+    expect(groups.length).toBeGreaterThan(0);
+    const { patches } = mergeCluster(ds, survivor, members, groups, tr);
+    const merged = serializeGedcom(ds.records);
+    expect(merged).not.toBe(original);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(original);
+    applyRecordPatches(ds, patches, "redo");
+    expect(serializeGedcom(ds.records)).toBe(merged);
   });
 
   it("does nothing when the cluster is a single record", () => {

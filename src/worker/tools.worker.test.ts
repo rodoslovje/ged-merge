@@ -70,3 +70,88 @@ describe("tools worker main copy", () => {
     expect(lastPairs()).toEqual(["@I1@|@I2@"]);
   });
 });
+
+describe("tools worker scans", () => {
+  const scanTypes = ["validate", "sourceDuplicates", "sourceReshape", "normalizePreview"] as const;
+  const idOf = (m: ToolsResponse) => ("requestId" in m ? m.requestId : 0);
+
+  it("a scan before any main answers an error, not a result", async () => {
+    const send = await freshWorker();
+    send({ type: "validate", requestId: 1 });
+    expect(posted).toEqual([{ type: "error", requestId: 1, message: "no dataset loaded" }]);
+  });
+
+  it("a patch with no main to apply it to asks for the whole main", async () => {
+    const send = await freshWorker();
+    send({ type: "patchMain", patch: recordsPatch(dsOf(FILE), new Set(["@I1@"]))! });
+    expect(posted).toEqual([{ type: "resync" }]);
+  });
+
+  it("answers each scan kind with its own result, tagged with its request id", async () => {
+    const send = await freshWorker();
+    send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
+    scanTypes.forEach((type, i) => send({ type, requestId: 10 + i }));
+    expect(posted.map((m) => [m.type, idOf(m)])).toEqual([["result", 10], ["result", 11], ["result", 12], ["result", 13]]);
+    const [validate, sources, reshape, preview] = posted.map((m) => (m.type === "result" ? m.data : undefined)) as object[];
+    expect(Object.keys(validate)).toEqual(["report", "structure"]);
+    expect(sources).toHaveProperty("report");
+    expect(reshape).toHaveProperty("report");
+    expect(preview).toHaveProperty("report");
+  });
+
+  it("normalizeText sends back the normalized file as UTF-8 text", async () => {
+    const send = await freshWorker();
+    send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
+    const options = { dates: true, places: true, links: true, names: true, vendorTags: true };
+    send({ type: "normalizeText", requestId: 5, options });
+    const res = posted.at(-1)!;
+    if (res.type !== "result") throw new Error(`expected a result, got ${res.type}`);
+    const text = (res.data as { text: string }).text;
+    expect(text.startsWith("0 HEAD")).toBe(true);
+    expect(text).toContain("1 CHAR UTF-8");
+    expect(text).toContain("0 @I1@ INDI");
+    expect(text.trimEnd().endsWith("0 TRLR")).toBe(true);
+  });
+
+  it("reports the duplicate scan's progress on a large file, under the scan's id", async () => {
+    const send = await freshWorker();
+    // Progress comes every 256 people; just past one step keeps the scan short.
+    const many = Array.from({ length: 300 }, (_, i) => person(`@I${i + 1}@`, `Oseba${i} /Priimek${i}/`)).join("");
+    send({ type: "setMain", snapshot: mainSnapshot(dsOf(`0 HEAD\n${many}0 TRLR\n`)) });
+    send({ type: "findDuplicates", requestId: 8 });
+    expect(posted.filter((m) => m.type === "progress")).toEqual([{ type: "progress", requestId: 8, done: 256, total: 300 }]);
+    expect(posted.at(-1)).toMatchObject({ type: "result", requestId: 8 });
+  }, 30_000);
+
+  it("a scan that throws answers an error for that request and keeps the worker usable", async () => {
+    vi.doMock("../tools/sourceDuplicates", () => ({
+      findSourceDuplicates: () => {
+        throw new Error("boom");
+      },
+    }));
+    try {
+      const send = await freshWorker();
+      send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
+      send({ type: "sourceDuplicates", requestId: 3 });
+      send({ type: "validate", requestId: 4 });
+      expect(posted.map((m) => [m.type, idOf(m)])).toEqual([["error", 3], ["result", 4]]);
+      expect(posted[0]).toMatchObject({ message: "boom" });
+    } finally {
+      vi.doUnmock("../tools/sourceDuplicates");
+    }
+  });
+
+  it("a scan posted after a stale patch waits for the whole main, then runs on it", async () => {
+    const send = await freshWorker();
+    const live = dsOf(FILE);
+    send({ type: "setMain", snapshot: mainSnapshot(live) });
+    const other = dsOf(`0 HEAD\n${person("@I5@", "Ana /Kos/")}${person("@I9@", "Janez /Novak/")}0 TRLR\n`);
+    send({ type: "patchMain", patch: recordsPatch(other, new Set(["@I9@"]))! });
+    send({ type: "validate", requestId: 1 });
+    send({ type: "patchMain", patch: recordsPatch(live, new Set(["@I1@"]))! }); // waits, then is dropped
+    send({ type: "findDuplicates", requestId: 2 });
+    expect(posted.map((m) => m.type)).toEqual(["resync"]);
+    send({ type: "setMain", snapshot: mainSnapshot(live) });
+    expect(posted.map((m) => [m.type, idOf(m)])).toEqual([["resync", 0], ["result", 1], ["result", 2]]);
+  });
+});

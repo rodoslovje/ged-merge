@@ -130,6 +130,12 @@ describe("planEntry", () => {
     expect(plan.map((s) => s.subject)).toEqual(["name", "pronoun", "pronoun", "pronoun", "pronoun"]);
   });
 
+  it("names a child through the given namer, so privacy reaches the parent's sentence", () => {
+    const names = childGroups(data, (e) => `«${e.id}»`).get(root.num)!.flatMap((g) => g.names);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((n) => /^«@I\d+@»$/.test(n))).toBe(true);
+  });
+
   it("plans nothing for duplicate entries", () => {
     expect(planEntry({ ...root, dupOf: 1 })).toEqual([]);
   });

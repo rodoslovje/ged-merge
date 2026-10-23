@@ -76,7 +76,7 @@ async function replaceMain(page: import("@playwright/test").Page, file: string) 
   await expect(page.locator(".header-file-btn.main")).toContainText(path.basename(file), { timeout: 30000 });
 }
 
-test("replacing the main shows the new file's person even when xrefs collide", async ({ page }) => {
+test("replacing the main shows the new file's person even when xrefs collide", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE_A);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
