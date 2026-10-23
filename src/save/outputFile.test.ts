@@ -75,6 +75,18 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
     expect(parse(lines.join("\n") + "\n").version).toBe("5.5.1");
   });
 
+  it("a converted file follows the target's at-sign rule, whatever the source spelled", () => {
+    const bare551 = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 EMAIL ana@example.si\n1 NOTE a@@b\n0 TRLR\n";
+    expect(download(bare551).out).toContain("1 EMAIL ana@example.si\n"); // untouched, own version
+    const to7 = download(bare551, "7.0").out;
+    expect(to7).toContain("1 EMAIL ana@example.si\n");
+    expect(to7).toContain("1 NOTE a@b\n");
+    const v7 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n1 EMAIL ana@example.si\n1 NOTE a@@b\n0 TRLR\n";
+    const to551 = download(v7, "5.5.1").out;
+    expect(to551).toContain("1 EMAIL ana@@example.si\n");
+    expect(to551).toContain("1 NOTE a@@@@b\n");
+  });
+
   it("converts nothing when saved in the file's own version", () => {
     expect(download(v551).conversion).toBeNull();
     expect(convertVersion(parse(v551).records, "5.5.1", "5.5.1")).toEqual([]);

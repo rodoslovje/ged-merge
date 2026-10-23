@@ -464,9 +464,32 @@ describe("serializeGedcom", () => {
       expect(ds.records[1].children[1].value).toBe("@home a@@b");
     });
 
-    it("a 5.5.1 file's single inner @ is written the spec's way", () => {
-      const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 EMAIL ana@example.si", "0 TRLR", ""].join("\n");
-      expect(download(text)).toContain("1 EMAIL ana@@example.si\n");
+    const BARE = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 EMAIL ana@example.si", "1 NOTE see a@b", "2 CONC  and c@d", "2 CONT @home", "0 TRLR", ""].join("\n");
+
+    it("an untouched 5.5.1 line written with bare at-signs saves as it was read", () => {
+      // Only the leading @ of the CONT line is doubled: unescaped, it would
+      // read as a pointer.
+      expect(download(BARE)).toBe(BARE.replace("2 CONT @home", "2 CONT @@home"));
+      const back = parseGedcom(new TextEncoder().encode(download(BARE)).buffer);
+      expect(back.records[1].children[1].value).toBe("see a@b and c@d\n@home");
+    });
+
+    it("an edited 5.5.1 value is escaped by the version's rule, and a clone stays untouched", () => {
+      const parsed = parseGedcom(new TextEncoder().encode(BARE).buffer);
+      const copy = parsed.records.map(cloneNode);
+      expect(serializeGedcom(copy, downloadOptions(parsed))).toBe(download(BARE));
+      parsed.records[1].children[0].value = "bo@example.si";
+      expect(serializeGedcom(parsed.records, downloadOptions(parsed))).toContain("1 EMAIL bo@@example.si\n");
+    });
+
+    it("a value mixing @@ and bare @ follows the version's rule", () => {
+      const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @N1@ NOTE a@@b", "1 CONT c@d", "0 TRLR", ""].join("\n");
+      expect(download(text)).toContain("0 @N1@ NOTE a@@b\n1 CONT c@@d\n");
+    });
+
+    it("a converted file follows its target version's rule", () => {
+      const parsed = parseGedcom(new TextEncoder().encode(BARE).buffer);
+      expect(serializeGedcom(parsed.records, { ...downloadOptions(parsed), atEscape: "leading" })).toContain("1 EMAIL ana@example.si\n");
     });
 
     it("never parts an @@ across a CONC line, and the value reads back whole", () => {

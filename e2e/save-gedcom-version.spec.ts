@@ -73,7 +73,8 @@ test("a file without header or trailer saves complete: HEAD, TRLR and a submitte
   expect(text).toContain("1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n");
   expect(text).toContain("1 SUBM @U1@\n");
   expect(text).toContain("0 @U1@ SUBM\n1 NAME GED Merge\n0 TRLR\n");
-  expect(text).toContain("1 EMAIL ana@@example.si\n");
+  // An untouched line keeps the bare at-sign the file wrote.
+  expect(text).toContain("1 EMAIL ana@example.si\n");
   expect(lines[lines.length - 1]).toBe("0 TRLR");
 });
 

@@ -164,6 +164,8 @@ export function convertVersion(records: GedNode[], from: OutputVersion, to: Outp
   if (from === to) return changes;
   const note = (before: string, after: string) => changes.push(`${before} → ${after}`);
   migrateVersion(records, from, to, note);
+  // A converted file is written by its new version's at-sign rule throughout.
+  walkNodes(records, (node) => { delete node.atBare; });
 
   const head = records.find((r) => r.tag === "HEAD");
   if (head) {

@@ -96,6 +96,7 @@ export function cloneNode(n: GedNode): GedNode {
   if (n.verbatim !== undefined) c.verbatim = n.verbatim;
   if (n.spelling !== undefined) c.spelling = n.spelling;
   if (n.spaced) c.spaced = true;
+  if (n.atBare !== undefined) c.atBare = n.atBare;
   // The audit marker must survive cloning: the merge applies decisions to a
   // clone of the (possibly edit-marked) main, and undo/redo snapshots must
   // restore the exact marker state their side of the patch had.

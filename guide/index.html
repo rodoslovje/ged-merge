@@ -2878,8 +2878,9 @@
               the encoding, gets what is missing. GEDCOM 5.5.1 also requires a submitter record (<em>SUBM</em>); the
               browser cannot know your name, so a 5.5.1 file without one gets a submitter named “GED Merge”. The preview
               lists each of these repairs before you download, and so does the <a href="#validate">Health check</a>.
-              Text is written by the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal <code>@</code>
-              (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A GEDCOM 7.0 file also declares
+              Text you write or edit follows the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal
+              <code>@</code> (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A line you have not
+              touched keeps the at-signs it was read with, and a converted file follows the rule of its new version. A GEDCOM 7.0 file also declares
               in its header every extension tag it carries (<code>_UID</code>, <code>_MARNM</code>, …).
             </p>
             <p>

@@ -91,6 +91,8 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   // value it clearly belongs to instead of being flagged and detached.
   // Cleared on any well-formed non-CONT/CONC line.
   let textBlob: GedNode | undefined;
+  // Values with a line that doubles its at-signs: never written back bare.
+  const atMixed = new WeakSet<GedNode>();
 
   for (let i = 0; ; i++) {
     if (i - first >= lines.length) {
@@ -131,6 +133,10 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     // leading one, and reads any later `@@` as two at-signs. Fold each back
     // by its version's rule; the serializer re-doubles by the same rule (see
     // `atEscapeFor`), so a valid file still round-trips byte-faithfully.
+    // A 5.5.x file that writes its at-signs bare (`ana@example.si`, as many
+    // exporters do) is remembered as such, so an untouched value saves the way
+    // it was read (see `GedNode.atBare`).
+    const atStyle = legacyAt && value !== undefined ? atStyleOf(value) : undefined;
     if (value !== undefined && value.includes("@@")) {
       value = legacyAt ? value.replace(/@@/g, "@") : value.startsWith("@@") ? value.slice(1) : value;
     }
@@ -180,6 +186,12 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
         // against; re-point `of` or they would read as stale.
         parent.conc = { at: parent.conc.at, of: parent.value };
       }
+      if (atStyle === "doubled" || atMixed.has(parent)) {
+        atMixed.add(parent);
+        delete parent.atBare;
+      } else if (atStyle === "bare" || parent.atBare !== undefined) {
+        parent.atBare = parent.value;
+      }
       textBlob = parent;
       continue;
     }
@@ -189,6 +201,8 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     if (value !== undefined) node.value = value;
     if (spelling) node.spelling = spelling;
     if (value === "") node.spaced = true;
+    if (atStyle === "bare") node.atBare = value;
+    else if (atStyle === "doubled") atMixed.add(node);
 
     if (level === 0) {
       roots.push(node);
@@ -240,6 +254,22 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   }
   const version = detectVersion(roots, warnings);
   return { version, charset, records: roots, warnings, eol, finalNewline, bom };
+}
+
+/**
+ * How a 5.5.x line value spells its literal at-signs: `"doubled"` when any is
+ * written `@@` (the spec's way), `"bare"` when some are single and none are
+ * doubled, undefined when it has none — a pointer and an `@#D…@` calendar
+ * escape are at-sign constructs, not literal at-signs.
+ */
+function atStyleOf(raw: string): "bare" | "doubled" | undefined {
+  if (!raw.includes("@") || isPointer(raw)) return undefined;
+  let bare = false;
+  for (const run of raw.replace(/@#D[A-Z ]*@/g, "").match(/@+/g) ?? []) {
+    if (run.length > 1) return "doubled";
+    bare = true;
+  }
+  return bare ? "bare" : undefined;
 }
 
 /**

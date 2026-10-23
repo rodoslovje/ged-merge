@@ -224,6 +224,9 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
     // text begins on a CONT line (e.g. "0 @N@ NOTE" then "1 CONT ..."), so the
     // head line gets no trailing space.
     const segments = node.value.split("\n");
+    // An untouched 5.5.x value the file wrote with bare at-signs keeps them
+    // (see `GedNode.atBare`); anything new or edited follows the version.
+    const all = ctx.all && node.atBare !== node.value;
     // The file's own CONC positions, while they still describe this value.
     const breaks = node.conc?.of === node.value ? node.conc.at : undefined;
     let pos = 0;
@@ -231,7 +234,7 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
       // A tag the file wrote as `1 NOTE ` keeps its space while its line
       // still carries no text.
       const prefix = i > 0 ? `${depth + 1} CONT` : node.spaced && segments[0] === "" ? `${head} ` : head;
-      pushSegment(lines, prefix, segments[i], depth, maxLen, segmentBreaks(breaks, pos, segments[i].length), ctx.all);
+      pushSegment(lines, prefix, segments[i], depth, maxLen, segmentBreaks(breaks, pos, segments[i].length), all);
       pos += segments[i].length + 1; // + the "\n" the CONT line stands for
     }
   }

@@ -103,6 +103,16 @@ export interface GedNode {
    * the tag line still carries no text, so an untouched line saves as read.
    */
   spaced?: true;
+  /**
+   * A 5.5.x value the file wrote with bare at-signs (`ana@example.si`) where
+   * 5.5.1 asks for `@@` — what many exporters do, and many readers expect.
+   * Holds the value it describes: while `value` still equals it the line is
+   * untouched, and the serializer writes its at-signs back the way they were
+   * read (a leading `@` is still doubled, or it would read as a pointer). An
+   * edited value follows the version's rule. Like {@link conc}, it costs
+   * nothing: it is the same string.
+   */
+  atBare?: string;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */
