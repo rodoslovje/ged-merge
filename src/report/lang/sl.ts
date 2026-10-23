@@ -10,7 +10,7 @@
 // Open-class words (places, names) are never declined — see lang/types.ts.
 
 import type { GedDate } from "../../gedcom/types";
-import { dateText } from "../../gedcom/date";
+import { dateText, withPhrase } from "../../gedcom/date";
 import type { NarrativeLang } from "./types";
 
 const GEN = [
@@ -63,6 +63,7 @@ function dateLabel(d: GedDate): string {
   let label: string;
   if (d.qualifier === "exact" && !d.placeholder && d.year !== undefined && d.day === undefined) {
     label = d.month ? `${NOM[d.month - 1]} ${yearText(d.year)}` : yearText(d.year);
+    if (d.phrase) label = withPhrase(label, d.phrase);
   } else {
     label = plainPhrase(d);
   }
@@ -71,7 +72,14 @@ function dateLabel(d: GedDate): string {
   return label && d.calendar === "JULIAN" ? `${label} (po julijanskem koledarju)` : label;
 }
 
+/** A date as a phrase, with a GEDCOM 7 date's own wording (`PHRASE`) in
+ *  brackets after it. */
 function plainPhrase(d: GedDate): string {
+  const out = valuePhrase(d);
+  return d.phrase && out && !out.includes(d.phrase) ? withPhrase(out, d.phrase) : out;
+}
+
+function valuePhrase(d: GedDate): string {
   if (d.placeholder) return "";
   if (!core(GENITIVE, d.day, d.month, d.year)) return dateText(d); // unparseable — keep the recorded text
   switch (d.qualifier) {

@@ -1,4 +1,4 @@
-import { parseDate } from "./date";
+import { parseDateNode } from "./phrase";
 import { firstChild } from "./node";
 import type { GedcomVersion, GedEvent, GedNode, NegativeAssertion } from "./types";
 
@@ -32,8 +32,8 @@ export function parseNegativeAssertion(node: GedNode): NegativeAssertion | undef
   const tag = node.value?.trim().toUpperCase();
   if (!tag) return undefined;
   const out: NegativeAssertion = { tag, raw: node };
-  const date = firstChild(node, "DATE")?.value;
-  if (date?.trim()) out.date = parseDate(date);
+  const date = parseDateNode(firstChild(node, "DATE"));
+  if (date) out.date = date;
   const note = firstChild(node, "NOTE")?.value?.trim();
   if (note && !/^@[^@]+@$/.test(note)) out.note = note;
   return out;

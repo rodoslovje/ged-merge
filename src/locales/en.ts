@@ -2285,6 +2285,7 @@ export const en = {
   "event.addrPart.phone": "Phone",
   "event.addrPart.email": "E-mail",
   "event.addrPart.fax": "Fax",
+  "event.datePhrase": "The date in the file's own words — kept when the date is edited",
   "event.sortDate": "{{event}} sort date — orders the event when its own date is missing or only words",
   "event.addSource": "Add a source to this {{event}} event",
   "event.link": "{{event}} link",

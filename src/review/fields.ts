@@ -8,7 +8,7 @@ import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
-import { dateToSortKey, parseDate } from "../gedcom/date";
+import { dateText, dateToSortKey, parseDate } from "../gedcom/date";
 import { orderingDate } from "../gedcom/sortDate";
 import { exidTypeLabel } from "../gedcom/exid";
 import { translationLine } from "../gedcom/translation";
@@ -327,7 +327,9 @@ function buildEventRows(
     const customTitle = isEven ? t("event.customTooltip", { tag }) : undefined;
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
-    pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
+    // The value is compared and carried as written; a GEDCOM 7 date's own
+    // wording (PHRASE) travels with its DATE line and shows on the hover.
+    pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw, undefined, phraseTitle(me?.date), phraseTitle(ce?.date));
     // A supplementary value (a residence's address, a death's description) is
     // not the event itself, so it is labelled as Edit labels it, not by the tag.
     const valueLabel = isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag) ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
@@ -515,7 +517,7 @@ function buildFamilyRows(
         pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"),
           eventValueText(mEv, isEven), eventValueText(cEv, isEven));
       }
-      pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
+      pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw, undefined, phraseTitle(mEv?.date), phraseTitle(cEv?.date));
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), eventAddressFullText(mEv), eventAddressFullText(cEv), undefined, undefined, cEv?.address?.originalRaw);
       pushRow(etagRows, `${famKey}.${etag}.husbage`, t("event.husbandAge"), mEv?.husbandAge, cEv?.husbandAge);
@@ -1502,7 +1504,7 @@ function coversAll(side: SourceCitation[], other: SourceCitation[], sideIcons: s
 
 function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {
   const name = displayName(n);
-  return n.type ? `${name} (${nameTypeLabel(n.type, t)})` : name;
+  return n.type ? `${name} (${nameTypeLabel(n.type, t, n.typePhrase)})` : name;
 }
 
 /** Date rows that carry a person's birth year — birth, else baptism/christening
@@ -1897,6 +1899,12 @@ function extractEffectiveAddr(
   // Fallback: exact substring match shows the other addr verbatim (→ "=").
   if (otherAddr && placeContainsAddr(ownPlace, otherAddr)) return otherAddr;
   return undefined;
+}
+
+/** A date row's hover when the date carries GEDCOM 7 wording (`PHRASE`): the
+ *  value with the wording beside it. */
+function phraseTitle(d: GedDate | undefined): string | undefined {
+  return d?.phrase ? dateText(d) : undefined;
 }
 
 /** A name's translations, one per line with its language, ordered. */

@@ -95,7 +95,15 @@ export function setAdditionalName(indi: Individual, index: number, update: NameV
     const surname = (update.surname ?? current?.surname ?? "").trim();
     writeNameValue(node, given, surname);
   }
-  if (update.type !== undefined) setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+  if (update.type !== undefined) {
+    const typeNode = node.children.find((c) => c.tag === "TYPE");
+    const changed = typeNode?.value?.trim().toLowerCase() !== update.type.trim().toLowerCase();
+    setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+    // A GEDCOM 7 `PHRASE` words the type it stands under ("OTHER" ·
+    // "Klostername"); a different type is no longer what it words.
+    const after = node.children.find((c) => c.tag === "TYPE");
+    if (changed && after) after.children = after.children.filter((c) => c.tag !== "PHRASE");
+  }
 }
 
 /**

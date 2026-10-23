@@ -1043,6 +1043,13 @@ export function EventFieldsRow({
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
       </div>
+      {/* A GEDCOM 7 date's own wording (DATE.PHRASE) reads beside the value it
+          words; an edit of the date keeps it. */}
+      {ev?.date?.phrase && (
+        <span className="edit-event-age gm-data edit-event-date-phrase" title={t("event.datePhrase")}>
+          {ev.date.phrase}
+        </span>
+      )}
       {age && (
         <span className="edit-event-age gm-data">
           {age.map((a, i) => (

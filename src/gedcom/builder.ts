@@ -12,6 +12,7 @@ import { negativeAssertionsOf } from "./negative";
 import { nodeSortDate } from "./sortDate";
 import { isFsIdNode, readExid } from "./exid";
 import { nameTranslationsOf, translationsOf } from "./translation";
+import { phraseOf } from "./phrase";
 import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
 
 /** Which `GedEvent` field each contact line is read into. */
@@ -212,7 +213,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         break;
       }
       case "NAME":
-        names.push(withNameTranslations(parseName(child.value, subTagMap(child)), child));
+        names.push(withNameExtras(parseName(child.value, subTagMap(child)), child));
         break;
       case "SEX":
         sex = readSex(child);
@@ -368,6 +369,9 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   const time = dateNode && childValue(dateNode, "TIME")?.trim();
   if (time) event.time = time;
+  // A GEDCOM 7 date's own wording — beside the value, or the whole date.
+  const datePhrase = phraseOf(dateNode);
+  if (datePhrase) (event.date ??= parseDate("")).phrase = datePhrase;
   const sortDate = nodeSortDate(node);
   if (sortDate) event.sortDate = sortDate;
   if (placeNode?.value) {
@@ -730,9 +734,12 @@ function subTagMap(node: GedNode): Map<string, string> {
   return map;
 }
 
-/** A parsed name with the translations its `NAME` line carries attached. */
-function withNameTranslations(name: PersonName, node: GedNode): PersonName {
+/** A parsed name with the translations and the type wording (`TYPE`.`PHRASE`)
+ *  its `NAME` line carries attached. */
+function withNameExtras(name: PersonName, node: GedNode): PersonName {
   const translations = nameTranslationsOf(node);
   if (translations.length) name.translations = translations;
+  const typePhrase = phraseOf(firstChild(node, "TYPE"));
+  if (typePhrase) name.typePhrase = typePhrase;
   return name;
 }

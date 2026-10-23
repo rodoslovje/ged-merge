@@ -166,6 +166,9 @@ export interface PersonName {
   nickname?: string;
   /** `2 TYPE` value (e.g. "married", "maiden", "aka", "nick") for non-primary names. */
   type?: string;
+  /** GEDCOM 7 `TYPE`.`PHRASE`: the type in the file's own words ("Klostername"
+   *  under `TYPE OTHER`), shown in place of the coded type. */
+  typePhrase?: string;
   /** Married surname carried inline on the primary name as a `2 _MARNM` sub-tag
    * (the alternative to a separate `1 NAME` + `2 TYPE married` record). */
   married?: string;
@@ -289,6 +292,9 @@ export interface GedDate {
    * is the part that matters, so the health check reports it.
    */
   shortYear?: boolean;
+  /** GEDCOM 7 `DATE`.`PHRASE`: the date in the file's own words, shown beside
+   *  (or, with an empty payload, instead of) the value. See `gedcom/phrase.ts`. */
+  phrase?: string;
 }
 
 /** A decimal-degree coordinate lifted from `PLAC.MAP` (`LATI`/`LONG`). */

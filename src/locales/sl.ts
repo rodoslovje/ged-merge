@@ -2605,6 +2605,7 @@ export const sl = {
   "event.addrPart.phone": "Telefon",
   "event.addrPart.email": "E-pošta",
   "event.addrPart.fax": "Faks",
+  "event.datePhrase": "Datum z besedami, kot ga navaja datoteka — ob urejanju datuma se ohrani",
   "event.sortDate": "Datum za razvrščanje ({{event}}) — določa mesto dogodka na seznamu, kadar dogodek nima datuma ali je datum zapisan le z besedami",
   "event.addSource": "Dodaj vir za ta dogodek ({{event}})",
   "event.link": "Povezava ({{event}})",

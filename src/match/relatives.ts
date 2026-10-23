@@ -105,7 +105,9 @@ export const ADDITIONAL_NAME_TYPES = [
 ];
 
 /** Human-readable label for a `2 TYPE` value on a NAME record (e.g. "married", "aka"). */
-export function nameTypeLabel(type: string, t: Translate): string {
+export function nameTypeLabel(type: string, t: Translate, phrase?: string): string {
+  // A GEDCOM 7 `TYPE`.`PHRASE` is the file's own word for the type.
+  if (phrase) return phrase;
   const key = type.toLowerCase();
   return KNOWN_NAME_TYPES.has(key) ? t(`nametype.${key}`) : type;
 }

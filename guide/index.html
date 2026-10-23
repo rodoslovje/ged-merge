@@ -641,7 +641,12 @@
                 never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field. The
                 <strong>sort date</strong> (GEDCOM 7's <code>SDATE</code>, <code>_SDATE</code> in a 5.5.1 file) only
                 decides order: an event with no date, or one written only in words, takes its place by it in the event
-                list, the saved file, the reports and the merge comparison, while its own date stays as written. The
+                list, the saved file, the reports and the merge comparison, while its own date stays as written.
+                A GEDCOM 7 date can also carry its own <strong>wording</strong> (<code>PHRASE</code>) — "Easter Sunday"
+                beside <code>1850</code>, or the wording alone with no value. It shows beside the date field and after
+                the date in reports and in the merge comparison's tooltip, and editing the date keeps
+                it; a name type's wording (<code>TYPE OTHER</code> with a <code>PHRASE</code>) shows in place of the
+                type. The
                 <strong>agency</strong> field completes from the ones your file already names — the parishes and
                 offices its events record — so a parish's own name is typed out once and picked thereafter. The
                 <strong>cause</strong>, the <strong>type</strong> and an attribute's own <strong>value</strong> —
