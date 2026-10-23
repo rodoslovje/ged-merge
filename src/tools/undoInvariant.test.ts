@@ -594,7 +594,7 @@ describe("run twice: a second run changes nothing", () => {
   const geneanet = () => interleave(corpusText("geneanet-5.5.1-utf8.ged"), SOURCE_EXTRAS);
   const gramps = () => interleave(corpusText("gramps-5.5.1-utf8.ged"), SOURCE_EXTRAS);
 
-  it.each(["geneanet-5.5.1-utf8.ged", "rootsmagic-5.5.1-utf8.ged"])(
+  it.each(["geneanet-5.5.1-utf8.ged", "myheritage-5.5.1-utf8.ged", "rootsmagic-5.5.1-utf8.ged"])(
     "Organize sources, link reshape (%s)",
     (file) => expectIdempotent(corpusText(file), (ds) => organizeSources(ds, { reshape: true })),
   );

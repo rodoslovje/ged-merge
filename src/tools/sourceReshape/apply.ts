@@ -1399,10 +1399,14 @@ export function reshapeSources(
         // beside it, and its link leaves the first one's PAGE.
         const twin = convertedCitations.has(hit.node);
         const citation: GedNode = twin ? { level: hit.node.level, tag: "SOUR", children: [] } : hit.node;
+        // Every PAGE line carrying this link: a file can repeat the line (two
+        // identical `PAGE <url>`), and a link left on the second one would be
+        // offered again by the next run.
+        const pagesWithUrl = (node: GedNode) =>
+          childrenByTag(node, "PAGE").filter((p) => p.value?.includes(hit.url));
         if (twin && hit.shape === "pageUrl") {
-          const ownPage = firstChild(hit.node, "PAGE");
-          if (ownPage?.value) {
-            const remaining = removeUrlFromText(ownPage.value, hit.url);
+          for (const ownPage of pagesWithUrl(hit.node)) {
+            const remaining = removeUrlFromText(ownPage.value!, hit.url);
             if (hasContent(remaining)) ownPage.value = remaining;
             else spliceChild(hit.node, ownPage);
           }
@@ -1410,15 +1414,23 @@ export function reshapeSources(
         convertedCitations.add(hit.node);
         citation.value = sourceXref;
         const pageChild = firstChild(citation, "PAGE");
-        if (hit.shape === "pageUrl" && pageChild?.value) {
+        const found = pagesWithUrl(citation);
+        const urlPages = found.length ? found : pageChild?.value ? [pageChild] : [];
+        if (hit.shape === "pageUrl" && urlPages.length) {
           // Swap the URL for its page number in place, keeping surrounding
           // prose ("fol. 23, <url>" → "fol. 23, 5"); drop PAGE only when
-          // nothing meaningful remains.
-          const replaced = page
-            ? pageChild.value.replace(hit.url, page).replace(/[ \t]{2,}/g, " ").trim()
-            : removeUrlFromText(pageChild.value, hit.url);
-          if (hasContent(replaced)) pageChild.value = replaced;
-          else spliceChild(citation, pageChild);
+          // nothing meaningful remains — or when it is a repeat of a line the
+          // swap has already written.
+          const kept = new Set<string>();
+          for (const p of urlPages) {
+            const replaced = page
+              ? p.value!.replace(hit.url, page).replace(/[ \t]{2,}/g, " ").trim()
+              : removeUrlFromText(p.value!, hit.url);
+            if (hasContent(replaced) && !kept.has(replaced)) {
+              p.value = replaced;
+              kept.add(replaced);
+            } else spliceChild(citation, p);
+          }
         } else if (page) {
           if (pageChild?.value?.trim()) pageChild.value = withPage(pageChild.value, page, hit.url);
           else if (pageChild) pageChild.value = page;
