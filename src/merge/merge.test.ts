@@ -1279,7 +1279,7 @@ describe("mergeDecisions — links", () => {
     // itself — among the event's other images, as the field order wants —
     // and named the way the dialog names one.
     expect(out).toMatch(/1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 OBJE @O2@\n2 SOUR @S1@/);
-    expect(out).toContain("0 @O2@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n1 TITL #58 - Krstna knjiga - Šenčur");
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n2 FORM htm\n1 TITL #58 - Krstna knjiga - Šenčur");
     // …and the site's own evidence quality, as the Add Source dialog proposes:
     // a photographed register page is primary evidence.
     expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
@@ -3339,7 +3339,7 @@ describe("an incoming citation that names its page by address", () => {
     // The page's image joins the book and sits beside the citation, as the
     // file keeps them.
     expect(out).toMatch(/1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 OBJE @O2@\n2 SOUR @S1@\n3 PAGE 56\n2 SOUR @S1@\n3 PAGE 58/);
-    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}\n1 TITL #58 - Krstna knjiga - Šenčur`);
+    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}\n2 FORM htm\n1 TITL #58 - Krstna knjiga - Šenčur`);
     // The incoming file's own record of the book is not imported: nothing
     // cites it any more.
     expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
