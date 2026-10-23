@@ -14,7 +14,7 @@ export const EVENT_CHILD_ORDER = [
   // TEMP/STAT/FAMC are an LDS ordinance's: its temple beside its date, as the
   // standard lists them, and its status and sealed-to family after the rest.
   "HUSB", "WIFE",
-  "TYPE", "DATE", "TEMP", "PLAC", "ADDR", "PHON", "EMAIL", "FAX", "AGE", "AGNC", "CAUS", "STAT", "FAMC", ...ATTACHMENT_CHILD_ORDER,
+  "TYPE", "DATE", "SDATE", "_SDATE", "TEMP", "PLAC", "ADDR", "PHON", "EMAIL", "FAX", "AGE", "AGNC", "CAUS", "STAT", "FAMC", ...ATTACHMENT_CHILD_ORDER,
 ];
 
 /** Canonical order of the labelled lines under an event's `ADDR`. */

@@ -406,6 +406,10 @@ export interface GedEvent {
   date?: GedDate;
   /** The time of day under the DATE (`3 TIME 14:30`), as written. */
   time?: string;
+  /** GEDCOM 7 `SDATE` (5.5.1 `_SDATE`): a date to sort the event by, for when
+   *  its own date is missing or only a phrase. Never shown as the event's
+   *  date. See `gedcom/sortDate.ts`. */
+  sortDate?: GedDate;
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
   address?: GedPlace;

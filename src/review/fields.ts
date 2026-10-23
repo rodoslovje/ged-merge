@@ -9,6 +9,7 @@ import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity,
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateToSortKey, parseDate } from "../gedcom/date";
+import { orderingDate } from "../gedcom/sortDate";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -1596,8 +1597,8 @@ export function orderedEventTags(
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.mainIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.mainIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = zoneSortKey(me?.date ?? ce?.date, a.tag, anchors);
-    const dateB = zoneSortKey(me2?.date ?? ce2?.date, b.tag, anchors);
+    const dateA = zoneSortKey((me && orderingDate(me)) ?? (ce && orderingDate(ce)), a.tag, anchors);
+    const dateB = zoneSortKey((me2 && orderingDate(me2)) ?? (ce2 && orderingDate(ce2)), b.tag, anchors);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);

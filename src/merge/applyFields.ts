@@ -21,6 +21,7 @@ import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../ge
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
+import { nodeSortDate, orderingDate } from "../gedcom/sortDate";
 import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
@@ -1131,7 +1132,8 @@ function isEventChild(node: GedNode): boolean {
 function eventSortKeys(events: readonly GedNode[]): number[] {
   const eventDate = (node: GedNode) => parseDate(firstChild(node, "DATE")?.value ?? "");
   const anchors = lifespanAnchors(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
-  return events.map((node) => zoneSortKey(eventDate(node), node.tag, anchors));
+  // An event's sort date (SDATE) orders it, as it does on screen.
+  return events.map((node) => zoneSortKey(orderingDate({ date: eventDate(node), sortDate: nodeSortDate(node) }), node.tag, anchors));
 }
 
 /**

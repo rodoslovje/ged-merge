@@ -3,6 +3,7 @@ import { indiEventNodes } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
 import { NOTE_TAGS } from "../builder";
+import { SORT_DATE_TAGS } from "../sortDate";
 import type { Family, GedNode, GeoCoord, Individual, NoteRef } from "../types";
 import { reconcilePlaceForm, setPlaceCoord } from "./geo";
 import {
@@ -16,6 +17,11 @@ import { attachSourceCitation, linkPageMedia, type NewCitation } from "./sources
 export interface EventFieldUpdate {
   /** New direct value on the event line (e.g. occupation text), or `""` to remove. */
   value?: string;
+  /** New SDATE (sort date) value, or `""` to remove it. Omit to leave unchanged. */
+  sortDate?: string;
+  /** The tag a *new* sort date is written with — the file's own dialect (see
+   *  `sortDateTag`). An existing line keeps its tag. */
+  sortDateTag?: "SDATE" | "_SDATE";
   /** New DATE value, or `""` to remove the date. Omit to leave unchanged. */
   date?: string;
   /** New TIME under the DATE (`14:30`), or `""` to remove it. Omit to leave
@@ -248,6 +254,10 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
     const dateNode = firstChild(eventNode, "DATE");
     if (dateNode) setOrRemoveValue(dateNode, "TIME", update.time, ["TIME", "PHRASE"]);
   }
+  if (update.sortDate !== undefined) {
+    const tag = firstChild(eventNode, SORT_DATE_TAGS)?.tag ?? update.sortDateTag ?? "SDATE";
+    setOrRemoveValue(eventNode, tag, update.sortDate, EVENT_CHILD_ORDER);
+  }
   const prevPlace =
     update.place !== undefined ? firstChild(eventNode, "PLAC")?.value : undefined;
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
@@ -302,7 +312,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
  *  a brand-new event node would leave the node non-empty. */
 function eventUpdateHasContent(update: EventFieldUpdate): boolean {
   return (
-    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
+    !!update.value?.trim() || !!update.date?.trim() || !!update.sortDate?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
     !!update.type?.trim() || !!update.cause?.trim() || !!update.temple?.trim() || !!update.status?.trim() ||
     !!update.age?.trim() || !!update.husbandAge?.trim() || !!update.wifeAge?.trim() ||

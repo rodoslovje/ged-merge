@@ -9,6 +9,7 @@ import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
 import { readSex } from "./sex";
 import { negativeAssertionsOf } from "./negative";
+import { nodeSortDate } from "./sortDate";
 import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
 
 /** Which `GedEvent` field each contact line is read into. */
@@ -352,6 +353,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   const time = dateNode && childValue(dateNode, "TIME")?.trim();
   if (time) event.time = time;
+  const sortDate = nodeSortDate(node);
+  if (sortDate) event.sortDate = sortDate;
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;

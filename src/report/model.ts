@@ -6,6 +6,7 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
 import { dateText } from "../gedcom/date";
+import { orderingDate } from "../gedcom/sortDate";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import { ageWholeYears, parseAge } from "../gedcom/ageValue";
@@ -29,6 +30,8 @@ export interface FactLine {
   date?: string;
   /** The structured date, for renderers that re-phrase it (narrative prose). */
   parsed?: GedDate;
+  /** The event's sort date (SDATE), which orders the line when it has a year. */
+  sortDate?: GedDate;
   place?: string;
   /** The recorded street address alone (ADDR), for renderers that phrase it
    *  differently from the place ("at Dunajska 5" vs "in Kranj"). */
@@ -293,7 +296,7 @@ export function makeEntry(
 /** A fact's sortable date (year-month-day folded into one number), or
  *  undefined when it carries no parsed year. */
 export function factDateKey(f: FactLine | undefined): number | undefined {
-  const d = f?.parsed;
+  const d = f ? orderingDate({ date: f.parsed, sortDate: f.sortDate }) : undefined;
   if (d?.year === undefined) return undefined;
   return d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
 }
@@ -463,13 +466,14 @@ export function factPlace(e: GedEvent): string | undefined {
 /** The location split for the narrative renderer: the address on its own
  *  (unless it merely repeats the place) plus the place hierarchy parts. The
  *  list renderer keeps using the verbatim `place` string. */
-function factWhere(e: GedEvent): Pick<FactLine, "addr" | "placeParts" | "agency" | "cause"> {
+function factWhere(e: GedEvent): Pick<FactLine, "addr" | "placeParts" | "agency" | "cause" | "sortDate"> {
   const addr = e.address?.raw;
   return {
     addr: addr && addr !== e.place?.raw ? addr : undefined,
     placeParts: e.place?.parts,
     agency: e.agency,
     cause: e.cause,
+    sortDate: e.sortDate,
   };
 }
 

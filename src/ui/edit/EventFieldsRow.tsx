@@ -21,6 +21,8 @@ import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { useSettingsSlice } from "../SettingsContext";
 import { DateInput } from "./DateInput";
 import { joinDateTime, splitDateTime } from "../../gedcom/dateTime";
+import { dateEntryVersion } from "./DateEntryContext";
+import { sortDateTag } from "../../gedcom/sortDate";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
@@ -442,6 +444,9 @@ export function EventFieldsRow({
   const ageField = useField(ev?.age ?? "", ageMergeVal);
   const husbandAgeField = useField(ev?.husbandAge ?? "", husbandAgeMergeVal);
   const wifeAgeField = useField(ev?.wifeAge ?? "", wifeAgeMergeVal);
+  // The sort date has no merge row of its own: it is a hint for ordering,
+  // carried with the event it sorts, never a fact to choose between.
+  const sortDateField = useField(ev?.sortDate?.raw ?? "", undefined);
   // The row stays mounted (same stable key) when its tag changes via
   // `onChangeTag`, so — unlike `useField` — track dirtiness against the tag
   // this row mounted with, not against `ev`'s own value (there's no GedEvent
@@ -569,6 +574,7 @@ export function EventFieldsRow({
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const templeShown = Boolean(templeField.value.trim()) || templeField.isMerge;
   const statusShown = Boolean(statusField.value.trim()) || statusField.isMerge;
+  const sortDateShown = Boolean(sortDateField.value.trim());
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
     Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || Boolean(previewPageImages.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
@@ -589,6 +595,7 @@ export function EventFieldsRow({
     age: ageShown || kept("age"),
     husbandAge: husbandAgeShown || kept("husbandAge"),
     wifeAge: wifeAgeShown || kept("wifeAge"),
+    sortDate: sortDateShown || kept("sortDate"),
     note: noteShown || kept("note"),
     assoc: Boolean(ev?.associations?.length) || revealed.has("assoc"),
   };
@@ -611,6 +618,7 @@ export function EventFieldsRow({
     { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
     { key: "cause", label: t("event.colCause") },
     ...(isOrdinance ? [{ key: "temple", label: t("event.colTemple") }, { key: "status", label: t("event.colStatus") }] : []),
+    { key: "sortDate", label: t("event.colSortDate") },
     { key: "note", label: t("event.colNote") },
     // Like a source, always offered: an event names as many godparents and
     // witnesses as the register does, so "already shown" is no reason to stop.
@@ -733,7 +741,7 @@ export function EventFieldsRow({
         date: dateField, value: valueField, place: placeField, address: addrField,
         note: noteField, agency: agencyField, type: typeField, cause: causeField,
         temple: templeField, status: statusField,
-        age: ageField, husbandAge: husbandAgeField, wifeAge: wifeAgeField,
+        age: ageField, husbandAge: husbandAgeField, wifeAge: wifeAgeField, sortDate: sortDateField,
       },
       override,
       flagOnly,
@@ -1235,6 +1243,22 @@ export function EventFieldsRow({
           offerAllWhenEmpty: true,
           commit: (val) => commitAll({ status: val }),
         })}
+        {/* The sort date (GEDCOM 7 SDATE): where the event belongs in the list
+            when its own date is missing or only words. Typed like any date,
+            and written with the tag the file's version has for it. */}
+        <span data-detail="sortDate" className={"edit-event-extra" + optCls(show.sortDate)}>
+          <span className="edit-event-extra-label">{t("event.colSortDate")}</span>
+          <DateInput
+            className={fieldCls("edit-input edit-event-sortdate", false, sortDateField.isDirty)}
+            wrapClassName="edit-event-extra-field"
+            value={sortDateField.value}
+            placeholder={t("event.colSortDate")}
+            label={t("event.sortDate", { event: label })}
+            onChange={sortDateField.set}
+            onBlur={(sortDate) => commitAll({ sortDate, sortDateTag: sortDateTag(dateEntryVersion()) })}
+            onClear={() => { sortDateField.clear(); commitAll({ sortDate: "" }); }}
+          />
+        </span>
         {/* Sources and links lead the note: the note is a textarea that grows to
             as many lines as it holds, and after it the icons ended up alone at
             the foot of a tall row, far from the event they belong to. */}

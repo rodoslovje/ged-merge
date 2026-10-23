@@ -10,7 +10,7 @@ export interface RowField {
 }
 
 export type RowFields = Record<
-  "date" | "value" | "place" | "address" | "note" | "agency" | "type" | "cause" | "temple" | "status" | "age" | "husbandAge" | "wifeAge",
+  "date" | "sortDate" | "value" | "place" | "address" | "note" | "agency" | "type" | "cause" | "temple" | "status" | "age" | "husbandAge" | "wifeAge",
   RowField
 >;
 
