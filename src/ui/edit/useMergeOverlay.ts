@@ -7,7 +7,7 @@ import { materializeAdditionalNames, materializeEventSources } from "../../merge
 import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacement";
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
-import { defaultChoice, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
+import { defaultChoice, EVENT_TEXT_SUBS, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
 import { type RecordPatch } from "../historyTypes";
 import { useStableHandler } from "./useStableHandler";
 
@@ -206,7 +206,6 @@ export function useMergeOverlay({
       const mainMergeCompareKeys = new Map<number, string>();
       const mainMergeSortKeys = new Map<number, number>();
       const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[] = [];
-      const EVENT_SUBS = ["date", "place", "addr", "age", "husbage", "wifeage", "value", "note", "agency", "type", "cause", "temple", "status"] as const;
 
       // Index incoming events by tag for sort key lookup.
       const cByTag = new Map<string, typeof incoming.events>();
@@ -240,7 +239,7 @@ export function useMergeOverlay({
         } else if (inst.tag !== "BIRT") {
           // Incoming-only event — show only if there is merge data for it.
           // BIRT is always shown in its own row so exclude it from extras.
-          if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
+          if (EVENT_TEXT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
             const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
             if (incomingEv) {
               extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: zoneSortKey(incomingEv.date, inst.tag, anchors), compareIdx: inst.compareIdx });
@@ -367,8 +366,7 @@ export function useMergeOverlay({
       if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "main";
     }
     // Also set any fields not yet explicitly decided (they default to "incoming") to "main".
-    const EVENT_SUBS = ["date", "place", "addr", "age", "husbage", "wifeage", "value", "note", "agency", "type", "cause", "temple", "status"] as const;
-    for (const sub of EVENT_SUBS) {
+    for (const sub of EVENT_TEXT_SUBS) {
       const fkey = `${keyBase}.${sub}`;
       if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "main";
     }

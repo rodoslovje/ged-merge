@@ -10,7 +10,7 @@ import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
-import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
+import { defaultChoice, FAM_EVENT_TEXT_SUBS, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
 import { sexConflicts } from "../match/scoreIndividual";
@@ -738,7 +738,7 @@ export function applyIndividualFamilies(
         ? effectiveEventSubChoice(sub, fields[key] ?? "incoming")
         : undefined;
     };
-    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "husbage", "wifeage", "note", "agency", "cause", "temple", "status", "sources"] as const;
+    const EVENT_SUBS = [...FAM_EVENT_TEXT_SUBS, "sources"] as const;
     const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
@@ -782,7 +782,9 @@ export function applyIndividualFamilies(
     };
 
     const marrEntries: EventSubEdit[] = [];
-    for (const sub of ["type", "date", "place", "addr", "husbage", "wifeage", "note", "agency", "cause"] as const) {
+    // The shared list: a sub-field with no tag of its own (the event's line
+    // value) or no row on a marriage (an ordinance's temple) is skipped below.
+    for (const sub of FAM_EVENT_TEXT_SUBS) {
       const choice = marriageChoice(sub);
       if (!choice || standsDown(`${famKey}.MARR.${sub}`, choice)) continue;
       const subTag = SUB_TAG[sub];
@@ -820,7 +822,7 @@ export function applyIndividualFamilies(
         (evTag === "EVEN" && incFam.events.find((e) => e.tag === "EVEN")?.type?.trim()) ||
         familyEventLabel(evTag, ctx.t);
       const evEntries: EventSubEdit[] = [];
-      for (const sub of ["type", "value", "date", "place", "addr", "husbage", "wifeage", "note", "agency", "cause", "temple", "status"] as const) {
+      for (const sub of FAM_EVENT_TEXT_SUBS) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = effectiveEventSubChoice(sub, fields[key] ?? "incoming");

@@ -9,6 +9,23 @@ export type MatchDecisionStatus = "undecided" | "confirmed" | "rejected" | "defe
 /** For a single field, which side wins when the match is merged. */
 export type FieldChoice = "main" | "incoming" | "both";
 
+/**
+ * An event's comparable text sub-fields, as review row keys name them
+ * (`<base>.<TAG>.<sub>`), in the order a merged event's parts are joined for
+ * display. The one list Merge, the review and Edit's merge overlay read: a new
+ * sub-field added here reaches every one of them.
+ */
+export const EVENT_TEXT_SUBS = [
+  "type", "value", "date", "place", "addr", "age", "husbage", "wifeage", "note", "agency", "cause", "temple", "status",
+] as const;
+export type EventTextSub = (typeof EVENT_TEXT_SUBS)[number];
+
+/** A family event's sub-fields: no age of its own — GEDCOM states the spouses'
+ *  ages under it (`2 HUSB` / `3 AGE`), the `husbage` / `wifeage` rows. */
+export const FAM_EVENT_TEXT_SUBS = EVENT_TEXT_SUBS.filter(
+  (s): s is Exclude<EventTextSub, "age"> => s !== "age",
+);
+
 export type MatchKind = "individual" | "family";
 
 /** How a field compares between the two records. */

@@ -25,7 +25,7 @@ import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
-import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
+import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
@@ -37,7 +37,7 @@ type Row = FieldRow;
 
 /** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
  *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
-const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "age", "husbage", "wifeage", "note", "agency", "cause", "temple", "status", "sources", "assoc", "value"] as const;
+const EVENT_SUB_FIELDS = [...EVENT_TEXT_SUBS, "sources", "assoc"] as const;
 export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
 
 function isEventSubField(sub: string | undefined): sub is EventSubField {
@@ -104,7 +104,7 @@ export const SUB_LABEL_KEY: Record<string, string> = {
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
-export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "age", "husbage", "wifeage", "note", "agency", "cause", "temple", "status"];
+export const SUB_JOIN_ORDER: readonly string[] = EVENT_TEXT_SUBS;
 
 /** The event sub-fields that may legally repeat under one event, so "both" can
  *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
