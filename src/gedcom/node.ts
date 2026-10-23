@@ -101,6 +101,8 @@ export function cloneNode(n: GedNode): GedNode {
   // clone of the (possibly edit-marked) main, and undo/redo snapshots must
   // restore the exact marker state their side of the patch had.
   if (n.auditStamp !== undefined) c.auditStamp = n.auditStamp;
+  // A converted line still knows the vendor line it was, for the way back.
+  if (n.upgradedFrom !== undefined) c.upgradedFrom = { ...n.upgradedFrom };
   // The source's own CONC positions travel with the value they describe, so a
   // record restored by undo still saves on the lines it arrived on.
   if (n.conc !== undefined) c.conc = { at: [...n.conc.at], of: n.conc.of };

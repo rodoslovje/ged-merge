@@ -469,6 +469,62 @@ describe("migrateVersion 5.5.1 → 7.0 → 5.5.1", () => {
     migrateVersion(records, "7.0", "5.5.1", () => {});
     expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
   });
+
+  it("brings the vendor lines 7.0 standardized back in the file's own spelling", () => {
+    const body =
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 GIVN Ana\n2 _MARNM Kovač\n2 SURN Novak\n2 _MARNM /Horvat/\n3 SOUR @S1@\n" +
+      "1 NAME Anica //\n2 TYPE aka\n1 _uid 0A1B2C\n1 _FID GPZG-CXL\n" +
+      "0 @I2@ INDI\n1 NAME Eva /Kos/\n1 _FSFTID LXYZ-123\n0 @S1@ SOUR\n1 TITL Register\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
+  });
+});
+
+describe("migrateVersion — vendor tags with a GEDCOM 7 standard form", () => {
+  it("turns _UID, the FamilySearch ids and _MARNM into UID, EXID and a married NAME", () => {
+    const { records, changes } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n3 SOUR @S1@\n1 _UID 0A1B2C\n1 _FID GPZG-CXL\n" +
+        "0 @I2@ INDI\n1 NAME Eva /Kos/\n1 _FSFTID LXYZ-123\n0 @S1@ SOUR\n",
+      "7.0",
+    );
+    const text = serializeGedcom(records);
+    expect(text).toContain(
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n2 SOUR @S1@\n1 UID 0A1B2C\n" +
+        "1 EXID GPZG-CXL\n2 TYPE https://www.familysearch.org/tree/person/\n",
+    );
+    expect(text).toContain("1 EXID LXYZ-123\n2 TYPE https://www.familysearch.org/tree/person/\n");
+    expect(text).not.toMatch(/_MARNM|_UID|_FID|_FSFTID/);
+    expect(changes).toContainEqual({ before: "NAME._MARNM Kovač", after: "NAME Ana /Kovač/" });
+    expect(changes).toContainEqual({ before: "_UID 0A1B2C", after: "UID 0A1B2C" });
+  });
+
+  it("keeps the married name readable as the person's married surname", () => {
+    const ds = dataset(head("5.5.1") + "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n0 TRLR\n");
+    migrateVersion(ds.records, "5.5.1", "7.0", () => {});
+    const rebuilt = dataset(serializeGedcom(ds.records).replace("VERS 5.5.1", "VERS 7.0"));
+    const names = rebuilt.individuals.get("@I1@")!.names;
+    expect(names.map((n) => [n.surname, n.type])).toEqual([["Novak", undefined], ["Kovač", "MARRIED"]]);
+  });
+
+  it("leaves a 7.0 file's own married NAMEs and FamilySearch EXIDs to their 5.5.1 forms on the way down", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n1 UID 0A1B2C\n" +
+        "1 EXID GPZG-CXL\n2 TYPE https://www.familysearch.org/tree/person/\n",
+      "5.5.1",
+    );
+    expect(serializeGedcom(records)).toContain(
+      "1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n1 _UID 0A1B2C\n1 _FSFTID GPZG-CXL\n",
+    );
+  });
+
+  it("does not touch the vendor tags of a file that stays in its version", () => {
+    const { records, changed } = migrated("7.0", "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n1 _UID 1\n", "7.0");
+    expect(changed).toBe(0);
+    expect(serializeGedcom(records)).toContain("2 _MARNM Kovač\n1 _UID 1\n");
+  });
 });
 
 describe("normalizeDataset version migration wiring", () => {

@@ -4,6 +4,7 @@ import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
+import { splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { walkNodes } from "./walk";
 
@@ -30,7 +31,10 @@ import { walkNodes } from "./walk";
  *                                        moved to the one record 5.5.1 allows
  *  - identifiers                       : `AFN`/`RFN`/`RIN` ⇄ `EXID` + TYPE URI
  *                                        (a FamilySearch EXID ⇄ `_FSFTID`/`_FID`;
- *                                        other EXIDs ⇄ `REFN` + URI `TYPE`)
+ *                                        other EXIDs ⇄ `REFN` + URI `TYPE`);
+ *                                        `_UID` ⇄ `UID`
+ *  - married surnames                  : a `NAME`'s `_MARNM` ⇄ a `NAME` of its
+ *                                        own with `TYPE MARRIED`
  *  - media                             : `FORM` file extension ⇄ IANA media
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
@@ -41,11 +45,16 @@ import { walkNodes } from "./walk";
  *                                        and the sealing's `FAMC` are spelled
  *                                        alike in both
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
- *                                        `NO` → `_NO`, `SDATE` → `_SDATE` (both
- *                                        restored on the way up), a
+ *                                        `NO` → `_NO`, `SDATE` → `_SDATE` (all
+ *                                        but `_CREA` restored on the way up), a
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
  *                                        `@VOID@` pointers (see below),
  *                                        `SEX X` → `SEX U` + `_SEX X` (and back)
+ *
+ * A vendor line the upgrade turns into its standard form remembers what it was
+ * (`GedNode.upgradedFrom`), so the downgrade gives back that very line — `_FID`
+ * rather than the `_FSFTID` it writes for a FamilySearch EXID the file had of
+ * its own, and the `_MARNM` rather than the married `NAME` (valid 5.5.1 too).
  *
  * Not attempted (would create new records rather than rewrite in place):
  * extracting inline `OBJE`/text `SOUR` substructures into pointed records.
@@ -153,12 +162,25 @@ const URI_TO_EXID_TAG: Record<string, string> = Object.fromEntries(
 );
 
 /** 5.5.1 stand-ins for 7-only structures (see `UNDERSCORE_DOWNGRADES`) that
- *  the upgrade restores. `_UID`/`_CREA` stay: they are long-standing vendor
- *  tags in their own right, not only this app's stand-ins. */
+ *  the upgrade restores, and `_UID`, the vendor tag 7.0 standardized as `UID`.
+ *  `_CREA` stays: Ancestry writes it as a bare timestamp, not 7.0's
+ *  `CREA` + `DATE` shape. */
 const UNDERSCORE_UPGRADES: Record<string, string> = {
   _NO: "NO",
   _SDATE: "SDATE",
+  _UID: "UID",
 };
+
+/** 7.0's `NAME.TYPE` for a married name. */
+const MARRIED_TYPE = "MARRIED";
+
+/** Retag a vendor line to its standard form, remembering what it was. */
+function upgradeVendor(node: GedNode, tag: string, extra: { index?: number; value?: string } = {}): GedNode {
+  node.upgradedFrom = { tag: node.tag, ...(node.spelling ? { spelling: node.spelling } : {}), ...extra };
+  delete node.spelling;
+  node.tag = tag;
+  return node;
+}
 
 /** Calendar escapes: 5.5.1 `@#DJULIAN@ ...` ⇄ 7.0 `JULIAN ...` prefix. */
 const CALENDAR_ESCAPES: Record<string, string> = {
@@ -179,6 +201,8 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, retag(rec, "SNOTE"), `NOTE ${rec.xref}`);
     }
   }
+
+  for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
 
   walkNodes(records, (node) => {
     // A note's own lines the downgrade kept as `_MIME`/`_LANG`/`_TRAN` (see
@@ -207,7 +231,7 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       // A FamilySearch person id in a vendor tag: 7.0's EXID says it outright.
       const before = describe(node);
       node.children.push(plain("TYPE", FS_EXID_TYPE));
-      report(ctx, retag(node, "EXID"), before);
+      report(ctx, upgradeVendor(node, "EXID"), before);
     } else if (node.tag === "REFN" && /^https?:\/\//i.test(firstChild(node, "TYPE")?.value?.trim() ?? "")) {
       // A reference typed by a URI is what the downgrade makes of an EXID it
       // has no 5.5.1 tag for — and what 7.0 calls an external identifier.
@@ -233,8 +257,9 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       migrateStat(node, ctx, "7.0");
     } else if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
       // The stand-ins this migration's own downgrade writes for 7-only
-      // structures go back to their real tags.
-      report(ctx, retag(node, UNDERSCORE_UPGRADES[node.tag]), describe(node));
+      // structures go back to their real tags, `_UID` to the one 7.0 adopted.
+      const before = describe(node);
+      report(ctx, upgradeVendor(node, UNDERSCORE_UPGRADES[node.tag]), before);
     } else if (node.tag === "PEDI" && node.value !== undefined) {
       const upper = node.value.trim().toUpperCase();
       if (upper !== node.value && ["ADOPTED", "BIRTH", "FOSTER", "SEALING"].includes(upper)) {
@@ -249,6 +274,76 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
 function retag(node: GedNode, tag: string): GedNode {
   node.tag = tag;
   return node;
+}
+
+/**
+ * A `NAME`'s inline `_MARNM` married surname (Gramps/PAF/Brother's Keeper,
+ * MyHeritage) becomes what 7.0 says it with: a `NAME` of its own, the
+ * person's given name with the married surname, `TYPE MARRIED`, right after
+ * the name it hung on. Lines under the `_MARNM` (a citation, a note) go with it.
+ */
+function upgradeMarriedNames(indi: GedNode, ctx: MigrateCtx): void {
+  for (let i = 0; i < indi.children.length; i++) {
+    const name = indi.children[i];
+    if (name.tag !== "NAME" || name.upgradedFrom) continue;
+    const made: GedNode[] = [];
+    name.children = name.children.filter((child, index) => {
+      if (child.tag !== "_MARNM") return true;
+      const raw = child.value?.trim() ?? "";
+      const surname = (raw.match(/\/([^/]*)\//)?.[1] ?? raw).trim();
+      if (!surname) return true;
+      const given = (splitSlashName(name.value ?? "")?.before ?? name.value ?? "").trim();
+      const before = `NAME.${describe(child)}`;
+      const written = child.value;
+      child.value = given ? `${given} /${surname}/` : `/${surname}/`;
+      child.level = name.level;
+      reindent(child.children, name.level + 1);
+      child.children.unshift({ level: name.level + 1, tag: "TYPE", value: MARRIED_TYPE, children: [] });
+      upgradeVendor(child, "NAME", { index, value: written });
+      report(ctx, child, before);
+      made.push(child);
+      return false;
+    });
+    indi.children.splice(i + 1, 0, ...made);
+    i += made.length;
+  }
+}
+
+/** The way back for {@link upgradeMarriedNames}: a married `NAME` the upgrade
+ *  made folds into the name before it, as the `_MARNM` it was, where it was. */
+function downgradeMarriedNames(indi: GedNode, ctx: MigrateCtx): void {
+  let host: GedNode | undefined;
+  for (const node of [...indi.children]) {
+    if (node.tag !== "NAME") continue;
+    const from = node.upgradedFrom;
+    if (from?.tag !== "_MARNM") {
+      host = node;
+      continue;
+    }
+    if (!host) continue;
+    const before = describe(node);
+    const surname = splitSlashName(node.value ?? "")?.surname ?? node.value?.trim() ?? "";
+    // The surname as the file wrote it (`/Kovač/`, say), while it still is one.
+    const written = from.value;
+    node.value = written !== undefined && (written.match(/\/([^/]*)\//)?.[1] ?? written).trim() === surname ? written : surname;
+    node.tag = "_MARNM";
+    if (from.spelling) node.spelling = from.spelling;
+    delete node.upgradedFrom;
+    node.children = node.children.filter((c) => !(c.tag === "TYPE" && c.value?.trim().toUpperCase() === MARRIED_TYPE));
+    node.level = host.level + 1;
+    reindent(node.children, host.level + 2);
+    indi.children = indi.children.filter((c) => c !== node);
+    host.children.splice(Math.min(from.index ?? host.children.length, host.children.length), 0, node);
+    ctx.changed++;
+    ctx.onChange(before, `NAME.${describe(node)}`);
+  }
+}
+
+function reindent(nodes: GedNode[], level: number): void {
+  for (const n of nodes) {
+    n.level = level;
+    reindent(n.children, level + 1);
+  }
 }
 
 function upgradeRomnFone(node: GedNode, ctx: MigrateCtx): void {
@@ -565,6 +660,7 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
 
 function downgrade(records: GedNode[], ctx: MigrateCtx): void {
   downgradeVoidPointers(records, ctx);
+  for (const rec of records) if (rec.tag === "INDI") downgradeMarriedNames(rec, ctx);
   const snoteXrefs = new Set(
     records.filter((r) => r.tag === "SNOTE" && r.xref).map((r) => r.xref!),
   );
@@ -608,7 +704,8 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "5.5.1");
     } else if (node.tag in UNDERSCORE_DOWNGRADES && node.level > 0) {
-      report(ctx, retag(node, UNDERSCORE_DOWNGRADES[node.tag]), describe(node));
+      const before = describe(node);
+      report(ctx, restoreVendor(node, UNDERSCORE_DOWNGRADES[node.tag]), before);
     }
   });
 
@@ -693,7 +790,8 @@ function downgradeExid(node: GedNode, ctx: MigrateCtx): void {
     // A FamilySearch person id: 5.5.1 files carry those in the vendor tag
     // the app reads as one (and the upgrade turns back into this EXID).
     node.children = node.children.filter((c) => c !== typeNode);
-    report(ctx, retag(node, "_FSFTID"), before);
+    const own = node.upgradedFrom && FS_VENDOR_TAGS.includes(node.upgradedFrom.tag);
+    report(ctx, restoreVendor(node, own ? node.upgradedFrom!.tag : "_FSFTID"), before);
   } else if (legacyTag) {
     node.children = node.children.filter((c) => c !== typeNode);
     report(ctx, retag(node, legacyTag), before);
@@ -701,6 +799,16 @@ function downgradeExid(node: GedNode, ctx: MigrateCtx): void {
     // No 5.5.1 identifier matches — REFN with the type kept is the closest fit.
     report(ctx, retag(node, "REFN"), before);
   }
+}
+
+/** Retag a standard line to its 5.5.1 extension tag, in the spelling the
+ *  file had when the upgrade made it from one. */
+function restoreVendor(node: GedNode, tag: string): GedNode {
+  const from = node.upgradedFrom;
+  delete node.upgradedFrom;
+  node.tag = tag;
+  if (from?.tag === tag && from.spelling) node.spelling = from.spelling;
+  return node;
 }
 
 function downgradeObje(node: GedNode, ctx: MigrateCtx): void {

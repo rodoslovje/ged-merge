@@ -78,6 +78,15 @@ export interface GedNode {
    */
   foreignPointer?: true;
   /**
+   * Runtime-only marker (never serialized): the vendor line a conversion to
+   * GEDCOM 7 turned into this standard structure (`_FID` → `EXID`, `_MARNM`
+   * → a married `NAME`, `_UID` → `UID`) — its tag, spelling and, for a line
+   * moved out of its parent, its position there and its value as written. The
+   * conversion back to 5.5.1 reads it to restore the very line the file had.
+   * See `normalize/migrate.ts`.
+   */
+  upgradedFrom?: { tag: string; spelling?: string; index?: number; value?: string };
+  /**
    * A source line the parser could not interpret, kept verbatim so saving
    * never silently drops it. Such a node carries the empty tag "" (so no
    * tag-matching logic ever picks it up), has no children, and serializes

@@ -47,7 +47,9 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
     expect(lines).toContain("1 _SUBN @S1@");
     expect(lines).toContain("1 SCHMA");
     expect(lines).toContain(`2 TAG _SUBN ${SCHEMA_BASE}_SUBN`);
-    expect(lines).toContain(`2 TAG _UID ${SCHEMA_BASE}_UID`);
+    // _UID has a standard form in 7.0, so it is converted, not declared.
+    expect(lines).toContain("1 UID 42");
+    expect(lines.some((l) => l.includes("_UID"))).toBe(false);
     // The submitter stays: optional in 7.0, but the file's own.
     expect(lines).toContain("0 @U1@ SUBM");
     const back = parse(lines.join("\n") + "\n");
