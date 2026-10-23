@@ -1,5 +1,6 @@
 import type { Dataset, GedDate, Individual } from "./types";
 import { displayDate } from "./dateDisplay";
+import { ageYearsRange, parseAge } from "./ageValue";
 
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
 export const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
@@ -140,6 +141,78 @@ export function estimateBirthYear(indi: Individual, ds: Dataset): BirthEstimate 
   return best;
 }
 
+/** A birth placed by the ages the records state at dated events. */
+export interface StatedAgeBirth {
+  /** The earliest and latest the birth can be, as fractional years. */
+  from: number;
+  to: number;
+  /** The year the range mostly falls in — what an estimate writes. */
+  year: number;
+}
+
+/** Date qualifiers that pin the event closely enough to subtract an age
+ *  from: a stated or approximate day, month or year, not a range or a bound. */
+const AGE_ANCHOR_QUALIFIERS = new Set(["exact", "about", "interpreted"]);
+
+/** The span of fractional years a dated event fills: its day, its month, or
+ *  its whole year when that is all the date says. */
+function eventSpan(d: GedDate | undefined): [number, number] | undefined {
+  if (d?.year === undefined || !AGE_ANCHOR_QUALIFIERS.has(d.qualifier)) return undefined;
+  // Only the calendars whose years count like ours (see GedDate.calendar).
+  if (d.calendar && d.calendar !== "GREGORIAN" && d.calendar !== "JULIAN") return undefined;
+  if (d.month === undefined) return [d.year, d.year + 1];
+  const start = d.year + (d.month - 1) / 12;
+  if (d.day === undefined) return [start, start + 1 / 12];
+  const at = start + (d.day - 1) / 365.25;
+  return [at, at + 1 / 365.25];
+}
+
+/** Every (event date, stated age) pair a person's records carry: their own
+ *  events' `AGE`, and the spouse ages of the family events they are a partner
+ *  in. */
+export function statedAgesOf(indi: Individual, ds?: Dataset): { date: GedDate; age: string; tag: string }[] {
+  const out: { date: GedDate; age: string; tag: string }[] = [];
+  for (const e of indi.events) if (e.age && e.date) out.push({ date: e.date, age: e.age, tag: e.tag });
+  for (const famId of ds ? indi.spouseOf : []) {
+    const fam = ds!.families.get(famId);
+    if (!fam) continue;
+    const role = fam.husband === indi.id ? "husbandAge" : fam.wife === indi.id ? "wifeAge" : undefined;
+    if (!role) continue;
+    for (const e of fam.events) {
+      const age = e[role];
+      if (age && e.date) out.push({ date: e.date, age, tag: e.tag });
+    }
+  }
+  return out;
+}
+
+/**
+ * Where the ages a person's records state put their birth: each dated event
+ * with an `AGE` (their own, or theirs as a spouse on a family event) gives a
+ * range — 62 at a death in March 1890 is a birth between March 1827 and March
+ * 1828 — and the ranges are intersected. Records that contradict each other
+ * leave no common range; the narrowest single one stands then, the most
+ * precise thing any of them says. Undefined when no record states an age.
+ *
+ * This is evidence, unlike a guess from relatives a generation away, so the
+ * birth estimate prefers it.
+ */
+export function birthFromStatedAges(indi: Individual, ds?: Dataset): StatedAgeBirth | undefined {
+  const ranges: [number, number][] = [];
+  for (const { date, age } of statedAgesOf(indi, ds)) {
+    const span = eventSpan(date);
+    const parsed = parseAge(age);
+    const years = parsed && ageYearsRange(parsed);
+    if (!span || !years) continue;
+    ranges.push([span[0] - years.max, span[1] - years.min]);
+  }
+  if (!ranges.length) return undefined;
+  let from = Math.max(...ranges.map((r) => r[0]));
+  let to = Math.min(...ranges.map((r) => r[1]));
+  if (from > to) [from, to] = ranges.reduce((a, b) => (b[1] - b[0] < a[1] - a[0] ? b : a));
+  return { from, to, year: Math.floor((from + to) / 2) };
+}
+
 /** How many relationship hops {@link isPresumedLiving}'s network search follows
  *  looking for a dated relative, and how many individuals it will visit doing
  *  so — bounds the search on very large or densely intermarried trees. */
@@ -157,6 +230,9 @@ const NETWORK_SEARCH_MAX_VISITED = 500;
  * returns the most recent (safe-default, "presume living") estimate.
  */
 export function estimateBirthYearFromNetwork(start: Individual, ds: Dataset): number | undefined {
+  // An age the person's own records state outranks anything a relative implies.
+  const stated = birthFromStatedAges(start, ds);
+  if (stated) return stated.year;
   const visited = new Set<string>([start.id]);
   let frontier: { id: string; offset: number }[] = [{ id: start.id, offset: 0 }];
   let best: number | undefined;

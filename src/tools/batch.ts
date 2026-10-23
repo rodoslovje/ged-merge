@@ -1,7 +1,7 @@
 import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
 import {
-  DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateOf, estimateBirthYear, isDeceased,
+  DEATH_TAGS, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf, estimateBirthYear, isDeceased,
 } from "../gedcom/lifespan";
 import { addEventNode, setEventField } from "../gedcom/edit/events";
 import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
@@ -637,6 +637,13 @@ export function previewBirthEstimates(ds: Dataset, ids: string[]): Map<string, n
     // Any recorded birth/baptism date — even one without a parseable year —
     // is the researcher's data; never overwrite it with an estimate.
     if (birthYear(indi) !== undefined || birthDateText(indi) !== undefined) continue;
+    // An age the person's records state is evidence, not a generation's
+    // guess: it wins, unrounded, and stays out of the sibling spreading.
+    const stated = birthFromStatedAges(indi, ds);
+    if (stated) {
+      estimates.set(id, stated.year);
+      continue;
+    }
     const est = estimateBirthYear(indi, ds);
     if (est) estimates.set(id, roundEstimate(est.estimatedYear));
     if (est && est.relation !== "father" && est.relation !== "mother") continue;
@@ -692,16 +699,31 @@ export function previewBirthEstimates(ds: Dataset, ids: string[]): Map<string, n
   return estimates;
 }
 
+/**
+ * The `DATE` values the estimate action would write, keyed by person id — the
+ * years of {@link previewBirthEstimates}, each with its keyword: `CAL` where
+ * the year was calculated from an age the records state (GEDCOM's word for
+ * exactly that), `ABT` where it is a guess from relatives.
+ */
+export function previewBirthEstimateDates(ds: Dataset, ids: string[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [id, year] of previewBirthEstimates(ds, ids)) {
+    const indi = ds.individuals.get(id);
+    out.set(id, `${indi && birthFromStatedAges(indi, ds) ? "CAL" : "ABT"} ${year}`);
+  }
+  return out;
+}
+
 /** Write `BIRT` → `DATE ABT <estimated year>` for everyone without any dated
  *  birth-proxy event (see the {@link BatchActionSpec} member). All estimates
  *  are derived from the pre-run state first, then written — no chaining. */
 function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
-  const estimates = previewBirthEstimates(ds, ids);
+  const estimates = previewBirthEstimateDates(ds, ids);
   const skipped = ids.filter((id) => ds.individuals.has(id) && !estimates.has(id)).length;
   const snap = snapshotRecords(ds, [...estimates.keys()], []);
-  for (const [id, year] of estimates) {
+  for (const [id, date] of estimates) {
     const indi = ds.individuals.get(id)!;
-    setEventField(indi, "BIRT", { date: `ABT ${year}` });
+    setEventField(indi, "BIRT", { date });
     rebuildIndividual(ds, indi);
   }
   return {
