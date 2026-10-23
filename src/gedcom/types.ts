@@ -498,6 +498,13 @@ export interface NegativeAssertion {
   raw: GedNode;
 }
 
+/** A GEDCOM 7 external identifier: an id another system gave the record. */
+export interface ExternalId {
+  id: string;
+  /** The `TYPE` URI naming the system; absent on a (deprecated) untyped EXID. */
+  type?: string;
+}
+
 export interface Individual {
   id: string; // xref, e.g. "@I1@"
   names: PersonName[];
@@ -529,9 +536,12 @@ export interface Individual {
    *  verbatim. Two records carrying the same identifier are the same person
    *  (same software lineage), which matching uses as a certain pre-match. */
   uids?: string[];
-  /** FamilySearch person ids (`_FID` MacFamilyTree / `_FSFTID` RootsMagic),
-   *  verbatim — a second identity namespace for the same pre-match. */
+  /** FamilySearch person ids (`_FID` MacFamilyTree / `_FSFTID` RootsMagic /
+   *  GEDCOM 7 `EXID` with the FamilySearch type), verbatim — a second identity
+   *  namespace for the same pre-match. */
   fsids?: string[];
+  /** Every other GEDCOM 7 external identifier (`EXID` + `TYPE`) — see `gedcom/exid.ts`. */
+  exids?: ExternalId[];
   /** Record flagged private (see {@link NoteRef.private} for the dialects). */
   private?: boolean;
   /** Associations recorded on the record itself rather than on one of its

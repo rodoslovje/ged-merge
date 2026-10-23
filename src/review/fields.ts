@@ -1,4 +1,4 @@
-import type { Dataset, Family, GedDate, GedEvent, Individual, NegativeAssertion, PersonName, Sex, SourceCitation } from "../gedcom/types";
+import type { Dataset, ExternalId, Family, GedDate, GedEvent, Individual, NegativeAssertion, PersonName, Sex, SourceCitation } from "../gedcom/types";
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, familyEventLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
@@ -10,6 +10,7 @@ import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } 
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateToSortKey, parseDate } from "../gedcom/date";
 import { orderingDate } from "../gedcom/sortDate";
+import { exidTypeLabel } from "../gedcom/exid";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -107,6 +108,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.sources");
   if (key === "fsid") return t("field.fsid");
+  if (key === "exid") return t("field.exid");
   if (key === "noEvents" || key.endsWith(".noEvents")) return t("field.noEvents");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
   if (key === "private" || key.endsWith(".private")) return t("field.private");
@@ -189,6 +191,7 @@ export function individualFieldRows(
   pushRow(rows, "fsid", formatFieldLabel(t, "fsid"),
     main?.fsids?.map((s) => s.toUpperCase()).join("\n"),
     compare?.fsids?.map((s) => s.toUpperCase()).join("\n"));
+  pushRow(rows, "exid", formatFieldLabel(t, "exid"), exidsText(main?.exids), exidsText(compare?.exids));
   pushRow(rows, "noEvents", formatFieldLabel(t, "noEvents"), noEventsText(t, main?.noEvents), noEventsText(t, compare?.noEvents));
 
   // Record-level sources (SOUR citations) and plain links, combined into one
@@ -1890,6 +1893,16 @@ function extractEffectiveAddr(
   // Fallback: exact substring match shows the other addr verbatim (→ "=").
   if (otherAddr && placeContainsAddr(ownPlace, otherAddr)) return otherAddr;
   return undefined;
+}
+
+/** A record's external identifiers, one per line — the id and the system that
+ *  gave it — ordered, so the same ids in another file order read as agreement. */
+function exidsText(list: ExternalId[] | undefined): string | undefined {
+  if (!list?.length) return undefined;
+  return list
+    .map((x) => (x.type ? `${x.id} (${exidTypeLabel(x.type)})` : x.id))
+    .sort()
+    .join("\n");
 }
 
 /** A record's "did not happen" statements, one per line: the event's name, and

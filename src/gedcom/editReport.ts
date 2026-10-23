@@ -32,7 +32,7 @@ const RECORD_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS);
  *  events, whatever their substructure. */
 const NON_EVENT_TAGS = new Set([
   "NAME", "SEX", ...NOTE_TAGS, "SOUR", "OBJE", "FAMS", "FAMC", "HUSB", "WIFE", "CHIL",
-  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI", ...NO_TAGS,
+  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI", "EXID", ...NO_TAGS,
   ...RECORD_LINK_TAGS,
 ]);
 
@@ -561,6 +561,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "EXID", t("field.exid")));
   diffs.push(...diffStringSet(id, before, after, (tag) => NO_TAGS.includes(tag), t("field.noEvents"), false, undefined, (v) => eventDisplayLabel(v, t)));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));

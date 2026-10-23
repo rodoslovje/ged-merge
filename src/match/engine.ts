@@ -1,4 +1,5 @@
 import type { Dataset, Individual } from "../gedcom/types";
+import { exidIdentityKey } from "../gedcom/exid";
 import { CrossBlockIndex } from "./blocking";
 import {
   plausibleIndividualMatch,
@@ -163,6 +164,12 @@ function identityKeys(indi: Individual): string[] {
   for (const raw of indi.fsids ?? []) {
     const fsid = canonicalFsid(raw);
     if (fsid) keys.push(`F:${fsid}`);
+  }
+  // GEDCOM 7 external ids: the same id from the same system is the same
+  // person there (a FamilySearch one is already among the fsids above).
+  for (const exid of indi.exids ?? []) {
+    const key = exidIdentityKey(exid);
+    if (key) keys.push(`X:${key}`);
   }
   return keys;
 }

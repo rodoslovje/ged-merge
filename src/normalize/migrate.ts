@@ -4,6 +4,7 @@ import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
+import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { walkNodes } from "./walk";
 
 /**
@@ -28,7 +29,8 @@ import { walkNodes } from "./walk";
  *                                        down an event's or a family's `ASSO`
  *                                        moved to the one record 5.5.1 allows
  *  - identifiers                       : `AFN`/`RFN`/`RIN` ⇄ `EXID` + TYPE URI
- *                                        (other EXIDs downgrade to `REFN`)
+ *                                        (a FamilySearch EXID ⇄ `_FSFTID`/`_FID`;
+ *                                        other EXIDs ⇄ `REFN` + URI `TYPE`)
  *  - media                             : `FORM` file extension ⇄ IANA media
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
@@ -193,6 +195,15 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       const before = describe(node);
       node.children.push(plain("TYPE", EXID_TYPE_URI[node.tag]));
       report(ctx, retag(node, "EXID"), before);
+    } else if (FS_VENDOR_TAGS.includes(node.tag) && node.level === 1 && node.value?.trim()) {
+      // A FamilySearch person id in a vendor tag: 7.0's EXID says it outright.
+      const before = describe(node);
+      node.children.push(plain("TYPE", FS_EXID_TYPE));
+      report(ctx, retag(node, "EXID"), before);
+    } else if (node.tag === "REFN" && /^https?:\/\//i.test(firstChild(node, "TYPE")?.value?.trim() ?? "")) {
+      // A reference typed by a URI is what the downgrade makes of an EXID it
+      // has no 5.5.1 tag for — and what 7.0 calls an external identifier.
+      report(ctx, retag(node, "EXID"), describe(node));
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       upgradeObje(node, ctx);
     } else if (node.tag === "SEX" && node.value !== undefined) {
@@ -665,7 +676,12 @@ function downgradeExid(node: GedNode, ctx: MigrateCtx): void {
   const before = describe(node);
   const typeNode = firstChild(node, "TYPE");
   const legacyTag = typeNode?.value ? URI_TO_EXID_TAG[typeNode.value.trim()] : undefined;
-  if (legacyTag) {
+  if (isFsExidType(typeNode?.value)) {
+    // A FamilySearch person id: 5.5.1 files carry those in the vendor tag
+    // the app reads as one (and the upgrade turns back into this EXID).
+    node.children = node.children.filter((c) => c !== typeNode);
+    report(ctx, retag(node, "_FSFTID"), before);
+  } else if (legacyTag) {
     node.children = node.children.filter((c) => c !== typeNode);
     report(ctx, retag(node, legacyTag), before);
   } else {

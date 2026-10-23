@@ -928,6 +928,11 @@
               <span class="gm-glyph">🌳</span> glyph opens the person's FamilySearch page, clicking the id edits it, and
               <strong>+ FamilySearch ID</strong> adds one — written with the tag dialect your file already uses. The id
               also serves matching: two files carrying the same id are recognized as the same person.
+              GEDCOM 7 writes such ids as an <strong>external identifier</strong> (<code>EXID</code>, with a
+              <code>TYPE</code> naming the system that gave it): a FamilySearch one is the same FamilySearch ID chip,
+              and a new id in a GEDCOM 7 file is written that way. Ids from any other system show beside it as
+              read-only chips, each with the name of its system; Merge compares and brings them in, and two people
+              carrying the same id from the same system are matched as one, just as with FamilySearch.
             </p>
             <h3>Detach vs delete</h3>
             <p>

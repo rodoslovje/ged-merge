@@ -10,6 +10,7 @@ import { runSteps, type Steps } from "./steps";
 import { readSex } from "./sex";
 import { negativeAssertionsOf } from "./negative";
 import { nodeSortDate } from "./sortDate";
+import { isFsIdNode, readExid } from "./exid";
 import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
 
 /** Which `GedEvent` field each contact line is read into. */
@@ -20,6 +21,7 @@ export { looksLikeUrl };
 import type {
   Association,
   ChanCreaUsage,
+  ExternalId,
   Dataset,
   Family,
   GedEvent,
@@ -185,6 +187,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const associations: Association[] = [];
   const uids: string[] = [];
   const fsids: string[] = [];
+  const exids: ExternalId[] = [];
   let sex: Sex = "U";
 
   for (const child of record.children) {
@@ -197,6 +200,14 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "_FSFTID":
         if (child.value?.trim()) fsids.push(child.value.trim());
         break;
+      // GEDCOM 7's external id: a FamilySearch one joins the vendor-tag ids
+      // above, every other kind is kept as it is (see gedcom/exid).
+      case "EXID": {
+        const exid = readExid(child);
+        if (exid && isFsIdNode(child)) fsids.push(exid.id);
+        else if (exid) exids.push(exid);
+        break;
+      }
       case "NAME":
         names.push(parseName(child.value, subTagMap(child)));
         break;
@@ -239,6 +250,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
   if (uids.length) indi.uids = dedupe(uids);
   if (fsids.length) indi.fsids = dedupe(fsids);
+  if (exids.length) indi.exids = exids;
   if (links.length) indi.links = dedupe(links);
   const editableIndiLinks = collectEditableLinks(record);
   if (editableIndiLinks.length) indi.editableLinks = dedupe(editableIndiLinks);

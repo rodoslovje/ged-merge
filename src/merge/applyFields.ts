@@ -22,6 +22,7 @@ import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildr
 import { parseDate } from "../gedcom/date";
 import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
 import { nodeSortDate, orderingDate } from "../gedcom/sortDate";
+import { fsIdNode, isFsIdNode } from "../gedcom/exid";
 import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
@@ -420,6 +421,8 @@ export function applyRows(
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
     } else if (row.key === "noEvents") {
       applied = applyNoEvents(target, incomingRecord, sourMap);
+    } else if (row.key === "exid") {
+      applied = applyExids(target, incomingRecord);
     } else if (row.key === "fsid") {
       applied = applyFsIds(target, incomingRecord, choice);
     } else if (row.key === "private") {
@@ -690,9 +693,6 @@ export function applyNoEvents(target: GedNode, incomingRecord: GedNode, sourMap:
   return added;
 }
 
-/** FamilySearch person-id tags (MacFamilyTree `_FID`, RootsMagic `_FSFTID`). */
-const FSID_TAGS = ["_FID", "_FSFTID"];
-
 /**
  * Copy the incoming record's FamilySearch id(s) onto the main record,
  * uppercased to the ids' canonical form. New ids are written with the main's
@@ -703,9 +703,9 @@ const FSID_TAGS = ["_FID", "_FSFTID"];
  * count as already present.
  */
 export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
-  const incoming = incomingRecord.children.filter((c) => FSID_TAGS.includes(c.tag) && c.value?.trim());
+  const incoming = incomingRecord.children.filter((c) => isFsIdNode(c) && c.value?.trim());
   if (!incoming.length) return false;
-  const existing = target.children.filter((c) => FSID_TAGS.includes(c.tag));
+  const existing = target.children.filter(isFsIdNode);
   const have = new Set(existing.map((c) => (c.value ?? "").trim().toUpperCase()));
   const fresh = incoming
     .map((c) => c.value!.trim().toUpperCase())
@@ -718,9 +718,28 @@ export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: Fie
     rest = fresh.slice(1);
   }
   for (const value of rest) {
-    insertGrouped(target, { level: target.level + 1, tag, value, children: [] }, ["CHAN", "CREA"]);
+    insertGrouped(target, fsIdNode(tag, value, target.level + 1), ["CHAN", "CREA"]);
   }
   return true;
+}
+
+/**
+ * Copy the incoming record's other external identifiers (`EXID` + `TYPE`, see
+ * `gedcom/exid`) onto the main record, each one the main does not already
+ * carry with the same type. Additive: an identifier says which record some
+ * other system means, and the merged person is still that record there.
+ */
+export function applyExids(target: GedNode, incomingRecord: GedNode): boolean {
+  const key = (n: GedNode) => `${firstChild(n, "TYPE")?.value?.trim() ?? ""}|${n.value?.trim() ?? ""}`;
+  const have = new Set(target.children.filter((c) => c.tag === "EXID").map(key));
+  let added = false;
+  for (const node of incomingRecord.children) {
+    if (node.tag !== "EXID" || isFsIdNode(node) || !node.value?.trim() || have.has(key(node))) continue;
+    have.add(key(node));
+    insertGrouped(target, cloneNode(node), ["CHAN", "CREA"]);
+    added = true;
+  }
+  return added;
 }
 
 /** Set the NICK sub-node on the primary NAME record from the incoming side. */
