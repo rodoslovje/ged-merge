@@ -3,6 +3,7 @@ import type { Dataset, GedNode, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { useModalKeyboard } from "../../keyboard/useModalKeyboard";
 import { childValue } from "../../gedcom/node";
+import { addressText, eventAddressNode } from "../../gedcom/address";
 import { datesTooltipOf, lifespanApproxOf, lifespanOf, type YearsApprox } from "../../gedcom/lifespan";
 import { YearsText } from "../YearsText";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
@@ -69,7 +70,7 @@ function eventSummary(node: GedNode): string {
     node.value?.trim(),
     childValue(node, "DATE"),
     childValue(node, "PLAC"),
-    childValue(node, "ADDR"),
+    addressText(eventAddressNode(node)),
   ].filter((p): p is string => !!p && !!p.trim());
   return parts.join(" · ");
 }
