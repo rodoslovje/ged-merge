@@ -1335,7 +1335,7 @@
                 pa mu manjka koordinata (pogosto, ko je dogodek dodan ali na novo vpisan po geokodiranju datoteke) — in
                 ponudi, da koordinato, ki jo vrednost v datoteki že ima, prekopira na dogodke, ki je nimajo, brez poizvedbe.
                 Nad ugotovitvami o strukturi sta navedena različica GEDCOM datoteke in vse, kar se ob shranjevanju
-                doda, da bo datoteka veljaven GEDCOM (manjkajoča glava, zaključna vrstica ali zapis oddajatelja). Tam je
+                doda, da bo datoteka veljaven GEDCOM (manjkajoča glava, zaključna vrstica ali zapis avtorja). Tam je
                 tudi gumb, s katerim datoteko shranite v drugi različici (<a href="#saving">§14</a>).
               </p>
               <p>
@@ -1549,7 +1549,7 @@
             </div>
             <p>
               Možnosti na <strong>ravni datoteke</strong> odstranijo podatke, ki niso vezani na eno osebo: zapis
-              pošiljatelja (vaše ime, naslov in e-pošta), zunanje identifikatorje drevesa (<code>_UID</code>,
+              avtorja datoteke (vaše ime, naslov in e-pošta), zunanje identifikatorje drevesa (<code>_UID</code>,
               <code>_FID</code>, <code>AFN</code>) ter vse poštne naslove, e-pošto in telefonske številke v celotni
               datoteki. Predogled prešteje, koliko oseb je prikritih ali odstranjenih, preden prenesete prikriti GEDCOM.
             </p>
@@ -3022,9 +3022,9 @@
             <p>
               Prenesena datoteka je vedno <strong>popolna datoteka GEDCOM</strong>. Če datoteka nima glave
               (<em>HEAD</em>) ali zaključne vrstice (<em>TRLR</em>) ali če njena glava ne navaja različice GEDCOM ali
-              kodiranja, se ob shranjevanju doda, kar manjka. GEDCOM 5.5.1 zahteva tudi zapis oddajatelja
-              (<em>SUBM</em>). Brskalnik vašega imena ne more poznati, zato se v datoteko 5.5.1 brez takega zapisa doda
-              oddajatelj z imenom »GED Merge«. Vsak tak popravek je naveden v predogledu pred prenosom in tudi v
+              kodiranja, se ob shranjevanju doda, kar manjka. GEDCOM 5.5.1 zahteva tudi zapis avtorja
+              (<em>SUBM</em>). Brskalnik vašega imena ne more poznati, zato se v datoteko 5.5.1 brez avtorja doda
+              avtor z imenom »GED Merge«. Vsak tak popravek je naveden v predogledu pred prenosom in tudi v
               <a href="#validate">Pregledu</a>. Besedilo, ki ga vpišete ali spremenite, se zapiše po pravilu za afno, ki
               velja v njegovi različici: v GEDCOM 5.5.1 se podvoji vsaka dobesedna afna <code>@</code>
               (<code>ana@@example.si</code>), v GEDCOM 7.0 pa samo afna na začetku vrednosti. Vrstica, ki je niste
