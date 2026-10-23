@@ -304,4 +304,34 @@ describe("a structured address (labelled lines only)", () => {
     expect(tree.distinctCount).toBe(2);
     expect(tree.roots.find((r) => r.name === UNSPECIFIED_PLACE)).toBeDefined();
   });
+
+  it("renames the settlement in the ADDR's CITY line as in the place", () => {
+    const ds = build();
+    expect(previewPlaceRename(ds, "Ljubljana", "Lublana").examples).toContainEqual({
+      before: "Ljubljana",
+      after: "Lublana",
+    });
+    applyPlaceRename(ds, "Ljubljana", "Lublana");
+    const [birt, resi] = ds.individuals.get("@I1@")!.raw.children.filter((c) => c.tag === "BIRT" || c.tag === "RESI");
+    expect(birt.children.find((c) => c.tag === "PLAC")!.value).toBe("Lublana, Slovenija");
+    const lines = (ev: typeof birt) => ev.children.find((c) => c.tag === "ADDR")!.children.map((c) => `${c.tag} ${c.value}`);
+    expect(lines(birt)).toEqual(["ADR1 Dunajska 5", "CITY Lublana", "POST 1000", "CTRY Slovenija"]);
+    expect(lines(resi)).toEqual(["ADR1 Celovška 10", "CITY Lublana"]);
+  });
+
+  it("renames the house the tree shows in the ADR1 line", () => {
+    const ds = build();
+    const house = buildPlaceTree(ds)
+      .roots.find((r) => r.name === "Slovenija")!
+      .children.find((c) => c.name === "Ljubljana")!
+      .children.find((c) => c.name === "Dunajska 5")!;
+    expect(applyPlaceRename(ds, "Dunajska 5", "Dunajska cesta 5", collectNodeUseIds(house))).toHaveLength(1);
+    const addr = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "BIRT")!.children.find((c) => c.tag === "ADDR")!;
+    expect(addr.value).toBeUndefined();
+    expect(addr.children[0].value).toBe("Dunajska cesta 5");
+  });
+
+  it("offers the labelled lines' text as segments", () => {
+    expect(collectPlaceSegments(build())).toContain("Celovška 10");
+  });
 });

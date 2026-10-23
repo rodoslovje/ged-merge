@@ -3,6 +3,7 @@ import { placeCollator } from "../gedcom/place";
 import { patchRecords } from "./geocode";
 import { reconcilePlaceForm } from "../gedcom/edit/geo";
 import type { RecordPatch } from "../ui/historyTypes";
+import { ADDRESS_PART_TAGS } from "../gedcom/address";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -73,11 +74,21 @@ export function renameInValue(raw: string, from: string, to: string): string | n
   return changed ? result : null;
 }
 
-/** Recursively rename matching PLAC/ADDR segments in a GedNode subtree. Returns true if anything changed. */
+/** Whether `child` (under `parent`) holds place text a rename reaches: a PLAC,
+ *  an ADDR's own line, or one of the ADDR's labelled lines (ADR1–ADR3, CITY,
+ *  STAE, POST, CTRY) — an address written only in those is renamed in them. */
+function isPlaceText(child: GedNode, parent: GedNode): boolean {
+  if (!child.value) return false;
+  if (child.tag === "PLAC" || child.tag === "ADDR") return true;
+  return parent.tag === "ADDR" && (ADDRESS_PART_TAGS as readonly string[]).includes(child.tag);
+}
+
+/** Recursively rename matching PLAC/ADDR segments (an ADDR's labelled lines
+ *  included) in a GedNode subtree. Returns true if anything changed. */
 function renameInNode(node: GedNode, from: string, to: string): boolean {
   let changed = false;
   for (const child of node.children) {
-    if ((child.tag === "PLAC" || child.tag === "ADDR") && child.value) {
+    if (isPlaceText(child, node) && child.value) {
       const next = renameInValue(child.value, from, to);
       if (next !== null) {
         const prev = child.value;
@@ -108,7 +119,7 @@ export function previewPlaceRename(dataset: Dataset, from: string, to: string, s
   function scanNode(node: GedNode): boolean {
     let hit = false;
     for (const child of node.children) {
-      if ((child.tag === "PLAC" || child.tag === "ADDR") && child.value) {
+      if (isPlaceText(child, node) && child.value) {
         const next = renameInValue(child.value, from, to);
         if (next !== null) {
           if (examples.length < 5) examples.push({ before: child.value, after: next });
@@ -147,7 +158,7 @@ export function collectPlaceSegments(dataset: Dataset): string[] {
 
   function collect(node: GedNode) {
     for (const child of node.children) {
-      if ((child.tag === "PLAC" || child.tag === "ADDR") && child.value) {
+      if (isPlaceText(child, node) && child.value) {
         for (const part of child.value.split(",")) {
           const s = part.trim();
           if (s) segs.add(s);

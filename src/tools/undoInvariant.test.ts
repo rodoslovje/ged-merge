@@ -319,6 +319,17 @@ describe("undo invariant: places and coordinates", () => {
     expectUndoInvariant(ds, (d) => applyPlaceRename(d, seg, "Novo mesto", scope));
   });
 
+  it("places tree rename reaching a structured address's labelled lines (gramps)", () => {
+    const text = addLines(
+      corpusText("gramps-5.5.1-utf8.ged"),
+      "@I0001@",
+      "1 RESI\n2 PLAC Ljubljana, Slovenija\n2 ADDR\n3 ADR1 Dunajska 5\n3 CITY Ljubljana\n3 POST 1000\n",
+    );
+    const ds = load(text);
+    const patches = expectUndoInvariant(ds, (d) => applyPlaceRename(d, "Ljubljana", "Lublana"));
+    expect(patches.map((p) => p.id)).toContain("@I0001@");
+  });
+
   it("geocode write-back (geneanet)", () => {
     const ds = load(corpusText("geneanet-5.5.1-utf8.ged"));
     const assignments = new Map(collectPlaceValues(ds).slice(0, 40).map((p, i) => [p, coordFor(i)] as const));
