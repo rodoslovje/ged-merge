@@ -26,7 +26,7 @@ test("a tag's URI path without the slash opens its page, styled", async ({ page 
 });
 
 test("an unknown tag's URI names the tag", async ({ page }) => {
-  await page.goto("/terms/unknown/_myTag");
+  await page.goto("/terms/unknown/#_myTag");
   await expect(page.getByRole("heading", { level: 1, name: "_myTag" })).toBeVisible();
   await expect(page.getByText("whose meaning GED Merge does not know")).toBeVisible();
 });

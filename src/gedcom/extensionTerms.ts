@@ -192,7 +192,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     tag: "_SEX",
     meaning: {
       en: "the sex X — does not fit only male or only female (GEDCOM 7.0 SEX X) — kept beside SEX U in a GEDCOM 5.5.1 file",
-      sl: "spol X — ne ustreza le moškemu ali le ženskemu (SEX X iz GEDCOM 7.0) — ohranjen ob SEX U v datoteki GEDCOM 5.5.1",
+      sl: "spol »Drugo« (SEX X iz GEDCOM 7.0) za osebo, ki ni samo moškega ali samo ženskega spola, ohranjen ob SEX U v datoteki GEDCOM 5.5.1",
     },
     context: "under SEX",
   },
@@ -474,7 +474,10 @@ export function termsPath(vendor: string, tag: string): string {
 export function termsUri(tag: string, headSour: string | undefined): string {
   const upper = tag.toUpperCase();
   const vendors = pageVendors(upper);
-  if (vendors.length === 0) return TERMS_ORIGIN + termsPath("unknown", tag);
+  // A tag no table knows gets the one page that explains unknown tags, the tag
+  // named in the fragment: a URI per tag that resolves on any static host,
+  // with no server rule needed for a page that cannot exist ahead of time.
+  if (vendors.length === 0) return `${TERMS_ORIGIN}/terms/unknown/#${encodeURIComponent(tag)}`;
   const producer = producerSlug(headSour);
   const info = vendorTagInfo(upper);
   let vendor: string;

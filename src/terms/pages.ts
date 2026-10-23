@@ -326,7 +326,7 @@ const UNKNOWN_BODY = (tag: string, root: string) => `        <header class="guid
             URI that says what the tag means. When GED Merge saves a file as GEDCOM 7.0 and the file carries an extension
             tag that neither its own tables nor the
             <a href="https://github.com/FamilySearch/GEDCOM-registries">FamilySearch GEDCOM registry</a> know, it
-            declares the tag with a URI under <code>${TERMS_ORIGIN}/terms/unknown/</code>.
+            declares the tag with the URI <code>${TERMS_ORIGIN}/terms/unknown/#&lt;TAG&gt;</code>, which leads here.
           </p>
           <p>
             Such a URI only says that the tag was found in the file. What the tag means is up to the program that wrote
@@ -341,7 +341,21 @@ function unknownPage(assets: PageAssets): TermsPage {
   return {
     file,
     html: shell({
-      file, assets, body: UNKNOWN_BODY("", rootOf(file)),
+      // The URI names the tag in its fragment (/terms/unknown/#_TAG): the
+      // heading shows it.
+      file, assets, body: UNKNOWN_BODY("", rootOf(file)) + `
+        <script>
+          (function () {
+            var tag = decodeURIComponent(location.hash.slice(1));
+            if (!/^_[A-Za-z0-9_]+$/.test(tag)) return;
+            var h = document.getElementById("gm-unknown-title");
+            h.textContent = "";
+            var code = document.createElement("code");
+            code.textContent = tag;
+            h.appendChild(code);
+            document.title = tag + " — unknown extension tag — GED Merge";
+          })();
+        </script>`,
       title: "Unknown extension tag",
       description: "What a GED Merge URI for an unknown GEDCOM extension tag means.",
       canonical: `${TERMS_ORIGIN}/terms/unknown/`,

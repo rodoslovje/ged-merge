@@ -32,8 +32,9 @@ describe("buildTermsPages", () => {
         expect(files.has(fileOf(uri)), `${tag} from ${sour}: ${uri}`).toBe(true);
       }
     }
-    // A tag no table knows is answered by the not-found page, which names it.
-    expect(termsUri("_ZZZ", undefined)).toBe(`${TERMS_ORIGIN}/terms/unknown/_ZZZ`);
+    // A tag no table knows points at the unknown-tag page, named in the fragment;
+    // the not-found page still answers the older path form.
+    expect(termsUri("_ZZZ", undefined)).toBe(`${TERMS_ORIGIN}/terms/unknown/#_ZZZ`);
     expect(termsPageFor("/terms/unknown/_ZZZ", assets)?.file).toBe("404.html");
   });
 

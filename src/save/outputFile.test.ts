@@ -112,7 +112,7 @@ describe("writeSchema — GEDCOM 7 extension tags", () => {
       `2 TAG _MARNM ${TERMS}myheritage/_MARNM`,
       `2 TAG _UID ${TERMS}myheritage/_UID`,
       `2 TAG _UPD ${TERMS}myheritage/_UPD`,
-      `2 TAG _myTag ${TERMS}unknown/_myTag`,
+      `2 TAG _myTag ${TERMS}unknown/#_myTag`,
     ]);
     // A 7.0 file saved as 7.0 keeps its vendor lines: no conversion.
     expect(lines).toContain("1 _UID 123");

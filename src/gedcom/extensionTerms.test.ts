@@ -91,8 +91,8 @@ describe("termsUri — which page a declared tag points to", () => {
   });
 
   it("points a tag no table knows under unknown/, in the file's spelling", () => {
-    expect(termsUri("_myTag", "MYHERITAGE")).toBe(page("unknown", "_myTag"));
-    expect(termsUri("_FA99", "FTM")).toBe(page("unknown", "_FA99"));
+    expect(termsUri("_myTag", "MYHERITAGE")).toBe("https://gedmerge.com/terms/unknown/#_myTag");
+    expect(termsUri("_FA99", "FTM")).toBe("https://gedmerge.com/terms/unknown/#_FA99");
     // A known tag in another case is the same tag.
     expect(termsUri("_uid", undefined)).toBe(page("common", "_UID"));
   });
