@@ -1255,6 +1255,9 @@
               coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
               coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to
               copy the coordinate the value already carries in the file onto the events that lack it, no lookup needed.
+              Above the structure findings it names the file's GEDCOM version, lists what a save would add for the file
+              to be valid GEDCOM (a missing header, trailer or submitter), and offers to save the file in the other
+              version (<a href="#saving">§14</a>).
             </p>
             <p>
               The structure pass also holds the file to the GEDCOM standard its header declares — 5.5, 5.5.1, 5.5.5
@@ -2868,6 +2871,27 @@
               a file, check that it still imports into the programs and services you use. Characters that could not be
               read from the original at all show as “�”; saving cannot bring those back, so correct them in
               <span class="gm-pill">Edit</span> first.
+            </p>
+            <p>
+              The download is also a <strong>complete GEDCOM file</strong>. A file that arrived without its header
+              (<em>HEAD</em>) or its closing line (<em>TRLR</em>), or whose header does not declare the GEDCOM version or
+              the encoding, gets what is missing. GEDCOM 5.5.1 also requires a submitter record (<em>SUBM</em>); the
+              browser cannot know your name, so a 5.5.1 file without one gets a submitter named “GED Merge”. The preview
+              lists each of these repairs before you download, and so does the <a href="#validate">Health check</a>.
+              Text is written by the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal <code>@</code>
+              (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A GEDCOM 7.0 file also declares
+              in its header every extension tag it carries (<code>_UID</code>, <code>_MARNM</code>, …).
+            </p>
+            <p>
+              <strong>GEDCOM version</strong>, under the file list, chooses the version the download is written in. It
+              opens on the file's own version. Choose the other one — GEDCOM 7.0 for a 5.5.1 file, 5.5.1 for a 7.0 file —
+              and the file is converted the way an incoming file is (<a href="#house-style">§4</a>): shared notes, dates,
+              ages and the other version-specific structures are rewritten into that version's form, the header
+              included. The preview lists every rewritten line, and the change report
+              carries the whole list. Like any save, the converted file becomes your working baseline, so from then on
+              you work in the new version. To convert a file you have not changed, use <strong>Save as GEDCOM 7.0…</strong>
+              (or <strong>Save as GEDCOM 5.5.1…</strong>) in Tools → Health check, which opens this preview with the
+              conversion chosen.
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
