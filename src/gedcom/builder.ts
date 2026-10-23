@@ -7,6 +7,10 @@ import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } fr
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
+import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
+
+/** Which `GedEvent` field each contact line is read into. */
+const CONTACT_FIELD: Record<AddressContactTag, "phone" | "email" | "fax"> = { PHON: "phone", EMAIL: "email", FAX: "fax" };
 
 // Re-exported so existing importers (merge, normalize) keep their import path.
 export { looksLikeUrl };
@@ -350,9 +354,35 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     const form = firstChild(placeNode, "FORM")?.value?.trim();
     if (form) event.place.form = form;
   }
-  if (addrNode?.value) {
-    event.address = parsePlace(addrNode.value);
-    if (addrNode.reshapedFrom) event.address.originalRaw = addrNode.reshapedFrom;
+  // The address as one string: the ADDR's own text, or its labelled lines
+  // joined when the program wrote only those (see `address.ts`).
+  const addrText = addressText(addrNode);
+  if (addrText) {
+    event.address = parsePlace(addrNode!.value?.trim() ? addrNode!.value : addrText);
+    if (addrNode!.reshapedFrom) event.address.originalRaw = addrNode!.reshapedFrom;
+  }
+  const addrParts = readAddressParts(addrNode);
+  if (addrParts) {
+    event.addressParts = addrParts;
+    const line = addrNode!.value?.trim();
+    if (line) event.addressLine = addrNode!.value;
+  }
+  for (const c of node.children) {
+    const contact = contactTagOf(c.tag);
+    const v = c.value?.trim();
+    if (!contact || !v) continue;
+    const key = CONTACT_FIELD[contact];
+    event[key] ??= v;
+  }
+  const ageNode = firstChild(node, "AGE");
+  if (ageNode?.value?.trim()) event.age = ageNode.value.trim();
+  // A family event's spouses carry their ages one level down. Only a HUSB/WIFE
+  // *without* a pointer is that structure — the record-level HUSB is not an
+  // event child, so nothing else can be met here.
+  for (const [tag, key] of [["HUSB", "husbandAge"], ["WIFE", "wifeAge"]] as const) {
+    const spouse = node.children.find((c) => c.tag === tag && !c.value?.trim());
+    const v = spouse && firstChild(spouse, "AGE")?.value?.trim();
+    if (v) event[key] = v;
   }
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();

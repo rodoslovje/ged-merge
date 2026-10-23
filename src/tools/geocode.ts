@@ -2,6 +2,7 @@ import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { cloneNode, firstChild, removeChildren } from "../gedcom/node";
 import { decomposePlace, parseCoordPair, placeAddressDetail, placeCollator } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
+import { addressText } from "../gedcom/address";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
 import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
 import { type RecordPatch } from "../ui/historyTypes";
@@ -90,22 +91,15 @@ export function walkPlaceAddr(node: GedNode, visit: (plac: GedNode, addr: string
   walkPlacNodes(node, (plac, event) => visit(plac, eventAddress(event), event));
 }
 
-/** The address lines of a structured ADDR, read when the ADDR has no text of its own. */
-const ADDRESS_LINE_TAGS = new Set(["ADR1", "ADR2", "ADR3", "CITY", "POST"]);
-
 /** An event's address as one string ("" when it has none): the ADDR's own
  *  text, or — for an ADDR that carries only its structured lines, as some
- *  programs write it — those lines joined. Either way it is a house, not the
- *  settlement. */
+ *  programs write it — those lines joined (see `addressText`). Either way it
+ *  is a house, not the settlement. */
 function eventAddress(event: GedNode): string {
   for (const addr of event.children) {
     if (addr.tag !== "ADDR") continue;
-    const own = addr.value?.trim();
-    if (own) return own;
-    const lines = addr.children
-      .filter((c) => ADDRESS_LINE_TAGS.has(c.tag) && c.value?.trim())
-      .map((c) => c.value!.trim());
-    if (lines.length) return lines.join(", ");
+    const text = addressText(addr);
+    if (text) return text;
   }
   return "";
 }

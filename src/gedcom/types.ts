@@ -392,6 +392,25 @@ export interface GedEvent {
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
   address?: GedPlace;
+  /** The address's labelled lines (`ADDR` → `ADR1`…`CTRY`), only when the
+   *  ADDR carries any. `address` above is still the address as one string —
+   *  the ADDR's own text, or these lines joined when it has none. */
+  addressParts?: Partial<Record<"ADR1" | "ADR2" | "ADR3" | "CITY" | "STAE" | "POST" | "CTRY", string>>;
+  /** The ADDR's own line text, when the ADDR also carries labelled lines — so
+   *  an editor can tell the line apart from the joined `address`. */
+  addressLine?: string;
+  /** Contact lines beside the address (`PHON`, `EMAIL`, `FAX`) — the first of
+   *  each the event carries. */
+  phone?: string;
+  email?: string;
+  fax?: string;
+  /** The age the record states at this event (`AGE`), verbatim — see
+   *  `ageValue.ts` for the grammar. Evidence in its own right, unlike the age
+   *  `age.ts` computes from two dates. */
+  age?: string;
+  /** On a family event, each spouse's stated age (`HUSB`/`WIFE` → `AGE`). */
+  husbandAge?: string;
+  wifeAge?: string;
   /** Agency (AGNC) that recorded or organised the event (e.g. hospital, parish). */
   agency?: string;
   /** Cause (CAUS) associated with the event, e.g. cause of death. */
