@@ -178,7 +178,8 @@ export const EventList = memo(function EventList({
     if (update.date !== undefined) subs.push("date");
     if (update.value !== undefined) subs.push("value");
     if (update.place !== undefined) subs.push("place");
-    if (update.address !== undefined) subs.push("addr");
+    if (update.address !== undefined || update.addressParts !== undefined) subs.push("addr");
+    if (update.age !== undefined) subs.push("age");
     if (update.note !== undefined) subs.push("note");
     if (update.agency !== undefined) subs.push("agency");
     return subs;

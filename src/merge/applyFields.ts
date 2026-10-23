@@ -16,6 +16,7 @@ import {
 import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel } from "../gedcom/eventTags";
+import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
@@ -36,7 +37,7 @@ type Row = FieldRow;
 
 /** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
  *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
-const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "temple", "status", "sources", "assoc", "value"] as const;
+const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "age", "husbage", "wifeage", "note", "agency", "cause", "temple", "status", "sources", "assoc", "value"] as const;
 export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
 
 function isEventSubField(sub: string | undefined): sub is EventSubField {
@@ -77,7 +78,12 @@ export interface EventSubEdit {
 }
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
-export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS", temple: "TEMP", status: "STAT" };
+export const SUB_TAG: Record<string, string> = {
+  type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS", temple: "TEMP", status: "STAT",
+  // The stated age: the event's own, or a family event's spouse's — whose
+  // whole `2 HUSB` / `3 AGE` structure is what is copied.
+  age: "AGE", husbage: "HUSB", wifeage: "WIFE",
+};
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 export const SUB_LABEL_KEY: Record<string, string> = {
@@ -86,6 +92,9 @@ export const SUB_LABEL_KEY: Record<string, string> = {
   date: "event.colDate",
   place: "event.colPlace",
   addr: "event.colAddr",
+  age: "event.colAge",
+  husbage: "event.husbandAge",
+  wifeage: "event.wifeAge",
   note: "event.colNote",
   agency: "event.colAgency",
   cause: "event.colCause",
@@ -95,7 +104,7 @@ export const SUB_LABEL_KEY: Record<string, string> = {
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
-export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "temple", "status"];
+export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "age", "husbage", "wifeage", "note", "agency", "cause", "temple", "status"];
 
 /** The event sub-fields that may legally repeat under one event, so "both" can
  *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
@@ -819,7 +828,21 @@ export function applyEventSub(
   // An event may carry any number of notes, so its note row is a list like
   // the record's own notes row — every one of them, not the first.
   if (subTag === "NOTE") return applyNotes(event, incEvent!, choice, sourMap, EVENT_CHILD_ORDER, customTags);
-  return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
+  const applied = setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
+  // The address row compares the whole address structure, the contact lines
+  // beside the ADDR included, so taking it takes those too.
+  if (applied && subTag === "ADDR") takeContactLines(event, incEvent!);
+  return applied;
+}
+
+/** Replace the event's phone/e-mail/fax lines with the incoming event's, when
+ *  it has any (an incoming address without them leaves the main's alone). */
+function takeContactLines(event: GedNode, incEvent: GedNode): void {
+  const isContact = (c: GedNode) => contactTagOf(c.tag) !== undefined;
+  const incoming = incEvent.children.filter(isContact);
+  if (!incoming.length) return;
+  event.children = event.children.filter((c) => !isContact(c));
+  for (const c of incoming) insertOrdered(event, cloneNode(c), EVENT_CHILD_ORDER);
 }
 
 /**

@@ -60,7 +60,7 @@ export function familyEventHasMergeData(
 ): boolean {
   if (!famMergeKeyBase) return false;
   const base = `${famMergeKeyBase}.${tag}`;
-  const EVENT_SUBS = ["date", "place", "addr", "note", "agency", "type", "cause", "temple", "status", "value"] as const;
+  const EVENT_SUBS = ["date", "place", "addr", "age", "husbage", "wifeage", "note", "agency", "type", "cause", "temple", "status", "value"] as const;
   if (EVENT_SUBS.some((s) => mergeHighlight.has(`${base}.${s}`))) return true;
   return (mergeIncomingSources.get(`${base}.sources`)?.length ?? 0) > 0;
 }

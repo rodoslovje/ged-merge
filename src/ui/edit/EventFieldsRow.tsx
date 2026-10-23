@@ -31,7 +31,8 @@ import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
 import { linkKey } from "../../normalize/links";
 import { eventRowUpdate } from "./eventRowUpdate";
-import { AddressStructure, hasAddressStructure } from "./AddressStructure";
+import { AddressStructure } from "./AddressStructure";
+import { eventHasAddressStructure as hasAddressStructure } from "../../gedcom/address";
 import { writeAgeValue } from "../../gedcom/ageValue";
 
 /** A family event's spouse age fields: the label each shows, and its tooltip. */

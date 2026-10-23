@@ -1,4 +1,4 @@
-import type { GedNode } from "./types";
+import type { GedEvent, GedNode } from "./types";
 
 /**
  * GEDCOM's address structure, as it hangs under an event (and a repository):
@@ -56,6 +56,38 @@ export function addressText(addr: GedNode | undefined): string {
     .filter((c) => (ADDRESS_TEXT_TAGS as readonly string[]).includes(c.tag) && c.value?.trim())
     .map((c) => c.value!.trim())
     .join(", ");
+}
+
+/** Whether an event carries any of the address structure beyond its line:
+ *  labelled lines, or contact lines beside it. */
+export function eventHasAddressStructure(ev: GedEvent | undefined): boolean {
+  return !!ev?.addressParts || !!ev?.phone || !!ev?.email || !!ev?.fax;
+}
+
+/**
+ * An event's whole address as one comparable string — the line, the labelled
+ * lines the line does not already say, and the contact lines — for a review
+ * that must tell two addresses apart by more than their first line. Equal to
+ * the plain `address` text for an event with no structure.
+ */
+export function eventAddressFullText(ev: GedEvent | undefined, base = ev?.address?.raw): string | undefined {
+  if (!ev || !eventHasAddressStructure(ev)) return base;
+  const pieces = [
+    ev.addressParts ? ev.addressLine : base,
+    ...ADDRESS_PART_TAGS.map((tag) => ev.addressParts?.[tag]),
+    ev.phone,
+    ev.email,
+    ev.fax,
+  ];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of pieces) {
+    const v = p?.trim();
+    if (!v || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out.join(", ") || undefined;
 }
 
 /** The tag a contact line goes by in a file — `EMAI` is a common misspelling

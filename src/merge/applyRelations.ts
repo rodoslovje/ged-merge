@@ -738,7 +738,7 @@ export function applyIndividualFamilies(
         ? effectiveEventSubChoice(sub, fields[key] ?? "incoming")
         : undefined;
     };
-    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "temple", "status", "sources"] as const;
+    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "husbage", "wifeage", "note", "agency", "cause", "temple", "status", "sources"] as const;
     const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
@@ -782,7 +782,7 @@ export function applyIndividualFamilies(
     };
 
     const marrEntries: EventSubEdit[] = [];
-    for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
+    for (const sub of ["type", "date", "place", "addr", "husbage", "wifeage", "note", "agency", "cause"] as const) {
       const choice = marriageChoice(sub);
       if (!choice || standsDown(`${famKey}.MARR.${sub}`, choice)) continue;
       const subTag = SUB_TAG[sub];
@@ -820,7 +820,7 @@ export function applyIndividualFamilies(
         (evTag === "EVEN" && incFam.events.find((e) => e.tag === "EVEN")?.type?.trim()) ||
         familyEventLabel(evTag, ctx.t);
       const evEntries: EventSubEdit[] = [];
-      for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause", "temple", "status"] as const) {
+      for (const sub of ["type", "value", "date", "place", "addr", "husbage", "wifeage", "note", "agency", "cause", "temple", "status"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = effectiveEventSubChoice(sub, fields[key] ?? "incoming");

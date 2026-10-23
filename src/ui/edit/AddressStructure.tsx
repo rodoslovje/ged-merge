@@ -19,11 +19,6 @@ function valuesOf(ev: GedEvent | undefined): Record<Key, string> {
   return out;
 }
 
-/** Whether the event carries any of what this panel edits. */
-export function hasAddressStructure(ev: GedEvent | undefined): boolean {
-  return !!ev?.addressParts || !!ev?.phone || !!ev?.email || !!ev?.fax;
-}
-
 /**
  * The address in its labelled lines — street lines, town, region, postcode,
  * country — and the contact lines beside it, opened from the address field.

@@ -206,7 +206,7 @@ export function useMergeOverlay({
       const mainMergeCompareKeys = new Map<number, string>();
       const mainMergeSortKeys = new Map<number, number>();
       const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[] = [];
-      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause", "temple", "status"] as const;
+      const EVENT_SUBS = ["date", "place", "addr", "age", "husbage", "wifeage", "value", "note", "agency", "type", "cause", "temple", "status"] as const;
 
       // Index incoming events by tag for sort key lookup.
       const cByTag = new Map<string, typeof incoming.events>();
@@ -367,7 +367,7 @@ export function useMergeOverlay({
       if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "main";
     }
     // Also set any fields not yet explicitly decided (they default to "incoming") to "main".
-    const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause", "temple", "status"] as const;
+    const EVENT_SUBS = ["date", "place", "addr", "age", "husbage", "wifeage", "value", "note", "agency", "type", "cause", "temple", "status"] as const;
     for (const sub of EVENT_SUBS) {
       const fkey = `${keyBase}.${sub}`;
       if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "main";

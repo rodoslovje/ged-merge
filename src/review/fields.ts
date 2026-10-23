@@ -2,6 +2,7 @@ import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, S
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, familyEventLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
+import { eventAddressFullText } from "../gedcom/address";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
@@ -135,6 +136,9 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (sub === "cause") return t("event.cause", { event: name });
   if (sub === "temple") return t("event.temple", { event: name });
   if (sub === "status") return t("event.status", { event: name });
+  if (sub === "age") return t("event.ageOf", { event: name });
+  if (sub === "husbage") return `${t("event.husbandAge")} (${name})`;
+  if (sub === "wifeage") return `${t("event.wifeAge")} (${name})`;
   if (sub === "links") return t("event.link", { event: name });
   return key;
 }
@@ -330,7 +334,11 @@ function buildEventRows(
       ? me?.address?.raw
       : extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw, undefined, undefined, ce?.place?.originalRaw);
-    pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
+    // An address with labelled lines or contact lines compares as all of it, so
+    // two that share a first line but not a postcode still read as different.
+    pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), eventAddressFullText(me, effectiveMAddr),
+      eventAddressFullText(ce, effectiveIncomingAddr), undefined, undefined, ce?.address?.originalRaw);
+    pushRow(subRows, `${keyBase}.age`, t("event.colAge"), me?.age, ce?.age);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), eventNotesText(me), eventNotesText(ce));
     // The people the event names — godparents, witnesses, the officiant. Shown
     // as text (name + role), one per line, the way the notes row shows notes.
@@ -499,7 +507,9 @@ function buildFamilyRows(
       }
       pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
-      pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
+      pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), eventAddressFullText(mEv), eventAddressFullText(cEv), undefined, undefined, cEv?.address?.originalRaw);
+      pushRow(etagRows, `${famKey}.${etag}.husbage`, t("event.husbandAge"), mEv?.husbandAge, cEv?.husbandAge);
+      pushRow(etagRows, `${famKey}.${etag}.wifeage`, t("event.wifeAge"), mEv?.wifeAge, cEv?.wifeAge);
       pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), eventNotesText(mEv), eventNotesText(cEv));
       pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
