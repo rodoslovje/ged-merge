@@ -1,3 +1,4 @@
+import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
@@ -19,7 +20,8 @@ export type OutputVersion = VersionFamily;
 /** A repair the file needed before it could be written as valid GEDCOM. Each
  *  is told to the reader once, in the save preview and in the change report
  *  (`preview.fix.*` / `changeReport.note.fix.*`). */
-export type StructuralFix = "head" | "trlr" | "gedc" | "char";
+export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm";
+
 
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
@@ -50,7 +52,7 @@ function gedcBlock(version: OutputVersion): GedNode {
 /**
  * The structural repairs writing `records` as `version` needs: a header and a
  * trailer, the header's version declaration, and — for 5.5.1, which requires
- * them — the character set. With `apply`, they are made
+ * them — the character set and a submitter. With `apply`, they are made
  * (the forest is mutated); without, they are only listed, which is what the
  * preview shows before anything is written.
  */
@@ -79,6 +81,7 @@ export function completeStructure(records: GedNode[], version: OutputVersion, ap
       }
     }
   }
+  if (version !== "7.0" && ensureSubmitter(records, head, apply)) fixes.push("subm");
   if (!records.some((r) => r.tag === "TRLR")) {
     fixes.push("trlr");
     if (apply) records.push(line("TRLR"));
@@ -102,6 +105,42 @@ function declareVersion(head: GedNode, version: OutputVersion): void {
   if (!vers) gedc.children.unshift(line("VERS", version));
   else if (!vers.value?.trim()) vers.value = version;
   if (version !== "7.0" && !firstChild(gedc, "FORM")) gedc.children.push(line("FORM", "LINEAGE-LINKED"));
+}
+
+/**
+ * Point `HEAD.SUBM` at a submitter record that exists, making one when the
+ * file has none (5.5.1 requires both). A header pointing at a record the file
+ * lacks gets that record, under the xref it already names. Returns whether
+ * anything was (or, without `apply`, would be) added.
+ */
+function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean): boolean {
+  const submitters = records.filter((r) => r.tag === "SUBM" && r.xref);
+  const pointer = firstChild(head, "SUBM");
+  const target = pointer?.value?.trim();
+  if (target && submitters.some((r) => r.xref === target)) return false;
+  if (!apply) return true;
+  let xref = target && /^@[^@]+@$/.test(target) ? target : submitters[0]?.xref;
+  if (!xref) {
+    const taken = new Set(records.map((r) => r.xref));
+    let n = 1;
+    while (taken.has(`@U${n}@`)) n++;
+    xref = `@U${n}@`;
+  }
+  if (!submitters.some((r) => r.xref === xref)) {
+    const record = line("SUBM", undefined, [line("NAME", SUBMITTER_NAME)]);
+    record.xref = xref;
+    const trlr = records.findIndex((r) => r.tag === "TRLR");
+    records.splice(trlr >= 0 ? trlr : records.length, 0, record);
+  }
+  if (pointer) {
+    pointer.value = xref;
+  } else {
+    // 5.5.1's header order: SOUR, DEST, DATE, then SUBM.
+    let at = -1;
+    head.children.forEach((c, i) => { if (c.tag === "SOUR" || c.tag === "DEST" || c.tag === "DATE") at = i; });
+    head.children.splice(at + 1, 0, line("SUBM", xref));
+  }
+  return true;
 }
 
 export interface PreparedDownload {

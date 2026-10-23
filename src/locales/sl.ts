@@ -1614,6 +1614,7 @@ export const sl = {
   "preview.fix.trlr": "Datoteka nima zaključne vrstice. Shranjena datoteka se konča z zaključno vrstico (TRLR), kot zahteva GEDCOM.",
   "preview.fix.gedc": "Glava datoteke ne navaja v celoti različice GEDCOM. V glavi shranjene datoteke je različica navedena.",
   "preview.fix.char": "Glava datoteke ne navaja kodiranja znakov. V glavi shranjene datoteke je navedeno kodiranje UTF-8.",
+  "preview.fix.subm": "GEDCOM 5.5.1 zahteva, da glava navaja zapis oddajatelja (SUBM). V glavi shranjene datoteke je zapis oddajatelja naveden; če ga datoteka nima, se doda zapis oddajatelja z imenom »GED Merge«.",
   "preview.cancel": "Prekliči",
   // Preneseno poročilo o spremembah (`.gedmerge.report.txt`) — zapis o tem, kaj
   // je shranjevanje naredilo, ki ga preberete sami, brez programa.

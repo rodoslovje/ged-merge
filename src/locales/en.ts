@@ -1414,6 +1414,7 @@ export const en = {
   "preview.fix.trlr": "The file has no closing line. The saved file ends with one (TRLR), as GEDCOM requires.",
   "preview.fix.gedc": "The file's header does not fully declare the GEDCOM version. The saved file's header declares it.",
   "preview.fix.char": "The file's header does not name the character encoding. The saved file's header names UTF-8.",
+  "preview.fix.subm": "GEDCOM 5.5.1 requires the header to name a submitter record (SUBM). The saved file's header names one, and where the file has none, a submitter record named \"GED Merge\" is added.",
   "preview.cancel": "Cancel",
   // The downloaded change report (`.gedmerge.report.txt`) — the written record
   // of what a save did, read on its own, away from the app.

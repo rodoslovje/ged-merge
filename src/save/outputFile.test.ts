@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
@@ -60,6 +61,34 @@ describe("completeStructure — header and trailer", () => {
     expect(fixes).toContain("gedc");
     const at = lines.indexOf("1 GEDC");
     expect(lines.slice(at, at + 4)).toEqual(["1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8"]);
+  });
+
+  it("gives a 5.5.1 file without a submitter one, named by the header", () => {
+    const { fixes, lines } = download("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @U1@ INDI\n0 TRLR\n");
+    expect(fixes).toEqual(["subm"]);
+    // @U1@ is taken by a person, so the submitter takes the next free id.
+    expect(lines).toContain("1 SUBM @U2@");
+    expect(lines.slice(-3)).toEqual(["0 @U2@ SUBM", `1 NAME ${SUBMITTER_NAME}`, "0 TRLR"]);
+    // The header's own order: SOUR, DATE, then SUBM.
+    const head = lines.slice(0, lines.indexOf("1 GEDC"));
+    expect(head.indexOf("1 SUBM @U2@")).toBeGreaterThan(head.findIndex((l) => l.startsWith("1 DATE")));
+  });
+
+  it("points the header at the file's own submitter, or gives a dangling pointer its record", () => {
+    const own = download("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @S9@ SUBM\n1 NAME Ana\n0 TRLR\n");
+    expect(own.lines).toContain("1 SUBM @S9@");
+    expect(own.lines.filter((l) => l.endsWith(" SUBM"))).toEqual(["0 @S9@ SUBM"]);
+
+    const dangling = download("0 HEAD\n1 SUBM @X1@\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n");
+    expect(dangling.fixes).toContain("subm");
+    expect(dangling.lines).toContain("0 @X1@ SUBM");
+  });
+
+  it("leaves a 5.5.1 file with a submitter, and a 7.0 file without one, alone", () => {
+    const ok = "0 HEAD\n1 SUBM @U1@\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @U1@ SUBM\n1 NAME Ana\n0 TRLR\n";
+    expect(completeStructure(parse(ok).records, "5.5.1", false)).toEqual([]);
+    const v7 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n0 TRLR\n";
+    expect(completeStructure(parse(v7).records, "7.0", false)).toEqual([]);
   });
 
   it("gives a 7.0 header GEDC first and no CHAR", () => {
