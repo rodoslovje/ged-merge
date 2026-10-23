@@ -4,8 +4,9 @@ import type { DateFormatProfile } from "./types";
 
 /** A bare year–year range, e.g. "1830-1850" or "1785 / 1810" — see parseDate. */
 const DASH_YEAR_RANGE = /^\d{3,4}\s*[-/]\s*\d{3,4}$/;
-/** A year with its old/new-style second reading, e.g. "1850/51". */
-const DUAL_YEAR = /(?:^|\s)\d{3,4}\/\d{1,2}(?!\d)/;
+/** A year with its old/new-style second reading, e.g. "1850/51" — and not a
+ *  slashed year-first date ("1850/06/05"), whose second part goes on. */
+const DUAL_YEAR = /(?:^|\s)\d{3,4}\/\d{1,2}(?![\d/])/;
 
 /** True for a value carrying old/new-style dual dating ("1850/51"), which no
  *  house style has a slot for — re-rendering it would keep the first year only. */
@@ -26,6 +27,10 @@ export function formatGedDate(date: GedDate, profile: DateFormatProfile, opts?: 
   // and a year before 100 too, which a two-digit layout would read back as
   // 19xx ("5 JAN 50" is not "05.01.50").
   if (date.calendar !== undefined || isEarlyYear(date.year) || isEarlyYear(date.year2)) return date.raw;
+  // So does a dual year — GEDCOM 5.5.1's "15 FEB 1699/00", the year as both
+  // the old style (beginning in March) and the new counted it. No layout has
+  // a slot for the second reading, and dropping it loses what the record says.
+  if (hasDualYear(date.raw)) return date.raw;
 
   const first = formatParts(date.year, date.month, date.day, profile);
   const second = formatParts(date.year2, date.month2, date.day2, profile);

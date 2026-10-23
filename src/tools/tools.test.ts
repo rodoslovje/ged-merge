@@ -3,7 +3,9 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { validateDataset } from "./validate";
 import { validateStructure } from "./structure";
-import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, proposeDateFix } from "./fixDates";
+import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, isUnparseable, proposeDateFix } from "./fixDates";
+import { formatGedDate } from "../normalize/date";
+import { parseDate } from "../gedcom/date";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { findDuplicates } from "./duplicates";
 import { buildSourceTree, mediaUsedBy } from "./sources";
@@ -1265,6 +1267,37 @@ describe("fixDates", () => {
     // Already-parseable values are never touched.
     expect(proposeDateFix("26.6.1912", numericCtx)).toBeUndefined();
     expect(proposeDateFix("12 MAR 1949", numericCtx)).toBeUndefined();
+  });
+
+  it("reads a qualifier over text as unparseable, and repairs the ones it can", () => {
+    const ctx = dateFixContext(dataset(`0 HEAD
+1 CHAR UTF-8
+0 TRLR`));
+    // A qualifier word does not make a date of what follows it.
+    expect(isUnparseable("pred vojno")).toBe(true);
+    expect(isUnparseable("ABT 1835 - 1840")).toBe(true);
+    // A date phrase in parentheses is GEDCOM's own, and a placeholder is deliberate.
+    expect(isUnparseable("(pred vojno)")).toBe(false);
+    expect(isUnparseable("__.__.____")).toBe(false);
+    expect(isUnparseable("BEF 1850")).toBe(false);
+    // "About" a span of years: the span is the date.
+    expect(proposeDateFix("ABT 1835 - 1840", ctx)).toBe("BET 1835 AND 1840");
+    expect(proposeDateFix("okoli 1835-1840", ctx)).toBe("BET 1835 AND 1840");
+    expect(proposeDateFix("ABT 1840 - 1835", ctx)).toBeUndefined();
+    // "Before the war" has no date in it to restate.
+    expect(proposeDateFix("pred vojno", ctx)).toBeUndefined();
+    // A spaced numeric under a qualifier is repaired like a bare one.
+    expect(proposeDateFix("pred 5. 3. 1850", ctx)).toBe("BEF 5 MAR 1850");
+  });
+
+  it("keeps a dual year when it restates a date", () => {
+    const words = dateFixContext(dataset(`0 HEAD
+1 CHAR UTF-8
+0 TRLR`)).profile;
+    expect(formatGedDate(parseDate("15 FEB 1699/00"), words)).toBe("15 FEB 1699/00");
+    expect(formatGedDate(parseDate("ABT 1850/51"), words)).toBe("ABT 1850/51");
+    // A slashed year-first date is not a dual year.
+    expect(formatGedDate(parseDate("1850/06/05"), words)).toBe("5 JUN 1850");
   });
 
   it("re-renders a repaired date in the file's month-word format", () => {
