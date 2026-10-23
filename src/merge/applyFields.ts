@@ -1535,6 +1535,11 @@ export function importSourRecords(
     for (const child of node.children) collectSourRefs(child, out);
   };
 
+  // An incoming media record that names no file (`1 FILE` with nothing after
+  // it) carries nothing to show and nothing to match on: it is not imported,
+  // and the links to it go too rather than pointing at nothing.
+  const fileless = new Set<string>();
+
   // Iterate to fixpoint: importing a SOUR may introduce a REPO reference.
   let changed = true;
   while (changed) {
@@ -1543,12 +1548,16 @@ export function importSourRecords(
     const needed = new Set<string>();
     for (const rec of records) collectSourRefs(rec, needed);
     for (const outXref of needed) {
-      if (presentXrefs.has(outXref)) continue;
+      if (presentXrefs.has(outXref) || fileless.has(outXref)) continue;
       // Only an xref the map promised to an incoming record is imported: any
       // other missing target is a pointer the main itself left dangling.
       const cXref = reverseMap.get(outXref);
       const cRec = cXref ? compareIndex.get(cXref) : undefined;
       if (!cRec) continue;
+      if (cRec.tag === "OBJE" && !childrenByTag(cRec, "FILE").some((f) => f.value?.trim())) {
+        fileless.add(outXref);
+        continue;
+      }
       const imported = cloneNodeRemapped(cRec, sourMap);
       imported.xref = outXref;
       collectCustomTags(imported, customTags);
@@ -1557,9 +1566,16 @@ export function importSourRecords(
       changed = true;
     }
   }
+  if (fileless.size) {
+    const drop = (node: GedNode): void => {
+      node.children = node.children.filter((c) => !(c.value && fileless.has(c.value.trim())));
+      for (const child of node.children) drop(child);
+    };
+    for (const rec of records) drop(rec);
+  }
   // The inserted SOUR/OBJE/REPO records stale any cached source lookup/index
   // a later pass over this same array would otherwise reuse.
-  if (importedNodes.length) bumpSourceCacheVersion(records);
+  if (importedNodes.length || fileless.size) bumpSourceCacheVersion(records);
   return importedNodes;
 }
 

@@ -1430,6 +1430,25 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     expect(out).toContain("0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj");
   });
 
+  it("does not import a media record that names no file, nor keep links to it", () => {
+    const compare = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1925\n2 OBJE @M2@\n2 SOUR @CS1@\n3 PAGE 190\n3 OBJE @M1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n" +
+        "0 @M1@ OBJE\n1 FILE\n2 TITL #190 - Births\n" +
+        "0 @M2@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:939V-5RTW-6\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const out = serializeGedcom(mergeDecisions(dataset(mainFamily), compare, decisions, matches, tr).records);
+    expect(out).not.toContain("@M1@");
+    expect(out).toContain("2 SOUR @CS1@\n3 PAGE 190\n");
+    expect(out).toContain("0 @M2@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:939V-5RTW-6");
+  });
+
   it("handles an xref collision: imports the compare SOUR under a fresh xref", () => {
     // Main already has @CS1@ pointing to a different source.
     const mainWithClash = wrap(
