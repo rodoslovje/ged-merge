@@ -302,7 +302,7 @@
               <li><strong>Videz</strong> — <em>Tema</em>: Samodejno, Svetla ali Temna (Samodejno sledi operacijskemu sistemu).</li>
               <li><strong>Prikaz imen</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač) — pri osebi, poročeni več kot enkrat, so prikazani vsi poročni priimki, ločeni z vejico po vrstnem redu porok — in <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK). Predogled nad možnostmi sproti pokaže izid. To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
               <li><strong>Prikaz</strong> — <em>Prikaz datumov</em> prikaže datume tako, kot jih zapisuje datoteka, z besedami (<em>okoli 5. marca 1850</em>) ali v obliki po vaši izbiri (<em>ABT 05.03.1850</em>), pri tem pa datoteka ohrani svojo obliko — ko kliknete v polje za datum, se v njem spet pokaže zapis iz datoteke; <em>Prikaži starosti</em> doda starosti ob razponih let in datumih dogodkov; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (<a href="#home-person">§7</a>) po vsej aplikaciji; <em>Prikaži oznake zapisov</em> pa postavi oznako zapisa GEDCOM (xref) ob ime osebe.</li>
-              <li><strong>Urejanje</strong> — <em>Poročni priimek po partnerju</em> ob dodajanju žene možu z znanim priimkom zapiše njegov priimek kot njen poročni priimek, <em>Hitro dodajanje dogodkov</em> pa določa gumbe pod seznamom dogodkov (<a href="#edit">§8</a>).</li>
+              <li><strong>Urejanje</strong> — ime, ki ga vpišete v polje <em>Vaše ime (avtor datoteke)</em>, se zapiše kot avtor datoteke (<em>SUBM</em>), kadar mora GED Merge zapis avtorja dodati sam: v novo drevo in v datoteko GEDCOM 5.5.1, ki ob shranjevanju nima avtorja (<a href="#saving">§14</a>). Če je polje prazno, se kot avtor zapiše »GED Merge«. <em>Poročni priimek po partnerju</em> ob dodajanju žene možu z znanim priimkom zapiše njegov priimek kot njen poročni priimek, <em>Hitro dodajanje dogodkov</em> pa določa gumbe pod seznamom dogodkov (<a href="#edit">§8</a>).</li>
             </ul>
             <p>Preostali trije zavihki:</p>
             <ul>
@@ -3023,8 +3023,10 @@
               Prenesena datoteka je vedno <strong>popolna datoteka GEDCOM</strong>. Če datoteka nima glave
               (<em>HEAD</em>) ali zaključne vrstice (<em>TRLR</em>) ali če njena glava ne navaja različice GEDCOM ali
               kodiranja, se ob shranjevanju doda, kar manjka. GEDCOM 5.5.1 zahteva tudi zapis avtorja
-              (<em>SUBM</em>). Brskalnik vašega imena ne more poznati, zato se v datoteko 5.5.1 brez avtorja doda
-              avtor z imenom »GED Merge«. Vsak tak popravek je naveden v predogledu pred prenosom in tudi v
+              (<em>SUBM</em>), ki pove, kdo je datoteko sestavil. Če ste svoje ime vpisali v <strong>Nastavitvah →
+              Splošno → Vaše ime (avtor datoteke)</strong>, se v datoteko 5.5.1 brez avtorja zapiše avtor z vašim
+              imenom, sicer pa avtor z imenom »GED Merge«. Avtor, ki je v datoteki že naveden, ostane nespremenjen. Novo
+              drevo dobi isto ime avtorja že ob nastanku. Vsak tak popravek je naveden v predogledu pred prenosom in tudi v
               <a href="#validate">Pregledu</a>. Besedilo, ki ga vpišete ali spremenite, se zapiše po pravilu za afno, ki
               velja v njegovi različici: v GEDCOM 5.5.1 se podvoji vsaka dobesedna afna <code>@</code>
               (<code>ana@@example.si</code>), v GEDCOM 7.0 pa samo afna na začetku vrednosti. Vrstica, ki je niste
