@@ -54,7 +54,7 @@ import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addres
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
-import { fixDates } from "./tools/fixDates";
+import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
@@ -62,6 +62,7 @@ import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
 import { fetchPageHtml } from "./normalize/urlMetadata";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
+import { useDateEntrySource } from "./ui/edit/DateEntryContext";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
@@ -176,6 +177,8 @@ function AppContent() {
   // values keep every read site (and the sync refs below) unchanged.
   const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
+  // Every date field, wherever it sits, writes a typed date in this file's style.
+  useDateEntrySource(mainDataset, settings.formatOverrides);
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
   // Phone layout: the header's ☰ menu, and whether it is open.
   const phone = usePhone();
@@ -2662,6 +2665,7 @@ function AppContent() {
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
+              onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, settings.formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}

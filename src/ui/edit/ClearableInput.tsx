@@ -9,8 +9,11 @@ export const ClearableInput = forwardRef<
     onClear: () => void;
     wrapStyle?: React.CSSProperties;
     wrapClassName?: string;
+    /** What the × clears, when the field's own title says more than its name. */
+    clearTitle?: string;
   }
->(function ClearableInput({ value, onClear, wrapStyle, wrapClassName, className, ...rest }, ref) {
+>(function ClearableInput({ value, onClear, wrapStyle, wrapClassName, className, clearTitle, ...rest }, ref) {
+  const named = clearTitle ?? rest.title;
   return (
     <div
       className={`clearable-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`}
@@ -22,7 +25,7 @@ export const ClearableInput = forwardRef<
           type="button"
           className="input-clear"
           tabIndex={-1}
-          title={rest.title ? `${rest.title ? "Clear " + rest.title.toLowerCase() : "Clear"}` : "Clear"}
+          title={named ? `Clear ${named.toLowerCase()}` : "Clear"}
           onMouseDown={(e) => {
             e.preventDefault(); // keep input focused so onBlur fires with the cleared value
             onClear();

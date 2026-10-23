@@ -3,7 +3,8 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { validateDataset } from "./validate";
 import { validateStructure } from "./structure";
-import { countFixableDates, dateFixContext, fixDates, proposeDateFix } from "./fixDates";
+import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, proposeDateFix } from "./fixDates";
+import type { Dataset, GedNode } from "../gedcom/types";
 import { findDuplicates } from "./duplicates";
 import { buildSourceTree, mediaUsedBy } from "./sources";
 import { collectLocalMediaFiles } from "./mediaFiles";
@@ -1078,8 +1079,18 @@ describe("validateStructure", () => {
     expect(report.issues.filter((i) => i.category === "shortYear").map((i) => i.sample)).toEqual(["5 MAR 88"]);
   });
 
-  it("reports a date written unlike the rest of the file, by format rather than spelling", () => {
-    const ds = dataset(`0 HEAD
+  /** Every DATE value in the file, depth-first. */
+  const dateValues = (ds: Dataset): string[] => {
+    const out: string[] = [];
+    const walk = (n: GedNode) => {
+      if (n.tag === "DATE" && n.value) out.push(n.value);
+      n.children.forEach(walk);
+    };
+    ds.records.forEach(walk);
+    return out;
+  };
+
+  const STYLE_FIXTURE = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
@@ -1092,6 +1103,8 @@ describe("validateStructure", () => {
 2 DATE 5.3.1910
 1 BURI
 2 DATE okoli 1910
+1 RESI
+2 DATE 05/06/1890
 1 CHAN
 2 DATE 01.02.2024
 0 @I2@ INDI
@@ -1099,15 +1112,42 @@ describe("validateStructure", () => {
 2 DATE 1 JAN 1900
 1 DEAT
 2 DATE 2 FEB 1950
-0 TRLR`);
-    const style = validateStructure(ds).issues.filter((i) => i.category === "dateStyle");
+0 TRLR`;
+
+  it("reports non-standard dates with their fix, and ambiguous ones without", () => {
+    const report = validateStructure(dataset(STYLE_FIXTURE));
+    const nonStandard = report.issues.filter((i) => i.category === "nonStandardDate");
     // Padding and month spelling are not a format; a change stamp is the program's own.
-    expect(style.map((i) => i.sample)).toEqual(["5.3.1910", "okoli 1910"]);
-    expect(style[0]).toMatchObject({ severity: "info", tooltip: "2 DATE 5.3.1910 → 5 MAR 1910" });
+    expect(nonStandard.map((i) => [i.sample, i.fix])).toEqual([
+      ["5.3.1910", "5 MAR 1910"],
+      ["okoli 1910", "ABT 1910"],
+    ]);
+    expect(nonStandard[0]).toMatchObject({ severity: "warning", tooltip: "2 DATE 5.3.1910 → 5 MAR 1910" });
+    // A slashed date whose day and month could swap is the user's to settle.
+    const ambiguous = report.issues.filter((i) => i.category === "ambiguousDate");
+    expect(ambiguous.map((i) => i.sample)).toEqual(["05/06/1890"]);
+    expect(ambiguous[0].fix).toBeUndefined();
     // Measured against the format chosen in Settings when there is one.
-    const numeric = validateStructure(ds, { date: "DD.MM.YYYY" }).issues.filter((i) => i.category === "dateStyle");
+    const numeric = validateStructure(dataset(STYLE_FIXTURE), { date: "DD.MM.YYYY" }).issues.filter(
+      (i) => i.category === "nonStandardDate",
+    );
     expect(numeric.map((i) => i.sample)).toContain("5 MAR 1850");
     expect(numeric.map((i) => i.sample)).not.toContain("5.3.1910");
+  });
+
+  it("fixes the non-standard dates that have one reading, in one pass or one at a time", () => {
+    const ds = dataset(STYLE_FIXTURE);
+    const one = fixNonStandardDates(ds, undefined, { id: "@I1@", sample: "okoli 1910" });
+    expect(one).toHaveLength(1);
+    expect(dateValues(ds)).toContain("ABT 1910");
+    expect(dateValues(ds)).toContain("5.3.1910");
+    fixNonStandardDates(ds);
+    const values = dateValues(ds);
+    expect(values).toContain("5 MAR 1910");
+    // Ambiguous, and the change stamp, are left as they were.
+    expect(values).toContain("05/06/1890");
+    expect(values).toContain("01.02.2024");
+    expect(validateStructure(ds).counts.nonStandardDate).toBe(0);
   });
 
   it("does not flag a date that names its calendar or its era", () => {

@@ -123,20 +123,34 @@ export function normalizeDateString(
  * (typed shorthand, unlike a file's own, is not kept). Anything the grammar
  * cannot read, and any value naming a calendar or an era, is kept as typed.
  */
-export function entryDate(raw: string, profile: DateFormatProfile, order: DateOrder): string {
+export function entryDate(
+  raw: string,
+  profile: DateFormatProfile,
+  order: DateOrder,
+  opts?: TypedDateOptions,
+): string {
   const typed = raw.trim();
   if (!typed) return "";
   // Old/new-style dual dating ("1850/51") has no slot in any house style.
   if (DUAL_YEAR.test(typed)) return typed;
-  const date = parseTypedDate(typed, order);
+  const date = parseTypedDate(typed, order, opts);
   if (!isReadable(date)) return typed;
   return formatGedDate(date, profile, { formalRanges: true }) || typed;
 }
 
+export interface TypedDateOptions {
+  /** The field holds a span of time — a source's coverage — so "1850-1900"
+   *  is the period FROM 1850 TO 1900, not a date somewhere between the two. */
+  period?: boolean;
+}
+
 /** Parse a date as typed by hand: "5. 3. 1850", spaced the way Slovenian is
  *  written, reads as "5.3.1850" does. */
-export function parseTypedDate(typed: string, order: DateOrder): GedDate {
-  return parseDate(typed.trim().replace(/(\d)\.\s+(?=\d)/g, "$1."), order);
+export function parseTypedDate(typed: string, order: DateOrder, opts?: TypedDateOptions): GedDate {
+  const date = parseDate(typed.trim().replace(/(\d)\.\s+(?=\d)/g, "$1."), order);
+  return opts?.period && date.qualifier === "between" && DASH_YEAR_RANGE.test(typed.trim())
+    ? { ...date, qualifier: "range" }
+    : date;
 }
 
 /** A date with something to go on: a year, a declared calendar, or a

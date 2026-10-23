@@ -20,11 +20,12 @@ import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
+import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
-type FixKind = "links" | "sex" | "roles" | "dates" | "dups" | "families" | "dangling";
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling" };
+type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling";
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -35,6 +36,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   sex: "missingSex",
   roles: "roleSexConflict",
   dates: "badDate",
+  nonStandard: "nonStandardDate",
   dangling: "danglingXref",
 };
 
@@ -111,6 +113,7 @@ export function ValidatePanel({
   onFixSexFromRole,
   onFixSwappedRoles,
   onFixDates,
+  onFixNonStandardDates,
   onFixDuplicatePointers,
   onFixDuplicateFamilies,
   onFixDanglingRefs,
@@ -124,6 +127,7 @@ export function ValidatePanel({
   onFixSexFromRole: (only?: string) => number;
   onFixSwappedRoles: (only?: string) => number;
   onFixDates: (only?: BadDateRef) => number;
+  onFixNonStandardDates: (only?: BadDateRef) => number;
   onFixDuplicatePointers: (only?: string) => number;
   onFixDuplicateFamilies: (only?: string) => number;
   onFixDanglingRefs: (only?: DanglingRef) => number;
@@ -231,6 +235,7 @@ export function ValidatePanel({
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
       : kind === "dates" ? onFixDates()
+      : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
       : onFixDuplicatePointers();
@@ -413,6 +418,13 @@ export function ValidatePanel({
         run: () => onFixDates({ id: issue.recordId!, sample: issue.sample }),
       };
     }
+    if (issue.category === "nonStandardDate" && issue.fix && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneValue", { value: issue.fix }),
+        hint: t("tools.validate.struct.fixableTitle", { value: issue.fix }),
+        run: () => onFixNonStandardDates({ id: issue.recordId!, sample: issue.sample }),
+      };
+    }
     if (issue.category === "danglingXref" && issue.recordId) {
       return {
         label: t("tools.validate.fixOneDangling"),
@@ -456,6 +468,9 @@ export function ValidatePanel({
   if (swappedRoleFams > 0) fixActions.push({ kind: "roles", count: swappedRoleFams });
   if (inferableSex.size > 0) fixActions.push({ kind: "sex", count: inferableSex.size });
   if (fixableDates > 0) fixActions.push({ kind: "dates", count: fixableDates });
+  // Every non-standard date the check reports with a fix is one the fix restyles.
+  const fixableNonStandard = structure?.issues.filter((i) => i.category === "nonStandardDate" && i.fix).length ?? 0;
+  if (fixableNonStandard > 0) fixActions.push({ kind: "nonStandard", count: fixableNonStandard });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -712,7 +727,8 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "impossibleDate",
   "reversedRange",
   "shortYear",
-  "dateStyle",
+  "nonStandardDate",
+  "ambiguousDate",
   "customTag",
 ];
 
@@ -749,7 +765,19 @@ function RecordRef({
       </span>
     );
   }
-  return <span className="tools-struct-rec">{[tag, id].filter(Boolean).join(" ")}</span>;
+  // A source, a media object, a repository: named by its title, so the row can
+  // be found again in the file — the bare id stays on the hover.
+  const record = id ? recordByXref(dataset.records, id) : undefined;
+  const title = record && recordTitle(record);
+  const ref = [tag, id].filter(Boolean).join(" ");
+  if (title) {
+    return (
+      <span className="tools-struct-rec" title={ref}>
+        {tag && <span className="tools-struct-rec-tag">{tag}</span>} {title}
+      </span>
+    );
+  }
+  return <span className="tools-struct-rec">{ref}</span>;
 }
 
 function StructRow({

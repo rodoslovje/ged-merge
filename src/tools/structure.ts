@@ -2,10 +2,8 @@ import type { Dataset, GedDate, GedNode, ParseWarning } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { vendorTagInfo } from "../gedcom/vendorTags";
 import { isVoidPointer } from "../gedcom/uri";
-import { hasDualYear, normalizeDateString } from "../normalize/date";
-import { applyDateOverrides, type FormatOverrides } from "../normalize/formatOverrides";
-import { isMonthWord } from "../normalize/profile";
-import { dateFixContext, proposeDateFix } from "./fixDates";
+import type { FormatOverrides } from "../normalize/formatOverrides";
+import { dateFixContext, dateStyleContext, nonStandardDate, proposeDateFix } from "./fixDates";
 import { firstChild } from "../gedcom/node";
 
 /**
@@ -37,7 +35,8 @@ export type StructCategory =
   | "impossibleDate"
   | "reversedRange"
   | "shortYear"
-  | "dateStyle";
+  | "nonStandardDate"
+  | "ambiguousDate";
 
 export type StructSeverity = "error" | "warning" | "info";
 
@@ -61,8 +60,8 @@ export interface StructIssue {
   /** The actual problematic line(s), for a hover tooltip — the reconstructed
    *  GEDCOM line for a tree-walk issue, or the parser's message + line number. */
   tooltip?: string;
-  /** For a repairable `badDate`: the value the one-click fix would write, so the
-   *  row can flag itself fixable and preview the result. */
+  /** For a repairable `badDate` or `nonStandardDate`: the value the one-click
+   *  fix would write, so the row can flag itself fixable and preview the result. */
   fix?: string;
 }
 
@@ -86,7 +85,8 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   impossibleDate: 0,
   reversedRange: 0,
   shortYear: 0,
-  dateStyle: 0,
+  nonStandardDate: 0,
+  ambiguousDate: 0,
 };
 
 /**
@@ -279,23 +279,6 @@ function templateFieldTags(records: GedNode[]): Map<string, string> {
   return fields;
 }
 
-/**
- * What a date's format is, without its values: numbers, placeholder runs and
- * month names each collapse to one symbol, case aside. Two dates of one shape
- * read alike to a person — "01 APR 1894" and "1 Apr 1894", "1 June" and
- * "1 Jun" — so only a real difference of format (numeric against month
- * words, a month put first, a non-standard qualifier, a placeholder) counts.
- */
-function dateShape(value: string): string {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/[_?]+/g, "_")
-    .replace(/\d+/g, "9")
-    .replace(/\p{L}{3,}/gu, (w) => (isMonthWord(w) ? "M" : w))
-    .replace(/\s+/g, " ");
-}
-
 /** A range whose second end comes before its first (`BET 1860 AND 1850`). An
  *  end missing a month or a day is compared at the precision both share. */
 function isReversedRange(d: GedDate): boolean {
@@ -329,15 +312,9 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   // The file's date house style, so a fixable bad date can preview the value the
   // one-click fix would write (in the file's own format).
   const fixCtx = dateFixContext(ds);
-  // The format a date is measured against: the file's own, or the one chosen
-  // in Settings → GEDCOM, exactly as Bulk normalize would write it.
-  const styleProfile = applyDateOverrides(fixCtx.profile, overrides);
-  const styledDate = (value: string): string | undefined => {
-    const raw = value.trim();
-    if (hasDualYear(raw)) return undefined; // "1850/51" has no slot in any format
-    const styled = normalizeDateString(raw, styleProfile, fixCtx.sourceOrder);
-    return styled && dateShape(styled) !== dateShape(raw) ? styled : undefined;
-  };
+  // The format a date is held to: the file's own, or the one chosen in
+  // Settings → GEDCOM — the same the non-standard date fix writes.
+  const styleCtx = dateStyleContext(ds, overrides);
 
   // (b) Walk the raw tree once for unknown tags and unparseable dates, tracking
   //     the enclosing level-0 record so deep issues can navigate to it.
@@ -404,14 +381,15 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
           messageVars: { sample: truncate(node.value) },
         });
       } else {
-        const flag = (category: StructCategory, severity: StructSeverity, tooltip = nodeLine(node)) =>
+        const flag = (category: StructCategory, severity: StructSeverity, fix?: string) =>
           push({
             category,
             severity,
             recordId,
             recordTag,
             sample: truncate(node.value!),
-            tooltip,
+            tooltip: fix ? `${nodeLine(node)} → ${fix}` : nodeLine(node),
+            fix,
             messageKey: `tools.validate.struct.issue.${category}`,
             messageVars: { sample: truncate(node.value!) },
           });
@@ -421,11 +399,13 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
         if (d.impossible) flag("impossibleDate", "warning");
         if (isReversedRange(d)) flag("reversedRange", "warning");
         if (d.shortYear) flag("shortYear", "warning");
-        // A sound date written unlike the rest of the file: what Bulk
-        // normalize would write is shown on the row's hover.
-        if (!stamp && !d.impossible && !d.shortYear) {
-          const styled = styledDate(node.value);
-          if (styled !== undefined) flag("dateStyle", "info", `${nodeLine(node)} → ${styled}`);
+        // A sound date written outside the standard (or the chosen format): one
+        // with a single reading carries the fix that restyles it; one whose day
+        // and month could swap is the user's to settle.
+        if (!stamp) {
+          const verdict = nonStandardDate(node.value, styleCtx);
+          if (verdict?.kind === "fix") flag("nonStandardDate", "warning", verdict.next);
+          else if (verdict?.kind === "ambiguous") flag("ambiguousDate", "warning");
         }
       }
     }
@@ -494,7 +474,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   }
 
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "impossibleDate", "reversedRange", "shortYear", "dateStyle", "customTag"];
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
