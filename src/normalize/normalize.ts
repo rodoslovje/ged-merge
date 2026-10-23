@@ -1,6 +1,7 @@
 import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { cloneNode, firstChild } from "../gedcom/node";
+import { readAddressParts } from "../gedcom/address";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { dropPlaceholderPlaces, normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
@@ -302,8 +303,13 @@ function reshapePlaceNode(
   // the layout is left alone. The comma form still applies: respelling moves
   // whitespace only, leaving the parts and their order — and so the FORM
   // alignment — exactly as they were.
-  if (placNode?.children.some((c) => c.tag === "FORM")) {
-    respellPlaceNode(placNode, fmt, report, seen);
+  //
+  // An ADDR carrying labelled lines (ADR1, CITY, POST, …) is a structure of its
+  // own in the same way: the reshape reads and writes only the ADDR's line, so
+  // folding it into a packed PLAC, or dropping an ADDR whose line is empty,
+  // would lose those lines. Such a place is respelled only.
+  if (placNode?.children.some((c) => c.tag === "FORM") || (addrNode && readAddressParts(addrNode))) {
+    if (placNode) respellPlaceNode(placNode, fmt, report, seen);
     return;
   }
   const placRaw = placNode?.value;
