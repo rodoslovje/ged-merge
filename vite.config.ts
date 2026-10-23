@@ -130,6 +130,7 @@ export default defineConfig({
         "src/persist/fingerprint.ts",
         "src/persist/idb.ts",
         "src/persist/serializedMain.ts",
+        "src/persist/useWorkspacePersistence.ts",
         "src/worker/annotateCounts.ts",
         "src/worker/gedcom.worker.ts",
         "src/ui/useAppHistory.ts",
@@ -139,7 +140,7 @@ export default defineConfig({
       // unit tests (run through src/testing/fakeReact.ts) are measured.
       exclude: [
         "**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts",
-        "src/keyboard/use*.ts", "src/edit-state/useDirtyTracking.ts",
+        "src/keyboard/use*.ts",
       ],
       // `text` (per-file) alongside the summary, so a gap in one module is
       // visible in CI output instead of being averaged away by its directory.
@@ -152,14 +153,14 @@ export default defineConfig({
       thresholds: {
         "src/chart/**": { statements: 90, branches: 77, functions: 91, lines: 92 },
         "src/csv/**": { statements: 92, branches: 81, functions: 95, lines: 95 },
-        "src/edit-state/**": { statements: 97, branches: 92, functions: 93, lines: 97 },
+        "src/edit-state/**": { statements: 97, branches: 90, functions: 96, lines: 97 },
         "src/gedcom/**": { statements: 90, branches: 82, functions: 93, lines: 92 },
         "src/geo/**": { statements: 87, branches: 80, functions: 84, lines: 90 },
         "src/keyboard/**": { statements: 80, branches: 75, functions: 75, lines: 82 },
         "src/match/**": { statements: 90, branches: 86, functions: 93, lines: 93 },
         "src/merge/**": { statements: 87, branches: 79, functions: 89, lines: 90 },
         "src/normalize/**": { statements: 91, branches: 84, functions: 90, lines: 93 },
-        "src/persist/**": { statements: 80, branches: 83, functions: 72, lines: 82 },
+        "src/persist/**": { statements: 86, branches: 81, functions: 84, lines: 90 },
         "src/report/**": { statements: 91, branches: 82, functions: 97, lines: 94 },
         "src/review/**": { statements: 89, branches: 85, functions: 91, lines: 91 },
         "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
