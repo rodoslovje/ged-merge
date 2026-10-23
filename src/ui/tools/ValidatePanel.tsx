@@ -693,6 +693,18 @@ export function ValidatePanel({
                   {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{structure!.counts[c]}</span>
                 </button>
               ))}
+              {/* The file's version ends the chips' last line, on the right. */}
+              <span className="tools-version">
+                {t("tools.validate.version", { version })}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  title={t("tools.validate.saveAsHint", { version: otherVersion })}
+                  onClick={() => onSaveAs(otherVersion)}
+                >
+                  {t("tools.validate.saveAs", { version: otherVersion })}
+                </button>
+              </span>
             </div>
           </div>
           {/* What saving will do to a file that didn't arrive as UTF-8. It sits
@@ -704,17 +716,6 @@ export function ValidatePanel({
           {fileFixes.map((fix) => (
             <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
           ))}
-          <p className="tools-file-note tools-version">
-            {t("tools.validate.version", { version })}{" "}
-            <button
-              type="button"
-              className="btn-secondary"
-              title={t("tools.validate.saveAsHint", { version: otherVersion })}
-              onClick={() => onSaveAs(otherVersion)}
-            >
-              {t("tools.validate.saveAs", { version: otherVersion })}
-            </button>
-          </p>
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
