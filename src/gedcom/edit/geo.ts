@@ -1,4 +1,5 @@
 import type { GedNode, GeoCoord } from "../types";
+import { firstChild, removeChildren } from "../node";
 
 // Writing coordinates into a PLAC node as the standard GEDCOM MAP structure:
 //   2 PLAC Kranj, Slovenija
@@ -40,7 +41,7 @@ export function sameWrittenCoord(a: GeoCoord, b: GeoCoord): boolean {
  * — and an existing one is rewritten rather than duplicated.
  */
 export function setPlaceForm(placNode: GedNode, form: string): void {
-  const existing = placNode.children.find((c) => c.tag === "FORM");
+  const existing = firstChild(placNode, "FORM");
   if (existing) {
     existing.value = form;
     return;
@@ -63,7 +64,7 @@ export function reconcilePlaceForm(placNode: GedNode, form: string | undefined, 
     setPlaceForm(placNode, form);
     return;
   }
-  const existing = placNode.children.find((c) => c.tag === "FORM");
+  const existing = firstChild(placNode, "FORM");
   if (!existing?.value || !placNode.value) return;
   if (existing.value.split(",").length === placNode.value.split(",").length) return;
   const carried = prevValue ? formMinusDeletedParts(prevValue, existing.value, placNode.value) : undefined;
@@ -108,7 +109,7 @@ function formMinusDeletedParts(prevValue: string, form: string, value: string): 
  */
 export function clearPlaceGov(placNode: GedNode): boolean {
   const before = placNode.children.length;
-  placNode.children = placNode.children.filter((c) => c.tag !== "_GOV");
+  removeChildren(placNode, "_GOV");
   return placNode.children.length !== before;
 }
 
@@ -126,7 +127,7 @@ export function clearPlaceGov(placNode: GedNode): boolean {
  */
 export function setPlaceCoord(placNode: GedNode, coord: GeoCoord, govId?: string): void {
   const level = placNode.level + 1;
-  let map = placNode.children.find((c) => c.tag === "MAP");
+  let map = firstChild(placNode, "MAP");
   if (!map) {
     map = { level, tag: "MAP", children: [] };
     const at = placNode.children.findIndex((c) => c.tag !== "FORM");
@@ -138,7 +139,7 @@ export function setPlaceCoord(placNode: GedNode, coord: GeoCoord, govId?: string
     { level: level + 1, tag: "LONG", value: formatCoordValue(coord.lon, "lon"), children: [] },
   ];
   if (govId) {
-    let gov = placNode.children.find((c) => c.tag === "_GOV");
+    let gov = firstChild(placNode, "_GOV");
     if (!gov) {
       gov = { level, tag: "_GOV", value: govId, children: [] };
       placNode.children.splice(placNode.children.indexOf(map) + 1, 0, gov);

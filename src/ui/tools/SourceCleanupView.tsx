@@ -30,7 +30,7 @@ import { type PageMediaGroup, type PageMediaReport } from "../../tools/pageMedia
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
-import { ExpandAllToggle, personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
+import { ExpandAllToggle, personMatches, toggledIn, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
 import { foldSearch, matchesQuery } from "../globalSearch";
 import { useQueryTerms } from "../useQueryTerms";
 import { PersonLink } from "../PersonLink";
@@ -258,12 +258,7 @@ export function SourceCleanupView({
   }, [active, onBack]);
 
   const toggleIn = (set: (fn: (s: Set<string>) => Set<string>) => void) => (id: string) =>
-    set((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    set((s) => toggledIn(s, id));
   const toggleGroup = toggleIn(setExcluded);
   const toggleExpand = toggleIn(setExpanded);
   const toggleDupGroup = toggleIn(setDupSelected);

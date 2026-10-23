@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../../gedcom/types";
-import { nodesEqual } from "../../gedcom/node";
+import { cloneNode, nodesEqual } from "../../gedcom/node";
 import { familyMembers, pointersHeld, pruneRecordsLeftBehind, removeFamily } from "../../gedcom/edit";
-import { applyRecordPatches, cloneRaw, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../historyTypes";
+import { applyRecordPatches, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../historyTypes";
 import { deletePerson } from "./deletePerson";
 
 /** What the dirty tracking knows about the record being taken out of a save. */
@@ -71,12 +71,12 @@ export function removeFromSave(
   const raw = (kind === "individual" ? dataset.individuals : dataset.families).get(id)!.raw;
   const held = pointersHeld(raw);
   const owner = { kind, id };
-  const patches: RecordPatch[] = [{ type: kind, id, before: cloneRaw(raw), after: cloneRaw(tracking.snapshot!) }];
+  const patches: RecordPatch[] = [{ type: kind, id, before: cloneNode(raw), after: cloneNode(tracking.snapshot!) }];
   for (const [xref, snap] of tracking.ownedRecords) {
     const existing = dataset.records.find((r) => r.xref === xref);
     if (existing && nodesEqual(existing, snap)) continue;
     if (existing) pointersHeld(existing, held);
-    patches.push({ type: "record", id: xref, before: existing ? cloneRaw(existing) : null, after: cloneRaw(snap), owner });
+    patches.push({ type: "record", id: xref, before: existing ? cloneNode(existing) : null, after: cloneNode(snap), owner });
   }
   applyRecordPatches(dataset, patches, "redo");
   patches.push(...prunePatches(dataset, [...held].filter((x) => !tracking.wasLoadedRecord(x))));

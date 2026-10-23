@@ -90,7 +90,7 @@ describe.skipIf(!file)("edit-commit cost profile", () => {
 
     report("\n— per-commit per-record costs (sanity check, should be tiny) —");
     const person = dataset.individuals.get(startId)!;
-    timed("commit: cloneRaw + JSON.stringify compare", () => {
+    timed("commit: cloneNode + JSON.stringify compare", () => {
       const before = cloneNode(person.raw);
       const after = cloneNode(person.raw);
       return JSON.stringify(before) === JSON.stringify(after);

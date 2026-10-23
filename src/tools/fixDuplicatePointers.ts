@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
-import { mergeSubLines } from "../gedcom/node";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode, mergeSubLines } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 
 /**
  * One-button repair for the "Duplicate pointers" health-check category.
@@ -42,21 +42,21 @@ export function fixDuplicatePointers(dataset: Dataset, only?: string): RecordPat
 
   for (const indi of dataset.individuals.values()) {
     if (only && indi.id !== only) continue;
-    const before = cloneRaw(indi.raw);
+    const before = cloneNode(indi.raw);
     let changed = dedupeRefs(indi.raw, "FAMC");
     changed = dedupeRefs(indi.raw, "FAMS") || changed;
     if (changed) {
       rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+      patches.push({ type: "individual", id: indi.id, before, after: cloneNode(indi.raw) });
     }
   }
 
   for (const fam of dataset.families.values()) {
     if (only && fam.id !== only) continue;
-    const before = cloneRaw(fam.raw);
+    const before = cloneNode(fam.raw);
     if (dedupeRefs(fam.raw, "CHIL")) {
       rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+      patches.push({ type: "family", id: fam.id, before, after: cloneNode(fam.raw) });
     }
   }
 

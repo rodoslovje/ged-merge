@@ -222,7 +222,7 @@ export function detectCoordUsage(dataset: Dataset): CoordUsage {
   walkNodes(dataset.records, (node) => {
     if (node.tag !== "PLAC" || !node.value?.trim()) return;
     total++;
-    const map = node.children.find((c) => c.tag === "MAP");
+    const map = firstChild(node, "MAP");
     const lati = map?.children.find((c) => c.tag === "LATI")?.value;
     const long = map?.children.find((c) => c.tag === "LONG")?.value;
     if (lati && long && parseCoordPair(lati, long)) withCoord++;

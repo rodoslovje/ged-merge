@@ -1,10 +1,10 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { noteInsertedXref, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
-import { firstChild } from "../gedcom/node";
+import { cloneNode, firstChild } from "../gedcom/node";
 import { clearObjeNodeCache } from "../gedcom/source";
 import { familySearchPageUrl } from "../normalize/links";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { type RecordPatch } from "../ui/historyTypes";
 import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
 import { dedupeSources, findSourceDuplicates, type DupGroup } from "./sourceDuplicates";
 import { regroupRepositories, scanRepoRegroup, type RepoRegroupGroup } from "./repoRegroup";
@@ -145,15 +145,15 @@ function diffRecordForests(before: GedNode[], after: GedNode[]): RecordPatch[] {
     seen.add(live.xref);
     const now = nextByXref.get(live.xref);
     if (!now) {
-      patches.push({ type: patchType(live), id: live.xref, before: cloneRaw(live), after: null, index });
+      patches.push({ type: patchType(live), id: live.xref, before: cloneNode(live), after: null, index });
       return;
     }
     if (JSON.stringify(live) === JSON.stringify(now)) return;
-    patches.push({ type: patchType(live), id: live.xref, before: cloneRaw(live), after: cloneRaw(now) });
+    patches.push({ type: patchType(live), id: live.xref, before: cloneNode(live), after: cloneNode(now) });
   });
   for (const rec of after) {
     if (rec.xref && !seen.has(rec.xref)) {
-      patches.push({ type: patchType(rec), id: rec.xref, before: null, after: cloneRaw(rec) });
+      patches.push({ type: patchType(rec), id: rec.xref, before: null, after: cloneNode(rec) });
     }
   }
   return patches;

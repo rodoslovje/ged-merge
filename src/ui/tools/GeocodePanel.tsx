@@ -20,7 +20,7 @@ import {
   type OfficialRename,
 } from "../../tools/geocode";
 import { loadDecisions, saveDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex } from "./shared";
+import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex, withoutKeys } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
@@ -380,11 +380,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   /** Drop a row's pick: the row goes back to merely proposing something, and
    *  the next Write passes over it. */
   const unpickCoord = (row: GeocodeRow) => {
-    setChosen((prev) => {
-      const next = new Map(prev);
-      next.delete(row.key);
-      return next;
-    });
+    setChosen((prev) => withoutKeys(prev, [row.key]));
   };
 
   const toggleOpen = (key: string) => {

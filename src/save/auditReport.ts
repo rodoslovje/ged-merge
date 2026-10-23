@@ -2,6 +2,7 @@ import { displayNameFromRaw, makeXrefLabeler, newSharedRecordRow, sharedRecordLa
 import { recordFingerprint, type SaveBaseline } from "../gedcom/fingerprint";
 import type { GedNode } from "../gedcom/types";
 import type { ChangeReport, FieldChange } from "../merge/merge";
+import { firstChild } from "../gedcom/node";
 
 /**
  * Hold the change report against the file the save is actually about to write.
@@ -88,7 +89,7 @@ export function auditAgainstBaseline(
     if (kind === "record") return sharedRecordLabel(record.xref!, record);
     if (kind === "individual") return personName(record) || undefined;
     const spouses = (["HUSB", "WIFE"] as const)
-      .map((role) => record.children.find((c) => c.tag === role)?.value)
+      .map((role) => firstChild(record, role)?.value)
       .map((id) => (id ? personName(indiByXref.get(id)) : ""))
       .filter(Boolean);
     return spouses.join(" + ") || undefined;

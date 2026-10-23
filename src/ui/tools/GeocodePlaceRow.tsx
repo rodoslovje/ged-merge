@@ -19,7 +19,7 @@ import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
-import { AddressSplitField, CandidateOption, GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor } from "./shared";
+import { AddressSplitField, CandidateOption, GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor, useRenameDraft } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -180,8 +180,9 @@ export function GeocodePlaceRow({
 
   // Inline rename of this row's raw place value (fix a typo so it matches).
   // The optional address draft splits the value into PLAC + ADDR on apply.
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameDraft, setRenameDraft] = useState("");
+  const rename = useRenameDraft<true>();
+  const renameOpen = rename.key !== null;
+  const { draft: renameDraft, setDraft: setRenameDraft } = rename;
   const [renameAddrDraft, setRenameAddrDraft] = useState("");
   // A register offer picked in the input: its place text is in the draft, and
   // its coordinate rides along on apply. Kept with the text it belongs to, so
@@ -196,12 +197,14 @@ export function GeocodePlaceRow({
   // the corrected spelling gets fresh gazetteer proposals (or merges
   // into an already-covered row and drops off the list).
   const applyRename = () => {
-    const target = renameDraft.trim();
     const addrTarget = renameAddrDraft.trim();
-    if (!target || (target === row.key && !addrTarget)) return;
-    onRename(row.key, target, addrTarget || undefined, pickedCoord);
-    setRenameOpen(false);
-    setRenamePick(null);
+    rename.apply(
+      (target) => target === row.key && !addrTarget,
+      (target) => {
+        onRename(row.key, target, addrTarget || undefined, pickedCoord);
+        setRenamePick(null);
+      },
+    );
   };
   const renameDisabled = !renameDraft.trim() || (renameDraft.trim() === row.key && !renameAddrDraft.trim());
 
@@ -363,7 +366,7 @@ export function GeocodePlaceRow({
         {renameOpen ? (
           <button
             className="tools-place-edit-btn tools-place-edit-cancel"
-            onClick={() => setRenameOpen(false)}
+            onClick={rename.close}
             title={t("tools.places.rename.cancel")}
           >
             ✕
@@ -372,8 +375,7 @@ export function GeocodePlaceRow({
           <button
             className="tools-place-edit-btn"
             onClick={() => {
-              setRenameOpen(true);
-              setRenameDraft(row.key);
+              rename.open(true, row.key);
               setRenameAddrDraft("");
             }}
             title={t("tools.geocode.renameOpen")}
@@ -525,7 +527,7 @@ export function GeocodePlaceRow({
           applyDisabled={renameDisabled}
           onChange={setRenameDraft}
           onApply={applyRename}
-          onCancel={() => setRenameOpen(false)}
+          onCancel={rename.close}
           onPickCombo={(place, addr) => {
             setRenameDraft(place);
             setRenameAddrDraft(addr);

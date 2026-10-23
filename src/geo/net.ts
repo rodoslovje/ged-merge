@@ -55,7 +55,12 @@ export function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> 
  * and nobody else. An aborted task leaves the queue immediately instead of
  * waiting out its slot.
  */
-export function createThrottledQueue(intervalMs: number): <T>(task: () => Promise<T>, signal?: AbortSignal) => Promise<T> {
+export function createThrottledQueue(
+  intervalMs: number,
+  /** Measure the gap from the previous task's *end* rather than its start —
+   *  for a service that blocks bursts even of strictly sequential requests. */
+  { fromEnd = false }: { fromEnd?: boolean } = {},
+): <T>(task: () => Promise<T>, signal?: AbortSignal) => Promise<T> {
   let tail: Promise<unknown> = Promise.resolve();
   let lastStart = 0;
   return function enqueue<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -64,7 +69,12 @@ export function createThrottledQueue(intervalMs: number): <T>(task: () => Promis
       const wait = lastStart + intervalMs - Date.now();
       if (wait > 0) await abortableDelay(wait, signal);
       lastStart = Date.now();
-      return task();
+      if (!fromEnd) return task();
+      try {
+        return await task();
+      } finally {
+        lastStart = Date.now();
+      }
     };
     const p = tail.then(run, run);
     tail = p.catch(() => undefined);
@@ -79,6 +89,23 @@ const RETRY_DELAY_MS = 1_500;
 const RETRY_AFTER_CAP_MS = 10_000;
 
 /**
+ * Run `attempt` and, when `pauseBefore` asks for it (a number of ms), wait
+ * that long and run it exactly once more — the one polite retry every network
+ * client here makes. The wait is cut short by `signal`.
+ */
+export async function retryOnce<T>(
+  attempt: () => Promise<T>,
+  pauseBefore: (first: T) => number | undefined,
+  signal?: AbortSignal,
+): Promise<T> {
+  const first = await attempt();
+  const pause = pauseBefore(first);
+  if (pause === undefined) return first;
+  await abortableDelay(pause, signal);
+  return attempt();
+}
+
+/**
  * `fetch` the way every geo provider needs it: the shared timeout combined
  * with the caller's signal, one polite retry on 429/502/503/504 honouring
  * `Retry-After`, and a thrown `HTTP <status>` on anything else that is not ok
@@ -87,13 +114,15 @@ const RETRY_AFTER_CAP_MS = 10_000;
  */
 export async function geoFetch(url: string | URL, init: RequestInit = {}, signal?: AbortSignal): Promise<Response> {
   const attempt = () => fetch(url, { ...init, signal: timeoutSignal(GEO_FETCH_TIMEOUT_MS, signal) });
-  let res = await attempt();
-  if (RETRYABLE.has(res.status)) {
-    const after = Number(res.headers.get("Retry-After"));
-    const pause = Number.isFinite(after) && after > 0 ? Math.min(after * 1000, RETRY_AFTER_CAP_MS) : RETRY_DELAY_MS;
-    await abortableDelay(pause, signal);
-    res = await attempt();
-  }
+  const res = await retryOnce(
+    attempt,
+    (first) => {
+      if (!RETRYABLE.has(first.status)) return undefined;
+      const after = Number(first.headers.get("Retry-After"));
+      return Number.isFinite(after) && after > 0 ? Math.min(after * 1000, RETRY_AFTER_CAP_MS) : RETRY_DELAY_MS;
+    },
+    signal,
+  );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res;
 }

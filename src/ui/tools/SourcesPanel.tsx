@@ -16,7 +16,7 @@ import type { ToolView } from "../ToolsView";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
-import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
+import { someMatch, toggledIn, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { scanRepoRegroup } from "../../tools/repoRegroup";
 import { findMissingPageMedia } from "../../tools/pageMediaCheck";
@@ -529,12 +529,7 @@ export function SourcesPanel({
   );
 
   const toggle = (key: string) =>
-    setOpen((s) => {
-      const next = new Set(s);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setOpen((s) => toggledIn(s, key));
 
   // Expand `key` and, unless it's already open, also open its single-child
   // chain so one click drills down to the first branching level.

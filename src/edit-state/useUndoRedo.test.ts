@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { withoutMergeEntries, type UndoEntry } from "./useUndoRedo";
-import { applyRecordPatches, cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { applyRecordPatches, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode } from "../gedcom/node";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { serializeGedcom } from "../gedcom/serialize";
@@ -16,7 +17,7 @@ function step(ds: Dataset, next: Dataset, ids: string[]): RecordPatch[] {
     const map = type === "individual" ? "individuals" : "families";
     const before = ds[map].get(id)?.raw;
     const after = next[map].get(id)?.raw;
-    return { type, id, before: before ? cloneRaw(before) : null, after: after ? cloneRaw(after) : null };
+    return { type, id, before: before ? cloneNode(before) : null, after: after ? cloneNode(after) : null };
   });
 }
 

@@ -163,7 +163,7 @@ export function parseAssociation(node: GedNode): Association | undefined {
 
   // A `@VOID@` association carries the associate's name on the ASSO's own
   // PHRASE — the only place a person outside the file can be named.
-  const phrase = node.children.find((c) => c.tag === "PHRASE")?.value?.trim();
+  const phrase = firstChild(node, "PHRASE")?.value?.trim();
   if (phrase) assoc.name = phrase;
 
   const date = firstChild(node, "DATE")?.value;
@@ -308,7 +308,7 @@ export function remapMergedAssociations(
       if (incomingId.toUpperCase() === VOID_XREF) return true;
       const mainId = resolve(incomingId);
       if (!mainId) {
-        dropped.push({ recordId, incomingId, name: child.children.find((c) => c.tag === "PHRASE")?.value });
+        dropped.push({ recordId, incomingId, name: firstChild(child, "PHRASE")?.value });
         return false;
       }
       child.value = mainId;

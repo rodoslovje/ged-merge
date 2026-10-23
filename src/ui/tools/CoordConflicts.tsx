@@ -7,7 +7,7 @@ import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { foldSearch } from "../globalSearch";
-import { CandidateOption, ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { CandidateOption, ExpandAllToggle, GeoRowHeader, MapToggle, toggledIn, withoutKeys } from "./shared";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -90,12 +90,7 @@ export function CoordConflicts({
   const allOpen = shown.every((c) => open.has(keyOf(c)));
 
   const toggle = (key: string) => {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setOpen((prev) => toggledIn(prev, key));
     setApplied(null);
   };
 
@@ -104,11 +99,7 @@ export function CoordConflicts({
   /** Clicking the chosen option again drops the choice — a radio group has no
    *  "none" of its own, and a row picked by mistake would otherwise be written. */
   const unpick = (key: string) =>
-    setPicked((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
-    });
+    setPicked((prev) => withoutKeys(prev, [key]));
 
   /** A point off the map's own pins: remembered as text so the row shows what
    *  was picked, and chosen in the same move. */
@@ -124,11 +115,7 @@ export function CoordConflicts({
     const changed = onApply(new Map(picked));
     // Only the settled rows are done: a "lat, lon" being typed on another row,
     // and the rows still open for review, are the next wave's work and stay.
-    setManual((prev) => {
-      const next = new Map(prev);
-      for (const key of picked.keys()) next.delete(key);
-      return next;
-    });
+    setManual((prev) => withoutKeys(prev, picked.keys()));
     setOpen((prev) => new Set([...prev].filter((k) => !picked.has(k))));
     setMapOpen((prev) => (prev && picked.has(prev) ? null : prev));
     setPicked(new Map());

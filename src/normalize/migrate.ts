@@ -1,6 +1,6 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
 import { RELA_TO_ROLE, ROLE_TO_RELA, VOID_XREF } from "../gedcom/assoc";
-import { cloneNode, firstChild } from "../gedcom/node";
+import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { walkNodes } from "./walk";
@@ -330,10 +330,10 @@ function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
  * IANA media types, and the source-media kind is `MEDI` rather than `TYPE`.
  */
 function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
-  const files = node.children.filter((c) => c.tag === "FILE");
+  const files = childrenByTag(node, "FILE");
   if (files.length > 0) {
     // Record-level FORM applies to every FILE; TITL goes to the first.
-    for (const stray of node.children.filter((c) => c.tag === "FORM")) {
+    for (const stray of childrenByTag(node, "FORM")) {
       node.children = node.children.filter((c) => c !== stray);
       files.forEach((file, i) => {
         if (firstChild(file, "FORM")) return;
@@ -477,7 +477,7 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
     const containers = [rec, ...rec.children.filter((c) => c.tag !== "ASSO")];
     for (const container of containers) {
       if (container === host) continue; // already where 5.5.1 wants it
-      for (const assoc of container.children.filter((c) => c.tag === "ASSO")) {
+      for (const assoc of childrenByTag(container, "ASSO")) {
         moveAssociation(container, host, assoc);
         ctx.changed++;
         ctx.onChange(`${container.tag}.${describe(assoc)}`, `${host.tag}.${describe(assoc)}`);
@@ -615,7 +615,7 @@ function downgradeExid(node: GedNode, ctx: MigrateCtx): void {
 }
 
 function downgradeObje(node: GedNode, ctx: MigrateCtx): void {
-  for (const file of node.children.filter((c) => c.tag === "FILE")) {
+  for (const file of childrenByTag(node, "FILE")) {
     const form = firstChild(file, "FORM");
     if (!form?.value?.includes("/")) continue;
     const before = describe(form);

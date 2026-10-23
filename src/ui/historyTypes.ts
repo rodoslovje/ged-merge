@@ -52,10 +52,6 @@ export function markMechanical(patches: RecordPatch[]): RecordPatch[] {
   return patches;
 }
 
-export function cloneRaw(raw: GedNode): GedNode {
-  return cloneNode(raw);
-}
-
 /** Undo/redo patches for shared `NOTE` records a note edit touched, surfaced
  *  through the individual/family the edit was made from (see `RecordPatch.owner`). */
 export function noteChangePatches(
@@ -96,11 +92,11 @@ export function snapshotRecords(
   const families = new Map<string, GedNode>();
   for (const id of indiIds) {
     const indi = dataset.individuals.get(id);
-    if (indi) individuals.set(id, cloneRaw(indi.raw));
+    if (indi) individuals.set(id, cloneNode(indi.raw));
   }
   for (const id of famIds) {
     const fam = dataset.families.get(id);
-    if (fam) families.set(id, cloneRaw(fam.raw));
+    if (fam) families.set(id, cloneNode(fam.raw));
   }
   const indices = new Map<string, number>();
   const missing: string[] = [];
@@ -170,7 +166,7 @@ export function dropNoopPatches(patches: RecordPatch[]): RecordPatch[] {
 export function patchesFromSnapshots(dataset: Dataset, before: RecordSnapshots): RecordPatch[] {
   const patches: RecordPatch[] = [];
   const diff = (type: "individual" | "family", id: string, beforeRaw: GedNode, currentRaw: GedNode | undefined) => {
-    const after = currentRaw ? cloneRaw(currentRaw) : null;
+    const after = currentRaw ? cloneNode(currentRaw) : null;
     if (after && JSON.stringify(after) === JSON.stringify(beforeRaw)) return;
     const patch: RecordPatch = { type, id, before: beforeRaw, after };
     if (after === null) {
@@ -232,7 +228,7 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
     const target = patch[pick];
     if (target === null) continue;
     if (patch.type === "record") {
-      const restored = cloneRaw(target);
+      const restored = cloneNode(target);
       const existing = recordOf(patch.id);
       if (existing) {
         existing.value = restored.value;
@@ -243,7 +239,7 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
       }
       sharedChanged = true;
     } else if (!(patch.type === "individual" ? dataset.individuals : dataset.families).has(patch.id)) {
-      const restored = cloneRaw(target);
+      const restored = cloneNode(target);
       insertRecordAt(dataset.records, restored, patch.index, trlr);
       readded.set(patch, restored);
     }
@@ -263,7 +259,7 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
         continue;
       }
       const existing = dataset.individuals.get(patch.id)!;
-      const restored = cloneRaw(target);
+      const restored = cloneNode(target);
       existing.raw.value = restored.value;
       existing.raw.children = restored.children;
       rebuildIndividual(dataset, existing);
@@ -273,7 +269,7 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
         continue;
       }
       const existing = dataset.families.get(patch.id)!;
-      const restored = cloneRaw(target);
+      const restored = cloneNode(target);
       existing.raw.value = restored.value;
       existing.raw.children = restored.children;
       rebuildFamily(dataset, existing);

@@ -14,6 +14,7 @@
  */
 import type { GedNode, Sex } from "../gedcom/types";
 import { sexFromGivenName } from "../gedcom/nameSex";
+import { firstChild, hasChild } from "../gedcom/node";
 
 export interface People {
   records: GedNode[];
@@ -62,7 +63,7 @@ export function addPointer(people: People, id: string, tag: "FAMS" | "FAMC", fam
 export function addSex(people: People, id: string, sex: Sex | undefined): void {
   if (!sex) return;
   const record = people.indi.get(id);
-  if (!record || record.children.some((c) => c.tag === "SEX")) return;
+  if (!record || hasChild(record, "SEX")) return;
   record.children.push(node(1, "SEX", sex));
 }
 
@@ -75,7 +76,7 @@ export function addSex(people: People, id: string, sex: Sex | undefined): void {
 export function addEventLink(people: People, id: string, tag: string, url: string): void {
   const record = people.indi.get(id);
   if (!record) return;
-  let event = record.children.find((c) => c.tag === tag);
+  let event = firstChild(record, tag);
   if (!event) {
     event = { level: 1, tag, children: [] };
     record.children.push(event);
@@ -156,7 +157,7 @@ export function coupleFam(
 export function inferSexFromNames(people: People): void {
   for (const [id, record] of people.indi) {
     // "Marija /Hvasti/" → "Marija". addSex leaves a stated sex alone.
-    const given = (record.children.find((c) => c.tag === "NAME")?.value ?? "").split("/")[0];
+    const given = (firstChild(record, "NAME")?.value ?? "").split("/")[0];
     addSex(people, id, sexFromGivenName(given));
   }
 }
@@ -174,8 +175,8 @@ export function settleGuessedRoles(people: People): void {
     return record?.children.find((c) => c.tag === "SEX")?.value as Sex | undefined;
   };
   for (const fam of people.guessedRoles.values()) {
-    const husb = fam.children.find((c) => c.tag === "HUSB");
-    const wife = fam.children.find((c) => c.tag === "WIFE");
+    const husb = firstChild(fam, "HUSB");
+    const wife = firstChild(fam, "WIFE");
     if (!husb?.value || !wife?.value) continue;
     const hSex = sexOf(husb.value);
     const wSex = sexOf(wife.value);

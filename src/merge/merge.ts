@@ -1,7 +1,7 @@
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { insertGrouped, memoOnContent } from "../gedcom/edit";
-import { childrenByTag } from "../gedcom/node";
+import { childrenByTag, firstChild } from "../gedcom/node";
 import { buildObjeIndex } from "../gedcom/source";
 import { remapMergedAssociations } from "../gedcom/assoc";
 import { sharedRecordTitle } from "../gedcom/editReport";
@@ -530,7 +530,7 @@ export function mergeDecisions(
     if (!famNode) continue;
     const entries: FamilySpouseInfo[] = [];
     for (const role of ["HUSB", "WIFE"] as const) {
-      const spouseId = famNode.children.find((c) => c.tag === role)?.value;
+      const spouseId = firstChild(famNode, role)?.value;
       if (spouseId) entries.push({ id: spouseId, name: ctx.label(spouseId) });
     }
     if (entries.length) {
