@@ -626,7 +626,7 @@
                 življenje prebere že po stolpcu znamenj; vsa so zbrana v <a href="#legend">§15</a>.
                 Vrstica dogodka pokaže samo polja, ki jih dogodek res nosi, začenši z <strong>datumom</strong> in
                 <strong>krajem</strong>. Gumb <strong>+ Dodaj</strong> na koncu vrstice doda preostala eno po eno —
-                naslov, ustanovo, vir, vrsto, vzrok, opombo — in kazalec postavi naravnost v novo polje, tako da vrstica
+                naslov, starost, ustanovo, vir, vrsto, vzrok, opombo — in kazalec postavi naravnost v novo polje, tako da vrstica
                 nikoli ne postane stena praznih vnosnih polj. Z <span class="gm-glyph">×</span> počistite posamezno
                 polje. Polje <strong>Ustanova</strong> se dopolnjuje iz že vpisanih ustanov — iz župnij in uradov, ki
                 jih navajajo dogodki vaše datoteke — tako da ime župnije izpišete enkrat, potem pa ga izberete.
@@ -661,6 +661,40 @@
                 pod datumom. Enako delujejo vsa polja za datum: leta,
                 ki jih vir pokriva, v orodju <a href="#sources">Uredi vire</a>, kjer se <em>1850-1900</em> zapiše
                 kot obdobje <code>FROM 1850 TO 1900</code>, in datum fotografije v pregledovalniku medijev.
+              </p>
+              <p>
+                Starost, ki jo navaja zapis, vpišete v polje <strong>Starost</strong>, ki ga dodate z gumbom
+                <strong>+ Dodaj</strong>. Tako starost navajajo na primer mrliške knjige, poročne knjige pa starost
+                ženina in neveste. Družinski dogodek ima zato po eno takšno polje za vsakega zakonca
+                (<strong>Starost ♂</strong> in <strong>Starost ♀</strong>). Starost vpišite tako, kot jo zapisuje
+                GEDCOM: <em>62y</em>, <em>62y 3m</em>, <em>3m 10d</em>, <em>&lt;1y</em> za manj kot leto,
+                <em>&gt;60y</em> za več kot šestdeset let ali samo število, ki pomeni leta (y — leta, m — meseci,
+                w — tedni, d — dnevi). Ko polje zapustite, se starost zapiše v različici GEDCOM vaše datoteke. V
+                datoteki 5.5.1 se ohranijo besede <em>CHILD</em>, <em>INFANT</em> in <em>STILLBORN</em>, v datoteki
+                GEDCOM 7 pa se namesto njih zapiše meja starosti, beseda pa se ohrani ob njej.
+              </p>
+              <p>
+                Navedeno starost GED Merge tudi uporabi. Iz nje se izračuna ocenjeno leto rojstva v orodju
+                <a href="#normalize">Poenoti in paketno uredi</a>. Kjer starosti ni mogoče izračunati iz datuma
+                rojstva, se v poročilu izpiše navedena starost. <a href="#validate">Pregled</a> pa opozori na
+                starost, ki se z datumom rojstva ne ujema.
+              </p>
+              <p>
+                Polje <strong>Naslov</strong> hrani naslov v eni vrstici. Majhna puščica
+                <span class="gm-glyph">▾</span> ob njem odpre naslov po vrsticah: tri vrstice naslova, naselje,
+                pokrajino, poštno številko in državo, poleg njih pa še telefon, e-pošto in faks, ki sodijo k naslovu.
+                Vsaka vrstica, ki jo izpolnite, se pod naslovom zapiše kot samostojna vrstica GEDCOM
+                (<code>ADR1</code>, <code>CITY</code>, <code>POST</code> …). Vrstice, ki se jih ne dotaknete,
+                ostanejo takšne, kot so bile, zato naslov v eni vrstici ostane v eni vrstici, dokler sami ne izpolnite
+                katere od teh vrstic. Pri dogodku, katerega naslov take vrstice že ima, se vrstice odprejo same.
+              </p>
+              <p>
+                Nekateri programi zapišejo le vrstice, besedila naslova pa ne. Takrat se vrstice združijo v naslov,
+                ki velja povsod, kjer se naslov uporablja: pri koordinati, v seznamih naslovov v orodju
+                <a href="#geocode">Geokodiranje krajev</a> in v poročilih. V načinu
+                <span class="gm-pill">Združevanje</span> se naslov primerja v celoti, zato se naslova z enako prvo
+                vrstico in različno poštno številko pokažeta kot različna. Če prevzamete vhodni naslov, se z njim
+                prenesejo tudi njegove vrstice in kontaktni podatki.
               </p>
               <p>
                 Vrstici <strong>Prebivališče</strong> in <strong>Smrt</strong> ponujata tudi polje
@@ -1221,6 +1255,8 @@
                   verjetno življenjsko dobo; skoraj vedno manjka zapis o smrti, paketno opravilo <em>označi kot
                   umrle</em> pa jih zapre v enem koraku;</li>
                 <li>malo verjetne starosti — ob smrti, ob poroki, starost starša, starostna razlika zakoncev;</li>
+                <li><strong>navedena starost</strong> — starost, ki jo zapis navaja ob dogodku (<em>62y</em> ob smrti,
+                  starost zakonca ob poroki), z datumom rojstva pa se razhaja za več kot leto;</li>
                 <li><strong>rojstvo po smrti starša</strong> — otrok, katerega letnica rojstva sledi smrti starša; pri
                   očetu je dovoljen posmrtni otrok, rojen še isto leto po njegovi smrti, pri materi ne, posvojitve in
                   rejništvo pa niso označeni. Bodisi je otrok v napačni družini bodisi eden od datumov pripada komu
@@ -1405,7 +1441,9 @@
                 <li>sliko odstranijo;</li>
                 <li>osebe označijo kot umrle (dogodek smrti brez datuma — priročno po filtru živih z nemogočo
                   starostjo);</li>
-                <li>osebam brez datuma rojstva ali krsta dodajo <strong>ocenjeno leto rojstva</strong> — zapisano kot
+                <li>osebam brez datuma rojstva ali krsta dodajo <strong>ocenjeno leto rojstva</strong>. Kjer dogodek z
+                  datumom navaja starost osebe (smrt pri 62 letih), se leto izračuna iz te starosti in zapiše kot datum
+                  <em>CAL</em>. Sicer je leto zapisano kot
                   datum <em>ABT</em> in zaokroženo na pet let, da datoteka sama pove, da gre za približek, izpeljano
                   iz let rojstva datiranih staršev, zakonca ali otrok (ista ocena, ki jo razloži orodje Zasebnost),
                   pri čemer so bratje in sestre brez datumov razmaknjeni vsaj za leto po vrstnem redu otrok v družini,

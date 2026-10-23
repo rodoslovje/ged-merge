@@ -620,7 +620,7 @@
                 can be read down the column at a glance; <a href="#legend">§15</a> lists them all.
                 An event row shows only the fields it actually carries, starting with the <strong>date</strong> and the
                 <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
-                address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
+                address, age, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
                 never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field. The
                 <strong>agency</strong> field completes from the ones your file already names — the parishes and
                 offices its events record — so a parish's own name is typed out once and picked thereafter. The
@@ -654,6 +654,32 @@
                 this way — a source's covered years in <a href="#sources">Organize sources</a>, where
                 <em>1850-1900</em> is written as the period <code>FROM 1850 TO 1900</code>, and a photo's date in
                 the media viewer too.
+              </p>
+              <p>
+                An <strong>age</strong> the record states — the age a death register gives, the ages of a bride and
+                groom — goes in the <strong>Age</strong> field, added from <strong>+ Add</strong>; a family event has
+                one for each spouse (<strong>Age ♂</strong>, <strong>Age ♀</strong>). Type it the way GEDCOM writes
+                it: <em>62y</em>, <em>62y 3m</em>, <em>3m 10d</em>, <em>&lt;1y</em> for under a year,
+                <em>&gt;60y</em> for over sixty, or a bare number for years. When you leave the field, the age is
+                written in your file's own GEDCOM version: a 5.5.1 file keeps the words <em>CHILD</em>,
+                <em>INFANT</em> and <em>STILLBORN</em>, and a GEDCOM 7 file writes them as an age limit with the word
+                beside it. The age is evidence the app uses: the birth estimate in
+                <a href="#normalize">Normalize &amp; batch</a> is calculated from it, a report shows it where no birth
+                date gives an age, and the <a href="#validate">health check</a> reports an age the birth date
+                cannot give.
+              </p>
+              <p>
+                The <strong>address</strong> field holds the address as one line. The small
+                <span class="gm-glyph">▾</span> beside it opens the address in labelled lines — three street lines,
+                city, state, postcode and country — together with the phone, e-mail and fax that go with it. Each
+                line you fill in is written as its own GEDCOM line under the address (<code>ADR1</code>,
+                <code>CITY</code>, <code>POST</code> …), and the lines you leave alone stay as they were, so a file
+                that writes its addresses as one line keeps doing so. An event whose address already has such lines
+                opens them by itself. Where a program wrote only the lines and no address text, the lines joined
+                stand in for the address wherever one is used: the coordinate, the address lists in
+                <a href="#geocode">Geocode places</a> and the reports. In <span class="gm-pill">Merge</span> the
+                address compares as all of this, so two addresses that share a first line but not a postcode still
+                show as different, and taking the incoming one brings its lines and contact details along.
               </p>
               <p>
                 A <strong>Residence</strong> or <strong>Death</strong> row also offers a <strong>value</strong> field,
@@ -1200,7 +1226,9 @@
               flagged, though a burial or cremation dated <em>before</em> the death is, compared to the day), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
               plausible lifespan today — almost always a missing death record; the batch <em>mark as deceased</em>
               action closes them in one step), implausible ages
-              (at death, at marriage, parent's age, spouse age gap), <strong>born after a parent's death</strong>
+              (at death, at marriage, parent's age, spouse age gap), <strong>stated age</strong> (an age a record
+              states at an event — <em>62y</em> at a death, a spouse's age at a marriage — that the birth date cannot
+              give, more than a year off), <strong>born after a parent's death</strong>
               (a child whose birth year follows a parent's death — the father's side allows the posthumous child born
               within the year, the mother's does not, and adopted or foster links are not flagged; either the child sits
               in the wrong family or one of the dates belongs to somebody else, often a same-named infant, which also
@@ -1349,7 +1377,9 @@
               to the start person — and apply one action to every match: attach an image (existing or new), add a
               source citation, remove an image, mark them as deceased (an undated death event — handy after
               filtering for living people with an impossible age), give people without any birth or baptism date an
-              <strong>estimated birth year</strong> — written as an <em>ABT</em> date and rounded to the nearest five
+              <strong>estimated birth year</strong> — calculated, where a dated event states the person's age (a
+              death at 62), from that age and written as a <em>CAL</em> date, and otherwise
+              written as an <em>ABT</em> date and rounded to the nearest five
               years, so the file itself says it is approximate, derived from the birth years of dated parents, spouse
               or children (the same estimate the Privacy tool explains), with undated siblings kept at least a year
               apart in the family's child order, anchored on a dated sibling where one exists; people with no dated
