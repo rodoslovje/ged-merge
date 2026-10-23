@@ -426,3 +426,22 @@ export function vendorTagInfo(tag: string): VendorTagInfo | undefined {
   }
   return undefined;
 }
+
+/** How far {@link namedVendorTags} spells out a numbered family (`_FA1`…). */
+const NUMBERED_FAMILY_SIZE = 20;
+
+/**
+ * Every extension (`_`) tag {@link vendorTagInfo} classifies, by name: the
+ * registry's own entries and, for the numbered and prefixed families, their
+ * first {@link NUMBERED_FAMILY_SIZE} members and the sentence tags PAF and
+ * Family Historian write. The bare MacFamilyTree tags (`RACE`, `MISE`, …) are
+ * left out: a GEDCOM 7 schema declares extension tags only. Sorted.
+ */
+export function namedVendorTags(): string[] {
+  const tags = new Set<string>([...Object.keys(VENDOR_TAGS), ...Object.keys(PRIVACY_INFO), ...MFT_TEMPLATE_TAGS]);
+  for (let n = 1; n <= NUMBERED_FAMILY_SIZE; n++) {
+    for (const family of ["__FLAG_", "_FA", "_COLOR", "_LIST"]) tags.add(`${family}${n}`);
+  }
+  for (const tag of ["_SENT", "_SENM", "_SENF", "_SENU", "_DATE_TYPE", "_PLACE_TYPE", "_DESC_FLAG", "_CONF_FLAG"]) tags.add(tag);
+  return [...tags].filter((tag) => tag.startsWith("_") && vendorTagInfo(tag)).sort();
+}

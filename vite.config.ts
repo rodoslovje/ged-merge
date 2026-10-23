@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { termsPagesPlugin } from "./src/terms/vitePlugin.ts";
 
 // Version shown in the footer and atop the /changelog page: the last commit
 // date (yyyy-mm-dd), not the build time — a rebuild with no new commits keeps
@@ -22,6 +23,9 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // The extension-tag pages the GEDCOM 7 schema URIs point to
+    // (gedmerge.com/terms/<vendor>/<TAG>), generated from the app's tables.
+    termsPagesPlugin(),
     // Installable, fully-offline PWA. The whole tool is client-side, so once
     // the shell, worker chunk, bundled fonts and the guide/navodila pages are
     // precached the app works with no network. Updates are user-driven
@@ -39,6 +43,10 @@ export default defineConfig({
         // woff2 fonts, and the multi-page guide/index.html + navodila/index.html
         // outputs → every page works offline.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        // The extension-tag reference pages (hundreds of them) and the
+        // not-found page are for visitors following a URI, not for the
+        // offline app: keep them out of the precache.
+        globIgnores: ["terms/*/**/*.html", "404.html"],
         // Root navigations fall back to the app shell; the standalone guide
         // and changelog pages are precached, so keep them off the fallback.
         navigateFallback: "index.html",
