@@ -20,6 +20,8 @@ import { SPEC_70 } from "./spec70";
  *  - a tag no table of this version knows (unknown or a vendor's bare tag):
  *    the structure check's unknown/custom-tag inventory;
  *  - a pointer to a record that does not exist: "Dangling references";
+ *  - a person's FAMC/FAMS or a family's HUSB/WIFE/CHIL that reaches no
+ *    family (or person) — wrong type included: "Broken links";
  *  - two different partners in one FAM's HUSB (or WIFE): "Two partners in
  *    one slot";
  *  - a date that does not parse at all: "Unparseable dates".
@@ -295,6 +297,11 @@ function checkPayload(
     if (POINTER_RE.test(value)) {
       const actual = ctx.recordTags.get(value);
       if (!actual) return; // dangling — reported as such
+      // A person's FAMC/FAMS and a family's HUSB/WIFE/CHIL are "Broken links"
+      // whenever they do not reach a family (or a person): that check reports
+      // them, and its fix removes them.
+      if (where === "INDI.FAMC" || where === "INDI.FAMS") return;
+      if (where === "FAM.HUSB" || where === "FAM.WIFE" || where === "FAM.CHIL") return;
       // 5.5's association names the kind of record it points at itself.
       const want = tag === "ASSO" && !spec.is70 ? (firstChild(node, "TYPE")?.value?.trim().toUpperCase() || expected) : expected;
       if (actual !== want) emit("pointerType", "pointerType", { xref: value, actual, expected: want });

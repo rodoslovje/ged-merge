@@ -153,12 +153,29 @@ describe("misplaced tags", () => {
 
 describe("pointer targets", () => {
   it("flags a pointer at a record of the wrong type, as an error", () => {
-    const issues = check551(`0 @I1@ INDI\n1 FAMC @I2@\n0 @I2@ INDI\n1 FAMS @F1@\n0 @F1@ FAM\n1 HUSB @F1@`);
+    const issues = check551(`0 @I1@ INDI
+1 BIRT
+2 FAMC @I2@
+2 SOUR @R1@
+1 ALIA @F1@
+1 ANCI @I2@
+0 @I2@ INDI
+0 @F1@ FAM
+1 SUBM @I1@
+0 @R1@ REPO
+1 NAME Archive`);
     expect(issues.map((i) => `${i.messageVars.tag} ${i.messageVars.actual}→${i.messageVars.expected}`).sort()).toEqual([
+      "ALIA FAM→INDI",
+      "ANCI INDI→SUBM",
       "FAMC INDI→FAM",
-      "HUSB FAM→INDI",
+      "SOUR REPO→SOUR",
+      "SUBM INDI→SUBM",
     ]);
     expect(issues.every((i) => i.category === "pointerType" && i.severity === "error")).toBe(true);
+  });
+
+  it("leaves a record's own family links to the broken-link finding", () => {
+    expect(check551(`0 @I1@ INDI\n1 FAMC @I2@\n1 FAMS @I2@\n0 @I2@ INDI\n0 @F1@ FAM\n1 HUSB @F1@\n1 CHIL @F1@`)).toEqual([]);
   });
 
   it("leaves a pointer to a missing record to the dangling-reference finding", () => {
@@ -280,7 +297,7 @@ describe("value formats and record ids", () => {
 
 describe("validateStructure integration", () => {
   it("folds conformance findings into the structure report with their counts", () => {
-    const ds = dataset(`${HEAD_551}\n0 @I1@ INDI\n1 SEX m\n1 FAMC @I1@\n0 TRLR`);
+    const ds = dataset(`${HEAD_551}\n0 @I1@ INDI\n1 SEX m\n1 ALIA @F1@\n0 @F1@ FAM\n0 TRLR`);
     const report = validateStructure(ds);
     expect(report.counts.enumValue).toBe(1);
     expect(report.counts.pointerType).toBe(1);
