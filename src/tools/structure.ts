@@ -104,12 +104,13 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
 };
 
 /**
- * Tags we recognise — a generous union of GEDCOM 5.5.1 and 7.0 standard tags
- * (record, substructure, and event tags). Vendor extensions are `_`-prefixed and
- * handled separately, so they never need to appear here. A tag outside this set
- * isn't necessarily illegal, but it's worth surfacing as "unknown".
+ * Tags we recognise — the union of every tag GEDCOM 5.5.1, 5.5.5 and 7.0 define
+ * (record, substructure, and event tags), audited against each specification's
+ * full tag list. Vendor extensions are `_`-prefixed and handled separately, so
+ * they never need to appear here. A tag outside this set isn't necessarily
+ * illegal, but it's worth surfacing as "unknown".
  */
-const KNOWN_TAGS = new Set<string>([
+export const KNOWN_TAGS = new Set<string>([
   // Records / top level
   "HEAD", "TRLR", "INDI", "FAM", "SOUR", "REPO", "OBJE", "NOTE", "SNOTE", "SUBM", "SUBN",
   // Header
@@ -123,6 +124,14 @@ const KNOWN_TAGS = new Set<string>([
   "BIRT", "CHR", "DEAT", "BURI", "CREM", "BAPM", "BARM", "BASM", "BLES", "CHRA",
   "CONF", "FCOM", "ORDN", "NATU", "EMIG", "IMMI", "CENS", "PROB", "WILL", "GRAD",
   "RETI", "EVEN", "BAPL", "CONL", "ENDL", "SLGC", "INIL",
+  // Latter-day Saint ordinance detail: the temple code (5.5.1 + 7.0), and
+  // 5.5.1's SUBN ordinance-processing flag and family file name
+  "TEMP", "ORDI", "FAMF",
+  // A pointer to another INDI record believed to be the same person
+  "ALIA",
+  // Continuation lines — folded into their value at parse time, listed so a
+  // caller asking about a tag by name never reads them as unknown
+  "CONT", "CONC",
   // Individual attributes
   "CAST", "DSCR", "EDUC", "IDNO", "NATI", "OCCU", "PROP", "RELI", "RESI", "SSN",
   "TITL", "FACT",
@@ -139,6 +148,8 @@ const KNOWN_TAGS = new Set<string>([
   // WIDTH are the GEDCOM 7 multimedia-link crop region (a subregion of an image
   // that depicts the linking record — e.g. one person marked in a group photo).
   "BLOB", "CROP", "TOP", "LEFT", "HEIGHT", "WIDTH",
+  // 7.0: a note's media type (text/plain, text/html) under NOTE/SNOTE/TRAN
+  "MIME",
   // Change / creation audit; identifiers
   "CHAN", "CREA", "UID", "RFN", "AFN",
 ]);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { validateDataset } from "./validate";
-import { validateStructure } from "./structure";
+import { KNOWN_TAGS, validateStructure } from "./structure";
 import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, isUnparseable, proposeDateFix } from "./fixDates";
 import { formatGedDate } from "../normalize/date";
 import { parseDate } from "../gedcom/date";
@@ -805,6 +805,28 @@ describe("validateDataset", () => {
 });
 
 describe("validateStructure", () => {
+  it("knows every tag GEDCOM 5.5.1, 5.5.5 and 7.0 define", () => {
+    // The specifications' own tag lists (CONT/CONC included, though folded).
+    const v551 = "ABBR ADDR ADR1 ADR2 ADR3 ADOP AFN AGE AGNC ALIA ANCE ANCI ANUL ASSO AUTH BAPL BAPM BARM BASM BIRT BLES BLOB BURI CALN CAST CAUS CENS CHAN CHAR CHIL CHR CHRA CITY CONC CONF CONL CONT COPR CORP CREM CTRY DATA DATE DEAT DESC DESI DEST DIV DIVF DSCR EDUC EMAIL EMIG ENDL ENGA EVEN FACT FAM FAMC FAMF FAMS FAX FCOM FILE FONE FORM GEDC GIVN GRAD HEAD HUSB IDNO IMMI INDI LANG LATI LONG MAP MARB MARC MARL MARR MARS MEDI NAME NATI NATU NCHI NICK NMR NOTE NPFX NSFX OBJE OCCU ORDI ORDN PAGE PEDI PHON PLAC POST PROB PROP PUBL QUAY REFN RELA RELI REPO RESI RESN RETI RFN RIN ROLE ROMN SEX SLGC SLGS SOUR SPFX SSN STAE STAT SUBM SUBN SURN TEMP TEXT TIME TITL TRLR TYPE VERS WIFE WILL WWW";
+    const v70 = "ABBR ADDR ADOP ADR1 ADR2 ADR3 AGE AGNC ALIA ANCI ANUL ASSO AUTH BAPL BAPM BARM BASM BIRT BLES BURI CALN CAST CAUS CENS CHAN CHIL CHR CHRA CITY CONF CONL CONT COPR CORP CREA CREM CROP CTRY DATA DATE DEAT DESI DEST DIV DIVF DSCR EDUC EMAIL EMIG ENDL ENGA EVEN EXID FACT FAM FAMC FAMS FAX FCOM FILE FORM GEDC GIVN GRAD HEAD HEIGHT HUSB IDNO IMMI INDI INIL LANG LATI LEFT LONG MAP MARB MARC MARL MARR MARS MEDI MIME NAME NATI NATU NCHI NICK NMR NO NOTE NPFX NSFX OBJE OCCU ORDN PAGE PEDI PHON PHRASE PLAC POST PROB PROP PUBL QUAY REFN RELI REPO RESI RESN RETI ROLE SCHMA SDATE SEX SLGC SLGS SNOTE SOUR SPFX SSN STAE STAT SUBM SURN TAG TEMP TEXT TIME TITL TOP TRAN TRLR TYPE UID VERS WIDTH WIFE WILL WWW";
+    const missing = [...new Set(`${v551} ${v70}`.split(" "))].filter((tag) => !KNOWN_TAGS.has(tag));
+    expect(missing).toEqual([]);
+  });
+
+  it("draws no unknown-tag finding for TEMP, MIME or ALIA", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 ALIA @I1@
+1 BAPL
+2 TEMP SLAKE
+1 NOTE <p>Hi</p>
+2 MIME text/html
+0 TRLR`);
+    expect(validateStructure(ds).issues.filter((i) => i.category === "unknownTag")).toEqual([]);
+  });
+
   it("flags an unknown standard tag but allows vendor (_) tags", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
