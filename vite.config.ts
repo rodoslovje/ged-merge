@@ -103,9 +103,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      // Measure only the pure-logic layers. The UI / worker / persistence
-      // layers are exercised by the Playwright e2e suite, not unit tests, so
-      // instrumenting them here would just report misleading zeros.
+      // Measure the pure-logic layers, plus the worker / persistence / save
+      // modules that have unit tests of their own. The rest of the UI layer is
+      // exercised by the Playwright e2e suite, not unit tests, so instrumenting
+      // it here would just report misleading zeros.
       // Keep this list in sync with the pure-logic directories under src/ —
       // a renamed directory left behind here silently drops it from the gate
       // (as `src/tree/**` did after it became `src/chart/**`).
@@ -121,8 +122,16 @@ export default defineConfig({
         "src/normalize/**/*.ts",
         "src/report/**/*.ts",
         "src/review/**/*.ts",
+        "src/save/**/*.ts",
         "src/state/**/*.ts",
         "src/tools/**/*.ts",
+        // Not whole directories: geoDb.ts (IndexedDB gazetteer store) and the
+        // other workers have no unit tests yet.
+        "src/persist/fingerprint.ts",
+        "src/persist/idb.ts",
+        "src/persist/serializedMain.ts",
+        "src/worker/annotateCounts.ts",
+        "src/worker/gedcom.worker.ts",
       ],
       // `use*.ts` are React hooks living beside the pure modules they wrap
       // (e.g. edit-state/useDirtyTracking over edit-state/dirty) — same
@@ -135,7 +144,7 @@ export default defineConfig({
       // Per-directory floors — a regression ratchet, set a few points below the
       // current numbers so a genuine drop fails CI without flaking on small
       // edits. Re-run `npm run test:coverage` and raise these as coverage grows
-      // (last ratcheted 2026-09-18). `src/keyboard` is tiny (~40 statements),
+      // (last ratcheted 2026-10-23). `src/keyboard` is tiny (~40 statements),
       // so its floors sit further below: one uncovered branch moves it 8 points.
       thresholds: {
         "src/chart/**": { statements: 90, branches: 77, functions: 91, lines: 92 },
@@ -147,10 +156,13 @@ export default defineConfig({
         "src/match/**": { statements: 90, branches: 86, functions: 93, lines: 93 },
         "src/merge/**": { statements: 87, branches: 79, functions: 89, lines: 90 },
         "src/normalize/**": { statements: 91, branches: 84, functions: 90, lines: 93 },
+        "src/persist/**": { statements: 80, branches: 83, functions: 72, lines: 82 },
         "src/report/**": { statements: 91, branches: 82, functions: 97, lines: 94 },
         "src/review/**": { statements: 89, branches: 85, functions: 91, lines: 91 },
+        "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
         "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
         "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
+        "src/worker/**": { statements: 93, branches: 84, functions: 98, lines: 94 },
       },
     },
   },
