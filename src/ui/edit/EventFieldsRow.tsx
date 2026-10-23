@@ -20,6 +20,7 @@ import { placeCollator } from "../../gedcom/place";
 import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { useSettingsSlice } from "../SettingsContext";
 import { DateInput } from "./DateInput";
+import { joinDateTime, splitDateTime } from "../../gedcom/dateTime";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
@@ -244,7 +245,8 @@ export function EventFieldsRow({
   // empty, and an empty field writes the flag back rather than erasing it.
   const flagOnly = !isEven && isOccurrenceFlag(ev?.value);
   const valueField = useField(flagOnly ? "" : ev?.value ?? "", valueMergeVal);
-  const dateField = useField(ev?.date?.raw ?? "", dateMergeVal);
+  // The date field carries the event's time of day after its date.
+  const dateField = useField(joinDateTime(ev?.date?.raw ?? "", ev?.time), dateMergeVal);
   // Dates in words run longer, so the date slot widens for them.
   const { dateDisplay } = useSettingsSlice(DATE_DISPLAY_KEYS);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
@@ -671,7 +673,15 @@ export function EventFieldsRow({
       flagOnly,
       ev?.value,
     );
-    if (update) commitField(update);
+    if (!update) return;
+    // The field's "5 MAR 1850 14:30" is two things in the file: the DATE, and
+    // the TIME under it — a time taken off the field is removed from the file.
+    if (update.date !== undefined) {
+      const { date, time } = splitDateTime(update.date);
+      update.date = date;
+      update.time = time ?? "";
+    }
+    commitField(update);
   }
 
   /**
@@ -921,6 +931,7 @@ export function EventFieldsRow({
           onChange={dateField.set}
           onKeyDown={entryKeyDown("date")}
           onBlur={(date) => commitAll({ date })}
+          withTime
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
       </div>

@@ -387,6 +387,8 @@ export interface GedEvent {
   /** `2 TYPE` sub-tag value — event sub-type or custom event description (e.g. "Graduation"). */
   type?: string;
   date?: GedDate;
+  /** The time of day under the DATE (`3 TIME 14:30`), as written. */
+  time?: string;
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
   address?: GedPlace;

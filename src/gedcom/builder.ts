@@ -1,7 +1,7 @@
 import { parseDate } from "./date";
 import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
-import { childrenByTag, firstChild } from "./node";
+import { childValue, childrenByTag, firstChild } from "./node";
 import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
@@ -326,6 +326,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const agncNode = firstChild(node, "AGNC");
   const causNode = firstChild(node, "CAUS");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
+  const time = dateNode && childValue(dateNode, "TIME")?.trim();
+  if (time) event.time = time;
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;

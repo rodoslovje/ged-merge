@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
 
@@ -55,6 +55,25 @@ test("a typed date reads back in words and is written in the file's style", asyn
   await expect(preview).toHaveClass(/is-unreadable/);
   await death.press("Tab");
   await expect(death).toHaveValue("pred vojno");
+});
+
+test("a time typed after the date is saved as the DATE's TIME", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const birth = page.locator(".edit-event").first().locator(".edit-event-date");
+  await birth.fill("5. 3. 1850 9:05");
+  await expect(page.locator(".edit-date-preview")).toContainText("5 March 1850 09:05");
+  await birth.press("Tab");
+  await expect(birth).toHaveValue("5 MAR 1850 09:05");
+
+  await page.locator(".app-head-actions .export-btn").click();
+  const downloadPromise = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
+  await page.locator(".preview-actions .export-btn").click();
+  const content = readFileSync((await (await downloadPromise).path())!, "utf-8");
+  expect(content).toMatch(/2 DATE 5 MAR 1850\r?\n3 TIME 09:05/);
 });
 
 test("a date field's hover says how the date reads", async ({ page }) => {
