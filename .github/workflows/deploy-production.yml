@@ -25,6 +25,7 @@ jobs:
     permissions:
       contents: write # push the release tag
       deployments: read # find what the test site serves
+      id-token: write # OIDC token Tailscale trusts to admit the runner
     steps:
       - uses: actions/checkout@v7
         with:
@@ -68,9 +69,22 @@ jobs:
 
       - run: npm run build
 
+      # The server is reachable only over Tailscale, so the runner joins the
+      # tailnet as an ephemeral tag:ci node for this job and leaves at its end.
+      # No stored secret: Tailscale trusts GitHub's OIDC token for this repo's
+      # production environment (a federated identity in the Tailscale admin).
+      # TS_CLIENT_ID, TS_AUDIENCE (variables): that federated identity's values.
+      - name: Join the tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ vars.TS_CLIENT_ID }}
+          audience: ${{ vars.TS_AUDIENCE }}
+          tags: tag:ci
+
       # DEPLOY_SSH_KEY: private key allowed to write the web root only.
       # DEPLOY_KNOWN_HOSTS: `ssh-keyscan <host>` output, so the host is pinned.
-      # DEPLOY_TARGET (variable): rsync destination, e.g. user@host:/srv/gedmerge/
+      # DEPLOY_TARGET (variable): rsync destination over the tailnet, e.g.
+      # deploy@<tailnet name>:/srv/gedmerge/
       - name: Upload with rsync
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
