@@ -129,15 +129,21 @@ export function GlobalSearchModal({ isOpen, onClose, rows, indexProgress, onOpen
   const [filters, setFilters] = useState<GlobalFilters>(NO_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Reset query and facets each time the dialog opens so it never reopens stale.
-  useEffect(() => {
+  // Reset query and facets each time the dialog opens so it never reopens
+  // stale — in the render that opens it, not in an effect after it: an effect
+  // runs once the dialog is already on screen, and anything typed into the box
+  // in between (the very first keystrokes, on a busy page) was wiped, leaving an
+  // empty query that lists everyone.
+  const [openedFor, setOpenedFor] = useState(isOpen);
+  if (isOpen !== openedFor) {
+    setOpenedFor(isOpen);
     if (isOpen) {
       setQuery("");
       setActiveIndex(0);
       setFilters(NO_FILTERS);
       setShowFilters(false);
     }
-  }, [isOpen]);
+  }
 
   const results = useMemo(
     () => searchPeople(rows, query, filters, filterContext),
