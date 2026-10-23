@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { applyPlaceRename, collectPlaceSegments, previewPlaceRename } from "./placeEdit";
-import { buildPlaceTree, collectNodeUseIds, UNSPECIFIED } from "./places";
+import { buildPlaceTree, collectNodeUseIds, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -281,5 +281,27 @@ describe("rename scope of a family's own place", () => {
     expect(addr.isAddress).toBe(true);
     applyPlaceRename(ds, "Sr. Bela 16", "Srednja Bela 16 (pd Prah)", collectNodeUseIds(addr));
     expect(ds.families.get("@F1@")!.raw.children[2].children[1].value).toBe("Srednja Bela 16 (pd Prah)");
+  });
+});
+
+describe("a structured address (labelled lines only)", () => {
+  const build = () =>
+    dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME A /B/\n" +
+          "1 BIRT\n2 PLAC Ljubljana, Slovenija\n2 ADDR\n3 ADR1 Dunajska 5\n3 CITY Ljubljana\n3 POST 1000\n3 CTRY Slovenija\n" +
+          "1 RESI\n2 ADDR\n3 ADR1 Celovška 10\n3 CITY Ljubljana\n",
+      ),
+    );
+
+  it("is a level of the places tree under its place, and counted", () => {
+    const tree = buildPlaceTree(build());
+    const slo = tree.roots.find((r) => r.name === "Slovenija")!;
+    const house = slo.children.find((c) => c.name === "Ljubljana")!.children.find((c) => c.name === "Dunajska 5")!;
+    expect(house.isAddress).toBe(true);
+    expect(collectNodeUseIds(house)).toEqual(new Set(["@I1@"]));
+    // Both the place+address pair and the address standing alone.
+    expect(tree.distinctCount).toBe(2);
+    expect(tree.roots.find((r) => r.name === UNSPECIFIED_PLACE)).toBeDefined();
   });
 });

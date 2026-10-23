@@ -1,6 +1,7 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
 import { ALL_EVENT_TAGS } from "../gedcom/eventTags";
+import { addressText, eventAddressNode } from "../gedcom/address";
 import { distinctSpots } from "./placeCoords";
 import { label } from "../match/relatives";
 import { placeAddrKey, walkPlaceAddr } from "./geocode";
@@ -122,15 +123,17 @@ interface PlaceMention {
  */
 function collectPlaces(node: GedNode, into: PlaceMention[]): void {
   const placs = node.children.filter((c) => c.tag === "PLAC" && c.value?.trim());
-  const addr = node.children.find((c) => c.tag === "ADDR" && c.value?.trim());
+  // The address as one string — its line, or the labelled lines of an ADDR
+  // that has none (see `addressText`).
+  const addr = addressText(eventAddressNode(node)) || undefined;
   // The node the place hangs under *is* the event, when it is one at all — a
   // record's own PLAC and a media object's describe no event and get no mark.
   const eventTag = ALL_EVENT_TAGS.has(node.tag) ? node.tag : undefined;
   if (placs.length > 0) {
     for (const plac of placs)
-      into.push({ raw: plac.value!.trim(), addr: addr?.value?.trim(), coord: placeNodeCoord(plac), eventTag });
+      into.push({ raw: plac.value!.trim(), addr, coord: placeNodeCoord(plac), eventTag });
   } else if (addr) {
-    into.push({ raw: addr.value!.trim(), addrOnly: true, eventTag });
+    into.push({ raw: addr, addrOnly: true, eventTag });
   }
   for (const child of node.children) collectPlaces(child, into);
 }
