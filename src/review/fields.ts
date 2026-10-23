@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, isOccurrenceFlag } from "../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, familyEventLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
@@ -78,6 +78,10 @@ const EVENT_LABELS: Record<string, string> = {
   ENGA: "Engagement",
   SEPA: "Separation",
   DIV: "Divorce",
+  DIVF: "Divorce filed",
+  ANUL: "Annulment",
+  MARC: "Marriage contract",
+  MARS: "Marriage settlement",
   _MSTAT: "Status",
 };
 
@@ -506,7 +510,7 @@ function buildFamilyRows(
       // One side has the event (see the guard above), so its header stands even
       // when there is nothing under it to compare — a marriage stated without a
       // date or place is still the record that the couple married.
-      const baseLabel = eventDisplayLabel(etag, t, EVENT_LABELS[etag]);
+      const baseLabel = familyEventLabel(etag, t, EVENT_LABELS[etag]);
       const headerType = isEven ? (mEv?.type ?? cEv?.type) : undefined;
       rows.push({
         key: `${famKey}.${etag}.header`,

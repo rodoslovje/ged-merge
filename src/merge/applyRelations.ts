@@ -5,7 +5,7 @@ import {
   insertRecord,
 } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
-import { EDITABLE_FAM_EVENT_TAGS, eventDisplayLabel } from "../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, familyEventLabel } from "../gedcom/eventTags";
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
@@ -818,7 +818,7 @@ export function applyIndividualFamilies(
     for (const evTag of EDITABLE_FAM_EVENT_TAGS.filter((tg) => tg !== "MARR")) {
       const evName =
         (evTag === "EVEN" && incFam.events.find((e) => e.tag === "EVEN")?.type?.trim()) ||
-        eventDisplayLabel(evTag, ctx.t);
+        familyEventLabel(evTag, ctx.t);
       const evEntries: EventSubEdit[] = [];
       for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;

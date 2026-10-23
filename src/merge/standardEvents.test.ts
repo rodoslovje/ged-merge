@@ -64,3 +64,55 @@ describe("individual events: ORDN, CHRA, BLES, BARM, BASM", () => {
     expect(out).toContain("1 CHRA\n2 DATE 1920\n");
   });
 });
+
+describe("family events: ANUL, DIVF, MARC, MARS, RESI, CENS, NCHI", () => {
+  const people =
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+    "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n";
+  const famBody =
+    "1 MARC\n2 DATE 1899\n1 MARS\n2 DATE 1899\n2 AGNC Notar Kranj\n1 RESI Glavni trg 3\n2 DATE 1901\n" +
+    "1 RESI\n2 DATE 1911\n2 PLAC Ljubljana\n1 CENS\n2 DATE 1910\n1 NCHI 4\n1 DIVF\n2 DATE 1920\n1 ANUL\n2 DATE 1921\n";
+  const text = wrap(`${people}0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1900\n${famBody}`);
+  const comparePeople =
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+    "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n";
+
+  it("lifts each into the family's events, the repeated residence included", () => {
+    const fam = dataset(text).families.get("@F1@")!;
+    expect(fam.events.map((e) => e.tag)).toEqual(["MARR", "MARC", "MARS", "RESI", "RESI", "CENS", "NCHI", "DIVF", "ANUL"]);
+    expect(fam.events.find((e) => e.tag === "NCHI")?.value).toBe("4");
+    expect(fam.events.find((e) => e.tag === "MARS")?.agency).toBe("Notar Kranj");
+    expect(fam.events.filter((e) => e.tag === "RESI").map((e) => e.date?.year)).toEqual([1901, 1911]);
+  });
+
+  it("writes an untouched file back byte for byte", () => {
+    expect(serializeGedcom(dataset(text).records)).toBe(text);
+  });
+
+  it("imports the incoming family's annulment, residence and child count, leaving its second residence alone", () => {
+    const main = dataset(wrap(`${people}0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1900\n`));
+    const compare = dataset(wrap(`${comparePeople}0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1900\n${famBody}`));
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }, { mainId: "@I2@", compareId: "@P2@" }] } as never;
+    const { records } = mergeDecisions(main, compare, confirmed("@I1@", "@P1@"), matches, tr);
+    const out = serializeGedcom(records);
+    const fam = out.slice(out.indexOf("0 @F1@ FAM"), out.indexOf("0 TRLR"));
+    expect(fam).toContain("1 ANUL\n2 DATE 1921\n");
+    expect(fam).toContain("1 DIVF\n2 DATE 1920\n");
+    expect(fam).toContain("1 MARS\n2 DATE 1899\n2 AGNC Notar Kranj\n");
+    expect(fam).toContain("1 NCHI 4\n");
+    expect(fam).toContain("1 RESI Glavni trg 3\n2 DATE 1901\n");
+    expect(fam).toContain("1 CENS\n2 DATE 1910\n");
+    // One row per tag: the family's second residence is not offered.
+    expect(fam).not.toContain("1911");
+  });
+
+  it("compares a family's events in the review under the couple's own names", () => {
+    const main = dataset(wrap(`${people}0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 RESI\n2 DATE 1901\n`));
+    const compare = dataset(wrap(`${comparePeople}0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 RESI\n2 DATE 1902\n1 ANUL\n2 DATE 1921\n`));
+    const rows = individualFieldRows(tr, main.individuals.get("@I1@"), compare.individuals.get("@P1@"), main, compare);
+    const header = (tag: string) => rows.find((r) => r.isEventHeader && r.key.endsWith(`.${tag}.header`));
+    expect(header("RESI")?.label).toBe("event.fam.RESI");
+    expect(header("ANUL")?.label).toBe("event.ANUL");
+    expect(rows.find((r) => r.key.endsWith(".RESI.date"))).toMatchObject({ main: "1901", incoming: "1902" });
+  });
+});

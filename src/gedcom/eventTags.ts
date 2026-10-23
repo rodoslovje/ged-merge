@@ -31,7 +31,16 @@ export const INDI_EVENT_TAG_ORDER = [
  *  (named by its `TYPE`, e.g. "Civil Partnership"). `_MSTAT` is the canonical
  *  partnership-status tag (Brother's Keeper vocabulary — "Partners", …) that
  *  normalization consolidates the other vendor encodings into. */
-export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV", "EVEN", "_MSTAT"];
+export const FAM_EVENT_TAG_ORDER = [
+  "MARR", "ENGA", "MARC", "MARS", "SEPA", "MARB", "MARL",
+  "RESI", "CENS", "NCHI",
+  "DIVF", "DIV", "ANUL", "EVEN", "_MSTAT",
+];
+
+/** Family "events" that describe the household rather than the union — where
+ *  the couple lived, a census that found them, how many children they had. A
+ *  summary of what binds a couple never picks one of these. */
+export const FAM_HOUSEHOLD_TAGS: ReadonlySet<string> = new Set(["RESI", "CENS", "NCHI"]);
 
 /**
  * Classic genealogy symbols for the event types that have one — language-
@@ -74,6 +83,8 @@ export const EVENT_GLYPHS: Record<string, string> = {
   // the app's own reading of the ⚬ ⚭ ⚯ ⚮ family.
   SEPA: "⚬⚬",
   DIV: "⚮",
+  // An annulment ends the union as a divorce does (see `unionMark`).
+  ANUL: "⚮",
   DEAT: "†",
   BURI: "▭",
   CREM: "⚱",
@@ -94,6 +105,10 @@ export const EVENT_GLYPHS: Record<string, string> = {
   PROP: "§",
   WILL: "§",
   PROB: "§",
+  // A marriage contract and a marriage settlement are property agreements,
+  // drawn with the property mark.
+  MARC: "§",
+  MARS: "§",
 };
 
 /** The mark an event tag is drawn with, or the neutral one for a tag the
@@ -289,9 +304,25 @@ export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_E
 
 /** Family events Edit mode can create and edit (MARB/MARL are preserved on
  *  load/save but not surfaced), and therefore the ones the edit report diffs.
- *  Like the other tags here, `EVEN` is modelled as one row per family — a
- *  second `EVEN` on the same FAM round-trips untouched but isn't editable. */
-export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "EVEN", "_MSTAT"];
+ *  Each is modelled as one row per family: a second `EVEN` — or a second
+ *  household `RESI`/`CENS`, which GEDCOM lets a family repeat — round-trips
+ *  untouched but isn't editable, compared or merged; the first one is. */
+export const EDITABLE_FAM_EVENT_TAGS = [
+  "MARR", "ENGA", "MARC", "MARS", "SEPA",
+  "RESI", "CENS", "NCHI",
+  "DIVF", "DIV", "ANUL", "EVEN", "_MSTAT",
+];
+
+/** Display name for an event on a family record. The household events read
+ *  as the couple's own — "Family residence", "Household census" — so a
+ *  family's row is never mistaken for one person's; every other tag is named
+ *  as {@link eventDisplayLabel} names it. */
+export function familyEventLabel(tag: string, t: Translate, fallback?: string): string {
+  return FAMILY_NAMED_TAGS.has(tag) ? t(`event.fam.${tag}`) : eventDisplayLabel(tag, t, fallback);
+}
+
+/** The family tags with a name of their own (`event.fam.<tag>`). */
+const FAMILY_NAMED_TAGS: ReadonlySet<string> = new Set(["RESI", "CENS"]);
 
 /** Event tags that carry a direct text value on the tag line
  *  (e.g. `1 OCCU Farmer`, `1 _MSTAT Partners`) — shown/edited as an inline

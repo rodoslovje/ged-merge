@@ -75,6 +75,7 @@ export function EventFieldsRow({
   onCopy,
   onChangeTag,
   tagGroups,
+  tagLabel,
   onAddSource,
   onEditSource,
   onOpenSourceDialog,
@@ -124,6 +125,9 @@ export function EventFieldsRow({
    * when `labelKey` is given (individual events), or shown as a flat list
    * otherwise (family events, which have too few tags to need grouping). */
   tagGroups?: readonly { labelKey?: string; tags: readonly string[] }[];
+  /** Names a tag in the type-change dropdown its own way (a family's
+   *  household events — see `familyEventLabel`). */
+  tagLabel?: (tag: string, t: Translate) => string;
   onAddSource: () => void;
   onEditSource?: (index: number) => void;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
@@ -874,7 +878,7 @@ export function EventFieldsRow({
               ...(onChangeTag && tagGroups
                 ? tagGroups.map((g) => ({
                     label: g.labelKey ? t(g.labelKey) : undefined,
-                    items: g.tags.map((tg) => ({ value: tg, label: eventMenuLabel(tg, t) })),
+                    items: g.tags.map((tg) => ({ value: tg, label: eventMenuLabel(tg, t, tagLabel?.(tg, t)) })),
                   }))
                 : []),
               ...(onCopy || onRemove

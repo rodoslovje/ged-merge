@@ -1,4 +1,4 @@
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "./eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, eventDisplayLabel, familyEventLabel } from "./eventTags";
 import type { Association, Dataset, GedNode, Sex } from "./types";
 import { associationsIn, isVoidAssociation } from "./assoc";
 import { parseDate } from "./date";
@@ -595,7 +595,7 @@ function diffFamilyNodes(
   diffs.push(...diffFamilyMembership(id, before, after, t, resolveName));
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => familyEventLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
