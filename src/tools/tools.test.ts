@@ -1198,10 +1198,16 @@ describe("validateStructure", () => {
   });
 
   it("is clean for a well-formed file", () => {
+    // Well-formed down to the header 5.5.1 requires (SOUR, SUBM, GEDC.FORM).
     const ds = dataset(`0 HEAD
+1 SOUR TEST
+1 SUBM @U1@
 1 GEDC
 2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
 1 CHAR UTF-8
+0 @U1@ SUBM
+1 NAME Tester
 0 @I1@ INDI
 1 NAME Ana /Novak/
 1 SEX F

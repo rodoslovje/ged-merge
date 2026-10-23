@@ -5,6 +5,7 @@ import { isVoidPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { dateFixContext, dateStyleContext, isUnparseable, nonStandardDate, proposeDateFix } from "./fixDates";
 import { firstChild } from "../gedcom/node";
+import { validateConformance, type ConformanceCategory } from "./conformance/conformance";
 
 /**
  * GEDCOM structural ("spec") validation — a pass over the raw `GedNode` tree and
@@ -36,7 +37,8 @@ export type StructCategory =
   | "reversedRange"
   | "shortYear"
   | "nonStandardDate"
-  | "ambiguousDate";
+  | "ambiguousDate"
+  | ConformanceCategory;
 
 export type StructSeverity = "error" | "warning" | "info";
 
@@ -63,6 +65,12 @@ export interface StructIssue {
   /** For a repairable `badDate` or `nonStandardDate`: the value the one-click
    *  fix would write, so the row can flag itself fixable and preview the result. */
   fix?: string;
+  /** Conformance findings: the child-index path from the record to the line
+   *  ("3.1"), which is how the fix finds the line again. */
+  path?: string;
+  /** Conformance `cardinality`: every repeat is an exact copy of the first,
+   *  so the fix can drop them without losing anything. */
+  repeat?: boolean;
 }
 
 export interface StructureReport {
@@ -87,6 +95,12 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   shortYear: 0,
   nonStandardDate: 0,
   ambiguousDate: 0,
+  pointerType: 0,
+  cardinality: 0,
+  misplacedTag: 0,
+  enumValue: 0,
+  valueFormat: 0,
+  xrefShape: 0,
 };
 
 /**
@@ -473,8 +487,12 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     });
   }
 
+  // (d) The file held against the structure table of the GEDCOM version it
+  //     declares: line counts, tag placement, pointer targets, enumerated values.
+  for (const issue of validateConformance(ds)) push(issue);
+
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
