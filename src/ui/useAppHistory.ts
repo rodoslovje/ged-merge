@@ -193,7 +193,13 @@ export function useAppHistory(opts: AppHistoryOptions) {
     // beforeunload prompt. Set up once; a remount keeps the existing entries.
     if (window.history.state?.gedPage !== "main") {
       window.history.replaceState({ ...window.history.state, gedPage: "leave-guard" }, "");
-      window.history.pushState({ gedPage: "main" }, "");
+      // The page on screen goes on the new entry too: the sync effect above
+      // has already run for this mode, and runs again only when it changes,
+      // so without it the bottom entry would name no page and Back to it
+      // would leave the app wherever the step before had gone. (StrictMode's
+      // second effect pass hid this in development.)
+      const { mode, tool, toolView } = optsRef.current;
+      window.history.pushState({ gedPage: "main", gedMode: mode, gedTool: tool, gedToolView: toolView }, "");
     }
 
     function onPop(e: PopStateEvent) {

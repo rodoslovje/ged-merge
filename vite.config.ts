@@ -132,12 +132,15 @@ export default defineConfig({
         "src/persist/serializedMain.ts",
         "src/worker/annotateCounts.ts",
         "src/worker/gedcom.worker.ts",
+        "src/ui/useAppHistory.ts",
       ],
-      // `use*.ts` are React hooks living beside the pure modules they wrap
-      // (e.g. edit-state/useDirtyTracking over edit-state/dirty) — same
-      // rationale as the UI layer above: e2e covers them, unit coverage
-      // would report misleading zeros.
-      exclude: ["**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts", "src/**/use*.ts"],
+      // The keyboard hooks (`use*.ts` beside the pure modules they wrap) are
+      // covered by e2e only — same rationale as the UI layer above. Hooks with
+      // unit tests (run through src/testing/fakeReact.ts) are measured.
+      exclude: [
+        "**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts",
+        "src/keyboard/use*.ts", "src/edit-state/useDirtyTracking.ts",
+      ],
       // `text` (per-file) alongside the summary, so a gap in one module is
       // visible in CI output instead of being averaged away by its directory.
       reporter: ["text", "text-summary", "html"],
@@ -149,7 +152,7 @@ export default defineConfig({
       thresholds: {
         "src/chart/**": { statements: 90, branches: 77, functions: 91, lines: 92 },
         "src/csv/**": { statements: 92, branches: 81, functions: 95, lines: 95 },
-        "src/edit-state/**": { statements: 95, branches: 91, functions: 97, lines: 95 },
+        "src/edit-state/**": { statements: 97, branches: 92, functions: 93, lines: 97 },
         "src/gedcom/**": { statements: 90, branches: 82, functions: 93, lines: 92 },
         "src/geo/**": { statements: 87, branches: 80, functions: 84, lines: 90 },
         "src/keyboard/**": { statements: 80, branches: 75, functions: 75, lines: 82 },
@@ -162,6 +165,7 @@ export default defineConfig({
         "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
         "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
         "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
+        "src/ui/**": { statements: 97, branches: 90, functions: 98, lines: 98 },
         "src/worker/**": { statements: 93, branches: 84, functions: 98, lines: 94 },
       },
     },
