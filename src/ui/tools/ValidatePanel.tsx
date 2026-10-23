@@ -63,6 +63,7 @@ const CATEGORIES: IssueCategory[] = [
   "parallelFamilies",
   "spouseAgeGap",
   "futureDate",
+  "statedAge",
   "association",
   "missingVitals",
   "missingName",

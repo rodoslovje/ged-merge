@@ -156,7 +156,7 @@ const AGE_ANCHOR_QUALIFIERS = new Set(["exact", "about", "interpreted"]);
 
 /** The span of fractional years a dated event fills: its day, its month, or
  *  its whole year when that is all the date says. */
-function eventSpan(d: GedDate | undefined): [number, number] | undefined {
+export function dateYearSpan(d: GedDate | undefined): [number, number] | undefined {
   if (d?.year === undefined || !AGE_ANCHOR_QUALIFIERS.has(d.qualifier)) return undefined;
   // Only the calendars whose years count like ours (see GedDate.calendar).
   if (d.calendar && d.calendar !== "GREGORIAN" && d.calendar !== "JULIAN") return undefined;
@@ -200,7 +200,7 @@ export function statedAgesOf(indi: Individual, ds?: Dataset): { date: GedDate; a
 export function birthFromStatedAges(indi: Individual, ds?: Dataset): StatedAgeBirth | undefined {
   const ranges: [number, number][] = [];
   for (const { date, age } of statedAgesOf(indi, ds)) {
-    const span = eventSpan(date);
+    const span = dateYearSpan(date);
     const parsed = parseAge(age);
     const years = parsed && ageYearsRange(parsed);
     if (!span || !years) continue;

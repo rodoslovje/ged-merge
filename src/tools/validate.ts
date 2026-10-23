@@ -1,6 +1,16 @@
 import type { Association, Dataset, Family, GedDate, GedEvent, GedNode, Individual } from "../gedcom/types";
 import { dateText } from "../gedcom/date";
-import { DEATH_TAGS, birthDateOf, birthYear, deathYear, isDeceased } from "../gedcom/lifespan";
+import { DEATH_TAGS, birthDateOf, birthYear, dateYearSpan, deathYear, isDeceased, statedAgesOf } from "../gedcom/lifespan";
+import { ageYearsRange, parseAge } from "../gedcom/ageValue";
+import { ageBetween } from "../gedcom/age";
+
+/**
+ * How far, in years, a birth date may fall outside the range an age the
+ * records state allows before the two are reported as contradicting. A year
+ * absorbs the everyday slips — an age rounded up, a register that counted the
+ * year of death, a baptism standing in for the birth.
+ */
+export const STATED_AGE_TOLERANCE = 1;
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
 
 /**
@@ -70,6 +80,7 @@ export type IssueCategory =
   | "parallelFamilies"
   | "spouseAgeGap"
   | "futureDate"
+  | "statedAge"
   | "association";
 
 export type IssueSeverity = "error" | "warning";
@@ -129,6 +140,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   parallelFamilies: 0,
   spouseAgeGap: 0,
   futureDate: 0,
+  statedAge: 0,
   association: 0,
 };
 
@@ -571,6 +583,33 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
             add("eventOrder", "warning", "tools.validate.issue.eventAfterDeath", { tag: e.tag, year, death: dy });
           }
         }
+      }
+    }
+
+    // An age a record states that the birth date cannot give: 30 at a death
+    // whose birth date makes it 62. One of the two is wrong — or the two
+    // records are about different people.
+    const birthDate = birthDateOf(indi);
+    const birthSpan = dateYearSpan(birthDate);
+    if (birthDate && birthSpan) {
+      // An approximate birth is allowed its usual slack on top of the tolerance.
+      const slack = STATED_AGE_TOLERANCE + (birthDate.qualifier === "about" ? 2 : 0);
+      for (const { date, age, tag } of statedAgesOf(indi, ds)) {
+        const at = dateYearSpan(date);
+        const parsed = parseAge(age);
+        const range = parsed && ageYearsRange(parsed);
+        if (!at || !range) continue;
+        const from = at[0] - range.max;
+        const to = at[1] - range.min;
+        if (birthSpan[1] >= from - slack && birthSpan[0] <= to + slack) continue;
+        const computed = ageBetween(birthDate, date);
+        add("statedAge", "warning", "tools.validate.issue.statedAge", {
+          age,
+          tag,
+          date: dateText(date),
+          birth: dateText(birthDate),
+          computed: computed === undefined ? "?" : `${computed}y`,
+        });
       }
     }
 
