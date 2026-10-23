@@ -43,9 +43,17 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Matches a Geneanet cemetery-entry URL for one locale, capturing the protocol and the "/view/..." tail. */
+const geneanetCemeteryRes = new Map<GeneanetCemeteryLocale, RegExp>();
+
+/** Matches a Geneanet cemetery-entry URL for one locale, capturing the protocol
+ *  and the "/view/..." tail. Built once per locale, not once per link read. */
 function geneanetCemeteryRe(locale: GeneanetCemeteryLocale): RegExp {
-  return new RegExp(`^(https?://)${escapeRegExp(locale.host)}/${escapeRegExp(locale.word)}(/view/.*)$`, "i");
+  let re = geneanetCemeteryRes.get(locale);
+  if (!re) {
+    re = new RegExp(`^(https?://)${escapeRegExp(locale.host)}/${escapeRegExp(locale.word)}(/view/.*)$`, "i");
+    geneanetCemeteryRes.set(locale, re);
+  }
+  return re;
 }
 
 /** Decode percent-escaped characters (e.g. a copied "cemit%C3%A9rio" link), falling back to the input if malformed. */

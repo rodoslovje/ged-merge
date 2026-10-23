@@ -1,6 +1,6 @@
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
-import { insertGrouped } from "../gedcom/edit";
+import { insertGrouped, memoOnContent } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { buildObjeIndex } from "../gedcom/source";
 import { remapMergedAssociations } from "../gedcom/assoc";
@@ -303,7 +303,9 @@ export const INDI_HANDLED = new Set([
  * format and the edited-after-confirm gate compares like with like.
  */
 export function mergePlaceFormat(main: Dataset, overrides?: FormatOverrides): PlaceTargetFormat {
-  return applyPlaceOverrides(inferPlaceExportFormat(main), overrides);
+  // A scan of every place in the file, asked once per merged decision: read
+  // once per state of the file instead.
+  return applyPlaceOverrides(memoOnContent(main.records, "placeExportFormat", () => inferPlaceExportFormat(main)), overrides);
 }
 
 /** The `${mainId}|${compareId}` pairs the user rejected and confirmed. */

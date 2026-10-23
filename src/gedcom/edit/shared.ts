@@ -237,16 +237,87 @@ export function insertRecord(records: GedNode[], record: GedNode): void {
   else records.splice(trlrIndex, 0, record);
 }
 
+const positionCaches = new WeakMap<GedNode[], WeakMap<GedNode, number>>();
+
+/**
+ * Where `node` sits in `records`: the position it was last found at, checked
+ * by identity and searched for nearby when the records before it have moved by
+ * a few (a chain of merges removing one record per step), else an identity
+ * search of the list — native, far cheaper than a walk comparing xrefs.
+ */
+export function recordPosition(records: GedNode[], node: GedNode): number | undefined {
+  let positions = positionCaches.get(records);
+  if (!positions) positionCaches.set(records, (positions = new WeakMap()));
+  const cached = positions.get(node);
+  let i: number | undefined;
+  if (cached !== undefined) {
+    for (let d = 0; d <= 64 && i === undefined; d++) {
+      if (records[cached - d] === node) i = cached - d;
+      else if (records[cached + d] === node) i = cached + d;
+    }
+  }
+  if (i === undefined) {
+    const found = records.indexOf(node);
+    if (found !== -1) i = found;
+  }
+  if (i !== undefined) positions.set(node, i);
+  return i;
+}
+
+/**
+ * Take records out of `records` in place, in one pass however many go: for
+ * each xref listed, the first record carrying it (listed twice, the first
+ * two), as a `findIndex` + `splice` per xref would — which over a large file
+ * is a walk of the whole list per record removed. Returns the removed records
+ * in file order.
+ */
+export function removeRecordsByXref(
+  records: GedNode[],
+  xrefs: Iterable<string>,
+  /** Only records it accepts count (a tag filter); default every one. */
+  accept?: (record: GedNode) => boolean,
+): GedNode[] {
+  const pending = new Map<string, number>();
+  for (const x of xrefs) pending.set(x, (pending.get(x) ?? 0) + 1);
+  const removed: GedNode[] = [];
+  if (!pending.size) return removed;
+  let w = 0;
+  for (let r = 0; r < records.length; r++) {
+    const rec = records[r];
+    const left = rec.xref !== undefined ? pending.get(rec.xref) : undefined;
+    if (left && (!accept || accept(rec))) {
+      removed.push(rec);
+      if (left > 1) pending.set(rec.xref!, left - 1);
+      else pending.delete(rec.xref!);
+      continue;
+    }
+    if (w !== r) records[w] = rec;
+    w++;
+  }
+  records.length = w;
+  return removed;
+}
+
 /** Re-insert a record at the position it held before a deletion (undo of a
  * delete), keeping the file's record order — and thus the minimal diff against
  * the original — intact. Falls back to {@link insertRecord}'s grouping when no
  * index is known, and never inserts past `TRLR`. */
-export function insertRecordAt(records: GedNode[], record: GedNode, index: number | undefined): void {
+export function insertRecordAt(
+  records: GedNode[],
+  record: GedNode,
+  index: number | undefined,
+  /** Where `TRLR` sits, carried between the inserts of one batch so each
+   *  does not search the whole list for it again (-1: none; unset: unknown). */
+  trlr?: { at?: number },
+): void {
   if (index === undefined || index > records.length) {
     insertRecord(records, record);
+    if (trlr) trlr.at = undefined;
     return;
   }
   noteInsertedXref(records, record.xref);
-  const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
-  records.splice(trlrIndex === -1 ? index : Math.min(index, trlrIndex), 0, record);
+  const trlrIndex = trlr?.at ?? records.findIndex((r) => r.tag === "TRLR");
+  const at = trlrIndex === -1 ? index : Math.min(index, trlrIndex);
+  records.splice(at, 0, record);
+  if (trlr) trlr.at = trlrIndex === -1 ? -1 : trlrIndex + 1;
 }

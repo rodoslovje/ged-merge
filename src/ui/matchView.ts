@@ -1,4 +1,4 @@
-import type { IndividualCandidate } from "../match/types";
+import type { MatchCandidate } from "../match/types";
 import type { Dataset } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
@@ -6,7 +6,7 @@ import { datesTooltip, formatLifespan, lifespanApproxOf, type YearsApprox } from
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
 
-export type Candidate = IndividualCandidate;
+export type Candidate = MatchCandidate;
 
 /**
  * A candidate's lifespan label and full-date hover tooltip, with the age

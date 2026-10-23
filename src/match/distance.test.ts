@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { applyDistanceRanking, computeDistances } from "./distance";
-import type { IndividualCandidate, MatchResult } from "./types";
+import { applyDistanceRanking, computeDistances, kinshipRanking, rankedCandidates } from "./distance";
+import type { IndividualCandidate, MatchCandidate, MatchResult } from "./types";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -95,5 +95,25 @@ describe("applyDistanceRanking", () => {
       "@I4@", // dist 2
     ]);
     expect(ranked.individuals[0].distance).toBe(0);
+  });
+
+  it("ranks by positions, copying only the reachable candidates", () => {
+    const ds = dataset(TREE);
+    const cand = (mainId: string, score: number): MatchCandidate => ({
+      mainId,
+      compareId: `c-${mainId}`,
+      score,
+      category: "probable",
+      name: mainId,
+      deceased: false,
+      sex: "U",
+    });
+    const list = [cand("@NOPE@", 99), cand("@I3@", 50), cand("@I2@", 90)];
+    const ranking = kinshipRanking(list, ds, "@I1@");
+    expect([...ranking.distance]).toEqual([-1, 1, 1]);
+    expect([...ranking.order]).toEqual([2, 1, 0]); // dist 1 by score, then the unreachable
+    const ranked = rankedCandidates(list, ranking);
+    expect(ranked.map((c) => c.distance)).toEqual([1, 1, undefined]);
+    expect(ranked[2]).toBe(list[0]); // not copied
   });
 });

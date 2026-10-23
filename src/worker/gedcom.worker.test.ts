@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { recordsPatch } from "../state/mainSync";
 import type { WorkerRequest, WorkerResponse } from "./messages";
 
 /**
@@ -56,6 +59,37 @@ describe("gedcom.worker pipeline", () => {
     expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I1@", compareId: "@P1@" }]);
   });
 
+  it("posts the list without score breakdowns, and answers a row's request for one", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    const row = lastMatched()!.individuals[0];
+    expect(row).not.toHaveProperty("components");
+    expect(row).not.toHaveProperty("title");
+    send({ type: "scoreDetail", mainId: "@I1@", compareId: "@P1@", generation: 7 });
+    const answer = posted.at(-1)!;
+    if (answer.type !== "scoreDetail") throw new Error("expected a scoreDetail");
+    expect(answer.generation).toBe(7);
+    expect(answer.components?.map((c) => c.key)).toContain("birthDate");
+  });
+
+  it("a start person re-ranks with positions into the posted list, not the list again", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    posted = [];
+    send({ type: "setStart", id: "@I1@" });
+    expect(types()).toEqual(["matching", "matched"]);
+    const ranked = posted[1];
+    if (ranked.type !== "matched") throw new Error("expected matched");
+    expect(ranked.result).toBeUndefined();
+    expect([...ranked.ranking!.order]).toEqual([0]);
+    expect([...ranked.ranking!.distance]).toEqual([0]);
+    // Clearing the start person: no ranking — the list's own (score) order.
+    send({ type: "setStart", id: "" });
+    expect(posted.at(-1)).toEqual({ type: "matched" });
+  });
+
   it("compare before main: the kept compare re-emits normalized and matches", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
@@ -97,6 +131,36 @@ describe("gedcom.worker pipeline", () => {
     expect(main.profile).toBeDefined();
     expect(compare.dataset).toBeUndefined();
     expect(compare.report).toBeDefined();
+  });
+
+  it("a compare loaded after patchMain matches against the edited main", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    // The main thread renamed @I1@'s person and added @I7@, the compare's twin.
+    const live = buildDataset(parseGedcom(enc(MAIN)));
+    const twin = parseGedcom(enc(wrap("0 @I7@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n"))).records[1];
+    live.records.find((r) => r.xref === "@I1@")!.children[0].value = "Marija /Kos/";
+    live.records.splice(live.records.length - 1, 0, twin);
+    send({ type: "patchMain", patch: recordsPatch(live, new Set(["@I1@", "@I7@"]))! });
+    expect(types()).toEqual(["parsed"]); // silent
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I7@", compareId: "@P1@" }]);
+  });
+
+  it("a patch the main does not take asks for the whole main and holds what follows", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    posted = [];
+    // Made against a file this worker never held.
+    const other = buildDataset(parseGedcom(enc(MAIN2)));
+    send({ type: "patchMain", patch: recordsPatch(other, new Set(["@I9@"]))! });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    // Made before the whole main below was sent: that main supersedes it.
+    send({ type: "patchMain", patch: recordsPatch(buildDataset(parseGedcom(enc(MAIN))), new Set(["@I1@"]))! });
+    expect(types()).toEqual(["mainOutOfStep"]); // the compare waits
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN2), silent: true });
+    expect(types()).toEqual(["mainOutOfStep", "parsed", "matching", "matched"]);
+    expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I2@", compareId: "@P1@" }]);
   });
 
   it("replacing the main re-matches the kept compare against the new file", async () => {
@@ -233,9 +297,10 @@ describe("gedcom.worker pipeline", () => {
 
   it("a match-pipeline throw is matchFailed, never a parse error", async () => {
     vi.doMock("../match/engine", () => ({
-      matchDatasets: () => {
+      matchDatasetsExplained: () => {
         throw new Error("boom");
       },
+      pairExplainer: () => () => undefined,
     }));
     try {
       const send = await freshWorker();

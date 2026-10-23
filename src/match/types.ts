@@ -20,15 +20,19 @@ export interface ScoreComponent {
 
 export type MatchCategory = "strong" | "probable" | "weak";
 
-export interface IndividualCandidate {
+/**
+ * One pair of the match list, as the main thread holds it: who, how well, and
+ * the counts the results table sorts and filters on. The score's breakdown
+ * stays in the worker (see {@link IndividualCandidate}) and is fetched for a
+ * row when it is asked for — at half a million rows it was most of the
+ * payload.
+ */
+export interface MatchCandidate {
   mainId: string;
   compareId: string;
   /** 0..100, weighted over the components that were comparable. */
   score: number;
   category: MatchCategory;
-  components: ScoreComponent[];
-  /** Combined main-centric title: main label plus only the differing compare fields. */
-  title: string;
   /** Main display name on its own (no birth date), for the redesigned UI. */
   name: string;
   /** Main birth year, when known — rendered in mono beside the name. */
@@ -70,6 +74,21 @@ export interface IndividualCandidate {
   uidMatched?: boolean;
 }
 
+/** A pair as the scorer produces it: the list entry plus the score's
+ *  field-by-field breakdown. */
+export interface IndividualCandidate extends MatchCandidate {
+  components: ScoreComponent[];
+  /** Combined main-centric title: main label plus only the differing compare fields. */
+  title: string;
+}
+
+/** The list entry of a scored pair — the candidate without its breakdown. */
+export function listedCandidate(c: MatchCandidate | IndividualCandidate): MatchCandidate {
+  if (!("components" in c)) return c;
+  const { components, title, ...listed } = c;
+  return listed;
+}
+
 /**
  * A set of incoming (compare) records that are the same person split across
  * duplicates — detected because they all match the *same* main person. The
@@ -84,10 +103,16 @@ export interface IncomingDuplicateCluster {
   mergeIds: string[];
 }
 
+/** The match list as the app holds it (see {@link MatchCandidate}). */
 export interface MatchResult {
-  individuals: IndividualCandidate[];
+  individuals: MatchCandidate[];
   /** Incoming duplicate clusters for the worker to consolidate (see the type). */
   incomingDuplicates?: IncomingDuplicateCluster[];
+}
+
+/** The matcher's own result: every pair with its score breakdown. */
+export interface ScoredMatchResult extends MatchResult {
+  individuals: IndividualCandidate[];
 }
 
 /** Per-field weights and acceptance thresholds. All tunable. */

@@ -3,7 +3,10 @@ import type { CitationPageStyle } from "../gedcom/source";
 import type { MainProfile, NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { PlaceExportFormat } from "../normalize/profile";
 import type { DetectedFormats, FormatOverrides } from "../normalize/formatOverrides";
-import type { IncomingDuplicateCluster, MatchResult } from "../match/types";
+import type { IncomingDuplicateCluster, MatchResult, ScoreComponent } from "../match/types";
+import type { KinshipRanking } from "../match/distance";
+import type { NormPatch } from "../normalize/normPatch";
+import type { RecordsPatch } from "../state/mainSync";
 
 /** Which slot a loaded file occupies. */
 export type DatasetRole = "main" | "compare";
@@ -44,7 +47,32 @@ export interface ClearCompareRequest {
   type: "clearCompare";
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest;
+/** Ask for one match pair's score breakdown (the score badge's tooltip). The
+ *  worker re-derives it from the two records; `generation` is echoed so an
+ *  answer about an earlier match list can be told apart. */
+export interface ScoreDetailRequest {
+  type: "scoreDetail";
+  mainId: string;
+  compareId: string;
+  generation: number;
+}
+
+
+/**
+ * Bring the worker's main up to the main thread's edited one by the records
+ * edited since the version the worker holds, instead of the whole file (see
+ * `syncWorkerMain`). Silent, like a re-feed: the worker re-profiles its main
+ * and answers nothing — unless its copy does not take the patch, when it
+ * answers `mainOutOfStep` and holds every later request until a whole main
+ * arrives.
+ */
+export interface PatchMainRequest {
+  type: "patchMain";
+  patch: RecordsPatch;
+  formatOverrides?: FormatOverrides;
+}
+
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | PatchMainRequest | ScoreDetailRequest;
 
 export interface ParseSuccess {
   type: "parsed";
@@ -79,6 +107,13 @@ export interface ParseSuccess {
    * deterministic), so the two stay identical without the dataset travelling.
    */
   consolidated?: IncomingDuplicateCluster[];
+  /**
+   * Compare only, when the worker normalized a GEDCOM compare: what that
+   * changed, for the main thread to replay on its own parse of the bytes
+   * (`applyNormPatch`) rather than normalize them a second time — which cost
+   * ~8 s of blocked main thread on a 500k-person file.
+   */
+  normalized?: NormPatch;
   /** Present for the compare slot once it has been normalized to the main. */
   report?: NormalizationReport;
   /** Detected place-formatting convention of this file. */
@@ -123,10 +158,27 @@ export interface MatchProgress {
   type: "matching";
 }
 
-/** Emitted once both main and compare are loaded. */
+/**
+ * Emitted once both main and compare are loaded, and again whenever the start
+ * person changes. A new match carries `result`, the list in score order
+ * without the per-pair score breakdowns (see {@link ScoreDetailRequest}); a
+ * start-person change carries only `ranking`, applied to the last `result`.
+ * `ranking` is present whenever a start person is set.
+ */
 export interface MatchSuccess {
   type: "matched";
-  result: MatchResult;
+  result?: MatchResult;
+  ranking?: KinshipRanking;
+}
+
+/** One pair's score breakdown, answering a {@link ScoreDetailRequest}. */
+export interface ScoreDetailResponse {
+  type: "scoreDetail";
+  mainId: string;
+  compareId: string;
+  generation: number;
+  /** Undefined when the worker no longer holds the pair. */
+  components?: ScoreComponent[];
 }
 
 /** The match pipeline threw after the files themselves parsed fine. Distinct
@@ -138,4 +190,9 @@ export interface MatchFailure {
   message: string;
 }
 
-export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess | MatchFailure;
+/** A `patchMain` the worker's copy could not take: send the whole main. */
+export interface MainOutOfStep {
+  type: "mainOutOfStep";
+}
+
+export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess | MatchFailure | MainOutOfStep | ScoreDetailResponse;

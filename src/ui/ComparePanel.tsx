@@ -4,7 +4,7 @@ import { handleListKey } from "../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
-import type { IndividualCandidate } from "../match/types";
+import type { MatchCandidate } from "../match/types";
 import { individualFieldRows, isMajorDifference } from "../review/fields";
 import { mergePlaceFormat } from "../merge/merge";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
@@ -30,7 +30,7 @@ import { collectMediaRefs } from "../gedcom/media";
 export type RelativeSide = "main" | "incoming";
 
 interface Props {
-  candidate: IndividualCandidate;
+  candidate: MatchCandidate;
   mainDs: Dataset;
   compareDs: Dataset;
   decision: CandidateDecision | undefined;

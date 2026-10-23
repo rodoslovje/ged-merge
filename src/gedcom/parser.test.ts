@@ -398,3 +398,33 @@ describe("parseGedcom refuses what is not a GEDCOM file", () => {
     expect(parseGedcom(bytes("0 @S1@ SOUR\n1 TITL Book\n")).records).toHaveLength(1);
   });
 });
+
+describe("parseGedcom on a file split in pieces", () => {
+  const bytes = (text: string) => new TextEncoder().encode(text).buffer as ArrayBuffer;
+  // Several megabytes, so the text is split a piece at a time; the notes'
+  // continuation lines and an unparsable line straddle the pieces' seams.
+  const big = (eol: string, finalNewline: boolean) => {
+    const lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
+    for (let i = 1; i <= 60000; i++) {
+      lines.push(`0 @I${i}@ INDI`, `1 NAME Oseba${i} /Novak/`);
+      if (i % 9999 === 0) lines.push("prosta vrstica brez oznake");
+      lines.push(`1 NOTE Prva vrstica ${i}`, "2 CONT druga vrstica", "2 CONC  in konec");
+    }
+    lines.push("0 TRLR");
+    return lines.join(eol) + (finalNewline ? eol : "");
+  };
+
+  it("reads every line as one piece would, line numbers included", () => {
+    for (const [eol, finalNewline] of [["\r\n", true], ["\n", false], ["\r", true]] as const) {
+      const text = big(eol, finalNewline);
+      const parsed = parseGedcom(bytes(text));
+      expect(parsed.records).toHaveLength(60002);
+      expect(parsed.eol).toBe(eol);
+      // Compared as a boolean: a failing diff of megabytes takes minutes to print.
+      expect(serializeGedcom(parsed.records, downloadOptions(parsed)) === text).toBe(true);
+      expect(parsed.warnings.map((w) => w.line)).toEqual(
+        [...text.split(/\r\n?|\n/).entries()].filter(([, l]) => l.startsWith("prosta")).map(([i]) => i + 1),
+      );
+    }
+  });
+});

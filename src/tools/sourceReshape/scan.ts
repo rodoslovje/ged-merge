@@ -6,6 +6,7 @@ import {
   type ReshapeSite,
 } from "./model";
 import type { GedNode } from "../../gedcom/types";
+import { memoOnContent } from "../../gedcom/edit/cache";
 import { childrenByTag, childText, firstChild } from "../../gedcom/node";
 import { cleanUrl, recognize, type Recognized } from "./urls";
 import { URL_RE } from "../../gedcom/builder";
@@ -79,6 +80,11 @@ export function bookEventTarget(
 /** The file's own habit for baptism-book citations: whichever of BIRT/BAPM
  *  already carries more `SOUR` children (default BIRT). */
 export function baptismTargetTag(records: GedNode[]): "BIRT" | "BAPM" {
+  // A whole-file count, asked per citation placed: once per state of the file.
+  return memoOnContent(records, "baptismTargetTag", () => countBaptismTarget(records));
+}
+
+function countBaptismTarget(records: GedNode[]): "BIRT" | "BAPM" {
   let birt = 0;
   let bapm = 0;
   for (const rec of records) {

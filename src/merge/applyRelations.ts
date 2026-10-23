@@ -145,6 +145,9 @@ export function makeContext(
      *  (pinned people excepted): links to existing records are left to the
      *  save, so taking an addition back removes all it did. */
     newOnly?: boolean;
+    /** Every xref `records` holds, when the caller already has the set (the
+     *  live file's, kept between merges) — read, never added to. */
+    recordXrefs?: ReadonlySet<string>;
   } = {},
 ): MergeContext {
   const pinned = opts.pinned ?? new Map<string, string>();
@@ -172,8 +175,16 @@ export function makeContext(
     confirmed.add(`${mainId}|${incomingId}`);
   }
 
-  const used = new Set<string>();
-  for (const r of records) if (r.xref) used.add(r.xref);
+  // Over a large file the record ids are a set of hundreds of thousands: a
+  // caller holding one already hands it over, and only this merge's own ids
+  // are added on top.
+  const fresh = new Set<string>();
+  if (!opts.recordXrefs) for (const r of records) if (r.xref) fresh.add(r.xref);
+  const base = opts.recordXrefs;
+  const used = {
+    has: (id: string) => fresh.has(id) || !!base?.has(id),
+    add: (id: string) => void fresh.add(id),
+  };
   // Output xrefs promised to compare shared records (imported at the end by
   // importSourRecords): a fresh INDI/FAM id must not squat on one, or the
   // promised import would be skipped and its pointers would resolve to the
@@ -181,7 +192,9 @@ export function makeContext(
   for (const outXref of reservedXrefs(sourXrefMap)) used.add(outXref);
   const counters = new Map<string, number>();
   const allocXref = (prefix = "I"): string => {
-    let n = counters.get(prefix) ?? (opts.afterHighest ? highestXref(used, prefix) + 1 : 1);
+    let n =
+      counters.get(prefix) ??
+      (opts.afterHighest ? Math.max(highestXref(fresh, prefix), base ? highestXrefOf(base, prefix) : 0) + 1 : 1);
     let id: string;
     do {
       id = `@${prefix}${n++}@`;
@@ -377,6 +390,16 @@ export function makeContext(
     records,
     linkPlacement,
   };
+}
+
+const highestXrefs = new WeakMap<ReadonlySet<string>, Map<string, number>>();
+/** {@link highestXref} of a set that is never added to, worked out once. */
+function highestXrefOf(ids: ReadonlySet<string>, prefix: string): number {
+  let byPrefix = highestXrefs.get(ids);
+  if (!byPrefix) highestXrefs.set(ids, (byPrefix = new Map()));
+  let n = byPrefix.get(prefix);
+  if (n === undefined) byPrefix.set(prefix, (n = highestXref(ids, prefix)));
+  return n;
 }
 
 /** The highest number among `@<prefix><n>@` ids, 0 when there is none. */

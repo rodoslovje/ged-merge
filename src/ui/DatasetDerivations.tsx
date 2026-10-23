@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildFieldSuggestions, type FieldSuggestions } from "./edit/fieldSuggestions";
+import { FieldSuggestionIndex, type FieldSuggestions } from "./edit/fieldSuggestions";
+import type { ChangeJournal } from "../state/mainSync";
 import { scanAddresses, type AddressRow } from "../tools/addresses";
 import { createKinshipResolver, type KinshipResolver } from "../match/kinship";
 import { buildAssociationIndex, type AssociationIndex } from "../gedcom/assoc";
@@ -34,7 +35,8 @@ import { useSettingsSlice } from "./SettingsContext";
 export interface DatasetDerivations {
   /** Bumped on every dataset mutation — safe to use as a memo key. */
   version: number;
-  /** Place/address suggestions from every value the file holds. */
+  /** Place/address suggestions from every value the file holds — brought up
+   *  to date by the records each edit touched, not rebuilt. */
   fieldSuggestions: () => FieldSuggestions;
   /** The place+address rows of the whole file (the Addresses tab's unit). */
   addressRows: () => AddressRow[];
@@ -75,13 +77,17 @@ function lazy<T>(compute: () => T): () => T {
 export function DatasetDerivationsProvider({
   dataset,
   version,
+  changes,
   children,
 }: {
   dataset: Dataset | undefined;
   version: number;
+  /** Which records each edit version changed (see FieldSuggestionIndex). */
+  changes: ChangeJournal;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const suggestionIndex = useRef(new FieldSuggestionIndex()).current;
   // Kinship additionally varies by start person; cached per (version, startId).
   const kinshipCache = useRef<{ version: number; startId: string; resolver: KinshipResolver } | null>(null);
   const value = useMemo<DatasetDerivations | null>(() => {
@@ -89,7 +95,7 @@ export function DatasetDerivationsProvider({
     const placeValues = lazy(() => collectPlaceValues(dataset));
     return {
       version,
-      fieldSuggestions: lazy(() => buildFieldSuggestions(dataset)),
+      fieldSuggestions: lazy(() => suggestionIndex.get(dataset, changes, version)),
       addressRows: lazy(() => scanAddresses(dataset)),
       fileCoords: lazy(() => collectFileCoords(dataset)),
       placeValues,
@@ -105,7 +111,7 @@ export function DatasetDerivationsProvider({
       },
     };
   // t changes identity with the language; the resolver's labels follow it.
-  }, [dataset, version, t]);
+  }, [dataset, version, changes, suggestionIndex, t]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

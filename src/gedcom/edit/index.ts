@@ -15,7 +15,7 @@
 
 export {
   EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, NAME_CHILD_ORDER,
-  EDITABLE_LINK_TAGS, EVENT_LINK_TAG, clearEventAuditStamps, insertGrouped, insertOrdered, insertRecord, insertRecordAt, markEventTouched, nextXref, noteInsertedXref,
+  EDITABLE_LINK_TAGS, EVENT_LINK_TAG, clearEventAuditStamps, insertGrouped, insertOrdered, insertRecord, insertRecordAt, markEventTouched, nextXref, noteInsertedXref, recordPosition, removeRecordsByXref,
 } from "./shared";
 
 export {
@@ -40,6 +40,7 @@ export {
   removeIndividual, removeFamily, foldFamily, familyPointerHolders, familiesNaming, familyMembers, RECORD_OWN_TAGS,
   pruneRecordsLeftBehind, pointersHeld,
 } from "./family";
+export { familiesScope, individualsScope, pointerScope, reindexRecord, withPointerIndex } from "./pointerIndex";
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 
@@ -75,6 +76,6 @@ export {
 } from "./sources";
 export type { EditSourceFields, EditRepoFields, NewSourceFields, NewCitation } from "./sources";
 
-export { bumpSourceCacheVersion, getMediaAndSourceCtx, getSourceLookup, rebuildIndividual, rebuildFamily } from "./cache";
+export { bumpContentVersion, bumpSourceCacheVersion, contentStamp, getMediaAndSourceCtx, getSourceLookup, memoOnContent, rebuildIndividual, rebuildFamily } from "./cache";
 
 export { clearPlaceGov, formatCoordValue, setPlaceCoord } from "./geo";

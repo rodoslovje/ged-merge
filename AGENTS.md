@@ -89,7 +89,8 @@ All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The wo
 
 - `parse` → emits `parsed` (detections and, for the main, the inferred profile — **never the `Dataset`**: the main thread builds its own copy from the same bytes in `src/state/localLoad.ts`, because cloning a typed dataset across the boundary cost ~18 s on a 500k-person file; only a table-built compare travels) and then `matching`/`matched`. The compare's consolidation of incoming duplicates is announced as clusters the main thread replays.
 - `parseCsv` → loads a CSV or spreadsheet into the compare slot: a genealogical-index matches export (indeks.rodoslovje.si), matched pair by pair, or a Slovenian parish-register index (Matricula P/K sheets), matched by the ordinary engine. **Answers asynchronously** (a workbook must be inflated), guarded by a compare generation so a superseded file cannot land
-- `setHome` → re-ranks the last match result by kinship distance; emits `matching`/`matched`
+- `setStart` → re-ranks the last match result by kinship distance; emits `matching`/`matched` carrying only the new order (a `KinshipRanking` of positions into the list the main thread already holds)
+- `scoreDetail` → one pair's score breakdown for the score tooltip; the match list itself travels without breakdowns
 
 The worker keeps its own copies of `mainDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
 

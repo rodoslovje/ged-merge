@@ -356,7 +356,34 @@ function descend(
     }
   };
 
-  for (const mu of mainUnions) {
+  for (const { mu, iu } of alignUnions(mainUnions, incomingUnions, usedIncoming, maps)) {
+    // Both sides' family xrefs identify the union — the two datasets number
+    // their records independently, so the keys are side-prefixed.
+    const keys = iu ? [`m:${mu.fam.id}`, `i:${iu.fam.id}`] : [`m:${mu.fam.id}`];
+    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam, mainDs);
+  }
+
+  incomingUnions.forEach((iu, idx) => {
+    if (usedIncoming.has(idx)) return;
+    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam, compareDs);
+  });
+
+  return { partners, directChildren };
+}
+
+/**
+ * Line each main union up with the incoming union it is, if any — by the
+ * matched spouse, else a spouse alike by name and birth year, else (no spouse
+ * recorded) a spouse-less incoming union. Marks the incoming unions it uses in
+ * `usedIncoming`; the rest are incoming-only.
+ */
+function alignUnions(
+  mainUnions: Union[],
+  incomingUnions: Union[],
+  usedIncoming: Set<number>,
+  maps: MatchMaps,
+): Array<{ mu: Union; iu?: Union }> {
+  return mainUnions.map((mu) => {
     // Align this main family with an incoming one via the matched spouse.
     let iIndex = -1;
     if (mu.partner) {
@@ -378,20 +405,10 @@ function descend(
       // are never paired.
       iIndex = partnerlessUnion(mu, incomingUnions, usedIncoming, maps);
     }
-    const iu = iIndex >= 0 ? incomingUnions[iIndex] : undefined;
-    if (iIndex >= 0) usedIncoming.add(iIndex);
-    // Both sides' family xrefs identify the union — the two datasets number
-    // their records independently, so the keys are side-prefixed.
-    const keys = iu ? [`m:${mu.fam.id}`, `i:${iu.fam.id}`] : [`m:${mu.fam.id}`];
-    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam, mainDs);
-  }
-
-  incomingUnions.forEach((iu, idx) => {
-    if (usedIncoming.has(idx)) return;
-    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam, compareDs);
+    if (iIndex < 0) return { mu };
+    usedIncoming.add(iIndex);
+    return { mu, iu: incomingUnions[iIndex] };
   });
-
-  return { partners, directChildren };
 }
 
 /**
@@ -468,22 +485,9 @@ function pairChildren(
   maps: MatchMaps,
   build: Build,
 ): TreeNode[] {
-  const incomingById = new Map(incomingKids.map((c) => [c.id, c]));
   const used = new Set<string>();
   const out: TreeNode[] = [];
-
-  const pairing = new Map<string, Individual>();
-  for (const child of mainKids) {
-    const matchedId = maps.mainToCompare.get(child.id);
-    const paired = matchedId ? incomingById.get(matchedId) : undefined;
-    if (paired) pairing.set(child.id, paired);
-  }
-  const likeness = alignByLikeness(
-    mainKids.filter((c) => !maps.mainToCompare.has(c.id)),
-    incomingKids.filter((c) => !maps.compareToMain.has(c.id)),
-    "child",
-  );
-  for (const [mainId, incoming] of likeness) if (!pairing.has(mainId)) pairing.set(mainId, incoming);
+  const pairing = childPairing(mainKids, incomingKids, maps);
 
   for (const child of mainKids) {
     const paired = pairing.get(child.id);
@@ -497,6 +501,207 @@ function pairChildren(
     if (node) out.push(node);
   }
   return out;
+}
+
+/** Main child id → the incoming child it is: through the match map, else by
+ *  likeness for the children the map says nothing about. */
+function childPairing(mainKids: Individual[], incomingKids: Individual[], maps: MatchMaps): Map<string, Individual> {
+  const incomingById = new Map(incomingKids.map((c) => [c.id, c]));
+  const pairing = new Map<string, Individual>();
+  for (const child of mainKids) {
+    const matchedId = maps.mainToCompare.get(child.id);
+    const paired = matchedId ? incomingById.get(matchedId) : undefined;
+    if (paired) pairing.set(child.id, paired);
+  }
+  const likeness = alignByLikeness(
+    mainKids.filter((c) => !maps.mainToCompare.has(c.id)),
+    incomingKids.filter((c) => !maps.compareToMain.has(c.id)),
+    "child",
+  );
+  for (const [mainId, incoming] of likeness) if (!pairing.has(mainId)) pairing.set(mainId, incoming);
+  return pairing;
+}
+
+/**
+ * How many incoming-only people a match would bring in above (`ancestors`) or
+ * below (`descendants`) the pair — exactly what {@link countImportable} counts
+ * on the tree {@link buildPersonTree} builds, without building it: the results
+ * table needs the number for every candidate, and a tree per candidate (each
+ * paired node comparing its two records field by field) cost ~25 minutes on a
+ * 10k-person file.
+ *
+ * The walk pairs relatives as the tree does — ancestors by position, unions by
+ * spouse, children through the match map or likeness — and keeps the tree's
+ * guards (a person expanded once, a repeat counted as one node; a union's
+ * children drawn once), so pedigree collapse counts the same. It skips every
+ * line {@link pathCount} says holds nobody incoming, which on a typical match
+ * is nearly all of it; `memo` carries those counts across the candidates of
+ * one match result.
+ */
+export function countImportableRelatives(
+  rootMain: Individual | undefined,
+  rootIncoming: Individual | undefined,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  maps: MatchMaps,
+  mode: TreeMode,
+  memo: ImportableMemo,
+): number {
+  const expanded = new Set<string>();
+  const expandedFams = new Set<string>();
+  let n = 0;
+  // One tree position below the root: count it, expand it unless it repeats.
+  const node = (m: Individual | undefined, i: Individual | undefined) => {
+    if (!m && i) n++;
+    expand(m, i);
+  };
+  const expand = (m: Individual | undefined, i: Individual | undefined) => {
+    const key = nodeKey(m, i);
+    if (expanded.has(key)) return;
+    expanded.add(key);
+    if (pathCount(m, i, mainDs, compareDs, maps, mode, memo) === 0) return; // nobody incoming below
+    if (mode === "ancestors") {
+      for (const role of ["husband", "wife"] as const) {
+        const mp = m ? firstParent(m, mainDs, role) : undefined;
+        const ip = i ? firstParent(i, compareDs, role) : undefined;
+        if (mp || ip) node(mp, ip);
+      }
+      return;
+    }
+    const incomingUnions = unionsOf(i, compareDs);
+    const usedIncoming = new Set<number>();
+    const union = (mPartner: Individual | undefined, iPartner: Individual | undefined, famKeys: string[], mainKids: Individual[], incomingKids: Individual[]) => {
+      if (!mPartner && iPartner) n++; // the partner node
+      if (famKeys.some((k) => expandedFams.has(k))) return; // children drawn elsewhere
+      const pairing = childPairing(mainKids, incomingKids, maps);
+      const used = new Set<string>();
+      for (const kid of mainKids) {
+        const paired = pairing.get(kid.id);
+        if (paired) used.add(paired.id);
+        node(kid, paired);
+      }
+      for (const kid of incomingKids) if (!used.has(kid.id)) node(undefined, kid);
+      for (const k of famKeys) expandedFams.add(k); // marked after, as the tree does
+    };
+    for (const { mu, iu } of alignUnions(unionsOf(m, mainDs), incomingUnions, usedIncoming, maps)) {
+      union(mu.partner, iu?.partner, iu ? [`m:${mu.fam.id}`, `i:${iu.fam.id}`] : [`m:${mu.fam.id}`], mu.children, iu?.children ?? []);
+    }
+    incomingUnions.forEach((iu, idx) => {
+      if (!usedIncoming.has(idx)) union(undefined, iu.partner, [`i:${iu.fam.id}`], [], iu.children);
+    });
+  };
+  if (!rootMain && !rootIncoming) return 0;
+  expand(rootMain, rootIncoming);
+  return n;
+}
+
+/**
+ * The incoming-only people below a tree position, counted along every path —
+ * a person reached twice is counted twice, and no guard stops a line already
+ * drawn — so an upper bound of what the tree shows, and zero exactly when the
+ * tree shows nobody. Memoized per pair and per incoming person, so the whole
+ * match result costs about one pass over the two files.
+ */
+function pathCount(
+  rootMain: Individual | undefined,
+  rootIncoming: Individual | undefined,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  maps: MatchMaps,
+  mode: TreeMode,
+  memo: ImportableMemo,
+): number {
+  if (mode === "ancestors") {
+    // Incoming-only ancestors above an incoming-only person.
+    const above = (p: Individual): number => {
+      const hit = memo.ancestorsOf.get(p);
+      if (hit !== undefined) return hit;
+      memo.ancestorsOf.set(p, 0); // cycle guard
+      let n = 0;
+      for (const role of ["husband", "wife"] as const) {
+        const ip = firstParent(p, compareDs, role);
+        if (ip) n += 1 + above(ip);
+      }
+      memo.ancestorsOf.set(p, n);
+      return n;
+    };
+    const walk = (m: Individual | undefined, i: Individual | undefined): number => {
+      if (!i) return 0; // a main-only line has nothing incoming above it
+      if (!m) return above(i);
+      const key = `${m.id}|${i.id}`;
+      const hit = memo.ancestors.get(key);
+      if (hit !== undefined) return hit;
+      memo.ancestors.set(key, 0);
+      let n = 0;
+      for (const role of ["husband", "wife"] as const) {
+        const ip = firstParent(i, compareDs, role);
+        if (!ip) continue;
+        const mp = firstParent(m, mainDs, role);
+        n += mp ? walk(mp, ip) : 1 + above(ip);
+      }
+      memo.ancestors.set(key, n);
+      return n;
+    };
+    return walk(rootMain, rootIncoming);
+  }
+
+  // Incoming-only spouses and descendants below an incoming-only person.
+  const below = (p: Individual): number => {
+    const hit = memo.descendantsOf.get(p);
+    if (hit !== undefined) return hit;
+    memo.descendantsOf.set(p, 0);
+    let n = 0;
+    for (const u of unionsOf(p, compareDs)) n += unionBelow(u);
+    memo.descendantsOf.set(p, n);
+    return n;
+  };
+  const unionBelow = (u: Union): number => {
+    let n = u.partner ? 1 : 0;
+    for (const kid of u.children) n += 1 + below(kid);
+    return n;
+  };
+  const walk = (m: Individual | undefined, i: Individual | undefined): number => {
+    if (!i) return 0;
+    if (!m) return below(i);
+    const key = `${m.id}|${i.id}`;
+    const hit = memo.descendants.get(key);
+    if (hit !== undefined) return hit;
+    memo.descendants.set(key, 0);
+    const incomingUnions = unionsOf(i, compareDs);
+    const usedIncoming = new Set<number>();
+    let n = 0;
+    for (const { mu, iu } of alignUnions(unionsOf(m, mainDs), incomingUnions, usedIncoming, maps)) {
+      if (!iu) continue; // a main-only union brings nobody in
+      const pairing = childPairing(mu.children, iu.children, maps);
+      const used = new Set<string>();
+      for (const kid of mu.children) {
+        const paired = pairing.get(kid.id);
+        if (!paired) continue;
+        used.add(paired.id);
+        n += walk(kid, paired);
+      }
+      for (const kid of iu.children) if (!used.has(kid.id)) n += 1 + below(kid);
+    }
+    incomingUnions.forEach((iu, idx) => {
+      if (!usedIncoming.has(idx)) n += unionBelow(iu);
+    });
+    memo.descendants.set(key, n);
+    return n;
+  };
+  return walk(rootMain, rootIncoming);
+}
+
+/** The memo {@link countImportableRelatives} shares across one match result's
+ *  candidates — valid while the datasets and match maps stay as they were. */
+export interface ImportableMemo {
+  ancestors: Map<string, number>;
+  descendants: Map<string, number>;
+  ancestorsOf: Map<Individual, number>;
+  descendantsOf: Map<Individual, number>;
+}
+
+export function importableMemo(): ImportableMemo {
+  return { ancestors: new Map(), descendants: new Map(), ancestorsOf: new Map(), descendantsOf: new Map() };
 }
 
 function nodeKey(main: Individual | undefined, incoming: Individual | undefined): string {

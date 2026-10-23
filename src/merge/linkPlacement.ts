@@ -12,6 +12,7 @@ import {
   insertOrdered,
   linkPageMedia,
   markEventTouched,
+  memoOnContent,
   setCitationQuay,
   sourceCitationNodes,
 } from "../gedcom/edit";
@@ -94,12 +95,19 @@ export interface LinkPlacement {
  *  citation. `overrides` (Settings → GEDCOM) wins over the file's own habit,
  *  exactly as it does in the Add Source dialog. */
 export function linkPlacementFor(main: Dataset, overrides?: FormatOverrides, compare?: Dataset): LinkPlacement {
+  // Each habit is a scan of the whole file, so it is read once per state of
+  // the file (see `memoOnContent`), not once per merged pair.
+  const records = main.records;
   return {
-    linkFormat: detectLinkFormat(main),
-    pageMedia: overrides?.pageMedia ?? detectPageMediaStyle(main.records),
-    citationPage: overrides?.citationPage ?? detectCitationPageStyle(main.records) ?? "number",
+    linkFormat: memoOnContent(records, "linkFormat", () => detectLinkFormat(main)),
+    pageMedia: overrides?.pageMedia ?? memoOnContent(records, "pageMedia", () => detectPageMediaStyle(records)),
+    citationPage:
+      overrides?.citationPage ?? memoOnContent(records, "citationPage", () => detectCitationPageStyle(records)) ?? "number",
     overrides,
-    incoming: compare && { records: compare.records, sourceCtx: buildSourceContext(compare.records) },
+    incoming: compare && {
+      records: compare.records,
+      sourceCtx: memoOnContent(compare.records, "sourceCtx", () => buildSourceContext(compare.records)),
+    },
     pendingLookups: [],
   };
 }

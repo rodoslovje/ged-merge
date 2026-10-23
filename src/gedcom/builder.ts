@@ -6,6 +6,7 @@ import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceConte
 import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
+import { runSteps, type Steps } from "./steps";
 
 // Re-exported so existing importers (merge, normalize) keep their import path.
 export { looksLikeUrl };
@@ -48,6 +49,18 @@ export function emptyDataset(): Dataset {
 
 /** Build the typed domain `Dataset` from a parsed line tree. */
 export function buildDataset(parsed: ParseResult): Dataset {
+  return runSteps(buildDatasetSteps(parsed));
+}
+
+/** Records built between two yields of {@link buildDatasetSteps}. */
+const RECORDS_PER_STEP = 2_000;
+/** Records whose xref is indexed between two yields. */
+const XREFS_PER_STEP = 50_000;
+
+/** {@link buildDataset} as a stepped pass (see `steps.ts`), yielding between
+ *  its whole-file indexes and every {@link RECORDS_PER_STEP} records — what
+ *  the main thread runs in slices. */
+export function* buildDatasetSteps(parsed: ParseResult): Steps<Dataset> {
   const individuals = new Map<string, Individual>();
   const families = new Map<string, Family>();
   const records = parsed.records;
@@ -58,12 +71,18 @@ export function buildDataset(parsed: ParseResult): Dataset {
   // lost, nor serialize under the same id a second time (strict importers
   // reject that) — it takes a fresh, unused xref instead, and the warning
   // names it. Deterministic, so the worker's parse and the main thread's agree.
+  // (Indexing ~700k xrefs takes a few hundred milliseconds, so these passes
+  // yield too.)
   const lastIndex = new Map<string, number>();
-  records.forEach((r, i) => {
-    if (r.xref) lastIndex.set(r.xref, i);
-  });
-  records.forEach((record, i) => {
-    if (!record.xref || lastIndex.get(record.xref) === i) return;
+  for (let i = 0; i < records.length; i++) {
+    if (i % XREFS_PER_STEP === XREFS_PER_STEP - 1) yield;
+    const xref = records[i].xref;
+    if (xref) lastIndex.set(xref, i);
+  }
+  for (let i = 0; i < records.length; i++) {
+    if (i % XREFS_PER_STEP === XREFS_PER_STEP - 1) yield;
+    const record = records[i];
+    if (!record.xref || lastIndex.get(record.xref) === i) continue;
     const prefix = record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
     const fresh = nextXref(records, prefix);
     parsed.warnings.push({
@@ -71,19 +90,25 @@ export function buildDataset(parsed: ParseResult): Dataset {
       message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
     });
     record.xref = fresh;
-  });
+  }
+  yield;
 
   // Shared multimedia (OBJE) records hold their URL in a FILE line; records
   // attach them by pointer (`1 OBJE @xref@`), so resolve those up front.
   const media = buildMediaLinks(records);
+  yield;
   // Likewise, source (SOUR) and repository (REPO) records are shared and
   // referenced by pointer from event-level citations.
   const sourceCtx = buildSourceContext(records);
+  yield;
   // Shared NOTE records hold their text; records reference them by pointer
   // (`1 NOTE @xref@`), so resolve those to real text up front.
   const notes = buildNoteIndex(records);
+  yield;
 
-  for (const record of records) {
+  for (let i = 0; i < records.length; i++) {
+    if (i % RECORDS_PER_STEP === RECORDS_PER_STEP - 1) yield;
+    const record = records[i];
     if (record.tag === "INDI" && record.xref) {
       individuals.set(record.xref, buildIndividual(record, media, sourceCtx, notes));
     } else if (record.tag === "FAM" && record.xref) {

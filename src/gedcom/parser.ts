@@ -1,4 +1,5 @@
-import { decodeGedcom } from "./decode";
+import { decodeGedcom, type DecodeResult } from "./decode";
+import { runSteps, type Steps } from "./steps";
 import { isPointer } from "./uri";
 import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types";
 
@@ -19,7 +20,43 @@ export const NOT_GEDCOM = "not-gedcom";
  * by tracking a stack indexed by level → fold CONT/CONC into parent values.
  */
 export function parseGedcom(buffer: ArrayBuffer): ParseResult {
-  const { text, charset, warnings: decodeWarnings, bom } = decodeGedcom(buffer);
+  return parseGedcomText(decodeGedcom(buffer));
+}
+
+/**
+ * Parse GEDCOM text already decoded — by {@link parseGedcom}, or text this app
+ * serialized itself (a worker handed the main file as text), which `charset`
+ * and `bom` then describe as the file it came from.
+ */
+export function parseGedcomText(decoded: DecodeResult): ParseResult {
+  return runSteps(parseGedcomSteps(decoded));
+}
+
+/** Text split into lines at a time by {@link parseGedcomSteps}, which yields
+ *  between pieces: about 1 MB, some 40 000 lines. */
+const CHUNK_CHARS = 1 << 20;
+
+const EOL_RE = /\r\n?|\n/;
+
+/**
+ * The lines of `text` from `pos` up to the first line break at least
+ * {@link CHUNK_CHARS} on, the position after that break, and whether any text
+ * follows. Joined, the pieces are the lines `text.split(EOL_RE)` gives: a cut
+ * falls just after a "\n", so a "\r\n" is never parted, and the empty line
+ * the split leaves after a piece's last break is dropped (the text goes on).
+ */
+function nextLines(text: string, pos: number): [string[], number, boolean] {
+  const nl = pos + CHUNK_CHARS < text.length ? text.indexOf("\n", pos + CHUNK_CHARS) : -1;
+  if (nl < 0) return [text.slice(pos).split(EOL_RE), text.length, false];
+  const lines = text.slice(pos, nl + 1).split(EOL_RE);
+  lines.pop();
+  return [lines, nl + 1, true];
+}
+
+/** {@link parseGedcomText} as a stepped pass (see `steps.ts`), yielding after
+ *  every {@link CHUNK_CHARS} of text — what the main thread runs in slices. */
+export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
+  const { text, charset, warnings: decodeWarnings, bom } = decoded;
   const warnings: ParseWarning[] = [...decodeWarnings];
 
   // Remember the source's line-ending style and whether it ended with a newline
@@ -29,10 +66,13 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   const eol = text.includes("\r\n") ? "\r\n" : text.includes("\r") && !text.includes("\n") ? "\r" : "\n";
   const finalNewline = /[\r\n]$/.test(text);
 
-  // Split on any line ending (\r\n, lone \r, or \n) in a single pass. Doing the
-  // split directly avoids allocating a full normalized copy of the text first —
-  // a meaningful saving on large (tens-of-MB) files.
-  const lines = text.split(/\r\n?|\n/);
+  // Split on any line ending (\r\n, lone \r, or \n) — directly, which avoids
+  // allocating a full normalized copy of the text first, and a piece at a time
+  // (nextLines): splitting a 95 MB file at once held the main thread ~0.5 s.
+  let lines: string[] = [];
+  let first = 0; // the line number of lines[0], from 0
+  let pos = 0; // where the text not yet split starts
+  let more = true;
 
   const roots: GedNode[] = [];
   // stack[level] holds the most recent node opened at that level.
@@ -49,8 +89,15 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
   // Cleared on any well-formed non-CONT/CONC line.
   let textBlob: GedNode | undefined;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 0; ; i++) {
+    if (i - first >= lines.length) {
+      if (!more) break;
+      if (i) yield;
+      first = i;
+      [lines, pos, more] = nextLines(text, pos);
+      if (!lines.length) break;
+    }
+    const line = lines[i - first];
     if (line.trim() === "") continue;
 
     const m = LINE_RE.exec(line);

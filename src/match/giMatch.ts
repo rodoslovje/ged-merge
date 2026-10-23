@@ -3,7 +3,7 @@ import { giPersonKey, type GiPair } from "../csv/giMatches";
 import { birthYear } from "../gedcom/lifespan";
 import { primaryName } from "./relatives";
 import { scoreIndividualPair } from "./scoreIndividual";
-import { DEFAULT_CONFIG, type IndividualCandidate, type MatchConfig, type MatchResult } from "./types";
+import { DEFAULT_CONFIG, type IndividualCandidate, type MatchConfig, type ScoredMatchResult } from "./types";
 
 /**
  * Resolve a genealogical index matches CSV against the main dataset: each
@@ -17,7 +17,7 @@ export function matchGiPairs(
   compareDs: Dataset,
   pairs: GiPair[],
   config: MatchConfig = DEFAULT_CONFIG,
-): MatchResult {
+): ScoredMatchResult {
   const index = buildMainKeyIndex(mainDs);
   const individuals: IndividualCandidate[] = [];
   // One candidate per person on each side: the pairs list leads with the CSV's
