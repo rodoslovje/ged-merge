@@ -23,6 +23,7 @@ import { parseDate } from "../gedcom/date";
 import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
 import { nodeSortDate, orderingDate } from "../gedcom/sortDate";
 import { fsIdNode, isFsIdNode } from "../gedcom/exid";
+import { TRANSLATION_TAGS } from "../gedcom/translation";
 import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
@@ -421,6 +422,8 @@ export function applyRows(
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
     } else if (row.key === "noEvents") {
       applied = applyNoEvents(target, incomingRecord, sourMap);
+    } else if (row.key === "nameTranslations") {
+      applied = applyNameTranslations(target, incomingRecord);
     } else if (row.key === "exid") {
       applied = applyExids(target, incomingRecord);
     } else if (row.key === "fsid") {
@@ -721,6 +724,27 @@ export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: Fie
     insertGrouped(target, fsIdNode(tag, value, target.level + 1), ["CHAN", "CREA"]);
   }
   return true;
+}
+
+/**
+ * Copy the translations of the incoming primary name (`TRAN`, or the 5.5.1
+ * `ROMN`/`FONE` the migration made of them) onto the main primary name, each
+ * one whose text the main name does not already carry. Additive: a name in
+ * another script is another way to find the same person, never a correction.
+ */
+export function applyNameTranslations(target: GedNode, incomingRecord: GedNode): boolean {
+  const incName = firstChild(incomingRecord, "NAME");
+  const name = firstChild(target, "NAME");
+  if (!incName || !name) return false;
+  const have = new Set(name.children.filter((c) => TRANSLATION_TAGS.includes(c.tag)).map((c) => c.value?.trim()));
+  let added = false;
+  for (const c of incName.children) {
+    if (!TRANSLATION_TAGS.includes(c.tag) || !c.value?.trim() || have.has(c.value.trim())) continue;
+    have.add(c.value.trim());
+    name.children.push(cloneNode(c));
+    added = true;
+  }
+  return added;
 }
 
 /**

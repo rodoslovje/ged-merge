@@ -47,7 +47,11 @@ export function displayName(n: PersonName | undefined): string {
  */
 export function nameSearchText(indi: Individual): string {
   const parts: (string | undefined)[] = [];
-  for (const n of indi.names) parts.push(n.full, n.given, n.surname, n.married, n.nickname);
+  for (const n of indi.names) {
+    parts.push(n.full, n.given, n.surname, n.married, n.nickname);
+    // A name written in another script or language finds the person too.
+    for (const tr of n.translations ?? []) parts.push(tr.full);
+  }
   return parts.filter(Boolean).join(" ").toLowerCase();
 }
 

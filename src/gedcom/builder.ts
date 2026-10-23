@@ -11,6 +11,7 @@ import { readSex } from "./sex";
 import { negativeAssertionsOf } from "./negative";
 import { nodeSortDate } from "./sortDate";
 import { isFsIdNode, readExid } from "./exid";
+import { nameTranslationsOf, translationsOf } from "./translation";
 import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
 
 /** Which `GedEvent` field each contact line is read into. */
@@ -30,6 +31,8 @@ import type {
   NoteRef,
   ParseResult,
   SourceCitation,
+  Translation,
+  PersonName,
   Sex,
 } from "./types";
 
@@ -209,7 +212,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         break;
       }
       case "NAME":
-        names.push(parseName(child.value, subTagMap(child)));
+        names.push(withNameTranslations(parseName(child.value, subTagMap(child)), child));
         break;
       case "SEX":
         sex = readSex(child);
@@ -374,6 +377,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     if (coord) event.place.coord = coord;
     const form = firstChild(placeNode, "FORM")?.value?.trim();
     if (form) event.place.form = form;
+    const placeTr = translationsOf(placeNode);
+    if (placeTr.length) event.place.translations = placeTr;
   }
   // The address as one string: the ADDR's own text, or its labelled lines
   // joined when the program wrote only those (see `address.ts`).
@@ -458,6 +463,8 @@ export type MediaLinks = Map<string, string[]>;
 export interface NoteIndexEntry {
   text: string;
   private: boolean;
+  /** The record's translations (`TRAN`), when it has any. */
+  translations?: Translation[];
 }
 
 /** Map of top-level NOTE record xref -> its text + private flag. */
@@ -531,7 +538,8 @@ export function buildNoteIndex(records: GedNode[]): NoteIndex {
   const map: NoteIndex = new Map();
   for (const rec of records) {
     if (NOTE_TAGS.includes(rec.tag) && rec.xref && rec.value !== undefined) {
-      map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec) });
+      const translations = translationsOf(rec);
+      map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec), ...(translations.length ? { translations } : {}) });
     }
   }
   return map;
@@ -599,8 +607,10 @@ function collectNote(
   // A pointer is kept even when it doesn't resolve (dangling refs are policed
   // at save time, not silently dropped by a note edit round-trip).
   if (outRefs) {
-    if (isPtr) outRefs.push({ xref: ptr, text: text ?? "", ...(isPrivate ? { private: true } : {}) });
-    else if (node.value?.trim()) outRefs.push({ text: node.value, ...(isPrivate ? { private: true } : {}) });
+    const translations = isPtr ? notes.get(ptr)?.translations : translationsOf(node);
+    const tr = translations?.length ? { translations } : {};
+    if (isPtr) outRefs.push({ xref: ptr, text: text ?? "", ...(isPrivate ? { private: true } : {}), ...tr });
+    else if (node.value?.trim()) outRefs.push({ text: node.value, ...(isPrivate ? { private: true } : {}), ...tr });
   }
   // An inline note may also carry sub-tags / embedded media; let collectLinks
   // walk it (unless the note is private — see resolveNoteText). A pointer
@@ -718,4 +728,11 @@ function subTagMap(node: GedNode): Map<string, string> {
     if (c.value !== undefined) map.set(c.tag, c.value.trim());
   }
   return map;
+}
+
+/** A parsed name with the translations its `NAME` line carries attached. */
+function withNameTranslations(name: PersonName, node: GedNode): PersonName {
+  const translations = nameTranslationsOf(node);
+  if (translations.length) name.translations = translations;
+  return name;
 }

@@ -23,6 +23,7 @@ import { DateInput } from "./DateInput";
 import { joinDateTime, splitDateTime } from "../../gedcom/dateTime";
 import { dateEntryVersion } from "./DateEntryContext";
 import { sortDateTag } from "../../gedcom/sortDate";
+import { translationLine } from "../../gedcom/translation";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
@@ -1098,7 +1099,8 @@ export function EventFieldsRow({
             // `extraPlace`, so it needs the same self-naming placeholder: added
             // from the "+ Add" menu it arrives empty like any other extra.
             placeholder={t("event.colPlace")}
-            title={t("event.place", { event: label })}
+            // The place's translations (GEDCOM 7 TRAN) ride on its hover.
+            title={[t("event.place", { event: label }), ...(ev?.place?.translations ?? []).map((tr) => translationLine(tr.value, tr.lang))].join("\n")}
             onChange={placeField.set}
             onCommit={(val) => {
               // Picking (or typing) a place the file already knows brings its

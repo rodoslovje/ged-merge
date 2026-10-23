@@ -11,6 +11,7 @@ import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox 
 import { dateToSortKey, parseDate } from "../gedcom/date";
 import { orderingDate } from "../gedcom/sortDate";
 import { exidTypeLabel } from "../gedcom/exid";
+import { translationLine } from "../gedcom/translation";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -109,6 +110,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "links") return t("field.sources");
   if (key === "fsid") return t("field.fsid");
   if (key === "exid") return t("field.exid");
+  if (key === "nameTranslations") return t("field.nameTranslations");
   if (key === "noEvents" || key.endsWith(".noEvents")) return t("field.noEvents");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
   if (key === "private" || key.endsWith(".private")) return t("field.private");
@@ -186,6 +188,8 @@ export function individualFieldRows(
     const cText = cExtraNames.map((n) => extraNameText(n, t)).join("\n") || undefined;
     pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
   }
+  // The primary name in other languages or scripts (`TRAN`, 5.5.1 `ROMN`/`FONE`).
+  pushRow(rows, "nameTranslations", formatFieldLabel(t, "nameTranslations"), nameTranslationsText(mn), nameTranslationsText(cn));
   // FamilySearch ids (uppercased — the canonical form — so a case-only
   // difference between the files reads as agreement).
   pushRow(rows, "fsid", formatFieldLabel(t, "fsid"),
@@ -1893,6 +1897,12 @@ function extractEffectiveAddr(
   // Fallback: exact substring match shows the other addr verbatim (→ "=").
   if (otherAddr && placeContainsAddr(ownPlace, otherAddr)) return otherAddr;
   return undefined;
+}
+
+/** A name's translations, one per line with its language, ordered. */
+function nameTranslationsText(name: PersonName | undefined): string | undefined {
+  if (!name?.translations?.length) return undefined;
+  return name.translations.map((tr) => translationLine(tr.full, tr.lang)).sort().join("\n");
 }
 
 /** A record's external identifiers, one per line — the id and the system that

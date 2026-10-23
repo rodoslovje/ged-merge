@@ -181,6 +181,14 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
   }
 
   walkNodes(records, (node) => {
+    // A note's own lines the downgrade kept as `_MIME`/`_LANG`/`_TRAN` (see
+    // NOTE_DOWNGRADES) are 7.0 structures again.
+    if ((node.tag === "NOTE" || node.tag === "SNOTE") && !isPointer(node.value)) {
+      for (const c of node.children) {
+        const up = NOTE_UPGRADES[c.tag];
+        if (up) report(ctx, retag(c, up), `${node.tag}.${describe(c)}`);
+      }
+    }
     if (node.tag === "NOTE" && isPointer(node.value) && noteXrefs.has(node.value)) {
       report(ctx, retag(node, "SNOTE"), `NOTE ${node.value}`);
     } else if (node.tag === "ROMN" || node.tag === "FONE") {
@@ -443,6 +451,11 @@ const NOTE_DOWNGRADES: Record<string, string> = {
   LANG: "_LANG",
   TRAN: "_TRAN",
 };
+
+/** The way back up for {@link NOTE_DOWNGRADES}. */
+const NOTE_UPGRADES: Record<string, string> = Object.fromEntries(
+  Object.entries(NOTE_DOWNGRADES).map(([tag, stand]) => [stand, tag]),
+);
 
 function isVoidPointer(value: string | undefined): boolean {
   return value?.trim().toUpperCase() === VOID_XREF;

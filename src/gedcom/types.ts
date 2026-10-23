@@ -169,6 +169,24 @@ export interface PersonName {
   /** Married surname carried inline on the primary name as a `2 _MARNM` sub-tag
    * (the alternative to a separate `1 NAME` + `2 TYPE married` record). */
   married?: string;
+  /** The name in other languages or scripts (`TRAN`, or 5.5.1 `ROMN`/`FONE`) —
+   *  see `gedcom/translation.ts`. */
+  translations?: NameTranslation[];
+}
+
+/** A translation of a place or a note: its text and the language it is in. */
+export interface Translation {
+  value: string;
+  /** BCP 47 language tag (`LANG`), or a 5.5.1 variant's `TYPE` ("romaji"). */
+  lang?: string;
+}
+
+/** A name's translation, parsed into its parts like the name itself. */
+export interface NameTranslation {
+  full: string;
+  given?: string;
+  surname?: string;
+  lang?: string;
 }
 
 /**
@@ -297,6 +315,8 @@ export interface GedPlace {
   /** The place's `FORM`, naming the jurisdiction level each part stands for
    *  ("Place,Upravna Enota,Country"). Only meaningful on a `PLAC`. */
   form?: string;
+  /** The place name in other languages (`TRAN`, or 5.5.1 `ROMN`/`FONE`). */
+  translations?: Translation[];
 }
 
 /**
@@ -343,6 +363,8 @@ export interface NoteRef {
    *  `RESN privacy`/`confidential`) — excluded from publishing, and its URLs
    *  are never surfaced as links or moved into sources. */
   private?: boolean;
+  /** The note in other languages (`TRAN`) — read for display, kept by edits. */
+  translations?: Translation[];
 }
 
 /** A role from GEDCOM 7's `ASSO`.`ROLE` enumeration — see `gedcom/assoc.ts`. */

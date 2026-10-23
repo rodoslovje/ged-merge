@@ -110,6 +110,7 @@ import { EventAddRow } from "./edit/EventAddRow";
 import { AddNoEventSelect, NoEventsRow } from "./edit/NoEventsRow";
 import { addNegativeAssertion, NO_INDI_EVENT_TAGS, removeNegativeAssertion } from "../gedcom/negative";
 import { ExternalIdChips, FsIdEditor } from "./edit/FsIdEditor";
+import { TranslationChips } from "./edit/TranslationChips";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
@@ -2000,6 +2001,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             />
           )}
           {(person.exids ?? []).length > 0 && <ExternalIdChips exids={person.exids!} t={t} />}
+          <TranslationChips items={(person.names[0]?.translations ?? []).map((tr) => ({ text: tr.full, lang: tr.lang }))} t={t} />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
               <LinksEditor
