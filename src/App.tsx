@@ -58,6 +58,7 @@ import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
+import { fixConformance } from "./tools/fixConformance";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
 import { fetchPageHtml } from "./normalize/urlMetadata";
@@ -2654,6 +2655,7 @@ function AppContent() {
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
+              onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {

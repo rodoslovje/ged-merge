@@ -321,7 +321,8 @@ function checkPayload(
     const fix = verdicts.every((v) => v !== "")
       ? items.map((v, i) => verdicts[i] ?? v).join(", ")
       : undefined;
-    emit("enumValue", fix ? "enumCase" : "enumValue", { allowed: set.filter((s) => s !== "()").join(", ") }, fix);
+    const allowed = set.filter((s) => s !== "()").join(", ");
+    emit("enumValue", fix ? "enumCase" : "enumValue", fix ? { allowed, standard: fix } : { allowed }, fix);
   } else if (payload === "D") {
     checkCalendar(value, spec.is70, emit);
   } else if (payload === "A") {
