@@ -1,4 +1,4 @@
-import { SUBMITTER_NAME } from "../gedcom/newFile";
+import { submitterName } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
@@ -64,9 +64,16 @@ function gedcBlock(version: OutputVersion): GedNode {
  * trailer, the header's version declaration, and — for 5.5.1, which requires
  * them — the character set and a submitter. With `apply`, they are made
  * (the forest is mutated); without, they are only listed, which is what the
- * preview shows before anything is written.
+ * preview shows before anything is written. A submitter record made here is
+ * named `authorName` (the reader's name from Settings), or the program's name
+ * when it is empty; one the file already has is never touched.
  */
-export function completeStructure(records: GedNode[], version: OutputVersion, apply = true): StructuralFix[] {
+export function completeStructure(
+  records: GedNode[],
+  version: OutputVersion,
+  apply = true,
+  authorName?: string,
+): StructuralFix[] {
   const fixes: StructuralFix[] = [];
   let head = records.find((r) => r.tag === "HEAD");
   if (!head) {
@@ -91,7 +98,7 @@ export function completeStructure(records: GedNode[], version: OutputVersion, ap
       }
     }
   }
-  if (version !== "7.0" && ensureSubmitter(records, head, apply)) fixes.push("subm");
+  if (version !== "7.0" && ensureSubmitter(records, head, apply, authorName)) fixes.push("subm");
   if (!records.some((r) => r.tag === "TRLR")) {
     fixes.push("trlr");
     if (apply) records.push(line("TRLR"));
@@ -123,7 +130,7 @@ function declareVersion(head: GedNode, version: OutputVersion): void {
  * lacks gets that record, under the xref it already names. Returns whether
  * anything was (or, without `apply`, would be) added.
  */
-function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean): boolean {
+function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, authorName?: string): boolean {
   const submitters = records.filter((r) => r.tag === "SUBM" && r.xref);
   const pointer = firstChild(head, "SUBM");
   const target = pointer?.value?.trim();
@@ -137,7 +144,7 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean): boo
     xref = `@U${n}@`;
   }
   if (!submitters.some((r) => r.xref === xref)) {
-    const record = line("SUBM", undefined, [line("NAME", SUBMITTER_NAME)]);
+    const record = line("SUBM", undefined, [line("NAME", submitterName(authorName))]);
     record.xref = xref;
     const trlr = records.findIndex((r) => r.tag === "TRLR");
     records.splice(trlr >= 0 ? trlr : records.length, 0, record);
@@ -254,16 +261,18 @@ export interface PreparedDownload {
  * Make `records` (a clone about to be serialized) a valid file in `version`:
  * repair its structure, convert it when `version` is not the file's own,
  * declare UTF-8, stamp GED Merge as the writing system and, for 7.0, declare
- * its extension tags.
+ * its extension tags. `authorName` names a submitter record the file needs
+ * and lacks (see {@link completeStructure}).
  */
 export function prepareDownload(
   records: GedNode[],
   ds: Pick<Dataset, "version" | "charset">,
   version: OutputVersion = ownVersion(ds),
   date: Date = new Date(),
+  authorName?: string,
 ): PreparedDownload {
   const from = ownVersion(ds);
-  const fixes = completeStructure(records, version);
+  const fixes = completeStructure(records, version, true, authorName);
   const conversion = from === version ? null : convertVersion(records, from, version);
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);

@@ -1628,7 +1628,7 @@ export const sl = {
   "preview.fix.trlr": "Datoteka nima zaključne vrstice. Shranjena datoteka se konča z zaključno vrstico (TRLR), kot zahteva GEDCOM.",
   "preview.fix.gedc": "Glava datoteke ne navaja v celoti različice GEDCOM. V glavi shranjene datoteke je različica navedena.",
   "preview.fix.char": "Glava datoteke ne navaja kodiranja znakov. V glavi shranjene datoteke je navedeno kodiranje UTF-8.",
-  "preview.fix.subm": "GEDCOM 5.5.1 zahteva, da glava navaja zapis avtorja (SUBM). V glavi shranjene datoteke je zapis avtorja naveden; če ga datoteka nima, se doda zapis avtorja z imenom »GED Merge«.",
+  "preview.fix.subm": "GEDCOM 5.5.1 zahteva, da glava navaja zapis avtorja (SUBM). V glavi shranjene datoteke je zapis avtorja naveden; če ga datoteka nima, se doda zapis avtorja z imenom »{{name}}«.",
   "preview.version.label": "Različica GEDCOM",
   "preview.version.hint": "Različica GEDCOM, v kateri se zapiše shranjena datoteka",
   "preview.version.convert": "Shranjena datoteka se pretvori iz različice GEDCOM {{from}} v različico GEDCOM {{to}}; z odprto datoteko nato delate v različici GEDCOM {{to}}.",

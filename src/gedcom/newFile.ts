@@ -3,11 +3,19 @@ import { isUnknownNameToken } from "./name";
 import type { Dataset } from "./types";
 
 /** The name of the submitter record a 5.5.1 file gets when it has none (see
- *  `completeStructure`). 5.5.1 requires `HEAD.SUBM` and a SUBM record with a
- *  `NAME`; the browser cannot know the reader's own name, so the record names
- *  the program that wrote it — the name `HEAD.SOUR` carries too — rather than
- *  inventing a person. */
+ *  `completeStructure`) and the reader has not given their own in Settings.
+ *  5.5.1 requires `HEAD.SUBM` and a SUBM record with a `NAME`; the browser
+ *  cannot know the reader's name, so the record then names the program that
+ *  wrote it — the name `HEAD.SOUR` carries too — rather than inventing a
+ *  person. */
 export const SUBMITTER_NAME = "GED Merge";
+
+/** The name a submitter record GED Merge writes carries: the reader's own
+ *  (Settings → "Your name (file author)"), trimmed, or {@link SUBMITTER_NAME}
+ *  when none is set. */
+export function submitterName(authorName?: string): string {
+  return authorName?.replace(/\s+/g, " ").trim() || SUBMITTER_NAME;
+}
 
 /** Base name (without extension) of the file "Start a new file" creates. */
 export const NEW_FILE_BASENAME = "new-tree";
@@ -44,11 +52,12 @@ export function newFileBase(dataset: Dataset, homeId?: string): string | null {
  * Deliberately minimal: a header naming GED Merge as the writing system,
  * 5.5.1 / UTF-8 (the pair most other genealogy programs read without
  * complaint), the submitter record 5.5.1 requires, and the trailer. The
- * browser cannot know who the reader is, so the submitter carries the
- * program's name ({@link SUBMITTER_NAME}) — the same record a save gives a
- * 5.5.1 file that has none.
+ * submitter carries the reader's name from Settings, or the program's name
+ * when none is set ({@link submitterName}) — the same record a save gives a
+ * 5.5.1 file that has none. Saved later as 7.0, where a submitter is
+ * optional, the record stays.
  */
-export function newGedcomText(date: Date = new Date()): string {
+export function newGedcomText(date: Date = new Date(), authorName?: string): string {
   return [
     "0 HEAD",
     "1 SOUR GEDMERGE",
@@ -61,7 +70,7 @@ export function newGedcomText(date: Date = new Date()): string {
     "2 FORM LINEAGE-LINKED",
     "1 CHAR UTF-8",
     "0 @U1@ SUBM",
-    `1 NAME ${SUBMITTER_NAME}`,
+    `1 NAME ${submitterName(authorName)}`,
     "0 TRLR",
     "",
   ].join("\n");

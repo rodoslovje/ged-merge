@@ -20,6 +20,8 @@ import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
 import { completeStructure, ownVersion, type OutputVersion } from "../../save/outputFile";
+import { submitterName } from "../../gedcom/newFile";
+import { useSettingsSlice } from "../SettingsContext";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
@@ -102,6 +104,9 @@ interface RowFix {
 }
 
 /** Sort weight per severity, so a unified list shows errors → warnings → info. */
+/** The name a save would give a missing submitter record, for the notice. */
+const AUTHOR_KEYS = ["authorName"] as const;
+
 const SEV_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
 /** A row in the unified Health Check list — a record-level finding or a structural
@@ -290,6 +295,7 @@ export function ValidatePanel({
   const version = ownVersion(dataset);
   const otherVersion: OutputVersion = version === "7.0" ? "5.5.1" : "7.0";
   const records = dataset.records;
+  const { authorName } = useSettingsSlice(AUTHOR_KEYS);
   const fileFixes = useMemo(() => completeStructure(records, version, false), [records, version]);
 
   const q = useDebounced(query).trim().toLowerCase();
@@ -684,7 +690,9 @@ export function ValidatePanel({
               what leaves. Outside the virtual list: its rows must stay a
               uniform height. */}
           {charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
-          {fileFixes.map((fix) => <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`)}</p>)}
+          {fileFixes.map((fix) => (
+            <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
+          ))}
           <p className="tools-file-note tools-version">
             {t("tools.validate.version", { version })}{" "}
             <button

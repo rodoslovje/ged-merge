@@ -193,6 +193,32 @@ describe("completeStructure — header and trailer", () => {
     expect(dangling.lines).toContain("0 @X1@ SUBM");
   });
 
+  it("names a submitter it has to make after the reader, when Settings give a name", () => {
+    const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR\n";
+    const ds = parse(text);
+    const { fixes } = prepareDownload(ds.records, ds, "5.5.1", when, "  Ana   Novak ");
+    expect(fixes).toEqual(["subm"]);
+    const lines = serializeGedcom(ds.records, outputOptions(ds, "5.5.1")).trimEnd().split("\n");
+    expect(lines.slice(-3)).toEqual(["0 @U1@ SUBM", "1 NAME Ana Novak", "0 TRLR"]);
+    // An empty or blank setting falls back to the program's name.
+    const blank = parse(text);
+    prepareDownload(blank.records, blank, "5.5.1", when, "   ");
+    expect(blank.records.find((r) => r.tag === "SUBM")?.children[0].value).toBe(SUBMITTER_NAME);
+  });
+
+  it("never renames the file's own submitter, whatever the setting says", () => {
+    const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @S9@ SUBM\n1 NAME Ana\n0 TRLR\n";
+    const ds = parse(text);
+    prepareDownload(ds.records, ds, "5.5.1", when, "Janez Kranjec");
+    const subms = ds.records.filter((r) => r.tag === "SUBM");
+    expect(subms).toHaveLength(1);
+    expect(subms[0].children.find((c) => c.tag === "NAME")?.value).toBe("Ana");
+    // A 7.0 save adds none, named or not.
+    const v7 = parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n");
+    prepareDownload(v7.records, v7, "7.0", when, "Janez Kranjec");
+    expect(v7.records.some((r) => r.tag === "SUBM")).toBe(false);
+  });
+
   it("leaves a 5.5.1 file with a submitter, and a 7.0 file without one, alone", () => {
     const ok = "0 HEAD\n1 SUBM @U1@\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @U1@ SUBM\n1 NAME Ana\n0 TRLR\n";
     expect(completeStructure(parse(ok).records, "5.5.1", false)).toEqual([]);

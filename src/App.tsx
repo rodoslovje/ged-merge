@@ -97,7 +97,7 @@ import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
 import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
 import { FILES_IN_MENU_QUERY, useCompactHeader, useMediaQuery, usePhone } from "./ui/usePhone";
-import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
+import { NEW_FILE_BASENAME, newGedcomText, submitterName } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances, rankedCandidates } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
@@ -139,7 +139,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -599,7 +599,7 @@ function AppContent() {
    *  ordinary load path, so nothing downstream has to know it wasn't imported.
    *  Edit mode then offers its empty-state "add the first person" button. */
   function startNewFile() {
-    const file = new File([newGedcomText()], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
+    const file = new File([newGedcomText(new Date(), settings.authorName)], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
     void loadFile("main", file);
     setMode("edit");
   }
@@ -1874,8 +1874,8 @@ function AppContent() {
     // Saved in the other GEDCOM version, the records are converted first (see
     // convertVersion) and the report lists what the conversion rewrote.
     const from = ownVersion(mainDataset);
-    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version);
-    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`));
+    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, settings.authorName);
+    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(settings.authorName) }));
     if (conversion) {
       fileNotes.push(t("changeReport.note.converted", { from, to: version, count: conversion.length }));
       for (const change of conversion) fileNotes.push(`  ${change}`);

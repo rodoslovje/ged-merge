@@ -39,6 +39,13 @@ describe("newGedcomText", () => {
     expect(subm.children.find((c) => c.tag === "NAME")?.value).toBe(SUBMITTER_NAME);
   });
 
+  it("names the reader as the author when Settings give a name, the program when they don't", () => {
+    const named = newGedcomText(new Date(2026, 6, 27), " Ana  Novak ");
+    expect(named).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n");
+    expect(newGedcomText(new Date(2026, 6, 27), "")).toContain(`0 @U1@ SUBM\n1 NAME ${SUBMITTER_NAME}\n`);
+    expect(newGedcomText(new Date(2026, 6, 27), "  ")).toContain(`1 NAME ${SUBMITTER_NAME}\n`);
+  });
+
   it("takes a first person, who survives a save round-trip", () => {
     const ds = dataset();
     const added = addIndividual(ds, "U");

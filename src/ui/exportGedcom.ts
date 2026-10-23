@@ -10,8 +10,10 @@ import { downloadText } from "./download";
  * {@link extractBranch}) and download it as `{slug}.ged`. The recipient loads
  * it in GED Merge as a compare file and merges it into their own tree.
  */
-export function exportChartGedcom(ds: Dataset, personIds: Iterable<string>, slug: string): void {
+export function exportChartGedcom(ds: Dataset, personIds: Iterable<string>, slug: string, authorName?: string): void {
   const { records } = extractBranch(ds, personIds);
-  prepareDownload(records, ds); // records are clones; downloads are UTF-8 bytes, stamped, complete
+  // Records are clones; downloads are UTF-8 bytes, stamped, complete — a 5.5.1
+  // branch without a submitter gets one named after the reader (Settings).
+  prepareDownload(records, ds, undefined, undefined, authorName);
   downloadText(`${slug}.ged`, serializeGedcom(records, downloadOptions(ds)));
 }
