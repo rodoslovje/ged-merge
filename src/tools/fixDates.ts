@@ -94,11 +94,16 @@ function detectSourceOrder(values: string[], numericOrder?: DateOrder): DateOrde
   return numericOrder && numericOrder !== "YMD" ? numericOrder : "DMY";
 }
 
-/** True when `value` is the parser's "garbage" result — no usable date, and not
- *  a deliberate placeholder. Mirrors the detection in `validateStructure`. */
-function isUnparseable(value: string): boolean {
-  const d = parseDate(value);
-  return d.qualifier === "unknown" && d.year == null && d.year2 == null && !d.placeholder;
+/** True when `value` holds no date to read — what the health check reports as
+ *  unparseable and what this fix tries to repair; both use this one test. */
+export function isUnparseable(value: string): boolean {
+  const v = value.trim();
+  // A date phrase in parentheses is GEDCOM's own way of writing a date as text.
+  if (/^\(.*\)$/.test(v)) return false;
+  // Nothing to read: no year, no calendar, no deliberate placeholder. A
+  // qualifier word alone does not make a date — "pred vojno" ("before the
+  // war") parses as "before" with nothing after it.
+  return !isReadable(parseDate(v));
 }
 
 /**
@@ -115,6 +120,14 @@ export function proposeDateFix(value: string, ctx: DateFixContext): string | und
   // it as the formal FROM…TO form before falling back to the cleanups below.
   const period = proposeYearPeriod(value);
   if (period) return period;
+
+  // "About 1835 - 1840" names a span the date falls somewhere in: BET … AND
+  // says exactly that (and is itself approximate), where the "about" read
+  // alone kept no year at all.
+  const aboutSpan = value.trim().match(/^\S+\.?\s+(\d{3,4})\s*[-–]\s*(\d{3,4})$/);
+  if (aboutSpan && parseDate(value).qualifier === "about" && +aboutSpan[1] < +aboutSpan[2]) {
+    return `BET ${aboutSpan[1]} AND ${aboutSpan[2]}`;
+  }
 
   for (const cleaned of cleanupCandidates(value)) {
     if (isUnparseable(cleaned)) continue; // still unparseable → not a safe fix

@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { vendorTagInfo } from "../gedcom/vendorTags";
 import { isVoidPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import { dateFixContext, dateStyleContext, nonStandardDate, proposeDateFix } from "./fixDates";
+import { dateFixContext, dateStyleContext, isUnparseable, nonStandardDate, proposeDateFix } from "./fixDates";
 import { firstChild } from "../gedcom/node";
 
 /**
@@ -363,9 +363,9 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
 
     if (tag === "DATE" && node.value && node.value.trim()) {
       const d = parseDate(node.value);
-      // The parser returns qualifier "unknown" with no components for garbage;
-      // a deliberate ".__.____" placeholder is flagged separately and is fine.
-      if (d.qualifier === "unknown" && d.year == null && d.year2 == null && !d.placeholder) {
+      // No date to read in it (see isUnparseable): a deliberate ".__.____"
+      // placeholder and a "(date phrase)" are fine.
+      if (isUnparseable(node.value)) {
         // If the one-click fix could safely repair it, preview the result in the
         // tooltip and mark the row fixable.
         const fix = proposeDateFix(node.value, fixCtx);
