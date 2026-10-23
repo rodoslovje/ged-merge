@@ -228,7 +228,9 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
     const breaks = node.conc?.of === node.value ? node.conc.at : undefined;
     let pos = 0;
     for (let i = 0; i < segments.length; i++) {
-      const prefix = i === 0 ? head : `${depth + 1} CONT`;
+      // A tag the file wrote as `1 NOTE ` keeps its space while its line
+      // still carries no text.
+      const prefix = i > 0 ? `${depth + 1} CONT` : node.spaced && segments[0] === "" ? `${head} ` : head;
       pushSegment(lines, prefix, segments[i], depth, maxLen, segmentBreaks(breaks, pos, segments[i].length), ctx.all);
       pos += segments[i].length + 1; // + the "\n" the CONT line stands for
     }

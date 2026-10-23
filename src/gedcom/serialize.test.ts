@@ -4,6 +4,7 @@ import { setEventField } from "./edit";
 import { parseGedcom } from "./parser";
 import { downloadOptions, ensureUtf8Charset, LINE_LIMIT_551, serializeGedcom, stampHeadSource } from "./serialize";
 import type { GedNode } from "./types";
+import { cloneNode } from "./node";
 
 /** Parse text (as bytes) then serialize back, using the detected conventions. */
 function roundTrip(text: string): string {
@@ -411,6 +412,21 @@ describe("serializeGedcom", () => {
         "",
       ].join("\n");
       expect(roundTrip(text)).toBe(text);
+    });
+  });
+
+  describe("a bare tag written with a trailing space", () => {
+    it("keeps the space while the line is unchanged", () => {
+      const text = ["0 HEAD", "0 @I1@ INDI", "1 NOTE ", "2 CONT second", "1 EVEN ", "2 TYPE x", "0 @N1@ NOTE ", "0 TRLR", ""].join("\n");
+      expect(roundTrip(text)).toBe(text);
+    });
+
+    it("drops it once the line carries text, and survives a clone", () => {
+      const parsed = parseGedcom(new TextEncoder().encode("0 HEAD\n0 @I1@ INDI\n1 NOTE \n0 TRLR\n").buffer);
+      const note = parsed.records[1].children[0];
+      expect(serializeGedcom([cloneNode(parsed.records[1])])).toBe("0 @I1@ INDI\n1 NOTE \n");
+      note.value = "now text";
+      expect(serializeGedcom([parsed.records[1]])).toBe("0 @I1@ INDI\n1 NOTE now text\n");
     });
   });
 

@@ -188,6 +188,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     if (xref) node.xref = xref;
     if (value !== undefined) node.value = value;
     if (spelling) node.spelling = spelling;
+    if (value === "") node.spaced = true;
 
     if (level === 0) {
       roots.push(node);

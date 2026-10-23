@@ -97,6 +97,12 @@ export interface GedNode {
    * (`of` costs nothing: it is the same string, not a copy.)
    */
   conc?: { at: number[]; of: string };
+  /**
+   * The file wrote this tag with one space and nothing after it (`1 NOTE `),
+   * which reads as an empty value. The serializer puts the space back while
+   * the tag line still carries no text, so an untouched line saves as read.
+   */
+  spaced?: true;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */
