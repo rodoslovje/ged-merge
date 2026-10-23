@@ -18,8 +18,8 @@ import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, isInternalEventType, v
  *  vendor events (_MILT military, _MEDC medical, _FNRL funeral, _INTE
  *  interment), which carry the same DATE/PLAC substructure. */
 export const INDI_EVENT_TAG_ORDER = [
-  "BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP",
-  "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
+  "BIRT", "BAPM", "CHR", "CHRA", "BLES", "FCOM", "CONF", "BARM", "BASM", "ADOP",
+  "OCCU", "EDUC", "GRAD", "ORDN", "RETI", "_MILT", "_MILI",
   "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "PROP", "WILL", "PROB",
@@ -67,6 +67,7 @@ export const EVENT_GLYPHS: Record<string, string> = {
   BIRT: "*",
   BAPM: "~",
   CHR: "~",
+  CHRA: "~",
   ENGA: "⚬",
   MARR: "⚭",
   // No standard mark exists for living apart: two rings no longer linked,

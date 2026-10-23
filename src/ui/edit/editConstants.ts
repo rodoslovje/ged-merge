@@ -9,10 +9,14 @@ export { VALUE_EVENT_TAGS, SECONDARY_VALUE_EVENT_TAGS } from "../../gedcom/event
  * can be added and switched to/from like any other event. A non-standard tag
  * (`isNonStandardTag`) closes its group, after every standard one. */
 export const INDIVIDUAL_EVENT_GROUPS = [
-  // Life order: the two baptisms, then first communion, then confirmation;
-  // adoption last, since it is not tied to a point in that sequence.
-  { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "FCOM", "CONF", "ADOP"] },
-  { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "RETI", "_MILT"] },
+  // Life order: the baptisms (a child's, then an adult's) and a blessing, then
+  // first communion, confirmation and the bar/bat mitzvah that stand where
+  // confirmation does; adoption last, since it is not tied to a point in that
+  // sequence.
+  { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "CHRA", "BLES", "FCOM", "CONF", "BARM", "BASM", "ADOP"] },
+  // An ordination is the entry into a calling, so it sits with the schooling
+  // that leads to one.
+  { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "ORDN", "RETI", "_MILT"] },
   { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "NCHI", "NMR", "REFN", "IDNO", "SSN", "RACE", "NOBI", "ILL", "_MEDC"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
   // What a person owned and the legal acts about it, in life and after it.

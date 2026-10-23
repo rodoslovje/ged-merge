@@ -30,6 +30,11 @@ const EVENT_LABELS: Record<string, string> = {
   BIRT: "Birth",
   BAPM: "Baptism",
   CHR: "Christening",
+  CHRA: "Adult christening",
+  BLES: "Blessing",
+  BARM: "Bar mitzvah",
+  BASM: "Bat mitzvah",
+  ORDN: "Ordination",
   CONF: "Confirmation",
   ADOP: "Adoption",
   FCOM: "First Communion",
@@ -1572,7 +1577,7 @@ export function orderedEventTags(
 }
 
 /** Birth-adjacent tags that should always sort before any dated event. */
-const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"]);
+const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "CHRA", "BLES", "FCOM", "CONF", "BARM", "BASM", "ADOP"]);
 
 /**
  * Life-zone tags that can only occur while the person is alive, so they must
@@ -1581,7 +1586,7 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"])
  * probate routinely happens after death, so their date should be trusted as-is.
  */
 export const LIFE_ZONE_TAGS = new Set([
-  "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
+  "OCCU", "EDUC", "GRAD", "ORDN", "RETI", "_MILT", "_MILI",
   "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
 ]);
