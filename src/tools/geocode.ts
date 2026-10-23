@@ -450,7 +450,8 @@ export function planCountryFill(rows: readonly GeocodeRow[], country: string, se
  * from the geocode review list, where each row IS one exact raw value (fix a
  * typo so the gazetteer can match it). With `addr`, the value is split:
  * PLAC becomes `to` and `addr` is written as an ADDR sibling on the parent
- * event (an ADDR already carrying a value is left untouched). Mutates the
+ * event (an ADDR already carrying an address — a line or labelled lines — is
+ * left untouched). Mutates the
  * dataset in place and returns RecordPatch[] for the unified undo stack.
  */
 export function renamePlaceValue(
@@ -510,7 +511,9 @@ export function renamePlaceValues(dataset: Dataset, renames: readonly OfficialRe
           const at = parent.children.indexOf(plac) + 1;
           parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: r.addrTarget, children: [] });
           wrote = true;
-        } else if (!existing.value?.trim()) {
+        } else if (!addressText(existing)) {
+          // An ADDR saying nothing takes it; one whose labelled lines already
+          // carry the address (see `addressText`) is left as it is.
           existing.value = r.addrTarget;
           wrote = true;
         }
