@@ -9133,8 +9133,11 @@ kbd {
 .tools-fix-item .tools-run { margin: 0; flex-shrink: 0; }
 .tools-fix-hint { color: var(--muted); font-size: 0.85rem; }
 /* A standing note above the findings (what saving does to the file's encoding),
-   as opposed to the hint that sits beside a fix button. */
-.tools-note {
+   as opposed to the hint that sits beside a fix button. The file notes say
+   what the file is (its GEDCOM version) and what saving supplies for it to be
+   valid GEDCOM. */
+.tools-note,
+.tools-file-note {
   margin: 0 0 12px; padding-left: 10px; border-left: 2px solid var(--border);
   color: var(--muted); font-size: 0.85rem;
 }

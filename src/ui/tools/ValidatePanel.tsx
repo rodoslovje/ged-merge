@@ -288,7 +288,8 @@ export function ValidatePanel({
   // what a save supplies for it to be valid at all (a header, a trailer, …).
   const version = ownVersion(dataset);
   const otherVersion: OutputVersion = version === "7.0" ? "5.5.1" : "7.0";
-  const fileFixes = useMemo(() => completeStructure(dataset.records, version, false), [dataset, version]);
+  const records = dataset.records;
+  const fileFixes = useMemo(() => completeStructure(records, version, false), [records, version]);
 
   const q = useDebounced(query).trim().toLowerCase();
 
@@ -682,8 +683,8 @@ export function ValidatePanel({
               what leaves. Outside the virtual list: its rows must stay a
               uniform height. */}
           {charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
-          {fileFixes.map((fix) => <p className="tools-note" key={fix}>{t(`preview.fix.${fix}`)}</p>)}
-          <p className="tools-note tools-version">
+          {fileFixes.map((fix) => <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`)}</p>)}
+          <p className="tools-file-note tools-version">
             {t("tools.validate.version", { version })}{" "}
             <button
               type="button"
