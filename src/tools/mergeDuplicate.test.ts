@@ -464,22 +464,61 @@ describe("mergeDuplicate", () => {
       "0 @F2@ FAM\n1 HUSB @I5@\n1 WIFE @I2@\n" +
       "0 @F3@ FAM\n1 HUSB @I5@\n1 WIFE @I4@\n",
     ));
-    // Compared record by record: undo of a multi-step chain restores every
-    // record's content, though not always each record's position.
-    const contents = () => ds.records.map((r) => serializeGedcom([r])).sort();
-    const original = contents();
+    const original = serializeGedcom(ds.records);
     const patches = mergeDuplicateChain(ds, [
       { survivorId: "@I1@", removedId: "@I2@", decision: decide({}) },
       { survivorId: "@I4@", removedId: "@I1@", decision: decide({}) },
     ], tr);
+    const merged = serializeGedcom(ds.records);
 
     const bapm = ds.individuals.get("@I3@")!.raw.children.find((c) => c.tag === "BAPM")!;
     expect(bapm.children.filter((c) => c.tag === "ASSO").map((c) => c.value)).toEqual(["@I4@"]);
     expect(ds.individuals.get("@I6@")!.raw.children.filter((c) => c.tag === "FAMC").map((c) => c.value)).toEqual(["@F3@"]);
     expect([...ds.families.keys()]).toEqual(["@F3@"]);
 
+    // Undo restores every record at its own position, not only its content.
     applyRecordPatches(ds, patches, "undo");
-    expect(contents()).toEqual(original);
+    expect(serializeGedcom(ds.records)).toBe(original);
+    applyRecordPatches(ds, patches, "redo");
+    expect(serializeGedcom(ds.records)).toBe(merged);
+  });
+
+  it("undoes a chain of interleaved pairs back to the file's own record order", () => {
+    // Three duplicate pairs with unrelated records between them: each step
+    // removes a record, so every later step sees the list shifted. @A1@ is
+    // touched by step 1 (as survivor) and removed by step 2 — its position
+    // must be the one it held before the chain, not the one step 2 saw.
+    const text = wrap(
+      "0 @X1@ INDI\n1 NAME Ana /Prva/\n1 SEX F\n" +
+      "0 @A1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "0 @X2@ INDI\n1 NAME Ana /Druga/\n1 SEX F\n" +
+      "0 @A2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n" +
+      "0 @B1@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1860\n" +
+      "0 @X3@ INDI\n1 NAME Ana /Tretja/\n1 SEX F\n" +
+      "0 @B2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 DEAT\n2 DATE 1930\n" +
+      "0 @A3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 OCCU kmet\n" +
+      "0 @X4@ INDI\n1 NAME Ana /Četrta/\n1 SEX F\n" +
+      "0 @C1@ INDI\n1 NAME Peter /Zupan/\n1 SEX M\n1 BIRT\n2 DATE 1870\n" +
+      "0 @C2@ INDI\n1 NAME Peter /Zupan/\n1 SEX M\n1 BIRT\n2 DATE 1870\n1 DEAT\n2 DATE 1940\n" +
+      "0 @X5@ INDI\n1 NAME Ana /Peta/\n1 SEX F\n",
+    );
+    const ds = dataset(text);
+    const original = serializeGedcom(ds.records);
+    const patches = mergeDuplicateChain(ds, [
+      { survivorId: "@A1@", removedId: "@A3@", decision: decide({}) },
+      { survivorId: "@A2@", removedId: "@A1@", decision: decide({}) },
+      { survivorId: "@B2@", removedId: "@B1@", decision: decide({}) },
+      { survivorId: "@C1@", removedId: "@C2@", decision: decide({}) },
+    ], tr);
+    const merged = serializeGedcom(ds.records);
+    expect([...ds.individuals.keys()].sort()).toEqual(["@A2@", "@B2@", "@C1@", "@X1@", "@X2@", "@X3@", "@X4@", "@X5@"]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(original);
+    applyRecordPatches(ds, patches, "redo");
+    expect(serializeGedcom(ds.records)).toBe(merged);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(original);
   });
 
   it("moves a child linked only from its own side into the kept family", () => {
