@@ -68,6 +68,8 @@ interface ChildSpec {
 interface Struct {
   payload: string;
   children: Map<string, ChildSpec>;
+  /** The children with a minimum, checked even when absent. */
+  required: [string, ChildSpec][];
 }
 interface Compiled {
   version: string;
@@ -100,7 +102,7 @@ function compile(table: SpecTable): Compiled {
       children.set(m[1], { id: m[2] ?? m[1], min, max });
       universe.add(m[1]);
     }
-    structs.set(id, { payload, children });
+    structs.set(id, { payload, children, required: [...children].filter(([, c]) => c.min > 0) });
   }
   const enums = new Map(Object.entries(table.enums).map(([k, v]) => [k, v.split(" ")]));
   const out: Compiled = {
@@ -183,53 +185,76 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
 
   if (rec.xref) checkXref(rec.xref, ctx, base);
 
-  const walk = (node: GedNode, structId: string, path: string, where: string): void => {
+  // Where the walk stands, kept as two stacks and turned into strings only
+  // for a finding: the child indices ("3.1", the fix's path) and the tags
+  // ("INDI.BIRT", the finding's wording).
+  const indices: number[] = [];
+  const tags: string[] = [rec.tag];
+  const loc: Loc = { path: () => indices.join("."), where: () => tags.join(".") };
+
+  const walk = (node: GedNode, structId: string): void => {
     const struct = spec.structs.get(structId);
     if (!struct) return;
-    checkPayload(node, struct.payload, path, where, ctx, base);
+    checkPayload(node, struct.payload, loc, ctx, base);
+    if (!node.children.length && !struct.required.length) return;
 
-    const seen = new Map<string, GedNode[]>();
+    let seen: Map<string, GedNode[]> | undefined;
     node.children.forEach((child, i) => {
       const tag = child.tag;
       if (!tag || tag.startsWith("_")) return;
-      const childPath = path ? `${path}.${i}` : `${i}`;
       const childSpec = struct.children.get(tag);
       if (!childSpec) {
-        if (spec.universe.has(tag) && !vendorTagInfo(tag)) tallyMisplaced(ctx, child, where, "misplaced", base, childPath);
+        if (spec.universe.has(tag) && !vendorTagInfo(tag)) {
+          indices.push(i);
+          tallyMisplaced(ctx, child, loc.where(), "misplaced", base, loc.path());
+          indices.pop();
+        }
         return;
       }
+      seen ??= new Map();
       const list = seen.get(tag);
       if (list) list.push(child);
       else seen.set(tag, [child]);
-      walk(child, childSpec.id, childPath, `${where}.${tag}`);
+      indices.push(i);
+      tags.push(tag);
+      walk(child, childSpec.id);
+      indices.pop();
+      tags.pop();
     });
 
-    for (const [tag, childSpec] of struct.children) {
-      const lines = seen.get(tag) ?? [];
-      if (lines.length > childSpec.max) {
-        // Two different partners in one FAM slot are "Two partners in one
-        // slot" — a question of who, not of how many lines.
-        if (structId === spec.roots.FAM && (tag === "HUSB" || tag === "WIFE")) {
-          if (new Set(lines.map((l) => l.value?.trim())).size > 1) continue;
-        }
-        const repeat = !!recordId && lines.slice(1).every((l) => nodesEqual(l, lines[0]));
-        ctx.emit({
-          ...base, category: "cardinality", severity: "warning",
-          messageKey: "tools.validate.struct.issue.tooMany",
-          messageVars: { tag, parent: where, count: lines.length, max: childSpec.max },
-          sample: tag, tooltip: lines.map(lineOf).join("\n"), path, repeat: repeat || undefined,
-        });
-      } else if (lines.length < childSpec.min) {
-        ctx.emit({
-          ...base, category: "cardinality", severity: "warning",
-          messageKey: "tools.validate.struct.issue.missing",
-          messageVars: { tag, parent: where },
-          sample: tag, tooltip: lineOf(node), path,
-        });
+    for (const [tag, lines] of seen ?? []) {
+      const childSpec = struct.children.get(tag)!;
+      if (lines.length <= childSpec.max) continue;
+      // Two different partners in one FAM slot are "Two partners in one
+      // slot" — a question of who, not of how many lines.
+      if (structId === spec.roots.FAM && (tag === "HUSB" || tag === "WIFE")) {
+        if (new Set(lines.map((l) => l.value?.trim())).size > 1) continue;
       }
+      const repeat = !!recordId && lines.slice(1).every((l) => nodesEqual(l, lines[0]));
+      ctx.emit({
+        ...base, category: "cardinality", severity: "warning",
+        messageKey: "tools.validate.struct.issue.tooMany",
+        messageVars: { tag, parent: loc.where(), count: lines.length, max: childSpec.max },
+        sample: tag, tooltip: lines.map(lineOf).join("\n"), path: loc.path(), repeat: repeat || undefined,
+      });
+    }
+    for (const [tag] of struct.required) {
+      if (seen?.has(tag)) continue;
+      ctx.emit({
+        ...base, category: "cardinality", severity: "warning",
+        messageKey: "tools.validate.struct.issue.missing",
+        messageVars: { tag, parent: loc.where() },
+        sample: tag, tooltip: lineOf(node), path: loc.path(),
+      });
     }
   };
-  walk(rec, id, "", rec.tag);
+  walk(rec, id);
+}
+
+/** Where a line stands in its record, rendered on demand. */
+interface Loc {
+  path(): string;
+  where(): string;
 }
 
 function tallyMisplaced(
@@ -270,10 +295,12 @@ function checkXref(xref: string, ctx: Ctx, base: { recordId?: string; recordTag?
 }
 
 function checkPayload(
-  node: GedNode, payload: string, path: string, where: string, ctx: Ctx,
+  node: GedNode, payload: string, loc: Loc, ctx: Ctx,
   base: { recordId?: string; recordTag?: string },
 ): void {
   const { spec } = ctx;
+  // Most lines are text: nothing to hold them to unless they look like a pointer.
+  if ((payload === "T" || payload === "") && !node.value?.includes("@")) return;
   const value = node.value?.trim() ?? "";
   const tag = node.tag;
   const fixable = !!base.recordId;
@@ -283,8 +310,8 @@ function checkPayload(
     ctx.emit({
       ...base, category, severity: category === "pointerType" ? "error" : "warning",
       messageKey: `tools.validate.struct.issue.${messageKey}`,
-      messageVars: { tag, sample: truncate(value), parent: where, version: spec.version, ...vars },
-      sample: truncate(value), tooltip: fix ? `${lineOf(node)} → ${fix}` : lineOf(node), path,
+      messageVars: { tag, sample: truncate(value), parent: loc.where(), version: spec.version, ...vars },
+      sample: truncate(value), tooltip: fix ? `${lineOf(node)} → ${fix}` : lineOf(node), path: loc.path(),
       fix: fixable ? fix : undefined,
     });
 
@@ -300,6 +327,7 @@ function checkPayload(
       // A person's FAMC/FAMS and a family's HUSB/WIFE/CHIL are "Broken links"
       // whenever they do not reach a family (or a person): that check reports
       // them, and its fix removes them.
+      const where = loc.where();
       if (where === "INDI.FAMC" || where === "INDI.FAMS") return;
       if (where === "FAM.HUSB" || where === "FAM.WIFE" || where === "FAM.CHIL") return;
       // 5.5's association names the kind of record it points at itself.
