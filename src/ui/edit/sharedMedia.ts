@@ -1,6 +1,7 @@
 import type { GedNode } from "../../gedcom/types";
 import { attachMediaPointer, createMediaRecord, findSharedMediaByFile } from "../../gedcom/edit";
-import { cloneRaw, type RecordPatch } from "../historyTypes";
+import { cloneNode } from "../../gedcom/node";
+import { type RecordPatch } from "../historyTypes";
 
 /**
  * The mutation that links a photo to a record in a file of shared top-level
@@ -21,7 +22,7 @@ export function sharedMediaMutation(
     if (!objeXref) {
       const rec = createMediaRecord(records, file);
       objeXref = rec.xref!;
-      extraPatches.push({ type: "record", id: objeXref, before: null, after: cloneRaw(rec) });
+      extraPatches.push({ type: "record", id: objeXref, before: null, after: cloneNode(rec) });
     }
     attachMediaPointer(raw, objeXref);
   };

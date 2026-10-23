@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./removeFromSave";
-import { applyRecordPatches, cloneRaw } from "../historyTypes";
+import { applyRecordPatches } from "../historyTypes";
+import { cloneNode } from "../../gedcom/node";
 import { parseGedcom } from "../../gedcom/parser";
 import { buildDataset } from "../../gedcom/builder";
 import { serializeGedcom } from "../../gedcom/serialize";
@@ -21,7 +22,7 @@ function tracking(loaded: Dataset, id: string, over: Partial<RevertTracking> = {
   const snap = loaded.individuals.get(id)?.raw;
   return {
     loaded: !!snap,
-    snapshot: snap ? cloneRaw(snap) : undefined,
+    snapshot: snap ? cloneNode(snap) : undefined,
     ownedRecords: [],
     wasLoadedRecord: (xref) => loaded.records.some((r) => r.xref === xref),
     ...over,
@@ -62,7 +63,7 @@ describe("removeFromSave", () => {
     const before = serializeGedcom(ds.records);
     ds.records.find((r) => r.xref === "@N1@")!.value = "New text";
     const owned = tracking(loaded, "@I1@", {
-      ownedRecords: [["@N1@", cloneRaw(loaded.records.find((r) => r.xref === "@N1@")!)]],
+      ownedRecords: [["@N1@", cloneNode(loaded.records.find((r) => r.xref === "@N1@")!)]],
     });
     expect(canRemoveFromSave(ds, "individual", "@I1@", owned)).toBe(true);
     removeFromSave(ds, "individual", "@I1@", owned);

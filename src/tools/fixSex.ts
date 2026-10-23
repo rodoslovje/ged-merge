@@ -1,6 +1,7 @@
 import type { Dataset, Sex } from "../gedcom/types";
 import { rebuildIndividual, setSex } from "../gedcom/edit";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 
 /**
  * One-button repair for the "No sex" health-check category: infer an unknown
@@ -59,10 +60,10 @@ export function fixSexFromRole(dataset: Dataset, only?: string): RecordPatch[] {
     if (only && id !== only) continue;
     const indi = dataset.individuals.get(id);
     if (!indi) continue;
-    const before = cloneRaw(indi.raw);
+    const before = cloneNode(indi.raw);
     setSex(indi, sex);
     rebuildIndividual(dataset, indi);
-    patches.push({ type: "individual", id, before, after: cloneRaw(indi.raw) });
+    patches.push({ type: "individual", id, before, after: cloneNode(indi.raw) });
   }
   return patches;
 }

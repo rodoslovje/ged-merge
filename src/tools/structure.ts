@@ -4,6 +4,7 @@ import { vendorTagInfo } from "../gedcom/vendorTags";
 import { isVoidPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { dateFixContext, dateStyleContext, nonStandardDate, proposeDateFix } from "./fixDates";
+import { firstChild } from "../gedcom/node";
 
 /**
  * GEDCOM structural ("spec") validation — a pass over the raw `GedNode` tree and
@@ -268,10 +269,10 @@ function templateFieldTags(records: GedNode[]): Map<string, string> {
   const fields = new Map<string, string>();
   for (const rec of records) {
     if (rec.tag !== "_STF") continue;
-    const tag = rec.children.find((c) => c.tag === "_TAG")?.value?.trim();
+    const tag = firstChild(rec, "_TAG")?.value?.trim();
     // Only tag-shaped declarations, and never shadow a standard tag.
     if (!tag || !/^[A-Z][A-Z0-9_]{2,14}$/.test(tag) || KNOWN_TAGS.has(tag)) continue;
-    const key = rec.children.find((c) => c.tag === "_NKY")?.value?.trim();
+    const key = firstChild(rec, "_NKY")?.value?.trim();
     const name = key?.split("_").pop()?.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
     fields.set(tag, name || tag);
   }

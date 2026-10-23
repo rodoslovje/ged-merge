@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 
 /**
  * One-button repair for the "Broken links" health-check category.
@@ -59,12 +60,12 @@ export function fixBrokenLinks(dataset: Dataset, only?: BrokenLinkRef): RecordPa
     }
     if (deadFamc.size === 0 && deadFams.size === 0) continue;
 
-    const before = cloneRaw(indi.raw);
+    const before = cloneNode(indi.raw);
     let changed = pruneRefs(indi.raw, "FAMC", deadFamc);
     changed = pruneRefs(indi.raw, "FAMS", deadFams) || changed;
     if (changed) {
       rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+      patches.push({ type: "individual", id: indi.id, before, after: cloneNode(indi.raw) });
     }
   }
 
@@ -81,13 +82,13 @@ export function fixBrokenLinks(dataset: Dataset, only?: BrokenLinkRef): RecordPa
     }
     if (deadSpouses.size === 0 && deadChildren.size === 0) continue;
 
-    const before = cloneRaw(fam.raw);
+    const before = cloneNode(fam.raw);
     let changed = pruneRefs(fam.raw, "HUSB", deadSpouses);
     changed = pruneRefs(fam.raw, "WIFE", deadSpouses) || changed;
     changed = pruneRefs(fam.raw, "CHIL", deadChildren) || changed;
     if (changed) {
       rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+      patches.push({ type: "family", id: fam.id, before, after: cloneNode(fam.raw) });
     }
   }
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, applyRecordPatches, cloneRaw, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
+import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { lastChangedText } from "../gedcom/chanCrea";
@@ -7,7 +7,7 @@ import { birthDateOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { birthParentFamilies, isSameSexCouple } from "../gedcom/couple";
-import { childrenByTag, firstChild } from "../gedcom/node";
+import { childrenByTag, cloneNode, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { splitFullName } from "../gedcom/name";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
@@ -592,10 +592,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   /** {@link commit} against a given person — the one on screen, or one an
    *  asynchronous action (a dropped photo's import) was started on. */
   const commitTo = useStableHandler((target: Individual, mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
-    const before = cloneRaw(target.raw);
+    const before = cloneNode(target.raw);
     const notes = noteCtx(dataset.records, privacyStyle);
     mutate(target, notes);
-    const after = cloneRaw(target.raw);
+    const after = cloneNode(target.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: target.id })];
     if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
     rebuildIndividual(dataset, target);
@@ -709,10 +709,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
-    const before = cloneRaw(fam.raw);
+    const before = cloneNode(fam.raw);
     const notes = noteCtx(dataset.records, privacyStyle);
     mutate(fam, notes);
-    const after = cloneRaw(fam.raw);
+    const after = cloneNode(fam.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "family", id: fam.id })];
     if (JSON.stringify(before) === JSON.stringify(after) && !extra.length) return;
     rebuildFamily(dataset, fam);
@@ -818,10 +818,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     if (sharedXref) {
       const rec = dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref);
       if (!rec) return;
-      const before = cloneRaw(rec);
+      const before = cloneNode(rec);
       setMediaInfo(rec, fields);
       if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
-      const after = cloneRaw(rec);
+      const after = cloneNode(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
       bumpSourceCacheVersion(dataset.records);
       mediaGenRef.current += 1; // other owners' trays may show this shared record
@@ -912,11 +912,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const ptr = objeChild?.value?.trim();
     const sharedXref = ptr && isPointer(ptr) ? ptr : undefined;
     const sharedNode = sharedXref ? dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref) : undefined;
-    const sharedBefore = sharedNode ? cloneRaw(sharedNode) : undefined;
+    const sharedBefore = sharedNode ? cloneNode(sharedNode) : undefined;
 
-    const before = cloneRaw(raw);
+    const before = cloneNode(raw);
     removeMediaAt(dataset, raw, addr);
-    const after = cloneRaw(raw);
+    const after = cloneNode(raw);
 
     const extraPatches: RecordPatch[] = [];
     if (sharedXref && sharedBefore && !dataset.records.some((r) => r.xref === sharedXref)) {
@@ -1015,11 +1015,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         let pageObjeXref = match.objeXref;
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
-          const before = cloneRaw(sourceNode);
+          const before = cloneNode(sourceNode);
           const page = fields.page ?? match.page;
           const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage, fields.collection));
-          extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
-          extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
+          extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneNode(sourceNode) });
+          extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneNode(obje) });
           pageObjeXref = obje.xref ?? undefined;
         }
         return { sourceXref: match.sourceXref, page: fields.page ?? match.page, pageObjeXref, extraPatches };
@@ -1116,7 +1116,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    */
   function snapshotSourceRecords(): Map<string, GedNode> {
     const isSharedSourceRecord = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "REPO";
-    return new Map(dataset.records.filter((r) => isSharedSourceRecord(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
+    return new Map(dataset.records.filter((r) => isSharedSourceRecord(r) && r.xref).map((r) => [r.xref!, cloneNode(r)]));
   }
 
   /** Diff the current top-level `SOUR`/`OBJE`/`REPO` records against a
@@ -1129,7 +1129,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     for (const xref of new Set([...before.keys(), ...after.keys()])) {
       const b = before.get(xref) ?? null;
       const a = after.get(xref);
-      const aClone = a ? cloneRaw(a) : null;
+      const aClone = a ? cloneNode(a) : null;
       if (JSON.stringify(b) !== JSON.stringify(aClone)) patches.push({ type: "record", id: xref, before: b, after: aClone });
     }
     return patches;
@@ -1151,9 +1151,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function commitWithSourceDiff(owner: RemoveSourceOwner, mutate: () => RecordPatch[] | void) {
     const before = snapshotSourceRecords();
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
-    const ownerBefore = cloneRaw(ownerRaw);
+    const ownerBefore = cloneNode(ownerRaw);
     const morePatches = mutate() ?? [];
-    const ownerAfter = cloneRaw(ownerRaw);
+    const ownerAfter = cloneNode(ownerRaw);
 
     const extraPatches = diffSourceRecordPatches(before);
     if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed or were pruned
@@ -1297,8 +1297,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family, typedName?: string) => {
     if (!person) return;
-    const beforePerson = cloneRaw(person.raw);
-    const beforeFam = fam ? cloneRaw(fam.raw) : null;
+    const beforePerson = cloneNode(person.raw);
+    const beforeFam = fam ? cloneNode(fam.raw) : null;
     const prevSpouseOf = new Set(person.spouseOf);
     const prevChildOf = new Set(person.childOf);
 
@@ -1360,11 +1360,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // removes that empty patch so the person is neither marked dirty nor
     // CHAN-stamped for an addition that never changed their record.
     const patches: RecordPatch[] = dropNoopPatches([
-      { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
-      { type: "individual", id: added.id, before: null, after: cloneRaw(added.raw) },
+      { type: "individual", id: person.id, before: beforePerson, after: cloneNode(person.raw) },
+      { type: "individual", id: added.id, before: null, after: cloneNode(added.raw) },
     ]);
     if (fam) {
-      patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneRaw(fam.raw) });
+      patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneNode(fam.raw) });
     } else {
       // Capture newly created families
       const seenFams = new Set<string>();
@@ -1378,7 +1378,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         if (!prevSpouseOf.has(famId) && !prevChildOf.has(famId) && !seenFams.has(famId)) {
           seenFams.add(famId);
           const newFam = dataset.families.get(famId);
-          if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
+          if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneNode(newFam.raw) });
         }
       }
     }
@@ -1410,7 +1410,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // Undo removes the person and returns to whoever was shown before (nobody,
     // when this was the first person in an empty file).
     onPushEdit(
-      [{ type: "individual", id: added.id, before: null, after: cloneRaw(added.raw) }],
+      [{ type: "individual", id: added.id, before: null, after: cloneNode(added.raw) }],
       selectedId,
       added.id,
     );
@@ -1475,7 +1475,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       ])) {
         if (knownFamIds.has(famId)) continue;
         const newFam = dataset.families.get(famId);
-        if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
+        if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneNode(newFam.raw) });
       }
   
       onPushEdit(patches, selectedId);

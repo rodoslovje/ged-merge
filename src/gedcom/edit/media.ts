@@ -250,7 +250,7 @@ export interface MediaInfoFields {
 export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
   const fileNode = firstChild(objeNode, "FILE");
   const set = (tag: string, value: string) => {
-    objeNode.children = objeNode.children.filter((c) => c.tag !== tag);
+    removeChildren(objeNode, tag);
     if (fileNode) fileNode.children = fileNode.children.filter((c) => c.tag !== tag);
     const v = value.trim();
     if (v) objeNode.children.push({ level: objeNode.level + 1, tag, value: v, children: [] });

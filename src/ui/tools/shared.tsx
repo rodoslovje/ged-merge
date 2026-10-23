@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
@@ -445,6 +445,48 @@ export function RenameToggle({
       ✎
     </button>
   );
+}
+
+/** A copy of `set` with `key` flipped in or out — the open/selected sets the
+ *  lists here keep, updated as `setOpen((prev) => toggledIn(prev, key))`. */
+export function toggledIn<K>(set: ReadonlySet<K>, key: K): Set<K> {
+  const next = new Set(set);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+}
+
+/** A copy of `map` without `keys` — a row's pick, answers or staged state
+ *  dropped, as `setPicked((prev) => withoutKeys(prev, [key]))`. */
+export function withoutKeys<K, V>(map: ReadonlyMap<K, V>, keys: Iterable<K>): Map<K, V> {
+  const next = new Map(map);
+  for (const key of keys) next.delete(key);
+  return next;
+}
+
+/**
+ * The state behind a list's {@link RenameToggle} and {@link RenameEditor}: the
+ * one row whose ✎ is open, and its draft. One at a time — the box replaces the
+ * row's own line, so two open at once would be two rows claiming the same edit.
+ *
+ * `apply` closes the editor and hands the trimmed text (the draft, or an
+ * explicit `text`) to `run` — unless it is empty or `unchanged` says it is
+ * nothing new, which every list treats the same way as a cancel.
+ */
+export function useRenameDraft<K = string>() {
+  const [key, setKey] = useState<K | null>(null);
+  const [draft, setDraft] = useState("");
+  const open = useCallback((k: K, initial: string) => {
+    setKey(k);
+    setDraft(initial);
+  }, []);
+  const close = useCallback(() => setKey(null), []);
+  const apply = (unchanged: (to: string) => boolean, run: (to: string) => void, text: string = draft) => {
+    const to = text.trim();
+    setKey(null);
+    if (to && !unchanged(to)) run(to);
+  };
+  return { key, draft, setDraft, open, close, apply };
 }
 
 /**

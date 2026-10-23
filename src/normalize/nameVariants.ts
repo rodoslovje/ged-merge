@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { childrenByTag, firstChild } from "../gedcom/node";
+import { nameValueText } from "../gedcom/name";
 import type { NameLayout, NameProfile, NameVariantKind, NameVariantTarget, NormChange } from "./types";
 import { walkNodes } from "./walk";
 
@@ -185,8 +186,10 @@ function nameParts(node: GedNode): { given?: string; surname?: string } {
   return { given: given || undefined, surname: surname || undefined };
 }
 
+/** The record's NAME value as written — not `displayName`'s parsed form, which
+ *  would fall back to GIVN/SURN: the change log quotes the line being moved. */
 function displayName(node: GedNode): string {
-  return (node.value ?? "").replace(/\//g, "").replace(/\s+/g, " ").trim();
+  return nameValueText(node.value ?? "");
 }
 
 function surnameOfValue(value: string): string | undefined {

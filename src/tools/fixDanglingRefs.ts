@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { insertGrouped, rebuildFamily, rebuildIndividual, SOUR_FIELD_TRAILING } from "../gedcom/edit";
-import { childrenByTag } from "../gedcom/node";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { childrenByTag, cloneNode } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 import { isFamilyLinkPointer, isPointerValue } from "./structure";
 
 /**
@@ -93,7 +93,7 @@ export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPat
     });
     if (doomed.size === 0) continue;
 
-    const before = cloneRaw(rec);
+    const before = cloneNode(rec);
     // A dangling REPO link is dropped like any pointer, but its CALN may be
     // the file's only statement of the archive's call number ("citations have
     // nothing to qualify" doesn't hold for it) — salvage the value into the
@@ -120,12 +120,12 @@ export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPat
     const fam = dataset.families.get(rec.xref);
     if (indi) {
       rebuildIndividual(dataset, indi);
-      patches.push({ type: "individual", id: rec.xref, before, after: cloneRaw(rec) });
+      patches.push({ type: "individual", id: rec.xref, before, after: cloneNode(rec) });
     } else if (fam) {
       rebuildFamily(dataset, fam);
-      patches.push({ type: "family", id: rec.xref, before, after: cloneRaw(rec) });
+      patches.push({ type: "family", id: rec.xref, before, after: cloneNode(rec) });
     } else {
-      patches.push({ type: "record", id: rec.xref, before, after: cloneRaw(rec) });
+      patches.push({ type: "record", id: rec.xref, before, after: cloneNode(rec) });
     }
   }
   return patches;
