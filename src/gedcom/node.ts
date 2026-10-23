@@ -95,10 +95,14 @@ export function cloneNode(n: GedNode): GedNode {
   if (n.value !== undefined) c.value = n.value;
   if (n.verbatim !== undefined) c.verbatim = n.verbatim;
   if (n.spelling !== undefined) c.spelling = n.spelling;
+  if (n.spaced) c.spaced = true;
+  if (n.atBare !== undefined) c.atBare = n.atBare;
   // The audit marker must survive cloning: the merge applies decisions to a
   // clone of the (possibly edit-marked) main, and undo/redo snapshots must
   // restore the exact marker state their side of the patch had.
   if (n.auditStamp !== undefined) c.auditStamp = n.auditStamp;
+  // A converted line still knows the vendor line it was, for the way back.
+  if (n.upgradedFrom !== undefined) c.upgradedFrom = { ...n.upgradedFrom };
   // The source's own CONC positions travel with the value they describe, so a
   // record restored by undo still saves on the lines it arrived on.
   if (n.conc !== undefined) c.conc = { at: [...n.conc.at], of: n.conc.of };

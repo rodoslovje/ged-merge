@@ -12,6 +12,7 @@
 // name-form base key ("rodil/-a se je").
 
 import type { Translate } from "../locales/i18n";
+import { isBinarySex } from "../gedcom/sex";
 import type { Sex } from "../gedcom/types";
 import type { FactLine, ReportEntry, SourceLine } from "./model";
 import type { Statement } from "./narrative";
@@ -113,7 +114,7 @@ export function citationMark(n: number): string {
 export function narrativeSentence(t: Translate, lang: NarrativeLang, entry: ReportEntry, stmt: Statement): string {
   // Unknown sex always names the person — neither language has a safe
   // unknown-sex short form ("they was", clitic-first Slovenian).
-  const named = stmt.subject === "name" || entry.sex === "U";
+  const named = stmt.subject === "name" || !isBinarySex(entry.sex);
   // The spouse-origin sentence is about the partner, so its gendered forms
   // (possessive / kin word) follow the partner's sex, never the entry's; an
   // unknown-sex partner falls through to the neutral base key.

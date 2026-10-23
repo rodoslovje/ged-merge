@@ -1,4 +1,4 @@
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "./eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, eventDisplayLabel, familyEventLabel } from "./eventTags";
 import type { Association, Dataset, GedNode, Sex } from "./types";
 import { associationsIn, isVoidAssociation } from "./assoc";
 import { parseDate } from "./date";
@@ -7,12 +7,14 @@ import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild, nodesEqual } from "./node";
 import { parseName } from "./name";
 import { placeNodeCoord } from "./place";
+import { ADDRESS_CONTACT_TAGS, ADDRESS_PART_TAGS } from "./address";
 import { isPrivateNode } from "./private";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
 import { EDITABLE_LINK_TAGS } from "./edit/shared";
 import { formatCoord } from "../geo/points";
 import { NOTE_TAGS } from "./builder";
+import { NO_TAGS } from "./negative";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -30,7 +32,7 @@ const RECORD_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS);
  *  events, whatever their substructure. */
 const NON_EVENT_TAGS = new Set([
   "NAME", "SEX", ...NOTE_TAGS, "SOUR", "OBJE", "FAMS", "FAMC", "HUSB", "WIFE", "CHIL",
-  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI",
+  "CHAN", "CREA", "RESN", "RIN", "SUBM", "ASSO", "ALIA", "ANCI", "DESI", "EXID", ...NO_TAGS,
   ...RECORD_LINK_TAGS,
 ]);
 
@@ -39,7 +41,7 @@ const NON_EVENT_TAGS = new Set([
  *  vendor events, …) is still diffed as an event — bulk tools (geocode,
  *  place rename) write into every PLAC, so a whitelist here would let those
  *  changes silently vanish from the save preview. */
-const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC"]);
+const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC", "AGE", "TEMP", "STAT"]);
 
 function isEventShaped(node: GedNode): boolean {
   return node.children.some((c) => EVENT_SHAPE_TAGS.has(c.tag));
@@ -146,7 +148,7 @@ function diffSourceCitations(id: string, before: GedNode, after: GedNode, fieldL
 /** An event's sub-fields kept apart (rather than joined into one display string)
  *  so a modified — not newly added/removed — event can be diffed field by field. */
 type EventFieldKey =
-  | "type" | "value" | "date" | "place" | "coord" | "addr" | "agency" | "note" | "cause" | "sources" | "media";
+  | "type" | "value" | "date" | "place" | "coord" | "addr" | "age" | "agency" | "note" | "cause" | "temple" | "status" | "sources" | "media";
 
 interface EventFields extends Record<EventFieldKey, string> {
   /** Flagged private — carried alongside the text fields rather than among
@@ -155,7 +157,29 @@ interface EventFields extends Record<EventFieldKey, string> {
   private?: boolean;
 }
 
-const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "agency", "note", "cause", "sources", "media"];
+const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "age", "agency", "note", "cause", "temple", "status", "sources", "media"];
+
+/** The whole address as the preview shows it: the ADDR's line, its labelled
+ *  lines and the contact lines beside it — an edit to any of them must show. */
+function addressFieldText(node: GedNode): string {
+  const addr = firstChild(node, "ADDR");
+  const lines = addr ? [addr.value, ...ADDRESS_PART_TAGS.map((tag) => firstChild(addr, tag)?.value)] : [];
+  const contact = ADDRESS_CONTACT_TAGS.map((tag) => firstChild(node, tag)?.value);
+  return [...lines, ...contact].map((v) => v?.trim()).filter(Boolean).join(", ");
+}
+
+/** The ages the event states: its own `AGE`, or a family event's spouses'
+ *  (`♂27y ♀<20y`). */
+function ageFieldText(node: GedNode): string {
+  const spouseAge = (tag: string) => {
+    const spouse = node.children.find((c) => c.tag === tag && !c.value?.trim());
+    return spouse && firstChild(spouse, "AGE")?.value?.trim();
+  };
+  const own = firstChild(node, "AGE")?.value?.trim();
+  const husb = spouseAge("HUSB");
+  const wife = spouseAge("WIFE");
+  return [own, husb && `♂${husb}`, wife && `♀${wife}`].filter(Boolean).join(" ");
+}
 
 /** The location-ish sub-fields, kept in one place so the "same event, moved"
  *  pairing pass below stays in sync when another location field is added. */
@@ -218,7 +242,7 @@ function eventFields(node: GedNode, resolveSource: SourceResolver, nameMedia: Me
   // write, and a preview that showed the citation alone left the reader asking
   // whether the page came with it.
   const media = childrenByTag(node, "OBJE").map(nameMedia).filter(Boolean).join(", ");
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), sources, media, private: isPrivateNode(node) || undefined };
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: addressFieldText(node), age: ageFieldText(node), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), temple: get("TEMP"), status: get("STAT"), sources, media, private: isPrivateNode(node) || undefined };
 }
 
 function eventSummary(f: EventFields): string {
@@ -537,6 +561,8 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "EXID", t("field.exid")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => NO_TAGS.includes(tag), t("field.noEvents"), false, undefined, (v) => eventDisplayLabel(v, t)));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
@@ -595,7 +621,8 @@ function diffFamilyNodes(
   diffs.push(...diffFamilyMembership(id, before, after, t, resolveName));
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => familyEventLabel(tag, t), resolveSource, nameMedia));
+  diffs.push(...diffStringSet(id, before, after, (tag) => NO_TAGS.includes(tag), t("field.noEvents"), false, undefined, (v) => eventDisplayLabel(v, t)));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { isItemizedChange, reportTotals, type ChangeReport, type DeferredChange, type FieldChange, type GraftJoinPerson } from "../merge/merge";
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
-import { downloadOptions, type SerializeOptions } from "../gedcom/serialize";
+import type { SerializeOptions } from "../gedcom/serialize";
 import { diffRecord, recordsByXref, type RecordDiff } from "../save/recordDiff";
 import { Segmented } from "./Segmented";
 import { datesTooltipOf, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
@@ -14,15 +14,22 @@ import { YearsText } from "./YearsText";
 import { EVENT_ORDER } from "../review/fields";
 import { vendorTagInfo } from "../gedcom/vendorTags";
 import { charsetNotices } from "./charsetNotice";
+import { completeStructure, convertVersion, outputOptions, ownVersion, type OutputVersion } from "../save/outputFile";
+import { cloneNode } from "../gedcom/node";
+
+/** At most this many of the conversion's rewrites are listed in the dialog;
+ *  the change report carries them all. */
+const MAX_CONVERSION_LINES = 200;
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 import { useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { submitterName } from "../gedcom/newFile";
 import { recordLabeller } from "./recordLabel";
 
 /** The preferences this dialog reads (and writes): whether the save also
  *  downloads the change report, and which reading of the changes it opens on. */
-const SAVE_REPORT_KEYS = ["saveReport", "saveDiffView"] as const satisfies readonly (keyof AppSettings)[];
+const SAVE_REPORT_KEYS = ["saveReport", "saveDiffView", "authorName"] as const satisfies readonly (keyof AppSettings)[];
 
 /** A change with no text value — it carries only source/link icons to render inline. */
 function isIconChange(c: FieldChange): boolean {
@@ -61,8 +68,11 @@ interface Props {
   files: string[];
   downloadLabel: string;
   /** Confirm the download. Takes the vendor tags this dialog just stripped from
-   *  the tree, so the change report can say the file lost them. */
-  onConfirm: (excludedTags: string[]) => void;
+   *  the tree, so the change report can say the file lost them, and the GEDCOM
+   *  version the reader chose to write it in. */
+  onConfirm: (excludedTags: string[], version: OutputVersion) => void;
+  /** The version the dialog opens on, when not the file's own. */
+  initialVersion?: OutputVersion;
   onClose: () => void;
   /** IDs of records that came from edit mode (show navigate/remove buttons). */
   editRecordIds?: Set<string>;
@@ -113,16 +123,17 @@ export function SaveDialog({
   onOpenPair,
   dataset,
   integrityWarnings,
+  initialVersion,
 }: Props) {
   const { t, i18n } = useTranslation();
   // Opens on Download: the preview above it can run to hundreds of rows, each
   // with its own buttons, and the answer to the dialog is the last of them.
   const downloadBtn = useRef<HTMLButtonElement>(null);
   const modalRef = useModalKeyboard(true, onClose, {
-    onConfirm: () => { if (groups.length > 0) handleConfirm(); },
+    onConfirm: () => { if (canDownload) handleConfirm(); },
     initialFocus: downloadBtn,
   });
-  const { saveReport, saveDiffView } = useSettingsSlice(SAVE_REPORT_KEYS);
+  const { saveReport, saveDiffView, authorName } = useSettingsSlice(SAVE_REPORT_KEYS);
   const setSettings = useSetSettings();
   // The two readings of the same pending save: the field rows, which say what
   // the changes mean, and the GEDCOM lines, which say what the file receives.
@@ -136,7 +147,12 @@ export function SaveDialog({
   // The lines are diffed exactly as the download will write them — same
   // line-endings, same 5.5.1 CONC wrapping — so what the reader checks here is
   // what lands in the file.
-  const diffOptions = useMemo(() => (dataset ? downloadOptions(dataset) : {}), [dataset]);
+  // The GEDCOM version the download is written in: the file's own unless the
+  // reader picks the other, which converts it (see convertVersion).
+  const fileVersion = dataset ? ownVersion(dataset) : undefined;
+  const [version, setVersion] = useState<OutputVersion>(() => initialVersion ?? fileVersion ?? "5.5.1");
+  const converting = !!fileVersion && version !== fileVersion;
+  const diffOptions = useMemo(() => (dataset ? outputOptions(dataset, version) : {}), [dataset, version]);
   // The card heads name people the way the rest of the app does — display
   // order, married surname, capitals (see recordLabeller). The downloaded
   // change report is headed by the same function, so the two agree.
@@ -166,6 +182,22 @@ export function SaveDialog({
   // What the download does to the file's encoding, when it isn't a no-op —
   // the same wording the health check shows before the user ever gets here.
   const charsetNotes = dataset ? charsetNotices(dataset, t) : [];
+  // What the download supplies for the file to be valid GEDCOM at all — a
+  // header, a trailer, a declaration — listed, not yet made (see
+  // completeStructure); the confirmed save makes the same repairs.
+  const fixes = useMemo(
+    () => (dataset ? completeStructure(records, version, false, authorName) : []),
+    [records, dataset, version, authorName],
+  );
+  // What the conversion would rewrite, worked out on a copy — the download
+  // converts the very records it writes, once the reader confirms.
+  const conversion = useMemo(() => {
+    if (!converting || !fileVersion) return null;
+    const copy = records.map(cloneNode);
+    completeStructure(copy, version, true, authorName);
+    return convertVersion(copy, fileVersion, version);
+  }, [converting, records, fileVersion, version, authorName]);
+  const canDownload = groups.length > 0 || fixes.length > 0 || converting;
 
   // Maps each event's translated group label (e.g. "Baptism") to its
   // lifecycle position, so preview cards list events birth-to-death instead
@@ -210,7 +242,7 @@ export function SaveDialog({
         parent.children = parent.children.filter((c) => c !== node);
       }
     }
-    onConfirm(stripped);
+    onConfirm(stripped, version);
   }
 
   return (
@@ -258,6 +290,9 @@ export function SaveDialog({
               a line other software trusts, so it's said out loud once, here,
               while the user can still decide not to download. */}
           {charsetNotes.map((note, i) => <p className="preview-note" key={i}>{note}</p>)}
+          {fixes.map((fix) => (
+            <p className="preview-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
+          ))}
 
           {integrityWarnings && integrityWarnings.length > 0 && (
             <section className="preview-section">
@@ -603,6 +638,31 @@ export function SaveDialog({
                 <li key={f}><code>{f}</code></li>
               ))}
             </ul>
+            {fileVersion && (
+              <div className="preview-version">
+                <span>{t("preview.version.label")}</span>
+                <Segmented
+                  items={(["5.5.1", "7.0"] as const).map((v) => ({ key: v, label: `GEDCOM ${v}`, title: t("preview.version.hint") }))}
+                  value={version}
+                  onChange={setVersion}
+                  label={t("preview.version.label")}
+                />
+              </div>
+            )}
+            {conversion && (
+              <>
+                <p className="preview-note">{t("preview.version.convert", { from: fileVersion, to: version })}</p>
+                <details className="preview-conversion">
+                  <summary>{t("preview.version.changes", { count: conversion.length })}</summary>
+                  <ul>
+                    {conversion.slice(0, MAX_CONVERSION_LINES).map((c, i) => <li key={i}><code>{c}</code></li>)}
+                  </ul>
+                  {conversion.length > MAX_CONVERSION_LINES && (
+                    <p className="preview-note">{t("preview.version.more", { count: conversion.length - MAX_CONVERSION_LINES })}</p>
+                  )}
+                </details>
+              </>
+            )}
             {reportFile && (
               // The report repeats, as a text file, what this dialog has just
               // shown — so it is offered rather than written by default, the
@@ -622,7 +682,7 @@ export function SaveDialog({
 
         <div className="preview-actions">
           <button className="btn-secondary" onClick={onClose}>{t("preview.cancel")}</button>
-          <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={groups.length === 0}>
+          <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={!canDownload}>
             {downloadLabel}
           </button>
         </div>

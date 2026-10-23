@@ -293,12 +293,13 @@
               <strong>Advanced</strong> holds the online lookups and the locally stored data. Every choice is remembered
               in this browser.
             </p>
-            <p><strong>General</strong> — four groups, in this order:</p>
+            <p><strong>General</strong> — five groups, in this order:</p>
             <ul>
               <li><strong>Language</strong> — English or Slovenščina.</li>
               <li><strong>Appearance</strong> — <em>Theme</em>: Automatic, Light or Dark (Automatic follows your operating system).</li>
               <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač) — someone married more than once shows all married surnames, comma-separated in marriage order — and <em>Uppercase surnames</em> (e.g. Ana NOVAK). A live sample above the options shows the result. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
               <li><strong>Display</strong> — <em>Date display</em> shows dates as the file writes them, in words (<em>about 5 March 1850</em>) or in a format of your choice (<em>ABT 05.03.1850</em>) while the file keeps its own format, and a date field turns back into the file's text when you click into it; <em>Show ages</em> adds ages after lifespans and beside event dates; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>) throughout the app; and <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name.</li>
+              <li><strong>Editing</strong> — <em>Your name (file author)</em> is written as the file's author (<em>SUBM</em>) wherever GED Merge has to supply one: in a new tree, and in a GEDCOM 5.5.1 file saved without one (<a href="#saving">§14</a>). Left empty, the author is “GED Merge”. <em>Married surname from partner</em> records a husband's known surname as the married name of a wife you add to him, and <em>Quick add events</em> sets the buttons under the event list (<a href="#edit">§8</a>).</li>
             </ul>
             <p>The other three tabs:</p>
             <ul>
@@ -575,6 +576,14 @@
               and type; the <span class="gm-glyph">×</span> glyph removes a variant.
               <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">X</span> sets the sex
               without opening its picker — ♂, then ♀, then ? — which is how a child you have just added gets theirs.
+              The picker also offers <strong>Other</strong> (⚥), GEDCOM 7's value for a person who is neither only
+              male nor only female; charts give such a person a neutral colour of their own. A GEDCOM 5.5.1 file has no
+              such value, so it stores the sex as unknown with a <code>_SEX X</code> line beside it, which the app reads
+              back as Other.
+              A name's <strong>translations</strong> — the same name in another language or script, GEDCOM 7's
+              <code>TRAN</code> (<code>ROMN</code> / <code>FONE</code> in 5.5.1) — show as chips under the name, each with
+              its language. Search finds the person by any of them, and Merge compares and brings them in. A place's or
+              a note's translations appear in the tooltip when you hold the mouse over its field.
             </p>
             <h3>Events</h3>
             <p>
@@ -592,11 +601,12 @@
             <div>
               Birth is always shown. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
               <ul>
-                <li><strong>Early Life</strong> — Baptism, Christening, First Communion, Confirmation, Adoption.
+                <li><strong>Early Life</strong> — Baptism, Christening, Adult christening, Blessing, First Communion,
+                  Confirmation, Bar mitzvah, Bat mitzvah, Adoption.
                   <em>Baptism</em> is baptism in general (GEDCOM <code>BAPM</code>), <em>Christening</em> the baptism
                   and naming of a child (<code>CHR</code>); GED Merge treats Baptism as the usual one, and it is what
                   the baptism-citation setting writes to.</li>
-                <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service (<code>_MILT</code>)</li>
+                <li><strong>Career</strong> — Occupation, Education, Graduation, Ordination, Retirement, Military service (<code>_MILT</code>)</li>
                 <li><strong>Attributes</strong> — Title, Physical description, Social standing, Religion, Nationality,
                   Number of children, Number of marriages, Reference number, Identification number, Social security
                   number, Race / ethnicity (<code>RACE</code>), Award (<code>NOBI</code>), Illness (<code>ILL</code>),
@@ -606,16 +616,38 @@
                 <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
                 <li><strong>Estate</strong> — Property, Will, Probate, Legal transaction (<code>LATR</code>), Deed (<code>DEED</code>)</li>
                 <li><strong>Death</strong> — Death, Cremation, Burial, Interment (<code>_INTE</code>), Funeral (<code>_FNRL</code>)</li>
+                <li><strong>LDS Ordinances</strong> — LDS baptism, LDS confirmation, LDS endowment, LDS sealing to
+                  parents. On these rows the <strong>+ Add</strong> menu also has a <strong>Temple</strong>
+                  and a <strong>Status</strong> field; a status you change is dated today, the day it was set. A new sealing to
+                  parents names the family the person was born into. The ordinances are left off the Timeline,
+                  because most are performed by proxy long after the person's death.</li>
                 <li><strong>Other</strong> — the two generic kinds, Event and Fact</li>
               </ul>
+              <p>
+                <strong>+ Did not happen</strong>, at the end of the same row, records the opposite: that an event did
+                <em>not</em> take place — a person never baptised, a couple who never married (the family has its own
+                button beside <strong>+ Add Family Event</strong>). This is GEDCOM 7's <code>NO</code>; a GEDCOM 5.5.1
+                file keeps it as <code>_NO</code>. Each statement shows below the buttons as a
+                <span class="gm-glyph">⊘</span> chip with the event's name, and its <span class="gm-glyph">×</span>
+                removes it. The <a href="#validate">health check</a> reports a record that holds both the event and the
+                statement, and Merge compares and brings in these statements like any other field.
+              </p>
               <p>
                 Each row is led by its event's own genealogy mark — <span class="gm-glyph">*</span> a birth,
                 <span class="gm-glyph">⚭</span> a marriage, <span class="gm-glyph">†</span> a death — so a long life
                 can be read down the column at a glance; <a href="#legend">§15</a> lists them all.
                 An event row shows only the fields it actually carries, starting with the <strong>date</strong> and the
                 <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
-                address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
+                address, agency, source, type, cause, note, age, sort date — and puts the cursor straight in the new field, so the row
                 never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field. The
+                <strong>sort date</strong> (GEDCOM 7's <code>SDATE</code>, <code>_SDATE</code> in a 5.5.1 file) only
+                decides order: an event with no date, or one written only in words, takes its place by it in the event
+                list, the saved file, the reports and the merge comparison, while its own date stays as written.
+                A GEDCOM 7 date can also carry its own <strong>wording</strong> (<code>PHRASE</code>) — "Easter Sunday"
+                beside <code>1850</code>, or the wording alone with no value. It shows beside the date field and after
+                the date in reports and in the merge comparison's tooltip, and editing the date keeps
+                it; a name type's wording (<code>TYPE OTHER</code> with a <code>PHRASE</code>) shows in place of the
+                type. The
                 <strong>agency</strong> field completes from the ones your file already names — the parishes and
                 offices its events record — so a parish's own name is typed out once and picked thereafter. The
                 <strong>cause</strong>, the <strong>type</strong> and an attribute's own <strong>value</strong> —
@@ -648,6 +680,35 @@
                 this way — a source's covered years in <a href="#sources">Organize sources</a>, where
                 <em>1850-1900</em> is written as the period <code>FROM 1850 TO 1900</code>, and a photo's date in
                 the media viewer too.
+              </p>
+              <p>
+                An <strong>age</strong> the record states — the age a death register gives, the ages of a bride and
+                groom — goes in the <strong>Age</strong> field, added from <strong>+ Add</strong>; a family event has
+                one for each spouse (<strong>Age ♂</strong>, <strong>Age ♀</strong>). Type it the way GEDCOM writes
+                it: <em>62y</em>, <em>62y 3m</em>, <em>3m 10d</em>, <em>&lt;1y</em> for under a year,
+                <em>&gt;60y</em> for over sixty, or a bare number for years. When you leave the field, the age is
+                written in your file's own GEDCOM version: a 5.5.1 file keeps the words <em>CHILD</em>,
+                <em>INFANT</em> and <em>STILLBORN</em>, and a GEDCOM 7 file writes them as an age limit with the word
+                beside it. The age is evidence the app uses: the birth estimate in
+                <a href="#normalize">Normalize &amp; batch</a> is calculated from it, a report shows it where no birth
+                date gives an age, and the <a href="#validate">health check</a> reports an age the birth date
+                cannot give.
+              </p>
+              <p>
+                The <strong>address</strong> field holds the address as one line. The small
+                <span class="gm-glyph">▾</span> beside it opens the address in labelled lines — three street lines,
+                city, state, postcode and country — together with the phone, e-mail and fax that go with it. Each
+                line you fill in is written as its own GEDCOM line under the address (<code>ADR1</code>,
+                <code>CITY</code>, <code>POST</code> …), and the lines you leave alone stay as they were, so a file
+                that writes its addresses as one line keeps doing so. An event whose address already has such lines
+                opens them by itself. Where a program wrote only the lines and no address text, the lines joined
+                stand in for the address wherever one is used: the coordinate, the tree in
+                <a href="#places">Places</a>, the address lists in <a href="#geocode">Geocode places</a> and the
+                reports. A rename of a place or an address reaches these lines too: a line that says the old name
+                takes the new one, and a new address the lines cannot say is written as the address text, with the
+                lines left as they were. In <span class="gm-pill">Merge</span> the
+                address compares as all of this, so two addresses that share a first line but not a postcode still
+                show as different, and taking the incoming one brings its lines and contact details along.
               </p>
               <p>
                 A <strong>Residence</strong> or <strong>Death</strong> row also offers a <strong>value</strong> field,
@@ -755,7 +816,7 @@
               <ul>
                 <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. Naming the second parent completes a couple: if those two already have a family of their own, the child joins it — alongside their marriage and any other children — rather than a fresh record for the same pair. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record. A parent block that names <em>neither</em> parent — usually a leftover second family from an import or a merge — carries its own <span class="gm-glyph danger">−</span> at the end of the row: it unlinks this person from that family, and the family record goes with it unless other children remain. The <a href="#validate">Health check</a> lists these under <strong>Family without parents</strong>.</li>
                 <li><strong>Siblings</strong> — under the parents, the family's children in birth order, with this person marked in their place. Children a parent had in another union follow as half-siblings, after a <em>Father's other family</em> or <em>Mother's other family</em> label and with a dashed border; hovering one names the other parent. A click opens any of them. An only child has no siblings row.</li>
-                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Once every family already names a partner, one more <strong>+ Add Partner</strong> card follows the last one and starts a new union — a remarriage gets its own family this way. Each family shows the events it actually records; <strong>+ Add Family Event</strong> adds Marriage, Engagement, Separation, Divorce, a partnership <em>Status</em> or a custom event, and the event's own <span class="gm-glyph">▾</span> menu removes it again. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
+                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Once every family already names a partner, one more <strong>+ Add Partner</strong> card follows the last one and starts a new union — a remarriage gets its own family this way. Each family shows the events it actually records; <strong>+ Add Family Event</strong> adds Marriage, Engagement, Marriage contract, Marriage settlement, Separation, the couple's Family residence and Household census, Number of children, Divorce filed, Divorce, Annulment, LDS sealing to spouse, a partnership <em>Status</em> or a custom event, and the event's own <span class="gm-glyph">▾</span> menu removes it again. A family has one row for each kind of event: when the file records a second family residence or census, it is saved as it was, but only the first one is shown and edited. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph danger">−</span> unlinks a child without deleting them. Picking somebody who is already a child in another family <em>moves</em> them here: only one family can be the birth family, so you confirm the move first and the question names the parents they leave. An adoptive or foster link stays put.</li>
               </ul>
               <p><strong>Relatives.</strong> A panel beside the person lists the relatives the cards do not show — grandparents, uncles and aunts, cousins, nephews and nieces, grandchildren — grouped by relationship, nearest first, and split into the father's and the mother's side. The gear in the panel's header shows three steppers that set how far it reaches: <strong>Ancestors</strong> counts generations up, <strong>Descendants</strong> generations down, and <strong>Other relatives</strong> how many generations of each ancestor's other descendants are shown (1 adds uncles and aunts, 2 first cousins, nephews and nieces). <strong>Partners of relatives</strong> adds the people they married, in italics and led by the couple's symbol: ⚭ married, ⚮ divorced, ⚬⚬ separated, ⚯ an unmarried partnership. Hovering one names the relative, and a recorded separation as well. A click opens anyone in the list, and the button with a group of people next to <strong>Back</strong> shows or hides the panel. On a narrow screen the panel sits under the families.</p>
@@ -880,6 +941,11 @@
               <span class="gm-glyph">🌳</span> glyph opens the person's FamilySearch page, clicking the id edits it, and
               <strong>+ FamilySearch ID</strong> adds one — written with the tag dialect your file already uses. The id
               also serves matching: two files carrying the same id are recognized as the same person.
+              GEDCOM 7 writes such ids as an <strong>external identifier</strong> (<code>EXID</code>, with a
+              <code>TYPE</code> naming the system that gave it): a FamilySearch one is the same FamilySearch ID chip,
+              and a new id in a GEDCOM 7 file is written that way. Ids from any other system show beside it as
+              read-only chips, each with the name of its system; Merge compares and brings them in, and two people
+              carrying the same id from the same system are matched as one, just as with FamilySearch.
             </p>
             <h3>Detach vs delete</h3>
             <p>
@@ -1188,13 +1254,17 @@
               <em>not</em> flagged), <strong>family without parents</strong> (a second parent family that names neither
               parent, and family records nobody is in at all — remove the first kind with the <span class="gm-glyph danger">−</span>
               on that parent block in <span class="gm-pill">Edit</span>), <strong>repeated birth or death</strong> (a
-              person with two birth or two death records — every other check reads only the first), future-dated events,
+              person with two birth or two death records — every other check reads only the first), <strong>an event
+              that did not happen</strong> (a record holding an event the file also states did not happen, GEDCOM 7's
+              <code>NO</code>), future-dated events,
               death before birth, <strong>events outside the lifespan</strong> (an occupation dated before the birth, a
               residence or marriage after the death — burial, cremation and probate may follow a death and are not
               flagged, though a burial or cremation dated <em>before</em> the death is, compared to the day), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
               plausible lifespan today — almost always a missing death record; the batch <em>mark as deceased</em>
               action closes them in one step), implausible ages
-              (at death, at marriage, parent's age, spouse age gap), <strong>born after a parent's death</strong>
+              (at death, at marriage, parent's age, spouse age gap), <strong>stated age</strong> (an age a record
+              states at an event — <em>62y</em> at a death, a spouse's age at a marriage — that the birth date cannot
+              give, more than a year off), <strong>born after a parent's death</strong>
               (a child whose birth year follows a parent's death — the father's side allows the posthumous child born
               within the year, the mother's does not, and adopted or foster links are not flagged; either the child sits
               in the wrong family or one of the dates belongs to somebody else, often a same-named infant, which also
@@ -1221,6 +1291,23 @@
               coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
               coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to
               copy the coordinate the value already carries in the file onto the events that lack it, no lookup needed.
+              Above the structure findings it names the file's GEDCOM version, lists what a save would add for the file
+              to be valid GEDCOM (a missing header, trailer or submitter), and offers to save the file in the other
+              version (<a href="#saving">§14</a>).
+            </p>
+            <p>
+              The structure pass also holds the file to the GEDCOM standard its header declares — 5.5, 5.5.1, 5.5.5
+              or 7.0 — line by line: <strong>pointers to the wrong record</strong> (a parent-family link that points
+              at a person, or the <em>@VOID@</em> null pointer outside 7.0), <strong>repeated or missing lines</strong>
+              (two SEX lines on one person, two dates on one event, a 5.5.1 header without its CHAR line),
+              <strong>tags out of place</strong> (a standard tag under a line that cannot carry it, listed once per
+              habit with a count), <strong>non-standard values</strong> (a value outside the standard's list in SEX,
+              PEDI, QUAY, RESN, ROLE, MEDI, a name's TYPE and the other enumerated lines), <strong>malformed
+              values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>.
+              Extension tags such as <em>_UID</em> are allowed anywhere and not judged. <strong>Fix value
+              spelling</strong> rewrites a value that differs from the list only in capitals (<em>Adopted</em> →
+              <em>adopted</em>), and <strong>Remove repeated lines</strong> drops the exact copies of a line the
+              standard allows once. A value outside the list, or repeats that differ, are yours to settle.
             </p>
             <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
@@ -1240,9 +1327,10 @@
             <p>
               Every one of those repairs is also offered one finding at a time, on the row that raised it: the affected
               rows carry their own button — <strong>Remove link</strong>, <strong>Remove duplicate</strong>,
-              <strong>Join into one</strong>, <strong>Remove reference</strong>, or, for a value being set rather than
-              dropped, the result itself
-              (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>). Use them when you
+              <strong>Join into one</strong>, <strong>Remove reference</strong>, <strong>Remove copies</strong>, or,
+              for a value being set rather than dropped, the result itself
+              (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>,
+              <strong>→ adopted</strong>). Use them when you
               agree with some findings and not others: each acts on that record alone. The buttons double as a map of what the batch fix above would touch — where a category holds more
               findings than the fix can settle (three no-sex spouses among eight records with no sex), only the rows it
               would change carry a button. A broken link is worth settling here in particular: it cannot be seen or
@@ -1328,7 +1416,9 @@
               to the start person — and apply one action to every match: attach an image (existing or new), add a
               source citation, remove an image, mark them as deceased (an undated death event — handy after
               filtering for living people with an impossible age), give people without any birth or baptism date an
-              <strong>estimated birth year</strong> — written as an <em>ABT</em> date and rounded to the nearest five
+              <strong>estimated birth year</strong> — calculated, where a dated event states the person's age (a
+              death at 62), from that age and written as a <em>CAL</em> date, and otherwise
+              written as an <em>ABT</em> date and rounded to the nearest five
               years, so the file itself says it is approximate, derived from the birth years of dated parents, spouse
               or children (the same estimate the Privacy tool explains), with undated siblings kept at least a year
               apart in the family's child order, anchored on a dated sibling where one exists; people with no dated
@@ -1857,7 +1947,7 @@
               under the returning <strong>Already placed</strong> chip, in case a position wants checking or a rough one
               sharpening. A house whose events hold the settlement's own coordinate prints it too, marked
               <em>(from the place)</em>: the position every address there inherits, so the house itself still counts as
-              unplaced — it is placed with the pin, or with a whole run of them at once below. The pin is the app's mark for a position: it precedes every coordinate printed anywhere, muted while nothing is placed there and green once something is. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. The rename box completes as you type from the other addresses at that same place — including houses already placed, which the list keeps hidden until asked — so joining two spellings is a pick rather than a retype. Emptied, that same box removes the address instead — the button changes to <strong>Remove address</strong>, and the whole <code>ADDR</code> line goes from every event at the house, in the one step a rename takes. This is the answer to an address that tells the file nothing its place does not — a settlement's own name repeated on the <code>ADDR</code> line — where clearing it by hand meant opening every person the row lists. The place itself stays as it is, and an event whose coordinate was the house's takes the one the file records for the place, so the settlement no longer disagrees with itself; an event carrying no coordinate is not given one. A row marked <em>in the place</em> is not offered it: there the house sits inside the place value, and it cannot go without the village going with it. <strong>Written twice</strong> finds those pairs for you: within one place, a house recorded both plainly and with a note of yours behind it (<em>Breg ob Savi 26</em> and <em>Breg ob Savi 26 (pd Mlinar)</em>), under one of the two street names it carries (<em>Labore 4</em> against <em>Labore 4 / Škofjeloška 4</em>), or with its street spelt more briefly (<em>Kidričeva 38</em> against <em>Kidričeva cesta 38</em>). The leaner row then names what it would become, and <strong>Join</strong> writes that spelling on its events, so the two rows are the one house they always were; the chip beside the status buttons narrows the list to those pairs, both halves of each. It is a suggestion and not a verdict — the fuller spelling is offered because it holds more, but joining <em>26</em> into <em>26 (pd Mlinar)</em> gives your note to events that never carried it, so where that is not what you mean, rename the other way with <span class="gm-glyph">✎</span>. <strong>Place several at one coordinate…</strong> on a group's header is for the houses no register can answer — old village numbering, a farm that no longer stands: tick the addresses, pick one position (the centre of the village will do, and the file's own coordinate for the place is offered first), and every ticked address takes it. The whole place is ticked to start with; <em>Starting with</em> narrows that to the addresses beginning with what you type — <em>Stražišče 11</em> for both farms of that number — and the ticks stay on screen, so you read off what it caught before taking it. What you type there is also what the panel's own lookup asks about — <em>Stražišče</em> under Kranj is searched as Stražišče, not as Kranj — so the position offered is the one being ticked for. The picks are staged like any other, so <strong>Write coordinates</strong> commits the whole village as one step. The address, its pin and the position it holds are one control: a click anywhere on them opens the coordinate panel — a map to pick on, the register lookup and manual entry together. A staged row then names where its pin now points — the register's own address line, <em>from this file</em>, <em>manual</em> — so a village placed in one go is read off the list rather than one tooltip at a time. A coordinate offered by the register opens the place's map on it with one click. The register link sits after that position, and goes once it has answered — whether you asked from the row or inside the coordinate panel, whose lookup lists its houses here just the same; renaming the address brings it back. Either search does the same in the panel: the answers are numbered on the row and on its map, and the link that has answered — with houses or with none, since a second press asks the same service the same question — gives way to what it found or to the note saying it found nothing. <strong>Search OpenStreetMap</strong> stands beside it as the register's fallback, and is the only lookup for the rows the register cannot take at all: one address at a time — the service allows one request a second, so there is no group lookup — with its hits joining the register's in the same list of candidates, each badged <span class="gm-data">OSM</span>, <span class="gm-data">GURS</span> or <span class="gm-data">DGU</span> for where it came from. OpenStreetMap answers a name with everything carrying it — <em>Huje</em> is a suburb, the street named after it and a service road off that street, under one and the same line — so each hit also says what it is, and every answer is numbered — the number is the row's radio, so clicking it takes that answer. Clicking any answer's coordinate opens the row's coordinate panel with all of them drawn on one map under those same numbers: which of three identical lines is the house is a question only the map answers. An answer that names no part of the address searched for — OpenStreetMap matching a house number in the next village, <em>Čirče 5</em> answered with a house in Breg ob Savi — is marked <em>in Breg ob Savi</em> and sinks below the ones that fit; where nothing fits at all, the street or hamlet is looked up without its number, since its position is worth more here than a stranger's front door. And like a place row, each address carries its person count: hover it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit. The place above them carries the same count for the village as a whole — everyone with an address there, counted once however many houses and events they hold — and answers the same click, whether the group is open or shut.
+              unplaced — it is placed with the pin, or with a whole run of them at once below. The pin is the app's mark for a position: it precedes every coordinate printed anywhere, muted while nothing is placed there and green once something is. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line and its labelled lines, or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. The rename box completes as you type from the other addresses at that same place — including houses already placed, which the list keeps hidden until asked — so joining two spellings is a pick rather than a retype. Emptied, that same box removes the address instead — the button changes to <strong>Remove address</strong>, and the whole <code>ADDR</code> line goes from every event at the house, in the one step a rename takes. This is the answer to an address that tells the file nothing its place does not — a settlement's own name repeated on the <code>ADDR</code> line — where clearing it by hand meant opening every person the row lists. The place itself stays as it is, and an event whose coordinate was the house's takes the one the file records for the place, so the settlement no longer disagrees with itself; an event carrying no coordinate is not given one. A row marked <em>in the place</em> is not offered it: there the house sits inside the place value, and it cannot go without the village going with it. <strong>Written twice</strong> finds those pairs for you: within one place, a house recorded both plainly and with a note of yours behind it (<em>Breg ob Savi 26</em> and <em>Breg ob Savi 26 (pd Mlinar)</em>), under one of the two street names it carries (<em>Labore 4</em> against <em>Labore 4 / Škofjeloška 4</em>), or with its street spelt more briefly (<em>Kidričeva 38</em> against <em>Kidričeva cesta 38</em>). The leaner row then names what it would become, and <strong>Join</strong> writes that spelling on its events, so the two rows are the one house they always were; the chip beside the status buttons narrows the list to those pairs, both halves of each. It is a suggestion and not a verdict — the fuller spelling is offered because it holds more, but joining <em>26</em> into <em>26 (pd Mlinar)</em> gives your note to events that never carried it, so where that is not what you mean, rename the other way with <span class="gm-glyph">✎</span>. <strong>Place several at one coordinate…</strong> on a group's header is for the houses no register can answer — old village numbering, a farm that no longer stands: tick the addresses, pick one position (the centre of the village will do, and the file's own coordinate for the place is offered first), and every ticked address takes it. The whole place is ticked to start with; <em>Starting with</em> narrows that to the addresses beginning with what you type — <em>Stražišče 11</em> for both farms of that number — and the ticks stay on screen, so you read off what it caught before taking it. What you type there is also what the panel's own lookup asks about — <em>Stražišče</em> under Kranj is searched as Stražišče, not as Kranj — so the position offered is the one being ticked for. The picks are staged like any other, so <strong>Write coordinates</strong> commits the whole village as one step. The address, its pin and the position it holds are one control: a click anywhere on them opens the coordinate panel — a map to pick on, the register lookup and manual entry together. A staged row then names where its pin now points — the register's own address line, <em>from this file</em>, <em>manual</em> — so a village placed in one go is read off the list rather than one tooltip at a time. A coordinate offered by the register opens the place's map on it with one click. The register link sits after that position, and goes once it has answered — whether you asked from the row or inside the coordinate panel, whose lookup lists its houses here just the same; renaming the address brings it back. Either search does the same in the panel: the answers are numbered on the row and on its map, and the link that has answered — with houses or with none, since a second press asks the same service the same question — gives way to what it found or to the note saying it found nothing. <strong>Search OpenStreetMap</strong> stands beside it as the register's fallback, and is the only lookup for the rows the register cannot take at all: one address at a time — the service allows one request a second, so there is no group lookup — with its hits joining the register's in the same list of candidates, each badged <span class="gm-data">OSM</span>, <span class="gm-data">GURS</span> or <span class="gm-data">DGU</span> for where it came from. OpenStreetMap answers a name with everything carrying it — <em>Huje</em> is a suburb, the street named after it and a service road off that street, under one and the same line — so each hit also says what it is, and every answer is numbered — the number is the row's radio, so clicking it takes that answer. Clicking any answer's coordinate opens the row's coordinate panel with all of them drawn on one map under those same numbers: which of three identical lines is the house is a question only the map answers. An answer that names no part of the address searched for — OpenStreetMap matching a house number in the next village, <em>Čirče 5</em> answered with a house in Breg ob Savi — is marked <em>in Breg ob Savi</em> and sinks below the ones that fit; where nothing fits at all, the street or hamlet is looked up without its number, since its position is worth more here than a stranger's front door. And like a place row, each address carries its person count: hover it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit. The place above them carries the same count for the village as a whole — everyone with an address there, counted once however many houses and events they hold — and answers the same click, whether the group is open or shut.
             </p>
             <p>
               A row is one house, not one spelling: where your file writes the same house several ways — the same number
@@ -2818,6 +2908,41 @@
               read from the original at all show as “�”; saving cannot bring those back, so correct them in
               <span class="gm-pill">Edit</span> first.
             </p>
+            <p>
+              The download is also a <strong>complete GEDCOM file</strong>. A file that arrived without its header
+              (<em>HEAD</em>) or its closing line (<em>TRLR</em>), or whose header does not declare the GEDCOM version or
+              the encoding, gets what is missing. GEDCOM 5.5.1 also requires a submitter record (<em>SUBM</em>), which says
+              who compiled the file. A 5.5.1 file without one gets a submitter with your name when you have entered it in
+              <strong>Settings › General › Your name (file author)</strong>, and one named “GED Merge” otherwise; a
+              submitter the file already has is never changed. A new tree is given the same name when you start it. The preview
+              lists each of these repairs before you download, and so does the <a href="#validate">Health check</a>.
+              Text you write or edit follows the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal
+              <code>@</code> (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A line you have not
+              touched keeps the at-signs it was read with, and a converted file follows the rule of its new version.
+            </p>
+            <p>
+              <strong>GEDCOM version</strong>, under the file list, chooses the version the download is written in. It
+              opens on the file's own version. Choose the other one — GEDCOM 7.0 for a 5.5.1 file, 5.5.1 for a 7.0 file —
+              and the file is converted the way an incoming file is (<a href="#house-style">§4</a>): shared notes, dates,
+              ages and the other version-specific structures are rewritten into that version's form, the header
+              included. The preview lists every rewritten line, and the change report
+              carries the whole list. Like any save, the converted file becomes your working baseline, so from then on
+              you work in the new version. To convert a file you have not changed, use <strong>Save as GEDCOM 7.0…</strong>
+              (or <strong>Save as GEDCOM 5.5.1…</strong>) in Tools → Health check, which opens this preview with the
+              conversion chosen.
+            </p>
+            <p id="extension-tags">
+              A GEDCOM 7.0 file lists in its header, under <code>HEAD.SCHMA</code>, every extension tag it carries: the
+              tags starting with an underscore that programs add for what the standard has no line for
+              (<code>_UPD</code>, <code>_MARNM</code>, …). The schema pairs each tag with a web address that says what the
+              tag means, and every address GED Merge writes leads to a page describing the tag — its meaning, the program
+              that writes it, where in the file it appears and its standard GEDCOM 7 form, if it has one. A tag the
+              FamilySearch GEDCOM registry documents gets the registry's address instead. When a file is converted to
+              7.0, the tags that have a standard form take it — <code>_UID</code> becomes <code>UID</code>, a
+              FamilySearch ID an <code>EXID</code>, and <code>_MARNM</code> a married name of its own — and converting
+              back to 5.5.1 restores them. All the tags are listed on the
+              <a href="../terms/extensions/">extension tags page</a>.
+            </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
               <p>Your original file on disk is never overwritten — the download is always a new copy. Even so, keep a
@@ -2959,8 +3084,8 @@
               <thead><tr><th>Mark</th><th>Event</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-glyph">*</span></td><td>Birth</td></tr>
-                <tr><td><span class="gm-glyph">~</span></td><td>Baptism or christening</td></tr>
-                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Engagement, marriage, divorce, separation, partnership</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Baptism or christening, an adult's and the LDS baptism included</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Engagement, marriage, divorce or annulment, separation, partnership</td></tr>
                 <tr><td><span class="gm-glyph">⚬⚬</span></td><td>Separation — two rings no longer linked</td></tr>
                 <tr><td><span class="gm-glyph">†</span></td><td>Death</td></tr>
                 <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Burial, cremation</td></tr>
@@ -2970,7 +3095,7 @@
                 <tr><td><span class="gm-glyph">#</span></td><td>Number of children or marriages; reference, identification or social security number</td></tr>
                 <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Emigration, immigration, naturalization</td></tr>
                 <tr><td><span class="gm-glyph">▤</span></td><td>Census</td></tr>
-                <tr><td><span class="gm-glyph">§</span></td><td>Property, will, probate</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Property, will, probate, marriage contract or settlement</td></tr>
                 <tr><td><span class="gm-glyph">·</span></td><td>Any other event type — one with no traditional symbol of its own</td></tr>
                 <tr><td><span class="gm-glyph">◦</span></td><td>Any non-standard event type — a tag that a program added to GEDCOM (<code>_MILT</code>, <code>NOBI</code> and the like)</td></tr>
               </tbody>

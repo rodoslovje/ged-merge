@@ -65,6 +65,9 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   // otherwise their lines would be re-joined with LF on save.
   const eol = text.includes("\r\n") ? "\r\n" : text.includes("\r") && !text.includes("\n") ? "\r" : "\n";
   const finalNewline = /[\r\n]$/.test(text);
+  // The at-sign escape depends on the version, and every line is decoded as
+  // it is read — so the header's declaration is looked up first.
+  const legacyAt = !/^7\./.test(declaredVersion(text) ?? "");
 
   // Split on any line ending (\r\n, lone \r, or \n) — directly, which avoids
   // allocating a full normalized copy of the text first, and a piece at a time
@@ -88,6 +91,8 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   // value it clearly belongs to instead of being flagged and detached.
   // Cleared on any well-formed non-CONT/CONC line.
   let textBlob: GedNode | undefined;
+  // Values with a line that doubles its at-signs: never written back bare.
+  const atMixed = new WeakSet<GedNode>();
 
   for (let i = 0; ; i++) {
     if (i - first >= lines.length) {
@@ -123,11 +128,18 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     const tag = m[3].toUpperCase();
     const spelling = m[3] !== tag ? m[3] : undefined;
     let value = m[4];
-    // GEDCOM doubles a leading at-sign (`@@`) so a value can start with a
-    // literal `@` without reading as a pointer. Fold it back to a single `@`;
-    // the serializer re-doubles it on output, so a valid file still
-    // round-trips byte-faithfully.
-    if (value !== undefined && value.startsWith("@@")) value = value.slice(1);
+    // GEDCOM writes a literal at-sign as `@@` so text cannot read as a
+    // pointer. 5.5.x doubles every one (`ana@@example.si`); 7.0 only a
+    // leading one, and reads any later `@@` as two at-signs. Fold each back
+    // by its version's rule; the serializer re-doubles by the same rule (see
+    // `atEscapeFor`), so a valid file still round-trips byte-faithfully.
+    // A 5.5.x file that writes its at-signs bare (`ana@example.si`, as many
+    // exporters do) is remembered as such, so an untouched value saves the way
+    // it was read (see `GedNode.atBare`).
+    const atStyle = legacyAt && value !== undefined ? atStyleOf(value) : undefined;
+    if (value !== undefined && value.includes("@@")) {
+      value = legacyAt ? value.replace(/@@/g, "@") : value.startsWith("@@") ? value.slice(1) : value;
+    }
 
     // CONT (new line) and CONC (no separator) extend the parent's value.
     if (tag === "CONT" || tag === "CONC") {
@@ -174,6 +186,12 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
         // against; re-point `of` or they would read as stale.
         parent.conc = { at: parent.conc.at, of: parent.value };
       }
+      if (atStyle === "doubled" || atMixed.has(parent)) {
+        atMixed.add(parent);
+        delete parent.atBare;
+      } else if (atStyle === "bare" || parent.atBare !== undefined) {
+        parent.atBare = parent.value;
+      }
       textBlob = parent;
       continue;
     }
@@ -182,6 +200,9 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     if (xref) node.xref = xref;
     if (value !== undefined) node.value = value;
     if (spelling) node.spelling = spelling;
+    if (value === "") node.spaced = true;
+    if (atStyle === "bare") node.atBare = value;
+    else if (atStyle === "doubled") atMixed.add(node);
 
     if (level === 0) {
       roots.push(node);
@@ -233,6 +254,33 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   }
   const version = detectVersion(roots, warnings);
   return { version, charset, records: roots, warnings, eol, finalNewline, bom };
+}
+
+/**
+ * How a 5.5.x line value spells its literal at-signs: `"doubled"` when any is
+ * written `@@` (the spec's way), `"bare"` when some are single and none are
+ * doubled, undefined when it has none — a pointer and an `@#D…@` calendar
+ * escape are at-sign constructs, not literal at-signs.
+ */
+function atStyleOf(raw: string): "bare" | "doubled" | undefined {
+  if (!raw.includes("@") || isPointer(raw)) return undefined;
+  let bare = false;
+  for (const run of raw.replace(/@#D[A-Z ]*@/g, "").match(/@+/g) ?? []) {
+    if (run.length > 1) return "doubled";
+    bare = true;
+  }
+  return bare ? "bare" : undefined;
+}
+
+/**
+ * The `HEAD.GEDC.VERS` a file declares, read straight off the text before it
+ * is parsed: the header opens the file, so its first stretch is enough. Any
+ * level-2 line of the GEDC block may come first (`2 FORM` before `2 VERS`).
+ */
+export function declaredVersion(text: string): string | undefined {
+  const head = text.slice(0, 1 << 16);
+  const gedc = /(?:^|[\r\n])[^\S\r\n]*1[^\S\r\n]+GEDC[^\r\n]*((?:[\r\n]+[^\S\r\n]*[2-9][^\S\r\n][^\r\n]*)*)/i.exec(head);
+  return gedc ? /[\r\n][^\S\r\n]*2[^\S\r\n]+VERS[^\S\r\n]+([^\r\n]*)/i.exec(gedc[1])?.[1]?.trim() : undefined;
 }
 
 function detectVersion(roots: GedNode[], warnings: ParseWarning[]): GedcomVersion {

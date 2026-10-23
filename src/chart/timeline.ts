@@ -15,7 +15,7 @@ import {
   isPresumedLiving,
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
-import { EVENT_GLYPHS, eventDisplayLabel } from "../gedcom/eventTags";
+import { EVENT_GLYPHS, LDS_ORDINANCE_TAGS, eventDisplayLabel } from "../gedcom/eventTags";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
@@ -287,6 +287,7 @@ function makeRow(
 
   // Every dated year the record carries, for open bar ends.
   const eventYears = indi.events
+    .filter((e) => !LDS_ORDINANCE_TAGS.has(e.tag))
     .map((e) => e.date?.year)
     .filter((y): y is number => y !== undefined)
     .concat(marks.map((m) => m.year));
@@ -342,11 +343,13 @@ function residencePeriods(t: Translate, indi: Individual, barEnd: number | undef
   });
 }
 
-/** Dot markers for every dated event on the individual's own record. */
+/** Dot markers for every dated event on the individual's own record — save
+ *  the LDS ordinances, whose (often posthumous, proxy) dates are the church's
+ *  record rather than a point in the life (see `LDS_ORDINANCE_TAGS`). */
 function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
   const out: TimelineMark[] = [];
   for (const e of indi.events) {
-    if (e.date?.year === undefined) continue;
+    if (e.date?.year === undefined || LDS_ORDINANCE_TAGS.has(e.tag)) continue;
     const label = eventDisplayLabel(e.tag, t, e.type || e.tag);
     const place = eventPlace(e);
     out.push({

@@ -177,6 +177,11 @@ export interface AppSettings extends NameDisplayOptions {
    *  3166-1 alpha-2 code. Genealogists leave their own country out, so the
    *  file's silent majority is usually its home country. */
   homeCountry: string;
+  /** The reader's own name, written as the file's author (the GEDCOM
+   *  submitter, SUBM) where a file needs one and has none: a new file, and a
+   *  5.5.1 save without a submitter. Empty = the program's name. Stored as
+   *  typed; trimmed where it is written. */
+  authorName: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -199,7 +204,11 @@ const DEFAULTS: AppSettings = {
   quickEventTags: ["BIRT", "RESI", "OCCU", "DEAT", "BURI"],
   marriedNameFromPartner: false,
   homeCountry: HOME_COUNTRY_AUTO,
+  authorName: "",
 };
+
+/** A GEDCOM NAME line is short; a longer stored value is cut, not rejected. */
+export const MAX_AUTHOR_NAME = 120;
 
 /** Digits 1–9 trigger the quick-add buttons, so the list is capped at nine. */
 export const MAX_QUICK_EVENTS = 9;
@@ -440,6 +449,9 @@ function load(): AppSettings {
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
       homeCountry: sanitizeHomeCountry(parsed.homeCountry),
+      authorName: typeof parsed.authorName === "string"
+        ? parsed.authorName.replace(/[\r\n]+/g, " ").slice(0, MAX_AUTHOR_NAME)
+        : DEFAULTS.authorName,
     };
   } catch {
     return DEFAULTS;

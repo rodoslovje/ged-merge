@@ -47,7 +47,11 @@ export function displayName(n: PersonName | undefined): string {
  */
 export function nameSearchText(indi: Individual): string {
   const parts: (string | undefined)[] = [];
-  for (const n of indi.names) parts.push(n.full, n.given, n.surname, n.married, n.nickname);
+  for (const n of indi.names) {
+    parts.push(n.full, n.given, n.surname, n.married, n.nickname);
+    // A name written in another script or language finds the person too.
+    for (const tr of n.translations ?? []) parts.push(tr.full);
+  }
   return parts.filter(Boolean).join(" ").toLowerCase();
 }
 
@@ -101,7 +105,9 @@ export const ADDITIONAL_NAME_TYPES = [
 ];
 
 /** Human-readable label for a `2 TYPE` value on a NAME record (e.g. "married", "aka"). */
-export function nameTypeLabel(type: string, t: Translate): string {
+export function nameTypeLabel(type: string, t: Translate, phrase?: string): string {
+  // A GEDCOM 7 `TYPE`.`PHRASE` is the file's own word for the type.
+  if (phrase) return phrase;
   const key = type.toLowerCase();
   return KNOWN_NAME_TYPES.has(key) ? t(`nametype.${key}`) : type;
 }

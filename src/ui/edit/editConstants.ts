@@ -1,6 +1,6 @@
 import type { Family, Sex, SourceCitation } from "../../gedcom/types";
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
-import type { MatchDecisionStatus } from "../../review/types";
+import { EVENT_TEXT_SUBS, type MatchDecisionStatus } from "../../review/types";
 
 export { VALUE_EVENT_TAGS, SECONDARY_VALUE_EVENT_TAGS } from "../../gedcom/eventTags";
 
@@ -9,10 +9,14 @@ export { VALUE_EVENT_TAGS, SECONDARY_VALUE_EVENT_TAGS } from "../../gedcom/event
  * can be added and switched to/from like any other event. A non-standard tag
  * (`isNonStandardTag`) closes its group, after every standard one. */
 export const INDIVIDUAL_EVENT_GROUPS = [
-  // Life order: the two baptisms, then first communion, then confirmation;
-  // adoption last, since it is not tied to a point in that sequence.
-  { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "FCOM", "CONF", "ADOP"] },
-  { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "RETI", "_MILT"] },
+  // Life order: the baptisms (a child's, then an adult's) and a blessing, then
+  // first communion, confirmation and the bar/bat mitzvah that stand where
+  // confirmation does; adoption last, since it is not tied to a point in that
+  // sequence.
+  { labelKey: "eventGroup.earlyLife",  tags: ["BAPM", "CHR", "CHRA", "BLES", "FCOM", "CONF", "BARM", "BASM", "ADOP"] },
+  // An ordination is the entry into a calling, so it sits with the schooling
+  // that leads to one.
+  { labelKey: "eventGroup.career",     tags: ["OCCU", "EDUC", "GRAD", "ORDN", "RETI", "_MILT"] },
   { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "CAST", "RELI", "NATI", "NCHI", "NMR", "REFN", "IDNO", "SSN", "RACE", "NOBI", "ILL", "_MEDC"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
   // What a person owned and the legal acts about it, in life and after it.
@@ -20,6 +24,8 @@ export const INDIVIDUAL_EVENT_GROUPS = [
   // Death, then what becomes of the body in sequence (cremation precedes the
   // laying to rest of the ashes), with the funeral service last.
   { labelKey: "eventGroup.death",      tags: ["DEAT", "CREM", "BURI", "_INTE", "_FNRL"] },
+  // The Latter-day Saint ordinances, in the order the church performs them.
+  { labelKey: "eventGroup.lds",        tags: ["BAPL", "CONL", "ENDL", "SLGC"] },
   { labelKey: "eventGroup.other",      tags: ["EVEN", "FACT"] },
 ] as const;
 
@@ -54,8 +60,7 @@ export function familyEventHasMergeData(
 ): boolean {
   if (!famMergeKeyBase) return false;
   const base = `${famMergeKeyBase}.${tag}`;
-  const EVENT_SUBS = ["date", "place", "addr", "note", "agency", "type", "cause", "value"] as const;
-  if (EVENT_SUBS.some((s) => mergeHighlight.has(`${base}.${s}`))) return true;
+  if (EVENT_TEXT_SUBS.some((s) => mergeHighlight.has(`${base}.${s}`))) return true;
   return (mergeIncomingSources.get(`${base}.sources`)?.length ?? 0) > 0;
 }
 
@@ -76,15 +81,20 @@ export const EXTRA_EVENT_ORDER = INDI_EVENT_TAG_ORDER.filter((tag) => tag !== "B
 
 export const MATCH_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
 
-export const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
+export const SEX_OPTIONS: Sex[] = ["M", "F", "X", "U"];
 
-/** M/F/U toggle for the individual's `SEX` line. */
-export const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", U: "?" };
+/** M/F/X/U toggle for the individual's `SEX` line (X is GEDCOM 7's "other"). */
+export const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", X: "⚥", U: "?" };
 
-/** The next sex in the picker's own order, wrapping round — what ⌥⇧X sets, so
- *  three presses come back to where they started. A sex the file spells some
- *  other way starts the cycle from the top. */
+/** What ⌥⇧X cycles through: the picker's common three. X, rare and chosen
+ *  deliberately, is offered by the picker only — a fourth step would put the
+ *  usual answer one press further away. */
+const KEY_SEX_CYCLE: Sex[] = ["M", "F", "U"];
+
+/** The next sex in the ⌥⇧X cycle, wrapping round, so three presses come back
+ *  to where they started. A sex outside the cycle (X, or one the file spells
+ *  some other way) starts it from the top. */
 export function nextSex(current: Sex | undefined): Sex {
-  const at = SEX_OPTIONS.indexOf(current as Sex);
-  return SEX_OPTIONS[(at + 1) % SEX_OPTIONS.length];
+  const at = KEY_SEX_CYCLE.indexOf(current as Sex);
+  return KEY_SEX_CYCLE[(at + 1) % KEY_SEX_CYCLE.length];
 }

@@ -89,6 +89,7 @@
 /* ---------------- Sex colouring on names ---------------- */
 .sex-m { color: var(--sex-male); }
 .sex-f { color: var(--sex-female); }
+.sex-x { color: var(--sex-other); }
 
 /* Optional ♀ / ♂ badge rendered before the name (⟶ TSX adds the element). */
 .sex-badge { display: inline-flex; align-items: center; justify-content: center;

@@ -72,6 +72,8 @@ test("a chart's GEDCOM export holds the branch and nothing that points outside i
     "0 @F3@ FAM", "0 @F4@ FAM",
     "0 @S1@ SOUR",
     "0 @N1@ NOTE Tone farmed the family land.",
+    // The submitter record 5.5.1 requires, which the file did not have.
+    "0 @U1@ SUBM",
     "0 TRLR",
   ]);
   // Nobody from outside: not the parents, not the godmother, not their records.

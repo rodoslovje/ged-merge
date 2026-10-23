@@ -5,6 +5,7 @@ import { isVoidPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { dateFixContext, dateStyleContext, isUnparseable, nonStandardDate, proposeDateFix } from "./fixDates";
 import { firstChild } from "../gedcom/node";
+import { validateConformance, type ConformanceCategory } from "./conformance/conformance";
 
 /**
  * GEDCOM structural ("spec") validation — a pass over the raw `GedNode` tree and
@@ -36,7 +37,8 @@ export type StructCategory =
   | "reversedRange"
   | "shortYear"
   | "nonStandardDate"
-  | "ambiguousDate";
+  | "ambiguousDate"
+  | ConformanceCategory;
 
 export type StructSeverity = "error" | "warning" | "info";
 
@@ -63,6 +65,12 @@ export interface StructIssue {
   /** For a repairable `badDate` or `nonStandardDate`: the value the one-click
    *  fix would write, so the row can flag itself fixable and preview the result. */
   fix?: string;
+  /** Conformance findings: the child-index path from the record to the line
+   *  ("3.1"), which is how the fix finds the line again. */
+  path?: string;
+  /** Conformance `cardinality`: every repeat is an exact copy of the first,
+   *  so the fix can drop them without losing anything. */
+  repeat?: boolean;
 }
 
 export interface StructureReport {
@@ -87,15 +95,22 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   shortYear: 0,
   nonStandardDate: 0,
   ambiguousDate: 0,
+  pointerType: 0,
+  cardinality: 0,
+  misplacedTag: 0,
+  enumValue: 0,
+  valueFormat: 0,
+  xrefShape: 0,
 };
 
 /**
- * Tags we recognise — a generous union of GEDCOM 5.5.1 and 7.0 standard tags
- * (record, substructure, and event tags). Vendor extensions are `_`-prefixed and
- * handled separately, so they never need to appear here. A tag outside this set
- * isn't necessarily illegal, but it's worth surfacing as "unknown".
+ * Tags we recognise — the union of every tag GEDCOM 5.5.1, 5.5.5 and 7.0 define
+ * (record, substructure, and event tags), audited against each specification's
+ * full tag list. Vendor extensions are `_`-prefixed and handled separately, so
+ * they never need to appear here. A tag outside this set isn't necessarily
+ * illegal, but it's worth surfacing as "unknown".
  */
-const KNOWN_TAGS = new Set<string>([
+export const KNOWN_TAGS = new Set<string>([
   // Records / top level
   "HEAD", "TRLR", "INDI", "FAM", "SOUR", "REPO", "OBJE", "NOTE", "SNOTE", "SUBM", "SUBN",
   // Header
@@ -109,6 +124,14 @@ const KNOWN_TAGS = new Set<string>([
   "BIRT", "CHR", "DEAT", "BURI", "CREM", "BAPM", "BARM", "BASM", "BLES", "CHRA",
   "CONF", "FCOM", "ORDN", "NATU", "EMIG", "IMMI", "CENS", "PROB", "WILL", "GRAD",
   "RETI", "EVEN", "BAPL", "CONL", "ENDL", "SLGC", "INIL",
+  // Latter-day Saint ordinance detail: the temple code (5.5.1 + 7.0), and
+  // 5.5.1's SUBN ordinance-processing flag and family file name
+  "TEMP", "ORDI", "FAMF",
+  // A pointer to another INDI record believed to be the same person
+  "ALIA",
+  // Continuation lines — folded into their value at parse time, listed so a
+  // caller asking about a tag by name never reads them as unknown
+  "CONT", "CONC",
   // Individual attributes
   "CAST", "DSCR", "EDUC", "IDNO", "NATI", "OCCU", "PROP", "RELI", "RESI", "SSN",
   "TITL", "FACT",
@@ -125,6 +148,8 @@ const KNOWN_TAGS = new Set<string>([
   // WIDTH are the GEDCOM 7 multimedia-link crop region (a subregion of an image
   // that depicts the linking record — e.g. one person marked in a group photo).
   "BLOB", "CROP", "TOP", "LEFT", "HEIGHT", "WIDTH",
+  // 7.0: a note's media type (text/plain, text/html) under NOTE/SNOTE/TRAN
+  "MIME",
   // Change / creation audit; identifiers
   "CHAN", "CREA", "UID", "RFN", "AFN",
 ]);
@@ -473,8 +498,12 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     });
   }
 
+  // (d) The file held against the structure table of the GEDCOM version it
+  //     declares: line counts, tag placement, pointer targets, enumerated values.
+  for (const issue of validateConformance(ds)) push(issue);
+
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "version", "unknownTag", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);

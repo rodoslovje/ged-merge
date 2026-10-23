@@ -1,7 +1,7 @@
 import type { Family, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { familyEventLabel } from "../../gedcom/eventTags";
 import { firstChild } from "../../gedcom/node";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import { isSameSexCouple } from "../../gedcom/couple";
@@ -66,7 +66,7 @@ export function FamilyEventRow({
 }) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const ev = fam.events.find((e) => e.tag === tag);
-  const label = eventDisplayLabel(tag, t);
+  const label = familyEventLabel(tag, t);
   const eventNode = firstChild(fam.raw, tag);
   const tagChoices = familyTagChoices(fam, tag);
 
@@ -86,8 +86,22 @@ export function FamilyEventRow({
         )
       : undefined;
 
+  // The ages the record states for each spouse: labelled by the glyph of the
+  // person's actual sex (as the computed badges are), named in full in the
+  // tooltip — which is what tells a same-sex couple's two fields apart.
+  const spouseAge = (indi: Individual | undefined, fallbackGlyph: string, roleKey: string) => {
+    const glyph = indi?.sex === "M" ? "♂" : indi?.sex === "F" ? "♀" : fallbackGlyph;
+    const name = indi?.names[0]?.full?.trim() || t(roleKey);
+    return { label: t("event.colSpouseAge", { glyph }), title: t("event.spouseAgeTitle", { name }) };
+  };
+  const spouseAgeLabels = {
+    husband: spouseAge(husbandIndi, "♂", "field.husband"),
+    wife: spouseAge(wifeIndi, "♀", "field.wife"),
+  };
+
   return (
     <EventFieldsRow
+      spouseAgeLabels={spouseAgeLabels}
       ev={ev}
       label={label}
       tag={tag}
@@ -100,6 +114,7 @@ export function FamilyEventRow({
         onRetag?.(newTag);
       } : undefined}
       tagGroups={tagChoices.length > 1 ? [{ tags: tagChoices }] : undefined}
+      tagLabel={familyEventLabel}
       onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
       onEditSource={eventNode ? (idx) => openEditSource(eventNode, idx, { kind: "family", fam }) : undefined}
       eventNode={eventNode}

@@ -302,7 +302,7 @@
               <li><strong>Videz</strong> — <em>Tema</em>: Samodejno, Svetla ali Temna (Samodejno sledi operacijskemu sistemu).</li>
               <li><strong>Prikaz imen</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač) — pri osebi, poročeni več kot enkrat, so prikazani vsi poročni priimki, ločeni z vejico po vrstnem redu porok — in <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK). Predogled nad možnostmi sproti pokaže izid. To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
               <li><strong>Prikaz</strong> — <em>Prikaz datumov</em> prikaže datume tako, kot jih zapisuje datoteka, z besedami (<em>okoli 5. marca 1850</em>) ali v obliki po vaši izbiri (<em>ABT 05.03.1850</em>), pri tem pa datoteka ohrani svojo obliko — ko kliknete v polje za datum, se v njem spet pokaže zapis iz datoteke; <em>Prikaži starosti</em> doda starosti ob razponih let in datumih dogodkov; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (<a href="#home-person">§7</a>) po vsej aplikaciji; <em>Prikaži oznake zapisov</em> pa postavi oznako zapisa GEDCOM (xref) ob ime osebe.</li>
-              <li><strong>Urejanje</strong> — <em>Poročni priimek po partnerju</em> ob dodajanju žene možu z znanim priimkom zapiše njegov priimek kot njen poročni priimek, <em>Hitro dodajanje dogodkov</em> pa določa gumbe pod seznamom dogodkov (<a href="#edit">§8</a>).</li>
+              <li><strong>Urejanje</strong> — ime, ki ga vpišete v polje <em>Vaše ime (avtor datoteke)</em>, se zapiše kot avtor datoteke (<em>SUBM</em>), kadar je zapis avtorja treba dodati: v novo drevo in v datoteko GEDCOM 5.5.1, ki ob shranjevanju nima avtorja (<a href="#saving">§14</a>). Če je polje prazno, se kot avtor zapiše »GED Merge«. <em>Poročni priimek po partnerju</em> ob dodajanju žene možu z znanim priimkom zapiše njegov priimek kot njen poročni priimek, <em>Hitro dodajanje dogodkov</em> pa določa gumbe pod seznamom dogodkov (<a href="#edit">§8</a>).</li>
             </ul>
             <p>Preostali trije zavihki:</p>
             <ul>
@@ -580,6 +580,15 @@
               Spol lahko nastavite tudi brez izbirnika: kombinacija
               <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">X</span> preklaplja med
               ♂, ♀ in ?. Tako spol najhitreje določite otroku, ki ste ga pravkar dodali.
+              Izbirnik ponuja tudi možnost <strong>Drugo</strong> (⚥), s katero GEDCOM 7 označi osebo, ki ni samo
+              moškega ali samo ženskega spola. Na diagramih je taka oseba obarvana s posebno, nevtralno barvo. Datoteka
+              GEDCOM 5.5.1 te vrednosti nima, zato se spol v njej zapiše kot neznan, poleg njega pa še vrstica
+              <code>_SEX X</code>, iz katere se spol ob branju znova prepozna kot »Drugo«.
+              <strong>Prevodi</strong> imena — isto ime v drugem jeziku ali pisavi, v GEDCOM 7 <code>TRAN</code>
+              (v GEDCOM 5.5.1 <code>ROMN</code> / <code>FONE</code>) — so prikazani kot oznake pod imenom, vsak s svojim
+              jezikom. Iskanje najde osebo po katerem koli prevodu, v načinu <span class="gm-pill">Združevanje</span>
+              pa se prevodi primerjajo in prenesejo. Prevodi kraja ali opombe so prikazani v namigu, ki se pokaže, ko
+              miško podržite nad poljem.
             </p>
             <h3>Dogodki</h3>
             <p>
@@ -598,11 +607,12 @@
               Rojstvo je prikazano privzeto. <strong>+ Dodaj dogodek</strong> razkrije ostale, razvrščene po življenjskih
               fazah:
               <ul>
-                <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Prvo sveto obhajilo, Birma, Posvojitev.
+                <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Krst odraslega, Blagoslov, Prvo sveto obhajilo,
+                  Birma, Bar micva, Bat micva, Posvojitev.
                   <em>Krst</em> je krst nasploh (GEDCOM <code>BAPM</code>), <em>Krst otroka</em> pa krst in poimenovanje
                   otroka (<code>CHR</code>) — oznaka, ki jo pišejo predvsem angleški programi. Za slovenske župnijske
                   vpise izberite <em>Krst</em>.</li>
-                <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Upokojitev, Vojaška služba (<code>_MILT</code>)</li>
+                <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Posvečenje, Upokojitev, Vojaška služba (<code>_MILT</code>)</li>
                 <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Stan, Veroizpoved, Narodnost, Število otrok,
                   Število zakonov, Referenčna številka, Identifikacijska številka, Številka socialnega zavarovanja,
                   Etnična pripadnost (<code>RACE</code>), Priznanje (<code>NOBI</code>), Bolezen (<code>ILL</code>),
@@ -612,17 +622,40 @@
                 <li><strong>Bivanje in selitve</strong> — Prebivališče, Izselitev, Priselitev, Naturalizacija, Popis</li>
                 <li><strong>Premoženje</strong> — Premoženje, Oporoka, Zapuščinska obravnava, Pravni posel (<code>LATR</code>), Listina (<code>DEED</code>)</li>
                 <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob (<code>_INTE</code>), Pogreb (<code>_FNRL</code>)</li>
+                <li><strong>Obredi LDS</strong> — LDS krst, LDS birma, LDS obdaritev, LDS zapečatenje s starši. V
+                  vrstici takega obreda sta pod gumbom <strong>+ Dodaj</strong> na voljo še polji
+                  <strong>Tempelj</strong> in <strong>Stanje</strong>. Ko stanje spremenite, se mu pripiše današnji datum — dan, ko je bilo stanje
+                  določeno. Novo zapečatenje s starši se poveže z družino, v katero se je oseba rodila. Obredi LDS se
+                  na časovnici ne prikažejo, ker je večina med njimi opravljena v zastopstvu, dolgo po smrti osebe.</li>
                 <li><strong>Drugo</strong> — splošni vrsti Dogodek in Dejstvo</li>
               </ul>
+              <p>
+                Z gumbom <strong>+ Se ni zgodilo</strong> na koncu iste vrste zapišete nasprotno: da se dogodek
+                <em>ni</em> zgodil — oseba na primer ni bila krščena ali pa se par ni poročil (družina ima svoj gumb
+                poleg gumba <strong>+ Dodaj družinski dogodek</strong>). To je struktura <code>NO</code> iz GEDCOM 7;
+                datoteka GEDCOM 5.5.1 jo hrani kot <code>_NO</code>. Vsaka taka navedba se pod gumbi prikaže kot
+                oznaka <span class="gm-glyph">⊘</span> z imenom dogodka, z ikono <span class="gm-glyph">×</span> pa jo
+                odstranite. <a href="#validate">Pregled</a> opozori na zapis, ki vsebuje dogodek in hkrati navedbo, da se
+                ni zgodil. V načinu <span class="gm-pill">Združevanje</span> se te navedbe primerjajo in prenesejo kot
+                vsako drugo polje.
+              </p>
               <p>
                 Vsako vrstico uvaja rodoslovno znamenje njenega dogodka — <span class="gm-glyph">*</span> za rojstvo,
                 <span class="gm-glyph">⚭</span> za poroko, <span class="gm-glyph">†</span> za smrt — tako da se dolgo
                 življenje prebere že po stolpcu znamenj; vsa so zbrana v <a href="#legend">§15</a>.
                 Vrstica dogodka pokaže samo polja, ki jih dogodek res nosi, začenši z <strong>datumom</strong> in
                 <strong>krajem</strong>. Gumb <strong>+ Dodaj</strong> na koncu vrstice doda preostala eno po eno —
-                naslov, ustanovo, vir, vrsto, vzrok, opombo — in kazalec postavi naravnost v novo polje, tako da vrstica
+                naslov, ustanovo, vir, vrsto, vzrok, opombo, starost, datum za razvrščanje — in kazalec postavi naravnost v novo polje, tako da vrstica
                 nikoli ne postane stena praznih vnosnih polj. Z <span class="gm-glyph">×</span> počistite posamezno
-                polje. Polje <strong>Ustanova</strong> se dopolnjuje iz že vpisanih ustanov — iz župnij in uradov, ki
+                polje. <strong>Datum za razvrščanje</strong> (<code>SDATE</code> v GEDCOM 7, <code>_SDATE</code> v datoteki
+                GEDCOM 5.5.1) določa samo vrstni red. Dogodek brez datuma ali z datumom, zapisanim le z besedami, se po
+                njem razvrsti na seznamu dogodkov, v shranjeni datoteki, v poročilih in v primerjavi pri združevanju.
+                Pravi datum dogodka ostane nespremenjen. Datum v GEDCOM 7 ima lahko tudi svoje
+                <strong>besedilo</strong> (<code>PHRASE</code>) — na primer »velika noč« ob vrednosti <code>1850</code>
+                — ali pa samo besedilo brez vrednosti. Besedilo je prikazano poleg polja za datum, v poročilih in v
+                namigu primerjave pri združevanju pa za datumom. Ob urejanju datuma se
+                ohrani. Besedilo vrste imena (<code>TYPE OTHER</code> s <code>PHRASE</code>) se prikaže namesto vrste.
+                Polje <strong>Ustanova</strong> se dopolnjuje iz že vpisanih ustanov — iz župnij in uradov, ki
                 jih navajajo dogodki vaše datoteke — tako da ime župnije izpišete enkrat, potem pa ga izberete.
                 Enako se dopolnjujejo polja <strong>Vzrok</strong>, <strong>Vrsta</strong> in <strong>Vsebina</strong>
                 pri lastnostih, kot so Poklic, Veroizpoved in Izobrazba: takoj ko vstopite v polje, se ponudi, kar
@@ -655,6 +688,43 @@
                 pod datumom. Enako delujejo vsa polja za datum: leta,
                 ki jih vir pokriva, v orodju <a href="#sources">Uredi vire</a>, kjer se <em>1850-1900</em> zapiše
                 kot obdobje <code>FROM 1850 TO 1900</code>, in datum fotografije v pregledovalniku medijev.
+              </p>
+              <p>
+                Starost, ki jo navaja zapis, vpišete v polje <strong>Starost</strong>, ki ga dodate z gumbom
+                <strong>+ Dodaj</strong>. Tako starost navajajo na primer mrliške knjige, poročne knjige pa starost
+                ženina in neveste. Družinski dogodek ima zato po eno takšno polje za vsakega zakonca
+                (<strong>Starost ♂</strong> in <strong>Starost ♀</strong>). Starost vpišite tako, kot jo zapisuje
+                GEDCOM: <em>62y</em>, <em>62y 3m</em>, <em>3m 10d</em>, <em>&lt;1y</em> za manj kot leto,
+                <em>&gt;60y</em> za več kot šestdeset let ali samo število, ki pomeni leta (y — leta, m — meseci,
+                w — tedni, d — dnevi). Ko polje zapustite, se starost zapiše v različici GEDCOM vaše datoteke. V
+                datoteki 5.5.1 se ohranijo besede <em>CHILD</em>, <em>INFANT</em> in <em>STILLBORN</em>, v datoteki
+                GEDCOM 7 pa se namesto njih zapiše meja starosti, beseda pa se ohrani ob njej.
+              </p>
+              <p>
+                Navedena starost se uporabi tudi drugje. Iz nje se izračuna ocenjeno leto rojstva v orodju
+                <a href="#normalize">Poenoti in paketno uredi</a>. Kjer starosti ni mogoče izračunati iz datuma
+                rojstva, se v poročilu izpiše navedena starost. <a href="#validate">Pregled</a> pa opozori na
+                starost, ki se z datumom rojstva ne ujema.
+              </p>
+              <p>
+                Polje <strong>Naslov</strong> hrani naslov v eni vrstici. S puščico
+                <span class="gm-glyph">▾</span> ob njem odprete naslov po vrsticah: tri vrstice naslova, naselje,
+                pokrajino, poštno številko in državo, poleg njih pa še telefon, e-pošto in faks, ki sodijo k naslovu.
+                Vsaka vrstica, ki jo izpolnite, se pod naslovom zapiše kot samostojna vrstica GEDCOM
+                (<code>ADR1</code>, <code>CITY</code>, <code>POST</code> …). Vrstice, ki se jih ne dotaknete,
+                ostanejo takšne, kot so bile, zato naslov v eni vrstici ostane v eni vrstici, dokler sami ne izpolnite
+                katere od teh vrstic. Pri dogodku, katerega naslov take vrstice že ima, se vrstice odprejo same.
+              </p>
+              <p>
+                Nekateri programi zapišejo le vrstice, besedila naslova pa ne. Takrat se vrstice združijo v naslov,
+                ki velja povsod, kjer se naslov uporablja: pri koordinati, v drevesu <a href="#places">Kraji</a>,
+                v seznamih naslovov v orodju <a href="#geocode">Geokodiranje krajev</a> in v poročilih. Ko
+                preimenujete kraj ali naslov, se novo ime zapiše tudi v te vrstice: kjer vrstica navaja staro ime,
+                se to zamenja z novim. Če novega naslova ni mogoče zapisati v obstoječe vrstice, se zapiše kot
+                besedilo naslova, vrstice pa ostanejo takšne, kot so bile. V načinu
+                <span class="gm-pill">Združevanje</span> se naslov primerja v celoti, zato se naslova z enako prvo
+                vrstico in različno poštno številko pokažeta kot različna. Če prevzamete vhodni naslov, se z njim
+                prenesejo tudi njegove vrstice in kontaktni podatki.
               </p>
               <p>
                 Vrstici <strong>Prebivališče</strong> in <strong>Smrt</strong> ponujata tudi polje
@@ -761,7 +831,7 @@
               <ul>
                 <li><strong>Starši</strong> — <strong>+ Dodaj očeta</strong> / <strong>+ Dodaj mater</strong> poiščeta obstoječo osebo ali dodata novo. Z drugim staršem je par popoln: če imata ta dva že svojo družino, se otrok pridruži njej — k njuni poroki in morebitnim drugim otrokom — in ne novemu zapisu za isti par. Ikona <span class="gm-glyph danger">−</span> odklopi vlogo, ne da bi izbrisala zapis. Sklop staršev, ki ne navaja <em>nobenega</em> starša — običajno ostanek druge družine po uvozu ali združevanju — ima na koncu vrstice svojo ikono <span class="gm-glyph danger">−</span>: odklopi to osebo od te družine, z njo pa gre tudi družinski zapis, razen če so v njem še drugi otroci. <a href="#validate">Pregled</a> jih našteje pod <strong>Družina brez staršev</strong>.</li>
                 <li><strong>Bratje in sestre</strong> — pod starši so otroci te družine po vrstnem redu rojstva, oseba, ki jo urejate, pa je označena na svojem mestu. Za njimi so polbratje in polsestre, ki jih je eden od staršev imel v drugi zvezi: stojijo za oznako <em>Očetova druga družina</em> ali <em>Materina druga družina</em> in imajo črtkan rob, ko se z miško ustavite na enem od njih, pa se izpiše drugi starš. S klikom odprete kogar koli od njih. Pri edinem otroku te vrstice ni.</li>
-                <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Ko partnerja že ima vsaka družina, za zadnjo stoji še ena kartica <strong>+ Dodaj partnerja</strong>, ki začne novo zvezo — nova poroka tako dobi svojo družino. Vsaka družina prikazuje dogodke, ki jih res ima; prek <strong>+ Dodaj družinski dogodek</strong> dodate poroko, zaroko, ločeno življenje, ločitev, <em>status</em> zveze ali dogodek po meri, meni <span class="gm-glyph">▾</span> pri dogodku pa ga spet odstrani. <span class="gm-glyph danger">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
+                <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Ko partnerja že ima vsaka družina, za zadnjo stoji še ena kartica <strong>+ Dodaj partnerja</strong>, ki začne novo zvezo — nova poroka tako dobi svojo družino. Vsaka družina prikazuje dogodke, ki jih res ima; prek <strong>+ Dodaj družinski dogodek</strong> dodate poroko, zaroko, ženitno pogodbo, premoženjsko pogodbo zakoncev, ločeno življenje, skupno prebivališče, popis gospodinjstva, število otrok, vlogo za ločitev, ločitev, razveljavitev zakona, LDS zapečatenje z zakoncem, <em>status</em> zveze ali dogodek po meri, meni <span class="gm-glyph">▾</span> pri dogodku pa ga spet odstrani. Družina ima za vsako vrsto dogodka eno vrstico: če datoteka navaja še eno skupno prebivališče ali še en popis gospodinjstva, se ta zapis shrani nespremenjen, prikaže in ureja pa se samo prvi. <span class="gm-glyph danger">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
                 <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph danger">−</span> odklopi otroka brez brisanja. Če izberete osebo, ki je že otrok v drugi družini, se ta oseba <em>premakne</em> sem: rodna družina je lahko le ena, zato premik najprej potrdite, vprašanje pa našteje starše, ki jih oseba zapušča. Posvojitvena ali rejniška vez ostane.</li>
               </ul>
               <p><strong>Sorodniki.</strong> Plošča ob osebi našteje sorodnike, ki jih kartice ne prikazujejo — dedke in babice, strice in tete, bratrance in sestrične, nečake in nečakinje ter vnuke. Razvrščeni so po sorodstvu, najbližji najprej, in ločeni po očetovi in materini strani. Zobnik v glavi plošče prikaže tri izbire, s katerimi določite, kako daleč plošča seže: <strong>Predniki</strong> štejejo rodove navzgor, <strong>Potomci</strong> rodove navzdol, <strong>Drugi sorodniki</strong> pa povedo, koliko rodov drugih potomcev vsakega prednika se prikaže (1 doda strice in tete, 2 bratrance, sestrične, nečake in nečakinje). Možnost <strong>Partnerji sorodnikov</strong> doda še njihove zakonce in partnerje, izpisane ležeče in z znakom zveze pred imenom: ⚭ zakon, ⚮ ločitev, ⚬⚬ ločeno življenje, ⚯ zunajzakonska zveza. Ko se z miško ustavite na enem od njih, se izpiše sorodnik, s katerim je v zvezi, in morebitno zapisano ločeno življenje. S klikom odprete kogar koli s seznama, z gumbom s skupino ljudi ob gumbu <strong>Nazaj</strong> pa ploščo prikažete ali skrijete. Na ozkem zaslonu je plošča pod družinami.</p>
@@ -887,6 +957,12 @@
               <span class="gm-glyph">🌳</span> odpre stran osebe na FamilySearch, klik na ID ga uredi, gumb
               <strong>+ FamilySearch ID</strong> pa doda novega — zapisanega z oznako, ki jo vaša datoteka že uporablja.
               ID pomaga tudi pri ujemanju: če datoteki nosita isti ID, je oseba prepoznana kot ista.
+              GEDCOM 7 take oznake zapiše kot <strong>zunanji identifikator</strong> (<code>EXID</code>, ob njem pa
+              <code>TYPE</code>, ki pove, kateri sistem je oznako dodelil). Zunanji identifikator s FamilySearch je
+              prikazan kot običajni FamilySearch ID, nov ID pa se v datoteko GEDCOM 7 zapiše na ta način. Oznake iz
+              drugih sistemov so prikazane poleg njega, vsaka z imenom svojega sistema, vendar jih ni mogoče urejati.
+              V načinu <span class="gm-pill">Združevanje</span> se primerjajo in prenesejo, osebi z isto oznako iz
+              istega sistema pa sta pri ujemanju prepoznani kot ista oseba, tako kot pri FamilySearch.
             </p>
             <h3>Odklop ali brisanje?</h3>
             <p>
@@ -1207,6 +1283,8 @@
                   <span class="gm-glyph danger">−</span> pri tem sklopu staršev v načinu <span class="gm-pill">Urejanje</span>;</li>
                 <li><strong>podvojeno rojstvo ali smrt</strong> — oseba z dvema zapisoma o rojstvu ali o smrti; vsa
                   druga preverjanja upoštevajo le prvega;</li>
+                <li><strong>dogodek, ki se ni zgodil</strong> — zapis vsebuje dogodek, za katerega datoteka hkrati
+                  navaja, da se ni zgodil (<code>NO</code> v GEDCOM 7);</li>
                 <li>dogodki z datumom v prihodnosti in smrt pred rojstvom;</li>
                 <li><strong>dogodki zunaj življenjske dobe</strong> — poklic z datumom pred rojstvom, bivališče ali
                   poroka po smrti; pokop, upepelitev in zapuščinska obravnava smrti smejo slediti in niso označeni,
@@ -1215,6 +1293,8 @@
                   verjetno življenjsko dobo; skoraj vedno manjka zapis o smrti, paketno opravilo <em>označi kot
                   umrle</em> pa jih zapre v enem koraku;</li>
                 <li>malo verjetne starosti — ob smrti, ob poroki, starost starša, starostna razlika zakoncev;</li>
+                <li><strong>navedena starost</strong> — starost, ki jo zapis navaja ob dogodku (<em>62y</em> ob smrti,
+                  starost zakonca ob poroki), z datumom rojstva pa se razhaja za več kot leto;</li>
                 <li><strong>rojstvo po smrti starša</strong> — otrok, katerega letnica rojstva sledi smrti starša; pri
                   očetu je dovoljen posmrtni otrok, rojen še isto leto po njegovi smrti, pri materi ne, posvojitve in
                   rejništvo pa niso označeni. Bodisi je otrok v napačni družini bodisi eden od datumov pripada komu
@@ -1257,6 +1337,34 @@
                 nekaterih zapisih, v drugih pa ne</strong> — ime kraja, ki je geokodirano pri večini dogodkov, pri nekaterih
                 pa mu manjka koordinata (pogosto, ko je dogodek dodan ali na novo vpisan po geokodiranju datoteke) — in
                 ponudi, da koordinato, ki jo vrednost v datoteki že ima, prekopira na dogodke, ki je nimajo, brez poizvedbe.
+                Nad ugotovitvami o strukturi sta navedena različica GEDCOM datoteke in vse, kar se ob shranjevanju
+                doda, da bo datoteka veljaven GEDCOM (manjkajoča glava, zaključna vrstica ali zapis avtorja). Tam je
+                tudi gumb, s katerim datoteko shranite v drugi različici (<a href="#saving">§14</a>).
+              </p>
+              <p>
+                Pregled strukture datoteko preveri tudi po standardu GEDCOM, ki ga navaja njena glava — 5.5, 5.5.1,
+                5.5.5 ali 7.0 — in označi:
+              </p>
+              <ul>
+                <li><strong>kazalce na napačen zapis</strong> — na primer povezavo na družino staršev, ki kaže na
+                  osebo, ali prazen kazalec <em>@VOID@</em> zunaj GEDCOM 7.0;</li>
+                <li><strong>ponovljene ali manjkajoče vrstice</strong> — dve vrstici SEX pri isti osebi, dva datuma pri
+                  enem dogodku ali glavo datoteke 5.5.1 brez vrstice CHAR;</li>
+                <li><strong>oznake na napačnem mestu</strong> — standardno oznako pod vrstico, ki je ne sme imeti; vsaka
+                  taka navada se izpiše enkrat, s številom pojavitev;</li>
+                <li><strong>nestandardne vrednosti</strong> — vrednost zunaj standardnega seznama v vrsticah SEX, PEDI,
+                  QUAY, RESN, ROLE, MEDI, TYPE imena in drugih vrsticah z naštetimi vrednostmi;</li>
+                <li><strong>napačno zapisane vrednosti</strong> — vrstico AGE ali LANG, ki ni zapisana po pravilih
+                  standarda;</li>
+                <li><strong>neveljavne ID-je zapisov</strong>.</li>
+              </ul>
+              <p>
+                Razširitvene oznake, kot je <em>_UID</em>, so dovoljene povsod in se ne presojajo. Z gumbom
+                <strong>Popravi zapis vrednosti</strong> se vrednost, ki se od standardnega seznama razlikuje le po
+                velikih in malih črkah, zapiše tako, kot jo navaja standard (<em>Adopted</em> → <em>adopted</em>).
+                Z gumbom <strong>Odstrani ponovljene vrstice</strong> se odstranijo natančne kopije vrstice, ki jo
+                standard dovoljuje le enkrat. Vrednost zunaj seznama in ponovitve, ki se med seboj razlikujejo, so
+                vprašanje za vašo presojo.
               </p>
             </div>
             <p>
@@ -1276,9 +1384,10 @@
             <p>
               Vsak od teh popravkov je na voljo tudi po eni ugotovitvi naenkrat, kar na vrstici, ki jo je sprožila:
               prizadete vrstice imajo svoj gumb — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>,
-              <strong>Združi v eno</strong>, <strong>Odstrani sklic</strong> ali, kadar se vrednost nastavi in ne
-              odstrani, kar izid sam
-              (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>). Uporabite jih, kadar se
+              <strong>Združi v eno</strong>, <strong>Odstrani sklic</strong>, <strong>Odstrani kopije</strong> ali,
+              kadar se vrednost nastavi in ne odstrani, kar izid sam
+              (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>,
+              <strong>→ adopted</strong>). Uporabite jih, kadar se
               z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
               je v skupini več ugotovitev, kot jih popravek lahko uredi (trije zakonci brez spola med osmimi zapisi brez
               spola), ima gumb samo tista vrstica, ki jo bo spremenil. Pokvarjeno povezavo je posebej vredno urediti tukaj:
@@ -1373,7 +1482,9 @@
                 <li>sliko odstranijo;</li>
                 <li>osebe označijo kot umrle (dogodek smrti brez datuma — priročno po filtru živih z nemogočo
                   starostjo);</li>
-                <li>osebam brez datuma rojstva ali krsta dodajo <strong>ocenjeno leto rojstva</strong> — zapisano kot
+                <li>osebam brez datuma rojstva ali krsta dodajo <strong>ocenjeno leto rojstva</strong>. Kjer dogodek z
+                  datumom navaja starost osebe (smrt pri 62 letih), se leto izračuna iz te starosti in zapiše kot datum
+                  <em>CAL</em>. Sicer je leto zapisano kot
                   datum <em>ABT</em> in zaokroženo na pet let, da datoteka sama pove, da gre za približek, izpeljano
                   iz let rojstva datiranih staršev, zakonca ali otrok (ista ocena, ki jo razloži orodje Zasebnost),
                   pri čemer so bratje in sestre brez datumov razmaknjeni vsaj za leto po vrstnem redu otrok v družini,
@@ -1441,7 +1552,7 @@
             </div>
             <p>
               Možnosti na <strong>ravni datoteke</strong> odstranijo podatke, ki niso vezani na eno osebo: zapis
-              pošiljatelja (vaše ime, naslov in e-pošta), zunanje identifikatorje drevesa (<code>_UID</code>,
+              avtorja datoteke (vaše ime, naslov in e-pošta), zunanje identifikatorje drevesa (<code>_UID</code>,
               <code>_FID</code>, <code>AFN</code>) ter vse poštne naslove, e-pošto in telefonske številke v celotni
               datoteki. Predogled prešteje, koliko oseb je prikritih ali odstranjenih, preden prenesete prikriti GEDCOM.
             </p>
@@ -1930,7 +2041,7 @@
               Oznaka kraja je znak za lego: stoji pred vsako izpisano koordinato, medla, dokler ni nič umeščeno, in zelena, ko je. <strong>Izberi zanesljive</strong> izbere vsak naslov, ki mu je register odgovoril z natanko enim zadetkom — tistega, ki ga register vodi pod drugim naseljem, izpusti, saj je to primer opozorila o razdelitvi — tako en klik po skupinski poizvedbi odloči vso nedvoumno večino, ostanejo pa le prava vprašanja.
             </p>
             <p>
-              <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tem naslovu — v vrstici <code>ADDR</code> ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v en naslov. Polje za preimenovanje se med tipkanjem dopolnjuje iz drugih naslovov pri istem kraju — tudi iz že umeščenih naslovov, ki jih seznam skriva, dokler jih ne pokličete — tako da je združitev dveh zapisov izbira in ne ponovno tipkanje. Če polje izpraznite, se naslov namesto preimenovanja odstrani: na gumbu se pokaže <strong>Odstrani naslov</strong>, celotna vrstica <code>ADDR</code> pa se odstrani z vseh dogodkov pri tem naslovu, v enem koraku. Tako se znebite naslova, ki datoteki ne pove ničesar, česar ne pove že kraj — imena naselja, ponovljenega v vrstici <code>ADDR</code> —, prej pa je bilo treba tak naslov izbrisati pri vsaki osebi s seznama posebej. Kraj sam ostane nespremenjen. Dogodki, ki so nosili koordinato hiše, dobijo tisto, ki jo datoteka vodi pri kraju, tako da naselje ni več v neskladju s samim seboj; dogodek, ki koordinate ni imel, je ne dobi. Vrstice z oznako <em>v kraju</em> te možnosti nimajo: tam je naslov zapisan v vrednosti kraja, ki nosi tudi naselje, zato ga od tam ni mogoče odstraniti, ne da bi odstranili tudi naselje. Take pare poišče <strong>Zapisano dvakrat</strong>: v istem kraju naslov, ki je zapisan enkrat golo in enkrat z vašim pripisom za njim (<em>Breg ob Savi 26</em> in <em>Breg ob Savi 26 (pd Mlinar)</em>), pod enim od dveh imen ulice, ki ju nosi (<em>Labore 4</em> in <em>Labore 4 / Škofjeloška 4</em>), ali s krajše zapisano ulico (<em>Kidričeva 38</em> namesto <em>Kidričeva cesta 38</em>). Skromnejša vrstica potem pove, kaj bi postala, <strong>Združi</strong> pa ta zapis zapiše na njegove dogodke, da sta vrstici spet en naslov, kar sta od nekdaj bili; oznaka ob gumbih stanja seznam zoži na te pare, obe polovici vsakega. Gre za predlog in ne za razsodbo — polnejši zapis je ponujen zato, ker pove več, a če <em>26</em> združite v <em>26 (pd Mlinar)</em>, dobijo vaš pripis tudi dogodki, ki ga niso nosili; kadar tega nočete, preimenujte v nasprotno smer z <span class="gm-glyph">✎</span>.
+              <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tem naslovu — v vrstici <code>ADDR</code> in v vrsticah naslova pod njo ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v en naslov. Polje za preimenovanje se med tipkanjem dopolnjuje iz drugih naslovov pri istem kraju — tudi iz že umeščenih naslovov, ki jih seznam skriva, dokler jih ne pokličete — tako da je združitev dveh zapisov izbira in ne ponovno tipkanje. Če polje izpraznite, se naslov namesto preimenovanja odstrani: na gumbu se pokaže <strong>Odstrani naslov</strong>, celotna vrstica <code>ADDR</code> pa se odstrani z vseh dogodkov pri tem naslovu, v enem koraku. Tako se znebite naslova, ki datoteki ne pove ničesar, česar ne pove že kraj — imena naselja, ponovljenega v vrstici <code>ADDR</code> —, prej pa je bilo treba tak naslov izbrisati pri vsaki osebi s seznama posebej. Kraj sam ostane nespremenjen. Dogodki, ki so nosili koordinato hiše, dobijo tisto, ki jo datoteka vodi pri kraju, tako da naselje ni več v neskladju s samim seboj; dogodek, ki koordinate ni imel, je ne dobi. Vrstice z oznako <em>v kraju</em> te možnosti nimajo: tam je naslov zapisan v vrednosti kraja, ki nosi tudi naselje, zato ga od tam ni mogoče odstraniti, ne da bi odstranili tudi naselje. Take pare poišče <strong>Zapisano dvakrat</strong>: v istem kraju naslov, ki je zapisan enkrat golo in enkrat z vašim pripisom za njim (<em>Breg ob Savi 26</em> in <em>Breg ob Savi 26 (pd Mlinar)</em>), pod enim od dveh imen ulice, ki ju nosi (<em>Labore 4</em> in <em>Labore 4 / Škofjeloška 4</em>), ali s krajše zapisano ulico (<em>Kidričeva 38</em> namesto <em>Kidričeva cesta 38</em>). Skromnejša vrstica potem pove, kaj bi postala, <strong>Združi</strong> pa ta zapis zapiše na njegove dogodke, da sta vrstici spet en naslov, kar sta od nekdaj bili; oznaka ob gumbih stanja seznam zoži na te pare, obe polovici vsakega. Gre za predlog in ne za razsodbo — polnejši zapis je ponujen zato, ker pove več, a če <em>26</em> združite v <em>26 (pd Mlinar)</em>, dobijo vaš pripis tudi dogodki, ki ga niso nosili; kadar tega nočete, preimenujte v nasprotno smer z <span class="gm-glyph">✎</span>.
             </p>
             <p>
               <strong>Več naslovov na eno koordinato…</strong> v glavi skupine je za hiše, na katere noben register ne odgovori — staro vaško oštevilčenje, domačija, ki je ni več: označite naslove, izberite eno lego (dovolj je središče vasi, prva ponudba pa je koordinata, ki jo datoteka vodi pri tem kraju) in prevzamejo jo vsi označeni naslovi. Na začetku je označen ves kraj; polje <em>Se začne z</em> zoži izbor na naslove, ki se začnejo z vpisanim besedilom — <em>Stražišče 11</em> zajame obe domačiji te hišne številke — oznake pa ostanejo vidne, tako da pred prevzemom preberete, kaj je zajel. Vpisano besedilo je tudi tisto, kar poizvedba v tem oknu vpraša — <em>Stražišče</em> pod Kranjem išče Stražišče in ne Kranja — zato ponujena lega ustreza prav naslovom, ki jih označujete. Izbire so pripravljene kot vse druge, zato jih <strong>Zapiši koordinate</strong> potrdi za celo vas v enem koraku.
@@ -2911,6 +3022,44 @@
               Znaki, ki jih iz izvirnika sploh ni bilo mogoče prebrati, so prikazani kot »�«; shranjevanje jih ne more
               povrniti, zato jih prej popravite v <span class="gm-pill">Urejanju</span>.
             </p>
+            <p>
+              Prenesena datoteka je vedno <strong>popolna datoteka GEDCOM</strong>. Če datoteka nima glave
+              (<em>HEAD</em>) ali zaključne vrstice (<em>TRLR</em>) ali če njena glava ne navaja različice GEDCOM ali
+              kodiranja, se ob shranjevanju doda, kar manjka. GEDCOM 5.5.1 zahteva tudi zapis avtorja
+              (<em>SUBM</em>), ki pove, kdo je datoteko sestavil. Če ste svoje ime vpisali v <strong>Nastavitvah →
+              Splošno → Vaše ime (avtor datoteke)</strong>, se v datoteko 5.5.1 brez avtorja zapiše avtor z vašim
+              imenom, sicer pa avtor z imenom »GED Merge«. Avtor, ki je v datoteki že naveden, ostane nespremenjen. Novo
+              drevo dobi isto ime avtorja že ob nastanku. Vsak tak popravek je naveden v predogledu pred prenosom in tudi v
+              <a href="#validate">Pregledu</a>. Besedilo, ki ga vpišete ali spremenite, se zapiše po pravilu za afno, ki
+              velja v njegovi različici: v GEDCOM 5.5.1 se podvoji vsaka dobesedna afna <code>@</code>
+              (<code>ana@@example.si</code>), v GEDCOM 7.0 pa samo afna na začetku vrednosti. Vrstica, ki je niste
+              spremenili, obdrži afne takšne, kot so bile prebrane, pretvorjena datoteka pa sledi pravilu svoje nove
+              različice.
+            </p>
+            <p>
+              Z izbiro <strong>Različica GEDCOM</strong> pod seznamom datotek določite, v kateri različici se datoteka
+              zapiše. Ob
+              odprtju predogleda je izbrana različica datoteke same. Če izberete drugo različico, se datoteka 5.5.1
+              pretvori v GEDCOM 7.0, datoteka 7.0 pa v GEDCOM 5.5.1. Pretvorba poteka enako kot pri vhodni datoteki
+              (<a href="#house-style">§4</a>): skupne opombe, datumi, starosti in druge strukture, značilne za
+              različico, se prepišejo v obliko ciljne različice, glava prav tako. V predogledu je navedena vsaka
+              prepisana vrstica, poročilo o spremembah pa vsebuje celoten seznam. Kot pri vsakem shranjevanju postane pretvorjena
+              datoteka vaše novo izhodišče v aplikaciji, zato odtlej delate v novi različici. Datoteko, ki je niste
+              spremenili, pretvorite z gumbom <strong>Shrani kot GEDCOM 7.0…</strong> (ali <strong>Shrani kot GEDCOM
+              5.5.1…</strong>) v Orodjih → Pregled. Z gumbom se odpre ta predogled z že izbrano pretvorbo.
+            </p>
+            <p id="extension-tags">
+              V glavi datoteke GEDCOM 7.0 so pod <code>HEAD.SCHMA</code> navedene vse oznake po meri, ki jih datoteka
+              vsebuje. To so oznake s podčrtajem na začetku, v katerih so zapisani podatki, za katere standard nima svoje
+              vrstice (<code>_UPD</code>, <code>_MARNM</code>, …). Vsaki oznaki je v shemi pripisan spletni naslov, na
+              katerem je opisan njen pomen. Vsak naslov, ki se zapiše ob shranjevanju, vodi na stran z opisom oznake: kaj
+              pomeni, kateri program jo uporablja, kje v datoteki stoji in kakšna je njena standardna oblika v GEDCOM 7,
+              če jo ima. Oznake, ki jih opisuje register GEDCOM, ki ga vodi FamilySearch, dobijo naslov iz tega
+              registra. Ob pretvorbi datoteke v 7.0 se oznake, ki imajo standardno obliko, zapišejo v tej obliki:
+              <code>_UID</code> kot <code>UID</code>, ID FamilySearch kot <code>EXID</code> in <code>_MARNM</code> kot
+              ločen zapis <code>NAME</code> s poročnim priimkom. Ob pretvorbi nazaj v 5.5.1 se oznake po meri povrnejo.
+              Vse oznake so zbrane na <a href="../terms/extensions/">strani z oznakami po meri</a>.
+            </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Namig</span>
               <p>Vaš izvirnik na disku se nikoli ne prepiše — prenos je vedno nova kopija. Kljub temu pred velikimi
@@ -3059,8 +3208,8 @@
               <thead><tr><th>Znamenje</th><th>Dogodek</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-glyph">*</span></td><td>Rojstvo</td></tr>
-                <tr><td><span class="gm-glyph">~</span></td><td>Krst in krst otroka</td></tr>
-                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Zaroka, poroka, ločitev, ločeno življenje, partnerstvo</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Krst in krst otroka, tudi krst odraslega in LDS krst</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Zaroka, poroka, ločitev ali razveljavitev zakona, ločeno življenje, partnerstvo</td></tr>
                 <tr><td><span class="gm-glyph">⚬⚬</span></td><td>Ločeno življenje — prstana, ki nista več povezana</td></tr>
                 <tr><td><span class="gm-glyph">†</span></td><td>Smrt</td></tr>
                 <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Pokop, upepelitev</td></tr>
@@ -3070,7 +3219,7 @@
                 <tr><td><span class="gm-glyph">#</span></td><td>Število otrok ali zakonov; referenčna številka, identifikacijska številka, številka socialnega zavarovanja</td></tr>
                 <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Izselitev, priselitev, naturalizacija</td></tr>
                 <tr><td><span class="gm-glyph">▤</span></td><td>Popis</td></tr>
-                <tr><td><span class="gm-glyph">§</span></td><td>Premoženje, oporoka, zapuščinska obravnava</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Premoženje, oporoka, zapuščinska obravnava, ženitna ali premoženjska pogodba zakoncev</td></tr>
                 <tr><td><span class="gm-glyph">·</span></td><td>Vsaka druga vrsta dogodka — takšna, ki nima svojega ustaljenega znaka</td></tr>
                 <tr><td><span class="gm-glyph">◦</span></td><td>Vsaka nestandardna vrsta dogodka — oznaka, ki jo je standardu GEDCOM dodal kak program (<code>_MILT</code>, <code>NOBI</code> in podobne)</td></tr>
               </tbody>

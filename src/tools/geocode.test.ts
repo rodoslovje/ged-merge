@@ -294,6 +294,24 @@ describe("renamePlaceValue", () => {
     expect(text).toContain("3 FORM Place, Country");
   });
 
+  it("leaves an address written only in labelled lines alone when splitting one off", () => {
+    // The split writes the lifted address onto an ADDR that says nothing — not
+    // onto one whose ADR1/CITY lines already carry the event's address.
+    const ds = buildFromText(`0 HEAD
+0 @I9@ INDI
+1 NAME Test /Case/
+1 BIRT
+2 PLAC Kranj, Glavni trg 1, Slovenija
+2 ADDR
+3 ADR1 Glavni trg 1
+3 CITY Kranj
+0 TRLR
+`);
+    renamePlaceValue(ds, "Kranj, Glavni trg 1, Slovenija", "Kranj, Slovenija", "Glavni trg 1");
+    const text = serializeDataset(ds);
+    expect(text).toContain("2 PLAC Kranj, Slovenija\n2 ADDR\n3 ADR1 Glavni trg 1\n3 CITY Kranj\n");
+  });
+
   it("carries the FORM minus a deleted part's label", () => {
     // A rename that only deletes parts keeps the surviving parts' labels:
     // dropping the blank Municipality level must not cost the four labels that

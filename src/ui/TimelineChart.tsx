@@ -1,3 +1,4 @@
+import { isBinarySex } from "../gedcom/sex";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
@@ -640,10 +641,10 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
  *  the neutral word otherwise. */
 function roleKey(row: TimelineRow): string {
   if (row.role === "parent") return row.sex === "F" ? "mother" : "father";
-  if (row.role === "stepparent" && row.sex !== "U") return row.sex === "F" ? "stepmother" : "stepfather";
-  if (row.role === "sibling" && row.sex !== "U") return row.sex === "F" ? "sister" : "brother";
-  if (row.role === "halfsibling" && row.sex !== "U") return row.sex === "F" ? "halfsister" : "halfbrother";
-  if (row.role === "child" && row.sex !== "U") return row.sex === "F" ? "daughter" : "son";
-  if (row.role === "stepchild" && row.sex !== "U") return row.sex === "F" ? "stepdaughter" : "stepson";
+  if (row.role === "stepparent" && isBinarySex(row.sex)) return row.sex === "F" ? "stepmother" : "stepfather";
+  if (row.role === "sibling" && isBinarySex(row.sex)) return row.sex === "F" ? "sister" : "brother";
+  if (row.role === "halfsibling" && isBinarySex(row.sex)) return row.sex === "F" ? "halfsister" : "halfbrother";
+  if (row.role === "child" && isBinarySex(row.sex)) return row.sex === "F" ? "daughter" : "son";
+  if (row.role === "stepchild" && isBinarySex(row.sex)) return row.sex === "F" ? "stepdaughter" : "stepson";
   return row.role;
 }

@@ -357,6 +357,69 @@ describe("renameAddress", () => {
     expect(after[0].count).toBe(3);
   });
 
+  describe("a structured address", () => {
+    const STRUCTURED = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Ljubljana, Slovenija
+2 ADDR
+3 ADR1 Dunajska 5
+3 CITY Ljubljana
+3 POST 1000
+3 CTRY Slovenija
+1 RESI
+2 PLAC Kranj, Slovenija
+2 ADDR Hafnarjeva pot 21
+3 ADR1 Hafnarjeva pot 21
+3 CITY Kranj
+0 @I2@ INDI
+1 NAME Jože /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+2 ADDR Koroška cesta 1
+0 TRLR`;
+
+    it("renames the labelled lines of an address that has no line of its own", () => {
+      const ds = build(STRUCTURED);
+      const row = scanAddresses(ds).find((r) => r.address === "Dunajska 5, Ljubljana, 1000")!;
+      expect(row).toBeDefined();
+      const patches = renameAddress(ds, row.rawKeys, row.address, "Dunajska cesta 5, Ljubljana, 1000");
+      expect(patches.map((p) => p.id)).toEqual(["@I1@"]);
+      const text = serializeGedcom(ds.records);
+      expect(text).toContain("2 ADDR\n3 ADR1 Dunajska cesta 5\n3 CITY Ljubljana\n3 POST 1000\n3 CTRY Slovenija\n");
+      expect(scanAddresses(ds).some((r) => r.address === "Dunajska cesta 5, Ljubljana, 1000")).toBe(true);
+    });
+
+    it("renames the labelled lines that repeat a renamed ADDR line", () => {
+      const ds = build(STRUCTURED);
+      const row = scanAddresses(ds).find((r) => r.address === "Hafnarjeva pot 21")!;
+      renameAddress(ds, row.rawKeys, row.address, "Hafnarjeva pot 23");
+      const text = serializeGedcom(ds.records);
+      expect(text).toContain("2 ADDR Hafnarjeva pot 23\n3 ADR1 Hafnarjeva pot 23\n3 CITY Kranj\n");
+    });
+
+    it("writes a new text the lines cannot carry on the ADDR line, leaving them as they were", () => {
+      const ds = build(STRUCTURED);
+      const row = scanAddresses(ds).find((r) => r.address === "Dunajska 5, Ljubljana, 1000")!;
+      renameAddress(ds, row.rawKeys, row.address, "Trg republike 1");
+      const text = serializeGedcom(ds.records);
+      expect(text).toContain("2 ADDR Trg republike 1\n3 ADR1 Dunajska 5\n3 CITY Ljubljana\n3 POST 1000\n");
+      expect(scanAddresses(ds).some((r) => r.address === "Trg republike 1")).toBe(true);
+    });
+
+    it("leaves every other record byte-identical", () => {
+      const ds = build(STRUCTURED);
+      const before = serializeGedcom([ds.individuals.get("@I2@")!.raw]);
+      const row = scanAddresses(ds).find((r) => r.address === "Dunajska 5, Ljubljana, 1000")!;
+      renameAddress(ds, row.rawKeys, row.address, "Dunajska cesta 5, Ljubljana, 1000");
+      expect(serializeGedcom([ds.individuals.get("@I2@")!.raw])).toBe(before);
+    });
+  });
+
   it("is a no-op for an empty or unchanged target", () => {
     const ds = build(HOUSES);
     const rows = scanAddresses(ds);

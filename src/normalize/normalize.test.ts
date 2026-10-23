@@ -648,6 +648,57 @@ describe("normalizeDataset (place reshaping)", () => {
     expect(birth.address?.raw).toBeUndefined();
   });
 
+  it("reads a main whose addresses are written only in labelled lines as PLAC + ADDR", () => {
+    const main = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR
+3 ADR1 Kuželj 22
+3 CITY Kuželj
+1 DEAT
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR
+3 ADR1 Kidričeva 38
+0 TRLR
+`);
+    expect(inferMainProfile(main).place.layout).toBe("structured-addr");
+    expect(inferPlaceExportFormat(main).layout).toBe("structured-addr");
+  });
+
+  it("keeps an ADDR's labelled lines when folding into the main's packed PLAC", () => {
+    const main = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj (Slovenija)
+0 TRLR
+`);
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 BIRT
+2 PLAC Kranj,Slovenija
+2 ADDR
+3 ADR1 Kranj 15
+3 CITY Kranj
+1 DEAT
+2 PLAC Kranj,Slovenija
+2 ADDR Kranj 16
+3 ADR1 Kranj 16
+3 POST 4000
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
+    const [birth, death] = ["BIRT", "DEAT"].map((tag) => out.individuals.get("@P1@")!.events.find((e) => e.tag === tag)!);
+    // The structured address is the event's whole answer — neither dropped nor
+    // folded into the place, where its labelled lines would be lost.
+    expect(birth.addressParts).toEqual({ ADR1: "Kranj 15", CITY: "Kranj" });
+    expect(death.address?.raw).toBe("Kranj 16");
+    expect(death.addressParts).toEqual({ ADR1: "Kranj 16", POST: "4000" });
+  });
+
   it("leaves a PLAC with an explicit FORM untouched, keeping all its parts", () => {
     const main = dataset(`0 HEAD
 1 CHAR UTF-8

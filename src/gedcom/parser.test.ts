@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NOT_GEDCOM, parseGedcom } from "./parser";
+import { declaredVersion, NOT_GEDCOM, parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
 import { cloneNode } from "./node";
 import { downloadOptions, serializeGedcom } from "./serialize";
@@ -257,6 +257,23 @@ describe("parseGedcom", () => {
     const parsed = parseGedcom(toBuffer(text));
     const indi = parsed.records.find((r) => r.xref === "@I1@")!;
     expect(indi.children.find((c) => c.tag === "NOTE")?.value).toBe("@home with Mother");
+  });
+
+  it("decodes every @@ in a 5.5.x file, only a leading one in 7.0", () => {
+    const body = ["0 @I1@ INDI", "1 EMAIL ana@@example.si", "1 NOTE @@a", "2 CONT b@@c", "0 TRLR", ""];
+    const v551 = parseGedcom(toBuffer(["0 HEAD", "1 GEDC", "2 FORM LINEAGE-LINKED", "2 VERS 5.5.1", ...body].join("\n")));
+    const v7 = parseGedcom(toBuffer(["0 HEAD", "1 GEDC", "2 VERS 7.0", ...body].join("\n")));
+    const undeclared = parseGedcom(toBuffer(["0 HEAD", ...body].join("\n")));
+    const vals = (r: typeof v551) => r.records[1].children.map((c) => c.value);
+    expect(vals(v551)).toEqual(["ana@example.si", "@a\nb@c"]);
+    expect(vals(undeclared)).toEqual(["ana@example.si", "@a\nb@c"]);
+    expect(vals(v7)).toEqual(["ana@@example.si", "@a\nb@@c"]);
+  });
+
+  it("reads the declared version off the header text", () => {
+    expect(declaredVersion("0 HEAD\r\n1 GEDC\r\n2 FORM LINEAGE-LINKED\r\n2 VERS 5.5.5\r\n")).toBe("5.5.5");
+    expect(declaredVersion("0 HEAD\n1 SOUR X\n2 VERS 3.1\n1 GEDC\n2 VERS 7.0\n")).toBe("7.0");
+    expect(declaredVersion("0 HEAD\n1 SOUR X\n2 VERS 3.1\n")).toBeUndefined();
   });
 
   it("accepts indented lines, as 5.5.1 asks readers to", () => {

@@ -9,8 +9,19 @@ const ATTACHMENT_CHILD_ORDER = ["ASSO", "WWW", "URL", "_URL", "_WEBTAG", "OBJE",
 
 /** Canonical sub-tag order within an event (BIRT/DEAT/RESI/…) node. */
 export const EVENT_CHILD_ORDER = [
-  "TYPE", "DATE", "PLAC", "ADDR", "AGE", "AGNC", "CAUS", ...ATTACHMENT_CHILD_ORDER,
+  // A family event's spouses (`2 HUSB` / `3 AGE`) lead it, as the standard's
+  // FAMILY_EVENT_DETAIL has them; the contact lines follow their address.
+  // TEMP/STAT/FAMC are an LDS ordinance's: its temple beside its date, as the
+  // standard lists them, and its status and sealed-to family after the rest.
+  "HUSB", "WIFE",
+  "TYPE", "DATE", "SDATE", "_SDATE", "TEMP", "PLAC", "ADDR", "PHON", "EMAIL", "FAX", "AGE", "AGNC", "CAUS", "STAT", "FAMC", ...ATTACHMENT_CHILD_ORDER,
 ];
+
+/** Canonical order of the labelled lines under an event's `ADDR`. */
+export const ADDR_CHILD_ORDER = ["CONT", "ADR1", "ADR2", "ADR3", "CITY", "STAE", "POST", "CTRY"];
+
+/** Canonical order under an `AGE` line (7.0's free-text form of it). */
+export const AGE_CHILD_ORDER = ["PHRASE"];
 
 /** Canonical top-level field order within an INDI record. */
 export const INDI_CHILD_ORDER = [

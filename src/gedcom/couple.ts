@@ -1,3 +1,4 @@
+import { isBinarySex } from "./sex";
 import type { Dataset, Family, Individual } from "./types";
 import { firstChild } from "./node";
 
@@ -10,7 +11,7 @@ import { firstChild } from "./node";
  * check from flagging the slot/sex mismatch as an error.
  */
 export function isSameSexCouple(husband: Individual | undefined, wife: Individual | undefined): boolean {
-  return !!husband && !!wife && husband.sex !== "U" && husband.sex === wife.sex;
+  return !!husband && !!wife && isBinarySex(husband.sex) && husband.sex === wife.sex;
 }
 
 /** PEDI / _MREL values that still mean "this child was born to these parents". */

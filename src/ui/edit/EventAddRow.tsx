@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { AddEventSelect } from "./AddEventSelect";
@@ -30,6 +31,7 @@ export function EventAddRow({
   /** Tags the person already carries, for the quick buttons that lead to them
    *  instead of adding. */
   recordedTags,
+  trailing,
 }: {
   groups: { labelKey: string; tags: string[] }[];
   t: Translate;
@@ -38,6 +40,8 @@ export function EventAddRow({
   /** Increment to open the "+ Add event" menu (⌥⇧E). */
   addEventMenuNonce?: number;
   recordedTags: Set<string>;
+  /** Chips that follow the quick buttons (the "did not happen" menu). */
+  trailing?: ReactNode;
 }) {
   const quick = quickEventTags ?? [];
   return (
@@ -71,6 +75,7 @@ export function EventAddRow({
           </button>
         );
       })}
+      {trailing}
     </div>
   );
 }

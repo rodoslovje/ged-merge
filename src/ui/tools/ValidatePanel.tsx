@@ -10,6 +10,7 @@ import { formatCoord } from "../../geo/points";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
+import type { ConformanceFixKind, ConformanceRef } from "../../tools/fixConformance";
 import { countSplitCoordFills, scanPlaceCoords } from "../../tools/placeCoords";
 import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
@@ -18,14 +19,17 @@ import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
+import { completeStructure, ownVersion, type OutputVersion } from "../../save/outputFile";
+import { submitterName } from "../../gedcom/newFile";
+import { useSettingsSlice } from "../SettingsContext";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
-type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling";
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling" };
+type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -38,6 +42,8 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   dates: "badDate",
   nonStandard: "nonStandardDate",
   dangling: "danglingXref",
+  values: "enumValue",
+  repeats: "cardinality",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -50,6 +56,7 @@ const CATEGORIES: IssueCategory[] = [
   "multipleParents",
   "parentlessFamily",
   "duplicateVital",
+  "noEventConflict",
   "deathBeforeBirth",
   "eventOrder",
   "ageAtDeath",
@@ -60,6 +67,7 @@ const CATEGORIES: IssueCategory[] = [
   "parallelFamilies",
   "spouseAgeGap",
   "futureDate",
+  "statedAge",
   "association",
   "missingVitals",
   "missingName",
@@ -81,7 +89,7 @@ function brokenTarget(issue: ValidationIssue): string | undefined {
 function rowKey(issue: ValidationIssue | StructIssue): string {
   return "id" in issue
     ? `${issue.category}\0${issue.id}\0${brokenTarget(issue) ?? ""}`
-    : `${issue.category}\0${issue.recordId ?? ""}\0${issue.sample ?? ""}`;
+    : `${issue.category}\0${issue.recordId ?? ""}\0${issue.sample ?? ""}\0${issue.path ?? ""}`;
 }
 
 /** One row's own repair: what its button says, and what clicking it does. A row
@@ -96,6 +104,9 @@ interface RowFix {
 }
 
 /** Sort weight per severity, so a unified list shows errors → warnings → info. */
+/** The name a save would give a missing submitter record, for the notice. */
+const AUTHOR_KEYS = ["authorName"] as const;
+
 const SEV_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
 /** A row in the unified Health Check list — a record-level finding or a structural
@@ -117,7 +128,9 @@ export function ValidatePanel({
   onFixDuplicatePointers,
   onFixDuplicateFamilies,
   onFixDanglingRefs,
+  onFixConformance,
   onFillPlaceCoords,
+  onSaveAs,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -131,7 +144,9 @@ export function ValidatePanel({
   onFixDuplicatePointers: (only?: string) => number;
   onFixDuplicateFamilies: (only?: string) => number;
   onFixDanglingRefs: (only?: DanglingRef) => number;
+  onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
+  onSaveAs: (version: OutputVersion) => void;
 }) {
   const { t } = useTranslation();
   /** Message vars with a GEDCOM event tag turned into its display name —
@@ -238,6 +253,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
+      : kind === "values" || kind === "repeats" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -274,6 +290,13 @@ export function ValidatePanel({
 
   // The encoding the file arrived in, and what the download will make of it.
   const charsetNotes = useMemo(() => charsetNotices(dataset, t), [dataset, t]);
+  // The file as GEDCOM: its version, the other one it can be saved in, and
+  // what a save supplies for it to be valid at all (a header, a trailer, …).
+  const version = ownVersion(dataset);
+  const otherVersion: OutputVersion = version === "7.0" ? "5.5.1" : "7.0";
+  const records = dataset.records;
+  const { authorName } = useSettingsSlice(AUTHOR_KEYS);
+  const fileFixes = useMemo(() => completeStructure(records, version, false), [records, version]);
 
   const q = useDebounced(query).trim().toLowerCase();
 
@@ -433,6 +456,23 @@ export function ValidatePanel({
         run: () => onFixDanglingRefs({ id: issue.recordId!, xref: issue.sample }),
       };
     }
+    // Standard conformance: a value in the wrong case, or a line repeated as
+    // an exact copy — both carry what the fix needs (the line's path).
+    if (issue.category === "enumValue" && issue.fix !== undefined && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneValue", { value: issue.fix }),
+        hint: t("tools.validate.struct.fixableTitle", { value: issue.fix }),
+        run: () => onFixConformance(undefined, { id: issue.recordId!, path: issue.path }),
+      };
+    }
+    if (issue.category === "cardinality" && issue.repeat && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneRepeat"),
+        hint: t("tools.validate.fixOneRepeatHint"),
+        removes: true,
+        run: () => onFixConformance("repeats", { id: issue.recordId!, path: issue.path }),
+      };
+    }
     return null;
   }
 
@@ -471,6 +511,12 @@ export function ValidatePanel({
   // Every non-standard date the check reports with a fix is one the fix restyles.
   const fixableNonStandard = structure?.issues.filter((i) => i.category === "nonStandardDate" && i.fix).length ?? 0;
   if (fixableNonStandard > 0) fixActions.push({ kind: "nonStandard", count: fixableNonStandard });
+  // The conformance fixes, counted off the report the way the non-standard
+  // dates are: each finding that carries its repair is one the batch makes.
+  const conformValues = structure?.issues.filter((i) => i.category === "enumValue" && i.fix !== undefined && i.recordId).length ?? 0;
+  if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
+  const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
+  if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -644,6 +690,20 @@ export function ValidatePanel({
               what leaves. Outside the virtual list: its rows must stay a
               uniform height. */}
           {charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
+          {fileFixes.map((fix) => (
+            <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
+          ))}
+          <p className="tools-file-note tools-version">
+            {t("tools.validate.version", { version })}{" "}
+            <button
+              type="button"
+              className="btn-secondary"
+              title={t("tools.validate.saveAsHint", { version: otherVersion })}
+              onClick={() => onSaveAs(otherVersion)}
+            >
+              {t("tools.validate.saveAs", { version: otherVersion })}
+            </button>
+          </p>
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
@@ -720,9 +780,15 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "strayCont",
   "danglingXref",
   "duplicateXref",
+  "pointerType",
   "encoding",
   "version",
   "unknownTag",
+  "misplacedTag",
+  "cardinality",
+  "enumValue",
+  "valueFormat",
+  "xrefShape",
   "badDate",
   "impossibleDate",
   "reversedRange",

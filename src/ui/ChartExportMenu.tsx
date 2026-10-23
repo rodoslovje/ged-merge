@@ -6,6 +6,7 @@ import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu, type ExportItem } from "./ExportMenu";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { SheetPrintDialog } from "./SheetPrintDialog";
+import { useSettingsSlice } from "./SettingsContext";
 import type { SheetChartSource } from "./sheetExport";
 
 // The chart pages' Export menu with the standard items built in: the branch
@@ -19,6 +20,9 @@ import type { SheetChartSource } from "./sheetExport";
 // is the one thing the app cannot guess, and a page sized to the diagram is a
 // page no printer can make. The dialog offers the cut-into-sheets settings on
 // top when the page hands it a tree that can be cut.
+
+/** The name a branch file without a submitter is given as its author. */
+const AUTHOR_KEYS = ["authorName"] as const;
 
 interface Props {
   /** Disable the whole menu while the chart hasn't been built yet. */
@@ -44,6 +48,7 @@ interface Props {
 
 export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, canvasRef, sheets, extraItems }: Props) {
   const { t } = useTranslation();
+  const { authorName } = useSettingsSlice(AUTHOR_KEYS);
   const [sheetDialog, setSheetDialog] = useState(false);
   const items: ExportItem[] = [];
   if (gedcom) {
@@ -52,7 +57,7 @@ export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, ca
       icon: <GedIcon />,
       label: t("export.gedcom", { count: gedcom.personIds.length }),
       title: t("tree.exportGedcom.tooltip"),
-      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug),
+      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, authorName),
     });
   }
   if (canvasRef) {

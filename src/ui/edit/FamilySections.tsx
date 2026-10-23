@@ -12,7 +12,7 @@ import { childrenByBirth } from "../../gedcom/familySort";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
-import { customEventLabel, eventDisplayLabel, famEventNodes } from "../../gedcom/eventTags";
+import { FAM_HOUSEHOLD_TAGS, customEventLabel, famEventNodes, familyEventLabel } from "../../gedcom/eventTags";
 import { coupleAgesDisplay, lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import type { TagSuggestions } from "./fieldSuggestions";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
@@ -33,6 +33,8 @@ import { PersonCard } from "../PersonCard";
 import type { MediaRefContext } from "../MediaViewer";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { AddEventSelect } from "./AddEventSelect";
+import { AddNoEventSelect, NoEventsRow } from "./NoEventsRow";
+import { addNegativeAssertion, NO_FAM_EVENT_TAGS, removeNegativeAssertion } from "../../gedcom/negative";
 import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
@@ -236,7 +238,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   // failing that whatever stands in for it (a civil partnership, an
   // engagement…). An untyped generic `EVEN` only says "Event", so it is skipped.
   const datedCoupleEvents = fam?.events.filter(
-    (ev) => FAMILY_EVENT_TAGS.includes(ev.tag) && (ev.date || ev.place),
+    (ev) => FAMILY_EVENT_TAGS.includes(ev.tag) && !FAM_HOUSEHOLD_TAGS.has(ev.tag) && (ev.date || ev.place),
   ) ?? [];
   const coupleEvent =
     datedCoupleEvents.find((ev) => ev.tag === "MARR") ??
@@ -244,7 +246,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   const coupleEventLabel = !coupleEvent
     ? ""
     : (coupleEvent.tag === "EVEN" && customEventLabel(coupleEvent.type, t, i18n.language))
-      || eventDisplayLabel(coupleEvent.tag, t);
+      || familyEventLabel(coupleEvent.tag, t);
   const couplePlace = coupleEvent?.place ? coupleEvent.place.parts[0] || coupleEvent.place.raw : undefined;
   const coupleAges = settings.showAge && coupleEvent?.date && fam
     ? coupleAgesDisplay(
@@ -636,7 +638,18 @@ export const FamilySection = memo(function FamilySection({
               label={t("edit.addFamilyEvent")}
               tooltip={t("edit.addFamilyEventTooltip")}
               t={t}
+              labelOf={familyEventLabel}
               onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
+            />
+          )}
+          {fam && (
+            <AddNoEventSelect
+              assertions={fam.noEvents ?? []}
+              offer={NO_FAM_EVENT_TAGS}
+              recordedTags={new Set(fam.events.map((e) => e.tag))}
+              t={t}
+              tooltip={t("edit.noEvent.addFamilyTooltip")}
+              onAdd={(tag) => commitFamily(fam, (f) => addNegativeAssertion(f.raw, tag, dataset.version))}
             />
           )}
           {fam && (
@@ -689,7 +702,7 @@ export const FamilySection = memo(function FamilySection({
             onOpenSourceDialog={onOpenSourceDialog}
             autoFocusLead={pendingFocusFamEventKey === `${fam.id}-${tag}`}
             onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
-            onCopy={eventNode ? () => onCopyFamilyEvent(fam, eventNode, eventDisplayLabel(tag, t)) : undefined}
+            onCopy={eventNode ? () => onCopyFamilyEvent(fam, eventNode, familyEventLabel(tag, t)) : undefined}
             onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
@@ -712,6 +725,13 @@ export const FamilySection = memo(function FamilySection({
           />
         );
       })}
+      {fam && (
+        <NoEventsRow
+          assertions={fam.noEvents ?? []}
+          t={t}
+          onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
+        />
+      )}
       <div className="edit-children-wrap">
         <div className="person-card-role">{t("field.children")}</div>
         <div className="edit-children">

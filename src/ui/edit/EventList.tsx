@@ -7,6 +7,7 @@ import { eventDisplayLabel, indiEventNodes } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, SINGLE_EVENT_TAGS, zoneSortKey } from "../../review/fields";
+import { orderingDate } from "../../gedcom/sortDate";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import type { TagSuggestions } from "./fieldSuggestions";
@@ -178,7 +179,8 @@ export const EventList = memo(function EventList({
     if (update.date !== undefined) subs.push("date");
     if (update.value !== undefined) subs.push("value");
     if (update.place !== undefined) subs.push("place");
-    if (update.address !== undefined) subs.push("addr");
+    if (update.address !== undefined || update.addressParts !== undefined) subs.push("addr");
+    if (update.age !== undefined) subs.push("age");
     if (update.note !== undefined) subs.push("note");
     if (update.agency !== undefined) subs.push("agency");
     return subs;
@@ -221,7 +223,7 @@ export const EventList = memo(function EventList({
         mergeKeyBase: mainMergeKeyBases?.get(i) ?? eventKeyBases[i],
         compareKey: mainMergeCompareKeys?.get(i),
         stableKey: nodeId(rawEventNodes[i] ?? ev),
-        sortKey: mainMergeSortKeys?.get(i) ?? zoneSortKey(ev.date, ev.tag, anchors),
+        sortKey: mainMergeSortKeys?.get(i) ?? zoneSortKey(orderingDate(ev), ev.tag, anchors),
         tagPos: EXTRA_EVENT_ORDER.indexOf(ev.tag),
       })),
     ...(extraMergeEvents ?? [])

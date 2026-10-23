@@ -7,7 +7,8 @@ import { materializeAdditionalNames, materializeEventSources } from "../../merge
 import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacement";
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
-import { defaultChoice, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
+import { orderingDate } from "../../gedcom/sortDate";
+import { defaultChoice, EVENT_TEXT_SUBS, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
 import { type RecordPatch } from "../historyTypes";
 import { useStableHandler } from "./useStableHandler";
 
@@ -206,7 +207,6 @@ export function useMergeOverlay({
       const mainMergeCompareKeys = new Map<number, string>();
       const mainMergeSortKeys = new Map<number, number>();
       const extraMergeEvents: { tag: string; keyBase: string; sortKey: number; compareIdx: number }[] = [];
-      const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
 
       // Index incoming events by tag for sort key lookup.
       const cByTag = new Map<string, typeof incoming.events>();
@@ -233,17 +233,19 @@ export function useMergeOverlay({
             // Authoritative sort key for this main event (zone-aware, falling
             // back to the paired incoming date when main itself has none), so
             // the row keeps the same chronological position as the merge preview.
-            const mainDate = person.events[overallIdx]?.date;
-            const incomingDate = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx]?.date : undefined;
+            const mainEv = person.events[overallIdx];
+            const mainDate = mainEv ? orderingDate(mainEv) : undefined;
+            const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
+            const incomingDate = incomingEv ? orderingDate(incomingEv) : undefined;
             mainMergeSortKeys.set(overallIdx, zoneSortKey(mainDate ?? incomingDate, inst.tag, anchors));
           }
         } else if (inst.tag !== "BIRT") {
           // Incoming-only event — show only if there is merge data for it.
           // BIRT is always shown in its own row so exclude it from extras.
-          if (EVENT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
+          if (EVENT_TEXT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
             const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
             if (incomingEv) {
-              extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: zoneSortKey(incomingEv.date, inst.tag, anchors), compareIdx: inst.compareIdx });
+              extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: zoneSortKey(orderingDate(incomingEv), inst.tag, anchors), compareIdx: inst.compareIdx });
             }
           }
         }
@@ -367,8 +369,7 @@ export function useMergeOverlay({
       if (fkey.startsWith(`${keyBase}.`)) updatedFields[fkey] = "main";
     }
     // Also set any fields not yet explicitly decided (they default to "incoming") to "main".
-    const EVENT_SUBS = ["date", "place", "addr", "value", "note", "agency", "type", "cause"] as const;
-    for (const sub of EVENT_SUBS) {
+    for (const sub of EVENT_TEXT_SUBS) {
       const fkey = `${keyBase}.${sub}`;
       if (mergeHighlight?.has(fkey)) updatedFields[fkey] = "main";
     }

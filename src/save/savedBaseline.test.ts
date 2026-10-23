@@ -6,10 +6,11 @@ import { buildDataset } from "../gedcom/builder";
 import { captureBaseline } from "../gedcom/fingerprint";
 import { cloneNode } from "../gedcom/node";
 import { parseGedcom } from "../gedcom/parser";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "../gedcom/serialize";
+import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { decisionKey } from "../review/types";
 import { buildSavePreview, type SavePreviewInput } from "./buildSavePreview";
+import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./outputFile";
 import { savedBaseline } from "./savedBaseline";
 
 /**
@@ -27,10 +28,9 @@ const parse = (bytes: Uint8Array): Dataset =>
 const NOW = new Date("2026-10-23T12:00:00Z");
 
 /** The save's own steps from the records to the downloaded text. */
-function saveText(main: Dataset, records: GedNode[]): string {
-  ensureUtf8Charset(records, main);
-  stampHeadSource(records, main, NOW);
-  return serializeGedcom(records, downloadOptions(main));
+function saveText(main: Dataset, records: GedNode[], version: OutputVersion = ownVersion(main)): string {
+  prepareDownload(records, main, version, NOW);
+  return serializeGedcom(records, outputOptions(main, version));
 }
 
 /** A typed record without its raw back-reference, which the two sides hold
@@ -60,6 +60,18 @@ describe("savedBaseline", () => {
       const rebuilt = savedBaseline(main, records);
       expect(rebuilt.charset, file).toBe("UTF-8");
       expect(!!rebuilt.bom, file).toBe(!!main.bom);
+      expectSameAsFreshParse(rebuilt, text);
+    }
+  });
+
+  it("equals a fresh parse of every corpus file saved in the other GEDCOM version", () => {
+    for (const file of readdirSync(corpus).filter((f) => f.endsWith(".ged"))) {
+      const main = parse(readFileSync(resolve(corpus, file)));
+      const other: OutputVersion = ownVersion(main) === "7.0" ? "5.5.1" : "7.0";
+      const records = main.records.map(cloneNode);
+      const text = saveText(main, records, other);
+      const rebuilt = savedBaseline(main, records, other);
+      expect(rebuilt.version, file).toBe(other);
       expectSameAsFreshParse(rebuilt, text);
     }
   });

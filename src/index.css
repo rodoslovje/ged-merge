@@ -2020,6 +2020,7 @@ button:focus-visible {
 /* Name colouring by sex (themed tokens; male blue, female pink). */
 .sex-m { color: var(--sex-male); }
 .sex-f { color: var(--sex-female); }
+.sex-x { color: var(--sex-other); }
 
 .candidate {
   flex: 0 0 auto; /* don't shrink to fit the scroll container — let it scroll */
@@ -2484,6 +2485,7 @@ button:focus-visible {
 }
 .edit-wider-person.sex-m { border-left-color: var(--sex-male); }
 .edit-wider-person.sex-f { border-left-color: var(--sex-female); }
+.edit-wider-person.sex-x { border-left-color: var(--sex-other); }
 .edit-wider-person:hover {
   background: var(--panel-2);
   border-top-color: var(--border);
@@ -3289,6 +3291,26 @@ button:focus-visible {
   color: var(--muted);
 }
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
+/* Events the record states did not happen (GEDCOM 7 NO): solid chips, since
+   they are statements the file makes, each with its own ×. */
+.edit-no-events-label { color: var(--muted); }
+.edit-no-event {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-style: solid;
+  color: var(--text);
+}
+.edit-no-event-date { color: var(--muted); }
+.edit-no-event-remove {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+.edit-no-event-remove:hover { color: var(--danger); }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
    destination — solid-bordered, where an offer to add is dashed. That border is
@@ -3628,6 +3650,30 @@ button:focus-visible {
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* The address's labelled lines and contact details take a line of their own
+   under the event, each field named at all times — unlike the extras, these
+   are a form the user opened on purpose, and unnamed boxes say nothing. */
+.edit-addr-structure {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.edit-addr-part { display: inline-flex; align-items: baseline; gap: 6px; }
+.edit-addr-part .edit-event-extra-label { display: inline; }
+.edit-addr-part .clearable-wrap { width: 18ch; }
+.edit-addr-part .edit-input { width: 100%; }
+.edit-addr-toggle {
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--faint);
+  cursor: pointer;
+}
+.edit-addr-toggle:hover,
+.edit-addr-toggle[aria-expanded="true"] { color: var(--muted); }
+.edit-event-age-input { width: 100%; min-width: 0; }
 /* A tall note (the row's direct child — a one-line note stays inside the field
  * group) keeps its own width beside the folding group, but never more than
  * half the row: past that its chips narrow and wrap their text, so the group
@@ -3814,6 +3860,7 @@ button:focus-visible {
 .sex-select:focus { outline: none; border-color: var(--accent); }
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
+.sex-select.sex-x { color: var(--sex-other); }
 
 /* One consistent keyboard-focus ring for every edit chip / dropdown — the
  * add-event / add-source / add-note chips, the Sex picker, the event-type ▾ and
@@ -7875,6 +7922,14 @@ kbd {
   display: flex; align-items: center; gap: 6px;
   margin: 6px 0; font-size: 0.9rem; cursor: pointer;
 }
+.preview-version {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 6px 0; font-size: 0.9rem;
+}
+.preview-conversion { margin: 4px 0 8px; font-size: 0.85rem; }
+.preview-conversion summary { cursor: pointer; color: var(--muted); }
+.preview-conversion ul { max-height: 12rem; overflow-y: auto; }
+.tools-version { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 
 .preview-actions {
   display: flex; justify-content: flex-end; gap: 10px;
@@ -9101,8 +9156,11 @@ kbd {
 .tools-fix-item .tools-run { margin: 0; flex-shrink: 0; }
 .tools-fix-hint { color: var(--muted); font-size: 0.85rem; }
 /* A standing note above the findings (what saving does to the file's encoding),
-   as opposed to the hint that sits beside a fix button. */
-.tools-note {
+   as opposed to the hint that sits beside a fix button. The file notes say
+   what the file is (its GEDCOM version) and what saving supplies for it to be
+   valid GEDCOM. */
+.tools-note,
+.tools-file-note {
   margin: 0 0 12px; padding-left: 10px; border-left: 2px solid var(--border);
   color: var(--muted); font-size: 0.85rem;
 }

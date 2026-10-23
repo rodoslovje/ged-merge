@@ -15,7 +15,7 @@ import {
   computeKinship,
   computeLineSides,
   matchesBatch,
-  previewBirthEstimates,
+  previewBirthEstimateDates,
   previewMarriedNames,
   readMarriedNames,
   BATCH_ACTION_KINDS,
@@ -184,7 +184,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const birthPreview = useMemo(() => {
     if (action?.kind !== "estimateBirth") return null;
     return new Map(
-      [...previewBirthEstimates(dataset, targets.map((r) => r.id))].map(([id, y]) => [id, { text: `→ ABT ${y}` }]),
+      [...previewBirthEstimateDates(dataset, targets.map((r) => r.id))].map(([id, date]) => [id, { text: `→ ${date}` }]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [action?.kind, dataset, targets, ver]);

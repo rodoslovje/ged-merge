@@ -1,13 +1,17 @@
-import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, isOccurrenceFlag } from "../gedcom/eventTags";
+import type { Dataset, ExternalId, Family, GedDate, GedEvent, Individual, NegativeAssertion, PersonName, Sex, SourceCitation } from "../gedcom/types";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, SECONDARY_VALUE_EVENT_TAGS, SINGLE_EVENT_TAGS, VALUE_EVENT_TAGS, eventDisplayLabel, familyEventLabel, isOccurrenceFlag } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
+import { eventAddressFullText } from "../gedcom/address";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
-import { dateToSortKey, parseDate } from "../gedcom/date";
+import { dateText, dateToSortKey, parseDate } from "../gedcom/date";
+import { orderingDate } from "../gedcom/sortDate";
+import { exidTypeLabel } from "../gedcom/exid";
+import { translationLine } from "../gedcom/translation";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -30,6 +34,11 @@ const EVENT_LABELS: Record<string, string> = {
   BIRT: "Birth",
   BAPM: "Baptism",
   CHR: "Christening",
+  CHRA: "Adult christening",
+  BLES: "Blessing",
+  BARM: "Bar mitzvah",
+  BASM: "Bat mitzvah",
+  ORDN: "Ordination",
   CONF: "Confirmation",
   ADOP: "Adoption",
   FCOM: "First Communion",
@@ -73,6 +82,15 @@ const EVENT_LABELS: Record<string, string> = {
   ENGA: "Engagement",
   SEPA: "Separation",
   DIV: "Divorce",
+  DIVF: "Divorce filed",
+  BAPL: "LDS baptism",
+  CONL: "LDS confirmation",
+  ENDL: "LDS endowment",
+  SLGC: "LDS sealing to parents",
+  SLGS: "LDS sealing to spouse",
+  ANUL: "Annulment",
+  MARC: "Marriage contract",
+  MARS: "Marriage settlement",
   _MSTAT: "Status",
 };
 
@@ -91,6 +109,9 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.sources");
   if (key === "fsid") return t("field.fsid");
+  if (key === "exid") return t("field.exid");
+  if (key === "nameTranslations") return t("field.nameTranslations");
+  if (key === "noEvents" || key.endsWith(".noEvents")) return t("field.noEvents");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
   if (key === "private" || key.endsWith(".private")) return t("field.private");
 
@@ -119,6 +140,11 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (sub === "agency") return t("event.agency", { event: name });
   if (sub === "type") return t("event.type", { event: name });
   if (sub === "cause") return t("event.cause", { event: name });
+  if (sub === "temple") return t("event.temple", { event: name });
+  if (sub === "status") return t("event.status", { event: name });
+  if (sub === "age") return t("event.ageOf", { event: name });
+  if (sub === "husbage") return `${t("event.husbandAge")} (${name})`;
+  if (sub === "wifeage") return `${t("event.wifeAge")} (${name})`;
   if (sub === "links") return t("event.link", { event: name });
   return key;
 }
@@ -162,11 +188,15 @@ export function individualFieldRows(
     const cText = cExtraNames.map((n) => extraNameText(n, t)).join("\n") || undefined;
     pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
   }
+  // The primary name in other languages or scripts (`TRAN`, 5.5.1 `ROMN`/`FONE`).
+  pushRow(rows, "nameTranslations", formatFieldLabel(t, "nameTranslations"), nameTranslationsText(mn), nameTranslationsText(cn));
   // FamilySearch ids (uppercased — the canonical form — so a case-only
   // difference between the files reads as agreement).
   pushRow(rows, "fsid", formatFieldLabel(t, "fsid"),
     main?.fsids?.map((s) => s.toUpperCase()).join("\n"),
     compare?.fsids?.map((s) => s.toUpperCase()).join("\n"));
+  pushRow(rows, "exid", formatFieldLabel(t, "exid"), exidsText(main?.exids), exidsText(compare?.exids));
+  pushRow(rows, "noEvents", formatFieldLabel(t, "noEvents"), noEventsText(t, main?.noEvents), noEventsText(t, compare?.noEvents));
 
   // Record-level sources (SOUR citations) and plain links, combined into one
   // "Sources" row — same citations-plus-link-icons shape used per event — then
@@ -297,7 +327,9 @@ function buildEventRows(
     const customTitle = isEven ? t("event.customTooltip", { tag }) : undefined;
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
-    pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
+    // The value is compared and carried as written; a GEDCOM 7 date's own
+    // wording (PHRASE) travels with its DATE line and shows on the hover.
+    pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw, undefined, phraseTitle(me?.date), phraseTitle(ce?.date));
     // A supplementary value (a residence's address, a death's description) is
     // not the event itself, so it is labelled as Edit labels it, not by the tag.
     const valueLabel = isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag) ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
@@ -314,7 +346,11 @@ function buildEventRows(
       ? me?.address?.raw
       : extractEffectiveAddr(me?.address?.raw, me?.place?.raw, effectiveIncomingAddr);
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw, undefined, undefined, ce?.place?.originalRaw);
-    pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
+    // An address with labelled lines or contact lines compares as all of it, so
+    // two that share a first line but not a postcode still read as different.
+    pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), eventAddressFullText(me, effectiveMAddr),
+      eventAddressFullText(ce, effectiveIncomingAddr), undefined, undefined, ce?.address?.originalRaw);
+    pushRow(subRows, `${keyBase}.age`, t("event.colAge"), me?.age, ce?.age);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), eventNotesText(me), eventNotesText(ce));
     // The people the event names — godparents, witnesses, the officiant. Shown
     // as text (name + role), one per line, the way the notes row shows notes.
@@ -322,6 +358,10 @@ function buildEventRows(
       associatesText(me, mainDs, t), associatesText(ce, compareDs, t));
     pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
+    pushRow(subRows, `${keyBase}.temple`, t("event.colTemple"), me?.temple, ce?.temple);
+    // The status alone: the row's value is what Edit's status field would take
+    // over, and the merge carries the date it was set along with it.
+    pushRow(subRows, `${keyBase}.status`, t("event.colStatus"), me?.status, ce?.status);
     const moved = movedHolder.get(tag) === keyIdx ? (movedLinks.get(tag) ?? []) : [];
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links,
       moved.length ? [...(ce?.links ?? []), ...moved] : ce?.links, mainPool, comparePool);
@@ -477,12 +517,16 @@ function buildFamilyRows(
         pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"),
           eventValueText(mEv, isEven), eventValueText(cEv, isEven));
       }
-      pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
+      pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw, undefined, phraseTitle(mEv?.date), phraseTitle(cEv?.date));
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
-      pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), mEv?.address?.raw, cEv?.address?.raw, undefined, undefined, cEv?.address?.originalRaw);
+      pushRow(etagRows, `${famKey}.${etag}.addr`, t("event.colAddr"), eventAddressFullText(mEv), eventAddressFullText(cEv), undefined, undefined, cEv?.address?.originalRaw);
+      pushRow(etagRows, `${famKey}.${etag}.husbage`, t("event.husbandAge"), mEv?.husbandAge, cEv?.husbandAge);
+      pushRow(etagRows, `${famKey}.${etag}.wifeage`, t("event.wifeAge"), mEv?.wifeAge, cEv?.wifeAge);
       pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), eventNotesText(mEv), eventNotesText(cEv));
       pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
+      pushRow(etagRows, `${famKey}.${etag}.temple`, t("event.colTemple"), mEv?.temple, cEv?.temple);
+      pushRow(etagRows, `${famKey}.${etag}.status`, t("event.colStatus"), mEv?.status, cEv?.status);
       const movedHere = famMoved.byTag.get(etag) ?? [];
       pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links,
         movedHere.length ? [...(cEv?.links ?? []), ...movedHere] : cEv?.links, mFamPool, cFamPool);
@@ -501,7 +545,7 @@ function buildFamilyRows(
       // One side has the event (see the guard above), so its header stands even
       // when there is nothing under it to compare — a marriage stated without a
       // date or place is still the record that the couple married.
-      const baseLabel = eventDisplayLabel(etag, t, EVENT_LABELS[etag]);
+      const baseLabel = familyEventLabel(etag, t, EVENT_LABELS[etag]);
       const headerType = isEven ? (mEv?.type ?? cEv?.type) : undefined;
       rows.push({
         key: `${famKey}.${etag}.header`,
@@ -525,6 +569,8 @@ function buildFamilyRows(
     pushRow(rows, `${famKey}.private`, formatFieldLabel(t, `${famKey}.private`),
       mFam?.private ? `🔒 ${t("edit.privateLabel")}` : undefined,
       cFam?.private ? `🔒 ${t("edit.privateLabel")}` : undefined);
+    pushRow(rows, `${famKey}.noEvents`, formatFieldLabel(t, `${famKey}.noEvents`),
+      noEventsText(t, mFam?.noEvents), noEventsText(t, cFam?.noEvents));
 
     const mChildren = mFam ? mFam.children.map(id => mainDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
     const cChildren = cFam ? cFam.children.map(id => compareDs.individuals.get(id)).filter((i): i is Individual => !!i) : [];
@@ -1458,7 +1504,7 @@ function coversAll(side: SourceCitation[], other: SourceCitation[], sideIcons: s
 
 function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {
   const name = displayName(n);
-  return n.type ? `${name} (${nameTypeLabel(n.type, t)})` : name;
+  return n.type ? `${name} (${nameTypeLabel(n.type, t, n.typePhrase)})` : name;
 }
 
 /** Date rows that carry a person's birth year — birth, else baptism/christening
@@ -1560,8 +1606,8 @@ export function orderedEventTags(
     const ce = a.compareIdx >= 0 ? (cByTag.get(a.tag) ?? [])[a.compareIdx] : undefined;
     const me2 = b.mainIdx >= 0 ? (mByTag.get(b.tag) ?? [])[b.mainIdx] : undefined;
     const ce2 = b.compareIdx >= 0 ? (cByTag.get(b.tag) ?? [])[b.compareIdx] : undefined;
-    const dateA = zoneSortKey(me?.date ?? ce?.date, a.tag, anchors);
-    const dateB = zoneSortKey(me2?.date ?? ce2?.date, b.tag, anchors);
+    const dateA = zoneSortKey((me && orderingDate(me)) ?? (ce && orderingDate(ce)), a.tag, anchors);
+    const dateB = zoneSortKey((me2 && orderingDate(me2)) ?? (ce2 && orderingDate(ce2)), b.tag, anchors);
     if (dateA !== dateB) return dateA - dateB;
     const posA = EVENT_ORDER.indexOf(a.tag);
     const posB = EVENT_ORDER.indexOf(b.tag);
@@ -1572,7 +1618,7 @@ export function orderedEventTags(
 }
 
 /** Birth-adjacent tags that should always sort before any dated event. */
-const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"]);
+const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "CHRA", "BLES", "FCOM", "CONF", "BARM", "BASM", "ADOP"]);
 
 /**
  * Life-zone tags that can only occur while the person is alive, so they must
@@ -1581,7 +1627,7 @@ const BIRTH_ZONE_TAGS = new Set(["BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP"])
  * probate routinely happens after death, so their date should be trusted as-is.
  */
 export const LIFE_ZONE_TAGS = new Set([
-  "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
+  "OCCU", "EDUC", "GRAD", "ORDN", "RETI", "_MILT", "_MILI",
   "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
 ]);
@@ -1855,8 +1901,45 @@ function extractEffectiveAddr(
   return undefined;
 }
 
+/** A date row's hover when the date carries GEDCOM 7 wording (`PHRASE`): the
+ *  value with the wording beside it. */
+function phraseTitle(d: GedDate | undefined): string | undefined {
+  return d?.phrase ? dateText(d) : undefined;
+}
+
+/** A name's translations, one per line with its language, ordered. */
+function nameTranslationsText(name: PersonName | undefined): string | undefined {
+  if (!name?.translations?.length) return undefined;
+  return name.translations.map((tr) => translationLine(tr.full, tr.lang)).sort().join("\n");
+}
+
+/** A record's external identifiers, one per line — the id and the system that
+ *  gave it — ordered, so the same ids in another file order read as agreement. */
+function exidsText(list: ExternalId[] | undefined): string | undefined {
+  if (!list?.length) return undefined;
+  return list
+    .map((x) => (x.type ? `${x.id} (${exidTypeLabel(x.type)})` : x.id))
+    .sort()
+    .join("\n");
+}
+
+/** A record's "did not happen" statements, one per line: the event's name, and
+ *  the period when the statement is limited to one. Ordered by tag, so the
+ *  same statements in a different file order read as agreement. */
+function noEventsText(t: Translate, list: NegativeAssertion[] | undefined): string | undefined {
+  if (!list?.length) return undefined;
+  return [...list]
+    .sort((a, b) => a.tag.localeCompare(b.tag))
+    .map((a) => {
+      const name = eventDisplayLabel(a.tag, t, EVENT_LABELS[a.tag]);
+      return a.date?.raw ? `${name} (${a.date.raw})` : name;
+    })
+    .join("\n");
+}
+
 function sexText(t: Translate, sex: string | undefined): string {
   if (sex === "M") return t("sex.M");
   if (sex === "F") return t("sex.F");
+  if (sex === "X") return t("sex.X");
   return "";
 }

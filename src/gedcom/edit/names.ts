@@ -1,6 +1,7 @@
 import { splitSlashName } from "../name";
 import { childrenByTag, hasChild } from "../node";
-import type { GedNode, Individual, Sex } from "../types";
+import type { GedcomVersion, GedNode, Individual, Sex } from "../types";
+import { SEX_X_EXTENSION } from "../sex";
 import { getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, NAME_CHILD_ORDER, removeChild, setOrRemoveValue } from "./shared";
 
 /**
@@ -94,7 +95,15 @@ export function setAdditionalName(indi: Individual, index: number, update: NameV
     const surname = (update.surname ?? current?.surname ?? "").trim();
     writeNameValue(node, given, surname);
   }
-  if (update.type !== undefined) setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+  if (update.type !== undefined) {
+    const typeNode = node.children.find((c) => c.tag === "TYPE");
+    const changed = typeNode?.value?.trim().toLowerCase() !== update.type.trim().toLowerCase();
+    setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+    // A GEDCOM 7 `PHRASE` words the type it stands under ("OTHER" ·
+    // "Klostername"); a different type is no longer what it words.
+    const after = node.children.find((c) => c.tag === "TYPE");
+    if (changed && after) after.children = after.children.filter((c) => c.tag !== "PHRASE");
+  }
 }
 
 /**
@@ -139,11 +148,20 @@ export function removeAdditionalName(indi: Individual, index: number): void {
   if (i !== -1) indi.raw.children.splice(i, 1);
 }
 
-/** Set (or, for "U", remove) the individual's `SEX` line. */
-export function setSex(indi: Individual, sex: Sex): void {
+/** Set (or, for "U", remove) the individual's `SEX` line. `X` is written as
+ *  GEDCOM 7 spells it; a 5.5.1 file, which has no such letter, gets `SEX U`
+ *  with a `_SEX X` line under it (see `gedcom/sex.ts`). */
+export function setSex(indi: Individual, sex: Sex, version: GedcomVersion = "unknown"): void {
   if (sex === "U") {
     removeChild(indi.raw, "SEX");
     return;
   }
-  getOrCreateChild(indi.raw, "SEX", INDI_CHILD_ORDER).value = sex;
+  const node = getOrCreateChild(indi.raw, "SEX", INDI_CHILD_ORDER);
+  node.children = node.children.filter((c) => c.tag !== SEX_X_EXTENSION);
+  if (sex === "X" && version !== "7.0") {
+    node.value = "U";
+    node.children.push({ level: node.level + 1, tag: SEX_X_EXTENSION, value: "X", children: [] });
+    return;
+  }
+  node.value = sex;
 }

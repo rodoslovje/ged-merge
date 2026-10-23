@@ -16,15 +16,20 @@ import {
 import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel } from "../gedcom/eventTags";
-import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
+import { contactTagOf } from "../gedcom/address";
+import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
+import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
+import { nodeSortDate, orderingDate } from "../gedcom/sortDate";
+import { fsIdNode, isFsIdNode } from "../gedcom/exid";
+import { TRANSLATION_TAGS } from "../gedcom/translation";
 import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
-import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
+import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
@@ -36,7 +41,7 @@ type Row = FieldRow;
 
 /** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
  *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
-const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "assoc", "value"] as const;
+const EVENT_SUB_FIELDS = [...EVENT_TEXT_SUBS, "sources", "assoc"] as const;
 export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
 
 function isEventSubField(sub: string | undefined): sub is EventSubField {
@@ -77,7 +82,12 @@ export interface EventSubEdit {
 }
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
-export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS" };
+export const SUB_TAG: Record<string, string> = {
+  type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS", temple: "TEMP", status: "STAT",
+  // The stated age: the event's own, or a family event's spouse's — whose
+  // whole `2 HUSB` / `3 AGE` structure is what is copied.
+  age: "AGE", husbage: "HUSB", wifeage: "WIFE",
+};
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 export const SUB_LABEL_KEY: Record<string, string> = {
@@ -86,14 +96,19 @@ export const SUB_LABEL_KEY: Record<string, string> = {
   date: "event.colDate",
   place: "event.colPlace",
   addr: "event.colAddr",
+  age: "event.colAge",
+  husbage: "event.husbandAge",
+  wifeage: "event.wifeAge",
   note: "event.colNote",
   agency: "event.colAgency",
   cause: "event.colCause",
+  temple: "event.colTemple",
+  status: "event.colStatus",
   assoc: "assoc.heading",
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
-export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause"];
+export const SUB_JOIN_ORDER: readonly string[] = EVENT_TEXT_SUBS;
 
 /** The event sub-fields that may legally repeat under one event, so "both" can
  *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
@@ -405,6 +420,12 @@ export function applyRows(
       applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
     } else if (row.key === "notes") {
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
+    } else if (row.key === "noEvents") {
+      applied = applyNoEvents(target, incomingRecord, sourMap);
+    } else if (row.key === "nameTranslations") {
+      applied = applyNameTranslations(target, incomingRecord);
+    } else if (row.key === "exid") {
+      applied = applyExids(target, incomingRecord);
     } else if (row.key === "fsid") {
       applied = applyFsIds(target, incomingRecord, choice);
     } else if (row.key === "private") {
@@ -653,8 +674,27 @@ export function applyPrivateFlag(target: GedNode, records: GedNode[]): boolean {
   return true;
 }
 
-/** FamilySearch person-id tags (MacFamilyTree `_FID`, RootsMagic `_FSFTID`). */
-const FSID_TAGS = ["_FID", "_FSFTID"];
+/**
+ * Copy the incoming record's negative assertions (`NO MARR` — "did not
+ * happen") onto the main record, each one the main does not already make for
+ * the same event, with its date, notes and citations. Additive whatever the
+ * choice: a statement the main record makes is never taken away by a merge.
+ * The compare file has already been migrated to the main's version, so the
+ * lines arrive in the main's own spelling (`NO`, or 5.5.1's `_NO`).
+ */
+export function applyNoEvents(target: GedNode, incomingRecord: GedNode, sourMap: SourXrefMap): boolean {
+  const have = new Set(negativeAssertionsOf(target).map((a) => a.tag));
+  let added = false;
+  for (const node of incomingRecord.children) {
+    if (!NO_TAGS.includes(node.tag)) continue;
+    const tag = node.value?.trim().toUpperCase();
+    if (!tag || have.has(tag)) continue;
+    have.add(tag);
+    insertNegativeAssertion(target, cloneNodeRemapped(node, sourMap));
+    added = true;
+  }
+  return added;
+}
 
 /**
  * Copy the incoming record's FamilySearch id(s) onto the main record,
@@ -666,9 +706,9 @@ const FSID_TAGS = ["_FID", "_FSFTID"];
  * count as already present.
  */
 export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
-  const incoming = incomingRecord.children.filter((c) => FSID_TAGS.includes(c.tag) && c.value?.trim());
+  const incoming = incomingRecord.children.filter((c) => isFsIdNode(c) && c.value?.trim());
   if (!incoming.length) return false;
-  const existing = target.children.filter((c) => FSID_TAGS.includes(c.tag));
+  const existing = target.children.filter(isFsIdNode);
   const have = new Set(existing.map((c) => (c.value ?? "").trim().toUpperCase()));
   const fresh = incoming
     .map((c) => c.value!.trim().toUpperCase())
@@ -681,9 +721,49 @@ export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: Fie
     rest = fresh.slice(1);
   }
   for (const value of rest) {
-    insertGrouped(target, { level: target.level + 1, tag, value, children: [] }, ["CHAN", "CREA"]);
+    insertGrouped(target, fsIdNode(tag, value, target.level + 1), ["CHAN", "CREA"]);
   }
   return true;
+}
+
+/**
+ * Copy the translations of the incoming primary name (`TRAN`, or the 5.5.1
+ * `ROMN`/`FONE` the migration made of them) onto the main primary name, each
+ * one whose text the main name does not already carry. Additive: a name in
+ * another script is another way to find the same person, never a correction.
+ */
+export function applyNameTranslations(target: GedNode, incomingRecord: GedNode): boolean {
+  const incName = firstChild(incomingRecord, "NAME");
+  const name = firstChild(target, "NAME");
+  if (!incName || !name) return false;
+  const have = new Set(name.children.filter((c) => TRANSLATION_TAGS.includes(c.tag)).map((c) => c.value?.trim()));
+  let added = false;
+  for (const c of incName.children) {
+    if (!TRANSLATION_TAGS.includes(c.tag) || !c.value?.trim() || have.has(c.value.trim())) continue;
+    have.add(c.value.trim());
+    name.children.push(cloneNode(c));
+    added = true;
+  }
+  return added;
+}
+
+/**
+ * Copy the incoming record's other external identifiers (`EXID` + `TYPE`, see
+ * `gedcom/exid`) onto the main record, each one the main does not already
+ * carry with the same type. Additive: an identifier says which record some
+ * other system means, and the merged person is still that record there.
+ */
+export function applyExids(target: GedNode, incomingRecord: GedNode): boolean {
+  const key = (n: GedNode) => `${firstChild(n, "TYPE")?.value?.trim() ?? ""}|${n.value?.trim() ?? ""}`;
+  const have = new Set(target.children.filter((c) => c.tag === "EXID").map(key));
+  let added = false;
+  for (const node of incomingRecord.children) {
+    if (node.tag !== "EXID" || isFsIdNode(node) || !node.value?.trim() || have.has(key(node))) continue;
+    have.add(key(node));
+    insertGrouped(target, cloneNode(node), ["CHAN", "CREA"]);
+    added = true;
+  }
+  return added;
 }
 
 /** Set the NICK sub-node on the primary NAME record from the incoming side. */
@@ -766,6 +846,10 @@ function resolveEventNode(
   if (cached) return cached;
   const created = newNode(tag);
   markEventTouched(created, "new");
+  // The incoming sealing's `FAMC` names a family of the other file; the
+  // sealing joins the main person to their own birth family instead.
+  const famc = tag === "SLGC" ? firstChild(target, "FAMC")?.value : undefined;
+  if (famc) created.children.push(newNode("FAMC", famc));
   insertOrdered(target, created, order);
   newEventNodes?.set(cacheKey, created);
   return created;
@@ -813,7 +897,21 @@ export function applyEventSub(
   // An event may carry any number of notes, so its note row is a list like
   // the record's own notes row — every one of them, not the first.
   if (subTag === "NOTE") return applyNotes(event, incEvent!, choice, sourMap, EVENT_CHILD_ORDER, customTags);
-  return setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
+  const applied = setChild(event, subTag, incEvent!, choice, EVENT_CHILD_ORDER, sourMap, incSub, customTags);
+  // The address row compares the whole address structure, the contact lines
+  // beside the ADDR included, so taking it takes those too.
+  if (applied && subTag === "ADDR") takeContactLines(event, incEvent!);
+  return applied;
+}
+
+/** Replace the event's phone/e-mail/fax lines with the incoming event's, when
+ *  it has any (an incoming address without them leaves the main's alone). */
+function takeContactLines(event: GedNode, incEvent: GedNode): void {
+  const isContact = (c: GedNode) => contactTagOf(c.tag) !== undefined;
+  const incoming = incEvent.children.filter(isContact);
+  if (!incoming.length) return;
+  event.children = event.children.filter((c) => !isContact(c));
+  for (const c of incoming) insertOrdered(event, cloneNode(c), EVENT_CHILD_ORDER);
 }
 
 /**
@@ -1062,7 +1160,8 @@ function indiTagRank(tag: string): number {
 function isEventChild(node: GedNode): boolean {
   const rank = indiTagRank(node.tag);
   if (rank >= 2 && rank < INDI_EVENT_RANK_END) return true;
-  return rank === Infinity && node.tag.startsWith("_") && hasChild(node, "DATE");
+  // `_NO` is a dated negative assertion (see gedcom/negative), not an event.
+  return rank === Infinity && node.tag.startsWith("_") && node.tag !== "_NO" && hasChild(node, "DATE");
 }
 
 /**
@@ -1076,7 +1175,8 @@ function isEventChild(node: GedNode): boolean {
 function eventSortKeys(events: readonly GedNode[]): number[] {
   const eventDate = (node: GedNode) => parseDate(firstChild(node, "DATE")?.value ?? "");
   const anchors = lifespanAnchors(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
-  return events.map((node) => zoneSortKey(eventDate(node), node.tag, anchors));
+  // An event's sort date (SDATE) orders it, as it does on screen.
+  return events.map((node) => zoneSortKey(orderingDate({ date: eventDate(node), sortDate: nodeSortDate(node) }), node.tag, anchors));
 }
 
 /**
@@ -1318,7 +1418,11 @@ export function stripForeignPointers(node: GedNode, isIncomingRecord?: (xref: st
         return true;
       }
       if (FOREIGN_POINTER_TAGS.has(c.tag) && pointer) {
-        if (c.tag === "ASSO") {
+        // The family an LDS sealing to parents names is very likely the
+        // person's own birth family, which the merge brings across too: kept
+        // and marked, then pointed at its main-side record once the families
+        // are placed (see `remapSealingFamilies`).
+        if (c.tag === "ASSO" || (c.tag === "FAMC" && n.tag === "SLGC" && isIncomingRecord?.(pointer))) {
           c.foreignPointer = true;
           return true;
         }
@@ -1331,6 +1435,69 @@ export function stripForeignPointers(node: GedNode, isIncomingRecord?: (xref: st
   };
   walk(node);
   return removed;
+}
+
+/**
+ * Point the `FAMC` of each imported LDS sealing to parents (`SLGC`) — kept and
+ * marked by {@link stripForeignPointers}, still naming a family of the incoming
+ * file — at the main-side family that family became: the one among the
+ * person's own birth families in the merged output whose spouses are that
+ * family's spouses as the merge resolved them. A sealing whose family did not
+ * come across (or cannot be told apart from another) loses the pointer rather
+ * than keep one that dangles or names the wrong family; each such record is
+ * returned, for the caller to report.
+ *
+ * Runs before `remapMergedAssociations`, which resolves every other marked
+ * pointer as a person.
+ */
+export function remapSealingFamilies(
+  people: GedNode[],
+  allRecords: GedNode[],
+  compare: Dataset,
+  resolve: (incomingId: string) => string | undefined,
+): string[] {
+  const dropped: string[] = [];
+  const families = new Map(allRecords.filter((r) => r.tag === "FAM" && r.xref).map((r) => [r.xref!, r]));
+  for (const person of people) {
+    if (person.tag !== "INDI") continue;
+    for (const sealing of childrenByTag(person, "SLGC")) {
+      sealing.children = sealing.children.filter((c) => {
+        if (c.tag !== "FAMC" || !c.foreignPointer) return true;
+        delete c.foreignPointer;
+        const target = sealingFamilyTarget(person, compare.families.get(c.value?.trim() ?? ""), families, resolve);
+        if (target) {
+          c.value = target;
+          return true;
+        }
+        dropped.push(person.xref ?? "");
+        return false;
+      });
+    }
+  }
+  return dropped;
+}
+
+function sealingFamilyTarget(
+  person: GedNode,
+  incomingFam: Family | undefined,
+  families: Map<string, GedNode>,
+  resolve: (incomingId: string) => string | undefined,
+): string | undefined {
+  if (!incomingFam) return undefined;
+  const husband = incomingFam.husband ? resolve(incomingFam.husband) : undefined;
+  const wife = incomingFam.wife ? resolve(incomingFam.wife) : undefined;
+  // A parent the incoming family names but the merge did not bring across
+  // leaves nothing to recognise the family by.
+  if ((incomingFam.husband && !husband) || (incomingFam.wife && !wife)) return undefined;
+  const candidates = childrenByTag(person, "FAMC")
+    .map((f) => f.value?.trim() ?? "")
+    .filter((id) => {
+      const fam = families.get(id);
+      if (!fam) return false;
+      return (!husband || firstChild(fam, "HUSB")?.value?.trim() === husband)
+        && (!wife || firstChild(fam, "WIFE")?.value?.trim() === wife);
+    });
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 /**

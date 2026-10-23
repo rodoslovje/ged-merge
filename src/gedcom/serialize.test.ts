@@ -3,6 +3,8 @@ import { buildDataset } from "./builder";
 import { setEventField } from "./edit";
 import { parseGedcom } from "./parser";
 import { downloadOptions, ensureUtf8Charset, LINE_LIMIT_551, serializeGedcom, stampHeadSource } from "./serialize";
+import type { GedNode } from "./types";
+import { cloneNode } from "./node";
 
 /** Parse text (as bytes) then serialize back, using the detected conventions. */
 function roundTrip(text: string): string {
@@ -410,6 +412,99 @@ describe("serializeGedcom", () => {
         "",
       ].join("\n");
       expect(roundTrip(text)).toBe(text);
+    });
+  });
+
+  describe("a bare tag written with a trailing space", () => {
+    it("keeps the space while the line is unchanged", () => {
+      const text = ["0 HEAD", "0 @I1@ INDI", "1 NOTE ", "2 CONT second", "1 EVEN ", "2 TYPE x", "0 @N1@ NOTE ", "0 TRLR", ""].join("\n");
+      expect(roundTrip(text)).toBe(text);
+    });
+
+    it("drops it once the line carries text, and survives a clone", () => {
+      const parsed = parseGedcom(new TextEncoder().encode("0 HEAD\n0 @I1@ INDI\n1 NOTE \n0 TRLR\n").buffer);
+      const note = parsed.records[1].children[0];
+      expect(serializeGedcom([cloneNode(parsed.records[1])])).toBe("0 @I1@ INDI\n1 NOTE \n");
+      note.value = "now text";
+      expect(serializeGedcom([parsed.records[1]])).toBe("0 @I1@ INDI\n1 NOTE now text\n");
+    });
+  });
+
+  describe("at-sign escaping by output version", () => {
+    const note = (value: string): GedNode[] => [{ level: 0, xref: "@N1@", tag: "NOTE", value, children: [] }];
+    /** Load `text`, then write it as a download would. */
+    const download = (text: string): string => {
+      const parsed = parseGedcom(new TextEncoder().encode(text).buffer);
+      return serializeGedcom(parsed.records, downloadOptions(parsed));
+    };
+
+    it("5.5.1 doubles every literal @, 7.0 only a leading one", () => {
+      expect(serializeGedcom(note("@ana@example.si"), { atEscape: "all" })).toBe("0 @N1@ NOTE @@ana@@example.si\n");
+      expect(serializeGedcom(note("@ana@example.si"), { atEscape: "leading" })).toBe("0 @N1@ NOTE @@ana@example.si\n");
+      expect(serializeGedcom(note("a\nb@c"), { atEscape: "all" })).toBe("0 @N1@ NOTE a\n1 CONT b@@c\n");
+    });
+
+    it("5.5.1 keeps pointers and calendar escapes single", () => {
+      expect(serializeGedcom([{ level: 1, tag: "FAMS", value: "@F1@", children: [] }], { atEscape: "all" })).toBe("0 FAMS @F1@\n");
+      expect(serializeGedcom([{ level: 1, tag: "DATE", value: "@#DJULIAN@ 1 JAN 1700", children: [] }], { atEscape: "all" }))
+        .toBe("0 DATE @#DJULIAN@ 1 JAN 1700\n");
+    });
+
+    it("an untouched 5.5.1 file that escaped correctly downloads byte-identical", () => {
+      const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 EMAIL ana@@example.si", "1 NOTE @@home, see @@x", "0 TRLR", ""].join("\n");
+      expect(download(text)).toBe(text);
+      const ds = parseGedcom(new TextEncoder().encode(text).buffer);
+      expect(ds.records[1].children[0].value).toBe("ana@example.si");
+    });
+
+    it("an untouched 7.0 file downloads byte-identical, inner @@ meaning two at-signs", () => {
+      const text = ["0 HEAD", "1 GEDC", "2 VERS 7.0", "0 @I1@ INDI", "1 EMAIL ana@example.si", "1 NOTE @@home a@@b", "0 TRLR", ""].join("\n");
+      expect(download(text)).toBe(text);
+      const ds = parseGedcom(new TextEncoder().encode(text).buffer);
+      expect(ds.records[1].children[1].value).toBe("@home a@@b");
+    });
+
+    const BARE = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 EMAIL ana@example.si", "1 NOTE see a@b", "2 CONC  and c@d", "2 CONT @home", "0 TRLR", ""].join("\n");
+
+    it("an untouched 5.5.1 line written with bare at-signs saves as it was read", () => {
+      // Only the leading @ of the CONT line is doubled: unescaped, it would
+      // read as a pointer.
+      expect(download(BARE)).toBe(BARE.replace("2 CONT @home", "2 CONT @@home"));
+      const back = parseGedcom(new TextEncoder().encode(download(BARE)).buffer);
+      expect(back.records[1].children[1].value).toBe("see a@b and c@d\n@home");
+    });
+
+    it("an edited 5.5.1 value is escaped by the version's rule, and a clone stays untouched", () => {
+      const parsed = parseGedcom(new TextEncoder().encode(BARE).buffer);
+      const copy = parsed.records.map(cloneNode);
+      expect(serializeGedcom(copy, downloadOptions(parsed))).toBe(download(BARE));
+      parsed.records[1].children[0].value = "bo@example.si";
+      expect(serializeGedcom(parsed.records, downloadOptions(parsed))).toContain("1 EMAIL bo@@example.si\n");
+    });
+
+    it("a value mixing @@ and bare @ follows the version's rule", () => {
+      const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @N1@ NOTE a@@b", "1 CONT c@d", "0 TRLR", ""].join("\n");
+      expect(download(text)).toContain("0 @N1@ NOTE a@@b\n1 CONT c@@d\n");
+    });
+
+    it("a converted file follows its target version's rule", () => {
+      const parsed = parseGedcom(new TextEncoder().encode(BARE).buffer);
+      expect(serializeGedcom(parsed.records, { ...downloadOptions(parsed), atEscape: "leading" })).toContain("1 EMAIL ana@example.si\n");
+    });
+
+    it("never parts an @@ across a CONC line, and the value reads back whole", () => {
+      const value = `${"x".repeat(LINE_LIMIT_551 - 10)}@@@@@@@@@@@@tail`;
+      const out = serializeGedcom(note(value), { atEscape: "all", maxLineLength: LINE_LIMIT_551 });
+      for (const line of out.trimEnd().split("\n")) {
+        expect(/^[^@]*(@@)*[^@]*$/.test(line.replace(/^0 @N1@ NOTE |^1 CONC /, ""))).toBe(true);
+      }
+      const back = parseGedcom(new TextEncoder().encode(`0 HEAD\n${out}0 TRLR\n`).buffer);
+      expect(back.records[1].value).toBe(value);
+    });
+
+    it("keeps a 5.5.1 file's own CONC breaks around an escaped @", () => {
+      const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @N1@ NOTE mail ana@@exa", "1 CONC mple.si, or @@b", "0 TRLR", ""].join("\n");
+      expect(download(text)).toBe(text);
     });
   });
 

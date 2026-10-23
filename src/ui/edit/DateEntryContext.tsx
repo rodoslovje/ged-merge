@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { Dataset, DateOrder } from "../../gedcom/types";
+import type { Dataset, DateOrder, GedcomVersion } from "../../gedcom/types";
 import type { DateFormatProfile } from "../../normalize/types";
 import { inferDateProfile } from "../../normalize/profile";
 import { applyDateOverrides, type FormatOverrides } from "../../normalize/formatOverrides";
@@ -52,4 +52,10 @@ export function useDateEntrySource(dataset: Dataset | null | undefined, override
 /** For the date field: the getter it calls when a date is typed. */
 export function useDateEntryStyle(): () => DateEntryStyle {
   return dateEntryStyle;
+}
+
+/** The GEDCOM version of the file a date typed now goes into — which decides
+ *  how a date line with no 5.5.1 form is spelled (`SDATE` or `_SDATE`). */
+export function dateEntryVersion(): GedcomVersion {
+  return source?.dataset.version ?? "unknown";
 }

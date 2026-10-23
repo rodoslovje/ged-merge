@@ -1,19 +1,27 @@
+import { todayGedcom } from "../chanCrea";
 import { indiEventNodes } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
 import { NOTE_TAGS } from "../builder";
+import { SORT_DATE_TAGS } from "../sortDate";
 import type { Family, GedNode, GeoCoord, Individual, NoteRef } from "../types";
 import { reconcilePlaceForm, setPlaceCoord } from "./geo";
 import {
-  EDITABLE_LINK_TAGS, EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
-  insertOrdered, markEventTouched, setOrRemoveValue,
+  ADDR_CHILD_ORDER, AGE_CHILD_ORDER, EDITABLE_LINK_TAGS, EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER,
+  getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, markEventTouched, setOrRemoveValue,
 } from "./shared";
+import { ADDRESS_PART_TAGS, type AddressParts } from "../address";
 import { applyNoteRefs, removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 import { attachSourceCitation, linkPageMedia, type NewCitation } from "./sources";
 
 export interface EventFieldUpdate {
   /** New direct value on the event line (e.g. occupation text), or `""` to remove. */
   value?: string;
+  /** New SDATE (sort date) value, or `""` to remove it. Omit to leave unchanged. */
+  sortDate?: string;
+  /** The tag a *new* sort date is written with — the file's own dialect (see
+   *  `sortDateTag`). An existing line keeps its tag. */
+  sortDateTag?: "SDATE" | "_SDATE";
   /** New DATE value, or `""` to remove the date. Omit to leave unchanged. */
   date?: string;
   /** New TIME under the DATE (`14:30`), or `""` to remove it. Omit to leave
@@ -53,6 +61,30 @@ export interface EventFieldUpdate {
   type?: string;
   /** New CAUS value (cause, e.g. of death), or `""` to remove it. Omit to leave unchanged. */
   cause?: string;
+  /** New TEMP value (an LDS ordinance's temple), or `""` to remove it. Omit to leave unchanged. */
+  temple?: string;
+  /** New STAT value (an LDS ordinance's status), or `""` to remove it — see
+   *  {@link applyOrdinanceStatus} for the date the status line carries. Omit
+   *  to leave unchanged. */
+  status?: string;
+  /** The address's labelled lines (`ADDR` → `ADR1`…`CTRY`): each key given is
+   *  set, or removed when `""`; the ADDR's own line and every key not given
+   *  are left alone, so a file that writes only the line keeps writing only
+   *  the line. */
+  addressParts?: AddressParts;
+  /** The first `PHON` / `EMAIL` / `FAX` beside the address, or `""` to remove
+   *  it. Any further ones the event carries stay. */
+  phone?: string;
+  email?: string;
+  fax?: string;
+  /** New `AGE` value — already in the file's grammar (see `writeAgeValue`) —
+   *  or `""` to remove it. A PHRASE the old value carried goes with it. */
+  age?: string;
+  /** A 7.0 `PHRASE` for the new `age` (a keyword's words: "Child"). */
+  agePhrase?: string;
+  /** A family event's spouse ages (`HUSB`/`WIFE` → `AGE`), or `""` to remove. */
+  husbandAge?: string;
+  wifeAge?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
   /** Attach a new `SOUR` citation pointer (with its optional `PAGE`/`QUAY`) —
@@ -119,6 +151,100 @@ function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx)
   if (i !== -1) eventNode.children.splice(i, 1);
 }
 
+/**
+ * Set an LDS ordinance's status. Both standards give the `STAT` line the date
+ * the status was set (`STAT`.`DATE`, required in 5.5.1 and 7.0 alike), so a
+ * status that changes is dated today — it was set now — while one that stays
+ * keeps the date it had. An empty status removes the line with its date.
+ */
+function applyOrdinanceStatus(eventNode: GedNode, status: string): void {
+  const before = firstChild(eventNode, "STAT")?.value?.trim() ?? "";
+  setOrRemoveValue(eventNode, "STAT", status, EVENT_CHILD_ORDER);
+  const stat = firstChild(eventNode, "STAT");
+  if (!stat || stat.value === before) return;
+  setOrRemoveValue(stat, "DATE", todayGedcom(), ["DATE"]);
+}
+
+/** Remove one child node from its parent. */
+function detach(parent: GedNode, child: GedNode): void {
+  const i = parent.children.indexOf(child);
+  if (i !== -1) parent.children.splice(i, 1);
+}
+
+/**
+ * Set the ADDR's own line. An ADDR that carries labelled lines keeps them:
+ * emptying its line empties the line, not the address — the lines still say
+ * where the house is, and they were never on screen to be cleared with it.
+ */
+function setAddressLine(eventNode: GedNode, text: string): void {
+  const addr = firstChild(eventNode, "ADDR");
+  const hasParts = !!addr?.children.some((c) => c.tag !== "CONT");
+  if (!addr || !hasParts) {
+    setOrRemoveValue(eventNode, "ADDR", text, EVENT_CHILD_ORDER);
+    return;
+  }
+  addr.value = text.trim() || undefined;
+}
+
+/** Write the ADDR's labelled lines, creating an ADDR with no line of its own
+ *  when the event had none, and dropping one that ends up saying nothing. */
+function setAddressParts(eventNode: GedNode, parts: AddressParts): void {
+  let addr = firstChild(eventNode, "ADDR");
+  for (const tag of ADDRESS_PART_TAGS) {
+    const v = parts[tag];
+    if (v === undefined) continue;
+    if (!addr) {
+      if (!v.trim()) continue;
+      addr = getOrCreateChild(eventNode, "ADDR", EVENT_CHILD_ORDER);
+    }
+    setOrRemoveValue(addr, tag, v, ADDR_CHILD_ORDER);
+  }
+  if (addr && !addr.value?.trim() && addr.children.length === 0) detach(eventNode, addr);
+}
+
+/** Set (or remove) the first of an event's `tags` lines — a contact line may
+ *  repeat, and the others are the file's, not this edit's. */
+function setFirstValue(eventNode: GedNode, tag: string, value: string, tags: string[]): void {
+  const existing = firstChild(eventNode, tags);
+  const trimmed = value.trim();
+  if (existing) {
+    if (trimmed) existing.value = trimmed;
+    else detach(eventNode, existing);
+  } else if (trimmed) {
+    insertOrdered(eventNode, { level: eventNode.level + 1, tag, value: trimmed, children: [] }, EVENT_CHILD_ORDER);
+  }
+}
+
+/** Write an `AGE` line under `parent` (the event, or a family event's
+ *  spouse). A PHRASE described the old value, so it is replaced, not kept. */
+function writeAge(parent: GedNode, value: string, phrase: string | undefined, order: string[]): void {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    removeChildren(parent, "AGE");
+    return;
+  }
+  const age = getOrCreateChild(parent, "AGE", order);
+  if (age.value !== trimmed) {
+    age.value = trimmed;
+    removeChildren(age, "PHRASE");
+  }
+  if (phrase?.trim()) setOrRemoveValue(age, "PHRASE", phrase, AGE_CHILD_ORDER);
+}
+
+/** A family event's spouse age: `2 HUSB` / `3 AGE …`. The spouse line is the
+ *  event's own pointer-less one, never the family's `1 HUSB @I1@`, and it goes
+ *  when its age does (it says nothing else). */
+function setSpouseAge(eventNode: GedNode, tag: "HUSB" | "WIFE", value: string): void {
+  let spouse = eventNode.children.find((c) => c.tag === tag && !c.value?.trim());
+  if (!spouse) {
+    if (!value.trim()) return;
+    spouse = { level: eventNode.level + 1, tag, children: [] };
+    insertOrdered(eventNode, spouse, EVENT_CHILD_ORDER);
+  }
+  writeAge(spouse, value, undefined, ["AGE"]);
+  if (spouse.children.length === 0) detach(eventNode, spouse);
+}
+
 /** Apply date/place/address/links to an existing event node; remove the node if it becomes empty. */
 export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
@@ -128,6 +254,10 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
     const dateNode = firstChild(eventNode, "DATE");
     if (dateNode) setOrRemoveValue(dateNode, "TIME", update.time, ["TIME", "PHRASE"]);
   }
+  if (update.sortDate !== undefined) {
+    const tag = firstChild(eventNode, SORT_DATE_TAGS)?.tag ?? update.sortDateTag ?? "SDATE";
+    setOrRemoveValue(eventNode, tag, update.sortDate, EVENT_CHILD_ORDER);
+  }
   const prevPlace =
     update.place !== undefined ? firstChild(eventNode, "PLAC")?.value : undefined;
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
@@ -136,7 +266,15 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
     const plac = eventNode.children.find((c) => c.tag === "PLAC" && c.value?.trim());
     if (plac) reconcilePlaceForm(plac, update.placeForm, prevPlace);
   }
-  if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
+  if (update.address !== undefined) setAddressLine(eventNode, update.address);
+  if (update.addressParts) setAddressParts(eventNode, update.addressParts);
+  for (const [key, tag] of [["phone", "PHON"], ["email", "EMAIL"], ["fax", "FAX"]] as const) {
+    const v = update[key];
+    if (v !== undefined) setFirstValue(eventNode, tag, v, tag === "EMAIL" ? ["EMAIL", "EMAI"] : [tag]);
+  }
+  if (update.age !== undefined) writeAge(eventNode, update.age, update.agePhrase, EVENT_CHILD_ORDER);
+  if (update.husbandAge !== undefined) setSpouseAge(eventNode, "HUSB", update.husbandAge);
+  if (update.wifeAge !== undefined) setSpouseAge(eventNode, "WIFE", update.wifeAge);
   if (update.coord !== undefined) {
     // The place has to exist to hang a MAP on; a coordinate with no place is
     // dropped rather than inventing a PLAC line.
@@ -157,6 +295,8 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
   if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);
   if (update.cause !== undefined) setOrRemoveValue(eventNode, "CAUS", update.cause, EVENT_CHILD_ORDER);
+  if (update.temple !== undefined) setOrRemoveValue(eventNode, "TEMP", update.temple, EVENT_CHILD_ORDER);
+  if (update.status !== undefined) applyOrdinanceStatus(eventNode, update.status);
   if (update.links !== undefined) setLinks(eventNode, update.links);
   if (update.addSource) {
     attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER, update.addSource.quay);
@@ -172,9 +312,12 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
  *  a brand-new event node would leave the node non-empty. */
 function eventUpdateHasContent(update: EventFieldUpdate): boolean {
   return (
-    !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
+    !!update.value?.trim() || !!update.date?.trim() || !!update.sortDate?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
-    !!update.type?.trim() || !!update.cause?.trim() ||
+    !!update.type?.trim() || !!update.cause?.trim() || !!update.temple?.trim() || !!update.status?.trim() ||
+    !!update.age?.trim() || !!update.husbandAge?.trim() || !!update.wifeAge?.trim() ||
+    !!update.phone?.trim() || !!update.email?.trim() || !!update.fax?.trim() ||
+    Object.values(update.addressParts ?? {}).some((v) => !!v?.trim()) ||
     !!update.links?.some((l) => l.trim()) || !!update.addSource
   );
 }
@@ -278,6 +421,11 @@ export function addEventNode(indi: Individual, tag: string): void {
   const same = childrenByTag(indi.raw, tag);
   const event: GedNode = { level: indi.raw.level + 1, tag, children: [] };
   markEventTouched(event, "new");
+  // A sealing to parents names the family it seals to (`FAMC`, required by
+  // the standard): the person's own birth family, when the file records one.
+  if (tag === "SLGC" && indi.childOf[0]) {
+    event.children.push({ level: event.level + 1, tag: "FAMC", value: indi.childOf[0], children: [] });
+  }
   if (same.length > 0) {
     const lastIdx = indi.raw.children.indexOf(same[same.length - 1]);
     indi.raw.children.splice(lastIdx + 1, 0, event);

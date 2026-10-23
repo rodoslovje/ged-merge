@@ -19,5 +19,12 @@
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
-  "include": ["vite.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "src/terms/vitePlugin.ts",
+    "src/terms/pages.ts",
+    "src/gedcom/extensionTerms.ts",
+    "src/gedcom/extensionRegistry.ts",
+    "src/gedcom/vendorTags.ts"
+  ]
 }

@@ -33,7 +33,7 @@ export function eraYear(indi: Individual, ds: Dataset): number | undefined {
  */
 
 /** Midpoint age at childbirth, by the *parent's* sex (15–40 for women, 15–60 for men). */
-const AGE_AT_CHILDBIRTH: Record<Individual["sex"], number> = { F: 27, M: 38, U: 32 };
+const AGE_AT_CHILDBIRTH: Record<Individual["sex"], number> = { F: 27, M: 38, U: 32, X: 32 };
 
 /** Midpoint age at which a parent has a child (18–40), used symmetrically for either parent. */
 const AGE_AT_PARENTHOOD = 29;

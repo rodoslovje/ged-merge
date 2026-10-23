@@ -7,12 +7,23 @@ import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } fr
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
+import { readSex } from "./sex";
+import { negativeAssertionsOf } from "./negative";
+import { nodeSortDate } from "./sortDate";
+import { isFsIdNode, readExid } from "./exid";
+import { nameTranslationsOf, translationsOf } from "./translation";
+import { phraseOf } from "./phrase";
+import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
+
+/** Which `GedEvent` field each contact line is read into. */
+const CONTACT_FIELD: Record<AddressContactTag, "phone" | "email" | "fax"> = { PHON: "phone", EMAIL: "email", FAX: "fax" };
 
 // Re-exported so existing importers (merge, normalize) keep their import path.
 export { looksLikeUrl };
 import type {
   Association,
   ChanCreaUsage,
+  ExternalId,
   Dataset,
   Family,
   GedEvent,
@@ -21,10 +32,12 @@ import type {
   NoteRef,
   ParseResult,
   SourceCitation,
+  Translation,
+  PersonName,
   Sex,
 } from "./types";
 
-import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, isChangeStampEvent } from "./eventTags";
+import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, LDS_ORDINANCE_TAGS, isChangeStampEvent } from "./eventTags";
 import { UPD_STAMP_TYPE } from "./vendorTags";
 import { EDITABLE_LINK_TAGS, nextXref } from "./edit/shared";
 import { decodeEntities, isHtmlNote, noteToText } from "./noteHtml";
@@ -178,6 +191,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const associations: Association[] = [];
   const uids: string[] = [];
   const fsids: string[] = [];
+  const exids: ExternalId[] = [];
   let sex: Sex = "U";
 
   for (const child of record.children) {
@@ -190,11 +204,19 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       case "_FSFTID":
         if (child.value?.trim()) fsids.push(child.value.trim());
         break;
+      // GEDCOM 7's external id: a FamilySearch one joins the vendor-tag ids
+      // above, every other kind is kept as it is (see gedcom/exid).
+      case "EXID": {
+        const exid = readExid(child);
+        if (exid && isFsIdNode(child)) fsids.push(exid.id);
+        else if (exid) exids.push(exid);
+        break;
+      }
       case "NAME":
-        names.push(parseName(child.value, subTagMap(child)));
+        names.push(withNameExtras(parseName(child.value, subTagMap(child)), child));
         break;
       case "SEX":
-        sex = normalizeSex(child.value);
+        sex = readSex(child);
         break;
       // `@VOID@` links to no family: the line stays in the raw tree, but it is
       // no relationship to follow (or to prune as broken).
@@ -232,6 +254,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
   if (uids.length) indi.uids = dedupe(uids);
   if (fsids.length) indi.fsids = dedupe(fsids);
+  if (exids.length) indi.exids = exids;
   if (links.length) indi.links = dedupe(links);
   const editableIndiLinks = collectEditableLinks(record);
   if (editableIndiLinks.length) indi.editableLinks = dedupe(editableIndiLinks);
@@ -246,6 +269,8 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
     indi.associations = associations;
   }
   if (isPrivateNode(record)) indi.private = true;
+  const noEvents = negativeAssertionsOf(record);
+  if (noEvents.length) indi.noEvents = noEvents;
   return indi;
 }
 
@@ -313,7 +338,23 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
     fam.associations = associations;
   }
   if (isPrivateNode(record)) fam.private = true;
+  const noEvents = negativeAssertionsOf(record);
+  if (noEvents.length) fam.noEvents = noEvents;
   return fam;
+}
+
+/** The LDS-only parts of an ordinance: its temple, its status (with the date
+ *  the status was set) and, on a sealing to parents, the family sealed to. */
+function readOrdinance(node: GedNode, event: GedEvent): void {
+  const temple = firstChild(node, "TEMP")?.value?.trim();
+  if (temple) event.temple = temple;
+  const stat = firstChild(node, "STAT");
+  const status = stat?.value?.trim();
+  if (status) event.status = status;
+  const statusDate = stat && firstChild(stat, "DATE")?.value?.trim();
+  if (statusDate) event.statusDate = statusDate;
+  const famc = firstChild(node, "FAMC")?.value?.trim();
+  if (famc && isPointer(famc) && !isVoidPointer(famc)) event.family = famc;
 }
 
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
@@ -328,6 +369,11 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (dateNode?.value) event.date = parseDate(dateNode.value);
   const time = dateNode && childValue(dateNode, "TIME")?.trim();
   if (time) event.time = time;
+  // A GEDCOM 7 date's own wording — beside the value, or the whole date.
+  const datePhrase = phraseOf(dateNode);
+  if (datePhrase) (event.date ??= parseDate("")).phrase = datePhrase;
+  const sortDate = nodeSortDate(node);
+  if (sortDate) event.sortDate = sortDate;
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;
@@ -335,14 +381,43 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     if (coord) event.place.coord = coord;
     const form = firstChild(placeNode, "FORM")?.value?.trim();
     if (form) event.place.form = form;
+    const placeTr = translationsOf(placeNode);
+    if (placeTr.length) event.place.translations = placeTr;
   }
-  if (addrNode?.value) {
-    event.address = parsePlace(addrNode.value);
-    if (addrNode.reshapedFrom) event.address.originalRaw = addrNode.reshapedFrom;
+  // The address as one string: the ADDR's own text, or its labelled lines
+  // joined when the program wrote only those (see `address.ts`).
+  const addrText = addressText(addrNode);
+  if (addrText) {
+    event.address = parsePlace(addrNode!.value?.trim() ? addrNode!.value : addrText);
+    if (addrNode!.reshapedFrom) event.address.originalRaw = addrNode!.reshapedFrom;
+  }
+  const addrParts = readAddressParts(addrNode);
+  if (addrParts) {
+    event.addressParts = addrParts;
+    const line = addrNode!.value?.trim();
+    if (line) event.addressLine = addrNode!.value;
+  }
+  for (const c of node.children) {
+    const contact = contactTagOf(c.tag);
+    const v = c.value?.trim();
+    if (!contact || !v) continue;
+    const key = CONTACT_FIELD[contact];
+    event[key] ??= v;
+  }
+  const ageNode = firstChild(node, "AGE");
+  if (ageNode?.value?.trim()) event.age = ageNode.value.trim();
+  // A family event's spouses carry their ages one level down. Only a HUSB/WIFE
+  // *without* a pointer is that structure — the record-level HUSB is not an
+  // event child, so nothing else can be met here.
+  for (const [tag, key] of [["HUSB", "husbandAge"], ["WIFE", "wifeAge"]] as const) {
+    const spouse = node.children.find((c) => c.tag === tag && !c.value?.trim());
+    const v = spouse && firstChild(spouse, "AGE")?.value?.trim();
+    if (v) event[key] = v;
   }
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
+  if (LDS_ORDINANCE_TAGS.has(node.tag)) readOrdinance(node, event);
   const links = collectLinks(node, media);
   const noteNode = firstChild(node, NOTE_TAGS);
   if (noteNode) {
@@ -392,6 +467,8 @@ export type MediaLinks = Map<string, string[]>;
 export interface NoteIndexEntry {
   text: string;
   private: boolean;
+  /** The record's translations (`TRAN`), when it has any. */
+  translations?: Translation[];
 }
 
 /** Map of top-level NOTE record xref -> its text + private flag. */
@@ -465,7 +542,8 @@ export function buildNoteIndex(records: GedNode[]): NoteIndex {
   const map: NoteIndex = new Map();
   for (const rec of records) {
     if (NOTE_TAGS.includes(rec.tag) && rec.xref && rec.value !== undefined) {
-      map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec) });
+      const translations = translationsOf(rec);
+      map.set(rec.xref, { text: rec.value, private: isPrivateNode(rec), ...(translations.length ? { translations } : {}) });
     }
   }
   return map;
@@ -533,8 +611,10 @@ function collectNote(
   // A pointer is kept even when it doesn't resolve (dangling refs are policed
   // at save time, not silently dropped by a note edit round-trip).
   if (outRefs) {
-    if (isPtr) outRefs.push({ xref: ptr, text: text ?? "", ...(isPrivate ? { private: true } : {}) });
-    else if (node.value?.trim()) outRefs.push({ text: node.value, ...(isPrivate ? { private: true } : {}) });
+    const translations = isPtr ? notes.get(ptr)?.translations : translationsOf(node);
+    const tr = translations?.length ? { translations } : {};
+    if (isPtr) outRefs.push({ xref: ptr, text: text ?? "", ...(isPrivate ? { private: true } : {}), ...tr });
+    else if (node.value?.trim()) outRefs.push({ text: node.value, ...(isPrivate ? { private: true } : {}), ...tr });
   }
   // An inline note may also carry sub-tags / embedded media; let collectLinks
   // walk it (unless the note is private — see resolveNoteText). A pointer
@@ -654,7 +734,12 @@ function subTagMap(node: GedNode): Map<string, string> {
   return map;
 }
 
-function normalizeSex(value: string | undefined): Sex {
-  const v = value?.trim().toUpperCase();
-  return v === "M" || v === "F" ? v : "U";
+/** A parsed name with the translations and the type wording (`TYPE`.`PHRASE`)
+ *  its `NAME` line carries attached. */
+function withNameExtras(name: PersonName, node: GedNode): PersonName {
+  const translations = nameTranslationsOf(node);
+  if (translations.length) name.translations = translations;
+  const typePhrase = phraseOf(firstChild(node, "TYPE"));
+  if (typePhrase) name.typePhrase = typePhrase;
+  return name;
 }

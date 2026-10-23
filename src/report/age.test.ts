@@ -86,6 +86,22 @@ describe("report Age fact option", () => {
     expect(prose).toContain("(♂26 ♀24)");
   });
 
+  it("falls back on the age the record states when no birth date gives one", () => {
+    // Undated Tone: his death and his marriage say how old he was.
+    const stated = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Tone /Kos/\n1 SEX M\n1 DEAT\n2 DATE 1890\n2 AGE 62y 3m\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1855\n2 HUSB\n3 AGE 27y\n2 WIFE\n3 AGE <20y\n",
+    ));
+    const entry = buildDescendants(stated, "@I1@", nameOf, 2000, { age: true })!.generations[0].entries[0];
+    const death = entry.facts.find((f) => f.tag === "DEAT")!;
+    expect(death.age).toBe(62);
+    // A bound states no number of years: the wife's "<20y" gives none.
+    expect(entry.facts.find((f) => f.tag === "MARR")!.ages).toEqual(["♂27"]);
+    expect(narrativeParagraph(makeT("en"), narrativeLangFor("en"), entry, planEntry(entry))).toContain("(age 62)");
+    expect(narrativeParagraph(makeT("sl"), narrativeLangFor("sl"), entry, planEntry(entry))).toContain("(star 62 let)");
+  });
+
   it("uses the gendered age word in the Slovenian narrative", () => {
     const entry = buildDescendants(ds, "@I1@", nameOf, 2000, { age: true })!
       .generations.flatMap((g) => g.entries)

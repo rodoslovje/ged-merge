@@ -143,7 +143,7 @@ export function OtherNamesEditor({
               <span className="edit-name-chip-wrap" key={i}>
                 <button type="button" className={`edit-name-chip${replaced ? " edit-name-chip--replaced" : ""}`} onClick={() => setEditing(i)}>
                   {displayName(n)}
-                  {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
+                  {n.type && <span className="muted"> ({nameTypeLabel(n.type, t, n.typePhrase)})</span>}
                 </button>
                 <button
                   type="button"
@@ -167,7 +167,7 @@ export function OtherNamesEditor({
                 onClick={() => { onTakeMergeNames?.(); setEditing(takenIndex(i)); }}
               >
                 {displayName(n)}
-                {n.type && <span className="muted"> ({nameTypeLabel(n.type, t)})</span>}
+                {n.type && <span className="muted"> ({nameTypeLabel(n.type, t, n.typePhrase)})</span>}
               </button>
               <button
                 type="button"

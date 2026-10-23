@@ -1,7 +1,7 @@
 // English narrative grammar (see lang/types.ts for the contract).
 
 import type { GedDate, Sex } from "../../gedcom/types";
-import { dateText } from "../../gedcom/date";
+import { dateText, withPhrase } from "../../gedcom/date";
 import type { NarrativeLang } from "./types";
 
 const MONTHS = [
@@ -31,8 +31,14 @@ function dateLabel(d: GedDate): string {
   return label && d.calendar === "JULIAN" ? `${label} (Julian calendar)` : label;
 }
 
-/** `bare` writes the label form: no "on/in" before an exact date. */
+/** `bare` writes the label form: no "on/in" before an exact date. A GEDCOM 7
+ *  date's own wording (`PHRASE`) follows in brackets. */
 function plainPhrase(d: GedDate, bare = false): string {
+  const out = valuePhrase(d, bare);
+  return d.phrase && out && !out.includes(d.phrase) ? withPhrase(out, d.phrase) : out;
+}
+
+function valuePhrase(d: GedDate, bare = false): string {
   if (d.placeholder) return "";
   const c = core(d.day, d.month, d.year);
   if (!c) return dateText(d); // unparseable — keep the recorded text
@@ -60,7 +66,7 @@ function plainPhrase(d: GedDate, bare = false): string {
   }
 }
 
-const PRONOUNS: Record<Sex, string> = { M: "He", F: "She", U: "" };
+const PRONOUNS: Record<Sex, string> = { M: "He", F: "She", U: "", X: "" };
 
 export const narrativeEn: NarrativeLang = {
   lang: "en",

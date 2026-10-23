@@ -19,7 +19,8 @@ import { NOT_GEDCOM } from "./gedcom/parser";
 import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
+import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
+import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
@@ -58,6 +59,7 @@ import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
+import { fixConformance } from "./tools/fixConformance";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
 import { fetchPageHtml } from "./normalize/urlMetadata";
@@ -95,7 +97,7 @@ import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
 import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
 import { FILES_IN_MENU_QUERY, useCompactHeader, useMediaQuery, usePhone } from "./ui/usePhone";
-import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
+import { NEW_FILE_BASENAME, newGedcomText, submitterName } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances, rankedCandidates } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
@@ -137,7 +139,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -317,6 +319,9 @@ function AppContent() {
   const [addPersonRequest, setAddPersonRequest] = useState<{ nonce: number; name?: string }>();
   // The pending save dialog's payload — see `SavePreview` for the field docs.
   const [preview, setPreview] = useState<SavePreview | null>(null);
+  // The GEDCOM version the save dialog opens on: the file's own, unless the
+  // reader came from Tools → Health check's "Save as GEDCOM …".
+  const [previewVersion, setPreviewVersion] = useState<OutputVersion | undefined>(undefined);
   // The save is reading the pages of books it is about to write sources for —
   // see `handleSave`. Holds the Save button until the answers are in.
   const [readingSources, setReadingSources] = useState(false);
@@ -594,7 +599,7 @@ function AppContent() {
    *  ordinary load path, so nothing downstream has to know it wasn't imported.
    *  Edit mode then offers its empty-state "add the first person" button. */
   function startNewFile() {
-    const file = new File([newGedcomText()], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
+    const file = new File([newGedcomText(new Date(), settings.authorName)], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
     void loadFile("main", file);
     setMode("edit");
   }
@@ -733,7 +738,7 @@ function AppContent() {
   }
 
   function serializeMainForWorker(ds: Dataset): string {
-    return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+    return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline, atEscape: atEscapeFor(ds.version) });
   }
 
   /** Bring the worker's main up to the live one by sending only the records
@@ -1767,10 +1772,13 @@ function AppContent() {
    * has that book) asks nothing of the network, and neither does a save with
    * lookups switched off; both open the preview straight away.
    */
-  async function openSavePreview() {
+  async function openSavePreview(convertTo?: OutputVersion) {
     if (!mainDataset || main.status !== "loaded") return;
-    const next = buildSavePreview(savePreviewInput(mainDataset, main.file.fileName));
+    // Converting is a reason to save on its own, changed or not.
+    const force = !!convertTo;
+    const next = buildSavePreview({ ...savePreviewInput(mainDataset, main.file.fileName), force });
     if (!next) return;
+    setPreviewVersion(convertTo);
     if (!settings.allowLinkFetch || next.pendingSourceLookups.length === 0 || readingSources) {
       setPreview(next);
       return;
@@ -1780,11 +1788,11 @@ function AppContent() {
     setReadingSources(false);
     // Nothing answered — the offline titles the first pass wrote still stand,
     // and building the same preview twice would only cost the user a wait.
-    const enriched = read > 0 ? buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)) : null;
+    const enriched = read > 0 ? buildSavePreview({ ...savePreviewInput(mainDataset, main.file.fileName), force }) : null;
     setPreview(enriched ?? next);
   }
-  function handleSave() {
-    return withBusyCursor(openSavePreview);
+  function handleSave(convertTo?: OutputVersion) {
+    return withBusyCursor(() => openSavePreview(convertTo));
   }
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
@@ -1814,7 +1822,7 @@ function AppContent() {
 
   /** @param excludedTags vendor tags the reader unticked in the preview — the
    *  dialog has already stripped them from the tree, and the report says so. */
-  function handleConfirmSave(excludedTags: string[]) {
+  function handleConfirmSave(excludedTags: string[], version: OutputVersion) {
     if (!preview || !mainDataset) return;
 
     // What this save does to the file as a whole rather than to one record —
@@ -1861,12 +1869,19 @@ function AppContent() {
       }
     }
 
-    // The download is always UTF-8 bytes; a header still declaring the source
-    // encoding (ANSEL, ANSI, UNICODE, …) would make other software misdecode it.
-    ensureUtf8Charset(preview.records, mainDataset);
-    stampHeadSource(preview.records, mainDataset);
+    // The download is always UTF-8 bytes, stamped by GED Merge, and a complete
+    // file: a missing header, trailer or declaration is supplied, and said so.
+    // Saved in the other GEDCOM version, the records are converted first (see
+    // convertVersion) and the report lists what the conversion rewrote.
+    const from = ownVersion(mainDataset);
+    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, settings.authorName);
+    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(settings.authorName) }));
+    if (conversion) {
+      fileNotes.push(t("changeReport.note.converted", { from, to: version, count: conversion.length }));
+      for (const change of conversion) fileNotes.push(`  ${change}`);
+    }
 
-    const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
+    const text = serializeGedcom(preview.records, outputOptions(mainDataset, version));
     // Reuse the exact names shown in the preview dialog (already date-stamped).
     downloadText(preview.files[0], text);
     // The change report is a second download, which some browsers decline to
@@ -1905,7 +1920,7 @@ function AppContent() {
 
     // The downloaded file is the new main baseline — rebuild the live dataset
     // from the same records (see savedBaseline).
-    Object.assign(mainDataset, savedBaseline(mainDataset, preview.records));
+    Object.assign(mainDataset, savedBaseline(mainDataset, preview.records, version));
     dirty.resetOnSave(mainDataset);
     sortEligiblePersonIdsRef.current = new Set();
 
@@ -2041,7 +2056,8 @@ function AppContent() {
           editRecordIds={preview.editRecordIds}
           integrityWarnings={preview.integrityWarnings}
           dataset={mainDataset}
-          onConfirm={(excludedTags) => void withBusyCursor(() => handleConfirmSave(excludedTags))}
+          initialVersion={previewVersion}
+          onConfirm={(excludedTags, version) => void withBusyCursor(() => handleConfirmSave(excludedTags, version))}
           onClose={() => setPreview(null)}
           onNavigate={(id) => {
             setPreview(null);
@@ -2654,7 +2670,9 @@ function AppContent() {
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
+              onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
+              onSaveAs={(version) => void handleSave(version)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold

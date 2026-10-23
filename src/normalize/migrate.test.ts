@@ -291,6 +291,7 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     );
     const indi = record(records, "@I1@");
     expect(firstChild(indi, "SEX")!.value).toBe("U");
+    expect(firstChild(firstChild(indi, "SEX")!, "_SEX")!.value).toBe("X");
     expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("@#DJULIAN@ 6 MAY 1682");
     expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("44 B.C.");
     expect(findByPath(indi, ["DEAT", "AGE"])!.value).toBe("363d");
@@ -468,6 +469,62 @@ describe("migrateVersion 5.5.1 → 7.0 → 5.5.1", () => {
     migrateVersion(records, "7.0", "5.5.1", () => {});
     expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
   });
+
+  it("brings the vendor lines 7.0 standardized back in the file's own spelling", () => {
+    const body =
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 GIVN Ana\n2 _MARNM Kovač\n2 SURN Novak\n2 _MARNM /Horvat/\n3 SOUR @S1@\n" +
+      "1 NAME Anica //\n2 TYPE aka\n1 _uid 0A1B2C\n1 _FID GPZG-CXL\n" +
+      "0 @I2@ INDI\n1 NAME Eva /Kos/\n1 _FSFTID LXYZ-123\n0 @S1@ SOUR\n1 TITL Register\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
+  });
+});
+
+describe("migrateVersion — vendor tags with a GEDCOM 7 standard form", () => {
+  it("turns _UID, the FamilySearch ids and _MARNM into UID, EXID and a married NAME", () => {
+    const { records, changes } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n3 SOUR @S1@\n1 _UID 0A1B2C\n1 _FID GPZG-CXL\n" +
+        "0 @I2@ INDI\n1 NAME Eva /Kos/\n1 _FSFTID LXYZ-123\n0 @S1@ SOUR\n",
+      "7.0",
+    );
+    const text = serializeGedcom(records);
+    expect(text).toContain(
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n2 SOUR @S1@\n1 UID 0A1B2C\n" +
+        "1 EXID GPZG-CXL\n2 TYPE https://www.familysearch.org/tree/person/\n",
+    );
+    expect(text).toContain("1 EXID LXYZ-123\n2 TYPE https://www.familysearch.org/tree/person/\n");
+    expect(text).not.toMatch(/_MARNM|_UID|_FID|_FSFTID/);
+    expect(changes).toContainEqual({ before: "NAME._MARNM Kovač", after: "NAME Ana /Kovač/" });
+    expect(changes).toContainEqual({ before: "_UID 0A1B2C", after: "UID 0A1B2C" });
+  });
+
+  it("keeps the married name readable as the person's married surname", () => {
+    const ds = dataset(head("5.5.1") + "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n0 TRLR\n");
+    migrateVersion(ds.records, "5.5.1", "7.0", () => {});
+    const rebuilt = dataset(serializeGedcom(ds.records).replace("VERS 5.5.1", "VERS 7.0"));
+    const names = rebuilt.individuals.get("@I1@")!.names;
+    expect(names.map((n) => [n.surname, n.type])).toEqual([["Novak", undefined], ["Kovač", "MARRIED"]]);
+  });
+
+  it("leaves a 7.0 file's own married NAMEs and FamilySearch EXIDs to their 5.5.1 forms on the way down", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n1 UID 0A1B2C\n" +
+        "1 EXID GPZG-CXL\n2 TYPE https://www.familysearch.org/tree/person/\n",
+      "5.5.1",
+    );
+    expect(serializeGedcom(records)).toContain(
+      "1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n1 _UID 0A1B2C\n1 _FSFTID GPZG-CXL\n",
+    );
+  });
+
+  it("does not touch the vendor tags of a file that stays in its version", () => {
+    const { records, changed } = migrated("7.0", "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n1 _UID 1\n", "7.0");
+    expect(changed).toBe(0);
+    expect(serializeGedcom(records)).toContain("2 _MARNM Kovač\n1 _UID 1\n");
+  });
 });
 
 describe("normalizeDataset version migration wiring", () => {
@@ -513,5 +570,49 @@ describe("normalizeDataset version migration wiring", () => {
     expect(report2.versionMigration).toMatchObject({ from: "7.0", to: "unknown" });
     const sex = firstChild(out.records.find((r) => r.xref === "@I1@")!, "SEX")!;
     expect(sex.value).toBe("U");
+  });
+});
+
+describe("migrateVersion — the events lifted as first-class ones", () => {
+  // Every tag and substructure here is spelled alike in 5.5.1 and 7.0; only an
+  // ordinance status's enumeration differs.
+  const EVENTS =
+    "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 ORDN\n2 DATE 1905\n1 CHRA\n2 DATE 1920\n1 BLES\n1 BARM\n1 BASM\n" +
+    "1 BAPL\n2 DATE 1950\n2 TEMP SLAKE\n2 STAT COMPLETED\n3 DATE 1951\n1 CONL\n2 TEMP SLAKE\n1 ENDL\n" +
+    "1 SLGC\n2 TEMP LOGAN\n2 FAMC @F1@\n1 FAMC @F1@\n" +
+    "0 @F1@ FAM\n1 CHIL @I1@\n1 ANUL\n2 DATE 1921\n1 DIVF\n1 MARC\n1 MARS\n1 RESI\n2 DATE 1901\n1 CENS\n1 NCHI 4\n" +
+    "1 SLGS\n2 TEMP SLAKE\n2 STAT COMPLETED\n3 DATE 1956\n";
+
+  it.each([["5.5.1", "7.0"], ["7.0", "5.5.1"]] as const)("leaves them untouched from %s to %s", (from, to) => {
+    const { records, changed } = migrated(from, EVENTS, to);
+    expect(changed).toBe(0);
+    expect(serializeGedcom(records)).toContain(EVENTS);
+  });
+
+  it("upgrades an ordinance status to the 7.0 enumeration", () => {
+    const { records, changes } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BAPL\n2 STAT PRE-1970\n3 DATE 1970\n1 ENDL\n2 STAT Completed\n3 DATE 1990\n" +
+      "0 @F1@ FAM\n1 SLGS\n2 STAT DNS/CAN\n3 DATE 2000\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BAPL", "STAT"])!.value).toBe("PRE_1970");
+    expect(findByPath(indi, ["ENDL", "STAT"])!.value).toBe("COMPLETED");
+    expect(findByPath(record(records, "@F1@"), ["SLGS", "STAT"])!.value).toBe("DNS_CAN");
+    expect(changes).toHaveLength(3);
+  });
+
+  it("downgrades the two statuses 5.5.1 punctuates differently, and leaves an unknown one alone", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 BAPL\n2 STAT PRE_1970\n3 DATE 1970\n1 CONL\n2 STAT Waiting\n3 DATE 1990\n" +
+      "0 @F1@ FAM\n1 SLGS\n2 STAT DNS_CAN\n3 DATE 2000\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BAPL", "STAT"])!.value).toBe("PRE-1970");
+    expect(findByPath(indi, ["CONL", "STAT"])!.value).toBe("Waiting");
+    expect(findByPath(record(records, "@F1@"), ["SLGS", "STAT"])!.value).toBe("DNS/CAN");
   });
 });

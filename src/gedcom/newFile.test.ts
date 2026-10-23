@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { addIndividual } from "./edit";
-import { newFileBase, newGedcomText } from "./newFile";
+import { newFileBase, newGedcomText, SUBMITTER_NAME } from "./newFile";
 import { parseGedcom } from "./parser";
 import { serializeGedcom } from "./serialize";
 import type { Dataset } from "./types";
@@ -28,6 +28,22 @@ describe("newGedcomText", () => {
     expect(text).toContain("1 CHAR UTF-8");
     expect(text).toContain("1 DATE 27 JUL 2026");
     expect(text.trimEnd().endsWith("0 TRLR")).toBe(true);
+  });
+
+  it("carries the submitter 5.5.1 requires, pointed at from the header", () => {
+    const ds = dataset();
+    const head = ds.records.find((r) => r.tag === "HEAD")!;
+    const subm = ds.records.find((r) => r.tag === "SUBM")!;
+    expect(head.children.find((c) => c.tag === "SUBM")?.value).toBe("@U1@");
+    expect(subm.xref).toBe("@U1@");
+    expect(subm.children.find((c) => c.tag === "NAME")?.value).toBe(SUBMITTER_NAME);
+  });
+
+  it("names the reader as the author when Settings give a name, the program when they don't", () => {
+    const named = newGedcomText(new Date(2026, 6, 27), " Ana  Novak ");
+    expect(named).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n");
+    expect(newGedcomText(new Date(2026, 6, 27), "")).toContain(`0 @U1@ SUBM\n1 NAME ${SUBMITTER_NAME}\n`);
+    expect(newGedcomText(new Date(2026, 6, 27), "  ")).toContain(`1 NAME ${SUBMITTER_NAME}\n`);
   });
 
   it("takes a first person, who survives a save round-trip", () => {

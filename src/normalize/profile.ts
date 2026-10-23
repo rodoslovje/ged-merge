@@ -27,6 +27,13 @@ import { detectLinkLangs } from "./links";
 import { inferNameVariants } from "./nameVariants";
 import { analyzeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
+import { readAddressParts } from "../gedcom/address";
+
+/** Whether a node is an ADDR the layout counts: one with a line, or one that
+ *  writes the address only in its labelled lines (ADR1, CITY, …). */
+function writesAddress(node: GedNode): boolean {
+  return node.tag === "ADDR" && (node.value !== undefined || !!readAddressParts(node));
+}
 
 // Re-exported so existing importers (worker, tests) keep getting it from here.
 export { inferNameLayout, inferNameVariants } from "./nameVariants";
@@ -72,7 +79,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
   const links: string[] = [];
   let addrCount = 0;
   walkNodes(main.records, (node) => {
-    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
+    if (writesAddress(node)) addrCount++;
     if (node.value === undefined) return;
     if (node.tag === "DATE") dateValues.push(node.value);
     else if (node.tag === "PLAC") placeValues.push(node.value);
@@ -262,7 +269,7 @@ export function collectLayoutValues(dataset: { records: GedNode[] }): LayoutValu
   const placeValues: string[] = [];
   let addrCount = 0;
   walkNodes(dataset.records, (node) => {
-    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
+    if (writesAddress(node)) addrCount++;
     if (node.value === undefined) return;
     if (node.tag === "DATE") dateValues.push(node.value);
     else if (node.tag === "PLAC") placeValues.push(node.value);
@@ -456,7 +463,7 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
   const formTally = new Map<string, Map<string, number>>();
   let addrCount = 0;
   walkNodes(dataset.records, (node) => {
-    if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
+    if (writesAddress(node)) addrCount++;
     else if (node.tag === "PLAC" && node.value !== undefined) {
       values.push(node.value);
       tallyPlaceForm(formTally, node.value, firstChild(node, "FORM")?.value);

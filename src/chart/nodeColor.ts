@@ -183,7 +183,7 @@ export function lineColor(i: number, n: number, direction: TreeMode): string {
 
 const OWN_COLOR = "var(--accent)";
 const UNKNOWN_COLOR = "var(--faint)";
-const SEX_COLOR: Record<Sex, string> = { M: "var(--sex-male)", F: "var(--sex-female)", U: UNKNOWN_COLOR };
+const SEX_COLOR: Record<Sex, string> = { M: "var(--sex-male)", F: "var(--sex-female)", X: "var(--sex-other)", U: UNKNOWN_COLOR };
 
 /** Generation colour, mixed between the theme's two ramp ends so it reads on
  *  paper as well as on the dark. Each direction is scaled to the range actually
@@ -360,7 +360,7 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   // Order: numeric axes by value, generations top-down, sex and living in a
   // fixed order, everything else by how many people carry the value.
   const FIXED: Partial<Record<ColorAxis, string[]>> = {
-    sex: ["M", "F", "U"],
+    sex: ["M", "F", "X", "U"],
     living: ["living", "deceased"],
     sources: ["none", "some", "all"],
   };

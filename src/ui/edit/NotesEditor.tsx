@@ -5,6 +5,7 @@ import type { Translate } from "../../locales/i18n";
 import { noteToText } from "../../gedcom/noteHtml";
 import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
+import { translationLine } from "../../gedcom/translation";
 
 /**
  * How wide a note may be before it stops riding beside the fields it belongs to.
@@ -159,7 +160,8 @@ export function NotesEditor({
           // Singular: this box is one note, whatever the section above it is
           // called. "Notes" in an empty box read as the whole list living there.
           placeholder={t("field.note")}
-          title={t("field.note")}
+          // The note's translations (GEDCOM 7 TRAN) ride on its hover.
+          title={[t("field.note"), ...(note.translations ?? []).map((tr) => translationLine(tr.value, tr.lang))].join("\n")}
           t={t}
           onInput={(text) => setNotes((prev) => prev.map((n, idx) => (idx === i ? { ...n, text } : n)))}
           onBlur={() => commitNotes(notes)}

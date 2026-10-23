@@ -19,6 +19,8 @@ import {
 } from "./geocode";
 import { reconcilePlaceForm, sameWrittenCoord, setPlaceCoord } from "../gedcom/edit/geo";
 import { removeChildren } from "../gedcom/node";
+import { addressPartNodes, addressText, eventAddressNode } from "../gedcom/address";
+import { renameInValue } from "./placeEdit";
 
 // Geocoding the address of an event, as opposed to the place around it.
 //
@@ -320,7 +322,8 @@ export interface AddressRename {
  * form and the packed-in-PLAC form both. `rawKeys` are the row's raw
  * place+address spellings ({@link AddressRow.rawKeys}), so exactly the
  * events the row merged are touched. An ADDR line takes the new text
- * outright; an address written inside the place value is replaced only where
+ * outright, its labelled lines as {@link renameAddressNode} says; an address
+ * written inside the place value is replaced only where
  * the old text appears verbatim, leaving annotations ("- župnija X") intact.
  * Renaming onto another row's address merges the two on the next scan — that
  * is the point: one house, two spellings, one row.
@@ -341,11 +344,8 @@ export function renameAddress(
       const rawPlace = plac.value!.trim();
       if (!keys.has(placeAddrKey(rawPlace, addr))) return;
       if (addr) {
-        const addrNode = event.children.find((c) => c.tag === "ADDR" && c.value?.trim());
-        if (addrNode && addrNode.value?.trim() !== to) {
-          addrNode.value = to;
-          changed = true;
-        }
+        const addrNode = eventAddressNode(event);
+        if (addrNode && renameAddressNode(addrNode, from, to)) changed = true;
       }
       if (plac.value!.includes(from)) {
         const prev = plac.value!;
@@ -359,6 +359,60 @@ export function renameAddress(
     });
     return changed;
   });
+}
+
+/**
+ * Rename one ADDR from `from` (its {@link addressText}) to `to`.
+ *
+ * The ADDR's own line, when it has one, takes the new text outright. Its
+ * labelled lines (ADR1–ADR3, CITY, STAE, POST, CTRY) are renamed by the same
+ * comma-part replacement the places tree applies to a value: a line saying the
+ * whole old address takes the new one, and where the two texts have the same
+ * number of parts, a line saying one changed part takes that part's new
+ * spelling ("Dunajska 5" → "Dunajska cesta 5" in ADR1, the CITY untouched).
+ *
+ * An ADDR that carries only labelled lines is renamed in them. When they cannot
+ * say the new text — no part of the old one is found in them, or what they
+ * would join to is not `to` — they are left as they were and the new text is
+ * written as the ADDR's own line instead: which labelled line a new text
+ * belongs to is never guessed.
+ */
+function renameAddressNode(addr: GedNode, from: string, to: string): boolean {
+  const parts = addressPartNodes(addr);
+  const split = (s: string) => s.split(",").map((p) => p.trim());
+  const fromParts = split(from);
+  const toParts = split(to);
+  const pairs =
+    fromParts.length === toParts.length
+      ? fromParts.map((f, i) => [f, toParts[i]] as const).filter(([f, t]) => f && t && f !== t)
+      : [];
+  const renameLine = (value: string): string => {
+    const whole = renameInValue(value, from, to);
+    if (whole !== null) return whole;
+    let out = value;
+    for (const [f, t] of pairs) out = renameInValue(out, f, t) ?? out;
+    return out;
+  };
+  const before = parts.map((p) => p.value);
+  let changed = false;
+  for (const p of parts) {
+    const next = renameLine(p.value!);
+    if (next !== p.value) {
+      p.value = next;
+      changed = true;
+    }
+  }
+  if (addr.value?.trim()) {
+    if (addr.value.trim() !== to) {
+      addr.value = to;
+      changed = true;
+    }
+    return changed;
+  }
+  if (addressText(addr) === to) return changed;
+  parts.forEach((p, i) => (p.value = before[i]));
+  addr.value = to;
+  return true;
 }
 
 /**

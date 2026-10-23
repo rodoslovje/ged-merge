@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FsIdLink } from "../FieldValue";
-import type { Individual } from "../../gedcom/types";
+import type { ExternalId, Individual } from "../../gedcom/types";
+import { exidTypeLabel } from "../../gedcom/exid";
 import type { Translate } from "../../locales/i18n";
 import { setFsIds, type FsIdTag } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
@@ -106,6 +107,34 @@ export function FsIdEditor({
             </span>
           ),
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The person's other GEDCOM 7 external identifiers (`EXID` + `TYPE`, see
+ * `gedcom/exid`), beside the FamilySearch ones: each id with the system that
+ * gave it. A type URI ending in a slash is the base of that system's record
+ * pages (as FamilySearch's own is), so the id opens there.
+ */
+export function ExternalIdChips({ exids, t }: { exids: ExternalId[]; t: Translate }) {
+  if (!exids.length) return null;
+  return (
+    <div className="edit-other-names">
+      <div className="edit-other-names-row">
+        {exids.map((x, i) => {
+          const system = exidTypeLabel(x.type) ?? t("edit.exidUntyped");
+          const href = x.type && /^https?:\/\/.+\/$/i.test(x.type) ? x.type + encodeURIComponent(x.id) : undefined;
+          return (
+            <span key={i} className="edit-name-chip-wrap">
+              <span className="edit-name-chip edit-exid-chip" title={t("edit.exidTooltip", { type: x.type ?? system })}>
+                {href ? <a href={href} target="_blank" rel="noopener noreferrer">{x.id}</a> : x.id}
+                <span className="muted"> ({system})</span>
+              </span>
+            </span>
+          );
+        })}
       </div>
     </div>
   );

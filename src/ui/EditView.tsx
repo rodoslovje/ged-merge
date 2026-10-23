@@ -107,7 +107,10 @@ import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventAddRow } from "./edit/EventAddRow";
-import { FsIdEditor } from "./edit/FsIdEditor";
+import { AddNoEventSelect, NoEventsRow } from "./edit/NoEventsRow";
+import { addNegativeAssertion, NO_INDI_EVENT_TAGS, removeNegativeAssertion } from "../gedcom/negative";
+import { ExternalIdChips, FsIdEditor } from "./edit/FsIdEditor";
+import { TranslationChips } from "./edit/TranslationChips";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
@@ -696,7 +699,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // X cycles ♂ → ♀ → ?, so the sex of a child just added is set without the
     // picker: three values put the one wanted at most two presses away, and no
     // letter has to stand for a sex name (M and F are Mother and Father here).
-    KeyX: () => commit((indi) => setSex(indi, nextSex(indi.sex))),
+    KeyX: () => commit((indi) => setSex(indi, nextSex(indi.sex), dataset.version)),
     // Back through the person history where bare ⌫ cannot go: inside a field,
     // where Backspace deletes what you typed. An event added from a shortcut
     // and left empty (a death with no date) is left this way, without the trip
@@ -1975,7 +1978,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             }}
             leadingControl={
               <>
-                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
+                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} version={dataset.version} />
                 <PrivateToggle
                   hint={altShiftLabel("L")}
                   on={!!person.private}
@@ -1997,6 +2000,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               onEmptied={() => setFsIdAdded(false)}
             />
           )}
+          {(person.exids ?? []).length > 0 && <ExternalIdChips exids={person.exids!} t={t} />}
+          <TranslationChips items={(person.names[0]?.translations ?? []).map((tr) => ({ text: tr.full, lang: tr.lang }))} t={t} />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
               <LinksEditor
@@ -2107,6 +2112,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 ),
               )
             }
+            trailing={
+              <AddNoEventSelect
+                assertions={person.noEvents ?? []}
+                offer={NO_INDI_EVENT_TAGS}
+                recordedTags={new Set(person.events.map((e) => e.tag))}
+                t={t}
+                tooltip={t("edit.noEvent.addTooltip")}
+                onAdd={(tag) => commit((indi) => addNegativeAssertion(indi.raw, tag, dataset.version))}
+              />
+            }
+          />
+          <NoEventsRow
+            assertions={person.noEvents ?? []}
+            t={t}
+            onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
           />
           {/* The association index is deferred like the suggestion bundle: it
               is a walk over every record, and no commit should pay for it in

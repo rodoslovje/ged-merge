@@ -78,6 +78,15 @@ export interface GedNode {
    */
   foreignPointer?: true;
   /**
+   * Runtime-only marker (never serialized): the vendor line a conversion to
+   * GEDCOM 7 turned into this standard structure (`_FID` → `EXID`, `_MARNM`
+   * → a married `NAME`, `_UID` → `UID`) — its tag, spelling and, for a line
+   * moved out of its parent, its position there and its value as written. The
+   * conversion back to 5.5.1 reads it to restore the very line the file had.
+   * See `normalize/migrate.ts`.
+   */
+  upgradedFrom?: { tag: string; spelling?: string; index?: number; value?: string };
+  /**
    * A source line the parser could not interpret, kept verbatim so saving
    * never silently drops it. Such a node carries the empty tag "" (so no
    * tag-matching logic ever picks it up), has no children, and serializes
@@ -97,6 +106,22 @@ export interface GedNode {
    * (`of` costs nothing: it is the same string, not a copy.)
    */
   conc?: { at: number[]; of: string };
+  /**
+   * The file wrote this tag with one space and nothing after it (`1 NOTE `),
+   * which reads as an empty value. The serializer puts the space back while
+   * the tag line still carries no text, so an untouched line saves as read.
+   */
+  spaced?: true;
+  /**
+   * A 5.5.x value the file wrote with bare at-signs (`ana@example.si`) where
+   * 5.5.1 asks for `@@` — what many exporters do, and many readers expect.
+   * Holds the value it describes: while `value` still equals it the line is
+   * untouched, and the serializer writes its at-signs back the way they were
+   * read (a leading `@` is still doubled, or it would read as a pointer). An
+   * edited value follows the version's rule. Like {@link conc}, it costs
+   * nothing: it is the same string.
+   */
+  atBare?: string;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */
@@ -136,7 +161,8 @@ export interface ParseWarning {
 // Typed domain model
 // ---------------------------------------------------------------------------
 
-export type Sex = "M" | "F" | "U";
+/** `X` is GEDCOM 7's "neither only male nor only female" (see `gedcom/sex.ts`). */
+export type Sex = "M" | "F" | "U" | "X";
 
 /** A structured personal name parsed from a NAME line. */
 export interface PersonName {
@@ -149,9 +175,30 @@ export interface PersonName {
   nickname?: string;
   /** `2 TYPE` value (e.g. "married", "maiden", "aka", "nick") for non-primary names. */
   type?: string;
+  /** GEDCOM 7 `TYPE`.`PHRASE`: the type in the file's own words ("Klostername"
+   *  under `TYPE OTHER`), shown in place of the coded type. */
+  typePhrase?: string;
   /** Married surname carried inline on the primary name as a `2 _MARNM` sub-tag
    * (the alternative to a separate `1 NAME` + `2 TYPE married` record). */
   married?: string;
+  /** The name in other languages or scripts (`TRAN`, or 5.5.1 `ROMN`/`FONE`) —
+   *  see `gedcom/translation.ts`. */
+  translations?: NameTranslation[];
+}
+
+/** A translation of a place or a note: its text and the language it is in. */
+export interface Translation {
+  value: string;
+  /** BCP 47 language tag (`LANG`), or a 5.5.1 variant's `TYPE` ("romaji"). */
+  lang?: string;
+}
+
+/** A name's translation, parsed into its parts like the name itself. */
+export interface NameTranslation {
+  full: string;
+  given?: string;
+  surname?: string;
+  lang?: string;
 }
 
 /**
@@ -254,6 +301,9 @@ export interface GedDate {
    * is the part that matters, so the health check reports it.
    */
   shortYear?: boolean;
+  /** GEDCOM 7 `DATE`.`PHRASE`: the date in the file's own words, shown beside
+   *  (or, with an empty payload, instead of) the value. See `gedcom/phrase.ts`. */
+  phrase?: string;
 }
 
 /** A decimal-degree coordinate lifted from `PLAC.MAP` (`LATI`/`LONG`). */
@@ -280,6 +330,8 @@ export interface GedPlace {
   /** The place's `FORM`, naming the jurisdiction level each part stands for
    *  ("Place,Upravna Enota,Country"). Only meaningful on a `PLAC`. */
   form?: string;
+  /** The place name in other languages (`TRAN`, or 5.5.1 `ROMN`/`FONE`). */
+  translations?: Translation[];
 }
 
 /**
@@ -326,6 +378,8 @@ export interface NoteRef {
    *  `RESN privacy`/`confidential`) — excluded from publishing, and its URLs
    *  are never surfaced as links or moved into sources. */
   private?: boolean;
+  /** The note in other languages (`TRAN`) — read for display, kept by edits. */
+  translations?: Translation[];
 }
 
 /** A role from GEDCOM 7's `ASSO`.`ROLE` enumeration — see `gedcom/assoc.ts`. */
@@ -389,13 +443,46 @@ export interface GedEvent {
   date?: GedDate;
   /** The time of day under the DATE (`3 TIME 14:30`), as written. */
   time?: string;
+  /** GEDCOM 7 `SDATE` (5.5.1 `_SDATE`): a date to sort the event by, for when
+   *  its own date is missing or only a phrase. Never shown as the event's
+   *  date. See `gedcom/sortDate.ts`. */
+  sortDate?: GedDate;
   place?: GedPlace;
   /** Street/house address (ADDR), parsed like a place so it gains a house-number detail. */
   address?: GedPlace;
+  /** The address's labelled lines (`ADDR` → `ADR1`…`CTRY`), only when the
+   *  ADDR carries any. `address` above is still the address as one string —
+   *  the ADDR's own text, or these lines joined when it has none. */
+  addressParts?: Partial<Record<"ADR1" | "ADR2" | "ADR3" | "CITY" | "STAE" | "POST" | "CTRY", string>>;
+  /** The ADDR's own line text, when the ADDR also carries labelled lines — so
+   *  an editor can tell the line apart from the joined `address`. */
+  addressLine?: string;
+  /** Contact lines beside the address (`PHON`, `EMAIL`, `FAX`) — the first of
+   *  each the event carries. */
+  phone?: string;
+  email?: string;
+  fax?: string;
+  /** The age the record states at this event (`AGE`), verbatim — see
+   *  `ageValue.ts` for the grammar. Evidence in its own right, unlike the age
+   *  `age.ts` computes from two dates. */
+  age?: string;
+  /** On a family event, each spouse's stated age (`HUSB`/`WIFE` → `AGE`). */
+  husbandAge?: string;
+  wifeAge?: string;
   /** Agency (AGNC) that recorded or organised the event (e.g. hospital, parish). */
   agency?: string;
   /** Cause (CAUS) associated with the event, e.g. cause of death. */
   cause?: string;
+  /** An LDS ordinance's temple (`TEMP`) — a temple code in 5.5.1, a code or
+   *  name in 7.0. Only the ordinance tags (see `LDS_ORDINANCE_TAGS`) carry it. */
+  temple?: string;
+  /** An LDS ordinance's status (`STAT`: `COMPLETED`, `SUBMITTED`, …). */
+  status?: string;
+  /** The date that status was set (`STAT`.`DATE`), as the file writes it. */
+  statusDate?: string;
+  /** The family an LDS child-to-parents sealing (`SLGC`) seals the person
+   *  to — its `FAMC` pointer. */
+  family?: string;
   /** First inline NOTE sub-tag on this event (e.g. parish/facility from packed-place decomposition). */
   note?: string;
   /** The same note with its URLs kept in place — present only when `note`
@@ -433,6 +520,28 @@ export interface GedEvent {
   associations?: Association[];
 }
 
+/**
+ * A GEDCOM 7 negative assertion (`NO MARR`): the file states the event did not
+ * happen, over the whole life or over its `DATE` period. See `gedcom/negative.ts`.
+ */
+export interface NegativeAssertion {
+  /** The denied event's tag, upper-cased (`MARR`, `CHR`, …). */
+  tag: string;
+  /** The period the assertion covers; absent means "never". */
+  date?: GedDate;
+  /** The assertion's first inline note. */
+  note?: string;
+  /** The `NO` (or 5.5.1 `_NO`) line itself. */
+  raw: GedNode;
+}
+
+/** A GEDCOM 7 external identifier: an id another system gave the record. */
+export interface ExternalId {
+  id: string;
+  /** The `TYPE` URI naming the system; absent on a (deprecated) untyped EXID. */
+  type?: string;
+}
+
 export interface Individual {
   id: string; // xref, e.g. "@I1@"
   names: PersonName[];
@@ -464,15 +573,20 @@ export interface Individual {
    *  verbatim. Two records carrying the same identifier are the same person
    *  (same software lineage), which matching uses as a certain pre-match. */
   uids?: string[];
-  /** FamilySearch person ids (`_FID` MacFamilyTree / `_FSFTID` RootsMagic),
-   *  verbatim — a second identity namespace for the same pre-match. */
+  /** FamilySearch person ids (`_FID` MacFamilyTree / `_FSFTID` RootsMagic /
+   *  GEDCOM 7 `EXID` with the FamilySearch type), verbatim — a second identity
+   *  namespace for the same pre-match. */
   fsids?: string[];
+  /** Every other GEDCOM 7 external identifier (`EXID` + `TYPE`) — see `gedcom/exid.ts`. */
+  exids?: ExternalId[];
   /** Record flagged private (see {@link NoteRef.private} for the dialects). */
   private?: boolean;
   /** Associations recorded on the record itself rather than on one of its
    *  events — where every 5.5.1 file puts them, since the dialect has no
    *  event-level form. */
   associations?: Association[];
+  /** Events the file states did not happen (`NO`) — see {@link NegativeAssertion}. */
+  noEvents?: NegativeAssertion[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }
@@ -502,6 +616,8 @@ export interface Family {
   /** Associations on the family record itself — a 5.5.1 file records a
    *  marriage witness here, pointing the other way (`ASSO @F…@ / TYPE FAM`). */
   associations?: Association[];
+  /** Events the file states did not happen to the couple (`NO MARR`). */
+  noEvents?: NegativeAssertion[];
   raw: GedNode;
 }
 

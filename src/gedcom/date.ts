@@ -100,8 +100,22 @@ const RE_CAL_KEYWORD = /(?:^|\s)(GREGORIAN|JULIAN|HEBREW|FRENCH_R|ROMAN)\s+/;
  * spells the same declaration (`JULIAN 14 JAN 1700`): the escape is syntax,
  * not something a report or a tooltip should print. Values without an escape
  * come back untouched, so this is safe on every date.
+ *
+ * A GEDCOM 7 date's own wording (`PHRASE`) follows the value in brackets, the
+ * way 5.5.1 writes an interpreted date (`1850 (Easter Sunday)`), and stands
+ * alone when the value is empty.
  */
 export function dateText(d: GedDate): string {
+  return withPhrase(valueText(d), d.phrase);
+}
+
+/** `text`, followed by the date's wording in brackets when it has one. */
+export function withPhrase(text: string, phrase: string | undefined): string {
+  if (!phrase) return text;
+  return text.trim() ? `${text} (${phrase})` : phrase;
+}
+
+function valueText(d: GedDate): string {
   if (!d.calendar || !d.raw.includes("@#")) return d.raw;
   const m = d.raw.match(RE_CAL_ESCAPE);
   if (!m) return d.raw;

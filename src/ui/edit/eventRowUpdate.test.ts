@@ -9,8 +9,9 @@ const field = (initial: string, value = initial, isMerge = false) => ({ initial,
 
 function fields(over: Partial<RowFields> = {}): RowFields {
   return {
-    date: field("1 JAN 1900"), value: field(""), place: field("Kranj"), address: field("Glavni trg 1"),
-    note: field(""), agency: field(""), type: field(""), cause: field(""), ...over,
+    date: field("1 JAN 1900"), sortDate: field(""), value: field(""), place: field("Kranj"), address: field("Glavni trg 1"),
+    note: field(""), agency: field(""), type: field(""), cause: field(""), temple: field(""), status: field(""),
+    age: field(""), husbandAge: field(""), wifeAge: field(""), ...over,
   };
 }
 
@@ -40,6 +41,13 @@ describe("eventRowUpdate", () => {
       .toEqual({ date: "1900", note: "x" });
     expect(eventRowUpdate(fields(), {}, false, undefined)).toBeNull();
     expect(eventRowUpdate(fields(), { coord: null }, false, undefined)).toEqual({ coord: null });
+  });
+
+  it("sends an age that changed, and an address part from its own panel", () => {
+    expect(eventRowUpdate(fields({ age: field("", "25y") }), {}, false, undefined)).toEqual({ age: "25y" });
+    expect(eventRowUpdate(fields(), { addressParts: { CITY: "Kranj" } }, false, undefined))
+      .toEqual({ addressParts: { CITY: "Kranj" } });
+    expect(eventRowUpdate(fields(), { phone: "" }, false, undefined)).toEqual({ phone: "" });
   });
 
   it("keeps a flag-only event's hidden value when its value field is emptied", () => {

@@ -71,6 +71,15 @@ describe("nothing to save", () => {
     expect(buildSavePreview(input(dataset(MAIN)))).toBeNull();
   });
 
+  it("builds an empty preview with nothing changed when forced (a version conversion)", () => {
+    const main = dataset(MAIN);
+    const out = buildSavePreview(input(main, { force: true }));
+    expect(out).not.toBeNull();
+    expect(out!.report.changes).toEqual([]);
+    expect(out!.records).toHaveLength(main.records.length);
+    expect(out!.records[0]).not.toBe(main.records[0]);
+  });
+
   it("returns null when decisions exist but no incoming file is loaded", () => {
     // A restored session can carry decisions whose compare failed to load.
     const out = buildSavePreview(
