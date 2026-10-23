@@ -23,6 +23,7 @@ import {
   linkPlacementFor,
   foldMatchedSourcePages,
   importSourRecords,
+  remapSealingFamilies,
   sortEventsByDate,
 } from "./applyFields";
 import {
@@ -546,6 +547,13 @@ export function mergeDecisions(
   // absent from it (e.g. citations on newly-added people).
   foldMatchedSourcePages(records, compare, sourXrefMap);
   importSourRecords(records, compare, sourXrefMap, report.customTags);
+
+  // Every family is placed too, so an imported sealing to parents can name its
+  // main-side family — or, where that family did not come across, lose the
+  // pointer, which is said here.
+  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId))) {
+    report.deferred.push({ recordId, field: t("event.SLGC"), reason: t("merge.reason.sealingFamilyMissing") });
+  }
 
   // Now that every person the merge brings across has its main-side record,
   // the associations copied with them can be pointed at it. One whose

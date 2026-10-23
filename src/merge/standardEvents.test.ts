@@ -203,6 +203,46 @@ describe("LDS ordinances: BAPL, CONL, ENDL, SLGC, SLGS", () => {
     expect(serializeGedcom(records)).toContain("1 SLGS\n2 DATE 1955\n2 TEMP SLAKE\n2 STAT COMPLETED\n3 DATE 1956\n");
   });
 
+  describe("a person imported whole keeps a sealing to parents that points into the merged file", () => {
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1900\n",
+    ));
+    const compare = (sealedTo: string) => dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+      "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+      `0 @P3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n2 FAMC ${sealedTo}\n1 FAMC @G1@\n` +
+      "0 @P9@ INDI\n1 NAME Tone /Zupan/\n1 SEX M\n1 FAMS @G2@\n" +
+      "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n1 MARR\n2 DATE 1900\n" +
+      "0 @G2@ FAM\n1 HUSB @P9@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P3@"] }],
+    ]);
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    /** Every family pointer in the output names a family the output has. */
+    const dangling = (out: string) => {
+      const fams = new Set([...out.matchAll(/^0 (@[^@]+@) FAM/gm)].map((m) => m[1]));
+      return [...out.matchAll(/^\d+ FAM[CS] (@[^@]+@)/gm)].map((m) => m[1]).filter((id) => !fams.has(id));
+    };
+
+    it("points it at the person's birth family as the merge placed it", () => {
+      const { records } = mergeDecisions(main, compare("@G1@"), decisions, matches, tr);
+      const out = serializeGedcom(records);
+      expect(out).toMatch(/0 @I\d+@ INDI\n1 NAME Ana \/Novak\/\n1 SEX F\n1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n2 FAMC @F1@\n1 FAMC @F1@\n/);
+      expect(dangling(out)).toEqual([]);
+    });
+
+    it("drops the pointer, and says so, when the family it names did not come across", () => {
+      const { records, report } = mergeDecisions(main, compare("@G2@"), decisions, matches, tr);
+      const out = serializeGedcom(records);
+      expect(out).toMatch(/1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n1 FAMC @F1@\n/);
+      expect(out).not.toContain("@G2@");
+      expect(dangling(out)).toEqual([]);
+      expect(report.deferred).toContainEqual(expect.objectContaining({ field: "event.SLGC", reason: "merge.reason.sealingFamilyMissing" }));
+    });
+  });
+
   it("stays off the timeline: a proxy ordinance's date is not a point in the life", () => {
     const ds = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1800\n1 DEAT\n2 DATE 1860\n1 ENDL\n2 DATE 1990\n"));
     const data = buildTimeline(tr, ds, "@I1@", () => "Janez", 2026)!;

@@ -1425,6 +1425,7 @@ export const en = {
   "merge.reason.linkNotImplemented": "link merge not yet implemented",
   "merge.reason.aliaNotImported": "alternative-record links (ALIA) are not carried over with a new person",
   "merge.reason.assocTargetMissing": "{{name}} is named here, but is not in the merged file",
+  "merge.reason.sealingFamilyMissing": "the family this sealing names is not in the merged file, so the link to it is left out",
   "status.confirmed": "Confirmed",
   "status.rejected": "Rejected",
   "status.deferred": "Deferred",

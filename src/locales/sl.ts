@@ -1625,6 +1625,7 @@ export const sl = {
   "merge.reason.linkNotImplemented": "združevanje povezav še ni podprto",
   "merge.reason.aliaNotImported": "povezave na nadomestne zapise (ALIA) se pri novi osebi ne prenesejo",
   "merge.reason.assocTargetMissing": "oseba {{name}} je tu imenovana, v združeni datoteki pa je ni",
+  "merge.reason.sealingFamilyMissing": "družine, ki jo navaja to zapečatenje, v združeni datoteki ni, zato se povezava nanjo ne zapiše",
   "status.confirmed": "Potrjeno",
   "status.rejected": "Zavrnjeno",
   "status.deferred": "Kasneje",

@@ -16,7 +16,7 @@ import {
 import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel } from "../gedcom/eventTags";
-import type { Dataset, GedNode, PersonName, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { NOTE_TAGS } from "../gedcom/builder";
@@ -1324,7 +1324,11 @@ export function stripForeignPointers(node: GedNode, isIncomingRecord?: (xref: st
         return true;
       }
       if (FOREIGN_POINTER_TAGS.has(c.tag) && pointer) {
-        if (c.tag === "ASSO") {
+        // The family an LDS sealing to parents names is very likely the
+        // person's own birth family, which the merge brings across too: kept
+        // and marked, then pointed at its main-side record once the families
+        // are placed (see `remapSealingFamilies`).
+        if (c.tag === "ASSO" || (c.tag === "FAMC" && n.tag === "SLGC" && isIncomingRecord?.(pointer))) {
           c.foreignPointer = true;
           return true;
         }
@@ -1337,6 +1341,69 @@ export function stripForeignPointers(node: GedNode, isIncomingRecord?: (xref: st
   };
   walk(node);
   return removed;
+}
+
+/**
+ * Point the `FAMC` of each imported LDS sealing to parents (`SLGC`) — kept and
+ * marked by {@link stripForeignPointers}, still naming a family of the incoming
+ * file — at the main-side family that family became: the one among the
+ * person's own birth families in the merged output whose spouses are that
+ * family's spouses as the merge resolved them. A sealing whose family did not
+ * come across (or cannot be told apart from another) loses the pointer rather
+ * than keep one that dangles or names the wrong family; each such record is
+ * returned, for the caller to report.
+ *
+ * Runs before `remapMergedAssociations`, which resolves every other marked
+ * pointer as a person.
+ */
+export function remapSealingFamilies(
+  people: GedNode[],
+  allRecords: GedNode[],
+  compare: Dataset,
+  resolve: (incomingId: string) => string | undefined,
+): string[] {
+  const dropped: string[] = [];
+  const families = new Map(allRecords.filter((r) => r.tag === "FAM" && r.xref).map((r) => [r.xref!, r]));
+  for (const person of people) {
+    if (person.tag !== "INDI") continue;
+    for (const sealing of childrenByTag(person, "SLGC")) {
+      sealing.children = sealing.children.filter((c) => {
+        if (c.tag !== "FAMC" || !c.foreignPointer) return true;
+        delete c.foreignPointer;
+        const target = sealingFamilyTarget(person, compare.families.get(c.value?.trim() ?? ""), families, resolve);
+        if (target) {
+          c.value = target;
+          return true;
+        }
+        dropped.push(person.xref ?? "");
+        return false;
+      });
+    }
+  }
+  return dropped;
+}
+
+function sealingFamilyTarget(
+  person: GedNode,
+  incomingFam: Family | undefined,
+  families: Map<string, GedNode>,
+  resolve: (incomingId: string) => string | undefined,
+): string | undefined {
+  if (!incomingFam) return undefined;
+  const husband = incomingFam.husband ? resolve(incomingFam.husband) : undefined;
+  const wife = incomingFam.wife ? resolve(incomingFam.wife) : undefined;
+  // A parent the incoming family names but the merge did not bring across
+  // leaves nothing to recognise the family by.
+  if ((incomingFam.husband && !husband) || (incomingFam.wife && !wife)) return undefined;
+  const candidates = childrenByTag(person, "FAMC")
+    .map((f) => f.value?.trim() ?? "")
+    .filter((id) => {
+      const fam = families.get(id);
+      if (!fam) return false;
+      return (!husband || firstChild(fam, "HUSB")?.value?.trim() === husband)
+        && (!wife || firstChild(fam, "WIFE")?.value?.trim() === wife);
+    });
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 /**

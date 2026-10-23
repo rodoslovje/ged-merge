@@ -8,7 +8,7 @@ import type { FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
 import { parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
 import { applyRecordPatches, coalescePatches, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
-import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords } from "./applyFields";
+import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords, remapSealingFamilies } from "./applyFields";
 import {
   applyImportBranches,
   applyIndividualFamilies,
@@ -416,6 +416,7 @@ function addFor(
     sourXrefMap,
   );
   importSourRecords(records, compare, sourXrefMap, report.customTags);
+  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId));
   remapMergedAssociations(people, (incomingId) => ctx.resolved(incomingId));
   fillAddedPlaceCoords(people, records);
 
