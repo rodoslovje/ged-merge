@@ -55,6 +55,12 @@ jobs:
         env:
           CI: true
 
+      # The service worker exists only in the production build: offline start
+      # and the update prompt, against `vite preview` of the dist/ built above.
+      - run: npx playwright test -c playwright.pwa.config.ts
+        env:
+          CI: true
+
   # Every green push to main goes to the test site on GitHub Pages
   # (test.gedmerge.com). Production is released by hand with the
   # "Deploy production" workflow.

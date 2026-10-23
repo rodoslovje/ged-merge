@@ -32,7 +32,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:pwa": "npm run build && playwright test -c playwright.pwa.config.ts"
   },
   "dependencies": {
     "@mapbox/vector-tile": "^3.0.0",
