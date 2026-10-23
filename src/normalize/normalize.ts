@@ -254,7 +254,7 @@ export function normalizeDataset(
   if (options.names) {
     for (const rec of editable) {
       if (rec.tag !== "INDI") continue;
-      for (const change of reshapeNameVariants(rec, profile.nameVariants)) {
+      for (const change of reshapeNameVariants(rec, profile.nameVariants, profile.version)) {
         report.nameVariantsReshaped++;
         record(report.nameVariantExamples, seenName, change.before, change.after);
       }

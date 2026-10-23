@@ -1,5 +1,17 @@
 import type { NameOrder } from "./nameDisplay";
-import type { PersonName } from "./types";
+import type { GedcomVersion, PersonName } from "./types";
+
+/** GEDCOM 7.0's `NAME.TYPE` enumeration. 5.5.1 spells its five in lower case
+ *  (`aka | birth | immigrant | maiden | married`) and lets a file add its own. */
+export const NAME_TYPES_70 = new Set(["AKA", "BIRTH", "IMMIGRANT", "MAIDEN", "MARRIED", "OTHER", "PROFESSIONAL"]);
+
+/** A `NAME.TYPE` value spelled the way `version` writes it: 7.0's enumeration
+ *  is upper case and case-sensitive, so `aka` there is `AKA`. A 5.5.1 file
+ *  keeps its own spelling, as does a word 7.0 does not enumerate. */
+export function spellNameType(type: string, version: GedcomVersion): string {
+  const upper = type.trim().toUpperCase();
+  return version === "7.0" && NAME_TYPES_70.has(upper) ? upper : type;
+}
 
 /**
  * A whole name part used as a stand-in for an *unknown* given or surname:

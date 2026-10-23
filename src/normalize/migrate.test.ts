@@ -516,7 +516,7 @@ describe("migrateVersion — vendor tags with a GEDCOM 7 standard form", () => {
       "5.5.1",
     );
     expect(serializeGedcom(records)).toContain(
-      "1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE MARRIED\n1 _UID 0A1B2C\n1 _FSFTID GPZG-CXL\n",
+      "1 NAME Ana /Novak/\n1 NAME Ana /Kovač/\n2 TYPE married\n1 _UID 0A1B2C\n1 _FSFTID GPZG-CXL\n",
     );
   });
 
@@ -548,6 +548,25 @@ describe("normalizeDataset version migration wiring", () => {
     const clean551 = head("5.5.1") + "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE 5 JAN 1885\n0 TRLR\n";
     const { report } = normalizeDataset(dataset(clean551), inferMainProfile(dataset(MAIN7)));
     expect(report.versionMigration).toMatchObject({ from: "5.5.1", to: "7.0", changed: 0 });
+  });
+
+  it("spells name types 7.0's way in both directions", () => {
+    const body = "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Anica //\n2 TYPE aka\n1 NAME /Kovač/\n2 TYPE variation\n";
+    const typesOf = (records: GedNode[]) =>
+      childrenByTag(record(records, "@I1@"), "NAME").map((n) => childValue(n, "TYPE"));
+    const up = migrated("5.5.1", body, "7.0");
+    expect(typesOf(up.records)).toEqual([undefined, "AKA", "variation"]);
+    expect(up.changes).toContainEqual({ before: "TYPE aka", after: "TYPE AKA" });
+    const down = migrated("7.0", body.replace("TYPE aka", "TYPE AKA"), "5.5.1");
+    expect(typesOf(down.records)).toEqual([undefined, "aka", "variation"]);
+  });
+
+  it("merges a name variant into a 7.0 main as AKA even when the main writes aka", () => {
+    const main = head("7.0") + "0 @I1@ INDI\n1 NAME Franc /Novak/\n1 NAME Frenk //\n2 TYPE aka\n0 TRLR\n";
+    const compare = head("7.0") + "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _AKA Anica\n0 TRLR\n";
+    const { dataset: out } = normalizeDataset(dataset(compare), inferMainProfile(dataset(main)));
+    const names = childrenByTag(out.records.find((r) => r.xref === "@I1@")!, "NAME");
+    expect(names.map((n) => childValue(n, "TYPE"))).toEqual([undefined, "AKA"]);
   });
 
   it("does not fire when both files share a version family", () => {

@@ -4,7 +4,7 @@ import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
-import { splitSlashName } from "../gedcom/name";
+import { spellNameType, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { walkNodes } from "./walk";
 
@@ -35,6 +35,8 @@ import { walkNodes } from "./walk";
  *                                        `_UID` ⇄ `UID`
  *  - married surnames                  : a `NAME`'s `_MARNM` ⇄ a `NAME` of its
  *                                        own with `TYPE MARRIED`
+ *  - name types                        : `NAME`.`TYPE` `aka`/`married`/… ⇄
+ *                                        `AKA`/`MARRIED`/… (7.0's enumeration)
  *  - media                             : `FORM` file extension ⇄ IANA media
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
@@ -136,6 +138,24 @@ function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const before = describe(node);
   node.value = next;
   report(ctx, node, before);
+}
+
+/** The `NAME.TYPE` values 5.5.1 enumerates, in its lower-case spelling. */
+const NAME_TYPES_551 = new Set(["aka", "birth", "immigrant", "maiden", "married"]);
+
+/** Rewrite a name's `TYPE` into the target version's spelling: 7.0's
+ *  enumeration is upper case, 5.5.1's lower. A word neither lists stays. */
+function migrateNameType(name: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
+  const type = firstChild(name, "TYPE");
+  const raw = type?.value?.trim();
+  if (!type || !raw) return;
+  const next = to === "7.0"
+    ? spellNameType(raw, "7.0")
+    : NAME_TYPES_551.has(raw.toLowerCase()) ? raw.toLowerCase() : raw;
+  if (next === type.value) return;
+  const before = describe(type);
+  type.value = next;
+  report(ctx, type, before);
 }
 
 /* ------------------------------- 5.5.1 → 7.0 ------------------------------ */
@@ -255,6 +275,8 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       }
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "7.0");
+    } else if (node.tag === "NAME" && node.level > 0) {
+      migrateNameType(node, ctx, "7.0");
     } else if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
       // The stand-ins this migration's own downgrade writes for 7-only
       // structures go back to their real tags, `_UID` to the one 7.0 adopted.
@@ -703,6 +725,8 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, node, before);
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "5.5.1");
+    } else if (node.tag === "NAME" && node.level > 0) {
+      migrateNameType(node, ctx, "5.5.1");
     } else if (node.tag in UNDERSCORE_DOWNGRADES && node.level > 0) {
       const before = describe(node);
       report(ctx, restoreVendor(node, UNDERSCORE_DOWNGRADES[node.tag]), before);
