@@ -45,7 +45,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npx playwright install --with-deps chromium
+      # Chromium runs the full suite; WebKit only the @smoke-tagged tests
+      # (see the projects in playwright.config.ts).
+      - run: npx playwright install --with-deps chromium webkit
 
       - run: npm run build
 

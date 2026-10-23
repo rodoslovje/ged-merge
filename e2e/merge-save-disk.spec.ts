@@ -39,7 +39,7 @@ function pointers(ged: string): string[] {
   return [...ged.matchAll(/^\d+ (?:HUSB|WIFE|CHIL|FAMS|FAMC) (@[^@]+@)\s*$/gm)].map((m) => m[1]);
 }
 
-test("a GEDCOM-on-GEDCOM merge writes the incoming place, spouse and family to disk, and the file loads back", async ({ page }) => {
+test("a GEDCOM-on-GEDCOM merge writes the incoming place, spouse and family to disk, and the file loads back", { tag: "@smoke" }, async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 

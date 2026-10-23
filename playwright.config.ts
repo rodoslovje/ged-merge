@@ -88,7 +88,16 @@ export default defineConfig({
   },
 
   projects: [
+    // The full suite.
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    /**
+     * Safari's engine, on the tests tagged `@smoke` only: one each for load,
+     * Edit, Merge, the duplicate finder, Save and a chart. WebKit is where the
+     * app's platform bugs have come from (one download per gesture, tooltips,
+     * foreignObject photos), so the headline flows run there too — the full
+     * suite twice over would double the run for little more coverage.
+     */
+    { name: "webkit", use: { ...devices["Desktop Safari"] }, grep: /@smoke/ },
   ],
 
   webServer: {
