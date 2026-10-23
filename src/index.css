@@ -3628,6 +3628,30 @@ button:focus-visible {
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* The address's labelled lines and contact details take a line of their own
+   under the event, each field named at all times — unlike the extras, these
+   are a form the user opened on purpose, and unnamed boxes say nothing. */
+.edit-addr-structure {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.edit-addr-part { display: inline-flex; align-items: baseline; gap: 6px; }
+.edit-addr-part .edit-event-extra-label { display: inline; }
+.edit-addr-part .clearable-wrap { width: 18ch; }
+.edit-addr-part .edit-input { width: 100%; }
+.edit-addr-toggle {
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--faint);
+  cursor: pointer;
+}
+.edit-addr-toggle:hover,
+.edit-addr-toggle[aria-expanded="true"] { color: var(--muted); }
+.edit-event-age-input { width: 100%; min-width: 0; }
 /* A tall note (the row's direct child — a one-line note stays inside the field
  * group) keeps its own width beside the folding group, but never more than
  * half the row: past that its chips narrow and wrap their text, so the group

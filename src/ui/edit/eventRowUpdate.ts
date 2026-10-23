@@ -9,7 +9,10 @@ export interface RowField {
   isMerge: boolean;
 }
 
-export type RowFields = Record<"date" | "value" | "place" | "address" | "note" | "agency" | "type" | "cause" | "temple" | "status", RowField>;
+export type RowFields = Record<
+  "date" | "value" | "place" | "address" | "note" | "agency" | "type" | "cause" | "temple" | "status" | "age" | "husbandAge" | "wifeAge",
+  RowField
+>;
 
 /**
  * The update an event row commits: every field's current value, with
@@ -51,8 +54,11 @@ export function eventRowUpdate(
   // a coordinate while every text field stays as it was reads as "unchanged" and
   // is silently dropped. The note list is its own control with its own state,
   // so like a picked coordinate it only ever commits because something moved.
+  // The address panel's lines are their own controls too, committing only
+  // what changed.
   const nonTextChange = override.coord !== undefined || override.links !== undefined || override.addSource !== undefined
-    || override.noteRefs !== undefined;
+    || override.noteRefs !== undefined || override.addressParts !== undefined
+    || override.phone !== undefined || override.email !== undefined || override.fax !== undefined;
   const unchanged = !nonTextChange && (Object.keys(fields) as (keyof RowFields)[]).every((key) => {
     const v = merged[key];
     return v === undefined || v === fields[key].initial || (key === "value" && flagOnly && v === flagValue);

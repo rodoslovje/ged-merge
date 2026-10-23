@@ -31,6 +31,14 @@ import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
 import { linkKey } from "../../normalize/links";
 import { eventRowUpdate } from "./eventRowUpdate";
+import { AddressStructure, hasAddressStructure } from "./AddressStructure";
+import { writeAgeValue } from "../../gedcom/ageValue";
+
+/** A family event's spouse age fields: the label each shows, and its tooltip. */
+export interface SpouseAgeLabels {
+  husband: { label: string; title: string };
+  wife: { label: string; title: string };
+}
 
 /** Sentinel `<option>` values for the action entries at the end of the
  * event-type dropdown (distinct from any real tag). */
@@ -107,6 +115,7 @@ export function EventFieldsRow({
   personId,
   materializedEventIds,
   age,
+  spouseAgeLabels,
 }: {
   ev: GedEvent | undefined;
   label: string;
@@ -192,6 +201,9 @@ export function EventFieldsRow({
    * at this event, or one glyph-tagged badge per spouse/parent (e.g. "♂32"
    * "♀28"), each with its own tooltip. */
   age?: { text: string; title: string }[];
+  /** Set on a family event's row: its stated ages are each spouse's
+   *  (`HUSB`/`WIFE` → `AGE`), not one of the event's own, and these name them. */
+  spouseAgeLabels?: SpouseAgeLabels;
 }) {
   const { i18n } = useTranslation();
   // A generic `EVEN`/`FACT` wears its descriptive `TYPE` as the event label
@@ -219,6 +231,9 @@ export function EventFieldsRow({
   const causeMergeVal = mergeHighlight?.get(`${kBase}.cause`);
   const templeMergeVal = mergeHighlight?.get(`${kBase}.temple`);
   const statusMergeVal = mergeHighlight?.get(`${kBase}.status`);
+  const ageMergeVal = mergeHighlight?.get(`${kBase}.age`);
+  const husbandAgeMergeVal = mergeHighlight?.get(`${kBase}.husbage`);
+  const wifeAgeMergeVal = mergeHighlight?.get(`${kBase}.wifeage`);
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
   const pageImagesMergeVal = mergeIncomingPageImages?.get(`${kBase}.sources`);
 
@@ -245,6 +260,9 @@ export function EventFieldsRow({
   // An LDS ordinance's temple and status are offered on the ordinances alone:
   // on any other event the two would be lines no standard defines.
   const isOrdinance = tag !== undefined && LDS_ORDINANCE_TAGS.has(tag);
+  const ageForced = eventForced || (resolvedSessionFields?.has(`${fBase}.age`) ?? false);
+  const husbandAgeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.husbage`) ?? false);
+  const wifeAgeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.wifeage`) ?? false);
   // Family rows remount on a real retag (see the `FamilyEventRow` call
   // sites), so the freshly-mounted row can't tell a real retag from this
   // tag having always been here — `markFamilyTagRetagged` flags it instead.
@@ -272,7 +290,17 @@ export function EventFieldsRow({
   // are introduced there through Tools → Geocode places, and once the first one
   // lands the pins appear and can refine the rest.
   const fileUsesCoords = placeCoords.size > 0 || pairCoords.size > 0;
-  const addrField = useField(ev?.address?.raw ?? "", addrMergeVal);
+  // The address field edits the ADDR's own line. Where the ADDR also carries
+  // labelled lines, `address` is their join when the line is empty — those
+  // live in the structure panel below, not in this field.
+  const addrField = useField((ev?.addressParts ? ev.addressLine : ev?.address?.raw) ?? "", addrMergeVal);
+  // The address as the coordinate knows it: the line, else the joined lines.
+  const addrForCoord = addrField.value.trim() ? addrField.value : ev?.addressParts && !ev.addressLine ? ev.address?.raw ?? "" : "";
+  // The labelled lines open on their own when the event has any; otherwise
+  // they wait to be asked for, so a one-line address stays one line.
+  const hasStructure = hasAddressStructure(ev);
+  const [addrOpen, setAddrOpen] = useState(hasStructure);
+  const addrStructureKey = JSON.stringify([ev?.addressParts, ev?.phone, ev?.email, ev?.fax]);
 
   // Known place+address pairs for the place field's combo suggestions —
   // typing an address there fills both fields in one go.
@@ -410,6 +438,9 @@ export function EventFieldsRow({
   const causeField = useField(ev?.cause ?? "", causeMergeVal);
   const templeField = useField(ev?.temple ?? "", templeMergeVal);
   const statusField = useField(ev?.status ?? "", statusMergeVal);
+  const ageField = useField(ev?.age ?? "", ageMergeVal);
+  const husbandAgeField = useField(ev?.husbandAge ?? "", husbandAgeMergeVal);
+  const wifeAgeField = useField(ev?.wifeAge ?? "", wifeAgeMergeVal);
   // The row stays mounted (same stable key) when its tag changes via
   // `onChangeTag`, so — unlike `useField` — track dirtiness against the tag
   // this row mounted with, not against `ev`'s own value (there's no GedEvent
@@ -529,7 +560,10 @@ export function EventFieldsRow({
   const typeShown = isEven || Boolean(typeField.value.trim()) || typeField.isMerge;
   const valueExtraShown = valueIsExtra && (Boolean(valueField.value.trim()) || valueField.isMerge);
   const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
-  const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
+  const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge || hasStructure;
+  const ageShown = Boolean(ageField.value.trim()) || ageField.isMerge;
+  const husbandAgeShown = Boolean(husbandAgeField.value.trim()) || husbandAgeField.isMerge;
+  const wifeAgeShown = Boolean(wifeAgeField.value.trim()) || wifeAgeField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const templeShown = Boolean(templeField.value.trim()) || templeField.isMerge;
@@ -551,6 +585,9 @@ export function EventFieldsRow({
     cause: causeShown || kept("cause"),
     temple: templeShown || kept("temple"),
     status: statusShown || kept("status"),
+    age: ageShown || kept("age"),
+    husbandAge: husbandAgeShown || kept("husbandAge"),
+    wifeAge: wifeAgeShown || kept("wifeAge"),
     note: noteShown || kept("note"),
     assoc: Boolean(ev?.associations?.length) || revealed.has("assoc"),
   };
@@ -561,6 +598,13 @@ export function EventFieldsRow({
     ...(valueIsExtra ? [{ key: "value", label: t("event.colValue") }] : []),
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
+    // The age the record states — each spouse's on a family event.
+    ...(spouseAgeLabels
+      ? [
+          { key: "husbandAge", label: spouseAgeLabels.husband.label },
+          { key: "wifeAge", label: spouseAgeLabels.wife.label },
+        ]
+      : [{ key: "age", label: t("event.colAge") }]),
     { key: "agency", label: t("event.colAgency") },
     { key: "source", label: t("event.colLink") },
     { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
@@ -688,6 +732,7 @@ export function EventFieldsRow({
         date: dateField, value: valueField, place: placeField, address: addrField,
         note: noteField, agency: agencyField, type: typeField, cause: causeField,
         temple: templeField, status: statusField,
+        age: ageField, husbandAge: husbandAgeField, wifeAge: wifeAgeField,
       },
       override,
       flagOnly,
@@ -701,6 +746,17 @@ export function EventFieldsRow({
       update.date = date;
       update.time = time ?? "";
     }
+    // An age is typed loosely ("25", "child") and written in the file's own
+    // grammar — 5.5.1 keeps its keywords, 7.0 turns one into a bound and a
+    // PHRASE (see `writeAgeValue`).
+    const version = assocApi?.version ?? "unknown";
+    if (update.age !== undefined) {
+      const written = writeAgeValue(update.age, version);
+      update.age = written.value;
+      if (written.phrase) update.agePhrase = written.phrase;
+    }
+    if (update.husbandAge !== undefined) update.husbandAge = writeAgeValue(update.husbandAge, version).value;
+    if (update.wifeAge !== undefined) update.wifeAge = writeAgeValue(update.wifeAge, version).value;
     commitField(update);
   }
 
@@ -740,6 +796,8 @@ export function EventFieldsRow({
         lookupNote?: string;
         onPickProposal?: (proposal: PlaceProposal) => void;
       };
+      /** Rendered after the input, inside the field's own span. */
+      after?: React.ReactNode;
     },
   ) {
     return (
@@ -777,8 +835,28 @@ export function EventFieldsRow({
           onPickCombo={opts.onPickCombo}
           {...opts.lookup}
         />
+        {opts.after}
       </span>
     );
+  }
+
+  /** An age field: typed loosely, shown back as written in the file's grammar
+   *  the moment it is left, the way a date is. */
+  function ageExtra(
+    key: "age" | "husbandAge" | "wifeAge",
+    labelText: string,
+    field: ReturnType<typeof useField>,
+    forced: boolean,
+    title: string,
+  ) {
+    return extraField(key, labelText, show[key], field, forced, title, {
+      ...EMPTY_SUGGESTIONS,
+      cls: "edit-event-age-input",
+      commit: (val) => {
+        field.set(writeAgeValue(val, assocApi?.version ?? "unknown").value);
+        commitAll({ [key]: val });
+      },
+    });
   }
 
   /**
@@ -1037,14 +1115,14 @@ export function EventFieldsRow({
           {(fileUsesCoords || coord) && (
           <EventCoordPicker
             place={placeField.value}
-            address={addrField.value}
+            address={addrForCoord}
             coord={coord}
             title={label}
             // What the file already knows for this place / this exact address,
             // so the picker can propose it without any lookup.
             fileCoord={placeCoords.get(placeKey(placeField.value))}
             filePairCoord={
-              addrField.value.trim() ? pairCoords.get(placeAddrCoordKey(placeField.value, addrField.value)) : undefined
+              addrForCoord.trim() ? pairCoords.get(placeAddrCoordKey(placeField.value, addrForCoord)) : undefined
             }
             onPick={(c) => commitAll({ coord: c })}
             onClear={() => commitAll({ coord: null })}
@@ -1067,7 +1145,37 @@ export function EventFieldsRow({
             lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
             onPickProposal: pickAddrProposal,
           },
+          // The address's labelled lines and contact details, folded away
+          // behind the field until asked for (or until the event has some).
+          after: (
+            <button
+              type="button"
+              className="edit-addr-toggle"
+              aria-expanded={addrOpen}
+              {...tipProps(t(addrOpen ? "event.addrPartsHide" : "event.addrPartsShow"))}
+              onClick={() => setAddrOpen((o) => !o)}
+            >
+              {addrOpen ? "▴" : "▾"}
+            </button>
+          ),
         })}
+        {show.addr && addrOpen && (
+          <AddressStructure
+            key={addrStructureKey}
+            ev={ev}
+            label={label}
+            t={t}
+            commit={(update) => commitAll(update)}
+          />
+        )}
+        {spouseAgeLabels ? (
+          <>
+            {ageExtra("husbandAge", spouseAgeLabels.husband.label, husbandAgeField, husbandAgeForced, spouseAgeLabels.husband.title)}
+            {ageExtra("wifeAge", spouseAgeLabels.wife.label, wifeAgeField, wifeAgeForced, spouseAgeLabels.wife.title)}
+          </>
+        ) : (
+          ageExtra("age", t("event.colAge"), ageField, ageForced, t("event.ageTitle", { event: label }))
+        )}
         {/* The tag's own line value, for events that lead with the date instead
             of it (RESI) — otherwise it is the primary field rendered above. */}
         {valueIsExtra && extraField("value", t("event.colValue"), show.value, valueField, valueForced, t("event.value", { event: label }), {

@@ -86,8 +86,22 @@ export function FamilyEventRow({
         )
       : undefined;
 
+  // The ages the record states for each spouse: labelled by the glyph of the
+  // person's actual sex (as the computed badges are), named in full in the
+  // tooltip — which is what tells a same-sex couple's two fields apart.
+  const spouseAge = (indi: Individual | undefined, fallbackGlyph: string, roleKey: string) => {
+    const glyph = indi?.sex === "M" ? "♂" : indi?.sex === "F" ? "♀" : fallbackGlyph;
+    const name = indi?.names[0]?.full?.trim() || t(roleKey);
+    return { label: t("event.colSpouseAge", { glyph }), title: t("event.spouseAgeTitle", { name }) };
+  };
+  const spouseAgeLabels = {
+    husband: spouseAge(husbandIndi, "♂", "field.husband"),
+    wife: spouseAge(wifeIndi, "♀", "field.wife"),
+  };
+
   return (
     <EventFieldsRow
+      spouseAgeLabels={spouseAgeLabels}
       ev={ev}
       label={label}
       tag={tag}
