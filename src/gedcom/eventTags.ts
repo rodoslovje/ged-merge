@@ -23,6 +23,7 @@ export const INDI_EVENT_TAG_ORDER = [
   "TITL", "DSCR", "CAST", "RELI", "NATI", "RACE", "NCHI", "NMR", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "PROP", "WILL", "PROB",
+  "BAPL", "CONL", "ENDL", "SLGC",
   "EVEN", "FACT", "REFN", "IDNO", "SSN",
   "DEAT", "CREM", "BURI", "_INTE", "_FNRL",
 ];
@@ -34,7 +35,24 @@ export const INDI_EVENT_TAG_ORDER = [
 export const FAM_EVENT_TAG_ORDER = [
   "MARR", "ENGA", "MARC", "MARS", "SEPA", "MARB", "MARL",
   "RESI", "CENS", "NCHI",
-  "DIVF", "DIV", "ANUL", "EVEN", "_MSTAT",
+  "DIVF", "DIV", "ANUL", "SLGS", "EVEN", "_MSTAT",
+];
+
+/** The Latter-day Saint ordinances: baptism, confirmation, endowment and the
+ *  sealing to parents on a person, the sealing to a spouse on a family. Each
+ *  carries a temple (`TEMP`) and a status (`STAT`, with the date it was set)
+ *  besides the usual date, place, notes and sources, and the sealing to
+ *  parents names the family it seals to (`FAMC`). Many are performed by
+ *  proxy long after the person's death, so their dates describe the church's
+ *  record rather than the life: the timeline and the narrative leave them out. */
+export const LDS_ORDINANCE_TAGS: ReadonlySet<string> = new Set(["BAPL", "CONL", "ENDL", "SLGC", "SLGS"]);
+
+/** The ordinance statuses the standard defines that 5.5.1 and 7.0 spell
+ *  alike — what Edit's status field offers. (`PRE-1970`/`PRE_1970` and
+ *  `DNS/CAN`/`DNS_CAN` differ between the versions; the version migration
+ *  converts them, and a file's own spelling is kept as it is.) */
+export const ORDINANCE_STATUSES: string[] = [
+  "COMPLETED", "SUBMITTED", "UNCLEARED", "CHILD", "INFANT", "STILLBORN", "BIC", "EXCLUDED", "CANCELED", "DNS",
 ];
 
 /** Family "events" that describe the household rather than the union — where
@@ -77,6 +95,8 @@ export const EVENT_GLYPHS: Record<string, string> = {
   BAPM: "~",
   CHR: "~",
   CHRA: "~",
+  // The LDS baptism is a baptism; the other ordinances have no mark.
+  BAPL: "~",
   ENGA: "⚬",
   MARR: "⚭",
   // No standard mark exists for living apart: two rings no longer linked,
@@ -310,7 +330,7 @@ export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_E
 export const EDITABLE_FAM_EVENT_TAGS = [
   "MARR", "ENGA", "MARC", "MARS", "SEPA",
   "RESI", "CENS", "NCHI",
-  "DIVF", "DIV", "ANUL", "EVEN", "_MSTAT",
+  "DIVF", "DIV", "ANUL", "SLGS", "EVEN", "_MSTAT",
 ];
 
 /** Display name for an event on a family record. The household events read

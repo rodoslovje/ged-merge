@@ -79,6 +79,11 @@ const EVENT_LABELS: Record<string, string> = {
   SEPA: "Separation",
   DIV: "Divorce",
   DIVF: "Divorce filed",
+  BAPL: "LDS baptism",
+  CONL: "LDS confirmation",
+  ENDL: "LDS endowment",
+  SLGC: "LDS sealing to parents",
+  SLGS: "LDS sealing to spouse",
   ANUL: "Annulment",
   MARC: "Marriage contract",
   MARS: "Marriage settlement",
@@ -128,6 +133,8 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (sub === "agency") return t("event.agency", { event: name });
   if (sub === "type") return t("event.type", { event: name });
   if (sub === "cause") return t("event.cause", { event: name });
+  if (sub === "temple") return t("event.temple", { event: name });
+  if (sub === "status") return t("event.status", { event: name });
   if (sub === "links") return t("event.link", { event: name });
   return key;
 }
@@ -331,6 +338,10 @@ function buildEventRows(
       associatesText(me, mainDs, t), associatesText(ce, compareDs, t));
     pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
+    pushRow(subRows, `${keyBase}.temple`, t("event.colTemple"), me?.temple, ce?.temple);
+    // The status alone: the row's value is what Edit's status field would take
+    // over, and the merge carries the date it was set along with it.
+    pushRow(subRows, `${keyBase}.status`, t("event.colStatus"), me?.status, ce?.status);
     const moved = movedHolder.get(tag) === keyIdx ? (movedLinks.get(tag) ?? []) : [];
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links,
       moved.length ? [...(ce?.links ?? []), ...moved] : ce?.links, mainPool, comparePool);
@@ -492,6 +503,8 @@ function buildFamilyRows(
       pushRow(etagRows, `${famKey}.${etag}.note`, t("event.colNote"), eventNotesText(mEv), eventNotesText(cEv));
       pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
+      pushRow(etagRows, `${famKey}.${etag}.temple`, t("event.colTemple"), mEv?.temple, cEv?.temple);
+      pushRow(etagRows, `${famKey}.${etag}.status`, t("event.colStatus"), mEv?.status, cEv?.status);
       const movedHere = famMoved.byTag.get(etag) ?? [];
       pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links,
         movedHere.length ? [...(cEv?.links ?? []), ...movedHere] : cEv?.links, mFamPool, cFamPool);

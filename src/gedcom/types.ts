@@ -396,6 +396,16 @@ export interface GedEvent {
   agency?: string;
   /** Cause (CAUS) associated with the event, e.g. cause of death. */
   cause?: string;
+  /** An LDS ordinance's temple (`TEMP`) — a temple code in 5.5.1, a code or
+   *  name in 7.0. Only the ordinance tags (see `LDS_ORDINANCE_TAGS`) carry it. */
+  temple?: string;
+  /** An LDS ordinance's status (`STAT`: `COMPLETED`, `SUBMITTED`, …). */
+  status?: string;
+  /** The date that status was set (`STAT`.`DATE`), as the file writes it. */
+  statusDate?: string;
+  /** The family an LDS child-to-parents sealing (`SLGC`) seals the person
+   *  to — its `FAMC` pointer. */
+  family?: string;
   /** First inline NOTE sub-tag on this event (e.g. parish/facility from packed-place decomposition). */
   note?: string;
   /** The same note with its URLs kept in place — present only when `note`

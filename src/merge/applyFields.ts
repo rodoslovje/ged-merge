@@ -36,7 +36,7 @@ type Row = FieldRow;
 
 /** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
  *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
-const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "assoc", "value"] as const;
+const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "temple", "status", "sources", "assoc", "value"] as const;
 export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
 
 function isEventSubField(sub: string | undefined): sub is EventSubField {
@@ -77,7 +77,7 @@ export interface EventSubEdit {
 }
 
 /** Map an event sub-field key suffix to its GEDCOM sub-tag. */
-export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS" };
+export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", place: "PLAC", addr: "ADDR", note: "NOTE", agency: "AGNC", cause: "CAUS", temple: "TEMP", status: "STAT" };
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 export const SUB_LABEL_KEY: Record<string, string> = {
@@ -89,11 +89,13 @@ export const SUB_LABEL_KEY: Record<string, string> = {
   note: "event.colNote",
   agency: "event.colAgency",
   cause: "event.colCause",
+  temple: "event.colTemple",
+  status: "event.colStatus",
   assoc: "assoc.heading",
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
-export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause"];
+export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "temple", "status"];
 
 /** The event sub-fields that may legally repeat under one event, so "both" can
  *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
@@ -766,6 +768,10 @@ function resolveEventNode(
   if (cached) return cached;
   const created = newNode(tag);
   markEventTouched(created, "new");
+  // The incoming sealing's `FAMC` names a family of the other file; the
+  // sealing joins the main person to their own birth family instead.
+  const famc = tag === "SLGC" ? firstChild(target, "FAMC")?.value : undefined;
+  if (famc) created.children.push(newNode("FAMC", famc));
   insertOrdered(target, created, order);
   newEventNodes?.set(cacheKey, created);
   return created;

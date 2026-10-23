@@ -738,7 +738,7 @@ export function applyIndividualFamilies(
         ? effectiveEventSubChoice(sub, fields[key] ?? "incoming")
         : undefined;
     };
-    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "sources"] as const;
+    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "temple", "status", "sources"] as const;
     const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
@@ -820,7 +820,7 @@ export function applyIndividualFamilies(
         (evTag === "EVEN" && incFam.events.find((e) => e.tag === "EVEN")?.type?.trim()) ||
         familyEventLabel(evTag, ctx.t);
       const evEntries: EventSubEdit[] = [];
-      for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
+      for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause", "temple", "status"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = effectiveEventSubChoice(sub, fields[key] ?? "incoming");

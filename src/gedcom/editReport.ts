@@ -39,7 +39,7 @@ const NON_EVENT_TAGS = new Set([
  *  vendor events, …) is still diffed as an event — bulk tools (geocode,
  *  place rename) write into every PLAC, so a whitelist here would let those
  *  changes silently vanish from the save preview. */
-const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC"]);
+const EVENT_SHAPE_TAGS = new Set(["DATE", "PLAC", "ADDR", "TYPE", "CAUS", "AGNC", "TEMP", "STAT"]);
 
 function isEventShaped(node: GedNode): boolean {
   return node.children.some((c) => EVENT_SHAPE_TAGS.has(c.tag));
@@ -146,7 +146,7 @@ function diffSourceCitations(id: string, before: GedNode, after: GedNode, fieldL
 /** An event's sub-fields kept apart (rather than joined into one display string)
  *  so a modified — not newly added/removed — event can be diffed field by field. */
 type EventFieldKey =
-  | "type" | "value" | "date" | "place" | "coord" | "addr" | "agency" | "note" | "cause" | "sources" | "media";
+  | "type" | "value" | "date" | "place" | "coord" | "addr" | "agency" | "note" | "cause" | "temple" | "status" | "sources" | "media";
 
 interface EventFields extends Record<EventFieldKey, string> {
   /** Flagged private — carried alongside the text fields rather than among
@@ -155,7 +155,7 @@ interface EventFields extends Record<EventFieldKey, string> {
   private?: boolean;
 }
 
-const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "agency", "note", "cause", "sources", "media"];
+const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "agency", "note", "cause", "temple", "status", "sources", "media"];
 
 /** The location-ish sub-fields, kept in one place so the "same event, moved"
  *  pairing pass below stays in sync when another location field is added. */
@@ -218,7 +218,7 @@ function eventFields(node: GedNode, resolveSource: SourceResolver, nameMedia: Me
   // write, and a preview that showed the citation alone left the reader asking
   // whether the page came with it.
   const media = childrenByTag(node, "OBJE").map(nameMedia).filter(Boolean).join(", ");
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), sources, media, private: isPrivateNode(node) || undefined };
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), agency: get("AGNC"), note: firstChild(node, NOTE_TAGS)?.value?.trim() ?? "", cause: get("CAUS"), temple: get("TEMP"), status: get("STAT"), sources, media, private: isPrivateNode(node) || undefined };
 }
 
 function eventSummary(f: EventFields): string {

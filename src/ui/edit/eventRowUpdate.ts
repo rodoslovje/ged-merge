@@ -9,7 +9,7 @@ export interface RowField {
   isMerge: boolean;
 }
 
-export type RowFields = Record<"date" | "value" | "place" | "address" | "note" | "agency" | "type" | "cause", RowField>;
+export type RowFields = Record<"date" | "value" | "place" | "address" | "note" | "agency" | "type" | "cause" | "temple" | "status", RowField>;
 
 /**
  * The update an event row commits: every field's current value, with

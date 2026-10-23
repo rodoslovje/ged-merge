@@ -24,7 +24,7 @@ import type {
   Sex,
 } from "./types";
 
-import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, isChangeStampEvent } from "./eventTags";
+import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, LDS_ORDINANCE_TAGS, isChangeStampEvent } from "./eventTags";
 import { UPD_STAMP_TYPE } from "./vendorTags";
 import { EDITABLE_LINK_TAGS, nextXref } from "./edit/shared";
 import { decodeEntities, isHtmlNote, noteToText } from "./noteHtml";
@@ -316,6 +316,20 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   return fam;
 }
 
+/** The LDS-only parts of an ordinance: its temple, its status (with the date
+ *  the status was set) and, on a sealing to parents, the family sealed to. */
+function readOrdinance(node: GedNode, event: GedEvent): void {
+  const temple = firstChild(node, "TEMP")?.value?.trim();
+  if (temple) event.temple = temple;
+  const stat = firstChild(node, "STAT");
+  const status = stat?.value?.trim();
+  if (status) event.status = status;
+  const statusDate = stat && firstChild(stat, "DATE")?.value?.trim();
+  if (statusDate) event.statusDate = statusDate;
+  const famc = firstChild(node, "FAMC")?.value?.trim();
+  if (famc && isPointer(famc) && !isVoidPointer(famc)) event.family = famc;
+}
+
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
   if (node.value?.trim()) event.value = node.value.trim();
@@ -343,6 +357,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (typeNode?.value) event.type = typeNode.value.trim();
   if (agncNode?.value) event.agency = agncNode.value.trim();
   if (causNode?.value) event.cause = causNode.value.trim();
+  if (LDS_ORDINANCE_TAGS.has(node.tag)) readOrdinance(node, event);
   const links = collectLinks(node, media);
   const noteNode = firstChild(node, NOTE_TAGS);
   if (noteNode) {

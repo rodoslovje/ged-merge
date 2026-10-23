@@ -10,7 +10,7 @@ const field = (initial: string, value = initial, isMerge = false) => ({ initial,
 function fields(over: Partial<RowFields> = {}): RowFields {
   return {
     date: field("1 JAN 1900"), value: field(""), place: field("Kranj"), address: field("Glavni trg 1"),
-    note: field(""), agency: field(""), type: field(""), cause: field(""), ...over,
+    note: field(""), agency: field(""), type: field(""), cause: field(""), temple: field(""), status: field(""), ...over,
   };
 }
 

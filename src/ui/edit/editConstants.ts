@@ -24,6 +24,8 @@ export const INDIVIDUAL_EVENT_GROUPS = [
   // Death, then what becomes of the body in sequence (cremation precedes the
   // laying to rest of the ashes), with the funeral service last.
   { labelKey: "eventGroup.death",      tags: ["DEAT", "CREM", "BURI", "_INTE", "_FNRL"] },
+  // The Latter-day Saint ordinances, in the order the church performs them.
+  { labelKey: "eventGroup.lds",        tags: ["BAPL", "CONL", "ENDL", "SLGC"] },
   { labelKey: "eventGroup.other",      tags: ["EVEN", "FACT"] },
 ] as const;
 
@@ -58,7 +60,7 @@ export function familyEventHasMergeData(
 ): boolean {
   if (!famMergeKeyBase) return false;
   const base = `${famMergeKeyBase}.${tag}`;
-  const EVENT_SUBS = ["date", "place", "addr", "note", "agency", "type", "cause", "value"] as const;
+  const EVENT_SUBS = ["date", "place", "addr", "note", "agency", "type", "cause", "temple", "status", "value"] as const;
   if (EVENT_SUBS.some((s) => mergeHighlight.has(`${base}.${s}`))) return true;
   return (mergeIncomingSources.get(`${base}.sources`)?.length ?? 0) > 0;
 }

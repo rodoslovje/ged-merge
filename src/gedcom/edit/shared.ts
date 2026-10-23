@@ -9,7 +9,9 @@ const ATTACHMENT_CHILD_ORDER = ["ASSO", "WWW", "URL", "_URL", "_WEBTAG", "OBJE",
 
 /** Canonical sub-tag order within an event (BIRT/DEAT/RESI/…) node. */
 export const EVENT_CHILD_ORDER = [
-  "TYPE", "DATE", "PLAC", "ADDR", "AGE", "AGNC", "CAUS", ...ATTACHMENT_CHILD_ORDER,
+  // TEMP/STAT/FAMC are an LDS ordinance's: its temple beside its date, as the
+  // standard lists them, and its status and sealed-to family after the rest.
+  "TYPE", "DATE", "TEMP", "PLAC", "ADDR", "AGE", "AGNC", "CAUS", "STAT", "FAMC", ...ATTACHMENT_CHILD_ORDER,
 ];
 
 /** Canonical top-level field order within an INDI record. */

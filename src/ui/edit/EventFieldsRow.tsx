@@ -4,7 +4,7 @@ import { tipProps } from "../IconTip";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { customEventLabel, customEventTooltip, isOccurrenceFlag, vendorEventTooltip } from "../../gedcom/eventTags";
+import { LDS_ORDINANCE_TAGS, ORDINANCE_STATUSES, customEventLabel, customEventTooltip, isOccurrenceFlag, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
 import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
@@ -40,6 +40,7 @@ const REMOVE_OPTION = "__remove_event__";
 /** What a field completes from on a tag the file has never written — one
  *  shared object, so a row of empty fields doesn't allocate a map each. */
 const EMPTY_SUGGESTIONS: Suggestions = { suggestions: [], canonical: new Map() };
+const NO_CANONICAL = EMPTY_SUGGESTIONS.canonical;
 
 /**
  * The event's name led by its genealogy mark. The mark and the first word are
@@ -216,6 +217,8 @@ export function EventFieldsRow({
   const agencyMergeVal = mergeHighlight?.get(`${kBase}.agency`);
   const typeMergeVal = mergeHighlight?.get(`${kBase}.type`);
   const causeMergeVal = mergeHighlight?.get(`${kBase}.cause`);
+  const templeMergeVal = mergeHighlight?.get(`${kBase}.temple`);
+  const statusMergeVal = mergeHighlight?.get(`${kBase}.status`);
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
   const pageImagesMergeVal = mergeIncomingPageImages?.get(`${kBase}.sources`);
 
@@ -237,6 +240,11 @@ export function EventFieldsRow({
   const agencyForced = eventForced || (resolvedSessionFields?.has(`${fBase}.agency`) ?? false);
   const typeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.type`) ?? false);
   const causeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.cause`) ?? false);
+  const templeForced = eventForced || (resolvedSessionFields?.has(`${fBase}.temple`) ?? false);
+  const statusForced = eventForced || (resolvedSessionFields?.has(`${fBase}.status`) ?? false);
+  // An LDS ordinance's temple and status are offered on the ordinances alone:
+  // on any other event the two would be lines no standard defines.
+  const isOrdinance = tag !== undefined && LDS_ORDINANCE_TAGS.has(tag);
   // Family rows remount on a real retag (see the `FamilyEventRow` call
   // sites), so the freshly-mounted row can't tell a real retag from this
   // tag having always been here — `markFamilyTagRetagged` flags it instead.
@@ -400,6 +408,8 @@ export function EventFieldsRow({
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const typeField = useField(ev?.type ?? "", typeMergeVal);
   const causeField = useField(ev?.cause ?? "", causeMergeVal);
+  const templeField = useField(ev?.temple ?? "", templeMergeVal);
+  const statusField = useField(ev?.status ?? "", statusMergeVal);
   // The row stays mounted (same stable key) when its tag changes via
   // `onChangeTag`, so — unlike `useField` — track dirtiness against the tag
   // this row mounted with, not against `ev`'s own value (there's no GedEvent
@@ -522,6 +532,8 @@ export function EventFieldsRow({
   const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
+  const templeShown = Boolean(templeField.value.trim()) || templeField.isMerge;
+  const statusShown = Boolean(statusField.value.trim()) || statusField.isMerge;
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
     Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || Boolean(previewPageImages.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
@@ -537,6 +549,8 @@ export function EventFieldsRow({
     type: typeShown || kept("type"),
     agency: agencyShown || kept("agency"),
     cause: causeShown || kept("cause"),
+    temple: templeShown || kept("temple"),
+    status: statusShown || kept("status"),
     note: noteShown || kept("note"),
     assoc: Boolean(ev?.associations?.length) || revealed.has("assoc"),
   };
@@ -551,6 +565,7 @@ export function EventFieldsRow({
     { key: "source", label: t("event.colLink") },
     { key: "type", label: isEven ? t("event.colTitle") : t("event.colType") },
     { key: "cause", label: t("event.colCause") },
+    ...(isOrdinance ? [{ key: "temple", label: t("event.colTemple") }, { key: "status", label: t("event.colStatus") }] : []),
     { key: "note", label: t("event.colNote") },
     // Like a source, always offered: an event names as many godparents and
     // witnesses as the register does, so "already shown" is no reason to stop.
@@ -672,6 +687,7 @@ export function EventFieldsRow({
       {
         date: dateField, value: valueField, place: placeField, address: addrField,
         note: noteField, agency: agencyField, type: typeField, cause: causeField,
+        temple: templeField, status: statusField,
       },
       override,
       flagOnly,
@@ -1095,6 +1111,20 @@ export function EventFieldsRow({
           cls: "edit-event-cause",
           offerAllWhenEmpty: true,
           commit: (val) => commitAll({ cause: val }),
+        })}
+        {/* An ordinance's temple and status. The status offers the standard's
+            values that both GEDCOM versions spell alike; a status that changes
+            is dated today on its own line (see `applyOrdinanceStatus`). */}
+        {isOrdinance && extraField("temple", t("event.colTemple"), show.temple, templeField, templeForced, t("event.temple", { event: label }), {
+          suggestions: [],
+          canonical: NO_CANONICAL,
+          commit: (val) => commitAll({ temple: val }),
+        })}
+        {isOrdinance && extraField("status", t("event.colStatus"), show.status, statusField, statusForced, t("event.status", { event: label }), {
+          suggestions: ORDINANCE_STATUSES,
+          canonical: NO_CANONICAL,
+          offerAllWhenEmpty: true,
+          commit: (val) => commitAll({ status: val }),
         })}
         {/* Sources and links lead the note: the note is a textarea that grows to
             as many lines as it holds, and after it the icons ended up alone at

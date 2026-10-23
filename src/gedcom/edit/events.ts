@@ -1,3 +1,4 @@
+import { todayGedcom } from "../chanCrea";
 import { indiEventNodes } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
@@ -53,6 +54,12 @@ export interface EventFieldUpdate {
   type?: string;
   /** New CAUS value (cause, e.g. of death), or `""` to remove it. Omit to leave unchanged. */
   cause?: string;
+  /** New TEMP value (an LDS ordinance's temple), or `""` to remove it. Omit to leave unchanged. */
+  temple?: string;
+  /** New STAT value (an LDS ordinance's status), or `""` to remove it — see
+   *  {@link applyOrdinanceStatus} for the date the status line carries. Omit
+   *  to leave unchanged. */
+  status?: string;
   /** New set of links, replacing all existing ones. `[]` removes them all. */
   links?: string[];
   /** Attach a new `SOUR` citation pointer (with its optional `PAGE`/`QUAY`) —
@@ -119,6 +126,20 @@ function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx)
   if (i !== -1) eventNode.children.splice(i, 1);
 }
 
+/**
+ * Set an LDS ordinance's status. Both standards give the `STAT` line the date
+ * the status was set (`STAT`.`DATE`, required in 5.5.1 and 7.0 alike), so a
+ * status that changes is dated today — it was set now — while one that stays
+ * keeps the date it had. An empty status removes the line with its date.
+ */
+function applyOrdinanceStatus(eventNode: GedNode, status: string): void {
+  const before = firstChild(eventNode, "STAT")?.value?.trim() ?? "";
+  setOrRemoveValue(eventNode, "STAT", status, EVENT_CHILD_ORDER);
+  const stat = firstChild(eventNode, "STAT");
+  if (!stat || stat.value === before) return;
+  setOrRemoveValue(stat, "DATE", todayGedcom(), ["DATE"]);
+}
+
 /** Apply date/place/address/links to an existing event node; remove the node if it becomes empty. */
 export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
@@ -157,6 +178,8 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
   if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);
   if (update.cause !== undefined) setOrRemoveValue(eventNode, "CAUS", update.cause, EVENT_CHILD_ORDER);
+  if (update.temple !== undefined) setOrRemoveValue(eventNode, "TEMP", update.temple, EVENT_CHILD_ORDER);
+  if (update.status !== undefined) applyOrdinanceStatus(eventNode, update.status);
   if (update.links !== undefined) setLinks(eventNode, update.links);
   if (update.addSource) {
     attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER, update.addSource.quay);
@@ -174,7 +197,7 @@ function eventUpdateHasContent(update: EventFieldUpdate): boolean {
   return (
     !!update.value?.trim() || !!update.date?.trim() || !!update.place?.trim() ||
     !!update.address?.trim() || !!update.note?.trim() || !!update.agency?.trim() ||
-    !!update.type?.trim() || !!update.cause?.trim() ||
+    !!update.type?.trim() || !!update.cause?.trim() || !!update.temple?.trim() || !!update.status?.trim() ||
     !!update.links?.some((l) => l.trim()) || !!update.addSource
   );
 }
@@ -278,6 +301,11 @@ export function addEventNode(indi: Individual, tag: string): void {
   const same = childrenByTag(indi.raw, tag);
   const event: GedNode = { level: indi.raw.level + 1, tag, children: [] };
   markEventTouched(event, "new");
+  // A sealing to parents names the family it seals to (`FAMC`, required by
+  // the standard): the person's own birth family, when the file records one.
+  if (tag === "SLGC" && indi.childOf[0]) {
+    event.children.push({ level: event.level + 1, tag: "FAMC", value: indi.childOf[0], children: [] });
+  }
   if (same.length > 0) {
     const lastIdx = indi.raw.children.indexOf(same[same.length - 1]);
     indi.raw.children.splice(lastIdx + 1, 0, event);
