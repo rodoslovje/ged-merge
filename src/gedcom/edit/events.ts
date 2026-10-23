@@ -16,6 +16,10 @@ export interface EventFieldUpdate {
   value?: string;
   /** New DATE value, or `""` to remove the date. Omit to leave unchanged. */
   date?: string;
+  /** New TIME under the DATE (`14:30`), or `""` to remove it. Omit to leave
+   *  unchanged — only the event row, whose date field carries the time, sets
+   *  it; every other writer of a date leaves an existing time alone. */
+  time?: string;
   /** New PLAC value, or `""` to remove the place. Omit to leave unchanged. */
   place?: string;
   /** `PLAC`.`FORM` naming the jurisdiction level of each part of `place`. Set
@@ -119,6 +123,11 @@ function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx)
 export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
+  if (update.time !== undefined) {
+    // The time lives under the date and goes when the date does.
+    const dateNode = firstChild(eventNode, "DATE");
+    if (dateNode) setOrRemoveValue(dateNode, "TIME", update.time, ["TIME", "PHRASE"]);
+  }
   const prevPlace =
     update.place !== undefined ? firstChild(eventNode, "PLAC")?.value : undefined;
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);

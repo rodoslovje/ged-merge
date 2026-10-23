@@ -2,6 +2,7 @@ import React, { forwardRef, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { parseDate } from "../../gedcom/date";
 import { displayDate } from "../../gedcom/dateDisplay";
+import { joinDateTime, splitDateTime } from "../../gedcom/dateTime";
 import { isApproximate } from "../../gedcom/lifespan";
 import { entryDate, isReadable } from "../../normalize/date";
 import { narrativeLangFor } from "../../report/narrativeText";
@@ -38,10 +39,13 @@ export interface DateInputProps extends InputProps {
   /** The field holds a span of time (a source's coverage): "1850-1900" is
    *  written as the period FROM 1850 TO 1900. */
   period?: boolean;
+  /** The value may end in a 24-hour time of day ("5 MAR 1850 14:30"): the
+   *  date part is read and restyled, and the time rides along after it. */
+  withTime?: boolean;
 }
 
 export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function DateInput(
-  { value, onChange, onBlur, onClear, label, wrapClassName, period, className, onFocus, ...rest },
+  { value, onChange, onBlur, onClear, label, wrapClassName, period, withTime, className, onFocus, ...rest },
   ref,
 ) {
   const opts = period ? { period } : undefined;
@@ -53,12 +57,17 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
   // previewed and restyled — a value left as it was is the file's own.
   const atFocus = useRef(value);
 
-  const parsed = value.trim() ? parseDate(value) : undefined;
+  const { date, time } = withTime ? splitDateTime(value) : { date: value, time: undefined };
+  const withT = (text: string) => joinDateTime(text, time);
+  const parsed = date.trim() ? parseDate(date) : undefined;
   const preview =
-    focused && value.trim() && value !== atFocus.current ? previewDate(value, style(), i18n.language, opts) : undefined;
+    focused && value.trim() && value !== atFocus.current
+      ? timedPreview(previewDate(date, style(), i18n.language, opts), date, time, value)
+      : undefined;
   // At rest the field reads in the chosen date display; entered, it is the file's text.
-  const shown = dateDisplay && !focused && parsed ? displayDate(parsed) : value;
-  const hover = [label, parsed && isReadable(parsed) ? narrativeLangFor(i18n.language).dateLabel(parsed) : undefined]
+  const shown = dateDisplay && !focused && parsed ? withT(displayDate(parsed)) : value;
+  const words = parsed && isReadable(parsed) ? withT(narrativeLangFor(i18n.language).dateLabel(parsed)) : undefined;
+  const hover = [label, words]
     .concat(shown !== value ? [value] : [])
     .filter((line, i, all): line is string => !!line && all.indexOf(line) === i && line !== shown)
     .join("\n");
@@ -80,7 +89,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
       let written = value;
       if (value !== atFocus.current) {
         const s = style();
-        written = entryDate(value, s.profile, s.order, opts);
+        written = withT(entryDate(date, s.profile, s.order, opts));
         if (written !== value) onChange(written);
       }
       onBlur?.(written);
@@ -98,6 +107,19 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
     </div>
   );
 });
+
+/** A date's preview with its time of day put back after it: the reading, the
+ *  value to be written and the other reading all carry the time. */
+function timedPreview(preview: DatePreview, date: string, time: string | undefined, typed: string): DatePreview {
+  if (!time || preview.kind === "unreadable") return preview;
+  const written = joinDateTime(preview.saved ?? date, time);
+  return {
+    ...preview,
+    label: `${preview.label} ${time}`,
+    saved: written !== typed.trim() ? written : undefined,
+    swap: preview.swap && { label: `${preview.swap.label} ${time}`, saved: joinDateTime(preview.swap.saved, time) },
+  };
+}
 
 /** The line under a date being typed: the date in words, what it will be
  *  written as, and — for a numeric date whose day and month could swap — the
