@@ -69,6 +69,9 @@ export interface SavePreviewInput {
   /** The reader's Settings → GEDCOM choices, handed to the merge so places it
    *  writes follow them. */
   formatOverrides?: FormatOverrides;
+  /** Build a preview even with nothing changed — a reader saving the file in
+   *  the other GEDCOM version, or only with its structural repairs. */
+  force?: boolean;
   t: Translate;
 }
 
@@ -120,13 +123,13 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     main, mainFileName, homeId, compare, decisions, matches, importRequests,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
     loadedPersonIds, loadedFamilyIds, baseline, personSnapshots, familySnapshots, recordSnapshots,
-    isSortEligible, isSubstantive, now, formatOverrides, t,
+    isSortEligible, isSubstantive, now, formatOverrides, force, t,
   } = input;
 
   const changedCount = changedPersonIds.size + changedFamilyIds.size + changedRecordIds.size;
   // A merge needs an incoming file actually loaded, not merely decisions about one.
   const isMerge = (confirmedCount > 0 || importCount > 0) && !!compare;
-  if (!isMerge && changedCount === 0) return null;
+  if (!isMerge && changedCount === 0 && !force) return null;
 
   // A tree started from nothing downloads under the name of the family in it,
   // not the placeholder it was created with.
@@ -134,7 +137,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const base = stem === NEW_FILE_BASENAME ? (newFileBase(main, homeId) ?? stem) : stem;
   const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
 
-  const editReport = changedCount > 0
+  const editReport = changedCount > 0 || !isMerge
     ? enrichEditReport(
         buildEditReport(changedPersonIds, changedFamilyIds, main, loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, changedRecordIds, recordSnapshots),
         main, personSnapshots, familySnapshots, t,

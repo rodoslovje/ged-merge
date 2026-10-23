@@ -3,7 +3,7 @@ import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
-import { completeStructure, outputOptions, prepareDownload, SCHEMA_BASE, writeSchema } from "./outputFile";
+import { completeStructure, convertVersion, outputOptions, prepareDownload, SCHEMA_BASE, writeSchema } from "./outputFile";
 
 const when = new Date(Date.UTC(2026, 9, 23, 12, 0, 0));
 
@@ -20,6 +20,66 @@ function download(text: string, version?: "5.5.1" | "7.0") {
   const out = serializeGedcom(records, outputOptions(ds, version ?? (ds.version === "7.0" ? "7.0" : "5.5.1")));
   return { ...prepared, out, lines: out.trimEnd().split("\n") };
 }
+
+describe("convertVersion — saving in the other GEDCOM version", () => {
+  const v551 = [
+    "0 HEAD", "1 SOUR Other", "1 SUBM @U1@", "1 SUBN @S1@", "1 FILE old.ged", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Ana /Novak/", "1 EMAIL ana@@example.si", "1 NOTE @N1@", "1 _UID 42",
+    "1 BIRT", "2 DATE @#DJULIAN@ 1 JAN 1700",
+    "0 @N1@ NOTE A shared note",
+    "0 @U1@ SUBM", "1 NAME Ana",
+    "0 @S1@ SUBN",
+    "0 TRLR", "",
+  ].join("\n");
+
+  it("5.5.1 → 7.0: version, header, shared notes, dates, schema and escapes", () => {
+    const { conversion, lines } = download(v551, "7.0");
+    expect(conversion?.length).toBeGreaterThan(0);
+    expect(lines.slice(0, 3)).toEqual(["0 HEAD", "1 GEDC", "2 VERS 7.0"]);
+    expect(lines).not.toContain("2 FORM LINEAGE-LINKED");
+    expect(lines).not.toContain("1 CHAR UTF-8");
+    expect(lines).not.toContain("1 FILE old.ged");
+    expect(lines).toContain("0 @N1@ SNOTE A shared note");
+    expect(lines).toContain("1 SNOTE @N1@");
+    expect(lines).toContain("2 DATE JULIAN 1 JAN 1700");
+    expect(lines).toContain("1 EMAIL ana@example.si");
+    expect(lines).toContain("0 @S1@ _SUBN");
+    expect(lines).toContain("1 _SUBN @S1@");
+    expect(lines).toContain("1 SCHMA");
+    expect(lines).toContain(`2 TAG _SUBN ${SCHEMA_BASE}_SUBN`);
+    expect(lines).toContain(`2 TAG _UID ${SCHEMA_BASE}_UID`);
+    // The submitter stays: optional in 7.0, but the file's own.
+    expect(lines).toContain("0 @U1@ SUBM");
+    const back = parse(lines.join("\n") + "\n");
+    expect(back.version).toBe("7.0");
+    expect(back.records.find((r) => r.xref === "@I1@")?.children.find((c) => c.tag === "EMAIL")?.value).toBe("ana@example.si");
+  });
+
+  it("7.0 → 5.5.1: version, FORM, CHAR, submitter, notes, no schema", () => {
+    const v7 = [
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SCHMA", "2 TAG _UID https://example.org/uid",
+      "0 @I1@ INDI", "1 EMAIL ana@example.si", "1 SNOTE @N1@", "1 _UID 42",
+      "0 @N1@ SNOTE Shared",
+      "0 TRLR", "",
+    ].join("\n");
+    const { fixes, lines } = download(v7, "5.5.1");
+    expect(fixes).toEqual(expect.arrayContaining(["subm", "char"]));
+    const gedc = lines.indexOf("1 GEDC");
+    expect(lines.slice(gedc, gedc + 3)).toEqual(["1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED"]);
+    expect(lines).toContain("1 CHAR UTF-8");
+    expect(lines).toContain("0 @U1@ SUBM");
+    expect(lines).toContain("0 @N1@ NOTE Shared");
+    expect(lines).toContain("1 NOTE @N1@");
+    expect(lines).toContain("1 EMAIL ana@@example.si");
+    expect(lines.some((l) => l.includes("SCHMA"))).toBe(false);
+    expect(parse(lines.join("\n") + "\n").version).toBe("5.5.1");
+  });
+
+  it("converts nothing when saved in the file's own version", () => {
+    expect(download(v551).conversion).toBeNull();
+    expect(convertVersion(parse(v551).records, "5.5.1", "5.5.1")).toEqual([]);
+  });
+});
 
 describe("writeSchema — GEDCOM 7 extension tags", () => {
   it("declares every extension tag a 7.0 file uses, after GEDC, in the file's spelling", () => {

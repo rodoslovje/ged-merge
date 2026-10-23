@@ -19,6 +19,7 @@ import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
+import { completeStructure, ownVersion, type OutputVersion } from "../../save/outputFile";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
@@ -123,6 +124,7 @@ export function ValidatePanel({
   onFixDanglingRefs,
   onFixConformance,
   onFillPlaceCoords,
+  onSaveAs,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -138,6 +140,7 @@ export function ValidatePanel({
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
+  onSaveAs: (version: OutputVersion) => void;
 }) {
   const { t } = useTranslation();
   /** Message vars with a GEDCOM event tag turned into its display name —
@@ -281,6 +284,11 @@ export function ValidatePanel({
 
   // The encoding the file arrived in, and what the download will make of it.
   const charsetNotes = useMemo(() => charsetNotices(dataset, t), [dataset, t]);
+  // The file as GEDCOM: its version, the other one it can be saved in, and
+  // what a save supplies for it to be valid at all (a header, a trailer, …).
+  const version = ownVersion(dataset);
+  const otherVersion: OutputVersion = version === "7.0" ? "5.5.1" : "7.0";
+  const fileFixes = useMemo(() => completeStructure(dataset.records, version, false), [dataset, version]);
 
   const q = useDebounced(query).trim().toLowerCase();
 
@@ -674,6 +682,18 @@ export function ValidatePanel({
               what leaves. Outside the virtual list: its rows must stay a
               uniform height. */}
           {charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
+          {fileFixes.map((fix) => <p className="tools-note" key={fix}>{t(`preview.fix.${fix}`)}</p>)}
+          <p className="tools-note tools-version">
+            {t("tools.validate.version", { version })}{" "}
+            <button
+              type="button"
+              className="btn-secondary"
+              title={t("tools.validate.saveAsHint", { version: otherVersion })}
+              onClick={() => onSaveAs(otherVersion)}
+            >
+              {t("tools.validate.saveAs", { version: otherVersion })}
+            </button>
+          </p>
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (

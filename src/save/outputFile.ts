@@ -2,7 +2,7 @@ import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { versionFamily, type VersionFamily } from "../normalize/migrate";
+import { migrateVersion, versionFamily, type VersionFamily } from "../normalize/migrate";
 import { walkNodes } from "../normalize/walk";
 
 /**
@@ -20,7 +20,7 @@ export type OutputVersion = VersionFamily;
 
 /** A repair the file needed before it could be written as valid GEDCOM. Each
  *  is told to the reader once, in the save preview and in the change report
- *  (`preview.fix.*` / `changeReport.note.fix.*`). */
+ *  (both read the `preview.fix.*` strings) and in Tools → Health check. */
 export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm";
 
 /**
@@ -153,6 +153,58 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean): boo
   return true;
 }
 
+/**
+ * Rewrite `records` from one spec family into the other: every record through
+ * `migrateVersion` (shared notes, dates, ages, associations, identifiers,
+ * media), and the header, which migration leaves alone, here. Returns one
+ * readable line per rewritten structure, for the preview and the report.
+ */
+export function convertVersion(records: GedNode[], from: OutputVersion, to: OutputVersion): string[] {
+  const changes: string[] = [];
+  if (from === to) return changes;
+  const note = (before: string, after: string) => changes.push(`${before} → ${after}`);
+  migrateVersion(records, from, to, note);
+
+  const head = records.find((r) => r.tag === "HEAD");
+  if (head) {
+    declareVersion(head, to);
+    const gedc = firstChild(head, "GEDC")!;
+    const vers = firstChild(gedc, "VERS")!;
+    if (vers.value !== to) {
+      note(`GEDC.VERS ${vers.value ?? ""}`.trim(), `GEDC.VERS ${to}`);
+      vers.value = to;
+    }
+    if (to === "7.0") {
+      // 7.0's GEDC holds the version alone, and its header has no CHAR (the
+      // file is UTF-8 by definition) nor FILE; GEDC must come first.
+      dropChildren(gedc, ["FORM"], note);
+      dropChildren(head, ["CHAR", "FILE"], note);
+      head.children = [gedc, ...head.children.filter((c) => c !== gedc)];
+    } else {
+      // 5.5.1 knows no schema; its extension tags need no declaration.
+      dropChildren(head, ["SCHMA"], note);
+    }
+  }
+
+  // 7.0 dropped the submission record; its content is kept as an extension.
+  for (const node of [...records, ...(head?.children ?? [])]) {
+    if (to === "7.0" && node.tag === "SUBN") {
+      note(node.xref ? `SUBN ${node.xref}` : "HEAD.SUBN", "_SUBN");
+      node.tag = "_SUBN";
+      delete node.spelling;
+    }
+  }
+  return changes;
+}
+
+function dropChildren(parent: GedNode, tags: string[], note: (b: string, a: string) => void): void {
+  parent.children = parent.children.filter((c) => {
+    if (!tags.includes(c.tag)) return true;
+    note(`${parent.tag}.${c.tag}${c.value ? ` ${c.value}` : ""}`, "—");
+    return false;
+  });
+}
+
 /** The extension tag as the file writes it — 7.0 tags are case-sensitive, so
  *  the schema must declare the spelling the lines carry. */
 function writtenTag(node: GedNode): string {
@@ -208,8 +260,9 @@ export function prepareDownload(
   version: OutputVersion = ownVersion(ds),
   date: Date = new Date(),
 ): PreparedDownload {
+  const from = ownVersion(ds);
   const fixes = completeStructure(records, version);
-  const conversion = null;
+  const conversion = from === version ? null : convertVersion(records, from, version);
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);
   if (version === "7.0") writeSchema(records);

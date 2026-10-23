@@ -7899,6 +7899,14 @@ kbd {
   display: flex; align-items: center; gap: 6px;
   margin: 6px 0; font-size: 0.9rem; cursor: pointer;
 }
+.preview-version {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 6px 0; font-size: 0.9rem;
+}
+.preview-conversion { margin: 4px 0 8px; font-size: 0.85rem; }
+.preview-conversion summary { cursor: pointer; color: var(--muted); }
+.preview-conversion ul { max-height: 12rem; overflow-y: auto; }
+.tools-version { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 
 .preview-actions {
   display: flex; justify-content: flex-end; gap: 10px;
