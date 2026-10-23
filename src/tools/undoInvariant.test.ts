@@ -72,6 +72,7 @@ import { clusterDuplicates, findDuplicates } from "./duplicates";
 import { duplicateDefaults, mergeDuplicateChain } from "./mergeDuplicate";
 import { clusterRelativeGroups, mergeCluster, pickClusterSurvivor } from "./mergeCluster";
 import { bulkNormalize } from "./bulkNormalize";
+import { reshapeNotes, type NoteReshapeScope, type NoteShape } from "./noteReshape";
 
 const DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../__fixtures__/corpus");
 const tr = (key: string) => key;
@@ -240,7 +241,9 @@ function organizeSources(
   ds: Dataset,
   parts: { reshape?: boolean; dups?: boolean; regroup?: boolean; pages?: boolean },
 ): RecordPatch[] {
-  const options = reshapeOptionsFromOverrides(undefined);
+  // One Settings choice drives both the reshape and the page tool, as in the
+  // app; the page tool is only offered under "event".
+  const options = reshapeOptionsFromOverrides({ pageMedia: "event" });
   const report = findReshapableLinks(ds, new Set(ALL_SITES), options);
   const folded = mergeFsBooks(report, new Map(), baptismTargetTag(ds.records));
   return applySourceCleanup(
@@ -252,7 +255,6 @@ function organizeSources(
     },
     parts.dups ? findSourceDuplicates(ds).groups : [],
     parts.regroup ? scanRepoRegroup(ds.records).groups : [],
-    // The page tool is offered under the "event" page-link setting.
     parts.pages ? findMissingPageMedia(ds, "event").groups : [],
   );
 }
@@ -569,6 +571,80 @@ describe("download-only passes leave the open file alone", () => {
       bulkNormalize(ds, undefined, { notes: "inline", eventNotes: "shared" });
       bulkNormalize(ds, { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true });
       expect(serializeGedcom(ds.records)).toBe(original);
+    },
+  );
+});
+
+// ── Run twice: a second run finds nothing left to do ─────────────────────────
+
+describe("run twice: a second run changes nothing", () => {
+  /** Run once, then again — on the live file the first run left, and on that
+   *  file saved and reloaded — and expect the second runs to write nothing. */
+  function expectIdempotent(text: string, run: (ds: Dataset) => RecordPatch[]): void {
+    const ds = load(text);
+    expect(dropNoopPatches(run(ds)).length).toBeGreaterThan(0);
+    const once = serializeGedcom(ds.records);
+    expect(dropNoopPatches(run(ds))).toEqual([]);
+    expectSameFile(ds, once, "second run, same session");
+    const reloaded = load(once);
+    expect(dropNoopPatches(run(reloaded))).toEqual([]);
+    expectSameFile(reloaded, once, "second run, after a reload");
+  }
+
+  const geneanet = () => interleave(corpusText("geneanet-5.5.1-utf8.ged"), SOURCE_EXTRAS);
+  const gramps = () => interleave(corpusText("gramps-5.5.1-utf8.ged"), SOURCE_EXTRAS);
+
+  it.each(["geneanet-5.5.1-utf8.ged", "rootsmagic-5.5.1-utf8.ged"])(
+    "Organize sources, link reshape (%s)",
+    (file) => expectIdempotent(corpusText(file), (ds) => organizeSources(ds, { reshape: true })),
+  );
+  it("Organize sources, every part at once", () => {
+    expectIdempotent(geneanet(), (ds) => organizeSources(ds, { reshape: true, dups: true, regroup: true, pages: true }));
+  });
+  it("source dedupe", () => {
+    expectIdempotent(gramps(), (ds) => organizeSources(ds, { dups: true }));
+    expectIdempotent(corpusText("rootsmagic-5.5.1-utf8.ged"), (ds) => organizeSources(ds, { dups: true }));
+  });
+  it("repository regroup", () => {
+    expectIdempotent(gramps(), (ds) => organizeSources(ds, { regroup: true }));
+  });
+  it("page-image pass", () => {
+    expectIdempotent(gramps(), (ds) => organizeSources(ds, { pages: true }));
+  });
+
+  const noteCases: [string, NoteShape, NoteReshapeScope][] = [
+    ["gramps-5.5.1-utf8.ged", "inline", { record: true, event: true }],
+    ["ancestry-5.5.1-utf8.ged", "shared", { record: false, event: true }],
+    ["synium-7.0-utf8.ged", "inline", { record: false, event: true }],
+    ["geneanet-5.5.1-utf8.ged", "shared", { record: true, event: true }],
+    ["webtrees-5.5.1-utf8.ged", "shared", { record: true, event: false }],
+  ];
+  it.each(noteCases)("note reshape: %s → %s %o", (file, target, scope) => {
+    const ds = load(corpusText(file));
+    expect(reshapeNotes(ds.records, target, scope).changed).toBeGreaterThan(0);
+    const once = serializeGedcom(ds.records);
+    expect(reshapeNotes(ds.records, target, scope).changed).toBe(0);
+    expect(serializeGedcom(ds.records)).toBe(once);
+    const reloaded = load(once);
+    expect(reshapeNotes(reloaded.records, target, scope).changed).toBe(0);
+    expect(serializeGedcom(reloaded.records)).toBe(once);
+  });
+
+  it.each(["geneanet-5.5.1-utf8.ged", "familyhistorian-5.5.1-utf8.ged", "gramps-5.5.1-utf8.ged", "synium-7.0-utf8.ged"])(
+    "place normalize alone (%s)",
+    (file) => {
+      const placesOnly = {
+        dates: false,
+        places: true,
+        links: false,
+        names: false,
+        vendorTags: false,
+        noteShape: false,
+        sourceCoverage: false,
+      };
+      const once = serializeGedcom(bulkNormalize(load(corpusText(file)), placesOnly).dataset.records);
+      const again = bulkNormalize(load(once), placesOnly).dataset;
+      expectSameFile(again, once, "second place normalize");
     },
   );
 });
