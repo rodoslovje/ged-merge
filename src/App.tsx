@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
+import { cloneNode } from "./gedcom/node";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode, type Mode } from "./ui/useMode";
@@ -1373,7 +1374,7 @@ function AppContent() {
   function applySharedRecordEdit(mutate: (records: GedNode[], notes: SharedNoteCtx) => void) {
     if (!mainDataset) return;
     const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE" || r.tag === "REPO") && !!r.xref;
-    const before = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, cloneRaw(r)]));
+    const before = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, cloneNode(r)]));
     const notes = noteCtx(mainDataset.records, detectPrivacyStyle(mainDataset.records));
     mutate(mainDataset.records, notes);
     if (notes.changes.length) rebuildNoteReferrers(mainDataset, notes.changes);
@@ -1382,7 +1383,7 @@ function AppContent() {
     for (const xref of new Set([...before.keys(), ...after.keys()])) {
       const b = before.get(xref) ?? null;
       const a = after.get(xref);
-      const aClone = a ? cloneRaw(a) : null;
+      const aClone = a ? cloneNode(a) : null;
       if (JSON.stringify(b) !== JSON.stringify(aClone)) patches.push({ type: "record", id: xref, before: b, after: aClone });
     }
     applyToolPatches(patches);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { childrenByTag } from "../../gedcom/node";
+import { childrenByTag, cloneNode } from "../../gedcom/node";
 import type { Dataset, GedNode, Individual, PersonName, SourceCitation } from "../../gedcom/types";
 import type { FormatOverrides } from "../../normalize/formatOverrides";
 import type { Translate } from "../../locales/i18n";
@@ -8,7 +8,7 @@ import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacemen
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { defaultChoice, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
-import { cloneRaw, type RecordPatch } from "../historyTypes";
+import { type RecordPatch } from "../historyTypes";
 import { useStableHandler } from "./useStableHandler";
 
 /** The merge overlay's state when the selected person has no confirmed match. */
@@ -335,7 +335,7 @@ export function useMergeOverlay({
       // Known by now — an incoming file is loaded — the fallback only narrows the type.
       pageMedia: pageMediaStyle ?? detectPageMediaStyle(dataset.records),
     });
-    return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
+    return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneNode(r) }));
   });
 
   /**
@@ -354,7 +354,7 @@ export function useMergeOverlay({
     if (!incoming) return [];
     const imported = materializeAdditionalNames(dataset, compareDataset, raw, incoming.raw, mergeAdditionalNames.choice);
     onUpdateDecision?.(found.key, { ...found.decision, fields: { ...found.decision.fields, additionalNames: "main" } });
-    return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
+    return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneNode(r) }));
   });
 
   const dismissExtraEvent = useStableHandler((keyBase: string) => {

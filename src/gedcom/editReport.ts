@@ -53,7 +53,7 @@ function eventTagsOf(before: GedNode, after: GedNode, known: Set<string>): Set<s
 }
 
 function nodeChild(node: GedNode, tag: string): string {
-  return node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
+  return firstChild(node, tag)?.value?.trim() ?? "";
 }
 
 function getNameParts(node: GedNode): { given: string; surname: string; nickname: string } {
@@ -108,14 +108,14 @@ function makeSourceResolver(records: GedNode[]): SourceResolver {
   const titles = new Map<string, string>();
   for (const r of records) {
     if (r.tag !== "SOUR" || !r.xref) continue;
-    const title = r.children.find((c) => c.tag === "TITL")?.value?.trim();
+    const title = firstChild(r, "TITL")?.value?.trim();
     if (title) titles.set(r.xref, title);
   }
   return (node) => {
     const v = node.value?.trim();
     if (!v) return undefined;
     const base = isPointer(v) ? titles.get(v) ?? v : v;
-    const page = node.children.find((c) => c.tag === "PAGE")?.value?.trim();
+    const page = firstChild(node, "PAGE")?.value?.trim();
     return page ? `${base} (${page})` : base;
   };
 }
@@ -207,7 +207,7 @@ function makeNoteTextResolver(records: GedNode[]): (value: string) => string {
 }
 
 function eventFields(node: GedNode, resolveSource: SourceResolver, nameMedia: MediaNamer): EventFields {
-  const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
+  const get = (tag: string) => firstChild(node, tag)?.value?.trim() ?? "";
   // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
   // tags like OCCU/EDUC/RETI — include it or a title-only edit won't change
   // the summary and the diff silently drops the change. Citations are part of
@@ -275,8 +275,8 @@ function diffEventSet(
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   for (const tag of tags) {
-    const beforeFields = before.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource, nameMedia));
-    const afterFields  = after.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource, nameMedia));
+    const beforeFields = childrenByTag(before, tag).map((c) => eventFields(c, resolveSource, nameMedia));
+    const afterFields  = childrenByTag(after, tag).map((c) => eventFields(c, resolveSource, nameMedia));
     const fieldLabel = label(tag);
     const usedB = new Set<number>();
     const usedA = new Set<number>();
@@ -842,7 +842,7 @@ export function enrichEditReport(
         for (const tag of ["FAMS", "FAMC"] as const) {
           const fieldKey = tag === "FAMC" ? "field.childOf" : "field.spouseOf";
           const linkVals = (node: GedNode) =>
-            node.children.filter((c) => c.tag === tag).map((c) => c.value?.trim()).filter((v): v is string => !!v);
+            childrenByTag(node, tag).map((c) => c.value?.trim()).filter((v): v is string => !!v);
           const beforeLinks = linkVals(snapshot);
           const afterSet = new Set(linkVals(current.raw));
           const beforeSet = new Set(beforeLinks);

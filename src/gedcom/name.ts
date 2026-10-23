@@ -72,6 +72,12 @@ export function splitSlashName(value: string): { before: string; surname: string
   };
 }
 
+/** A `NAME` value as it reads — the surname slashes dropped, the spacing
+ *  collapsed ("John /Smith/ Jr" → "John Smith Jr"). */
+export function nameValueText(value: string): string {
+  return value.replace(/\//g, "").replace(/\s+/g, " ").trim();
+}
+
 /**
  * Parse a `NAME` line into structured parts.
  *
@@ -121,7 +127,7 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   const secg = subTags.get("SECG");
   if (secg && !(given ?? "").includes(secg)) given = given ? `${given} ${secg}` : secg;
 
-  const full = raw.replace(/\//g, "").replace(/\s+/g, " ").trim() ||
+  const full = nameValueText(raw) ||
     [prefix, given, surname, suffix].filter(Boolean).join(" ");
 
   const name: PersonName = { full };

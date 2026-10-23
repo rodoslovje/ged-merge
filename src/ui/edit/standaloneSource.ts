@@ -1,10 +1,10 @@
 import type { GedNode } from "../../gedcom/types";
-import { firstChild } from "../../gedcom/node";
+import { cloneNode, firstChild } from "../../gedcom/node";
 import { createRepoRecord, createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
 import { applySiteSourceExtras, createSiteRepo, pageObjeTitle } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
 import type { CitationPageStyle } from "../../gedcom/source";
-import { cloneRaw, type RecordPatch } from "../historyTypes";
+import { type RecordPatch } from "../historyTypes";
 import type { AddSourceResult } from "../AddSourceDialog";
 
 // The page-media title lives with the other site conventions; kept exported
@@ -47,7 +47,7 @@ export function createStandaloneSource(
       sourceCoverage: opts.sourceCoverage,
       baptism: opts.baptism,
     });
-    if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+    if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneNode(repo) });
   }
   if (explicitRepo) {
     let repoXref = fields.repoXref?.trim() || undefined;
@@ -65,13 +65,13 @@ export function createStandaloneSource(
       );
       if (repo) {
         repoXref = repo.xref!;
-        extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+        extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneNode(repo) });
       }
     }
     if (!repoXref && createName) {
       const repo = createRepoRecord(records, createName);
       repoXref = repo.xref!;
-      extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+      extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneNode(repo) });
     }
     if (repoXref) {
       const repoLink: GedNode = { level: 1, tag: "REPO", value: repoXref, children: [] };
@@ -80,14 +80,14 @@ export function createStandaloneSource(
       sourceNode.children.push(repoLink);
     }
   }
-  extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
+  extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneNode(sourceNode) });
   const objeChild = firstChild(sourceNode, "OBJE");
   if (objeChild?.value) {
     const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
     if (objeNode) {
       const title = pageObjeTitle(fields.site, fields.title, fields.page, fields.fsImage, fields.collection);
       if (title) objeNode.children.push({ level: 1, tag: "TITL", value: title, children: [] });
-      extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
+      extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneNode(objeNode) });
     }
   }
   return { sourceXref: sourceNode.xref!, page: byLink ? fields.url || fields.page : fields.page, pageObjeXref: objeChild?.value, extraPatches };

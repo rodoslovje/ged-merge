@@ -1,5 +1,5 @@
 import { splitSlashName } from "../name";
-import { childrenByTag } from "../node";
+import { childrenByTag, hasChild } from "../node";
 import type { GedNode, Individual, Sex } from "../types";
 import { getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, NAME_CHILD_ORDER, removeChild, setOrRemoveValue } from "./shared";
 
@@ -13,7 +13,7 @@ import { getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, NAME_CHILD_ORDER, re
  * removed (a bare `GIVN`/`SURN` is meaningless).
  */
 function syncNamePart(node: GedNode, tag: "GIVN" | "SURN", value: string): void {
-  if (!node.children.some((c) => c.tag === tag)) return;
+  if (!hasChild(node, tag)) return;
   setOrRemoveValue(node, tag, value, NAME_CHILD_ORDER);
 }
 

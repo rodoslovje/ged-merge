@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { recordsNaming, repointAssociations } from "../gedcom/assoc";
 import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
 import { LINK_TAGS } from "../gedcom/builder";
-import { cloneNode, mergeSubLines, nodeFingerprint } from "../gedcom/node";
+import { cloneNode, mergeSubLines, nodeFingerprint, firstChild, hasChild } from "../gedcom/node";
 import { URL_RE, looksLikeUrl } from "../gedcom/uri";
 import {
   EDITABLE_LINK_TAGS,
@@ -457,7 +457,7 @@ function carryLines(target: GedNode, from: GedNode, order: string[], skip: (line
   for (const line of from.children) {
     if (RECORD_OWN_TAGS.has(line.tag) || skip(line)) continue;
     if (have.has(nodeFingerprint(line))) continue;
-    if (SINGLE_VALUED.has(line.tag) && target.children.some((c) => c.tag === line.tag)) continue;
+    if (SINGLE_VALUED.has(line.tag) && hasChild(target, line.tag)) continue;
     insertOrdered(target, cloneNode(line), order);
   }
 }
@@ -577,7 +577,7 @@ function repointSpouse(dataset: Dataset, survivor: Individual, removed: Individu
   if (fam.husband === survivor.id || fam.wife === survivor.id) return; // already in this family
   const role = fam.husband === removed.id ? "HUSB" : fam.wife === removed.id ? "WIFE" : undefined;
   if (!role) return;
-  const slot = fam.raw.children.find((c) => c.tag === role);
+  const slot = firstChild(fam.raw, role);
   if (slot) slot.value = survivor.id;
   else insertOrdered(fam.raw, ptr(fam.raw, role, survivor.id), FAM_CHILD_ORDER);
   rebuildFamily(dataset, fam);

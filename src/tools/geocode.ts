@@ -1,10 +1,10 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
-import { firstChild } from "../gedcom/node";
+import { cloneNode, firstChild, removeChildren } from "../gedcom/node";
 import { decomposePlace, parseCoordPair, placeAddressDetail, placeCollator } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
 import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { type RecordPatch } from "../ui/historyTypes";
 import { applyPassSafely } from "./passSafety";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
 import { placeCountryFacet } from "../geo/placeCountry";
@@ -129,20 +129,20 @@ export function patchRecords(
     const patches: RecordPatch[] = [];
     for (const indi of dataset.individuals.values()) {
       if (only && !only.has(indi.id)) continue;
-      const before = cloneRaw(indi.raw);
+      const before = cloneNode(indi.raw);
       journal.keep(indi.id, before);
       if (apply(indi.raw)) {
         rebuildIndividual(dataset, indi);
-        patches.push({ type: "individual", id: indi.id, before, after: cloneRaw(indi.raw) });
+        patches.push({ type: "individual", id: indi.id, before, after: cloneNode(indi.raw) });
       } else journal.release(indi.id);
     }
     for (const fam of dataset.families.values()) {
       if (only && !only.has(fam.id)) continue;
-      const before = cloneRaw(fam.raw);
+      const before = cloneNode(fam.raw);
       journal.keep(fam.id, before);
       if (apply(fam.raw)) {
         rebuildFamily(dataset, fam);
-        patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+        patches.push({ type: "family", id: fam.id, before, after: cloneNode(fam.raw) });
       } else journal.release(fam.id);
     }
     return patches;
@@ -516,7 +516,7 @@ export function renamePlaceValues(dataset: Dataset, renames: readonly OfficialRe
       }
       if (r.addrTarget) {
         // The ADDR sibling lives on the PLAC's parent event.
-        const existing = parent.children.find((c) => c.tag === "ADDR");
+        const existing = firstChild(parent, "ADDR");
         if (!existing) {
           const at = parent.children.indexOf(plac) + 1;
           parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: r.addrTarget, children: [] });
@@ -703,7 +703,7 @@ export function clearPlaceCoords(dataset: Dataset, pairs: ReadonlySet<string>): 
     walkPlaceAddr(raw, (plac, addr) => {
       if (!pairs.has(placeAddrKey(plac.value!.trim(), addr))) return;
       if (!coordOf(plac)) return;
-      plac.children = plac.children.filter((c) => c.tag !== "MAP");
+      removeChildren(plac, "MAP");
       clearPlaceGov(plac);
       changed = true;
     });

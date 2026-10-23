@@ -7,6 +7,8 @@
  * non-200) is swallowed — the dialog just falls back to no title.
  */
 
+import { timeoutSignal } from "../geo/net";
+
 /** Public CORS-bypass relays, tried in order — any one being down (observed
  *  regularly for each of them) must not take the feature out. The last entry,
  *  r.jina.ai, renders the page in a real browser — it gets past the bot checks
@@ -31,16 +33,12 @@ export const PROXY_HOSTS: string[] = PROXY_URLS.map((p) => new URL(p.proxied("ht
  *  back with the body: a site's rate-limit answer is worth retrying, a 401 is
  *  not. Status 0 = no answer at all (offline, timeout, CORS). */
 export async function fetchDirect(url: string, accept: string, timeoutMs = 10000): Promise<DirectResponse> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { headers: { Accept: accept }, signal: controller.signal });
+    const res = await fetch(url, { headers: { Accept: accept }, signal: timeoutSignal(timeoutMs) });
     if (!res.ok) return { status: res.status };
     return { status: res.status, text: (await res.text()) || undefined };
   } catch {
     return { status: 0 };
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -64,17 +62,13 @@ export function decodeHtmlEntities(s: string): string {
 }
 
 async function fetchViaProxy(proxied: string, timeoutMs: number): Promise<string | undefined> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(proxied, { signal: controller.signal });
+    const res = await fetch(proxied, { signal: timeoutSignal(timeoutMs) });
     if (!res.ok) return undefined;
     const text = await res.text();
     return text || undefined;
   } catch {
     return undefined;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

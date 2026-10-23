@@ -75,7 +75,7 @@ function buildFromText(text: string) {
   return buildDataset(parsed);
 }
 
-/** Deep-clone a GedNode (mirrors cloneRaw from historyTypes). */
+/** Deep-clone a GedNode (as cloneNode does). */
 function clone<T>(v: T): T { return JSON.parse(JSON.stringify(v)) as T; }
 
 /**

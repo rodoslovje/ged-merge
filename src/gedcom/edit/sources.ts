@@ -1,6 +1,6 @@
 import { isPointer, looksLikeUrl, resolveSourceCitation } from "../source";
 import { linkKey } from "../../normalize/links";
-import { childrenByTag, firstChild } from "../node";
+import { childrenByTag, firstChild, removeChildren } from "../node";
 import type { Dataset, GedNode } from "../types";
 import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
 
@@ -184,7 +184,7 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
   if (!citation) return;
 
   const page = fields.page?.trim();
-  citation.children = citation.children.filter((c) => c.tag !== "PAGE");
+  removeChildren(citation, "PAGE");
   if (page) citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
   setCitationQuay(citation, fields.quay);
 
@@ -275,9 +275,9 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
   const repoCreateName = fields.repoCreateName?.trim();
   if (fields.repoXref !== undefined || repoCreateName) {
     const repoXref = repoCreateName ? createRepoRecord(records, repoCreateName).xref! : fields.repoXref?.trim() ?? "";
-    const existingRepo = sourceNode.children.find((c) => c.tag === "REPO");
+    const existingRepo = firstChild(sourceNode, "REPO");
     if (!repoXref) {
-      sourceNode.children = sourceNode.children.filter((c) => c.tag !== "REPO");
+      removeChildren(sourceNode, "REPO");
     } else if (existingRepo) {
       existingRepo.value = repoXref;
     } else {
@@ -287,7 +287,7 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     // dialog shows the first CALN, so only that node is edited — in place, so
     // its own children (a `MEDI microfilm` medium) survive, and a second CALN
     // the dialog never showed is left alone.
-    const repoLink = sourceNode.children.find((c) => c.tag === "REPO");
+    const repoLink = firstChild(sourceNode, "REPO");
     if (repoLink && fields.repoCaln !== undefined) {
       const caln = fields.repoCaln.trim();
       const calnNode = firstChild(repoLink, "CALN");
@@ -385,7 +385,7 @@ export function setRepoRecordFields(records: GedNode[], repoNode: GedNode, field
   const set = (tag: string, value: string | undefined) => {
     if (value === undefined) return;
     const trimmed = value.trim();
-    const existing = repoNode.children.find((c) => c.tag === tag);
+    const existing = firstChild(repoNode, tag);
     if (existing) {
       if (trimmed) existing.value = trimmed;
       else repoNode.children = repoNode.children.filter((c) => c !== existing);
@@ -404,7 +404,7 @@ export function setRepoRecordFields(records: GedNode[], repoNode: GedNode, field
     if (lines.length === 0) {
       if (addrNode) {
         addrNode.value = undefined;
-        addrNode.children = addrNode.children.filter((c) => c.tag !== "CONT");
+        removeChildren(addrNode, "CONT");
         if (addrNode.children.length === 0) repoNode.children = repoNode.children.filter((c) => c !== addrNode);
       }
     } else {

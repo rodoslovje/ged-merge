@@ -42,7 +42,8 @@ export function normalizeDataset(
   sourceDateValues?: string[],
   options: NormalizeOptions = ALL_PASSES,
 ): { dataset: Dataset; report: NormalizationReport } {
-  const records = cloneRecords(compare.records);
+  // Deep clone the record forest so normalization doesn't mutate the input.
+  const records = compare.records.map(cloneNode);
   const report: NormalizationReport = {
     datesChanged: 0,
     dateExamples: [],
@@ -426,9 +427,4 @@ function record(examples: NormChange[], seen: Set<string>, before: string, after
  */
 function shape(value: string): string {
   return value.replace(/\d+/g, "#").replace(/\p{L}+/gu, "A");
-}
-
-/** Deep clone the record forest so normalization doesn't mutate the input. */
-function cloneRecords(records: GedNode[]): GedNode[] {
-  return records.map(cloneNode);
 }

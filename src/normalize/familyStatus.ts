@@ -1,5 +1,5 @@
 import type { GedNode } from "../gedcom/types";
-import { firstChild } from "../gedcom/node";
+import { firstChild, hasChild } from "../gedcom/node";
 import { vendorEventTypeInfo } from "../gedcom/vendorTags";
 
 /**
@@ -34,7 +34,7 @@ export interface FamilyStatusChange {
   after: string;
 }
 
-const hasMstat = (fam: GedNode): boolean => fam.children.some((c) => c.tag === "_MSTAT");
+const hasMstat = (fam: GedNode): boolean => hasChild(fam, "_MSTAT");
 
 /** Consolidate vendor partnership-status encodings on FAM records into `_MSTAT`. */
 export function normalizeFamilyStatus(records: GedNode[]): FamilyStatusChange[] {

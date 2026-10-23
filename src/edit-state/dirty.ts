@@ -1,6 +1,6 @@
 import type { GedNode } from "../gedcom/types";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
-import { nodesEqual } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
+import { cloneNode, nodesEqual } from "../gedcom/node";
 
 export type RecordKind = "individual" | "family";
 
@@ -78,7 +78,7 @@ export function computePatchApplyOps(
         if (!owner && wasLoaded("record", id)) {
           dirty.push({ action: "add", kind: "record", id });
           if (getSnapshot("record", id) === undefined && before !== null) {
-            snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before) });
+            snapshots.push({ action: "set", kind: "record", id, value: cloneNode(before) });
           }
         } else {
           snapshots.push({ action: "delete", kind: "record", id });
@@ -100,7 +100,7 @@ export function computePatchApplyOps(
           dirty.push({ action: "add", kind: "record", id });
           // Mirror case D: restore a record snapshot a prior undo deleted.
           if (direction === "redo" && recSnapshot === undefined && before !== null && wasLoaded("record", id)) {
-            snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before) });
+            snapshots.push({ action: "set", kind: "record", id, value: cloneNode(before) });
           }
         }
         continue;
@@ -122,7 +122,7 @@ export function computePatchApplyOps(
         dirty.push({ action: "add", kind: owner.kind, id: owner.id });
         // Mirror case D: restore a record snapshot a prior undo deleted.
         if (direction === "redo" && recSnapshot === undefined && before !== null && wasLoaded("record", id)) {
-          snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before), owner });
+          snapshots.push({ action: "set", kind: "record", id, value: cloneNode(before), owner });
         }
       }
       continue;
@@ -141,7 +141,7 @@ export function computePatchApplyOps(
       if (wasLoaded(kind, id)) {
         dirty.push({ action: "add", kind, id });
         if (getSnapshot(kind, id) === undefined && before !== null) {
-          snapshots.push({ action: "set", kind, id, value: cloneRaw(before) });
+          snapshots.push({ action: "set", kind, id, value: cloneNode(before) });
         }
       } else {
         snapshots.push({ action: "delete", kind, id });
@@ -173,7 +173,7 @@ export function computePatchApplyOps(
     if (direction === "redo") {
       dirty.push({ action: "add", kind, id });
       if (snapshot === undefined && before !== null && wasLoaded(kind, id)) {
-        snapshots.push({ action: "set", kind, id, value: cloneRaw(before) });
+        snapshots.push({ action: "set", kind, id, value: cloneNode(before) });
       }
       continue;
     }
@@ -220,7 +220,7 @@ export function computePushCaptureOps(
     const kind: SnapshotKind = patch.type;
     if (!wasLoaded(kind, patch.id)) continue;
     if (hasSnapshot(kind, patch.id) || ops.some((o) => o.kind === kind && o.id === patch.id)) continue;
-    const op: PushCaptureOp = { kind, id: patch.id, value: cloneRaw(patch.before) };
+    const op: PushCaptureOp = { kind, id: patch.id, value: cloneNode(patch.before) };
     if (patch.type === "record" && patch.owner) op.owner = patch.owner;
     ops.push(op);
   }

@@ -1,6 +1,7 @@
 import type { Dataset, Family, GedNode } from "../gedcom/types";
 import { rebuildFamily } from "../gedcom/edit";
-import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { cloneNode, childrenByTag } from "../gedcom/node";
+import { type RecordPatch } from "../ui/historyTypes";
 
 /**
  * One-button repair for the "Sex vs. role" health-check category: a family whose
@@ -37,8 +38,8 @@ function swappedSlots(dataset: Dataset, fam: Family): { husb: GedNode; wife: Ged
   if (!husband || !wife) return undefined;
   if (husband.sex !== "F" || wife.sex !== "M") return undefined;
 
-  const husbLines = fam.raw.children.filter((c) => c.tag === "HUSB");
-  const wifeLines = fam.raw.children.filter((c) => c.tag === "WIFE");
+  const husbLines = childrenByTag(fam.raw, "HUSB");
+  const wifeLines = childrenByTag(fam.raw, "WIFE");
   if (husbLines.length !== 1 || wifeLines.length !== 1) return undefined;
   const [husb] = husbLines;
   const [wifeLine] = wifeLines;
@@ -81,12 +82,12 @@ export function fixSwappedRoles(dataset: Dataset, only?: string): RecordPatch[] 
     const slots = swappedSlots(dataset, fam);
     if (!slots) continue;
     if (only && fam.husband !== only && fam.wife !== only) continue;
-    const before = cloneRaw(fam.raw);
+    const before = cloneNode(fam.raw);
     const husbValue = slots.husb.value;
     slots.husb.value = slots.wife.value;
     slots.wife.value = husbValue;
     rebuildFamily(dataset, fam);
-    patches.push({ type: "family", id: fam.id, before, after: cloneRaw(fam.raw) });
+    patches.push({ type: "family", id: fam.id, before, after: cloneNode(fam.raw) });
   }
   return patches;
 }
