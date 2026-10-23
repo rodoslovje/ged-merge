@@ -648,6 +648,25 @@ describe("normalizeDataset (place reshaping)", () => {
     expect(birth.address?.raw).toBeUndefined();
   });
 
+  it("reads a main whose addresses are written only in labelled lines as PLAC + ADDR", () => {
+    const main = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kuželj,Kostel,Slovenia
+2 ADDR
+3 ADR1 Kuželj 22
+3 CITY Kuželj
+1 DEAT
+2 PLAC Kranj,Kranj,Slovenia
+2 ADDR
+3 ADR1 Kidričeva 38
+0 TRLR
+`);
+    expect(inferMainProfile(main).place.layout).toBe("structured-addr");
+    expect(inferPlaceExportFormat(main).layout).toBe("structured-addr");
+  });
+
   it("keeps an ADDR's labelled lines when folding into the main's packed PLAC", () => {
     const main = dataset(`0 HEAD
 1 CHAR UTF-8
