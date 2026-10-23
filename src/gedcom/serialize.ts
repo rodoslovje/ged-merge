@@ -1,7 +1,7 @@
 import { nowGedcomTime, todayGedcom } from "./chanCrea";
 import { firstChild } from "./node";
 import { isPointer } from "./uri";
-import type { Dataset, GedNode } from "./types";
+import type { Dataset, GedcomVersion, GedNode } from "./types";
 
 export interface SerializeOptions {
   /** Line-ending to join with. Defaults to "\n". */
@@ -22,6 +22,24 @@ export interface SerializeOptions {
    * reach 280 bytes — past what strict 5.5.1 readers accept.
    */
   maxLineLength?: number;
+  /**
+   * How a literal `@` in a text value is escaped. `"all"` is GEDCOM 5.5.1's
+   * rule: every `@` that is not part of a pointer or an `@#…@` escape is
+   * doubled. `"leading"` (the default) is GEDCOM 7.0's: only a value — or a
+   * continuation line — that *starts* with `@` doubles it. Each reads back
+   * through the parser, which decodes by the same rule for the file's version,
+   * so pass {@link atEscapeFor} the version of the text being written.
+   */
+  atEscape?: AtEscape;
+}
+
+/** See {@link SerializeOptions.atEscape}. */
+export type AtEscape = "all" | "leading";
+
+/** The at-sign rule of the spec family `version` belongs to: 5.5.1's "double
+ *  every @" for 5.5.x and undeclared files, 7.0's "double a leading @". */
+export function atEscapeFor(version: GedcomVersion): AtEscape {
+  return version === "7.0" ? "leading" : "all";
 }
 
 /**
@@ -55,14 +73,15 @@ export const LINE_LIMIT_551 = 253;
 export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {}): string {
   const eol = opts.eol ?? "\n";
   const lines: string[] = [];
-  for (const record of records) emitNode(record, 0, lines, opts.maxLineLength);
+  const ctx: EmitCtx = { lines, maxLen: opts.maxLineLength, all: opts.atEscape === "all" };
+  for (const record of records) emitNode(record, 0, ctx);
   const text = (opts.bom ? "\uFEFF" : "") + lines.join(eol);
   return opts.finalNewline === false ? text : text + eol;
 }
 
 /** Serialize a whole dataset, preserving its source line-ending conventions. */
 export function serializeDataset(ds: Dataset): string {
-  return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+  return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline, atEscape: atEscapeFor(ds.version) });
 }
 
 /**
@@ -80,6 +99,7 @@ export function downloadOptions(
     finalNewline: ds.finalNewline,
     bom: ds.bom,
     maxLineLength: ds.version === "7.0" ? undefined : LINE_LIMIT_551,
+    atEscape: atEscapeFor(ds.version),
   };
 }
 
@@ -174,7 +194,15 @@ export function stampHeadSource(
   }
 }
 
-function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number): void {
+interface EmitCtx {
+  lines: string[];
+  maxLen?: number;
+  /** 5.5.1 escaping: double every literal `@`, not only a leading one. */
+  all: boolean;
+}
+
+function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
+  const { lines, maxLen } = ctx;
   // A line the parser couldn't interpret re-emits exactly as it came in —
   // never reformatted, never CONC-wrapped (its structure is unknown).
   if (node.verbatim !== undefined) {
@@ -201,15 +229,12 @@ function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number
     let pos = 0;
     for (let i = 0; i < segments.length; i++) {
       const prefix = i === 0 ? head : `${depth + 1} CONT`;
-      const escaped = escapeLeadingAt(segments[i]);
-      // Escaping a leading "@" shifts every offset inside this segment by one.
-      const shift = escaped.length - segments[i].length;
-      pushSegment(lines, prefix, escaped, depth, maxLen, segmentBreaks(breaks, pos, segments[i].length, shift));
+      pushSegment(lines, prefix, segments[i], depth, maxLen, segmentBreaks(breaks, pos, segments[i].length), ctx.all);
       pos += segments[i].length + 1; // + the "\n" the CONT line stands for
     }
   }
 
-  for (const child of node.children) emitNode(child, depth + 1, lines, maxLen);
+  for (const child of node.children) emitNode(child, depth + 1, ctx);
 }
 
 /**
@@ -226,6 +251,27 @@ function escapeLeadingAt(text: string): string {
 }
 
 /**
+ * GEDCOM 5.5.1's at-sign rule: a literal `@` anywhere in a line value is
+ * written `@@` (its grammar admits `@` only as a pointer's delimiter, inside an
+ * `@#…@` escape, or doubled). Applied per physical line — the parser decodes a
+ * 5.5.x file's every line the same way — and never to a pointer value or an
+ * escape sequence, which keep their single `@`. An e-mail address therefore
+ * leaves as `ana@@example.si`, the spec's spelling of `ana@example.si`.
+ */
+function escapeAllAt(text: string): string {
+  if (!text.includes("@") || isPointer(text)) return text;
+  return text.replace(/@#D[A-Z ]*@|@/g, (m) => (m.length > 1 ? m : "@@"));
+}
+
+/** One physical line's text as it is written: every `@` doubled under the
+ *  5.5.1 rule, otherwise only a leading one on the first line of a segment —
+ *  a CONC piece keeps the text it was cut from. */
+function escapeLine(text: string, first: boolean, all: boolean): string {
+  if (all) return escapeAllAt(text);
+  return first ? escapeLeadingAt(text) : text;
+}
+
+/**
  * Emit one logical line (`prefix` + segment text), splitting overlong text
  * across `CONC` continuation lines when `maxLen` is set. Applies to the tag
  * line and to each CONT line alike — a single CONT segment can itself exceed
@@ -238,11 +284,15 @@ function pushSegment(
   depth: number,
   maxLen: number | undefined,
   /** The source's own CONC offsets inside `text`, when they still apply. */
-  breaks?: number[],
+  breaks: number[] | undefined,
+  /** 5.5.1 escaping (see {@link escapeLine}). `text` arrives unescaped. */
+  all: boolean,
 ): void {
   const concPrefix = `${depth + 1} CONC`;
   if (maxLen !== undefined && breaks && breaks.length > 0) {
-    const chunks = chunkAt(text, breaks);
+    // Cut first, escape each piece after: the offsets describe the value as
+    // read, and each physical line carries its own escapes.
+    const chunks = chunkAt(text, breaks)?.map((c, i) => escapeLine(c, i === 0, all));
     // A record that moved to another depth (or a source line that was already
     // over the limit) must not be reproduced into an invalid line — check
     // before trusting the source's positions, and re-wrap if they don't fit.
@@ -252,6 +302,7 @@ function pushSegment(
       return;
     }
   }
+  text = escapeLine(text, true, all);
   if (text.length === 0) {
     lines.push(prefix);
     return;
@@ -269,20 +320,19 @@ function pushSegment(
   for (let i = 1; i < chunks.length; i++) lines.push(`${concPrefix} ${chunks[i]}`);
 }
 
-/** The `at` offsets that fall inside one CONT segment, rebased onto it (and
- *  shifted by an at-sign escape the segment picked up). Undefined when the
- *  segment carries no break, so the caller takes the ordinary path. */
+/** The `at` offsets that fall inside one CONT segment, rebased onto it.
+ *  Undefined when the segment carries no break, so the caller takes the
+ *  ordinary path. */
 function segmentBreaks(
   all: number[] | undefined,
   start: number,
   length: number,
-  shift: number,
 ): number[] | undefined {
   if (!all) return undefined;
   const out: number[] = [];
   for (const at of all) {
     if (at < start || at >= start + length) continue;
-    out.push(at === start ? 0 : at - start + shift);
+    out.push(at - start);
   }
   return out.length > 0 ? out : undefined;
 }
@@ -357,6 +407,13 @@ function splitForConc(text: string, firstAvail: number, restAvail: number): stri
     // Never split a surrogate pair (e.g. an emoji) across two lines.
     const u = text.charCodeAt(cut - 1);
     if (u >= 0xd800 && u <= 0xdbff) cut--;
+    // Never part an `@@` escape across two lines: each line decodes on its
+    // own, and a lone `@` either side would read back as something else.
+    if (text[cut - 1] === "@" && text[cut] === "@") {
+      let run = cut - 1;
+      while (run > start && text[run - 1] === "@") run--;
+      if ((cut - run) % 2 === 1) cut = cut - 1 > start ? cut - 1 : cut + 1;
+    }
     if (cut <= start) cut = start + 1;
     const chunk = text.slice(start, cut);
     chunks.push(chunk);

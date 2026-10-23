@@ -19,7 +19,7 @@ import { NOT_GEDCOM } from "./gedcom/parser";
 import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
+import { atEscapeFor, downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
@@ -734,7 +734,7 @@ function AppContent() {
   }
 
   function serializeMainForWorker(ds: Dataset): string {
-    return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline });
+    return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline, atEscape: atEscapeFor(ds.version) });
   }
 
   /** Bring the worker's main up to the live one by sending only the records

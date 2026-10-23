@@ -65,6 +65,9 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   // otherwise their lines would be re-joined with LF on save.
   const eol = text.includes("\r\n") ? "\r\n" : text.includes("\r") && !text.includes("\n") ? "\r" : "\n";
   const finalNewline = /[\r\n]$/.test(text);
+  // The at-sign escape depends on the version, and every line is decoded as
+  // it is read — so the header's declaration is looked up first.
+  const legacyAt = !/^7\./.test(declaredVersion(text) ?? "");
 
   // Split on any line ending (\r\n, lone \r, or \n) — directly, which avoids
   // allocating a full normalized copy of the text first, and a piece at a time
@@ -123,11 +126,14 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     const tag = m[3].toUpperCase();
     const spelling = m[3] !== tag ? m[3] : undefined;
     let value = m[4];
-    // GEDCOM doubles a leading at-sign (`@@`) so a value can start with a
-    // literal `@` without reading as a pointer. Fold it back to a single `@`;
-    // the serializer re-doubles it on output, so a valid file still
-    // round-trips byte-faithfully.
-    if (value !== undefined && value.startsWith("@@")) value = value.slice(1);
+    // GEDCOM writes a literal at-sign as `@@` so text cannot read as a
+    // pointer. 5.5.x doubles every one (`ana@@example.si`); 7.0 only a
+    // leading one, and reads any later `@@` as two at-signs. Fold each back
+    // by its version's rule; the serializer re-doubles by the same rule (see
+    // `atEscapeFor`), so a valid file still round-trips byte-faithfully.
+    if (value !== undefined && value.includes("@@")) {
+      value = legacyAt ? value.replace(/@@/g, "@") : value.startsWith("@@") ? value.slice(1) : value;
+    }
 
     // CONT (new line) and CONC (no separator) extend the parent's value.
     if (tag === "CONT" || tag === "CONC") {
@@ -233,6 +239,17 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   }
   const version = detectVersion(roots, warnings);
   return { version, charset, records: roots, warnings, eol, finalNewline, bom };
+}
+
+/**
+ * The `HEAD.GEDC.VERS` a file declares, read straight off the text before it
+ * is parsed: the header opens the file, so its first stretch is enough. Any
+ * level-2 line of the GEDC block may come first (`2 FORM` before `2 VERS`).
+ */
+export function declaredVersion(text: string): string | undefined {
+  const head = text.slice(0, 1 << 16);
+  const gedc = /(?:^|[\r\n])[^\S\r\n]*1[^\S\r\n]+GEDC[^\r\n]*((?:[\r\n]+[^\S\r\n]*[2-9][^\S\r\n][^\r\n]*)*)/i.exec(head);
+  return gedc ? /[\r\n][^\S\r\n]*2[^\S\r\n]+VERS[^\S\r\n]+([^\r\n]*)/i.exec(gedc[1])?.[1]?.trim() : undefined;
 }
 
 function detectVersion(roots: GedNode[], warnings: ParseWarning[]): GedcomVersion {
