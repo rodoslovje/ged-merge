@@ -14,6 +14,7 @@ import { YearsText } from "./YearsText";
 import { EVENT_ORDER } from "../review/fields";
 import { vendorTagInfo } from "../gedcom/vendorTags";
 import { charsetNotices } from "./charsetNotice";
+import { completeStructure, ownVersion } from "../save/outputFile";
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
@@ -119,7 +120,7 @@ export function SaveDialog({
   // with its own buttons, and the answer to the dialog is the last of them.
   const downloadBtn = useRef<HTMLButtonElement>(null);
   const modalRef = useModalKeyboard(true, onClose, {
-    onConfirm: () => { if (groups.length > 0) handleConfirm(); },
+    onConfirm: () => { if (canDownload) handleConfirm(); },
     initialFocus: downloadBtn,
   });
   const { saveReport, saveDiffView } = useSettingsSlice(SAVE_REPORT_KEYS);
@@ -166,6 +167,14 @@ export function SaveDialog({
   // What the download does to the file's encoding, when it isn't a no-op —
   // the same wording the health check shows before the user ever gets here.
   const charsetNotes = dataset ? charsetNotices(dataset, t) : [];
+  // What the download supplies for the file to be valid GEDCOM at all — a
+  // header, a trailer, a declaration — listed, not yet made (see
+  // completeStructure); the confirmed save makes the same repairs.
+  const fixes = useMemo(
+    () => (dataset ? completeStructure(records, ownVersion(dataset), false) : []),
+    [records, dataset],
+  );
+  const canDownload = groups.length > 0 || fixes.length > 0;
 
   // Maps each event's translated group label (e.g. "Baptism") to its
   // lifecycle position, so preview cards list events birth-to-death instead
@@ -258,6 +267,7 @@ export function SaveDialog({
               a line other software trusts, so it's said out loud once, here,
               while the user can still decide not to download. */}
           {charsetNotes.map((note, i) => <p className="preview-note" key={i}>{note}</p>)}
+          {fixes.map((fix) => <p className="preview-note" key={fix}>{t(`preview.fix.${fix}`)}</p>)}
 
           {integrityWarnings && integrityWarnings.length > 0 && (
             <section className="preview-section">
@@ -622,7 +632,7 @@ export function SaveDialog({
 
         <div className="preview-actions">
           <button className="btn-secondary" onClick={onClose}>{t("preview.cancel")}</button>
-          <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={groups.length === 0}>
+          <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={!canDownload}>
             {downloadLabel}
           </button>
         </div>

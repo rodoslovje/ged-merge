@@ -1610,6 +1610,10 @@ export const sl = {
   "preview.files": "Prenesene bodo te datoteke:",
   "preview.saveReport": "Prenesi tudi poročilo o spremembah v tekstovni datoteki",
   "preview.untouched": "Vaše izvirne datoteke ostanejo nespremenjene.",
+  "preview.fix.head": "Datoteka nima glave, ki jo GEDCOM zahteva. Shranjena datoteka dobi glavo (HEAD), v kateri sta navedena različica GEDCOM in kodiranje UTF-8.",
+  "preview.fix.trlr": "Datoteka nima zaključne vrstice. Shranjena datoteka se konča z zaključno vrstico (TRLR), kot zahteva GEDCOM.",
+  "preview.fix.gedc": "Glava datoteke ne navaja v celoti različice GEDCOM. V glavi shranjene datoteke je različica navedena.",
+  "preview.fix.char": "Glava datoteke ne navaja kodiranja znakov. V glavi shranjene datoteke je navedeno kodiranje UTF-8.",
   "preview.cancel": "Prekliči",
   // Preneseno poročilo o spremembah (`.gedmerge.report.txt`) — zapis o tem, kaj
   // je shranjevanje naredilo, ki ga preberete sami, brez programa.

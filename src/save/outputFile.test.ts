@@ -1,0 +1,73 @@
+import { describe, expect, it } from "vitest";
+import { parseGedcom } from "../gedcom/parser";
+import { serializeGedcom } from "../gedcom/serialize";
+import type { GedNode } from "../gedcom/types";
+import { completeStructure, outputOptions, prepareDownload } from "./outputFile";
+
+const when = new Date(Date.UTC(2026, 9, 23, 12, 0, 0));
+
+function parse(text: string) {
+  return parseGedcom(new TextEncoder().encode(text).buffer);
+}
+
+/** Load `text`, prepare it as a download in `version` (default: its own) and
+ *  write it out. */
+function download(text: string, version?: "5.5.1" | "7.0") {
+  const ds = parse(text);
+  const records: GedNode[] = ds.records;
+  const prepared = prepareDownload(records, ds, version, when);
+  const out = serializeGedcom(records, outputOptions(ds, version ?? (ds.version === "7.0" ? "7.0" : "5.5.1")));
+  return { ...prepared, out, lines: out.trimEnd().split("\n") };
+}
+
+describe("completeStructure — header and trailer", () => {
+  it("gives a headerless file a 5.5.1 header and a trailer", () => {
+    const { fixes, lines } = download("0 @I1@ INDI\n1 NAME Ana /Novak/\n");
+    expect(fixes).toEqual(expect.arrayContaining(["head", "trlr"]));
+    expect(lines[0]).toBe("0 HEAD");
+    expect(lines).toContain("1 GEDC");
+    expect(lines).toContain("2 VERS 5.5.1");
+    expect(lines).toContain("2 FORM LINEAGE-LINKED");
+    expect(lines).toContain("1 CHAR UTF-8");
+    expect(lines).toContain("1 SOUR GEDMERGE");
+    expect(lines[lines.length - 1]).toBe("0 TRLR");
+    // Read back, the file is a declared 5.5.1 file with no version warning.
+    const back = parse(lines.join("\n") + "\n");
+    expect(back.version).toBe("5.5.1");
+    expect(back.warnings.filter((w) => w.kind === "version")).toEqual([]);
+  });
+
+  it("adds only what is missing, and nothing to a complete file", () => {
+    const complete = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @I1@ INDI\n0 TRLR\n";
+    expect(completeStructure(parse(complete).records, "5.5.1", false)).not.toContain("head");
+    expect(completeStructure(parse(complete).records, "5.5.1", false)).not.toContain("gedc");
+    expect(completeStructure(parse(complete).records, "5.5.1", false)).not.toContain("trlr");
+    expect(completeStructure(parse(complete).records, "5.5.1", false)).not.toContain("char");
+
+    const noTrlr = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @I1@ INDI\n");
+    expect(completeStructure(noTrlr.records, "5.5.1", false)).toEqual(expect.arrayContaining(["trlr", "gedc"]));
+  });
+
+  it("lists without changing anything when not applying", () => {
+    const ds = parse("0 @I1@ INDI\n");
+    const before = serializeGedcom(ds.records);
+    completeStructure(ds.records, "5.5.1", false);
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("fills a header that does not declare its version", () => {
+    const { fixes, lines } = download("0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n0 TRLR\n");
+    expect(fixes).toContain("gedc");
+    const at = lines.indexOf("1 GEDC");
+    expect(lines.slice(at, at + 4)).toEqual(["1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8"]);
+  });
+
+  it("gives a 7.0 header GEDC first and no CHAR", () => {
+    const ds = parse("0 @I1@ INDI\n");
+    completeStructure(ds.records, "7.0");
+    const head = ds.records[0];
+    expect(head.tag).toBe("HEAD");
+    expect(head.children[0].tag).toBe("GEDC");
+    expect(head.children.some((c) => c.tag === "CHAR")).toBe(false);
+  });
+});

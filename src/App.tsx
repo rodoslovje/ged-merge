@@ -19,7 +19,8 @@ import { NOT_GEDCOM } from "./gedcom/parser";
 import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
-import { atEscapeFor, downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
+import { atEscapeFor, downloadOptions, serializeGedcom } from "./gedcom/serialize";
+import { prepareDownload } from "./save/outputFile";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
@@ -1862,10 +1863,10 @@ function AppContent() {
       }
     }
 
-    // The download is always UTF-8 bytes; a header still declaring the source
-    // encoding (ANSEL, ANSI, UNICODE, …) would make other software misdecode it.
-    ensureUtf8Charset(preview.records, mainDataset);
-    stampHeadSource(preview.records, mainDataset);
+    // The download is always UTF-8 bytes, stamped by GED Merge, and a complete
+    // file: a missing header, trailer or declaration is supplied, and said so.
+    const { fixes } = prepareDownload(preview.records, mainDataset);
+    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`));
 
     const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
     // Reuse the exact names shown in the preview dialog (already date-stamped).
