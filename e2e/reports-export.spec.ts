@@ -108,5 +108,16 @@ test("reports download as text and RTF, with the living redacted on request", as
   expect(privRtf).not.toContain("Vesna");
   expect(privRtf).not.toContain("1960");
 
+  // …and in the narrative style, where the parent's paragraph names the
+  // children: the living daughter is named there as on her own entry.
+  await page.getByRole("tab", { name: "Narrative" }).click();
+  await expect(page.locator(".report-view", { hasText: "Vesna" })).toHaveCount(0);
+  const privNarr = await exportAs(page, "Text file");
+  expect(privNarr).toContain("Janez Kos was born on 4 May 1900 in Kranj, Slovenia.");
+  expect(privNarr).toContain("Daughter");
+  expect(privNarr).not.toContain("Vesna");
+  const privNarrRtf = await exportAs(page, "RTF document");
+  expect(privNarrRtf).not.toContain("Vesna");
+
   expect(errors).toEqual([]);
 });
