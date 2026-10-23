@@ -152,7 +152,8 @@ export interface ParseWarning {
 // Typed domain model
 // ---------------------------------------------------------------------------
 
-export type Sex = "M" | "F" | "U";
+/** `X` is GEDCOM 7's "neither only male nor only female" (see `gedcom/sex.ts`). */
+export type Sex = "M" | "F" | "U" | "X";
 
 /** A structured personal name parsed from a NAME line. */
 export interface PersonName {

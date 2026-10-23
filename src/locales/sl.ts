@@ -2606,6 +2606,7 @@ export const sl = {
   "sex.M": "Moški",
   "sex.F": "Ženska",
   "sex.U": "Neznano",
+  "sex.X": "Drugo",
   "list.distanceTooltip": "Razdalja do izhodiščne osebe",
   "list.newTooltip": "Novi podatki iz vhodne datoteke",
   "list.diffTooltip": "Podatki, ki so prisotni v obeh, a se razlikujejo",

@@ -1,4 +1,4 @@
-import type { Individual, Sex } from "../../gedcom/types";
+import type { GedcomVersion, Individual, Sex } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setSex } from "../../gedcom/edit";
 import { sexClass } from "../sex";
@@ -8,7 +8,7 @@ import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
 
 /** Sex picker. Lives at the start of the "+ Add …" actions row. */
-export function SexToggle({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
+export function SexToggle({ person, t, commit, version }: { person: Individual; t: Translate; commit: Commit; version: GedcomVersion }) {
   return (
     <DropdownMenu
       className={`sex-select ${sexClass(person.sex)}`}
@@ -22,7 +22,7 @@ export function SexToggle({ person, t, commit }: { person: Individual; t: Transl
           })),
         },
       ]}
-      onSelect={(v) => commit((indi) => setSex(indi, v as Sex))}
+      onSelect={(v) => commit((indi) => setSex(indi, v as Sex, version))}
       trigger={
         <>
           {SEX_GLYPHS[person.sex]} {t(`sex.${person.sex}`)}

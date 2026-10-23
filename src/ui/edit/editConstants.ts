@@ -81,15 +81,20 @@ export const EXTRA_EVENT_ORDER = INDI_EVENT_TAG_ORDER.filter((tag) => tag !== "B
 
 export const MATCH_STATUSES: Exclude<MatchDecisionStatus, "undecided">[] = ["confirmed", "rejected", "deferred"];
 
-export const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
+export const SEX_OPTIONS: Sex[] = ["M", "F", "X", "U"];
 
-/** M/F/U toggle for the individual's `SEX` line. */
-export const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", U: "?" };
+/** M/F/X/U toggle for the individual's `SEX` line (X is GEDCOM 7's "other"). */
+export const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", X: "⚥", U: "?" };
 
-/** The next sex in the picker's own order, wrapping round — what ⌥⇧X sets, so
- *  three presses come back to where they started. A sex the file spells some
- *  other way starts the cycle from the top. */
+/** What ⌥⇧X cycles through: the picker's common three. X, rare and chosen
+ *  deliberately, is offered by the picker only — a fourth step would put the
+ *  usual answer one press further away. */
+const KEY_SEX_CYCLE: Sex[] = ["M", "F", "U"];
+
+/** The next sex in the ⌥⇧X cycle, wrapping round, so three presses come back
+ *  to where they started. A sex outside the cycle (X, or one the file spells
+ *  some other way) starts it from the top. */
 export function nextSex(current: Sex | undefined): Sex {
-  const at = SEX_OPTIONS.indexOf(current as Sex);
-  return SEX_OPTIONS[(at + 1) % SEX_OPTIONS.length];
+  const at = KEY_SEX_CYCLE.indexOf(current as Sex);
+  return KEY_SEX_CYCLE[(at + 1) % KEY_SEX_CYCLE.length];
 }

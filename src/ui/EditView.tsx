@@ -696,7 +696,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // X cycles ♂ → ♀ → ?, so the sex of a child just added is set without the
     // picker: three values put the one wanted at most two presses away, and no
     // letter has to stand for a sex name (M and F are Mother and Father here).
-    KeyX: () => commit((indi) => setSex(indi, nextSex(indi.sex))),
+    KeyX: () => commit((indi) => setSex(indi, nextSex(indi.sex), dataset.version)),
     // Back through the person history where bare ⌫ cannot go: inside a field,
     // where Backspace deletes what you typed. An event added from a shortcut
     // and left empty (a death with no date) is left this way, without the trip
@@ -1975,7 +1975,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             }}
             leadingControl={
               <>
-                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} />
+                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} version={dataset.version} />
                 <PrivateToggle
                   hint={altShiftLabel("L")}
                   on={!!person.private}

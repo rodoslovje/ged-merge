@@ -60,7 +60,7 @@ function plainPhrase(d: GedDate, bare = false): string {
   }
 }
 
-const PRONOUNS: Record<Sex, string> = { M: "He", F: "She", U: "" };
+const PRONOUNS: Record<Sex, string> = { M: "He", F: "She", U: "", X: "" };
 
 export const narrativeEn: NarrativeLang = {
   lang: "en",

@@ -7,6 +7,7 @@ import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } fr
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
+import { readSex } from "./sex";
 import { addressText, contactTagOf, readAddressParts, type AddressContactTag } from "./address";
 
 /** Which `GedEvent` field each contact line is read into. */
@@ -198,7 +199,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         names.push(parseName(child.value, subTagMap(child)));
         break;
       case "SEX":
-        sex = normalizeSex(child.value);
+        sex = readSex(child);
         break;
       // `@VOID@` links to no family: the line stays in the raw tree, but it is
       // no relationship to follow (or to prune as broken).
@@ -697,9 +698,4 @@ function subTagMap(node: GedNode): Map<string, string> {
     if (c.value !== undefined) map.set(c.tag, c.value.trim());
   }
   return map;
-}
-
-function normalizeSex(value: string | undefined): Sex {
-  const v = value?.trim().toUpperCase();
-  return v === "M" || v === "F" ? v : "U";
 }

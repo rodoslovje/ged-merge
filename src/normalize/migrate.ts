@@ -3,6 +3,7 @@ import { RELA_TO_ROLE, ROLE_TO_RELA, VOID_XREF } from "../gedcom/assoc";
 import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
+import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { walkNodes } from "./walk";
 
 /**
@@ -41,7 +42,7 @@ import { walkNodes } from "./walk";
  *                                        `NO` → `_NO`, `SDATE` → `_SDATE`, a
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
  *                                        `@VOID@` pointers (see below),
- *                                        `SEX X` → `U`
+ *                                        `SEX X` → `SEX U` + `_SEX X` (and back)
  *
  * Not attempted (would create new records rather than rewrite in place):
  * extracting inline `OBJE`/text `SOUR` substructures into pointed records.
@@ -186,6 +187,14 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       upgradeObje(node, ctx);
     } else if (node.tag === "SEX" && node.value !== undefined) {
+      // The 5.5.1 stand-in for X (`SEX U` + `_SEX X`) becomes the real letter.
+      if (readSex(node) === "X" && node.value.trim().toUpperCase() !== "X") {
+        const before = describe(node);
+        node.value = "X";
+        node.children = node.children.filter((c) => c.tag !== SEX_X_EXTENSION);
+        report(ctx, node, before);
+        return;
+      }
       const letter = { MALE: "M", FEMALE: "F", UNKNOWN: "U" }[node.value.trim().toUpperCase()];
       if (letter && node.value !== letter) {
         const before = describe(node);
@@ -551,8 +560,13 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       downgradeObje(node, ctx);
     } else if (node.tag === "SEX" && node.value?.trim().toUpperCase() === "X") {
+      // 5.5.1 has no X: an "unknown" every reader accepts, with the real value
+      // kept beside it for this app and for the way back up.
       const before = describe(node);
       node.value = "U";
+      if (!node.children.some((c) => c.tag === SEX_X_EXTENSION)) {
+        node.children.push({ level: node.level + 1, tag: SEX_X_EXTENSION, value: "X", children: [] });
+      }
       report(ctx, node, before);
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "5.5.1");

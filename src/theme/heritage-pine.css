@@ -38,6 +38,7 @@
   /* ---- sex axis (separate from status; never share a surface) ---- */
   --sex-male:   #55bef0;
   --sex-female: #f886bb;
+  --sex-other:  #b3a4e0;  /* GEDCOM 7 SEX X — neither only male nor only female */
 
   /* ---- blood lineage (kinship colour-coding; kin to sex, but distinct) ---- */
   --lineage-paternal: #5a8df0;  /* royal blue, set apart from the cyan-ish male & green accent */
@@ -147,6 +148,7 @@
 
   --sex-male:   #166daf;
   --sex-female: #b73c7c;
+  --sex-other:  #6b5aa6;
 
   --lineage-paternal: #2f5fcf;
   --lineage-maternal: #8e24c9;

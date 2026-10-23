@@ -1890,5 +1890,6 @@ function extractEffectiveAddr(
 function sexText(t: Translate, sex: string | undefined): string {
   if (sex === "M") return t("sex.M");
   if (sex === "F") return t("sex.F");
+  if (sex === "X") return t("sex.X");
   return "";
 }

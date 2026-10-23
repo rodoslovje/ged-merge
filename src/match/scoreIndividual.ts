@@ -1,3 +1,4 @@
+import { isBinarySex } from "../gedcom/sex";
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
 import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
@@ -151,7 +152,7 @@ function scorePair(
   add(components, "deathDate", w.deathDate, deathSim, dt ? `${md?.date?.raw ?? "—"} ~ ${cd?.date?.raw ?? "—"}` : undefined);
   add(components, "deathPlace", w.deathPlace, placeSimilarity(md?.place, cd?.place), dt ? `${md?.place?.raw ?? "?"} ~ ${cd?.place?.raw ?? "?"}` : undefined);
 
-  if (main.sex !== "U" && compare.sex !== "U") {
+  if (isBinarySex(main.sex) && isBinarySex(compare.sex)) {
     add(components, "sex", w.sex, main.sex === compare.sex ? 1 : 0, dt ? `${main.sex} ~ ${compare.sex}` : undefined);
   }
 
@@ -641,7 +642,7 @@ function addKey(
  * never the same person, so the engine drops them before scoring.
  */
 export function sexConflicts(a: Individual, b: Individual): boolean {
-  return a.sex !== "U" && b.sex !== "U" && a.sex !== b.sex;
+  return isBinarySex(a.sex) && isBinarySex(b.sex) && a.sex !== b.sex;
 }
 
 /**

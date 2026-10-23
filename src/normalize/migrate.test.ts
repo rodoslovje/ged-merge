@@ -291,6 +291,7 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     );
     const indi = record(records, "@I1@");
     expect(firstChild(indi, "SEX")!.value).toBe("U");
+    expect(firstChild(firstChild(indi, "SEX")!, "_SEX")!.value).toBe("X");
     expect(findByPath(indi, ["BIRT", "DATE"])!.value).toBe("@#DJULIAN@ 6 MAY 1682");
     expect(findByPath(indi, ["DEAT", "DATE"])!.value).toBe("44 B.C.");
     expect(findByPath(indi, ["DEAT", "AGE"])!.value).toBe("363d");

@@ -2286,6 +2286,7 @@ export const en = {
   "sex.M": "Male",
   "sex.F": "Female",
   "sex.U": "Unknown",
+  "sex.X": "Other",
   "list.distanceTooltip": "Distance from start person",
   "list.newTooltip": "New fields the incoming file adds",
   "list.diffTooltip": "Fields present in both but differing",
