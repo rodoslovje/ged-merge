@@ -58,6 +58,18 @@ export function addressText(addr: GedNode | undefined): string {
     .join(", ");
 }
 
+/** An event's address: its first ADDR that says anything — a line of its own
+ *  or only labelled lines. An empty `2 ADDR` with nothing under it is none. */
+export function eventAddressNode(event: GedNode): GedNode | undefined {
+  return event.children.find((c) => c.tag === "ADDR" && addressText(c) !== "");
+}
+
+/** The labelled lines under an ADDR that carry text, in file order — the nodes
+ *  a rename rewrites beside the ADDR's own line. */
+export function addressPartNodes(addr: GedNode): GedNode[] {
+  return addr.children.filter((c) => (ADDRESS_PART_TAGS as readonly string[]).includes(c.tag) && !!c.value?.trim());
+}
+
 /** Whether an event carries any of the address structure beyond its line:
  *  labelled lines, or contact lines beside it. */
 export function eventHasAddressStructure(ev: GedEvent | undefined): boolean {

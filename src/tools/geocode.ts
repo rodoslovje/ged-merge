@@ -2,7 +2,7 @@ import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { cloneNode, firstChild, removeChildren } from "../gedcom/node";
 import { decomposePlace, parseCoordPair, placeAddressDetail, placeCollator } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
-import { addressText } from "../gedcom/address";
+import { addressText, eventAddressNode } from "../gedcom/address";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
 import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
 import { type RecordPatch } from "../ui/historyTypes";
@@ -96,12 +96,7 @@ export function walkPlaceAddr(node: GedNode, visit: (plac: GedNode, addr: string
  *  programs write it — those lines joined (see `addressText`). Either way it
  *  is a house, not the settlement. */
 function eventAddress(event: GedNode): string {
-  for (const addr of event.children) {
-    if (addr.tag !== "ADDR") continue;
-    const text = addressText(addr);
-    if (text) return text;
-  }
-  return "";
+  return addressText(eventAddressNode(event));
 }
 
 /** Grouping key for a place+address pair. NUL cannot occur in GEDCOM text. */

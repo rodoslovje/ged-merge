@@ -376,6 +376,27 @@ describe("undo invariant: places and coordinates", () => {
     );
   });
 
+  it("rename structured addresses, with and without a line of their own (gramps)", () => {
+    const text = addLines(
+      addLines(
+        corpusText("gramps-5.5.1-utf8.ged"),
+        "@I0001@",
+        "1 RESI\n2 PLAC Ljubljana, Slovenija\n2 ADDR\n3 ADR1 Dunajska 5\n3 CITY Ljubljana\n3 POST 1000\n",
+      ),
+      "@I0002@",
+      "1 RESI\n2 PLAC Kranj, Slovenija\n2 ADDR Hafnarjeva pot 21\n3 ADR1 Hafnarjeva pot 21\n3 CITY Kranj\n",
+    );
+    const ds = load(text);
+    const rows = scanAddresses(ds).filter((r) => r.address.startsWith("Dunajska") || r.address.startsWith("Hafnarjeva"));
+    expect(rows).toHaveLength(2);
+    expectUndoInvariant(ds, (d) =>
+      coalescePatches([
+        ...renameAddress(d, rows[0].rawKeys, rows[0].address, rows[0].address.replace(/ (\d+)/, " cesta $1")),
+        ...renameAddress(d, rows[1].rawKeys, rows[1].address, "Trg 1"),
+      ]),
+    );
+  });
+
   it("move a place for addresses (gramps)", () => {
     const ds = load(corpusText("gramps-5.5.1-utf8.ged"));
     const rows = scanAddresses(ds).slice(0, 4);
