@@ -1310,6 +1310,16 @@
               standard allows once. A value outside the list, or repeats that differ, are yours to settle.
             </p>
             <p>
+              In GEDCOM 7 a translation of a place or a name (TRAN) must name its language in a LANG line beneath
+              it; MacFamilyTree writes a place's historical names without one. <strong>Translations without a
+              language</strong> lists each such name once, with the number of lines that carry it and a language
+              suggested from its spelling (<em>Krainburg</em> → German). Change a suggestion in its menu, then write
+              one name with its <strong>Write</strong> button or all of them with <strong>Write the chosen
+              languages</strong>; <strong>Mark all as undetermined</strong> writes the standard's code <em>und</em>
+              instead, without guessing. A line holding several names in different languages (<em>M.Vellach, Media
+              Wella</em>) is split into one TRAN line per language.
+            </p>
+            <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
               in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers between people
               and families, <strong>Remove dangling references</strong> clears every other pointer whose target record is

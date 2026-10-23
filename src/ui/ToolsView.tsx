@@ -121,6 +121,7 @@ interface Props {
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
+  onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Open the save preview with the file written in `version` — the way to
    *  convert, or to save the structural repairs, with nothing else changed. */
   onSaveAs: (version: OutputVersion) => void;
@@ -162,7 +163,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFillPlaceCoords, onSaveAs, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFillPlaceCoords, onTagTranslations, onSaveAs, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Places leads the tabs and is where most work starts,
@@ -242,7 +243,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFillPlaceCoords={onFillPlaceCoords} onSaveAs={onSaveAs} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFillPlaceCoords={onFillPlaceCoords} onTagTranslations={onTagTranslations} onSaveAs={onSaveAs} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />

@@ -76,18 +76,24 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
           node.value = issue.fix;
         }
       }
-      const indi = dataset.individuals.get(xref);
-      const fam = dataset.families.get(xref);
-      if (indi && indi.raw === rec) {
-        rebuildIndividual(dataset, indi);
-        patches.push({ type: "individual", id: xref, before, after: cloneNode(rec) });
-      } else if (fam && fam.raw === rec) {
-        rebuildFamily(dataset, fam);
-        patches.push({ type: "family", id: xref, before, after: cloneNode(rec) });
-      } else {
-        patches.push({ type: "record", id: xref, before, after: cloneNode(rec) });
-      }
+      patches.push(recordPatch(dataset, xref, rec, before));
     }
   });
   return patches;
+}
+
+/** A record rewritten in place: the typed model brought back in step, and the
+ *  undo patch from its `before` clone. */
+export function recordPatch(dataset: Dataset, xref: string, rec: GedNode, before: GedNode): RecordPatch {
+  const indi = dataset.individuals.get(xref);
+  const fam = dataset.families.get(xref);
+  if (indi && indi.raw === rec) {
+    rebuildIndividual(dataset, indi);
+    return { type: "individual", id: xref, before, after: cloneNode(rec) };
+  }
+  if (fam && fam.raw === rec) {
+    rebuildFamily(dataset, fam);
+    return { type: "family", id: xref, before, after: cloneNode(rec) };
+  }
+  return { type: "record", id: xref, before, after: cloneNode(rec) };
 }

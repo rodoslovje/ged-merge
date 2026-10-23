@@ -9225,6 +9225,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border-bottom: 1px solid var(--border);
 }
 .tools-struct-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+/* Translations without a language: each name part with its language picker. */
+.tools-tran-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.tools-tran-parts { flex: 1 1 260px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.tools-tran-part { display: inline-flex; gap: 6px; align-items: baseline; }
+.tools-tran-name { font-weight: 600; }
 .tools-struct-loc { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* A non-INDI/FAM top-level record (SOUR, OBJE, NOTE, …): identified by type but
    not a link, since GED Merge can't open it. */

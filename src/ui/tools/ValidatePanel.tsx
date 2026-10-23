@@ -26,6 +26,7 @@ import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import { TranslationLangSection } from "./TranslationLangSection";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
@@ -130,6 +131,7 @@ export function ValidatePanel({
   onFixDanglingRefs,
   onFixConformance,
   onFillPlaceCoords,
+  onTagTranslations,
   onSaveAs,
 }: {
   dataset: Dataset;
@@ -146,6 +148,7 @@ export function ValidatePanel({
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
+  onTagTranslations: (choices: Map<string, string[]>) => number;
   onSaveAs: (version: OutputVersion) => void;
 }) {
   const { t } = useTranslation();
@@ -517,6 +520,11 @@ export function ValidatePanel({
   if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
+  // A translation the standard wants a language on, written without one — the
+  // worklist below re-reads those lines on the main thread, so only then.
+  const hasUntaggedTran = !!structure?.issues.some(
+    (i) => i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN"),
+  );
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -619,6 +627,13 @@ export function ValidatePanel({
           onCancel={() => setPlaceCoordPending(false)}
         />
       )}
+      <TranslationLangSection
+        dataset={dataset}
+        freshness={structure}
+        needed={hasUntaggedTran}
+        onApply={onTagTranslations}
+        onApplied={() => scans.refresh("validate")}
+      />
       {(showMediaCheck || fixActions.length > 0) && (
         <ul className="tools-fix-list">
           {showMediaCheck && (
