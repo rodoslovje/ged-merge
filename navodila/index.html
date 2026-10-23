@@ -1264,6 +1264,31 @@
                 pa mu manjka koordinata (pogosto, ko je dogodek dodan ali na novo vpisan po geokodiranju datoteke) — in
                 ponudi, da koordinato, ki jo vrednost v datoteki že ima, prekopira na dogodke, ki je nimajo, brez poizvedbe.
               </p>
+              <p>
+                Pregled strukture datoteko preveri tudi po standardu GEDCOM, ki ga navaja njena glava — 5.5, 5.5.1,
+                5.5.5 ali 7.0 — in označi:
+              </p>
+              <ul>
+                <li><strong>kazalce na napačen zapis</strong> — na primer povezavo na družino staršev, ki kaže na
+                  osebo, ali prazen kazalec <em>@VOID@</em> zunaj GEDCOM 7.0;</li>
+                <li><strong>ponovljene ali manjkajoče vrstice</strong> — dve vrstici SEX pri isti osebi, dva datuma pri
+                  enem dogodku ali glavo datoteke 5.5.1 brez vrstice CHAR;</li>
+                <li><strong>oznake na napačnem mestu</strong> — standardno oznako pod vrstico, ki je ne sme imeti; vsaka
+                  taka navada se izpiše enkrat, s številom pojavitev;</li>
+                <li><strong>nestandardne vrednosti</strong> — vrednost zunaj standardnega seznama v vrsticah SEX, PEDI,
+                  QUAY, RESN, ROLE, MEDI, TYPE imena in drugih vrsticah z naštetimi vrednostmi;</li>
+                <li><strong>napačno zapisane vrednosti</strong> — vrstico AGE ali LANG, ki ni zapisana po pravilih
+                  standarda;</li>
+                <li><strong>neveljavne ID-je zapisov</strong>.</li>
+              </ul>
+              <p>
+                Razširitvene oznake, kot je <em>_UID</em>, so dovoljene povsod in se ne presojajo. Z gumbom
+                <strong>Popravi zapis vrednosti</strong> se vrednost, ki se od standardnega seznama razlikuje le po
+                velikih in malih črkah, zapiše tako, kot jo navaja standard (<em>Adopted</em> → <em>adopted</em>).
+                Z gumbom <strong>Odstrani ponovljene vrstice</strong> se odstranijo natančne kopije vrstice, ki jo
+                standard dovoljuje le enkrat. Vrednost zunaj seznama in ponovitve, ki se med seboj razlikujejo, so
+                vprašanje za vašo presojo.
+              </p>
             </div>
             <p>
               Klik na katero koli težavo odpre zapis v <span class="gm-pill">Urejanju</span>. Paketni popravki v enem
@@ -1282,9 +1307,10 @@
             <p>
               Vsak od teh popravkov je na voljo tudi po eni ugotovitvi naenkrat, kar na vrstici, ki jo je sprožila:
               prizadete vrstice imajo svoj gumb — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>,
-              <strong>Združi v eno</strong>, <strong>Odstrani sklic</strong> ali, kadar se vrednost nastavi in ne
-              odstrani, kar izid sam
-              (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>). Uporabite jih, kadar se
+              <strong>Združi v eno</strong>, <strong>Odstrani sklic</strong>, <strong>Odstrani kopije</strong> ali,
+              kadar se vrednost nastavi in ne odstrani, kar izid sam
+              (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>,
+              <strong>→ adopted</strong>). Uporabite jih, kadar se
               z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
               je v skupini več ugotovitev, kot jih popravek lahko uredi (trije zakonci brez spola med osmimi zapisi brez
               spola), ima gumb samo tista vrstica, ki jo bo spremenil. Pokvarjeno povezavo je posebej vredno urediti tukaj:

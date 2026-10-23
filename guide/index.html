@@ -1229,6 +1229,20 @@
               copy the coordinate the value already carries in the file onto the events that lack it, no lookup needed.
             </p>
             <p>
+              The structure pass also holds the file to the GEDCOM standard its header declares — 5.5, 5.5.1, 5.5.5
+              or 7.0 — line by line: <strong>pointers to the wrong record</strong> (a parent-family link that points
+              at a person, or the <em>@VOID@</em> null pointer outside 7.0), <strong>repeated or missing lines</strong>
+              (two SEX lines on one person, two dates on one event, a 5.5.1 header without its CHAR line),
+              <strong>tags out of place</strong> (a standard tag under a line that cannot carry it, listed once per
+              habit with a count), <strong>non-standard values</strong> (a value outside the standard's list in SEX,
+              PEDI, QUAY, RESN, ROLE, MEDI, a name's TYPE and the other enumerated lines), <strong>malformed
+              values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>.
+              Extension tags such as <em>_UID</em> are allowed anywhere and not judged. <strong>Fix value
+              spelling</strong> rewrites a value that differs from the list only in capitals (<em>Adopted</em> →
+              <em>adopted</em>), and <strong>Remove repeated lines</strong> drops the exact copies of a line the
+              standard allows once. A value outside the list, or repeats that differ, are yours to settle.
+            </p>
+            <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
               in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers between people
               and families, <strong>Remove dangling references</strong> clears every other pointer whose target record is
@@ -1246,9 +1260,10 @@
             <p>
               Every one of those repairs is also offered one finding at a time, on the row that raised it: the affected
               rows carry their own button — <strong>Remove link</strong>, <strong>Remove duplicate</strong>,
-              <strong>Join into one</strong>, <strong>Remove reference</strong>, or, for a value being set rather than
-              dropped, the result itself
-              (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>). Use them when you
+              <strong>Join into one</strong>, <strong>Remove reference</strong>, <strong>Remove copies</strong>, or,
+              for a value being set rather than dropped, the result itself
+              (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>,
+              <strong>→ adopted</strong>). Use them when you
               agree with some findings and not others: each acts on that record alone. The buttons double as a map of what the batch fix above would touch — where a category holds more
               findings than the fix can settle (three no-sex spouses among eight records with no sex), only the rows it
               would change carry a button. A broken link is worth settling here in particular: it cannot be seen or
