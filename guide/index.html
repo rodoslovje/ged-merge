@@ -592,11 +592,12 @@
             <div>
               Birth is always shown. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
               <ul>
-                <li><strong>Early Life</strong> — Baptism, Christening, First Communion, Confirmation, Adoption.
+                <li><strong>Early Life</strong> — Baptism, Christening, Adult christening, Blessing, First Communion,
+                  Confirmation, Bar mitzvah, Bat mitzvah, Adoption.
                   <em>Baptism</em> is baptism in general (GEDCOM <code>BAPM</code>), <em>Christening</em> the baptism
                   and naming of a child (<code>CHR</code>); GED Merge treats Baptism as the usual one, and it is what
                   the baptism-citation setting writes to.</li>
-                <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service (<code>_MILT</code>)</li>
+                <li><strong>Career</strong> — Occupation, Education, Graduation, Ordination, Retirement, Military service (<code>_MILT</code>)</li>
                 <li><strong>Attributes</strong> — Title, Physical description, Social standing, Religion, Nationality,
                   Number of children, Number of marriages, Reference number, Identification number, Social security
                   number, Race / ethnicity (<code>RACE</code>), Award (<code>NOBI</code>), Illness (<code>ILL</code>),
@@ -606,6 +607,11 @@
                 <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
                 <li><strong>Estate</strong> — Property, Will, Probate, Legal transaction (<code>LATR</code>), Deed (<code>DEED</code>)</li>
                 <li><strong>Death</strong> — Death, Cremation, Burial, Interment (<code>_INTE</code>), Funeral (<code>_FNRL</code>)</li>
+                <li><strong>LDS Ordinances</strong> — LDS baptism, LDS confirmation, LDS endowment, LDS sealing to
+                  parents. On these rows <strong>+ Add</strong> also offers a <strong>Temple</strong> and a
+                  <strong>Status</strong>; a status you change is dated today, the day it was set. A new sealing to
+                  parents names the family the person was born into. The ordinances are left off the Timeline,
+                  because most are performed by proxy long after the person's death.</li>
                 <li><strong>Other</strong> — the two generic kinds, Event and Fact</li>
               </ul>
               <p>
@@ -755,7 +761,7 @@
               <ul>
                 <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. Naming the second parent completes a couple: if those two already have a family of their own, the child joins it — alongside their marriage and any other children — rather than a fresh record for the same pair. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record. A parent block that names <em>neither</em> parent — usually a leftover second family from an import or a merge — carries its own <span class="gm-glyph danger">−</span> at the end of the row: it unlinks this person from that family, and the family record goes with it unless other children remain. The <a href="#validate">Health check</a> lists these under <strong>Family without parents</strong>.</li>
                 <li><strong>Siblings</strong> — under the parents, the family's children in birth order, with this person marked in their place. Children a parent had in another union follow as half-siblings, after a <em>Father's other family</em> or <em>Mother's other family</em> label and with a dashed border; hovering one names the other parent. A click opens any of them. An only child has no siblings row.</li>
-                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Once every family already names a partner, one more <strong>+ Add Partner</strong> card follows the last one and starts a new union — a remarriage gets its own family this way. Each family shows the events it actually records; <strong>+ Add Family Event</strong> adds Marriage, Engagement, Separation, Divorce, a partnership <em>Status</em> or a custom event, and the event's own <span class="gm-glyph">▾</span> menu removes it again. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
+                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Once every family already names a partner, one more <strong>+ Add Partner</strong> card follows the last one and starts a new union — a remarriage gets its own family this way. Each family shows the events it actually records; <strong>+ Add Family Event</strong> adds Marriage, Engagement, Marriage contract, Marriage settlement, Separation, the couple's Family residence and Household census, Number of children, Divorce filed, Divorce, Annulment, LDS sealing to spouse, a partnership <em>Status</em> or a custom event, and the event's own <span class="gm-glyph">▾</span> menu removes it again. A family has one row for each kind of event: when the file records a second family residence or census, it is saved as it was, but only the first one is shown and edited. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph danger">−</span> unlinks a child without deleting them. Picking somebody who is already a child in another family <em>moves</em> them here: only one family can be the birth family, so you confirm the move first and the question names the parents they leave. An adoptive or foster link stays put.</li>
               </ul>
               <p><strong>Relatives.</strong> A panel beside the person lists the relatives the cards do not show — grandparents, uncles and aunts, cousins, nephews and nieces, grandchildren — grouped by relationship, nearest first, and split into the father's and the mother's side. The gear in the panel's header shows three steppers that set how far it reaches: <strong>Ancestors</strong> counts generations up, <strong>Descendants</strong> generations down, and <strong>Other relatives</strong> how many generations of each ancestor's other descendants are shown (1 adds uncles and aunts, 2 first cousins, nephews and nieces). <strong>Partners of relatives</strong> adds the people they married, in italics and led by the couple's symbol: ⚭ married, ⚮ divorced, ⚬⚬ separated, ⚯ an unmarried partnership. Hovering one names the relative, and a recorded separation as well. A click opens anyone in the list, and the button with a group of people next to <strong>Back</strong> shows or hides the panel. On a narrow screen the panel sits under the families.</p>
@@ -2959,8 +2965,8 @@
               <thead><tr><th>Mark</th><th>Event</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-glyph">*</span></td><td>Birth</td></tr>
-                <tr><td><span class="gm-glyph">~</span></td><td>Baptism or christening</td></tr>
-                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Engagement, marriage, divorce, separation, partnership</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Baptism or christening, an adult's and the LDS baptism included</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Engagement, marriage, divorce or annulment, separation, partnership</td></tr>
                 <tr><td><span class="gm-glyph">⚬⚬</span></td><td>Separation — two rings no longer linked</td></tr>
                 <tr><td><span class="gm-glyph">†</span></td><td>Death</td></tr>
                 <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Burial, cremation</td></tr>
@@ -2970,7 +2976,7 @@
                 <tr><td><span class="gm-glyph">#</span></td><td>Number of children or marriages; reference, identification or social security number</td></tr>
                 <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Emigration, immigration, naturalization</td></tr>
                 <tr><td><span class="gm-glyph">▤</span></td><td>Census</td></tr>
-                <tr><td><span class="gm-glyph">§</span></td><td>Property, will, probate</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Property, will, probate, marriage contract or settlement</td></tr>
                 <tr><td><span class="gm-glyph">·</span></td><td>Any other event type — one with no traditional symbol of its own</td></tr>
                 <tr><td><span class="gm-glyph">◦</span></td><td>Any non-standard event type — a tag that a program added to GEDCOM (<code>_MILT</code>, <code>NOBI</code> and the like)</td></tr>
               </tbody>

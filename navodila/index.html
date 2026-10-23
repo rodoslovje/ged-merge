@@ -598,11 +598,12 @@
               Rojstvo je prikazano privzeto. <strong>+ Dodaj dogodek</strong> razkrije ostale, razvrščene po življenjskih
               fazah:
               <ul>
-                <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Prvo sveto obhajilo, Birma, Posvojitev.
+                <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Krst odraslega, Blagoslov, Prvo sveto obhajilo,
+                  Birma, Bar micva, Bat micva, Posvojitev.
                   <em>Krst</em> je krst nasploh (GEDCOM <code>BAPM</code>), <em>Krst otroka</em> pa krst in poimenovanje
                   otroka (<code>CHR</code>) — oznaka, ki jo pišejo predvsem angleški programi. Za slovenske župnijske
                   vpise izberite <em>Krst</em>.</li>
-                <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Upokojitev, Vojaška služba (<code>_MILT</code>)</li>
+                <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Posvečenje, Upokojitev, Vojaška služba (<code>_MILT</code>)</li>
                 <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Stan, Veroizpoved, Narodnost, Število otrok,
                   Število zakonov, Referenčna številka, Identifikacijska številka, Številka socialnega zavarovanja,
                   Etnična pripadnost (<code>RACE</code>), Priznanje (<code>NOBI</code>), Bolezen (<code>ILL</code>),
@@ -612,6 +613,11 @@
                 <li><strong>Bivanje in selitve</strong> — Prebivališče, Izselitev, Priselitev, Naturalizacija, Popis</li>
                 <li><strong>Premoženje</strong> — Premoženje, Oporoka, Zapuščinska obravnava, Pravni posel (<code>LATR</code>), Listina (<code>DEED</code>)</li>
                 <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob (<code>_INTE</code>), Pogreb (<code>_FNRL</code>)</li>
+                <li><strong>Obredi LDS</strong> — LDS krst, LDS birma, LDS obdaritev, LDS zapečatenje s starši. Gumb
+                  <strong>+ Dodaj</strong> v vrstici takega obreda ponudi še polji <strong>Tempelj</strong> in
+                  <strong>Stanje</strong>. Ko stanje spremenite, se mu pripiše današnji datum — dan, ko je bilo stanje
+                  določeno. Novo zapečatenje s starši se poveže z družino, v katero se je oseba rodila. Obredi LDS se
+                  na časovnici ne prikažejo, ker je večina med njimi opravljena v zastopstvu, dolgo po smrti osebe.</li>
                 <li><strong>Drugo</strong> — splošni vrsti Dogodek in Dejstvo</li>
               </ul>
               <p>
@@ -761,7 +767,7 @@
               <ul>
                 <li><strong>Starši</strong> — <strong>+ Dodaj očeta</strong> / <strong>+ Dodaj mater</strong> poiščeta obstoječo osebo ali dodata novo. Z drugim staršem je par popoln: če imata ta dva že svojo družino, se otrok pridruži njej — k njuni poroki in morebitnim drugim otrokom — in ne novemu zapisu za isti par. Ikona <span class="gm-glyph danger">−</span> odklopi vlogo, ne da bi izbrisala zapis. Sklop staršev, ki ne navaja <em>nobenega</em> starša — običajno ostanek druge družine po uvozu ali združevanju — ima na koncu vrstice svojo ikono <span class="gm-glyph danger">−</span>: odklopi to osebo od te družine, z njo pa gre tudi družinski zapis, razen če so v njem še drugi otroci. <a href="#validate">Pregled</a> jih našteje pod <strong>Družina brez staršev</strong>.</li>
                 <li><strong>Bratje in sestre</strong> — pod starši so otroci te družine po vrstnem redu rojstva, oseba, ki jo urejate, pa je označena na svojem mestu. Za njimi so polbratje in polsestre, ki jih je eden od staršev imel v drugi zvezi: stojijo za oznako <em>Očetova druga družina</em> ali <em>Materina druga družina</em> in imajo črtkan rob, ko se z miško ustavite na enem od njih, pa se izpiše drugi starš. S klikom odprete kogar koli od njih. Pri edinem otroku te vrstice ni.</li>
-                <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Ko partnerja že ima vsaka družina, za zadnjo stoji še ena kartica <strong>+ Dodaj partnerja</strong>, ki začne novo zvezo — nova poroka tako dobi svojo družino. Vsaka družina prikazuje dogodke, ki jih res ima; prek <strong>+ Dodaj družinski dogodek</strong> dodate poroko, zaroko, ločeno življenje, ločitev, <em>status</em> zveze ali dogodek po meri, meni <span class="gm-glyph">▾</span> pri dogodku pa ga spet odstrani. <span class="gm-glyph danger">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
+                <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Ko partnerja že ima vsaka družina, za zadnjo stoji še ena kartica <strong>+ Dodaj partnerja</strong>, ki začne novo zvezo — nova poroka tako dobi svojo družino. Vsaka družina prikazuje dogodke, ki jih res ima; prek <strong>+ Dodaj družinski dogodek</strong> dodate poroko, zaroko, ženitno pogodbo, premoženjsko pogodbo zakoncev, ločeno življenje, skupno prebivališče, popis gospodinjstva, število otrok, vlogo za ločitev, ločitev, razveljavitev zakona, LDS zapečatenje z zakoncem, <em>status</em> zveze ali dogodek po meri, meni <span class="gm-glyph">▾</span> pri dogodku pa ga spet odstrani. Družina ima za vsako vrsto dogodka eno vrstico: če datoteka navaja še eno skupno prebivališče ali še en popis gospodinjstva, se ta zapis shrani nespremenjen, prikaže in ureja pa se samo prvi. <span class="gm-glyph danger">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
                 <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph danger">−</span> odklopi otroka brez brisanja. Če izberete osebo, ki je že otrok v drugi družini, se ta oseba <em>premakne</em> sem: rodna družina je lahko le ena, zato premik najprej potrdite, vprašanje pa našteje starše, ki jih oseba zapušča. Posvojitvena ali rejniška vez ostane.</li>
               </ul>
               <p><strong>Sorodniki.</strong> Plošča ob osebi našteje sorodnike, ki jih kartice ne prikazujejo — dedke in babice, strice in tete, bratrance in sestrične, nečake in nečakinje ter vnuke. Razvrščeni so po sorodstvu, najbližji najprej, in ločeni po očetovi in materini strani. Zobnik v glavi plošče prikaže tri izbire, s katerimi določite, kako daleč plošča seže: <strong>Predniki</strong> štejejo rodove navzgor, <strong>Potomci</strong> rodove navzdol, <strong>Drugi sorodniki</strong> pa povedo, koliko rodov drugih potomcev vsakega prednika se prikaže (1 doda strice in tete, 2 bratrance, sestrične, nečake in nečakinje). Možnost <strong>Partnerji sorodnikov</strong> doda še njihove zakonce in partnerje, izpisane ležeče in z znakom zveze pred imenom: ⚭ zakon, ⚮ ločitev, ⚬⚬ ločeno življenje, ⚯ zunajzakonska zveza. Ko se z miško ustavite na enem od njih, se izpiše sorodnik, s katerim je v zvezi, in morebitno zapisano ločeno življenje. S klikom odprete kogar koli s seznama, z gumbom s skupino ljudi ob gumbu <strong>Nazaj</strong> pa ploščo prikažete ali skrijete. Na ozkem zaslonu je plošča pod družinami.</p>
@@ -3059,8 +3065,8 @@
               <thead><tr><th>Znamenje</th><th>Dogodek</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-glyph">*</span></td><td>Rojstvo</td></tr>
-                <tr><td><span class="gm-glyph">~</span></td><td>Krst in krst otroka</td></tr>
-                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Zaroka, poroka, ločitev, ločeno življenje, partnerstvo</td></tr>
+                <tr><td><span class="gm-glyph">~</span></td><td>Krst in krst otroka, tudi krst odraslega in LDS krst</td></tr>
+                <tr><td><span class="gm-glyph">⚬</span> <span class="gm-glyph">⚭</span> <span class="gm-glyph">⚮</span> <span class="gm-glyph">⚬⚬</span> <span class="gm-glyph">⚯</span></td><td>Zaroka, poroka, ločitev ali razveljavitev zakona, ločeno življenje, partnerstvo</td></tr>
                 <tr><td><span class="gm-glyph">⚬⚬</span></td><td>Ločeno življenje — prstana, ki nista več povezana</td></tr>
                 <tr><td><span class="gm-glyph">†</span></td><td>Smrt</td></tr>
                 <tr><td><span class="gm-glyph">▭</span> <span class="gm-glyph">⚱</span></td><td>Pokop, upepelitev</td></tr>
@@ -3070,7 +3076,7 @@
                 <tr><td><span class="gm-glyph">#</span></td><td>Število otrok ali zakonov; referenčna številka, identifikacijska številka, številka socialnega zavarovanja</td></tr>
                 <tr><td><span class="gm-glyph">→</span> <span class="gm-glyph">←</span> <span class="gm-glyph">⚑</span></td><td>Izselitev, priselitev, naturalizacija</td></tr>
                 <tr><td><span class="gm-glyph">▤</span></td><td>Popis</td></tr>
-                <tr><td><span class="gm-glyph">§</span></td><td>Premoženje, oporoka, zapuščinska obravnava</td></tr>
+                <tr><td><span class="gm-glyph">§</span></td><td>Premoženje, oporoka, zapuščinska obravnava, ženitna ali premoženjska pogodba zakoncev</td></tr>
                 <tr><td><span class="gm-glyph">·</span></td><td>Vsaka druga vrsta dogodka — takšna, ki nima svojega ustaljenega znaka</td></tr>
                 <tr><td><span class="gm-glyph">◦</span></td><td>Vsaka nestandardna vrsta dogodka — oznaka, ki jo je standardu GEDCOM dodal kak program (<code>_MILT</code>, <code>NOBI</code> in podobne)</td></tr>
               </tbody>
