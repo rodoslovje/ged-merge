@@ -515,3 +515,47 @@ describe("normalizeDataset version migration wiring", () => {
     expect(sex.value).toBe("U");
   });
 });
+
+describe("migrateVersion — the events lifted as first-class ones", () => {
+  // Every tag and substructure here is spelled alike in 5.5.1 and 7.0; only an
+  // ordinance status's enumeration differs.
+  const EVENTS =
+    "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 ORDN\n2 DATE 1905\n1 CHRA\n2 DATE 1920\n1 BLES\n1 BARM\n1 BASM\n" +
+    "1 BAPL\n2 DATE 1950\n2 TEMP SLAKE\n2 STAT COMPLETED\n3 DATE 1951\n1 CONL\n2 TEMP SLAKE\n1 ENDL\n" +
+    "1 SLGC\n2 TEMP LOGAN\n2 FAMC @F1@\n1 FAMC @F1@\n" +
+    "0 @F1@ FAM\n1 CHIL @I1@\n1 ANUL\n2 DATE 1921\n1 DIVF\n1 MARC\n1 MARS\n1 RESI\n2 DATE 1901\n1 CENS\n1 NCHI 4\n" +
+    "1 SLGS\n2 TEMP SLAKE\n2 STAT COMPLETED\n3 DATE 1956\n";
+
+  it.each([["5.5.1", "7.0"], ["7.0", "5.5.1"]] as const)("leaves them untouched from %s to %s", (from, to) => {
+    const { records, changed } = migrated(from, EVENTS, to);
+    expect(changed).toBe(0);
+    expect(serializeGedcom(records)).toContain(EVENTS);
+  });
+
+  it("upgrades an ordinance status to the 7.0 enumeration", () => {
+    const { records, changes } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BAPL\n2 STAT PRE-1970\n3 DATE 1970\n1 ENDL\n2 STAT Completed\n3 DATE 1990\n" +
+      "0 @F1@ FAM\n1 SLGS\n2 STAT DNS/CAN\n3 DATE 2000\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BAPL", "STAT"])!.value).toBe("PRE_1970");
+    expect(findByPath(indi, ["ENDL", "STAT"])!.value).toBe("COMPLETED");
+    expect(findByPath(record(records, "@F1@"), ["SLGS", "STAT"])!.value).toBe("DNS_CAN");
+    expect(changes).toHaveLength(3);
+  });
+
+  it("downgrades the two statuses 5.5.1 punctuates differently, and leaves an unknown one alone", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 BAPL\n2 STAT PRE_1970\n3 DATE 1970\n1 CONL\n2 STAT Waiting\n3 DATE 1990\n" +
+      "0 @F1@ FAM\n1 SLGS\n2 STAT DNS_CAN\n3 DATE 2000\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BAPL", "STAT"])!.value).toBe("PRE-1970");
+    expect(findByPath(indi, ["CONL", "STAT"])!.value).toBe("Waiting");
+    expect(findByPath(record(records, "@F1@"), ["SLGS", "STAT"])!.value).toBe("DNS/CAN");
+  });
+});

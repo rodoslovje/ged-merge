@@ -31,6 +31,12 @@ import { walkNodes } from "./walk";
  *  - media                             : `FORM` file extension ⇄ IANA media
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
+ *  - LDS ordinance status              : `STAT` `PRE-1970`/`DNS/CAN` (and any
+ *                                        casing) ⇄ the `PRE_1970`/`DNS_CAN`
+ *                                        enumeration; the ordinance tags
+ *                                        themselves, `TEMP`, `STAT`.`DATE`
+ *                                        and the sealing's `FAMC` are spelled
+ *                                        alike in both
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
  *                                        `NO` → `_NO`, `SDATE` → `_SDATE`, a
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
@@ -94,6 +100,29 @@ function plain(tag: string, value?: string): GedNode {
   const node: GedNode = { level: 0, tag, children: [] };
   if (value !== undefined) node.value = value;
   return node;
+}
+
+/** The ordinance statuses 7.0 enumerates. 5.5.1 lists the same set, two of
+ *  them punctuated differently (see {@link STAT_DOWNGRADES}). */
+const STAT_ENUM = new Set([
+  "BIC", "CANCELED", "CHILD", "COMPLETED", "EXCLUDED", "DNS", "DNS_CAN", "INFANT", "PRE_1970", "STILLBORN", "SUBMITTED", "UNCLEARED",
+]);
+
+/** 7.0 status → its 5.5.1 spelling, where the two differ. */
+const STAT_DOWNGRADES: Record<string, string> = { PRE_1970: "PRE-1970", DNS_CAN: "DNS/CAN" };
+
+/** Rewrite an ordinance's `STAT` value into the target version's spelling. A
+ *  value neither standard defines is left as the file writes it. */
+function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
+  const raw = node.value?.trim();
+  if (!raw) return;
+  const upper = raw.toUpperCase().replace(/[-/ ]/g, "_");
+  if (!STAT_ENUM.has(upper)) return;
+  const next = to === "7.0" ? upper : (STAT_DOWNGRADES[upper] ?? upper);
+  if (next === node.value) return;
+  const before = describe(node);
+  node.value = next;
+  report(ctx, node, before);
 }
 
 /* ------------------------------- 5.5.1 → 7.0 ------------------------------ */
@@ -163,6 +192,8 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
         node.value = letter;
         report(ctx, node, before);
       }
+    } else if (node.tag === "STAT" && node.level > 0) {
+      migrateStat(node, ctx, "7.0");
     } else if (node.tag === "PEDI" && node.value !== undefined) {
       const upper = node.value.trim().toUpperCase();
       if (upper !== node.value && ["ADOPTED", "BIRTH", "FOSTER", "SEALING"].includes(upper)) {
@@ -523,6 +554,8 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       const before = describe(node);
       node.value = "U";
       report(ctx, node, before);
+    } else if (node.tag === "STAT" && node.level > 0) {
+      migrateStat(node, ctx, "5.5.1");
     } else if (node.tag in UNDERSCORE_DOWNGRADES && node.level > 0) {
       report(ctx, retag(node, UNDERSCORE_DOWNGRADES[node.tag]), describe(node));
     }
