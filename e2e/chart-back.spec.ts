@@ -19,7 +19,7 @@ async function openChartsFromEdit(page: Page) {
 // chart in one press for the page it was opened from — however many people
 // the reader wandered through. Back used to step through every re-root
 // first, so returning to Edit took one press per person.
-test("the chart's trail retraces re-roots and Back leaves in one press", async ({ page }) => {
+test("the chart's trail retraces re-roots and Back leaves in one press", { tag: "@smoke" }, async ({ page }) => {
   await openChartsFromEdit(page);
 
   const title = page.locator(".tree-title-name");

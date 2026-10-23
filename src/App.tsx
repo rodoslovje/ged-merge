@@ -16,7 +16,6 @@ import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
 import { NOT_GEDCOM } from "./gedcom/parser";
-import { buildDataset } from "./gedcom/builder";
 import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
@@ -28,6 +27,7 @@ import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
+import { savedBaseline } from "./save/savedBaseline";
 import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edit/removeFromSave";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
 import type { MatchResult } from "./match/types";
@@ -1904,23 +1904,8 @@ function AppContent() {
     }
 
     // The downloaded file is the new main baseline — rebuild the live dataset
-    // from the same records so the app reflects exactly what was saved, instead
-    // of leaving merged-in fields stuck on stale pre-merge data (mergeDecisions
-    // only ever wrote them into a clone for serialization).
-    const rebuilt = buildDataset({
-      version: mainDataset.version,
-      // The saved text declares (and is) UTF-8 — see ensureUtf8Charset above —
-      // so the new baseline's charset must agree with it.
-      charset: "UTF-8",
-      records: preview.records,
-      warnings: mainDataset.warnings,
-      eol: mainDataset.eol,
-      finalNewline: mainDataset.finalNewline,
-      // The file's byte-order mark is a property of the file, not of this
-      // save: without it the second download of the session would lose it.
-      bom: mainDataset.bom,
-    });
-    Object.assign(mainDataset, rebuilt);
+    // from the same records (see savedBaseline).
+    Object.assign(mainDataset, savedBaseline(mainDataset, preview.records));
     dirty.resetOnSave(mainDataset);
     sortEligiblePersonIdsRef.current = new Set();
 

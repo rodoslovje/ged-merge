@@ -75,7 +75,13 @@ export interface ChildGroup {
  * (ancestor entries have no `parentNum`), so ancestor narratives simply get
  * no children sentences — each child is the previous entry anyway.
  */
-export function childGroups(data: ReportData): Map<number, ChildGroup[]> {
+export function childGroups(
+  data: ReportData,
+  // How a child is named in the sentence — under privacy the same redacted
+  // name its own entry shows, or a living child would be named in the
+  // parent's paragraph after all.
+  nameOf: (e: ReportEntry) => string = (e) => e.name,
+): Map<number, ChildGroup[]> {
   const byParent = new Map<number, ChildGroup[]>();
   for (const g of data.generations) {
     for (const e of g.entries) {
@@ -84,7 +90,7 @@ export function childGroups(data: ReportData): Map<number, ChildGroup[]> {
       if (groups.length === 0) byParent.set(e.parentNum, groups);
       let group = groups.find((x) => x.fam === e.parentFam);
       if (!group) groups.push((group = { fam: e.parentFam, names: [] }));
-      group.names.push(e.name);
+      group.names.push(nameOf(e));
     }
   }
   return byParent;

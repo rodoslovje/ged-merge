@@ -61,8 +61,13 @@ test("the surnames layout bands every relative and marks the elders' edge", asyn
   await page.keyboard.press("Escape");
   await page.locator(".kin-legend .map-kind-chip").last().click();
   await expect(page.locator(".kin-surname-band")).not.toHaveCount(5);
-  const left = await page.locator(".kin-surname-band").count();
-  await expect(page.locator(".kin-surname")).toHaveCount(left);
+  // Bands and captions are filtered in the same render, but the band count is
+  // read while the chart may still be redrawing: re-read both until they agree.
+  await expect(async () => {
+    const left = await page.locator(".kin-surname-band").count();
+    expect(left).not.toBe(5);
+    await expect(page.locator(".kin-surname")).toHaveCount(left, { timeout: 1000 });
+  }).toPass();
   await page.locator(".kin-legend .map-kind-chip").last().click();
   await expect(page.locator(".kin-surname-band")).toHaveCount(5);
 

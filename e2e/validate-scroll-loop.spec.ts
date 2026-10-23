@@ -3,6 +3,7 @@ import { writeFileSync, existsSync } from "fs";
 import os from "os";
 import path from "path";
 import { tmpdir } from "./tmpdir";
+import { nextFrames, waitForListSettled } from "./frames";
 
 /**
  * The reported case: Tools → Health check → "Living over 99" (175 findings) →
@@ -71,15 +72,17 @@ for (const zoom of [0.9, 0.8]) {
     await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByText("Health check", { exact: true }).first().click();
     await expect(page.locator(".tools-issues").first()).toBeVisible({ timeout: 120000 });
-    await page.locator(".tools-chip", { hasText: "Living over 99" }).click();
-    await page.waitForTimeout(300);
+    const chip = page.locator(".tools-chip", { hasText: "Living over 99" });
+    await chip.click();
+    await expect(chip).toHaveClass(/\bactive\b/);
+    await waitForListSettled(page.locator(".tools-issue"), page.locator(".tools-view"));
 
     // Wheel, not scrollTop: a programmatic scroll resets the browser's own
     // scroll bookkeeping and hides the feedback this test is about.
     await page.locator(".tools-view").hover();
     for (let i = 0; i < 80; i++) {
       await page.mouse.wheel(0, 120);
-      await page.waitForTimeout(20);
+      await nextFrames(page); // the scroll and its re-render reach a frame
       if (await page.locator(".error-fallback").count()) break;
     }
 

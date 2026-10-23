@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
+import { waitForListSettled } from "./frames";
 
 // Editing a source from the Sources tree must leave the tree as it was: the
 // rows the reader opened still open, and the list still scrolled where they
@@ -38,7 +39,9 @@ test("editing a source leaves the tree open where it was", async ({ page }) => {
   await expect(repoRow).toBeVisible({ timeout: 15000 });
   const rows = page.locator(".tools-tree-row", { hasText: /Krstna knjiga/ });
   if (!(await rows.count())) await repoRow.locator(".tools-pair-toggle").click();
-  await expect(rows.first()).toBeVisible();
+  // The archive's sources render in one go, but read the count only once the
+  // tree has stopped growing — a first visible row is not the whole list.
+  await waitForListSettled(rows);
   const openedRows = await rows.count();
   expect(openedRows).toBeGreaterThan(30);
 

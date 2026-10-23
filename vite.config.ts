@@ -103,9 +103,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      // Measure only the pure-logic layers. The UI / worker / persistence
-      // layers are exercised by the Playwright e2e suite, not unit tests, so
-      // instrumenting them here would just report misleading zeros.
+      // Measure the pure-logic layers, plus the worker / persistence / save
+      // modules that have unit tests of their own. The rest of the UI layer is
+      // exercised by the Playwright e2e suite, not unit tests, so instrumenting
+      // it here would just report misleading zeros.
       // Keep this list in sync with the pure-logic directories under src/ —
       // a renamed directory left behind here silently drops it from the gate
       // (as `src/tree/**` did after it became `src/chart/**`).
@@ -121,36 +122,56 @@ export default defineConfig({
         "src/normalize/**/*.ts",
         "src/report/**/*.ts",
         "src/review/**/*.ts",
+        "src/save/**/*.ts",
         "src/state/**/*.ts",
         "src/tools/**/*.ts",
+        // Single files, not whole directories: the rest of src/persist (the
+        // geoDb gazetteer store), src/worker (message types) and src/ui have
+        // no unit tests of their own.
+        "src/persist/fingerprint.ts",
+        "src/persist/idb.ts",
+        "src/persist/serializedMain.ts",
+        "src/persist/useWorkspacePersistence.ts",
+        "src/worker/annotateCounts.ts",
+        "src/worker/gedcom.worker.ts",
+        "src/worker/geo.worker.ts",
+        "src/worker/tools.worker.ts",
+        "src/ui/tools/geoImport.ts",
+        "src/ui/useAppHistory.ts",
       ],
-      // `use*.ts` are React hooks living beside the pure modules they wrap
-      // (e.g. edit-state/useDirtyTracking over edit-state/dirty) — same
-      // rationale as the UI layer above: e2e covers them, unit coverage
-      // would report misleading zeros.
-      exclude: ["**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts", "src/**/use*.ts"],
+      // The keyboard hooks (`use*.ts` beside the pure modules they wrap) are
+      // covered by e2e only — same rationale as the UI layer above. Hooks with
+      // unit tests (run through src/testing/fakeReact.ts) are measured.
+      exclude: [
+        "**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts",
+        "src/keyboard/use*.ts",
+      ],
       // `text` (per-file) alongside the summary, so a gap in one module is
       // visible in CI output instead of being averaged away by its directory.
       reporter: ["text", "text-summary", "html"],
       // Per-directory floors — a regression ratchet, set a few points below the
       // current numbers so a genuine drop fails CI without flaking on small
       // edits. Re-run `npm run test:coverage` and raise these as coverage grows
-      // (last ratcheted 2026-09-18). `src/keyboard` is tiny (~40 statements),
+      // (last ratcheted 2026-10-23). `src/keyboard` is tiny (~40 statements),
       // so its floors sit further below: one uncovered branch moves it 8 points.
       thresholds: {
         "src/chart/**": { statements: 90, branches: 77, functions: 91, lines: 92 },
         "src/csv/**": { statements: 92, branches: 81, functions: 95, lines: 95 },
-        "src/edit-state/**": { statements: 95, branches: 91, functions: 97, lines: 95 },
+        "src/edit-state/**": { statements: 97, branches: 90, functions: 96, lines: 97 },
         "src/gedcom/**": { statements: 90, branches: 82, functions: 93, lines: 92 },
         "src/geo/**": { statements: 87, branches: 80, functions: 84, lines: 90 },
         "src/keyboard/**": { statements: 80, branches: 75, functions: 75, lines: 82 },
         "src/match/**": { statements: 90, branches: 86, functions: 93, lines: 93 },
         "src/merge/**": { statements: 87, branches: 79, functions: 89, lines: 90 },
         "src/normalize/**": { statements: 91, branches: 84, functions: 90, lines: 93 },
+        "src/persist/**": { statements: 86, branches: 81, functions: 84, lines: 90 },
         "src/report/**": { statements: 91, branches: 82, functions: 97, lines: 94 },
         "src/review/**": { statements: 89, branches: 85, functions: 91, lines: 91 },
+        "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
         "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
         "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
+        "src/ui/**": { statements: 95, branches: 89, functions: 93, lines: 96 },
+        "src/worker/**": { statements: 95, branches: 87, functions: 98, lines: 95 },
       },
     },
   },

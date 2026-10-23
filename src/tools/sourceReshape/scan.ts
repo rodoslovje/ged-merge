@@ -261,8 +261,13 @@ function scanContainer(
     } else if (child.tag === "SOUR") {
       const pointer = value.trim();
       if (pointer && isPointer(pointer)) {
-        const pageChild = firstChild(child, "PAGE");
-        const pageValue = pageChild?.value ?? "";
+        // Every PAGE line, not the first: a citation can carry the line twice,
+        // and a link on the second must be found by the run that converts the
+        // first — not by the next one.
+        const pageValue = childrenByTag(child, "PAGE")
+          .map((p) => p.value ?? "")
+          .filter(Boolean)
+          .join("\n");
         const ownerTitle = sourTitles.get(pointer);
         // The PAGE prose is part of the context too — Ancestry-style
         // citations carry the publication/collection details right there.

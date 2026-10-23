@@ -188,12 +188,12 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
     (data: ReportData | undefined) => {
       if (!settings.reportNarrative || !data) return undefined;
       const lang = narrativeLangFor(i18n.language);
-      const groups = childGroups(data);
+      const groups = childGroups(data, (e) => reportName(e, { privacyLiving: privacy, livingNameOf }));
       // Privacy reaches the planner: it decides whether a living partner's
       // years and a living parent's name enter the sentences at all.
       return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num), { privacyLiving: privacy }));
     },
-    [settings.reportNarrative, t, i18n.language, privacy],
+    [settings.reportNarrative, t, i18n.language, privacy, livingNameOf],
   );
   // One options object per report for all its renderings (page names, txt,
   // RTF, print).

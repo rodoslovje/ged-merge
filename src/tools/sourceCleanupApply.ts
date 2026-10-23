@@ -151,11 +151,13 @@ function diffRecordForests(before: GedNode[], after: GedNode[]): RecordPatch[] {
     if (JSON.stringify(live) === JSON.stringify(now)) return;
     patches.push({ type: patchType(live), id: live.xref, before: cloneNode(live), after: cloneNode(now) });
   });
-  for (const rec of after) {
+  after.forEach((rec, index) => {
     if (rec.xref && !seen.has(rec.xref)) {
-      patches.push({ type: patchType(rec), id: rec.xref, before: null, after: cloneNode(rec) });
+      // Where the run put it, so redo puts it back there rather than wherever
+      // a fresh insert would group it.
+      patches.push({ type: patchType(rec), id: rec.xref, before: null, after: cloneNode(rec), index });
     }
-  }
+  });
   return patches;
 }
 

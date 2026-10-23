@@ -8,6 +8,8 @@ import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { ChangeJournal } from "../state/mainSync";
 import { SerializedMain } from "./serializedMain";
+import { cloneNode } from "../gedcom/node";
+import { applyRecordPatches, type RecordPatch } from "../ui/historyTypes";
 
 const corpus = resolve(dirname(fileURLToPath(import.meta.url)), "../__fixtures__/corpus");
 const load = (bytes: ArrayBuffer | Uint8Array): Dataset => {
@@ -84,6 +86,47 @@ describe("SerializedMain", () => {
     ds.records[0].children.push({ level: 1, tag: "NOTE", value: "saved", children: [] });
     bump(null);
     await check();
+  });
+
+  it("stays byte-identical through the app's own patches: edit, delete, undo, redo, a new main", async () => {
+    const ds = load(encode(bigFile(6000)));
+    const journal = new ChangeJournal();
+    const cache = new SerializedMain();
+    let version = 0;
+    const check = async (d: Dataset = ds) => {
+      const got = await bytesOf(cache.blob(d, journal, version));
+      expect(sameBytes(got, encode(whole(d)))).toBe(true);
+    };
+    /** Apply `patches` the way Edit and undo/redo do, journaling the step. */
+    const step = (patches: RecordPatch[], direction: "undo" | "redo") => {
+      applyRecordPatches(ds, patches, direction);
+      journal.record(++version, patches.map((p) => p.id));
+    };
+    await check();
+    const raw = (id: string) => ds.individuals.get(id)!.raw;
+    const rename = (id: string, name: string): RecordPatch => {
+      const after = cloneNode(raw(id));
+      after.children[0].value = name;
+      return { type: "individual", id, before: cloneNode(raw(id)), after };
+    };
+    const edits = [rename("@I10@", "Prva /Sprememba/"), rename("@I5999@", "Zadnja /Sprememba/")];
+    step(edits, "redo");
+    await check();
+    const gone: RecordPatch = { type: "individual", id: "@I3000@", before: cloneNode(raw("@I3000@")), after: null, index: ds.records.indexOf(raw("@I3000@")) };
+    step([gone], "redo");
+    await check();
+    step([gone], "undo");
+    await check();
+    step(edits, "undo");
+    await check();
+    expect(new TextDecoder().decode(await bytesOf(cache.blob(ds, journal, version)))).toBe(bigFile(6000));
+    step(edits, "redo");
+    await check();
+    // A new main restarts the versions; the journal reset must not reuse chunks.
+    journal.reset();
+    version = 0;
+    const other = load(encode(bigFile(6000).replace("Oseba20 ", "Druga ")));
+    await check(other);
   });
 
   it("starts over for another dataset", async () => {
