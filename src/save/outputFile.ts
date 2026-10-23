@@ -3,6 +3,7 @@ import { firstChild } from "../gedcom/node";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { versionFamily, type VersionFamily } from "../normalize/migrate";
+import { walkNodes } from "../normalize/walk";
 
 /**
  * What a file needs, at the level of the file rather than of any record, to be
@@ -22,6 +23,15 @@ export type OutputVersion = VersionFamily;
  *  (`preview.fix.*` / `changeReport.note.fix.*`). */
 export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm";
 
+/**
+ * Where an extension tag without a documented URI is declared to live in a
+ * GEDCOM 7 header (`HEAD.SCHMA.TAG`). The FamilySearch extension registry
+ * documents none of the vendor tags files actually carry (`_UID`, `_MARNM`,
+ * `_FSFTID`, `_UPD`, …), and borrowing a registered URI for a same-named tag
+ * would assert a meaning the vendor never gave it. A stable URI under the
+ * app's own domain only says "this tag, as found in the file".
+ */
+export const SCHEMA_BASE = "https://gedmerge.com/terms/";
 
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
@@ -143,6 +153,41 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean): boo
   return true;
 }
 
+/** The extension tag as the file writes it — 7.0 tags are case-sensitive, so
+ *  the schema must declare the spelling the lines carry. */
+function writtenTag(node: GedNode): string {
+  return node.spelling?.toUpperCase() === node.tag ? node.spelling : node.tag;
+}
+
+/**
+ * Declare every extension (`_`) tag in a GEDCOM 7 forest in `HEAD.SCHMA`, as
+ * 7.0 asks of a file that uses them. Entries the header already has are kept
+ * and never repeated; new ones point under {@link SCHEMA_BASE}. Returns the
+ * tags added.
+ */
+export function writeSchema(records: GedNode[]): string[] {
+  const head = records.find((r) => r.tag === "HEAD");
+  if (!head) return [];
+  const used = new Set<string>();
+  walkNodes(records, (node) => {
+    if (node.tag.startsWith("_")) used.add(writtenTag(node));
+  });
+  let schma = firstChild(head, "SCHMA");
+  const declared = new Set(
+    (schma?.children ?? []).filter((c) => c.tag === "TAG").map((c) => c.value?.trim().split(/\s+/)[0]),
+  );
+  const added = [...used].filter((tag) => !declared.has(tag)).sort();
+  if (added.length === 0) return added;
+  if (!schma) {
+    schma = line("SCHMA");
+    // After GEDC, which 7.0 puts first.
+    const at = head.children.findIndex((c) => c.tag === "GEDC");
+    head.children.splice(at + 1, 0, schma);
+  }
+  for (const tag of added) schma.children.push(line("TAG", `${tag} ${SCHEMA_BASE}${tag}`));
+  return added;
+}
+
 export interface PreparedDownload {
   /** The repairs made — see {@link completeStructure}. */
   fixes: StructuralFix[];
@@ -167,5 +212,6 @@ export function prepareDownload(
   const conversion = null;
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);
+  if (version === "7.0") writeSchema(records);
   return { fixes, conversion };
 }

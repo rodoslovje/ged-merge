@@ -3,7 +3,7 @@ import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
-import { completeStructure, outputOptions, prepareDownload } from "./outputFile";
+import { completeStructure, outputOptions, prepareDownload, SCHEMA_BASE, writeSchema } from "./outputFile";
 
 const when = new Date(Date.UTC(2026, 9, 23, 12, 0, 0));
 
@@ -20,6 +20,43 @@ function download(text: string, version?: "5.5.1" | "7.0") {
   const out = serializeGedcom(records, outputOptions(ds, version ?? (ds.version === "7.0" ? "7.0" : "5.5.1")));
   return { ...prepared, out, lines: out.trimEnd().split("\n") };
 }
+
+describe("writeSchema — GEDCOM 7 extension tags", () => {
+  it("declares every extension tag a 7.0 file uses, after GEDC, in the file's spelling", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0",
+      "0 @I1@ INDI", "1 _UID 123", "1 NAME Ana /Novak/", "2 _MARNM Kos", "1 _myTag x", "2 _UID 4",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.slice(0, 7)).toEqual([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 7.0",
+      "1 SCHMA",
+      `2 TAG _MARNM ${SCHEMA_BASE}_MARNM`,
+      `2 TAG _UID ${SCHEMA_BASE}_UID`,
+      `2 TAG _myTag ${SCHEMA_BASE}_myTag`,
+    ]);
+  });
+
+  it("keeps the header's own entries and never repeats one", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SCHMA", "2 TAG _UID https://example.org/uid",
+      "0 @I1@ INDI", "1 _UID 1", "1 _FSFTID ABCD-123",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual([
+      "2 TAG _UID https://example.org/uid",
+      `2 TAG _FSFTID ${SCHEMA_BASE}_FSFTID`,
+    ]);
+    expect(lines.filter((l) => l === "1 SCHMA")).toHaveLength(1);
+  });
+
+  it("writes no schema for a 7.0 file without extensions, nor for 5.5.1", () => {
+    expect(writeSchema(parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n0 TRLR\n").records)).toEqual([]);
+    expect(download("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 _UID 1\n0 TRLR\n").out).not.toContain("SCHMA");
+  });
+});
 
 describe("completeStructure — header and trailer", () => {
   it("gives a headerless file a 5.5.1 header and a trailer", () => {
