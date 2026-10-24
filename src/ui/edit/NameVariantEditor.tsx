@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { GedcomVersion, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setAdditionalName, removeAdditionalName, foldAdditionalNameToMarnm } from "../../gedcom/edit";
-import { ADDITIONAL_NAME_TYPES, nameTypeLabel } from "../../match/relatives";
+import { additionalNameTypes, nameTypeLabel } from "../../match/relatives";
 import { ClearableInput } from "./ClearableInput";
 import { SelectMenu } from "../DropdownMenu";
 import type { Commit } from "./types";
@@ -34,8 +34,12 @@ export function NameVariantEditor({
   const name = person.names[index + 1];
   const [given, setGiven] = useState(name?.given ?? "");
   const [surname, setSurname] = useState(name?.surname ?? "");
-  // The menu's options are lower case; a 7.0 file writes the same types upper case.
-  const typeOption = ADDITIONAL_NAME_TYPES.find((opt) => opt === name?.type?.toLowerCase()) ?? name?.type ?? "aka";
+  // The menu's options are lower case; a 7.0 file writes the same types upper
+  // case. A type the standard does not define stays listed for this name only,
+  // so the menu shows what the file says until another type is picked.
+  const offered = additionalNameTypes(version);
+  const typeOption = offered.find((opt) => opt === name?.type?.toLowerCase()) ?? name?.type ?? "aka";
+  const typeOptions = offered.includes(typeOption) ? offered : [...offered, typeOption];
 
   function commitFields(nextGiven: string, nextSurname: string) {
     // Only a real change may write: setAdditionalName canonicalizes the NAME
@@ -89,7 +93,10 @@ export function NameVariantEditor({
             commit((indi) => setAdditionalName(indi, index, { type: next }, version));
           }
         }}
-        options={ADDITIONAL_NAME_TYPES.map((opt) => ({ value: opt, label: nameTypeLabel(opt, t) }))}
+        options={typeOptions.map((opt) => ({
+          value: opt,
+          label: nameTypeLabel(opt, t, opt === typeOption ? name?.typePhrase : undefined),
+        }))}
       />
       <button
         type="button"

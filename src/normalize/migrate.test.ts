@@ -555,10 +555,18 @@ describe("normalizeDataset version migration wiring", () => {
     const typesOf = (records: GedNode[]) =>
       childrenByTag(record(records, "@I1@"), "NAME").map((n) => childValue(n, "TYPE"));
     const up = migrated("5.5.1", body, "7.0");
-    expect(typesOf(up.records)).toEqual([undefined, "AKA", "variation"]);
+    expect(typesOf(up.records)).toEqual([undefined, "AKA", "AKA"]);
     expect(up.changes).toContainEqual({ before: "TYPE aka", after: "TYPE AKA" });
     const down = migrated("7.0", body.replace("TYPE aka", "TYPE AKA"), "5.5.1");
     expect(typesOf(down.records)).toEqual([undefined, "aka", "variation"]);
+  });
+
+  it("keeps a name type 7.0 does not know as OTHER's PHRASE, and gives it back", () => {
+    const body = "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Marija //\n2 TYPE religious\n";
+    const up = migrated("5.5.1", body, "7.0");
+    expect(serializeGedcom(up.records)).toContain("1 NAME Marija //\n2 TYPE OTHER\n3 PHRASE religious\n");
+    const down = migrated("7.0", "0 @I1@ INDI\n1 NAME Marija //\n2 TYPE OTHER\n3 PHRASE religious\n", "5.5.1");
+    expect(serializeGedcom(down.records)).toContain("1 NAME Marija //\n2 TYPE religious\n");
   });
 
   it("merges a name variant into a 7.0 main as AKA even when the main writes aka", () => {

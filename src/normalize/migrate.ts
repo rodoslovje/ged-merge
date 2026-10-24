@@ -4,7 +4,7 @@ import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
-import { spellNameType, splitSlashName } from "../gedcom/name";
+import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { walkNodes } from "./walk";
 
@@ -36,7 +36,9 @@ import { walkNodes } from "./walk";
  *  - married surnames                  : a `NAME`'s `_MARNM` ⇄ a `NAME` of its
  *                                        own with `TYPE MARRIED`
  *  - name types                        : `NAME`.`TYPE` `aka`/`married`/… ⇄
- *                                        `AKA`/`MARRIED`/… (7.0's enumeration)
+ *                                        `AKA`/`MARRIED`/… (7.0's enumeration);
+ *                                        `variation` → `AKA`, any other word ⇄
+ *                                        `OTHER` + `PHRASE`
  *  - media                             : `FORM` file extension ⇄ IANA media
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
@@ -140,21 +142,28 @@ function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   report(ctx, node, before);
 }
 
-/** The `NAME.TYPE` values 5.5.1 enumerates, in its lower-case spelling. */
-const NAME_TYPES_551 = new Set(["aka", "birth", "immigrant", "maiden", "married"]);
-
-/** Rewrite a name's `TYPE` into the target version's spelling: 7.0's
- *  enumeration is upper case, 5.5.1's lower. A word neither lists stays. */
+/** Rewrite a name's `TYPE` into the target version's terms. 7.0 has a closed,
+ *  upper-case enumeration: a word outside it becomes the value it plainly
+ *  means, or `OTHER` with the word as its `PHRASE`. 5.5.1 spells its five in
+ *  lower case and takes any other word as it is — the `PHRASE`'s, on the way down. */
 function migrateNameType(name: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const type = firstChild(name, "TYPE");
   const raw = type?.value?.trim();
   if (!type || !raw) return;
-  const next = to === "7.0"
-    ? spellNameType(raw, "7.0")
-    : NAME_TYPES_551.has(raw.toLowerCase()) ? raw.toLowerCase() : raw;
-  if (next === type.value) return;
   const before = describe(type);
-  type.value = next;
+  if (to === "7.0") {
+    const next = nameType70(raw);
+    if (next.type === type.value) return;
+    type.value = next.type;
+    if (next.phrase && !firstChild(type, "PHRASE")) type.children.unshift(plain("PHRASE", next.phrase));
+  } else {
+    const phrase = firstChild(type, "PHRASE");
+    const word = (raw.toUpperCase() === "OTHER" && phrase?.value?.trim()) || raw;
+    const next = NAME_TYPES_551.has(word.toLowerCase()) ? word.toLowerCase() : word;
+    if (next === type.value && !phrase) return;
+    type.value = next;
+    type.children = type.children.filter((c) => c.tag !== "PHRASE");
+  }
   report(ctx, type, before);
 }
 
