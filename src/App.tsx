@@ -1,3 +1,4 @@
+import { Notice } from "./ui/Notice";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
 import { cloneNode } from "./gedcom/node";
@@ -2491,34 +2492,35 @@ function AppContent() {
     <PwaReloadPrompt />
     <IconTipLayer />
     {treeOverlay}
-    <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
       {appHeader(false)}
-      {/* Under the header, in the flow: it pushes the view down rather than
-          covering any of it, and stays until it is answered. */}
-      {targetNotice && (
-        <div className="target-notice" role="status">
-          <span>
-            {targetProposal?.software
+      {/* The open questions about the loaded file, under the header and in the
+          flow: they push the view down rather than cover it, stack one under
+          another, and each stays until it is answered. */}
+      <div className="notice-stack">
+        {targetNotice && (
+          <Notice
+            className="target-notice"
+            message={targetProposal?.software
               ? t("target.kept.software", { software: targetProposal.software })
               : t("target.kept")}
-          </span>
-          <div className="target-notice-actions">
-            <button
-              className="pwa-toast-reload"
-              onClick={() => {
-                setTargetNotice(false);
-                setSettingsTab("format");
-                setShowSettings(true);
-              }}
-            >
-              {t("target.notice.settings")}
-            </button>
-            <button className="btn-secondary" onClick={hideTargetNotice}>{t("target.notice.hide")}</button>
-            <button className="btn-secondary" onClick={() => setTargetNotice(false)}>{t("help.close")}</button>
-          </div>
-        </div>
-      )}
+            actions={[
+              {
+                label: t("target.notice.settings"),
+                primary: true,
+                onClick: () => {
+                  setTargetNotice(false);
+                  setSettingsTab("format");
+                  setShowSettings(true);
+                },
+              },
+              { label: t("target.notice.hide"), onClick: hideTargetNotice },
+              { label: t("help.close"), onClick: () => setTargetNotice(false) },
+            ]}
+          />
+        )}
+        <AutoMediaOffer main={main} />
+      </div>
 
       {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
       {infoPanelOpen && lastMainFile && (

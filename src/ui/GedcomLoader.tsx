@@ -6,7 +6,7 @@ import { firstChild } from "../gedcom/node";
 import type { SlotState } from "../App";
 import { useMediaFolder } from "./MediaFolderContext";
 import { revealEdgeWhitespace } from "./whitespace";
-import { ConfirmDialog } from "./ConfirmDialog";
+import { Notice } from "./Notice";
 import { mediaOfferSuppressed, suppressMediaOffer } from "./mediaPrefs";
 import { pickFile, fileFromDrop, supportsFilePicker, type AcceptSpec } from "./filePicker";
 
@@ -27,7 +27,8 @@ function countLocalMedia(records: GedNode[]): number {
 let offeredFor: string | null = null;
 
 /** Always-mounted companion to GedcomLoader: detects local media in the main file
- *  and offers the photo-folder picker as soon as the file loads, regardless of
+ *  and offers the photo-folder picker — a notice under the header, standing
+ *  until it is answered — as soon as the file loads, regardless of
  *  whether the info panel (which contains GedcomLoader) is currently visible. */
 export function AutoMediaOffer({ main }: { main: SlotState }) {
   const { t } = useTranslation();
@@ -35,6 +36,8 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
   const [offerCount, setOfferCount] = useState<number | null>(null);
 
   useEffect(() => {
+    // A folder chosen some other way answers the offer too.
+    if (folderName) setOfferCount(null);
     if (main.status !== "loaded" || folderName) return;
     if (mediaOfferSuppressed()) return;
     const { fileName, dataset } = main.file;
@@ -45,18 +48,17 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
   }, [main, folderName]);
 
   if (offerCount === null) return null;
-  // Three answers, no checkbox: connect now, not this time, or never again.
-  // The Esc key and a click outside land on "Later" — the reversible one.
+  // Three answers: connect now, not this time, or never again. The message is
+  // a title and its explanation; the strip runs them together.
   return (
-    <ConfirmDialog
-      message={t("loader.mediaFolder.autoOffer", { count: offerCount })}
-      confirmLabel={t("loader.mediaFolder.select")}
-      cancelLabel={t("loader.mediaFolder.later")}
-      defaultConfirm
-      altLabel={t("loader.mediaFolder.neverAsk")}
-      onAlt={() => { suppressMediaOffer(); setOfferCount(null); }}
-      onConfirm={() => { setOfferCount(null); openFolder(); }}
-      onCancel={() => setOfferCount(null)}
+    <Notice
+      className="media-notice"
+      message={t("loader.mediaFolder.autoOffer", { count: offerCount }).replace("\n\n", " ")}
+      actions={[
+        { label: t("loader.mediaFolder.select"), primary: true, onClick: () => { setOfferCount(null); openFolder(); } },
+        { label: t("loader.mediaFolder.neverAsk"), onClick: () => { suppressMediaOffer(); setOfferCount(null); } },
+        { label: t("loader.mediaFolder.later"), onClick: () => setOfferCount(null) },
+      ]}
     />
   );
 }

@@ -22,18 +22,19 @@ const GED = [
 const upload = { name: "media.ged", mimeType: "text/plain", buffer: Buffer.from(GED, "utf-8") };
 
 // The offer used to be two buttons plus a "never" tick, which silenced the
-// dialog even when you had just said yes. It is now three plain answers.
+// dialog even when you had just said yes. It is now three plain answers, on a
+// notice under the header that stands until one of them is given.
 test("the media-folder offer gives three answers and honours the never one", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(upload);
 
-  const dialog = page.locator(".confirm-dialog");
+  const dialog = page.locator(".media-notice");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Select Folder" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Later" })).toBeVisible();
   await expect(dialog.locator("input[type=checkbox]")).toHaveCount(0);
-  // Enter takes the offer — never the answer that retires the prompt for good.
-  await expect(dialog.getByRole("button", { name: "Select Folder" })).toBeFocused();
+  // A notice, not a dialog: the page behind it stays usable.
+  await expect(page.locator(".modal-overlay")).toHaveCount(0);
 
   // "Later" leaves the offer standing for the next load…
   await dialog.getByRole("button", { name: "Later" }).click();
