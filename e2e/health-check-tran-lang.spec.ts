@@ -29,10 +29,12 @@ test("translations without a language: suggested, re-picked and written", async 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
   await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
-  await expect(page.locator(".tools-issue", { hasText: "has no LANG line" })).toHaveCount(3);
-
-  // A chip of its own, carved out of the missing lines.
-  await page.locator(".tools-chip", { hasText: "Translations without a language" }).click();
+  // One row for all three, which takes the reader to the chip of its own.
+  const row = page.locator(".tools-issue", { hasText: "have no LANG line" });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText("(3×)");
+  await row.getByRole("button", { name: "Choose languages" }).click();
+  await expect(page.locator(".tools-chip.active", { hasText: "Translations without a language" })).toBeVisible();
   const section = page.locator(".tools-struct", { hasText: "Translations without a language" });
   await expect(section).toBeVisible();
   const vellach = section.locator(".tools-issue", { hasText: "Media Wella" });
@@ -47,7 +49,7 @@ test("translations without a language: suggested, re-picked and written", async 
   await page.locator(".tools-fix-item").getByRole("button", { name: "Write the chosen languages (3)" }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
   await expect(page.locator(".tools-clean--ok", { hasText: "Languages written on 2 records." })).toBeVisible();
-  await expect(page.locator(".tools-issue", { hasText: "has no LANG line" })).toHaveCount(0);
+  await expect(page.locator(".tools-issue", { hasText: "no LANG line" })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

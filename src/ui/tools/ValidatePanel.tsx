@@ -387,6 +387,8 @@ export function ValidatePanel({
   // search box, then sorted errors → warnings → info so both kinds interleave.
   const shown = useMemo<IssueRow[]>(() => {
     const rows: IssueRow[] = [];
+    let tranFirst: StructIssue | undefined;
+    let tranCount = 0;
     for (const issue of group === "data" ? (report?.issues ?? []) : []) {
       if (filter !== "all" && issue.category !== filter) continue;
       if (q && !issue.subject.toLowerCase().includes(q)) continue;
@@ -399,7 +401,21 @@ export function ValidatePanel({
       if (filter === "tranLang" ? !isUntaggedTran(issue) : filter !== "all" && (issue.category !== filter || isUntaggedTran(issue))) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (q && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(q)) continue;
+      // A translation without a language is one row however often it occurs:
+      // the per-name list under its chip is where they are settled.
+      if (isUntaggedTran(issue)) {
+        tranCount++;
+        tranFirst ??= issue;
+        continue;
+      }
       rows.push({ kind: "struct", severity: issue.severity, issue });
+    }
+    if (tranFirst) {
+      rows.push({
+        kind: "struct",
+        severity: tranFirst.severity,
+        issue: { ...tranFirst, messageKey: TRAN_LANG_KEY, messageVars: { ...tranFirst.messageVars, count: tranCount } },
+      });
     }
     rows.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
     return rows;
@@ -957,6 +973,9 @@ export function ValidatePanel({
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
                     variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && row.issue.coverage) ? dialect?.software ?? "" : undefined}
+                    open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
+                      ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
+                      : undefined}
                   />
                 );
               })}
@@ -995,6 +1014,9 @@ function RowFixButton({
   );
 }
 
+/** The one row standing for every translation without a language. */
+const TRAN_LANG_KEY = "tools.validate.struct.issue.missingTranLang";
+
 /** Findings tallied across the file under one row ("(78×)"): their record is
  *  only the first of many, so the row names none. */
 const GROUPED_KEYS = new Set([
@@ -1002,6 +1024,7 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.misplacedRoot",
   "tools.validate.struct.issue.misplacedStamp",
   "tools.validate.struct.issue.missingMany",
+  TRAN_LANG_KEY,
   "tools.validate.struct.issue.misplacedStamps",
   "tools.validate.struct.issue.unknownTag",
   "tools.validate.struct.issue.customTag",
@@ -1125,6 +1148,7 @@ function StructRow({
   onRun,
   onEditSource,
   variationOf,
+  open,
 }: {
   issue: StructIssue;
   /** Class suffix from the list — " zebra", " selected", or both. */
@@ -1139,6 +1163,8 @@ function StructRow({
   onEditSource: (xref: string) => void;
   /** The program whose kept habit the finding is, in a file kept with its variations. */
   variationOf?: string;
+  /** Takes the reader to where the finding is settled (no fix of its own). */
+  open?: { label: string; run: () => void };
 }) {
   const { t } = useTranslation();
   return (
@@ -1157,6 +1183,7 @@ function StructRow({
         </span>
       )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
+      {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}
       {issue.fix && !fix && (
