@@ -91,7 +91,7 @@ import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
 import { DatasetProvider, SettingsProvider, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
 import { TargetFormatContext, type TargetFormatValue } from "./ui/TargetFormatContext";
-import { proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
+import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
@@ -143,7 +143,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -982,20 +982,36 @@ function AppContent() {
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
 
-  // A file opened for the first time keeps the target it was proposed, and a
-  // file kept in its own format says so once — the reader may want a strict
-  // mode instead, and Settings → GEDCOM is where to choose it.
+  // A file opened for the first time keeps the target it was proposed.
   const targetFormatsRef = useRef(settings.targetFormats);
   targetFormatsRef.current = settings.targetFormats;
   useEffect(() => {
     if (!targetKey || storedTargetMode || !targetProposal) return;
     setSettings({ targetFormats: rememberTarget(targetFormatsRef.current, targetKey, targetProposal.mode) });
-    if (targetProposal.mode === "file") {
-      setSaveToast(targetProposal.software
-        ? t("target.kept.software", { software: targetProposal.software })
-        : t("target.kept"));
+  }, [targetKey, storedTargetMode, targetProposal, setSettings]);
+
+  // A file kept in its own format says so each time it is opened — the reader
+  // may want a GEDCOM version instead, and Settings → GEDCOM is where to
+  // choose it — until Don't show again silences it for that file. Once per
+  // load (`mainLoadGen`): a save's in-place rebuild is not an opening.
+  const [targetNotice, setTargetNotice] = useState(false);
+  const noticeGenRef = useRef(-1);
+  const noticeHidden = !!targetKey && settings.targetNoticeHidden.includes(targetKey);
+  useEffect(() => {
+    if (targetMode !== "file" || noticeHidden) {
+      setTargetNotice(false);
+      return;
     }
-  }, [targetKey, storedTargetMode, targetProposal, setSettings, setSaveToast, t]);
+    if (!targetKey || noticeGenRef.current === mainLoadGen) return;
+    noticeGenRef.current = mainLoadGen;
+    setTargetNotice(true);
+  }, [mainLoadGen, targetKey, targetMode, noticeHidden]);
+  const hideTargetNotice = () => {
+    setTargetNotice(false);
+    if (targetKey) {
+      setSettings({ targetNoticeHidden: [...settings.targetNoticeHidden.filter((k) => k !== targetKey), targetKey].slice(-MAX_REMEMBERED_TARGETS) });
+    }
+  };
 
   // Choosing a GEDCOM version asks first — the choice changes what every
   // write does — and offers to bring the records the file already has to that
@@ -2473,6 +2489,31 @@ function AppContent() {
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
       {appHeader(false)}
+      {/* Under the header, in the flow: it pushes the view down rather than
+          covering any of it, and stays until it is answered. */}
+      {targetNotice && (
+        <div className="target-notice" role="status">
+          <span>
+            {targetProposal?.software
+              ? t("target.kept.software", { software: targetProposal.software })
+              : t("target.kept")}
+          </span>
+          <div className="target-notice-actions">
+            <button
+              className="pwa-toast-reload"
+              onClick={() => {
+                setTargetNotice(false);
+                setSettingsTab("format");
+                setShowSettings(true);
+              }}
+            >
+              {t("target.notice.settings")}
+            </button>
+            <button className="btn-secondary" onClick={hideTargetNotice}>{t("target.notice.hide")}</button>
+            <button className="btn-secondary" onClick={() => setTargetNotice(false)}>{t("help.close")}</button>
+          </div>
+        </div>
+      )}
 
       {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
       {infoPanelOpen && lastMainFile && (

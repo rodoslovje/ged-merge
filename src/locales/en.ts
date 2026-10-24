@@ -2382,6 +2382,8 @@ export const en = {
   "settings.target.fixedRow": "The target format GEDCOM {{version}} decides this setting.",
   "target.kept": "This file keeps its own format. To hold it to a GEDCOM standard instead, choose one in Settings → GEDCOM.",
   "target.kept.software": "This file keeps {{software}}'s own format. To hold it to a GEDCOM standard instead, choose one in Settings → GEDCOM.",
+  "target.notice.settings": "Open Settings",
+  "target.notice.hide": "Don't show again for this file",
   "target.switch": "Hold this file to GEDCOM {{version}}?\n\nYour edits will follow GEDCOM {{version}}, and the save writes that version. Tools → Normalize & batch can bring the records the file already has in line too.",
   "target.switch.normalize": "Switch and open Normalize & batch",
   "target.switch.only": "Switch only",

@@ -2715,6 +2715,8 @@ export const sl = {
   "settings.target.fixedRow": "To nastavitev določa oblika zapisa GEDCOM {{version}}.",
   "target.kept": "Datoteka ohrani svojo obliko zapisa. Če želite, da sledi standardu GEDCOM, ga izberite v Nastavitvah → GEDCOM.",
   "target.kept.software": "Datoteka ohrani obliko zapisa programa {{software}}. Če želite, da sledi standardu GEDCOM, ga izberite v Nastavitvah → GEDCOM.",
+  "target.notice.settings": "Odpri nastavitve",
+  "target.notice.hide": "Za to datoteko ne prikaži več",
   "target.switch": "Naj datoteka sledi standardu GEDCOM {{version}}?\n\nVaše spremembe bodo sledile standardu GEDCOM {{version}}, shranjena datoteka pa bo v tej različici. Z orodjem Poenoti in paketno uredi (v Orodjih) lahko standardu prilagodite tudi zapise, ki jih datoteka že ima.",
   "target.switch.normalize": "Preklopi in odpri Poenoti in paketno uredi",
   "target.switch.only": "Samo preklopi",

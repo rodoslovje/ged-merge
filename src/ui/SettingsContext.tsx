@@ -19,7 +19,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
-import { sanitizeTargetFormats, type TargetMode } from "../normalize/target";
+import { MAX_REMEMBERED_TARGETS, sanitizeTargetFormats, type TargetMode } from "../normalize/target";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { setDateDisplay } from "../gedcom/dateDisplay";
@@ -158,6 +158,9 @@ export interface AppSettings extends NameDisplayOptions {
    *  format while another file is held to GEDCOM 7.0. A file with no entry
    *  gets the one proposed for it, which is then remembered here. */
   targetFormats: Record<string, TargetMode>;
+  /** The files (by `targetFileKey`) whose "keeps its own format" notice the
+   *  reader silenced with Don't show again. */
+  targetNoticeHidden: string[];
   /** Cache the loaded files + progress to IndexedDB so a reload restores the
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
@@ -205,6 +208,7 @@ const DEFAULTS: AppSettings = {
   mapOverlays: [],
   formatOverrides: {},
   targetFormats: {},
+  targetNoticeHidden: [],
   persistWorkspace: false,
   saveReport: false,
   saveDiffView: false,
@@ -451,6 +455,9 @@ function load(): AppSettings {
         ...sanitizeFormatOverrides(parsed.formatOverrides),
       },
       targetFormats: sanitizeTargetFormats(parsed.targetFormats),
+      targetNoticeHidden: Array.isArray(parsed.targetNoticeHidden)
+        ? parsed.targetNoticeHidden.filter((k): k is string => typeof k === "string" && !!k).slice(-MAX_REMEMBERED_TARGETS)
+        : [],
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       saveReport: bool(parsed.saveReport, DEFAULTS.saveReport),
       saveDiffView: bool(parsed.saveDiffView, DEFAULTS.saveDiffView),

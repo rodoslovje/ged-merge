@@ -28,8 +28,11 @@ function writeFixture(): string {
 test("a file with another program's habits keeps its own format until GEDCOM 7.0 is chosen", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(writeFixture());
-  // Proposed on first open, and said once.
-  await expect(page.locator(".save-toast")).toContainText("This file keeps its own format");
+  // Proposed on first open, and said until the reader closes it.
+  const notice = page.locator(".target-notice");
+  await expect(notice).toContainText("This file keeps its own format");
+  await notice.getByRole("button", { name: "Close" }).click();
+  await expect(notice).toHaveCount(0);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
@@ -77,4 +80,26 @@ test("a file with another program's habits keeps its own format until GEDCOM 7.0
   await page.getByRole("radio", { name: /GEDCOM 5\.5\.1/ }).click();
   await dialog.getByRole("button", { name: "Switch and open Normalize & batch" }).click();
   await expect(page.getByRole("tab", { name: "Normalize file", exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("the own-format notice comes back on every opening until it is silenced for the file", async ({ page }) => {
+  const file = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  const notice = page.locator(".target-notice");
+  await notice.getByRole("button", { name: "Close" }).click();
+
+  // Opened again: said again.
+  await page.reload();
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await expect(notice).toBeVisible();
+  await notice.getByRole("button", { name: "Don't show again for this file" }).click();
+  await expect(notice).toHaveCount(0);
+
+  // Silenced for this file from then on.
+  await page.reload();
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await expect(notice).toHaveCount(0);
 });
