@@ -83,6 +83,8 @@ interface FormState {
   publisher: string;
   agency: string;
   place: string;
+  /** The years the source covers — offered only while editing a record. */
+  dateRange: string;
   filingNumber: string;
   page: string;
   quay: string;
@@ -91,7 +93,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", filingNumber: "", page: "", quay: "", url: "", note: "",
+  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", dateRange: "", filingNumber: "", page: "", quay: "", url: "", note: "",
 };
 
 function extractPage(url: string): string | undefined {
@@ -298,6 +300,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       publisher: match || recognized?.cited || parsed.publisher === recognized?.proposed.agency ? "" : parsed.publisher ?? "",
       agency: match ? "" : recognized?.proposed.agency ?? "",
       place: match ? "" : resolvePlace(recognized?.proposed.place ?? parsed.place) ?? "",
+      dateRange: "",
       filingNumber: idOnCaln.current ? "" : proposedId ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       // What kind of evidence the recognized site's page is — a register scan
@@ -336,6 +339,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       publisher: f.publisher ?? "",
       agency: f.agency ?? "",
       place: f.place ?? "",
+      dateRange: f.dateRange ?? "",
       filingNumber: f.filingNumber ?? "",
       page: f.page ?? "",
       quay: f.quay ?? "",
@@ -593,7 +597,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     // the name still empty, the repository link is simply left as it was.
     const repoCreateName = repoSel === "@new@" ? repoName.trim() || undefined : undefined;
     const repoXref = repoSel === "@new@" ? undefined : repoSel || (editing.fields.repoXref !== undefined ? "" : undefined);
-    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref, repoXref, repoCreateName, repoCaln });
+    editing.onSave({
+      ...trimmedFields(fields),
+      // Written as given, emptied too: an empty field clears the years.
+      dateRange: fields.dateRange.trim(),
+      objeXref: editing.fields.objeXref, repoXref, repoCreateName, repoCaln,
+    });
     reset();
   }
 
@@ -707,18 +716,18 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           {fetching && !recognized && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {!match && (
             <SourceFieldsForm
-              values={{ ...fields, dateRange: "" }}
+              values={fields}
               onChange={(key, value) => setFields((f) => ({ ...f, [key]: value }))}
               show={{
                 // Page is citation-local — editing the record itself (Tools →
                 // Sources) has no citation to carry it. A source's own year
-                // range is not among this dialog's fields; the site lookup
-                // writes it, and the Organize sources editor offers it.
+                // range is the record's: offered while editing one (a new
+                // source gets it from the site lookup).
                 page: !(standalone && editing),
                 // The quality belongs to a citation; standalone mode (Tools →
                 // Sources) writes a source record with no citation to carry it.
                 quay: !standalone,
-                dateRange: false,
+                dateRange: !!editing,
               }}
               coverage={coverage}
               idOnRepo={idOnRepo}

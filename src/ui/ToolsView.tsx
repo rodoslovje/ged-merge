@@ -243,7 +243,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFillPlaceCoords={onFillPlaceCoords} onTagTranslations={onTagTranslations} view={view} onViewChange={onViewChange} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFillPlaceCoords={onFillPlaceCoords} onTagTranslations={onTagTranslations} onEditSource={onEditSource} view={view} onViewChange={onViewChange} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />

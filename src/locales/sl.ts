@@ -71,6 +71,7 @@ export const sl = {
   "tools.validate.clean.data": "Pregled v podatkih ni našel nobenih težav. 🎉",
   "tools.validate.clean.gedcom": "Pregled ni našel nobenega odstopanja od standarda GEDCOM {{version}}. 🎉",
   "tools.validate.group.data": "Težave v podatkih",
+  "tools.validate.editSource": "Uredi vir ({{ref}})",
   "tools.validate.group.gedcom": "Težave z zapisom GEDCOM {{version}}",
   "tools.validate.group.data.hint": "Težave v samih podatkih o družini: nemogoči datumi in starosti, pretrgane ali manjkajoče povezave ter osebe brez imena ali spola.",
   "tools.validate.group.gedcom.hint.own": "Ta datoteka ohrani svojo obliko zapisa, zato so to odstopanja od standarda GEDCOM {{version}}, ki jih program, v katerem datoteko vodite, morda pričakuje. Spremenite jih le, če želite, da datoteka sledi standardu.",

@@ -165,7 +165,12 @@ export function sourceCitationNodes(record: GedNode): GedNode[] {
  * `repoCaln` is that link's call number (`CALN`), same tri-state.
  * `repoCreateName` creates a brand-new `REPO` record with that name and links
  * the source to it — the dialog's "New repository" choice; wins over `repoXref`. */
-export type EditSourceFields = NewSourceFields & { place?: string; page?: string; quay?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string };
+export type EditSourceFields = NewSourceFields & {
+  place?: string;
+  /** The years the source covers; undefined leaves them as they are. */
+  dateRange?: string;
+  page?: string; quay?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string;
+};
 
 /** Create a top-level `REPO` record holding just a `NAME` — the manual "New
  * repository" path (a site-recognized repo gets its `WWW` via `createSiteRepo`). */
@@ -219,13 +224,15 @@ export function updateSourceCitation(
 }
 
 /**
- * The tag a source record's filing number or periodical title is written
- * with. GEDCOM 5.5-EL's `FILN` and `PERI` are in neither 5.5.1 nor 7.0, so a
+ * The tag a source record's filing number, periodical title or flat date
+ * range is written with. GEDCOM 5.5-EL's `FILN` and `PERI`, like a `DATE` on
+ * the record itself (the standard states it in `DATA › EVEN`), are in neither
+ * 5.5.1 nor 7.0, so a
  * strict target format writes the extensions `_FILN`/`_PERI`; the file's own
  * format keeps the bare tag where the file already writes it, and writes the
  * extension otherwise. Both spellings read alike (`filingNumberOf`).
  */
-export function sourceFieldTag(records: GedNode[], tag: "FILN" | "PERI", overrides?: Pick<FormatOverrides, "standard">): string {
+export function sourceFieldTag(records: GedNode[], tag: "FILN" | "PERI" | "DATE", overrides?: Pick<FormatOverrides, "standard">): string {
   if (overrides?.standard) return `_${tag}`;
   return memoOnContent(records, `sourceFieldTag:${tag}`, () =>
     records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === tag)) ? tag : `_${tag}`,
@@ -269,7 +276,7 @@ export function setSourceRecordFields(
   // A filing number or periodical lives under either spelling (see
   // `sourceFieldTag`); the one the record has is edited, under the tag the
   // target writes — so a strict target turns a bare FILN into _FILN.
-  const setExtension = (tag: "FILN" | "PERI", value: string | undefined) => {
+  const setExtension = (tag: "FILN" | "PERI" | "DATE", value: string | undefined) => {
     const want = sourceFieldTag(records, tag, overrides);
     const existing = sourceNode.children.find((c) => c.tag === tag || c.tag === `_${tag}`);
     if (existing && existing.tag !== want && value?.trim()) {
@@ -311,6 +318,23 @@ export function setSourceRecordFields(
   setCoverageAware("AGNC", fields.agency);
   setCoverageAware("PLAC", fields.place);
   setExtension("FILN", fields.filingNumber);
+  // The years it covers: inside DATA › EVEN where the record states its
+  // coverage there, else on the record itself — the line it has, or the one
+  // the target writes (see `sourceFieldTag`).
+  if (fields.dateRange !== undefined) {
+    const flat = sourceNode.children.some((c) => c.tag === "DATE" || c.tag === "_DATE");
+    const holders = data ? childrenByTag(data, "EVEN") : [];
+    const holder = holders.find((h) => firstChild(h, "DATE")) ?? holders[0];
+    const trimmed = fields.dateRange.trim();
+    if (holder && !flat) {
+      const node = firstChild(holder, "DATE");
+      if (node && trimmed) node.value = trimmed;
+      else if (node) holder.children = holder.children.filter((c) => c !== node);
+      else if (trimmed) holder.children.unshift({ level: holder.level + 1, tag: "DATE", value: trimmed, children: [] });
+    } else {
+      setExtension("DATE", trimmed);
+    }
+  }
   // A NOTE that points at a shared record is edited inside that record (the
   // dialog was prefilled with its resolved text); clearing it releases the
   // reference, deleting the record only once nothing else uses it.
@@ -541,6 +565,11 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
         .find(Boolean)
     : undefined;
   const coveredAgency = data ? firstChild(data, "AGNC")?.value?.trim() || undefined : undefined;
+  const coveredDate = data
+    ? childrenByTag(data, "EVEN")
+        .map((e) => firstChild(e, "DATE")?.value?.trim())
+        .find(Boolean)
+    : undefined;
   const objeChildren = childrenByTag(sourceNode, "OBJE").filter((c) => c.value);
   const objeXref = objeChildren.length === 1 ? objeChildren[0].value!.trim() : undefined;
   const objeNode = objeXref ? records.find((r) => r.tag === "OBJE" && r.xref === objeXref) : undefined;
@@ -557,6 +586,7 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     publisher: text("PUBL"),
     agency: text("AGNC") ?? coveredAgency,
     place: text("PLAC") ?? coveredPlace,
+    dateRange: text("DATE") ?? text("_DATE") ?? coveredDate,
     filingNumber: filingNumberOf(sourceNode),
     note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() : noteVal,
     url: objeUrl,

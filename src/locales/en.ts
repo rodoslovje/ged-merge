@@ -61,6 +61,7 @@ export const en = {
   "tools.validate.clean.data": "No data issues found. 🎉",
   "tools.validate.clean.gedcom": "Nothing found that departs from GEDCOM {{version}}. 🎉",
   "tools.validate.group.data": "Data issues",
+  "tools.validate.editSource": "Edit the source ({{ref}})",
   "tools.validate.group.gedcom": "GEDCOM {{version}} issues",
   "tools.validate.group.data.hint": "Problems in the family data itself: impossible dates and ages, broken or missing connections, and people without a name or sex.",
   "tools.validate.group.gedcom.hint.own": "This file keeps its own format, so these are departures from GEDCOM {{version}} that the program you keep the file in may expect. Change them only if you want the file to follow the standard.",

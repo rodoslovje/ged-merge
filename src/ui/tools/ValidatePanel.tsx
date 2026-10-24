@@ -1,3 +1,5 @@
+import { AddSourceDialog } from "../AddSourceDialog";
+import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
@@ -166,6 +168,7 @@ export function ValidatePanel({
   onFixConformance,
   onFillPlaceCoords,
   onTagTranslations,
+  onEditSource,
   view,
   onViewChange,
 }: {
@@ -184,6 +187,8 @@ export function ValidatePanel({
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
+  /** Save an edited source record — a finding on a source opens its editor. */
+  onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
   /** The open half: the tool page `gedcom`, else the data issues. A page of
    *  its own, so Back returns to the half left. */
   view: ToolView;
@@ -227,6 +232,24 @@ export function ValidatePanel({
   // runs in the worker, so the old list stays up for a moment — these rows go
   // quiet meanwhile instead of inviting a second, no-op click.
   const [fixedRows, setFixedRows] = useState<Set<string>>(() => new Set());
+
+  // A finding on a source record (a date range that ends before it starts, …)
+  // opens the same source editor Tools → Sources does, so it can be settled
+  // where it is reported; saving re-runs the check.
+  const [editSrc, setEditSrc] = useState<string | null>(null);
+  const editingSource = useMemo(() => {
+    if (!editSrc) return undefined;
+    const node = dataset.records.find((r) => r.tag === "SOUR" && r.xref === editSrc);
+    if (!node) return undefined;
+    return {
+      fields: sourceRecordEditFields(dataset.records, node),
+      onSave: (fields: EditSourceFields) => {
+        onEditSource(editSrc, fields);
+        setEditSrc(null);
+        scans.refresh("validate");
+      },
+    };
+  }, [editSrc, dataset, onEditSource, scans]);
 
   // Photo-folder check: the local media files referenced by the dataset, and —
   // once checked — the subset not found in the loaded folder. The check is
@@ -762,6 +785,15 @@ export function ValidatePanel({
           ))}
         </ul>
       )}
+      <AddSourceDialog
+        isOpen={editingSource !== undefined}
+        onClose={() => setEditSrc(null)}
+        onAdd={() => setEditSrc(null)}
+        dataset={dataset}
+        t={t}
+        editing={editingSource}
+        standalone
+      />
       {pendingFix !== null && (
         <ConfirmDialog
           message={`${t(`tools.validate.fix${FIX_SUFFIX[pendingFix]}`, { count: pendingCount })}\n\n${t(`tools.validate.fix${FIX_SUFFIX[pendingFix]}Hint`)}`}
@@ -840,6 +872,7 @@ export function ValidatePanel({
                 ) : (
                   <StructRow
                     key={`s-${row.issue.category}-${i}`}
+                    onEditSource={setEditSrc}
                     issue={row.issue}
                     zebra={zebra}
                     current={current}
@@ -923,12 +956,16 @@ function RecordRef({
   id,
   tag,
   onNavigate,
+  onEditSource,
 }: {
   dataset: Dataset;
   id?: string;
   tag?: string;
   onNavigate: (id: string) => void;
+  /** A source opens its editor, as a person opens in Edit. */
+  onEditSource?: (xref: string) => void;
 }) {
+  const { t } = useTranslation();
   if (id && dataset.individuals.has(id)) {
     return <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />;
   }
@@ -951,6 +988,18 @@ function RecordRef({
   const record = id ? recordByXref(dataset.records, id) : undefined;
   const title = record && recordTitle(record);
   const ref = [tag, id].filter(Boolean).join(" ");
+  if (title && id && record?.tag === "SOUR" && onEditSource) {
+    return (
+      <button
+        type="button"
+        className="tools-struct-rec tools-struct-rec--edit"
+        title={t("tools.validate.editSource", { ref })}
+        onClick={() => onEditSource(id)}
+      >
+        {tag && <span className="tools-struct-rec-tag">{tag}</span>} {title}
+      </button>
+    );
+  }
   if (title) {
     return (
       <span className="tools-struct-rec" title={ref}>
@@ -970,6 +1019,7 @@ function StructRow({
   fix,
   done,
   onRun,
+  onEditSource,
 }: {
   issue: StructIssue;
   /** Class suffix from the list — " zebra", " selected", or both. */
@@ -981,12 +1031,13 @@ function StructRow({
   fix: RowFix | null;
   done: boolean;
   onRun: (run: () => void) => void;
+  onEditSource: (xref: string) => void;
 }) {
   const { t } = useTranslation();
   return (
     <li className={`tools-issue sev-${issue.severity}${zebra ?? ""}`} title={issue.tooltip} aria-current={current}>
       {issue.recordTag ? (
-        <RecordRef dataset={dataset} id={issue.recordId} tag={issue.recordTag} onNavigate={onNavigate} />
+        <RecordRef dataset={dataset} id={issue.recordId} tag={issue.recordTag} onNavigate={onNavigate} onEditSource={onEditSource} />
       ) : issue.line != null ? (
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}

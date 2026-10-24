@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
  * What a save does to the file as GEDCOM rather than to any record: a file
  * missing its header and trailer leaves complete (HEAD, TRLR and the submitter
  * 5.5.1 requires), and a 5.5.1 file held to GEDCOM 7.0 (its target format)
- * saves as 7.0 — both with nothing in the file changed.
+ * saves as 7.0 — both with nothing in the file changed: the target format
+ * opens the save, and the preview's version tabs choose what is written.
  */
 
 const HEADERLESS = [
@@ -46,8 +47,15 @@ async function load(page: Page, name: string, text: string) {
   await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
 }
 
-/** Open the save preview from the header's Save button. */
+/** Hold the open file to GEDCOM 7.0 (Settings → GEDCOM), then open the save
+ *  preview from the header's Save button — offered for an unchanged file
+ *  whose target is the other version. */
 async function openSave(page: Page) {
+  await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "GEDCOM", exact: true }).click();
+  await page.getByRole("radio", { name: /GEDCOM 7\.0/ }).click();
+  await page.locator(".confirm-dialog").getByRole("button", { name: "Switch only" }).click();
+  await page.locator(".settings-modal .modal-close").click();
   await page.locator(".app-header .export-btn, header .export-btn").first().click();
 }
 
@@ -68,7 +76,8 @@ test("a file without header or trailer saves complete: HEAD, TRLR and a submitte
   await openSave(page);
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("tab", { name: "GEDCOM 5.5.1" })).toHaveAttribute("aria-selected", "true");
+  // Back to the file's own version: only the repairs remain.
+  await dialog.getByRole("tab", { name: "GEDCOM 5.5.1" }).click();
   await expect(dialog.locator(".preview-note").filter({ hasText: "no header" })).toBeVisible();
   await expect(dialog.locator(".preview-note").filter({ hasText: "submitter" })).toBeVisible();
   await expect(dialog.locator(".preview-actions .export-btn")).toBeEnabled();
@@ -86,12 +95,7 @@ test("a file without header or trailer saves complete: HEAD, TRLR and a submitte
 
 test("a 5.5.1 file saves as GEDCOM 7.0: version, UID, SCHMA, SNOTE", async ({ page }) => {
   await load(page, "v551.ged", V551);
-  // Held to GEDCOM 7.0 (Settings → GEDCOM), the unchanged file saves converted.
-  await page.locator('button[title*="etting"]').first().click();
-  await page.getByRole("tab", { name: "GEDCOM", exact: true }).click();
-  await page.getByRole("radio", { name: /GEDCOM 7\.0/ }).click();
-  await page.locator(".confirm-dialog").getByRole("button", { name: "Switch only" }).click();
-  await page.locator(".settings-modal .modal-close").click();
+  // Held to GEDCOM 7.0, the unchanged file saves converted.
   await openSave(page);
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("tab", { name: "GEDCOM 7.0" })).toHaveAttribute("aria-selected", "true");
