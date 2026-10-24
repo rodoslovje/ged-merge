@@ -416,7 +416,7 @@ export const sl = {
   "tools.validate.struct.issue.enumCase": "{{tag}} {{sample}} se v GEDCOM {{version}} zapiše kot {{standard}}",
   "tools.validate.struct.issue.nameTypeNearest": "GEDCOM {{version}} vrste imena {{sample}} ne pozna; standard jo imenuje {{standard}}",
   "tools.validate.struct.issue.nameTypeOther": "GEDCOM {{version}} vrste imena {{sample}} ne pozna; standard jo zapiše kot {{standard}}, izvirna beseda pa se ohrani v vrstici PHRASE",
-  "tools.validate.struct.issue.badY": "{{tag}} {{sample}}: GEDCOM 7.0 za oznako dogodka dovoljuje le Y ali prazno vrednost",
+  "tools.validate.struct.issue.badY": "{{tag}} {{sample}}: v oznaki dogodka je lahko samo Y ali prazna vrednost",
   "tools.validate.struct.issue.calendarEscape": "Datum {{sample}} navaja koledar v obliki iz GEDCOM 5.5.1, GEDCOM 7.0 pa ga zapiše z besedo (JULIAN)",
   "tools.validate.struct.issue.badAge": "Starost {{sample}} ni zapisana v standardni obliki (na primer 42y 3m)",
   "tools.validate.struct.issue.badLang": "LANG {{sample}} ni jezikovna oznaka BCP 47 (na primer en, sl, de-AT)",
