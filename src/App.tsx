@@ -61,6 +61,7 @@ import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fixConformance } from "./tools/fixConformance";
+import { nodeAtPath } from "./tools/conformance/conformance";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { tagTranslations } from "./tools/fixTranslationLang";
 import { setPlaceTranslations } from "./tools/placeTranslations";
@@ -2744,6 +2745,15 @@ function AppContent() {
                   if (!node) return;
                   setMediaInfo(node, fields, records, formatOverrides);
                   if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), records);
+                  bumpSourceCacheVersion(records);
+                })
+              }
+              onEditMediaFile={(objeXref, path, url) =>
+                applySharedRecordEdit((records) => {
+                  const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
+                  const file = node && (path ? nodeAtPath(node, path) : node.children.find((c) => c.tag === "FILE"));
+                  if (file?.tag !== "FILE") return;
+                  file.value = url;
                   bumpSourceCacheVersion(records);
                 })
               }

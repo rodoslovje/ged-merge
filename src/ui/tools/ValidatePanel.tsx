@@ -32,6 +32,8 @@ import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { useTranslationLang } from "./TranslationLangSection";
+import { MediaLinkDialog } from "../MediaLinkDialog";
+import { nodeAtPath } from "../../tools/conformance/conformance";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
@@ -173,6 +175,7 @@ export function ValidatePanel({
   onFillPlaceCoords,
   onTagTranslations,
   onEditSource,
+  onEditMediaFile,
   view,
   onViewChange,
 }: {
@@ -193,6 +196,9 @@ export function ValidatePanel({
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Save an edited source record — a finding on a source opens its editor. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
+  /** Rewrite a media record's FILE — a file whose name says no form opens the
+   *  link editor, so the address can be corrected where it is reported. */
+  onEditMediaFile: (objeXref: string, path: string | undefined, url: string) => void;
   /** The open half: the tool page `gedcom`, else the data issues. A page of
    *  its own, so Back returns to the half left. */
   view: ToolView;
@@ -260,6 +266,16 @@ export function ValidatePanel({
       },
     };
   }, [editSrc, dataset, onEditSource, scans]);
+
+  // A media file whose name says no form (a label in front of the address, …)
+  // opens the link editor the 🔗 chip does; saving re-runs the check.
+  const [editMedia, setEditMedia] = useState<{ xref: string; path?: string; url: string } | null>(null);
+  function mediaLinkOf(issue: StructIssue): { xref: string; path?: string; url: string } | undefined {
+    if (issue.category !== "missingLine" || issue.sample !== "FORM" || issue.fix || issue.recordTag !== "OBJE" || !issue.recordId) return undefined;
+    const rec = recordByXref(dataset.records, issue.recordId);
+    const file = rec && (issue.path ? nodeAtPath(rec, issue.path) : rec.children.find((c) => c.tag === "FILE"));
+    return file?.tag === "FILE" && file.value ? { xref: issue.recordId, path: issue.path, url: file.value } : undefined;
+  }
 
   // Photo-folder check: the local media files referenced by the dataset, and —
   // once checked — the subset not found in the loaded folder. The check is
@@ -878,6 +894,18 @@ export function ValidatePanel({
       )}
       {/* Last: the least likely of the quick fixes. */}
       {tranLang.fix}
+      {editMedia && (
+        <MediaLinkDialog
+          url={editMedia.url}
+          t={t}
+          onClose={() => setEditMedia(null)}
+          onSave={(url) => {
+            onEditMediaFile(editMedia.xref, editMedia.path, url);
+            setEditMedia(null);
+            scans.refresh("validate");
+          }}
+        />
+      )}
       <AddSourceDialog
         isOpen={editingSource !== undefined}
         onClose={() => setEditSrc(null)}
@@ -990,7 +1018,9 @@ export function ValidatePanel({
                     variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && row.issue.coverage) ? dialect?.software ?? "" : undefined}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
-                      : undefined}
+                      : mediaLinkOf(row.issue)
+                        ? { label: t("mediaLink.title"), run: () => setEditMedia(mediaLinkOf(row.issue)!) }
+                        : undefined}
                   />
                 );
               })}

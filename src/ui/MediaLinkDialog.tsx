@@ -22,7 +22,9 @@ export function MediaLinkDialog({
   onClose: () => void;
   /** Commit the edited URL (never blank — Save disables on an empty field). */
   onSave: (newUrl: string) => void;
-  onRemove: () => void;
+  /** Delete the link — omitted where the dialog only corrects it (the health
+   *  check), and the Remove button with it. */
+  onRemove?: () => void;
 }) {
   const [value, setValue] = useState(url);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +49,7 @@ export function MediaLinkDialog({
       className="media-link-dialog"
       actions={
         <>
-          <button className="tree-open-btn add-source-remove" onClick={onRemove}>{t("editSource.remove")}</button>
+          {onRemove && <button className="tree-open-btn add-source-remove" onClick={onRemove}>{t("editSource.remove")}</button>}
           <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>
           <button
             className="add-source-submit"
