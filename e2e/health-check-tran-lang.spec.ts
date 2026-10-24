@@ -28,6 +28,7 @@ test("translations without a language: suggested, re-picked and written", async 
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
+  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
   await expect(page.locator(".tools-issue", { hasText: "has no LANG line" })).toHaveCount(3);
 
   const section = page.locator(".tools-struct", { hasText: "Translations without a language" });

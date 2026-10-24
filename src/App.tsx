@@ -21,7 +21,7 @@ import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
-import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
+import { completeStructure, outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
@@ -1867,13 +1867,27 @@ function AppContent() {
    * has that book) asks nothing of the network, and neither does a save with
    * lookups switched off; both open the preview straight away.
    */
+  // A file is worth saving with nothing changed when the save itself changes
+  // it: converting it to the other GEDCOM version its target format holds it
+  // to, or supplying the header, trailer or submitter the version requires.
+  const saveWithoutChanges = useMemo(
+    () =>
+      !!mainDataset &&
+      ((target.strict && target.version !== ownVersion(mainDataset)) ||
+        completeStructure(mainDataset.records, target.version, false).length > 0),
+    // The records change in place; the edit version says when.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mainDataset, target, editVersion],
+  );
+
   async function openSavePreview(convertTo?: OutputVersion) {
     if (!mainDataset || main.status !== "loaded") return;
     // A strict target format saves in its own version, converting a file
     // that is in the other one.
     if (!convertTo && target.strict && target.version !== ownVersion(mainDataset)) convertTo = target.version;
-    // Converting is a reason to save on its own, changed or not.
-    const force = !!convertTo;
+    // Converting, or repairing the file's structure, is a reason to save on its
+    // own, changed or not.
+    const force = !!convertTo || saveWithoutChanges;
     const next = buildSavePreview({ ...savePreviewInput(mainDataset, main.file.fileName), force });
     if (!next) return;
     setPreviewVersion(convertTo);
@@ -1895,7 +1909,7 @@ function AppContent() {
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
   globalShortcutRef.current.save = () => void handleSave();
-  globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+  globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0 || saveWithoutChanges);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
   globalShortcutRef.current.back = goBackPage;
 
@@ -2230,7 +2244,7 @@ function AppContent() {
     ...(lastMainFile ? [{ label: t("tree.main"), fileName: lastMainFile.fileName, accent: "main" as const }] : []),
     ...(compare.status === "loaded" ? [{ label: t("tree.incoming"), fileName: compare.file.fileName, accent: "incoming" as const }] : []),
   ];
-  const hasSaveAction = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+  const hasSaveAction = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0 || saveWithoutChanges);
   const hasHistoryAction = !!lastMainFile && (canUndo || canRedo);
   // Save · Undo · Redo. On a wider screen they sit in the header row for good —
   // disabled while there is nothing to save or undo — so they never pop in and
@@ -2801,7 +2815,6 @@ function AppContent() {
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
-              onSaveAs={(version) => void handleSave(version)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold

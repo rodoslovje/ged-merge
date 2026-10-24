@@ -1,3 +1,6 @@
+import { useTargetFormat } from "../TargetFormatContext";
+import type { ToolView } from "../ToolsView";
+import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
@@ -19,7 +22,7 @@ import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
-import { completeStructure, ownVersion, type OutputVersion } from "../../save/outputFile";
+import { completeStructure, ownVersion } from "../../save/outputFile";
 import { submitterName } from "../../gedcom/newFile";
 import { useSettingsSlice } from "../SettingsContext";
 import { type ToolsScans } from "../useToolsScans";
@@ -81,6 +84,33 @@ const CATEGORIES: IssueCategory[] = [
   "orphan",
 ];
 
+/**
+ * The two halves of the health check. **Data issues** are about the family
+ * data itself — impossible ages, broken or missing connections, dates that
+ * cannot be read — whatever format the file is in. **GEDCOM issues** are about
+ * how the file is written: lines, tags and values the standard has otherwise.
+ * In a file kept in its own format, those are often the program's habits, not
+ * errors, so they stand apart rather than swell one alarming list.
+ */
+export type HealthGroup = "data" | "gedcom";
+
+/** The structural categories that are about the data rather than the format:
+ *  a date nobody can read or that cannot be, a reference to nothing. */
+const DATA_STRUCT_CATEGORIES: ReadonlySet<StructCategory> = new Set<StructCategory>([
+  "danglingXref", "badDate", "impossibleDate", "reversedRange", "shortYear", "ambiguousDate",
+]);
+
+function structGroup(c: StructCategory): HealthGroup {
+  return DATA_STRUCT_CATEGORIES.has(c) ? "data" : "gedcom";
+}
+
+/** Which half each fix belongs to — the one its findings are listed in. */
+const FIX_GROUP: Record<FixKind, HealthGroup> = {
+  links: "data", dups: "data", families: "data", dangling: "data", roles: "data", sex: "data", dates: "data",
+  nonStandard: "gedcom", values: "gedcom", notes: "gedcom", repeats: "gedcom", forms: "gedcom",
+  relocate: "gedcom", fileTitles: "gedcom",
+};
+
 /** The xref a `brokenLink` finding names — the family a person points at, or the
  *  person a family points at. Both arrive as message interpolation values. */
 function brokenTarget(issue: ValidationIssue): string | undefined {
@@ -136,7 +166,8 @@ export function ValidatePanel({
   onFixConformance,
   onFillPlaceCoords,
   onTagTranslations,
-  onSaveAs,
+  view,
+  onViewChange,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -153,9 +184,16 @@ export function ValidatePanel({
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
-  onSaveAs: (version: OutputVersion) => void;
+  /** The open half: the tool page `gedcom`, else the data issues. A page of
+   *  its own, so Back returns to the half left. */
+  view: ToolView;
+  onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
+  const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
+  const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
+  // A file kept in its own format reads the GEDCOM half as information.
+  const { target } = useTargetFormat();
   /** Message vars with a GEDCOM event tag turned into its display name —
    *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
    *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
@@ -269,6 +307,8 @@ export function ValidatePanel({
     setFilter("all");
   }
 
+  useEffect(() => { setFilter("all"); }, [group]);
+
   useEffect(() => {
     lastRef.current = null;
     setFilter("all");
@@ -300,7 +340,6 @@ export function ValidatePanel({
   // The file as GEDCOM: its version, the other one it can be saved in, and
   // what a save supplies for it to be valid at all (a header, a trailer, …).
   const version = ownVersion(dataset);
-  const otherVersion: OutputVersion = version === "7.0" ? "5.5.1" : "7.0";
   const records = dataset.records;
   const { authorName } = useSettingsSlice(AUTHOR_KEYS);
   const fileFixes = useMemo(() => completeStructure(records, version, false), [records, version]);
@@ -312,12 +351,13 @@ export function ValidatePanel({
   // search box, then sorted errors → warnings → info so both kinds interleave.
   const shown = useMemo<IssueRow[]>(() => {
     const rows: IssueRow[] = [];
-    for (const issue of report?.issues ?? []) {
+    for (const issue of group === "data" ? (report?.issues ?? []) : []) {
       if (filter !== "all" && issue.category !== filter) continue;
       if (q && !issue.subject.toLowerCase().includes(q)) continue;
       rows.push({ kind: "record", severity: issue.severity, issue });
     }
     for (const issue of structure?.issues ?? []) {
+      if (structGroup(issue.category) !== group) continue;
       if (filter !== "all" && issue.category !== filter) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (q && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(q)) continue;
@@ -325,7 +365,7 @@ export function ValidatePanel({
     }
     rows.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
     return rows;
-  }, [report, structure, filter, q]);
+  }, [report, structure, filter, q, group]);
 
   // A big file's health check can produce six-figure finding counts — only the
   // rows near the viewport are mounted. The scroll container is the ancestor
@@ -535,8 +575,13 @@ export function ValidatePanel({
     return scan.status === "error" ? <ToolsError message={scan.message} /> : <ToolsLoading label={t("tools.running")} />;
   }
 
-  // Record-level + structural findings count together toward the total / "All".
-  const total = report.issues.length + (structure?.issues.length ?? 0);
+  // Each half's own count: the tab says it, and "All" within the half.
+  const structIn = (g: HealthGroup) => structure?.issues.filter((i) => structGroup(i.category) === g).length ?? 0;
+  const groupTotal: Record<HealthGroup, number> = {
+    data: report.issues.length + structIn("data"),
+    gedcom: structIn("gedcom"),
+  };
+  const total = groupTotal[group];
 
   // The available fix actions, with their counts, gathered into one list. The
   // media-folder check is a read-only probe and so carries no count to repair.
@@ -585,8 +630,28 @@ export function ValidatePanel({
     ? (fixActions.find((a) => a.kind === pendingFix)?.count ?? 0)
     : 0;
 
+  const groupFixes = fixActions.filter((a) => FIX_GROUP[a.kind] === group);
   return (
     <>
+      <div className="batch-section-toggle" role="tablist" onKeyDown={tablistKeyDown}>
+        {(["data", "gedcom"] as const).map((g) => (
+          <button
+            key={g}
+            role="tab"
+            aria-selected={group === g}
+            tabIndex={tabIndexFor(group === g)}
+            className={`batch-section-tab ${group === g ? "active" : ""}`}
+            onClick={() => setGroup(g)}
+          >
+            {t(`tools.validate.group.${g}`, { version })} <span className="tools-chip-count">{groupTotal[g]}</span>
+          </button>
+        ))}
+      </div>
+      <p className="tools-fix-hint tools-group-intro">
+        {group === "data"
+          ? t("tools.validate.group.data.hint")
+          : t(target.strict ? "tools.validate.group.gedcom.hint.strict" : "tools.validate.group.gedcom.hint.own", { version })}
+      </p>
       {showRerun && (
         <ul className="tools-fix-list">
           <li className="tools-fix-item">
@@ -611,7 +676,7 @@ export function ValidatePanel({
           )}
         </p>
       )}
-      {mediaMissing !== null && (
+      {group === "data" && mediaMissing !== null && (
         mediaMissing.length === 0 ? (
           <p className="tools-clean tools-clean--ok">{t("tools.validate.media.allFound", { count: mediaFiles.length })}</p>
         ) : (
@@ -631,12 +696,12 @@ export function ValidatePanel({
           </div>
         )
       )}
-      {placeCoordDone !== null && (
+      {group === "data" && placeCoordDone !== null && (
         <p className="tools-clean tools-clean--ok">
           {t(`tools.validate.placeCoord.${placeCoordDone > 0 ? "done" : "none"}`, { count: placeCoordDone })}
         </p>
       )}
-      {splitPlaces.length > 0 && placeCoordDone === null && (
+      {group === "data" && splitPlaces.length > 0 && placeCoordDone === null && (
         <div className="tools-struct">
           <div className="tools-examples-title">{t("tools.validate.placeCoord.title")}</div>
           <p className="tools-fix-hint">{t("tools.validate.placeCoord.hint", { count: splitPlaces.length, fills: splitFills })}</p>
@@ -673,13 +738,13 @@ export function ValidatePanel({
       <TranslationLangSection
         dataset={dataset}
         freshness={structure}
-        needed={hasUntaggedTran}
+        needed={group === "gedcom" && hasUntaggedTran}
         onApply={onTagTranslations}
         onApplied={() => scans.refresh("validate")}
       />
-      {(showMediaCheck || fixActions.length > 0) && (
+      {((group === "data" && showMediaCheck) || groupFixes.length > 0) && (
         <ul className="tools-fix-list">
-          {showMediaCheck && (
+          {group === "data" && showMediaCheck && (
             <li className="tools-fix-item">
               <button className="nav-btn tools-run" onClick={runMediaCheck} disabled={mediaChecking}>
                 {t("tools.validate.media.check", { count: mediaFiles.length })}
@@ -687,7 +752,7 @@ export function ValidatePanel({
               <span className="tools-fix-hint">{t("tools.validate.media.checkHint", { name: folderName })}</span>
             </li>
           )}
-          {fixActions.map(({ kind, count }) => (
+          {groupFixes.map(({ kind, count }) => (
             <li key={kind} className="tools-fix-item">
               <button className="nav-btn primary tools-run" onClick={() => requestFix(kind)}>
                 {t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}
@@ -707,8 +772,10 @@ export function ValidatePanel({
         />
       )}
       {total === 0 ? (
-        !(mediaMissing && mediaMissing.length > 0) &&
-        !(splitPlaces.length > 0 && placeCoordDone === null) && <p className="tools-clean">{t("tools.validate.clean")}</p>
+        group === "gedcom"
+          ? <p className="tools-clean">{t("tools.validate.clean.gedcom", { version })}</p>
+          : !(mediaMissing && mediaMissing.length > 0) &&
+            !(splitPlaces.length > 0 && placeCoordDone === null) && <p className="tools-clean">{t("tools.validate.clean.data")}</p>
       ) : (
         <>
           <div className="tools-filter-row">
@@ -722,7 +789,7 @@ export function ValidatePanel({
               >
                 {t("tools.validate.all")} <span className="tools-chip-count">{total}</span>
               </button>
-              {CATEGORIES.filter((c) => report.counts[c] > 0).map((c) => (
+              {CATEGORIES.filter((c) => group === "data" && report.counts[c] > 0).map((c) => (
                 <button
                   key={c}
                   className={`tools-chip ${filter === c ? "active" : ""}`}
@@ -731,7 +798,7 @@ export function ValidatePanel({
                   {t(`tools.validate.cat.${c}`)} <span className="tools-chip-count">{report.counts[c]}</span>
                 </button>
               ))}
-              {STRUCT_CATEGORIES.filter((c) => (structure?.counts[c] ?? 0) > 0).map((c) => (
+              {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => (
                 <button
                   key={c}
                   className={`tools-chip ${filter === c ? "active" : ""}`}
@@ -740,18 +807,6 @@ export function ValidatePanel({
                   {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{structure!.counts[c]}</span>
                 </button>
               ))}
-              {/* The file's version ends the chips' last line, on the right. */}
-              <span className="tools-version">
-                {t("tools.validate.version", { version })}
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  title={t("tools.validate.saveAsHint", { version: otherVersion })}
-                  onClick={() => onSaveAs(otherVersion)}
-                >
-                  {t("tools.validate.saveAs", { version: otherVersion })}
-                </button>
-              </span>
             </div>
           </div>
           {/* What saving will do to a file that didn't arrive as UTF-8. It sits
@@ -759,8 +814,8 @@ export function ValidatePanel({
               beside the decoder's own line, which says what was read but not
               what leaves. Outside the virtual list: its rows must stay a
               uniform height. */}
-          {charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
-          {fileFixes.map((fix) => (
+          {group === "gedcom" && charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
+          {group === "gedcom" && fileFixes.map((fix) => (
             <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
           ))}
           {shown.length === 0 ? (

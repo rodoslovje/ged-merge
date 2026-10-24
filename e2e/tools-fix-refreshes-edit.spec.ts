@@ -30,6 +30,7 @@ test("a health-check fix shows in Edit on the events it changed", async ({ page 
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByRole("tab", { name: /Health check/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
   await page.getByRole("button", { name: /Move event text into notes/ }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();

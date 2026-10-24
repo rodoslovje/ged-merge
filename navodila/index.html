@@ -1291,6 +1291,14 @@
               <a href="#organize">Uredi vire</a> iz Virov in <a href="#geocode">Geokodiranje krajev</a> iz Krajev.
             </p>
             <h3 id="validate">Pregled</h3>
+            <p>
+              Pregled ima dva zavihka. Zavihek <strong>Težave v podatkih</strong> navede težave v samih podatkih o
+              družini, ki jih opisujejo spodnji odstavki, pa tudi neberljive ali nemogoče datume in sklice na zapise, ki
+              jih v datoteki ni. Zavihek <strong>Težave z zapisom GEDCOM</strong> navede mesta, kjer datoteka odstopa od
+              svoje različice GEDCOM: kodiranje in neveljavne vrstice, neznane oznake, nestandardne datume in vrednosti,
+              napačno postavljene vrstice ter prevode brez jezika. Kadar datoteka ohrani lastno obliko zapisa (<a href="#target-format">§4</a>),
+              so to pogosto navade programa, v katerem datoteko vodite, in jih ni treba spreminjati.
+            </p>
             <div>
               Pregleda vsako osebo in družino za težave s podatki ter jih razvrsti po kategorijah:
               <ul>
@@ -3107,9 +3115,10 @@
               (<a href="#house-style">§4</a>): skupne opombe, datumi, starosti in druge strukture, značilne za
               različico, se prepišejo v obliko ciljne različice, glava prav tako. V predogledu je navedena vsaka
               prepisana vrstica, poročilo o spremembah pa vsebuje celoten seznam. Kot pri vsakem shranjevanju postane pretvorjena
-              datoteka vaše novo izhodišče v aplikaciji, zato odtlej delate v novi različici. Datoteko, ki je niste
-              spremenili, pretvorite z gumbom <strong>Shrani kot GEDCOM 7.0…</strong> (ali <strong>Shrani kot GEDCOM
-              5.5.1…</strong>) v Orodjih → Pregled. Z gumbom se odpre ta predogled z že izbrano pretvorbo.
+              datoteka vaše novo izhodišče v aplikaciji, zato odtlej delate v novi različici. Tudi datoteko, ki je niste
+              spremenili, lahko shranite, kadar jo spremeni že shranjevanje. To velja, kadar jo njena oblika zapisa
+              drži druge različice (<a href="#target-format">§4</a>) in se predogled odpre z njo, ali kadar ji
+              manjkajo glava, zaključek ali oddajatelj, ki jih različica zahteva.
             </p>
             <p id="extension-tags">
               V glavi datoteke GEDCOM 7.0 so pod <code>HEAD.SCHMA</code> navedene vse oznake po meri, ki jih datoteka
