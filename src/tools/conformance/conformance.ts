@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "../../gedcom/types";
 import { firstChild, nodesEqual } from "../../gedcom/node";
 import { fileFormOf } from "../../gedcom/mediaForm";
+import { nameType70 } from "../../gedcom/name";
 import { isVoidPointer } from "../../gedcom/uri";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
 import { isUnparseable } from "../fixDates";
@@ -56,6 +57,8 @@ export interface ConformanceIssue {
   /** The value the value fix would write — or, on a missing-line finding,
    *  the value of the line the fix would add (a media file's `FORM`). */
   fix?: string;
+  /** The word the fix keeps as a `PHRASE` under its value (7.0's `OTHER`). */
+  fixPhrase?: string;
   /** Set when every repeat is an exact copy of the first, so the repeats can
    *  go without losing anything. */
   repeat?: boolean;
@@ -318,16 +321,19 @@ function checkPayload(
   const fixable = !!base.recordId;
   const emit = (
     category: ConformanceCategory, messageKey: string, vars: Record<string, string | number>, fix?: string,
-    toNote?: boolean,
+    { toNote, fixPhrase }: { toNote?: boolean; fixPhrase?: string } = {},
   ) =>
     ctx.emit({
       ...base, category, severity: category === "pointerType" ? "error" : "warning",
       messageKey: `tools.validate.struct.issue.${messageKey}`,
       messageVars: { tag, sample: truncate(value), parent: loc.where(), version: spec.version, ...vars },
       sample: truncate(value), path: loc.path(),
-      tooltip: fix ? `${lineOf(node)} → ${toNote ? `${node.level + 1} NOTE ${fix}` : fix}` : lineOf(node),
+      tooltip: fix
+        ? `${lineOf(node)} → ${toNote ? `${node.level + 1} NOTE ${fix}` : fix}${fixPhrase ? ` + PHRASE ${fixPhrase}` : ""}`
+        : lineOf(node),
       fix: fixable ? fix : undefined,
       toNote: fixable && toNote ? true : undefined,
+      fixPhrase: fixable ? fixPhrase : undefined,
     });
 
   if (payload.startsWith("@")) {
@@ -365,10 +371,18 @@ function checkPayload(
     // event (a doubtful date or place, an address): the fix keeps it word for
     // word in a NOTE on the event.
     if (value === "y") emit("enumValue", "badY", {}, "Y");
-    else if (value !== "Y") emit("enumValue", "badY", {}, value, true);
+    else if (value !== "Y") emit("enumValue", "badY", {}, value, { toNote: true });
   } else if (payload.startsWith("E:") || payload.startsWith("L:")) {
     const set = spec.enums.get(payload.slice(2));
     if (!set) return;
+    // Any name type has a home in 7.0's: the value it plainly means, or OTHER
+    // with the word kept as its PHRASE — so the fix loses nothing.
+    if (spec.is70 && payload === "E:enumset-NAME-TYPE" && enumVerdict(value, set, true) === "") {
+      const mapped = nameType70(value);
+      const key = mapped.phrase ? "nameTypeOther" : "nameTypeNearest";
+      emit("enumValue", key, { standard: mapped.type }, mapped.type, { fixPhrase: mapped.phrase });
+      return;
+    }
     const items = payload.startsWith("L:") ? value.split(",").map((s) => s.trim()) : [value];
     const verdicts = items.map((v) => enumVerdict(v, set, spec.is70));
     if (verdicts.every((v) => v === undefined)) return;

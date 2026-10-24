@@ -1,5 +1,32 @@
 import type { NameOrder } from "./nameDisplay";
-import type { PersonName } from "./types";
+import type { GedcomVersion, PersonName } from "./types";
+
+/** GEDCOM 7.0's `NAME.TYPE` enumeration. 5.5.1 spells its five in lower case
+ *  (`aka | birth | immigrant | maiden | married`) and lets a file add its own. */
+export const NAME_TYPES_70 = new Set(["AKA", "BIRTH", "IMMIGRANT", "MAIDEN", "MARRIED", "OTHER", "PROFESSIONAL"]);
+export const NAME_TYPES_551 = new Set(["aka", "birth", "immigrant", "maiden", "married"]);
+
+/** A `NAME.TYPE` value spelled the way `version` writes it: 7.0's enumeration
+ *  is upper case and case-sensitive, so `aka` there is `AKA`. A 5.5.1 file
+ *  keeps its own spelling, as does a word 7.0 does not enumerate. */
+export function spellNameType(type: string, version: GedcomVersion): string {
+  const upper = type.trim().toUpperCase();
+  return version === "7.0" && NAME_TYPES_70.has(upper) ? upper : type;
+}
+
+/** Words outside 7.0's enumeration that one of its values says plainly: a
+ *  spelling variant or a nickname is an alternate name, `AKA`. */
+const NAME_TYPE_NEAREST_70: Record<string, string> = { variation: "AKA", nick: "AKA", nickname: "AKA" };
+
+/** The 7.0 `NAME.TYPE` for any word: the enumeration value it is or plainly
+ *  means, else `OTHER` with the word kept as its `PHRASE`. */
+export function nameType70(type: string): { type: string; phrase?: string } {
+  const word = type.trim();
+  const upper = word.toUpperCase();
+  if (NAME_TYPES_70.has(upper)) return { type: upper };
+  const nearest = NAME_TYPE_NEAREST_70[word.toLowerCase()];
+  return nearest ? { type: nearest } : { type: "OTHER", phrase: word };
+}
 
 /**
  * A whole name part used as a stand-in for an *unknown* given or surname:

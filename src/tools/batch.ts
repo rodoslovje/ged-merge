@@ -878,9 +878,9 @@ function addMarriedNameBatch(ds: Dataset, ids: string[]): BatchApplyResult {
         if (recorded) continue;
         // The surname-only `1 NAME /Novak/` + `2 TYPE married` pair the standard
         // (and every file observed) uses — the given name stays on the primary.
-        addAdditionalName(indi, target.form === "record" ? target.type! : "married");
+        addAdditionalName(indi, target.form === "record" ? target.type! : "married", ds.version);
         const added = childrenByTag(indi.raw, "NAME").length - 2;
-        setAdditionalName(indi, added, { given: "", surname });
+        setAdditionalName(indi, added, { given: "", surname }, ds.version);
       }
     }
     rebuildIndividual(ds, indi);

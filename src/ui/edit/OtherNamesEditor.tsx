@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
-import type { Individual, PersonName } from "../../gedcom/types";
+import type { GedcomVersion, Individual, PersonName } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { FieldChoice } from "../../review/types";
 import { addAdditionalName, removeAdditionalName, setNickname, setMarriedName } from "../../gedcom/edit";
@@ -27,6 +27,7 @@ export function OtherNamesEditor({
   onAddFsId,
   addNameNonce,
   marriedNameTag,
+  version,
   leadingControl,
   mergeNames,
   onTakeMergeNames,
@@ -52,6 +53,8 @@ export function OtherNamesEditor({
    * choosing the "married" type on an added name stores it there instead of as a
    * separate `TYPE married` NAME record. */
   marriedNameTag?: boolean;
+  /** The file's GEDCOM version, which spells a name's `TYPE` (see `spellNameType`). */
+  version?: GedcomVersion;
   /** Rendered at the start of the actions row, before "+ Add event" (the sex picker). */
   leadingControl?: ReactNode;
   /** A confirmed match's incoming additional names, previewed as chips the way
@@ -77,9 +80,9 @@ export function OtherNamesEditor({
   useEffect(() => {
     if (!addNameNonce || addNameNonce === seenAddNameNonce.current) return;
     seenAddNameNonce.current = addNameNonce;
-    commit((indi) => addAdditionalName(indi, "aka"));
+    commit((indi) => addAdditionalName(indi, "aka", version));
     setEditing(person.names.length - 1);
-  }, [addNameNonce, commit, person]);
+  }, [addNameNonce, commit, person, version]);
 
   const addNameBtn = (
     <button
@@ -87,7 +90,7 @@ export function OtherNamesEditor({
       className="edit-name-chip edit-name-chip-add"
       title={keyHint(t("edit.addNameTooltip"), altShiftLabel("A"))}
       onClick={() => {
-        commit((indi) => addAdditionalName(indi, "aka"));
+        commit((indi) => addAdditionalName(indi, "aka", version));
         setEditing(extraNames.length);
       }}
     >
@@ -138,7 +141,7 @@ export function OtherNamesEditor({
           ) : null}
           {extraNames.map((n, i) =>
             editing === i ? (
-              <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} marriedNameTag={marriedNameTag} onDone={() => setEditing(null)} />
+              <NameVariantEditor key={i} person={person} index={i} t={t} commit={commit} marriedNameTag={marriedNameTag} version={version} onDone={() => setEditing(null)} />
             ) : (
               <span className="edit-name-chip-wrap" key={i}>
                 <button type="button" className={`edit-name-chip${replaced ? " edit-name-chip--replaced" : ""}`} onClick={() => setEditing(i)}>

@@ -10,7 +10,8 @@ import { applyPassSafely } from "./passSafety";
  *
  *  - **values** — an enumerated value written in another case than the
  *    standard's (`PEDI Adopted` → `adopted`, 7.0's `TYPE married` →
- *    `MARRIED`), and a 7.0 date still carrying a 5.5.1 calendar escape
+ *    `MARRIED`), a 7.0 name type outside the enumeration (`variation` →
+ *    `AKA`, `formal` → `OTHER` with the word as its `PHRASE`), and a 7.0 date still carrying a 5.5.1 calendar escape
  *    (`@#DJULIAN@ 1700` → `JULIAN 1700`);
  *  - **repeats** — a line the standard allows once, repeated as an exact copy
  *    (same value, same lines beneath): the copies go, the first stays;
@@ -87,6 +88,9 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
           node.value = undefined;
         } else if (issue.fix !== undefined) {
           node.value = issue.fix;
+          if (issue.fixPhrase && !node.children.some((c) => c.tag === "PHRASE")) {
+            node.children.unshift({ level: node.level + 1, tag: "PHRASE", value: issue.fixPhrase, children: [] });
+          }
         }
       }
       patches.push(recordPatch(dataset, xref, rec, before));

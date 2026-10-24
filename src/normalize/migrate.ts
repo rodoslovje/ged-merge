@@ -4,7 +4,7 @@ import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
-import { splitSlashName } from "../gedcom/name";
+import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { walkNodes } from "./walk";
 
@@ -35,6 +35,10 @@ import { walkNodes } from "./walk";
  *                                        `_UID` ⇄ `UID`
  *  - married surnames                  : a `NAME`'s `_MARNM` ⇄ a `NAME` of its
  *                                        own with `TYPE MARRIED`
+ *  - name types                        : `NAME`.`TYPE` `aka`/`married`/… ⇄
+ *                                        `AKA`/`MARRIED`/… (7.0's enumeration);
+ *                                        `variation` → `AKA`, any other word ⇄
+ *                                        `OTHER` + `PHRASE`
  *  - media                             : `FORM` file extension ⇄ IANA media
  *                                        type, record-level `FORM`/`TITL`
  *                                        moved under `FILE`, `TYPE` ⇄ `MEDI`
@@ -136,6 +140,31 @@ function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const before = describe(node);
   node.value = next;
   report(ctx, node, before);
+}
+
+/** Rewrite a name's `TYPE` into the target version's terms. 7.0 has a closed,
+ *  upper-case enumeration: a word outside it becomes the value it plainly
+ *  means, or `OTHER` with the word as its `PHRASE`. 5.5.1 spells its five in
+ *  lower case and takes any other word as it is — the `PHRASE`'s, on the way down. */
+function migrateNameType(name: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
+  const type = firstChild(name, "TYPE");
+  const raw = type?.value?.trim();
+  if (!type || !raw) return;
+  const before = describe(type);
+  if (to === "7.0") {
+    const next = nameType70(raw);
+    if (next.type === type.value) return;
+    type.value = next.type;
+    if (next.phrase && !firstChild(type, "PHRASE")) type.children.unshift(plain("PHRASE", next.phrase));
+  } else {
+    const phrase = firstChild(type, "PHRASE");
+    const word = (raw.toUpperCase() === "OTHER" && phrase?.value?.trim()) || raw;
+    const next = NAME_TYPES_551.has(word.toLowerCase()) ? word.toLowerCase() : word;
+    if (next === type.value && !phrase) return;
+    type.value = next;
+    type.children = type.children.filter((c) => c.tag !== "PHRASE");
+  }
+  report(ctx, type, before);
 }
 
 /* ------------------------------- 5.5.1 → 7.0 ------------------------------ */
@@ -255,6 +284,8 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       }
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "7.0");
+    } else if (node.tag === "NAME" && node.level > 0) {
+      migrateNameType(node, ctx, "7.0");
     } else if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
       // The stand-ins this migration's own downgrade writes for 7-only
       // structures go back to their real tags, `_UID` to the one 7.0 adopted.
@@ -703,6 +734,8 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, node, before);
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "5.5.1");
+    } else if (node.tag === "NAME" && node.level > 0) {
+      migrateNameType(node, ctx, "5.5.1");
     } else if (node.tag in UNDERSCORE_DOWNGRADES && node.level > 0) {
       const before = describe(node);
       report(ctx, restoreVendor(node, UNDERSCORE_DOWNGRADES[node.tag]), before);

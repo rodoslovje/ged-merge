@@ -245,7 +245,7 @@ describe("enumerations", () => {
     expect(kinds(check551(`0 @I1@ INDI\n1 ADOP\n2 FAMC @F1@\n3 ADOP father\n0 @F1@ FAM`))).toEqual(["enumValue"]);
     expect(kinds(check551(`0 @I1@ INDI\n1 BAPL\n2 STAT DONE\n3 DATE 1 JAN 2000`))).toEqual(["enumValue"]);
     expect(kinds(check551(`0 @I1@ INDI\n1 OBJE\n2 FILE a.jpg\n3 FORM jpg\n4 MEDI Photo`))).toEqual(["enumCase"]);
-    expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TYPE nick`))).toEqual(["enumValue"]);
+    expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TYPE nick`))).toEqual(["nameTypeNearest"]);
     expect(kinds(check70(`0 @I1@ INDI\n1 ASSO @VOID@\n2 ROLE witn`))).toEqual(["enumCase"]);
     expect(kinds(validateConformance(dataset(`0 HEAD\n1 SOUR T\n1 GEDC\n2 VERS 5.5.1\n2 FORM Lineage-Linked\n1 CHAR ANSI\n0 TRLR`)))).toEqual([
       "enumCase",
@@ -368,6 +368,17 @@ describe("fixConformance", () => {
     expect(fixConformance(ds, undefined, { id: "@I9@" })).toEqual([]);
   });
 
+  it("gives a 7.0 name type outside the enumeration its standard form", () => {
+    const ds = dataset(
+      `${HEAD_70}\n0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Anica //\n2 TYPE variation\n1 NAME Marija //\n2 TYPE religious\n0 TRLR`,
+    );
+    expect(kinds(validateConformance(ds))).toEqual(["nameTypeNearest", "nameTypeOther"]);
+    fixConformance(ds, "values");
+    const names = ds.individuals.get("@I1@")!.names;
+    expect(names.slice(1).map((n) => [n.type, n.typePhrase])).toEqual([["AKA", undefined], ["OTHER", "religious"]]);
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("adds a media file's missing FORM read off its name, and leaves a nameless one", () => {
     const ds = dataset(`${HEAD_70}
 0 @O1@ OBJE
@@ -456,7 +467,7 @@ describe("corpus", () => {
     // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
     // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
     // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "enumValue TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAN@FAM.MARR", "misplaced CHAN@INDI.BIRT", "misplaced CHAN@INDI.BURI", "misplaced CHAN@INDI.CHR", "misplaced CHAN@INDI.DEAT", "misplaced CHAN@INDI.NATU", "misplaced CHAN@INDI.OCCU", "misplaced CHAN@INDI.RESI", "misplaced CREA@FAM.MARR", "misplaced CREA@INDI.BIRT", "misplaced CREA@INDI.BURI", "misplaced CREA@INDI.CHR", "misplaced CREA@INDI.DEAT", "misplaced CREA@INDI.NAME", "misplaced CREA@INDI.NATU", "misplaced CREA@INDI.OCCU", "misplaced CREA@INDI.RELI", "misplaced CREA@INDI.RESI", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAN@FAM.MARR", "misplaced CHAN@INDI.BIRT", "misplaced CHAN@INDI.BURI", "misplaced CHAN@INDI.CHR", "misplaced CHAN@INDI.DEAT", "misplaced CHAN@INDI.NATU", "misplaced CHAN@INDI.OCCU", "misplaced CHAN@INDI.RESI", "misplaced CREA@FAM.MARR", "misplaced CREA@INDI.BIRT", "misplaced CREA@INDI.BURI", "misplaced CREA@INDI.CHR", "misplaced CREA@INDI.DEAT", "misplaced CREA@INDI.NAME", "misplaced CREA@INDI.NATU", "misplaced CREA@INDI.OCCU", "misplaced CREA@INDI.RELI", "misplaced CREA@INDI.RESI", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.
