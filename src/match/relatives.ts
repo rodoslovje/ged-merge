@@ -109,9 +109,11 @@ export function additionalNameTypes(version: GedcomVersion | undefined): string[
 
 /** Human-readable label for a `2 TYPE` value on a NAME record (e.g. "married", "aka"). */
 export function nameTypeLabel(type: string, t: Translate, phrase?: string): string {
-  // A GEDCOM 7 `TYPE`.`PHRASE` is the file's own word for the type.
-  if (phrase) return phrase;
-  const key = type.toLowerCase();
+  // A GEDCOM 7 `TYPE`.`PHRASE` is the file's own word for the type — still
+  // translated when it is a word we know (`OTHER` + `PHRASE religious` is how
+  // the 7.0 upgrade keeps a 5.5.1 `TYPE religious`).
+  const key = (phrase ?? type).toLowerCase();
+  if (phrase && !KNOWN_NAME_TYPES.has(key)) return phrase;
   return KNOWN_NAME_TYPES.has(key) ? t(`nametype.${key}`) : type;
 }
 
