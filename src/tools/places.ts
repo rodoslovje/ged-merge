@@ -1,4 +1,5 @@
-import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
+import type { Dataset, GedNode, GeoCoord, Translation } from "../gedcom/types";
+import { translationsOf } from "../gedcom/translation";
 import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
 import { ALL_EVENT_TAGS } from "../gedcom/eventTags";
 import { addressText, eventAddressNode } from "../gedcom/address";
@@ -65,6 +66,12 @@ export interface PlaceNode {
    *  Absent when the path was never geocoded; more than one entry means the
    *  file contradicts itself about where this place is. */
   coords?: { coord: GeoCoord; n: number }[];
+  /** The `PLAC` values that are this row — whose own deepest level it is, as
+   *  opposed to a row reached through the event's `ADDR`. What a place's other
+   *  names are read from and written on. Absent when there are none. */
+  placValues?: string[];
+  /** The other names (`TRAN`) those values carry. Absent when there are none. */
+  translations?: Translation[];
 }
 
 export interface PlaceTree {
@@ -85,12 +92,15 @@ interface MutableNode {
   /** "lat:lon" → the coordinate and how many mentions wrote it, so a path the
    *  file geocoded inconsistently still reports its prevailing value. */
   coords: Map<string, { coord: GeoCoord; n: number }>;
+  /** "value\0lang" → translation, as written at exactly this path. */
+  translations: Map<string, Translation>;
+  placValues: Set<string>;
 }
 
 function childNode(parent: MutableNode, name: string, isAddress: boolean): MutableNode {
   let n = parent.children.get(name);
   if (!n) {
-    n = { name, children: new Map(), uses: [], isAddress, coords: new Map() };
+    n = { name, children: new Map(), uses: [], isAddress, coords: new Map(), translations: new Map(), placValues: new Set() };
     parent.children.set(name, n);
   } else if (!isAddress) {
     // Jurisdiction context overrides address: a segment seen as both stays non-address.
@@ -105,6 +115,8 @@ interface PlaceMention {
   addr?: string;
   /** The `MAP` coordinate written under this mention's `PLAC`, when present. */
   coord?: GeoCoord;
+  /** The translations under this mention's `PLAC`. */
+  translations?: Translation[];
   /** True when `raw` is a standalone `ADDR` with no sibling `PLAC` — bucketed
    * under {@link UNSPECIFIED_PLACE} since it has no jurisdiction. */
   addrOnly?: boolean;
@@ -131,7 +143,7 @@ function collectPlaces(node: GedNode, into: PlaceMention[]): void {
   const eventTag = ALL_EVENT_TAGS.has(node.tag) ? node.tag : undefined;
   if (placs.length > 0) {
     for (const plac of placs)
-      into.push({ raw: plac.value!.trim(), addr, coord: placeNodeCoord(plac), eventTag });
+      into.push({ raw: plac.value!.trim(), addr, coord: placeNodeCoord(plac), translations: translationsOf(plac), eventTag });
   } else if (addr) {
     into.push({ raw: addr, addrOnly: true, eventTag });
   }
@@ -173,6 +185,9 @@ function mapJurisdictionToRaw(raw: string, jurisdiction: string[], country: stri
 interface PathSegment {
   name: string;
   isAddress: boolean;
+  /** Read off the event's `ADDR`, not its `PLAC` — a level the place value
+   *  itself does not reach. */
+  fromAddr?: boolean;
 }
 
 /** Hierarchy path for a place, country-first; no-country places go under
@@ -187,7 +202,7 @@ function placePath({ raw, addr, addrOnly }: PlaceMention): PathSegment[] {
   if (addrOnly) {
     // The whole value is an ADDR with no PLAC sibling — all levels are address-type.
     segments.push({ name: UNSPECIFIED_PLACE, isAddress: false }); // synthetic bucket, not an address itself
-    for (const name of rev) if (name) segments.push({ name, isAddress: true });
+    for (const name of rev) if (name) segments.push({ name, isAddress: true, fromAddr: true });
   } else {
     const prefix = d.country ? [] : [UNSPECIFIED];
     for (const name of [...prefix, ...rev]) if (name) segments.push({ name, isAddress: false });
@@ -200,7 +215,7 @@ function placePath({ raw, addr, addrOnly }: PlaceMention): PathSegment[] {
   const detail = placeAddressDetail(d);
   if (detail) segments.push({ name: detail, isAddress: true });
   const street = addr ? addressLevel(addr) : undefined;
-  if (street && street.toLowerCase() !== detail?.toLowerCase()) segments.push({ name: street, isAddress: true });
+  if (street && street.toLowerCase() !== detail?.toLowerCase()) segments.push({ name: street, isAddress: true, fromAddr: true });
   return segments.filter((s) => s.name.length > 0);
 }
 
@@ -218,6 +233,8 @@ function finalize(node: MutableNode): PlaceNode {
     // Rounding variants and a re-geocode a few metres off are the same spot,
     // not a contradiction — the geocoder's own rule decides which is which.
     coords: node.coords.size ? distinctSpots([...node.coords.values()]) : undefined,
+    ...(node.placValues.size ? { placValues: [...node.placValues] } : {}),
+    ...(node.translations.size ? { translations: [...node.translations.values()] } : {}),
   };
 }
 
@@ -331,7 +348,7 @@ export function countDistinctPlaces(dataset: Dataset): number {
 }
 
 export function buildPlaceTree(dataset: Dataset): PlaceTree {
-  const root: MutableNode = { name: "", children: new Map(), uses: [], isAddress: false, coords: new Map() };
+  const root: MutableNode = { name: "", children: new Map(), uses: [], isAddress: false, coords: new Map(), translations: new Map(), placValues: new Set() };
   const distinct = new Set<string>();
   let totalUses = 0;
   /**
@@ -368,12 +385,22 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
       const { path, key: pathKey } = pathOf(mention);
       if (path.length === 0) continue;
       const already = seenPaths.get(pathKey);
+      let node = root;
+      // The deepest level the PLAC value itself reaches: its row is the place
+      // the value names, and the one its other names belong to.
+      let placNode: MutableNode | undefined;
+      for (const seg of path) {
+        node = childNode(node, seg.name, seg.isAddress);
+        if (!seg.fromAddr && !mention.addrOnly) placNode = node;
+      }
+      if (placNode) {
+        placNode.placValues.add(mention.raw);
+        for (const tr of mention.translations ?? []) placNode.translations.set(`${tr.value}\0${tr.lang ?? ""}`, tr);
+      }
       if (already) {
         if (mention.eventTag && !already.eventTags.includes(mention.eventTag)) already.eventTags.push(mention.eventTag);
         continue;
       }
-      let node = root;
-      for (const seg of path) node = childNode(node, seg.name, seg.isAddress);
       const placeUse: PlaceUse = {
         ...use,
         plac: mention.raw,
