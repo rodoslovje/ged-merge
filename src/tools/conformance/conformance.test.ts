@@ -217,9 +217,16 @@ describe("enumerations", () => {
   });
 
   it("offers nothing for a value outside the list", () => {
-    const [issue] = check551(`0 @I1@ INDI\n1 SOUR @S1@\n2 QUAY 4\n0 @S1@ SOUR`);
+    const [issue] = check551(`0 @I1@ INDI\n1 SOUR @S1@\n2 QUAY high\n0 @S1@ SOUR`);
     expect(issue).toMatchObject({ messageKey: "tools.validate.struct.issue.enumValue", messageVars: { allowed: "0, 1, 2, 3" } });
     expect(issue.fix).toBeUndefined();
+  });
+
+  it("lowers MyHeritage's QUAY 4 to the standard's best, 3", () => {
+    expect(check551(`0 @I1@ INDI\n1 SOUR @S1@\n2 QUAY 4\n0 @S1@ SOUR`)).toMatchObject([
+      { category: "enumValue", messageKey: "tools.validate.struct.issue.quayAbove", fix: "3", path: "0.0" },
+    ]);
+    expect(check70(`0 @I1@ INDI\n1 BIRT\n2 SOUR @S1@\n3 QUAY 5\n0 @S1@ SOUR`)).toMatchObject([{ fix: "3" }]);
   });
 
   it("reads 7.0's list-valued RESN item by item", () => {
@@ -416,7 +423,7 @@ describe("corpus", () => {
     "gramps-5.5.1-utf8.ged": [],
     // MyHeritage: RIN on events and citations, QUAY 4, a bare-number AGE,
     // repeated PAGE lines, "Adopted".
-    "myheritage-5.5.1-utf8.ged": ["badAge AGE@INDI.DEAT.AGE", "enumCase PEDI@INDI.FAMC.PEDI", "enumValue QUAY@FAM.EVEN.SOUR.QUAY", "enumValue QUAY@FAM.MARR.SOUR.QUAY", "enumValue QUAY@INDI.BIRT.SOUR.QUAY", "enumValue QUAY@INDI.DEAT.SOUR.QUAY", "enumValue QUAY@INDI.EVEN.SOUR.QUAY", "enumValue QUAY@INDI.SOUR.QUAY", "misplaced RIN@FAM.DIV", "misplaced RIN@FAM.EVEN", "misplaced RIN@FAM.EVEN.SOUR", "misplaced RIN@FAM.MARR", "misplaced RIN@FAM.MARR.SOUR", "misplaced RIN@INDI.BAPM", "misplaced RIN@INDI.BIRT", "misplaced RIN@INDI.BIRT.SOUR", "misplaced RIN@INDI.BURI", "misplaced RIN@INDI.CHR", "misplaced RIN@INDI.DEAT", "misplaced RIN@INDI.DEAT.SOUR", "misplaced RIN@INDI.EVEN", "misplaced RIN@INDI.EVEN.SOUR", "misplaced RIN@INDI.OCCU", "misplaced RIN@INDI.RESI", "misplaced RIN@INDI.SOUR", "tooMany PAGE@FAM.EVEN.SOUR", "tooMany PAGE@FAM.MARR.SOUR", "tooMany PAGE@INDI.BIRT.SOUR", "tooMany PAGE@INDI.DEAT.SOUR", "tooMany PAGE@INDI.EVEN.SOUR", "tooMany PAGE@INDI.SOUR"],
+    "myheritage-5.5.1-utf8.ged": ["badAge AGE@INDI.DEAT.AGE", "enumCase PEDI@INDI.FAMC.PEDI", "misplaced RIN@FAM.DIV", "misplaced RIN@FAM.EVEN", "misplaced RIN@FAM.EVEN.SOUR", "misplaced RIN@FAM.MARR", "misplaced RIN@FAM.MARR.SOUR", "misplaced RIN@INDI.BAPM", "misplaced RIN@INDI.BIRT", "misplaced RIN@INDI.BIRT.SOUR", "misplaced RIN@INDI.BURI", "misplaced RIN@INDI.CHR", "misplaced RIN@INDI.DEAT", "misplaced RIN@INDI.DEAT.SOUR", "misplaced RIN@INDI.EVEN", "misplaced RIN@INDI.EVEN.SOUR", "misplaced RIN@INDI.OCCU", "misplaced RIN@INDI.RESI", "misplaced RIN@INDI.SOUR", "quayAbove QUAY@FAM.EVEN.SOUR.QUAY", "quayAbove QUAY@FAM.MARR.SOUR.QUAY", "quayAbove QUAY@INDI.BIRT.SOUR.QUAY", "quayAbove QUAY@INDI.DEAT.SOUR.QUAY", "quayAbove QUAY@INDI.EVEN.SOUR.QUAY", "quayAbove QUAY@INDI.SOUR.QUAY", "tooMany PAGE@FAM.EVEN.SOUR", "tooMany PAGE@FAM.MARR.SOUR", "tooMany PAGE@INDI.BIRT.SOUR", "tooMany PAGE@INDI.DEAT.SOUR", "tooMany PAGE@INDI.EVEN.SOUR", "tooMany PAGE@INDI.SOUR"],
     // An alias written as a name instead of a pointer.
     "reunion-5.5.1-utf8.ged": ["pointerExpected ALIA@INDI.ALIA"],
     // A NAME line inside source citations.
