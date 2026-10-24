@@ -217,9 +217,16 @@ describe("enumerations", () => {
   });
 
   it("offers nothing for a value outside the list", () => {
-    const [issue] = check551(`0 @I1@ INDI\n1 SOUR @S1@\n2 QUAY 4\n0 @S1@ SOUR`);
+    const [issue] = check551(`0 @I1@ INDI\n1 SOUR @S1@\n2 QUAY high\n0 @S1@ SOUR`);
     expect(issue).toMatchObject({ messageKey: "tools.validate.struct.issue.enumValue", messageVars: { allowed: "0, 1, 2, 3" } });
     expect(issue.fix).toBeUndefined();
+  });
+
+  it("lowers MyHeritage's QUAY 4 to the standard's best, 3", () => {
+    expect(check551(`0 @I1@ INDI\n1 SOUR @S1@\n2 QUAY 4\n0 @S1@ SOUR`)).toMatchObject([
+      { category: "enumValue", messageKey: "tools.validate.struct.issue.quayAbove", fix: "3", path: "0.0" },
+    ]);
+    expect(check70(`0 @I1@ INDI\n1 BIRT\n2 SOUR @S1@\n3 QUAY 5\n0 @S1@ SOUR`)).toMatchObject([{ fix: "3" }]);
   });
 
   it("reads 7.0's list-valued RESN item by item", () => {
@@ -238,7 +245,7 @@ describe("enumerations", () => {
     expect(kinds(check551(`0 @I1@ INDI\n1 ADOP\n2 FAMC @F1@\n3 ADOP father\n0 @F1@ FAM`))).toEqual(["enumValue"]);
     expect(kinds(check551(`0 @I1@ INDI\n1 BAPL\n2 STAT DONE\n3 DATE 1 JAN 2000`))).toEqual(["enumValue"]);
     expect(kinds(check551(`0 @I1@ INDI\n1 OBJE\n2 FILE a.jpg\n3 FORM jpg\n4 MEDI Photo`))).toEqual(["enumCase"]);
-    expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TYPE nick`))).toEqual(["enumValue"]);
+    expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TYPE nick`))).toEqual(["nameTypeNearest"]);
     expect(kinds(check70(`0 @I1@ INDI\n1 ASSO @VOID@\n2 ROLE witn`))).toEqual(["enumCase"]);
     expect(kinds(validateConformance(dataset(`0 HEAD\n1 SOUR T\n1 GEDC\n2 VERS 5.5.1\n2 FORM Lineage-Linked\n1 CHAR ANSI\n0 TRLR`)))).toEqual([
       "enumCase",
@@ -255,7 +262,7 @@ describe("enumerations", () => {
   it("checks 7.0's Y-or-nothing event lines", () => {
     expect(check70(`0 @I1@ INDI\n1 BIRT Y\n1 DEAT`)).toEqual([]);
     expect(check70(`0 @I1@ INDI\n1 BIRT y`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.badY", fix: "Y" }]);
-    expect(check70(`0 @I1@ INDI\n1 BIRT nezakonski`)[0].fix).toBeUndefined();
+    expect(check70(`0 @I1@ INDI\n1 BIRT nezakonski`)).toMatchObject([{ fix: "nezakonski", toNote: true }]);
   });
 
   it("rewrites a 5.5.1 calendar escape left in a 7.0 date, where the word has a place", () => {
@@ -361,6 +368,17 @@ describe("fixConformance", () => {
     expect(fixConformance(ds, undefined, { id: "@I9@" })).toEqual([]);
   });
 
+  it("gives a 7.0 name type outside the enumeration its standard form", () => {
+    const ds = dataset(
+      `${HEAD_70}\n0 @I1@ INDI\n1 NAME Ana /Novak/\n1 NAME Anica //\n2 TYPE variation\n1 NAME Marija //\n2 TYPE religious\n0 TRLR`,
+    );
+    expect(kinds(validateConformance(ds))).toEqual(["nameTypeNearest", "nameTypeOther"]);
+    fixConformance(ds, "values");
+    const names = ds.individuals.get("@I1@")!.names;
+    expect(names.slice(1).map((n) => [n.type, n.typePhrase])).toEqual([["AKA", undefined], ["OTHER", "religious"]]);
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("adds a media file's missing FORM read off its name, and leaves a nameless one", () => {
     const ds = dataset(`${HEAD_70}
 0 @O1@ OBJE
@@ -428,6 +446,31 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("moves the text on a 7.0 event line into a note on the event", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 BIRT ali Ravna Gora?
+2 DATE 1863
+1 DEAT Bokalce 51
+2 NOTE Bokalce 51
+1 BURI y
+0 TRLR`);
+    expect(countFixableConformance(ds, "notes")).toBe(2);
+    expect(countFixableConformance(ds, "values")).toBe(1);
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "notes");
+    expect(patches).toHaveLength(1);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 BIRT\n2 DATE 1863\n2 NOTE ali Ravna Gora?\n");
+    // The same note already there is not written twice.
+    expect(out).toContain("1 DEAT\n2 NOTE Bokalce 51\n1 BURI y\n");
+    expect(validateConformance(ds).map((i) => i.messageKey.split(".").pop())).toEqual(["badY"]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("writes a moved format as 7.0's media type", () => {
     const ds = dataset(`${HEAD_70}\n0 @O1@ OBJE\n1 FILE a.jpg\n1 FORM jpg\n1 TITL Krst\n0 TRLR`);
     fixConformance(ds, "relocate");
@@ -463,7 +506,7 @@ describe("corpus", () => {
     "gramps-5.5.1-utf8.ged": [],
     // MyHeritage: RIN on events and citations, QUAY 4, a bare-number AGE,
     // repeated PAGE lines, "Adopted".
-    "myheritage-5.5.1-utf8.ged": ["badAge AGE@INDI.DEAT.AGE", "enumCase PEDI@INDI.FAMC.PEDI", "enumValue QUAY@FAM.EVEN.SOUR.QUAY", "enumValue QUAY@FAM.MARR.SOUR.QUAY", "enumValue QUAY@INDI.BIRT.SOUR.QUAY", "enumValue QUAY@INDI.DEAT.SOUR.QUAY", "enumValue QUAY@INDI.EVEN.SOUR.QUAY", "enumValue QUAY@INDI.SOUR.QUAY", "misplaced RIN@FAM.DIV", "misplaced RIN@FAM.EVEN", "misplaced RIN@FAM.EVEN.SOUR", "misplaced RIN@FAM.MARR", "misplaced RIN@FAM.MARR.SOUR", "misplaced RIN@INDI.BAPM", "misplaced RIN@INDI.BIRT", "misplaced RIN@INDI.BIRT.SOUR", "misplaced RIN@INDI.BURI", "misplaced RIN@INDI.CHR", "misplaced RIN@INDI.DEAT", "misplaced RIN@INDI.DEAT.SOUR", "misplaced RIN@INDI.EVEN", "misplaced RIN@INDI.EVEN.SOUR", "misplaced RIN@INDI.OCCU", "misplaced RIN@INDI.RESI", "misplaced RIN@INDI.SOUR", "tooMany PAGE@FAM.EVEN.SOUR", "tooMany PAGE@FAM.MARR.SOUR", "tooMany PAGE@INDI.BIRT.SOUR", "tooMany PAGE@INDI.DEAT.SOUR", "tooMany PAGE@INDI.EVEN.SOUR", "tooMany PAGE@INDI.SOUR"],
+    "myheritage-5.5.1-utf8.ged": ["badAge AGE@INDI.DEAT.AGE", "enumCase PEDI@INDI.FAMC.PEDI", "misplaced RIN@FAM.DIV", "misplaced RIN@FAM.EVEN", "misplaced RIN@FAM.EVEN.SOUR", "misplaced RIN@FAM.MARR", "misplaced RIN@FAM.MARR.SOUR", "misplaced RIN@INDI.BAPM", "misplaced RIN@INDI.BIRT", "misplaced RIN@INDI.BIRT.SOUR", "misplaced RIN@INDI.BURI", "misplaced RIN@INDI.CHR", "misplaced RIN@INDI.DEAT", "misplaced RIN@INDI.DEAT.SOUR", "misplaced RIN@INDI.EVEN", "misplaced RIN@INDI.EVEN.SOUR", "misplaced RIN@INDI.OCCU", "misplaced RIN@INDI.RESI", "misplaced RIN@INDI.SOUR", "quayAbove QUAY@FAM.EVEN.SOUR.QUAY", "quayAbove QUAY@FAM.MARR.SOUR.QUAY", "quayAbove QUAY@INDI.BIRT.SOUR.QUAY", "quayAbove QUAY@INDI.DEAT.SOUR.QUAY", "quayAbove QUAY@INDI.EVEN.SOUR.QUAY", "quayAbove QUAY@INDI.SOUR.QUAY", "tooMany PAGE@FAM.EVEN.SOUR", "tooMany PAGE@FAM.MARR.SOUR", "tooMany PAGE@INDI.BIRT.SOUR", "tooMany PAGE@INDI.DEAT.SOUR", "tooMany PAGE@INDI.EVEN.SOUR", "tooMany PAGE@INDI.SOUR"],
     // An alias written as a name instead of a pointer.
     "reunion-5.5.1-utf8.ged": ["pointerExpected ALIA@INDI.ALIA"],
     // A NAME line inside source citations.
@@ -471,7 +514,7 @@ describe("corpus", () => {
     // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
     // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
     // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "enumValue TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAN@FAM.MARR", "misplaced CHAN@INDI.BIRT", "misplaced CHAN@INDI.BURI", "misplaced CHAN@INDI.CHR", "misplaced CHAN@INDI.DEAT", "misplaced CHAN@INDI.NATU", "misplaced CHAN@INDI.OCCU", "misplaced CHAN@INDI.RESI", "misplaced CREA@FAM.MARR", "misplaced CREA@INDI.BIRT", "misplaced CREA@INDI.BURI", "misplaced CREA@INDI.CHR", "misplaced CREA@INDI.DEAT", "misplaced CREA@INDI.NAME", "misplaced CREA@INDI.NATU", "misplaced CREA@INDI.OCCU", "misplaced CREA@INDI.RELI", "misplaced CREA@INDI.RESI", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAN@FAM.MARR", "misplaced CHAN@INDI.BIRT", "misplaced CHAN@INDI.BURI", "misplaced CHAN@INDI.CHR", "misplaced CHAN@INDI.DEAT", "misplaced CHAN@INDI.NATU", "misplaced CHAN@INDI.OCCU", "misplaced CHAN@INDI.RESI", "misplaced CREA@FAM.MARR", "misplaced CREA@INDI.BIRT", "misplaced CREA@INDI.BURI", "misplaced CREA@INDI.CHR", "misplaced CREA@INDI.DEAT", "misplaced CREA@INDI.NAME", "misplaced CREA@INDI.NATU", "misplaced CREA@INDI.OCCU", "misplaced CREA@INDI.RELI", "misplaced CREA@INDI.RESI", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.

@@ -47,7 +47,7 @@ test("a menu inside a blur-closing editor opens, survives and applies", async ({
   await page.locator('.dd-menu .dd-item[data-value="maiden"]').click();
 
   await expect(page.locator(".edit-name-chip-editing")).toBeVisible();
-  await expect(editor.locator(".edit-name-type-select")).toContainText("name at birth");
+  await expect(editor.locator(".edit-name-type-select")).toContainText("maiden name");
   await expect(editor.locator(".edit-name-variant-input").first()).toHaveValue("Mina");
 });
 

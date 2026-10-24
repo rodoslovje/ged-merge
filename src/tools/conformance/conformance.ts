@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "../../gedcom/types";
 import { firstChild, nodesEqual } from "../../gedcom/node";
 import { fileFormOf } from "../../gedcom/mediaForm";
+import { nameType70 } from "../../gedcom/name";
 import { isVoidPointer } from "../../gedcom/uri";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
 import { isUnparseable } from "../fixDates";
@@ -56,9 +57,14 @@ export interface ConformanceIssue {
   /** The value the value fix would write — or, on a missing-line finding,
    *  the value of the line the fix would add (a media file's `FORM`). */
   fix?: string;
+  /** The word the fix keeps as a `PHRASE` under its value (7.0's `OTHER`). */
+  fixPhrase?: string;
   /** Set when every repeat is an exact copy of the first, so the repeats can
    *  go without losing anything. */
   repeat?: boolean;
+  /** Set when `fix` is text the fix moves off the line into a NOTE beneath
+   *  it (a 7.0 event line carrying more than Y). */
+  toNote?: boolean;
   /** Set on the media records' `TITL`/`FORM`-beside-`FILE` habit, which the
    *  fix moves under `FILE` in every media record at once. */
   relocate?: boolean;
@@ -321,13 +327,19 @@ function checkPayload(
   const fixable = !!base.recordId;
   const emit = (
     category: ConformanceCategory, messageKey: string, vars: Record<string, string | number>, fix?: string,
+    { toNote, fixPhrase }: { toNote?: boolean; fixPhrase?: string } = {},
   ) =>
     ctx.emit({
       ...base, category, severity: category === "pointerType" ? "error" : "warning",
       messageKey: `tools.validate.struct.issue.${messageKey}`,
       messageVars: { tag, sample: truncate(value), parent: loc.where(), version: spec.version, ...vars },
-      sample: truncate(value), tooltip: fix ? `${lineOf(node)} → ${fix}` : lineOf(node), path: loc.path(),
+      sample: truncate(value), path: loc.path(),
+      tooltip: fix
+        ? `${lineOf(node)} → ${toNote ? `${node.level + 1} NOTE ${fix}` : fix}${fixPhrase ? ` + PHRASE ${fixPhrase}` : ""}`
+        : lineOf(node),
       fix: fixable ? fix : undefined,
+      toNote: fixable && toNote ? true : undefined,
+      fixPhrase: fixable ? fixPhrase : undefined,
     });
 
   if (payload.startsWith("@")) {
@@ -361,13 +373,31 @@ function checkPayload(
   if (!value) return;
 
   if (payload === "Y") {
-    if (value !== "Y") emit("enumValue", "badY", {}, value === "y" ? "Y" : undefined);
+    // A lower-case y is the Y. Any other text is something said about the
+    // event (a doubtful date or place, an address): the fix keeps it word for
+    // word in a NOTE on the event.
+    if (value === "y") emit("enumValue", "badY", {}, "Y");
+    else if (value !== "Y") emit("enumValue", "badY", {}, value, { toNote: true });
   } else if (payload.startsWith("E:") || payload.startsWith("L:")) {
     const set = spec.enums.get(payload.slice(2));
     if (!set) return;
+    // Any name type has a home in 7.0's: the value it plainly means, or OTHER
+    // with the word kept as its PHRASE — so the fix loses nothing.
+    if (spec.is70 && payload === "E:enumset-NAME-TYPE" && enumVerdict(value, set, true) === "") {
+      const mapped = nameType70(value);
+      const key = mapped.phrase ? "nameTypeOther" : "nameTypeNearest";
+      emit("enumValue", key, { standard: mapped.type }, mapped.type, { fixPhrase: mapped.phrase });
+      return;
+    }
     const items = payload.startsWith("L:") ? value.split(",").map((s) => s.trim()) : [value];
     const verdicts = items.map((v) => enumVerdict(v, set, spec.is70));
     if (verdicts.every((v) => v === undefined)) return;
+    // MyHeritage writes QUAY 4 (and up) for its best evidence: the standard's
+    // best is 3, so the fix lowers it there.
+    if (tag === "QUAY" && /^\d+$/.test(value) && Number(value) > 3) {
+      emit("enumValue", "quayAbove", {}, "3");
+      return;
+    }
     const fix = verdicts.every((v) => v !== "")
       ? items.map((v, i) => verdicts[i] ?? v).join(", ")
       : undefined;
@@ -428,8 +458,8 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
 }
 
 /** The findings a fix can settle: a value written in the wrong case, a line
- *  repeated as an exact copy, a media file's missing FORM, or media lines
- *  kept beside their FILE. */
+ *  repeated as an exact copy, a media file's missing FORM, text on an event
+ *  line that belongs in its NOTE, or media lines kept beside their FILE. */
 export function isFixable(issue: ConformanceIssue): boolean {
   return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate);
 }

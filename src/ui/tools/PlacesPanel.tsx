@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GeoCoord } from "../../gedcom/types";
+import type { Dataset, GeoCoord, Translation } from "../../gedcom/types";
+import { translationLine } from "../../gedcom/translation";
+import { ownVersion } from "../../save/outputFile";
+import { PlaceTranslationsEditor } from "./PlaceTranslationsEditor";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import type { ToolView } from "../ToolsView";
@@ -57,6 +60,8 @@ const HOUSE_ZOOM = 17;
  * entries. */
 function filterPlaceNode(node: PlaceNode, terms: string[], path: string, autoOpen: Set<string>): PlaceNode | null {
   if (matchesQuery(node.name, terms)) return node;
+  // A place is found by its other names too — "Krainburg" finds Kranj.
+  if (node.translations?.some((tr) => matchesQuery(tr.value, terms))) return node;
   const children: PlaceNode[] = [];
   for (const child of node.children) {
     const kept = filterPlaceNode(child, terms, `${path}/${child.name}`, autoOpen);
@@ -125,6 +130,7 @@ export function PlacesPanel({
   onRenamePlaceValue,
   onApplyOfficialNames,
   onRenameAddresses,
+  onSetPlaceTranslations,
   editVersion,
   onMovePlaceForAddresses,
   startId,
@@ -141,6 +147,7 @@ export function PlacesPanel({
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   onRenameAddresses: (renames: AddressRename[]) => number;
+  onSetPlaceTranslations: (values: ReadonlySet<string>, list: Translation[]) => number;
   editVersion: number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
@@ -290,6 +297,14 @@ export function PlacesPanel({
    *  the tree was built from, so its spots and its counts are stale. Rebuilt on
    *  the spot — and, unlike a rename, with the tree left exactly as open as it
    *  was: the row that was just placed is the one being looked at. */
+  /** A place's other names written, and the tree rebuilt to show them. */
+  function handleSetTranslations(values: ReadonlySet<string>, list: Translation[]) {
+    onSetPlaceTranslations(values, list);
+    setTree(buildPlaceTree(dataset));
+  }
+  // Translations are GEDCOM 7's: a 5.5.1 file has no line to hold them.
+  const canTranslate = ownVersion(dataset) === "7.0";
+
   function handleCoordChange() {
     setTree(buildPlaceTree(dataset));
   }
@@ -444,6 +459,8 @@ export function PlacesPanel({
               onApplyAddressCoords={onApplyAddressCoords}
               onClearPlaceCoords={onClearPlaceCoords}
               onCoordChange={handleCoordChange}
+              canTranslate={canTranslate}
+              onSetTranslations={handleSetTranslations}
               placeSug={placeSug}
               placeCombos={placeCombos}
               fileCoords={fileCoords}
@@ -470,6 +487,8 @@ function PlaceTreeRow({
   onApplyAddressCoords,
   onClearPlaceCoords,
   onCoordChange,
+  canTranslate,
+  onSetTranslations,
   placeSug,
   placeCombos,
   fileCoords,
@@ -498,6 +517,10 @@ function PlaceTreeRow({
   onClearPlaceCoords: (pairs: Set<string>) => number;
   /** Rebuild the tree after either of them wrote. */
   onCoordChange: () => void;
+  /** The file is GEDCOM 7, whose `TRAN` holds a place's other names. */
+  canTranslate: boolean;
+  /** Give every place value the row stands for this list of other names. */
+  onSetTranslations: (values: ReadonlySet<string>, list: Translation[]) => void;
   /** The file's own places, for the rename box's completions. */
   placeSug: FieldSuggestions;
   /** And the place+address pairs it writes, for the split's two fields. */
@@ -542,6 +565,14 @@ function PlaceTreeRow({
    *  and every row on screen paying that on every rebuild is what made a rename
    *  of one value feel like work on the whole file. */
   const nodeScope = useMemo(() => (editing ? collectNodeUseIds(node) : EMPTY_SCOPE), [editing, node]);
+
+  /** The place values this row's other names are written on: the ones that
+   *  are this row — never the places or houses under it, which carry names of
+   *  their own, nor a house the tree read off an event's ADDR. */
+  const tranValues = useMemo(
+    () => (editing && node.placValues ? new Set(node.placValues) : EMPTY_SCOPE),
+    [editing, node.placValues],
+  );
 
   /**
    * The place and address this row is, as the file writes them — what the
@@ -827,6 +858,14 @@ function PlaceTreeRow({
         >
           {labelNode}
         </span>
+        {node.translations && (
+          <span
+            className="tools-tree-tran"
+            title={node.translations.map((tr) => translationLine(tr.value, tr.lang)).join("\n")}
+          >
+            {node.translations.map((tr) => tr.value).join(" · ")}
+          </span>
+        )}
         {/* The rename mark sits directly beside the name it rewrites — the same
             spot the geocode place rows and the address rows put it in. */}
         {!isSynthetic && !editing && (
@@ -1025,6 +1064,20 @@ function PlaceTreeRow({
           )}
         </RenameEditor>
       )}
+      {editing && tranValues.size > 0 && (
+        canTranslate ? (
+          <PlaceTranslationsEditor
+            dataset={dataset}
+            values={tranValues}
+            onWrite={(list) => {
+              onSetTranslations(tranValues, list);
+              setEditing(false);
+            }}
+          />
+        ) : (
+          <p className="tools-place-rename-hint tools-place-tran">{t("tools.places.tran.needs7")}</p>
+        )
+      )}
 
       {/* Directly under the count that asked for it, above the sub-places, so
           the click and its list stay together however deep the tree is open. */}
@@ -1052,6 +1105,8 @@ function PlaceTreeRow({
                 onApplyAddressCoords={onApplyAddressCoords}
                 onClearPlaceCoords={onClearPlaceCoords}
                 onCoordChange={onCoordChange}
+                canTranslate={canTranslate}
+                onSetTranslations={onSetTranslations}
                 placeSug={placeSug}
                 placeCombos={placeCombos}
                 fileCoords={fileCoords}

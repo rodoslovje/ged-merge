@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import type { Individual } from "../../gedcom/types";
+import type { GedcomVersion, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setAdditionalName, removeAdditionalName, foldAdditionalNameToMarnm } from "../../gedcom/edit";
-import { ADDITIONAL_NAME_TYPES, nameTypeLabel } from "../../match/relatives";
+import { additionalNameTypes, nameTypeLabel } from "../../match/relatives";
 import { ClearableInput } from "./ClearableInput";
 import { SelectMenu } from "../DropdownMenu";
 import type { Commit } from "./types";
@@ -16,6 +16,7 @@ export function NameVariantEditor({
   t,
   commit,
   marriedNameTag,
+  version,
   onDone,
 }: {
   person: Individual;
@@ -26,11 +27,19 @@ export function NameVariantEditor({
    * primary name's `_MARNM` (the main's convention) rather than keeping a
    * separate `TYPE married` record. */
   marriedNameTag?: boolean;
+  /** The file's GEDCOM version, which spells the `TYPE` (see `spellNameType`). */
+  version?: GedcomVersion;
   onDone: () => void;
 }) {
   const name = person.names[index + 1];
   const [given, setGiven] = useState(name?.given ?? "");
   const [surname, setSurname] = useState(name?.surname ?? "");
+  // The menu's options are lower case; a 7.0 file writes the same types upper
+  // case. A type the standard does not define stays listed for this name only,
+  // so the menu shows what the file says until another type is picked.
+  const offered = additionalNameTypes(version);
+  const typeOption = offered.find((opt) => opt === name?.type?.toLowerCase()) ?? name?.type ?? "aka";
+  const typeOptions = offered.includes(typeOption) ? offered : [...offered, typeOption];
 
   function commitFields(nextGiven: string, nextSurname: string) {
     // Only a real change may write: setAdditionalName canonicalizes the NAME
@@ -38,7 +47,7 @@ export function NameVariantEditor({
     // formatting on a mere click-in/click-out (same guard as NameEditor).
     const current = person.names[index + 1];
     if (nextGiven === (current?.given ?? "") && nextSurname === (current?.surname ?? "")) return;
-    commit((indi) => setAdditionalName(indi, index, { given: nextGiven, surname: nextSurname }));
+    commit((indi) => setAdditionalName(indi, index, { given: nextGiven, surname: nextSurname }, version));
   }
 
   const ref = useRef<HTMLSpanElement>(null);
@@ -72,7 +81,7 @@ export function NameVariantEditor({
       />
       <SelectMenu
         className="edit-input edit-name-type-select"
-        value={name?.type ?? "aka"}
+        value={typeOption}
         title={t("field.nameType")}
         onChange={(next) => {
           // Main stores married surnames inline as `_MARNM`: fold this record
@@ -81,10 +90,13 @@ export function NameVariantEditor({
             commit((indi) => foldAdditionalNameToMarnm(indi, index));
             onDone();
           } else {
-            commit((indi) => setAdditionalName(indi, index, { type: next }));
+            commit((indi) => setAdditionalName(indi, index, { type: next }, version));
           }
         }}
-        options={ADDITIONAL_NAME_TYPES.map((opt) => ({ value: opt, label: nameTypeLabel(opt, t) }))}
+        options={typeOptions.map((opt) => ({
+          value: opt,
+          label: nameTypeLabel(opt, t, opt === typeOption ? name?.typePhrase : undefined),
+        }))}
       />
       <button
         type="button"

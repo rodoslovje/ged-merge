@@ -11,12 +11,16 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  *  - **values** — an enumerated value written in another case than the
  *    standard's (`PEDI Adopted` → `adopted`, 7.0's `TYPE married` →
- *    `MARRIED`), and a 7.0 date still carrying a 5.5.1 calendar escape
+ *    `MARRIED`), a 7.0 name type outside the enumeration (`variation` →
+ *    `AKA`, `formal` → `OTHER` with the word as its `PHRASE`), and a 7.0 date still carrying a 5.5.1 calendar escape
  *    (`@#DJULIAN@ 1700` → `JULIAN 1700`);
  *  - **repeats** — a line the standard allows once, repeated as an exact copy
  *    (same value, same lines beneath): the copies go, the first stays;
  *  - **forms** — a media file with no `FORM`, where the file's name says what
  *    it is (`.jpg`, a web address): the line is added;
+ *  - **notes** — a 7.0 event line carrying text where only `Y` may stand
+ *    (`BIRT ali Ravna Gora?`): the text moves word for word into a `NOTE` on
+ *    the event, and the line is left bare;
  *  - **relocate** — a media record's `TITL`/`FORM` kept beside its `FILE`
  *    (the 5.5 shape): moved under the `FILE` in every media record at once,
  *    as the finding is one row for the whole habit;
@@ -31,7 +35,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "relocate" | "fileTitles";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -40,7 +44,7 @@ export interface ConformanceRef {
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide media pass does to one media record; returns the lines
@@ -108,21 +112,20 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
           node.children = node.children.filter((c) => c === first || c.tag !== tag || !nodesEqual(c, first!));
         } else if (issue.category === "missingLine" && issue.fix !== undefined) {
           node.children.unshift({ level: node.level + 1, tag: issue.sample!, value: issue.fix, children: [] });
+        } else if (issue.toNote && node.value) {
+          const text = node.value.trim();
+          if (!node.children.some((c) => c.tag === "NOTE" && c.value?.trim() === text)) {
+            node.children.push({ level: node.level + 1, tag: "NOTE", value: text, children: [] });
+          }
+          node.value = undefined;
         } else if (issue.fix !== undefined) {
           node.value = issue.fix;
+          if (issue.fixPhrase && !node.children.some((c) => c.tag === "PHRASE")) {
+            node.children.unshift({ level: node.level + 1, tag: "PHRASE", value: issue.fixPhrase, children: [] });
+          }
         }
       }
-      const indi = dataset.individuals.get(xref);
-      const fam = dataset.families.get(xref);
-      if (indi && indi.raw === rec) {
-        rebuildIndividual(dataset, indi);
-        patches.push({ type: "individual", id: xref, before, after: cloneNode(rec) });
-      } else if (fam && fam.raw === rec) {
-        rebuildFamily(dataset, fam);
-        patches.push({ type: "family", id: xref, before, after: cloneNode(rec) });
-      } else {
-        patches.push({ type: "record", id: xref, before, after: cloneNode(rec) });
-      }
+      patches.push(recordPatch(dataset, xref, rec, before));
     }
     if (mediaPass) patches.push(...mediaPassOver(dataset.records, mediaPass, journal));
   });
@@ -147,4 +150,20 @@ function mediaPassOver(records: GedNode[], pass: MediaPass, journal: PassJournal
 function runMediaPass(dataset: Dataset, pass: MediaPass | undefined): RecordPatch[] {
   if (!pass) return [];
   return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal));
+}
+
+/** A record rewritten in place: the typed model brought back in step, and the
+ *  undo patch from its `before` clone. */
+export function recordPatch(dataset: Dataset, xref: string, rec: GedNode, before: GedNode): RecordPatch {
+  const indi = dataset.individuals.get(xref);
+  const fam = dataset.families.get(xref);
+  if (indi && indi.raw === rec) {
+    rebuildIndividual(dataset, indi);
+    return { type: "individual", id: xref, before, after: cloneNode(rec) };
+  }
+  if (fam && fam.raw === rec) {
+    rebuildFamily(dataset, fam);
+    return { type: "family", id: xref, before, after: cloneNode(rec) };
+  }
+  return { type: "record", id: xref, before, after: cloneNode(rec) };
 }

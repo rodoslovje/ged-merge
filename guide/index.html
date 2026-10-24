@@ -572,8 +572,9 @@
             <p>
               Given name, surname, sex and nickname edit inline — click a field, type, click away to save. The
               <span class="gm-glyph">×</span> glyph clears a field. <strong>+ Add Name</strong> attaches alternative
-              name variants (married name, name at birth, aka, formal and more), each with its own given name, surname
-              and type; the <span class="gm-glyph">×</span> glyph removes a variant.
+              name variants (married name, maiden name, aka and the other types the file's GEDCOM version defines),
+              each with its own given name, surname and type; the <span class="gm-glyph">×</span> glyph removes a
+              variant.
               <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">X</span> sets the sex
               without opening its picker — ♂, then ♀, then ? — which is how a child you have just added gets theirs.
               The picker also offers <strong>Other</strong> (⚥), GEDCOM 7's value for a person who is neither only
@@ -1307,14 +1308,27 @@
               values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>.
               Extension tags such as <em>_UID</em> are allowed anywhere and not judged. <strong>Fix value
               spelling</strong> rewrites a value that differs from the list only in capitals (<em>Adopted</em> →
-              <em>adopted</em>), and <strong>Remove repeated lines</strong> drops the exact copies of a line the
+              <em>adopted</em>) and lowers a citation quality above the standard's highest to <em>3</em> (MyHeritage
+              writes <em>QUAY 4</em>), and <strong>Remove repeated lines</strong> drops the exact copies of a line the
               standard allows once. <strong>Add media formats</strong> gives a media file without a FORM line the
               one its name states — <em>text/html</em> for a web address, <em>image/jpeg</em> for a <em>.jpg</em>.
+              GEDCOM 7.0 allows only Y after an event tag, so <strong>Move event text into notes</strong> carries any
+              other text there (<em>BIRT ali Ravna Gora?</em>) word for word into a note on the event.
               <strong>Move media titles under FILE</strong> moves a title and format written beside a media
               record's FILE line, the GEDCOM 5.5 way, under the FILE. Where a media record has a title beside
               its FILE as well as a different one under it, <strong>Keep the FILE's media titles</strong> keeps
               the one under the FILE, which the app shows, and removes the other. A value outside the list,
               repeats that differ, or a file whose name states no format are yours to settle.
+            </p>
+            <p>
+              In GEDCOM 7 a translation of a place or a name (TRAN) must name its language in a LANG line beneath
+              it; MacFamilyTree writes a place's historical names without one. <strong>Translations without a
+              language</strong> lists each such name once, with the number of lines that carry it and a language
+              suggested from its spelling (<em>Krainburg</em> → German). Change a suggestion in its menu, then write
+              one name with its <strong>Write</strong> button or all of them with <strong>Write the chosen
+              languages</strong>; <strong>Mark all as undetermined</strong> writes the standard's code <em>und</em>
+              instead, without guessing. A line holding several names in different languages (<em>M.Vellach, Media
+              Wella</em>) is split into one TRAN line per language.
             </p>
             <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
@@ -1684,6 +1698,15 @@
               A place value
               that carries its house number (<em>Krupa 7</em>) is filed under the settlement like any other, with the
               house as a level below it, so a file that numbers houses in the place still browses by settlement.
+            </p>
+            <p>
+              A place's other names — an old German or Latin name, a translation, written in GEDCOM 7 as
+              <code>TRAN</code> with its <code>LANG</code> — show in italics beside it, and the search finds the place by
+              them too: <em>Krainburg</em> finds Kranj. In a GEDCOM 7 file the rename box lists them under
+              <strong>Other names (translations)</strong>, each with its language, which follows the name's spelling until
+              you pick one yourself. Add a name with <strong>+ Add a name</strong>, remove one with
+              <span class="gm-glyph">✕</span>, and <strong>Write names</strong> gives the same list to every event naming
+              the place. Each row holds the names of its own value only: the places and houses under it keep theirs.
             </p>
             <p>
               Where every record under a row writes the same value — which is what a stray like

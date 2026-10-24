@@ -1,4 +1,4 @@
-import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, GedcomVersion, GedEvent, Individual, PersonName } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
@@ -95,20 +95,25 @@ export function marriedSurnamesOf(indi: Individual, ds?: Dataset): string[] {
 
 /** Known `NAME`/`2 TYPE` values with a translated label; anything else is shown as-is. */
 const KNOWN_NAME_TYPES = new Set([
-  "aka", "birth", "married", "maiden", "nick", "formal", "family", "variation", "religious", "immigrant", "other",
+  "aka", "birth", "married", "maiden", "nick", "formal", "family", "variation", "religious", "immigrant",
+  "professional", "other",
 ]);
 
-/** `2 TYPE` values offered when editing an additional `NAME` record
- * (nicknames use the primary name's `NICK` sub-tag instead). */
-export const ADDITIONAL_NAME_TYPES = [
-  "aka", "married", "maiden", "birth", "formal", "family", "variation", "religious", "immigrant", "other",
-];
+/** `2 TYPE` values offered when editing an additional `NAME` record: only the
+ * ones the file's GEDCOM version defines, so no file is handed a type its
+ * standard does not know (nicknames use the primary name's `NICK` sub-tag). */
+export function additionalNameTypes(version: GedcomVersion | undefined): string[] {
+  const types = ["aka", "married", "maiden", "birth", "immigrant"];
+  return version === "7.0" ? [...types, "professional", "other"] : types;
+}
 
 /** Human-readable label for a `2 TYPE` value on a NAME record (e.g. "married", "aka"). */
 export function nameTypeLabel(type: string, t: Translate, phrase?: string): string {
-  // A GEDCOM 7 `TYPE`.`PHRASE` is the file's own word for the type.
-  if (phrase) return phrase;
-  const key = type.toLowerCase();
+  // A GEDCOM 7 `TYPE`.`PHRASE` is the file's own word for the type — still
+  // translated when it is a word we know (`OTHER` + `PHRASE religious` is how
+  // the 7.0 upgrade keeps a 5.5.1 `TYPE religious`).
+  const key = (phrase ?? type).toLowerCase();
+  if (phrase && !KNOWN_NAME_TYPES.has(key)) return phrase;
   return KNOWN_NAME_TYPES.has(key) ? t(`nametype.${key}`) : type;
 }
 

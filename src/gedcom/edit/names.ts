@@ -1,4 +1,4 @@
-import { splitSlashName } from "../name";
+import { spellNameType, splitSlashName } from "../name";
 import { childrenByTag, hasChild } from "../node";
 import type { GedcomVersion, GedNode, Individual, Sex } from "../types";
 import { SEX_X_EXTENSION } from "../sex";
@@ -85,7 +85,12 @@ export interface NameVariantUpdate {
  * Update an additional name — `index` 0 is `indi.names[1]` (the second
  * `1 NAME` record), 1 is `indi.names[2]`, etc.
  */
-export function setAdditionalName(indi: Individual, index: number, update: NameVariantUpdate): void {
+export function setAdditionalName(
+  indi: Individual,
+  index: number,
+  update: NameVariantUpdate,
+  version: GedcomVersion = "unknown",
+): void {
   const node = nameNodes(indi)[index + 1];
   if (!node) return;
 
@@ -98,7 +103,7 @@ export function setAdditionalName(indi: Individual, index: number, update: NameV
   if (update.type !== undefined) {
     const typeNode = node.children.find((c) => c.tag === "TYPE");
     const changed = typeNode?.value?.trim().toLowerCase() !== update.type.trim().toLowerCase();
-    setOrRemoveValue(node, "TYPE", update.type, NAME_CHILD_ORDER);
+    setOrRemoveValue(node, "TYPE", spellNameType(update.type, version), NAME_CHILD_ORDER);
     // A GEDCOM 7 `PHRASE` words the type it stands under ("OTHER" ·
     // "Klostername"); a different type is no longer what it words.
     const after = node.children.find((c) => c.tag === "TYPE");
@@ -134,10 +139,10 @@ export function ensurePrimaryName(indi: Individual): boolean {
 }
 
 /** Append a new additional `1 NAME` record with the given `2 TYPE`. */
-export function addAdditionalName(indi: Individual, type: string): void {
+export function addAdditionalName(indi: Individual, type: string, version: GedcomVersion = "unknown"): void {
   const node: GedNode = { level: indi.raw.level + 1, tag: "NAME", value: "", children: [] };
   insertOrdered(indi.raw, node, INDI_CHILD_ORDER);
-  setOrRemoveValue(node, "TYPE", type, NAME_CHILD_ORDER);
+  setOrRemoveValue(node, "TYPE", spellNameType(type, version), NAME_CHILD_ORDER);
 }
 
 /** Remove an additional `1 NAME` record — see `setAdditionalName` for indexing. */

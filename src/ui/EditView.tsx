@@ -1351,8 +1351,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         if (marriedNameTag) {
           setMarriedName(added, husbandSurname);
         } else {
-          addAdditionalName(added, "married");
-          setAdditionalName(added, nameCount - 1, { surname: husbandSurname });
+          addAdditionalName(added, "married", dataset.version);
+          setAdditionalName(added, nameCount - 1, { surname: husbandSurname }, dataset.version);
         }
         rebuildIndividual(dataset, added);
       }
@@ -1968,6 +1968,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             showAddFsId={!fsIdAdded && !(person.fsids ?? []).length}
             onAddFsId={() => setFsIdAdded(true)}
             marriedNameTag={marriedNameTag}
+            version={dataset.version}
             mergeNames={mergeAdditionalNames}
             onTakeMergeNames={(then) => {
               const patches: RecordPatch[] = [];

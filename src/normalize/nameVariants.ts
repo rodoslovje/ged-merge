@@ -1,6 +1,6 @@
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset, GedcomVersion, GedNode } from "../gedcom/types";
 import { childrenByTag, firstChild } from "../gedcom/node";
-import { nameValueText } from "../gedcom/name";
+import { nameValueText, spellNameType } from "../gedcom/name";
 import type { NameLayout, NameProfile, NameVariantKind, NameVariantTarget, NormChange } from "./types";
 import { walkNodes } from "./walk";
 
@@ -89,22 +89,27 @@ export function inferNameLayout(dataset: Dataset): NameLayout {
  * Reshape one individual's alternate names into the main's convention, in
  * place. Returns a before/after change per item rewritten (for the load report).
  */
-export function reshapeNameVariants(indi: GedNode, profile: NameProfile): NormChange[] {
+export function reshapeNameVariants(
+  indi: GedNode,
+  profile: NameProfile,
+  version: GedcomVersion = "unknown",
+): NormChange[] {
   const primary = firstChild(indi, "NAME");
   if (!primary) return [];
   const changes: NormChange[] = [];
   for (const kind of KINDS) {
     const target = profile[kind];
     if (target.form === "none") continue;
-    if (target.form === "record") toRecord(indi, primary, VARIANTS[kind], target, changes);
+    // The main's own spelling, unless its version spells the type otherwise
+    // (a 7.0 file that writes `aka` still gets `AKA` from the merge).
+    if (target.form === "record") toRecord(indi, primary, VARIANTS[kind], spellNameType(target.type!, version), changes);
     else toTag(indi, primary, VARIANTS[kind], target, changes);
   }
   return changes;
 }
 
 /** Main uses `TYPE` records: fold inline tags into records and recase existing records. */
-function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, target: NameVariantTarget, changes: NormChange[]): void {
-  const typeValue = target.type!;
+function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, typeValue: string, changes: NormChange[]): void {
   // Inline tags on the primary name → separate records.
   for (const tagChild of primary.children.filter((c) => spec.tags.includes(c.tag) && c.value?.trim())) {
     const text = spec.slot === "surname" ? surnameOfValue(tagChild.value!) : givenOfValue(tagChild.value!);

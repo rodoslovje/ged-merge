@@ -26,10 +26,11 @@ import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import { TranslationLangSection } from "./TranslationLangSection";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", notes: "ConformNotes" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -45,6 +46,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   values: "enumValue",
   repeats: "cardinality",
   forms: "missingLine",
+  notes: "enumValue",
   relocate: "misplacedTag",
   fileTitles: "misplacedTag",
 };
@@ -133,6 +135,7 @@ export function ValidatePanel({
   onFixDanglingRefs,
   onFixConformance,
   onFillPlaceCoords,
+  onTagTranslations,
   onSaveAs,
 }: {
   dataset: Dataset;
@@ -149,6 +152,7 @@ export function ValidatePanel({
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
+  onTagTranslations: (choices: Map<string, string[]>) => number;
   onSaveAs: (version: OutputVersion) => void;
 }) {
   const { t } = useTranslation();
@@ -256,7 +260,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "relocate" || kind === "fileTitles" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -461,6 +465,13 @@ export function ValidatePanel({
     }
     // Standard conformance: a value in the wrong case, or a line repeated as
     // an exact copy — both carry what the fix needs (the line's path).
+    if (issue.toNote && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneNote"),
+        hint: t("tools.validate.fixOneNoteHint"),
+        run: () => onFixConformance("notes", { id: issue.recordId!, path: issue.path }),
+      };
+    }
     if (issue.category === "enumValue" && issue.fix !== undefined && issue.recordId) {
       return {
         label: t("tools.validate.fixOneValue", { value: issue.fix }),
@@ -542,14 +553,21 @@ export function ValidatePanel({
   if (fixableNonStandard > 0) fixActions.push({ kind: "nonStandard", count: fixableNonStandard });
   // The conformance fixes, counted off the report the way the non-standard
   // dates are: each finding that carries its repair is one the batch makes.
-  const conformValues = structure?.issues.filter((i) => i.category === "enumValue" && i.fix !== undefined && i.recordId).length ?? 0;
+  const conformValues = structure?.issues.filter((i) => i.category === "enumValue" && i.fix !== undefined && !i.toNote && i.recordId).length ?? 0;
   if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
+  const conformNotes = structure?.issues.filter((i) => i.toNote && i.recordId).length ?? 0;
+  if (conformNotes > 0) fixActions.push({ kind: "notes", count: conformNotes });
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
   const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
+  // A translation the standard wants a language on, written without one — the
+  // worklist below re-reads those lines on the main thread, so only then.
+  const hasUntaggedTran = !!structure?.issues.some(
+    (i) => i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN"),
+  );
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -652,6 +670,13 @@ export function ValidatePanel({
           onCancel={() => setPlaceCoordPending(false)}
         />
       )}
+      <TranslationLangSection
+        dataset={dataset}
+        freshness={structure}
+        needed={hasUntaggedTran}
+        onApply={onTagTranslations}
+        onApplied={() => scans.refresh("validate")}
+      />
       {(showMediaCheck || fixActions.length > 0) && (
         <ul className="tools-fix-list">
           {showMediaCheck && (
