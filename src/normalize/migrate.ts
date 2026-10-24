@@ -1,8 +1,8 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
 import { RELA_TO_ROLE, ROLE_TO_RELA, VOID_XREF } from "../gedcom/assoc";
-import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
+import { firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
-import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
+import { hangMediaLinesUnderFile, MIME_TO_EXT, mimeFormOf } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
@@ -528,33 +528,15 @@ function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
  * IANA media types, and the source-media kind is `MEDI` rather than `TYPE`.
  */
 function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
-  const files = childrenByTag(node, "FILE");
-  if (files.length > 0) {
-    // Record-level FORM applies to every FILE; TITL goes to the first.
-    for (const stray of childrenByTag(node, "FORM")) {
-      node.children = node.children.filter((c) => c !== stray);
-      files.forEach((file, i) => {
-        if (firstChild(file, "FORM")) return;
-        file.children.push(i === 0 ? stray : cloneNode(stray));
-      });
-      report(ctx, stray, `OBJE-level FORM ${stray.value ?? ""}`.trim());
-    }
-    const titl = firstChild(node, "TITL");
-    if (titl && !firstChild(files[0], "TITL")) {
-      node.children = node.children.filter((c) => c !== titl);
-      files[0].children.push(titl);
-      report(ctx, titl, `OBJE-level ${describe(titl)}`);
-    }
+  // Record-level FORM applies to every FILE; TITL goes to the first.
+  for (const moved of hangMediaLinesUnderFile(node)) {
+    report(ctx, moved, `OBJE-level ${describe(moved)}`);
   }
-  for (const file of files) {
+  for (const file of childrenByTag(node, "FILE")) {
     const form = firstChild(file, "FORM");
     if (!form?.value || form.value.includes("/")) continue;
     const before = describe(form);
-    // A format with no registered type keeps its name in a private subtype
-    // (`application/x-xyz`), which the downgrade reads back; octet-stream
-    // would say only "some bytes".
-    const ext = form.value.trim().toLowerCase();
-    form.value = EXT_TO_MIME[ext] ?? (/^[a-z0-9]+$/.test(ext) ? `application/x-${ext}` : "application/octet-stream");
+    form.value = mimeFormOf(form.value);
     const type = firstChild(form, "TYPE");
     if (type) type.tag = "MEDI";
     report(ctx, form, before);

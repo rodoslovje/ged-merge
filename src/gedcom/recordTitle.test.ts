@@ -16,6 +16,10 @@ const records = parseGedcom(bytes(`0 HEAD
 0 @M2@ OBJE
 1 FILE scans/p12.png
 2 TITL Krstna knjiga, stran 12
+0 @M3@ OBJE
+1 FILE scans/p13.png
+2 TITL #13 - Krstna knjiga
+1 TITL Starejši naslov
 0 @R1@ REPO
 1 NAME Nadškofijski arhiv Ljubljana
 0 @N1@ NOTE Kratka opomba
@@ -30,6 +34,8 @@ describe("recordTitle", () => {
     expect(title("@S2@")).toBe("RKŽ Šentvid");
     expect(title("@M1@")).toBe("janez.jpg");
     expect(title("@M2@")).toBe("Krstna knjiga, stran 12");
+    // Two titles: the FILE's own, as everywhere else in the app.
+    expect(title("@M3@")).toBe("#13 - Krstna knjiga");
     expect(title("@R1@")).toBe("Nadškofijski arhiv Ljubljana");
     expect(title("@N1@")).toBe("Kratka opomba");
   });

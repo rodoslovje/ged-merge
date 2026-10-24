@@ -74,6 +74,9 @@ export interface StructIssue {
   /** Conformance `badY`: `fix` is the event line's text, which the fix moves
    *  into a NOTE on the event. */
   toNote?: boolean;
+  /** Conformance `misplacedTag`: a media record's TITL/FORM beside its FILE,
+   *  which the fix moves under it file-wide. */
+  relocate?: boolean;
 }
 
 export interface StructureReport {

@@ -65,6 +65,9 @@ export interface ConformanceIssue {
   /** Set when `fix` is text the fix moves off the line into a NOTE beneath
    *  it (a 7.0 event line carrying more than Y). */
   toNote?: boolean;
+  /** Set on the media records' `TITL`/`FORM`-beside-`FILE` habit, which the
+   *  fix moves under `FILE` in every media record at once. */
+  relocate?: boolean;
 }
 
 // ── Table compilation ────────────────────────────────────────────────────────
@@ -289,6 +292,9 @@ function tallyMisplaced(
       messageKey: `tools.validate.struct.issue.${key}`,
       messageVars: { tag: node.tag, parent, version: ctx.spec.version },
       sample: node.tag, tooltip: lineOf(node), path,
+      // A media record's title and format beside its FILE (the 5.5 shape)
+      // belong under it — a move the fix makes across the whole file.
+      relocate: (parent === "OBJE" && (node.tag === "TITL" || node.tag === "FORM")) || undefined,
     },
   });
 }
@@ -452,10 +458,10 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
 }
 
 /** The findings a fix can settle: a value written in the wrong case, a line
- *  repeated as an exact copy, a media file's missing FORM, or text on an
- *  event line that belongs in its NOTE. */
+ *  repeated as an exact copy, a media file's missing FORM, text on an event
+ *  line that belongs in its NOTE, or media lines kept beside their FILE. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

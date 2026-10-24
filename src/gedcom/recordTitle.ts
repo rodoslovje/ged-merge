@@ -15,7 +15,8 @@ export function recordTitle(node: GedNode): string | undefined {
       return sourceTitle(node);
     case "OBJE": {
       const file = firstChild(node, "FILE");
-      const title = childValue(node, "TITL")?.trim() || (file && childValue(file, "TITL")?.trim());
+      // The FILE's own title first, as the rest of the app reads it (objeInfoOf).
+      const title = (file && childValue(file, "TITL")?.trim()) || childValue(node, "TITL")?.trim();
       const path = file?.value?.trim();
       return title || (path ? path.split(/[\\/]/).pop() : undefined);
     }

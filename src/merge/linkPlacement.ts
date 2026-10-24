@@ -12,9 +12,11 @@ import {
   insertOrdered,
   linkPageMedia,
   markEventTouched,
+  mediaTitleLine,
   memoOnContent,
   setCitationQuay,
   sourceCitationNodes,
+  writeMediaTitle,
 } from "../gedcom/edit";
 import {
   buildSourceContext,
@@ -653,9 +655,7 @@ function mintSource(
   if (objeXref) {
     const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
     const objeTitle = pageObjeTitle(recognized.site, title, recognized.page, undefined, recognized.collection);
-    if (objeNode && objeTitle && !firstChild(objeNode, "TITL")) {
-      objeNode.children.push({ level: objeNode.level + 1, tag: "TITL", value: objeTitle, children: [] });
-    }
+    if (objeNode && objeTitle && !mediaTitleLine(objeNode)) writeMediaTitle(objeNode, objeTitle);
   }
   return { sourceXref: source.xref!, pageObje: objeXref };
 }

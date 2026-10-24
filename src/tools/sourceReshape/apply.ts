@@ -14,7 +14,6 @@ import { detectPlaceLayout } from "../../normalize/profile";
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../../gedcom/eventTags";
 import {
   type BookType,
-  MEDIA_TRAILING,
   type ReshapeCounts,
   type ReshapeEnrichment,
   type ReshapeGroup,
@@ -37,6 +36,7 @@ import {
 import { baptismTargetTag, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
 import { pageObjeTitle, parseMatriculaUrl, placeholderMediaTitle, recognizeSourceUrl, siteTitle } from "./urls";
 import { addObjeToSource, createSourceRecord, SOUR_FIELD_TRAILING } from "../../gedcom/edit/sources";
+import { mediaTitleLine, writeMediaTitle } from "../../gedcom/edit/media";
 import { dateFixContext, type DateFixContext, proposeDateFix } from "../fixDates";
 import { normalizeDateString } from "../../normalize/date";
 import { splitFsRegisters, yearSpan } from "./enrich";
@@ -291,8 +291,8 @@ function carryInlineMediaLines(record: GedNode, inline: GedNode, mintedNow: bool
   const inlineFile = firstChild(inline, "FILE");
   const title = childText(inline, "TITL") ?? (inlineFile && childText(inlineFile, "TITL"));
   if (title && !placeholderMediaTitle(title, site, url)) {
-    const titl = firstChild(record, "TITL");
-    if (!titl) insertGrouped(record, { level: record.level + 1, tag: "TITL", value: title.trim(), children: [] }, MEDIA_TRAILING);
+    const titl = mediaTitleLine(record);
+    if (!titl) writeMediaTitle(record, title.trim());
     else if (mintedNow || placeholderMediaTitle(titl.value, site, url)) titl.value = title.trim();
   }
   const carry = (into: GedNode, from: GedNode, skip: ReadonlySet<string>) => {
@@ -1211,14 +1211,13 @@ export function reshapeSources(
     for (const hit of state.hits) {
       const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
       if (!obje) continue;
-      const titl = firstChild(obje, "TITL");
+      const titl = mediaTitleLine(obje);
       if (!placeholderMediaTitle(titl?.value, g.site, hit.url)) continue;
       // In this tool a FamilySearch page number is always the link's or the
       // lookup's — the film's own counting — so it may go into the title.
       const named = pageObjeTitle(g.site, fields.title, pageOf(hit), pageOf(hit), extra?.collection);
       if (!named || named === titl?.value?.trim()) continue;
-      if (titl) titl.value = named;
-      else insertGrouped(obje, { level: obje.level + 1, tag: "TITL", value: named, children: [] }, MEDIA_TRAILING);
+      writeMediaTitle(obje, named);
       counts.mediaRetitled++;
     }
 

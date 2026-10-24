@@ -1,6 +1,6 @@
 import type { GedNode } from "../../gedcom/types";
 import { cloneNode, firstChild } from "../../gedcom/node";
-import { createRepoRecord, createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
+import { createRepoRecord, createSourceRecord, writeMediaTitle, type NewSourceFields } from "../../gedcom/edit";
 import { applySiteSourceExtras, createSiteRepo, pageObjeTitle } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
 import type { CitationPageStyle } from "../../gedcom/source";
@@ -86,7 +86,7 @@ export function createStandaloneSource(
     const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
     if (objeNode) {
       const title = pageObjeTitle(fields.site, fields.title, fields.page, fields.fsImage, fields.collection);
-      if (title) objeNode.children.push({ level: 1, tag: "TITL", value: title, children: [] });
+      if (title) writeMediaTitle(objeNode, title);
       extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneNode(objeNode) });
     }
   }

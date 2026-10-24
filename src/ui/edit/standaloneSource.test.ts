@@ -38,7 +38,7 @@ describe("createStandaloneSource", () => {
     const obje = ds.records.find((r) => r.tag === "OBJE" && r.xref === pageObjeXref)!;
     // The link belongs to no recognized site, so the page image is named
     // after the source it is a page of.
-    expect(childText(obje, "TITL")).toBe("#11 - Krstna knjiga");
+    expect(childText(firstChild(obje, "FILE")!, "TITL")).toBe("#11 - Krstna knjiga");
     // Nothing cites the new source — it stands alone in the file.
     expect(ds.records.some((r) => r.children.some((c) => c.tag === "SOUR" && c.value === sourceXref))).toBe(false);
 
