@@ -16,7 +16,10 @@ import { applyPassSafely } from "./passSafety";
  *  - **repeats** — a line the standard allows once, repeated as an exact copy
  *    (same value, same lines beneath): the copies go, the first stays;
  *  - **forms** — a media file with no `FORM`, where the file's name says what
- *    it is (`.jpg`, a web address): the line is added.
+ *    it is (`.jpg`, a web address): the line is added;
+ *  - **notes** — a 7.0 event line carrying text where only `Y` may stand
+ *    (`BIRT ali Ravna Gora?`): the text moves word for word into a `NOTE` on
+ *    the event, and the line is left bare.
  *
  * A value outside the list, or a repeat that differs from the first, is the
  * user's question and is only reported. Lines on a record without an xref
@@ -24,7 +27,7 @@ import { applyPassSafely } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -33,7 +36,7 @@ export interface ConformanceRef {
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.repeat ? "repeats" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** How many findings of `kind` the fix would settle — the count on its button. */
@@ -77,6 +80,12 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
           node.children = node.children.filter((c) => c === first || c.tag !== tag || !nodesEqual(c, first!));
         } else if (issue.category === "missingLine" && issue.fix !== undefined) {
           node.children.unshift({ level: node.level + 1, tag: issue.sample!, value: issue.fix, children: [] });
+        } else if (issue.toNote && node.value) {
+          const text = node.value.trim();
+          if (!node.children.some((c) => c.tag === "NOTE" && c.value?.trim() === text)) {
+            node.children.push({ level: node.level + 1, tag: "NOTE", value: text, children: [] });
+          }
+          node.value = undefined;
         } else if (issue.fix !== undefined) {
           node.value = issue.fix;
           if (issue.fixPhrase && !node.children.some((c) => c.tag === "PHRASE")) {
