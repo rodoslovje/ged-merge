@@ -246,6 +246,11 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   // from GEDCOM 5.5-EL or invented; without these entries the health check
   // would flag a MacFamilyTree file's own data as "unknown tags".
   RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost" } },
+  // GEDCOM 5.5-EL's source fields, which MacFamilyTree and its kin write on a
+  // source record. A strict target format writes them as _FILN/_PERI.
+  FILN: { software: MFT, category: "citation", meaning: { en: "source filing number (5.5-EL)", sl: "arhivska številka vira (5.5-EL)" } },
+  PERI: { software: MFT, category: "citation", meaning: { en: "periodical title (5.5-EL)", sl: "periodika / zbirka (5.5-EL)" } },
+  EDTN: { software: MFT, category: "citation", meaning: { en: "edition (5.5-EL)", sl: "izdaja (5.5-EL)" } },
   SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime" } },
   MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
   NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)" } },

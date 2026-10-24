@@ -23,9 +23,14 @@ export type SourceFieldKey =
  * states both inside `DATA > EVEN`, which is exactly what a standard-coverage
  * file does, and there the same two fields are the spec's own.
  */
-export function nonStandardTag(key: SourceFieldKey, coverage: "vendor" | "standard"): string | undefined {
-  if (key === "periodical") return "PERI";
-  if (key === "filingNumber") return "FILN";
+export function nonStandardTag(
+  key: SourceFieldKey,
+  coverage: "vendor" | "standard",
+  /** A strict target format writes these two as `_` extensions. */
+  standard?: "5.5.1" | "7.0",
+): string | undefined {
+  if (key === "periodical") return standard ? "_PERI" : "PERI";
+  if (key === "filingNumber") return standard ? "_FILN" : "FILN";
   if (coverage === "standard") return undefined;
   if (key === "place") return "PLAC";
   if (key === "agency") return "AGNC";
@@ -58,13 +63,14 @@ export function idField(
   records: GedNode[],
   coverage: "vendor" | "standard",
   hasRepo = true,
+  standard?: "5.5.1" | "7.0",
 ): { labelKey: string; nonStandard: string | undefined; caln: boolean } {
   const caln = hasRepo && writesCallNumbers(records, coverage);
   return {
     labelKey: caln ? "addSource.field.caln" : "addSource.field.filingNumber",
     // A call number is written on the source's repository link, so a dialog
     // puts the field beside the repository rather than among the source's own.
-    nonStandard: caln ? undefined : nonStandardTag("filingNumber", coverage),
+    nonStandard: caln ? undefined : nonStandardTag("filingNumber", coverage, standard),
     caln,
   };
 }

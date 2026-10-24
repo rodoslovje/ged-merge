@@ -28,11 +28,18 @@ export function createStandaloneSource(
     /** "url": the file cites a page by its link, so the source gets no page
      *  image and the citation's page is the link itself. Number by default. */
     citationPage?: CitationPageStyle;
+    /** Set by a strict target format: write only that version's forms. */
+    standard?: "5.5.1" | "7.0";
   },
 ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
   const extraPatches: RecordPatch[] = [];
   const byLink = opts.citationPage === "url";
-  const sourceNode = createSourceRecord(records, byLink ? { ...(fields as NewSourceFields), url: undefined } : (fields as NewSourceFields));
+  const sourceNode = createSourceRecord(
+    records,
+    byLink ? { ...(fields as NewSourceFields), url: undefined } : (fields as NewSourceFields),
+    undefined,
+    opts,
+  );
   // The dialog's Repository dropdown sends an explicit choice (an existing
   // xref, "" for none, or create-the-site's); without one — older callers —
   // the automatic site-repo behavior applies as before.

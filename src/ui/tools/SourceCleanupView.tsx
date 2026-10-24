@@ -1087,7 +1087,7 @@ function GroupEditDialog({
   const repoTouched = useRef(meta?.repoXref !== undefined);
   // What this file calls the archive's id, and whether that name is an
   // extension: the same rule the Add Source dialog states, from one place.
-  const idLabel = idField(dataset.records, coverage, repoSel !== "");
+  const idLabel = idField(dataset.records, coverage, repoSel !== "", formatOverrides.standard);
   const { targetOf, lookUp: readPage, fetching, failed } = useSourceLookup(settings.allowLinkFetch);
 
   // A citation pasted from the site itself (FamilySearch's "Copy citation",

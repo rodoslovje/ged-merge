@@ -10,6 +10,7 @@ import {
   sourceContentKey,
   sourceContentParts,
   sourceTitle,
+  filingNumberOf,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
 
@@ -232,7 +233,7 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   groupRecords(
     ds.records, "SOUR", "source",
     contentKey,
-    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: childText(rec, "FILN"), url: sourceUrlOf(rec, objes) }),
+    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: filingNumberOf(rec), url: sourceUrlOf(rec, objes) }),
     refs, groups, fullness,
   );
 

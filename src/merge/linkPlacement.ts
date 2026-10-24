@@ -31,6 +31,8 @@ import {
   sourceTitle,
   type CitationPageStyle,
   type SourceContext,
+  filingNumberOf,
+  periodicalOf,
 } from "../gedcom/source";
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
@@ -446,7 +448,7 @@ export function previewLinkCitation(records: GedNode[], url: string): SourceCita
       sourceId: existing.sourceXref,
       title: node && sourceTitle(node),
       agency: node && childText(node, "AGNC"),
-      filingNumber: node && childText(node, "FILN"),
+      filingNumber: node && filingNumberOf(node),
       page: existing.page,
       url,
       exact: true,
@@ -631,7 +633,7 @@ function mintSource(
   }
   const own = (tag: string) => (incomingSource ? childText(incomingSource, tag) : undefined);
   const ownTitle = incomingSource && sourceTitle(incomingSource);
-  const filingNumber = fetched?.filingNumber || own("FILN") || p.filingNumber;
+  const filingNumber = fetched?.filingNumber || (incomingSource && filingNumberOf(incomingSource)) || p.filingNumber;
   const title = fetched?.title
     ? (siteSourceTitle(recognized.site, fetched.title, filingNumber) ?? fetched.title)
     : ownTitle || (siteSourceTitle(recognized.site, p.title, filingNumber) ?? p.title);
@@ -640,13 +642,14 @@ function mintSource(
     {
       title,
       author: fetched?.author ?? own("AUTH") ?? p.author,
-      periodical: fetched?.periodical ?? own("PERI"),
+      periodical: fetched?.periodical ?? (incomingSource && periodicalOf(incomingSource)),
       publisher: fetched?.publisher ?? own("PUBL"),
       agency: fetched?.agency ?? own("AGNC") ?? p.agency,
       filingNumber,
       url: placement.citationPage === "url" ? undefined : url,
     },
     reserved,
+    placement.overrides,
   );
   applySiteSourceExtras(records, source, recognized.site, bookUrl, {
     place: fetched?.place ?? p.place,

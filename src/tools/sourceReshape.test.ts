@@ -357,7 +357,7 @@ describe("reshapeSources — apply", () => {
 0 TRLR`);
     expect(text).toContain("0 @S1@ SOUR");
     expect(text).toContain("1 TITL Matricula 03869 | Sentjur Pri Celju");
-    expect(text).toContain("1 FILN 03869");
+    expect(text).toContain("1 _FILN 03869");
     expect(text).toContain("1 PLAC Sentjur Pri Celju");
     expect(text).toContain(`1 FILE ${BOOK}/?pg=94`);
     expect(text).toContain("TITL #94 - Matricula 03869 | Sentjur Pri Celju");
@@ -561,7 +561,7 @@ describe("reshapeSources — apply", () => {
 1 NAME Nadškofijski arhiv Ljubljana
 0 TRLR`);
     expect(text).toContain("2 CALN 03869");
-    expect(text).not.toContain("1 FILN 03869");
+    expect(text).not.toContain("1 _FILN 03869");
   });
 
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
@@ -864,7 +864,7 @@ ${shape}
     expect(text).toContain("1 TITL Pokopališče Kranj - 9833001 - Geneanet Cemeteries");
     expect(text).toContain("1 TITL Pokopališče Kranj - 9833663 - Geneanet Cemeteries");
     // …and the id is a field of its own, not only part of the name.
-    expect(text).toContain("1 FILN 9833001");
+    expect(text).toContain("1 _FILN 9833001");
   });
 
   it("fills the id a reused source was made without, in the field the file uses", () => {
@@ -888,7 +888,7 @@ ${shape}
     const report = findReshapableLinks(ds);
     expect(report.groups[0].existingSourceXref).toBe("@S1@");
     const text = serializeGedcom(reshapeSources(ds.records, report.groups).records);
-    expect(text).toContain("1 FILN 9833001");
+    expect(text).toContain("1 _FILN 9833001");
     expect(text).not.toContain("2 CALN");
     // The reader's own title is theirs — only the empty fields are filled.
     expect(text).toContain("1 TITL Pokopališče Kranj - Geneanet Cemeteries");
@@ -935,7 +935,7 @@ ${shape}
     expect(text).not.toMatch(/\n1 AGNC /);
     // No repository in this file, so no CALN to carry the number — the flat
     // FILN survives rather than losing the id.
-    expect(text).toContain("1 FILN 03869");
+    expect(text).toContain("1 _FILN 03869");
   });
 
   it("moves the filing number wholly into CALN when a repository carries it", () => {
@@ -1134,7 +1134,7 @@ ${shape}
     expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
     // The cemetery view id is stated once, in the field this file uses for
     // it: no call number stands anywhere here, so it is the filing number.
-    expect(text).toContain("1 FILN 123");
+    expect(text).toContain("1 _FILN 123");
     expect(text).not.toMatch(/2 CALN 123/);
   });
 
@@ -1177,7 +1177,7 @@ ${shape}
     expect(report.groups[0].urlTitled).toBe(true); // stays enrichable in the panel
     expect(counts.sourcesCreated).toBe(0);
     expect(text).toContain("1 TITL Matricula 04406 | Vodice");
-    expect(text).toContain("1 FILN 04406");
+    expect(text).toContain("1 _FILN 04406");
     expect(text).toContain(`1 FILE ${BOOK2}/?pg=6`);
     expect(text).toContain("2 SOUR @S1@"); // citation untouched
   });
@@ -1285,7 +1285,7 @@ ${shape}
     const { records } = reshapeSources(ds.records, report.groups, enrichment);
     const text = serializeGedcom(records);
     expect(text).toContain("1 TITL Hawlina family tree");
-    expect(text).toContain("1 FILN GT-7");
+    expect(text).toContain("1 _FILN GT-7");
     expect(text).not.toContain("1 AUTH"); // cleared in the editor — omitted
   });
 
@@ -1847,7 +1847,7 @@ describe("reshapeSources — citation placement", () => {
     expect(grave.proposed.title).toBe("Anton Grudnik - Find a Grave");
     expect(grave.proposed.filingNumber).toBe("12345");
     expect(text).toContain("1 TITL Anton Grudnik - Find a Grave");
-    expect(text).toContain("1 FILN 12345");
+    expect(text).toContain("1 _FILN 12345");
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@/); // record-level note moved to a created BURI
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // DEAT is an acceptable spot for a grave — stays
   });
@@ -1864,7 +1864,7 @@ describe("reshapeSources — citation placement", () => {
     expect(g.proposed.filingNumber).toBe("26608778");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // record-level note moved to a created DEAT
     expect(text).toContain("1 TITL Peter Ancel - Legacy.com");
-    expect(text).toContain("1 FILN 26608778");
+    expect(text).toContain("1 _FILN 26608778");
   });
 
   it("gives 'other' links slug titles and classifies obituary/funeral URLs as death evidence", () => {
@@ -2000,7 +2000,7 @@ describe("reshapeSources — citation placement", () => {
     expect(report.groups.find((g) => g.site === "newspapers")?.bookType).toBe("death");
     expect(text).toContain("1 TITL The Windsor Star, 23 Jun 1998 - Newspapers.com");
     expect(text).toContain("1 PLAC Windsor, Ontario, Canada");
-    expect(text).toContain("1 FILN 504323954");
+    expect(text).toContain("1 _FILN 504323954");
     // The scraped date is rewritten in the file's own date format (its dates
     // are uppercase month-word), not left in the citation's casing.
     expect(text).toContain("1 DATE 23 JUN 1998");
@@ -2178,7 +2178,7 @@ describe("reshapeSources — citation placement", () => {
     expect(g.proposed.title).toBe("Polona Renko - BillionGraves");
     expect(g.proposed.filingNumber).toBe("18374346");
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@/);
-    expect(text).toContain("1 FILN 18374346");
+    expect(text).toContain("1 _FILN 18374346");
   });
 
   it("groups dLib.si details and stream links by URN, id as filing number", () => {
@@ -2194,7 +2194,7 @@ describe("reshapeSources — citation placement", () => {
     expect(g.bookUrl).toBe("https://dlib.si/details/URN:NBN:SI:DOC-2CEAMMVU");
     expect(g.proposed.title).toBe("URN:NBN:SI:DOC-2CEAMMVU - dLib.si"); // offline: URN distinguishes documents
     expect(g.proposed.filingNumber).toBe("URN:NBN:SI:DOC-2CEAMMVU");
-    expect(text).toContain("1 FILN URN:NBN:SI:DOC-2CEAMMVU");
+    expect(text).toContain("1 _FILN URN:NBN:SI:DOC-2CEAMMVU");
   });
 
   it("keeps an inline media block's own title, note and form on the record made from it", () => {
@@ -2227,7 +2227,7 @@ describe("reshapeSources — citation placement", () => {
     expect(g.proposed.filingNumber).toBe("F01EDD85-E7BB-4D18-9599-1428852BAA1F");
     expect(text).toMatch(/1 DEAT\n2 SOUR @S1@/); // inline citation moved onto a created DEAT
     expect(text).toContain("1 TITL Fani Grudnik - WW2 - SIstory.si");
-    expect(text).toContain("1 FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
+    expect(text).toContain("1 _FILN F01EDD85-E7BB-4D18-9599-1428852BAA1F");
   });
 
   it("recognizes short numeric WW1 record ids, keeping the id in the offline title", () => {

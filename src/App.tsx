@@ -2649,13 +2649,14 @@ function AppContent() {
                 applyToolPatches(
                   createStandaloneSource(mainDataset.records, fields, {
                     sourceLayout: formatOverrides.sourceLayout ?? "auto",
+                    standard: formatOverrides.standard,
                   }).extraPatches,
                 )
               }
               onEditSource={(sourceXref, fields) =>
                 applySharedRecordEdit((records, notes) => {
                   const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
-                  if (node) setSourceRecordFields(records, node, fields, notes);
+                  if (node) setSourceRecordFields(records, node, fields, notes, formatOverrides);
                 })
               }
               onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}

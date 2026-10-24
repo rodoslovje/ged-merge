@@ -35,7 +35,7 @@ import {
 } from "./report";
 import { baptismTargetTag, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
 import { pageObjeTitle, parseMatriculaUrl, placeholderMediaTitle, recognizeSourceUrl, siteTitle } from "./urls";
-import { addObjeToSource, createSourceRecord, SOUR_FIELD_TRAILING } from "../../gedcom/edit/sources";
+import { addObjeToSource, createSourceRecord, sourceFieldTag, SOUR_FIELD_TRAILING } from "../../gedcom/edit/sources";
 import { mediaTitleLine, writeMediaTitle } from "../../gedcom/edit/media";
 import { dateFixContext, type DateFixContext, proposeDateFix } from "../fixDates";
 import { normalizeDateString } from "../../normalize/date";
@@ -48,6 +48,7 @@ import {
   repoLinkWanted,
   sourceTitle,
   writesCallNumbers,
+  filingNumberOf,
 } from "../../gedcom/source";
 import {
   countryCodeOfName,
@@ -470,7 +471,7 @@ function coverageEventsFromTitle(
  */
 function foldFilingNumber(rec: GedNode): string | undefined {
   const repoLink = firstChild(rec, "REPO");
-  const filn = firstChild(rec, "FILN");
+  const filn = firstChild(rec, "FILN") ?? firstChild(rec, "_FILN");
   const value = filn?.value?.trim();
   if (!repoLink?.value || !value || firstChild(repoLink, "CALN")) return undefined;
   repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value, children: [] });
@@ -924,7 +925,7 @@ export function applySiteSourceExtras(
   // The same id, in the one place this file states it: the repository link's
   // call number where the file writes those, else the source's own FILN,
   // which is already there. Writing both would say it twice.
-  const filn = childText(sourceNode, "FILN");
+  const filn = filingNumberOf(sourceNode);
   if (filn && writesCallNumbers(records, coverage)) {
     link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
   }
@@ -1101,9 +1102,9 @@ export function reshapeSources(
       // never both (see `writesCallNumbers`).
       const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
       if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
-      else fillField(sourceNode, "FILN", fields.filingNumber);
+      else fillField(sourceNode, sourceFieldTag(clone, "FILN", opts), fields.filingNumber);
     } else {
-      sourceNode = createSourceRecord(clone, fields);
+      sourceNode = createSourceRecord(clone, fields, undefined, opts);
       byXref.set(sourceNode.xref!, sourceNode);
       counts.sourcesCreated++;
       // What the source covers: the spec's `DATA > EVEN` blocks in a
@@ -1146,7 +1147,7 @@ export function reshapeSources(
           // not repeat it: a file holding the same id twice says it twice, and
           // a reader who edits one leaves the other stale. (A source that ends
           // up with no repository keeps its FILN — the id must live somewhere.)
-          const filn = firstChild(sourceNode, "FILN");
+          const filn = firstChild(sourceNode, "FILN") ?? firstChild(sourceNode, "_FILN");
           if (filn) spliceChild(sourceNode, filn);
         }
         sourceNode.children.push(link);
@@ -1239,7 +1240,7 @@ export function reshapeSources(
         fillField(hit.rec, "PLAC", fields.place);
         fillField(hit.rec, "DATE", fields.dateRange);
       }
-      fillField(hit.rec, "FILN", fields.filingNumber);
+      if (!filingNumberOf(hit.rec)) fillField(hit.rec, sourceFieldTag(clone, "FILN", opts), fields.filingNumber);
       counts.citationsRewritten++;
     }
 

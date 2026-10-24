@@ -9,6 +9,7 @@ import {
   sourceTitle,
   sourceTooltip,
   type CropRegion,
+  filingNumberOf,
 } from "../gedcom/source";
 import { label } from "../match/relatives";
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
@@ -298,7 +299,7 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
       title: sourceTitle(rec),
       tooltip: sourceTooltip(rec),
       agency: childText(rec, "AGNC"),
-      filingNumber: childText(rec, "FILN"),
+      filingNumber: filingNumberOf(rec),
       media,
       usedBy: bySource.get(rec.xref) ?? [],
     };

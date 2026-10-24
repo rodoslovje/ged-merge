@@ -1036,6 +1036,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       sourceCoverage: formatOverrides.sourceCoverage ?? "auto",
       baptism: formatOverrides.baptism ?? "auto",
       citationPage: citationPageStyle(),
+      standard: formatOverrides.standard,
     });
   }
 
@@ -1249,7 +1250,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     commitWithSourceDiff(owner, () => {
       const ownerId = owner.kind === "individual" ? owner.indi.id : owner.fam.id;
       const notes = noteCtx(dataset.records, privacyStyle);
-      updateSourceCitation(dataset.records, node, index, fields, notes);
+      updateSourceCitation(dataset.records, node, index, fields, notes, formatOverrides);
       const notePatches = noteChangePatches(notes.changes, { kind: owner.kind, id: ownerId });
       afterNoteChanges(notes.changes, ownerId);
       return notePatches;

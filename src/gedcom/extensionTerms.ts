@@ -196,6 +196,22 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     },
     context: "under SEX",
   },
+  {
+    tag: "_FILN",
+    meaning: {
+      en: "a source's filing number — the archive's id for it (GEDCOM 5.5-EL FILN), which neither GEDCOM 5.5.1 nor 7.0 has",
+      sl: "arhivska številka vira (FILN iz GEDCOM 5.5-EL), ki je ne pozna ne GEDCOM 5.5.1 ne 7.0",
+    },
+    context: "on a source record (SOUR)",
+  },
+  {
+    tag: "_PERI",
+    meaning: {
+      en: "the periodical or collection a source belongs to (GEDCOM 5.5-EL PERI), which neither GEDCOM 5.5.1 nor 7.0 has",
+      sl: "periodika ali zbirka, v katero sodi vir (PERI iz GEDCOM 5.5-EL), ki je ne pozna ne GEDCOM 5.5.1 ne 7.0",
+    },
+    context: "on a source record (SOUR)",
+  },
 ];
 
 const OWN_BY_TAG = new Map(GEDMERGE_TAGS.map((t) => [t.tag, t]));
