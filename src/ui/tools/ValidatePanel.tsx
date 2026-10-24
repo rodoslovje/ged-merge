@@ -406,6 +406,9 @@ export function ValidatePanel({
     const rows: IssueRow[] = [];
     let tranFirst: StructIssue | undefined;
     let tranCount = 0;
+    // The same value fix on the same line (TYPE aka → AKA on every name) is
+    // one row, its button fixing them all.
+    const valueGroups = new Map<string, StructIssue[]>();
     for (const issue of group === "data" ? (report?.issues ?? []) : []) {
       if (filter !== "all" && issue.category !== filter) continue;
       if (q && !issue.subject.toLowerCase().includes(q)) continue;
@@ -425,6 +428,17 @@ export function ValidatePanel({
         tranFirst ??= issue;
         continue;
       }
+      if (issue.category === "enumValue" && issue.fix !== undefined && !issue.toNote && issue.recordId) {
+        const k = `${issue.messageKey}\0${issue.messageVars?.parent}\0${issue.sample}\0${issue.fix}`;
+        const list = valueGroups.get(k);
+        if (list) list.push(issue);
+        else valueGroups.set(k, [issue]);
+        continue;
+      }
+      rows.push({ kind: "struct", severity: issue.severity, issue });
+    }
+    for (const list of valueGroups.values()) {
+      const issue = list.length > 1 ? { ...list[0], groupCount: list.length } : list[0];
       rows.push({ kind: "struct", severity: issue.severity, issue });
     }
     if (tranFirst) {
@@ -584,10 +598,13 @@ export function ValidatePanel({
       };
     }
     if (issue.category === "enumValue" && issue.fix !== undefined && issue.recordId) {
+      const fix = issue.fix;
       return {
-        label: t("tools.validate.fixOneValue", { value: issue.fix }),
-        hint: t("tools.validate.struct.fixableTitle", { value: issue.fix }),
-        run: () => onFixConformance(undefined, { id: issue.recordId!, path: issue.path }),
+        label: t("tools.validate.fixOneValue", { value: fix }),
+        hint: t("tools.validate.struct.fixableTitle", { value: fix }),
+        run: () => onFixConformance(undefined, (issue.groupCount ?? 0) > 1
+          ? { match: { tag: String(issue.messageVars?.tag), parent: String(issue.messageVars?.parent), sample: issue.sample ?? "", fix } }
+          : { id: issue.recordId!, path: issue.path }),
       };
     }
     if (issue.category === "cardinality" && issue.repeat && issue.recordId) {
@@ -1077,7 +1094,7 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.danglingXref",
 ]);
 function isGrouped(i: StructIssue): boolean {
-  return GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1;
+  return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
 }
 
 /** A translation the standard wants a language on, written without one. */
@@ -1221,7 +1238,10 @@ function StructRow({
       ) : issue.line != null ? (
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
-      <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
+      <span className="tools-issue-msg">
+        {t(issue.messageKey, issue.messageVars)}
+        {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
+      </span>
       {variationOf !== undefined && (
         <span className="tools-issue-detail">
           {variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}

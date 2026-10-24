@@ -57,6 +57,9 @@ export interface ConformanceRef {
   path?: string;
   /** For the media forms: only the files this form fits. */
   value?: string;
+  /** Every finding of one kind across the file: the same value on the same
+   *  line, given the same fix (a row standing for all of them). */
+  match?: { tag: string; parent: string; sample: string; fix: string };
 }
 
 /** Turn every `DATE` under an association into a `NOTE` there carrying the
@@ -164,7 +167,9 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const scanned = fixableConformance(dataset.records, only?.id);
   if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
   const issues = scanned.filter(
-    (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path),
+    (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path)
+      && (!only?.match || (i.messageVars.tag === only.match.tag && i.messageVars.parent === only.match.parent
+        && i.sample === only.match.sample && i.fix === only.match.fix)),
   );
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();

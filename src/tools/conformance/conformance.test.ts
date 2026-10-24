@@ -513,6 +513,28 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("fixes every finding a grouped row stands for, and only those", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 NAME Veronica /Svetlecic/
+2 TYPE aka
+0 @I2@ INDI
+1 NAME Franc /Zaletel/
+2 TYPE aka
+0 @I3@ INDI
+1 NAME Mina /Božnar/
+2 TYPE married
+0 TRLR`);
+    const aka = validateConformance(ds).find((i) => i.sample === "aka")!;
+    const patches = fixConformance(ds, undefined, {
+      match: { tag: "TYPE", parent: String(aka.messageVars.parent), sample: "aka", fix: "AKA" },
+    });
+    expect(patches.map((p) => p.id)).toEqual(["@I1@", "@I2@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out.match(/2 TYPE AKA\n/g)).toHaveLength(2);
+    expect(out).toContain("2 TYPE married\n"); // another value: its own row
+  });
+
   it("writes a 7.0 value outside a set that has OTHER as OTHER, keeping it as the PHRASE", () => {
     // MyHeritage's Smart Match citation puts the matched person's number in ROLE.
     const ds = dataset(`${HEAD_70}
