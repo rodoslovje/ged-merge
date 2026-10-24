@@ -362,6 +362,12 @@ function checkPayload(
     const items = payload.startsWith("L:") ? value.split(",").map((s) => s.trim()) : [value];
     const verdicts = items.map((v) => enumVerdict(v, set, spec.is70));
     if (verdicts.every((v) => v === undefined)) return;
+    // MyHeritage writes QUAY 4 (and up) for its best evidence: the standard's
+    // best is 3, so the fix lowers it there.
+    if (tag === "QUAY" && /^\d+$/.test(value) && Number(value) > 3) {
+      emit("enumValue", "quayAbove", {}, "3");
+      return;
+    }
     const fix = verdicts.every((v) => v !== "")
       ? items.map((v, i) => verdicts[i] ?? v).join(", ")
       : undefined;
