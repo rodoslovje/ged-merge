@@ -35,7 +35,7 @@ test("translations without a language: suggested, re-picked and written", async 
   await expect(row).toContainText("(3×)");
   await row.getByRole("button", { name: "Choose languages" }).click();
   await expect(page.locator(".tools-chip.active", { hasText: "Translations without a language" })).toBeVisible();
-  const section = page.locator(".tools-struct", { hasText: "Translations without a language" });
+  const section = page.locator(".tools-tran-list");
   await expect(section).toBeVisible();
   const vellach = section.locator(".tools-issue", { hasText: "Media Wella" });
   await expect(vellach.getByRole("button", { name: "Language of Media Wella" })).toContainText("(la)");

@@ -9274,7 +9274,16 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-tran-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .tools-tran-parts { flex: 1 1 260px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
 .tools-tran-part { display: inline-flex; gap: 6px; align-items: baseline; }
-.tools-tran-name { font-weight: 600; }
+/* The rows read like the findings around them: plain names, and a language
+   picker the size of a row chip rather than a form field. */
+.tools-tran-list .tools-issue { align-items: center; }
+.tools-tran-part .picker-menu-btn {
+  width: auto;
+  padding: 1px 8px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  border-radius: var(--radius-pill);
+}
 .tools-struct-loc { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* A non-INDI/FAM top-level record (SOUR, OBJE, NOTE, …): identified by type but
    not a link, since GED Merge can't open it. */

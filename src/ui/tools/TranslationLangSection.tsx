@@ -100,8 +100,8 @@ export function useTranslationLang({
   );
 
   const list = (
-    <div className="tools-struct">
-      <div className="tools-examples-title">{t("tools.validate.tranLang.title")}</div>
+    // No heading of its own: the chip above already names the list.
+    <div className="tools-struct tools-tran-list">
       <p className="tools-fix-hint">{t("tools.validate.tranLang.hint")}</p>
       <ul className="tools-issues">
         {groups.slice(0, 200).map((g, i) => {
@@ -110,7 +110,7 @@ export function useTranslationLang({
           return (
             <li key={g.key} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
               {/* Which kind of name it translates: a place's or a person's. */}
-              <span className="tools-struct-rec-tag">{g.place ? "PLAC" : "NAME"}</span>
+              <span className="tools-struct-rec"><span className="tools-struct-rec-tag">{g.place ? "PLAC" : "NAME"}</span></span>
               <span className="tools-tran-parts">
                 {g.parts.map((part, j) => (
                   <span key={j} className="tools-tran-part">
@@ -125,7 +125,7 @@ export function useTranslationLang({
                 ))}
               </span>
               {split > 1 && <span className="tools-issue-detail">{t("tools.validate.tranLang.split", { count: split })}</span>}
-              <span className="tools-chip-count">{g.count}</span>
+              <span className="tools-struct-loc">{g.count}×</span>
               <button
                 className="tools-issue-fix sets"
                 title={t("tools.validate.tranLang.applyHint")}
