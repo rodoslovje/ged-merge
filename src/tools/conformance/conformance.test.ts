@@ -670,6 +670,21 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("writes MyHeritage's PEDI step as OTHER + PHRASE step, keeping which parent it means", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 NAME Aisha /Alvarado/
+1 FAMC @F1@
+2 PEDI step
+2 _PEDW step
+0 @F1@ FAM
+1 CHIL @I1@
+0 TRLR`);
+    fixConformance(ds, "values");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 FAMC @F1@\n2 PEDI OTHER\n3 PHRASE step\n2 _PEDW step\n");
+    expect(validateConformance(ds).filter((i) => i.category === "enumValue")).toEqual([]);
+  });
+
   it("writes a 7.0 value outside a set that has OTHER as OTHER, keeping it as the PHRASE", () => {
     // MyHeritage's Smart Match citation puts the matched person's number in ROLE.
     const ds = dataset(`${HEAD_70}
