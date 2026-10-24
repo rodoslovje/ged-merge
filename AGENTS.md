@@ -74,6 +74,61 @@ The user reads the Slovenian pages closely and judges them **as Slovenian, not a
 - **E2E tests wait for conditions, never for durations.** This machine runs several sessions' suites at once, so a test written against an idle machine's timings fails on a busy one and the failure ("Timeout of 30000ms exceeded") says nothing about the app. `playwright.config.ts` carries the budgets — 90 s per test, 15 s per assertion, 2 retries, workers scaled to the machine's free capacity — so a new spec needs no timeout of its own unless it is genuinely heavier than that (`test.setTimeout`, as the whole-file scan specs do). In the specs: no `page.waitForTimeout` standing in for "it should have finished by now" — wait for the thing the step produces (`await expect(locator).toBeVisible()`, `toHaveCount(n)`, `toHaveValue(…)`). Assert through a retrying `expect`, never on a value read once (`expect(await x.count()).toBe(n)` reads a list that may still be filling — `await expect(x).toHaveCount(n)` waits for it). Where a step must be repeated until it takes (scroll a virtual list to its end), bound the loop by time with `expect(async () => {…}).toPass({ timeout })`, not by a count of iterations.
 - **Ask when unsure.** If you need help understanding a requirement or existing behavior, ask the user rather than guessing.
 
+## GEDCOM standard compliance (5.5.1 · 7.0)
+
+GED Merge reads anything, but it **writes standard GEDCOM**: 5.5.1 or 7.0, whichever the user saves in (the main file's own version by default). Every feature that creates, rewrites, offers or checks GEDCOM lines follows these rules. The review of 2026-10-24 found most violations in code written before the rules existed. When you touch such code, bring it into line rather than copying its pattern.
+
+**The output is valid in the version it is written in.**
+- Every download (save, privacy export, branch export, Tools → Normalize, and any new export) goes through `prepareDownload` in `src/save/outputFile.ts`, then `serializeGedcom` with `outputOptions`. Never serialize a download by hand: that path skips the HEAD/GEDC/CHAR/SUBM/TRLR repair, the HEAD.SOUR stamp and HEAD.SCHMA.
+- A line the app writes or rewrites (editor, merge, Tools passes, health-check fixes, CSV import, version conversion) must be valid for the target version: allowed under its parent, within cardinality, with the right payload kind (none / `Y` / text / pointer to the right record type) and enumeration spelling.
+- Invalid input the user never touched may stay as read, for losslessness. The health check must report it, and the save preview must say how much of it remains and offer the fix where one exists.
+- Converting between versions (`convertVersion` → `migrateVersion`) must produce a file valid in the target version. A structure with no counterpart becomes a `_` extension, or a NOTE when its text is the point; it is never left in the source version's form. Every rewrite is listed in the conversion report.
+
+**The version is a parameter, not a habit.**
+- Writers take the target version from `versionFamily(dataset.version)`, passed in explicitly. Never re-read HEAD in a helper (`isV7(records)`), and never let a count of the file's existing lines (`prefersMimeForm`, "the main's last tag, else the incoming's") outvote the version.
+- Inside the normalize/merge path the target is the **main** file's version, never the compare file's.
+- A file's house style may choose only among forms that are valid in its version. Dates are written in the GEDCOM date grammar (`D MON YYYY`, uppercase months, standard qualifiers and calendar escapes). Numeric layouts such as `DD.MM.YYYY` are for display and entry only.
+- Enumerations follow the version's case and value set: RESN is lowercase in 5.5.1 and an uppercase list in 7.0; PEDI, FAMC.STAT, MEDI, ROLE, NAME.TYPE and QUAY likewise. A 7.0 value outside the set becomes `OTHER` + `PHRASE`.
+- Every new 7.0-only structure (`SNOTE`, `EXID`, `UID`, `CREA`, `NO`, `SDATE`, `TRAN`, `PHRASE`, `MIME`, `CROP`, `INIL`, `@VOID@`, `SEX X`, event `TIME`) needs a stated 5.5.1 form, and the reverse holds for 5.5.1-only structures (`ROMN`/`FONE`, `RFN`/`RIN`/`AFN`, inline `OBJE`, text `SOUR` citations, `NOTE` records, `SUBN`, `CONC`). Prefer the standard form of the version over an extension: in 7.0 that means `EXID` over `_FID`/`_FSFTID`, `UID` over `_UID`, and `NAME` + `TYPE MARRIED` over `_MARNM`.
+
+**Extension tags.**
+- An extension tag always starts with `_`. Never write a bare vendor tag (`RACE`, `NOBI`, `LATR`, `DEED`, `ILL`, `PRIV`, `SEPA`, `PERI`, `FILN`, `EDTN`, `WWW` on a record…): use the `_` form, or the standard structure that carries the meaning.
+- In 7.0 every `_` tag is declared in HEAD.SCHMA (`writeSchema`) and written uppercase: 7.0 tags are `[A-Z0-9_]`, so clear `GedNode.spelling` when writing 7.0.
+- A FamilySearch-registered tag (`gedcom/extensionRegistry.ts`) gets the registry's URI. Any other tag gets a GED Merge terms page (`gedcom/extensionTerms.ts`, served under `gedmerge.com/terms/`). A tag GED Merge starts writing needs its terms page in the same merge, and that page must be live on production before files declaring it ship.
+- Don't invent an extension where a standard structure exists: a media description is a `NOTE`, a filing number is `REPO.CALN`, a source's agency is `DATA.AGNC`.
+
+**One source of truth for the standard.** `src/tools/conformance/spec70.ts` (generated by `scripts/gedcom7-spec-table.ts` from a pinned spec revision) and `spec551.ts` hold which tags exist, where, how often, with which payload and enumeration. Do not add another hard-coded list of tags, enum values or "is this standard?" predicates. Several already exist (`KNOWN_TAGS`, `VENDOR_TAGS`, the event-order lists, `NAME_TYPES_*`, `STAT_ENUM`, the PEDI list in `migrate.ts`, `QUAY_VALUES`, …) and are being folded into the tables. New code asks the tables, through a helper next to them when one is missing, and `VENDOR_TAGS` only supplies labels and standard equivalents for extensions.
+
+**The UI offers the standard of the main file's version first.**
+- Pickers (add event/attribute, name type, media format, privacy, ASSO role, PEDI, QUAY, sex …) list what the version allows, read from the spec tables.
+- Extensions appear only in a separate, visibly marked part of a menu, or only when the file already uses them.
+- A feature the version cannot carry is hidden, or says why it is unavailable. It never silently writes an extension.
+- Every non-standard tag is visibly marked wherever it is shown (Edit rows, menus, chips, merge review, charts, reports, health check): the ◦ glyph and the "(TAG)" suffix, through `eventDisplayLabel` / `eventGlyph` in `gedcom/eventTags.ts`. Never index `EVENT_GLYPHS` directly or keep a local label list.
+
+**The health check knows the standard and repairs it.**
+- Every standard rule a writer obeys is also a health-check rule, checked against the **declared** version's table, never a union of versions. That means tags from the other version, bare vendor tags, `_` tags with a standard equivalent in this version, payload kind, empty pointers, cardinality, enumerations, value grammars (DATE, AGE, LANG, MIME, URI, LATI/LONG) and reciprocal links from both sides.
+- Offer an auto-fix wherever the repair is mechanical. Build it on the conversions `migrate.ts` already has rather than writing a second implementation.
+- A fix must write valid lines for the file's version, be idempotent, run through `applyPassSafely` as one undo step, and not create a finding that another fix undoes (no ping-pong).
+- Prefer repairing over deleting. A one-way link gets its missing back-pointer; a dangling 7.0 pointer that carries detail becomes `@VOID@`.
+- A problem only the save repairs (header, trailer, SCHMA) is shown as "repaired on save", not hidden.
+
+**Merging and importing keep the main's standard.**
+- Compare-file content is migrated to the main's version before it is copied.
+- Copied records get a fresh xref whenever theirs is not valid for the target version (7.0: `@[A-Z0-9_]+@`, not `@VOID@`; 5.5.1: at most 20 characters between the `@`s).
+- Unparsed (`verbatim`) lines are not carried from one file into the other.
+- Pointers stay reciprocal on both sides.
+
+**Test it like the standard would.**
+- A new writer, fix or conversion gets a unit test that runs its output through `validateConformance` for **both** 5.5.1 and 7.0 and asserts that it adds no finding.
+- A new health-check rule gets one negative fixture per violation class, so a lenient table entry can't slip back in.
+
+**Performance on 500k-person files.**
+- No `records.find(...)` per item inside a loop over people, citations or links: build an xref index once, or use the dataset's own maps.
+- Walk the tree once per pass, keeping ancestors on a push/pop stack rather than copying an array per node.
+- Allocate xrefs from one counter per prefix.
+- Batch new records into place instead of calling `insertRecord` per record.
+- Group repeated health-check findings (count + samples), and compute counts in the worker.
+
 ## Architecture
 
 **Browser-only React + TypeScript + Vite app.** No backend; all data stays local.
