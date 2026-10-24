@@ -1301,8 +1301,8 @@
               so to pogosto navade programa, v katerem datoteko vodite, in jih ni treba spreminjati.
             </p>
             <p>
-              Ugotovitev o viru navede ime vira. S klikom na ime odprete okno <strong>Uredi vir</strong> in težavo odpravite
-              tam. Med polji so tudi leta, ki jih vir zajema, zato obdobje, ki se konča pred začetkom, popravite kar na
+              Ugotovitev o viru navede ime vira. S klikom na ime ali na gumb <strong>Uredi vir</strong> na vrstici odprete
+              okno za urejanje vira in težavo odpravite tam. Med polji so tudi leta, ki jih vir zajema, zato obdobje, ki se konča pred začetkom, popravite kar na
               mestu. Ko vir shranite, se pregled znova izvede.
             </p>
             <div>
@@ -1380,7 +1380,8 @@
                 pa mu manjka koordinata (pogosto, ko je dogodek dodan ali na novo vpisan po geokodiranju datoteke) — in
                 ponudi, da koordinato, ki jo vrednost v datoteki že ima, prekopira na dogodke, ki je nimajo, brez poizvedbe.
                 Nad ugotovitvami o strukturi sta navedena različica GEDCOM datoteke in vse, kar se ob shranjevanju
-                doda, da bo datoteka veljaven GEDCOM (manjkajoča glava, zaključna vrstica ali zapis avtorja). Tam je
+                doda ali odstrani, da bo datoteka veljaven GEDCOM (manjkajoča glava, zaključna vrstica ali zapis avtorja
+                oziroma vrstice iz GEDCOM 5.5.1, ki jih glava datoteke 7.0 ne sme imeti). Tam je
                 tudi gumb, s katerim datoteko shranite v drugi različici (<a href="#saving">§14</a>).
               </p>
               <p>
@@ -1403,61 +1404,93 @@
                 <li><strong>neveljavne ID-je zapisov</strong>.</li>
               </ul>
               <p>
-                Razširitvene oznake, kot je <em>_UID</em>, so dovoljene povsod in se ne presojajo. Z gumbom
-                <strong>Popravi zapis vrednosti</strong> se vrednost, ki se od standardnega seznama razlikuje le po
-                velikih in malih črkah, zapiše tako, kot jo navaja standard (<em>Adopted</em> → <em>adopted</em>).
-                Isti gumb zniža kakovost citata, ki je višja od najvišje standardne vrednosti, na <em>3</em> — MyHeritage
-                namreč zapisuje <em>QUAY 4</em>.
-                Z gumbom <strong>Odstrani ponovljene vrstice</strong> se odstranijo natančne kopije vrstice, ki jo
-                standard dovoljuje le enkrat. Z gumbom <strong>Dodaj vrste medijskih datotek</strong> se medijski
-                datoteki brez vrstice FORM doda vrsta, ki jo pove ime datoteke — <em>text/html</em> za spletni naslov,
-                <em>image/jpeg</em> za končnico <em>.jpg</em>. GEDCOM 7.0 za oznako dogodka dovoljuje le Y, zato se z
-                gumbom <strong>Premakni besedilo dogodkov v opombe</strong> drugo besedilo v tej vrstici
-                (<em>BIRT ali Ravna Gora?</em>) nespremenjeno prenese v opombo dogodka. Z gumbom <strong>Premakni
-                naslove medijev v FILE</strong> se naslov in vrsta, ki sta po načinu GEDCOM 5.5 zapisana ob vrstici
-                FILE, premakneta pod vrstico FILE. Kjer ima medij naslov ob vrstici FILE in še drugačnega pod njo, se z
-                gumbom <strong>Ohrani naslove medijev v FILE</strong> ohrani naslov pod vrstico FILE, ki je prikazan
-                v aplikaciji, drugi pa se odstrani. Vrednost zunaj seznama, ponovitve, ki se med seboj razlikujejo, in
-                datoteka, katere ime vrste ne pove, so vprašanje za vašo presojo.
+                Razširitvene oznake, kot je <em>_UID</em>, so dovoljene povsod in se ne presojajo. Ugotovitve iste vrste so navedene enkrat, s številom pojavitev:
+                oznaka na napačnem mestu, vrednost, ki je povsod napačno zapisana enako (<em>TYPE aka</em> pri vseh
+                imenih), medijske datoteke brez enake vrstice FORM, navedbe MyHeritage Smart Match in datumi sprememb na
+                dogodkih. Večina ugotovitev ima na svoji vrstici popravek, ki ohrani vse besedilo iz datoteke:
+              </p>
+              <ul>
+                <li>vrednost, ki se od standardnega seznama razlikuje le po velikih in malih črkah, se zapiše tako, kot
+                  jo navaja standard (<em>Adopted</em> → <em>adopted</em>); kakovost citata, višja od 3, se zniža na
+                  <em>3</em>; v GEDCOM 7.0 se vrednost zunaj seznama, ki pozna vrednost <em>OTHER</em>, zapiše kot
+                  <em>OTHER</em>, izvirna vrednost pa se ohrani v vrstici PHRASE (<em>PEDI step</em>, številka v
+                  vrstici ROLE);</li>
+                <li>natančne kopije vrstice, ki jo standard dovoljuje le enkrat, se odstranijo;</li>
+                <li>medijska datoteka brez vrstice FORM dobi vrsto, ki jo pove ime datoteke (<em>text/html</em>,
+                  <em>image/jpeg</em>); pri datoteki, katere ime vrste ne pove, gumb <strong>Uredi povezavo</strong>
+                  odpre okno, v katerem popravite njen naslov;</li>
+                <li>besedilo za oznako dogodka, kjer GEDCOM 7.0 dovoljuje le Y (<em>BIRT ali Ravna Gora?</em>), se
+                  premakne v opombo dogodka, datum pri povezani osebi pa v opombo pri tej povezani osebi;</li>
+                <li>naslov in vrsta medija, zapisana ob vrstici FILE, se premakneta pod vrstico FILE; če ima vrstica
+                  FILE že drugačen naslov, vrstica nato ponudi, da se ohrani naslov v FILE, drugi pa se odstrani;</li>
+                <li>datum in kraj medija, za katera GEDCOM nima vrstice, se ohranita kot <em>_DATE</em> in
+                  <em>_PLACE</em>;</li>
+                <li>ustanova vira se premakne v <em>DATA.AGNC</em>, kraj in datum vira pa v blok <em>DATA &gt;
+                  EVEN</em> za dogodek, ki ga navaja naslov vira (krstna, poročna ali mrliška knjiga); vir, katerega
+                  naslov dogodka ne navaja, ju obdrži;</li>
+                <li>razmerje otroka do družine, zapisano v vrstici CHIL družine, se premakne v otrokovo povezavo
+                  FAMC;</li>
+                <li>datuma CHAN in CREA pod zapisom se preneseta na zapis — najnovejša sprememba in najstarejši
+                  nastanek — z dogodkov pa se odstranita;</li>
+                <li>oznake MyHeritage v vrstici EVEN navedbe vira (<em>Smart Matching</em>, <em>Discovery</em>,
+                  <em>Record</em>) se odstranijo, ID osebe ali zapisa iz vrstice ROLE pa postane vrstica PAGE navedbe;
+                  stran, vpisana kot SOUR znotraj navedbe, postane vrstica PAGE te navedbe.</li>
+              </ul>
+              <p>
+                Če vrstice, ki bi jih popravek zapisal, že vsebujejo kaj drugega, ostane oboje nespremenjeno in je
+                vprašanje za vašo presojo. Enako velja za vrednost zunaj seznama brez vrednosti OTHER in za ponovitve,
+                ki se med seboj razlikujejo. Kadar datoteka ohrani svoja odstopanja, je navada programa, iz katerega
+                izvira — datumi sprememb na dogodkih pri MacFamilyTree, kraj in datum, zapisana na samem viru —
+                označena kot odstopanje tega programa, popravek pa zanjo ni ponujen.
               </p>
               <p>
                 V GEDCOM 7 mora imeti prevod imena kraja ali osebe (TRAN) pod seboj vrstico LANG z jezikom prevoda.
-                MacFamilyTree zgodovinska imena krajev zapiše brez nje. V razdelku <strong>Prevodi brez
+                MacFamilyTree zgodovinska imena krajev zapiše brez nje. Pod filtrom <strong>Prevodi brez
                 jezika</strong> je vsako tako ime navedeno enkrat, s številom vrstic, v katerih se pojavi, in s
                 predlaganim jezikom, ki temelji na črkovanju imena (<em>Krainburg</em> → nemščina). Predlog lahko
                 spremenite v meniju ob imenu. Posamezno ime zapišete z gumbom <strong>Zapiši</strong>, vsa imena
                 hkrati pa z gumbom <strong>Zapiši izbrane jezike</strong>. Gumb <strong>Vse označi kot nedoločen
                 jezik</strong> namesto tega zapiše standardno oznako <em>und</em>, brez ugibanja. Če so v eni vrstici
                 imena v različnih jezikih (<em>M.Vellach, Media Wella</em>), se vrstica razdeli na več vrstic TRAN, po
-                eno za vsak jezik.
+                eno za vsak jezik. Na seznamu ugotovitev so vsi taki prevodi ena vrstica, njen gumb
+                <strong>Izberi jezike</strong> pa odpre ta filter.
               </p>
             </div>
             <p>
-              Klik na katero koli težavo odpre zapis v <span class="gm-pill">Urejanju</span>. Paketni popravki v enem
-              koraku uredijo pogoste primere: <strong>Popravi vse pokvarjene povezave</strong> odstrani mrtve in
-              enosmerne družinske kazalce med osebami in družinami, <strong>Odstrani neobstoječe sklice</strong> odstrani
-              vse druge kazalce, katerih ciljni zapis manjka — navedbe virov, opomb in medijev, povezave med osebami ter
-              družinske povezave znotraj dogodka — <strong>Odstrani podvojene kazalce</strong> odpravi podvojene povezave,
-              <strong>Združi podvojene družine</strong> družinske zapise istega para zloži v enega in vanj prenese vse
-              otroke, dogodke, opombe in vire, popravek spola nastavi spol nedoločenim zakoncem (mož → moški, žena → ženska),
-              <strong>Zamenjaj vlogi zakoncev</strong> vrne oba partnerja v njuni vlogi v družini, ki ima moškega
-              zapisanega kot ženo in žensko kot moža (samo pri taki obojestranski zamenjavi — če vlogi nasprotuje samo
-              eden od zakoncev, je morda napačen zapisani spol, zato presojo prepusti vam),
-              <strong>Dopolni koordinate iz datoteke</strong> pa uredi zgoraj naštete kraje z deljenimi koordinatami. (Za
-              kraje, ki koordinate nimajo nikjer, uporabite <a href="#geocode">Geokodiranje krajev</a>, ki jih poišče.)
+              Klik na katero koli težavo odpre zapis v <span class="gm-pill">Urejanju</span>. Vrstica s popravkom ima
+              gumb na desni — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>, <strong>Združi v
+              eno</strong>, <strong>Odstrani sklic</strong>, <strong>Odstrani kopije</strong> ali, kadar se vrednost
+              nastavi in ne odstrani, kar izid sam (<strong>→ Ženska</strong>, <strong>→ Mož</strong>,
+              <strong>→ 26 JUN 1912</strong>, <strong>→ adopted</strong>). Ko se z miško postavite nanj, se izpiše, kaj
+              gumb naredi. Gumb svojo vrstico uredi takoj: en zapis ali vse zapise, za katere stoji združena vrstica.
+              Pokvarjeno povezavo je posebej vredno urediti tukaj: v <span class="gm-pill">Urejanju</span> je ni mogoče
+              videti ali odstraniti, saj manjkajoča družina tam ne izriše ničesar.
             </p>
             <p>
-              Vsak od teh popravkov je na voljo tudi po eni ugotovitvi naenkrat, kar na vrstici, ki jo je sprožila:
-              prizadete vrstice imajo svoj gumb — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>,
-              <strong>Združi v eno</strong>, <strong>Odstrani sklic</strong>, <strong>Odstrani kopije</strong> ali,
-              kadar se vrednost nastavi in ne odstrani, kar izid sam
-              (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>,
-              <strong>→ adopted</strong>). Uporabite jih, kadar se
-              z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
-              je v skupini več ugotovitev, kot jih popravek lahko uredi (trije zakonci brez spola med osmimi zapisi brez
-              spola), ima gumb samo tista vrstica, ki jo bo spremenil. Pokvarjeno povezavo je posebej vredno urediti tukaj:
-              v <span class="gm-pill">Urejanju</span> je ni mogoče videti ali odstraniti, saj manjkajoča družina tam ne
-              izriše ničesar.
+              Več ugotovitev hkrati uredite tako, da označite njihove vrstice ali z gumbom <strong>Izberi vse
+              popravljive</strong> označite vse vrstice s popravkom v trenutnem pogledu, nato pa kliknete
+              <strong>Popravi izbrane</strong>. Potrditveno okno navede vsak popravek s številom pojavitev in opisom,
+              izbrani popravki pa se izvedejo v enem koraku. Filter <strong>Popravljivo</strong> pokaže le vrstice s
+              popravkom, filter <strong>Besedilo v oznaki dogodka</strong> pa zbere vrstice dogodkov z besedilom.
+              Popravki podatkov so:
+            </p>
+            <ul>
+              <li>pri pokvarjenih povezavah se odstranijo mrtvi in enosmerni družinski kazalci med osebami in
+                družinami;</li>
+              <li>pri neobstoječih sklicih se odstranijo vsi drugi kazalci, katerih ciljni zapis manjka — navedbe
+                virov, opomb in medijev, povezave med osebami ter družinske povezave znotraj dogodka;</li>
+              <li>podvojeni kazalci se odpravijo;</li>
+              <li>družinski zapisi istega para se zložijo v enega, vanj pa se prenesejo vsi otroci, dogodki, opombe
+                in viri;</li>
+              <li>nedoločeni zakonci dobijo spol svoje vloge (mož → moški, žena → ženska);</li>
+              <li>zamenjana zakonca se vrneta vsak v svojo vlogo, a samo pri obojestranski zamenjavi; če vlogi
+                nasprotuje le eden od zakoncev, je morda napačen zapisani spol, zato je ugotovitev vprašanje za vašo
+                presojo.</li>
+            </ul>
+            <p>
+              Gumb <strong>Dopolni koordinate iz datoteke</strong> uredi zgoraj naštete kraje z deljenimi
+              koordinatami. (Za kraje, ki koordinate nimajo nikjer, uporabite <a href="#geocode">Geokodiranje
+              krajev</a>, ki jih poišče.)
             </p>
             <p>
               Pregled se za naloženo datoteko izvede enkrat, zato ugotovitve, ki ste jih vmes popravili v
