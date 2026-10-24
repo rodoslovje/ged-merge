@@ -7929,7 +7929,10 @@ kbd {
 .preview-conversion { margin: 4px 0 8px; font-size: 0.85rem; }
 .preview-conversion summary { cursor: pointer; color: var(--muted); }
 .preview-conversion ul { max-height: 12rem; overflow-y: auto; }
-.tools-version { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tools-version {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-left: auto; color: var(--muted); font-size: 0.85rem;
+}
 
 .preview-actions {
   display: flex; justify-content: flex-end; gap: 10px;

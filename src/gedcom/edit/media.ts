@@ -1,44 +1,18 @@
 import { clearObjeNodeCache, isPointer, objeInfoOf, type CropRegion } from "../source";
 import { childrenByTag, firstChild, removeChildren } from "../node";
 import { mediaContainerOf, type MediaAddress } from "../media";
-import { EXT_TO_MIME } from "../mediaForm";
+import { fileFormOf } from "../mediaForm";
 import type { Dataset, GedNode } from "../types";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "./shared";
 import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
 import { linkKey } from "../../normalize/links";
-
-/** The `FORM` value for a `FILE` — the extension's own token where the name
- *  carries one (`tif`, the 5.5.1 spelling, never `tiff`), `htm` for a web
- *  page. Undefined for an extensionless local file, whose format nothing
- *  states. */
-function fileFormOf(file: string): string | undefined {
-  const ext = /\.(jpe?g|png|gif|tiff?|bmp|pdf|wav|mp[34]|webp)(?:[?#]|$)/i.exec(file)?.[1].toLowerCase();
-  if (ext) return ext === "jpeg" ? "jpg" : ext === "tiff" ? "tif" : ext;
-  return /^https?:\/\//i.test(file) ? "htm" : undefined;
-}
-
-/** Whether the file's own media records state their `FILE`'s `FORM` — the
- *  spec asks for one, so only a file whose habit is clearly FORM-less (the
- *  majority of its FILEs bare) keeps new media bare too. */
-function prefersFileForm(records: GedNode[]): boolean {
-  let withForm = 0;
-  let without = 0;
-  for (const rec of records) {
-    if (rec.tag !== "OBJE" || !rec.xref) continue;
-    for (const file of childrenByTag(rec, "FILE")) {
-      if (firstChild(file, "FORM")) withForm++;
-      else without++;
-    }
-  }
-  return withForm >= without;
-}
 
 /** Which dialect the file's `FORM` payloads speak: 7.0 requires IANA media
  *  types (`image/jpeg`), 5.5-family files carry extension tokens (`jpg`).
  *  Read off the existing FORMs' own habit; a file with none states it in its
  *  header version. Writing `FORM htm` into a 7.0 file is invalid — new media
  *  must speak the dialect the file already does. */
-function prefersMimeForm(records: GedNode[]): boolean {
+export function prefersMimeForm(records: GedNode[]): boolean {
   let mime = 0;
   let ext = 0;
   for (const rec of records) {
@@ -58,7 +32,8 @@ function prefersMimeForm(records: GedNode[]): boolean {
 
 /** Create a new top-level `OBJE` record whose `FILE` is `url`/`file` (with an
  * optional `TITL`), and add it to `records`. The `FILE` carries the `FORM`
- * the spec asks for, unless the file's own habit is to omit it. */
+ * the spec asks for — even in a file whose older media omit it, so new media
+ * never add to the health check's findings. */
 export function createMediaRecord(
   records: GedNode[],
   url: string,
@@ -68,8 +43,7 @@ export function createMediaRecord(
   reserved?: ReadonlySet<string>,
 ): GedNode {
   const fileNode: GedNode = { level: 1, tag: "FILE", value: url, children: [] };
-  let form = prefersFileForm(records) ? fileFormOf(url) : undefined;
-  if (form && prefersMimeForm(records)) form = EXT_TO_MIME[form] ?? form;
+  const form = fileFormOf(url, prefersMimeForm(records));
   if (form) fileNode.children.push({ level: 2, tag: "FORM", value: form, children: [] });
   const raw: GedNode = {
     level: 0,

@@ -361,6 +361,32 @@ describe("fixConformance", () => {
     expect(fixConformance(ds, undefined, { id: "@I9@" })).toEqual([]);
   });
 
+  it("adds a media file's missing FORM read off its name, and leaves a nameless one", () => {
+    const ds = dataset(`${HEAD_70}
+0 @O1@ OBJE
+1 FILE https://en.geneanet.org/cemetery/view/13234512
+0 @O2@ OBJE
+1 FILE scans/krst.JPG
+1 FILE scans/poroka
+0 @O3@ OBJE
+1 FILE www.familysearch.org/ark:/61903/3:1:939V-5RTW-6
+0 TRLR`);
+    const missing = validateConformance(ds).filter((i) => i.messageVars.tag === "FORM");
+    expect(missing.every((i) => i.category === "missingLine")).toBe(true);
+    expect(missing.map((i) => i.fix)).toEqual(["text/html", "image/jpeg", undefined, "text/html"]);
+    expect(countFixableConformance(ds, "forms")).toBe(3);
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "forms");
+    expect(patches.map((p) => p.id)).toEqual(["@O1@", "@O2@", "@O3@"]);
+    expect(serializeGedcom(ds.records, ds)).toContain("1 FILE https://en.geneanet.org/cemetery/view/13234512\n2 FORM text/html\n");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 FILE scans/krst.JPG\n2 FORM image/jpeg\n");
+    expect(validateConformance(ds).map((i) => i.messageVars.tag)).toEqual(["FORM"]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("is a no-op on a file of another version or a clean one", () => {
     expect(fixConformance(dataset("0 HEAD\n0 @I1@ INDI\n1 SEX m\n0 TRLR"))).toEqual([]);
   });

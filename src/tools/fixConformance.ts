@@ -6,14 +6,16 @@ import { fixableConformance, nodeAtPath, type ConformanceIssue } from "./conform
 import { applyPassSafely } from "./passSafety";
 
 /**
- * The two repairs the conformance check can make without losing anything:
+ * The three repairs the conformance check can make without losing anything:
  *
  *  - **values** — an enumerated value written in another case than the
  *    standard's (`PEDI Adopted` → `adopted`, 7.0's `TYPE married` →
  *    `MARRIED`), and a 7.0 date still carrying a 5.5.1 calendar escape
  *    (`@#DJULIAN@ 1700` → `JULIAN 1700`);
  *  - **repeats** — a line the standard allows once, repeated as an exact copy
- *    (same value, same lines beneath): the copies go, the first stays.
+ *    (same value, same lines beneath): the copies go, the first stays;
+ *  - **forms** — a media file with no `FORM`, where the file's name says what
+ *    it is (`.jpg`, a web address): the line is added.
  *
  * A value outside the list, or a repeat that differs from the first, is the
  * user's question and is only reported. Lines on a record without an xref
@@ -21,7 +23,7 @@ import { applyPassSafely } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats";
+export type ConformanceFixKind = "values" | "repeats" | "forms";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -30,7 +32,7 @@ export interface ConformanceRef {
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.repeat ? "repeats" : "values";
+  return issue.repeat ? "repeats" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** How many findings of `kind` the fix would settle — the count on its button. */
@@ -72,6 +74,8 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
           const tag = issue.sample!;
           const first = node.children.find((c) => c.tag === tag);
           node.children = node.children.filter((c) => c === first || c.tag !== tag || !nodesEqual(c, first!));
+        } else if (issue.category === "missingLine" && issue.fix !== undefined) {
+          node.children.unshift({ level: node.level + 1, tag: issue.sample!, value: issue.fix, children: [] });
         } else if (issue.fix !== undefined) {
           node.value = issue.fix;
         }

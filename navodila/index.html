@@ -1348,8 +1348,10 @@
               <ul>
                 <li><strong>kazalce na napačen zapis</strong> — na primer povezavo na družino staršev, ki kaže na
                   osebo, ali prazen kazalec <em>@VOID@</em> zunaj GEDCOM 7.0;</li>
-                <li><strong>ponovljene ali manjkajoče vrstice</strong> — dve vrstici SEX pri isti osebi, dva datuma pri
-                  enem dogodku ali glavo datoteke 5.5.1 brez vrstice CHAR;</li>
+                <li><strong>ponovljene vrstice</strong> — dve vrstici SEX pri isti osebi ali dva datuma pri enem
+                  dogodku;</li>
+                <li><strong>manjkajoče vrstice</strong> — glavo datoteke 5.5.1 brez vrstice CHAR, medijsko datoteko
+                  brez vrstice FORM ali preveden kraj brez vrstice LANG;</li>
                 <li><strong>oznake na napačnem mestu</strong> — standardno oznako pod vrstico, ki je ne sme imeti; vsaka
                   taka navada se izpiše enkrat, s številom pojavitev;</li>
                 <li><strong>nestandardne vrednosti</strong> — vrednost zunaj standardnega seznama v vrsticah SEX, PEDI,
@@ -1363,8 +1365,10 @@
                 <strong>Popravi zapis vrednosti</strong> se vrednost, ki se od standardnega seznama razlikuje le po
                 velikih in malih črkah, zapiše tako, kot jo navaja standard (<em>Adopted</em> → <em>adopted</em>).
                 Z gumbom <strong>Odstrani ponovljene vrstice</strong> se odstranijo natančne kopije vrstice, ki jo
-                standard dovoljuje le enkrat. Vrednost zunaj seznama in ponovitve, ki se med seboj razlikujejo, so
-                vprašanje za vašo presojo.
+                standard dovoljuje le enkrat. Z gumbom <strong>Dodaj vrste medijskih datotek</strong> se medijski
+                datoteki brez vrstice FORM doda vrsta, ki jo pove ime datoteke — <em>text/html</em> za spletni naslov,
+                <em>image/jpeg</em> za končnico <em>.jpg</em>. Vrednost zunaj seznama, ponovitve, ki se med seboj
+                razlikujejo, in datoteka, katere ime vrste ne pove, so vprašanje za vašo presojo.
               </p>
             </div>
             <p>
