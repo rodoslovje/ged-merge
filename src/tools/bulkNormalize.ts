@@ -1,6 +1,12 @@
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, GedNode } from "../gedcom/types";
 import type { NormChange, NormalizationReport, NormalizeOptions } from "../normalize/types";
-import { childValue } from "../gedcom/node";
+import { childValue, cloneNode, nodesEqual } from "../gedcom/node";
+import { bumpSourceCacheVersion, rebuildNoteReferrers } from "../gedcom/edit";
+import { clearObjeNodeCache } from "../gedcom/source";
+import type { RecordPatch } from "../ui/historyTypes";
+import { recordPatch } from "./fixConformance";
+import { normalizeRepairKinds, runNormalizeRepair } from "./normalizeRepairs";
+import { applyPassSafely, type PassJournal } from "./passSafety";
 import { foreignAliasTags, isNativeTag, producerSoftware } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
 import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
@@ -53,6 +59,17 @@ export function bulkNormalize(
     // Never on one's own file — see `NormalizeOptions.tidyPlaceWhitespace`.
     tidyPlaceWhitespace: false,
   });
+  // The health check's own repairs, so a normalized file leaves none of them
+  // for the health check to offer. Before the note and coverage shapes, which
+  // then restate a note or a source DATA a repair wrote as the house writes it.
+  if (options?.repairs !== false) {
+    const repairs: Record<string, number> = {};
+    for (const kind of normalizeRepairKinds(ds, overrides)) {
+      const changed = runNormalizeRepair(result.dataset, kind, overrides).length;
+      if (changed) repairs[kind] = changed;
+    }
+    result.report.repairs = repairs;
+  }
   // Note shape: restate every note as the file writes notes — a shared record
   // the referrer points at, or inline. The two levels are asked separately:
   // a file's records and its events can hold opposite habits, and "Auto"
@@ -87,4 +104,80 @@ export function bulkNormalize(
     result.report.coverageExamples = coverage.examples;
   }
   return result;
+}
+
+/**
+ * Normalize the live main file in place: the passes `options` selects run on
+ * a copy, as {@link bulkNormalize} does, and every record that came out
+ * different is written back into the node the file has, so the typed model
+ * and every `.raw` stay the same objects. Records a pass created (a shared
+ * note) are inserted where it put them; records it dropped (a note made
+ * inline) are removed.
+ *
+ * Returns the undo patches, one per record — the caller pushes them as one
+ * step, and the save preview then shows each change.
+ */
+export function applyBulkNormalize(ds: Dataset, options: NormalizeOptions, overrides?: FormatOverrides): RecordPatch[] {
+  const { dataset: out } = bulkNormalize(ds, options, overrides);
+  return applyPassSafely(ds, (journal) => adoptRecords(ds, out.records, journal));
+}
+
+function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): RecordPatch[] {
+  const live = new Map<string, GedNode>();
+  const liveIndex = new Map<string, number>();
+  ds.records.forEach((r, i) => {
+    if (!r.xref) return;
+    live.set(r.xref, r);
+    liveIndex.set(r.xref, i);
+  });
+  const nextXrefs = new Set<string>();
+  for (const r of next) if (r.xref) nextXrefs.add(r.xref);
+
+  const patches: RecordPatch[] = [];
+  const changed: { node: GedNode; before: GedNode }[] = [];
+  const notes: { xref: string }[] = [];
+  // Records with no xref (HEAD, TRLR) are not the passes' to change: the live
+  // ones keep their places, in their order.
+  const headless = ds.records.filter((r) => !r.xref);
+  const records: GedNode[] = [];
+  for (const r of next) {
+    if (!r.xref) {
+      const kept = headless.shift();
+      if (kept) records.push(kept);
+      continue;
+    }
+    const node = live.get(r.xref);
+    if (!node) {
+      patches.push({ type: "record", id: r.xref, before: null, after: cloneNode(r), index: records.length });
+      if (r.tag === "NOTE") notes.push({ xref: r.xref });
+      records.push(r);
+      continue;
+    }
+    records.push(node);
+    if (nodesEqual(node, r)) continue;
+    const before = cloneNode(node);
+    journal.keep(r.xref, before);
+    node.value = r.value;
+    node.children = r.children;
+    if (node.tag === "NOTE") notes.push({ xref: r.xref });
+    changed.push({ node, before });
+  }
+  records.push(...headless);
+  for (const [xref, node] of live) {
+    if (nextXrefs.has(xref)) continue;
+    journal.keep(xref, node);
+    patches.push({ type: "record", id: xref, before: node, after: null, index: liveIndex.get(xref) });
+    if (node.tag === "NOTE") notes.push({ xref });
+  }
+  if (!patches.length && !changed.length) return [];
+  // Pushed one by one: a spread of a large file's records overflows the stack.
+  ds.records.length = 0;
+  for (const r of records) ds.records.push(r);
+  bumpSourceCacheVersion(ds.records);
+  clearObjeNodeCache(ds.records);
+  // The typed model is rebuilt once the record list holds the new notes it
+  // may point at.
+  for (const { node, before } of changed) patches.push(recordPatch(ds, node.xref!, node, before));
+  rebuildNoteReferrers(ds, notes);
+  return patches;
 }

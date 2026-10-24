@@ -1283,7 +1283,7 @@
               Zavihek <span class="gm-pill">Orodja</span> (<span class="gm-key">T</span>) izvaja preglede in čiščenja po
               celotni glavni datoteki. Vsako orodje pokaže, kaj je našlo oziroma kaj bi spremenilo, preden to sprejmete.
               Popravki <strong>Pregleda</strong> z enim klikom, združitev v <strong>Dvojnikih</strong>, preimenovanje v
-              <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti in jih shranite kot vsako drugo urejanje, prav tako <a href="#normalize">paketna opravila</a>. <strong>Poenoti datoteko</strong>, <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
+              <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti in jih shranite kot vsako drugo urejanje, prav tako <a href="#normalize">paketna opravila</a> in <strong>Poenoti datoteko</strong>. <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
               pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku nikoli ne
               prepiše: vsako shranjevanje je nova datoteka v mapi s prenosi (<a href="#saving">§14</a>).
               V izbirniku na vrhu je šest orodij —
@@ -1613,11 +1613,30 @@
             <p>
               <strong>Poenoti datoteko</strong> zazna prevladujočo obliko datumov, postavitev krajev in slog povezav v
               datoteki, nato pa ponovno izpiše zapise, ki odstopajo — npr. <em>1 Jan 1900</em> → <em>01.01.1900</em>,
-              prilagodi kraje, prepiše povezave Matricula ali Geneanet v enotno obliko in prevede obseg vsakega vira v
-              obliko, ki jo uporablja datoteka (ali v izbrano v <a href="#workspace">Nastavitve › GEDCOM</a> — polja
-              programa ali standardna struktura <em>DATA</em>). Predogled navede primere vsake spremembe, preden
-              prenesete poenoteno kopijo; pri obsegu virov je ob primeru zapisan naslov vira, saj je vrsta registra
-              prebrana prav iz njega.
+              prilagodi kraje, prepiše povezave Matricula ali Geneanet v enotno obliko in prepiše obseg vsakega vira v
+              obliko, ki jo uporablja datoteka (ali v obliko, izbrano v <a href="#workspace">Nastavitvah › GEDCOM</a> — polja
+              programa ali standardna struktura <em>DATA</em>). Predogled navede primere vsake spremembe; pri obsegu
+              virov je ob primeru zapisan naslov vira, saj je vrsta registra prebrana prav iz njega. Z gumbom
+              »Uveljavi v datoteki« se označena opravila v enem koraku vnesejo v odprto glavno datoteko. Predogled
+              shranjevanja (<a href="#saving">§14</a>) nato pred prenosom datoteke navede vsak zapis, ki se je spremenil.
+            </p>
+            <p>
+              Orodje Poenoti datoteko naredi tudi popravke, ki jih predlaga <a href="#validate">Pregled</a>, zato jih
+              Pregled v poenoteni datoteki ne ponudi več. Orodje popravi:
+            </p>
+            <ul>
+              <li>vrednosti, zapisane z napačnimi velikimi ali malimi črkami;</li>
+              <li>vrstice, ponovljene kot natančne kopije;</li>
+              <li>manjkajoče vrste medijskih datotek;</li>
+              <li>sklice na zapise, ki jih v datoteki ni;</li>
+              <li>neberljive in nestandardne datume;</li>
+              <li>vrstice, ki jih standard postavlja drugam.</li>
+            </ul>
+            <p>
+              Kateri popravki se izvedejo, določa <a href="#target-format">oblika zapisa</a> datoteke: datoteka z
+              odstopanji ohrani navade svojega programa. Popravki, ki odločajo o sami družini — odstranitev pokvarjene
+              povezave, spol, določen iz vloge v družini, zamenjani vlogi zakoncev in združitev podvojenih družin —
+              ostanejo v Pregledu, kjer vsakega naredite sami.
             </p>
             <p>
               Eno opravilo ostane neoznačeno, dokler ga sami ne izberete: <strong>oblika opomb</strong> prepiše vsako

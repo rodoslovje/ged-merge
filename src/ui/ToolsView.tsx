@@ -253,7 +253,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
-          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} view={view} onViewChange={onViewChange} />
+          <NormalizePanel dataset={dataset} scans={scans} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} view={view} onViewChange={onViewChange} />
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />

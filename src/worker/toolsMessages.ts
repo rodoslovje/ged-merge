@@ -1,6 +1,5 @@
-import type { OutputVersion } from "../save/outputFile";
 import type { MainSnapshot, RecordsPatch } from "../state/mainSync";
-import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
+import type { NormalizationReport } from "../normalize/types";
 import type { DuplicatePair } from "../tools/duplicates";
 import type { ValidationReport } from "../tools/validate";
 import type { StructureReport } from "../tools/structure";
@@ -26,14 +25,7 @@ export type ToolsRequest =
   | { type: "validate"; requestId: number; formatOverrides?: FormatOverrides }
   | { type: "sourceDuplicates"; requestId: number }
   | { type: "sourceReshape"; requestId: number; formatOverrides?: FormatOverrides }
-  | { type: "normalizePreview"; requestId: number; formatOverrides?: FormatOverrides }
-  | {
-      type: "normalizeText"; requestId: number; options: NormalizeOptions; formatOverrides?: FormatOverrides;
-      /** The version the download is written in (the target format's). */
-      version: OutputVersion;
-      /** Names a submitter record the file needs and lacks (see `prepareDownload`). */
-      authorName?: string;
-    };
+  | { type: "normalizePreview"; requestId: number; formatOverrides?: FormatOverrides };
 
 /** Result payload for each scan request type. */
 export interface ToolsResultMap {
@@ -42,8 +34,6 @@ export interface ToolsResultMap {
   sourceDuplicates: { report: DuplicateReport };
   sourceReshape: { report: ReshapeReport };
   normalizePreview: { report: NormalizationReport };
-  /** The normalized file already serialized, so only a string crosses back. */
-  normalizeText: { text: string };
 }
 
 export type ToolsResponse =

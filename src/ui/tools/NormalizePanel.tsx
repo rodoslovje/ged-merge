@@ -5,7 +5,10 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import type { NormChange, NormalizeOptions } from "../../normalize/types";
 import type { RecordPatch } from "../historyTypes";
-import { downloadText, savedName } from "../download";
+import { applyBulkNormalize } from "../../tools/bulkNormalize";
+import type { NormalizeRepairKind } from "../../tools/normalizeRepairs";
+import { useFormatOverrides } from "../TargetFormatContext";
+import { FIX_SUFFIX } from "./ValidatePanel";
 import { revealEdgeWhitespace } from "../whitespace";
 import { type ToolsScans } from "../useToolsScans";
 import { BatchSection } from "./BatchSection";
@@ -13,8 +16,8 @@ import { ToolsError, ToolsLoading } from "./shared";
 
 /**
  * The "Normalize & batch" sub-tab: two mass-change surfaces behind one toggle —
- * the batch-actions workbench (filter people → apply one action, undoable) and
- * the whole-file style normalization (preview → download). Both stay mounted so
+ * the batch-actions workbench (filter people → apply one action) and the
+ * whole-file style normalization (preview → apply). Both stay mounted so
  * switching sections loses neither the built filter nor the scan preview. The
  * open section is the app's page (`view`), like any tool's: a page can be sent
  * straight to Normalize, and Back returns to the section left.
@@ -22,7 +25,6 @@ import { ToolsError, ToolsLoading } from "./shared";
 export function NormalizePanel({
   dataset,
   scans,
-  fileName,
   active,
   editVersionRef,
   onNavigate,
@@ -33,7 +35,6 @@ export function NormalizePanel({
 }: {
   dataset: Dataset;
   scans: ToolsScans;
-  fileName: string;
   active: boolean;
   editVersionRef: { readonly current: number };
   onNavigate: (id: string) => void;
@@ -72,26 +73,30 @@ export function NormalizePanel({
         />
       </div>
       <div style={{ display: section === "normalize" ? undefined : "none" }}>
-        <NormalizeFileSection dataset={dataset} scans={scans} fileName={fileName} active={active && section === "normalize"} />
+        <NormalizeFileSection dataset={dataset} scans={scans} active={active && section === "normalize"} onApplyPatches={onApplyPatches} />
       </div>
     </>
   );
 }
 
-function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: Dataset; scans: ToolsScans; fileName: string; active: boolean }) {
+/** The passes a fresh preview starts with: all but the two that are the
+ *  reader's call — notes reshaped, and the deliberately lossy internal-tag strip. */
+const DEFAULT_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true, vendorTags: true, sourceCoverage: true, noteShape: false, repairs: true, stripInternal: false };
+
+function NormalizeFileSection({ dataset, scans, active, onApplyPatches }: { dataset: Dataset; scans: ToolsScans; active: boolean; onApplyPatches: (patches: RecordPatch[]) => number }) {
   const { t } = useTranslation();
+  const formatOverrides = useFormatOverrides();
   // The preview report comes from the ToolsView-level worker scan cache.
   const state = scans.normalize;
-  // Which passes the user wants applied on download; the preview report above
-  // always reflects all three so the counts show what each would change.
-  // stripInternal starts unchecked: it is the one deliberately lossy pass.
-  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true, vendorTags: true, sourceCoverage: true, noteShape: false, stripInternal: false });
-  // True while the worker serializes the selected passes for download.
-  const [downloading, setDownloading] = useState(false);
+  // Which passes the user wants applied; the preview report above always
+  // reflects all of them so the counts show what each would change.
+  const [selected, setSelected] = useState<NormalizeOptions>(DEFAULT_PASSES);
+  // After an apply: how many records it changed, until the next preview.
+  const [applied, setApplied] = useState<number | null>(null);
 
   useEffect(() => {
-    setSelected({ dates: true, places: true, links: true, names: true, vendorTags: true, sourceCoverage: true, noteShape: false, stripInternal: false });
-    setDownloading(false);
+    setSelected(DEFAULT_PASSES);
+    setApplied(null);
   }, [dataset]);
 
   // Run the preview in the tools worker the first time the tab is shown; the
@@ -103,19 +108,11 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
     if (active) scans.ensureFresh("normalize");
   }, [active, scans]);
 
-  function download() {
-    if (downloading) return;
-    setDownloading(true);
-    // The worker re-runs only the selected passes and serializes the result,
-    // so just the finished text crosses back to the main thread.
-    scans.runNormalizeText(
-      selected,
-      (text) => {
-        setDownloading(false);
-        downloadText(savedName(fileName, "ged"), text);
-      },
-      () => setDownloading(false),
-    );
+  // The selected passes run on the live file, as one step; the save preview
+  // then lists every change before anything is written.
+  function apply() {
+    setApplied(onApplyPatches(applyBulkNormalize(dataset, selected, formatOverrides)));
+    scans.refresh("normalize");
   }
 
   if (state.status === "error") return <ToolsError message={state.message} />;
@@ -123,10 +120,13 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
 
   return (
     <>
+      {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.normalize.applied", { count: applied })}</p>}
       {state.status === "done" && (() => {
         const report = state.result;
-        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped + report.vendorTagsRenamed + (report.coverageReshaped ?? 0) + (report.notesReshaped ?? 0) + report.internalStripped;
-        if (changed === 0) return <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
+        const repairs = Object.entries(report.repairs ?? {}) as [NormalizeRepairKind, number][];
+        const repairCount = repairs.reduce((n, [, c]) => n + c, 0);
+        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped + report.vendorTagsRenamed + (report.coverageReshaped ?? 0) + (report.notesReshaped ?? 0) + report.internalStripped + repairCount;
+        if (changed === 0) return applied === null && <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
         const counts = {
           dates: report.datesChanged,
           places: report.placesReshaped,
@@ -136,11 +136,12 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
           vendorTags: report.vendorTagsRenamed,
           sourceCoverage: report.coverageReshaped ?? 0,
           noteShape: report.notesReshaped ?? 0,
+          repairs: repairCount,
           stripInternal: report.internalStripped,
         };
         const toggle = (key: keyof NormalizeOptions) =>
           setSelected((s) => ({ ...s, [key]: !s[key] }));
-        // Selected sum guards the download: only passes that are both checked
+        // Selected sum guards the apply: only passes that are both checked
         // and actually change something count toward "anything to apply".
         const selectedChanges =
           (selected.dates ? counts.dates : 0) +
@@ -150,6 +151,7 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
           (selected.vendorTags ? counts.vendorTags : 0) +
           (selected.sourceCoverage ? counts.sourceCoverage : 0) +
           (selected.noteShape ? counts.noteShape : 0) +
+          (selected.repairs ? counts.repairs : 0) +
           (selected.stripInternal ? counts.stripInternal : 0);
         return (
           <>
@@ -169,6 +171,8 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
                 checked={!!selected.sourceCoverage} count={counts.sourceCoverage} onChange={() => toggle("sourceCoverage")} />
               <NormCheck label={t("tools.normalize.noteShape", { count: counts.noteShape })}
                 checked={!!selected.noteShape} count={counts.noteShape} onChange={() => toggle("noteShape")} />
+              <NormCheck label={t("tools.normalize.repairs", { count: counts.repairs })}
+                checked={!!selected.repairs} count={counts.repairs} onChange={() => toggle("repairs")} />
               <NormCheck label={t("tools.normalize.stripInternal", { count: counts.stripInternal })}
                 checked={!!selected.stripInternal} count={counts.stripInternal} onChange={() => toggle("stripInternal")} />
             </ul>
@@ -179,9 +183,22 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
             {selected.vendorTags && <NormExamples title={t("tools.normalize.exVendorTags")} examples={report.vendorTagExamples} />}
             {selected.sourceCoverage && <NormExamples title={t("tools.normalize.exSourceCoverage")} examples={report.coverageExamples ?? []} />}
             {selected.noteShape && <NormExamples title={t("tools.normalize.exNoteShape")} examples={report.noteShapeExamples ?? []} />}
+            {selected.repairs && repairs.length > 0 && (
+              // The health check's own buttons, as it words them.
+              <div className="tools-examples">
+                <div className="tools-examples-title">{t("tools.normalize.exRepairs")}</div>
+                <ul>
+                  {repairs.map(([kind, count]) => (
+                    <li key={kind} data-tip={t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}>
+                      {t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {selected.stripInternal && <NormExamples title={t("tools.normalize.exStripInternal")} examples={report.internalExamples} />}
-            <button data-busy-cursor className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0 || downloading}>
-              {t("tools.normalize.download")}
+            <button data-busy-cursor className="nav-btn tools-run" onClick={apply} disabled={selectedChanges === 0}>
+              {t("tools.normalize.apply")}
             </button>
           </>
         );
