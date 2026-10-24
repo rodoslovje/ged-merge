@@ -88,6 +88,12 @@ export interface ConformanceIssue {
    *  Matching` with the matched person's id in `ROLE`): the fix keeps the id
    *  as the citation's `PAGE` and drops the `EVEN`. */
   smartMatch?: boolean;
+  /** Set on a media record's `DATE`/`PLAC`, which neither version has: the
+   *  fix keeps them as the `_DATE`/`_PLACE` extensions GED Merge writes. */
+  mediaInfo?: boolean;
+  /** Set on a `PEDI` written on a family's `CHIL` line: the fix moves it to
+   *  the child's own `FAMC` link to that family. */
+  childPedi?: boolean;
 }
 
 /** A citation's `EVEN` that is MyHeritage's Smart Match label, not an event. */
@@ -316,6 +322,8 @@ function tallyMisplaced(
       stamps: stamp || undefined,
       coverage: (parent === "SOUR" && (node.tag === "PLAC" || node.tag === "DATE")) || undefined,
       assoDate: (node.tag === "DATE" && parent.endsWith(".ASSO")) || undefined,
+      mediaInfo: (parent === "OBJE" && (node.tag === "DATE" || node.tag === "PLAC")) || undefined,
+      childPedi: (parent === "FAM.CHIL" && node.tag === "PEDI") || undefined,
     },
   });
 }
@@ -495,7 +503,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch || !!issue.mediaInfo || !!issue.childPedi);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

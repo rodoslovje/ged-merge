@@ -208,6 +208,16 @@ describe("completeStructure — header and trailer", () => {
     expect(back.warnings.filter((w) => w.kind === "version")).toEqual([]);
   });
 
+  it("drops 5.5.1's GEDC.FORM and CHAR from a 7.0 header", () => {
+    const records = parse("0 HEAD\n1 SOUR GEDMERGE\n1 CHAR UTF-8\n1 GEDC\n2 VERS 7.0.3\n2 FORM LINEAGE-LINKED\n0 TRLR\n").records;
+    expect(completeStructure(records, "7.0", false)).toEqual(["gedc7"]);
+    completeStructure(records, "7.0");
+    const head = records.find((r) => r.tag === "HEAD")!;
+    expect(head.children.map((c) => c.tag)).toEqual(["SOUR", "GEDC"]);
+    expect(head.children[1].children.map((c) => c.tag)).toEqual(["VERS"]);
+    expect(completeStructure(records, "7.0", false)).toEqual([]);
+  });
+
   it("adds only what is missing, and nothing to a complete file", () => {
     const complete = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @I1@ INDI\n0 TRLR\n";
     expect(completeStructure(parse(complete).records, "5.5.1", false)).not.toContain("head");

@@ -36,6 +36,11 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *    record: moved to `DATA.AGNC` in every source at once;
  *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
  *    `DATA > EVEN` coverage in every source whose title names its register;
+ *  - **mediaInfo** — a media record's `DATE`/`PLAC`, which neither version
+ *    has: kept as the `_DATE`/`_PLACE` extensions GED Merge reads and writes;
+ *  - **childPedi** — a `PEDI` on a family's `CHIL` line: moved to the child's
+ *    own `FAMC` link to that family (or dropped where that link already says
+ *    the same);
  *  - **smartMatch** — MyHeritage's Smart Match citation (`EVEN Smart
  *    Matching`, the matched person's id in `ROLE`): the id becomes the
  *    citation's `PAGE`, the `EVEN` goes;
@@ -51,7 +56,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates" | "smartMatch";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -63,6 +68,57 @@ export interface ConformanceRef {
   /** Every finding of one kind across the file: the same value on the same
    *  line, given the same fix (a row standing for all of them). */
   match?: { tag: string; parent: string; sample: string; fix: string };
+}
+
+/** The extension a media item's date or place is kept under. */
+const MEDIA_EXTENSION: Record<string, string> = { DATE: "_DATE", PLAC: "_PLACE" };
+
+/** Rename a media record's `DATE`/`PLAC` to `_DATE`/`_PLACE`; one equal to
+ *  the extension already there only goes, a different one stays. With
+ *  `apply` false, only counts them. */
+function mediaInfoToExtensions(obje: GedNode, apply: boolean): number {
+  let n = 0;
+  for (const c of [...obje.children]) {
+    const ext = MEDIA_EXTENSION[c.tag];
+    if (!ext) continue;
+    const held = obje.children.find((g) => g.tag === ext);
+    if (held && held.value?.trim() !== c.value?.trim()) continue;
+    n++;
+    if (!apply) continue;
+    if (held) obje.children = obje.children.filter((g) => g !== c);
+    else c.tag = ext;
+  }
+  return n;
+}
+
+/**
+ * Move every `PEDI` written on a family's `CHIL` lines to the child's own
+ * `FAMC` link to that family; where that link already states a pedigree, an
+ * equal one (any case) only goes and a different one stays. Calls `touch`
+ * before changing a record. Returns how many it settled.
+ */
+function childPediToFamc(
+  fam: GedNode, indis: Map<string, GedNode>, apply: boolean, touch: (rec: GedNode) => void,
+): number {
+  let n = 0;
+  for (const chil of fam.children) {
+    if (chil.tag !== "CHIL") continue;
+    const pedi = chil.children.find((g) => g.tag === "PEDI");
+    const child = pedi && chil.value ? indis.get(chil.value.trim()) : undefined;
+    const famc = child?.children.find((g) => g.tag === "FAMC" && g.value?.trim() === fam.xref);
+    if (!pedi || !child || !famc) continue;
+    const held = famc.children.find((g) => g.tag === "PEDI");
+    if (held && held.value?.trim().toLowerCase() !== pedi.value?.trim().toLowerCase()) continue;
+    n++;
+    if (!apply) continue;
+    touch(fam);
+    chil.children = chil.children.filter((g) => g !== pedi);
+    if (!held) {
+      touch(child);
+      famc.children.push({ ...pedi, level: famc.level + 1 });
+    }
+  }
+  return n;
 }
 
 /** Restate every Smart Match citation in the record: the matched person's
@@ -143,7 +199,7 @@ function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, ap
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -167,6 +223,15 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "mediaInfo") {
+    if (!fixable.some((i) => i.mediaInfo)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.tag === "OBJE" && r.xref ? mediaInfoToExtensions(r, false) : 0), 0);
+  }
+  if (kind === "childPedi") {
+    if (!fixable.some((i) => i.childPedi)) return 0;
+    const indis = new Map(dataset.records.filter((r) => r.tag === "INDI" && r.xref).map((r) => [r.xref!, r] as const));
+    return dataset.records.reduce((n, r) => n + (r.tag === "FAM" && r.xref ? childPediToFamc(r, indis, false, () => {}) : 0), 0);
+  }
   if (kind === "smartMatch") {
     if (!fixable.some((i) => i.smartMatch)) return 0;
     return dataset.records.reduce((n, r) => n + (r.xref ? smartMatchToPage(r, false) : 0), 0);
@@ -209,7 +274,7 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
+    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
@@ -220,7 +285,9 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const coveragePass = issues.some((i) => i.coverage);
   const assoPass = issues.some((i) => i.assoDate);
   const smartPass = issues.some((i) => i.smartMatch);
-  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass && !smartPass) return [];
+  const mediaInfoPass = issues.some((i) => i.mediaInfo);
+  const childPediPass = issues.some((i) => i.childPedi);
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass && !smartPass && !mediaInfoPass && !childPediPass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -272,6 +339,29 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
         fillMediaForms(rec, v7, only?.value, true);
         patches.push(recordPatch(dataset, rec.xref, rec, before));
       }
+    }
+    if (mediaInfoPass) {
+      for (const rec of dataset.records) {
+        if (rec.tag !== "OBJE" || !rec.xref || !mediaInfoToExtensions(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        mediaInfoToExtensions(rec, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (childPediPass) {
+      // A move touches two records, the family and the child: each is kept
+      // once, before its first change, and patched once at the end.
+      const indis = new Map(dataset.records.filter((r) => r.tag === "INDI" && r.xref).map((r) => [r.xref!, r] as const));
+      const befores = new Map<GedNode, GedNode>();
+      const touch = (rec: GedNode) => {
+        if (befores.has(rec)) return;
+        const before = cloneNode(rec);
+        befores.set(rec, before);
+        journal.keep(rec.xref!, before);
+      };
+      for (const rec of dataset.records) if (rec.tag === "FAM" && rec.xref) childPediToFamc(rec, indis, true, touch);
+      for (const [rec, before] of befores) patches.push(recordPatch(dataset, rec.xref!, rec, before));
     }
     if (smartPass) {
       for (const rec of dataset.records) {

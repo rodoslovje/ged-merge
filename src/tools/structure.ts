@@ -92,6 +92,12 @@ export interface StructIssue {
   /** Conformance: MyHeritage's Smart Match citations, whose id the fix keeps
    *  as the citation's PAGE file-wide. */
   smartMatch?: boolean;
+  /** Conformance `misplacedTag`: a media record's DATE/PLAC, kept by the fix
+   *  as `_DATE`/`_PLACE` file-wide. */
+  mediaInfo?: boolean;
+  /** Conformance `misplacedTag`: a PEDI on FAM.CHIL, moved by the fix to the
+   *  child's FAMC file-wide. */
+  childPedi?: boolean;
   /** Set by the findings list on the one row it shows for many equal value
    *  fixes (same line, same value, same fix): how many it stands for. */
   groupCount?: number;

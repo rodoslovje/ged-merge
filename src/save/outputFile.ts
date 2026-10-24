@@ -23,7 +23,7 @@ export type OutputVersion = VersionFamily;
 /** A repair the file needed before it could be written as valid GEDCOM. Each
  *  is told to the reader once, in the save preview and in the change report
  *  (both read the `preview.fix.*` strings) and in Tools → Health check. */
-export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm";
+export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm" | "gedc7";
 
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
@@ -80,6 +80,15 @@ export function completeStructure(
     if (!vers?.value?.trim() || (version !== "7.0" && !form)) {
       fixes.push("gedc");
       if (apply) declareVersion(head, version);
+    }
+    // 7.0's GEDC holds the version alone and its header has no CHAR (the file
+    // is UTF-8 by definition): a 7.0 file keeping 5.5.1's lines loses them.
+    if (version === "7.0" && (form || firstChild(head, "CHAR"))) {
+      fixes.push("gedc7");
+      if (apply) {
+        if (gedc && form) gedc.children = gedc.children.filter((c) => c !== form);
+        head.children = head.children.filter((c) => c.tag !== "CHAR");
+      }
     }
     if (version !== "7.0" && !firstChild(head, "CHAR")) {
       fixes.push("char");

@@ -535,6 +535,64 @@ describe("fixConformance", () => {
     expect(out).toContain("2 TYPE married\n"); // another value: its own row
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a media record's DATE/PLAC as _DATE/_PLACE in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @O1@ OBJE
+1 FILE a.jpg
+2 FORM jpg
+1 DATE 1935
+1 PLAC Kranj
+0 @O2@ OBJE
+1 FILE b.jpg
+2 FORM jpg
+1 DATE 1940
+1 _DATE 1941
+0 TRLR`);
+    expect(countFixableConformance(ds, "mediaInfo")).toBe(2); // O2's dates differ
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "mediaInfo");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 _DATE 1935\n1 _PLACE Kranj\n");
+    expect(out).toContain("1 DATE 1940\n1 _DATE 1941\n"); // left as it is
+    expect(validateConformance(ds).filter((i) => i.recordId === "@O1@")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("moves a PEDI on CHIL to the child's FAMC in %s", (_v, head) => {
+    const pedi = head === HEAD_70 ? "ADOPTED" : "adopted";
+    const ds = dataset(`${head}
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Janez /Kos/
+1 FAMC @F1@
+2 PEDI ${pedi}
+0 @I3@ INDI
+1 NAME Miha /Kos/
+1 FAMC @F1@
+2 PEDI ${head === HEAD_70 ? "FOSTER" : "foster"}
+0 @F1@ FAM
+1 CHIL @I1@
+2 PEDI ${pedi}
+1 CHIL @I2@
+2 PEDI ${pedi}
+1 CHIL @I3@
+2 PEDI ${pedi}
+0 TRLR`);
+    expect(countFixableConformance(ds, "childPedi")).toBe(2); // I3 says otherwise
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "childPedi");
+    expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain(`0 @I1@ INDI\n1 NAME Ana /Kos/\n1 FAMC @F1@\n2 PEDI ${pedi}\n`);
+    expect(out).toContain(`0 @F1@ FAM\n1 CHIL @I1@\n1 CHIL @I2@\n1 CHIL @I3@\n2 PEDI ${pedi}\n`);
+    expect(validateConformance(ds).filter((i) => i.recordId === "@I1@")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a Smart Match id as the citation's PAGE in %s", (_v, head) => {
     const ds = dataset(`${head}
 0 @S1@ SOUR
