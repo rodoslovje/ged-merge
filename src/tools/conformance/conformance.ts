@@ -94,11 +94,21 @@ export interface ConformanceIssue {
   /** Set on a `PEDI` written on a family's `CHIL` line: the fix moves it to
    *  the child's own `FAMC` link to that family. */
   childPedi?: boolean;
+  /** Set on a text `SOUR` inside a citation — a page typed under the wrong
+   *  tag: the fix makes it the citation's `PAGE`. */
+  citationPage?: boolean;
 }
 
-/** A citation's `EVEN` that is MyHeritage's Smart Match label, not an event. */
+/** A text (not pointer) `SOUR` line inside a citation, with no lines of its own. */
+export function isStrayCitationPage(node: GedNode): boolean {
+  const v = node.value?.trim();
+  return node.tag === "SOUR" && !!v && !v.startsWith("@") && node.children.length === 0;
+}
+
+/** A citation's `EVEN` that is one of MyHeritage's labels for how the
+ *  citation came (Smart Matching, Discovery, Record), not an event. */
 export function isSmartMatchEven(node: GedNode): boolean {
-  return node.tag === "EVEN" && /^smart\s*match/i.test(node.value?.trim() ?? "");
+  return node.tag === "EVEN" && /^(?:smart\s*match(?:ing)?|discovery|record)$/i.test(node.value?.trim() ?? "");
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -324,6 +334,7 @@ function tallyMisplaced(
       assoDate: (node.tag === "DATE" && parent.endsWith(".ASSO")) || undefined,
       mediaInfo: (parent === "OBJE" && (node.tag === "DATE" || node.tag === "PLAC")) || undefined,
       childPedi: (parent === "FAM.CHIL" && node.tag === "PEDI") || undefined,
+      citationPage: (parent.endsWith(".SOUR") && isStrayCitationPage(node)) || undefined,
     },
   });
 }
@@ -503,7 +514,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch || !!issue.mediaInfo || !!issue.childPedi);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch || !!issue.mediaInfo || !!issue.childPedi || !!issue.citationPage);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

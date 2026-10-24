@@ -37,7 +37,7 @@ import { nodeAtPath } from "../../tools/conformance/conformance";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", notes: "ConformNotes" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -63,6 +63,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   smartMatch: "enumValue",
   mediaInfo: "misplacedTag",
   childPedi: "misplacedTag",
+  citationPage: "misplacedTag",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -119,7 +120,7 @@ function structGroup(c: StructCategory): HealthGroup {
 const FIX_GROUP: Record<FixKind, HealthGroup> = {
   links: "data", dups: "data", families: "data", dangling: "data", roles: "data", sex: "data", dates: "data",
   nonStandard: "gedcom", values: "gedcom", notes: "gedcom", repeats: "gedcom", forms: "gedcom",
-  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom", assoDates: "gedcom", smartMatch: "gedcom", mediaInfo: "gedcom", childPedi: "gedcom",
+  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom", assoDates: "gedcom", smartMatch: "gedcom", mediaInfo: "gedcom", childPedi: "gedcom", citationPage: "gedcom",
 };
 
 /** The xref a `brokenLink` finding names — the family a person points at, or the
@@ -350,7 +351,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -652,6 +653,14 @@ export function ValidatePanel({
         run: () => onFixConformance("mediaInfo"),
       };
     }
+    // A page typed as SOUR inside a citation: the citation's PAGE.
+    if (issue.citationPage && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneCitationPage"),
+        hint: t("tools.validate.fixOneCitationPageHint"),
+        run: () => onFixConformance("citationPage"),
+      };
+    }
     // A child's pedigree on the family's CHIL: into the child's FAMC.
     if (issue.childPedi && issue.recordId) {
       return {
@@ -719,8 +728,9 @@ export function ValidatePanel({
     [structure, dataset],
   );
   // Media dates/places and children's PEDIs the fixes would settle.
-  const [fixableMediaInfo, fixableChildPedi] = useMemo(
+  const [fixableMediaInfo, fixableChildPedi, fixableCitationPage] = useMemo(
     () => [
+      structure?.issues.some((i) => i.citationPage) ? countFixableConformance(dataset, "citationPage") : 0,
       structure?.issues.some((i) => i.mediaInfo) ? countFixableConformance(dataset, "mediaInfo") : 0,
       structure?.issues.some((i) => i.childPedi) ? countFixableConformance(dataset, "childPedi") : 0,
     ],
@@ -804,6 +814,7 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableCitationPage > 0) fixActions.push({ kind: "citationPage", count: fixableCitationPage });
   if (fixableMediaInfo > 0) fixActions.push({ kind: "mediaInfo", count: fixableMediaInfo });
   if (fixableChildPedi > 0) fixActions.push({ kind: "childPedi", count: fixableChildPedi });
   if (fixableSmartMatch > 0) fixActions.push({ kind: "smartMatch", count: fixableSmartMatch });

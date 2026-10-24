@@ -98,6 +98,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a PEDI on FAM.CHIL, moved by the fix to the
    *  child's FAMC file-wide. */
   childPedi?: boolean;
+  /** Conformance `misplacedTag`: a text SOUR inside a citation, made its
+   *  PAGE by the fix file-wide. */
+  citationPage?: boolean;
   /** Set by the findings list on the one row it shows for many equal value
    *  fixes (same line, same value, same fix): how many it stands for. */
   groupCount?: number;

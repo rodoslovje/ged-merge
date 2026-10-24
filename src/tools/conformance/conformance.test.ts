@@ -535,6 +535,52 @@ describe("fixConformance", () => {
     expect(out).toContain("2 TYPE married\n"); // another value: its own row
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("makes a text SOUR inside a citation its PAGE in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Pokopališče Zgornje Bitnje
+0 @I1@ INDI
+1 NAME Ivana /Križnar/
+1 BURI
+2 SOUR @S1@
+3 SOUR P02
+1 DEAT
+2 SOUR @S1@
+3 PAGE P03
+3 SOUR P04
+0 TRLR`);
+    expect(countFixableConformance(ds, "citationPage")).toBe(1); // the DEAT one has another PAGE
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "citationPage");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 BURI\n2 SOUR @S1@\n3 PAGE P02\n1 DEAT\n2 SOUR @S1@\n3 PAGE P03\n3 SOUR P04\n");
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("restates MyHeritage's Discovery and Record citations too", () => {
+    const ds = dataset(`${HEAD_70}
+0 @S1@ SOUR
+1 TITL MyHeritage
+0 @I1@ INDI
+1 NAME Jurij /Pajer/
+1 SOUR @S1@
+2 PAGE Georg Pajer
+2 EVEN Discovery
+0 @I2@ INDI
+1 NAME Leopold /Petan/
+1 SOUR @S1@
+2 EVEN Record
+3 ROLE 40000:273139647:
+0 TRLR`);
+    expect(validateConformance(ds).filter((i) => i.smartMatch).map((i) => i.messageVars.count)).toEqual([2]);
+    fixConformance(ds, "smartMatch");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE Georg Pajer\n0 @I2@");
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 40000:273139647:\n0 TRLR");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a media record's DATE/PLAC as _DATE/_PLACE in %s", (_v, head) => {
     const ds = dataset(`${head}
 0 @O1@ OBJE

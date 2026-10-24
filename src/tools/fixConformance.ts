@@ -6,7 +6,7 @@ import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { type RecordPatch } from "../ui/historyTypes";
-import { fixableConformance, isSmartMatchEven, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
+import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
 
 /**
@@ -41,6 +41,9 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *  - **childPedi** — a `PEDI` on a family's `CHIL` line: moved to the child's
  *    own `FAMC` link to that family (or dropped where that link already says
  *    the same);
+ *  - **citationPage** — a text `SOUR` inside a citation (a page typed under
+ *    the wrong tag): the citation's `PAGE` where it has none, dropped where
+ *    the `PAGE` already says the same;
  *  - **smartMatch** — MyHeritage's Smart Match citation (`EVEN Smart
  *    Matching`, the matched person's id in `ROLE`): the id becomes the
  *    citation's `PAGE`, the `EVEN` goes;
@@ -56,7 +59,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -68,6 +71,35 @@ export interface ConformanceRef {
   /** Every finding of one kind across the file: the same value on the same
    *  line, given the same fix (a row standing for all of them). */
   match?: { tag: string; parent: string; sample: string; fix: string };
+}
+
+/** Make every text `SOUR` inside a citation the citation's `PAGE`; one equal
+ *  to the `PAGE` already there only goes, a different one stays. With `apply`
+ *  false, only counts them. */
+function strayCitationPages(rec: GedNode, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      // `c` is a citation; a text SOUR beneath it is a typed page.
+      if (c.tag === "SOUR") {
+        for (const stray of c.children.filter(isStrayCitationPage)) {
+          const page = c.children.find((g) => g.tag === "PAGE");
+          if (page && page.value?.trim() !== stray.value?.trim()) continue;
+          n++;
+          if (!apply) continue;
+          if (page) c.children = c.children.filter((g) => g !== stray);
+          else {
+            c.children = c.children.filter((g) => g !== stray);
+            c.children.unshift({ ...stray, tag: "PAGE" });
+          }
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
 }
 
 /** The extension a media item's date or place is kept under. */
@@ -199,7 +231,7 @@ function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, ap
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -223,6 +255,10 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "citationPage") {
+    if (!fixable.some((i) => i.citationPage)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.xref ? strayCitationPages(r, false) : 0), 0);
+  }
   if (kind === "mediaInfo") {
     if (!fixable.some((i) => i.mediaInfo)) return 0;
     return dataset.records.reduce((n, r) => n + (r.tag === "OBJE" && r.xref ? mediaInfoToExtensions(r, false) : 0), 0);
@@ -274,7 +310,7 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
+    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
@@ -287,7 +323,8 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const smartPass = issues.some((i) => i.smartMatch);
   const mediaInfoPass = issues.some((i) => i.mediaInfo);
   const childPediPass = issues.some((i) => i.childPedi);
-  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass && !smartPass && !mediaInfoPass && !childPediPass) return [];
+  const citationPagePass = issues.some((i) => i.citationPage);
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass && !smartPass && !mediaInfoPass && !childPediPass && !citationPagePass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -337,6 +374,15 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
         const before = cloneNode(rec);
         journal.keep(rec.xref, before);
         fillMediaForms(rec, v7, only?.value, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (citationPagePass) {
+      for (const rec of dataset.records) {
+        if (!rec.xref || !strayCitationPages(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        strayCitationPages(rec, true);
         patches.push(recordPatch(dataset, rec.xref, rec, before));
       }
     }
