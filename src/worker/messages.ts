@@ -1,3 +1,4 @@
+import type { FileDialect, TargetMode } from "../normalize/target";
 import type { Dataset } from "../gedcom/types";
 import type { CitationPageStyle } from "../gedcom/source";
 import type { MainProfile, NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
@@ -21,6 +22,12 @@ export interface ParseRequest {
    *  to the overridden conventions. Snapshot at load time; changing the
    *  setting takes effect on the next load. */
   formatOverrides?: FormatOverrides;
+  /** Main only: the file's target format, applied to `formatOverrides` before
+   *  the profile is built (see `targetFormatOverrides`) — the remembered
+   *  choice, or `"propose"` for a file seen for the first time, which the
+   *  worker resolves from the file's own habits exactly as the app does.
+   *  Absent: `formatOverrides` already carry the target. */
+  target?: TargetMode | "propose";
   /** Rebuild the worker's internal dataset/profile without emitting `parsed`.
    *  Used to re-feed a kept slot into a freshly-recreated worker (after a
    *  hard-abort) so a match can run again, while leaving the main thread's
@@ -125,6 +132,9 @@ export interface ParseSuccess {
   datePlaceholder?: string;
   /** Every detected format dimension (Settings GEDCOM tab examples). */
   detectedFormats?: DetectedFormats;
+  /** Main only: another program's habits the file carries — what its first
+   *  target format is proposed from (see `normalize/target.ts`). */
+  dialect?: FileDialect;
   /** Detected source-citation convention of this file. */
   sourceLayout?: SourceLayout;
   /** Where the file keeps cited page images, when it has any: on the person/

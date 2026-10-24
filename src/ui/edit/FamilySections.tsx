@@ -1,3 +1,4 @@
+import { useFormatOverrides } from "../TargetFormatContext";
 import { Fragment, memo, type CSSProperties } from "react";
 import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
@@ -113,7 +114,7 @@ export function NewUnionSection({
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["showAge", "showKinship", "formatOverrides"] as const;
+const SETTINGS_KEYS = ["showAge", "showKinship"] as const;
 
 /** Kinship badge props for a relative card (mirrors the person header's). */
 function kinshipChips(
@@ -571,6 +572,7 @@ export const FamilySection = memo(function FamilySection({
   mergeGen,
 }: FamilySectionProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatOverrides = useFormatOverrides();
   const formatName = useNameOf();
   const personName = (id: string | undefined): string => {
     if (!id) return "";
@@ -658,7 +660,7 @@ export const FamilySection = memo(function FamilySection({
               t={t}
               target={t("edit.privateTarget.family")}
               onToggle={() => commitFamily(fam, (f) =>
-                setPrivateFlag(f.raw, !f.private, settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
+                setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (

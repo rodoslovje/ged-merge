@@ -1,3 +1,4 @@
+import { useFormatOverrides } from "../TargetFormatContext";
 import { createContext, useContext, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
@@ -60,7 +61,7 @@ export interface PlaceLookup {
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["allowLinkFetch", "formatOverrides"] as const;
+const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
 const PlaceLookupContext = createContext<PlaceLookup | null>(null);
 
@@ -118,9 +119,9 @@ export function usePlaceStyle(
   placeSuggestions: string[],
   index?: GazetteerIndex,
 ): PlaceStyle {
-  const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatOverrides = useFormatOverrides();
   const { i18n } = useTranslation();
-  const overrides = settings.formatOverrides;
+  const overrides = formatOverrides;
   const language = i18n.language;
   return useMemo(() => {
     const fmt = applyPlaceOverrides(inferPlaceExportFormat(dataset), overrides);

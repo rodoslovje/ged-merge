@@ -1,3 +1,4 @@
+import { useFormatOverrides } from "./TargetFormatContext";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
@@ -224,7 +225,7 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
+const SETTINGS_KEYS = ["order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
@@ -233,6 +234,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatOverrides = useFormatOverrides();
   const setSettings = useSetSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
@@ -550,7 +552,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
     rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent, mergeAdditionalNames, materializeIncomingNames,
     resolveMergeFields, markFamilyTagRetagged,
-  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: settings.formatOverrides, tick, t });
+  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: formatOverrides, tick, t });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
@@ -562,8 +564,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // family lock toggles write markers in the file's own style, unless the
   // Settings → GEDCOM override picks one explicitly.
   const privacyStyle = useMemo(
-    () => settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
-    [dataset.records, settings.formatOverrides.privacy],
+    () => formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
+    [dataset.records, formatOverrides.privacy],
   );
   // Which FamilySearch-id tag a newly added id gets — the file's own dialect.
   const fsIdTag = useMemo(() => preferredFsIdTag(dataset), [dataset]);
@@ -1029,9 +1031,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }
     }
     return createStandaloneSource(dataset.records, fields, {
-      sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
-      sourceCoverage: settings.formatOverrides.sourceCoverage ?? "auto",
-      baptism: settings.formatOverrides.baptism ?? "auto",
+      sourceLayout: formatOverrides.sourceLayout ?? "auto",
+      sourceCoverage: formatOverrides.sourceCoverage ?? "auto",
+      baptism: formatOverrides.baptism ?? "auto",
       citationPage: citationPageStyle(),
     });
   }
@@ -1039,7 +1041,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   /** How this file names a cited page — Settings → Cited page, whose "auto"
    *  follows the file's own habit; by number where it has none. */
   function citationPageStyle(): CitationPageStyle {
-    return settings.formatOverrides.citationPage ?? detectCitationPageStyle(dataset.records) ?? "number";
+    return formatOverrides.citationPage ?? detectCitationPageStyle(dataset.records) ?? "number";
   }
 
   /** The cited page's image to link beside the citation, or undefined when
@@ -1048,7 +1050,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * citation asks this, so the "+ Add source" dialog and the promote of a
    * plain link write the same shape. */
   function pageObjeToLink(pageObjeXref: string | undefined): string | undefined {
-    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
+    const style = formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
     return style === "event" ? pageObjeXref : undefined;
   }
 
@@ -1084,8 +1086,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // death → DEAT, grave → BURI.
       const smart = fields.site
         ? smartCitationTarget(dataset.records, fields.site, fields.title, {
-            citations: settings.formatOverrides.citations ?? "auto",
-            baptism: settings.formatOverrides.baptism ?? "auto",
+            citations: formatOverrides.citations ?? "auto",
+            baptism: formatOverrides.baptism ?? "auto",
           })
         : undefined;
       const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;

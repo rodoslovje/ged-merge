@@ -7296,6 +7296,12 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
   cursor: pointer;
 }
 .settings-radio input { flex: none; }
+/* Settings → GEDCOM, Target format: one option per line, each with what it
+   does beneath its name. */
+.settings-target-group { display: flex; flex-direction: column; gap: 10px; }
+.settings-target-option { align-items: flex-start; }
+.settings-target-option input { margin-top: 3px; }
+.settings-target-desc { display: block; margin-top: 2px; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
 .shortcuts-modal { max-width: 1120px; height: auto; max-height: 88dvh; }

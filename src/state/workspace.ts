@@ -1,6 +1,7 @@
 import type { Dataset } from "../gedcom/types";
 import type { CitationPageStyle } from "../gedcom/source";
 import type { DetectedFormats } from "../normalize/formatOverrides";
+import type { FileDialect } from "../normalize/target";
 import type { NameLayout, NormalizationReport, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { MatchResult } from "../match/types";
 import type { CandidateDecision } from "../review/types";
@@ -28,6 +29,8 @@ export interface LoadedFile {
   sourceLayout?: SourceLayout;
   /** Every detected format dimension, for the Settings GEDCOM tab. */
   detectedFormats?: DetectedFormats;
+  /** Another program's habits the file carries (see `normalize/target.ts`). */
+  dialect?: FileDialect;
   /** Where the file keeps cited page images (when it has any). */
   pageMediaStyle?: "event" | "source";
   /** How the file's citations name their page (when they say). */

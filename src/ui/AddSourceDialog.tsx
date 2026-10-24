@@ -1,3 +1,4 @@
+import { useFormatOverrides } from "./TargetFormatContext";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
 import { getSourceLookup, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
@@ -127,6 +128,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // upgrades the same field instead of filling both.
   const idOnCaln = useRef(false);
   const { settings } = useSettings();
+  const formatOverrides = useFormatOverrides();
   const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
 
   // Both derivations walk the whole file, and the dialog is mounted shut on
@@ -242,16 +244,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // Whether the file's convention hangs sources off repositories — decides if
   // the create-proposal is preselected or merely offered.
   const layoutPrefersRepos = useMemo(
-    () => repoLinkWanted(dataset.records, settings.formatOverrides.sourceLayout),
-    [settings.formatOverrides.sourceLayout, dataset],
+    () => repoLinkWanted(dataset.records, formatOverrides.sourceLayout),
+    [formatOverrides.sourceLayout, dataset],
   );
   // Which shape this file states a source's coverage in — it decides whether
   // the Place and Agency fields are the standard's own or the flat vendor
   // ones, and so whether they are marked.
   const coverage = useMemo(() => {
-    const override = settings.formatOverrides.sourceCoverage ?? "auto";
+    const override = formatOverrides.sourceCoverage ?? "auto";
     return override !== "auto" ? override : detectSourceCoverage(dataset.records);
-  }, [settings.formatOverrides.sourceCoverage, dataset]);
+  }, [formatOverrides.sourceCoverage, dataset]);
   /** Whether this file states the archive's id beside the repository — then
    *  the source's own filing-number field is not the one that gets written. */
   const idOnRepo = useMemo(

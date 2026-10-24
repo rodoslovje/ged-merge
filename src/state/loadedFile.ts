@@ -24,6 +24,7 @@ const CARRIED_FIELDS = [
   "datePlaceholder",
   "sourceLayout",
   "detectedFormats",
+  "dialect",
   "pageMediaStyle",
   "citationPageStyle",
   "nameLayout",
