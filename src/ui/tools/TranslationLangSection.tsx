@@ -12,9 +12,9 @@ import { useLanguageItems } from "./languageItems";
  * A row is written on its own, or all rows at once with the languages chosen,
  * or all of them as undetermined.
  *
- * The two whole-file buttons sit with the health check's other quick fixes
- * (`fix`), the per-name rows down with the findings (`list`); both read the
- * same picks.
+ * The two whole-file buttons (`actions`) and the per-name rows (`list`) sit
+ * on the list's own chip page, and both read the same picks; the note that
+ * the languages were written (`doneNote`) stays up after the chip is gone.
  */
 export function useTranslationLang({
   dataset,
@@ -30,7 +30,7 @@ export function useTranslationLang({
   needed: boolean;
   onApply: (choices: Map<string, string[]>) => number;
   onApplied: () => void;
-}): { fix: ReactNode; list: ReactNode } {
+}): { actions: ReactNode; list: ReactNode; doneNote: ReactNode } {
   const { t } = useTranslation();
   const groups = useMemo(
     () => (needed ? untaggedTranslations(dataset) : []),
@@ -52,7 +52,7 @@ export function useTranslationLang({
   const doneNote = done !== null && (
     <p className="tools-clean tools-clean--ok">{t("tools.validate.tranLang.done", { count: done })}</p>
   );
-  if (groups.length === 0) return { fix: doneNote || null, list: null };
+  if (groups.length === 0) return { actions: null, list: null, doneNote: doneNote || null };
 
   const langsOf = (g: UntaggedTranslation) => picked.get(g.key) ?? g.suggested;
   const lines = groups.reduce((n, g) => n + g.count, 0);
@@ -65,9 +65,8 @@ export function useTranslationLang({
   const choose = (g: UntaggedTranslation, part: number, lang: string) =>
     setPicked((prev) => new Map(prev).set(g.key, langsOf(g).map((l, i) => (i === part ? lang : l))));
 
-  const fix = (
+  const actions = (
     <>
-      {doneNote}
       <ul className="tools-fix-list">
         <li className="tools-fix-item">
           <span className="tools-tran-actions">
@@ -144,5 +143,5 @@ export function useTranslationLang({
     </div>
   );
 
-  return { fix, list };
+  return { actions, list, doneNote: doneNote || null };
 }

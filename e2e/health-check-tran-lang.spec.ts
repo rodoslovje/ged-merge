@@ -46,7 +46,7 @@ test("translations without a language: suggested, re-picked and written", async 
   await vellach.getByRole("menuitemradio", { name: /\(de\)/ }).click();
   await expect(vellach).not.toContainText("→ 2 lines");
 
-  await page.locator(".tools-fix-item").getByRole("button", { name: "Write the chosen languages (3)" }).click();
+  await page.getByRole("button", { name: "Write the chosen languages (3)" }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
   await expect(page.locator(".tools-clean--ok", { hasText: "Languages written on 2 records." })).toBeVisible();
   await expect(page.locator(".tools-issue", { hasText: "no LANG line" })).toHaveCount(0);

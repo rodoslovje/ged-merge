@@ -41,7 +41,11 @@ test("conformance findings: a wrong-type pointer and a mis-cased value, and the 
   await expect(pedi).toBeVisible();
   await expect(pedi.locator(".tools-issue-fix")).toHaveText("→ adopted");
 
-  await page.locator(".tools-fix-item button", { hasText: /Fix value spelling \(1\)/ }).click();
+  // Picked and run as a batch: the confirmation names the fix it makes.
+  await chip(page, "Non-standard values").click();
+  await pedi.locator(".tools-pick").check();
+  await page.getByRole("button", { name: "Fix selected (1)" }).click();
+  await expect(page.locator(".confirm-dialog")).toContainText("Fix value spelling (1)");
   await page.getByRole("button", { name: "Apply fix" }).click();
   await expect(page.locator(".tools-clean--ok")).toContainText("Fixed values in 1 record");
   await expect(chip(page, "Non-standard values")).toHaveCount(0);

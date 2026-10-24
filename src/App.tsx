@@ -1513,6 +1513,21 @@ function AppContent() {
    *  value or writing a gazetteer coordinate is not new research. Deliberate
    *  per-record acts — a source edited by hand, a duplicate merged — stay
    *  substantive and stamp as every Edit-mode change does. */
+  // While a health-check batch runs (several fixes picked at once), each fix's
+  // patches gather here and land in the history as one step at its end.
+  const toolBatchRef = useRef<RecordPatch[] | null>(null);
+  function runToolBatch(run: () => void): void {
+    toolBatchRef.current = [];
+    try {
+      run();
+    } finally {
+      const batch = toolBatchRef.current;
+      toolBatchRef.current = null;
+      // A record two fixes touched undoes to its state before the first.
+      if (batch.length) handlePushEdit(coalescePatches(batch), undefined, undefined, true);
+    }
+  }
+
   function applyToolPatches(rawPatches: RecordPatch[], mechanical = false): number {
     const patches = dropNoopPatches(rawPatches);
     if (!mainDataset || patches.length === 0) return 0;
@@ -1542,7 +1557,8 @@ function AppContent() {
     // stay: undoing a whole-file tool batch keeps the user where they are —
     // there is no single person to show, and the Tools page they came from
     // re-scans itself off the edit version.
-    handlePushEdit(patches, undefined, undefined, true);
+    if (toolBatchRef.current) toolBatchRef.current.push(...patches);
+    else handlePushEdit(patches, undefined, undefined, true);
     // Shared-record patches are flagged by the push itself (see
     // captureSnapshotsForPush): a record with no owner card behind it — e.g.
     // the date repair rewriting a SOUR's DATE — is its own dirty subject; with
@@ -2815,6 +2831,7 @@ function AppContent() {
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
               onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
+              onFixBatch={runToolBatch}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
