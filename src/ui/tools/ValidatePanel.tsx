@@ -10,7 +10,7 @@ import { formatCoord } from "../../geo/points";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
-import type { ConformanceFixKind, ConformanceRef } from "../../tools/fixConformance";
+import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
 import { countSplitCoordFills, scanPlaceCoords } from "../../tools/placeCoords";
 import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
@@ -29,7 +29,7 @@ import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from ".
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -45,6 +45,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   values: "enumValue",
   repeats: "cardinality",
   forms: "missingLine",
+  relocate: "misplacedTag",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -254,7 +255,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "relocate" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -482,6 +483,15 @@ export function ValidatePanel({
         run: () => onFixConformance("forms", { id: issue.recordId!, path: issue.path }),
       };
     }
+    // Media lines beside their FILE: one row for the whole habit, so its
+    // button moves them in every media record.
+    if (issue.category === "misplacedTag" && issue.relocate && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneRelocate"),
+        hint: t("tools.validate.fixOneRelocateHint"),
+        run: () => onFixConformance("relocate"),
+      };
+    }
     return null;
   }
 
@@ -497,6 +507,12 @@ export function ValidatePanel({
   // which can't carry an undo patch.
   const fixableDangling = useMemo(
     () => (structure && structure.counts.danglingXref > 0 ? countDanglingRefs(dataset) : 0),
+    [structure, dataset],
+  );
+
+  // Media records whose title/format the relocate fix would move under FILE.
+  const fixableRelocate = useMemo(
+    () => (structure?.issues.some((i) => i.relocate) ? countFixableConformance(dataset, "relocate") : 0),
     [structure, dataset],
   );
 
@@ -528,6 +544,7 @@ export function ValidatePanel({
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
   const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
+  if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and

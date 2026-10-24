@@ -6,6 +6,9 @@
  * (`image/jpeg`).
  */
 
+import { childrenByTag, cloneNode, firstChild } from "./node";
+import type { GedNode } from "./types";
+
 export const EXT_TO_MIME: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -43,4 +46,55 @@ export function fileFormOf(file: string, mime = false): string | undefined {
   const ext = /\.(jpe?g|png|gif|tiff?|bmp|pdf|wav|mp[34]|webp)(?:[?#]|$)/i.exec(file.trim())?.[1].toLowerCase();
   const form = ext ? (ext === "jpeg" ? "jpg" : ext === "tiff" ? "tif" : ext) : /^(?:https?:\/\/|www\.)/i.test(file.trim()) ? "htm" : undefined;
   return form && mime ? (EXT_TO_MIME[form] ?? form) : form;
+}
+
+/** A 5.5.1 `FORM` token as 7.0's media type. A format with no registered
+ *  type keeps its name in a private subtype (`application/x-xyz`), which a
+ *  downgrade reads back; octet-stream would say only "some bytes". */
+export function mimeFormOf(form: string): string {
+  const ext = form.trim().toLowerCase();
+  if (ext.includes("/")) return form;
+  return EXT_TO_MIME[ext] ?? (/^[a-z0-9]+$/.test(ext) ? `application/x-${ext}` : "application/octet-stream");
+}
+
+function relevel(node: GedNode, level: number): void {
+  node.level = level;
+  for (const c of node.children) relevel(c, level + 1);
+}
+
+/**
+ * Hang a media record's record-level `FORM` and `TITL` (the 5.5 shape) under
+ * its `FILE`, where 5.5.1 and 7.0 keep them: the `FORM` under every `FILE`
+ * without one, the `TITL` under the first. A line whose place is already
+ * taken by an equal one is dropped as a copy; one that differs stays for the
+ * user to settle. `form` reshapes a moved `FORM` value (7.0's media type).
+ * Returns the lines moved or dropped, for the caller's report.
+ */
+export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) => string): GedNode[] {
+  const files = childrenByTag(obje, "FILE");
+  if (!files.length) return [];
+  const same = (a?: string, b?: string) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+  const done: GedNode[] = [];
+  const settle = (stray: GedNode, homes: GedNode[]) => {
+    let placed = false;
+    homes.forEach((file) => {
+      if (firstChild(file, stray.tag)) return;
+      const line = placed ? cloneNode(stray) : stray;
+      relevel(line, file.level + 1);
+      if (form && line.tag === "FORM" && line.value) line.value = form(line.value);
+      // FORM leads a FILE's lines, TITL follows it.
+      if (line.tag === "FORM") file.children.unshift(line);
+      else file.children.splice(firstChild(file, "FORM") ? 1 : 0, 0, line);
+      placed = true;
+    });
+    const value = form && stray.tag === "FORM" && stray.value ? form(stray.value) : stray.value;
+    if (placed || homes.every((f) => same(firstChild(f, stray.tag)?.value, value))) {
+      obje.children = obje.children.filter((c) => c !== stray);
+      done.push(stray);
+    }
+  };
+  for (const stray of childrenByTag(obje, "FORM")) settle(stray, files);
+  const titl = firstChild(obje, "TITL");
+  if (titl) settle(titl, [files[0]]);
+  return done;
 }

@@ -387,6 +387,43 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("moves media titles and formats kept beside FILE under it, in every media record", () => {
+    const ds = dataset(`${HEAD_551}
+0 @O1@ OBJE
+1 FILE a.jpg
+1 FORM jpg
+1 TITL Krst 1870
+0 @O2@ OBJE
+1 FILE b.jpg
+2 TITL Poroka
+1 TITL Poroka
+0 @O3@ OBJE
+1 FILE c.jpg
+2 FORM jpg
+2 TITL Pogreb
+1 TITL Different
+0 TRLR`);
+    const habit = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+    expect(habit.map((i) => [i.sample, i.relocate])).toEqual([["FORM", true], ["TITL", true]]);
+    expect(countFixableConformance(ds, "relocate")).toBe(2); // O3's two titles differ
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "relocate");
+    expect(patches.map((p) => p.id)).toEqual(["@O1@", "@O2@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n2 TITL Krst 1870\n");
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
+    expect(out).toContain("2 TITL Pogreb\n1 TITL Different\n"); // left for the user
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("writes a moved format as 7.0's media type", () => {
+    const ds = dataset(`${HEAD_70}\n0 @O1@ OBJE\n1 FILE a.jpg\n1 FORM jpg\n1 TITL Krst\n0 TRLR`);
+    fixConformance(ds, "relocate");
+    expect(serializeGedcom(ds.records, ds)).toContain("0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n2 TITL Krst\n");
+  });
+
   it("is a no-op on a file of another version or a clean one", () => {
     expect(fixConformance(dataset("0 HEAD\n0 @I1@ INDI\n1 SEX m\n0 TRLR"))).toEqual([]);
   });
