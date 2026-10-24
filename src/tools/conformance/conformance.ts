@@ -80,6 +80,10 @@ export interface ConformanceIssue {
    *  `DATA > EVEN`: the fix restates them there in every source whose title
    *  names the register type. */
   coverage?: boolean;
+  /** Set on a `DATE` under an association (`ASSO`), which neither version
+   *  allows there: the fix keeps it word for word as a `NOTE` on the
+   *  association, in every record at once. */
+  assoDate?: boolean;
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -281,6 +285,7 @@ function tallyMisplaced(
       agency: (parent === "SOUR" && node.tag === "AGNC") || undefined,
       stamps: stamp || undefined,
       coverage: (parent === "SOUR" && (node.tag === "PLAC" || node.tag === "DATE")) || undefined,
+      assoDate: (node.tag === "DATE" && parent.endsWith(".ASSO")) || undefined,
     },
   });
 }
@@ -453,7 +458,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

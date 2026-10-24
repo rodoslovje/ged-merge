@@ -35,7 +35,7 @@ import { useTranslationLang } from "./TranslationLangSection";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", notes: "ConformNotes" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", notes: "ConformNotes" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -57,6 +57,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   agency: "misplacedTag",
   stamps: "misplacedTag",
   coverage: "misplacedTag",
+  assoDates: "misplacedTag",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -113,7 +114,7 @@ function structGroup(c: StructCategory): HealthGroup {
 const FIX_GROUP: Record<FixKind, HealthGroup> = {
   links: "data", dups: "data", families: "data", dangling: "data", roles: "data", sex: "data", dates: "data",
   nonStandard: "gedcom", values: "gedcom", notes: "gedcom", repeats: "gedcom", forms: "gedcom",
-  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom",
+  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom", assoDates: "gedcom",
 };
 
 /** The xref a `brokenLink` finding names — the family a person points at, or the
@@ -330,7 +331,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -607,6 +608,14 @@ export function ValidatePanel({
         run: () => onFixConformance("agency"),
       };
     }
+    // A date on an association: kept as its note, in every record.
+    if (issue.category === "misplacedTag" && issue.assoDate && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneAssoDates"),
+        hint: t("tools.validate.fixOneAssoDatesHint"),
+        run: () => onFixConformance("assoDates"),
+      };
+    }
     // A source's flat place or date: restated as DATA > EVEN in every source.
     if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage) {
       return {
@@ -647,6 +656,11 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.relocate)
       ? [countFixableConformance(dataset, "relocate"), countFixableConformance(dataset, "fileTitles")]
       : [0, 0]),
+    [structure, dataset],
+  );
+  // Dates on associations the fix would keep as notes.
+  const fixableAssoDates = useMemo(
+    () => (structure?.issues.some((i) => i.assoDate) ? countFixableConformance(dataset, "assoDates") : 0),
     [structure, dataset],
   );
   // Sources whose flat PLAC/DATE the coverage fix would restate.
@@ -717,6 +731,7 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableAssoDates > 0) fixActions.push({ kind: "assoDates", count: fixableAssoDates });
   if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
   if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;

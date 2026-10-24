@@ -513,6 +513,33 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a date on an association as its note in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @I1@ INDI
+1 NAME Luka /Renko/
+1 EDUC
+2 DATE 1980
+2 ASSO @I2@
+3 DATE 1979-1980
+3 NOTE vzgojiteljica v vrtcu
+3 ROLE OTHER
+1 ASSO @I2@
+2 ROLE OTHER
+2 DATE 7 MAY 1928
+0 @I2@ INDI
+1 NAME Ana /Kos/
+0 TRLR`);
+    expect(countFixableConformance(ds, "assoDates")).toBe(2);
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "assoDates");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("2 ASSO @I2@\n3 NOTE 1979-1980\n3 NOTE vzgojiteljica v vrtcu\n");
+    expect(out).toContain("1 ASSO @I2@\n2 ROLE OTHER\n2 NOTE 7 MAY 1928\n");
+    expect(validateConformance(ds).filter((i) => i.assoDate)).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("lifts CHAN/CREA below the records onto them, as one row", () => {
     const body = `0 @I1@ INDI
 1 NAME Alojz /Homan/

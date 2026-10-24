@@ -86,6 +86,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a source's flat PLAC/DATE, which the fix
    *  restates as DATA > EVEN file-wide. */
   coverage?: boolean;
+  /** Conformance `misplacedTag`: a DATE on an association, which the fix
+   *  keeps as the association's NOTE file-wide. */
+  assoDate?: boolean;
 }
 
 export interface StructureReport {

@@ -36,6 +36,8 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *    record: moved to `DATA.AGNC` in every source at once;
  *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
  *    `DATA > EVEN` coverage in every source whose title names its register;
+ *  - **assoDates** — a `DATE` on an association: kept word for word as a
+ *    `NOTE` on the association, in every record at once;
  *  - **stamps** — `CHAN`/`CREA` below a record (on an event, an attribute…):
  *    the newest change and the oldest creation are lifted onto the record,
  *    the rest dropped, in every record at once.
@@ -46,7 +48,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -55,6 +57,34 @@ export interface ConformanceRef {
   path?: string;
   /** For the media forms: only the files this form fits. */
   value?: string;
+}
+
+/** Turn every `DATE` under an association into a `NOTE` there carrying the
+ *  same words (a `PHRASE` beside them); one equal to a note already there
+ *  only goes. With `apply` false, only counts them. */
+function assoDatesToNotes(rec: GedNode, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      if (c.tag === "ASSO") {
+        const dates = c.children.filter((g) => g.tag === "DATE");
+        n += dates.length;
+        if (apply) {
+          for (const date of dates) {
+            const phrase = date.children.find((g) => g.tag === "PHRASE")?.value?.trim();
+            const text = [date.value?.trim(), phrase && `(${phrase})`].filter(Boolean).join(" ");
+            const i = c.children.indexOf(date);
+            if (!text || c.children.some((g) => g.tag === "NOTE" && g.value?.trim() === text)) c.children.splice(i, 1);
+            else c.children[i] = { level: date.level, tag: "NOTE", value: text, children: [] };
+          }
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
 }
 
 /** Add the `FORM` a media file's name says to every `FILE` without one (only
@@ -79,7 +109,7 @@ function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, ap
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -103,6 +133,10 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "assoDates") {
+    if (!fixable.some((i) => i.assoDate)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.xref ? assoDatesToNotes(r, false) : 0), 0);
+  }
   if (kind === "coverage") {
     if (!fixable.some((i) => i.coverage)) return 0;
     const baptism = baptismTargetTag(dataset.records);
@@ -135,7 +169,7 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
+    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
@@ -144,7 +178,8 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const formsPass = issues.some((i) => i.category === "missingLine" && i.fix !== undefined);
   const stampsPass = issues.some((i) => i.stamps);
   const coveragePass = issues.some((i) => i.coverage);
-  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass) return [];
+  const assoPass = issues.some((i) => i.assoDate);
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -194,6 +229,15 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
         const before = cloneNode(rec);
         journal.keep(rec.xref, before);
         fillMediaForms(rec, v7, only?.value, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (assoPass) {
+      for (const rec of dataset.records) {
+        if (!rec.xref || !assoDatesToNotes(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        assoDatesToNotes(rec, true);
         patches.push(recordPatch(dataset, rec.xref, rec, before));
       }
     }
