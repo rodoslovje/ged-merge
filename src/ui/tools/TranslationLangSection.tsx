@@ -3,10 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { UNDETERMINED, untaggedTranslations, type UntaggedTranslation } from "../../tools/fixTranslationLang";
 import { ConfirmDialog } from "../ConfirmDialog";
-import { PickerMenu, type PickerItem } from "../PickerMenu";
-
-/** The languages the picker offers before any the file's names suggest. */
-const OFFERED = [UNDETERMINED, "sl", "de", "la", "it", "hu", "hr", "cs"];
+import { PickerMenu } from "../PickerMenu";
+import { useLanguageItems } from "./languageItems";
 
 /**
  * GEDCOM 7 translations with no `LANG` (see `tools/fixTranslationLang`): one
@@ -29,7 +27,7 @@ export function TranslationLangSection({
   onApply: (choices: Map<string, string[]>) => number;
   onApplied: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const groups = useMemo(
     () => (needed ? untaggedTranslations(dataset) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -45,19 +43,7 @@ export function TranslationLangSection({
     setDone(null);
   }, [dataset]);
 
-  const langItems = useMemo<PickerItem<string>[]>(() => {
-    let names: Intl.DisplayNames | undefined;
-    try {
-      names = new Intl.DisplayNames([i18n.language], { type: "language" });
-    } catch {
-      names = undefined;
-    }
-    const codes = [...new Set([...OFFERED, ...groups.flatMap((g) => g.suggested)])];
-    return codes.map((code) => {
-      const name = code === UNDETERMINED ? t("tools.validate.tranLang.undetermined") : names?.of(code);
-      return { key: code, label: name && name !== code ? `${name} (${code})` : code };
-    });
-  }, [groups, i18n.language, t]);
+  const langItems = useLanguageItems(useMemo(() => groups.flatMap((g) => g.suggested), [groups]));
 
   if (done === null && groups.length === 0) return null;
   if (groups.length === 0) {

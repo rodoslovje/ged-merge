@@ -62,6 +62,7 @@ import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fixConformance } from "./tools/fixConformance";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { tagTranslations } from "./tools/fixTranslationLang";
+import { setPlaceTranslations } from "./tools/placeTranslations";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
 import { fetchPageHtml } from "./normalize/urlMetadata";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
@@ -2674,6 +2675,7 @@ function AppContent() {
               onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
+              onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
               onSaveAs={(version) => void handleSave(version)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {

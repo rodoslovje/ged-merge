@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { OutputVersion } from "../save/outputFile";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GeoCoord } from "../gedcom/types";
+import type { Dataset, GeoCoord, Translation } from "../gedcom/types";
 import type { CandidateDecision } from "../review/types";
 import { countDistinctPlaces } from "../tools/places";
 import type { AddressRename } from "../tools/addresses";
@@ -121,6 +121,7 @@ interface Props {
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   onFillPlaceCoords: () => number;
+  onSetPlaceTranslations: (values: ReadonlySet<string>, list: Translation[]) => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Open the save preview with the file written in `version` — the way to
    *  convert, or to save the structural repairs, with nothing else changed. */
@@ -163,7 +164,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFillPlaceCoords, onTagTranslations, onSaveAs, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFillPlaceCoords, onSetPlaceTranslations, onTagTranslations, onSaveAs, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Places leads the tabs and is where most work starts,
@@ -262,7 +263,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
             provides it with, over the same file. */}
         {tool === "places" && (
           <PlacePeopleProvider value={placePeople}>
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onClearPlaceCoords={onClearPlaceCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddresses={onRenameAddresses} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} view={view} onViewChange={onViewChange} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onClearPlaceCoords={onClearPlaceCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddresses={onRenameAddresses} onSetPlaceTranslations={onSetPlaceTranslations} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} view={view} onViewChange={onViewChange} />
           </PlacePeopleProvider>
         )}
       </div>
