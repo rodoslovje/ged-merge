@@ -124,8 +124,11 @@ export function useTranslationLang({
                   </span>
                 ))}
               </span>
-              {split > 1 && <span className="tools-issue-detail">{t("tools.validate.tranLang.split", { count: split })}</span>}
-              <span className="tools-struct-loc">{g.count}×</span>
+              {/* The count reads as the grouped findings' does: "(294×)" after the row's text. */}
+              <span className="tools-issue-msg">
+                ({g.count}×)
+                {split > 1 && <span className="tools-issue-detail"> {t("tools.validate.tranLang.split", { count: split })}</span>}
+              </span>
               <button
                 className="tools-issue-fix sets"
                 title={t("tools.validate.tranLang.applyHint")}

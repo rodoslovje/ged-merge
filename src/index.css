@@ -9277,6 +9277,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The rows read like the findings around them: plain names, and a language
    picker the size of a row chip rather than a form field. */
 .tools-tran-list .tools-issue { align-items: center; }
+.tools-tran-list .tools-tran-parts { flex: 0 1 auto; }
 .tools-tran-part .picker-menu-btn {
   width: auto;
   padding: 1px 8px;
