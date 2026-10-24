@@ -2670,8 +2670,8 @@ function AppContent() {
                 applySharedRecordEdit((records) => {
                   const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
                   if (!node) return;
-                  setMediaInfo(node, fields);
-                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, detectPrivacyStyle(records), records);
+                  setMediaInfo(node, fields, records, formatOverrides);
+                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), records);
                   bumpSourceCacheVersion(records);
                 })
               }

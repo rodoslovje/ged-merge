@@ -2358,21 +2358,36 @@ describe("individual media", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const obje = attachInlineMedia(indi.raw, "a.jpg");
-    setMediaInfo(obje, { title: "Wedding", date: "1900", place: "Ljubljana", description: "On the steps" });
+    setMediaInfo(obje, { title: "Wedding", date: "1900", place: "Ljubljana", description: "On the steps" }, ds.records);
     const child = (tag: string) => obje.children.find((c) => c.tag === tag)?.value;
     expect(child("TITL")).toBe("Wedding");
-    expect(child("DATE")).toBe("1900");
-    expect(child("PLAC")).toBe("Ljubljana");
-    expect(child("_DSCR")).toBe("On the steps");
+    // Neither version has a date or place on media: with no habit of its own,
+    // the file gets the extensions, and the description the standard NOTE.
+    expect(child("_DATE")).toBe("1900");
+    expect(child("_PLACE")).toBe("Ljubljana");
+    expect(child("NOTE")).toBe("On the steps");
     expect(obje.children.find((c) => c.tag === "FILE")?.value).toBe("a.jpg");
 
-    setMediaInfo(obje, { title: "", description: "" });
+    setMediaInfo(obje, { title: "", description: "" }, ds.records);
     expect(child("TITL")).toBeUndefined();
-    expect(child("_DSCR")).toBeUndefined();
-    expect(child("DATE")).toBe("1900"); // omitted fields untouched
+    expect(child("NOTE")).toBeUndefined();
+    expect(child("_DATE")).toBe("1900"); // omitted fields untouched
   });
 
-  it("normalizes a FILE-level TITL up to the OBJE and drops a NOTE used as description", () => {
+  it("keeps the file's own media habits in its own format, never in a strict one", () => {
+    const habit = `${BASE.replace("0 TRLR\n", "")}0 @O9@ OBJE\n1 FILE b.jpg\n2 FORM jpg\n1 DATE 1890\n1 PLAC Kranj\n1 _DSCR old\n0 TRLR\n`;
+    const own = buildFromText(habit);
+    const obje = own.records.find((r) => r.xref === "@O9@")!;
+    setMediaInfo(obje, { date: "1891", place: "Bled", description: "new" }, own.records);
+    expect(obje.children.map((c) => c.tag)).toEqual(["FILE", "DATE", "PLAC", "_DSCR"]);
+
+    const strict = buildFromText(habit);
+    const rec = strict.records.find((r) => r.xref === "@O9@")!;
+    setMediaInfo(rec, { date: "1891", place: "Bled", description: "new" }, strict.records, { standard: "7.0" });
+    expect(rec.children.map((c) => `${c.tag} ${c.value ?? ""}`.trim())).toEqual(["FILE b.jpg", "_DATE 1891", "_PLACE Bled", "NOTE new"]);
+  });
+
+  it("normalizes a FILE-level TITL up to the OBJE and replaces a NOTE used as description", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const obje = attachInlineMedia(indi.raw, "a.jpg");
@@ -2380,11 +2395,11 @@ describe("individual media", () => {
     fileNode.children.push({ level: fileNode.level + 1, tag: "TITL", value: "stale", children: [] });
     obje.children.push({ level: obje.level + 1, tag: "NOTE", value: "old desc", children: [] });
 
-    setMediaInfo(obje, { title: "New title", description: "New desc" });
+    setMediaInfo(obje, { title: "New title", description: "New desc" }, ds.records);
     expect(fileNode.children.some((c) => c.tag === "TITL")).toBe(false);
     expect(obje.children.find((c) => c.tag === "TITL")?.value).toBe("New title");
-    expect(obje.children.some((c) => c.tag === "NOTE")).toBe(false);
-    expect(obje.children.find((c) => c.tag === "_DSCR")?.value).toBe("New desc");
+    expect(obje.children.filter((c) => c.tag === "NOTE").map((c) => c.value)).toEqual(["New desc"]);
+    expect(obje.children.some((c) => c.tag === "_DSCR")).toBe(false);
   });
 
   it("titles a media record under its FILE, where 5.5.1 and 7.0 both keep it", () => {
@@ -2395,7 +2410,7 @@ describe("individual media", () => {
     // A caption edit moves a record-level title (the 5.5 shape) under the FILE.
     const old = buildFromText(`${BASE.replace("0 TRLR\n", "")}0 @O9@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n1 TITL Old\n0 TRLR\n`);
     const obje = old.records.find((r) => r.xref === "@O9@")!;
-    setMediaInfo(obje, { title: "New" });
+    setMediaInfo(obje, { title: "New" }, old.records);
     expect(serializeGedcom([obje])).toBe("0 @O9@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n2 TITL New\n");
   });
 

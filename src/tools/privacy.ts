@@ -114,12 +114,14 @@ const CONTACT_TAGS = new Set(["ADDR", "EMAIL", "EMAI", "PHON", "FAX", "WWW", "RE
 const ADDRESS_TAGS = new Set(["ADDR", "RESI"]);
 const EMAIL_TAGS = new Set(["EMAIL", "EMAI"]);
 const PHONE_TAGS = new Set(["PHON", "FAX"]);
-const EXTERNAL_ID_TAGS = new Set(["_UID", "_FID", "AFN", "RIN", "_FSFTID", "_APID", "_AMTID", "_FGRAVE"]);
+// GEDCOM 7.0 states the same ids as UID and EXID (and 5.5.1 as RFN), so an
+// export stripped of ids must lose those too.
+const EXTERNAL_ID_TAGS = new Set(["_UID", "UID", "EXID", "RFN", "_FID", "AFN", "RIN", "_FSFTID", "_APID", "_AMTID", "_FGRAVE"]);
 
 /** The detail bucket a non-structural child falls into, for the strip toggles. */
 function detailCategory(tag: string): StripCategory {
   if (CONTACT_TAGS.has(tag)) return "contact";
-  if (tag === "NOTE") return "notes";
+  if (tag === "NOTE" || tag === "SNOTE") return "notes";
   if (tag === "SOUR") return "sources";
   if (tag === "OBJE") return "media";
   return "events"; // BIRT/DEAT/OCCU/EVEN/REFN/_UID/ASSO/… — everything else

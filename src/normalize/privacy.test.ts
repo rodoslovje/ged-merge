@@ -17,7 +17,7 @@ describe("normalizePrivacyStyle", () => {
       "1 _PRIV Y",
       "0 TRLR",
     ]);
-    const changes = normalizePrivacyStyle(recs, "PRIV");
+    const changes = normalizePrivacyStyle(recs, "PRIV", "5.5.1");
     const out = serializeGedcom(recs);
     expect(changes).toHaveLength(2);
     expect(out).not.toContain("_PRIV");
@@ -35,11 +35,34 @@ describe("normalizePrivacyStyle", () => {
       "1 RESN NONE",
       "0 TRLR",
     ]);
-    const changes = normalizePrivacyStyle(recs, "PRIV");
+    const changes = normalizePrivacyStyle(recs, "PRIV", "5.5.1");
     const out = serializeGedcom(recs);
     expect(changes).toHaveLength(1); // only @I1@ — @I2@ already PRIV, @I3@ not private
     expect(out).toContain("1 RESN LOCKED"); // the non-privacy entry survives
     expect(out).toContain("1 RESN NONE"); // webtrees noise untouched
     expect(out.match(/^1 PRIV$/gm)).toHaveLength(2);
+  });
+});
+
+describe("normalizePrivacyStyle — the main's standard RESN", () => {
+  it("writes RESN in the main's version, not the incoming file's, and only where the standard allows it", () => {
+    // An incoming 5.5.1 file's markers, reshaped for a 7.0 main.
+    const recs = records([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 _PRIV Y",
+      "1 BIRT",
+      "2 PRIV",
+      "0 @N1@ NOTE secret",
+      "1 PRIV",
+      "0 TRLR",
+    ]);
+    normalizePrivacyStyle(recs, "RESN", "7.0");
+    const out = serializeGedcom(recs);
+    expect(out).toContain("0 @I1@ INDI\n1 BIRT\n2 RESN PRIVACY\n1 RESN PRIVACY\n");
+    // A note has no RESN in either version: the extension stands in.
+    expect(out).toContain("0 @N1@ NOTE secret\n1 _PRIV Y\n");
   });
 });

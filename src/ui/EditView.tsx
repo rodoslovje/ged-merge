@@ -825,7 +825,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       const rec = dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref);
       if (!rec) return;
       const before = cloneNode(rec);
-      setMediaInfo(rec, fields);
+      setMediaInfo(rec, fields, dataset.records, formatOverrides);
       if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
       const after = cloneNode(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
@@ -849,7 +849,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       ownerCommit(owner, (r) => {
         const child = mediaNodeAt(r, addr);
         if (child) {
-          setMediaInfo(child, fields);
+          setMediaInfo(child, fields, dataset.records, formatOverrides);
           if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, dataset.records);
         }
       });

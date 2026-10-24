@@ -4,7 +4,8 @@ import { mediaContainerOf, type MediaAddress } from "../media";
 import { fileFormOf } from "../mediaForm";
 import type { Dataset, GedNode } from "../types";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "./shared";
-import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
+import { bumpSourceCacheVersion, getMediaAndSourceCtx, memoOnContent } from "./cache";
+import type { FormatOverrides } from "../../normalize/formatOverrides";
 import { linkKey } from "../../normalize/links";
 
 /** Which dialect the file's `FORM` payloads speak: 7.0 requires IANA media
@@ -227,17 +228,51 @@ export function reorderMedia(raw: GedNode, from: number, to: number): void {
   slots.forEach((slotIdx, k) => { raw.children[slotIdx] = objes[k]; });
 }
 
-/** Editable descriptive fields of a photo (`OBJE`). Each maps to a sub-tag;
- *  an empty/blank value removes that tag. `undefined` leaves it unchanged. */
+/** Editable descriptive fields of a photo (`OBJE`). Each maps to a sub-tag
+ *  (see {@link mediaInfoTags}); an empty/blank value removes that tag.
+ *  `undefined` leaves it unchanged. */
 export interface MediaInfoFields {
   /** Caption — `TITL`. */
   title?: string;
-  /** The date the media depicts — `DATE`. */
+  /** The date the media depicts. */
   date?: string;
-  /** Place depicted — `PLAC`. */
+  /** Place depicted. */
   place?: string;
-  /** Free-text description — `_DSCR` (the `NOTE` fallback is dropped). */
+  /** Free-text description. */
   description?: string;
+}
+
+/** Where a media item's date, place and description are written. */
+export interface MediaInfoTags {
+  date: "DATE" | "_DATE";
+  place: "PLAC" | "_PLACE";
+  description: "NOTE" | "_DSCR";
+}
+
+/**
+ * The tags a media item's date, place and description are written with.
+ * Neither GEDCOM version has a date or a place on a media item, so a strict
+ * target format writes the extensions `_DATE` and `_PLACE`, and the
+ * description as the standard `NOTE`. The file's own format keeps the bare
+ * `DATE`/`PLAC` and Ancestry's `_DSCR` where the file already writes them, and
+ * writes the same forms as a strict target otherwise.
+ */
+export function mediaInfoTags(records: GedNode[], overrides?: Pick<FormatOverrides, "standard">): MediaInfoTags {
+  const standard: MediaInfoTags = { date: "_DATE", place: "_PLACE", description: "NOTE" };
+  if (overrides?.standard) return standard;
+  return memoOnContent(records, "mediaInfoTags", () => {
+    const habit = new Set<string>();
+    const look = (obje: GedNode) => { for (const c of obje.children) habit.add(c.tag); };
+    for (const rec of records) {
+      if (rec.tag === "OBJE") look(rec);
+      else for (const c of rec.children) if (c.tag === "OBJE" && !c.value) look(c);
+    }
+    return {
+      date: habit.has("DATE") ? "DATE" : standard.date,
+      place: habit.has("PLAC") ? "PLAC" : standard.place,
+      description: habit.has("_DSCR") ? "_DSCR" : standard.description,
+    };
+  });
 }
 
 /**
@@ -249,18 +284,28 @@ export interface MediaInfoFields {
  * `objeInfoOf` would otherwise read as the description). Blank values clear the
  * tag; omitted fields are left untouched.
  */
-export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
+export function setMediaInfo(
+  objeNode: GedNode,
+  fields: MediaInfoFields,
+  records: GedNode[],
+  overrides?: Pick<FormatOverrides, "standard">,
+): void {
+  const tags = mediaInfoTags(records, overrides);
   const fileNode = firstChild(objeNode, "FILE");
-  const set = (tag: string, value: string) => {
-    removeChildren(objeNode, tag);
-    if (fileNode) fileNode.children = fileNode.children.filter((c) => c.tag !== tag);
+  // Every spelling the field may be read from goes (see `objeInfoOf`), and
+  // the value is written under the one the target writes.
+  const set = (spellings: string[], tag: string, value: string) => {
+    for (const s of spellings) {
+      removeChildren(objeNode, s);
+      if (fileNode) fileNode.children = fileNode.children.filter((c) => c.tag !== s);
+    }
     const v = value.trim();
     if (v && tag === "TITL") writeMediaTitle(objeNode, v);
     else if (v) objeNode.children.push({ level: objeNode.level + 1, tag, value: v, children: [] });
   };
-  if (fields.title !== undefined) set("TITL", fields.title);
-  if (fields.date !== undefined) set("DATE", fields.date);
-  if (fields.place !== undefined) set("PLAC", fields.place);
+  if (fields.title !== undefined) set(["TITL"], "TITL", fields.title);
+  if (fields.date !== undefined) set(["DATE", "_DATE"], tags.date, fields.date);
+  if (fields.place !== undefined) set(["PLAC", "_PLACE"], tags.place, fields.place);
   if (fields.description !== undefined) {
     // Only an *inline* NOTE is the legacy description home — a `NOTE @N1@`
     // pointer is a shared note in its own right (not shown as the
@@ -268,7 +313,7 @@ export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
     const isSharedNote = (c: GedNode) => c.tag === "NOTE" && !!c.value && isPointer(c.value.trim());
     objeNode.children = objeNode.children.filter((c) => (c.tag !== "_DSCR" && c.tag !== "NOTE") || isSharedNote(c));
     const v = fields.description.trim();
-    if (v) objeNode.children.push({ level: objeNode.level + 1, tag: "_DSCR", value: v, children: [] });
+    if (v) objeNode.children.push({ level: objeNode.level + 1, tag: tags.description, value: v, children: [] });
   }
 }
 

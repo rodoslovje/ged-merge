@@ -197,8 +197,11 @@ export function objeInfoOf(node: GedNode): ObjeInfo {
     url,
     file,
     title,
-    date: childText(node, "DATE"),
-    place: childText(node, "PLAC"),
+    // Neither version has a date or place on a media item: the bare tags some
+    // programs write, or the extensions a strict target writes (see
+    // `mediaInfoTags`).
+    date: childText(node, "DATE") ?? childText(node, "_DATE"),
+    place: childText(node, "PLAC") ?? childText(node, "_PLACE"),
     description,
   };
 }
