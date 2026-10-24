@@ -336,7 +336,7 @@ export const en = {
   "tools.validate.struct.issue.enumCase": "{{tag}} {{sample}} is written {{standard}} in GEDCOM {{version}}",
   "tools.validate.struct.issue.nameTypeNearest": "{{sample}} is not a GEDCOM {{version}} name type; the standard calls it {{standard}}",
   "tools.validate.struct.issue.nameTypeOther": "{{sample}} is not a GEDCOM {{version}} name type; the standard writes it {{standard}}, with the word kept as its PHRASE",
-  "tools.validate.struct.issue.badY": "{{tag}} {{sample}}: GEDCOM 7.0 allows only Y or nothing after an event tag — any other text belongs in a note on the event",
+  "tools.validate.struct.issue.badY": "{{tag}} {{sample}}: GEDCOM 7.0 allows only Y or nothing after an event tag",
   "tools.validate.struct.issue.calendarEscape": "Date {{sample}} names its calendar the GEDCOM 5.5.1 way; GEDCOM 7.0 writes it as a word (JULIAN)",
   "tools.validate.struct.issue.badAge": "AGE {{sample}} is not in the standard form (such as 42y 3m)",
   "tools.validate.struct.issue.badLang": "LANG {{sample}} is not a BCP 47 language tag (such as en, sl, de-AT)",
