@@ -28,7 +28,6 @@
    a lifespan, or the whole Edit date field, is set in italics. */
 .gm-approx,
 .date-input input.is-approx { font-style: italic; }
-
 /* ---------------- House addresses ---------------- */
 /* A pin before the value, wherever an address is shown: on its own "Stražišče
    11" or "Kidričeva cesta 38" reads as just another name, and the app puts it

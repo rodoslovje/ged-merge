@@ -3481,6 +3481,14 @@ button:focus-visible {
 .date-input > .clearable-wrap { flex: 1 1 auto; min-width: 0; }
 .date-input > input,
 .date-input > .clearable-wrap > input { width: 100%; }
+/* A date that is not stated exactly carries its qualifier (ABT 23 AUG 1868,
+ * FROM 1768 TO 1798) and is set in italics, whose last digit leans past its
+ * advance: a right-aligned field one character too narrow shows the start and
+ * cuts that digit off. Such a field is sized to its own text (DateInput sets
+ * `--date-chars`), in `ch` of its monospace font, plus one for the slant and
+ * its padding; the slot grows to hold it, never below its usual width. */
+.edit-event-date-cell:has(input.is-approx) { flex: 0 0 auto; min-width: 9em; }
+.edit-event-date-cell input.is-approx { width: calc((var(--date-chars) + 1) * 1ch + 24px); }
 /* Dates in words ("okoli 5. marca 1850") run longer than the file's own. */
 .edit-event-date-cell.is-words { flex-basis: 13em; }
 /* How a date being typed reads, and what it will be written as — floated under
