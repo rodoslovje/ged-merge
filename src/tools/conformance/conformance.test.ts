@@ -255,7 +255,7 @@ describe("enumerations", () => {
   it("checks 7.0's Y-or-nothing event lines", () => {
     expect(check70(`0 @I1@ INDI\n1 BIRT Y\n1 DEAT`)).toEqual([]);
     expect(check70(`0 @I1@ INDI\n1 BIRT y`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.badY", fix: "Y" }]);
-    expect(check70(`0 @I1@ INDI\n1 BIRT nezakonski`)[0].fix).toBeUndefined();
+    expect(check70(`0 @I1@ INDI\n1 BIRT nezakonski`)).toMatchObject([{ fix: "nezakonski", toNote: true }]);
   });
 
   it("rewrites a 5.5.1 calendar escape left in a 7.0 date, where the word has a place", () => {
@@ -382,6 +382,31 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toContain("1 FILE https://en.geneanet.org/cemetery/view/13234512\n2 FORM text/html\n");
     expect(serializeGedcom(ds.records, ds)).toContain("1 FILE scans/krst.JPG\n2 FORM image/jpeg\n");
     expect(validateConformance(ds).map((i) => i.messageVars.tag)).toEqual(["FORM"]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("moves the text on a 7.0 event line into a note on the event", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 BIRT ali Ravna Gora?
+2 DATE 1863
+1 DEAT Bokalce 51
+2 NOTE Bokalce 51
+1 BURI y
+0 TRLR`);
+    expect(countFixableConformance(ds, "notes")).toBe(2);
+    expect(countFixableConformance(ds, "values")).toBe(1);
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "notes");
+    expect(patches).toHaveLength(1);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 BIRT\n2 DATE 1863\n2 NOTE ali Ravna Gora?\n");
+    // The same note already there is not written twice.
+    expect(out).toContain("1 DEAT\n2 NOTE Bokalce 51\n1 BURI y\n");
+    expect(validateConformance(ds).map((i) => i.messageKey.split(".").pop())).toEqual(["badY"]);
 
     applyRecordPatches(ds, patches, "undo");
     expect(serializeGedcom(ds.records, ds)).toBe(before);

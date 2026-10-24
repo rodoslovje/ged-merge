@@ -59,6 +59,9 @@ export interface ConformanceIssue {
   /** Set when every repeat is an exact copy of the first, so the repeats can
    *  go without losing anything. */
   repeat?: boolean;
+  /** Set when `fix` is text the fix moves off the line into a NOTE beneath
+   *  it (a 7.0 event line carrying more than Y). */
+  toNote?: boolean;
 }
 
 // ── Table compilation ────────────────────────────────────────────────────────
@@ -315,13 +318,16 @@ function checkPayload(
   const fixable = !!base.recordId;
   const emit = (
     category: ConformanceCategory, messageKey: string, vars: Record<string, string | number>, fix?: string,
+    toNote?: boolean,
   ) =>
     ctx.emit({
       ...base, category, severity: category === "pointerType" ? "error" : "warning",
       messageKey: `tools.validate.struct.issue.${messageKey}`,
       messageVars: { tag, sample: truncate(value), parent: loc.where(), version: spec.version, ...vars },
-      sample: truncate(value), tooltip: fix ? `${lineOf(node)} → ${fix}` : lineOf(node), path: loc.path(),
+      sample: truncate(value), path: loc.path(),
+      tooltip: fix ? `${lineOf(node)} → ${toNote ? `${node.level + 1} NOTE ${fix}` : fix}` : lineOf(node),
       fix: fixable ? fix : undefined,
+      toNote: fixable && toNote ? true : undefined,
     });
 
   if (payload.startsWith("@")) {
@@ -355,7 +361,11 @@ function checkPayload(
   if (!value) return;
 
   if (payload === "Y") {
-    if (value !== "Y") emit("enumValue", "badY", {}, value === "y" ? "Y" : undefined);
+    // A lower-case y is the Y. Any other text is something said about the
+    // event (a doubtful date or place, an address): the fix keeps it word for
+    // word in a NOTE on the event.
+    if (value === "y") emit("enumValue", "badY", {}, "Y");
+    else if (value !== "Y") emit("enumValue", "badY", {}, value, true);
   } else if (payload.startsWith("E:") || payload.startsWith("L:")) {
     const set = spec.enums.get(payload.slice(2));
     if (!set) return;
@@ -422,7 +432,8 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
 }
 
 /** The findings a fix can settle: a value written in the wrong case, a line
- *  repeated as an exact copy, or a media file's missing FORM. */
+ *  repeated as an exact copy, a media file's missing FORM, or text on an
+ *  event line that belongs in its NOTE. */
 export function isFixable(issue: ConformanceIssue): boolean {
   return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat);
 }
