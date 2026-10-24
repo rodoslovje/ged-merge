@@ -97,6 +97,7 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   ambiguousDate: 0,
   pointerType: 0,
   cardinality: 0,
+  missingLine: 0,
   misplacedTag: 0,
   enumValue: 0,
   valueFormat: 0,
@@ -503,7 +504,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   for (const issue of validateConformance(ds)) push(issue);
 
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
+  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);

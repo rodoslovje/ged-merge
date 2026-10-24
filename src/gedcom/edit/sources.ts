@@ -10,7 +10,8 @@ export const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
  *  links, the repository link and the bookkeeping timestamps. */
 export const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
 import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
-import { createMediaRecord, referencedObjeXrefs } from "./media";
+import { createMediaRecord, prefersMimeForm, referencedObjeXrefs } from "./media";
+import { fileFormOf } from "../mediaForm";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 
 /** Fields for a newly authored `SOUR` record — see `createSourceRecord`. */
@@ -324,7 +325,13 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
         bumpSourceCacheVersion(records);
       }
     } else if (url && files.length === 0) {
-      objeNode.children.unshift({ level: objeNode.level + 1, tag: "FILE", value: url, children: [] });
+      const form = fileFormOf(url, prefersMimeForm(records));
+      objeNode.children.unshift({
+        level: objeNode.level + 1,
+        tag: "FILE",
+        value: url,
+        children: form ? [{ level: objeNode.level + 2, tag: "FORM", value: form, children: [] }] : [],
+      });
       bumpSourceCacheVersion(records);
     } else if (url) {
       // The linked OBJE holds only local files — the typed URL becomes its own

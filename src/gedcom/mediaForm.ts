@@ -33,3 +33,14 @@ export const MIME_TO_EXT: Record<string, string> = Object.fromEntries(
     .reverse() // first spelling of each extension wins (jpg over jpeg, tif over tiff)
     .map(([ext, mime]) => [mime, ext]),
 );
+
+/** The `FORM` value for a `FILE` — the extension's own token where the name
+ *  carries one (`tif`, the 5.5.1 spelling, never `tiff`), `htm` for a web
+ *  page (`https://…`, or a bare `www.…`); its IANA media type when `mime`
+ *  (7.0). Undefined for an extensionless local file, whose format nothing
+ *  states. */
+export function fileFormOf(file: string, mime = false): string | undefined {
+  const ext = /\.(jpe?g|png|gif|tiff?|bmp|pdf|wav|mp[34]|webp)(?:[?#]|$)/i.exec(file.trim())?.[1].toLowerCase();
+  const form = ext ? (ext === "jpeg" ? "jpg" : ext === "tiff" ? "tif" : ext) : /^(?:https?:\/\/|www\.)/i.test(file.trim()) ? "htm" : undefined;
+  return form && mime ? (EXT_TO_MIME[form] ?? form) : form;
+}

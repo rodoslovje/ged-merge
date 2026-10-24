@@ -1298,8 +1298,9 @@
             <p>
               The structure pass also holds the file to the GEDCOM standard its header declares — 5.5, 5.5.1, 5.5.5
               or 7.0 — line by line: <strong>pointers to the wrong record</strong> (a parent-family link that points
-              at a person, or the <em>@VOID@</em> null pointer outside 7.0), <strong>repeated or missing lines</strong>
-              (two SEX lines on one person, two dates on one event, a 5.5.1 header without its CHAR line),
+              at a person, or the <em>@VOID@</em> null pointer outside 7.0), <strong>repeated lines</strong>
+              (two SEX lines on one person, two dates on one event), <strong>missing lines</strong> (a 5.5.1 header
+              without its CHAR line, a media file without its FORM, a translated place without its LANG),
               <strong>tags out of place</strong> (a standard tag under a line that cannot carry it, listed once per
               habit with a count), <strong>non-standard values</strong> (a value outside the standard's list in SEX,
               PEDI, QUAY, RESN, ROLE, MEDI, a name's TYPE and the other enumerated lines), <strong>malformed
@@ -1307,7 +1308,10 @@
               Extension tags such as <em>_UID</em> are allowed anywhere and not judged. <strong>Fix value
               spelling</strong> rewrites a value that differs from the list only in capitals (<em>Adopted</em> →
               <em>adopted</em>), and <strong>Remove repeated lines</strong> drops the exact copies of a line the
-              standard allows once. A value outside the list, or repeats that differ, are yours to settle.
+              standard allows once. <strong>Add media formats</strong> gives a media file without a FORM line the
+              one its name states — <em>text/html</em> for a web address, <em>image/jpeg</em> for a <em>.jpg</em>.
+              A value outside the list, repeats that differ, or a file whose name states no format are yours to
+              settle.
             </p>
             <p>
               In GEDCOM 7 a translation of a place or a name (TRAN) must name its language in a LANG line beneath

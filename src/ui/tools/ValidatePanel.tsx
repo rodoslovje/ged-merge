@@ -30,7 +30,7 @@ import { TranslationLangSection } from "./TranslationLangSection";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -45,6 +45,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   dangling: "danglingXref",
   values: "enumValue",
   repeats: "cardinality",
+  forms: "missingLine",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -256,7 +257,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -476,6 +477,14 @@ export function ValidatePanel({
         run: () => onFixConformance("repeats", { id: issue.recordId!, path: issue.path }),
       };
     }
+    // A media file's missing FORM, read off its name.
+    if (issue.category === "missingLine" && issue.fix !== undefined && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneAdd", { tag: issue.sample, value: issue.fix }),
+        hint: t("tools.validate.fixOneAddHint"),
+        run: () => onFixConformance("forms", { id: issue.recordId!, path: issue.path }),
+      };
+    }
     return null;
   }
 
@@ -520,6 +529,8 @@ export function ValidatePanel({
   if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
+  const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
+  if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   // A translation the standard wants a language on, written without one — the
   // worklist below re-reads those lines on the main thread, so only then.
   const hasUntaggedTran = !!structure?.issues.some(
@@ -697,6 +708,18 @@ export function ValidatePanel({
                   {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{structure!.counts[c]}</span>
                 </button>
               ))}
+              {/* The file's version ends the chips' last line, on the right. */}
+              <span className="tools-version">
+                {t("tools.validate.version", { version })}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  title={t("tools.validate.saveAsHint", { version: otherVersion })}
+                  onClick={() => onSaveAs(otherVersion)}
+                >
+                  {t("tools.validate.saveAs", { version: otherVersion })}
+                </button>
+              </span>
             </div>
           </div>
           {/* What saving will do to a file that didn't arrive as UTF-8. It sits
@@ -708,17 +731,6 @@ export function ValidatePanel({
           {fileFixes.map((fix) => (
             <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
           ))}
-          <p className="tools-file-note tools-version">
-            {t("tools.validate.version", { version })}{" "}
-            <button
-              type="button"
-              className="btn-secondary"
-              title={t("tools.validate.saveAsHint", { version: otherVersion })}
-              onClick={() => onSaveAs(otherVersion)}
-            >
-              {t("tools.validate.saveAs", { version: otherVersion })}
-            </button>
-          </p>
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
@@ -801,6 +813,7 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "unknownTag",
   "misplacedTag",
   "cardinality",
+  "missingLine",
   "enumValue",
   "valueFormat",
   "xrefShape",

@@ -2868,4 +2868,19 @@ describe("createMediaRecord FORM dialect", () => {
     ].join("\n"));
     expect(formOf(createMediaRecord(ds.records, "krst.jpg"))).toBe("image/jpeg");
   });
+
+  it("states the FORM even where the file's older media leave it out", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 7.0",
+      "0 @O1@ OBJE",
+      "1 FILE https://en.geneanet.org/cemetery/view/1",
+      "0 @O2@ OBJE",
+      "1 FILE https://en.geneanet.org/cemetery/view/2",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(formOf(createMediaRecord(ds.records, "https://en.geneanet.org/cemetery/view/3"))).toBe("text/html");
+  });
 });

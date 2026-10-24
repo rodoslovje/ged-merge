@@ -667,7 +667,7 @@ function childOrderOf(record: GedNode): string[] {
 
 /**
  * Build a new plain link node for `url`, shaped per `format`. For "OBJE", the
- * shared `createMediaRecord` mints the top-level record — same FORM habit,
+ * shared `createMediaRecord` mints the top-level record — same FORM line,
  * record grouping, xref bookkeeping and cache bump as an editor-added one —
  * and this returns a pointer to it.
  */
