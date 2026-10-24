@@ -479,6 +479,54 @@ function foldFilingNumber(rec: GedNode): string | undefined {
   return value;
 }
 
+/**
+ * Restate one source's flat `PLAC`/`DATE` as the standard's coverage: a
+ * `DATA > EVEN <type>` block per register read from its title, carrying the
+ * period and the place, with a flat `AGNC` moved under `DATA` and a `FILN`
+ * folded into the repository link's `CALN`. Undefined (and the record
+ * untouched) when there is nothing flat to restate or the title names no
+ * register type — the standard's `EVEN` needs one, and none is guessed.
+ */
+export function toStandardCoverage(
+  rec: GedNode,
+  baptismTag: "BIRT" | "BAPM",
+): { before: string; after: string; title?: string } | undefined {
+  const plac = firstChild(rec, "PLAC");
+  const date = firstChild(rec, "DATE");
+  if (!plac?.value?.trim() && !date?.value?.trim()) return undefined;
+  const title = sourceTitle(rec);
+  // The register type is read from the source's own title, and the example
+  // row carries that title with it: a coverage claim the reader cannot
+  // trace to something the book itself says is indistinguishable from a
+  // guess, however right it happens to be.
+  const events = coverageEventsFromTitle(
+    title,
+    childText(rec, "ABBR"),
+    plac?.value?.trim(),
+    date?.value?.trim(),
+    baptismTag,
+  );
+  if (events.length === 0) return undefined; // no register type to state
+  applyStandardCoverage(rec, events, undefined);
+  if (plac) spliceChild(rec, plac);
+  if (date) spliceChild(rec, date);
+  const foldedFiln = foldFilingNumber(rec);
+  return {
+    before: [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`, foldedFiln && `FILN ${foldedFiln}`]
+      .filter(Boolean)
+      .join(" · "),
+    after: [
+      ...events.map((ev) =>
+        [`EVEN ${ev.type}`, coveragePeriod(ev.date), ev.place && `PLAC ${ev.place}`].filter(Boolean).join(" "),
+      ),
+      foldedFiln && `CALN ${foldedFiln}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    title,
+  };
+}
+
 export function normalizeSourceCoverage(
   records: GedNode[],
   target: "vendor" | "standard",
@@ -517,40 +565,8 @@ export function normalizeSourceCoverage(
       const early = alreadyStandard ? foldFilingNumber(rec) : undefined;
       if (early) note(`FILN ${early}`, `CALN ${early}`);
       if (alreadyStandard) continue;
-      const plac = firstChild(rec, "PLAC");
-      const date = firstChild(rec, "DATE");
-      if (!plac?.value?.trim() && !date?.value?.trim()) continue;
-      const title = sourceTitle(rec);
-      // The register type is read from the source's own title, and the example
-      // row carries that title with it: a coverage claim the reader cannot
-      // trace to something the book itself says is indistinguishable from a
-      // guess, however right it happens to be.
-      const events = coverageEventsFromTitle(
-        title,
-        childText(rec, "ABBR"),
-        plac?.value?.trim(),
-        date?.value?.trim(),
-        baptismTag,
-      );
-      if (events.length === 0) continue; // no register type to state
-      applyStandardCoverage(rec, events, undefined);
-      if (plac) spliceChild(rec, plac);
-      if (date) spliceChild(rec, date);
-      const foldedFiln = foldFilingNumber(rec);
-      note(
-        [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`, foldedFiln && `FILN ${foldedFiln}`]
-          .filter(Boolean)
-          .join(" · "),
-        [
-          ...events.map((ev) =>
-            [`EVEN ${ev.type}`, coveragePeriod(ev.date), ev.place && `PLAC ${ev.place}`].filter(Boolean).join(" "),
-          ),
-          foldedFiln && `CALN ${foldedFiln}`,
-        ]
-          .filter(Boolean)
-          .join(" · "),
-        title,
-      );
+      const done = toStandardCoverage(rec, baptismTag);
+      if (done) note(done.before, done.after, done.title);
       continue;
     }
 

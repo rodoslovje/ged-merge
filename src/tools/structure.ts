@@ -83,6 +83,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: every CHAN/CREA below a record, which the
    *  fix lifts onto the record file-wide. */
   stamps?: boolean;
+  /** Conformance `misplacedTag`: a source's flat PLAC/DATE, which the fix
+   *  restates as DATA > EVEN file-wide. */
+  coverage?: boolean;
 }
 
 export interface StructureReport {

@@ -485,6 +485,34 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("restates a source's flat PLAC/DATE as DATA > EVEN in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 PLAC Šenčur
+1 DATE 1784-1812
+1 AGNC Nadškofijski arhiv Ljubljana
+0 @S2@ SOUR
+1 TITL U.S., World War II Draft Registration Cards, 1942
+1 DATE 2010
+1 PLAC Lehi, UT, USA
+0 TRLR`);
+    const rows = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+    expect(rows.filter((i) => i.coverage).map((i) => i.sample).sort()).toEqual(["DATE", "PLAC"]);
+    expect(countFixableConformance(ds, "coverage")).toBe(1); // S2's title names no register
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "coverage");
+    expect(patches.map((p) => p.id)).toEqual(["@S1@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toMatch(/0 @S1@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1784 TO 1812\n3 PLAC Šenčur\n2 AGNC Nadškofijski arhiv Ljubljana\n0 @S2@/);
+    expect(out).toContain("1 DATE 2010\n1 PLAC Lehi, UT, USA\n"); // left for the user
+    expect(validateConformance(ds).filter((i) => i.recordId === "@S1@")).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("lifts CHAN/CREA below the records onto them, as one row", () => {
     const body = `0 @I1@ INDI
 1 NAME Alojz /Homan/

@@ -35,7 +35,7 @@ import { useTranslationLang } from "./TranslationLangSection";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", notes: "ConformNotes" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", notes: "ConformNotes" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -56,6 +56,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   fileTitles: "misplacedTag",
   agency: "misplacedTag",
   stamps: "misplacedTag",
+  coverage: "misplacedTag",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -112,7 +113,7 @@ function structGroup(c: StructCategory): HealthGroup {
 const FIX_GROUP: Record<FixKind, HealthGroup> = {
   links: "data", dups: "data", families: "data", dangling: "data", roles: "data", sex: "data", dates: "data",
   nonStandard: "gedcom", values: "gedcom", notes: "gedcom", repeats: "gedcom", forms: "gedcom",
-  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom",
+  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom",
 };
 
 /** The xref a `brokenLink` finding names — the family a person points at, or the
@@ -200,7 +201,10 @@ export function ValidatePanel({
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
-  const { target, dialect } = useTargetFormat();
+  const { target, dialect, formatOverrides } = useTargetFormat();
+  // So does a file that keeps its program's flat source fields (PLAC/DATE on
+  // the source itself).
+  const keptCoverage = !target.strict && formatOverrides.sourceCoverage === "vendor";
   // A file kept with its variations keeps its program's event stamps: the row
   // says whose habit it is, and offers no fix.
   const keptStamps = !target.strict && !!dialect?.nestedStamps;
@@ -326,7 +330,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -587,6 +591,14 @@ export function ValidatePanel({
         run: () => onFixConformance("agency"),
       };
     }
+    // A source's flat place or date: restated as DATA > EVEN in every source.
+    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage) {
+      return {
+        label: t("tools.validate.fixOneCoverage"),
+        hint: t("tools.validate.fixOneCoverageHint"),
+        run: () => onFixConformance("coverage"),
+      };
+    }
     // Change and creation stamps below the records: one row, every record.
     if (issue.category === "misplacedTag" && issue.stamps && issue.recordId && !keptStamps) {
       return {
@@ -619,6 +631,11 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.relocate)
       ? [countFixableConformance(dataset, "relocate"), countFixableConformance(dataset, "fileTitles")]
       : [0, 0]),
+    [structure, dataset],
+  );
+  // Sources whose flat PLAC/DATE the coverage fix would restate.
+  const fixableCoverage = useMemo(
+    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "coverage") : 0),
     [structure, dataset],
   );
   // Records whose nested CHAN/CREA the stamps fix would lift.
@@ -684,6 +701,7 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
   if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
@@ -938,7 +956,7 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
-                    variationOf={keptStamps && row.issue.stamps ? dialect?.software : undefined}
+                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && row.issue.coverage) ? dialect?.software ?? "" : undefined}
                   />
                 );
               })}
@@ -1133,7 +1151,11 @@ function StructRow({
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
       <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
-      {variationOf && <span className="tools-issue-detail">{t("tools.validate.struct.variationOf", { software: variationOf })}</span>}
+      {variationOf !== undefined && (
+        <span className="tools-issue-detail">
+          {variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}
+        </span>
+      )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}

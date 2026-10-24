@@ -1,5 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { liftNestedStamps } from "../gedcom/chanCrea";
+import { toStandardCoverage } from "./sourceReshape/apply";
+import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
@@ -32,6 +34,8 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *    is kept;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
  *    record: moved to `DATA.AGNC` in every source at once;
+ *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
+ *    `DATA > EVEN` coverage in every source whose title names its register;
  *  - **stamps** — `CHAN`/`CREA` below a record (on an event, an attribute…):
  *    the newest change and the oldest creation are lifted onto the record,
  *    the rest dropped, in every record at once.
@@ -42,7 +46,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -75,7 +79,7 @@ function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, ap
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -99,6 +103,11 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "coverage") {
+    if (!fixable.some((i) => i.coverage)) return 0;
+    const baptism = baptismTargetTag(dataset.records);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && toStandardCoverage(cloneNode(r), baptism)).length;
+  }
   if (kind === "stamps") {
     if (!fixable.some((i) => i.stamps)) return 0;
     const v7 = isV7Table(dataset.records);
@@ -126,7 +135,7 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
+    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
@@ -134,7 +143,8 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const agencyPass = issues.some((i) => i.agency);
   const formsPass = issues.some((i) => i.category === "missingLine" && i.fix !== undefined);
   const stampsPass = issues.some((i) => i.stamps);
-  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass) return [];
+  const coveragePass = issues.some((i) => i.coverage);
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -184,6 +194,16 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
         const before = cloneNode(rec);
         journal.keep(rec.xref, before);
         fillMediaForms(rec, v7, only?.value, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (coveragePass) {
+      const baptism = baptismTargetTag(dataset.records);
+      for (const rec of dataset.records) {
+        if (rec.tag !== "SOUR" || !rec.xref || !toStandardCoverage(cloneNode(rec), baptism)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        toStandardCoverage(rec, baptism);
         patches.push(recordPatch(dataset, rec.xref, rec, before));
       }
     }

@@ -76,6 +76,10 @@ export interface ConformanceIssue {
    *  an attribute…), where neither version allows them: the fix lifts the
    *  newest change and the oldest creation onto the record and drops the rest. */
   stamps?: boolean;
+  /** Set on a source's flat `PLAC`/`DATE`, which the standard keeps in
+   *  `DATA > EVEN`: the fix restates them there in every source whose title
+   *  names the register type. */
+  coverage?: boolean;
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -276,6 +280,7 @@ function tallyMisplaced(
       // A source's own agency belongs under its DATA — the same move file-wide.
       agency: (parent === "SOUR" && node.tag === "AGNC") || undefined,
       stamps: stamp || undefined,
+      coverage: (parent === "SOUR" && (node.tag === "PLAC" || node.tag === "DATE")) || undefined,
     },
   });
 }
@@ -448,7 +453,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage);
 }
 
 /** The findings in `records` that the fix would settle — for one record only
