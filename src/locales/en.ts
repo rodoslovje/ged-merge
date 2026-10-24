@@ -182,6 +182,7 @@ export const en = {
   "tools.validate.fixConformFileTitlesDone_other": "Removed the second title from {{count}} media records.",
   "tools.validate.fixConformFileTitlesNone": "No media records with a second title.",
   "tools.validate.fixOneFileTitles": "Keep the FILE's title",
+  "tools.validate.editSourceOpen": "Edit source",
   "tools.validate.fixable": "Fixable",
   "tools.validate.pickAll": "Select all fixable ({{count}})",
   "tools.validate.pickOne": "Select this fix",

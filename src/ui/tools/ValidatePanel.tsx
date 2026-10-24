@@ -1220,7 +1220,11 @@ export function ValidatePanel({
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
                       : mediaLinkOf(row.issue)
                         ? { label: t("mediaLink.title"), run: () => setEditMedia(mediaLinkOf(row.issue)!) }
-                        : undefined}
+                        // A source's own finding with no fix (a reversed range, …) is
+                        // settled in its editor: say so on the row, not only on the title.
+                        : row.issue.recordTag === "SOUR" && row.issue.recordId && !isGrouped(row.issue) && !structRowFix(row.issue)
+                          ? { label: t("tools.validate.editSourceOpen"), run: () => setEditSrc(row.issue.recordId!) }
+                          : undefined}
                   />
                 );
               })}
