@@ -474,6 +474,7 @@ export const sl = {
   "tools.validate.placeCoord.occ_two": "{{count}} dogodka za dopolnitev",
   "tools.validate.placeCoord.occ_few": "{{count}} dogodki za dopolnitev",
   "tools.validate.placeCoord.occ_other": "{{count}} dogodkov za dopolnitev",
+  "tools.validate.eventText.title": "Besedilo v oznaki dogodka",
   "tools.validate.tranLang.open": "Izberi jezike",
   "tools.validate.tranLang.title": "Prevodi brez jezika",
   "tools.validate.tranLang.hint": "GEDCOM 7 zahteva vrstico LANG pod vsakim prevodom (TRAN) imena kraja ali osebe. Za vsako ime izberite jezik; predlog temelji na črkovanju imena. Če so v eni vrstici imena v različnih jezikih, se vrstica razdeli na več vrstic TRAN, po eno za vsak jezik.",

@@ -41,7 +41,7 @@ const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles:
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
-const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
+const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory | "eventText"> = {
   links: "brokenLink",
   dups: "duplicatePointer",
   families: "duplicateFamily",
@@ -53,7 +53,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   values: "enumValue",
   repeats: "cardinality",
   forms: "missingLine",
-  notes: "enumValue",
+  notes: "eventText",
   relocate: "misplacedTag",
   fileTitles: "misplacedTag",
   agency: "misplacedTag",
@@ -239,7 +239,9 @@ export function ValidatePanel({
   if (scan.status === "done") lastRef.current = scan.result;
   const report = scan.status === "done" ? scan.result.report : (lastRef.current?.report ?? null);
   const structure = scan.status === "done" ? scan.result.structure : (lastRef.current?.structure ?? null);
-  const [filter, setFilter] = useState<IssueCategory | StructCategory | "all" | "tranLang">("all");
+  // Besides the categories, two chips of their own carved out of them: the
+  // translations without a language and the text on event lines.
+  const [filter, setFilter] = useState<IssueCategory | StructCategory | "all" | "tranLang" | "eventText">("all");
   const [query, setQuery] = useState("");
   // Transient confirmation after a one-button fix: which fix, and how many
   // records it repaired.
@@ -364,6 +366,7 @@ export function ValidatePanel({
   // The last translation given its language takes its chip away: back to All.
   useEffect(() => {
     if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
+    if (filter === "eventText" && !structure?.issues.some(isEventText)) setFilter("all");
   }, [filter, structure]);
 
   useEffect(() => {
@@ -422,7 +425,9 @@ export function ValidatePanel({
       if (structGroup(issue.category) !== group) continue;
       // Translations without a language are a chip of their own, carved out
       // of the missing lines they technically are.
-      if (filter === "tranLang" ? !isUntaggedTran(issue) : filter !== "all" && (issue.category !== filter || isUntaggedTran(issue))) continue;
+      if (filter === "tranLang" ? !isUntaggedTran(issue)
+        : filter === "eventText" ? !isEventText(issue)
+        : filter !== "all" && (issue.category !== filter || isUntaggedTran(issue) || isEventText(issue))) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (q && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(q)) continue;
       // A translation without a language is one row however often it occurs:
@@ -765,6 +770,7 @@ export function ValidatePanel({
   // A translation the standard wants a language on, written without one — the
   // worklist below re-reads those lines on the main thread, so only then.
   const untaggedTranCount = structure?.issues.filter(isUntaggedTran).length ?? 0;
+  const eventTextCount = structure?.issues.filter(isEventText).length ?? 0;
   const hasUntaggedTran = untaggedTranCount > 0;
   const tranLang = useTranslationLang({
     dataset,
@@ -1023,7 +1029,9 @@ export function ValidatePanel({
                 </button>
               ))}
               {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => {
-                const count = structure!.counts[c] - (c === "missingLine" ? untaggedTranCount : 0);
+                const count = structure!.counts[c]
+                  - (c === "missingLine" ? untaggedTranCount : 0)
+                  - (c === "enumValue" ? eventTextCount : 0);
                 return count > 0 && (
                   <button
                     key={c}
@@ -1040,6 +1048,14 @@ export function ValidatePanel({
                   onClick={() => setFilter("tranLang")}
                 >
                   {t("tools.validate.tranLang.title")} <span className="tools-chip-count">{untaggedTranCount}</span>
+                </button>
+              )}
+              {group === "gedcom" && eventTextCount > 0 && (
+                <button
+                  className={`tools-chip ${filter === "eventText" ? "active" : ""}`}
+                  onClick={() => setFilter("eventText")}
+                >
+                  {t("tools.validate.eventText.title")} <span className="tools-chip-count">{eventTextCount}</span>
                 </button>
               )}
             </div>
@@ -1150,6 +1166,11 @@ const GROUPED_KEYS = new Set([
 ]);
 function isGrouped(i: StructIssue): boolean {
   return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
+}
+
+/** Text on an event line (`DEAT 1.5y old`), which the fix moves into a note. */
+function isEventText(i: StructIssue): boolean {
+  return i.messageKey === "tools.validate.struct.issue.badY" && !!i.toNote;
 }
 
 /** A translation the standard wants a language on, written without one. */

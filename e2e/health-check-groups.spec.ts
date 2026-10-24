@@ -38,6 +38,9 @@ test("the health check lists data issues and GEDCOM issues on their own tabs", a
   await expect(list).toContainText("may hold only Y");
   await expect(list).not.toContainText("Sex not recorded");
   await expect(page.getByRole("button", { name: /Move event text into notes/ })).toBeVisible();
+  // Text on event lines is a chip of its own, carved out of the values.
+  await page.locator(".tools-chip", { hasText: "Text on event lines" }).click();
+  await expect(list).toContainText("may hold only Y");
 
   // A page of its own: Back returns to the data issues.
   await page.goBack();

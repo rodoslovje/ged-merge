@@ -380,6 +380,7 @@ export const en = {
   "tools.validate.placeCoord.none": "Nothing to fill.",
   "tools.validate.placeCoord.occ_one": "{{count}} event to fill",
   "tools.validate.placeCoord.occ_other": "{{count}} events to fill",
+  "tools.validate.eventText.title": "Text on event lines",
   "tools.validate.tranLang.open": "Choose languages",
   "tools.validate.tranLang.title": "Translations without a language",
   "tools.validate.tranLang.hint": "GEDCOM 7 requires a LANG line under every translation (TRAN) of a place or a person's name. Choose the language of each name; the suggestion comes from its spelling. A line holding names in different languages is split into one TRAN line per language.",
