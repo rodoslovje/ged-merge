@@ -80,6 +80,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a source's own AGNC, which the fix moves to
    *  DATA.AGNC file-wide. */
   agency?: boolean;
+  /** Conformance `misplacedTag`: every CHAN/CREA below a record, which the
+   *  fix lifts onto the record file-wide. */
+  stamps?: boolean;
 }
 
 export interface StructureReport {

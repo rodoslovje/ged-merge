@@ -484,6 +484,59 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("lifts CHAN/CREA below the records onto them, as one row", () => {
+    const body = `0 @I1@ INDI
+1 NAME Alojz /Homan/
+1 BIRT
+2 DATE 5 MAY 1905
+2 CHAN
+3 DATE 2 SEP 2025
+4 TIME 10:21:13
+2 CREA
+3 DATE 10 SEP 2025
+1 DEAT
+2 DATE 30 NOV 1907
+2 CHAN
+3 DATE 2 SEP 2025
+4 TIME 10:21:23
+2 CREA
+3 DATE 1 JAN 2020
+1 CHAN
+2 DATE 1 AUG 2025
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 OCCU kmetica
+2 CHAN
+3 DATE 3 MAR 2024
+1 CHAN
+2 DATE 1 AUG 2026`;
+    const ds70 = dataset(`${HEAD_70}\n${body}\n0 TRLR`);
+    const rows = validateConformance(ds70).filter((i) => i.category === "misplacedTag");
+    expect(rows.map((i) => [i.messageKey.split(".").pop(), i.stamps, i.messageVars.count])).toEqual([["misplacedStamps", true, 5]]);
+    expect(countFixableConformance(ds70, "stamps")).toBe(2);
+    const before = serializeGedcom(ds70.records, ds70);
+
+    const patches = fixConformance(ds70, "stamps");
+    const out = serializeGedcom(ds70.records, ds70);
+    // The newest change is newer than the record's own; the oldest creation is new to it.
+    expect(out).toContain("1 BIRT\n2 DATE 5 MAY 1905\n1 DEAT\n2 DATE 30 NOV 1907\n1 CHAN\n2 DATE 2 SEP 2025\n3 TIME 10:21:23\n");
+    expect(out).toMatch(/\n1 CREA\n2 DATE 1 JAN 2020\n/);
+    // An older stamp leaves the record's newer change alone.
+    expect(out).toContain("1 OCCU kmetica\n1 CHAN\n2 DATE 1 AUG 2026\n");
+    expect(validateConformance(ds70)).toEqual([]);
+
+    applyRecordPatches(ds70, patches, "undo");
+    expect(serializeGedcom(ds70.records, ds70)).toBe(before);
+
+    // 5.5.1 has no CREA: the creation goes up as _CREA.
+    const ds551 = dataset(`${HEAD_551}\n${body}\n0 TRLR`);
+    fixConformance(ds551, "stamps");
+    const out551 = serializeGedcom(ds551.records, ds551);
+    expect(out551).toMatch(/\n1 _CREA\n2 DATE 1 JAN 2020\n/);
+    expect(out551).not.toMatch(/\n[2-9] (CHAN|CREA)\n/);
+    expect(validateConformance(ds551).filter((i) => i.recordId === "@I1@" || i.recordId === "@I2@")).toEqual([]);
+  });
+
   it("moves the text on a 7.0 event line into a note on the event", () => {
     const ds = dataset(`${HEAD_70}
 0 @I1@ INDI
@@ -552,7 +605,7 @@ describe("corpus", () => {
     // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
     // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
     // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAN@FAM.MARR", "misplaced CHAN@INDI.BIRT", "misplaced CHAN@INDI.BURI", "misplaced CHAN@INDI.CHR", "misplaced CHAN@INDI.DEAT", "misplaced CHAN@INDI.NATU", "misplaced CHAN@INDI.OCCU", "misplaced CHAN@INDI.RESI", "misplaced CREA@FAM.MARR", "misplaced CREA@INDI.BIRT", "misplaced CREA@INDI.BURI", "misplaced CREA@INDI.CHR", "misplaced CREA@INDI.DEAT", "misplaced CREA@INDI.NAME", "misplaced CREA@INDI.NATU", "misplaced CREA@INDI.OCCU", "misplaced CREA@INDI.RELI", "misplaced CREA@INDI.RESI", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.

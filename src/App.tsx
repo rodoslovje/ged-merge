@@ -37,7 +37,7 @@ import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
-import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
+import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { CompareTree } from "./ui/CompareTree";
@@ -1939,7 +1939,8 @@ function AppContent() {
       }));
     }
 
-    const usage = mainDataset.chanCreaUsage;
+    // What the target lets the save stamp, and what the file still does.
+    const usage = stampUsageFor(mainDataset.chanCreaUsage, target, preview.records);
     // Every convention the file might keep, not just CHAN/CREA on people: a
     // MyHeritage file stamps `_UPD` and no CHAN at all, and a file may stamp
     // only its sources. `stampChanCrea` writes nothing where a flag is off.

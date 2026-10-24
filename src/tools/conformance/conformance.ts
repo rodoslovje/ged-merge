@@ -72,6 +72,10 @@ export interface ConformanceIssue {
   /** Set on a source's own `AGNC`, which neither version allows on the record:
    *  the fix moves it to `DATA.AGNC` in every source at once. */
   agency?: boolean;
+  /** Set on the one row for every `CHAN`/`CREA` below a record (on an event,
+   *  an attribute…), where neither version allows them: the fix lifts the
+   *  newest change and the oldest creation onto the record and drops the rest. */
+  stamps?: boolean;
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -130,7 +134,7 @@ interface Ctx {
   recordTags: Map<string, string>;
   emit: (issue: ConformanceIssue) => void;
   /** Misplaced tags, tallied per tag and parent so a habit is one row. */
-  misplaced: Map<string, { count: number; issue: ConformanceIssue }>;
+  misplaced: Map<string, { count: number; issue: ConformanceIssue; tags?: Set<string> }>;
 }
 
 function checkRecord(rec: GedNode, ctx: Ctx): void {
@@ -229,14 +233,19 @@ function tallyMisplaced(
   ctx: Ctx, node: GedNode, parent: string, key: "misplaced" | "misplacedRoot",
   base: { recordId?: string; recordTag?: string }, path: string,
 ): void {
-  const k = `${node.tag}\0${parent}`;
+  // Change and creation stamps below the record are one habit, whichever
+  // event or attribute carries them: one row for all of them.
+  const stamp = (node.tag === "CHAN" || node.tag === "CREA") && parent.includes(".");
+  const k = stamp ? "\0stamps" : `${node.tag}\0${parent}`;
   const seen = ctx.misplaced.get(k);
   if (seen) {
     seen.count++;
+    seen.tags?.add(node.tag);
     return;
   }
   ctx.misplaced.set(k, {
     count: 1,
+    tags: stamp ? new Set([node.tag]) : undefined,
     issue: {
       ...base, category: "misplacedTag", severity: "warning",
       messageKey: `tools.validate.struct.issue.${key}`,
@@ -247,6 +256,7 @@ function tallyMisplaced(
       relocate: (parent === "OBJE" && (node.tag === "TITL" || node.tag === "FORM")) || undefined,
       // A source's own agency belongs under its DATA — the same move file-wide.
       agency: (parent === "SOUR" && node.tag === "AGNC") || undefined,
+      stamps: stamp || undefined,
     },
   });
 }
@@ -395,8 +405,12 @@ function scan(records: GedNode[], table: SpecTable, only?: string): ConformanceI
     if (only !== undefined && rec.xref !== only) continue;
     checkRecord(rec, ctx);
   }
-  for (const { count, issue } of ctx.misplaced.values()) {
+  for (const { count, issue, tags } of ctx.misplaced.values()) {
     issue.messageVars.count = count;
+    if (tags) {
+      issue.messageKey = `tools.validate.struct.issue.${tags.size > 1 ? "misplacedStamps" : "misplacedStamp"}`;
+      issue.sample = [...tags].sort().join(" ");
+    }
     issues.push(issue);
   }
   return issues;
@@ -414,7 +428,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

@@ -143,7 +143,8 @@ export function* buildDatasetSteps(parsed: ParseResult): Steps<Dataset> {
   };
 }
 
-function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
+/** Which CHAN/CREA/`_UPD` conventions the records follow. */
+export function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
   let recordChan = false, recordCrea = false, eventChan = false, eventCrea = false;
   let sharedChan = false, sharedCrea = false;
   // The `_UPD` tag is MyHeritage's current spelling and the event its older

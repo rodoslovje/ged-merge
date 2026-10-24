@@ -1,4 +1,5 @@
 import type { Dataset, GedNode } from "../gedcom/types";
+import { liftNestedStamps } from "../gedcom/chanCrea";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
@@ -29,7 +30,10 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *    different one under it, the one under the `FILE` (which the app shows)
  *    is kept;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
- *    record: moved to `DATA.AGNC` in every source at once.
+ *    record: moved to `DATA.AGNC` in every source at once;
+ *  - **stamps** — `CHAN`/`CREA` below a record (on an event, an attribute…):
+ *    the newest change and the oldest creation are lifted onto the record,
+ *    the rest dropped, in every record at once.
  *
  * A value outside the list, or a repeat that differs from the first, is the
  * user's question and is only reported. Lines on a record without an xref
@@ -37,7 +41,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -46,7 +50,7 @@ export interface ConformanceRef {
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -70,6 +74,11 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "stamps") {
+    if (!fixable.some((i) => i.stamps)) return 0;
+    const v7 = isV7Table(dataset.records);
+    return dataset.records.filter((r) => r.xref && liftNestedStamps(cloneNode(r), v7).length > 0).length;
+  }
   if (kind === "agency") {
     if (!fixable.some((i) => i.agency)) return 0;
     return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && hangAgencyUnderData(cloneNode(r)).length > 0).length;
@@ -89,13 +98,14 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency) continue;
+    if (issue.relocate || issue.agency || issue.stamps) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
   }
   const agencyPass = issues.some((i) => i.agency);
-  if (!byRecord.size && !mediaPass && !agencyPass) return [];
+  const stampsPass = issues.some((i) => i.stamps);
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -137,8 +147,24 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
     }
     if (mediaPass) patches.push(...mediaPassOver(dataset.records, mediaPass, journal));
     if (agencyPass) patches.push(...mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR"));
+    if (stampsPass) {
+      const v7 = isV7Table(dataset.records);
+      for (const rec of dataset.records) {
+        if (!rec.xref || !liftNestedStamps(cloneNode(rec), v7).length) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        liftNestedStamps(rec, v7);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
   });
   return patches;
+}
+
+/** The file's declared version is 7.0 — the stamps pass writes `CREA`
+ *  there and `_CREA` in 5.5.1. */
+function isV7Table(records: GedNode[]): boolean {
+  return !!tableFor(records)?.version.startsWith("7");
 }
 
 /** Run a pass over every media (or source) record, one undo patch per record

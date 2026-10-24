@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { markEventTouched } from "./edit";
-import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./chanCrea";
+import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./chanCrea";
 import type { ChanCreaUsage, GedNode } from "./types";
 
 const TODAY = "24 JUN 2026";
@@ -23,6 +23,21 @@ const ALL: ChanCreaUsage = { recordChan: true, recordCrea: true, eventChan: true
 function childTag(node: GedNode | undefined, tag: string): GedNode | undefined {
   return node?.children.find((c) => c.tag === tag);
 }
+
+describe("stampUsageFor", () => {
+  const stamped = [indi("@I1@", ev("BIRT", { level: 2, tag: "CHAN", children: [] }))];
+  const lifted = [indi("@I1@", ev("BIRT"))];
+
+  it("writes no event stamps in a strict target, and no CREA in 5.5.1", () => {
+    expect(stampUsageFor(ALL, { strict: true, version: "7.0" }, stamped)).toMatchObject({ eventChan: false, eventCrea: false, recordCrea: true });
+    expect(stampUsageFor(ALL, { strict: true, version: "5.5.1" }, stamped)).toMatchObject({ eventChan: false, recordCrea: false });
+  });
+
+  it("keeps the file's event stamps only while the file still has them", () => {
+    expect(stampUsageFor(ALL, { strict: false, version: "7.0" }, stamped)).toMatchObject({ eventChan: true, eventCrea: false });
+    expect(stampUsageFor(ALL, { strict: false, version: "7.0" }, lifted)).toMatchObject({ eventChan: false, eventCrea: false });
+  });
+});
 
 describe("stampChanCrea — event targeting", () => {
   it("stamps only the changed event, not an untouched sibling with its own CHAN", () => {
