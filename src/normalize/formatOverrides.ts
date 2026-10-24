@@ -56,6 +56,9 @@ export interface FormatOverrides {
   /** The same for notes deeper in the record — on events, names, citations. A
    *  file can hold opposite habits at the two levels, so they are chosen apart. */
   eventNotes?: "shared" | "inline";
+  /** Set by a strict target format, never stored or offered: every writer
+   *  writes only this version's standard forms (see `normalize/target.ts`). */
+  standard?: "5.5.1" | "7.0";
 }
 
 /** What "Auto (detected)" resolves to per dimension, as override-value

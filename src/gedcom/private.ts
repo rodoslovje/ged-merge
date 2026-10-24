@@ -1,4 +1,5 @@
 import type { GedNode } from "./types";
+import { allowsChild } from "../tools/conformance/allows";
 
 /**
  * Private-data markers.
@@ -72,20 +73,43 @@ export function isV7(records: GedNode[]): boolean {
   return !!vers?.trim().startsWith("7");
 }
 
-/** The marker node for `style`, at child level of `parent`. */
-function markerNode(parent: GedNode, style: PrivacyTagStyle, records: GedNode[]): GedNode {
+/**
+ * Whether the standard lets `node` carry `RESN`: a person or a family record
+ * and their events (and, in 7.0, a media record) — never a note, a shared
+ * note, a media link or a source. A line below an event is not asked about:
+ * nothing there takes it.
+ */
+function takesResn(node: GedNode, version: "5.5.1" | "7.0"): boolean {
+  if (node.level === 0) return allowsChild(version, [node.tag], "RESN");
+  return node.level === 1 && (allowsChild(version, ["INDI", node.tag], "RESN") || allowsChild(version, ["FAM", node.tag], "RESN"));
+}
+
+/** The marker node for `style`, at child level of `parent`. Where the
+ *  standard has no `RESN` (see {@link takesResn}), the standard style falls
+ *  back to the `_PRIV Y` extension rather than write a line the version does
+ *  not allow. */
+function markerNode(parent: GedNode, style: PrivacyTagStyle, version: "5.5.1" | "7.0"): GedNode {
   const level = parent.level + 1;
   if (style === "PRIV") return { level, tag: "PRIV", children: [] };
-  if (style === "_PRIV") return { level, tag: "_PRIV", value: "Y", children: [] };
-  return { level, tag: "RESN", value: isV7(records) ? "PRIVACY" : "privacy", children: [] };
+  if (style === "_PRIV" || !takesResn(parent, version)) return { level, tag: "_PRIV", value: "Y", children: [] };
+  return { level, tag: "RESN", value: version === "7.0" ? "PRIVACY" : "privacy", children: [] };
 }
 
 /**
  * Set or clear the private flag on `node`, following the file's dialect when
  * setting. Clearing removes every recognized marker — but a RESN list keeps
- * its non-privacy entries (`CONFIDENTIAL, LOCKED` → `LOCKED`).
+ * its non-privacy entries (`CONFIDENTIAL, LOCKED` → `LOCKED`). The marker is
+ * written in the version of the file `records` belongs to, or in `version`
+ * where that is given — the main's, when the node is an incoming file's
+ * being reshaped to it.
  */
-export function setPrivateFlag(node: GedNode, on: boolean, style: PrivacyTagStyle, records: GedNode[]): void {
+export function setPrivateFlag(
+  node: GedNode,
+  on: boolean,
+  style: PrivacyTagStyle,
+  records: GedNode[],
+  version: "5.5.1" | "7.0" = isV7(records) ? "7.0" : "5.5.1",
+): void {
   const kept: GedNode[] = [];
   for (const child of node.children) {
     if (!isPrivacyMarker(child)) {
@@ -102,5 +126,5 @@ export function setPrivateFlag(node: GedNode, on: boolean, style: PrivacyTagStyl
     }
   }
   node.children = kept;
-  if (on) node.children.push(markerNode(node, style, records));
+  if (on) node.children.push(markerNode(node, style, version));
 }

@@ -1,7 +1,7 @@
 import type { GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
 
-import { buildObjeIndex, prefersSourceRepos, looseKey, writesCallNumbers } from "../gedcom/source";
+import { buildObjeIndex, filingNumberOf, prefersSourceRepos, looseKey, writesCallNumbers } from "../gedcom/source";
 import { createSiteRepo, fsRepoCountry, repoCountryFacet, repoNameTail } from "./sourceReshape";
 
 // Gather the FamilySearch sources of one country under that country's
@@ -211,7 +211,7 @@ export function regroupRepositories(
         // The archive's id goes in the one place this file states it: the
         // call number where the file writes those, else the FILN the source
         // already carries (see `writesCallNumbers`).
-        const filn = callNumbers ? childText(source, "FILN") : undefined;
+        const filn = callNumbers ? filingNumberOf(source) : undefined;
         if (filn) added.children.push({ level: added.level + 1, tag: "CALN", value: filn, children: [] });
         source.children.push(added);
       }

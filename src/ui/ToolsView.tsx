@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import type { OutputVersion } from "../save/outputFile";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord, Translation } from "../gedcom/types";
@@ -37,8 +36,11 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  * Back button has to be able to undo. Held by the app (and recorded in the
  * history entry) rather than by the panel, for the same reason the tool itself
  * is: a page nobody but the panel knows about cannot be returned to.
+ * Normalize & batch opens on its batch section; `normalize` is its other one,
+ * which choosing a GEDCOM target format can send the reader straight to. The
+ * health check opens on its data issues; `gedcom` is its GEDCOM half.
  */
-export type ToolView = "tree" | "geocode" | "register" | "cleanup";
+export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom";
 
 const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
 
@@ -123,9 +125,6 @@ interface Props {
   onFillPlaceCoords: () => number;
   onSetPlaceTranslations: (values: ReadonlySet<string>, list: Translation[]) => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
-  /** Open the save preview with the file written in `version` — the way to
-   *  convert, or to save the structural repairs, with nothing else changed. */
-  onSaveAs: (version: OutputVersion) => void;
   /** Apply a batch action's patches (Normalize & batch → Batch actions) as one
    *  undo entry; returns the patch count. */
   onApplyBatchPatches: (patches: RecordPatch[]) => number;
@@ -164,7 +163,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFillPlaceCoords, onSetPlaceTranslations, onTagTranslations, onSaveAs, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFillPlaceCoords, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Places leads the tabs and is where most work starts,
@@ -244,13 +243,13 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFillPlaceCoords={onFillPlaceCoords} onTagTranslations={onTagTranslations} onSaveAs={onSaveAs} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFillPlaceCoords={onFillPlaceCoords} onTagTranslations={onTagTranslations} onEditSource={onEditSource} view={view} onViewChange={onViewChange} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
-          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} />
+          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} view={view} onViewChange={onViewChange} />
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />

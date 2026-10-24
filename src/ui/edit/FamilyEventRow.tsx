@@ -1,3 +1,4 @@
+import { useTargetFormat } from "../TargetFormatContext";
 import type { Family, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
@@ -8,7 +9,7 @@ import { isSameSexCouple } from "../../gedcom/couple";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import type { TagSuggestions } from "./fieldSuggestions";
-import { familyTagChoices } from "./editConstants";
+import { familyTagChoices, offersEventTag } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -68,7 +69,8 @@ export function FamilyEventRow({
   const ev = fam.events.find((e) => e.tag === tag);
   const label = familyEventLabel(tag, t);
   const eventNode = firstChild(fam.raw, tag);
-  const tagChoices = familyTagChoices(fam, tag);
+  const { eventOffer } = useTargetFormat();
+  const tagChoices = familyTagChoices(fam, tag).filter((tg) => tg === tag || offersEventTag(tg, "FAM", eventOffer));
 
   const husbandIndi = fam.husband ? individuals?.get(fam.husband) : undefined;
   const wifeIndi = fam.wife ? individuals?.get(fam.wife) : undefined;

@@ -21,14 +21,19 @@ export interface PrivacyStyleChange {
 const label = (m: GedNode): string => (m.value?.trim() ? `${m.tag} ${m.value.trim()}` : m.tag);
 
 /** Rewrite every privacy marker under `records` into `style` (see module doc). */
-export function normalizePrivacyStyle(records: GedNode[], style: PrivacyTagStyle): PrivacyStyleChange[] {
+export function normalizePrivacyStyle(
+  records: GedNode[],
+  style: PrivacyTagStyle,
+  /** The main file's version — the one the markers are written in. */
+  version: "5.5.1" | "7.0",
+): PrivacyStyleChange[] {
   const changes: PrivacyStyleChange[] = [];
   walkNodes(records, (node) => {
     const markers = node.children.filter(isPrivacyMarker);
     if (!markers.length) return;
     if (markers.length === 1 && markers[0].tag === style) return; // already house style
     const before = markers.map(label).join(" + ");
-    setPrivateFlag(node, true, style, records);
+    setPrivateFlag(node, true, style, records, version);
     const after = node.children.filter(isPrivacyMarker).map(label).join(" + ");
     changes.push({ before, after });
   });

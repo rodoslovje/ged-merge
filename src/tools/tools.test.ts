@@ -952,11 +952,11 @@ describe("validateStructure", () => {
     const report = validateStructure(ds);
     expect(report.issues.filter((i) => i.category === "unknownTag")).toHaveLength(0);
     const custom = report.issues.filter((i) => i.category === "customTag");
-    expect(custom.map((i) => i.sample).sort()).toEqual(["MISE", "RACE", "SECG"]);
+    expect(custom.map((i) => i.sample).sort()).toEqual(["MISE", "PERI", "RACE", "SECG"]);
     expect(custom.every((i) => i.severity === "info" && i.messageKey === "tools.validate.struct.issue.customTagKnown")).toBe(true);
   });
 
-  it("recognizes CORP (7.0) and EDTN (5.5.1 source edition)", () => {
+  it("recognizes CORP (7.0), and EDTN (5.5-EL source edition) as a program's own tag", () => {
     const ds = dataset(`0 HEAD
 1 SOUR App
 2 CORP Vendor Inc
@@ -1830,8 +1830,10 @@ describe("fixDanglingRefs", () => {
     expect(validateStructure(ds).counts.danglingXref).toBe(1);
   });
 
-  it("salvages a dangling REPO link's call number into FILN before dropping it", () => {
-    const ds = dataset(`0 HEAD
+  it("keeps a dangling REPO link's call number on a repository citation with no record", () => {
+    const text = (vers: string) => `0 HEAD
+1 GEDC
+2 VERS ${vers}
 1 CHAR UTF-8
 0 @I1@ INDI
 1 NAME Bo /Horvat/
@@ -1841,28 +1843,34 @@ describe("fixDanglingRefs", () => {
 1 REPO @R9@
 2 CALN 007548250
 3 MEDI microfilm
-0 TRLR`);
+0 TRLR`;
+    // 5.5.1: `REPO` with no value — the standard's repository citation
+    // without a record — keeps the archive's call number.
+    const ds = dataset(text("5.5.1"));
     const patches = fixDanglingRefs(ds);
     expect(patches.map((p) => p.id)).toEqual(["@S1@"]);
-    const source = ds.records.find((r) => r.xref === "@S1@")!;
-    // The dangling link is gone, but the archive id it carried is not.
-    expect(source.children.some((c) => c.tag === "REPO")).toBe(false);
-    expect(source.children.find((c) => c.tag === "FILN")?.value).toBe("007548250");
+    const repo = ds.records.find((r) => r.xref === "@S1@")!.children.find((c) => c.tag === "REPO")!;
+    expect(repo.value).toBeUndefined();
+    expect(repo.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["CALN 007548250"]);
     expect(countDanglingRefs(ds)).toBe(0);
+    // 7.0 says the same with a pointer to nothing.
+    const ds7 = dataset(text("7.0"));
+    fixDanglingRefs(ds7);
+    expect(ds7.records.find((r) => r.xref === "@S1@")!.children.find((c) => c.tag === "REPO")?.value).toBe("@VOID@");
+    expect(countDanglingRefs(ds7)).toBe(0);
+    // Nothing non-standard is written in its place.
+    expect(ds.records.find((r) => r.xref === "@S1@")!.children.some((c) => c.tag === "FILN")).toBe(false);
   });
 
-  it("does not duplicate a FILN the source already states", () => {
+  it("drops a dangling REPO link that carries no call number", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @S1@ SOUR
 1 TITL Krstna knjiga
-1 FILN 007548250
 1 REPO @R9@
-2 CALN 007548250
 0 TRLR`);
     fixDanglingRefs(ds);
-    const source = ds.records.find((r) => r.xref === "@S1@")!;
-    expect(source.children.filter((c) => c.tag === "FILN")).toHaveLength(1);
+    expect(ds.records.find((r) => r.xref === "@S1@")!.children.some((c) => c.tag === "REPO")).toBe(false);
   });
 
   it("drops only the one missing xref a single row names", () => {

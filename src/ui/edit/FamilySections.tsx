@@ -1,3 +1,4 @@
+import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
 import { Fragment, memo, type CSSProperties } from "react";
 import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
@@ -24,6 +25,7 @@ import {
   FAM_CHILD_ORDER,
   removeFamilyEvent,
   setFamilyLinks,
+  recordLinkTag,
   setFamilyNotes,
   impossibleRelatives,
 } from "../../gedcom/edit";
@@ -43,7 +45,7 @@ import { assocMoveTargets, RecordAssociates } from "./AssociatesPanel";
 import { useAssoc } from "./AssocContext";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
-import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
+import { FAMILY_EVENT_TAGS, familyEventHasMergeData, offersEventTag } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /**
@@ -113,7 +115,7 @@ export function NewUnionSection({
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["showAge", "showKinship", "formatOverrides"] as const;
+const SETTINGS_KEYS = ["showAge", "showKinship"] as const;
 
 /** Kinship badge props for a relative card (mirrors the person header's). */
 function kinshipChips(
@@ -571,6 +573,8 @@ export const FamilySection = memo(function FamilySection({
   mergeGen,
 }: FamilySectionProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatOverrides = useFormatOverrides();
+  const { eventOffer } = useTargetFormat();
   const formatName = useNameOf();
   const personName = (id: string | undefined): string => {
     if (!id) return "";
@@ -596,7 +600,7 @@ export const FamilySection = memo(function FamilySection({
     (tag) => fam?.events.some((e) => e.tag === tag) || familyEventHasMergeData(famMergeKeyBase, tag, mergeHighlight, mergeIncomingSources),
   );
   const emptyFamilyTags = FAMILY_EVENT_TAGS.filter(
-    (tag) => !shownFamilyTags.includes(tag),
+    (tag) => !shownFamilyTags.includes(tag) && offersEventTag(tag, "FAM", eventOffer),
   );
   const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
   const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;
@@ -658,7 +662,7 @@ export const FamilySection = memo(function FamilySection({
               t={t}
               target={t("edit.privateTarget.family")}
               onToggle={() => commitFamily(fam, (f) =>
-                setPrivateFlag(f.raw, !f.private, settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
+                setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (
@@ -781,7 +785,7 @@ export const FamilySection = memo(function FamilySection({
             incomingPageImages={famLinksMerge.pageImages}
             sectionLabel={t("field.sources")}
             t={t}
-            onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links))}
+            onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links, recordLinkTag(dataset.records, f.raw, formatOverrides)))}
             onAddSource={() => onOpenSourceDialog({ kind: "family", fam })}
             onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
             onOpenSourceDialog={onOpenSourceDialog}
@@ -789,7 +793,7 @@ export const FamilySection = memo(function FamilySection({
               commitFamily(fam, (f) => {
                 attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER, quay);
                 linkPageMedia(f.raw, pageObjeXref, FAM_CHILD_ORDER);
-                setFamilyLinks(f, links);
+                setFamilyLinks(f, links, recordLinkTag(dataset.records, f.raw, formatOverrides));
               }, extraPatches)
             }
             onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}

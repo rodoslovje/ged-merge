@@ -72,10 +72,15 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
     .filter((line, i, all): line is string => !!line && all.indexOf(line) === i && line !== shown)
     .join("\n");
 
+  const approx = !!parsed && isApproximate(parsed);
   const inputProps = {
     ...rest,
     ref,
-    className: (className ?? "") + (parsed && isApproximate(parsed) ? " is-approx" : ""),
+    className: (className ?? "") + (approx ? " is-approx" : ""),
+    // An approximate date is set in italics and carries its qualifier, so it
+    // runs longer than the slot sized for a plain date: the field is sized to
+    // its own text (see `.is-approx` in index.css) rather than cut short.
+    style: approx ? { ...rest.style, "--date-chars": shown.length } as React.CSSProperties : rest.style,
     value: shown,
     title: hover || undefined,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value),

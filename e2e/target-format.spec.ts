@@ -1,0 +1,105 @@
+import { test, expect } from "@playwright/test";
+import { writeFileSync } from "fs";
+import path from "path";
+import { tmpdir } from "./tmpdir";
+
+/** One person in a file that writes its dates numerically — another
+ *  program's habit, which a strict target format would rewrite. */
+function writeFixture(): string {
+  const ged = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 SEX M",
+    "1 BIRT",
+    "2 DATE 05.03.1850",
+    "1 DEAT",
+    "2 DATE 07.06.1910",
+    "0 TRLR",
+    "",
+  ].join("\n");
+  const filePath = path.join(tmpdir(), `target-format-${Date.now()}.ged`);
+  writeFileSync(filePath, ged, "utf-8");
+  return filePath;
+}
+
+test("a file with another program's habits keeps its variations until GEDCOM 7.0 is chosen", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  // Proposed on first open, and said until the reader closes it.
+  const notice = page.locator(".target-notice");
+  await expect(notice).toContainText("This file is GEDCOM 5.5.1 with variations of its own");
+  await notice.getByRole("button", { name: "Close" }).click();
+  await expect(notice).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // Keeping its variations, a typed date follows the file's numeric habit.
+  const death = page.locator(".edit-event").nth(1).locator(".edit-event-date");
+  await death.fill("8 jun 1910");
+  await death.press("Tab");
+  await expect(death).toHaveValue("08.06.1910");
+
+  await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "GEDCOM" }).click();
+  const own = page.getByRole("radio", { name: /with this file's variations/ });
+  await expect(own).toBeChecked();
+  const dateRow = page.locator(".settings-format-row").filter({ hasText: "Format" }).first();
+  await expect(dateRow.locator("button").first()).toBeEnabled();
+
+  // A GEDCOM version is asked for first: Cancel keeps the file's variations.
+  const strict = page.getByRole("radio", { name: /^GEDCOM 7\.0(?! with)/ });
+  await strict.click();
+  const dialog = page.locator(".confirm-dialog");
+  await expect(dialog).toContainText("Hold this file to GEDCOM 7.0?");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(own).toBeChecked();
+  await expect(strict).not.toBeChecked();
+  await expect(dateRow.locator("button").first()).toBeEnabled();
+
+  // Switching without Normalize; the date row is then the standard's.
+  await strict.click();
+  await dialog.getByRole("button", { name: "Switch only" }).click();
+  await expect(strict).toBeChecked();
+  await expect(dateRow.locator("button").first()).toBeDisabled();
+  await page.locator(".settings-modal .modal-close").click();
+
+  // Typed dates are now written in the GEDCOM grammar.
+  await death.fill("9.6.1910");
+  await death.press("Tab");
+  await expect(death).toHaveValue("9 JUN 1910");
+
+  // Back to the file's variations and to 5.5.1 with Normalize: the choice
+  // lands on the Normalize section itself, not on Batch.
+  await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "GEDCOM" }).click();
+  await own.click();
+  await expect(own).toBeChecked();
+  await page.getByRole("radio", { name: /^GEDCOM 5\.5\.1(?! with)/ }).click();
+  await dialog.getByRole("button", { name: "Switch and open Normalize & batch" }).click();
+  await expect(page.getByRole("tab", { name: "Normalize file", exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("the own-format notice comes back on every opening until it is silenced for the file", async ({ page }) => {
+  const file = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  const notice = page.locator(".target-notice");
+  await notice.getByRole("button", { name: "Close" }).click();
+
+  // Opened again: said again.
+  await page.reload();
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await expect(notice).toBeVisible();
+  await notice.getByRole("button", { name: "Don't show again for this file" }).click();
+  await expect(notice).toHaveCount(0);
+
+  // Silenced for this file from then on.
+  await page.reload();
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await expect(notice).toHaveCount(0);
+});

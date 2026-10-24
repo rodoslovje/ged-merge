@@ -42,7 +42,7 @@ export {
 } from "./family";
 export { familiesScope, individualsScope, pointerScope, reindexRecord, withPointerIndex } from "./pointerIndex";
 
-export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
+export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, recordLinkTag, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 
 export {
   addAssociation,
@@ -69,7 +69,7 @@ export {
 export type { MediaInfoFields } from "./media";
 
 export {
-  createSourceRecord, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
+  createSourceRecord, sourceFieldTag, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
   SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay,

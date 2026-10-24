@@ -1,3 +1,4 @@
+import { useFormatOverrides } from "../TargetFormatContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { linkTooltip, safeLinkHref } from "../FieldValue";
@@ -176,6 +177,7 @@ export function SourceCleanupView({
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
+  const formatOverrides = useFormatOverrides();
   const reshapeReport = useMemo<ReshapeReport>(
     () =>
       reshapeReportProp ?? {
@@ -272,8 +274,8 @@ export function SourceCleanupView({
   // The fold refreshes each member's shown move with the enriched book type;
   // baptism moves follow the same override-or-file habit the apply resolves.
   const baptismTag = useMemo(
-    () => settings.formatOverrides?.baptism ?? baptismTargetTag(dataset.records),
-    [settings.formatOverrides, dataset],
+    () => formatOverrides.baptism ?? baptismTargetTag(dataset.records),
+    [formatOverrides, dataset],
   );
   const folded = useMemo(
     () => mergeFsBooks(reshapeReport, enrichment, baptismTag),
@@ -457,7 +459,7 @@ export function SourceCleanupView({
         groups: selectedGroups,
         enrichment: folded.enrichment,
         options: {
-          ...reshapeOptionsFromOverrides(settings.formatOverrides),
+          ...reshapeOptionsFromOverrides(formatOverrides),
           relocate,
           tidyLinks,
           mergeGroups: folded.keyOf,
@@ -1019,6 +1021,7 @@ function GroupEditDialog({
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
+  const formatOverrides = useFormatOverrides();
   const [fields, setFields] = useState<SourceFormValues>(() => ({
     title: meta?.title ?? group.proposed.title,
     author: meta?.author ?? group.proposed.author ?? "",
@@ -1069,13 +1072,13 @@ function GroupEditDialog({
     [dataset],
   );
   const wantsRepo = useMemo(
-    () => repoLinkWanted(dataset.records, settings.formatOverrides?.sourceLayout),
-    [dataset, settings.formatOverrides?.sourceLayout],
+    () => repoLinkWanted(dataset.records, formatOverrides.sourceLayout),
+    [dataset, formatOverrides.sourceLayout],
   );
   const coverage = useMemo(() => {
-    const override = settings.formatOverrides?.sourceCoverage ?? "auto";
+    const override = formatOverrides.sourceCoverage ?? "auto";
     return override !== "auto" ? override : detectSourceCoverage(dataset.records);
-  }, [settings.formatOverrides?.sourceCoverage, dataset]);
+  }, [formatOverrides.sourceCoverage, dataset]);
   /** "" = none, an xref, or "@create@" for the proposal. Starts on what the
    *  apply would do by itself, so leaving it alone changes nothing. */
   const [repoSel, setRepoSel] = useState(meta?.repoXref ?? "");
@@ -1084,7 +1087,7 @@ function GroupEditDialog({
   const repoTouched = useRef(meta?.repoXref !== undefined);
   // What this file calls the archive's id, and whether that name is an
   // extension: the same rule the Add Source dialog states, from one place.
-  const idLabel = idField(dataset.records, coverage, repoSel !== "");
+  const idLabel = idField(dataset.records, coverage, repoSel !== "", formatOverrides.standard);
   const { targetOf, lookUp: readPage, fetching, failed } = useSourceLookup(settings.allowLinkFetch);
 
   // A citation pasted from the site itself (FamilySearch's "Copy citation",

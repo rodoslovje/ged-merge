@@ -303,7 +303,7 @@
             </ul>
             <p>The other three tabs:</p>
             <ul>
-              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format and the comma form between place levels, source and citation layout, page links, baptism citations, source coverage (the program's own place-and-years fields, or the standard's <em>DATA</em> structure), doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, the <a href="#tools">Normalize</a> tool, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. Beneath them sits <em>Home country</em>, which is not a convention but a reading of your file: which country a place that names none is taken to be in (<a href="#geocode">§10</a>). It follows the file — the country three quarters of its country-naming places agree on, shown in the option itself — and can be set to any country instead, or to assume nothing. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
+              <li><strong>GEDCOM</strong> — first the file's <em>Target format</em> (<a href="#target-format">§4</a>), then the file conventions you can override instead of letting GED Merge detect them, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format and the comma form between place levels, source and citation layout, page links, baptism citations, source coverage (the program's own place-and-years fields, or the standard's <em>DATA</em> structure), doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, the <a href="#tools">Normalize</a> tool, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. Beneath them sits <em>Home country</em>, which is not a convention but a reading of your file: which country a place that names none is taken to be in (<a href="#geocode">§10</a>). It follows the file — the country three quarters of its country-naming places agree on, shown in the option itself — and can be set to any country instead, or to assume nothing. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
               <li><strong>Map</strong> — <em>Place directories</em> holds the gazetteers your place names are matched against: download Slovenia's GURS register, Croatia's DGU register of geographical names or any country from OpenStreetMap, import a GeoNames file, and see what is loaded with its size and date or remove it. Croatia's <em>DGU address register</em> is offered here too — every house number in the country, downloaded once and thereafter looked up in this browser (<a href="#geocode">§10</a>). They live in this browser, not in the file, so they outlive the file you have open and serve every file you load; <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>) offers the same downloads while you have none. <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
               <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. The one-click OpenStreetMap, GURS and DGU directory downloads are outside it — a download asks nothing about your file, so it is always offered. Croatian addresses are the exception that proves the rule: once the DGU address register is downloaded they are answered from this browser, so those lookups are offered whether the switch is on or off. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
               <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em>, <em>Clear locally stored data</em>, and <em>Silenced media-folder dialogs</em> (see <a href="#photos">§12</a>), which appears once you have dismissed one for good and restores it.</li>
@@ -418,6 +418,32 @@
               <p>Every one of these conventions can be pinned by hand in <strong>Settings › GEDCOM</strong> (<a href="#workspace">§2</a>)
               when you'd rather choose the target style than let GED Merge detect it.</p>
             </div>
+            <h3 id="target-format">Target format</h3>
+            <p>
+              Each main file also has a <strong>target format</strong>, chosen at the top of <strong>Settings › GEDCOM</strong>.
+              It decides what GED Merge writes into the file: your edits, merges, <a href="#normalize">Normalize &amp; batch</a>
+              and the save.
+            </p>
+            <ul>
+              <li><strong>GEDCOM 5.5.1</strong> or <strong>7.0 with this file's variations</strong> — the version the file
+              declares — keeps the conventions the file already has, even where they depart from the standard, so the program you keep the file in goes on reading every record — MacFamilyTree's own tags
+              written without an underscore, for example. Where the file has no habit of its own, the standard form is
+              written. Normalize &amp; batch fixes only real errors and leaves the file's conventions alone.</li>
+              <li><strong>GEDCOM 5.5.1</strong> and <strong>GEDCOM 7.0</strong> write only that version's standard forms:
+              dates in the standard form (<em>5 JUN 1880</em>), and extensions only as tags that start with an underscore.
+              The GEDCOM settings the standard decides are fixed and show its form, the event menus offer only what the
+              version has (and extensions, marked), and the save writes that version.</li>
+            </ul>
+            <p>
+              When you open a file for the first time, GED Merge proposes a target format. It keeps the file's
+              variations when the file carries another program's habits: tags written without an underscore, numeric dates,
+              the bare <code>PRIV</code> marker, or a source's coverage in the program's own fields. Otherwise it holds
+              the file to the version the file declares. Each time such a file is opened, a strip at the top of the window says which GEDCOM version the file is and that its variations are kept, until you silence it with <strong>Don't show again for this file</strong>. The
+              choice is remembered for each file, also after you save it under its new name. When you switch a file from
+              its variations to standard GEDCOM, GED Merge offers to open Normalize &amp; batch, so the records the file
+              already has can follow the standard too. The health check reports departures from the standard in every
+              target format (<a href="#validate">§10</a>).
+            </p>
           </section>
 
           <section id="data-model">
@@ -1241,6 +1267,20 @@
               <a href="#geocode">Geocode places</a> from Places.
             </p>
             <h3 id="validate">Health check</h3>
+            <p>
+              The health check has two tabs. <strong>Data issues</strong> lists problems in the family data itself — the
+              checks described below — together with unreadable or impossible dates and references to records the file
+              does not have. <strong>GEDCOM issues</strong> lists where the file departs from its GEDCOM version: the
+              encoding and bad lines, unknown tags, non-standard dates and values, lines out of place, translations
+              without a language. For a file that keeps its variations
+              (<a href="#target-format">§4</a>), these are often the habits of the program you keep
+              the file in, and changing them is your choice.
+            </p>
+            <p>
+              A finding about a source names the source. Click the name to open <strong>Edit Source</strong> and settle the
+              finding there — the years the source covers are among its fields, so a range that ends before it starts is
+              corrected in place. The check runs again when you save.
+            </p>
             <p>
               Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
               dates, disconnected records, broken or one-way family links, duplicate pointers, the <strong>same couple
@@ -2679,7 +2719,8 @@
             <p>
               GEDCOM files reference media files by name rather than embedding them, so to display them GED Merge needs
               the folder they live in. Connect a <strong>media folder</strong> from the file-info panel, or answer the
-              prompt offered when a file references local media: <strong>Select Folder</strong> connects it now,
+              notice at the top of the window when a file references local media. The notice stands, under any other
+              notice, until you answer it: <strong>Select Folder</strong> connects it now,
               <strong>Later</strong> skips this file, and <strong>Never ask again</strong> retires the prompt for good
               (<strong>Settings › Advanced › Locally stored data</strong> brings it back). Photos (JPEG, PNG, SVG, …) show as thumbnails;
               <strong>PDF documents</strong> (scanned records) show as a 📄 tile and open in the built-in PDF preview.
@@ -2952,14 +2993,14 @@
             </p>
             <p>
               <strong>GEDCOM version</strong>, under the file list, chooses the version the download is written in. It
-              opens on the file's own version. Choose the other one — GEDCOM 7.0 for a 5.5.1 file, 5.5.1 for a 7.0 file —
+              opens on the file's own version, or on the version its target format holds it to
+              (<a href="#target-format">§4</a>). Choose the other one — GEDCOM 7.0 for a 5.5.1 file, 5.5.1 for a 7.0 file —
               and the file is converted the way an incoming file is (<a href="#house-style">§4</a>): shared notes, dates,
               ages and the other version-specific structures are rewritten into that version's form, the header
               included. The preview lists every rewritten line, and the change report
               carries the whole list. Like any save, the converted file becomes your working baseline, so from then on
-              you work in the new version. To convert a file you have not changed, use <strong>Save as GEDCOM 7.0…</strong>
-              (or <strong>Save as GEDCOM 5.5.1…</strong>) in Tools → Health check, which opens this preview with the
-              conversion chosen.
+              you work in the new version. A file you have not changed can be saved too when its target format holds
+              it to the other version (<a href="#target-format">§4</a>): the preview then opens on that version.
             </p>
             <p id="extension-tags">
               A GEDCOM 7.0 file lists in its header, under <code>HEAD.SCHMA</code>, every extension tag it carries: the

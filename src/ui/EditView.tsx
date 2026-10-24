@@ -1,3 +1,4 @@
+import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
@@ -60,6 +61,7 @@ import {
   setMediaLinkUrl,
   setAdditionalName,
   setIndividualLinks,
+  recordLinkTag,
   setMarriedName,
   setName,
   setNotes,
@@ -87,7 +89,7 @@ import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/PlacePeopleContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey } from "../tools/geocode";
-import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
+import { nextSex, offeredEventGroups } from "./edit/editConstants";
 import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
@@ -199,6 +201,9 @@ interface Props {
   onPatchApplied?: (patches: RecordPatch[], direction: "undo" | "redo") => void;
   /** When non-null, apply these patches and then call onApplied. */
   pendingApply: PendingEditApply | null;
+  /** Bumped when something outside Edit — a Tools pass — changed records in
+   *  place: the rows re-read them, as they do after undo. */
+  externalEditGen?: number;
   /** Called after pendingApply has been processed. */
   onApplied: () => void;
   /** A request to create a new, unattached person (the header button, the `N`
@@ -224,15 +229,18 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
+const SETTINGS_KEYS = ["order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner", "widerFamily"] as const;
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatOverrides = useFormatOverrides();
+  // The event menus offer what the target format allows (see offersEventTag).
+  const { eventOffer } = useTargetFormat();
   const setSettings = useSetSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
@@ -329,6 +337,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingApply]);
+
+  // A Tools pass changed records under the mounted view (a health-check fix,
+  // a batch action): the rows' local field state is stale, so they re-mount
+  // and re-read the dataset exactly as they do after undo/redo.
+  const externalGenRef = useRef(externalEditGen);
+  useEffect(() => {
+    if (externalGenRef.current === externalEditGen) return;
+    externalGenRef.current = externalEditGen;
+    noteGenRef.current++;
+    setTick((v) => v + 1);
+    setUndoVersion((v) => v + 1);
+  }, [externalEditGen]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const person = selectedId ? dataset.individuals.get(selectedId) : undefined;
@@ -550,7 +570,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
     rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent, mergeAdditionalNames, materializeIncomingNames,
     resolveMergeFields, markFamilyTagRetagged,
-  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: settings.formatOverrides, tick, t });
+  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: formatOverrides, tick, t });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
@@ -562,11 +582,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // family lock toggles write markers in the file's own style, unless the
   // Settings → GEDCOM override picks one explicitly.
   const privacyStyle = useMemo(
-    () => settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
-    [dataset.records, settings.formatOverrides.privacy],
+    () => formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
+    [dataset.records, formatOverrides.privacy],
   );
   // Which FamilySearch-id tag a newly added id gets — the file's own dialect.
-  const fsIdTag = useMemo(() => preferredFsIdTag(dataset), [dataset]);
+  const fsIdTag = useMemo(() => preferredFsIdTag(dataset, formatOverrides), [dataset, formatOverrides]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
   /** A file drag that crosses the person panel but ends somewhere else — dropped
    *  on the loader, or abandoned outside the window — never delivers a `drop`
@@ -822,7 +842,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       const rec = dataset.records.find((r) => r.tag === "OBJE" && r.xref === sharedXref);
       if (!rec) return;
       const before = cloneNode(rec);
-      setMediaInfo(rec, fields);
+      setMediaInfo(rec, fields, dataset.records, formatOverrides);
       if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
       const after = cloneNode(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
@@ -846,7 +866,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       ownerCommit(owner, (r) => {
         const child = mediaNodeAt(r, addr);
         if (child) {
-          setMediaInfo(child, fields);
+          setMediaInfo(child, fields, dataset.records, formatOverrides);
           if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, dataset.records);
         }
       });
@@ -1029,17 +1049,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }
     }
     return createStandaloneSource(dataset.records, fields, {
-      sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
-      sourceCoverage: settings.formatOverrides.sourceCoverage ?? "auto",
-      baptism: settings.formatOverrides.baptism ?? "auto",
+      sourceLayout: formatOverrides.sourceLayout ?? "auto",
+      sourceCoverage: formatOverrides.sourceCoverage ?? "auto",
+      baptism: formatOverrides.baptism ?? "auto",
       citationPage: citationPageStyle(),
+      standard: formatOverrides.standard,
     });
   }
 
   /** How this file names a cited page — Settings → Cited page, whose "auto"
    *  follows the file's own habit; by number where it has none. */
   function citationPageStyle(): CitationPageStyle {
-    return settings.formatOverrides.citationPage ?? detectCitationPageStyle(dataset.records) ?? "number";
+    return formatOverrides.citationPage ?? detectCitationPageStyle(dataset.records) ?? "number";
   }
 
   /** The cited page's image to link beside the citation, or undefined when
@@ -1048,7 +1069,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * citation asks this, so the "+ Add source" dialog and the promote of a
    * plain link write the same shape. */
   function pageObjeToLink(pageObjeXref: string | undefined): string | undefined {
-    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
+    const style = formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
     return style === "event" ? pageObjeXref : undefined;
   }
 
@@ -1084,8 +1105,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // death → DEAT, grave → BURI.
       const smart = fields.site
         ? smartCitationTarget(dataset.records, fields.site, fields.title, {
-            citations: settings.formatOverrides.citations ?? "auto",
-            baptism: settings.formatOverrides.baptism ?? "auto",
+            citations: formatOverrides.citations ?? "auto",
+            baptism: formatOverrides.baptism ?? "auto",
           })
         : undefined;
       const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;
@@ -1246,7 +1267,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     commitWithSourceDiff(owner, () => {
       const ownerId = owner.kind === "individual" ? owner.indi.id : owner.fam.id;
       const notes = noteCtx(dataset.records, privacyStyle);
-      updateSourceCitation(dataset.records, node, index, fields, notes);
+      updateSourceCitation(dataset.records, node, index, fields, notes, formatOverrides);
       const notePatches = noteChangePatches(notes.changes, { kind: owner.kind, id: ownerId });
       afterNoteChanges(notes.changes, ownerId);
       return notePatches;
@@ -2016,7 +2037,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 incomingPageImages={mergeIncomingPageImages.get("links")}
                 sectionLabel={t("field.sources")}
                 t={t}
-                onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
+                onCommit={(links) => commit((indi) => setIndividualLinks(indi, links, recordLinkTag(dataset.records, indi.raw, formatOverrides)))}
                 onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
                 onEditSource={(idx) => openEditSource(person.raw, idx, { kind: "individual", indi: person })}
                 onOpenSourceDialog={setSourceDialogTarget}
@@ -2024,7 +2045,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                   commit((indi) => {
                     attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER, quay);
                     linkPageMedia(indi.raw, pageObjeXref, INDI_CHILD_ORDER);
-                    setIndividualLinks(indi, links);
+                    setIndividualLinks(indi, links, recordLinkTag(dataset.records, indi.raw, formatOverrides));
                   }, extraPatches)
                 }
                 onOpenMediaLink={(url) => openMediaLink(person.raw, { kind: "individual", indi: person }, url)}
@@ -2096,7 +2117,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onCopyEvent={onCopyIndividualEvent}
           />
           <EventAddRow
-            groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+            groups={offeredEventGroups(eventOffer).map((g) => ({
               labelKey: g.labelKey,
               // Single-instance events the person already has leave the menu —
               // their quick button stays and leads to the existing row.

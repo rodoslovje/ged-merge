@@ -132,7 +132,7 @@ export function normalizeDataset(
     // over all records, since shared NOTE/OBJE records carry them too. Skipped
     // when the main has no dialect of its own.
     if (profile.privacyStyle) {
-      for (const change of normalizePrivacyStyle(records, profile.privacyStyle)) {
+      for (const change of normalizePrivacyStyle(records, profile.privacyStyle, versionFamily(profile.version))) {
         report.vendorTagsRenamed++;
         record(report.vendorTagExamples, seenVendor, change.before, change.after);
       }

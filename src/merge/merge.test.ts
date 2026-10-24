@@ -1103,7 +1103,7 @@ describe("mergeDecisions — links", () => {
     );
     const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
-    expect(out).toContain("1 WWW https://example.com/new");
+    expect(out).toContain("1 _URL https://example.com/new");
     expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
@@ -1868,7 +1868,7 @@ describe("mergeDecisions — event source citations", () => {
     const compare = dataset(compareFamLink("1 WWW https://example.com/couple\n"));
     const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
     const out = serializeGedcom(records);
-    expect(out).toContain("1 WWW https://example.com/couple");
+    expect(out).toContain("1 _URL https://example.com/couple");
   });
 
   it("takes the incoming family's own record-level citation", () => {

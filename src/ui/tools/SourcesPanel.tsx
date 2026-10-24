@@ -1,6 +1,6 @@
+import { useFormatOverrides } from "../TargetFormatContext";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useSettings } from "../SettingsContext";
 import type { Dataset } from "../../gedcom/types";
 import { buildSourceTree, recordCitedBy, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
@@ -462,7 +462,7 @@ export function SourcesPanel({
   // than deciding — see the prop.
   const view = viewProp === "cleanup" ? "cleanup" : "tree";
   const setView = (next: "tree" | "cleanup") => onViewChange(next);
-  const { settings } = useSettings();
+  const formatOverrides = useFormatOverrides();
   // Scanned automatically (in the tools worker) so the toggles can show their
   // counts; cached at the ToolsView level so revisits don't re-scan.
   const dupReport = scans.sourceDuplicates.status === "done" ? scans.sourceDuplicates.result : null;
@@ -490,7 +490,7 @@ export function SourcesPanel({
 
   // The reshape report depends on the format overrides — the fingerprint in
   // the deps re-checks freshness when the user changes them mid-session.
-  const fmt = settings.formatOverrides;
+  const fmt = formatOverrides;
   const reshapeSalt = `${fmt.pageMedia ?? ""}|${fmt.sourceLayout ?? ""}|${fmt.baptism ?? ""}|${fmt.doubledLinks ?? ""}`;
   useEffect(() => {
     // Fresh, not just ensured: the cleanup view applies against the live
@@ -517,7 +517,7 @@ export function SourcesPanel({
   // Citations missing their page image. One walk of the records, so it rides
   // the same nonce rather than the worker: the answer depends on the file's
   // page-link style, which the reader can change while the page is open.
-  const pageMediaStyle = settings.formatOverrides.pageMedia ?? "auto";
+  const pageMediaStyle = formatOverrides.pageMedia ?? "auto";
   const pageMediaReport = useMemo(
     () =>
       findMissingPageMedia(

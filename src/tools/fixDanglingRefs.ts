@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
-import { insertGrouped, rebuildFamily, rebuildIndividual, SOUR_FIELD_TRAILING } from "../gedcom/edit";
+import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { versionFamily } from "../normalize/migrate";
 import { childrenByTag, cloneNode } from "../gedcom/node";
 import { type RecordPatch } from "../ui/historyTypes";
 import { isFamilyLinkPointer, isPointerValue } from "./structure";
@@ -94,20 +95,17 @@ export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPat
     if (doomed.size === 0) continue;
 
     const before = cloneNode(rec);
-    // A dangling REPO link is dropped like any pointer, but its CALN may be
-    // the file's only statement of the archive's call number ("citations have
-    // nothing to qualify" doesn't hold for it) — salvage the value into the
-    // source's flat FILN before the line goes.
+    // A dangling REPO link loses its pointer like any other, but its CALN may
+    // be the file's only statement of the archive's call number ("citations
+    // have nothing to qualify" doesn't hold for it). Both versions let a
+    // repository citation stand without a record — 5.5.1 with no value, 7.0
+    // pointing at @VOID@ — so the citation stays with its call number.
     if (rec.tag === "SOUR") {
-      const kept = new Set(childrenByTag(rec, "FILN").map((c) => c.value?.trim()).filter(Boolean));
       for (const child of rec.children) {
-        if (!doomed.has(child) || child.tag !== "REPO") continue;
-        for (const caln of childrenByTag(child, "CALN")) {
-          const value = caln.value?.trim();
-          if (!value || kept.has(value)) continue;
-          kept.add(value);
-          insertGrouped(rec, { level: rec.level + 1, tag: "FILN", value, children: [] }, SOUR_FIELD_TRAILING);
-        }
+        if (!doomed.has(child) || child.tag !== "REPO" || !childrenByTag(child, "CALN").some((c) => c.value?.trim())) continue;
+        doomed.delete(child);
+        if (versionFamily(dataset.version) === "7.0") child.value = "@VOID@";
+        else delete child.value;
       }
     }
     const drop = (node: GedNode): void => {

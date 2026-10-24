@@ -1,3 +1,4 @@
+import type { ToolView } from "../ToolsView";
 import { useEffect, useState } from "react";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,9 @@ import { ToolsError, ToolsLoading } from "./shared";
  * The "Normalize & batch" sub-tab: two mass-change surfaces behind one toggle —
  * the batch-actions workbench (filter people → apply one action, undoable) and
  * the whole-file style normalization (preview → download). Both stay mounted so
- * switching sections loses neither the built filter nor the scan preview.
+ * switching sections loses neither the built filter nor the scan preview. The
+ * open section is the app's page (`view`), like any tool's: a page can be sent
+ * straight to Normalize, and Back returns to the section left.
  */
 export function NormalizePanel({
   dataset,
@@ -25,6 +28,8 @@ export function NormalizePanel({
   onNavigate,
   onApplyPatches,
   startId,
+  view,
+  onViewChange,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -34,9 +39,12 @@ export function NormalizePanel({
   onNavigate: (id: string) => void;
   onApplyPatches: (patches: RecordPatch[]) => number;
   startId?: string;
+  view: ToolView;
+  onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
-  const [section, setSection] = useState<"batch" | "normalize">("batch");
+  const section = view === "normalize" ? "normalize" : "batch";
+  const setSection = (s: "batch" | "normalize") => onViewChange(s === "normalize" ? "normalize" : "tree");
   return (
     <>
       <div className="batch-section-toggle" role="tablist" onKeyDown={tablistKeyDown}>

@@ -69,10 +69,25 @@ export function sourceTitle(node: GedNode): string | undefined {
   const authPubl = [auth, publ].filter(Boolean).join(", ");
   return (
     childText(node, "TITL") ??
-    childText(node, "PERI") ??
+    periodicalOf(node) ??
     childText(node, "ABBR") ??
     (authPubl || undefined)
   );
+}
+
+/**
+ * A source record's filing number and periodical title — GEDCOM 5.5-EL's
+ * `FILN` and `PERI`, which neither 5.5.1 nor 7.0 has. The programs that keep
+ * them write them bare; a strict target format writes `_FILN`/`_PERI`
+ * (see `sourceFieldTag`). Both spellings read alike.
+ */
+export function filingNumberOf(rec: GedNode): string | undefined {
+  return childText(rec, "FILN") ?? childText(rec, "_FILN");
+}
+
+/** See {@link filingNumberOf}. */
+export function periodicalOf(rec: GedNode): string | undefined {
+  return childText(rec, "PERI") ?? childText(rec, "_PERI");
 }
 
 /** Structural/bookkeeping child tags excluded from the descriptive tooltip. */
@@ -182,8 +197,11 @@ export function objeInfoOf(node: GedNode): ObjeInfo {
     url,
     file,
     title,
-    date: childText(node, "DATE"),
-    place: childText(node, "PLAC"),
+    // Neither version has a date or place on a media item: the bare tags some
+    // programs write, or the extensions a strict target writes (see
+    // `mediaInfoTags`).
+    date: childText(node, "DATE") ?? childText(node, "_DATE"),
+    place: childText(node, "PLAC") ?? childText(node, "_PLACE"),
     description,
   };
 }
@@ -322,7 +340,7 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
 
   const title = sourceTitle(sourceNode);
   const agency = childText(sourceNode, "AGNC");
-  const filingNumber = childText(sourceNode, "FILN");
+  const filingNumber = filingNumberOf(sourceNode);
 
   const candidates = sourceNode.children
     .filter((c) => c.tag === "OBJE" && c.value)
@@ -391,7 +409,7 @@ export function inferSourceFormat(records: GedNode[]): SourceFormatProfile {
     const objeCount = childrenByTag(rec, "OBJE").filter((c) => c.value && objeIndex.get(c.value.trim())?.url).length;
     const pageLinks = objeCount + (citedLinks.get(rec.xref) ?? 0);
     const hasRepo = hasChild(rec, "REPO");
-    const hasBiblio = hasChild(rec, ["TEXT", "AUTH", "PUBL", "PERI"]);
+    const hasBiblio = hasChild(rec, ["TEXT", "AUTH", "PUBL", "PERI", "_PERI"]);
     if (pageLinks >= 1) paginated += pageLinks;
     else if (hasRepo) repository++;
     else if (hasBiblio) literature++;
@@ -573,7 +591,7 @@ function fsWanted(url: string, hint: FsSourceHint | undefined): FsSourceHint | u
  *  named by any page link it already holds. */
 function sourceFilms(rec: GedNode, objeIndex: ObjeIndex): Set<string> {
   const films = new Set<string>();
-  const filn = filmKey(childText(rec, "FILN"));
+  const filn = filmKey(filingNumberOf(rec));
   if (filn) films.add(filn);
   for (const child of childrenByTag(rec, "OBJE")) {
     const url = child.value ? objeIndex.get(child.value.trim())?.url : undefined;

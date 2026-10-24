@@ -1,3 +1,5 @@
+import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
+import { useSettingsSlice } from "./SettingsContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
@@ -9,7 +11,6 @@ import type { ReshapeReport } from "../tools/sourceReshape";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
 import { mainSnapshot, recordsPatch, type ChangeJournal, type SyncMark } from "../state/mainSync";
-import { useSettingsSlice } from "./SettingsContext";
 import { afterPaint, holdBusyCursor } from "./busyCursor";
 
 /** Lifecycle of one whole-file scan. */
@@ -33,7 +34,7 @@ interface ScanStates {
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["formatOverrides"] as const;
+const SETTINGS_KEYS = ["authorName"] as const;
 
 const ALL_IDLE: ScanStates = {
   validate: { status: "idle" },
@@ -127,14 +128,22 @@ export function useToolsScans(
   // the stable callbacks below always read the current value; the overrides
   // fingerprint joins those scans' freshness key, so a settings change
   // re-scans.
-  const settings = useSettingsSlice(SETTINGS_KEYS);
-  const formatOverridesRef = useRef(settings.formatOverrides);
-  formatOverridesRef.current = settings.formatOverrides;
+  const formatOverrides = useFormatOverrides();
+  // The Normalize download is written in the target format's version, and
+  // names the reader as its submitter where the file needs one.
+  const { target } = useTargetFormat();
+  const targetRef = useRef(target);
+  targetRef.current = target;
+  const { authorName } = useSettingsSlice(SETTINGS_KEYS);
+  const authorNameRef = useRef(authorName);
+  authorNameRef.current = authorName;
+  const formatOverridesRef = useRef(formatOverrides);
+  formatOverridesRef.current = formatOverrides;
   // Read from state rather than the ref, so `scanKey` — and with it the
   // identity of the object this hook returns — changes the moment a format
   // choice does. That is what re-fires the panels' `ensureFresh` effects while
   // a panel is already open; the ref serves the callbacks that must stay stable.
-  const overrides = settings.formatOverrides;
+  const overrides = formatOverrides;
   const overridesSalt = useCallback(
     (kind: ScanKind) => (SALT_KEYS[kind] ?? []).map((k) => overrides[k] ?? "").join("|"),
     [overrides],
@@ -407,7 +416,10 @@ export function useToolsScans(
         if (disposedRef.current) return;
         const requestId = nextIdRef.current++;
         post(
-          { type: "normalizeText", requestId, options, formatOverrides: formatOverridesRef.current },
+          {
+            type: "normalizeText", requestId, options, formatOverrides: formatOverridesRef.current,
+            version: targetRef.current.version, authorName: authorNameRef.current,
+          },
           {
             onResult: (data) => onText((data as ToolsResultMap["normalizeText"]).text),
             onError: (message) => {
