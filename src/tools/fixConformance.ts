@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
-import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
@@ -27,7 +27,9 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *  - **fileTitles** — the one repair that removes something, run only on the
  *    user's word: where a media record has a title beside its `FILE` and a
  *    different one under it, the one under the `FILE` (which the app shows)
- *    is kept.
+ *    is kept;
+ *  - **agency** — a source's own `AGNC`, which no version allows on the
+ *    record: moved to `DATA.AGNC` in every source at once.
  *
  * A value outside the list, or a repeat that differs from the first, is the
  * user's question and is only reported. Lines on a record without an xref
@@ -35,7 +37,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -44,11 +46,12 @@ export interface ConformanceRef {
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
-/** What a file-wide media pass does to one media record; returns the lines
- *  it moved or dropped. Both answer the habit row, which names no one record. */
+/** What a file-wide pass does to one media (or source) record; returns the
+ *  lines it moved or dropped. Each answers a habit row, which names no one
+ *  record. */
 type MediaPass = (obje: GedNode) => GedNode[];
 
 /** The media pass a kind runs, when the file's own standard calls the lines
@@ -67,6 +70,10 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "agency") {
+    if (!fixable.some((i) => i.agency)) return 0;
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && hangAgencyUnderData(cloneNode(r)).length > 0).length;
+  }
   const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
   if (pass) return dataset.records.filter((r) => r.tag === "OBJE" && r.xref && pass(cloneNode(r)).length > 0).length;
   return fixable.filter((i) => kindOf(i) === kind).length;
@@ -82,12 +89,13 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate) continue;
+    if (issue.relocate || issue.agency) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
   }
-  if (!byRecord.size && !mediaPass) return [];
+  const agencyPass = issues.some((i) => i.agency);
+  if (!byRecord.size && !mediaPass && !agencyPass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -128,15 +136,17 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
       patches.push(recordPatch(dataset, xref, rec, before));
     }
     if (mediaPass) patches.push(...mediaPassOver(dataset.records, mediaPass, journal));
+    if (agencyPass) patches.push(...mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR"));
   });
   return patches;
 }
 
-/** Run a media pass over every media record, one undo patch per record it changed. */
-function mediaPassOver(records: GedNode[], pass: MediaPass, journal: PassJournal): RecordPatch[] {
+/** Run a pass over every media (or source) record, one undo patch per record
+ *  it changed. */
+function mediaPassOver(records: GedNode[], pass: MediaPass, journal: PassJournal, tag = "OBJE"): RecordPatch[] {
   const patches: RecordPatch[] = [];
   for (const rec of records) {
-    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    if (rec.tag !== tag || !rec.xref) continue;
     // Tried on a copy first, so the journal holds a record only when it changes.
     if (!pass(cloneNode(rec)).length) continue;
     const before = cloneNode(rec);

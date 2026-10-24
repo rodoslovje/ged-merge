@@ -57,7 +57,8 @@ export function mimeFormOf(form: string): string {
   return EXT_TO_MIME[ext] ?? (/^[a-z0-9]+$/.test(ext) ? `application/x-${ext}` : "application/octet-stream");
 }
 
-function relevel(node: GedNode, level: number): void {
+/** Re-level a moved line and everything beneath it. */
+export function relevel(node: GedNode, level: number): void {
   node.level = level;
   for (const c of node.children) relevel(c, level + 1);
 }

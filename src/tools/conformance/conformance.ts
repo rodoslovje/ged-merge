@@ -69,6 +69,9 @@ export interface ConformanceIssue {
   /** Set on the media records' `TITL`/`FORM`-beside-`FILE` habit, which the
    *  fix moves under `FILE` in every media record at once. */
   relocate?: boolean;
+  /** Set on a source's own `AGNC`, which neither version allows on the record:
+   *  the fix moves it to `DATA.AGNC` in every source at once. */
+  agency?: boolean;
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -242,6 +245,8 @@ function tallyMisplaced(
       // A media record's title and format beside its FILE (the 5.5 shape)
       // belong under it — a move the fix makes across the whole file.
       relocate: (parent === "OBJE" && (node.tag === "TITL" || node.tag === "FORM")) || undefined,
+      // A source's own agency belongs under its DATA — the same move file-wide.
+      agency: (parent === "SOUR" && node.tag === "AGNC") || undefined,
     },
   });
 }
@@ -406,9 +411,10 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
 
 /** The findings a fix can settle: a value written in the wrong case, a line
  *  repeated as an exact copy, a media file's missing FORM, text on an event
- *  line that belongs in its NOTE, or media lines kept beside their FILE. */
+ *  line that belongs in its NOTE, media lines kept beside their FILE, or a
+ *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

@@ -446,6 +446,44 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("moves a source's own AGNC under its DATA in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 AGNC Župnija Kranj
+1 REPO @R1@
+0 @S2@ SOUR
+1 TITL Mrliška knjiga
+1 AGNC Župnija Naklo
+1 DATA
+2 AGNC Župnija Naklo
+0 @S3@ SOUR
+1 TITL Poročna knjiga
+1 AGNC NŠAL
+1 DATA
+2 AGNC Župnija Šenčur
+0 @R1@ REPO
+1 NAME NŠAL
+0 TRLR`);
+    const habit = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+    expect(habit.map((i) => [i.sample, i.agency, i.messageVars.count])).toEqual([["AGNC", true, 3]]);
+    expect(countFixableConformance(ds, "agency")).toBe(2); // S3's two agencies differ
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "agency");
+    expect(patches.map((p) => p.id)).toEqual(["@S1@", "@S2@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 DATA\n2 AGNC Župnija Kranj\n1 REPO @R1@\n");
+    expect(out).toContain("0 @S2@ SOUR\n1 TITL Mrliška knjiga\n1 DATA\n2 AGNC Župnija Naklo\n0 @S3@"); // the copy goes
+    expect(out).toContain("1 AGNC NŠAL\n1 DATA\n2 AGNC Župnija Šenčur\n"); // left for the user
+    // The moved lines add no finding of their own in either version.
+    const after = validateConformance(ds).filter((i) => i.recordId === "@S1@" || i.recordId === "@S2@");
+    expect(after).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("moves the text on a 7.0 event line into a note on the event", () => {
     const ds = dataset(`${HEAD_70}
 0 @I1@ INDI

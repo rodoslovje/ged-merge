@@ -77,6 +77,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a media record's TITL/FORM beside its FILE,
    *  which the fix moves under it file-wide. */
   relocate?: boolean;
+  /** Conformance `misplacedTag`: a source's own AGNC, which the fix moves to
+   *  DATA.AGNC file-wide. */
+  agency?: boolean;
 }
 
 export interface StructureReport {

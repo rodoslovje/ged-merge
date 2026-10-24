@@ -12,7 +12,7 @@ export const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
 export const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
 import { bumpSourceCacheVersion, getMediaAndSourceCtx, memoOnContent } from "./cache";
 import { createMediaRecord, prefersMimeForm, referencedObjeXrefs } from "./media";
-import { fileFormOf } from "../mediaForm";
+import { fileFormOf, relevel } from "../mediaForm";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 
 /** Fields for a newly authored `SOUR` record — see `createSourceRecord`. */
@@ -694,4 +694,32 @@ export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): v
     if (oi !== -1) dataset.records.splice(oi, 1);
   }
   bumpSourceCacheVersion(dataset.records);
+}
+
+/**
+ * Move a source record's own `AGNC` (no version allows it there) to
+ * `DATA.AGNC`, the agency responsible for the source's data. `DATA` holds one
+ * `AGNC`: a value equal to the one already there is dropped as a copy, a
+ * different one stays for the user to settle. Returns the lines it moved or
+ * dropped — none when the record has nothing to move.
+ */
+export function hangAgencyUnderData(rec: GedNode): GedNode[] {
+  const flat = childrenByTag(rec, "AGNC");
+  if (flat.length === 0) return [];
+  let data = firstChild(rec, "DATA");
+  const settled: GedNode[] = [];
+  for (const agnc of flat) {
+    const held = data && firstChild(data, "AGNC");
+    if (held && held.value?.trim() !== agnc.value?.trim()) continue;
+    rec.children.splice(rec.children.indexOf(agnc), 1);
+    settled.push(agnc);
+    if (held) continue;
+    if (!data) {
+      data = { level: rec.level + 1, tag: "DATA", children: [] };
+      insertGrouped(rec, data, SOUR_FIELD_TRAILING);
+    }
+    relevel(agnc, data.level + 1);
+    data.children.push(agnc);
+  }
+  return settled;
 }

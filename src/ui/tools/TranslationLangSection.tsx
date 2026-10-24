@@ -109,6 +109,8 @@ export function useTranslationLang({
           const split = new Set(langs).size;
           return (
             <li key={g.key} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
+              {/* Which kind of name it translates: a place's or a person's. */}
+              <span className="tools-struct-rec-tag">{g.place ? "PLAC" : "NAME"}</span>
               <span className="tools-tran-parts">
                 {g.parts.map((part, j) => (
                   <span key={j} className="tools-tran-part">
