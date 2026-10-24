@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { detectDialect, proposeTarget, targetFormatOverrides, writeTarget } from "../normalize/target";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { detectCitationPageStyle, inferSourceFormat, type CitationPageStyle } from "../gedcom/source";
@@ -156,16 +157,28 @@ function handle(req: WorkerRequest): void {
 
     if (req.role === "main") {
       mainDataset = dataset;
-      mainOverrides = req.formatOverrides;
-      profile = applyFormatOverrides(inferMainProfile(dataset), req.formatOverrides);
+      // The detections the target is proposed from, computed once here (off
+      // the main thread) and stored with the file — the loader card and the
+      // Settings GEDCOM tab both read from it. The map reports what the file
+      // *itself* does; `profile` below additionally carries the user's
+      // overrides and the target format's.
+      const detectedFormats = req.silent ? undefined : detectFormatDefaults(dataset);
+      const dialect = req.silent ? undefined : detectDialect(dataset);
+      mainOverrides = req.target
+        ? targetFormatOverrides(
+            req.formatOverrides ?? {},
+            writeTarget(
+              req.target === "propose"
+                ? proposeTarget(dataset, dialect ?? detectDialect(dataset), detectedFormats ?? detectFormatDefaults(dataset)).mode
+                : req.target,
+              dataset,
+            ),
+          )
+        : req.formatOverrides;
+      profile = applyFormatOverrides(inferMainProfile(dataset), mainOverrides);
       // A silent re-feed only rebuilds internal state (see ParseRequest.silent);
       // the main thread keeps its existing main file + edit tracking.
-      if (!req.silent) {
-        // Every detected format, computed once here (off the main thread) and
-        // stored with the file — the loader card and the Settings GEDCOM tab
-        // both read from it. The map reports what the file *itself* does;
-        // `profile` above additionally carries the user's overrides.
-        const detectedFormats = detectFormatDefaults(dataset);
+      if (detectedFormats) {
         post({
           type: "parsed",
           role: "main",
@@ -176,6 +189,7 @@ function handle(req: WorkerRequest): void {
           profile,
           placeFmt: inferPlaceExportFormat(dataset), // cached from the profile inference above
           detectedFormats,
+          dialect,
           placeLayout: (detectedFormats.place as PlaceLayout | undefined) ?? "unknown",
           dateFormat: detectedFormats.date,
           datePlaceholder: detectedFormats.datePlaceholder === "none" ? undefined : detectedFormats.datePlaceholder,

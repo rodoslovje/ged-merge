@@ -28,6 +28,7 @@ import { hashFile, hasPermApi } from "./fingerprint";
 import { SerializedMain } from "./serializedMain";
 import type { ChangeJournal } from "../state/mainSync";
 import { useSettingsSlice } from "../ui/SettingsContext";
+import { targetFileKey } from "../normalize/target";
 
 export interface WorkspacePersistenceOptions {
   /** The opt-in workspace-caching setting (`settings.persistWorkspace`). */
@@ -62,7 +63,7 @@ export interface WorkspacePersistenceOptions {
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["persistWorkspace", "formatOverrides"] as const;
+const SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats"] as const;
 
 /**
  * Opt-in IndexedDB workspace persistence: the startup hydration (re-feeding
@@ -88,6 +89,8 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverridesRef = useRef(settings.formatOverrides);
   formatOverridesRef.current = settings.formatOverrides;
+  const targetFormatsRef = useRef(settings.targetFormats);
+  targetFormatsRef.current = settings.targetFormats;
 
   // A merge session read from IndexedDB on startup, applied once the first match
   // result arrives (the candidate list it keys into must exist first). Null when
@@ -193,7 +196,10 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
           post(
             sf.isCsv
               ? { type: "parseCsv", fileName: sf.fileName, buffer }
-              : { type: "parse", role, fileName: sf.fileName, buffer, formatOverrides: formatOverridesRef.current },
+              : {
+                  type: "parse", role, fileName: sf.fileName, buffer, formatOverrides: formatOverridesRef.current,
+                  ...(role === "main" ? { target: targetFormatsRef.current[targetFileKey(sf.fileName)] ?? "propose" } : {}),
+                },
             [buffer],
           );
         }).catch(() => {

@@ -6862,6 +6862,20 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
 }
 .pwa-toast-reload:hover { filter: brightness(1.08); }
+/* The target-format notice: a strip under the header, in the page flow, so it
+   never covers the view; its message and three actions wrap on a narrow screen. */
+.target-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 16px 8px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-size: 0.9rem;
+}
+.target-notice-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* --- modal --- */
 .modal-overlay {
@@ -7296,6 +7310,12 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
   cursor: pointer;
 }
 .settings-radio input { flex: none; }
+/* Settings → GEDCOM, Target format: one option per line, each with what it
+   does beneath its name. */
+.settings-target-group { display: flex; flex-direction: column; gap: 10px; }
+.settings-target-option { align-items: flex-start; }
+.settings-target-option input { margin-top: 3px; }
+.settings-target-desc { display: block; margin-top: 2px; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
 .shortcuts-modal { max-width: 1120px; height: auto; max-height: 88dvh; }

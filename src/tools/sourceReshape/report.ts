@@ -353,6 +353,7 @@ export function reshapeOptionsFromOverrides(o: FormatOverrides | undefined): Res
     baptism: o?.baptism ?? "auto",
     doubledLinks: o?.doubledLinks ?? "auto",
     sourceCoverage: o?.sourceCoverage ?? "auto",
+    ...(o?.standard ? { standard: o.standard } : {}),
   };
 }
 

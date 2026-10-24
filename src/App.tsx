@@ -89,7 +89,9 @@ import { ChangeJournal, recordsPatch, type SyncMark } from "./state/mainSync";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
-import { DatasetProvider, SettingsProvider, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
+import { DatasetProvider, SettingsProvider, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
+import { TargetFormatContext, type TargetFormatValue } from "./ui/TargetFormatContext";
+import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
@@ -141,7 +143,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -181,8 +183,26 @@ function AppContent() {
   // values keep every read site (and the sync refs below) unchanged.
   const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
+  // The main file's target format (Settings → GEDCOM): the choice remembered
+  // for it, or — opened for the first time — the one its own habits propose.
+  // Every write follows it through `formatOverrides` below, which every
+  // writer reads instead of the raw Settings (see TargetFormatContext).
+  const setSettings = useSetSettings();
+  const targetKey = lastMainFile ? targetFileKey(lastMainFile.fileName) : undefined;
+  const targetProposal = useMemo(
+    () => (lastMainFile ? proposeTarget(lastMainFile.dataset, lastMainFile.dialect, lastMainFile.detectedFormats) : undefined),
+    [lastMainFile],
+  );
+  const storedTargetMode = targetKey ? settings.targetFormats[targetKey] : undefined;
+  const targetMode = storedTargetMode ?? targetProposal?.mode ?? "file";
+  const mainVersion = mainDataset?.version;
+  const target = useMemo(() => writeTarget(targetMode, { version: mainVersion ?? "unknown" }), [targetMode, mainVersion]);
+  const formatOverrides = useMemo(
+    () => targetFormatOverrides(settings.formatOverrides, target),
+    [settings.formatOverrides, target],
+  );
   // Every date field, wherever it sits, writes a typed date in this file's style.
-  useDateEntrySource(mainDataset, settings.formatOverrides);
+  useDateEntrySource(mainDataset, formatOverrides);
   const compareDataset = compare.status === "loaded" ? compare.file.dataset : undefined;
   // Phone layout: the header's ☰ menu, and whether it is open.
   const phone = usePhone();
@@ -213,8 +233,8 @@ function AppContent() {
   tRef.current = t;
   // Same for the Settings → GEDCOM overrides: the snapshot's rows must be built
   // with the place format the merge itself will use (see stampMainRows).
-  const formatOverridesRef = useRef(settings.formatOverrides);
-  formatOverridesRef.current = settings.formatOverrides;
+  const formatOverridesRef = useRef(formatOverrides);
+  formatOverridesRef.current = formatOverrides;
 
   /**
    * Stamp a decision being set to confirmed with the main side's current value
@@ -354,7 +374,7 @@ function AppContent() {
   const { themeMode, changeThemeMode } = useTheme();
 
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
-  const { confirmDialog, confirmDialogElement } = useConfirmDialog();
+  const { confirmDialog, choiceDialog, confirmDialogElement } = useConfirmDialog();
 
   // The main thread's own copies of the GEDCOM datasets, built from the same
   // bytes the worker parses — no dataset crosses the worker boundary (see
@@ -704,7 +724,10 @@ function AppContent() {
     }
     const newMsg: WorkerRequest = isCsv
       ? { type: "parseCsv", fileName, buffer }
-      : { type: "parse", role, fileName, buffer, formatOverrides: settings.formatOverrides };
+      : {
+          type: "parse", role, fileName, buffer, formatOverrides: settings.formatOverrides,
+          ...(role === "main" ? { target: settings.targetFormats[targetFileKey(fileName)] ?? "propose" } : {}),
+        };
 
     // A new file supersedes any match still being computed. The worker can't
     // interrupt its own synchronous scoring pass, so when one is in flight we
@@ -759,7 +782,7 @@ function AppContent() {
     }
     const patch = changed && recordsPatch(ds, changed);
     if (!patch) return refeedWorkerMain(serializeMainForWorker(ds), fileName);
-    post({ type: "patchMain", patch, formatOverrides: settings.formatOverrides });
+    post({ type: "patchMain", patch, formatOverrides });
     workerMainVersionRef.current = changeJournal.mark(version);
   }
 
@@ -771,7 +794,7 @@ function AppContent() {
     const mark = changeJournal.mark(editVersionRef.current);
     const mainBuf = await new Blob([text]).arrayBuffer();
     post(
-      { type: "parse", role: "main", fileName, buffer: mainBuf, silent: true, formatOverrides: settings.formatOverrides },
+      { type: "parse", role: "main", fileName, buffer: mainBuf, silent: true, formatOverrides },
       [mainBuf],
     );
     if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
@@ -958,6 +981,70 @@ function AppContent() {
     setHistoryPersonId,
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
+
+  // A file opened for the first time keeps the target it was proposed.
+  const targetFormatsRef = useRef(settings.targetFormats);
+  targetFormatsRef.current = settings.targetFormats;
+  useEffect(() => {
+    if (!targetKey || storedTargetMode || !targetProposal) return;
+    setSettings({ targetFormats: rememberTarget(targetFormatsRef.current, targetKey, targetProposal.mode) });
+  }, [targetKey, storedTargetMode, targetProposal, setSettings]);
+
+  // A file kept in its own format says so each time it is opened — the reader
+  // may want a GEDCOM version instead, and Settings → GEDCOM is where to
+  // choose it — until Don't show again silences it for that file. Once per
+  // load (`mainLoadGen`): a save's in-place rebuild is not an opening.
+  const [targetNotice, setTargetNotice] = useState(false);
+  const noticeGenRef = useRef(-1);
+  const noticeHidden = !!targetKey && settings.targetNoticeHidden.includes(targetKey);
+  useEffect(() => {
+    if (targetMode !== "file" || noticeHidden) {
+      setTargetNotice(false);
+      return;
+    }
+    if (!targetKey || noticeGenRef.current === mainLoadGen) return;
+    noticeGenRef.current = mainLoadGen;
+    setTargetNotice(true);
+  }, [mainLoadGen, targetKey, targetMode, noticeHidden]);
+  const hideTargetNotice = () => {
+    setTargetNotice(false);
+    if (targetKey) {
+      setSettings({ targetNoticeHidden: [...settings.targetNoticeHidden.filter((k) => k !== targetKey), targetKey].slice(-MAX_REMEMBERED_TARGETS) });
+    }
+  };
+
+  // Choosing a GEDCOM version asks first — the choice changes what every
+  // write does — and offers to bring the records the file already has to that
+  // standard straight away, which Tools → Normalize & batch does. Cancel keeps
+  // the format the file had. Going back to the file's own format needs no
+  // question: it writes nothing differently from what the file already does.
+  const setTargetMode = useCallback((next: TargetMode) => {
+    if (!targetKey || next === targetMode) return;
+    const remember = () => setSettings({ targetFormats: rememberTarget(targetFormatsRef.current, targetKey, next) });
+    if (next === "file") return remember();
+    void choiceDialog(
+      t("target.switch", { version: next }),
+      t("target.switch.normalize"),
+      t("target.switch.only"),
+    ).then((choice) => {
+      if (choice === "cancel") return;
+      remember();
+      if (choice !== "confirm") return;
+      setShowSettings(false);
+      goToPage({ mode: "tools", tool: "normalize", toolView: "normalize" });
+    });
+  }, [targetKey, targetMode, setSettings, choiceDialog, t, goToPage]);
+  const dialect = lastMainFile?.dialect;
+  const targetFormat = useMemo<TargetFormatValue>(
+    () => ({
+      target,
+      formatOverrides,
+      proposal: targetProposal,
+      setMode: setTargetMode,
+      eventOffer: { version: target.version, strict: target.strict, dialectTags: new Set(dialect?.bareTags) },
+    }),
+    [target, formatOverrides, targetProposal, setTargetMode, dialect],
+  );
 
   // A person a confirmed decision added ahead of the save is their new record:
   // their name — on either side of the comparison — opens it in Edit, even
@@ -1728,7 +1815,7 @@ function AppContent() {
       isSortEligible,
       isSubstantive: dirty.isSubstantive,
       now: new Date(),
-      formatOverrides: settings.formatOverrides,
+      formatOverrides,
       t,
     };
   }
@@ -1776,6 +1863,9 @@ function AppContent() {
    */
   async function openSavePreview(convertTo?: OutputVersion) {
     if (!mainDataset || main.status !== "loaded") return;
+    // A strict target format saves in its own version, converting a file
+    // that is in the other one.
+    if (!convertTo && target.strict && target.version !== ownVersion(mainDataset)) convertTo = target.version;
     // Converting is a reason to save on its own, changed or not.
     const force = !!convertTo;
     const next = buildSavePreview({ ...savePreviewInput(mainDataset, main.file.fileName), force });
@@ -2391,6 +2481,7 @@ function AppContent() {
 
   return (
     <DatasetProvider dataset={mainDataset}>
+    <TargetFormatContext.Provider value={targetFormat}>
     <DatasetDerivationsProvider dataset={mainDataset} version={editVersion} changes={changeJournal}>
     <PwaReloadPrompt />
     <IconTipLayer />
@@ -2398,6 +2489,31 @@ function AppContent() {
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
       {appHeader(false)}
+      {/* Under the header, in the flow: it pushes the view down rather than
+          covering any of it, and stays until it is answered. */}
+      {targetNotice && (
+        <div className="target-notice" role="status">
+          <span>
+            {targetProposal?.software
+              ? t("target.kept.software", { software: targetProposal.software })
+              : t("target.kept")}
+          </span>
+          <div className="target-notice-actions">
+            <button
+              className="pwa-toast-reload"
+              onClick={() => {
+                setTargetNotice(false);
+                setSettingsTab("format");
+                setShowSettings(true);
+              }}
+            >
+              {t("target.notice.settings")}
+            </button>
+            <button className="btn-secondary" onClick={hideTargetNotice}>{t("target.notice.hide")}</button>
+            <button className="btn-secondary" onClick={() => setTargetNotice(false)}>{t("help.close")}</button>
+          </div>
+        </div>
+      )}
 
       {/* File info panel — forced open in Merge before matches; toggleable otherwise */}
       {infoPanelOpen && lastMainFile && (
@@ -2589,14 +2705,15 @@ function AppContent() {
               onAddSource={(fields) =>
                 applyToolPatches(
                   createStandaloneSource(mainDataset.records, fields, {
-                    sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
+                    sourceLayout: formatOverrides.sourceLayout ?? "auto",
+                    standard: formatOverrides.standard,
                   }).extraPatches,
                 )
               }
               onEditSource={(sourceXref, fields) =>
                 applySharedRecordEdit((records, notes) => {
                   const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
-                  if (node) setSourceRecordFields(records, node, fields, notes);
+                  if (node) setSourceRecordFields(records, node, fields, notes, formatOverrides);
                 })
               }
               onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}
@@ -2610,8 +2727,8 @@ function AppContent() {
                 applySharedRecordEdit((records) => {
                   const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
                   if (!node) return;
-                  setMediaInfo(node, fields);
-                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, detectPrivacyStyle(records), records);
+                  setMediaInfo(node, fields, records, formatOverrides);
+                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), records);
                   bumpSourceCacheVersion(records);
                 })
               }
@@ -2668,7 +2785,7 @@ function AppContent() {
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
-              onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, settings.formatOverrides, only), true)}
+              onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
@@ -2758,6 +2875,7 @@ function AppContent() {
       {!treeOverlay && appModals}
     </div>
     </DatasetDerivationsProvider>
+    </TargetFormatContext.Provider>
     </DatasetProvider>
   );
 }

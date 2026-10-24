@@ -98,7 +98,7 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
 });
 
 describe("writeSchema — GEDCOM 7 extension tags", () => {
-  it("declares every extension tag a 7.0 file uses, after GEDC, in the file's spelling", () => {
+  it("declares every extension tag a 7.0 file uses, after GEDC, in uppercase as the lines are written", () => {
     const { lines } = download([
       "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SOUR MYHERITAGE",
       "0 @I1@ INDI", "1 _UID 123", "1 NAME Ana /Novak/", "2 _MARNM Kos", "1 _myTag x", "2 _UID 4", "1 _UPD 1 JAN 2020",
@@ -110,12 +110,14 @@ describe("writeSchema — GEDCOM 7 extension tags", () => {
       "2 VERS 7.0",
       "1 SCHMA",
       `2 TAG _MARNM ${TERMS}myheritage/_MARNM`,
+      `2 TAG _MYTAG ${TERMS}unknown/#_MYTAG`,
       `2 TAG _UID ${TERMS}myheritage/_UID`,
       `2 TAG _UPD ${TERMS}myheritage/_UPD`,
-      `2 TAG _myTag ${TERMS}unknown/#_myTag`,
     ]);
     // A 7.0 file saved as 7.0 keeps its vendor lines: no conversion.
     expect(lines).toContain("1 _UID 123");
+    // 7.0 allows only uppercase letters in a tag.
+    expect(lines).toContain("1 _MYTAG x");
   });
 
   it("points each tag at the program the file comes from, or the one the registry names", () => {

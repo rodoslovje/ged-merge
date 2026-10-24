@@ -400,8 +400,9 @@ describe("private notes", () => {
 
     const out = serializeGedcom(ds.records);
     // Still inline, now carrying the flag in the file's dialect (no marker
-    // anywhere in this fixture, so the standard RESN).
-    expect(out).toMatch(/1 NOTE https:\/\/web\.facebook\.com\/ales\.znidar\.9\n2 RESN privacy/);
+    // anywhere in this fixture, so the standard style — which a note cannot
+    // carry as RESN in either version, so the _PRIV extension).
+    expect(out).toMatch(/1 NOTE https:\/\/web\.facebook\.com\/ales\.znidar\.9\n2 _PRIV Y/);
     expect(out).not.toContain("0 @N3@ NOTE");
   });
 
@@ -523,11 +524,11 @@ describe("event pointer notes", () => {
       "0 TRLR",
     ]);
     const obje = ds.records.find((r) => r.xref === "@O1@")!;
-    setMediaInfo(obje, { description: "new description" });
+    setMediaInfo(obje, { description: "new description" }, ds.records);
     const out = serializeGedcom(ds.records);
     expect(out).toContain("1 NOTE @N1@"); // pointer survives
-    expect(out).not.toContain("old inline description"); // inline NOTE migrated
-    expect(out).toContain("1 _DSCR new description");
+    expect(out).not.toContain("old inline description"); // inline NOTE replaced
+    expect(out).toContain("1 NOTE new description");
   });
 
   it("without a ctx, inline behavior is unchanged", () => {

@@ -11,9 +11,10 @@ import { orderingDate } from "../../gedcom/sortDate";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import type { TagSuggestions } from "./fieldSuggestions";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { nodeId } from "./nodeId";
-import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";
+import { EXTRA_EVENT_ORDER, ASSIGNABLE_EVENT_TAGS, offeredEventGroups } from "./editConstants";
+import { useTargetFormat } from "../TargetFormatContext";
 import type { Commit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -160,6 +161,9 @@ export const EventList = memo(function EventList({
   onCopyEvent?: (node: GedNode, label: string) => void;
 }) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  // A row's type dropdown offers what the target format allows.
+  const { eventOffer } = useTargetFormat();
+  const offeredGroups = useMemo(() => offeredEventGroups(eventOffer), [eventOffer]);
   const birtEv = person.events.find((e) => e.tag === "BIRT");
 
   // The person's age at an event, shown after its date ("Show ages" setting);
@@ -299,7 +303,7 @@ export const EventList = memo(function EventList({
               onResolveMergeField?.(row.mergeKeyBase, String(row.stableKey), subsOf(update));
             }}
             onChangeTag={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? (newTag) => commit((indi) => changeEventTagAtIndex(indi, row.i, newTag)) : undefined}
-            tagGroups={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? INDIVIDUAL_EVENT_GROUPS : undefined}
+            tagGroups={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? offeredGroups : undefined}
             onCopy={onCopyEvent ? () => onCopyEvent(rawEventNodes[row.i], eventDisplayLabel(row.ev.tag, t)) : undefined}
             onRemove={() => {
               commit((indi) => removeEventAtIndex(indi, row.i));

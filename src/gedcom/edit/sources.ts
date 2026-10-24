@@ -1,4 +1,5 @@
-import { isPointer, looksLikeUrl, resolveSourceCitation } from "../source";
+import { filingNumberOf, isPointer, looksLikeUrl, periodicalOf, resolveSourceCitation } from "../source";
+import type { FormatOverrides } from "../../normalize/formatOverrides";
 import { linkKey } from "../../normalize/links";
 import { childrenByTag, firstChild, removeChildren } from "../node";
 import type { Dataset, GedNode } from "../types";
@@ -9,7 +10,7 @@ export const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
 /** Trailing block a new descriptive field must stay ahead of — the media
  *  links, the repository link and the bookkeeping timestamps. */
 export const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
-import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
+import { bumpSourceCacheVersion, getMediaAndSourceCtx, memoOnContent } from "./cache";
 import { createMediaRecord, prefersMimeForm, referencedObjeXrefs } from "./media";
 import { fileFormOf } from "../mediaForm";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
@@ -39,6 +40,9 @@ export function createSourceRecord(
   /** Xrefs promised elsewhere (the merge's pending shared-record imports) that
    *  the fresh ids must skip — see `nextXref`. */
   reserved?: ReadonlySet<string>,
+  /** The format choices with the target format applied: a strict target
+   *  writes the standard forms (see {@link sourceFieldTag}). */
+  overrides?: Pick<FormatOverrides, "standard">,
 ): GedNode {
   const raw: GedNode = { level: 0, xref: nextXref(records, "S", reserved), tag: "SOUR", children: [] };
   const push = (tag: string, value: string | undefined) => {
@@ -46,10 +50,16 @@ export function createSourceRecord(
   };
   push("TITL", fields.title);
   push("AUTH", fields.author);
-  push("PERI", fields.periodical);
+  push(sourceFieldTag(records, "PERI", overrides), fields.periodical);
   push("PUBL", fields.publisher);
-  push("AGNC", fields.agency);
-  push("FILN", fields.filingNumber);
+  if (overrides?.standard && fields.agency) {
+    // Neither version has AGNC on the record itself: the standard states the
+    // agency inside DATA.
+    raw.children.push({ level: 1, tag: "DATA", children: [{ level: 2, tag: "AGNC", value: fields.agency, children: [] }] });
+  } else {
+    push("AGNC", fields.agency);
+  }
+  push(sourceFieldTag(records, "FILN", overrides), fields.filingNumber);
   push("NOTE", fields.note);
   insertRecord(records, raw);
   bumpSourceCacheVersion(records);
@@ -180,7 +190,14 @@ export function createRepoRecord(records: GedNode[], name: string): GedNode {
  * never touching another page's file. For an inline (plain-text) citation,
  * only its own value/page can change (there's no shared record).
  */
-export function updateSourceCitation(records: GedNode[], node: GedNode, index: number, fields: EditSourceFields, notes?: SharedNoteCtx): void {
+export function updateSourceCitation(
+  records: GedNode[],
+  node: GedNode,
+  index: number,
+  fields: EditSourceFields,
+  notes?: SharedNoteCtx,
+  overrides?: Pick<FormatOverrides, "standard">,
+): void {
   const citation = sourceCitationNodes(node)[index];
   if (!citation) return;
 
@@ -198,7 +215,21 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
 
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   if (!sourceNode) return;
-  setSourceRecordFields(records, sourceNode, fields, notes);
+  setSourceRecordFields(records, sourceNode, fields, notes, overrides);
+}
+
+/**
+ * The tag a source record's filing number or periodical title is written
+ * with. GEDCOM 5.5-EL's `FILN` and `PERI` are in neither 5.5.1 nor 7.0, so a
+ * strict target format writes the extensions `_FILN`/`_PERI`; the file's own
+ * format keeps the bare tag where the file already writes it, and writes the
+ * extension otherwise. Both spellings read alike (`filingNumberOf`).
+ */
+export function sourceFieldTag(records: GedNode[], tag: "FILN" | "PERI", overrides?: Pick<FormatOverrides, "standard">): string {
+  if (overrides?.standard) return `_${tag}`;
+  return memoOnContent(records, `sourceFieldTag:${tag}`, () =>
+    records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === tag)) ? tag : `_${tag}`,
+  );
 }
 
 /**
@@ -208,7 +239,13 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
  * involved). `page` and `quay` are citation-local and ignored here. `url` retargets
  * `fields.objeXref` (or the record's sole `OBJE`), or creates a new `OBJE`.
  */
-export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, fields: EditSourceFields, notes?: SharedNoteCtx): void {
+export function setSourceRecordFields(
+  records: GedNode[],
+  sourceNode: GedNode,
+  fields: EditSourceFields,
+  notes?: SharedNoteCtx,
+  overrides?: Pick<FormatOverrides, "standard">,
+): void {
   // The dialog displays one line per field — the first node of the tag — so a
   // save may only touch that node: a second NOTE the dialog never showed
   // survives, an unchanged value stays byte-identical (keeping its CONC wrap
@@ -229,6 +266,18 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     }
     insertGrouped(sourceNode, { level: sourceNode.level + 1, tag, value: trimmed, children: [] }, SOUR_FIELD_TRAILING);
   };
+  // A filing number or periodical lives under either spelling (see
+  // `sourceFieldTag`); the one the record has is edited, under the tag the
+  // target writes — so a strict target turns a bare FILN into _FILN.
+  const setExtension = (tag: "FILN" | "PERI", value: string | undefined) => {
+    const want = sourceFieldTag(records, tag, overrides);
+    const existing = sourceNode.children.find((c) => c.tag === tag || c.tag === `_${tag}`);
+    if (existing && existing.tag !== want && value?.trim()) {
+      existing.tag = want;
+      delete existing.spelling;
+    }
+    setChild(existing?.tag ?? want, value);
+  };
   // A standard-coverage record keeps place and agency inside `DATA` (AGNC on
   // DATA itself, PLAC on its EVEN blocks) — an edit lands where the value
   // lives instead of minting a second, flat copy beside it. The dialog shows
@@ -236,6 +285,11 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
   // touches only that holder — a sibling EVEN with its own PLAC keeps it.
   const data = firstChild(sourceNode, "DATA");
   const setCoverageAware = (tag: "AGNC" | "PLAC", value: string | undefined) => {
+    // A strict target never adds a flat AGNC: the agency belongs in DATA.
+    if (!data && tag === "AGNC" && overrides?.standard && value?.trim() && !firstChild(sourceNode, tag)) {
+      insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "DATA", children: [{ level: sourceNode.level + 2, tag, value: value.trim(), children: [] }] }, SOUR_FIELD_TRAILING);
+      return;
+    }
     if (!data || firstChild(sourceNode, tag)) return setChild(tag, value);
     const holders = tag === "AGNC" ? [data] : childrenByTag(data, "EVEN");
     if (holders.length === 0) return setChild(tag, value);
@@ -252,11 +306,11 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
   };
   setChild("TITL", fields.title);
   setChild("AUTH", fields.author);
-  setChild("PERI", fields.periodical);
+  setExtension("PERI", fields.periodical);
   setChild("PUBL", fields.publisher);
   setCoverageAware("AGNC", fields.agency);
   setCoverageAware("PLAC", fields.place);
-  setChild("FILN", fields.filingNumber);
+  setExtension("FILN", fields.filingNumber);
   // A NOTE that points at a shared record is edited inside that record (the
   // dialog was prefilled with its resolved text); clearing it releases the
   // reference, deleting the record only once nothing else uses it.
@@ -499,11 +553,11 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
   return {
     title: text("TITL"),
     author: text("AUTH"),
-    periodical: text("PERI"),
+    periodical: periodicalOf(sourceNode),
     publisher: text("PUBL"),
     agency: text("AGNC") ?? coveredAgency,
     place: text("PLAC") ?? coveredPlace,
-    filingNumber: text("FILN"),
+    filingNumber: filingNumberOf(sourceNode),
     note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() : noteVal,
     url: objeUrl,
     objeXref,

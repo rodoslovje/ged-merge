@@ -148,9 +148,10 @@ export const KNOWN_TAGS = new Set<string>([
   "DATE", "TIME", "PLAC", "ADDR", "ADR1", "ADR2", "ADR3", "CITY", "STAE", "POST", "CTRY",
   "PHON", "EMAIL", "FAX", "WWW", "AGNC", "CAUS", "AGE", "ASSO", "RELA", "RESN",
   "MAP", "LATI", "LONG", "EXID", "PHRASE", "SDATE", "NO",
-  // Source / citation (PERI is 5.5-EL: periodical name — parsed by source.ts)
-  "PAGE", "DATA", "TEXT", "QUAY", "ROLE", "AUTH", "PUBL", "ABBR", "EDTN",
-  "REFN", "RIN", "MEDI", "CALN", "FILN", "PERI",
+  // Source / citation. GEDCOM 5.5-EL's PERI, FILN and EDTN are in neither
+  // standard: the vendor registry names them, so they show as a program's own.
+  "PAGE", "DATA", "TEXT", "QUAY", "ROLE", "AUTH", "PUBL", "ABBR",
+  "REFN", "RIN", "MEDI", "CALN",
   // Multimedia (BLOB is deprecated 5.5 but still seen). CROP + TOP/LEFT/HEIGHT/
   // WIDTH are the GEDCOM 7 multimedia-link crop region (a subregion of an image
   // that depicts the linking record — e.g. one person marked in a group photo).

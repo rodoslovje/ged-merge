@@ -218,7 +218,14 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   _META: { software: ANC, category: "internal", meaning: { en: "media metadata XML", sl: "metapodatki predstavnosti (XML)" } },
   _ATL: { software: ANC, category: "internal", meaning: { en: "attached-to-list flag", sl: "zastavica pripetosti" } },
   _CREA: { software: ANC, category: "internal", meaning: { en: "creation timestamp", sl: "časovni žig nastanka" } },
-  _URL: { software: ANC, category: "internal", meaning: { en: "media source URL", sl: "URL vira predstavnosti" } },
+  // Several programs' web link — on a person or a family, the page about
+  // them; Ancestry also writes it for a media item's source. Content, not
+  // bookkeeping: an internal tag would be stripped from incoming people.
+  _URL: {
+    software: MULTI,
+    category: "attribute",
+    meaning: { en: "web address (a page about the person or family; a media item's source)", sl: "spletni naslov (stran o osebi ali družini, vir medija)" },
+  },
   _DSCR: { software: ANC, category: "internal", meaning: { en: "media source description", sl: "opis vira predstavnosti" } },
   _TREE: { software: ANC, category: "internal", meaning: { en: "source tree name", sl: "ime izvornega drevesa" } },
   _ENV: { software: ANC, category: "internal", meaning: { en: "export environment", sl: "okolje izvoza" } },
@@ -239,6 +246,14 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   // from GEDCOM 5.5-EL or invented; without these entries the health check
   // would flag a MacFamilyTree file's own data as "unknown tags".
   RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost" } },
+  // A couple's separation, written bare by several programs (and Brother's
+  // Keeper's _SEPR aliased to it): in neither 5.5.1 nor 7.0.
+  SEPA: { software: MULTI, category: "event", meaning: { en: "separation of a couple", sl: "ločeno življenje para" } },
+  // GEDCOM 5.5-EL's source fields, which MacFamilyTree and its kin write on a
+  // source record. A strict target format writes them as _FILN/_PERI.
+  FILN: { software: MFT, category: "citation", meaning: { en: "source filing number (5.5-EL)", sl: "arhivska številka vira (5.5-EL)" } },
+  PERI: { software: MFT, category: "citation", meaning: { en: "periodical title (5.5-EL)", sl: "periodika / zbirka (5.5-EL)" } },
+  EDTN: { software: MFT, category: "citation", meaning: { en: "edition (5.5-EL)", sl: "izdaja (5.5-EL)" } },
   SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime" } },
   MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
   NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)" } },
@@ -351,7 +366,8 @@ export const VENDOR_PRIVACY_TAGS: Set<string> = new Set(Object.keys(PRIVACY_INFO
  * or structure translation belongs to a real normalization step instead
  * (see `normalize/familyStatus.ts` for the _NMR/_MARRIED/_FREL/_MREL rules).
  * `_SEPR` is Brother's Keeper's separation event — same DATE/PLAC shape as
- * the standard `SEPA` family event the app already supports.
+ * the `SEPA` family event the app already supports (itself in neither
+ * standard: see its registry entry).
  */
 export const VENDOR_TAG_ALIASES: Record<string, string> = {
   _MILI: "_MILT",

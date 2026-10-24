@@ -206,12 +206,6 @@ function dropChildren(parent: GedNode, tags: string[], note: (b: string, a: stri
   });
 }
 
-/** The extension tag as the file writes it — 7.0 tags are case-sensitive, so
- *  the schema must declare the spelling the lines carry. */
-function writtenTag(node: GedNode): string {
-  return node.spelling?.toUpperCase() === node.tag ? node.spelling : node.tag;
-}
-
 /**
  * The URI `HEAD.SCHMA` declares an extension tag with, where it stands
  * (`ancestors`: the tags above it, record first): the FamilySearch registry's
@@ -241,7 +235,8 @@ export function writeSchema(records: GedNode[], headSour?: string): string[] {
   const visit = (nodes: GedNode[], ancestors: string[]) => {
     for (const node of nodes) {
       if (node.tag.startsWith("_")) {
-        const tag = writtenTag(node);
+        // As the 7.0 download writes it: uppercase (`upperTags`).
+        const tag = node.tag;
         if (!used.has(tag)) used.set(tag, schemaUri(tag, ancestors, headSour));
       }
       if (node.children.length) visit(node.children, [...ancestors, node.tag]);
@@ -289,7 +284,7 @@ export function prepareDownload(
   const from = ownVersion(ds);
   // The program that wrote the file, before the stamp below names GED Merge.
   const headSour = firstChild(records.find((r) => r.tag === "HEAD") ?? line("HEAD"), "SOUR")?.value;
-    const fixes = completeStructure(records, version, true, authorName);
+  const fixes = completeStructure(records, version, true, authorName);
   const conversion = from === version ? null : convertVersion(records, from, version);
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);

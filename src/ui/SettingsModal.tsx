@@ -1,3 +1,5 @@
+import { useTargetFormat } from "./TargetFormatContext";
+import { STRICT_FORMAT_KEYS, TARGET_MODES } from "../normalize/target";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
@@ -6,7 +8,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS, dateDisplayFormatter } from "./dateDisplayFormat";
 import { parseDate } from "../gedcom/date";
 import { useSettings, useNameOf, MAX_AUTHOR_NAME, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
-import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
+import { offeredEventGroups } from "./edit/editConstants";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import { EventGlyph } from "./EventGlyph";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
@@ -347,6 +349,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // read formatOverrides re-render, and they do it in the same tick as the
   // change, so the select needs no local echo to stay responsive.
   const overrides = settings.formatOverrides;
+  // The same choices with the loaded file's target format applied — what the
+  // rows a strict mode decides show.
+  const targetFormat = useTargetFormat();
+  const effective = targetFormat.formatOverrides;
   const updateOverride = (key: keyof FormatOverrides, value: string) => {
     const next = { ...overrides };
     if (value) next[key] = value as never;
@@ -359,8 +365,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   /** Concrete sample of the row's *effective* value (the override when set,
    *  else the detected habit — the latter only while a main file is loaded). */
   const formatExample = ({ key }: FormatDimension): string | undefined => {
-    const effective = overrides[key] ?? detected?.[key];
-    if (!effective) return undefined;
+    const value = (targetFormat.target.strict && STRICT_FORMAT_KEYS.has(key) ? effective : overrides)[key] ?? detected?.[key];
+    if (!value) return undefined;
+    return formatSample(key, value);
+  };
+  const formatSample = (key: keyof FormatOverrides, effective: string): string | undefined => {
     if (key === "date") return sampleDateFor(effective);
     if (key === "unknownName") return effective === "blank" ? "/Kovač/" : `${effective} /Kovač/`;
     if (key === "matriculaLang") return `…online.eu/${effective}/…`;
@@ -620,7 +629,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   tooltip={t("settings.quickEvents.add")}
                   t={t}
                   onAdd={(tag) => set({ quickEventTags: [...settings.quickEventTags, tag] })}
-                  groups={INDIVIDUAL_EVENT_GROUPS.map((g, i) => ({
+                  groups={offeredEventGroups(targetFormat.eventOffer).map((g, i) => ({
                     labelKey: g.labelKey,
                     // BIRT lives outside the menu groups (its row is always
                     // shown in Edit) but is a valid quick button — offer it
@@ -638,15 +647,60 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           {tab === "format" && (
           <>
+          {/* The target format comes first: in a strict mode it decides some
+              of the rows below, which then show the standard's form. Only a
+              loaded main file has one. */}
+          {targetFormat.proposal && (
+            <section className="settings-section">
+              <h3>{t("settings.target.title")}</h3>
+              <p className="settings-hint">{t("settings.target.hint")}</p>
+              <fieldset className="settings-radio-group settings-target-group" aria-label={t("settings.target.title")}>
+                {TARGET_MODES.map((mode) => (
+                  <label key={mode} className="settings-radio settings-target-option">
+                    <input
+                      type="radio"
+                      name="settings-target"
+                      value={mode}
+                      checked={targetFormat.target.mode === mode}
+                      onChange={() => targetFormat.setMode(mode)}
+                    />
+                    <span>
+                      <span className="settings-row-label">
+                        {mode === "file" ? t("settings.target.file") : t("settings.target.strict", { version: mode })}
+                      </span>
+                      <span className="settings-hint settings-target-desc">
+                        {mode === "file"
+                          ? targetFormat.proposal?.software
+                            ? t("settings.target.file.hint.software", { software: targetFormat.proposal.software })
+                            : t("settings.target.file.hint")
+                          : t("settings.target.strict.hint", { version: mode })}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            </section>
+          )}
           {FORMAT_GROUPS.map(({ group, dims }) => (
             <section key={group} className="settings-section settings-format-group">
               <h3>{t(`settings.format.group.${group}`)}</h3>
-              {dims.map(({ key, choices, verbatim }) => (
-                <label key={key} className="settings-row settings-format-row" title={t(`settings.format.${key}.hint`)}>
+              {dims.map(({ key, choices, verbatim }) => {
+                // A strict target decides this row: it shows the standard's
+                // form, fixed, and says why.
+                const fixed = targetFormat.target.strict && STRICT_FORMAT_KEYS.has(key);
+                return (
+                <label
+                  key={key}
+                  className="settings-row settings-format-row"
+                  title={fixed
+                    ? t("settings.target.fixedRow", { version: targetFormat.target.version })
+                    : t(`settings.format.${key}.hint`)}
+                >
                   <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
                   <span className="settings-format-example gm-data">{formatExample({ key, choices, verbatim })}</span>
                   <SelectMenu
-                    value={(overrides[key] as string | undefined) ?? ""}
+                    disabled={fixed}
+                    value={((fixed ? effective : overrides)[key] as string | undefined) ?? ""}
                     onChange={(v) => updateOverride(key, v)}
                     options={[
                       { value: "", label: t("settings.format.detected") },
@@ -659,7 +713,8 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     ]}
                   />
                 </label>
-              ))}
+                );
+              })}
               {/* Not a format override — a reading of the file rather than a
                   habit of it — but it belongs among the place rows, which is
                   what it is about, and it reads as one of them. */}

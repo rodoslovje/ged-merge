@@ -1,3 +1,4 @@
+import { useFormatOverrides } from "./TargetFormatContext";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isEditableTarget } from "../keyboard/shortcuts";
 import { handleListKey } from "../keyboard/useListKeyboard";
@@ -51,7 +52,7 @@ interface Props {
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["showAge", "formatOverrides"] as const;
+const SETTINGS_KEYS = ["showAge"] as const;
 
 const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
 
@@ -71,6 +72,7 @@ export function ComparePanel({
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  const formatOverrides = useFormatOverrides();
   const mainPerson = {
     linkable: (id: string) => canNavigate("main", id),
     onNavigate: (id: string) => onNavigate("main", id),
@@ -121,8 +123,8 @@ export function ComparePanel({
   // address rows could show a different split than the one the confirm-time
   // snapshot and the save actually use.
   const placeFmt = useMemo(
-    () => mergePlaceFormat(mainDs, settings.formatOverrides),
-    [mainDs, settings.formatOverrides],
+    () => mergePlaceFormat(mainDs, formatOverrides),
+    [mainDs, formatOverrides],
   );
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;

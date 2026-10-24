@@ -84,7 +84,8 @@ describe("an event's notes", () => {
     const out = serializeGedcom(ds.records);
     expect((out.match(/^2 NOTE /gm) ?? [])).toHaveLength(4);
     expect(out).toContain("2 NOTE @N1@"); // the pointer survived as a pointer
-    expect(out).toMatch(/2 NOTE a fourth note\n3 RESN privacy/);
+    // A note has no RESN in either version: the extension stands in.
+    expect(out).toMatch(/2 NOTE a fourth note\n3 _PRIV Y/);
     // The shared record is untouched — its text was not edited.
     expect(out).toContain("0 @N1@ NOTE a shared remark");
   });

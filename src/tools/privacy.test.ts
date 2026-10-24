@@ -333,6 +333,26 @@ describe("privatizeDataset — file-level scrubs", () => {
     expect(report.externalIdsStripped).toBe(2);
   });
 
+  it("strips GEDCOM 7.0's own identifiers (UID, EXID) too", () => {
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 DEAT
+2 DATE 1970
+1 UID 0f9a2c1e-7c1b-4a6e-9f0d-5f6b1d2c3e4f
+1 EXID GW82-GKR
+2 TYPE https://www.familysearch.org/tree/person/
+0 TRLR`);
+    const o = opts({ file: { stripSubmitter: false, stripExternalIds: true, scrubAddress: false, scrubEmail: false, scrubPhone: false } });
+    const { records, report } = privatizeDataset(ds, o, NOW);
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("UID");
+    expect(out).not.toContain("EXID");
+    expect(report.externalIdsStripped).toBe(2);
+  });
+
   it("global contact scrub removes emails everywhere", () => {
     const ds = dataset(SAMPLE);
     const o = opts({ file: { stripSubmitter: false, stripExternalIds: false, scrubAddress: false, scrubEmail: true, scrubPhone: false } });
