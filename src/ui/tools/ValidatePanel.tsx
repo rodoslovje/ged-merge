@@ -219,7 +219,7 @@ export function ValidatePanel({
   if (scan.status === "done") lastRef.current = scan.result;
   const report = scan.status === "done" ? scan.result.report : (lastRef.current?.report ?? null);
   const structure = scan.status === "done" ? scan.result.structure : (lastRef.current?.structure ?? null);
-  const [filter, setFilter] = useState<IssueCategory | StructCategory | "all">("all");
+  const [filter, setFilter] = useState<IssueCategory | StructCategory | "all" | "tranLang">("all");
   const [query, setQuery] = useState("");
   // Transient confirmation after a one-button fix: which fix, and how many
   // records it repaired.
@@ -331,6 +331,10 @@ export function ValidatePanel({
   }
 
   useEffect(() => { setFilter("all"); }, [group]);
+  // The last translation given its language takes its chip away: back to All.
+  useEffect(() => {
+    if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
+  }, [filter, structure]);
 
   useEffect(() => {
     lastRef.current = null;
@@ -381,7 +385,9 @@ export function ValidatePanel({
     }
     for (const issue of structure?.issues ?? []) {
       if (structGroup(issue.category) !== group) continue;
-      if (filter !== "all" && issue.category !== filter) continue;
+      // Translations without a language are a chip of their own, carved out
+      // of the missing lines they technically are.
+      if (filter === "tranLang" ? !isUntaggedTran(issue) : filter !== "all" && (issue.category !== filter || isUntaggedTran(issue))) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (q && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(q)) continue;
       rows.push({ kind: "struct", severity: issue.severity, issue });
@@ -596,9 +602,8 @@ export function ValidatePanel({
 
   // A translation the standard wants a language on, written without one — the
   // worklist below re-reads those lines on the main thread, so only then.
-  const hasUntaggedTran = !!structure?.issues.some(
-    (i) => i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN"),
-  );
+  const untaggedTranCount = structure?.issues.filter(isUntaggedTran).length ?? 0;
+  const hasUntaggedTran = untaggedTranCount > 0;
   const tranLang = useTranslationLang({
     dataset,
     freshness: structure,
@@ -832,15 +837,26 @@ export function ValidatePanel({
                   {t(`tools.validate.cat.${c}`)} <span className="tools-chip-count">{report.counts[c]}</span>
                 </button>
               ))}
-              {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => (
+              {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => {
+                const count = structure!.counts[c] - (c === "missingLine" ? untaggedTranCount : 0);
+                return count > 0 && (
+                  <button
+                    key={c}
+                    className={`tools-chip ${filter === c ? "active" : ""}`}
+                    onClick={() => setFilter(c)}
+                  >
+                    {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{count}</span>
+                  </button>
+                );
+              })}
+              {group === "gedcom" && hasUntaggedTran && (
                 <button
-                  key={c}
-                  className={`tools-chip ${filter === c ? "active" : ""}`}
-                  onClick={() => setFilter(c)}
+                  className={`tools-chip ${filter === "tranLang" ? "active" : ""}`}
+                  onClick={() => setFilter("tranLang")}
                 >
-                  {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{structure!.counts[c]}</span>
+                  {t("tools.validate.tranLang.title")} <span className="tools-chip-count">{untaggedTranCount}</span>
                 </button>
-              ))}
+              )}
             </div>
           </div>
           {/* What saving will do to a file that didn't arrive as UTF-8. It sits
@@ -852,9 +868,8 @@ export function ValidatePanel({
           {group === "gedcom" && fileFixes.map((fix) => (
             <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
           ))}
-          {/* The per-name language worklist, among the findings it answers:
-              the whole list, or the missing lines it is part of. */}
-          {(filter === "all" || filter === "missingLine") && tranLang.list}
+          {/* The per-name language worklist, above the findings it answers. */}
+          {filter === "tranLang" && tranLang.list}
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
@@ -922,6 +937,11 @@ function RowFixButton({
       {fix.label}
     </button>
   );
+}
+
+/** A translation the standard wants a language on, written without one. */
+function isUntaggedTran(i: StructIssue): boolean {
+  return i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN");
 }
 
 // ── Structural ("spec") validation ───────────────────────────────────────────

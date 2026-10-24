@@ -31,6 +31,8 @@ test("translations without a language: suggested, re-picked and written", async 
   await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
   await expect(page.locator(".tools-issue", { hasText: "has no LANG line" })).toHaveCount(3);
 
+  // A chip of its own, carved out of the missing lines.
+  await page.locator(".tools-chip", { hasText: "Translations without a language" }).click();
   const section = page.locator(".tools-struct", { hasText: "Translations without a language" });
   await expect(section).toBeVisible();
   const vellach = section.locator(".tools-issue", { hasText: "Media Wella" });

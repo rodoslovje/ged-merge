@@ -318,7 +318,7 @@ export const en = {
   "tools.validate.placeCoord.occ_other": "{{count}} events to fill",
   "tools.validate.tranLang.title": "Translations without a language",
   "tools.validate.tranLang.hint": "GEDCOM 7 requires a LANG line under every translation (TRAN) of a place or a person's name. Choose the language of each name; the suggestion comes from its spelling. A line holding names in different languages is split into one TRAN line per language.",
-  "tools.validate.tranLang.fixHint": "Each name's language is picked in the list “Translations without a language” below.",
+  "tools.validate.tranLang.fixHint": "Each name's language is picked under the “Translations without a language” filter below.",
   "tools.validate.tranLang.apply": "Write the chosen languages ({{count}})",
   "tools.validate.tranLang.applyHint": "Writes each name's chosen language as LANG under its TRAN line, on every line with that name.",
   "tools.validate.tranLang.und": "Mark all as undetermined ({{count}})",
