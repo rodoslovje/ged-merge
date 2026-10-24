@@ -680,7 +680,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                           ? targetFormat.proposal?.software
                             ? t("settings.target.file.hint.software", { software: targetFormat.proposal.software })
                             : t("settings.target.file.hint")
-                          : t("settings.target.strict.hint", { version: mode })}
+                          : t("settings.target.strict.hint", {
+                              version: mode,
+                              revision: t(mode === "7.0" ? "settings.target.revision.v70" : "settings.target.revision.v551"),
+                            })}
                       </span>
                     </span>
                   </label>
