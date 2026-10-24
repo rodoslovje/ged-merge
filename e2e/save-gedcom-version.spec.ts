@@ -53,7 +53,7 @@ async function load(page: Page, name: string, text: string) {
 async function openSave(page: Page) {
   await page.locator('button[title*="etting"]').first().click();
   await page.getByRole("tab", { name: "GEDCOM", exact: true }).click();
-  await page.getByRole("radio", { name: /GEDCOM 7\.0/ }).click();
+  await page.getByRole("radio", { name: /^GEDCOM 7\.0(?! with)/ }).click();
   await page.locator(".confirm-dialog").getByRole("button", { name: "Switch only" }).click();
   await page.locator(".settings-modal .modal-close").click();
   await page.locator(".app-header .export-btn, header .export-btn").first().click();

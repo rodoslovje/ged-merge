@@ -21,6 +21,8 @@ export interface TargetFormatValue {
   setMode: (mode: TargetMode) => void;
   /** What the event menus may offer (see `offersEventTag`). */
   eventOffer: EventOffer;
+  /** The version the file itself is written in — what the file mode keeps. */
+  fileVersion: "5.5.1" | "7.0";
 }
 
 const NO_FILE: TargetFormatValue = {
@@ -28,6 +30,7 @@ const NO_FILE: TargetFormatValue = {
   formatOverrides: {},
   setMode: () => {},
   eventOffer: { version: "5.5.1", strict: false, dialectTags: new Set() },
+  fileVersion: "5.5.1",
 };
 
 export const TargetFormatContext = createContext<TargetFormatValue>(NO_FILE);

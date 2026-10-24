@@ -1045,8 +1045,9 @@ function AppContent() {
       proposal: targetProposal,
       setMode: setTargetMode,
       eventOffer: { version: target.version, strict: target.strict, dialectTags: new Set(dialect?.bareTags) },
+      fileVersion: writeTarget("file", { version: mainVersion ?? "unknown" }).version,
     }),
-    [target, formatOverrides, targetProposal, setTargetMode, dialect],
+    [target, formatOverrides, targetProposal, setTargetMode, dialect, mainVersion],
   );
 
   // A person a confirmed decision added ahead of the save is their new record:
@@ -2506,8 +2507,8 @@ function AppContent() {
           <Notice
             className="target-notice"
             message={targetProposal?.software
-              ? t("target.kept.software", { software: targetProposal.software })
-              : t("target.kept")}
+              ? t("target.kept.software", { software: targetProposal.software, version: target.version })
+              : t("target.kept", { version: target.version })}
             actions={[
               {
                 label: t("target.notice.settings"),

@@ -666,7 +666,9 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     />
                     <span>
                       <span className="settings-row-label">
-                        {mode === "file" ? t("settings.target.file") : t("settings.target.strict", { version: mode })}
+                        {mode === "file"
+                          ? t("settings.target.file", { version: targetFormat.fileVersion })
+                          : t("settings.target.strict", { version: mode })}
                       </span>
                       <span className="settings-hint settings-target-desc">
                         {mode === "file"
