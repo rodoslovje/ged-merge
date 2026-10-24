@@ -84,6 +84,15 @@ export interface ConformanceIssue {
    *  allows there: the fix keeps it word for word as a `NOTE` on the
    *  association, in every record at once. */
   assoDate?: boolean;
+  /** Set on the one row for MyHeritage's Smart Match citations (`EVEN Smart
+   *  Matching` with the matched person's id in `ROLE`): the fix keeps the id
+   *  as the citation's `PAGE` and drops the `EVEN`. */
+  smartMatch?: boolean;
+}
+
+/** A citation's `EVEN` that is MyHeritage's Smart Match label, not an event. */
+export function isSmartMatchEven(node: GedNode): boolean {
+  return node.tag === "EVEN" && /^smart\s*match/i.test(node.value?.trim() ?? "");
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -181,6 +190,27 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
         if (spec.universe.has(tag) && !vendorTagInfo(tag)) {
           indices.push(i);
           tallyMisplaced(ctx, child, loc.where(), "misplaced", base, loc.path());
+          indices.pop();
+        }
+        return;
+      }
+      // MyHeritage's Smart Match citations are one habit, one row — their
+      // label in EVEN and id in ROLE are not checked as an event and a role.
+      if (node.tag === "SOUR" && isSmartMatchEven(child)) {
+        const seenSm = ctx.misplaced.get("\0smartmatch");
+        if (seenSm) seenSm.count++;
+        else {
+          indices.push(i);
+          ctx.misplaced.set("\0smartmatch", {
+            count: 1,
+            issue: {
+              ...base, category: "enumValue", severity: "warning",
+              messageKey: "tools.validate.struct.issue.smartMatch",
+              messageVars: { tag, parent: loc.where() },
+              sample: child.value?.trim(), tooltip: lineOf(child), path: loc.path(),
+              smartMatch: true,
+            },
+          });
           indices.pop();
         }
         return;
@@ -465,7 +495,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

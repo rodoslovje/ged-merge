@@ -89,6 +89,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a DATE on an association, which the fix
    *  keeps as the association's NOTE file-wide. */
   assoDate?: boolean;
+  /** Conformance: MyHeritage's Smart Match citations, whose id the fix keeps
+   *  as the citation's PAGE file-wide. */
+  smartMatch?: boolean;
   /** Set by the findings list on the one row it shows for many equal value
    *  fixes (same line, same value, same fix): how many it stands for. */
   groupCount?: number;

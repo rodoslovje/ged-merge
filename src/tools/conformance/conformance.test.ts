@@ -535,6 +535,37 @@ describe("fixConformance", () => {
     expect(out).toContain("2 TYPE married\n"); // another value: its own row
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a Smart Match id as the citation's PAGE in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Robnik Web Site
+0 @I1@ INDI
+1 NAME Metod /Robnik/
+1 SOUR @S1@
+2 QUAY 3
+2 DATA
+3 TEXT Dodano za potrditev Smart Match
+2 EVEN Smart Matching
+3 ROLE 1500001
+0 @I2@ INDI
+1 NAME Marija /Maček/
+1 SOUR @S1@
+2 EVEN Smart Matching
+3 ROLE 1500002
+0 TRLR`);
+    const rows = validateConformance(ds).filter((i) => i.smartMatch);
+    expect(rows.map((i) => i.messageVars.count)).toEqual([2]);
+    expect(validateConformance(ds).filter((i) => i.sample === "1500001")).toEqual([]); // not a role finding too
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "smartMatch");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 1500001\n2 QUAY 3\n2 DATA\n3 TEXT Dodano za potrditev Smart Match\n0 @I2@");
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 1500002\n0 TRLR");
+    expect(validateConformance(ds).filter((i) => i.recordId === "@I1@" || i.recordId === "@I2@")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("writes a 7.0 value outside a set that has OTHER as OTHER, keeping it as the PHRASE", () => {
     // MyHeritage's Smart Match citation puts the matched person's number in ROLE.
     const ds = dataset(`${HEAD_70}

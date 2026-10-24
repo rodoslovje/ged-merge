@@ -37,7 +37,7 @@ import { nodeAtPath } from "../../tools/conformance/conformance";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", notes: "ConformNotes" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", notes: "ConformNotes" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -60,6 +60,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   stamps: "misplacedTag",
   coverage: "misplacedTag",
   assoDates: "misplacedTag",
+  smartMatch: "enumValue",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -116,7 +117,7 @@ function structGroup(c: StructCategory): HealthGroup {
 const FIX_GROUP: Record<FixKind, HealthGroup> = {
   links: "data", dups: "data", families: "data", dangling: "data", roles: "data", sex: "data", dates: "data",
   nonStandard: "gedcom", values: "gedcom", notes: "gedcom", repeats: "gedcom", forms: "gedcom",
-  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom", assoDates: "gedcom",
+  relocate: "gedcom", fileTitles: "gedcom", agency: "gedcom", stamps: "gedcom", coverage: "gedcom", assoDates: "gedcom", smartMatch: "gedcom",
 };
 
 /** The xref a `brokenLink` finding names — the family a person points at, or the
@@ -347,7 +348,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -641,6 +642,14 @@ export function ValidatePanel({
         run: () => onFixConformance("agency"),
       };
     }
+    // MyHeritage's Smart Match citations: the id into PAGE, in every record.
+    if (issue.smartMatch && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneSmartMatch"),
+        hint: t("tools.validate.fixOneSmartMatchHint"),
+        run: () => onFixConformance("smartMatch"),
+      };
+    }
     // A date on an association: kept as its note, in every record.
     if (issue.category === "misplacedTag" && issue.assoDate && issue.recordId) {
       return {
@@ -689,6 +698,11 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.relocate)
       ? [countFixableConformance(dataset, "relocate"), countFixableConformance(dataset, "fileTitles")]
       : [0, 0]),
+    [structure, dataset],
+  );
+  // Smart Match citations the fix would restate.
+  const fixableSmartMatch = useMemo(
+    () => (structure?.issues.some((i) => i.smartMatch) ? countFixableConformance(dataset, "smartMatch") : 0),
     [structure, dataset],
   );
   // Dates on associations the fix would keep as notes.
@@ -764,6 +778,7 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableSmartMatch > 0) fixActions.push({ kind: "smartMatch", count: fixableSmartMatch });
   if (fixableAssoDates > 0) fixActions.push({ kind: "assoDates", count: fixableAssoDates });
   if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
   if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
@@ -1086,6 +1101,7 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.misplacedRoot",
   "tools.validate.struct.issue.misplacedStamp",
   "tools.validate.struct.issue.missingMany",
+  "tools.validate.struct.issue.smartMatch",
   TRAN_LANG_KEY,
   "tools.validate.struct.issue.misplacedStamps",
   "tools.validate.struct.issue.unknownTag",
