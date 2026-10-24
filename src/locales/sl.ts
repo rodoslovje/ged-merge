@@ -344,6 +344,7 @@ export const sl = {
   "tools.validate.struct.issue.tooMany": "Vrstica {{tag}} se pod {{parent}} pojavi {{count}}-krat, standard pa dovoljuje največ {{max}}",
   "tools.validate.struct.issue.missing": "Pod {{parent}} manjka vrstica {{tag}}, ki jo standard zahteva",
   "tools.validate.struct.issue.misplaced": "Oznaka {{tag}} pod {{parent}} v GEDCOM {{version}} ni dovoljena ({{count}}×)",
+  "tools.validate.struct.variationOf": "odstopanje programa {{software}}, ki se ohrani",
   "tools.validate.struct.issue.misplacedStamp": "Oznaka {{tag}} je v GEDCOM {{version}} dovoljena le na samem zapisu, ne na dogodkih ali drugih vrsticah pod njim ({{count}}×)",
   "tools.validate.struct.issue.misplacedStamps": "Oznaki CHAN in CREA sta v GEDCOM {{version}} dovoljeni le na samem zapisu, ne na dogodkih ali drugih vrsticah pod njim ({{count}}×)",
   "tools.validate.struct.issue.misplacedRoot": "V GEDCOM {{version}} zapis {{tag}} ne obstaja ({{count}}×)",

@@ -393,6 +393,22 @@ export function producerSoftware(headSour: string | undefined): string | undefin
   return headSour ? HEAD_SOUR_SOFTWARE[headSour.trim().toUpperCase()] : undefined;
 }
 
+/**
+ * Programs that stamp `CHAN`/`CREA` on events and other lines below a record,
+ * where neither GEDCOM version has them: a habit of theirs, not a tag, so it
+ * is listed here rather than in `VENDOR_TAGS`.
+ */
+const NESTED_STAMP_SOFTWARE: ReadonlySet<string> = new Set([MFT]);
+
+/** The program that stamps CHAN/CREA below its records and wrote this file:
+ *  the producer its header names, or — in a file another program re-saved —
+ *  the one whose bare tags it still carries. */
+export function nestedStampSoftware(producer: string | undefined, bareTags: Iterable<string>): string | undefined {
+  if (producer && NESTED_STAMP_SOFTWARE.has(producer)) return producer;
+  const tags = [...bareTags];
+  return [...NESTED_STAMP_SOFTWARE].find((s) => tags.some((t) => isNativeTag(t, s)));
+}
+
 /** Whether the named software writes `tag` as its own. A tag no registry entry
  *  covers is nobody's dialect — and with no software named, nothing is. */
 export function isNativeTag(tag: string, software: string | undefined): boolean {

@@ -200,7 +200,10 @@ export function ValidatePanel({
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
-  const { target } = useTargetFormat();
+  const { target, dialect } = useTargetFormat();
+  // A file kept with its variations keeps its program's event stamps: the row
+  // says whose habit it is, and offers no fix.
+  const keptStamps = !target.strict && !!dialect?.nestedStamps;
   /** Message vars with a GEDCOM event tag turned into its display name —
    *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
    *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
@@ -584,7 +587,7 @@ export function ValidatePanel({
       };
     }
     // Change and creation stamps below the records: one row, every record.
-    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId) {
+    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId && !keptStamps) {
       return {
         label: t("tools.validate.fixOneStamps"),
         hint: t("tools.validate.fixOneStampsHint"),
@@ -678,7 +681,7 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
-  if (fixableStamps > 0) fixActions.push({ kind: "stamps", count: fixableStamps });
+  if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -932,6 +935,7 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
+                    variationOf={keptStamps && row.issue.stamps ? dialect?.software : undefined}
                   />
                 );
               })}
@@ -1092,6 +1096,7 @@ function StructRow({
   done,
   onRun,
   onEditSource,
+  variationOf,
 }: {
   issue: StructIssue;
   /** Class suffix from the list — " zebra", " selected", or both. */
@@ -1104,6 +1109,8 @@ function StructRow({
   done: boolean;
   onRun: (run: () => void) => void;
   onEditSource: (xref: string) => void;
+  /** The program whose kept habit the finding is, in a file kept with its variations. */
+  variationOf?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -1116,6 +1123,7 @@ function StructRow({
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
       <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
+      {variationOf && <span className="tools-issue-detail">{t("tools.validate.struct.variationOf", { software: variationOf })}</span>}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}

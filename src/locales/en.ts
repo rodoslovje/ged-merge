@@ -276,6 +276,7 @@ export const en = {
   "tools.validate.struct.issue.tooMany": "{{tag}} appears {{count}} times under {{parent}}; the standard allows at most {{max}}",
   "tools.validate.struct.issue.missing": "{{parent}} has no {{tag}} line, which the standard requires",
   "tools.validate.struct.issue.misplaced": "{{tag}} is not allowed under {{parent}} in GEDCOM {{version}} ({{count}}×)",
+  "tools.validate.struct.variationOf": "{{software}}'s variation, kept",
   "tools.validate.struct.issue.misplacedStamp": "{{tag}} is allowed only on the record itself in GEDCOM {{version}}, not on its events or other lines ({{count}}×)",
   "tools.validate.struct.issue.misplacedStamps": "CHAN and CREA are allowed only on the record itself in GEDCOM {{version}}, not on its events or other lines ({{count}}×)",
   "tools.validate.struct.issue.misplacedRoot": "GEDCOM {{version}} has no {{tag}} record ({{count}}×)",

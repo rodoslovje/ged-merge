@@ -1046,6 +1046,7 @@ function AppContent() {
       setMode: setTargetMode,
       eventOffer: { version: target.version, strict: target.strict, dialectTags: new Set(dialect?.bareTags) },
       fileVersion: writeTarget("file", { version: mainVersion ?? "unknown" }).version,
+      dialect,
     }),
     [target, formatOverrides, targetProposal, setTargetMode, dialect, mainVersion],
   );

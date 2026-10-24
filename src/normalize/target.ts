@@ -1,5 +1,5 @@
 import type { Dataset } from "../gedcom/types";
-import { producerSoftware, vendorTagInfo } from "../gedcom/vendorTags";
+import { nestedStampSoftware, producerSoftware, vendorTagInfo } from "../gedcom/vendorTags";
 import { firstChild } from "../gedcom/node";
 import type { DetectedFormats, FormatOverrides } from "./formatOverrides";
 import { versionFamily, type VersionFamily } from "./migrate";
@@ -83,19 +83,30 @@ export interface FileDialect {
   software?: string;
   /** Vendor tags written without the underscore (MacFamilyTree's `NOBI`…). */
   bareTags: string[];
+  /** `CHAN`/`CREA` below the records, written by a program that stamps its
+   *  events that way (MacFamilyTree). */
+  nestedStamps?: boolean;
 }
 
-/** The bare vendor tags `ds` uses, and the program that wrote it — undefined
- *  when it uses none. */
+/** The bare vendor tags `ds` uses, its event stamps when the program that
+ *  wrote it keeps them, and that program — undefined when it shows none. */
 export function detectDialect(ds: Pick<Dataset, "records">): FileDialect | undefined {
   const bare = new Set<string>();
+  let stamps = false;
   walkNodes(ds.records, (node) => {
     if (!node.tag.startsWith("_") && !bare.has(node.tag) && vendorTagInfo(node.tag)) bare.add(node.tag);
+    if (!stamps && node.level >= 2 && (node.tag === "CHAN" || node.tag === "CREA")) stamps = true;
   });
-  if (bare.size === 0) return undefined;
   const head = ds.records.find((r) => r.tag === "HEAD");
   const software = producerSoftware(head && firstChild(head, "SOUR")?.value);
-  return { ...(software ? { software } : {}), bareTags: [...bare].sort() };
+  const stamper = stamps ? nestedStampSoftware(software, bare) : undefined;
+  const nestedStamps = !!stamper;
+  if (bare.size === 0 && !nestedStamps) return undefined;
+  return {
+    ...(software ? { software } : nestedStamps ? { software: stamper } : {}),
+    bareTags: [...bare].sort(),
+    ...(nestedStamps ? { nestedStamps } : {}),
+  };
 }
 
 /** Date patterns the GEDCOM grammar itself writes. */
@@ -126,6 +137,7 @@ export function proposeTarget(
 ): TargetProposal {
   const habits =
     !!dialect?.bareTags.length ||
+    !!dialect?.nestedStamps ||
     (!!detected?.date && !isStandardDatePattern(detected.date)) ||
     detected?.privacy === "PRIV" ||
     detected?.sourceCoverage === "vendor";
