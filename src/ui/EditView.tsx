@@ -61,6 +61,7 @@ import {
   setMediaLinkUrl,
   setAdditionalName,
   setIndividualLinks,
+  recordLinkTag,
   setMarriedName,
   setName,
   setNotes,
@@ -568,7 +569,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     [dataset.records, formatOverrides.privacy],
   );
   // Which FamilySearch-id tag a newly added id gets — the file's own dialect.
-  const fsIdTag = useMemo(() => preferredFsIdTag(dataset), [dataset]);
+  const fsIdTag = useMemo(() => preferredFsIdTag(dataset, formatOverrides), [dataset, formatOverrides]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
   /** A file drag that crosses the person panel but ends somewhere else — dropped
    *  on the loader, or abandoned outside the window — never delivers a `drop`
@@ -2018,7 +2019,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 incomingPageImages={mergeIncomingPageImages.get("links")}
                 sectionLabel={t("field.sources")}
                 t={t}
-                onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
+                onCommit={(links) => commit((indi) => setIndividualLinks(indi, links, recordLinkTag(dataset.records, indi.raw, formatOverrides)))}
                 onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
                 onEditSource={(idx) => openEditSource(person.raw, idx, { kind: "individual", indi: person })}
                 onOpenSourceDialog={setSourceDialogTarget}
@@ -2026,7 +2027,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                   commit((indi) => {
                     attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER, quay);
                     linkPageMedia(indi.raw, pageObjeXref, INDI_CHILD_ORDER);
-                    setIndividualLinks(indi, links);
+                    setIndividualLinks(indi, links, recordLinkTag(dataset.records, indi.raw, formatOverrides));
                   }, extraPatches)
                 }
                 onOpenMediaLink={(url) => openMediaLink(person.raw, { kind: "individual", indi: person }, url)}

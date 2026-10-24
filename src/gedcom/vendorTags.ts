@@ -218,7 +218,14 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   _META: { software: ANC, category: "internal", meaning: { en: "media metadata XML", sl: "metapodatki predstavnosti (XML)" } },
   _ATL: { software: ANC, category: "internal", meaning: { en: "attached-to-list flag", sl: "zastavica pripetosti" } },
   _CREA: { software: ANC, category: "internal", meaning: { en: "creation timestamp", sl: "časovni žig nastanka" } },
-  _URL: { software: ANC, category: "internal", meaning: { en: "media source URL", sl: "URL vira predstavnosti" } },
+  // Several programs' web link — on a person or a family, the page about
+  // them; Ancestry also writes it for a media item's source. Content, not
+  // bookkeeping: an internal tag would be stripped from incoming people.
+  _URL: {
+    software: MULTI,
+    category: "attribute",
+    meaning: { en: "web address (a page about the person or family; a media item's source)", sl: "spletni naslov (stran o osebi ali družini, vir medija)" },
+  },
   _DSCR: { software: ANC, category: "internal", meaning: { en: "media source description", sl: "opis vira predstavnosti" } },
   _TREE: { software: ANC, category: "internal", meaning: { en: "source tree name", sl: "ime izvornega drevesa" } },
   _ENV: { software: ANC, category: "internal", meaning: { en: "export environment", sl: "okolje izvoza" } },

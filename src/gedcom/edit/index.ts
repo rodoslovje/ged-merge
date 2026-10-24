@@ -42,7 +42,7 @@ export {
 } from "./family";
 export { familiesScope, individualsScope, pointerScope, reindexRecord, withPointerIndex } from "./pointerIndex";
 
-export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
+export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, recordLinkTag, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 
 export {
   addAssociation,

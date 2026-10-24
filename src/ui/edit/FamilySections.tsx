@@ -25,6 +25,7 @@ import {
   FAM_CHILD_ORDER,
   removeFamilyEvent,
   setFamilyLinks,
+  recordLinkTag,
   setFamilyNotes,
   impossibleRelatives,
 } from "../../gedcom/edit";
@@ -783,7 +784,7 @@ export const FamilySection = memo(function FamilySection({
             incomingPageImages={famLinksMerge.pageImages}
             sectionLabel={t("field.sources")}
             t={t}
-            onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links))}
+            onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links, recordLinkTag(dataset.records, f.raw, formatOverrides)))}
             onAddSource={() => onOpenSourceDialog({ kind: "family", fam })}
             onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
             onOpenSourceDialog={onOpenSourceDialog}
@@ -791,7 +792,7 @@ export const FamilySection = memo(function FamilySection({
               commitFamily(fam, (f) => {
                 attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER, quay);
                 linkPageMedia(f.raw, pageObjeXref, FAM_CHILD_ORDER);
-                setFamilyLinks(f, links);
+                setFamilyLinks(f, links, recordLinkTag(dataset.records, f.raw, formatOverrides));
               }, extraPatches)
             }
             onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}

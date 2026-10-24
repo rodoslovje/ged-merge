@@ -141,10 +141,11 @@ export function proposeTarget(
  * coverage inside `DATA`, a doubled link folded into one. The file mode
  * keeps every choice.
  */
-export function targetFormatOverrides(o: FormatOverrides, target: Pick<WriteTarget, "strict">): FormatOverrides {
+export function targetFormatOverrides(o: FormatOverrides, target: Pick<WriteTarget, "strict" | "version">): FormatOverrides {
   if (!target.strict) return o;
   return {
     ...o,
+    standard: target.version,
     date: isStandardDatePattern(o.date) ? o.date : "D MMM YYYY",
     datePlaceholder: "none",
     privacy: "RESN",

@@ -997,7 +997,7 @@ describe("setIndividualLinks", () => {
   it("adds links to an individual", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setIndividualLinks(indi, ["https://example.com/a", "https://example.com/b"]);
+    setIndividualLinks(indi, ["https://example.com/a", "https://example.com/b"], "WWW");
     const updated = rebuildIndividual(ds, indi);
     expect(updated.links).toEqual(["https://example.com/a", "https://example.com/b"]);
   });
@@ -1005,8 +1005,8 @@ describe("setIndividualLinks", () => {
   it("replaces existing links", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setIndividualLinks(indi, ["https://old.example.com"]);
-    setIndividualLinks(indi, ["https://new.example.com"]);
+    setIndividualLinks(indi, ["https://old.example.com"], "WWW");
+    setIndividualLinks(indi, ["https://new.example.com"], "WWW");
     const updated = rebuildIndividual(ds, indi);
     expect(updated.links).toEqual(["https://new.example.com"]);
   });
@@ -1014,8 +1014,8 @@ describe("setIndividualLinks", () => {
   it("removes all links when given an empty array", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setIndividualLinks(indi, ["https://example.com"]);
-    setIndividualLinks(indi, []);
+    setIndividualLinks(indi, ["https://example.com"], "WWW");
+    setIndividualLinks(indi, [], "WWW");
     const updated = rebuildIndividual(ds, indi);
     expect(updated.links ?? []).toHaveLength(0);
     expect(serializeGedcom(ds.records)).not.toContain("WWW");
@@ -1037,7 +1037,7 @@ describe("setIndividualLinks", () => {
     ].join("\n"));
     const indi = ds.individuals.get("@I1@")!;
     expect(indi.links).toEqual(["https://example.com/vendor"]);
-    setIndividualLinks(indi, []);
+    setIndividualLinks(indi, [], "WWW");
     const updated = rebuildIndividual(ds, indi);
     expect(updated.links ?? []).toHaveLength(0);
     expect(serializeGedcom(ds.records)).not.toContain("_LINK");

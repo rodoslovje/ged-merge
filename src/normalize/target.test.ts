@@ -60,8 +60,9 @@ describe("target format", () => {
 
   it("puts the standard's forms over the reader's choices in a strict mode only", () => {
     const chosen = { date: "DD.MM.YYYY", datePlaceholder: "_", privacy: "PRIV", names: "tags", place: "packed-plac" } as const;
-    expect(targetFormatOverrides(chosen, { strict: false })).toBe(chosen);
-    expect(targetFormatOverrides(chosen, { strict: true })).toEqual({
+    expect(targetFormatOverrides(chosen, { strict: false, version: "7.0" })).toBe(chosen);
+    expect(targetFormatOverrides(chosen, { strict: true, version: "7.0" })).toEqual({
+      standard: "7.0",
       date: "D MMM YYYY",
       datePlaceholder: "none",
       privacy: "RESN",
@@ -71,6 +72,6 @@ describe("target format", () => {
       // A choice the standard leaves open stays the reader's.
       place: "packed-plac",
     });
-    expect(targetFormatOverrides({ date: "DD MMM YYYY" }, { strict: true }).date).toBe("DD MMM YYYY");
+    expect(targetFormatOverrides({ date: "DD MMM YYYY" }, { strict: true, version: "5.5.1" }).date).toBe("DD MMM YYYY");
   });
 });

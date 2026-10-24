@@ -1,3 +1,4 @@
+import { RECORD_LINK_EXTENSION } from "../gedcom/edit/records";
 import {
   addObjeToSource,
   attachSourceCitation,
@@ -59,7 +60,7 @@ import {
  *  - "OBJE": a shared multimedia record holding the URL in `FILE`
  *    (`0 @On@ OBJE` / `1 FILE <url>`), referenced via `1 OBJE @On@`.
  */
-export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
+export type LinkFormat = "WWW" | "_URL" | "WEBTAG" | "OBJE";
 
 /**
  * Everything an incoming link needs to be written the way this file writes its
@@ -101,7 +102,7 @@ export function linkPlacementFor(main: Dataset, overrides?: FormatOverrides, com
   // the file (see `memoOnContent`), not once per merged pair.
   const records = main.records;
   return {
-    linkFormat: memoOnContent(records, "linkFormat", () => detectLinkFormat(main)),
+    linkFormat: strictLinkFormat(memoOnContent(records, "linkFormat", () => detectLinkFormat(main)), overrides),
     pageMedia: overrides?.pageMedia ?? memoOnContent(records, "pageMedia", () => detectPageMediaStyle(records)),
     citationPage:
       overrides?.citationPage ?? memoOnContent(records, "citationPage", () => detectCitationPageStyle(records)) ?? "number",
@@ -167,7 +168,9 @@ export function detectLinkFormat(main: Dataset): LinkFormat {
   for (const fam of main.families.values()) visit(fam.raw);
 
   const max = Math.max(www, webtag, obje);
-  if (max === 0) return "WWW";
+  // No habit: the record-level link extension (neither version has WWW on a
+  // record — see `recordLinkTag`).
+  if (max === 0) return "_URL";
   if (obje === max) return "OBJE";
   if (webtag === max) return "WEBTAG";
   return "WWW";
@@ -665,6 +668,12 @@ function childOrderOf(record: GedNode): string[] {
   return record.tag === "FAM" ? FAM_CHILD_ORDER : INDI_CHILD_ORDER;
 }
 
+/** A strict target format never writes `WWW` on a record, which neither
+ *  version allows there: the record-level link extension instead. */
+function strictLinkFormat(format: LinkFormat, overrides?: FormatOverrides): LinkFormat {
+  return overrides?.standard && format === "WWW" ? "_URL" : format;
+}
+
 /**
  * Build a new plain link node for `url`, shaped per `format`. For "OBJE", the
  * shared `createMediaRecord` mints the top-level record — same FORM line,
@@ -684,5 +693,5 @@ function buildLinkNode(
     const obje = createMediaRecord(records, url, undefined, reserved);
     return { level: 0, tag: "OBJE", value: obje.xref, children: [] };
   }
-  return { level: 0, tag: "WWW", value: url, children: [] };
+  return { level: 0, tag: format === "_URL" ? RECORD_LINK_EXTENSION : "WWW", value: url, children: [] };
 }
