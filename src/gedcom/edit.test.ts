@@ -18,6 +18,8 @@ import {
   attachSourceCitation,
   linkPageMedia,
   createMediaRecord,
+  mediaTitleLine,
+  writeMediaTitle,
   findSharedMediaByFile,
   nextXref,
   pruneUnreferencedMedia,
@@ -2383,6 +2385,26 @@ describe("individual media", () => {
     expect(obje.children.find((c) => c.tag === "TITL")?.value).toBe("New title");
     expect(obje.children.some((c) => c.tag === "NOTE")).toBe(false);
     expect(obje.children.find((c) => c.tag === "_DSCR")?.value).toBe("New desc");
+  });
+
+  it("titles a media record under its FILE, where 5.5.1 and 7.0 both keep it", () => {
+    const ds = buildFromText(BASE);
+    const rec = createMediaRecord(ds.records, "https://example.com/page", "Krst 1870");
+    expect(serializeGedcom([rec])).toBe("0 @O1@ OBJE\n1 FILE https://example.com/page\n2 FORM htm\n2 TITL Krst 1870\n");
+
+    // A caption edit moves a record-level title (the 5.5 shape) under the FILE.
+    const old = buildFromText(`${BASE.replace("0 TRLR\n", "")}0 @O9@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n1 TITL Old\n0 TRLR\n`);
+    const obje = old.records.find((r) => r.xref === "@O9@")!;
+    setMediaInfo(obje, { title: "New" });
+    expect(serializeGedcom([obje])).toBe("0 @O9@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n2 TITL New\n");
+  });
+
+  it("renames a title where it stands rather than adding a second one", () => {
+    const ds = buildFromText(BASE);
+    const rec = createMediaRecord(ds.records, "a.jpg", "First");
+    writeMediaTitle(rec, "Second");
+    expect(mediaTitleLine(rec)?.value).toBe("Second");
+    expect(serializeGedcom([rec]).match(/TITL/g)).toHaveLength(1);
   });
 });
 

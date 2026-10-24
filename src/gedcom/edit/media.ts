@@ -30,10 +30,37 @@ export function prefersMimeForm(records: GedNode[]): boolean {
   return vers?.startsWith("7") ?? false;
 }
 
+/** A media block's title line: the one under its first `FILE`, where 5.5.1
+ *  and 7.0 records keep it, else one beside the `FILE` (the 5.5 shape, and an
+ *  inline 5.5.1 block's own). */
+export function mediaTitleLine(obje: GedNode): GedNode | undefined {
+  const file = firstChild(obje, "FILE");
+  return (file && firstChild(file, "TITL")) ?? firstChild(obje, "TITL");
+}
+
+/** Lines a media record's title goes in front of. */
+const MEDIA_TITLE_TRAILING = new Set(["NOTE", "CHAN", "CREA", "_UPD"]);
+
+/** Title a media block `value`: in the title line it already has, else where
+ *  the standard puts one — under a record's first `FILE` (5.5.1 and 7.0
+ *  alike), beside the `FILE` in an inline 5.5.1 block. */
+export function writeMediaTitle(obje: GedNode, value: string): void {
+  const line = mediaTitleLine(obje);
+  if (line) {
+    line.value = value;
+    return;
+  }
+  const file = obje.level === 0 ? firstChild(obje, "FILE") : undefined;
+  const home = file ?? obje;
+  // Under a FILE: after its FORM, before an alternative copy (TRAN).
+  const at = home.children.findIndex((c) => (file ? c.tag === "TRAN" : MEDIA_TITLE_TRAILING.has(c.tag)));
+  home.children.splice(at < 0 ? home.children.length : at, 0, { level: home.level + 1, tag: "TITL", value, children: [] });
+}
+
 /** Create a new top-level `OBJE` record whose `FILE` is `url`/`file` (with an
- * optional `TITL`), and add it to `records`. The `FILE` carries the `FORM`
- * the spec asks for — even in a file whose older media omit it, so new media
- * never add to the health check's findings. */
+ * optional `TITL` under it), and add it to `records`. The `FILE` carries the
+ * `FORM` the spec asks for — even in a file whose older media omit it, so new
+ * media never add to the health check's findings. */
 export function createMediaRecord(
   records: GedNode[],
   url: string,
@@ -52,7 +79,7 @@ export function createMediaRecord(
     children: [fileNode],
   };
   const trimmedTitle = title?.trim();
-  if (trimmedTitle) raw.children.push({ level: 1, tag: "TITL", value: trimmedTitle, children: [] });
+  if (trimmedTitle) fileNode.children.push({ level: 2, tag: "TITL", value: trimmedTitle, children: [] });
   insertRecord(records, raw);
   bumpSourceCacheVersion(records);
   clearObjeNodeCache(records);
@@ -215,9 +242,10 @@ export interface MediaInfoFields {
 
 /**
  * Write a photo's descriptive fields onto its `OBJE` node — either an inline
- * block or a shared top-level record. `TITL`/`DATE`/`PLAC` are normalized to the
- * `OBJE` level (any `TITL` nested on the `FILE` child is removed so it can't go
- * stale), and `description` is stored as `_DSCR` (dropping a `NOTE` that
+ * block or a shared top-level record. `TITL` goes where the standard puts it
+ * (see `writeMediaTitle`), any other copy removed so it can't go stale;
+ * `DATE`/`PLAC` are normalized to the `OBJE` level (a copy nested on the
+ * `FILE` child removed likewise), and `description` is stored as `_DSCR` (dropping a `NOTE` that
  * `objeInfoOf` would otherwise read as the description). Blank values clear the
  * tag; omitted fields are left untouched.
  */
@@ -227,7 +255,8 @@ export function setMediaInfo(objeNode: GedNode, fields: MediaInfoFields): void {
     removeChildren(objeNode, tag);
     if (fileNode) fileNode.children = fileNode.children.filter((c) => c.tag !== tag);
     const v = value.trim();
-    if (v) objeNode.children.push({ level: objeNode.level + 1, tag, value: v, children: [] });
+    if (v && tag === "TITL") writeMediaTitle(objeNode, v);
+    else if (v) objeNode.children.push({ level: objeNode.level + 1, tag, value: v, children: [] });
   };
   if (fields.title !== undefined) set("TITL", fields.title);
   if (fields.date !== undefined) set("DATE", fields.date);

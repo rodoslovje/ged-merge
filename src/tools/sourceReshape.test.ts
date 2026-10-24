@@ -2209,7 +2209,7 @@ describe("reshapeSources — citation placement", () => {
 0 TRLR`);
     const media = text.slice(text.indexOf(" OBJE\n1 FILE"));
     expect(media).toContain("2 FORM pdf");
-    expect(media).toContain("1 TITL Osmrtnica v Slovencu");
+    expect(media).toContain("2 TITL Osmrtnica v Slovencu");
     expect(media).toContain("1 NOTE Stran 3, spodaj levo");
     expect(text).not.toMatch(/\n1 OBJE\n2 FILE/); // the inline block itself is gone
   });
@@ -3278,7 +3278,7 @@ describe("FamilySearch image links", () => {
     expect(text).toContain("3 PAGE 556");
     // The film's own image number (from the traded link's i=555, one behind)
     // goes in front of the page's title.
-    expect(text).toContain("1 TITL #556 - Croatia, Church Books, 1516-1994");
+    expect(text).toContain("2 TITL #556 - Croatia, Church Books, 1516-1994");
     expect(text).not.toContain("1:1:XNJ8-FPJ");
   });
 
@@ -3544,9 +3544,9 @@ describe("FamilySearch image links", () => {
     // One page image per image link, titled `#film-image - book` — the
     // lookup said the number, so it is the counting the viewer shows when
     // the link opens.
-    expect(text).toContain("1 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
-    expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
-    expect(text).toContain("1 TITL #3 - Dubovac (Karlovac) - Births (Rođeni) 1891-1896");
+    expect(text).toContain("2 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    expect(text).toContain("2 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    expect(text).toContain("2 TITL #3 - Dubovac (Karlovac) - Births (Rođeni) 1891-1896");
   });
 
   it("reads a published microfilm's own citation, publisher and all", () => {
