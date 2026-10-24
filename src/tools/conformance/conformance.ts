@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../../gedcom/types";
 import { firstChild, nodesEqual } from "../../gedcom/node";
+import { fileFormOf } from "../../gedcom/mediaForm";
 import { nameType70 } from "../../gedcom/name";
 import { isVoidPointer } from "../../gedcom/uri";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
@@ -35,6 +36,7 @@ import { SPEC_70 } from "./spec70";
 export type ConformanceCategory =
   | "pointerType"
   | "cardinality"
+  | "missingLine"
   | "misplacedTag"
   | "enumValue"
   | "valueFormat"
@@ -52,7 +54,8 @@ export interface ConformanceIssue {
   /** Child-index path from the record to the line the finding is about ("3.1";
    *  "" is the record itself) — how the fix finds it again. */
   path?: string;
-  /** The value the value fix would write. */
+  /** The value the value fix would write — or, on a missing-line finding,
+   *  the value of the line the fix would add (a media file's `FORM`). */
   fix?: string;
   /** The word the fix keeps as a `PHRASE` under its value (7.0's `OTHER`). */
   fixPhrase?: string;
@@ -243,11 +246,17 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
     }
     for (const [tag] of struct.required) {
       if (seen?.has(tag)) continue;
+      // A media file's missing FORM is read off its name (`.jpg`, a web
+      // address) — the one missing line the fix can add without guessing.
+      const add = recordId && tag === "FORM" && node.tag === "FILE" && node.value
+        ? fileFormOf(node.value, spec.is70)
+        : undefined;
       ctx.emit({
-        ...base, category: "cardinality", severity: "warning",
+        ...base, category: "missingLine", severity: "warning",
         messageKey: "tools.validate.struct.issue.missing",
         messageVars: { tag, parent: loc.where() },
-        sample: tag, tooltip: lineOf(node), path: loc.path(),
+        sample: tag, tooltip: add ? `${lineOf(node)} → ${tag} ${add}` : lineOf(node), path: loc.path(),
+        fix: add,
       });
     }
   };
@@ -427,8 +436,8 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
   return table ? scan(ds.records, table) : [];
 }
 
-/** The findings a fix can settle: a value written in the wrong case, or a line
- *  repeated as an exact copy. */
+/** The findings a fix can settle: a value written in the wrong case, a line
+ *  repeated as an exact copy, or a media file's missing FORM. */
 export function isFixable(issue: ConformanceIssue): boolean {
   return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat);
 }
