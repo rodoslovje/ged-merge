@@ -391,7 +391,8 @@ describe("fixConformance", () => {
 0 TRLR`);
     const missing = validateConformance(ds).filter((i) => i.messageVars.tag === "FORM");
     expect(missing.every((i) => i.category === "missingLine")).toBe(true);
-    expect(missing.map((i) => i.fix)).toEqual(["text/html", "image/jpeg", undefined, "text/html"]);
+    // One row per form the fix would add; the nameless file has its own.
+    expect(missing.map((i) => [i.fix, i.messageVars.count])).toEqual([[undefined, undefined], ["text/html", 2], ["image/jpeg", 1]]);
     expect(countFixableConformance(ds, "forms")).toBe(3);
     const before = serializeGedcom(ds.records, ds);
 
@@ -605,7 +606,7 @@ describe("corpus", () => {
     // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
     // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
     // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.

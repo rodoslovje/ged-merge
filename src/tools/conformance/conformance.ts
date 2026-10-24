@@ -211,6 +211,25 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       const add = recordId && tag === "FORM" && node.tag === "FILE" && node.value
         ? fileFormOf(node.value, spec.is70)
         : undefined;
+      if (add) {
+        // One row per form the fix would write, however many files lack it.
+        const k = `\0form\0${loc.where()}\0${add}`;
+        const seen = ctx.misplaced.get(k);
+        if (seen) seen.count++;
+        else {
+          ctx.misplaced.set(k, {
+            count: 1,
+            issue: {
+              ...base, category: "missingLine", severity: "warning",
+              messageKey: "tools.validate.struct.issue.missing",
+              messageVars: { tag, parent: loc.where() },
+              sample: tag, tooltip: `${lineOf(node)} → ${tag} ${add}`, path: loc.path(),
+              fix: add,
+            },
+          });
+        }
+        continue;
+      }
       ctx.emit({
         ...base, category: "missingLine", severity: "warning",
         messageKey: "tools.validate.struct.issue.missing",
@@ -407,6 +426,7 @@ function scan(records: GedNode[], table: SpecTable, only?: string): ConformanceI
   }
   for (const { count, issue, tags } of ctx.misplaced.values()) {
     issue.messageVars.count = count;
+    if (issue.category === "missingLine" && count > 1) issue.messageKey = "tools.validate.struct.issue.missingMany";
     if (tags) {
       issue.messageKey = `tools.validate.struct.issue.${tags.size > 1 ? "misplacedStamps" : "misplacedStamp"}`;
       issue.sample = [...tags].sort().join(" ");

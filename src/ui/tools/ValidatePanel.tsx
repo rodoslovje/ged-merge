@@ -566,7 +566,8 @@ export function ValidatePanel({
       return {
         label: t("tools.validate.fixOneAdd", { tag: issue.sample, value: issue.fix }),
         hint: t("tools.validate.fixOneAddHint"),
-        run: () => onFixConformance("forms", { id: issue.recordId!, path: issue.path }),
+        // A row may stand for many files: every file lacking this form gets it.
+        run: () => onFixConformance("forms", { value: issue.fix }),
       };
     }
     // Media lines beside their FILE: one row for the whole habit, so its
@@ -676,7 +677,9 @@ export function ValidatePanel({
   if (conformNotes > 0) fixActions.push({ kind: "notes", count: conformNotes });
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
-  const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
+  const conformForms = structure?.issues
+    .filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId)
+    .reduce((n, i) => n + (Number(i.messageVars?.count) || 1), 0) ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
@@ -980,6 +983,7 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.misplaced",
   "tools.validate.struct.issue.misplacedRoot",
   "tools.validate.struct.issue.misplacedStamp",
+  "tools.validate.struct.issue.missingMany",
   "tools.validate.struct.issue.misplacedStamps",
   "tools.validate.struct.issue.unknownTag",
   "tools.validate.struct.issue.customTag",
@@ -1083,7 +1087,13 @@ function RecordRef({
       </span>
     );
   }
-  return <span className="tools-struct-rec">{ref}</span>;
+  // No title (HEAD, a bare id): the tag in the same small type as everywhere.
+  return (
+    <span className="tools-struct-rec">
+      {tag && <span className="tools-struct-rec-tag">{tag}</span>}
+      {id && ` ${id}`}
+    </span>
+  );
 }
 
 function StructRow({

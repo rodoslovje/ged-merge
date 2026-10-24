@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { liftNestedStamps } from "../gedcom/chanCrea";
 import { cloneNode, nodesEqual } from "../gedcom/node";
-import { dropTitleBesideFileTitle, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
+import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
@@ -18,7 +18,8 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *  - **repeats** — a line the standard allows once, repeated as an exact copy
  *    (same value, same lines beneath): the copies go, the first stays;
  *  - **forms** — a media file with no `FORM`, where the file's name says what
- *    it is (`.jpg`, a web address): the line is added;
+ *    it is (`.jpg`, a web address): the line is added in every such file, or
+ *    in those whose form is the one a row names;
  *  - **notes** — a 7.0 event line carrying text where only `Y` may stand
  *    (`BIRT ali Ravna Gora?`): the text moves word for word into a `NOTE` on
  *    the event, and the line is left bare;
@@ -45,8 +46,32 @@ export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "rel
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
-  id: string;
+  /** The record — absent for a row standing for files across the file. */
+  id?: string;
   path?: string;
+  /** For the media forms: only the files this form fits. */
+  value?: string;
+}
+
+/** Add the `FORM` a media file's name says to every `FILE` without one (only
+ *  where it is `value`, when given); with `apply` false, only counts them. */
+function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      if (node.tag === "OBJE" && c.tag === "FILE" && c.value && !c.children.some((g) => g.tag === "FORM")) {
+        const form = fileFormOf(c.value, v7);
+        if (form && (value === undefined || form === value)) {
+          n++;
+          if (apply) c.children.unshift({ level: c.level + 1, tag: "FORM", value: form, children: [] });
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
@@ -85,7 +110,10 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
   }
   const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
   if (pass) return dataset.records.filter((r) => r.tag === "OBJE" && r.xref && pass(cloneNode(r)).length > 0).length;
-  return fixable.filter((i) => kindOf(i) === kind).length;
+  // A grouped row (the media forms) stands for as many lines as it counts.
+  return fixable
+    .filter((i) => kindOf(i) === kind)
+    .reduce((n, i) => n + (kind === "forms" ? Number(i.messageVars?.count) || 1 : 1), 0);
 }
 
 /** @param only — settle just the one finding a row names. */
@@ -98,14 +126,15 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps) continue;
+    if (issue.relocate || issue.agency || issue.stamps || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
   }
   const agencyPass = issues.some((i) => i.agency);
+  const formsPass = issues.some((i) => i.category === "missingLine" && i.fix !== undefined);
   const stampsPass = issues.some((i) => i.stamps);
-  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass) return [];
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -147,6 +176,17 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
     }
     if (mediaPass) patches.push(...mediaPassOver(dataset.records, mediaPass, journal));
     if (agencyPass) patches.push(...mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR"));
+    if (formsPass) {
+      const v7 = isV7Table(dataset.records);
+      for (const rec of dataset.records) {
+        if (!rec.xref || (only?.id && rec.xref !== only.id)) continue;
+        if (!fillMediaForms(rec, v7, only?.value, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        fillMediaForms(rec, v7, only?.value, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
     if (stampsPass) {
       const v7 = isV7Table(dataset.records);
       for (const rec of dataset.records) {
