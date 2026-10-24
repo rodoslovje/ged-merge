@@ -33,6 +33,6 @@ test("a UTF-8 file gets no encoding notice", async ({ page }) => {
   await page.locator("input.file-input").first().setInputFiles(UTF8);
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.locator(".tools-fix-list").first().waitFor();
+  await page.locator(".batch-section-toggle").waitFor();
   await expect(page.locator(".tools-note")).toHaveCount(0);
 });

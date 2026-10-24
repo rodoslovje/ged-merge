@@ -44,7 +44,10 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
   const focusConfirm = cancelLabel === null || (!!defaultConfirm && !danger);
   const defaultBtn = useRef<HTMLButtonElement>(null);
   useEffect(() => { defaultBtn.current?.focus(); }, []);
-  const [title, body] = message.split("\n\n");
+  // The first paragraph is the title; every one after it is the body (a
+  // batch lists several fixes, one paragraph each).
+  const [title, ...rest] = message.split("\n\n");
+  const body = rest.join("\n\n");
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="confirm-dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>

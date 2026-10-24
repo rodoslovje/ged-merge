@@ -72,7 +72,7 @@ export {
   createSourceRecord, sourceFieldTag, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
-  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay,
+  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay, hangAgencyUnderData,
 } from "./sources";
 export type { EditSourceFields, EditRepoFields, NewSourceFields, NewCitation } from "./sources";
 

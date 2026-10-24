@@ -154,6 +154,33 @@ describe("diffRecord", () => {
     expect(diffRecord(record(long), record(long), { maxLineLength: 253 }).lines).toEqual([]);
   });
 
+  it("closes the block above before striking out the next tag", () => {
+    // An event's place written as its line value, moved into a NOTE at the end
+    // of each event: the BIRT's NOTE must not land under the struck-out DEAT.
+    const before = record(
+      "0 @I1@ INDI\n1 NAME Alojz /Homan/\n1 SEX M\n" +
+      "1 BIRT Karlovec 19\n2 DATE 5 MAY 1905\n2 CHAN\n3 DATE 2 SEP 2025\n4 TIME 10:21:13\n" +
+      "1 DEAT Karlovec 19\n2 DATE 30 NOV 1907\n2 CHAN\n3 DATE 2 SEP 2025\n4 TIME 10:21:23\n" +
+      "1 FAMC @F1@\n",
+    );
+    const after = record(
+      "0 @I1@ INDI\n1 NAME Alojz /Homan/\n1 SEX M\n" +
+      "1 BIRT\n2 DATE 5 MAY 1905\n2 CHAN\n3 DATE 2 SEP 2025\n4 TIME 10:21:13\n2 NOTE Karlovec 19\n" +
+      "1 DEAT\n2 DATE 30 NOV 1907\n2 CHAN\n3 DATE 2 SEP 2025\n4 TIME 10:21:23\n2 NOTE Karlovec 19\n" +
+      "1 FAMC @F1@\n",
+    );
+    expect(shown(before, after)).toEqual([
+      "  0 @I1@ INDI",
+      "  1 NAME Alojz /Homan/",
+      "- 1 BIRT Karlovec 19",
+      "+ 1 BIRT",
+      "+ 2 NOTE Karlovec 19",
+      "- 1 DEAT Karlovec 19",
+      "+ 1 DEAT",
+      "+ 2 NOTE Karlovec 19",
+    ]);
+  });
+
   it("indexes a forest by xref", () => {
     const records = parseGedcom(
       new TextEncoder().encode("0 HEAD\n0 @I1@ INDI\n0 @F1@ FAM\n0 TRLR\n").buffer,

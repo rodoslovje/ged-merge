@@ -1,9 +1,12 @@
 import type { Dataset, GedNode } from "../gedcom/types";
+import { liftNestedStamps } from "../gedcom/chanCrea";
+import { toStandardCoverage } from "./sourceReshape/apply";
+import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
-import { dropTitleBesideFileTitle, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
-import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
+import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { type RecordPatch } from "../ui/historyTypes";
-import { fixableConformance, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
+import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
 
 /**
@@ -17,7 +20,8 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *  - **repeats** — a line the standard allows once, repeated as an exact copy
  *    (same value, same lines beneath): the copies go, the first stays;
  *  - **forms** — a media file with no `FORM`, where the file's name says what
- *    it is (`.jpg`, a web address): the line is added;
+ *    it is (`.jpg`, a web address): the line is added in every such file, or
+ *    in those whose form is the one a row names;
  *  - **notes** — a 7.0 event line carrying text where only `Y` may stand
  *    (`BIRT ali Ravna Gora?`): the text moves word for word into a `NOTE` on
  *    the event, and the line is left bare;
@@ -27,7 +31,27 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *  - **fileTitles** — the one repair that removes something, run only on the
  *    user's word: where a media record has a title beside its `FILE` and a
  *    different one under it, the one under the `FILE` (which the app shows)
- *    is kept.
+ *    is kept;
+ *  - **agency** — a source's own `AGNC`, which no version allows on the
+ *    record: moved to `DATA.AGNC` in every source at once;
+ *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
+ *    `DATA > EVEN` coverage in every source whose title names its register;
+ *  - **mediaInfo** — a media record's `DATE`/`PLAC`, which neither version
+ *    has: kept as the `_DATE`/`_PLACE` extensions GED Merge reads and writes;
+ *  - **childPedi** — a `PEDI` on a family's `CHIL` line: moved to the child's
+ *    own `FAMC` link to that family (or dropped where that link already says
+ *    the same);
+ *  - **citationPage** — a text `SOUR` inside a citation (a page typed under
+ *    the wrong tag): the citation's `PAGE` where it has none, dropped where
+ *    the `PAGE` already says the same;
+ *  - **smartMatch** — MyHeritage's Smart Match citation (`EVEN Smart
+ *    Matching`, the matched person's id in `ROLE`): the id becomes the
+ *    citation's `PAGE`, the `EVEN` goes;
+ *  - **assoDates** — a `DATE` on an association: kept word for word as a
+ *    `NOTE` on the association, in every record at once;
+ *  - **stamps** — `CHAN`/`CREA` below a record (on an event, an attribute…):
+ *    the newest change and the oldest creation are lifted onto the record,
+ *    the rest dropped, in every record at once.
  *
  * A value outside the list, or a repeat that differs from the first, is the
  * user's question and is only reported. Lines on a record without an xref
@@ -35,20 +59,184 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
-  id: string;
+  /** The record — absent for a row standing for files across the file. */
+  id?: string;
   path?: string;
+  /** For the media forms: only the files this form fits. */
+  value?: string;
+  /** Every finding of one kind across the file: the same value on the same
+   *  line, given the same fix (a row standing for all of them). */
+  match?: { tag: string; parent: string; sample: string; fix: string };
+}
+
+/** Make every text `SOUR` inside a citation the citation's `PAGE`; one equal
+ *  to the `PAGE` already there only goes, a different one stays. With `apply`
+ *  false, only counts them. */
+function strayCitationPages(rec: GedNode, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      // `c` is a citation; a text SOUR beneath it is a typed page.
+      if (c.tag === "SOUR") {
+        for (const stray of c.children.filter(isStrayCitationPage)) {
+          const page = c.children.find((g) => g.tag === "PAGE");
+          if (page && page.value?.trim() !== stray.value?.trim()) continue;
+          n++;
+          if (!apply) continue;
+          if (page) c.children = c.children.filter((g) => g !== stray);
+          else {
+            c.children = c.children.filter((g) => g !== stray);
+            c.children.unshift({ ...stray, tag: "PAGE" });
+          }
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
+}
+
+/** The extension a media item's date or place is kept under. */
+const MEDIA_EXTENSION: Record<string, string> = { DATE: "_DATE", PLAC: "_PLACE" };
+
+/** Rename a media record's `DATE`/`PLAC` to `_DATE`/`_PLACE`; one equal to
+ *  the extension already there only goes, a different one stays. With
+ *  `apply` false, only counts them. */
+function mediaInfoToExtensions(obje: GedNode, apply: boolean): number {
+  let n = 0;
+  for (const c of [...obje.children]) {
+    const ext = MEDIA_EXTENSION[c.tag];
+    if (!ext) continue;
+    const held = obje.children.find((g) => g.tag === ext);
+    if (held && held.value?.trim() !== c.value?.trim()) continue;
+    n++;
+    if (!apply) continue;
+    if (held) obje.children = obje.children.filter((g) => g !== c);
+    else c.tag = ext;
+  }
+  return n;
+}
+
+/**
+ * Move every `PEDI` written on a family's `CHIL` lines to the child's own
+ * `FAMC` link to that family; where that link already states a pedigree, an
+ * equal one (any case) only goes and a different one stays. Calls `touch`
+ * before changing a record. Returns how many it settled.
+ */
+function childPediToFamc(
+  fam: GedNode, indis: Map<string, GedNode>, apply: boolean, touch: (rec: GedNode) => void,
+): number {
+  let n = 0;
+  for (const chil of fam.children) {
+    if (chil.tag !== "CHIL") continue;
+    const pedi = chil.children.find((g) => g.tag === "PEDI");
+    const child = pedi && chil.value ? indis.get(chil.value.trim()) : undefined;
+    const famc = child?.children.find((g) => g.tag === "FAMC" && g.value?.trim() === fam.xref);
+    if (!pedi || !child || !famc) continue;
+    const held = famc.children.find((g) => g.tag === "PEDI");
+    if (held && held.value?.trim().toLowerCase() !== pedi.value?.trim().toLowerCase()) continue;
+    n++;
+    if (!apply) continue;
+    touch(fam);
+    chil.children = chil.children.filter((g) => g !== pedi);
+    if (!held) {
+      touch(child);
+      famc.children.push({ ...pedi, level: famc.level + 1 });
+    }
+  }
+  return n;
+}
+
+/** Restate every Smart Match citation in the record: the matched person's
+ *  id (its `ROLE`) as the citation's `PAGE` where it has none, and the
+ *  `EVEN` label gone. With `apply` false, only counts them. */
+function smartMatchToPage(rec: GedNode, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      if (c.tag === "SOUR") {
+        const even = c.children.find(isSmartMatchEven);
+        if (even) {
+          n++;
+          if (apply) {
+            const id = even.children.find((g) => g.tag === "ROLE")?.value?.trim();
+            c.children = c.children.filter((g) => g !== even);
+            if (id && !c.children.some((g) => g.tag === "PAGE")) {
+              c.children.unshift({ level: c.level + 1, tag: "PAGE", value: id, children: [] });
+            }
+          }
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
+}
+
+/** Turn every `DATE` under an association into a `NOTE` there carrying the
+ *  same words (a `PHRASE` beside them); one equal to a note already there
+ *  only goes. With `apply` false, only counts them. */
+function assoDatesToNotes(rec: GedNode, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      if (c.tag === "ASSO") {
+        const dates = c.children.filter((g) => g.tag === "DATE");
+        n += dates.length;
+        if (apply) {
+          for (const date of dates) {
+            const phrase = date.children.find((g) => g.tag === "PHRASE")?.value?.trim();
+            const text = [date.value?.trim(), phrase && `(${phrase})`].filter(Boolean).join(" ");
+            const i = c.children.indexOf(date);
+            if (!text || c.children.some((g) => g.tag === "NOTE" && g.value?.trim() === text)) c.children.splice(i, 1);
+            else c.children[i] = { level: date.level, tag: "NOTE", value: text, children: [] };
+          }
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
+}
+
+/** Add the `FORM` a media file's name says to every `FILE` without one (only
+ *  where it is `value`, when given); with `apply` false, only counts them. */
+function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, apply: boolean): number {
+  let n = 0;
+  const visit = (node: GedNode) => {
+    for (const c of node.children) {
+      if (c.tag.startsWith("_")) continue;
+      if (node.tag === "OBJE" && c.tag === "FILE" && c.value && !c.children.some((g) => g.tag === "FORM")) {
+        const form = fileFormOf(c.value, v7);
+        if (form && (value === undefined || form === value)) {
+          n++;
+          if (apply) c.children.unshift({ level: c.level + 1, tag: "FORM", value: form, children: [] });
+        }
+      }
+      visit(c);
+    }
+  };
+  visit(rec);
+  return n;
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
-/** What a file-wide media pass does to one media record; returns the lines
- *  it moved or dropped. Both answer the habit row, which names no one record. */
+/** What a file-wide pass does to one media (or source) record; returns the
+ *  lines it moved or dropped. Each answers a habit row, which names no one
+ *  record. */
 type MediaPass = (obje: GedNode) => GedNode[];
 
 /** The media pass a kind runs, when the file's own standard calls the lines
@@ -67,9 +255,47 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
   const fixable = fixableConformance(dataset.records);
+  if (kind === "citationPage") {
+    if (!fixable.some((i) => i.citationPage)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.xref ? strayCitationPages(r, false) : 0), 0);
+  }
+  if (kind === "mediaInfo") {
+    if (!fixable.some((i) => i.mediaInfo)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.tag === "OBJE" && r.xref ? mediaInfoToExtensions(r, false) : 0), 0);
+  }
+  if (kind === "childPedi") {
+    if (!fixable.some((i) => i.childPedi)) return 0;
+    const indis = new Map(dataset.records.filter((r) => r.tag === "INDI" && r.xref).map((r) => [r.xref!, r] as const));
+    return dataset.records.reduce((n, r) => n + (r.tag === "FAM" && r.xref ? childPediToFamc(r, indis, false, () => {}) : 0), 0);
+  }
+  if (kind === "smartMatch") {
+    if (!fixable.some((i) => i.smartMatch)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.xref ? smartMatchToPage(r, false) : 0), 0);
+  }
+  if (kind === "assoDates") {
+    if (!fixable.some((i) => i.assoDate)) return 0;
+    return dataset.records.reduce((n, r) => n + (r.xref ? assoDatesToNotes(r, false) : 0), 0);
+  }
+  if (kind === "coverage") {
+    if (!fixable.some((i) => i.coverage)) return 0;
+    const baptism = baptismTargetTag(dataset.records);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && toStandardCoverage(cloneNode(r), baptism)).length;
+  }
+  if (kind === "stamps") {
+    if (!fixable.some((i) => i.stamps)) return 0;
+    const v7 = isV7Table(dataset.records);
+    return dataset.records.filter((r) => r.xref && liftNestedStamps(cloneNode(r), v7).length > 0).length;
+  }
+  if (kind === "agency") {
+    if (!fixable.some((i) => i.agency)) return 0;
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && hangAgencyUnderData(cloneNode(r)).length > 0).length;
+  }
   const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
   if (pass) return dataset.records.filter((r) => r.tag === "OBJE" && r.xref && pass(cloneNode(r)).length > 0).length;
-  return fixable.filter((i) => kindOf(i) === kind).length;
+  // A grouped row (the media forms) stands for as many lines as it counts.
+  return fixable
+    .filter((i) => kindOf(i) === kind)
+    .reduce((n, i) => n + (kind === "forms" ? Number(i.messageVars?.count) || 1 : 1), 0);
 }
 
 /** @param only — settle just the one finding a row names. */
@@ -77,17 +303,28 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
   const scanned = fixableConformance(dataset.records, only?.id);
   if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
   const issues = scanned.filter(
-    (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path),
+    (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path)
+      && (!only?.match || (i.messageVars.tag === only.match.tag && i.messageVars.parent === only.match.parent
+        && i.sample === only.match.sample && i.fix === only.match.fix)),
   );
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate) continue;
+    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
   }
-  if (!byRecord.size && !mediaPass) return [];
+  const agencyPass = issues.some((i) => i.agency);
+  const formsPass = issues.some((i) => i.category === "missingLine" && i.fix !== undefined);
+  const stampsPass = issues.some((i) => i.stamps);
+  const coveragePass = issues.some((i) => i.coverage);
+  const assoPass = issues.some((i) => i.assoDate);
+  const smartPass = issues.some((i) => i.smartMatch);
+  const mediaInfoPass = issues.some((i) => i.mediaInfo);
+  const childPediPass = issues.some((i) => i.childPedi);
+  const citationPagePass = issues.some((i) => i.citationPage);
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass && !smartPass && !mediaInfoPass && !childPediPass && !citationPagePass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -128,15 +365,104 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
       patches.push(recordPatch(dataset, xref, rec, before));
     }
     if (mediaPass) patches.push(...mediaPassOver(dataset.records, mediaPass, journal));
+    if (agencyPass) patches.push(...mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR"));
+    if (formsPass) {
+      const v7 = isV7Table(dataset.records);
+      for (const rec of dataset.records) {
+        if (!rec.xref || (only?.id && rec.xref !== only.id)) continue;
+        if (!fillMediaForms(rec, v7, only?.value, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        fillMediaForms(rec, v7, only?.value, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (citationPagePass) {
+      for (const rec of dataset.records) {
+        if (!rec.xref || !strayCitationPages(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        strayCitationPages(rec, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (mediaInfoPass) {
+      for (const rec of dataset.records) {
+        if (rec.tag !== "OBJE" || !rec.xref || !mediaInfoToExtensions(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        mediaInfoToExtensions(rec, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (childPediPass) {
+      // A move touches two records, the family and the child: each is kept
+      // once, before its first change, and patched once at the end.
+      const indis = new Map(dataset.records.filter((r) => r.tag === "INDI" && r.xref).map((r) => [r.xref!, r] as const));
+      const befores = new Map<GedNode, GedNode>();
+      const touch = (rec: GedNode) => {
+        if (befores.has(rec)) return;
+        const before = cloneNode(rec);
+        befores.set(rec, before);
+        journal.keep(rec.xref!, before);
+      };
+      for (const rec of dataset.records) if (rec.tag === "FAM" && rec.xref) childPediToFamc(rec, indis, true, touch);
+      for (const [rec, before] of befores) patches.push(recordPatch(dataset, rec.xref!, rec, before));
+    }
+    if (smartPass) {
+      for (const rec of dataset.records) {
+        if (!rec.xref || !smartMatchToPage(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        smartMatchToPage(rec, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (assoPass) {
+      for (const rec of dataset.records) {
+        if (!rec.xref || !assoDatesToNotes(rec, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        assoDatesToNotes(rec, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (coveragePass) {
+      const baptism = baptismTargetTag(dataset.records);
+      for (const rec of dataset.records) {
+        if (rec.tag !== "SOUR" || !rec.xref || !toStandardCoverage(cloneNode(rec), baptism)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        toStandardCoverage(rec, baptism);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (stampsPass) {
+      const v7 = isV7Table(dataset.records);
+      for (const rec of dataset.records) {
+        if (!rec.xref || !liftNestedStamps(cloneNode(rec), v7).length) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        liftNestedStamps(rec, v7);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
   });
   return patches;
 }
 
-/** Run a media pass over every media record, one undo patch per record it changed. */
-function mediaPassOver(records: GedNode[], pass: MediaPass, journal: PassJournal): RecordPatch[] {
+/** The file's declared version is 7.0 — the stamps pass writes `CREA`
+ *  there and `_CREA` in 5.5.1. */
+function isV7Table(records: GedNode[]): boolean {
+  return !!tableFor(records)?.version.startsWith("7");
+}
+
+/** Run a pass over every media (or source) record, one undo patch per record
+ *  it changed. */
+function mediaPassOver(records: GedNode[], pass: MediaPass, journal: PassJournal, tag = "OBJE"): RecordPatch[] {
   const patches: RecordPatch[] = [];
   for (const rec of records) {
-    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    if (rec.tag !== tag || !rec.xref) continue;
     // Tried on a copy first, so the journal holds a record only when it changes.
     if (!pass(cloneNode(rec)).length) continue;
     const before = cloneNode(rec);

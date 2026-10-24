@@ -1,6 +1,8 @@
 import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered } from "./edit";
 import { ALL_EVENT_TAGS, changeStampNode, isChangeStampEvent } from "./eventTags";
-import { firstChild, hasChild } from "./node";
+import { cloneNode, firstChild, hasChild } from "./node";
+import { detectChanCreaUsage } from "./builder";
+import { relevel } from "./mediaForm";
 import type { ChanCreaUsage, GedNode } from "./types";
 import { UPD_STAMP_TYPE } from "./vendorTags";
 
@@ -195,4 +197,98 @@ export function stampChanCrea(
       }
     }
   }
+}
+
+/**
+ * The stamping conventions a save may follow under `target`. A strict target
+ * writes only what its version allows: no `CHAN`/`CREA` on events in either,
+ * and no `CREA` at all in 5.5.1. Kept as a file's own habit, an event stamp is
+ * written only while the file still carries one — once a fix has lifted them
+ * all, a save does not start them again.
+ */
+export function stampUsageFor(
+  usage: ChanCreaUsage,
+  target: { strict: boolean; version: string },
+  records: GedNode[],
+): ChanCreaUsage {
+  if (target.strict) {
+    const crea = target.version !== "5.5.1";
+    return {
+      ...usage, eventChan: false, eventCrea: false,
+      recordCrea: usage.recordCrea && crea, sharedCrea: usage.sharedCrea && crea,
+    };
+  }
+  if (!usage.eventChan && !usage.eventCrea) return usage;
+  const now = detectChanCreaUsage(records);
+  return { ...usage, eventChan: usage.eventChan && now.eventChan, eventCrea: usage.eventCrea && now.eventCrea };
+}
+
+const MONTH_INDEX: Record<string, number> = {
+  JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12,
+};
+
+/** A stamp's moment as a comparable string (`YYYYMMDD HH:MM:SS`), from its
+ *  exact `DATE` and optional `TIME`; undefined when the date is not exact. */
+function stampKey(stamp: GedNode): string | undefined {
+  const date = firstChild(stamp, "DATE");
+  const m = date?.value ? /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{3,4})$/.exec(date.value.trim()) : null;
+  const month = m ? MONTH_INDEX[m[2].toUpperCase()] : undefined;
+  if (!m || !month) return undefined;
+  const time = firstChild(date!, "TIME")?.value?.trim() ?? "";
+  const [h = "0", min = "0", s = "0"] = time.split(/[:.]/);
+  const pad = (v: string | number, n = 2) => String(v).padStart(n, "0");
+  return `${pad(m[3], 4)}${pad(month)}${pad(m[1])} ${pad(h)}:${pad(min)}:${pad(s)}`;
+}
+
+/**
+ * Lift the `CHAN`/`CREA` stamps written below a record (on its events,
+ * attributes, citations…), which neither GEDCOM version allows there, onto
+ * the record itself, then drop them: the newest change becomes the record's
+ * `CHAN` when it is newer than the one it has, the oldest creation its `CREA`
+ * (`_CREA` in 5.5.1, which has none) when it is older. A stamp whose date is
+ * not exact names no moment and only goes. Returns the lines dropped.
+ */
+export function liftNestedStamps(record: GedNode, v7: boolean): GedNode[] {
+  const dropped: GedNode[] = [];
+  const visit = (node: GedNode) => {
+    const kept: GedNode[] = [];
+    for (const c of node.children) {
+      if (c.tag === "CHAN" || c.tag === "CREA") {
+        dropped.push(c);
+        continue;
+      }
+      // An extension's own lines are its business.
+      if (!c.tag.startsWith("_")) visit(c);
+      kept.push(c);
+    }
+    if (kept.length !== node.children.length) node.children = kept;
+  };
+  for (const c of record.children) if (!c.tag.startsWith("_")) visit(c);
+  if (dropped.length === 0) return dropped;
+
+  const order = record.tag === "INDI" ? INDI_CHILD_ORDER : record.tag === "FAM" ? FAM_CHILD_ORDER : [];
+  const lift = (tag: "CHAN" | "CREA", into: string, newest: boolean) => {
+    let best: GedNode | undefined;
+    let bestKey: string | undefined;
+    for (const s of dropped) {
+      const k = s.tag === tag ? stampKey(s) : undefined;
+      if (k && (!bestKey || (newest ? k > bestKey : k < bestKey))) { best = s; bestKey = k; }
+    }
+    if (!best || !bestKey) return;
+    const date = cloneNode(firstChild(best, "DATE")!);
+    const held = firstChild(record, into);
+    if (held) {
+      const heldKey = stampKey(held);
+      if (heldKey && (newest ? heldKey >= bestKey : heldKey <= bestKey)) return;
+      relevel(date, held.level + 1);
+      held.children = [date, ...held.children.filter((c) => c.tag !== "DATE")];
+      return;
+    }
+    const line: GedNode = { level: record.level + 1, tag: into, children: [date] };
+    relevel(date, line.level + 1);
+    insertOrdered(record, line, order);
+  };
+  lift("CHAN", "CHAN", true);
+  lift("CREA", v7 ? "CREA" : "_CREA", false);
+  return dropped;
 }

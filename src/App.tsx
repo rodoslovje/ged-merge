@@ -37,7 +37,7 @@ import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
-import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
+import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { CompareTree } from "./ui/CompareTree";
@@ -61,6 +61,7 @@ import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fixConformance } from "./tools/fixConformance";
+import { nodeAtPath } from "./tools/conformance/conformance";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { tagTranslations } from "./tools/fixTranslationLang";
 import { setPlaceTranslations } from "./tools/placeTranslations";
@@ -1046,6 +1047,7 @@ function AppContent() {
       setMode: setTargetMode,
       eventOffer: { version: target.version, strict: target.strict, dialectTags: new Set(dialect?.bareTags) },
       fileVersion: writeTarget("file", { version: mainVersion ?? "unknown" }).version,
+      dialect,
     }),
     [target, formatOverrides, targetProposal, setTargetMode, dialect, mainVersion],
   );
@@ -1511,6 +1513,21 @@ function AppContent() {
    *  value or writing a gazetteer coordinate is not new research. Deliberate
    *  per-record acts — a source edited by hand, a duplicate merged — stay
    *  substantive and stamp as every Edit-mode change does. */
+  // While a health-check batch runs (several fixes picked at once), each fix's
+  // patches gather here and land in the history as one step at its end.
+  const toolBatchRef = useRef<RecordPatch[] | null>(null);
+  function runToolBatch(run: () => void): void {
+    toolBatchRef.current = [];
+    try {
+      run();
+    } finally {
+      const batch = toolBatchRef.current;
+      toolBatchRef.current = null;
+      // A record two fixes touched undoes to its state before the first.
+      if (batch.length) handlePushEdit(coalescePatches(batch), undefined, undefined, true);
+    }
+  }
+
   function applyToolPatches(rawPatches: RecordPatch[], mechanical = false): number {
     const patches = dropNoopPatches(rawPatches);
     if (!mainDataset || patches.length === 0) return 0;
@@ -1540,7 +1557,8 @@ function AppContent() {
     // stay: undoing a whole-file tool batch keeps the user where they are —
     // there is no single person to show, and the Tools page they came from
     // re-scans itself off the edit version.
-    handlePushEdit(patches, undefined, undefined, true);
+    if (toolBatchRef.current) toolBatchRef.current.push(...patches);
+    else handlePushEdit(patches, undefined, undefined, true);
     // Shared-record patches are flagged by the push itself (see
     // captureSnapshotsForPush): a record with no owner card behind it — e.g.
     // the date repair rewriting a SOUR's DATE — is its own dirty subject; with
@@ -1939,7 +1957,8 @@ function AppContent() {
       }));
     }
 
-    const usage = mainDataset.chanCreaUsage;
+    // What the target lets the save stamp, and what the file still does.
+    const usage = stampUsageFor(mainDataset.chanCreaUsage, target, preview.records);
     // Every convention the file might keep, not just CHAN/CREA on people: a
     // MyHeritage file stamps `_UPD` and no CHAN at all, and a file may stamp
     // only its sources. `stampChanCrea` writes nothing where a flag is off.
@@ -2745,6 +2764,15 @@ function AppContent() {
                   bumpSourceCacheVersion(records);
                 })
               }
+              onEditMediaFile={(objeXref, path, url) =>
+                applySharedRecordEdit((records) => {
+                  const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
+                  const file = node && (path ? nodeAtPath(node, path) : node.children.find((c) => c.tag === "FILE"));
+                  if (file?.tag !== "FILE") return;
+                  file.value = url;
+                  bumpSourceCacheVersion(records);
+                })
+              }
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope), true); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments), true)}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments), true)}
@@ -2803,6 +2831,7 @@ function AppContent() {
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
               onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
+              onFixBatch={runToolBatch}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}

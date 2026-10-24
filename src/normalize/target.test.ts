@@ -47,6 +47,18 @@ describe("target format", () => {
     expect(detectDialect(load(`${head("7.0")}0 @I1@ INDI\n1 _MILT\n0 TRLR\n`))).toBeUndefined();
   });
 
+  it("counts event stamps as MacFamilyTree's habit, by its header or its bare tags", () => {
+    const stamped = "0 @I1@ INDI\n1 BIRT\n2 DATE 1900\n2 CHAN\n3 DATE 2 SEP 2025\n";
+    const byHeader = detectDialect(load(`${head("7.0", "SYNIUMFAMILYTREE")}${stamped}0 TRLR\n`));
+    expect(byHeader).toEqual({ software: "MacFamilyTree", bareTags: [], nestedStamps: true });
+    expect(proposeTarget({ version: "7.0" }, byHeader, undefined)).toEqual({ mode: "file", software: "MacFamilyTree" });
+    // Re-saved by GED Merge: the header no longer says, its NOBI still does.
+    const resaved = detectDialect(load(`${head("7.0", "GEDMERGE")}${stamped}1 NOBI\n0 TRLR\n`));
+    expect(resaved).toEqual({ software: "MacFamilyTree", bareTags: ["NOBI"], nestedStamps: true });
+    // Nobody's habit: the stamps are an error, not a variation.
+    expect(detectDialect(load(`${head("7.0", "GEDMERGE")}${stamped}0 TRLR\n`))).toBeUndefined();
+  });
+
   it("proposes the file's own format only when the file has another program's habits", () => {
     const plain = load(`${head("7.0")}0 @I1@ INDI\n1 BIRT\n2 DATE 5 JUN 1880\n0 TRLR\n`);
     expect(proposeTarget(plain, undefined, { date: "D MMM YYYY" })).toEqual({ mode: "7.0" });

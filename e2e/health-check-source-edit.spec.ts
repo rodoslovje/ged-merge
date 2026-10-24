@@ -27,7 +27,8 @@ test("a source's finding opens its editor, and saving it settles the finding", a
 
   const row = page.locator(".tools-issue").filter({ hasText: "FROM 1768 TO 1758" });
   await expect(row).toHaveCount(1);
-  await row.getByRole("button", { name: /Krstna knjiga 03167/ }).click();
+  // The row says where it is settled: its own button opens the source editor.
+  await row.getByRole("button", { name: "Edit source" }).click();
 
   const dialog = page.getByRole("dialog");
   const years = dialog.locator("label.add-source-field").filter({ hasText: /^Date/ }).locator("input");

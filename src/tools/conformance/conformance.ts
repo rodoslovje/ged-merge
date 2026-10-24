@@ -69,6 +69,46 @@ export interface ConformanceIssue {
   /** Set on the media records' `TITL`/`FORM`-beside-`FILE` habit, which the
    *  fix moves under `FILE` in every media record at once. */
   relocate?: boolean;
+  /** Set on a source's own `AGNC`, which neither version allows on the record:
+   *  the fix moves it to `DATA.AGNC` in every source at once. */
+  agency?: boolean;
+  /** Set on the one row for every `CHAN`/`CREA` below a record (on an event,
+   *  an attribute…), where neither version allows them: the fix lifts the
+   *  newest change and the oldest creation onto the record and drops the rest. */
+  stamps?: boolean;
+  /** Set on a source's flat `PLAC`/`DATE`, which the standard keeps in
+   *  `DATA > EVEN`: the fix restates them there in every source whose title
+   *  names the register type. */
+  coverage?: boolean;
+  /** Set on a `DATE` under an association (`ASSO`), which neither version
+   *  allows there: the fix keeps it word for word as a `NOTE` on the
+   *  association, in every record at once. */
+  assoDate?: boolean;
+  /** Set on the one row for MyHeritage's Smart Match citations (`EVEN Smart
+   *  Matching` with the matched person's id in `ROLE`): the fix keeps the id
+   *  as the citation's `PAGE` and drops the `EVEN`. */
+  smartMatch?: boolean;
+  /** Set on a media record's `DATE`/`PLAC`, which neither version has: the
+   *  fix keeps them as the `_DATE`/`_PLACE` extensions GED Merge writes. */
+  mediaInfo?: boolean;
+  /** Set on a `PEDI` written on a family's `CHIL` line: the fix moves it to
+   *  the child's own `FAMC` link to that family. */
+  childPedi?: boolean;
+  /** Set on a text `SOUR` inside a citation — a page typed under the wrong
+   *  tag: the fix makes it the citation's `PAGE`. */
+  citationPage?: boolean;
+}
+
+/** A text (not pointer) `SOUR` line inside a citation, with no lines of its own. */
+export function isStrayCitationPage(node: GedNode): boolean {
+  const v = node.value?.trim();
+  return node.tag === "SOUR" && !!v && !v.startsWith("@") && node.children.length === 0;
+}
+
+/** A citation's `EVEN` that is one of MyHeritage's labels for how the
+ *  citation came (Smart Matching, Discovery, Record), not an event. */
+export function isSmartMatchEven(node: GedNode): boolean {
+  return node.tag === "EVEN" && /^(?:smart\s*match(?:ing)?|discovery|record)$/i.test(node.value?.trim() ?? "");
 }
 
 /** The table for the version the file's header declares, or undefined when it
@@ -127,7 +167,7 @@ interface Ctx {
   recordTags: Map<string, string>;
   emit: (issue: ConformanceIssue) => void;
   /** Misplaced tags, tallied per tag and parent so a habit is one row. */
-  misplaced: Map<string, { count: number; issue: ConformanceIssue }>;
+  misplaced: Map<string, { count: number; issue: ConformanceIssue; tags?: Set<string> }>;
 }
 
 function checkRecord(rec: GedNode, ctx: Ctx): void {
@@ -170,6 +210,27 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
         }
         return;
       }
+      // MyHeritage's Smart Match citations are one habit, one row — their
+      // label in EVEN and id in ROLE are not checked as an event and a role.
+      if (node.tag === "SOUR" && isSmartMatchEven(child)) {
+        const seenSm = ctx.misplaced.get("\0smartmatch");
+        if (seenSm) seenSm.count++;
+        else {
+          indices.push(i);
+          ctx.misplaced.set("\0smartmatch", {
+            count: 1,
+            issue: {
+              ...base, category: "enumValue", severity: "warning",
+              messageKey: "tools.validate.struct.issue.smartMatch",
+              messageVars: { tag, parent: loc.where() },
+              sample: child.value?.trim(), tooltip: lineOf(child), path: loc.path(),
+              smartMatch: true,
+            },
+          });
+          indices.pop();
+        }
+        return;
+      }
       seen ??= new Map();
       const list = seen.get(tag);
       if (list) list.push(child);
@@ -204,6 +265,25 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       const add = recordId && tag === "FORM" && node.tag === "FILE" && node.value
         ? fileFormOf(node.value, spec.is70)
         : undefined;
+      if (add) {
+        // One row per form the fix would write, however many files lack it.
+        const k = `\0form\0${loc.where()}\0${add}`;
+        const seen = ctx.misplaced.get(k);
+        if (seen) seen.count++;
+        else {
+          ctx.misplaced.set(k, {
+            count: 1,
+            issue: {
+              ...base, category: "missingLine", severity: "warning",
+              messageKey: "tools.validate.struct.issue.missing",
+              messageVars: { tag, parent: loc.where() },
+              sample: tag, tooltip: `${lineOf(node)} → ${tag} ${add}`, path: loc.path(),
+              fix: add,
+            },
+          });
+        }
+        continue;
+      }
       ctx.emit({
         ...base, category: "missingLine", severity: "warning",
         messageKey: "tools.validate.struct.issue.missing",
@@ -226,14 +306,19 @@ function tallyMisplaced(
   ctx: Ctx, node: GedNode, parent: string, key: "misplaced" | "misplacedRoot",
   base: { recordId?: string; recordTag?: string }, path: string,
 ): void {
-  const k = `${node.tag}\0${parent}`;
+  // Change and creation stamps below the record are one habit, whichever
+  // event or attribute carries them: one row for all of them.
+  const stamp = (node.tag === "CHAN" || node.tag === "CREA") && parent.includes(".");
+  const k = stamp ? "\0stamps" : `${node.tag}\0${parent}`;
   const seen = ctx.misplaced.get(k);
   if (seen) {
     seen.count++;
+    seen.tags?.add(node.tag);
     return;
   }
   ctx.misplaced.set(k, {
     count: 1,
+    tags: stamp ? new Set([node.tag]) : undefined,
     issue: {
       ...base, category: "misplacedTag", severity: "warning",
       messageKey: `tools.validate.struct.issue.${key}`,
@@ -242,6 +327,14 @@ function tallyMisplaced(
       // A media record's title and format beside its FILE (the 5.5 shape)
       // belong under it — a move the fix makes across the whole file.
       relocate: (parent === "OBJE" && (node.tag === "TITL" || node.tag === "FORM")) || undefined,
+      // A source's own agency belongs under its DATA — the same move file-wide.
+      agency: (parent === "SOUR" && node.tag === "AGNC") || undefined,
+      stamps: stamp || undefined,
+      coverage: (parent === "SOUR" && (node.tag === "PLAC" || node.tag === "DATE")) || undefined,
+      assoDate: (node.tag === "DATE" && parent.endsWith(".ASSO")) || undefined,
+      mediaInfo: (parent === "OBJE" && (node.tag === "DATE" || node.tag === "PLAC")) || undefined,
+      childPedi: (parent === "FAM.CHIL" && node.tag === "PEDI") || undefined,
+      citationPage: (parent.endsWith(".SOUR") && isStrayCitationPage(node)) || undefined,
     },
   });
 }
@@ -281,9 +374,10 @@ function checkPayload(
       messageKey: `tools.validate.struct.issue.${messageKey}`,
       messageVars: { tag, sample: truncate(value), parent: loc.where(), version: spec.version, ...vars },
       sample: truncate(value), path: loc.path(),
-      tooltip: fix
+      // The values the standard allows go on the hover, not into the row.
+      tooltip: (fix
         ? `${lineOf(node)} → ${toNote ? `${node.level + 1} NOTE ${fix}` : fix}${fixPhrase ? ` + PHRASE ${fixPhrase}` : ""}`
-        : lineOf(node),
+        : lineOf(node)) + (vars.allowed ? `\n${vars.allowed}` : ""),
       fix: fixable ? fix : undefined,
       toNote: fixable && toNote ? true : undefined,
       fixPhrase: fixable ? fixPhrase : undefined,
@@ -349,6 +443,12 @@ function checkPayload(
       ? items.map((v, i) => verdicts[i] ?? v).join(", ")
       : undefined;
     const allowed = set.filter((s) => s !== "()").join(", ");
+    // 7.0's own rule for a value outside a set that has OTHER (ROLE, MEDI,
+    // PEDI…): OTHER, with the value kept word for word as its PHRASE.
+    if (!fix && spec.is70 && items.length === 1 && set.includes("OTHER")) {
+      emit("enumValue", "enumOther", { allowed, standard: "OTHER" }, "OTHER", { fixPhrase: value });
+      return;
+    }
     emit("enumValue", fix ? "enumCase" : "enumValue", fix ? { allowed, standard: fix } : { allowed }, fix);
   } else if (payload === "D") {
     checkCalendar(value, spec.is70, emit);
@@ -390,8 +490,13 @@ function scan(records: GedNode[], table: SpecTable, only?: string): ConformanceI
     if (only !== undefined && rec.xref !== only) continue;
     checkRecord(rec, ctx);
   }
-  for (const { count, issue } of ctx.misplaced.values()) {
+  for (const { count, issue, tags } of ctx.misplaced.values()) {
     issue.messageVars.count = count;
+    if (issue.category === "missingLine" && count > 1) issue.messageKey = "tools.validate.struct.issue.missingMany";
+    if (tags) {
+      issue.messageKey = `tools.validate.struct.issue.${tags.size > 1 ? "misplacedStamps" : "misplacedStamp"}`;
+      issue.sample = [...tags].sort().join(" ");
+    }
     issues.push(issue);
   }
   return issues;
@@ -406,9 +511,10 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
 
 /** The findings a fix can settle: a value written in the wrong case, a line
  *  repeated as an exact copy, a media file's missing FORM, text on an event
- *  line that belongs in its NOTE, or media lines kept beside their FILE. */
+ *  line that belongs in its NOTE, media lines kept beside their FILE, or a
+ *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch || !!issue.mediaInfo || !!issue.childPedi || !!issue.citationPage);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

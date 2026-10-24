@@ -391,7 +391,8 @@ describe("fixConformance", () => {
 0 TRLR`);
     const missing = validateConformance(ds).filter((i) => i.messageVars.tag === "FORM");
     expect(missing.every((i) => i.category === "missingLine")).toBe(true);
-    expect(missing.map((i) => i.fix)).toEqual(["text/html", "image/jpeg", undefined, "text/html"]);
+    // One row per form the fix would add; the nameless file has its own.
+    expect(missing.map((i) => [i.fix, i.messageVars.count])).toEqual([[undefined, undefined], ["text/html", 2], ["image/jpeg", 1]]);
     expect(countFixableConformance(ds, "forms")).toBe(3);
     const before = serializeGedcom(ds.records, ds);
 
@@ -444,6 +445,344 @@ describe("fixConformance", () => {
     applyRecordPatches(ds, titles, "undo");
     applyRecordPatches(ds, patches, "undo");
     expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("moves a source's own AGNC under its DATA in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 AGNC Župnija Kranj
+1 REPO @R1@
+0 @S2@ SOUR
+1 TITL Mrliška knjiga
+1 AGNC Župnija Naklo
+1 DATA
+2 AGNC Župnija Naklo
+0 @S3@ SOUR
+1 TITL Poročna knjiga
+1 AGNC NŠAL
+1 DATA
+2 AGNC Župnija Šenčur
+0 @R1@ REPO
+1 NAME NŠAL
+0 TRLR`);
+    const habit = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+    expect(habit.map((i) => [i.sample, i.agency, i.messageVars.count])).toEqual([["AGNC", true, 3]]);
+    expect(countFixableConformance(ds, "agency")).toBe(2); // S3's two agencies differ
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "agency");
+    expect(patches.map((p) => p.id)).toEqual(["@S1@", "@S2@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 DATA\n2 AGNC Župnija Kranj\n1 REPO @R1@\n");
+    expect(out).toContain("0 @S2@ SOUR\n1 TITL Mrliška knjiga\n1 DATA\n2 AGNC Župnija Naklo\n0 @S3@"); // the copy goes
+    expect(out).toContain("1 AGNC NŠAL\n1 DATA\n2 AGNC Župnija Šenčur\n"); // left for the user
+    // The moved lines add no finding of their own in either version.
+    const after = validateConformance(ds).filter((i) => i.recordId === "@S1@" || i.recordId === "@S2@");
+    expect(after).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("restates a source's flat PLAC/DATE as DATA > EVEN in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 PLAC Šenčur
+1 DATE 1784-1812
+1 AGNC Nadškofijski arhiv Ljubljana
+0 @S2@ SOUR
+1 TITL U.S., World War II Draft Registration Cards, 1942
+1 DATE 2010
+1 PLAC Lehi, UT, USA
+0 TRLR`);
+    const rows = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+    expect(rows.filter((i) => i.coverage).map((i) => i.sample).sort()).toEqual(["DATE", "PLAC"]);
+    expect(countFixableConformance(ds, "coverage")).toBe(1); // S2's title names no register
+    const before = serializeGedcom(ds.records, ds);
+
+    const patches = fixConformance(ds, "coverage");
+    expect(patches.map((p) => p.id)).toEqual(["@S1@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toMatch(/0 @S1@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1784 TO 1812\n3 PLAC Šenčur\n2 AGNC Nadškofijski arhiv Ljubljana\n0 @S2@/);
+    expect(out).toContain("1 DATE 2010\n1 PLAC Lehi, UT, USA\n"); // left for the user
+    expect(validateConformance(ds).filter((i) => i.recordId === "@S1@")).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("fixes every finding a grouped row stands for, and only those", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 NAME Veronica /Svetlecic/
+2 TYPE aka
+0 @I2@ INDI
+1 NAME Franc /Zaletel/
+2 TYPE aka
+0 @I3@ INDI
+1 NAME Mina /Božnar/
+2 TYPE married
+0 TRLR`);
+    const aka = validateConformance(ds).find((i) => i.sample === "aka")!;
+    const patches = fixConformance(ds, undefined, {
+      match: { tag: "TYPE", parent: String(aka.messageVars.parent), sample: "aka", fix: "AKA" },
+    });
+    expect(patches.map((p) => p.id)).toEqual(["@I1@", "@I2@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out.match(/2 TYPE AKA\n/g)).toHaveLength(2);
+    expect(out).toContain("2 TYPE married\n"); // another value: its own row
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("makes a text SOUR inside a citation its PAGE in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Pokopališče Zgornje Bitnje
+0 @I1@ INDI
+1 NAME Ivana /Križnar/
+1 BURI
+2 SOUR @S1@
+3 SOUR P02
+1 DEAT
+2 SOUR @S1@
+3 PAGE P03
+3 SOUR P04
+0 TRLR`);
+    expect(countFixableConformance(ds, "citationPage")).toBe(1); // the DEAT one has another PAGE
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "citationPage");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 BURI\n2 SOUR @S1@\n3 PAGE P02\n1 DEAT\n2 SOUR @S1@\n3 PAGE P03\n3 SOUR P04\n");
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("restates MyHeritage's Discovery and Record citations too", () => {
+    const ds = dataset(`${HEAD_70}
+0 @S1@ SOUR
+1 TITL MyHeritage
+0 @I1@ INDI
+1 NAME Jurij /Pajer/
+1 SOUR @S1@
+2 PAGE Georg Pajer
+2 EVEN Discovery
+0 @I2@ INDI
+1 NAME Leopold /Petan/
+1 SOUR @S1@
+2 EVEN Record
+3 ROLE 40000:273139647:
+0 TRLR`);
+    expect(validateConformance(ds).filter((i) => i.smartMatch).map((i) => i.messageVars.count)).toEqual([2]);
+    fixConformance(ds, "smartMatch");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE Georg Pajer\n0 @I2@");
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 40000:273139647:\n0 TRLR");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a media record's DATE/PLAC as _DATE/_PLACE in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @O1@ OBJE
+1 FILE a.jpg
+2 FORM jpg
+1 DATE 1935
+1 PLAC Kranj
+0 @O2@ OBJE
+1 FILE b.jpg
+2 FORM jpg
+1 DATE 1940
+1 _DATE 1941
+0 TRLR`);
+    expect(countFixableConformance(ds, "mediaInfo")).toBe(2); // O2's dates differ
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "mediaInfo");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 _DATE 1935\n1 _PLACE Kranj\n");
+    expect(out).toContain("1 DATE 1940\n1 _DATE 1941\n"); // left as it is
+    expect(validateConformance(ds).filter((i) => i.recordId === "@O1@")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("moves a PEDI on CHIL to the child's FAMC in %s", (_v, head) => {
+    const pedi = head === HEAD_70 ? "ADOPTED" : "adopted";
+    const ds = dataset(`${head}
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Janez /Kos/
+1 FAMC @F1@
+2 PEDI ${pedi}
+0 @I3@ INDI
+1 NAME Miha /Kos/
+1 FAMC @F1@
+2 PEDI ${head === HEAD_70 ? "FOSTER" : "foster"}
+0 @F1@ FAM
+1 CHIL @I1@
+2 PEDI ${pedi}
+1 CHIL @I2@
+2 PEDI ${pedi}
+1 CHIL @I3@
+2 PEDI ${pedi}
+0 TRLR`);
+    expect(countFixableConformance(ds, "childPedi")).toBe(2); // I3 says otherwise
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "childPedi");
+    expect(patches.map((p) => p.id).sort()).toEqual(["@F1@", "@I1@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain(`0 @I1@ INDI\n1 NAME Ana /Kos/\n1 FAMC @F1@\n2 PEDI ${pedi}\n`);
+    expect(out).toContain(`0 @F1@ FAM\n1 CHIL @I1@\n1 CHIL @I2@\n1 CHIL @I3@\n2 PEDI ${pedi}\n`);
+    expect(validateConformance(ds).filter((i) => i.recordId === "@I1@")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a Smart Match id as the citation's PAGE in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Robnik Web Site
+0 @I1@ INDI
+1 NAME Metod /Robnik/
+1 SOUR @S1@
+2 QUAY 3
+2 DATA
+3 TEXT Dodano za potrditev Smart Match
+2 EVEN Smart Matching
+3 ROLE 1500001
+0 @I2@ INDI
+1 NAME Marija /Maček/
+1 SOUR @S1@
+2 EVEN Smart Matching
+3 ROLE 1500002
+0 TRLR`);
+    const rows = validateConformance(ds).filter((i) => i.smartMatch);
+    expect(rows.map((i) => i.messageVars.count)).toEqual([2]);
+    expect(validateConformance(ds).filter((i) => i.sample === "1500001")).toEqual([]); // not a role finding too
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "smartMatch");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 1500001\n2 QUAY 3\n2 DATA\n3 TEXT Dodano za potrditev Smart Match\n0 @I2@");
+    expect(out).toContain("1 SOUR @S1@\n2 PAGE 1500002\n0 TRLR");
+    expect(validateConformance(ds).filter((i) => i.recordId === "@I1@" || i.recordId === "@I2@")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("writes MyHeritage's PEDI step as OTHER + PHRASE step, keeping which parent it means", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 NAME Aisha /Alvarado/
+1 FAMC @F1@
+2 PEDI step
+2 _PEDW step
+0 @F1@ FAM
+1 CHIL @I1@
+0 TRLR`);
+    fixConformance(ds, "values");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 FAMC @F1@\n2 PEDI OTHER\n3 PHRASE step\n2 _PEDW step\n");
+    expect(validateConformance(ds).filter((i) => i.category === "enumValue")).toEqual([]);
+  });
+
+  it("writes a 7.0 value outside a set that has OTHER as OTHER, keeping it as the PHRASE", () => {
+    // MyHeritage's Smart Match citation puts the matched person's number in ROLE.
+    const ds = dataset(`${HEAD_70}
+0 @S1@ SOUR
+1 TITL MyHeritage
+0 @I1@ INDI
+1 NAME Metod /Robnik/
+1 SOUR @S1@
+2 EVEN BIRT
+3 ROLE 1500001
+0 TRLR`);
+    const [issue] = validateConformance(ds).filter((i) => i.category === "enumValue");
+    expect(issue).toMatchObject({ messageKey: "tools.validate.struct.issue.enumOther", fix: "OTHER", fixPhrase: "1500001" });
+    expect(issue.tooltip).toContain("WITN"); // the allowed values ride on the hover
+    const patches = fixConformance(ds, "values");
+    expect(serializeGedcom(ds.records, ds)).toContain("2 EVEN BIRT\n3 ROLE OTHER\n4 PHRASE 1500001\n");
+    expect(validateConformance(ds).filter((i) => i.category === "enumValue")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a date on an association as its note in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @I1@ INDI
+1 NAME Luka /Renko/
+1 EDUC
+2 DATE 1980
+2 ASSO @I2@
+3 DATE 1979-1980
+3 NOTE vzgojiteljica v vrtcu
+3 ROLE OTHER
+1 ASSO @I2@
+2 ROLE OTHER
+2 DATE 7 MAY 1928
+0 @I2@ INDI
+1 NAME Ana /Kos/
+0 TRLR`);
+    expect(countFixableConformance(ds, "assoDates")).toBe(2);
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "assoDates");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("2 ASSO @I2@\n3 NOTE 1979-1980\n3 NOTE vzgojiteljica v vrtcu\n");
+    expect(out).toContain("1 ASSO @I2@\n2 ROLE OTHER\n2 NOTE 7 MAY 1928\n");
+    expect(validateConformance(ds).filter((i) => i.assoDate)).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it("lifts CHAN/CREA below the records onto them, as one row", () => {
+    const body = `0 @I1@ INDI
+1 NAME Alojz /Homan/
+1 BIRT
+2 DATE 5 MAY 1905
+2 CHAN
+3 DATE 2 SEP 2025
+4 TIME 10:21:13
+2 CREA
+3 DATE 10 SEP 2025
+1 DEAT
+2 DATE 30 NOV 1907
+2 CHAN
+3 DATE 2 SEP 2025
+4 TIME 10:21:23
+2 CREA
+3 DATE 1 JAN 2020
+1 CHAN
+2 DATE 1 AUG 2025
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 OCCU kmetica
+2 CHAN
+3 DATE 3 MAR 2024
+1 CHAN
+2 DATE 1 AUG 2026`;
+    const ds70 = dataset(`${HEAD_70}\n${body}\n0 TRLR`);
+    const rows = validateConformance(ds70).filter((i) => i.category === "misplacedTag");
+    expect(rows.map((i) => [i.messageKey.split(".").pop(), i.stamps, i.messageVars.count])).toEqual([["misplacedStamps", true, 5]]);
+    expect(countFixableConformance(ds70, "stamps")).toBe(2);
+    const before = serializeGedcom(ds70.records, ds70);
+
+    const patches = fixConformance(ds70, "stamps");
+    const out = serializeGedcom(ds70.records, ds70);
+    // The newest change is newer than the record's own; the oldest creation is new to it.
+    expect(out).toContain("1 BIRT\n2 DATE 5 MAY 1905\n1 DEAT\n2 DATE 30 NOV 1907\n1 CHAN\n2 DATE 2 SEP 2025\n3 TIME 10:21:23\n");
+    expect(out).toMatch(/\n1 CREA\n2 DATE 1 JAN 2020\n/);
+    // An older stamp leaves the record's newer change alone.
+    expect(out).toContain("1 OCCU kmetica\n1 CHAN\n2 DATE 1 AUG 2026\n");
+    expect(validateConformance(ds70)).toEqual([]);
+
+    applyRecordPatches(ds70, patches, "undo");
+    expect(serializeGedcom(ds70.records, ds70)).toBe(before);
+
+    // 5.5.1 has no CREA: the creation goes up as _CREA.
+    const ds551 = dataset(`${HEAD_551}\n${body}\n0 TRLR`);
+    fixConformance(ds551, "stamps");
+    const out551 = serializeGedcom(ds551.records, ds551);
+    expect(out551).toMatch(/\n1 _CREA\n2 DATE 1 JAN 2020\n/);
+    expect(out551).not.toMatch(/\n[2-9] (CHAN|CREA)\n/);
+    expect(validateConformance(ds551).filter((i) => i.recordId === "@I1@" || i.recordId === "@I2@")).toEqual([]);
   });
 
   it("moves the text on a 7.0 event line into a note on the event", () => {
@@ -514,7 +853,7 @@ describe("corpus", () => {
     // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
     // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
     // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAN@FAM.MARR", "misplaced CHAN@INDI.BIRT", "misplaced CHAN@INDI.BURI", "misplaced CHAN@INDI.CHR", "misplaced CHAN@INDI.DEAT", "misplaced CHAN@INDI.NATU", "misplaced CHAN@INDI.OCCU", "misplaced CHAN@INDI.RESI", "misplaced CREA@FAM.MARR", "misplaced CREA@INDI.BIRT", "misplaced CREA@INDI.BURI", "misplaced CREA@INDI.CHR", "misplaced CREA@INDI.DEAT", "misplaced CREA@INDI.NAME", "misplaced CREA@INDI.NATU", "misplaced CREA@INDI.OCCU", "misplaced CREA@INDI.RELI", "misplaced CREA@INDI.RESI", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "missing FORM@OBJE.FILE", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.

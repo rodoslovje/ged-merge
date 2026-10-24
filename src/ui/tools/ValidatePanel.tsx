@@ -3,7 +3,7 @@ import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
@@ -31,30 +31,13 @@ import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
-import { TranslationLangSection } from "./TranslationLangSection";
+import { useTranslationLang } from "./TranslationLangSection";
+import { MediaLinkDialog } from "../MediaLinkDialog";
+import { nodeAtPath } from "../../tools/conformance/conformance";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", notes: "ConformNotes" };
-
-/** The Health-Check filter each fix previews before it runs, so confirming the
- *  fix happens with the affected findings on screen. */
-const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
-  links: "brokenLink",
-  dups: "duplicatePointer",
-  families: "duplicateFamily",
-  sex: "missingSex",
-  roles: "roleSexConflict",
-  dates: "badDate",
-  nonStandard: "nonStandardDate",
-  dangling: "danglingXref",
-  values: "enumValue",
-  repeats: "cardinality",
-  forms: "missingLine",
-  notes: "enumValue",
-  relocate: "misplacedTag",
-  fileTitles: "misplacedTag",
-};
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -106,13 +89,6 @@ function structGroup(c: StructCategory): HealthGroup {
   return DATA_STRUCT_CATEGORIES.has(c) ? "data" : "gedcom";
 }
 
-/** Which half each fix belongs to — the one its findings are listed in. */
-const FIX_GROUP: Record<FixKind, HealthGroup> = {
-  links: "data", dups: "data", families: "data", dangling: "data", roles: "data", sex: "data", dates: "data",
-  nonStandard: "gedcom", values: "gedcom", notes: "gedcom", repeats: "gedcom", forms: "gedcom",
-  relocate: "gedcom", fileTitles: "gedcom",
-};
-
 /** The xref a `brokenLink` finding names — the family a person points at, or the
  *  person a family points at. Both arrive as message interpolation values. */
 function brokenTarget(issue: ValidationIssue): string | undefined {
@@ -137,6 +113,9 @@ interface RowFix {
   hint: string;
   /** A removal (danger-coloured), as opposed to a value being set or corrected. */
   removes?: boolean;
+  /** The whole-file fix this row's repair is one case of — what a batch runs
+   *  once when every row of the kind is picked. */
+  kind: FixKind;
   run: () => void;
 }
 
@@ -145,6 +124,10 @@ interface RowFix {
 const AUTHOR_KEYS = ["authorName"] as const;
 
 const SEV_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
+
+/** The findings list's filter: a category, All, the rows with a repair, or
+ *  one of the two chips carved out of a category. */
+type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText";
 
 /** A row in the unified Health Check list — a record-level finding or a structural
  *  ("spec") one. Both carry a severity so they interleave by it in the "All" view. */
@@ -166,9 +149,11 @@ export function ValidatePanel({
   onFixDuplicateFamilies,
   onFixDanglingRefs,
   onFixConformance,
+  onFixBatch,
   onFillPlaceCoords,
   onTagTranslations,
   onEditSource,
+  onEditMediaFile,
   view,
   onViewChange,
 }: {
@@ -185,10 +170,15 @@ export function ValidatePanel({
   onFixDuplicateFamilies: (only?: string) => number;
   onFixDanglingRefs: (only?: DanglingRef) => number;
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
+  /** Run the picked fixes as one undo step. */
+  onFixBatch: (run: () => void) => void;
   onFillPlaceCoords: () => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Save an edited source record — a finding on a source opens its editor. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
+  /** Rewrite a media record's FILE — a file whose name says no form opens the
+   *  link editor, so the address can be corrected where it is reported. */
+  onEditMediaFile: (objeXref: string, path: string | undefined, url: string) => void;
   /** The open half: the tool page `gedcom`, else the data issues. A page of
    *  its own, so Back returns to the half left. */
   view: ToolView;
@@ -198,7 +188,13 @@ export function ValidatePanel({
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
-  const { target } = useTargetFormat();
+  const { target, dialect, formatOverrides } = useTargetFormat();
+  // So does a file that keeps its program's flat source fields (PLAC/DATE on
+  // the source itself).
+  const keptCoverage = !target.strict && formatOverrides.sourceCoverage === "vendor";
+  // A file kept with its variations keeps its program's event stamps: the row
+  // says whose habit it is, and offers no fix.
+  const keptStamps = !target.strict && !!dialect?.nestedStamps;
   /** Message vars with a GEDCOM event tag turned into its display name —
    *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
    *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
@@ -219,15 +215,18 @@ export function ValidatePanel({
   if (scan.status === "done") lastRef.current = scan.result;
   const report = scan.status === "done" ? scan.result.report : (lastRef.current?.report ?? null);
   const structure = scan.status === "done" ? scan.result.structure : (lastRef.current?.structure ?? null);
-  const [filter, setFilter] = useState<IssueCategory | StructCategory | "all">("all");
+  // Besides the categories, two chips of their own carved out of them: the
+  // translations without a language and the text on event lines.
+  const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   // Transient confirmation after a one-button fix: which fix, and how many
   // records it repaired.
   const [fixDone, setFixDone] = useState<{ kind: FixKind; count: number } | null>(null);
-  // A fix the user has requested but not yet confirmed. Requesting it switches
-  // the filter to that fix's category so the affected findings are on screen
-  // behind the confirmation dialog.
-  const [pendingFix, setPendingFix] = useState<FixKind | null>(null);
+  // The rows picked for a batch, by row key, and whether its confirmation is
+  // up; after a batch of several kinds, how many fixes it made.
+  const [picked, setPicked] = useState<Map<string, IssueRow>>(() => new Map());
+  const [batchPending, setBatchPending] = useState(false);
+  const [batchDone, setBatchDone] = useState<number | null>(null);
   // Findings already repaired from their own row. The re-validate they trigger
   // runs in the worker, so the old list stays up for a moment — these rows go
   // quiet meanwhile instead of inviting a second, no-op click.
@@ -250,6 +249,16 @@ export function ValidatePanel({
       },
     };
   }, [editSrc, dataset, onEditSource, scans]);
+
+  // A media file whose name says no form (a label in front of the address, …)
+  // opens the link editor the 🔗 chip does; saving re-runs the check.
+  const [editMedia, setEditMedia] = useState<{ xref: string; path?: string; url: string } | null>(null);
+  function mediaLinkOf(issue: StructIssue): { xref: string; path?: string; url: string } | undefined {
+    if (issue.category !== "missingLine" || issue.sample !== "FORM" || issue.fix || issue.recordTag !== "OBJE" || !issue.recordId) return undefined;
+    const rec = recordByXref(dataset.records, issue.recordId);
+    const file = rec && (issue.path ? nodeAtPath(rec, issue.path) : rec.children.find((c) => c.tag === "FILE"));
+    return file?.tag === "FILE" && file.value ? { xref: issue.recordId, path: issue.path, url: file.value } : undefined;
+  }
 
   // Photo-folder check: the local media files referenced by the dataset, and —
   // once checked — the subset not found in the loaded folder. The check is
@@ -303,41 +312,35 @@ export function ValidatePanel({
     scans.refresh("validate");
   }
 
-  // Step 1: clicking a fix button shows the affected findings (switch the
-  // filter to the fix's category), then asks for confirmation.
-  function requestFix(kind: FixKind) {
-    setFilter(FIX_CATEGORY[kind]);
-    setPendingFix(kind);
-  }
-
-  // Step 2: the user confirmed — apply the fix and refresh both lists.
-  function applyFix(kind: FixKind) {
-    setPendingFix(null);
-    const changed =
-      kind === "links" ? onFixBrokenLinks()
+  /** One whole-file fix, as a batch runs it when every row of its kind is
+   *  picked; returns how many records it changed. */
+  function runKind(kind: FixKind): number {
+    return kind === "links" ? onFixBrokenLinks()
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
       : kind === "dates" ? onFixDates()
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
-    setFixDone({ kind, count: changed });
-    // App mutated the live dataset in place — re-validate (in the worker) to
-    // refresh both lists; the current ones stay up until the fresh ones arrive.
-    scans.refresh("validate");
-    setFilter("all");
   }
 
   useEffect(() => { setFilter("all"); }, [group]);
+  // The last translation given its language takes its chip away: back to All.
+  useEffect(() => {
+    if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
+    if (filter === "eventText" && !structure?.issues.some(isEventText)) setFilter("all");
+  }, [filter, structure]);
 
   useEffect(() => {
     lastRef.current = null;
     setFilter("all");
     setQuery("");
     setFixDone(null);
-    setPendingFix(null);
+    setBatchDone(null);
+    setPicked(new Map());
+    setBatchPending(false);
     setPlaceCoordDone(null);
     setPlaceCoordPending(false);
   }, [dataset]);
@@ -346,7 +349,10 @@ export function ValidatePanel({
   // "already fixed" marks from the previous list have nothing left to suppress.
   useEffect(() => {
     setFixedRows((prev) => (prev.size === 0 ? prev : new Set()));
+    // Picks point at rows of the list they were made in.
+    setPicked((prev) => (prev.size === 0 ? prev : new Map()));
   }, [report]);
+  useEffect(() => { setPicked(new Map()); }, [group]);
 
   // A new dataset or a changed folder invalidates a prior photo check.
   useEffect(() => {
@@ -372,23 +378,172 @@ export function ValidatePanel({
   // The unified Health Check list: record-level findings and structural ("spec")
   // findings merged into one stream, filtered by the active category chip and the
   // search box, then sorted errors → warnings → info so both kinds interleave.
-  const shown = useMemo<IssueRow[]>(() => {
+  // The "No sex" records a family role settles, and what it settles them to (a
+  // subset of the missingSex findings). Recomputed when the report changes (e.g.
+  // after a fix). The same map drives the button's count and the rows' marks, so
+  // the list points at exactly the records the button will change.
+  const inferableSex = useMemo<Map<string, Sex>>(
+    () => (report && report.counts.missingSex > 0 ? inferableSexes(dataset) : new Map()),
+    [report, dataset],
+  );
+
+  // The spouses a swap would move, and the role each lands in — plus how many
+  // families that is, which is what the button counts (one swap per family, two
+  // findings). Both from the roleSexConflict findings a swap settles on its own.
+  const swappedRoleFams = useMemo(
+    () => (report && report.counts.roleSexConflict > 0 ? countSwappedRoles(dataset) : 0),
+    [report, dataset],
+  );
+  const swappedRoles = useMemo<Map<string, "husband" | "wife">>(
+    () => (report && report.counts.roleSexConflict > 0 ? swappedRoleTargets(dataset) : new Map()),
+    [report, dataset],
+  );
+  // Media records whose title/format the relocate fix would move under FILE,
+  // and those holding a second title beside the FILE's own.
+  const [fixableRelocate, fixableFileTitles] = useMemo(
+    () => (structure?.issues.some((i) => i.relocate)
+      ? [countFixableConformance(dataset, "relocate"), countFixableConformance(dataset, "fileTitles")]
+      : [0, 0]),
+    [structure, dataset],
+  );
+
+  // The rows for one filter and search; the "fixable" chip is the whole list
+  // narrowed to the rows that carry a repair.
+  const buildRows = (f: Exclude<Filter, "fixable">, query: string): IssueRow[] => {
     const rows: IssueRow[] = [];
+    let tranFirst: StructIssue | undefined;
+    let tranCount = 0;
+    // The same value fix on the same line (TYPE aka → AKA on every name) is
+    // one row, its button fixing them all.
+    const valueGroups = new Map<string, StructIssue[]>();
     for (const issue of group === "data" ? (report?.issues ?? []) : []) {
-      if (filter !== "all" && issue.category !== filter) continue;
-      if (q && !issue.subject.toLowerCase().includes(q)) continue;
+      if (f !== "all" && issue.category !== f) continue;
+      if (query && !issue.subject.toLowerCase().includes(query)) continue;
       rows.push({ kind: "record", severity: issue.severity, issue });
     }
     for (const issue of structure?.issues ?? []) {
       if (structGroup(issue.category) !== group) continue;
-      if (filter !== "all" && issue.category !== filter) continue;
+      // Translations without a language are a chip of their own, carved out
+      // of the missing lines they technically are.
+      if (f === "tranLang" ? !isUntaggedTran(issue)
+        : f === "eventText" ? !isEventText(issue)
+        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue))) continue;
       // Structural rows have no person subject; match the search on the tag/record.
-      if (q && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(q)) continue;
+      if (query && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(query)) continue;
+      // A translation without a language is one row however often it occurs:
+      // the per-name list under its chip is where they are settled.
+      if (isUntaggedTran(issue)) {
+        tranCount++;
+        tranFirst ??= issue;
+        continue;
+      }
+      if (issue.category === "enumValue" && issue.fix !== undefined && !issue.toNote && issue.recordId) {
+        const k = `${issue.messageKey}\0${issue.messageVars?.parent}\0${issue.sample}\0${issue.fix}`;
+        const list = valueGroups.get(k);
+        if (list) list.push(issue);
+        else valueGroups.set(k, [issue]);
+        continue;
+      }
       rows.push({ kind: "struct", severity: issue.severity, issue });
+    }
+    for (const list of valueGroups.values()) {
+      const issue = list.length > 1 ? { ...list[0], groupCount: list.length } : list[0];
+      rows.push({ kind: "struct", severity: issue.severity, issue });
+    }
+    if (tranFirst) {
+      rows.push({
+        kind: "struct",
+        severity: tranFirst.severity,
+        issue: { ...tranFirst, messageKey: TRAN_LANG_KEY, messageVars: { ...tranFirst.messageVars, count: tranCount } },
+      });
     }
     rows.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
     return rows;
-  }, [report, structure, filter, q, group]);
+  };
+  const rowFixOf = (row: IssueRow): RowFix | null =>
+    row.kind === "record" ? recordRowFix(row.issue) : structRowFix(row.issue);
+  const allRows = useMemo(
+    () => buildRows("all", ""),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [report, structure, group],
+  );
+  const shown = useMemo(
+    () => (filter === "fixable" ? buildRows("all", q).filter((r) => rowFixOf(r)) : buildRows(filter, q)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles]);
+
+  const pickable = (row: IssueRow) => !!rowFixOf(row) && !fixedRows.has(rowKey(row.issue));
+  const shownPickable = useMemo(
+    () => shown.filter(pickable),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shown, fixedRows],
+  );
+  const fixableTotal = useMemo(
+    () => allRows.filter((r) => rowFixOf(r)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allRows, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles],
+  );
+  function togglePick(row: IssueRow) {
+    setPicked((prev) => {
+      const next = new Map(prev);
+      const k = rowKey(row.issue);
+      if (next.has(k)) next.delete(k);
+      else next.set(k, row);
+      return next;
+    });
+  }
+  const allShownPicked = shownPickable.length > 0 && shownPickable.every((r) => picked.has(rowKey(r.issue)));
+  function toggleAllShown() {
+    setPicked((prev) => {
+      const next = new Map(prev);
+      for (const r of shownPickable) {
+        if (allShownPicked) next.delete(rowKey(r.issue));
+        else next.set(rowKey(r.issue), r);
+      }
+      return next;
+    });
+  }
+  /** The picked rows by the fix kind that settles them. */
+  function pickedByKind(): Map<FixKind, IssueRow[]> {
+    const byKind = new Map<FixKind, IssueRow[]>();
+    for (const row of picked.values()) {
+      const fix = rowFixOf(row);
+      if (!fix) continue;
+      const list = byKind.get(fix.kind);
+      if (list) list.push(row);
+      else byKind.set(fix.kind, [row]);
+    }
+    return byKind;
+  }
+  /** Every row of a kind picked: the batch runs the kind's whole-file fix once. */
+  const wholeKind = (kind: FixKind, rows: IssueRow[]) =>
+    rows.length >= allRows.filter((r) => rowFixOf(r)?.kind === kind).length;
+  // The confirmed batch: every picked fix, in one undo step.
+  function applyPicked() {
+    setBatchPending(false);
+    const plan = pickedByKind();
+    let changed = 0;
+    onFixBatch(() => {
+      for (const [kind, rows] of plan) {
+        if (wholeKind(kind, rows)) changed += runKind(kind);
+        else for (const row of rows) rowFixOf(row)?.run();
+      }
+    });
+    setFixedRows((prev) => new Set([...prev, ...picked.keys()]));
+    const [only] = plan.keys();
+    if (plan.size === 1 && wholeKind(only, plan.get(only)!)) {
+      setFixDone({ kind: only, count: changed });
+      setBatchDone(null);
+    } else {
+      setFixDone(null);
+      setBatchDone(picked.size);
+    }
+    setPicked(new Map());
+    // App mutated the live dataset in place — re-validate (in the worker) to
+    // refresh both lists; the current ones stay up until the fresh ones arrive.
+    scans.refresh("validate");
+    setFilter("all");
+  }
 
   // A big file's health check can produce six-figure finding counts — only the
   // rows near the viewport are mounted. The scroll container is the ancestor
@@ -424,7 +579,7 @@ export function ValidatePanel({
         setIndex: (i) => { keyMoved.current = true; setSelected(i); },
         onEnter: (i) => {
           const row = rows[i];
-          const id = row?.kind === "record" ? row.issue.id : row?.issue.recordId;
+          const id = row?.kind === "record" ? row.issue.id : row && !isGrouped(row.issue) ? row.issue.recordId : undefined;
           if (id) onNavigate(id);
         },
       });
@@ -433,26 +588,6 @@ export function ValidatePanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [active, onNavigate]);
 
-  // The "No sex" records a family role settles, and what it settles them to (a
-  // subset of the missingSex findings). Recomputed when the report changes (e.g.
-  // after a fix). The same map drives the button's count and the rows' marks, so
-  // the list points at exactly the records the button will change.
-  const inferableSex = useMemo<Map<string, Sex>>(
-    () => (report && report.counts.missingSex > 0 ? inferableSexes(dataset) : new Map()),
-    [report, dataset],
-  );
-
-  // The spouses a swap would move, and the role each lands in — plus how many
-  // families that is, which is what the button counts (one swap per family, two
-  // findings). Both from the roleSexConflict findings a swap settles on its own.
-  const swappedRoleFams = useMemo(
-    () => (report && report.counts.roleSexConflict > 0 ? countSwappedRoles(dataset) : 0),
-    [report, dataset],
-  );
-  const swappedRoles = useMemo<Map<string, "husband" | "wife">>(
-    () => (report && report.counts.roleSexConflict > 0 ? swappedRoleTargets(dataset) : new Map()),
-    [report, dataset],
-  );
 
   /** This record-level finding's own repair, if a batch button covers it. The
    *  label doubles as the mark that says which rows of a category the button
@@ -464,20 +599,23 @@ export function ValidatePanel({
           label: t("tools.validate.fixOneLink"),
           hint: t("tools.validate.fixOneLinkHint"),
           removes: true,
-          run: () => onFixBrokenLinks({ id: issue.id, target: brokenTarget(issue) }),
+          kind: "links",
+        run: () => onFixBrokenLinks({ id: issue.id, target: brokenTarget(issue) }),
         };
       case "duplicatePointer":
         return {
           label: t("tools.validate.fixOneDup"),
           hint: t("tools.validate.fixOneDupHint"),
           removes: true,
-          run: () => onFixDuplicatePointers(issue.id),
+          kind: "dups",
+        run: () => onFixDuplicatePointers(issue.id),
         };
       case "duplicateFamily":
         return {
           label: t("tools.validate.fixOneDupFamily"),
           hint: t("tools.validate.fixOneDupFamilyHint"),
-          run: () => onFixDuplicateFamilies(issue.id),
+          kind: "families",
+        run: () => onFixDuplicateFamilies(issue.id),
         };
       case "missingSex": {
         const sex = inferableSex.get(issue.id);
@@ -485,7 +623,8 @@ export function ValidatePanel({
         return {
           label: t("tools.validate.fixOneValue", { value: t(`sex.${sex}`) }),
           hint: t("tools.validate.fixOneSexHint"),
-          run: () => onFixSexFromRole(issue.id),
+          kind: "sex",
+        run: () => onFixSexFromRole(issue.id),
         };
       }
       case "roleSexConflict": {
@@ -494,7 +633,8 @@ export function ValidatePanel({
         return {
           label: t("tools.validate.fixOneValue", { value: t(`field.${role}`) }),
           hint: t("tools.validate.fixOneRoleHint"),
-          run: () => onFixSwappedRoles(issue.id),
+          kind: "roles",
+        run: () => onFixSwappedRoles(issue.id),
         };
       }
       default:
@@ -508,6 +648,7 @@ export function ValidatePanel({
       return {
         label: t("tools.validate.fixOneValue", { value: issue.fix }),
         hint: t("tools.validate.struct.fixableTitle", { value: issue.fix }),
+        kind: "dates",
         run: () => onFixDates({ id: issue.recordId!, sample: issue.sample }),
       };
     }
@@ -515,6 +656,7 @@ export function ValidatePanel({
       return {
         label: t("tools.validate.fixOneValue", { value: issue.fix }),
         hint: t("tools.validate.struct.fixableTitle", { value: issue.fix }),
+        kind: "nonStandard",
         run: () => onFixNonStandardDates({ id: issue.recordId!, sample: issue.sample }),
       };
     }
@@ -523,6 +665,7 @@ export function ValidatePanel({
         label: t("tools.validate.fixOneDangling"),
         hint: t("tools.validate.fixOneDanglingHint"),
         removes: true,
+        kind: "dangling",
         run: () => onFixDanglingRefs({ id: issue.recordId!, xref: issue.sample }),
       };
     }
@@ -532,14 +675,19 @@ export function ValidatePanel({
       return {
         label: t("tools.validate.fixOneNote"),
         hint: t("tools.validate.fixOneNoteHint"),
+        kind: "notes",
         run: () => onFixConformance("notes", { id: issue.recordId!, path: issue.path }),
       };
     }
     if (issue.category === "enumValue" && issue.fix !== undefined && issue.recordId) {
+      const fix = issue.fix;
       return {
-        label: t("tools.validate.fixOneValue", { value: issue.fix }),
-        hint: t("tools.validate.struct.fixableTitle", { value: issue.fix }),
-        run: () => onFixConformance(undefined, { id: issue.recordId!, path: issue.path }),
+        label: t("tools.validate.fixOneValue", { value: fix }),
+        hint: t("tools.validate.struct.fixableTitle", { value: fix }),
+        kind: "values",
+        run: () => onFixConformance(undefined, (issue.groupCount ?? 0) > 1
+          ? { match: { tag: String(issue.messageVars?.tag), parent: String(issue.messageVars?.parent), sample: issue.sample ?? "", fix } }
+          : { id: issue.recordId!, path: issue.path }),
       };
     }
     if (issue.category === "cardinality" && issue.repeat && issue.recordId) {
@@ -547,6 +695,7 @@ export function ValidatePanel({
         label: t("tools.validate.fixOneRepeat"),
         hint: t("tools.validate.fixOneRepeatHint"),
         removes: true,
+        kind: "repeats",
         run: () => onFixConformance("repeats", { id: issue.recordId!, path: issue.path }),
       };
     }
@@ -555,16 +704,102 @@ export function ValidatePanel({
       return {
         label: t("tools.validate.fixOneAdd", { tag: issue.sample, value: issue.fix }),
         hint: t("tools.validate.fixOneAddHint"),
-        run: () => onFixConformance("forms", { id: issue.recordId!, path: issue.path }),
+        // A row may stand for many files: every file lacking this form gets it.
+        kind: "forms",
+        run: () => onFixConformance("forms", { value: issue.fix }),
       };
     }
     // Media lines beside their FILE: one row for the whole habit, so its
     // button moves them in every media record.
     if (issue.category === "misplacedTag" && issue.relocate && issue.recordId) {
+      // Once nothing is left to move, a title that differs from the FILE's own
+      // is settled by keeping the FILE's — the removal, on the user's word.
+      if (issue.sample === "TITL" && fixableRelocate === 0 && fixableFileTitles > 0) {
+        return {
+          label: t("tools.validate.fixOneFileTitles"),
+          hint: t("tools.validate.fixConformFileTitlesHint"),
+          removes: true,
+          kind: "fileTitles",
+          run: () => onFixConformance("fileTitles"),
+        };
+      }
       return {
         label: t("tools.validate.fixOneRelocate"),
         hint: t("tools.validate.fixOneRelocateHint"),
+        kind: "relocate",
         run: () => onFixConformance("relocate"),
+      };
+    }
+    // A source's own agency: one row for the habit, moved in every source.
+    if (issue.category === "misplacedTag" && issue.agency && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneAgency"),
+        hint: t("tools.validate.fixOneAgencyHint"),
+        kind: "agency",
+        run: () => onFixConformance("agency"),
+      };
+    }
+    // A media record's date or place: kept as the extension, in every record.
+    if (issue.mediaInfo && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneMediaInfo", { tag: issue.sample === "PLAC" ? "_PLACE" : "_DATE" }),
+        hint: t("tools.validate.fixOneMediaInfoHint"),
+        kind: "mediaInfo",
+        run: () => onFixConformance("mediaInfo"),
+      };
+    }
+    // A page typed as SOUR inside a citation: the citation's PAGE.
+    if (issue.citationPage && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneCitationPage"),
+        hint: t("tools.validate.fixOneCitationPageHint"),
+        kind: "citationPage",
+        run: () => onFixConformance("citationPage"),
+      };
+    }
+    // A child's pedigree on the family's CHIL: into the child's FAMC.
+    if (issue.childPedi && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneChildPedi"),
+        hint: t("tools.validate.fixOneChildPediHint"),
+        kind: "childPedi",
+        run: () => onFixConformance("childPedi"),
+      };
+    }
+    // MyHeritage's Smart Match citations: the id into PAGE, in every record.
+    if (issue.smartMatch && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneSmartMatch"),
+        hint: t("tools.validate.fixOneSmartMatchHint"),
+        kind: "smartMatch",
+        run: () => onFixConformance("smartMatch"),
+      };
+    }
+    // A date on an association: kept as its note, in every record.
+    if (issue.category === "misplacedTag" && issue.assoDate && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneAssoDates"),
+        hint: t("tools.validate.fixOneAssoDatesHint"),
+        kind: "assoDates",
+        run: () => onFixConformance("assoDates"),
+      };
+    }
+    // A source's flat place or date: restated as DATA > EVEN in every source.
+    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage) {
+      return {
+        label: t("tools.validate.fixOneCoverage"),
+        hint: t("tools.validate.fixOneCoverageHint"),
+        kind: "coverage",
+        run: () => onFixConformance("coverage"),
+      };
+    }
+    // Change and creation stamps below the records: one row, every record.
+    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId && !keptStamps) {
+      return {
+        label: t("tools.validate.fixOneStamps"),
+        hint: t("tools.validate.fixOneStampsHint"),
+        kind: "stamps",
+        run: () => onFixConformance("stamps"),
       };
     }
     return null;
@@ -585,14 +820,53 @@ export function ValidatePanel({
     [structure, dataset],
   );
 
-  // Media records whose title/format the relocate fix would move under FILE,
-  // and those holding a second title beside the FILE's own.
-  const [fixableRelocate, fixableFileTitles] = useMemo(
-    () => (structure?.issues.some((i) => i.relocate)
-      ? [countFixableConformance(dataset, "relocate"), countFixableConformance(dataset, "fileTitles")]
-      : [0, 0]),
+  // Media dates/places and children's PEDIs the fixes would settle.
+  const [fixableMediaInfo, fixableChildPedi, fixableCitationPage] = useMemo(
+    () => [
+      structure?.issues.some((i) => i.citationPage) ? countFixableConformance(dataset, "citationPage") : 0,
+      structure?.issues.some((i) => i.mediaInfo) ? countFixableConformance(dataset, "mediaInfo") : 0,
+      structure?.issues.some((i) => i.childPedi) ? countFixableConformance(dataset, "childPedi") : 0,
+    ],
     [structure, dataset],
   );
+  // Smart Match citations the fix would restate.
+  const fixableSmartMatch = useMemo(
+    () => (structure?.issues.some((i) => i.smartMatch) ? countFixableConformance(dataset, "smartMatch") : 0),
+    [structure, dataset],
+  );
+  // Dates on associations the fix would keep as notes.
+  const fixableAssoDates = useMemo(
+    () => (structure?.issues.some((i) => i.assoDate) ? countFixableConformance(dataset, "assoDates") : 0),
+    [structure, dataset],
+  );
+  // Sources whose flat PLAC/DATE the coverage fix would restate.
+  const fixableCoverage = useMemo(
+    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "coverage") : 0),
+    [structure, dataset],
+  );
+  // Records whose nested CHAN/CREA the stamps fix would lift.
+  const fixableStamps = useMemo(
+    () => (structure?.issues.some((i) => i.stamps) ? countFixableConformance(dataset, "stamps") : 0),
+    [structure, dataset],
+  );
+  // Sources whose own AGNC the agency fix would move under DATA.
+  const fixableAgency = useMemo(
+    () => (structure?.issues.some((i) => i.agency) ? countFixableConformance(dataset, "agency") : 0),
+    [structure, dataset],
+  );
+
+  // A translation the standard wants a language on, written without one — the
+  // worklist below re-reads those lines on the main thread, so only then.
+  const untaggedTranCount = structure?.issues.filter(isUntaggedTran).length ?? 0;
+  const eventTextCount = structure?.issues.filter(isEventText).length ?? 0;
+  const hasUntaggedTran = untaggedTranCount > 0;
+  const tranLang = useTranslationLang({
+    dataset,
+    freshness: structure,
+    needed: group === "gedcom" && hasUntaggedTran,
+    onApply: onTagTranslations,
+    onApplied: () => scans.refresh("validate"),
+  });
 
   if (!report) {
     return scan.status === "error" ? <ToolsError message={scan.message} /> : <ToolsLoading label={t("tools.running")} />;
@@ -627,15 +901,20 @@ export function ValidatePanel({
   if (conformNotes > 0) fixActions.push({ kind: "notes", count: conformNotes });
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
-  const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
+  const conformForms = structure?.issues
+    .filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId)
+    .reduce((n, i) => n + (Number(i.messageVars?.count) || 1), 0) ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
-  // A translation the standard wants a language on, written without one — the
-  // worklist below re-reads those lines on the main thread, so only then.
-  const hasUntaggedTran = !!structure?.issues.some(
-    (i) => i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN"),
-  );
+  if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableCitationPage > 0) fixActions.push({ kind: "citationPage", count: fixableCitationPage });
+  if (fixableMediaInfo > 0) fixActions.push({ kind: "mediaInfo", count: fixableMediaInfo });
+  if (fixableChildPedi > 0) fixActions.push({ kind: "childPedi", count: fixableChildPedi });
+  if (fixableSmartMatch > 0) fixActions.push({ kind: "smartMatch", count: fixableSmartMatch });
+  if (fixableAssoDates > 0) fixActions.push({ kind: "assoDates", count: fixableAssoDates });
+  if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
+  if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -649,11 +928,13 @@ export function ValidatePanel({
   const stale = scans.isStale("validate");
   const rerunning = scan.status === "running";
   const showRerun = stale || rerunning;
-  const pendingCount = pendingFix
-    ? (fixActions.find((a) => a.kind === pendingFix)?.count ?? 0)
-    : 0;
-
-  const groupFixes = fixActions.filter((a) => FIX_GROUP[a.kind] === group);
+  // The batch's confirmation: each picked fix with its count and what it does.
+  const batchMessage = batchPending
+    ? [t("tools.validate.fixPickedIntro"), ...[...pickedByKind()].map(([kind, rows]) => {
+        const count = wholeKind(kind, rows) ? (fixActions.find((a) => a.kind === kind)?.count ?? rows.length) : rows.length;
+        return `• ${t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}\n${t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}`;
+      })].join("\n\n")
+    : "";
   return (
     <>
       <div className="batch-section-toggle" role="tablist" onKeyDown={tablistKeyDown}>
@@ -690,6 +971,9 @@ export function ValidatePanel({
             </span>
           </li>
         </ul>
+      )}
+      {batchDone !== null && (
+        <p className="tools-clean tools-clean--ok">{t("tools.validate.fixPickedDone", { count: batchDone })}</p>
       )}
       {fixDone !== null && (
         <p className="tools-clean tools-clean--ok">
@@ -758,32 +1042,28 @@ export function ValidatePanel({
           onCancel={() => setPlaceCoordPending(false)}
         />
       )}
-      <TranslationLangSection
-        dataset={dataset}
-        freshness={structure}
-        needed={group === "gedcom" && hasUntaggedTran}
-        onApply={onTagTranslations}
-        onApplied={() => scans.refresh("validate")}
-      />
-      {((group === "data" && showMediaCheck) || groupFixes.length > 0) && (
+      {group === "data" && showMediaCheck && (
         <ul className="tools-fix-list">
-          {group === "data" && showMediaCheck && (
-            <li className="tools-fix-item">
-              <button className="nav-btn tools-run" onClick={runMediaCheck} disabled={mediaChecking}>
-                {t("tools.validate.media.check", { count: mediaFiles.length })}
-              </button>
-              <span className="tools-fix-hint">{t("tools.validate.media.checkHint", { name: folderName })}</span>
-            </li>
-          )}
-          {groupFixes.map(({ kind, count }) => (
-            <li key={kind} className="tools-fix-item">
-              <button className="nav-btn primary tools-run" onClick={() => requestFix(kind)}>
-                {t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}
-              </button>
-              <span className="tools-fix-hint">{t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}</span>
-            </li>
-          ))}
+          <li className="tools-fix-item">
+            <button className="nav-btn tools-run" onClick={runMediaCheck} disabled={mediaChecking}>
+              {t("tools.validate.media.check", { count: mediaFiles.length })}
+            </button>
+            <span className="tools-fix-hint">{t("tools.validate.media.checkHint", { name: folderName })}</span>
+          </li>
         </ul>
+      )}
+      {tranLang.doneNote}
+      {editMedia && (
+        <MediaLinkDialog
+          url={editMedia.url}
+          t={t}
+          onClose={() => setEditMedia(null)}
+          onSave={(url) => {
+            onEditMediaFile(editMedia.xref, editMedia.path, url);
+            setEditMedia(null);
+            scans.refresh("validate");
+          }}
+        />
       )}
       <AddSourceDialog
         isOpen={editingSource !== undefined}
@@ -794,13 +1074,13 @@ export function ValidatePanel({
         editing={editingSource}
         standalone
       />
-      {pendingFix !== null && (
+      {batchPending && (
         <ConfirmDialog
-          message={`${t(`tools.validate.fix${FIX_SUFFIX[pendingFix]}`, { count: pendingCount })}\n\n${t(`tools.validate.fix${FIX_SUFFIX[pendingFix]}Hint`)}`}
+          message={batchMessage}
           confirmLabel={t("tools.validate.applyFix")}
           busy
-          onConfirm={() => applyFix(pendingFix)}
-          onCancel={() => setPendingFix(null)}
+          onConfirm={applyPicked}
+          onCancel={() => setBatchPending(false)}
         />
       )}
       {total === 0 ? (
@@ -821,6 +1101,14 @@ export function ValidatePanel({
               >
                 {t("tools.validate.all")} <span className="tools-chip-count">{total}</span>
               </button>
+              {fixableTotal > 0 && (
+                <button
+                  className={`tools-chip ${filter === "fixable" ? "active" : ""}`}
+                  onClick={() => setFilter("fixable")}
+                >
+                  {t("tools.validate.fixable")} <span className="tools-chip-count">{fixableTotal}</span>
+                </button>
+              )}
               {CATEGORIES.filter((c) => group === "data" && report.counts[c] > 0).map((c) => (
                 <button
                   key={c}
@@ -830,15 +1118,36 @@ export function ValidatePanel({
                   {t(`tools.validate.cat.${c}`)} <span className="tools-chip-count">{report.counts[c]}</span>
                 </button>
               ))}
-              {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => (
+              {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => {
+                const count = structure!.counts[c]
+                  - (c === "missingLine" ? untaggedTranCount : 0)
+                  - (c === "enumValue" ? eventTextCount : 0);
+                return count > 0 && (
+                  <button
+                    key={c}
+                    className={`tools-chip ${filter === c ? "active" : ""}`}
+                    onClick={() => setFilter(c)}
+                  >
+                    {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{count}</span>
+                  </button>
+                );
+              })}
+              {group === "gedcom" && hasUntaggedTran && (
                 <button
-                  key={c}
-                  className={`tools-chip ${filter === c ? "active" : ""}`}
-                  onClick={() => setFilter(c)}
+                  className={`tools-chip ${filter === "tranLang" ? "active" : ""}`}
+                  onClick={() => setFilter("tranLang")}
                 >
-                  {t(`tools.validate.struct.cat.${c}`)} <span className="tools-chip-count">{structure!.counts[c]}</span>
+                  {t("tools.validate.tranLang.title")} <span className="tools-chip-count">{untaggedTranCount}</span>
                 </button>
-              ))}
+              )}
+              {group === "gedcom" && eventTextCount > 0 && (
+                <button
+                  className={`tools-chip ${filter === "eventText" ? "active" : ""}`}
+                  onClick={() => setFilter("eventText")}
+                >
+                  {t("tools.validate.eventText.title")} <span className="tools-chip-count">{eventTextCount}</span>
+                </button>
+              )}
             </div>
           </div>
           {/* What saving will do to a file that didn't arrive as UTF-8. It sits
@@ -850,6 +1159,29 @@ export function ValidatePanel({
           {group === "gedcom" && fileFixes.map((fix) => (
             <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
           ))}
+          {/* The per-name language worklist, with its two buttons, above the
+              findings it answers. */}
+          {filter === "tranLang" && <>{tranLang.actions}{tranLang.list}</>}
+          {/* Picking rows for one batch: all fixable rows of the view, or some. */}
+          {shownPickable.length > 0 && (
+            <div className="tools-pick-bar">
+              <label className="tools-pick-all">
+                <input type="checkbox" checked={allShownPicked} onChange={toggleAllShown} />
+                {t("tools.validate.pickAll", { count: shownPickable.length })}
+              </label>
+              {picked.size > 0 && (
+                <>
+                  <span className="tools-pick-count">{t("tools.validate.picked", { count: picked.size })}</span>
+                  <button className="nav-btn primary tools-run" onClick={() => setBatchPending(true)}>
+                    {t("tools.validate.fixPicked", { count: picked.size })}
+                  </button>
+                  <button className="nav-btn tools-run" onClick={() => setPicked(new Map())}>
+                    {t("tools.validate.clearPicked")}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
@@ -861,6 +1193,7 @@ export function ValidatePanel({
                 const current = i === selected ? "true" : undefined;
                 return row.kind === "record" ? (
                   <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
+                    <PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
                     <span className="tools-issue-msg">{t(row.issue.messageKey, issueVars(row.issue))}</span>
                     <RowFixButton
@@ -872,6 +1205,7 @@ export function ValidatePanel({
                 ) : (
                   <StructRow
                     key={`s-${row.issue.category}-${i}`}
+                    pick={<PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />}
                     onEditSource={setEditSrc}
                     issue={row.issue}
                     zebra={zebra}
@@ -881,6 +1215,16 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
+                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && row.issue.coverage) ? dialect?.software ?? "" : undefined}
+                    open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
+                      ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
+                      : mediaLinkOf(row.issue)
+                        ? { label: t("mediaLink.title"), run: () => setEditMedia(mediaLinkOf(row.issue)!) }
+                        // A source's own finding with no fix (a reversed range, …) is
+                        // settled in its editor: say so on the row, not only on the title.
+                        : row.issue.recordTag === "SOUR" && row.issue.recordId && !isGrouped(row.issue) && !structRowFix(row.issue)
+                          ? { label: t("tools.validate.editSourceOpen"), run: () => setEditSrc(row.issue.recordId!) }
+                          : undefined}
                   />
                 );
               })}
@@ -890,6 +1234,32 @@ export function ValidatePanel({
         </>
       )}
     </>
+  );
+}
+
+/** A fixable row's checkbox, picking it for a batch; nothing on a row with no
+ *  fix (or one already fixed). */
+function PickBox({
+  row,
+  pickable,
+  picked,
+  onToggle,
+}: {
+  row: IssueRow;
+  pickable: boolean;
+  picked: boolean;
+  onToggle: (row: IssueRow) => void;
+}) {
+  const { t } = useTranslation();
+  if (!pickable) return null;
+  return (
+    <input
+      type="checkbox"
+      className="tools-pick"
+      checked={picked}
+      onChange={() => onToggle(row)}
+      aria-label={t("tools.validate.pickOne")}
+    />
   );
 }
 
@@ -917,6 +1287,38 @@ function RowFixButton({
       {fix.label}
     </button>
   );
+}
+
+/** The one row standing for every translation without a language. */
+const TRAN_LANG_KEY = "tools.validate.struct.issue.missingTranLang";
+
+/** Findings tallied across the file under one row ("(78×)"): their record is
+ *  only the first of many, so the row names none. */
+const GROUPED_KEYS = new Set([
+  "tools.validate.struct.issue.misplaced",
+  "tools.validate.struct.issue.misplacedRoot",
+  "tools.validate.struct.issue.misplacedStamp",
+  "tools.validate.struct.issue.missingMany",
+  "tools.validate.struct.issue.smartMatch",
+  TRAN_LANG_KEY,
+  "tools.validate.struct.issue.misplacedStamps",
+  "tools.validate.struct.issue.unknownTag",
+  "tools.validate.struct.issue.customTag",
+  "tools.validate.struct.issue.customTagKnown",
+  "tools.validate.struct.issue.danglingXref",
+]);
+function isGrouped(i: StructIssue): boolean {
+  return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
+}
+
+/** Text on an event line (`DEAT 1.5y old`), which the fix moves into a note. */
+function isEventText(i: StructIssue): boolean {
+  return i.messageKey === "tools.validate.struct.issue.badY" && !!i.toNote;
+}
+
+/** A translation the standard wants a language on, written without one. */
+function isUntaggedTran(i: StructIssue): boolean {
+  return i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN");
 }
 
 // ── Structural ("spec") validation ───────────────────────────────────────────
@@ -1007,7 +1409,13 @@ function RecordRef({
       </span>
     );
   }
-  return <span className="tools-struct-rec">{ref}</span>;
+  // No title (HEAD, a bare id): the tag in the same small type as everywhere.
+  return (
+    <span className="tools-struct-rec">
+      {tag && <span className="tools-struct-rec-tag">{tag}</span>}
+      {id && ` ${id}`}
+    </span>
+  );
 }
 
 function StructRow({
@@ -1020,6 +1428,9 @@ function StructRow({
   done,
   onRun,
   onEditSource,
+  variationOf,
+  open,
+  pick,
 }: {
   issue: StructIssue;
   /** Class suffix from the list — " zebra", " selected", or both. */
@@ -1032,17 +1443,35 @@ function StructRow({
   done: boolean;
   onRun: (run: () => void) => void;
   onEditSource: (xref: string) => void;
+  /** The program whose kept habit the finding is, in a file kept with its variations. */
+  variationOf?: string;
+  /** Takes the reader to where the finding is settled (no fix of its own). */
+  open?: { label: string; run: () => void };
+  /** The row's checkbox for a batch (empty when it has no fix). */
+  pick?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
     <li className={`tools-issue sev-${issue.severity}${zebra ?? ""}`} title={issue.tooltip} aria-current={current}>
-      {issue.recordTag ? (
+      {pick}
+      {issue.recordTag && isGrouped(issue) ? (
+        <span className="tools-struct-rec"><span className="tools-struct-rec-tag">{issue.recordTag}</span></span>
+      ) : issue.recordTag ? (
         <RecordRef dataset={dataset} id={issue.recordId} tag={issue.recordTag} onNavigate={onNavigate} onEditSource={onEditSource} />
       ) : issue.line != null ? (
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
-      <span className="tools-issue-msg">{t(issue.messageKey, issue.messageVars)}</span>
+      <span className="tools-issue-msg">
+        {t(issue.messageKey, issue.messageVars)}
+        {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
+      </span>
+      {variationOf !== undefined && (
+        <span className="tools-issue-detail">
+          {variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}
+        </span>
+      )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
+      {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}
       {issue.fix && !fix && (

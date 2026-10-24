@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import type { TargetMode, TargetProposal, WriteTarget } from "../normalize/target";
+import type { FileDialect, TargetMode, TargetProposal, WriteTarget } from "../normalize/target";
 import type { EventOffer } from "./edit/editConstants";
 
 /**
@@ -23,6 +23,8 @@ export interface TargetFormatValue {
   eventOffer: EventOffer;
   /** The version the file itself is written in — what the file mode keeps. */
   fileVersion: "5.5.1" | "7.0";
+  /** The other program's habits the file shows, detected at load. */
+  dialect?: FileDialect;
 }
 
 const NO_FILE: TargetFormatValue = {

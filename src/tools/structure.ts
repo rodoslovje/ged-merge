@@ -77,6 +77,33 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a media record's TITL/FORM beside its FILE,
    *  which the fix moves under it file-wide. */
   relocate?: boolean;
+  /** Conformance `misplacedTag`: a source's own AGNC, which the fix moves to
+   *  DATA.AGNC file-wide. */
+  agency?: boolean;
+  /** Conformance `misplacedTag`: every CHAN/CREA below a record, which the
+   *  fix lifts onto the record file-wide. */
+  stamps?: boolean;
+  /** Conformance `misplacedTag`: a source's flat PLAC/DATE, which the fix
+   *  restates as DATA > EVEN file-wide. */
+  coverage?: boolean;
+  /** Conformance `misplacedTag`: a DATE on an association, which the fix
+   *  keeps as the association's NOTE file-wide. */
+  assoDate?: boolean;
+  /** Conformance: MyHeritage's Smart Match citations, whose id the fix keeps
+   *  as the citation's PAGE file-wide. */
+  smartMatch?: boolean;
+  /** Conformance `misplacedTag`: a media record's DATE/PLAC, kept by the fix
+   *  as `_DATE`/`_PLACE` file-wide. */
+  mediaInfo?: boolean;
+  /** Conformance `misplacedTag`: a PEDI on FAM.CHIL, moved by the fix to the
+   *  child's FAMC file-wide. */
+  childPedi?: boolean;
+  /** Conformance `misplacedTag`: a text SOUR inside a citation, made its
+   *  PAGE by the fix file-wide. */
+  citationPage?: boolean;
+  /** Set by the findings list on the one row it shows for many equal value
+   *  fixes (same line, same value, same fix): how many it stands for. */
+  groupCount?: number;
 }
 
 export interface StructureReport {

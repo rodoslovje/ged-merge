@@ -29,8 +29,11 @@ writeFileSync(FILE, [
 
 const chip = (page: Page, name: string) => page.locator(".tools-chip", { hasText: name });
 
-async function applyFix(page: Page, label: RegExp) {
-  await page.locator(".tools-fix-item button", { hasText: label }).click();
+/** Pick every fixable row under a chip and run them as one batch. */
+async function applyFix(page: Page, chipName: string) {
+  await chip(page, chipName).click();
+  await page.locator(".tools-pick-all input").check();
+  await page.getByRole("button", { name: /^Fix selected/ }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
 }
 
@@ -49,6 +52,30 @@ function record(text: string, xref: string): string[] {
   const end = lines.findIndex((l, i) => i > at && l.startsWith("0 "));
   return lines.slice(at, end < 0 ? undefined : end);
 }
+
+test("fixes picked together run as one step, and one Undo brings them all back", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Health check", { exact: true }).first().click();
+  await expect(chip(page, "Broken links")).toBeVisible();
+
+  await page.locator(".tools-issue", { hasText: "@F9@" }).locator(".tools-pick").check();
+  await chip(page, "Duplicate pointers").click();
+  await page.locator(".tools-issue").first().locator(".tools-pick").check();
+  await expect(page.locator(".tools-pick-count")).toHaveText("Selected: 2");
+  await page.getByRole("button", { name: "Fix selected (2)" }).click();
+  await page.getByRole("button", { name: "Apply fix" }).click();
+  await expect(page.locator(".tools-clean--ok")).toContainText("Fixes made: 2.");
+  await expect(chip(page, "Broken links")).toHaveCount(0);
+  await expect(chip(page, "Duplicate pointers")).toHaveCount(0);
+
+  await page.getByRole("button", { name: /^Undo/ }).first().click();
+  await page.locator(".tools-fix-item button.tools-run", { hasText: "Run again" }).click();
+  await expect(chip(page, "Broken links")).toBeVisible();
+  await expect(chip(page, "Duplicate pointers")).toBeVisible();
+});
 
 test("health-check fixes repair the file and undo brings a defect back", async ({ page }) => {
   const errors: string[] = [];
@@ -70,17 +97,16 @@ test("health-check fixes repair the file and undo brings a defect back", async (
   await chip(page, "Reversed date ranges").click();
   await expect(page.locator(".tools-issue", { hasText: "Range ends before it starts" })).toContainText("FROM 1890 TO 1880");
 
-  await applyFix(page, /Fix all broken links/);
+  await applyFix(page, "Broken links");
   await expect(page.locator(".tools-clean--ok")).toContainText("Removed broken links from 1 record");
   await expect(chip(page, "Broken links")).toHaveCount(0);
 
-  await applyFix(page, /Remove dangling references/);
+  await applyFix(page, "Dangling references");
   await expect(page.locator(".tools-clean--ok")).toContainText("Removed dangling references from 1 record");
   await expect(chip(page, "Dangling references")).toHaveCount(0);
 
-  await applyFix(page, /Remove duplicate pointers/);
+  await applyFix(page, "Duplicate pointers");
   await expect(chip(page, "Duplicate pointers")).toHaveCount(0);
-  await expect(page.locator(".tools-fix-item button", { hasText: /Remove duplicate pointers/ })).toHaveCount(0);
 
   // The reversed range has no automatic repair and stays reported.
   await expect(chip(page, "Reversed date ranges")).toBeVisible();
@@ -105,7 +131,7 @@ test("health-check fixes repair the file and undo brings a defect back", async (
   expect(record(undone, "@F1@")).toEqual(["0 @F1@ FAM", "1 HUSB @I2@", "1 WIFE @I3@"]);
 
   // Repair it again and the next save carries one pointer.
-  await applyFix(page, /Remove duplicate pointers/);
+  await applyFix(page, "Duplicate pointers");
   await expect(chip(page, "Duplicate pointers")).toHaveCount(0);
   const fixed = await save(page);
   expect(record(fixed, "@I2@").filter((l) => l === "1 FAMS @F1@")).toHaveLength(1);
