@@ -201,6 +201,9 @@ interface Props {
   onPatchApplied?: (patches: RecordPatch[], direction: "undo" | "redo") => void;
   /** When non-null, apply these patches and then call onApplied. */
   pendingApply: PendingEditApply | null;
+  /** Bumped when something outside Edit — a Tools pass — changed records in
+   *  place: the rows re-read them, as they do after undo. */
+  externalEditGen?: number;
   /** Called after pendingApply has been processed. */
   onApplied: () => void;
   /** A request to create a new, unattached person (the header button, the `N`
@@ -231,7 +234,7 @@ const SETTINGS_KEYS = ["order", "showAge", "showEditMap", "showKinship", "quickE
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -334,6 +337,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingApply]);
+
+  // A Tools pass changed records under the mounted view (a health-check fix,
+  // a batch action): the rows' local field state is stale, so they re-mount
+  // and re-read the dataset exactly as they do after undo/redo.
+  const externalGenRef = useRef(externalEditGen);
+  useEffect(() => {
+    if (externalGenRef.current === externalEditGen) return;
+    externalGenRef.current = externalEditGen;
+    noteGenRef.current++;
+    setTick((v) => v + 1);
+    setUndoVersion((v) => v + 1);
+  }, [externalEditGen]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const person = selectedId ? dataset.individuals.get(selectedId) : undefined;

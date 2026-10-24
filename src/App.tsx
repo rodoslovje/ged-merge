@@ -349,6 +349,8 @@ function AppContent() {
   const [readingSources, setReadingSources] = useState(false);
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
+  // Bumped whenever a Tools pass changes records (see applyToolPatches).
+  const [toolEditGen, setToolEditGen] = useState(0);
   const compareRef = useRef<HTMLDivElement>(null);
 
   const [openMatches, setOpenMatches] = useState(false);
@@ -1510,6 +1512,9 @@ function AppContent() {
   function applyToolPatches(rawPatches: RecordPatch[], mechanical = false): number {
     const patches = dropNoopPatches(rawPatches);
     if (!mainDataset || patches.length === 0) return 0;
+    // Edit stays mounted behind Tools, its rows holding the values they last
+    // showed: tell it the records changed under it.
+    setToolEditGen((g) => g + 1);
     if (mechanical) {
       markMechanical(patches);
       // Sweep the event-level audit marks the pass left behind (its mutations
@@ -2673,6 +2678,7 @@ function AppContent() {
               onPatchApplied={handlePatchApplied}
               pendingApply={pendingEditApply}
               onApplied={() => setPendingEditApply(null)}
+              externalEditGen={toolEditGen}
               addPersonRequest={addPersonRequest}
               active={mode === "edit" && !overlayOpen}
             />

@@ -293,7 +293,7 @@ export const EventList = memo(function EventList({
       {allRows.map((row) =>
         row.kind === "main" ? (
           <EventFieldsRow
-            key={`ev-${row.stableKey}-${mergeGen ?? 0}`}
+            key={`ev-${row.stableKey}-${undoVersion ?? 0}-${mergeGen ?? 0}`}
             ev={row.ev}
             label={eventDisplayLabel(row.ev.tag, t)}
             tag={row.ev.tag}
