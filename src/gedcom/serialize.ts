@@ -31,6 +31,12 @@ export interface SerializeOptions {
    * so pass {@link atEscapeFor} the version of the text being written.
    */
   atEscape?: AtEscape;
+  /**
+   * Write every tag in uppercase, whatever spelling the file used
+   * (`GedNode.spelling`). GEDCOM 7.0 allows only `[A-Z0-9_]` in a tag, so a
+   * 7.0 download sets it; 5.5.1 keeps the file's own spelling.
+   */
+  upperTags?: boolean;
 }
 
 /** See {@link SerializeOptions.atEscape}. */
@@ -73,7 +79,7 @@ export const LINE_LIMIT_551 = 253;
 export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {}): string {
   const eol = opts.eol ?? "\n";
   const lines: string[] = [];
-  const ctx: EmitCtx = { lines, maxLen: opts.maxLineLength, all: opts.atEscape === "all" };
+  const ctx: EmitCtx = { lines, maxLen: opts.maxLineLength, all: opts.atEscape === "all", upper: !!opts.upperTags };
   for (const record of records) emitNode(record, 0, ctx);
   const text = (opts.bom ? "\uFEFF" : "") + lines.join(eol);
   return opts.finalNewline === false ? text : text + eol;
@@ -100,6 +106,7 @@ export function downloadOptions(
     bom: ds.bom,
     maxLineLength: ds.version === "7.0" ? undefined : LINE_LIMIT_551,
     atEscape: atEscapeFor(ds.version),
+    upperTags: ds.version === "7.0",
   };
 }
 
@@ -199,6 +206,8 @@ interface EmitCtx {
   maxLen?: number;
   /** 5.5.1 escaping: double every literal `@`, not only a leading one. */
   all: boolean;
+  /** Tags in uppercase, never the file's own spelling (7.0). */
+  upper: boolean;
 }
 
 function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
@@ -211,7 +220,7 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
   }
 
   // The file's own spelling of the tag, while it still names this tag.
-  const tag = node.spelling?.toUpperCase() === node.tag ? node.spelling : node.tag;
+  const tag = !ctx.upper && node.spelling?.toUpperCase() === node.tag ? node.spelling : node.tag;
   const head = node.xref
     ? `${depth} ${node.xref} ${tag}`
     : `${depth} ${tag}`;

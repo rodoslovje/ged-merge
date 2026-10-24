@@ -1,4 +1,5 @@
-import { useFormatOverrides } from "./TargetFormatContext";
+import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
+import { useSettingsSlice } from "./SettingsContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
@@ -30,6 +31,10 @@ interface ScanStates {
   sourceDuplicates: AsyncState<DuplicateReport>;
   sourceReshape: AsyncState<ReshapeReport>;
 }
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["authorName"] as const;
 
 const ALL_IDLE: ScanStates = {
   validate: { status: "idle" },
@@ -124,6 +129,14 @@ export function useToolsScans(
   // fingerprint joins those scans' freshness key, so a settings change
   // re-scans.
   const formatOverrides = useFormatOverrides();
+  // The Normalize download is written in the target format's version, and
+  // names the reader as its submitter where the file needs one.
+  const { target } = useTargetFormat();
+  const targetRef = useRef(target);
+  targetRef.current = target;
+  const { authorName } = useSettingsSlice(SETTINGS_KEYS);
+  const authorNameRef = useRef(authorName);
+  authorNameRef.current = authorName;
   const formatOverridesRef = useRef(formatOverrides);
   formatOverridesRef.current = formatOverrides;
   // Read from state rather than the ref, so `scanKey` — and with it the
@@ -403,7 +416,10 @@ export function useToolsScans(
         if (disposedRef.current) return;
         const requestId = nextIdRef.current++;
         post(
-          { type: "normalizeText", requestId, options, formatOverrides: formatOverridesRef.current },
+          {
+            type: "normalizeText", requestId, options, formatOverrides: formatOverridesRef.current,
+            version: targetRef.current.version, authorName: authorNameRef.current,
+          },
           {
             onResult: (data) => onText((data as ToolsResultMap["normalizeText"]).text),
             onError: (message) => {

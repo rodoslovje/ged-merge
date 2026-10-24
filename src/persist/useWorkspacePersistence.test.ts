@@ -11,7 +11,7 @@ import type { WorkspacePersistenceOptions } from "./useWorkspacePersistence";
 
 vi.mock("react", () => import("../testing/fakeReact"));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("../ui/SettingsContext", () => ({ useSettingsSlice: () => ({ persistWorkspace: true, formatOverrides: {} }) }));
+vi.mock("../ui/SettingsContext", () => ({ useSettingsSlice: () => ({ persistWorkspace: true, formatOverrides: {}, targetFormats: {} }) }));
 vi.mock("./geoDb", () => ({ clearDecisions: vi.fn(async () => {}) }));
 
 /**
