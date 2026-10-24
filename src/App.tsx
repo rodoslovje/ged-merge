@@ -374,7 +374,7 @@ function AppContent() {
   const { themeMode, changeThemeMode } = useTheme();
 
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
-  const { confirmDialog, confirmDialogElement } = useConfirmDialog();
+  const { confirmDialog, choiceDialog, confirmDialogElement } = useConfirmDialog();
 
   // The main thread's own copies of the GEDCOM datasets, built from the same
   // bytes the worker parses — no dataset crosses the worker boundary (see
@@ -997,18 +997,27 @@ function AppContent() {
     }
   }, [targetKey, storedTargetMode, targetProposal, setSettings, setSaveToast, t]);
 
-  // Choosing a strict mode for a file kept in its own format offers to bring
-  // the file to that standard straight away — Tools → Normalize does it.
+  // Choosing a GEDCOM version asks first — the choice changes what every
+  // write does — and offers to bring the records the file already has to that
+  // standard straight away, which Tools → Normalize & batch does. Cancel keeps
+  // the format the file had. Going back to the file's own format needs no
+  // question: it writes nothing differently from what the file already does.
   const setTargetMode = useCallback((next: TargetMode) => {
     if (!targetKey || next === targetMode) return;
-    setSettings({ targetFormats: rememberTarget(targetFormatsRef.current, targetKey, next) });
-    if (next === "file") return;
-    void confirmDialog(t("target.normalizeNow", { version: next }), t("target.normalizeNow.go")).then((go) => {
-      if (!go) return;
+    const remember = () => setSettings({ targetFormats: rememberTarget(targetFormatsRef.current, targetKey, next) });
+    if (next === "file") return remember();
+    void choiceDialog(
+      t("target.switch", { version: next }),
+      t("target.switch.normalize"),
+      t("target.switch.only"),
+    ).then((choice) => {
+      if (choice === "cancel") return;
+      remember();
+      if (choice !== "confirm") return;
       setShowSettings(false);
-      goToPage({ mode: "tools", tool: "normalize" });
+      goToPage({ mode: "tools", tool: "normalize", toolView: "normalize" });
     });
-  }, [targetKey, targetMode, setSettings, confirmDialog, t, goToPage]);
+  }, [targetKey, targetMode, setSettings, choiceDialog, t, goToPage]);
   const dialect = lastMainFile?.dialect;
   const targetFormat = useMemo<TargetFormatValue>(
     () => ({

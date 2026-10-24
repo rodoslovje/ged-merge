@@ -46,12 +46,20 @@ test("a file with another program's habits keeps its own format until GEDCOM 7.0
   const dateRow = page.locator(".settings-format-row").filter({ hasText: "Format" }).first();
   await expect(dateRow.locator("button").first()).toBeEnabled();
 
-  // A strict target offers Normalize; the date row is then the standard's.
-  await page.getByRole("radio", { name: /GEDCOM 7\.0/ }).check();
+  // A GEDCOM version is asked for first: Cancel keeps the file's own format.
+  const strict = page.getByRole("radio", { name: /GEDCOM 7\.0/ });
+  await strict.click();
   const dialog = page.locator(".confirm-dialog");
-  await expect(dialog).toContainText("Your edits now follow GEDCOM 7.0");
+  await expect(dialog).toContainText("Hold this file to GEDCOM 7.0?");
   await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("radio", { name: /GEDCOM 7\.0/ })).toBeChecked();
+  await expect(own).toBeChecked();
+  await expect(strict).not.toBeChecked();
+  await expect(dateRow.locator("button").first()).toBeEnabled();
+
+  // Switching without Normalize; the date row is then the standard's.
+  await strict.click();
+  await dialog.getByRole("button", { name: "Switch only" }).click();
+  await expect(strict).toBeChecked();
   await expect(dateRow.locator("button").first()).toBeDisabled();
   await page.locator(".settings-modal .modal-close").click();
 
@@ -59,4 +67,14 @@ test("a file with another program's habits keeps its own format until GEDCOM 7.0
   await death.fill("9.6.1910");
   await death.press("Tab");
   await expect(death).toHaveValue("9 JUN 1910");
+
+  // Back to the file's own format and to 5.5.1 with Normalize: the choice
+  // lands on the Normalize section itself, not on Batch.
+  await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "GEDCOM" }).click();
+  await own.click();
+  await expect(own).toBeChecked();
+  await page.getByRole("radio", { name: /GEDCOM 5\.5\.1/ }).click();
+  await dialog.getByRole("button", { name: "Switch and open Normalize & batch" }).click();
+  await expect(page.getByRole("tab", { name: "Normalize file", exact: true })).toHaveAttribute("aria-selected", "true");
 });

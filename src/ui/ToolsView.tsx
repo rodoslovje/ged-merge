@@ -37,8 +37,10 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  * Back button has to be able to undo. Held by the app (and recorded in the
  * history entry) rather than by the panel, for the same reason the tool itself
  * is: a page nobody but the panel knows about cannot be returned to.
+ * Normalize & batch opens on its batch section; `normalize` is its other one,
+ * which choosing a GEDCOM target format can send the reader straight to.
  */
-export type ToolView = "tree" | "geocode" | "register" | "cleanup";
+export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize";
 
 const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
 
@@ -250,7 +252,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
-          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} />
+          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} view={view} onViewChange={onViewChange} />
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
