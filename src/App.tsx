@@ -1009,9 +1009,16 @@ function AppContent() {
       goToPage({ mode: "tools", tool: "normalize" });
     });
   }, [targetKey, targetMode, setSettings, confirmDialog, t, goToPage]);
+  const dialect = lastMainFile?.dialect;
   const targetFormat = useMemo<TargetFormatValue>(
-    () => ({ target, formatOverrides, proposal: targetProposal, setMode: setTargetMode }),
-    [target, formatOverrides, targetProposal, setTargetMode],
+    () => ({
+      target,
+      formatOverrides,
+      proposal: targetProposal,
+      setMode: setTargetMode,
+      eventOffer: { version: target.version, strict: target.strict, dialectTags: new Set(dialect?.bareTags) },
+    }),
+    [target, formatOverrides, targetProposal, setTargetMode, dialect],
   );
 
   // A person a confirmed decision added ahead of the save is their new record:

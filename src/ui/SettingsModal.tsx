@@ -8,7 +8,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS, dateDisplayFormatter } from "./dateDisplayFormat";
 import { parseDate } from "../gedcom/date";
 import { useSettings, useNameOf, MAX_AUTHOR_NAME, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
-import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
+import { offeredEventGroups } from "./edit/editConstants";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import { EventGlyph } from "./EventGlyph";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
@@ -629,7 +629,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   tooltip={t("settings.quickEvents.add")}
                   t={t}
                   onAdd={(tag) => set({ quickEventTags: [...settings.quickEventTags, tag] })}
-                  groups={INDIVIDUAL_EVENT_GROUPS.map((g, i) => ({
+                  groups={offeredEventGroups(targetFormat.eventOffer).map((g, i) => ({
                     labelKey: g.labelKey,
                     // BIRT lives outside the menu groups (its row is always
                     // shown in Edit) but is a valid quick button — offer it

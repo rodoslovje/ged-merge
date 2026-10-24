@@ -1,3 +1,5 @@
+import { vendorTagInfo } from "../../gedcom/vendorTags";
+import { allowsChild } from "../../tools/conformance/allows";
 import type { Family, Sex, SourceCitation } from "../../gedcom/types";
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
 import { EVENT_TEXT_SUBS, type MatchDecisionStatus } from "../../review/types";
@@ -28,6 +30,37 @@ export const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.lds",        tags: ["BAPL", "CONL", "ENDL", "SLGC"] },
   { labelKey: "eventGroup.other",      tags: ["EVEN", "FACT"] },
 ] as const;
+
+/** What decides whether an event menu offers a tag: the version the file is
+ *  written in, whether the target format is strict, and the vendor tags
+ *  written without an underscore that the file already uses. */
+export interface EventOffer {
+  version: "5.5.1" | "7.0";
+  strict: boolean;
+  dialectTags: ReadonlySet<string>;
+}
+
+/**
+ * Whether an event menu offers `tag` on a person (`INDI`) or a family
+ * (`FAM`). A standard tag is offered where the version has it; an `_`
+ * extension always, marked as one (◦ and its tag); a vendor tag written
+ * without the underscore (`NOBI`, `SEPA`…) only in the file's own format, and
+ * only where the file already writes it — no standard has it, and a strict
+ * target never writes it.
+ */
+export function offersEventTag(tag: string, record: "INDI" | "FAM", offer: EventOffer): boolean {
+  if (tag.startsWith("_")) return true;
+  if (vendorTagInfo(tag)) return !offer.strict && offer.dialectTags.has(tag);
+  return allowsChild(offer.version, [record], tag);
+}
+
+/** {@link INDIVIDUAL_EVENT_GROUPS} as {@link offersEventTag} leaves them. */
+export function offeredEventGroups(offer: EventOffer): { labelKey: string; tags: string[] }[] {
+  return INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+    labelKey: g.labelKey,
+    tags: g.tags.filter((tag) => offersEventTag(tag, "INDI", offer)),
+  })).filter((g) => g.tags.length > 0);
+}
 
 /** Tags a main individual event's type can be changed to/from (matches
  * `INDIVIDUAL_EVENT_GROUPS`) — BIRT is excluded (always shown separately). */

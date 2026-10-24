@@ -246,6 +246,9 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   // from GEDCOM 5.5-EL or invented; without these entries the health check
   // would flag a MacFamilyTree file's own data as "unknown tags".
   RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost" } },
+  // A couple's separation, written bare by several programs (and Brother's
+  // Keeper's _SEPR aliased to it): in neither 5.5.1 nor 7.0.
+  SEPA: { software: MULTI, category: "event", meaning: { en: "separation of a couple", sl: "ločeno življenje para" } },
   // GEDCOM 5.5-EL's source fields, which MacFamilyTree and its kin write on a
   // source record. A strict target format writes them as _FILN/_PERI.
   FILN: { software: MFT, category: "citation", meaning: { en: "source filing number (5.5-EL)", sl: "arhivska številka vira (5.5-EL)" } },
@@ -363,7 +366,8 @@ export const VENDOR_PRIVACY_TAGS: Set<string> = new Set(Object.keys(PRIVACY_INFO
  * or structure translation belongs to a real normalization step instead
  * (see `normalize/familyStatus.ts` for the _NMR/_MARRIED/_FREL/_MREL rules).
  * `_SEPR` is Brother's Keeper's separation event — same DATE/PLAC shape as
- * the standard `SEPA` family event the app already supports.
+ * the `SEPA` family event the app already supports (itself in neither
+ * standard: see its registry entry).
  */
 export const VENDOR_TAG_ALIASES: Record<string, string> = {
   _MILI: "_MILT",

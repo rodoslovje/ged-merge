@@ -1,4 +1,4 @@
-import { useFormatOverrides } from "../TargetFormatContext";
+import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
 import { Fragment, memo, type CSSProperties } from "react";
 import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
@@ -45,7 +45,7 @@ import { assocMoveTargets, RecordAssociates } from "./AssociatesPanel";
 import { useAssoc } from "./AssocContext";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
-import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
+import { FAMILY_EVENT_TAGS, familyEventHasMergeData, offersEventTag } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /**
@@ -574,6 +574,7 @@ export const FamilySection = memo(function FamilySection({
 }: FamilySectionProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverrides = useFormatOverrides();
+  const { eventOffer } = useTargetFormat();
   const formatName = useNameOf();
   const personName = (id: string | undefined): string => {
     if (!id) return "";
@@ -599,7 +600,7 @@ export const FamilySection = memo(function FamilySection({
     (tag) => fam?.events.some((e) => e.tag === tag) || familyEventHasMergeData(famMergeKeyBase, tag, mergeHighlight, mergeIncomingSources),
   );
   const emptyFamilyTags = FAMILY_EVENT_TAGS.filter(
-    (tag) => !shownFamilyTags.includes(tag),
+    (tag) => !shownFamilyTags.includes(tag) && offersEventTag(tag, "FAM", eventOffer),
   );
   const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
   const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;

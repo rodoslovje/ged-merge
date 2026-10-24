@@ -1,4 +1,4 @@
-import { useFormatOverrides } from "./TargetFormatContext";
+import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
@@ -89,7 +89,7 @@ import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlacePeopleProvider, usePlaceAddrUses, type PlacePeople } from "./edit/PlacePeopleContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey } from "../tools/geocode";
-import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
+import { nextSex, offeredEventGroups } from "./edit/editConstants";
 import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
@@ -236,6 +236,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverrides = useFormatOverrides();
+  // The event menus offer what the target format allows (see offersEventTag).
+  const { eventOffer } = useTargetFormat();
   const setSettings = useSetSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
@@ -2100,7 +2102,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onCopyEvent={onCopyIndividualEvent}
           />
           <EventAddRow
-            groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+            groups={offeredEventGroups(eventOffer).map((g) => ({
               labelKey: g.labelKey,
               // Single-instance events the person already has leave the menu —
               // their quick button stays and leads to the existing row.

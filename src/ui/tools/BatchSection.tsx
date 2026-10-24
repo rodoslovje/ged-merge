@@ -6,7 +6,8 @@ import { collectLocalMediaFiles } from "../../tools/mediaFiles";
 import { applyPassSafely } from "../../tools/passSafety";
 import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
-import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
+import { offeredEventGroups } from "../edit/editConstants";
+import { useTargetFormat } from "../TargetFormatContext";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -859,6 +860,8 @@ function ActionEditor({
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t } = useTranslation();
+  // The convert action's targets: what the target format allows.
+  const { eventOffer } = useTargetFormat();
   /** The natural TYPE for a converted vendor event: its localized name. */
   const typeFor = (tag: string) => t(`event.${tag}`, { defaultValue: "" });
   /** What picking `fromTag` proposes: its standard target, named by the
@@ -999,7 +1002,7 @@ function ActionEditor({
               const named = v === "EVEN" || v === "FACT";
               onChange({ ...action, toTag: v, type: named ? action.type?.trim() || typeFor(action.fromTag) : undefined });
             }}
-            groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+            groups={offeredEventGroups(eventOffer).map((g) => ({
               label: t(g.labelKey),
               items: g.tags.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
             }))}
