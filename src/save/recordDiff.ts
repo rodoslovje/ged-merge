@@ -148,12 +148,44 @@ function alignLines(a: string[], b: string[]): { ops: Op[]; coarse: boolean } {
     }
     while (i < n) { ops.push({ kind: "del", text: aMid[i], ai: head + i, bi: -1 }); i++; }
     while (j < m) { ops.push({ kind: "add", text: bMid[j], ai: -1, bi: head + j }); j++; }
+    ownAddsFirst(ops, head);
   }
 
   for (let k = 0; k < tail; k++) {
     ops.push({ kind: "same", text: a[a.length - tail + k], ai: a.length - tail + k, bi: b.length - tail + k });
   }
   return { ops, coarse };
+}
+
+/**
+ * Within each run of changed lines, the additions deeper than the run's first
+ * removal go ahead of it: they close the block above (a `2 NOTE` appended to
+ * BIRT), and shown after a struck-out `1 DEAT` they would read as the death's.
+ * The alignment's tie-break puts removals first, which is right for a rewritten
+ * line but not for an addition that belongs to the previous tag.
+ */
+function ownAddsFirst(ops: Op[], from: number): void {
+  let k = from;
+  while (k < ops.length) {
+    if (ops[k].kind === "same") { k++; continue; }
+    let end = k;
+    while (end < ops.length && ops[end].kind !== "same") end++;
+    const run = ops.slice(k, end);
+    const firstDel = run.find((o) => o.kind === "del");
+    if (firstDel) {
+      const level = levelOf(firstDel.text);
+      const adds = run.filter((o) => o.kind === "add");
+      let lead = 0;
+      while (lead < adds.length && levelOf(adds[lead].text) > level) lead++;
+      if (lead > 0) {
+        const leading = adds.slice(0, lead);
+        const moved = new Set(leading);
+        const rest = run.filter((o) => !moved.has(o));
+        ops.splice(k, run.length, ...leading, ...rest);
+      }
+    }
+    k = end;
+  }
 }
 
 /**
