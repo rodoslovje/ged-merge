@@ -98,3 +98,14 @@ export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) =>
   if (titl) settle(titl, [files[0]]);
   return done;
 }
+
+/** Drop a media record's record-level `TITL` lines when its first `FILE` has
+ *  a title of its own — the one the app shows, and the one the standard
+ *  reads. Returns the lines dropped. */
+export function dropTitleBesideFileTitle(obje: GedNode): GedNode[] {
+  const file = firstChild(obje, "FILE");
+  if (!file || !firstChild(file, "TITL")) return [];
+  const dropped = childrenByTag(obje, "TITL");
+  if (dropped.length) obje.children = obje.children.filter((c) => !dropped.includes(c));
+  return dropped;
+}

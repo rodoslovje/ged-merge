@@ -29,7 +29,7 @@ import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from ".
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate" };
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -46,6 +46,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   repeats: "cardinality",
   forms: "missingLine",
   relocate: "misplacedTag",
+  fileTitles: "misplacedTag",
 };
 
 const CATEGORIES: IssueCategory[] = [
@@ -255,7 +256,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "relocate" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "relocate" || kind === "fileTitles" ? onFixConformance(kind)
       : onFixDuplicatePointers();
     setFixDone({ kind, count: changed });
     // App mutated the live dataset in place — re-validate (in the worker) to
@@ -510,9 +511,12 @@ export function ValidatePanel({
     [structure, dataset],
   );
 
-  // Media records whose title/format the relocate fix would move under FILE.
-  const fixableRelocate = useMemo(
-    () => (structure?.issues.some((i) => i.relocate) ? countFixableConformance(dataset, "relocate") : 0),
+  // Media records whose title/format the relocate fix would move under FILE,
+  // and those holding a second title beside the FILE's own.
+  const [fixableRelocate, fixableFileTitles] = useMemo(
+    () => (structure?.issues.some((i) => i.relocate)
+      ? [countFixableConformance(dataset, "relocate"), countFixableConformance(dataset, "fileTitles")]
+      : [0, 0]),
     [structure, dataset],
   );
 
@@ -545,6 +549,7 @@ export function ValidatePanel({
   const conformForms = structure?.issues.filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId).length ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
+  if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and

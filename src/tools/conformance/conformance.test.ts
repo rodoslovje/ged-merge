@@ -414,6 +414,16 @@ describe("fixConformance", () => {
     expect(out).toContain("0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n2 TITL Krst 1870\n");
     expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
     expect(out).toContain("2 TITL Pogreb\n1 TITL Different\n"); // left for the user
+
+    // Only on the user's word: the FILE's own title stays, the other goes.
+    expect(fixConformance(ds)).toEqual([]); // a run of every fix never picks one
+    expect(countFixableConformance(ds, "fileTitles")).toBe(1);
+    const titles = fixConformance(ds, "fileTitles");
+    expect(titles.map((p) => p.id)).toEqual(["@O3@"]);
+    expect(serializeGedcom(ds.records, ds)).toContain("0 @O3@ OBJE\n1 FILE c.jpg\n2 FORM jpg\n2 TITL Pogreb\n0 TRLR");
+    expect(validateConformance(ds).filter((i) => i.category === "misplacedTag")).toEqual([]);
+
+    applyRecordPatches(ds, titles, "undo");
     applyRecordPatches(ds, patches, "undo");
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
