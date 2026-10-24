@@ -430,7 +430,7 @@ export function ValidatePanel({
         setIndex: (i) => { keyMoved.current = true; setSelected(i); },
         onEnter: (i) => {
           const row = rows[i];
-          const id = row?.kind === "record" ? row.issue.id : row?.issue.recordId;
+          const id = row?.kind === "record" ? row.issue.id : row && !isGrouped(row.issue) ? row.issue.recordId : undefined;
           if (id) onNavigate(id);
         },
       });
@@ -939,6 +939,20 @@ function RowFixButton({
   );
 }
 
+/** Findings tallied across the file under one row ("(78×)"): their record is
+ *  only the first of many, so the row names none. */
+const GROUPED_KEYS = new Set([
+  "tools.validate.struct.issue.misplaced",
+  "tools.validate.struct.issue.misplacedRoot",
+  "tools.validate.struct.issue.unknownTag",
+  "tools.validate.struct.issue.customTag",
+  "tools.validate.struct.issue.customTagKnown",
+  "tools.validate.struct.issue.danglingXref",
+]);
+function isGrouped(i: StructIssue): boolean {
+  return GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1;
+}
+
 /** A translation the standard wants a language on, written without one. */
 function isUntaggedTran(i: StructIssue): boolean {
   return i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN");
@@ -1061,7 +1075,7 @@ function StructRow({
   const { t } = useTranslation();
   return (
     <li className={`tools-issue sev-${issue.severity}${zebra ?? ""}`} title={issue.tooltip} aria-current={current}>
-      {issue.recordTag ? (
+      {issue.recordTag && !isGrouped(issue) ? (
         <RecordRef dataset={dataset} id={issue.recordId} tag={issue.recordTag} onNavigate={onNavigate} onEditSource={onEditSource} />
       ) : issue.line != null ? (
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
