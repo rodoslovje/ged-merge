@@ -31,7 +31,7 @@ import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
-import { TranslationLangSection } from "./TranslationLangSection";
+import { useTranslationLang } from "./TranslationLangSection";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
@@ -594,6 +594,19 @@ export function ValidatePanel({
     [structure, dataset],
   );
 
+  // A translation the standard wants a language on, written without one — the
+  // worklist below re-reads those lines on the main thread, so only then.
+  const hasUntaggedTran = !!structure?.issues.some(
+    (i) => i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN"),
+  );
+  const tranLang = useTranslationLang({
+    dataset,
+    freshness: structure,
+    needed: group === "gedcom" && hasUntaggedTran,
+    onApply: onTagTranslations,
+    onApplied: () => scans.refresh("validate"),
+  });
+
   if (!report) {
     return scan.status === "error" ? <ToolsError message={scan.message} /> : <ToolsLoading label={t("tools.running")} />;
   }
@@ -631,11 +644,6 @@ export function ValidatePanel({
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
-  // A translation the standard wants a language on, written without one — the
-  // worklist below re-reads those lines on the main thread, so only then.
-  const hasUntaggedTran = !!structure?.issues.some(
-    (i) => i.messageKey === "tools.validate.struct.issue.missing" && i.sample === "LANG" && String(i.messageVars?.parent).endsWith(".TRAN"),
-  );
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -758,13 +766,7 @@ export function ValidatePanel({
           onCancel={() => setPlaceCoordPending(false)}
         />
       )}
-      <TranslationLangSection
-        dataset={dataset}
-        freshness={structure}
-        needed={group === "gedcom" && hasUntaggedTran}
-        onApply={onTagTranslations}
-        onApplied={() => scans.refresh("validate")}
-      />
+      {tranLang.fix}
       {((group === "data" && showMediaCheck) || groupFixes.length > 0) && (
         <ul className="tools-fix-list">
           {group === "data" && showMediaCheck && (
@@ -850,6 +852,9 @@ export function ValidatePanel({
           {group === "gedcom" && fileFixes.map((fix) => (
             <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
           ))}
+          {/* The per-name language worklist, among the findings it answers:
+              the whole list, or the missing lines it is part of. */}
+          {(filter === "all" || filter === "missingLine") && tranLang.list}
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (

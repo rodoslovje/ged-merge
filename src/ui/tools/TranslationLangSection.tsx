@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { UNDETERMINED, untaggedTranslations, type UntaggedTranslation } from "../../tools/fixTranslationLang";
@@ -11,8 +11,12 @@ import { useLanguageItems } from "./languageItems";
  * row per name, a language picker per part, pre-filled from the spelling.
  * A row is written on its own, or all rows at once with the languages chosen,
  * or all of them as undetermined.
+ *
+ * The two whole-file buttons sit with the health check's other quick fixes
+ * (`fix`), the per-name rows down with the findings (`list`); both read the
+ * same picks.
  */
-export function TranslationLangSection({
+export function useTranslationLang({
   dataset,
   freshness,
   needed,
@@ -26,7 +30,7 @@ export function TranslationLangSection({
   needed: boolean;
   onApply: (choices: Map<string, string[]>) => number;
   onApplied: () => void;
-}) {
+}): { fix: ReactNode; list: ReactNode } {
   const { t } = useTranslation();
   const groups = useMemo(
     () => (needed ? untaggedTranslations(dataset) : []),
@@ -45,10 +49,10 @@ export function TranslationLangSection({
 
   const langItems = useLanguageItems(useMemo(() => groups.flatMap((g) => g.suggested), [groups]));
 
-  if (done === null && groups.length === 0) return null;
-  if (groups.length === 0) {
-    return <p className="tools-clean tools-clean--ok">{t("tools.validate.tranLang.done", { count: done })}</p>;
-  }
+  const doneNote = done !== null && (
+    <p className="tools-clean tools-clean--ok">{t("tools.validate.tranLang.done", { count: done })}</p>
+  );
+  if (groups.length === 0) return { fix: doneNote || null, list: null };
 
   const langsOf = (g: UntaggedTranslation) => picked.get(g.key) ?? g.suggested;
   const lines = groups.reduce((n, g) => n + g.count, 0);
@@ -61,19 +65,44 @@ export function TranslationLangSection({
   const choose = (g: UntaggedTranslation, part: number, lang: string) =>
     setPicked((prev) => new Map(prev).set(g.key, langsOf(g).map((l, i) => (i === part ? lang : l))));
 
-  return (
+  const fix = (
+    <>
+      {doneNote}
+      <ul className="tools-fix-list">
+        <li className="tools-fix-item">
+          <span className="tools-tran-actions">
+            <button className="nav-btn primary tools-run" onClick={() => setPending("chosen")}>
+              {t("tools.validate.tranLang.apply", { count: lines })}
+            </button>
+            <button className="nav-btn tools-run" onClick={() => setPending("und")}>
+              {t("tools.validate.tranLang.und", { count: lines })}
+            </button>
+          </span>
+          <span className="tools-fix-hint">{t("tools.validate.tranLang.fixHint")}</span>
+        </li>
+      </ul>
+      {pending !== null && (
+        <ConfirmDialog
+          message={
+            pending === "chosen"
+              ? `${t("tools.validate.tranLang.apply", { count: lines })}\n\n${t("tools.validate.tranLang.applyHint")}`
+              : `${t("tools.validate.tranLang.und", { count: lines })}\n\n${t("tools.validate.tranLang.undHint")}`
+          }
+          confirmLabel={t("tools.validate.applyFix")}
+          busy
+          onConfirm={() =>
+            apply(new Map(groups.map((g) => [g.key, pending === "chosen" ? langsOf(g) : g.parts.map(() => UNDETERMINED)])))
+          }
+          onCancel={() => setPending(null)}
+        />
+      )}
+    </>
+  );
+
+  const list = (
     <div className="tools-struct">
       <div className="tools-examples-title">{t("tools.validate.tranLang.title")}</div>
-      {done !== null && <p className="tools-clean tools-clean--ok">{t("tools.validate.tranLang.done", { count: done })}</p>}
       <p className="tools-fix-hint">{t("tools.validate.tranLang.hint")}</p>
-      <div className="tools-tran-actions">
-        <button className="nav-btn primary tools-run" onClick={() => setPending("chosen")}>
-          {t("tools.validate.tranLang.apply", { count: lines })}
-        </button>
-        <button className="nav-btn tools-run" onClick={() => setPending("und")}>
-          {t("tools.validate.tranLang.und", { count: lines })}
-        </button>
-      </div>
       <ul className="tools-issues">
         {groups.slice(0, 200).map((g, i) => {
           const langs = langsOf(g);
@@ -107,21 +136,8 @@ export function TranslationLangSection({
         })}
       </ul>
       {groups.length > 200 && <p className="tools-fix-hint">{t("tools.geocode.more", { count: groups.length - 200 })}</p>}
-      {pending !== null && (
-        <ConfirmDialog
-          message={
-            pending === "chosen"
-              ? `${t("tools.validate.tranLang.apply", { count: lines })}\n\n${t("tools.validate.tranLang.applyHint")}`
-              : `${t("tools.validate.tranLang.und", { count: lines })}\n\n${t("tools.validate.tranLang.undHint")}`
-          }
-          confirmLabel={t("tools.validate.applyFix")}
-          busy
-          onConfirm={() =>
-            apply(new Map(groups.map((g) => [g.key, pending === "chosen" ? langsOf(g) : g.parts.map(() => UNDETERMINED)])))
-          }
-          onCancel={() => setPending(null)}
-        />
-      )}
     </div>
   );
+
+  return { fix, list };
 }
