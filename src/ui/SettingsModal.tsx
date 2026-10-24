@@ -655,10 +655,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <h3>{t("settings.target.title")}</h3>
               <p className="settings-hint">{t("settings.target.hint")}</p>
               <fieldset className="settings-radio-group settings-target-group" aria-label={t("settings.target.title")}>
-                {/* The file's variations sit right before the strict mode of
-                    the same version, so 5.5.1 and 7.0 each read as a pair. */}
+                {/* The file's variations come first, followed by the strict
+                    mode of the same version, then the other version. */}
                 {(targetFormat.fileVersion === "7.0"
-                  ? ["5.5.1", "file", "7.0"] as const
+                  ? ["file", "7.0", "5.5.1"] as const
                   : TARGET_MODES
                 ).map((mode) => (
                   <label key={mode} className="settings-radio settings-target-option">
