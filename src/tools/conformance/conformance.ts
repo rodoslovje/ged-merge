@@ -325,9 +325,10 @@ function checkPayload(
       messageKey: `tools.validate.struct.issue.${messageKey}`,
       messageVars: { tag, sample: truncate(value), parent: loc.where(), version: spec.version, ...vars },
       sample: truncate(value), path: loc.path(),
-      tooltip: fix
+      // The values the standard allows go on the hover, not into the row.
+      tooltip: (fix
         ? `${lineOf(node)} → ${toNote ? `${node.level + 1} NOTE ${fix}` : fix}${fixPhrase ? ` + PHRASE ${fixPhrase}` : ""}`
-        : lineOf(node),
+        : lineOf(node)) + (vars.allowed ? `\n${vars.allowed}` : ""),
       fix: fixable ? fix : undefined,
       toNote: fixable && toNote ? true : undefined,
       fixPhrase: fixable ? fixPhrase : undefined,
@@ -393,6 +394,12 @@ function checkPayload(
       ? items.map((v, i) => verdicts[i] ?? v).join(", ")
       : undefined;
     const allowed = set.filter((s) => s !== "()").join(", ");
+    // 7.0's own rule for a value outside a set that has OTHER (ROLE, MEDI,
+    // PEDI…): OTHER, with the value kept word for word as its PHRASE.
+    if (!fix && spec.is70 && items.length === 1 && set.includes("OTHER")) {
+      emit("enumValue", "enumOther", { allowed, standard: "OTHER" }, "OTHER", { fixPhrase: value });
+      return;
+    }
     emit("enumValue", fix ? "enumCase" : "enumValue", fix ? { allowed, standard: fix } : { allowed }, fix);
   } else if (payload === "D") {
     checkCalendar(value, spec.is70, emit);

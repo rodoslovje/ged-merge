@@ -513,6 +513,26 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("writes a 7.0 value outside a set that has OTHER as OTHER, keeping it as the PHRASE", () => {
+    // MyHeritage's Smart Match citation puts the matched person's number in ROLE.
+    const ds = dataset(`${HEAD_70}
+0 @S1@ SOUR
+1 TITL MyHeritage
+0 @I1@ INDI
+1 NAME Metod /Robnik/
+1 SOUR @S1@
+2 EVEN BIRT
+3 ROLE 1500001
+0 TRLR`);
+    const [issue] = validateConformance(ds).filter((i) => i.category === "enumValue");
+    expect(issue).toMatchObject({ messageKey: "tools.validate.struct.issue.enumOther", fix: "OTHER", fixPhrase: "1500001" });
+    expect(issue.tooltip).toContain("WITN"); // the allowed values ride on the hover
+    const patches = fixConformance(ds, "values");
+    expect(serializeGedcom(ds.records, ds)).toContain("2 EVEN BIRT\n3 ROLE OTHER\n4 PHRASE 1500001\n");
+    expect(validateConformance(ds).filter((i) => i.category === "enumValue")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+  });
+
   it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a date on an association as its note in %s", (_v, head) => {
     const ds = dataset(`${head}
 0 @I1@ INDI
