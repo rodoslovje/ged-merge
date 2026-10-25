@@ -15,7 +15,7 @@ import type { RecordPatch } from "../historyTypes";
 import type { ToolView } from "../ToolsView";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
-import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
+import { mediaInfoOffered, repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { someMatch, toggledIn, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { scanRepoRegroup } from "../../tools/repoRegroup";
@@ -107,6 +107,9 @@ function MediaRows({
 }) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
+  const formatOverrides = useFormatOverrides();
+  // A photo's date and place, only where the file keeps them with its variations.
+  const offered = mediaInfoOffered(dataset.records, formatOverrides);
   const { items, indexOf } = useMemo(() => {
     const photos = entries.filter((m) => !m.url && m.file);
     const items: MediaGalleryItem[] = photos.map((m) => {
@@ -131,8 +134,8 @@ function MediaRows({
               file: m.file!,
               initial: {
                 title: m.title ?? "",
-                date: m.date ?? "",
-                place: m.place ?? "",
+                ...(offered.date ? { date: m.date ?? "" } : {}),
+                ...(offered.place ? { place: m.place ?? "" } : {}),
                 description: m.description ?? "",
                 private: isPrivateNode(rec),
               },
@@ -142,7 +145,7 @@ function MediaRows({
       };
     });
     return { items, indexOf: new Map(photos.map((m, i) => [m, i] as const)) };
-  }, [entries, dataset, onNavigate, onEditMediaInfo, onShowSource, t]);
+  }, [entries, dataset, onNavigate, onEditMediaInfo, onShowSource, t, offered]);
 
   // Only with a loaded folder do file entries leave the row list for the tray —
   // without one there is nothing to render, so the titled rows stay.

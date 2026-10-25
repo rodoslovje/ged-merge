@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { eventDisplayLabel, eventGlyph, orderedEventTags } from "../gedcom/eventTags";
 import type { Translate } from "../locales/i18n";
+import { termsHref } from "./TagLinks";
 
 /**
  * The classic genealogy mark for one event type — ⚭ a marriage, † a death, *
@@ -46,12 +47,33 @@ export function EventGlyph({ tag, t, named = false }: { tag: string; t: Translat
  * dropdown, the batch conditions, the quick-add settings), so the mark is
  * learnt where the event is chosen and recognized afterwards on its row.
  * `label` overrides the name, for a menu that words it its own way.
+ *
+ * A non-standard tag with a page that explains it (`_MEDC`, `NOBI`) stands at
+ * the entry's right edge as the link to that page, as on an event's row, and
+ * the name drops its "(TAG)". The link takes its own press, so following it
+ * does not pick the entry.
  */
 export function eventMenuLabel(tag: string, t: Translate, label?: string): ReactNode {
+  const name = label ?? eventDisplayLabel(tag, t);
+  const href = termsHref(tag);
+  const suffix = ` (${tag})`;
   return (
     <>
+      {href && (
+        <a
+          className="dd-item-tag tag-terms-link"
+          href={href}
+          target="_blank"
+          rel="noopener"
+          title={t("tools.validate.struct.terms")}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {tag}
+          <span className="edit-event-tag-info" aria-hidden="true">ⓘ</span>
+        </a>
+      )}
       <EventGlyph tag={tag} t={t} />
-      {label ?? eventDisplayLabel(tag, t)}
+      {href && name.endsWith(suffix) ? name.slice(0, -suffix.length) : name}
     </>
   );
 }

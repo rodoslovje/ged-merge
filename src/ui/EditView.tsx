@@ -38,6 +38,7 @@ import {
   reorderMedia,
   setCropRegion,
   setMediaInfo,
+  mediaInfoOffered,
   detachChildFromFamily,
   detachSpouseRole,
   FAM_CHILD_ORDER,
@@ -889,6 +890,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     onNavigate: navigate,
     onEditMedia: (addr, fields) => editMediaOn(owner, addr, fields),
     onEditMediaCrop: (addr, crop) => editMediaCropOn(owner, addr, crop),
+    mediaFields: mediaInfoOffered(dataset.records, formatOverrides),
   }));
   const mediaRefCtx = mediaCtxFor({ kind: "individual" });
 
@@ -1054,6 +1056,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       baptism: formatOverrides.baptism ?? "auto",
       citationPage: citationPageStyle(),
       standard: formatOverrides.standard,
+      writeVersion: formatOverrides.writeVersion,
     });
   }
 

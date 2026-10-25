@@ -78,8 +78,9 @@ export function sourceTitle(node: GedNode): string | undefined {
 /**
  * A source record's filing number and periodical title — GEDCOM 5.5-EL's
  * `FILN` and `PERI`, which neither 5.5.1 nor 7.0 has. The programs that keep
- * them write them bare; a strict target format writes `_FILN`/`_PERI`
- * (see `sourceFieldTag`). Both spellings read alike.
+ * them write them bare; GED Merge writes the standard's forms instead (the
+ * call number, the title — see `settleSourceFields`), but files saved by
+ * earlier versions carry `_FILN`/`_PERI`. Both spellings read alike.
  */
 export function filingNumberOf(rec: GedNode): string | undefined {
   return childText(rec, "FILN") ?? childText(rec, "_FILN");

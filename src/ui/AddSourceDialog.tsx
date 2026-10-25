@@ -6,13 +6,13 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
-import { detectSourceCoverage, repoLinkWanted, writesCallNumbers } from "../gedcom/source";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, sourceRegisterOf, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { detectSourceCoverage, repoLinkWanted } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { idField } from "./source/standardFields";
+import { coverageFieldsOffered, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
 import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { SourceDialogShell } from "./source/SourceDialogShell";
@@ -259,8 +259,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   /** Whether this file states the archive's id beside the repository — then
    *  the source's own filing-number field is not the one that gets written. */
   const idOnRepo = useMemo(
-    () => idField(dataset.records, coverage, repoSel !== "").caln,
-    [dataset, coverage, repoSel],
+    () => idField(dataset.records, coverage, repoSel !== "", formatOverrides.standard).caln,
+    [dataset, coverage, repoSel, formatOverrides.standard],
+  );
+  // The periodical is a field of its own only where the file keeps its PERI
+  // lines; elsewhere it is part of the title.
+  const offerPeriodical = periodicalOffered(dataset.records, formatOverrides.standard);
+  useTitleTakesPeriodical(offerPeriodical, fields.periodical, setFields);
+  // The place and the years: the standard's own fields where the source states
+  // its coverage in DATA › EVEN (an edited one that has the block, a new one
+  // whose register is known), else only where the file writes them flat.
+  const offerCoverage = coverageFieldsOffered(
+    dataset.records,
+    formatOverrides.standard,
+    editing
+      ? !!editing.fields.statesCoverage
+      : coverage === "standard" && sourceRegisterOf(recognized?.site, fields.title) !== "unknown",
   );
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
@@ -282,7 +296,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     // there is a repository to hang it on), else the source's own filing
     // number. Never both (see `writesCallNumbers`).
     const proposedId = match ? undefined : recognized?.proposed.filingNumber;
-    idOnCaln.current = idField(dataset.records, coverage, repoPre !== "").caln;
+    idOnCaln.current = idField(dataset.records, coverage, repoPre !== "", formatOverrides.standard).caln;
     setFields({
       // For a recognized site the composed proposal ("Katarina Abdonec - WW2 -
       // SIstory.si") beats the generic parse's bare quoted name — same title
@@ -319,7 +333,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoCaln(idOnCaln.current ? proposedId ?? "" : "");
     setRegister(undefined);
     repoTouched.current = false;
-  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos, dataset, coverage]);
+  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos, dataset, coverage, formatOverrides.standard]);
 
   // A collection the lookup named can point at the file's own repository for
   // it, which the URL alone could not find.
@@ -373,7 +387,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     // states ids in: the repository link's call number, or the source's own
     // filing number. Never both (see `writesCallNumbers`).
     const id = meta.filingNumber ?? site?.proposed.filingNumber;
-    const callNumbers = writesCallNumbers(dataset.records);
+    const callNumbers = idField(dataset.records, coverage, repoSel !== "", formatOverrides.standard).caln;
     setFields((f) => {
       const filingNumber = callNumbers ? f.filingNumber : keep(f.filingNumber, id);
       // The title takes the id itself, not the field it happened to land in:
@@ -483,7 +497,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             it stands beside it — and only where the file states its ids
             there: the same value would otherwise be asked for twice,
             once as the source's own filing number. */}
-        {repoSel !== "" && idOnRepo && (
+        {idOnRepo && (
           <label className="add-source-field">
             <span>{t("addSource.field.caln")}</span>
             <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
@@ -727,7 +741,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 // The quality belongs to a citation; standalone mode (Tools →
                 // Sources) writes a source record with no citation to carry it.
                 quay: !standalone,
-                dateRange: !!editing,
+                dateRange: !!editing && offerCoverage,
+                place: offerCoverage,
+                periodical: offerPeriodical,
               }}
               coverage={coverage}
               idOnRepo={idOnRepo}

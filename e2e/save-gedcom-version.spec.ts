@@ -44,7 +44,7 @@ async function load(page: Page, name: string, text: string) {
     .setInputFiles({ name, mimeType: "text/plain", buffer: Buffer.from(text, "utf-8") });
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
 }
 
 /** Hold the open file to GEDCOM 7.0 (Settings → GEDCOM), then open the save
@@ -70,7 +70,7 @@ test("a file without header or trailer saves complete: HEAD, TRLR and a submitte
   await load(page, "headerless.ged", HEADERLESS);
   // The health check says what the save will supply…
   await expect(page.locator(".tools-file-note").filter({ hasText: "no header" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: /GEDCOM 5\.5\.1 issues/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /GEDCOM 5\.5\.1 compliance/ })).toBeVisible();
 
   // …and Save opens the preview even though nothing was edited.
   await openSave(page);
@@ -114,5 +114,5 @@ test("a 5.5.1 file saves as GEDCOM 7.0: version, UID, SCHMA, SNOTE", async ({ pa
   expect(text).not.toContain(" SUBM");
 
   // The open file now is the saved one: the health check reads 7.0.
-  await expect(page.getByRole("tab", { name: /GEDCOM 7\.0 issues/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /GEDCOM 7\.0 compliance/ })).toBeVisible();
 });

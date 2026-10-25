@@ -4397,6 +4397,11 @@ button:focus-visible {
    marks everywhere else — it identifies the entry, it is not the entry. */
 .dd-item .event-glyph,
 .select-menu-value .event-glyph { margin-right: 7px; }
+/* A non-standard event type's tag, at the menu entry's right edge, linking
+   the page that explains it. A chosen value shown in its own button keeps
+   only its mark: a link cannot live inside a button. */
+.dd-item-tag { float: right; margin-left: 16px; font-family: var(--font-mono); font-size: 0.85em; }
+.select-menu-value .dd-item-tag { display: none; }
 .dd-item--current::before {
   content: "✓";
   position: absolute;
@@ -9285,8 +9290,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    the list below. */
 .tools-pick-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 8px; min-height: 2rem; }
 .tools-pick-bar .tools-run { margin: 0; }
-.tools-pick-all { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; cursor: pointer; }
-.tools-pick-count { color: var(--muted); font-size: 0.88rem; }
 .tools-pick { flex: none; margin: 0; align-self: center; cursor: pointer; }
 .tools-tran-list .tools-tran-parts { flex: 0 1 auto; }
 .tools-tran-part .picker-menu-btn {
@@ -9328,6 +9331,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   text-align: left; font: inherit;
 }
 .tools-issue-link:hover { text-decoration: underline; }
+/* A non-standard tag in a text, linking the page that explains it. */
+.tag-terms-link { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
+.tag-terms-link:hover { text-decoration-style: solid; }
+/* An event's non-standard tag, at the row's right edge, apart from its label. */
+.edit-event-tag { margin-left: auto; flex: none; font-family: var(--font-mono); font-size: 0.85em; white-space: nowrap; }
+.edit-event-tag-info { margin-left: 4px; display: inline-block; text-decoration: none; }
 /* Person references in Tools: name in its sex colour, then a muted lifespan,
    styled exactly like person labels elsewhere in the app. */
 .person-ref {

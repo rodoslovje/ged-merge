@@ -9,6 +9,7 @@ import type { RecordPatch } from "../historyTypes";
 import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { EventGlyph, eventMenuLabel } from "../EventGlyph";
+import { termsHref } from "../TagLinks";
 import { ClearableTextarea } from "./ClearableInput";
 import { isTallNoteList, NOTE_CHIP_CH, NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
@@ -713,6 +714,12 @@ export function EventFieldsRow({
   // and/or the event copied or removed — the latter two via "Copy event to…" /
   // "Remove this event" entries appended to the end of the list.
   const showSelect = Boolean(tag) && (Boolean(onChangeTag && tagGroups) || Boolean(onCopy) || Boolean(onRemove));
+  // A non-standard event tag (NOBI, _MILT …) with a page that explains it
+  // stands at the row's right edge as the link to that page — apart from the
+  // label, which picks the event's type, so the label drops its "(NOBI)".
+  const tagTerms = tag ? termsHref(tag) : undefined;
+  const tagSuffix = tagTerms && tag ? ` (${tag})` : undefined;
+  if (tagSuffix && label.endsWith(tagSuffix)) label = label.slice(0, -tagSuffix.length);
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -1374,6 +1381,12 @@ export function EventFieldsRow({
       </div>
       </div>
       {noteTall && noteEl}
+      {tagTerms && (
+        <a className="edit-event-tag tag-terms-link" href={tagTerms} target="_blank" rel="noopener" title={t("tools.validate.struct.terms")}>
+          {tag}
+          <span className="edit-event-tag-info" aria-hidden="true">ⓘ</span>
+        </a>
+      )}
     </div>
   );
 }

@@ -83,28 +83,22 @@ export function useTranslationLang({
   const actions = (
     <>
       <div className="tools-pick-bar">
-        <label className="tools-pick-all">
-          <input
-            type="checkbox"
-            checked={allPicked}
-            onChange={() => setSelected(allPicked ? new Set() : new Set(groups.map((g) => g.key)))}
-          />
+        <button className="nav-btn primary tools-run" onClick={() => setPending("chosen")} disabled={picked.length === 0}>
+          {t("tools.validate.tranLang.apply", { count: lines })}
+        </button>
+        <button className="nav-btn tools-run" onClick={() => setPending("und")} disabled={picked.length === 0}>
+          {t("tools.validate.tranLang.und", { count: lines })}
+        </button>
+        <button
+          className="tools-issue-link"
+          onClick={() => setSelected(new Set(groups.map((g) => g.key)))}
+          disabled={allPicked}
+        >
           {t("tools.validate.pickAll", { count: groups.length })}
-        </label>
-        {picked.length > 0 && (
-          <>
-            <span className="tools-pick-count">{t("tools.validate.picked", { count: picked.length })}</span>
-            <button className="nav-btn primary tools-run" onClick={() => setPending("chosen")}>
-              {t("tools.validate.tranLang.apply", { count: lines })}
-            </button>
-            <button className="nav-btn tools-run" onClick={() => setPending("und")}>
-              {t("tools.validate.tranLang.und", { count: lines })}
-            </button>
-            <button className="nav-btn tools-run" onClick={() => setSelected(new Set())}>
-              {t("tools.validate.clearPicked")}
-            </button>
-          </>
-        )}
+        </button>
+        <button className="tools-issue-link" onClick={() => setSelected(new Set())} disabled={picked.length === 0}>
+          {t("tools.sources.dupSelectNone")}
+        </button>
       </div>
       {pending !== null && (
         <ConfirmDialog

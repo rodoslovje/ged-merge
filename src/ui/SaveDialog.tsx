@@ -26,6 +26,7 @@ import type { Translate } from "../locales/i18n";
 import { useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
 import { submitterName } from "../gedcom/newFile";
 import { recordLabeller } from "./recordLabel";
+import { LinkedTags } from "./TagLinks";
 
 /** The preferences this dialog reads (and writes): whether the save also
  *  downloads the change report, and which reading of the changes it opens on. */
@@ -365,7 +366,7 @@ export function SaveDialog({
                         <span className="preview-rec">{labelOf(d.recordId)}</span>
                       )}
                       {" — "}
-                      <span className="preview-field">{d.field}</span>:{" "}
+                      <span className="preview-field"><LinkedTags text={d.field} /></span>:{" "}
                       <DeferredReason d={d} t={t} show={showPerson} onOpen={openPerson} />
                     </li>
                   );
@@ -540,7 +541,7 @@ export function SaveDialog({
                       <ul className="preview-fields">
                         {facts.map((f, i) => (
                           <li key={i}>
-                            <span className="preview-field">{f.label}</span>:{" "}
+                            <span className="preview-field"><LinkedTags text={f.label} /></span>:{" "}
                             <span className="preview-same">{f.text}</span>
                           </li>
                         ))}
@@ -565,7 +566,7 @@ export function SaveDialog({
                           ) : (
                             grp.rows.map((c, i) => (
                               <li key={`${gi}-${i}`}>
-                                {!c.noLabel && <><span className="preview-field">{c.field}</span>: </>}
+                                {!c.noLabel && <><span className="preview-field"><LinkedTags text={c.field} /></span>: </>}
                                 {isIconChange(c) ? <ChangeIcons changes={[c]} t={t} /> : <FieldValue c={c} />}
                                 {c.private ? <> <PrivateMark t={t} /></>
                                   : c.privacyChanged ? <> <PrivateMark t={t} off /></>
@@ -783,7 +784,7 @@ function renderGroupRows(rows: FieldChange[], group: string, t: Translate) {
   }
   return dataRows.map((c, i) => (
     <li key={i}>
-      {c.field !== group && <><span className="preview-field">{c.field}</span>: </>}
+      {c.field !== group && <><span className="preview-field"><LinkedTags text={c.field} /></span>: </>}
       <FieldValue c={c} />
       {i === dataRows.length - 1 && icons && <> {icons}</>}
     </li>

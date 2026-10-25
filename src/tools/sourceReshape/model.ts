@@ -176,6 +176,8 @@ export type PageMediaStyle = "event" | "source";
 export interface ReshapeOptions {
   /** Set by a strict target format: write only that version's forms. */
   standard?: "5.5.1" | "7.0";
+  /** The version lines are written in: the strict one, else the file's own. */
+  writeVersion?: "5.5.1" | "7.0";
   /** Move citations onto their matching event (baptism→BIRT/BAPM, marriage→MARR,
    *  death→DEAT, cemetery→BURI). Default true. */
   relocate?: boolean;

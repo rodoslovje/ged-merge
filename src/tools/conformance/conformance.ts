@@ -3,6 +3,7 @@ import { firstChild, nodesEqual } from "../../gedcom/node";
 import { fileFormOf } from "../../gedcom/mediaForm";
 import { nameType70 } from "../../gedcom/name";
 import { isVoidPointer } from "../../gedcom/uri";
+import { VOID_XREF } from "../../gedcom/assoc";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
 import { isUnparseable } from "../fixDates";
 import type { SpecTable } from "./types";
@@ -403,6 +404,11 @@ function checkPayload(
       if (actual !== want) emit("pointerType", "pointerType", { xref: value, actual, expected: want });
     } else if (value && !payload.endsWith("?")) {
       emit("pointerType", "pointerExpected", { expected });
+    } else if (!value && !payload.endsWith("?")) {
+      // No pointer where one is required. 7.0 says "a record this file does
+      // not hold" with @VOID@, which keeps the lines beneath (a repository
+      // link's call number); a bare line has nothing to keep.
+      emit("pointerType", "pointerEmpty", { expected }, spec.is70 && node.children.length ? VOID_XREF : undefined);
     }
     return;
   }

@@ -354,6 +354,7 @@ export function reshapeOptionsFromOverrides(o: FormatOverrides | undefined): Res
     doubledLinks: o?.doubledLinks ?? "auto",
     sourceCoverage: o?.sourceCoverage ?? "auto",
     ...(o?.standard ? { standard: o.standard } : {}),
+    ...(o?.writeVersion ? { writeVersion: o.writeVersion } : {}),
   };
 }
 

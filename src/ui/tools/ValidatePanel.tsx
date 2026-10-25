@@ -1,5 +1,6 @@
 import { AddSourceDialog } from "../AddSourceDialog";
-import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { LinkedTags } from "../TagLinks";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
@@ -11,12 +12,10 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
-import { formatCoord } from "../../geo/points";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
-import { countSplitCoordFills, scanPlaceCoords } from "../../tools/placeCoords";
 import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
@@ -39,7 +38,7 @@ import { keptHabits } from "../../tools/normalizeRepairs";
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -152,7 +151,6 @@ export function ValidatePanel({
   onFixDanglingRefs,
   onFixConformance,
   onFixBatch,
-  onFillPlaceCoords,
   onTagTranslations,
   onEditSource,
   onEditMediaFile,
@@ -174,7 +172,6 @@ export function ValidatePanel({
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   /** Run the picked fixes as one undo step. */
   onFixBatch: (run: () => void) => void;
-  onFillPlaceCoords: () => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Save an edited source record — a finding on a source opens its editor. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
@@ -281,31 +278,6 @@ export function ValidatePanel({
     setMediaChecking(false);
   }
 
-  // Places coordinated on some events but not others, grouped by place + the
-  // event's address — fillable from the file itself. Detected on the main thread
-  // (a PLAC walk), like the fixable-subset counts above; re-derived after a
-  // fix's re-validate refreshes `report`. (The same scan's *conflicts* — one
-  // pair carrying two different coordinates — are reported on the geocode page,
-  // where the register and the maps that settle them are at hand.)
-  const coordReport = useMemo(
-    () => scanPlaceCoords(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, report],
-  );
-  const splitPlaces = coordReport.fills;
-  const splitFills = countSplitCoordFills(splitPlaces);
-  const [placeCoordDone, setPlaceCoordDone] = useState<number | null>(null);
-  const [placeCoordPending, setPlaceCoordPending] = useState(false);
-
-  function applyPlaceCoordFix() {
-    setPlaceCoordPending(false);
-    const changed = onFillPlaceCoords();
-    setPlaceCoordDone(changed);
-    // Re-validate (in the worker) so the shared report — and this section's
-    // main-thread scan, which keys on it — refreshes to the fixed data.
-    scans.refresh("validate");
-  }
-
   // One finding's own repair. Every batch button above is also offered here, on
   // the row that raised the question, narrowed to that record — so a user who
   // agrees with three of eight findings can settle those three and leave the
@@ -327,7 +299,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -346,8 +318,6 @@ export function ValidatePanel({
     setBatchDone(null);
     setPicked(new Map());
     setBatchPending(false);
-    setPlaceCoordDone(null);
-    setPlaceCoordPending(false);
   }, [dataset]);
 
   // A fresh health check has landed: its rows are the repaired truth, so the
@@ -498,13 +468,10 @@ export function ValidatePanel({
     });
   }
   const allShownPicked = shownPickable.length > 0 && shownPickable.every((r) => picked.has(rowKey(r.issue)));
-  function toggleAllShown() {
+  function pickAllShown() {
     setPicked((prev) => {
       const next = new Map(prev);
-      for (const r of shownPickable) {
-        if (allShownPicked) next.delete(rowKey(r.issue));
-        else next.set(rowKey(r.issue), r);
-      }
+      for (const r of shownPickable) next.set(rowKey(r.issue), r);
       return next;
     });
   }
@@ -648,6 +615,13 @@ export function ValidatePanel({
   }
 
   /** The same, for a structural finding. */
+  /** Whether a source's FILN/PERI line is the fix's to restate: always for
+   *  the `_` spelling, and for the bare one where the file does not keep it. */
+  function sourceFieldFixable(tag: string | undefined): boolean {
+    if (!tag) return false;
+    return tag.startsWith("_") || !keepsSourceTag(dataset.records, tag as "FILN" | "PERI", formatOverrides);
+  }
+
   function structRowFix(issue: StructIssue): RowFix | null {
     if (issue.category === "badDate" && issue.fix && issue.recordId) {
       return {
@@ -743,6 +717,26 @@ export function ValidatePanel({
         hint: t("tools.validate.fixOneAgencyHint"),
         kind: "agency",
         run: () => onFixConformance("agency"),
+      };
+    }
+    // A source's filing number or periodical: the standard's call number and
+    // title, in every source — unless the file keeps its own bare lines.
+    if (issue.sourceField && issue.recordId && sourceFieldFixable(issue.sample)) {
+      return {
+        label: t("tools.validate.fixOneSourceFields"),
+        hint: t("tools.validate.fixOneSourceFieldsHint"),
+        kind: "sourceFields",
+        run: () => onFixConformance("sourceFields"),
+      };
+    }
+    // An extension standing in for a 7.0 structure: that structure, in every
+    // record — in a strict 7.0 target; a file kept with its variations keeps it.
+    if (issue.standardForm && issue.recordId && formatOverrides.standard === "7.0") {
+      return {
+        label: t("tools.validate.fixOneSourceFields"),
+        hint: t("tools.validate.fixOneExtensionsHint"),
+        kind: "extensions",
+        run: () => onFixConformance("extensions"),
       };
     }
     // A media record's date or place: kept as the extension, in every record.
@@ -860,6 +854,22 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.agency) ? countFixableConformance(dataset, "agency") : 0),
     [structure, dataset],
   );
+  // Records whose extensions the 7.0 fix would restate.
+  const fixableExtensions = useMemo(
+    () => (formatOverrides.standard === "7.0" && structure?.issues.some((i) => i.standardForm) ? countFixableConformance(dataset, "extensions") : 0),
+    [structure, dataset, formatOverrides.standard],
+  );
+  // What a tag's page is called on this site: the program that wrote the
+  // file decides whose page it is (see `termsUri`).
+  const headSour = useMemo(() => {
+    const head = dataset.records.find((r) => r.tag === "HEAD");
+    return head?.children.find((c) => c.tag === "SOUR")?.value?.trim();
+  }, [dataset]);
+  // Sources whose FILN/PERI the fix would restate.
+  const fixableSourceFields = useMemo(
+    () => (structure?.issues.some((i) => i.sourceField) ? countFixableConformance(dataset, "sourceFields", formatOverrides) : 0),
+    [structure, dataset, formatOverrides],
+  );
 
   // A translation the standard wants a language on, written without one — the
   // worklist below re-reads those lines on the main thread, so only then.
@@ -914,6 +924,8 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableSourceFields > 0) fixActions.push({ kind: "sourceFields", count: fixableSourceFields });
+  if (fixableExtensions > 0) fixActions.push({ kind: "extensions", count: fixableExtensions });
   if (fixableCitationPage > 0) fixActions.push({ kind: "citationPage", count: fixableCitationPage });
   if (fixableMediaInfo > 0) fixActions.push({ kind: "mediaInfo", count: fixableMediaInfo });
   if (fixableChildPedi > 0) fixActions.push({ kind: "childPedi", count: fixableChildPedi });
@@ -1009,45 +1021,6 @@ export function ValidatePanel({
           </div>
         )
       )}
-      {group === "data" && placeCoordDone !== null && (
-        <p className="tools-clean tools-clean--ok">
-          {t(`tools.validate.placeCoord.${placeCoordDone > 0 ? "done" : "none"}`, { count: placeCoordDone })}
-        </p>
-      )}
-      {group === "data" && splitPlaces.length > 0 && placeCoordDone === null && (
-        <div className="tools-struct">
-          <div className="tools-examples-title">{t("tools.validate.placeCoord.title")}</div>
-          <p className="tools-fix-hint">{t("tools.validate.placeCoord.hint", { count: splitPlaces.length, fills: splitFills })}</p>
-          <button className="nav-btn primary tools-run" onClick={() => setPlaceCoordPending(true)}>
-            {t("tools.validate.placeCoord.fix", { count: splitFills })}
-          </button>
-          <ul className="tools-issues">
-            {splitPlaces.slice(0, 200).map((p, i) => (
-              <li key={`${p.value}\u0000${p.address}`} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
-                <span className="tools-issue-msg">{p.address ? `${p.value} · ${p.address}` : p.value}</span>
-                <span className="tools-chip-count" title={t("tools.validate.placeCoord.occ", { count: p.missing })}>
-                  {p.missing}
-                </span>
-                <span className="gm-data gm-coord gm-coord--set">
-                  {formatCoord(p.coord)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {splitPlaces.length > 200 && (
-            <p className="tools-fix-hint">{t("tools.geocode.more", { count: splitPlaces.length - 200 })}</p>
-          )}
-        </div>
-      )}
-      {placeCoordPending && (
-        <ConfirmDialog
-          message={`${t("tools.validate.placeCoord.fix", { count: splitFills })}\n\n${t("tools.validate.placeCoord.fixHint")}`}
-          confirmLabel={t("tools.validate.applyFix")}
-          busy
-          onConfirm={applyPlaceCoordFix}
-          onCancel={() => setPlaceCoordPending(false)}
-        />
-      )}
       {group === "data" && showMediaCheck && (
         <ul className="tools-fix-list">
           <li className="tools-fix-item">
@@ -1092,8 +1065,7 @@ export function ValidatePanel({
       {total === 0 ? (
         group === "gedcom"
           ? <p className="tools-clean">{t("tools.validate.clean.gedcom", { version })}</p>
-          : !(mediaMissing && mediaMissing.length > 0) &&
-            !(splitPlaces.length > 0 && placeCoordDone === null) && <p className="tools-clean">{t("tools.validate.clean.data")}</p>
+          : !(mediaMissing && mediaMissing.length > 0) && <p className="tools-clean">{t("tools.validate.clean.data")}</p>
       ) : (
         <>
           <div className="tools-filter-row">
@@ -1171,21 +1143,15 @@ export function ValidatePanel({
           {/* Picking rows for one batch: all fixable rows of the view, or some. */}
           {shownPickable.length > 0 && (
             <div className="tools-pick-bar">
-              <label className="tools-pick-all">
-                <input type="checkbox" checked={allShownPicked} onChange={toggleAllShown} />
+              <button className="nav-btn primary tools-run" onClick={() => setBatchPending(true)} disabled={picked.size === 0}>
+                {t("tools.validate.fixPicked", { count: picked.size })}
+              </button>
+              <button className="tools-issue-link" onClick={pickAllShown} disabled={allShownPicked}>
                 {t("tools.validate.pickAll", { count: shownPickable.length })}
-              </label>
-              {picked.size > 0 && (
-                <>
-                  <span className="tools-pick-count">{t("tools.validate.picked", { count: picked.size })}</span>
-                  <button className="nav-btn primary tools-run" onClick={() => setBatchPending(true)}>
-                    {t("tools.validate.fixPicked", { count: picked.size })}
-                  </button>
-                  <button className="nav-btn tools-run" onClick={() => setPicked(new Map())}>
-                    {t("tools.validate.clearPicked")}
-                  </button>
-                </>
-              )}
+              </button>
+              <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
+                {t("tools.sources.dupSelectNone")}
+              </button>
             </div>
           )}
           {shown.length === 0 ? (
@@ -1201,7 +1167,7 @@ export function ValidatePanel({
                   <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
                     <PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
-                    <span className="tools-issue-msg">{t(row.issue.messageKey, issueVars(row.issue))}</span>
+                    <span className="tools-issue-msg"><LinkedTags text={t(row.issue.messageKey, issueVars(row.issue))} headSour={headSour} /></span>
                     <RowFixButton
                       fix={recordRowFix(row.issue)}
                       done={fixedRows.has(rowKey(row.issue))}
@@ -1221,7 +1187,13 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
-                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency)) ? dialect?.software ?? "" : undefined}
+                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency))
+                      ? dialect?.software ?? ""
+                      // A program's own tag, kept with the file's variations.
+                      : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && !structRowFix(row.issue)
+                        ? String(row.issue.messageVars?.software ?? dialect?.software ?? "")
+                        : undefined}
+                    headSour={headSour}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
                       : mediaLinkOf(row.issue)
@@ -1436,6 +1408,7 @@ function StructRow({
   onEditSource,
   variationOf,
   open,
+  headSour,
   pick,
 }: {
   issue: StructIssue;
@@ -1453,6 +1426,8 @@ function StructRow({
   variationOf?: string;
   /** Takes the reader to where the finding is settled (no fix of its own). */
   open?: { label: string; run: () => void };
+  /** The file's producer (`HEAD.SOUR`): whose page a tag in the message links. */
+  headSour?: string;
   /** The row's checkbox for a batch (empty when it has no fix). */
   pick?: ReactNode;
 }) {
@@ -1468,7 +1443,12 @@ function StructRow({
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
       <span className="tools-issue-msg">
-        {t(issue.messageKey, issue.messageVars)}
+        <LinkedTags
+          text={t(issue.messageKey, issue.messageVars)}
+          headSour={headSour}
+          // A tag no table knows still gets the page that says so.
+          unknown={issue.category === "unknownTag" ? issue.sample : undefined}
+        />
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
       {variationOf !== undefined && (

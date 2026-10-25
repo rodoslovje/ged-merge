@@ -28,7 +28,7 @@ test("translations without a language: suggested, re-picked and written", async 
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
   // One row for all three, which takes the reader to the chip of its own.
   const row = page.locator(".tools-issue", { hasText: "have no LANG line" });
   await expect(row).toHaveCount(1);
@@ -49,7 +49,7 @@ test("translations without a language: suggested, re-picked and written", async 
   // Picked like the other findings: all of them, then written at once.
   const bar = page.locator(".tools-pick-bar");
   const before = await section.boundingBox();
-  await bar.getByLabel("Select all fixable (2)").check();
+  await bar.getByRole("button", { name: "Select all fixable (2)" }).click();
   // The bar keeps its height as its buttons appear: the list does not move.
   expect((await section.boundingBox())?.y).toBe(before?.y);
   await expect(section.locator("input.tools-pick:checked")).toHaveCount(2);

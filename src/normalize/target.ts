@@ -154,10 +154,11 @@ export function proposeTarget(
  * keeps every choice.
  */
 export function targetFormatOverrides(o: FormatOverrides, target: Pick<WriteTarget, "strict" | "version">): FormatOverrides {
-  if (!target.strict) return o;
+  if (!target.strict) return { ...o, writeVersion: target.version };
   return {
     ...o,
     standard: target.version,
+    writeVersion: target.version,
     date: isStandardDatePattern(o.date) ? o.date : "D MMM YYYY",
     datePlaceholder: "none",
     privacy: "RESN",

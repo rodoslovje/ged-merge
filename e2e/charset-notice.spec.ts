@@ -14,7 +14,7 @@ test("a non-UTF-8 file is told it will be saved as UTF-8", async ({ page }) => {
   await page.locator("input.file-input").first().setInputFiles(W1250);
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
 
   const note = page.locator(".tools-note");
   await expect(note).toHaveCount(1);

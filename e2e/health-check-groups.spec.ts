@@ -25,7 +25,7 @@ test("the health check lists data issues and GEDCOM issues on their own tabs", a
   await page.getByText("Health check", { exact: true }).first().click();
 
   const data = page.getByRole("tab", { name: /Data issues/ });
-  const gedcom = page.getByRole("tab", { name: /GEDCOM .* issues/ });
+  const gedcom = page.getByRole("tab", { name: /GEDCOM .* compliance/ });
   await expect(data).toHaveAttribute("aria-selected", "true");
   const list = page.locator(".tools-issues");
   await expect(list).toContainText("Sex not recorded");

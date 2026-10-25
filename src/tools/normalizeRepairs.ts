@@ -27,7 +27,7 @@ export type NormalizeRepairKind = "dangling" | "dups" | "dates" | "nonStandard" 
  *  standard has otherwise. */
 export const NORMALIZE_REPAIRS: readonly NormalizeRepairKind[] = [
   "dangling", "dups", "dates", "nonStandard",
-  "values", "repeats", "forms", "notes", "relocate", "agency", "citationPage", "mediaInfo",
+  "values", "repeats", "forms", "notes", "relocate", "agency", "sourceFields", "extensions", "citationPage", "mediaInfo",
   "childPedi", "smartMatch", "assoDates", "stamps",
 ];
 
@@ -60,7 +60,10 @@ export function keptHabits(
  *  habits a file kept with its variations keeps (see {@link keptHabits}). */
 export function normalizeRepairKinds(dataset: Dataset, overrides?: FormatOverrides): NormalizeRepairKind[] {
   const kept = keptHabits(dataset, overrides);
-  return NORMALIZE_REPAIRS.filter((k) => !(k === "agency" && kept.coverage) && !(k === "stamps" && kept.stamps));
+  // An extension with a 7.0 structure of its own is a program's habit too:
+  // only a strict 7.0 target rewrites it.
+  return NORMALIZE_REPAIRS.filter((k) =>
+    !(k === "agency" && kept.coverage) && !(k === "stamps" && kept.stamps) && !(k === "extensions" && overrides?.standard !== "7.0"));
 }
 
 /** The repairs that rewrite dates: Normalize runs and counts them with its
@@ -75,6 +78,6 @@ export function runNormalizeRepair(dataset: Dataset, kind: NormalizeRepairKind, 
     case "dups": return fixDuplicatePointers(dataset);
     case "dates": return fixDates(dataset, undefined, onDate);
     case "nonStandard": return fixNonStandardDates(dataset, overrides, undefined, onDate);
-    default: return fixConformance(dataset, kind);
+    default: return fixConformance(dataset, kind, undefined, overrides);
   }
 }

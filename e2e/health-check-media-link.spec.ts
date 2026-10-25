@@ -27,7 +27,7 @@ test("a media link with a label in front opens the link editor, and the correcte
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
 
   const missing = page.locator(".tools-issue", { hasText: "no FORM line" });
   await expect(missing).toHaveCount(2);

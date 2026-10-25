@@ -4,6 +4,9 @@ import {
   attachSourceCitation,
   createMediaRecord,
   createSourceRecord,
+  keepsSourceTag,
+  settleSourceFields,
+  sourceWriteVersion,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
   FAM_CHILD_ORDER,
@@ -637,6 +640,9 @@ function mintSource(
   const title = fetched?.title
     ? (siteSourceTitle(recognized.site, fetched.title, filingNumber) ?? fetched.title)
     : ownTitle || (siteSourceTitle(recognized.site, p.title, filingNumber) ?? p.title);
+  // Read before the record is written: its own FILN must not count as the
+  // main file's habit.
+  const keepFiln = keepsSourceTag(records, "FILN", placement.overrides);
   const source = createSourceRecord(
     records,
     {
@@ -656,7 +662,9 @@ function mintSource(
     dateRange: fetched?.dateRange ?? p.dateRange,
     collection: recognized.collection,
     collectionId: filingNumber,
-  });
+  }, { standard: placement.overrides?.standard, sourceCoverage: placement.overrides?.sourceCoverage });
+  // The id settles on the repository link the extras may just have added.
+  if (!keepFiln) settleSourceFields(source, sourceWriteVersion(placement.overrides), { PERI: true });
   const objeXref = firstChild(source, "OBJE")?.value;
   if (objeXref) {
     const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);

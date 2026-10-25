@@ -35,7 +35,9 @@ import {
 } from "./report";
 import { baptismTargetTag, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
 import { pageObjeTitle, parseMatriculaUrl, placeholderMediaTitle, recognizeSourceUrl, siteTitle } from "./urls";
-import { addObjeToSource, createSourceRecord, sourceFieldTag, SOUR_FIELD_TRAILING } from "../../gedcom/edit/sources";
+import {
+  addObjeToSource, createSourceRecord, keepsSourceTag, settleSourceFields, sourceWriteVersion, SOUR_FIELD_TRAILING, writesIdAsCallNumber,
+} from "../../gedcom/edit/sources";
 import { mediaTitleLine, writeMediaTitle } from "../../gedcom/edit/media";
 import { dateFixContext, type DateFixContext, proposeDateFix } from "../fixDates";
 import { normalizeDateString } from "../../normalize/date";
@@ -883,6 +885,13 @@ function ensureSiteRepo(
   return repo ? { xref: repo.xref!, created: repo } : undefined;
 }
 
+/** The register a source covers, read from its site or else its title — what
+ *  a standard `DATA › EVEN` coverage is stated under. "unknown" leaves
+ *  nothing to state it under. */
+export function sourceRegisterOf(site: ReshapeSite | undefined, title: string | undefined): BookType {
+  return (site ? SITE_BOOK_TYPE[site] : undefined) ?? classifyBookType([title]);
+}
+
 /**
  * Give a SOUR record newly created from a recognized site URL the same extras
  * the Organize sources tool writes on its own new sources: `PLAC` matched
@@ -904,6 +913,8 @@ export function applySiteSourceExtras(
     repo?: "auto" | "none";
     sourceCoverage?: "vendor" | "standard" | "auto";
     baptism?: "BIRT" | "BAPM" | "auto";
+    /** Set by a strict target format: write only that version's forms. */
+    standard?: "5.5.1" | "7.0";
   } = {},
 ): GedNode | undefined {
   const place = buildPlaceResolver(records).resolve(meta.place);
@@ -912,7 +923,7 @@ export function applySiteSourceExtras(
     opts.sourceCoverage && opts.sourceCoverage !== "auto" ? opts.sourceCoverage : detectSourceCoverage(records);
   // The register type the coverage would claim: the site's inherent kind, or
   // whatever the title says ("… - Deaths (Umrli) 1896-1911 - …").
-  const bookType = (site ? SITE_BOOK_TYPE[site] : undefined) ?? classifyBookType([childText(sourceNode, "TITL")]);
+  const bookType = sourceRegisterOf(site, childText(sourceNode, "TITL"));
   const baptismTag = opts.baptism && opts.baptism !== "auto" ? opts.baptism : baptismTargetTag(records);
   const standard =
     coverage === "standard" &&
@@ -921,7 +932,9 @@ export function applySiteSourceExtras(
       coverageEvents(bookType, baptismTag, place, dateRange, undefined),
       undefined,
     );
-  if (!standard) {
+  // Without a register to state them under, the place and years stand flat
+  // on the record — which no version allows, so a strict target drops them.
+  if (!standard && !opts.standard) {
     fillField(sourceNode, "PLAC", place);
     fillField(sourceNode, "DATE", dateRange);
   }
@@ -1012,8 +1025,15 @@ export function reshapeSources(
 
   const { fold, pageMedia, baptismTag, createRepos, coverage } = resolveFormatOptions(clone, opts);
   // Where this file states an archive's id: the repository link's call number,
-  // or the source's own filing number. One or the other, never both.
-  const callNumbers = writesCallNumbers(clone, coverage);
+  // or the source's own filing number. One or the other, never both. Read
+  // before the run writes any: its own FILNs must not count as the habit.
+  const callNumbers = writesIdAsCallNumber(clone, coverage, opts);
+  const keepFiln = keepsSourceTag(clone, "FILN", opts);
+  // A place or years without a register stand flat on the record, which a
+  // strict target never writes.
+  const keepFlat = !opts.standard;
+  /** The sources this run writes, whose ids settle once their links are in. */
+  const written = new Set<GedNode>();
   // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
@@ -1118,7 +1138,7 @@ export function reshapeSources(
       // never both (see `writesCallNumbers`).
       const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
       if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
-      else fillField(sourceNode, sourceFieldTag(clone, "FILN", opts), fields.filingNumber);
+      else fillField(sourceNode, "FILN", fields.filingNumber);
     } else {
       sourceNode = createSourceRecord(clone, fields, undefined, opts);
       byXref.set(sourceNode.xref!, sourceNode);
@@ -1133,7 +1153,7 @@ export function reshapeSources(
           coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
           fields.agency,
         );
-      if (!standard) {
+      if (!standard && keepFlat) {
         fillField(sourceNode, "PLAC", fields.place);
         fillField(sourceNode, "DATE", fields.dateRange);
       }
@@ -1169,6 +1189,7 @@ export function reshapeSources(
         sourceNode.children.push(link);
       }
     }
+    written.add(sourceNode);
     const sourceXref = sourceNode.xref!;
 
 
@@ -1253,10 +1274,13 @@ export function reshapeSources(
         );
       if (!std) {
         fillField(hit.rec, "AGNC", fields.agency);
-        fillField(hit.rec, "PLAC", fields.place);
-        fillField(hit.rec, "DATE", fields.dateRange);
+        if (keepFlat) {
+          fillField(hit.rec, "PLAC", fields.place);
+          fillField(hit.rec, "DATE", fields.dateRange);
+        }
       }
-      if (!filingNumberOf(hit.rec)) fillField(hit.rec, sourceFieldTag(clone, "FILN", opts), fields.filingNumber);
+      if (!filingNumberOf(hit.rec)) fillField(hit.rec, "FILN", fields.filingNumber);
+      written.add(hit.rec);
       counts.citationsRewritten++;
     }
 
@@ -1538,6 +1562,14 @@ export function reshapeSources(
       // cleanly: the citation's container gets the cited page's image.
       ensurePageMedia(container, order, urlFor(hit));
     }
+  }
+
+  // The ids written bare above settle on the repository links now in place,
+  // and a periodical joins the title, where the standard's forms are written.
+  if (!keepFiln) {
+    const version = sourceWriteVersion(opts);
+    const keep = { PERI: keepsSourceTag(clone, "PERI", opts) };
+    for (const rec of written) settleSourceFields(rec, version, keep);
   }
 
   return { records: clone, counts };

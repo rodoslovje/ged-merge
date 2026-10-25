@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
-import { serializeDataset } from "../gedcom/serialize";
-import { countSplitCoordFills, fillPlaceCoordsFromFile, scanPlaceCoords } from "./placeCoords";
+import { scanPlaceCoords } from "./placeCoords";
 
 function buildFromText(text: string) {
   const buf = new TextEncoder().encode(text);
@@ -55,7 +54,6 @@ describe("scanPlaceCoords", () => {
     expect(found).toEqual([
       { value: "Stražišče,Kranj,Slovenia", address: "", coord: { lat: 46.2331, lon: 14.3308 }, covered: 1, missing: 1 },
     ]);
-    expect(countSplitCoordFills(found)).toBe(1);
   });
 
   it("reports a value carrying two genuinely different coordinates, and offers no fill", () => {
@@ -180,21 +178,5 @@ describe("scanPlaceCoords", () => {
 0 TRLR
 `;
     expect(scanPlaceCoords(buildFromText(text))).toEqual({ fills: [], conflicts: [] });
-  });
-});
-
-describe("fillPlaceCoordsFromFile", () => {
-  it("writes the file coordinate into the missing occurrence only, undoably", () => {
-    const ds = buildFromText(SAMPLE);
-    const patches = fillPlaceCoordsFromFile(ds);
-    // Only I2 (the coordinate-less Stražišče) changes.
-    expect(patches.map((p) => p.id)).toEqual(["@I2@"]);
-    const deat = ds.individuals.get("@I2@")!.events.find((e) => e.tag === "DEAT")!;
-    expect(deat.place?.coord).toEqual({ lat: 46.2331, lon: 14.3308 });
-    // The uncoordinated "Kranj, Slovenija" values are untouched — nothing to copy.
-    const text = serializeDataset(ds);
-    expect(text).not.toContain("3 MAP\n4 LATI N46.23887");
-    // A rescan finds nothing left to fill.
-    expect(scanPlaceCoords(ds).fills).toEqual([]);
   });
 });

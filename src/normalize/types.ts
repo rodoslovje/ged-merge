@@ -26,6 +26,11 @@ export interface MainProfile {
    * Absent when the main carries no markers — the compare's dialect then
    * passes through unchanged. */
   privacyStyle?: PrivacyTagStyle;
+  /** Which of a source's GEDCOM 5.5-EL lines — the filing number `FILN`, the
+   *  periodical `PERI` — the main keeps bare (MacFamilyTree's habit, never in
+   *  a strict target). Incoming ones it does not keep are restated in the
+   *  standard's form: the repository link's `CALN`, the `TITL`. */
+  sourceTags?: { FILN: boolean; PERI: boolean };
 }
 
 /**

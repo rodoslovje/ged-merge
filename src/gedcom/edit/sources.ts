@@ -1,4 +1,5 @@
-import { filingNumberOf, isPointer, looksLikeUrl, periodicalOf, resolveSourceCitation } from "../source";
+import { filingNumberOf, isPointer, looksLikeUrl, periodicalOf, resolveSourceCitation, writesCallNumbers } from "../source";
+import { VOID_XREF } from "../assoc";
 import type { FormatOverrides } from "../../normalize/formatOverrides";
 import { linkKey } from "../../normalize/links";
 import { childrenByTag, firstChild, removeChildren } from "../node";
@@ -41,16 +42,17 @@ export function createSourceRecord(
    *  the fresh ids must skip — see `nextXref`. */
   reserved?: ReadonlySet<string>,
   /** The format choices with the target format applied: a strict target
-   *  writes the standard forms (see {@link sourceFieldTag}). */
+   *  writes the standard forms (see {@link keepsSourceTag}). */
   overrides?: Pick<FormatOverrides, "standard">,
 ): GedNode {
   const raw: GedNode = { level: 0, xref: nextXref(records, "S", reserved), tag: "SOUR", children: [] };
   const push = (tag: string, value: string | undefined) => {
     if (value) raw.children.push({ level: 1, tag, value, children: [] });
   };
-  push("TITL", fields.title);
+  const keepPeri = keepsSourceTag(records, "PERI", overrides);
+  push("TITL", keepPeri ? fields.title : titleWithPeriodical(fields.title, fields.periodical));
   push("AUTH", fields.author);
-  push(sourceFieldTag(records, "PERI", overrides), fields.periodical);
+  if (keepPeri) push("PERI", fields.periodical);
   push("PUBL", fields.publisher);
   if (overrides?.standard && fields.agency) {
     // Neither version has AGNC on the record itself: the standard states the
@@ -59,7 +61,10 @@ export function createSourceRecord(
   } else {
     push("AGNC", fields.agency);
   }
-  push(sourceFieldTag(records, "FILN", overrides), fields.filingNumber);
+  // Bare even where the standard's call number is wanted: the repository link
+  // it belongs on is the caller's to add, so the caller settles it after (see
+  // `settleSourceFields`).
+  push("FILN", fields.filingNumber);
   push("NOTE", fields.note);
   insertRecord(records, raw);
   bumpSourceCacheVersion(records);
@@ -170,6 +175,9 @@ export type EditSourceFields = NewSourceFields & {
   /** The years the source covers; undefined leaves them as they are. */
   dateRange?: string;
   page?: string; quay?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string;
+  /** Read, never written: the record states its coverage in `DATA › EVEN`
+   *  (see {@link statesCoverage}), so its place and years are standard. */
+  statesCoverage?: boolean;
 };
 
 /** Create a top-level `REPO` record holding just a `NAME` — the manual "New
@@ -201,7 +209,7 @@ export function updateSourceCitation(
   index: number,
   fields: EditSourceFields,
   notes?: SharedNoteCtx,
-  overrides?: Pick<FormatOverrides, "standard">,
+  overrides?: Pick<FormatOverrides, "standard" | "writeVersion">,
 ): void {
   const citation = sourceCitationNodes(node)[index];
   if (!citation) return;
@@ -224,19 +232,134 @@ export function updateSourceCitation(
 }
 
 /**
- * The tag a source record's filing number, periodical title or flat date
- * range is written with. GEDCOM 5.5-EL's `FILN` and `PERI`, like a `DATE` on
- * the record itself (the standard states it in `DATA › EVEN`), are in neither
- * 5.5.1 nor 7.0, so a
- * strict target format writes the extensions `_FILN`/`_PERI`; the file's own
- * format keeps the bare tag where the file already writes it, and writes the
- * extension otherwise. Both spellings read alike (`filingNumberOf`).
+ * The tag a source record's flat date range is written with. A `DATE` on the
+ * record itself is in neither 5.5.1 nor 7.0 (the standard states it in
+ * `DATA › EVEN`), so a strict target format writes the extension `_DATE`; the
+ * file's own format keeps the bare tag where the file already writes it, and
+ * writes the extension otherwise.
  */
-export function sourceFieldTag(records: GedNode[], tag: "FILN" | "PERI" | "DATE", overrides?: Pick<FormatOverrides, "standard">): string {
+export function sourceFieldTag(records: GedNode[], tag: "DATE", overrides?: Pick<FormatOverrides, "standard">): string {
   if (overrides?.standard) return `_${tag}`;
   return memoOnContent(records, `sourceFieldTag:${tag}`, () =>
     records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === tag)) ? tag : `_${tag}`,
   );
+}
+
+/**
+ * Whether a write keeps a source's `FILN` or `PERI` — GEDCOM 5.5-EL's filing
+ * number and periodical, which neither 5.5.1 nor 7.0 has. Only a file kept
+ * with its variations that already writes the tag (MacFamilyTree's habit)
+ * keeps it; everywhere else the standard's own form is written instead: the
+ * repository link's call number, and the title (see {@link settleSourceFields}).
+ */
+export function keepsSourceTag(records: GedNode[], tag: "FILN" | "PERI", overrides?: Pick<FormatOverrides, "standard">): boolean {
+  if (overrides?.standard) return false;
+  return memoOnContent(records, `keepsSourceTag:${tag}`, () =>
+    records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === tag)),
+  );
+}
+
+/** Whether a source states what it covers in the standard's `DATA › EVEN`,
+ *  where its place and years are the standard's own lines. */
+export function statesCoverage(rec: GedNode): boolean {
+  const data = firstChild(rec, "DATA");
+  return !!data && childrenByTag(data, "EVEN").length > 0;
+}
+
+/** Whether a write may put a source's place or years flat on the record,
+ *  where neither version has them: only a file kept with its variations that
+ *  already writes them so (MacFamilyTree's habit), never a strict target. */
+export function keepsFlatCoverage(records: GedNode[], overrides?: Pick<FormatOverrides, "standard">): boolean {
+  if (overrides?.standard) return false;
+  return memoOnContent(records, "keepsFlatCoverage", () =>
+    records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "PLAC" || c.tag === "DATE" || c.tag === "_DATE")),
+  );
+}
+
+/** Whether a write states the archive's id as the repository link's call
+ *  number rather than as the source's own `FILN`: always where the standard's
+ *  form is written, else as the file does (see `writesCallNumbers`). */
+export function writesIdAsCallNumber(
+  records: GedNode[],
+  coverage?: "vendor" | "standard",
+  overrides?: Pick<FormatOverrides, "standard">,
+): boolean {
+  return !keepsSourceTag(records, "FILN", overrides) || writesCallNumbers(records, coverage);
+}
+
+/** The version a source's standard forms are written in: the strict target's,
+ *  else the file's own. */
+export function sourceWriteVersion(overrides?: Pick<FormatOverrides, "standard" | "writeVersion">): "5.5.1" | "7.0" {
+  return overrides?.standard ?? overrides?.writeVersion ?? "5.5.1";
+}
+
+/** A title with the periodical or collection it belongs to: `Title, Periodical`
+ *  — the periodical alone without a title, the title alone where it already
+ *  names it. */
+export function titleWithPeriodical(title: string | undefined, periodical: string | undefined): string | undefined {
+  const t = title?.trim() ?? "";
+  const p = periodical?.trim() ?? "";
+  if (!p) return t || undefined;
+  if (!t) return p;
+  return t.toLowerCase().includes(p.toLowerCase()) ? t : `${t}, ${p}`;
+}
+
+/**
+ * Restate a source record's GEDCOM 5.5-EL fields in the standard's own form:
+ *
+ *  - `FILN`/`_FILN`, the archive's id for the source, becomes the call number
+ *    (`CALN`) on its first repository link. A source kept in no recorded
+ *    repository gets a link to none — 5.5.1 writes `REPO` without a pointer,
+ *    7.0 points it at `@VOID@`, both for exactly this. A link already stating
+ *    the number keeps its one line;
+ *  - `PERI`/`_PERI`, the periodical or collection, joins the title (see
+ *    {@link titleWithPeriodical}).
+ *
+ * A tag named in `keep` is the file's own habit: its `_` spelling becomes the
+ * bare one instead. Returns the lines it settled — none when the record has
+ * nothing to restate.
+ */
+export function settleSourceFields(
+  rec: GedNode,
+  version: "5.5.1" | "7.0",
+  keep: { FILN?: boolean; PERI?: boolean } = {},
+): GedNode[] {
+  const settled: GedNode[] = [];
+  for (const node of [...rec.children]) {
+    const bare = node.tag.replace(/^_/, "");
+    if (bare !== "FILN" && bare !== "PERI") continue;
+    if (keep[bare]) {
+      if (node.tag !== bare) {
+        node.tag = bare;
+        delete node.spelling;
+        settled.push(node);
+      }
+      continue;
+    }
+    settled.push(node);
+    const value = node.value?.trim();
+    if (bare === "PERI") {
+      const title = firstChild(rec, "TITL");
+      if (!title) {
+        // The periodical is the source's only name: the line becomes its title.
+        node.tag = "TITL";
+        delete node.spelling;
+        continue;
+      }
+      title.value = titleWithPeriodical(title.value, value);
+    } else if (value) {
+      let link = firstChild(rec, "REPO");
+      if (!link) {
+        link = { level: rec.level + 1, tag: "REPO", value: version === "7.0" ? VOID_XREF : undefined, children: [] };
+        insertGrouped(rec, link, ["CHAN", "CREA"]);
+      }
+      if (!childrenByTag(link, "CALN").some((c) => c.value?.trim() === value)) {
+        link.children.push({ level: link.level + 1, tag: "CALN", value, children: [] });
+      }
+    }
+    rec.children.splice(rec.children.indexOf(node), 1);
+  }
+  return settled;
 }
 
 /**
@@ -251,8 +374,15 @@ export function setSourceRecordFields(
   sourceNode: GedNode,
   fields: EditSourceFields,
   notes?: SharedNoteCtx,
-  overrides?: Pick<FormatOverrides, "standard">,
+  overrides?: Pick<FormatOverrides, "standard" | "writeVersion">,
 ): void {
+  // Read before any line is written: whether the file keeps its own filing
+  // number and periodical lines, or the standard's forms are written.
+  const keepFiln = keepsSourceTag(records, "FILN", overrides);
+  const keepPeri = keepsSourceTag(records, "PERI", overrides);
+  // A place or years with no `DATA › EVEN` to hold them would stand flat on
+  // the record, which a strict target never adds.
+  const keepFlat = !overrides?.standard;
   // The dialog displays one line per field — the first node of the tag — so a
   // save may only touch that node: a second NOTE the dialog never showed
   // survives, an unchanged value stays byte-identical (keeping its CONC wrap
@@ -273,11 +403,11 @@ export function setSourceRecordFields(
     }
     insertGrouped(sourceNode, { level: sourceNode.level + 1, tag, value: trimmed, children: [] }, SOUR_FIELD_TRAILING);
   };
-  // A filing number or periodical lives under either spelling (see
-  // `sourceFieldTag`); the one the record has is edited, under the tag the
-  // target writes — so a strict target turns a bare FILN into _FILN.
+  // A line that lives under either spelling (`DATE`/`_DATE`, a kept
+  // `FILN`/`_FILN`); the one the record has is edited, under the tag the
+  // target writes.
   const setExtension = (tag: "FILN" | "PERI" | "DATE", value: string | undefined) => {
-    const want = sourceFieldTag(records, tag, overrides);
+    const want = tag === "DATE" ? sourceFieldTag(records, tag, overrides) : tag;
     const existing = sourceNode.children.find((c) => c.tag === tag || c.tag === `_${tag}`);
     if (existing && existing.tag !== want && value?.trim()) {
       existing.tag = want;
@@ -297,9 +427,10 @@ export function setSourceRecordFields(
       insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "DATA", children: [{ level: sourceNode.level + 2, tag, value: value.trim(), children: [] }] }, SOUR_FIELD_TRAILING);
       return;
     }
-    if (!data || firstChild(sourceNode, tag)) return setChild(tag, value);
+    const flat = (v: string | undefined) => (tag === "PLAC" && !keepFlat && !firstChild(sourceNode, tag) ? undefined : setChild(tag, v));
+    if (!data || firstChild(sourceNode, tag)) return flat(value);
     const holders = tag === "AGNC" ? [data] : childrenByTag(data, "EVEN");
-    if (holders.length === 0) return setChild(tag, value);
+    if (holders.length === 0) return flat(value);
     const holder = holders.find((h) => firstChild(h, tag)) ?? holders[0];
     const node = firstChild(holder, tag);
     const trimmed = value?.trim();
@@ -311,13 +442,29 @@ export function setSourceRecordFields(
       holder.children.push({ level: holder.level + 1, tag, value: trimmed, children: [] });
     }
   };
-  setChild("TITL", fields.title);
+  // The periodical: the file's own PERI where it keeps one, else part of the
+  // title — a record still carrying the line has it folded in on this save.
+  if (keepPeri) {
+    setChild("TITL", fields.title);
+    setExtension("PERI", fields.periodical);
+  } else {
+    setChild("TITL", titleWithPeriodical(fields.title, fields.periodical ?? periodicalOf(sourceNode)));
+    sourceNode.children = sourceNode.children.filter((c) => c.tag !== "PERI" && c.tag !== "_PERI");
+  }
   setChild("AUTH", fields.author);
-  setExtension("PERI", fields.periodical);
   setChild("PUBL", fields.publisher);
   setCoverageAware("AGNC", fields.agency);
   setCoverageAware("PLAC", fields.place);
-  setExtension("FILN", fields.filingNumber);
+  // The archive's id: the file's own FILN where it keeps one, else the
+  // repository link's call number, settled once the link is in place below.
+  const pendingIds: string[] = [];
+  if (keepFiln) {
+    setExtension("FILN", fields.filingNumber);
+  } else {
+    const id = (fields.filingNumber !== undefined ? fields.filingNumber : filingNumberOf(sourceNode))?.trim();
+    if (id) pendingIds.push(id);
+    sourceNode.children = sourceNode.children.filter((c) => c.tag !== "FILN" && c.tag !== "_FILN");
+  }
   // The years it covers: inside DATA › EVEN where the record states its
   // coverage there, else on the record itself — the line it has, or the one
   // the target writes (see `sourceFieldTag`).
@@ -331,7 +478,7 @@ export function setSourceRecordFields(
       if (node && trimmed) node.value = trimmed;
       else if (node) holder.children = holder.children.filter((c) => c !== node);
       else if (trimmed) holder.children.unshift({ level: holder.level + 1, tag: "DATE", value: trimmed, children: [] });
-    } else {
+    } else if (flat || keepFlat) {
       setExtension("DATE", trimmed);
     }
   }
@@ -357,6 +504,10 @@ export function setSourceRecordFields(
     const existingRepo = firstChild(sourceNode, "REPO");
     if (!repoXref) {
       removeChildren(sourceNode, "REPO");
+      // The call number outlives the repository: the standard's form keeps it
+      // on a link to no repository (see `settleSourceFields`).
+      const caln = fields.repoCaln?.trim();
+      if (!keepFiln && caln) pendingIds.push(caln);
     } else if (existingRepo) {
       existingRepo.value = repoXref;
     } else {
@@ -382,6 +533,10 @@ export function setSourceRecordFields(
     // citations fall back to for a URL — resolved from the cached repo index,
     // so the cache must be rebuilt before the next rebuildIndividual.
     bumpSourceCacheVersion(records);
+  }
+  if (pendingIds.length) {
+    for (const id of pendingIds) sourceNode.children.push({ level: sourceNode.level + 1, tag: "FILN", value: id, children: [] });
+    settleSourceFields(sourceNode, sourceWriteVersion(overrides), { PERI: keepPeri });
   }
 
   const url = fields.url?.trim();
@@ -580,6 +735,7 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     ?.value?.trim();
   const noteVal = text("NOTE");
   return {
+    statesCoverage: statesCoverage(sourceNode),
     title: text("TITL"),
     author: text("AUTH"),
     periodical: periodicalOf(sourceNode),
@@ -593,7 +749,12 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     objeXref,
     // "" (not undefined) when there is no REPO link: the dialog's dropdown
     // shows the explicit no-repository choice and a save writes it back as-is.
-    repoXref: text("REPO") ?? "",
+    // A link to no repository (7.0's `@VOID@`) is the same no-repository
+    // choice: the call number it carries is shown on its own.
+    repoXref: (() => {
+      const repo = text("REPO");
+      return repo && repo.toUpperCase() !== VOID_XREF ? repo : "";
+    })(),
     repoCaln: (() => {
       const repoLink = firstChild(sourceNode, "REPO");
       return repoLink ? firstChild(repoLink, "CALN")?.value?.trim() ?? "" : "";

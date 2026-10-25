@@ -234,14 +234,7 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
   for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
 
   walkNodes(records, (node) => {
-    // A note's own lines the downgrade kept as `_MIME`/`_LANG`/`_TRAN` (see
-    // NOTE_DOWNGRADES) are 7.0 structures again.
-    if ((node.tag === "NOTE" || node.tag === "SNOTE") && !isPointer(node.value)) {
-      for (const c of node.children) {
-        const up = NOTE_UPGRADES[c.tag];
-        if (up) report(ctx, retag(c, up), `${node.tag}.${describe(c)}`);
-      }
-    }
+    if (upgradeExtensionNode(node, ctx)) return;
     if (node.tag === "NOTE" && isPointer(node.value) && noteXrefs.has(node.value)) {
       report(ctx, retag(node, "SNOTE"), `NOTE ${node.value}`);
     } else if (node.tag === "ROMN" || node.tag === "FONE") {
@@ -256,26 +249,19 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       const before = describe(node);
       node.children.push(plain("TYPE", EXID_TYPE_URI[node.tag]));
       report(ctx, retag(node, "EXID"), before);
-    } else if (FS_VENDOR_TAGS.includes(node.tag) && node.level === 1 && node.value?.trim()) {
-      // A FamilySearch person id in a vendor tag: 7.0's EXID says it outright.
-      const before = describe(node);
-      node.children.push(plain("TYPE", FS_EXID_TYPE));
-      report(ctx, upgradeVendor(node, "EXID"), before);
     } else if (node.tag === "REFN" && /^https?:\/\//i.test(firstChild(node, "TYPE")?.value?.trim() ?? "")) {
       // A reference typed by a URI is what the downgrade makes of an EXID it
       // has no 5.5.1 tag for — and what 7.0 calls an external identifier.
       report(ctx, retag(node, "EXID"), describe(node));
+    } else if (node.tag === "REPO" && node.level > 0 && !node.value?.trim()) {
+      // A repository citation with no repository record (a call number
+      // alone): 5.5.1 leaves its pointer out, 7.0 points it at @VOID@.
+      const before = describe(node);
+      node.value = VOID_XREF;
+      report(ctx, node, before);
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       upgradeObje(node, ctx);
     } else if (node.tag === "SEX" && node.value !== undefined) {
-      // The 5.5.1 stand-in for X (`SEX U` + `_SEX X`) becomes the real letter.
-      if (readSex(node) === "X" && node.value.trim().toUpperCase() !== "X") {
-        const before = describe(node);
-        node.value = "X";
-        node.children = node.children.filter((c) => c.tag !== SEX_X_EXTENSION);
-        report(ctx, node, before);
-        return;
-      }
       const letter = { MALE: "M", FEMALE: "F", UNKNOWN: "U" }[node.value.trim().toUpperCase()];
       if (letter && node.value !== letter) {
         const before = describe(node);
@@ -286,11 +272,6 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       migrateStat(node, ctx, "7.0");
     } else if (node.tag === "NAME" && node.level > 0) {
       migrateNameType(node, ctx, "7.0");
-    } else if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
-      // The stand-ins this migration's own downgrade writes for 7-only
-      // structures go back to their real tags, `_UID` to the one 7.0 adopted.
-      const before = describe(node);
-      report(ctx, upgradeVendor(node, UNDERSCORE_UPGRADES[node.tag]), before);
     } else if (node.tag === "PEDI" && node.value !== undefined) {
       const upper = node.value.trim().toUpperCase();
       if (upper !== node.value && ["ADOPTED", "BIRTH", "FOSTER", "SEALING"].includes(upper)) {
@@ -305,6 +286,59 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
 function retag(node: GedNode, tag: string): GedNode {
   node.tag = tag;
   return node;
+}
+
+/**
+ * One line's extension restated as the 7.0 structure it stands in for (see
+ * `STANDARD_FORMS` in gedcom/extensionTerms.ts): a note's `_MIME`/`_LANG`/
+ * `_TRAN`, a FamilySearch id as `EXID`, 5.5.1's stand-in for `SEX X`, and
+ * `_NO`/`_SDATE`/`_UID`. True when the line itself was rewritten.
+ */
+function upgradeExtensionNode(node: GedNode, ctx: MigrateCtx): boolean {
+  // A note's own lines the downgrade kept as `_MIME`/`_LANG`/`_TRAN` (see
+  // NOTE_DOWNGRADES) are 7.0 structures again.
+  if ((node.tag === "NOTE" || node.tag === "SNOTE") && !isPointer(node.value)) {
+    for (const c of node.children) {
+      const up = NOTE_UPGRADES[c.tag];
+      if (up) report(ctx, retag(c, up), `${node.tag}.${describe(c)}`);
+    }
+    return false;
+  }
+  if (FS_VENDOR_TAGS.includes(node.tag) && node.level === 1 && node.value?.trim()) {
+    // A FamilySearch person id in a vendor tag: 7.0's EXID says it outright.
+    const before = describe(node);
+    node.children.push(plain("TYPE", FS_EXID_TYPE));
+    report(ctx, upgradeVendor(node, "EXID"), before);
+    return true;
+  }
+  // The 5.5.1 stand-in for X (`SEX U` + `_SEX X`) becomes the real letter.
+  if (node.tag === "SEX" && node.value !== undefined && readSex(node) === "X" && node.value.trim().toUpperCase() !== "X") {
+    const before = describe(node);
+    node.value = "X";
+    node.children = node.children.filter((c) => c.tag !== SEX_X_EXTENSION);
+    report(ctx, node, before);
+    return true;
+  }
+  if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
+    // The stand-ins this migration's own downgrade writes for 7-only
+    // structures go back to their real tags, `_UID` to the one 7.0 adopted.
+    const before = describe(node);
+    report(ctx, upgradeVendor(node, UNDERSCORE_UPGRADES[node.tag]), before);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * The extension tags a 7.0 file carries where 7.0 has a structure of its own,
+ * restated as that structure — the same rewrites the 5.5.1 → 7.0 conversion
+ * makes, for a file that already declares 7.0. Returns how many lines changed.
+ */
+export function upgradeExtensions(records: GedNode[], onChange: (before: string, after: string) => void = () => {}): number {
+  const ctx: MigrateCtx = { changed: 0, onChange };
+  for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
+  walkNodes(records, (node) => { upgradeExtensionNode(node, ctx); });
+  return ctx.changed;
 }
 
 /**
@@ -590,6 +624,15 @@ function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
         continue;
       }
       const before = `${node.tag}.${child.tag} ${VOID_XREF}`;
+      // A repository citation with no repository record is 5.5.1's too: the
+      // pointer goes, its call number stays.
+      if (child.tag === "REPO") {
+        delete child.value;
+        kept.push(child);
+        ctx.changed++;
+        ctx.onChange(before, `${node.tag}.REPO`);
+        continue;
+      }
       const replaced = child.tag === "SOUR" ? voidCitation(child) : voidAsNote(child);
       ctx.changed++;
       ctx.onChange(before, replaced ? `${node.tag}.${describe(replaced)}` : "—");
