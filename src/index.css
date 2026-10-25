@@ -4397,6 +4397,11 @@ button:focus-visible {
    marks everywhere else — it identifies the entry, it is not the entry. */
 .dd-item .event-glyph,
 .select-menu-value .event-glyph { margin-right: 7px; }
+/* A non-standard event type's tag, at the menu entry's right edge, linking
+   the page that explains it. A chosen value shown in its own button keeps
+   only its mark: a link cannot live inside a button. */
+.dd-item-tag { float: right; margin-left: 16px; font-family: var(--font-mono); font-size: 0.85em; }
+.select-menu-value .dd-item-tag { display: none; }
 .dd-item--current::before {
   content: "✓";
   position: absolute;

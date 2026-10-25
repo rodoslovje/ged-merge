@@ -323,7 +323,7 @@ export const en = {
   "tools.validate.struct.issue.customTag": "Custom tag {{tag}} ({{count}}×)",
   "tools.validate.struct.issue.customTagBare": "{{tag}} is not a GEDCOM {{version}} tag ({{count}}×) — {{software}}: {{meaningEn}}",
   "tools.validate.struct.issue.customTagStandard": "{{tag}} stands in for a structure GEDCOM {{version}} has of its own ({{count}}×)",
-  "tools.validate.struct.terms": "What the tag means",
+  "tools.validate.struct.terms": "Non-standard tag",
   "tools.validate.struct.issue.customTagKnown": "Custom tag {{tag}} ({{count}}×) — {{software}}: {{meaningEn}}",
   "tools.validate.struct.issue.badDate": "Unparseable date: {{sample}}",
   "tools.validate.struct.issue.impossibleDate": "Impossible date: {{sample}}",

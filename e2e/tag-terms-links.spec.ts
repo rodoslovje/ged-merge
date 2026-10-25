@@ -36,6 +36,18 @@ test("a non-standard event tag links its page from the event menu and the compar
   await tagLink.click();
   expect((await popup).url()).toContain("/terms/macfamilytree/NOBI");
 
+  // The event-type menu shows the same link at an entry's right edge; following
+  // it does not pick the entry.
+  await row.locator(".edit-event-label--select").click();
+  const entry = page.locator(".dd-menu .dd-item", { has: page.locator("a.dd-item-tag", { hasText: "NOBI" }) });
+  await expect(entry).not.toContainText("(NOBI)");
+  await expect(entry.locator("a.dd-item-tag")).toHaveAttribute("title", "Non-standard tag");
+  const popup2 = page.waitForEvent("popup");
+  await entry.locator("a.dd-item-tag").click();
+  expect((await popup2).url()).toContain("/terms/macfamilytree/NOBI");
+  await expect(page.locator(".dd-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+
   await page.getByRole("button", { name: "Merge", exact: true }).click();
   await page.locator("input.file-input").last().setInputFiles(COMPARE);
   await page.locator(".candidate-main", { hasText: "Janez" }).first().click();
