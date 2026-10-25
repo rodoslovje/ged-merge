@@ -32,7 +32,7 @@ const chip = (page: Page, name: string) => page.locator(".tools-chip", { hasText
 /** Pick every fixable row under a chip and run them as one batch. */
 async function applyFix(page: Page, chipName: string) {
   await chip(page, chipName).click();
-  await page.locator(".tools-pick-all input").check();
+  await page.getByRole("button", { name: /^Select all fixable/ }).click();
   await page.getByRole("button", { name: /^Fix selected/ }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
 }
@@ -64,7 +64,6 @@ test("fixes picked together run as one step, and one Undo brings them all back",
   await page.locator(".tools-issue", { hasText: "@F9@" }).locator(".tools-pick").check();
   await chip(page, "Duplicate pointers").click();
   await page.locator(".tools-issue").first().locator(".tools-pick").check();
-  await expect(page.locator(".tools-pick-count")).toHaveText("Selected: 2");
   await page.getByRole("button", { name: "Fix selected (2)" }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
   await expect(page.locator(".tools-clean--ok")).toContainText("Fixes made: 2.");

@@ -32,7 +32,7 @@ test("a health-check fix shows in Edit on the events it changed", async ({ page 
   await page.getByRole("tab", { name: /Health check/ }).click();
   await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
   await page.locator(".tools-chip", { hasText: "Text on event lines" }).click();
-  await page.locator(".tools-pick-all input").check();
+  await page.getByRole("button", { name: /^Select all fixable/ }).click();
   await page.getByRole("button", { name: /^Fix selected/ }).click();
   await page.getByRole("button", { name: "Apply fix" }).click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();

@@ -9285,8 +9285,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    the list below. */
 .tools-pick-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 8px; min-height: 2rem; }
 .tools-pick-bar .tools-run { margin: 0; }
-.tools-pick-all { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; cursor: pointer; }
-.tools-pick-count { color: var(--muted); font-size: 0.88rem; }
 .tools-pick { flex: none; margin: 0; align-self: center; cursor: pointer; }
 .tools-tran-list .tools-tran-parts { flex: 0 1 auto; }
 .tools-tran-part .picker-menu-btn {

@@ -467,13 +467,10 @@ export function ValidatePanel({
     });
   }
   const allShownPicked = shownPickable.length > 0 && shownPickable.every((r) => picked.has(rowKey(r.issue)));
-  function toggleAllShown() {
+  function pickAllShown() {
     setPicked((prev) => {
       const next = new Map(prev);
-      for (const r of shownPickable) {
-        if (allShownPicked) next.delete(rowKey(r.issue));
-        else next.set(rowKey(r.issue), r);
-      }
+      for (const r of shownPickable) next.set(rowKey(r.issue), r);
       return next;
     });
   }
@@ -1100,21 +1097,15 @@ export function ValidatePanel({
           {/* Picking rows for one batch: all fixable rows of the view, or some. */}
           {shownPickable.length > 0 && (
             <div className="tools-pick-bar">
-              <label className="tools-pick-all">
-                <input type="checkbox" checked={allShownPicked} onChange={toggleAllShown} />
+              <button className="nav-btn primary tools-run" onClick={() => setBatchPending(true)} disabled={picked.size === 0}>
+                {t("tools.validate.fixPicked", { count: picked.size })}
+              </button>
+              <button className="tools-issue-link" onClick={pickAllShown} disabled={allShownPicked}>
                 {t("tools.validate.pickAll", { count: shownPickable.length })}
-              </label>
-              {picked.size > 0 && (
-                <>
-                  <span className="tools-pick-count">{t("tools.validate.picked", { count: picked.size })}</span>
-                  <button className="nav-btn primary tools-run" onClick={() => setBatchPending(true)}>
-                    {t("tools.validate.fixPicked", { count: picked.size })}
-                  </button>
-                  <button className="nav-btn tools-run" onClick={() => setPicked(new Map())}>
-                    {t("tools.validate.clearPicked")}
-                  </button>
-                </>
-              )}
+              </button>
+              <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
+                {t("tools.sources.dupSelectNone")}
+              </button>
             </div>
           )}
           {shown.length === 0 ? (
