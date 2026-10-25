@@ -108,9 +108,60 @@ describe("findSourceDuplicates — media", () => {
 0 TRLR`, "media");
     expect(groups[0].members.find((m) => m.survivor)?.xref).toBe("@O2@");
   });
+
+  it("keeps the richer media record even when the other is cited more", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O1@
+0 @I2@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE a.jpg
+0 @O2@ OBJE
+1 FILE a.jpg
+1 TITL A nice scan
+0 TRLR`, "media");
+    expect(groups[0].members.map((m) => [m.xref, m.usage])).toEqual([["@O2@", 0], ["@O1@", 2]]);
+  });
+
+  it("keeps the more-cited of two equally rich media records", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O2@
+0 @O1@ OBJE
+1 FILE a.jpg
+0 @O2@ OBJE
+1 FILE a.jpg
+0 TRLR`, "media");
+    expect(groups[0].members.find((m) => m.survivor)?.xref).toBe("@O2@");
+  });
 });
 
 describe("findSourceDuplicates — sources & repos", () => {
+  it("keeps the more-cited of two identical repositories, whatever their stamps", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Baptisms
+1 REPO @R2@
+0 @S2@ SOUR
+1 TITL Deaths
+1 REPO @R2@
+0 @R1@ REPO
+1 NAME Matricula Online
+1 CHAN
+2 DATE 1 JAN 2020
+0 @R2@ REPO
+1 NAME Matricula Online
+0 TRLR`, "repo");
+    expect(groups[0].members.map((m) => [m.xref, m.usage, m.survivor])).toEqual([
+      ["@R2@", 2, true],
+      ["@R1@", 0, false],
+    ]);
+  });
+
   it("groups SOUR records with identical descriptive content under different xrefs", () => {
     expect(ofKind(`0 HEAD
 1 CHAR UTF-8
@@ -479,9 +530,14 @@ describe("findSourceDuplicates — a source that says less", () => {
 1 NAME FamilySearch
 0 TRLR`;
 
-  it("groups it with the one fuller record of its title, which is kept", () => {
+  it("groups it with the one fuller record of its title; the more-cited is kept", () => {
     const groups = ofKind(FILE, "source");
     expect(groups).toHaveLength(1);
+    expect(groups[0].members.map((m) => [m.xref, m.survivor])).toEqual([["@S2@", true], ["@S1@", false]]);
+  });
+
+  it("keeps the fuller record when both are cited alike", () => {
+    const groups = ofKind(FILE.replace("1 BURI\n2 SOUR @S2@\n3 PAGE 187\n", ""), "source");
     expect(groups[0].members.map((m) => [m.xref, m.survivor])).toEqual([["@S1@", true], ["@S2@", false]]);
   });
 
@@ -498,7 +554,30 @@ describe("findSourceDuplicates — a source that says less", () => {
     const ds = dataset(FILE);
     const { records } = dedupeSources(ds.records, findSourceDuplicates(ds).groups);
     const out = serializeGedcom(records);
-    expect(out).toContain("1 DEAT\n2 DATE 4 APR 1893\n2 SOUR @S1@\n3 PAGE 186\n3 QUAY 3\n1 BURI\n2 SOUR @S1@\n3 PAGE 187\n");
-    expect(out).not.toContain("0 @S2@ SOUR");
+    expect(out).toContain("1 DEAT\n2 DATE 4 APR 1893\n2 SOUR @S2@\n3 PAGE 186\n3 QUAY 3\n1 BURI\n2 SOUR @S2@\n3 PAGE 187\n");
+    expect(out).not.toContain("0 @S1@ SOUR");
+    // The kept lean record takes what only the dropped one said.
+    expect(out).toContain("0 @S2@ SOUR\n1 TITL Deaths (Umrli) 1858-1896, Ravna Gora\n1 REPO @R1@\n2 CALN 004679930\n1 DATA\n2 EVEN DEAT\n");
+  });
+
+  it("folds the dropped repository's lines into the kept one, stamps aside", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Baptisms
+1 REPO @R2@
+0 @R1@ REPO
+1 NAME Matricula Online
+1 ADDR Ljubljana
+1 CHAN
+2 DATE 1 JAN 2020
+0 @R2@ REPO
+1 NAME Matricula Online
+0 TRLR`);
+    const report = findSourceDuplicates(ds);
+    expect(report.groups[0].members.find((m) => m.survivor)?.xref).toBe("@R2@");
+    const out = serializeGedcom(dedupeSources(ds.records, report.groups).records);
+    expect(out).toContain("0 @R2@ REPO\n1 NAME Matricula Online\n1 ADDR Ljubljana\n0 TRLR");
+    expect(out).not.toContain("@R1@");
   });
 });

@@ -11,6 +11,7 @@ import {
   sourceContentParts,
   sourceTitle,
   filingNumberOf,
+  isSourceStampTag,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
 
@@ -133,9 +134,10 @@ function sourceUrlOf(rec: GedNode, objes: Map<string, GedNode>): string | undefi
 }
 
 /** Bucket top-level `tag` records by `keyOf` and emit a {@link DupGroup} per
- *  bucket with 2+ members. The survivor (kept) is the one saying the most
- *  (`fullness`, where given), then the richest record, then the most-cited,
- *  then the first in file order — minimizing data loss and changes. */
+ *  bucket with 2+ members. The survivor (kept) is the most-cited — so the
+ *  fewest pointers are re-written — where `citedFirst` (the apply folds what
+ *  the others say into it), else the one saying the most (`fullness`); then
+ *  the other of the two, the richest record, and the first in file order. */
 function groupRecords(
   records: GedNode[],
   tag: string,
@@ -144,7 +146,8 @@ function groupRecords(
   describe: (rec: GedNode) => { title: string; detail?: string; url?: string },
   refs: Map<string, number>,
   out: DupGroup[],
-  fullness: (rec: GedNode) => number = () => 0,
+  fullness: (rec: GedNode) => number,
+  citedFirst: boolean,
 ): void {
   const buckets = new Map<string, GedNode[]>();
   for (const rec of records) {
@@ -160,7 +163,9 @@ function groupRecords(
     if (recs.length < 2) continue;
     const ranked = recs
       .map((rec, i) => ({ rec, i, full: fullness(rec), rich: richness(rec), use: refs.get(rec.xref!) ?? 0 }))
-      .sort((a, b) => b.full - a.full || b.rich - a.rich || b.use - a.use || a.i - b.i);
+      .sort((a, b) =>
+        (citedFirst ? b.use - a.use || b.full - a.full : b.full - a.full || b.use - a.use) || b.rich - a.rich || a.i - b.i,
+      );
     const members: DupMember[] = ranked.map(({ rec }, idx) => {
       const d = describe(rec);
       return {
@@ -213,7 +218,9 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
       const info = objeInfoOf(rec);
       return { title: info.title || (info.file ? basename(info.file) : rec.xref!), detail: info.url ?? info.file, url: info.url };
     },
-    refs, groups,
+    // Media records share only their `FILE`: a dropped one's title or notes
+    // would be lost, so the one saying the most leads before the most-cited.
+    refs, groups, richness, false,
   );
 
   // A source or repository saying less than one other of its title is keyed
@@ -234,14 +241,14 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
     ds.records, "SOUR", "source",
     contentKey,
     (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: filingNumberOf(rec), url: sourceUrlOf(rec, objes) }),
-    refs, groups, fullness,
+    refs, groups, fullness, true,
   );
 
   groupRecords(
     ds.records, "REPO", "repo",
     contentKey,
     (rec) => ({ title: childText(rec, "NAME") || rec.xref!, detail: childText(rec, "WWW"), url: childText(rec, "WWW") }),
-    refs, groups, fullness,
+    refs, groups, fullness, true,
   );
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -252,11 +259,18 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   return { groups, byKind };
 }
 
-/** Append a pointer child to `survivor` unless it already has the same tag+value. */
-function foldPointer(survivor: GedNode, child: GedNode): void {
-  const v = child.value?.trim();
-  if (survivor.children.some((c) => c.tag === child.tag && c.value?.trim() === v)) return;
-  survivor.children.push(cloneNode(child));
+/** Copy into `survivor` every line of `removed` it does not already carry —
+ *  matched by tag and value, level by level — so whichever record of a group
+ *  is kept, nothing another member said is lost. Stamps stay the survivor's
+ *  own, and a text's `CONT`/`CONC` lines belong to the text they continue. */
+function foldContent(survivor: GedNode, removed: GedNode): void {
+  for (const child of removed.children) {
+    if (isSourceStampTag(child.tag) || child.tag === "CONT" || child.tag === "CONC") continue;
+    const v = child.value?.trim() ?? "";
+    const same = survivor.children.find((c) => c.tag === child.tag && (c.value?.trim() ?? "") === v);
+    if (same) foldContent(same, child);
+    else survivor.children.push(cloneNode(child));
+  }
 }
 
 /** Full-subtree signature of a node — distinguishes two citations of the same
@@ -298,8 +312,9 @@ function collapseRepointedDuplicates(node: GedNode, repointed: Set<GedNode>): vo
 /**
  * Collapse each given duplicate group to its survivor, returning a fresh record
  * forest (the input is never mutated). For every removed record, its citations
- * across the whole file are re-pointed onto the survivor; a removed `SOUR`'s own
- * `OBJE`/`REPO` links are first folded onto the survivor so they aren't lost,
+ * across the whole file are re-pointed onto the survivor; a removed `SOUR`'s or
+ * `REPO`'s lines the survivor lacks (its `OBJE`/`REPO` links, a call number, an
+ * address) are first folded onto the survivor so they aren't lost,
  * then the removed top-level records are dropped and any duplicate sibling
  * pointers introduced by re-pointing are collapsed.
  */
@@ -316,21 +331,16 @@ export function dedupeSources(records: GedNode[], groups: DupGroup[]): { records
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  // Fold a removed source's own media/repo links onto its survivor before drop.
+  // Fold what a removed source or repository says onto its survivor before drop.
   for (const g of groups) {
-    if (g.kind !== "source") continue;
+    if (g.kind === "media") continue;
     const survivor = g.members.find((m) => m.survivor);
     const survNode = survivor && byXref.get(survivor.xref);
     if (!survNode) continue;
     for (const m of g.members) {
       if (m.survivor) continue;
       const removedNode = byXref.get(m.xref);
-      if (!removedNode) continue;
-      for (const child of removedNode.children) {
-        if ((child.tag === "OBJE" || child.tag === "REPO") && child.value && isPointer(child.value.trim())) {
-          foldPointer(survNode, child);
-        }
-      }
+      if (removedNode) foldContent(survNode, removedNode);
     }
   }
 
