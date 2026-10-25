@@ -468,7 +468,8 @@ const NUMBERED_FAMILY_SIZE = 20;
  * registry's own entries and, for the numbered and prefixed families, their
  * first {@link NUMBERED_FAMILY_SIZE} members and the sentence tags PAF and
  * Family Historian write. The bare MacFamilyTree tags (`RACE`, `MISE`, …) are
- * left out: a GEDCOM 7 schema declares extension tags only. Sorted.
+ * left out: a GEDCOM 7 schema declares extension tags only — they are
+ * {@link bareVendorTags}. Sorted.
  */
 export function namedVendorTags(): string[] {
   const tags = new Set<string>([...Object.keys(VENDOR_TAGS), ...Object.keys(PRIVACY_INFO), ...MFT_TEMPLATE_TAGS]);
@@ -477,4 +478,10 @@ export function namedVendorTags(): string[] {
   }
   for (const tag of ["_SENT", "_SENM", "_SENF", "_SENU", "_DATE_TYPE", "_PLACE_TYPE", "_DESC_FLAG", "_CONF_FLAG"]) tags.add(tag);
   return [...tags].filter((tag) => tag.startsWith("_") && vendorTagInfo(tag)).sort();
+}
+
+/** The tags a program writes bare, without the `_` an extension needs
+ *  (MacFamilyTree's `RACE`, `NOBI`, `PRIV`, …): in no GEDCOM version. Sorted. */
+export function bareVendorTags(): string[] {
+  return [...Object.keys(VENDOR_TAGS), ...Object.keys(PRIVACY_INFO)].filter((tag) => !tag.startsWith("_")).sort();
 }

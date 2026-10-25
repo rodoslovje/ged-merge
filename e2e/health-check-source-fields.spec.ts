@@ -11,7 +11,7 @@ const FILE = path.join(tmpdir(), "health-check-source-fields.ged");
 
 writeFileSync(FILE, [
   "0 HEAD", "1 SOUR TEST", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8",
-  "0 @I1@ INDI", "1 NAME Janez /Kos/", "1 SEX M", "1 BIRT", "2 DATE 1880", "2 SOUR @S1@",
+  "0 @I1@ INDI", "1 NAME Janez /Kos/", "1 SEX M", "1 RACE Slovenian", "1 BIRT", "2 DATE 1880", "2 SOUR @S1@",
   "0 @S1@ SOUR", "1 TITL Obituary", "1 _PERI Slovenec", "1 _FILN 123", "1 REPO @R1@",
   "0 @S2@ SOUR", "1 TITL Register", "1 _FILN 9",
   "0 @R1@ REPO", "1 NAME Nadškofijski arhiv",
@@ -38,6 +38,15 @@ test("old _FILN/_PERI lines become the repository's call number and the title", 
   await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
   const filn = page.locator(".tools-issue", { hasText: "Custom tag _FILN" });
   await expect(filn).toBeVisible();
+
+  // A program's bare tag is a deviation of its own, with the page that
+  // explains it a click away.
+  const race = page.locator(".tools-issue", { hasText: "RACE is not a GEDCOM 5.5.1 tag" });
+  await expect(race).toBeVisible();
+  const about = race.getByRole("link", { name: "About the tag" });
+  await expect(about).toHaveAttribute("href", "/terms/macfamilytree/RACE");
+  const pageText = await (await page.request.get("/terms/macfamilytree/RACE/")).text();
+  expect(pageText).toContain("without the underscore that marks an extension");
 
   await filn.getByRole("button", { name: "Write the standard way" }).click();
   await expect(page.locator(".tools-issue", { hasText: "Custom tag _FILN" })).toHaveCount(0);

@@ -911,7 +911,7 @@ describe("validateStructure", () => {
     const report = validateStructure(ds);
     const roln = report.issues.find((i) => i.messageVars?.tag === "ROLN");
     expect(roln?.category).toBe("customTag");
-    expect(roln?.messageKey).toBe("tools.validate.struct.issue.customTagKnown");
+    expect(roln?.messageKey).toBe("tools.validate.struct.issue.customTagBare");
     expect(roln?.messageVars).toMatchObject({ software: "MacFamilyTree" });
     expect(roln?.messageVars?.meaningEn).toBe("source-template field (microfilm roll number)");
     // An undeclared bare tag is still unknown.
@@ -937,7 +937,7 @@ describe("validateStructure", () => {
     expect(ds.individuals.get("@I2@")!.names[0].given).toBe("Milan Ivan");
   });
 
-  it("classifies MacFamilyTree's bare vendor tags as custom info, not unknown warnings", () => {
+  it("classifies MacFamilyTree's bare vendor tags as the program's own, in no GEDCOM version", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -953,7 +953,25 @@ describe("validateStructure", () => {
     expect(report.issues.filter((i) => i.category === "unknownTag")).toHaveLength(0);
     const custom = report.issues.filter((i) => i.category === "customTag");
     expect(custom.map((i) => i.sample).sort()).toEqual(["MISE", "PERI", "RACE", "SECG"]);
-    expect(custom.every((i) => i.severity === "info" && i.messageKey === "tools.validate.struct.issue.customTagKnown")).toBe(true);
+    // Named for their program, but a deviation in every version.
+    expect(custom.every((i) => i.severity === "warning" && i.messageKey === "tools.validate.struct.issue.customTagBare")).toBe(true);
+    expect(custom[0].messageVars).toMatchObject({ software: "MacFamilyTree" });
+  });
+
+  it("tells a valid extension from one standing in for a standard structure", () => {
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 _UID 1234
+1 _UPD 1 JAN 2020
+0 TRLR
+`);
+    const custom = validateStructure(ds).issues.filter((i) => i.category === "customTag");
+    const uid = custom.find((i) => i.sample === "_UID")!;
+    expect(uid).toMatchObject({ severity: "warning", messageKey: "tools.validate.struct.issue.customTagStandard", standardForm: true });
+    // An extension 7.0 has nothing for is valid: an inventory line.
+    expect(custom.find((i) => i.sample === "_UPD")).toMatchObject({ severity: "info", messageKey: "tools.validate.struct.issue.customTagKnown" });
   });
 
   it("recognizes CORP (7.0), and EDTN (5.5-EL source edition) as a program's own tag", () => {

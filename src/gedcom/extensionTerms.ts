@@ -1,4 +1,4 @@
-import { namedVendorTags, vendorTagInfo, type VendorTagCategory } from "./vendorTags.ts";
+import { bareVendorTags, namedVendorTags, vendorTagInfo, type VendorTagCategory } from "./vendorTags.ts";
 
 /**
  * The documentation behind every URI a GEDCOM 7 header's `HEAD.SCHMA` gets
@@ -77,6 +77,8 @@ export function producerSlug(headSour: string | undefined): string | undefined {
 export interface StandardForm {
   form: string;
   converted: boolean;
+  /** The same content's GEDCOM 5.5.1 form, where 5.5.1 has one too. */
+  v551?: string;
 }
 
 const FS_EXID = "EXID with TYPE https://www.familysearch.org/tree/person/";
@@ -94,16 +96,29 @@ export const STANDARD_FORMS: Record<string, StandardForm> = {
   _TRAN: { form: "NOTE.TRAN", converted: true },
   _SEX: { form: "SEX X", converted: true },
   _CREA: { form: "CREA with a DATE", converted: false },
-  _PRIV: { form: "RESN PRIVACY", converted: false },
-  _AKA: { form: "a NAME of its own with TYPE AKA", converted: false },
-  _AKAN: { form: "a NAME of its own with TYPE AKA", converted: false },
-  _BIRN: { form: "a NAME of its own with TYPE BIRTH", converted: false },
-  _MARN: { form: "a NAME of its own with TYPE MARRIED", converted: false },
-  _NICK: { form: "NAME.NICK", converted: false },
-  _EMAIL: { form: "EMAIL", converted: false },
-  _WEBTAG: { form: "WWW", converted: false },
-  _PEDI: { form: "FAMC.PEDI", converted: false },
+  _PRIV: { form: "RESN PRIVACY", converted: false, v551: "RESN privacy" },
+  _AKA: { form: "a NAME of its own with TYPE AKA", converted: false, v551: "a NAME of its own with TYPE aka" },
+  _AKAN: { form: "a NAME of its own with TYPE AKA", converted: false, v551: "a NAME of its own with TYPE aka" },
+  _BIRN: { form: "a NAME of its own with TYPE BIRTH", converted: false, v551: "a NAME of its own with TYPE birth" },
+  _MARN: { form: "a NAME of its own with TYPE MARRIED", converted: false, v551: "a NAME of its own with TYPE married" },
+  _NICK: { form: "NAME.NICK", converted: false, v551: "NAME.NICK" },
+  _EMAIL: { form: "EMAIL", converted: false, v551: "EMAIL" },
+  _WEBTAG: { form: "WWW", converted: false, v551: "WWW" },
+  _PEDI: { form: "FAMC.PEDI", converted: false, v551: "FAMC.PEDI" },
+  FILN: { form: "CALN on the source's repository link", converted: false, v551: "CALN on the source's repository link" },
+  PERI: { form: "part of the source's TITL", converted: false, v551: "part of the source's TITL" },
+  PRIV: { form: "RESN PRIVACY", converted: false, v551: "RESN privacy" },
 };
+
+/** The standard form an extension tag stands in for in `version`, if that
+ *  version has one, and whether the app rewrites the tag into it (only 7.0's,
+ *  through the conversion's own rewrites). */
+export function standardFormIn(tag: string, version: "5.5.1" | "7.0"): { form: string; fixable: boolean } | undefined {
+  const s = STANDARD_FORMS[tag.toUpperCase()];
+  if (!s) return undefined;
+  if (version === "7.0") return { form: s.form, fixable: s.converted };
+  return s.v551 ? { form: s.v551, fixable: false } : undefined;
+}
 
 /** One of the app's own extension tags: what it writes where a version has
  *  no standard structure for the content. */
@@ -424,7 +439,9 @@ let cache: TermsEntry[] | undefined;
 export function termsEntries(): TermsEntry[] {
   if (cache) return cache;
   const out: TermsEntry[] = [];
-  for (const tag of namedVendorTags()) {
+  // A program's bare tags too: no header declares them, but the health check
+  // links every non-standard tag to its page.
+  for (const tag of [...namedVendorTags(), ...bareVendorTags()]) {
     const info = vendorTagInfo(tag)!;
     const slugs = info.software === "multiple programs"
       ? PROGRAM_SLUGS

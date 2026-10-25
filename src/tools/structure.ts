@@ -1,6 +1,7 @@
 import type { Dataset, GedDate, GedNode, ParseWarning } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { vendorTagInfo } from "../gedcom/vendorTags";
+import { standardFormIn } from "../gedcom/extensionTerms";
 import { isVoidPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { dateFixContext, dateStyleContext, isUnparseable, nonStandardDate, proposeDateFix } from "./fixDates";
@@ -86,6 +87,9 @@ export interface StructIssue {
   /** `customTag`: a source's FILN/PERI or their `_` spelling, which the fix
    *  restates as the repository link's CALN and the title file-wide. */
   sourceField?: boolean;
+  /** `customTag`: an extension standing in for a 7.0 structure, which the fix
+   *  restates as that structure file-wide (see `upgradeExtensions`). */
+  standardForm?: boolean;
   /** Conformance `misplacedTag`: a source's flat PLAC/DATE, which the fix
    *  restates as DATA > EVEN file-wide. */
   coverage?: boolean;
@@ -398,6 +402,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   // Field tags the file's own MacFamilyTree source templates declare — the
   // file's vocabulary, so classified custom rather than unknown.
   const templateFields = templateFieldTags(ds.records);
+  const version = ds.version === "7.0" ? "7.0" : "5.5.1";
 
   const tally = (map: Map<string, TagTally>, tag: string, node: GedNode, recordId?: string, recordTag?: string) => {
     const seen = map.get(tag);
@@ -527,18 +532,28 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
           meaning: { en: `source-template field (${field})`, sl: `polje predloge vira (${field})` },
         }
       : undefined);
+    // Three kinds. A `_` extension the version has nothing for is valid: an
+    // inventory line. One standing in for a structure the version has, and a
+    // program's bare tag (in no version), are deviations.
+    const bare = !tag.startsWith("_");
+    const standard = bare ? undefined : standardFormIn(tag, version);
+    const sourceField = (recordTag === "SOUR" && SOURCE_FIELD_TAGS.has(tag)) || undefined;
+    const known: Record<string, string> = info ? { software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl } : {};
     push({
       category: "customTag",
-      severity: "info",
+      severity: bare || standard ? "warning" : "info",
       recordId,
       recordTag,
       sample: tag,
       tooltip,
-      messageKey: info ? "tools.validate.struct.issue.customTagKnown" : "tools.validate.struct.issue.customTag",
-      messageVars: info
-        ? { tag, count, software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl }
-        : { tag, count },
-      sourceField: (recordTag === "SOUR" && SOURCE_FIELD_TAGS.has(tag)) || undefined,
+      messageKey: bare && info
+        ? "tools.validate.struct.issue.customTagBare"
+        : standard
+          ? "tools.validate.struct.issue.customTagStandard"
+          : info ? "tools.validate.struct.issue.customTagKnown" : "tools.validate.struct.issue.customTag",
+      messageVars: { tag, count, version, ...known, ...(standard ? { form: standard.form } : {}) },
+      sourceField,
+      standardForm: standard?.fixable || undefined,
     });
   }
 

@@ -10,6 +10,7 @@ import { applyRecordPatches } from "../ui/historyTypes";
 import { validateConformance } from "./conformance/conformance";
 import { countFixableConformance, fixConformance } from "./fixConformance";
 import { validateStructure } from "./structure";
+import { normalizeRepairKinds } from "./normalizeRepairs";
 
 // A source's filing number and periodical — MacFamilyTree's FILN/PERI, which
 // neither standard has — in the standard's own forms: the repository link's
@@ -94,6 +95,32 @@ describe("an incoming source's FILN/PERI", () => {
     const strict = applyFormatOverrides(inferMainProfile(main), { standard: "5.5.1" });
     const converted = normalizeDataset(file("5.5.1", incoming), strict).dataset;
     expect(sources(converted.records)).toBe("0 @S1@ SOUR\n1 TITL Obituary, Slovenec\n1 REPO\n2 CALN 123");
+  });
+});
+
+describe("the health check's 7.0 extensions repair", () => {
+  const body = "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kos\n1 _UID 0123ABCD\n1 _FID GPZG-CXL\n1 _UPD 1 JAN 2020\n";
+  it("writes each extension as the structure 7.0 has for it, in one step, adding no finding", () => {
+    const ds = file("7.0", body);
+    expect(countFixableConformance(ds, "extensions")).toBe(1);
+    const before = serializeGedcom(ds.records);
+    const patches = fixConformance(ds, "extensions");
+    const text = serializeGedcom(ds.records);
+    expect(text).toContain("1 UID 0123ABCD");
+    expect(text).toContain("1 EXID GPZG-CXL\n2 TYPE https://www.familysearch.org/tree/person/");
+    expect(text).toContain("1 NAME Ana /Kos/\n2 TYPE MARRIED");
+    // An extension with nothing standard behind it stays.
+    expect(text).toContain("1 _UPD 1 JAN 2020");
+    expect(validateConformance(ds)).toEqual([]);
+    expect(fixConformance(ds, "extensions")).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("runs in Normalize only for a strict 7.0 target", () => {
+    const ds = file("7.0", body);
+    expect(normalizeRepairKinds(ds, { standard: "7.0" })).toContain("extensions");
+    expect(normalizeRepairKinds(ds, {})).not.toContain("extensions");
   });
 });
 

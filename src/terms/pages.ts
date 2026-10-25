@@ -175,7 +175,7 @@ function contextHtml(e: TermsEntry): string {
 }
 
 function standardHtml(e: TermsEntry): string {
-  if (!e.standard) return "None: GEDCOM 7 has no structure of its own for this.";
+  if (!e.standard) return e.tag.startsWith("_") ? "None: GEDCOM 7 has no structure of its own for this." : "None: neither GEDCOM version has a structure of its own for this.";
   const note = e.standard.converted
     ? " GED Merge writes it in this tag's place when it converts a file to GEDCOM 7.0, and back when it converts to 5.5.1."
     : "";
@@ -195,19 +195,33 @@ function tagPage(e: TermsEntry, assets: PageAssets): TermsPage {
   const root = rootOf(file);
   const program = vendorName(e.vendor);
   const several = e.vendor === "common";
+  // A program's bare tag is no extension: no header declares it.
+  const bare = !e.tag.startsWith("_");
   const rows = [
     ["Tag", `<code>${esc(e.tag)}</code>`],
-    ["URI", `<code>${esc(uriOf(e.vendor, e.tag))}</code>`],
+    ...(bare ? [] : [["URI", `<code>${esc(uriOf(e.vendor, e.tag))}</code>`]]),
     ["Program", several ? "Several programs write it." : esc(program) + alsoWrittenBy(e, program)],
     ["Meaning", esc(e.meaning.en.charAt(0).toUpperCase() + e.meaning.en.slice(1)) + (e.meaning.sl ? `<br /><span lang="sl">Slovensko: ${esc(e.meaning.sl)}</span>` : "")],
     ...(e.category ? [["Kind", esc(CATEGORY_LABEL[e.category])]] : []),
     ["Where it appears", contextHtml(e)],
-    ["GEDCOM 7 standard form", standardHtml(e)],
+    [bare ? "Standard form" : "GEDCOM 7 standard form", standardHtml(e)],
   ];
+  const lead = bare
+    ? `A tag ${several ? "several genealogy programs write" : `${esc(program)} writes`} without the underscore that marks an extension: it is in neither GEDCOM 5.5.1 nor 7.0.`
+    : `An extension tag ${several ? "several genealogy programs write" : `as ${esc(program)} writes it`}, documented for GEDCOM 7 headers that declare it.`;
+  const about = bare
+    ? `            A file that follows the standard cannot carry <code>${esc(e.tag)}</code> as it is: an extension tag
+            starts with an underscore. GED Merge keeps the tag in a file kept with ${several ? "its program's" : `${esc(program)}'s`}
+            variations, which the program goes on reading, and its health check reports it when the file follows
+            GEDCOM 5.5.1 or 7.0 strictly, with the standard form where there is one.`
+    : `            A GEDCOM 7 file lists the extension tags it uses in its header, under <code>HEAD.SCHMA</code>, each with a
+            URI that says what the tag means. GED Merge declares <code>${esc(e.tag)}</code> with the URI above when it
+            saves a file that carries ${several ? "the tag" : `${esc(program)}'s tag`} as GEDCOM 7.0. The tag and
+            everything under it are kept as the file has them.`;
   const others = termsEntries().filter((o) => o.tag === e.tag && o.vendor !== e.vendor);
   const body = `        <header class="guide-header">
           <h1><code>${esc(e.tag)}</code></h1>
-          <p>An extension tag ${several ? "several genealogy programs write" : `as ${esc(program)} writes it`}, documented for GEDCOM 7 headers that declare it.</p>
+          <p>${lead}</p>
         </header>
         <article class="guide-body">
           <table class="gm-table">
@@ -216,10 +230,7 @@ ${rows.map(([k, v]) => `              <tr><td>${k}</td><td>${v}</td></tr>`).join
             </tbody>
           </table>
           <p>
-            A GEDCOM 7 file lists the extension tags it uses in its header, under <code>HEAD.SCHMA</code>, each with a
-            URI that says what the tag means. GED Merge declares <code>${esc(e.tag)}</code> with the URI above when it
-            saves a file that carries ${several ? "the tag" : `${esc(program)}'s tag`} as GEDCOM 7.0. The tag and
-            everything under it are kept as the file has them.
+${about}
           </p>
 ${others.length ? `          <p>The same tag as other programs write it: ${others.map((o) => `<a href="${root}terms/${o.vendor}/${encodeURIComponent(o.tag)}/">${esc(vendorName(o.vendor))}</a>`).join(", ")}.</p>\n` : ""}          <p><a href="${root}terms/${e.vendor}/">All ${several ? "shared" : esc(program)} tags</a> · <a href="${root}${GUIDE_ANCHOR}">How GED Merge declares extension tags</a></p>
         </article>`;

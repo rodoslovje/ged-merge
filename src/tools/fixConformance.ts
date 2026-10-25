@@ -6,6 +6,7 @@ import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
 import type { FormatOverrides } from "../normalize/formatOverrides";
+import { upgradeExtensions } from "../normalize/migrate";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
@@ -35,6 +36,9 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *    is kept;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
  *    record: moved to `DATA.AGNC` in every source at once;
+ *  - **extensions** — an extension standing in for a 7.0 structure (`_UID`,
+ *    `_FID`, `_MARNM`, …): restated as that structure in every record, the
+ *    rewrites the 5.5.1 → 7.0 conversion makes;
  *  - **sourceFields** — a source's `FILN`/`PERI` (GEDCOM 5.5-EL's filing
  *    number and periodical) or their `_` spellings: the id becomes the
  *    repository link's `CALN`, the periodical joins the `TITL`, in every
@@ -65,7 +69,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -264,6 +268,9 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
     const pass = sourceFieldPass(dataset.records, overrides);
     return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && pass(cloneNode(r)).length > 0).length;
   }
+  if (kind === "extensions") {
+    return dataset.records.filter((r) => r.xref && upgradeExtensions([cloneNode(r)]) > 0).length;
+  }
   const fixable = fixableConformance(dataset.records);
   if (kind === "citationPage") {
     if (!fixable.some((i) => i.citationPage)) return 0;
@@ -320,6 +327,19 @@ export function fixConformance(
   if (kind === "sourceFields") {
     const pass = sourceFieldPass(dataset.records, overrides);
     return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
+  }
+  if (kind === "extensions") {
+    return applyPassSafely(dataset, (journal) => {
+      const patches: RecordPatch[] = [];
+      for (const rec of dataset.records) {
+        if (!rec.xref || upgradeExtensions([cloneNode(rec)]) === 0) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        upgradeExtensions([rec]);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+      return patches;
+    });
   }
   const scanned = fixableConformance(dataset.records, only?.id);
   if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));

@@ -1,5 +1,6 @@
 import { AddSourceDialog } from "../AddSourceDialog";
 import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { TERMS_ORIGIN, termsUri } from "../../gedcom/extensionTerms";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
@@ -37,7 +38,7 @@ import { keptHabits } from "../../tools/normalizeRepairs";
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -298,7 +299,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -728,6 +729,16 @@ export function ValidatePanel({
         run: () => onFixConformance("sourceFields"),
       };
     }
+    // An extension standing in for a 7.0 structure: that structure, in every
+    // record — in a strict 7.0 target; a file kept with its variations keeps it.
+    if (issue.standardForm && issue.recordId && formatOverrides.standard === "7.0") {
+      return {
+        label: t("tools.validate.fixOneSourceFields"),
+        hint: t("tools.validate.fixOneExtensionsHint"),
+        kind: "extensions",
+        run: () => onFixConformance("extensions"),
+      };
+    }
     // A media record's date or place: kept as the extension, in every record.
     if (issue.mediaInfo && issue.recordId) {
       return {
@@ -843,6 +854,17 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.agency) ? countFixableConformance(dataset, "agency") : 0),
     [structure, dataset],
   );
+  // Records whose extensions the 7.0 fix would restate.
+  const fixableExtensions = useMemo(
+    () => (formatOverrides.standard === "7.0" && structure?.issues.some((i) => i.standardForm) ? countFixableConformance(dataset, "extensions") : 0),
+    [structure, dataset, formatOverrides.standard],
+  );
+  // What a tag's page is called on this site: the program that wrote the
+  // file decides whose page it is (see `termsUri`).
+  const headSour = useMemo(() => {
+    const head = dataset.records.find((r) => r.tag === "HEAD");
+    return head?.children.find((c) => c.tag === "SOUR")?.value?.trim();
+  }, [dataset]);
   // Sources whose FILN/PERI the fix would restate.
   const fixableSourceFields = useMemo(
     () => (structure?.issues.some((i) => i.sourceField) ? countFixableConformance(dataset, "sourceFields", formatOverrides) : 0),
@@ -903,6 +925,7 @@ export function ValidatePanel({
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });
   if (fixableSourceFields > 0) fixActions.push({ kind: "sourceFields", count: fixableSourceFields });
+  if (fixableExtensions > 0) fixActions.push({ kind: "extensions", count: fixableExtensions });
   if (fixableCitationPage > 0) fixActions.push({ kind: "citationPage", count: fixableCitationPage });
   if (fixableMediaInfo > 0) fixActions.push({ kind: "mediaInfo", count: fixableMediaInfo });
   if (fixableChildPedi > 0) fixActions.push({ kind: "childPedi", count: fixableChildPedi });
@@ -1164,7 +1187,15 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
-                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency)) ? dialect?.software ?? "" : undefined}
+                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency))
+                      ? dialect?.software ?? ""
+                      // A program's own tag, kept with the file's variations.
+                      : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && !structRowFix(row.issue)
+                        ? String(row.issue.messageVars?.software ?? dialect?.software ?? "")
+                        : undefined}
+                    terms={(row.issue.category === "customTag" || row.issue.category === "unknownTag") && row.issue.sample
+                      ? termsUri(row.issue.sample, headSour).slice(TERMS_ORIGIN.length)
+                      : undefined}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
                       : mediaLinkOf(row.issue)
@@ -1379,6 +1410,7 @@ function StructRow({
   onEditSource,
   variationOf,
   open,
+  terms,
   pick,
 }: {
   issue: StructIssue;
@@ -1396,6 +1428,8 @@ function StructRow({
   variationOf?: string;
   /** Takes the reader to where the finding is settled (no fix of its own). */
   open?: { label: string; run: () => void };
+  /** The page on this site that explains the row's tag. */
+  terms?: string;
   /** The row's checkbox for a batch (empty when it has no fix). */
   pick?: ReactNode;
 }) {
@@ -1421,6 +1455,11 @@ function StructRow({
       )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
       {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
+      {terms && (
+        <a className="tools-issue-link tools-issue-terms" href={terms} target="_blank" rel="noopener">
+          {t("tools.validate.struct.terms")}
+        </a>
+      )}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}
       {issue.fix && !fix && (
