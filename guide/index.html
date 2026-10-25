@@ -1270,7 +1270,7 @@
             <p>
               The health check has two tabs. <strong>Data issues</strong> lists problems in the family data itself — the
               checks described below — together with unreadable or impossible dates and references to records the file
-              does not have. <strong>GEDCOM issues</strong> lists where the file departs from its GEDCOM version: the
+              does not have. <strong>GEDCOM compliance</strong> lists where the file departs from its GEDCOM version: the
               encoding and bad lines, unknown tags, non-standard dates and values, lines out of place, translations
               without a language. For a file that keeps its variations
               (<a href="#target-format">§4</a>), these are often the habits of the program you keep
@@ -1328,10 +1328,7 @@
               each row offers the same for its own date; a slashed date whose day and month could swap
               (<em>05/06/1850</em>) is listed under <em>Ambiguous dates</em> for you to correct by hand. The format
               they are held to is the one chosen in Settings → GEDCOM, else your file's own. When a media folder is connected, <strong>Check media
-              folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
-              coordinates in some records but not others</strong> — a place name geocoded on most events but missing its
-              coordinate on a few (common when an event is added or re-typed after the file was geocoded) — and offers to
-              copy the coordinate the value already carries in the file onto the events that lack it, no lookup needed.
+              folder</strong> lists referenced media files that are missing from it.
               Above the structure findings it names the file's GEDCOM version, lists what a save would add for the file
               to be valid GEDCOM (a missing header, trailer or submitter) or remove from it (the 5.5.1 lines a 7.0
               header must not keep), and offers to save the file in the other
@@ -1424,11 +1421,6 @@
                 woman the husband — where a single spouse contradicts their role, the recorded sex may be the mistake
                 instead, so the finding is left for you.</li>
             </ul>
-            <p>
-              <strong>Fill coordinates from the file</strong> settles the split-place coordinates above. (For places
-              that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode places</a>, which looks them
-              up.)
-            </p>
             <p>
               The check runs once per file, so findings you have since repaired in <span class="gm-pill">Edit</span> stay
               on the list until it runs again. When the file has changed since the last check, <strong>Run again</strong>

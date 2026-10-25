@@ -60,7 +60,6 @@ import {
   type OfficialRename,
 } from "./geocode";
 import { applyAddressCoords, removeAddress, renameAddress, scanAddresses } from "./addresses";
-import { fillPlaceCoordsFromFile } from "./placeCoords";
 import { fixBrokenLinks } from "./fixLinks";
 import { fixDanglingRefs } from "./fixDanglingRefs";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
@@ -351,20 +350,6 @@ describe("undo invariant: places and coordinates", () => {
       walkPlaceAddr(indi.raw, (plac, addr) => pairs.add(placeAddrKey(plac.value!.trim(), addr)));
     }
     expectUndoInvariant(ds, (d) => clearPlaceCoords(d, pairs));
-  });
-
-  it("fill coordinates from the file's own (synium)", () => {
-    const stripped = load(corpusText("synium-7.0-utf8.ged"));
-    // Strip the coordinate off every other place occurrence, so the file's own
-    // other occurrences of the same pair have one to fill it from.
-    let i = 0;
-    for (const indi of stripped.individuals.values()) {
-      walkPlaceAddr(indi.raw, (plac) => {
-        if (i++ % 2) plac.children = plac.children.filter((c) => c.tag !== "MAP");
-      });
-    }
-    const ds = load(serializeGedcom(stripped.records));
-    expectUndoInvariant(ds, (d) => fillPlaceCoordsFromFile(d));
   });
 
   it("address coordinates (geneanet)", () => {

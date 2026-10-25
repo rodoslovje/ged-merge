@@ -11,12 +11,10 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
-import { formatCoord } from "../../geo/points";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
-import { countSplitCoordFills, scanPlaceCoords } from "../../tools/placeCoords";
 import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
@@ -152,7 +150,6 @@ export function ValidatePanel({
   onFixDanglingRefs,
   onFixConformance,
   onFixBatch,
-  onFillPlaceCoords,
   onTagTranslations,
   onEditSource,
   onEditMediaFile,
@@ -174,7 +171,6 @@ export function ValidatePanel({
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   /** Run the picked fixes as one undo step. */
   onFixBatch: (run: () => void) => void;
-  onFillPlaceCoords: () => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Save an edited source record — a finding on a source opens its editor. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
@@ -281,31 +277,6 @@ export function ValidatePanel({
     setMediaChecking(false);
   }
 
-  // Places coordinated on some events but not others, grouped by place + the
-  // event's address — fillable from the file itself. Detected on the main thread
-  // (a PLAC walk), like the fixable-subset counts above; re-derived after a
-  // fix's re-validate refreshes `report`. (The same scan's *conflicts* — one
-  // pair carrying two different coordinates — are reported on the geocode page,
-  // where the register and the maps that settle them are at hand.)
-  const coordReport = useMemo(
-    () => scanPlaceCoords(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, report],
-  );
-  const splitPlaces = coordReport.fills;
-  const splitFills = countSplitCoordFills(splitPlaces);
-  const [placeCoordDone, setPlaceCoordDone] = useState<number | null>(null);
-  const [placeCoordPending, setPlaceCoordPending] = useState(false);
-
-  function applyPlaceCoordFix() {
-    setPlaceCoordPending(false);
-    const changed = onFillPlaceCoords();
-    setPlaceCoordDone(changed);
-    // Re-validate (in the worker) so the shared report — and this section's
-    // main-thread scan, which keys on it — refreshes to the fixed data.
-    scans.refresh("validate");
-  }
-
   // One finding's own repair. Every batch button above is also offered here, on
   // the row that raised the question, narrowed to that record — so a user who
   // agrees with three of eight findings can settle those three and leave the
@@ -346,8 +317,6 @@ export function ValidatePanel({
     setBatchDone(null);
     setPicked(new Map());
     setBatchPending(false);
-    setPlaceCoordDone(null);
-    setPlaceCoordPending(false);
   }, [dataset]);
 
   // A fresh health check has landed: its rows are the repaired truth, so the
@@ -1009,45 +978,6 @@ export function ValidatePanel({
           </div>
         )
       )}
-      {group === "data" && placeCoordDone !== null && (
-        <p className="tools-clean tools-clean--ok">
-          {t(`tools.validate.placeCoord.${placeCoordDone > 0 ? "done" : "none"}`, { count: placeCoordDone })}
-        </p>
-      )}
-      {group === "data" && splitPlaces.length > 0 && placeCoordDone === null && (
-        <div className="tools-struct">
-          <div className="tools-examples-title">{t("tools.validate.placeCoord.title")}</div>
-          <p className="tools-fix-hint">{t("tools.validate.placeCoord.hint", { count: splitPlaces.length, fills: splitFills })}</p>
-          <button className="nav-btn primary tools-run" onClick={() => setPlaceCoordPending(true)}>
-            {t("tools.validate.placeCoord.fix", { count: splitFills })}
-          </button>
-          <ul className="tools-issues">
-            {splitPlaces.slice(0, 200).map((p, i) => (
-              <li key={`${p.value}\u0000${p.address}`} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
-                <span className="tools-issue-msg">{p.address ? `${p.value} · ${p.address}` : p.value}</span>
-                <span className="tools-chip-count" title={t("tools.validate.placeCoord.occ", { count: p.missing })}>
-                  {p.missing}
-                </span>
-                <span className="gm-data gm-coord gm-coord--set">
-                  {formatCoord(p.coord)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {splitPlaces.length > 200 && (
-            <p className="tools-fix-hint">{t("tools.geocode.more", { count: splitPlaces.length - 200 })}</p>
-          )}
-        </div>
-      )}
-      {placeCoordPending && (
-        <ConfirmDialog
-          message={`${t("tools.validate.placeCoord.fix", { count: splitFills })}\n\n${t("tools.validate.placeCoord.fixHint")}`}
-          confirmLabel={t("tools.validate.applyFix")}
-          busy
-          onConfirm={applyPlaceCoordFix}
-          onCancel={() => setPlaceCoordPending(false)}
-        />
-      )}
       {group === "data" && showMediaCheck && (
         <ul className="tools-fix-list">
           <li className="tools-fix-item">
@@ -1092,8 +1022,7 @@ export function ValidatePanel({
       {total === 0 ? (
         group === "gedcom"
           ? <p className="tools-clean">{t("tools.validate.clean.gedcom", { version })}</p>
-          : !(mediaMissing && mediaMissing.length > 0) &&
-            !(splitPlaces.length > 0 && placeCoordDone === null) && <p className="tools-clean">{t("tools.validate.clean.data")}</p>
+          : !(mediaMissing && mediaMissing.length > 0) && <p className="tools-clean">{t("tools.validate.clean.data")}</p>
       ) : (
         <>
           <div className="tools-filter-row">

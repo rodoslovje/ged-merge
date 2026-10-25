@@ -44,7 +44,7 @@ async function load(page: Page, name: string, text: string) {
     .setInputFiles({ name, mimeType: "text/plain", buffer: Buffer.from(text, "utf-8") });
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
 }
 
 /** Hold the open file to GEDCOM 7.0 (Settings → GEDCOM), then open the save

@@ -28,7 +28,7 @@ test("translations without a language: suggested, re-picked and written", async 
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
   // One row for all three, which takes the reader to the chip of its own.
   const row = page.locator(".tools-issue", { hasText: "have no LANG line" });
   await expect(row).toHaveCount(1);

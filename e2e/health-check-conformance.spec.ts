@@ -31,7 +31,7 @@ test("conformance findings: a wrong-type pointer and a mis-cased value, and the 
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
-  await page.getByRole("tab", { name: /GEDCOM .* issues/ }).click();
+  await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
   await expect(page.locator(".tools-issues").first()).toBeVisible();
 
   await expect(chip(page, "Pointers to the wrong record")).toBeVisible();

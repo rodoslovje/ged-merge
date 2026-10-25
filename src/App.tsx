@@ -62,7 +62,6 @@ import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fixConformance } from "./tools/fixConformance";
 import { nodeAtPath } from "./tools/conformance/conformance";
-import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { tagTranslations } from "./tools/fixTranslationLang";
 import { setPlaceTranslations } from "./tools/placeTranslations";
 import { queueBookPages, readBookPages } from "./tools/sourceReshape";
@@ -2832,7 +2831,6 @@ function AppContent() {
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
               onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
               onFixBatch={runToolBatch}
-              onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}

@@ -1,15 +1,15 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { placeCollator } from "../gedcom/place";
-import type { RecordPatch } from "../ui/historyTypes";
-import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr, type GeoAssignment } from "./geocode";
+import { coordOf, placeAddrKey, walkPlaceAddr } from "./geocode";
 
-// Health-check for places geocoded inconsistently. Two findings, both grouped by
-// the place *and* the event's address:
+// Places geocoded inconsistently. Two findings, both grouped by the place *and*
+// the event's address:
 //
 //  - **Fillable**: the pair carries a coordinate on some events and not others.
 //    Happens naturally when an event is added or re-typed after the file was
 //    geocoded (GEDCOM 5.5.1 has no shared place record, so every PLAC keeps its
-//    own MAP). Safe to fix without a lookup — copy the one it already has.
+//    own MAP). Safe to fix without a lookup — the Places tool offers the file's
+//    own coordinate for such a value and writes it with the rest.
 //  - **Conflicting**: the pair carries two *different* coordinates. Same place,
 //    same address, so they describe one location and cannot both be right. No
 //    automatic fix: which is correct is a judgement only the researcher can make.
@@ -157,23 +157,6 @@ export function scanPlaceCoords(dataset: Dataset): PlaceCoordReport {
   return { fills, conflicts };
 }
 
-/** Total occurrences the fix would fill (sum of `missing` across findings). */
-export function countSplitCoordFills(places: SplitCoordPlace[]): number {
-  return places.reduce((sum, p) => sum + p.missing, 0);
-}
-
-/**
- * Copy each pair's file coordinate onto its coordinate-less occurrences, through
- * the pair-keyed geocode write-back (standard `MAP`/`LATI`/`LONG`, undoable), so
- * a coordinate never crosses from one address to another. Mutates the dataset in
- * place and returns the RecordPatch[] for the undo stack.
- */
-export function fillPlaceCoordsFromFile(dataset: Dataset): RecordPatch[] {
-  const assignments = new Map<string, GeoAssignment>();
-  for (const p of scanPlaceCoords(dataset).fills) assignments.set(placeAddrKey(p.value, p.address), { coord: p.coord });
-  return applyGeocodeByAddress(dataset, assignments);
-}
-
 /**
  * The coordinate the file itself agrees on for each place+address pair, keyed by
  * {@link placeAddrKey}. A pair that disagrees with itself is absent: which of two
@@ -181,8 +164,8 @@ export function fillPlaceCoordsFromFile(dataset: Dataset): RecordPatch[] {
  *
  * The same reading {@link scanPlaceCoords} reports on, exposed for writers that
  * need it while the file is being built rather than after — the merge fills the
- * places it writes from here, so a merge stops handing the reader a health-check
- * list of coordinate gaps it created itself.
+ * places it writes from here, so a merge stops handing the reader a list of
+ * coordinate gaps it created itself.
  */
 export function agreedPairCoords(records: Iterable<GedNode>): Map<string, GeoCoord> {
   const known = new Map<string, GeoCoord>();
