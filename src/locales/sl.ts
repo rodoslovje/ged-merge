@@ -407,7 +407,7 @@ export const sl = {
   "tools.validate.struct.issue.customTag": "Oznaka po meri {{tag}} ({{count}}×)",
   "tools.validate.struct.issue.customTagBare": "{{tag}} ni oznaka GEDCOM {{version}} ({{count}}×) — {{software}}: {{meaningSl}}",
   "tools.validate.struct.issue.customTagStandard": "{{tag}} nadomešča strukturo, ki jo GEDCOM {{version}} pozna sam ({{count}}×)",
-  "tools.validate.struct.terms": "O oznaki",
+  "tools.validate.struct.terms": "Kaj oznaka pomeni",
   "tools.validate.struct.issue.customTagKnown": "Oznaka po meri {{tag}} ({{count}}×) — {{software}}: {{meaningSl}}",
   "tools.validate.struct.issue.badDate": "Neberljiv datum: {{sample}}",
   "tools.validate.struct.issue.impossibleDate": "Neobstoječ datum: {{sample}}",

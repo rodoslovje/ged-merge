@@ -43,7 +43,7 @@ test("old _FILN/_PERI lines become the repository's call number and the title", 
   // explains it a click away.
   const race = page.locator(".tools-issue", { hasText: "RACE is not a GEDCOM 5.5.1 tag" });
   await expect(race).toBeVisible();
-  const about = race.getByRole("link", { name: "About the tag" });
+  const about = race.getByRole("link", { name: "RACE" });
   await expect(about).toHaveAttribute("href", "/terms/macfamilytree/RACE");
   const pageText = await (await page.request.get("/terms/macfamilytree/RACE/")).text();
   expect(pageText).toContain("without the underscore that marks an extension");

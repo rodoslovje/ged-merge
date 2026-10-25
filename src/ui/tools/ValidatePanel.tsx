@@ -4,7 +4,7 @@ import { TERMS_ORIGIN, termsUri } from "../../gedcom/extensionTerms";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
@@ -1269,6 +1269,9 @@ function RowFixButton({
   );
 }
 
+/** Where a row's tag goes in its message, to be replaced by its link. */
+const TAG_SLOT = "\u0001";
+
 /** The one row standing for every translation without a language. */
 const TRAN_LANG_KEY = "tools.validate.struct.issue.missingTranLang";
 
@@ -1445,7 +1448,21 @@ function StructRow({
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
       <span className="tools-issue-msg">
-        {t(issue.messageKey, issue.messageVars)}
+        {terms && typeof issue.messageVars?.tag === "string" ? (
+          // The tag itself opens the page that explains it.
+          t(issue.messageKey, { ...issue.messageVars, tag: TAG_SLOT }).split(TAG_SLOT).map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && (
+                <a className="tools-issue-terms" href={terms} target="_blank" rel="noopener" title={t("tools.validate.struct.terms")}>
+                  {String(issue.messageVars!.tag)}
+                </a>
+              )}
+              {part}
+            </Fragment>
+          ))
+        ) : (
+          t(issue.messageKey, issue.messageVars)
+        )}
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
       {variationOf !== undefined && (
@@ -1455,11 +1472,6 @@ function StructRow({
       )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
       {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
-      {terms && (
-        <a className="tools-issue-link tools-issue-terms" href={terms} target="_blank" rel="noopener">
-          {t("tools.validate.struct.terms")}
-        </a>
-      )}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}
       {issue.fix && !fix && (
