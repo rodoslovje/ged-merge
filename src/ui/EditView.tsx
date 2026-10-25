@@ -1054,6 +1054,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       baptism: formatOverrides.baptism ?? "auto",
       citationPage: citationPageStyle(),
       standard: formatOverrides.standard,
+      writeVersion: formatOverrides.writeVersion,
     });
   }
 

@@ -11,6 +11,7 @@ import {
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import { detectPrivacyStyleIfAny } from "../gedcom/private";
+import { keepsSourceTag } from "../gedcom/edit/sources";
 import { firstChild } from "../gedcom/node";
 import type { Dataset, DateOrder, GedNode } from "../gedcom/types";
 import type {
@@ -95,6 +96,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
     nameVariants: inferNameVariants(main),
     unknownName: analyzeUnknownNames(main).target,
     privacyStyle: detectPrivacyStyleIfAny(main.records),
+    sourceTags: { FILN: keepsSourceTag(main.records, "FILN"), PERI: keepsSourceTag(main.records, "PERI") },
   };
 }
 

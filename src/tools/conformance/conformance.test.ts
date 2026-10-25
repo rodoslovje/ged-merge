@@ -191,6 +191,13 @@ describe("pointer targets", () => {
     // 5.5.1: a citation may be text; 7.0: it must point (or be @VOID@).
     expect(check551(`0 @I1@ INDI\n1 SOUR Parish register`)).toEqual([]);
     expect(kinds(check70(`0 @I1@ INDI\n1 SOUR Parish register`))).toEqual(["pointerExpected"]);
+    // A repository link without a pointer: 5.5.1 allows it, 7.0 says @VOID@
+    // — the fix keeps the call number beneath it.
+    expect(check551(`0 @S1@ SOUR\n1 TITL Book\n1 REPO\n2 CALN 5`)).toEqual([]);
+    const empty = check70(`0 @S1@ SOUR\n1 TITL Book\n1 REPO\n2 CALN 5`);
+    expect(kinds(empty)).toEqual(["pointerEmpty"]);
+    expect(empty[0].fix).toBe("@VOID@");
+    expect(check70(`0 @S1@ SOUR\n1 TITL Book\n1 REPO @VOID@\n2 CALN 5`)).toEqual([]);
     // 7.0's NOTE is text; a shared note is SNOTE.
     expect(kinds(check70(`0 @I1@ INDI\n1 NOTE @N1@\n0 @N1@ SNOTE x`))).toEqual(["pointerUnexpected"]);
     expect(check70(`0 @I1@ INDI\n1 SNOTE @N1@\n0 @N1@ SNOTE x`)).toEqual([]);

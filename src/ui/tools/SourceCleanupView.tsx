@@ -36,7 +36,7 @@ import { foldSearch, matchesQuery } from "../globalSearch";
 import { useQueryTerms } from "../useQueryTerms";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
-import { idField } from "../source/standardFields";
+import { idField, periodicalOffered, useTitleTakesPeriodical } from "../source/standardFields";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { SourceLinkRow } from "../source/SourceLinkRow";
 import { SourceFieldsForm, SourceGroupHead, type SourceFormValues } from "../source/SourceFieldsForm";
@@ -1088,6 +1088,10 @@ function GroupEditDialog({
   // What this file calls the archive's id, and whether that name is an
   // extension: the same rule the Add Source dialog states, from one place.
   const idLabel = idField(dataset.records, coverage, repoSel !== "", formatOverrides.standard);
+  // The periodical is a field of its own only where the file keeps its PERI
+  // lines; elsewhere it is part of the title.
+  const offerPeriodical = periodicalOffered(dataset.records, formatOverrides.standard);
+  useTitleTakesPeriodical(offerPeriodical, fields.periodical, setFields);
   const { targetOf, lookUp: readPage, fetching, failed } = useSourceLookup(settings.allowLinkFetch);
 
   // A citation pasted from the site itself (FamilySearch's "Copy citation",
@@ -1305,7 +1309,7 @@ function GroupEditDialog({
             // its own above (it can be traded, which a plain URL field cannot
             // say). The page is a citation's, so it is offered only where the
             // group is one link and one citation carries it.
-            show={{ note: false, page: onePage, quay: false }}
+            show={{ note: false, page: onePage, quay: false, periodical: offerPeriodical }}
             coverage={coverage}
             idOnRepo={idLabel.caln}
             t={t}

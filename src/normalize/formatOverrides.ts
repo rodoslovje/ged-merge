@@ -59,6 +59,9 @@ export interface FormatOverrides {
   /** Set by a strict target format, never stored or offered: every writer
    *  writes only this version's standard forms (see `normalize/target.ts`). */
   standard?: "5.5.1" | "7.0";
+  /** Set by the target format, never stored or offered: the version lines are
+   *  written in — the strict one, else the file's own. */
+  writeVersion?: "5.5.1" | "7.0";
 }
 
 /** What "Auto (detected)" resolves to per dimension, as override-value
@@ -192,6 +195,8 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
     };
   }
   if (o.privacy) out.privacyStyle = o.privacy;
+  // A strict target keeps none of a source's 5.5-EL lines.
+  if (o.standard) out.sourceTags = { FILN: false, PERI: false };
   return out;
 }
 

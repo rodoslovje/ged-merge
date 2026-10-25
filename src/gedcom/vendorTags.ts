@@ -250,7 +250,8 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   // Keeper's _SEPR aliased to it): in neither 5.5.1 nor 7.0.
   SEPA: { software: MULTI, category: "event", meaning: { en: "separation of a couple", sl: "ločeno življenje para" } },
   // GEDCOM 5.5-EL's source fields, which MacFamilyTree and its kin write on a
-  // source record. A strict target format writes them as _FILN/_PERI.
+  // source record. Elsewhere GED Merge writes the standard's forms instead:
+  // the repository link's CALN and the TITL (see `settleSourceFields`).
   FILN: { software: MFT, category: "citation", meaning: { en: "source filing number (5.5-EL)", sl: "arhivska številka vira (5.5-EL)" } },
   PERI: { software: MFT, category: "citation", meaning: { en: "periodical title (5.5-EL)", sl: "periodika / zbirka (5.5-EL)" } },
   EDTN: { software: MFT, category: "citation", meaning: { en: "edition (5.5-EL)", sl: "izdaja (5.5-EL)" } },

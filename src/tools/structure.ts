@@ -83,6 +83,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: every CHAN/CREA below a record, which the
    *  fix lifts onto the record file-wide. */
   stamps?: boolean;
+  /** `customTag`: a source's FILN/PERI or their `_` spelling, which the fix
+   *  restates as the repository link's CALN and the title file-wide. */
+  sourceField?: boolean;
   /** Conformance `misplacedTag`: a source's flat PLAC/DATE, which the fix
    *  restates as DATA > EVEN file-wide. */
   coverage?: boolean;
@@ -188,6 +191,11 @@ export const KNOWN_TAGS = new Set<string>([
   // Change / creation audit; identifiers
   "CHAN", "CREA", "UID", "RFN", "AFN",
 ]);
+
+/** A source's GEDCOM 5.5-EL filing number and periodical, bare as
+ *  MacFamilyTree writes them or as the `_` extensions earlier GED Merge
+ *  versions wrote. */
+const SOURCE_FIELD_TAGS: ReadonlySet<string> = new Set(["FILN", "_FILN", "PERI", "_PERI"]);
 
 function truncate(s: string, n = 60): string {
   const t = s.trim();
@@ -530,6 +538,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
       messageVars: info
         ? { tag, count, software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl }
         : { tag, count },
+      sourceField: (recordTag === "SOUR" && SOURCE_FIELD_TAGS.has(tag)) || undefined,
     });
   }
 

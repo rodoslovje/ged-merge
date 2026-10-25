@@ -61,12 +61,12 @@ describe("termsEntries — one documented page per tag and program", () => {
       "1 BIRT\n2 SDATE 1900\n1 NOTE <b>a</b>\n2 MIME text/html\n2 LANG en\n2 TRAN b\n3 LANG sl\n0 TRLR\n";
     const down = parseGedcom(new TextEncoder().encode(v7).buffer).records;
     migrateVersion(down, "7.0", "5.5.1", () => {});
-    // …and the 7.0 conversion's submission record (see save/outputFile.ts),
-    // and a source's 5.5-EL fields as a strict target writes them
-    // (`sourceFieldTag`).
-    const written = [serializeGedcom(down), "0 @S1@ _SUBN", "0 @S2@ SOUR\n1 _FILN 1\n1 _PERI x"].join("\n");
+    // …and the 7.0 conversion's submission record (see save/outputFile.ts).
+    // A source's 5.5-EL fields are written in the standard's forms instead
+    // (`settleSourceFields`), so they need no page.
+    const written = [serializeGedcom(down), "0 @S1@ _SUBN"].join("\n");
     const tags = new Set([...written.matchAll(/^\d+ (?:@[^@]+@ )?(_[A-Z_]+)/gm)].map((m) => m[1]));
-    expect([...tags].sort()).toEqual(["_CREA", "_FILN", "_FSFTID", "_LANG", "_MIME", "_NO", "_PERI", "_SDATE", "_SEX", "_SUBN", "_TRAN", "_UID"]);
+    expect([...tags].sort()).toEqual(["_CREA", "_FSFTID", "_LANG", "_MIME", "_NO", "_SDATE", "_SEX", "_SUBN", "_TRAN", "_UID"]);
     for (const tag of tags) expect(ownTag(tag), tag).toBeDefined();
     expect(GEDMERGE_TAGS).toHaveLength(tags.size);
   });

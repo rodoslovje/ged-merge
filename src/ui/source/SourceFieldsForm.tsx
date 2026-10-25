@@ -1,4 +1,3 @@
-import { useFormatOverrides } from "../TargetFormatContext";
 import type { ReactNode } from "react";
 import type { Translate } from "../../locales/i18n";
 import { NonStandard, nonStandardTag, type SourceFieldKey } from "./standardFields";
@@ -101,10 +100,9 @@ export function SourceFieldsForm({
   repositoryRow?: ReactNode;
   linkRow?: ReactNode;
 }) {
-  const { standard } = useFormatOverrides();
   const field = (key: keyof SourceFormValues, labelKey: string, autoFocus = false, wide = false) => {
     if (show[key] === false) return null;
-    const tag = nonStandardTag(key as SourceFieldKey, coverage, standard);
+    const tag = nonStandardTag(key as SourceFieldKey, coverage);
     return (
       <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
         <span>

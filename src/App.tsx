@@ -2738,6 +2738,7 @@ function AppContent() {
                   createStandaloneSource(mainDataset.records, fields, {
                     sourceLayout: formatOverrides.sourceLayout ?? "auto",
                     standard: formatOverrides.standard,
+                    writeVersion: formatOverrides.writeVersion,
                   }).extraPatches,
                 )
               }
@@ -2829,7 +2830,7 @@ function AppContent() {
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
               onFixDuplicateFamilies={(only) => applyToolPatches(fixDuplicateFamilies(mainDataset, only), true)}
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
-              onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only), true)}
+              onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only, formatOverrides), true)}
               onFixBatch={runToolBatch}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}

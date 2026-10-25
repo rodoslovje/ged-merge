@@ -1,6 +1,8 @@
 import type { GedNode } from "../../gedcom/types";
 import { cloneNode, firstChild } from "../../gedcom/node";
-import { createRepoRecord, createSourceRecord, writeMediaTitle, type NewSourceFields } from "../../gedcom/edit";
+import {
+  createRepoRecord, createSourceRecord, keepsSourceTag, settleSourceFields, sourceWriteVersion, writeMediaTitle, type NewSourceFields,
+} from "../../gedcom/edit";
 import { applySiteSourceExtras, createSiteRepo, pageObjeTitle } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
 import type { CitationPageStyle } from "../../gedcom/source";
@@ -30,10 +32,15 @@ export function createStandaloneSource(
     citationPage?: CitationPageStyle;
     /** Set by a strict target format: write only that version's forms. */
     standard?: "5.5.1" | "7.0";
+    /** The version lines are written in. */
+    writeVersion?: "5.5.1" | "7.0";
   },
 ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
   const extraPatches: RecordPatch[] = [];
   const byLink = opts.citationPage === "url";
+  // Read before the record is written: its own FILN must not count as the
+  // file's habit.
+  const keepFiln = keepsSourceTag(records, "FILN", opts);
   const sourceNode = createSourceRecord(
     records,
     byLink ? { ...(fields as NewSourceFields), url: undefined } : (fields as NewSourceFields),
@@ -80,13 +87,19 @@ export function createStandaloneSource(
       repoXref = repo.xref!;
       extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneNode(repo) });
     }
+    const caln = fields.repoCaln?.trim();
     if (repoXref) {
       const repoLink: GedNode = { level: 1, tag: "REPO", value: repoXref, children: [] };
-      const caln = fields.repoCaln?.trim();
       if (caln) repoLink.children.push({ level: 2, tag: "CALN", value: caln, children: [] });
       sourceNode.children.push(repoLink);
+    } else if (caln && !keepFiln) {
+      // No repository, but the call number stays: on a link to none.
+      sourceNode.children.push({ level: 1, tag: "FILN", value: caln, children: [] });
     }
   }
+  // The archive's id the record was given bare settles on its repository
+  // link, now that the link is in place.
+  if (!keepFiln) settleSourceFields(sourceNode, sourceWriteVersion(opts), { PERI: true });
   extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneNode(sourceNode) });
   const objeChild = firstChild(sourceNode, "OBJE");
   if (objeChild?.value) {

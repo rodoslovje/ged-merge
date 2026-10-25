@@ -4,7 +4,8 @@ import { toStandardCoverage } from "./sourceReshape/apply";
 import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
-import { hangAgencyUnderData, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
@@ -34,6 +35,11 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *    is kept;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
  *    record: moved to `DATA.AGNC` in every source at once;
+ *  - **sourceFields** — a source's `FILN`/`PERI` (GEDCOM 5.5-EL's filing
+ *    number and periodical) or their `_` spellings: the id becomes the
+ *    repository link's `CALN`, the periodical joins the `TITL`, in every
+ *    source at once — or, where the file keeps the bare tag, the `_`
+ *    spelling becomes the bare one;
  *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
  *    `DATA > EVEN` coverage in every source whose title names its register;
  *  - **mediaInfo** — a media record's `DATE`/`PLAC`, which neither version
@@ -59,7 +65,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -253,7 +259,11 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
 
 /** How many findings of `kind` the fix would settle — the count on its button;
  *  for the media passes, the media records they would change. */
-export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind): number {
+export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind, overrides?: Pick<FormatOverrides, "standard">): number {
+  if (kind === "sourceFields") {
+    const pass = sourceFieldPass(dataset.records, overrides);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && pass(cloneNode(r)).length > 0).length;
+  }
   const fixable = fixableConformance(dataset.records);
   if (kind === "citationPage") {
     if (!fixable.some((i) => i.citationPage)) return 0;
@@ -298,8 +308,19 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
     .reduce((n, i) => n + (kind === "forms" ? Number(i.messageVars?.count) || 1 : 1), 0);
 }
 
-/** @param only — settle just the one finding a row names. */
-export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only?: ConformanceRef): RecordPatch[] {
+/** @param only — settle just the one finding a row names.
+ *  @param overrides — the target's format choices: whether the file keeps its
+ *  own source lines (see `keepsSourceTag`). */
+export function fixConformance(
+  dataset: Dataset,
+  kind?: ConformanceFixKind,
+  only?: ConformanceRef,
+  overrides?: Pick<FormatOverrides, "standard">,
+): RecordPatch[] {
+  if (kind === "sourceFields") {
+    const pass = sourceFieldPass(dataset.records, overrides);
+    return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
+  }
   const scanned = fixableConformance(dataset.records, only?.id);
   if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
   const issues = scanned.filter(
@@ -455,6 +476,15 @@ export function fixConformance(dataset: Dataset, kind?: ConformanceFixKind, only
  *  there and `_CREA` in 5.5.1. */
 function isV7Table(records: GedNode[]): boolean {
   return !!tableFor(records)?.version.startsWith("7");
+}
+
+/** The pass that restates a source's `FILN`/`PERI` lines (see
+ *  `settleSourceFields`), in the version the file declares — the save converts
+ *  it with the rest when the target is the other one. */
+function sourceFieldPass(records: GedNode[], overrides?: Pick<FormatOverrides, "standard">): MediaPass {
+  const version = isV7Table(records) ? "7.0" : "5.5.1";
+  const keep = { FILN: keepsSourceTag(records, "FILN", overrides), PERI: keepsSourceTag(records, "PERI", overrides) };
+  return (rec) => settleSourceFields(rec, version, keep);
 }
 
 /** Run a pass over every media (or source) record, one undo patch per record

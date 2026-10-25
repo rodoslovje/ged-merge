@@ -35,7 +35,9 @@ import {
 } from "./report";
 import { baptismTargetTag, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
 import { pageObjeTitle, parseMatriculaUrl, placeholderMediaTitle, recognizeSourceUrl, siteTitle } from "./urls";
-import { addObjeToSource, createSourceRecord, sourceFieldTag, SOUR_FIELD_TRAILING } from "../../gedcom/edit/sources";
+import {
+  addObjeToSource, createSourceRecord, keepsSourceTag, settleSourceFields, sourceWriteVersion, SOUR_FIELD_TRAILING, writesIdAsCallNumber,
+} from "../../gedcom/edit/sources";
 import { mediaTitleLine, writeMediaTitle } from "../../gedcom/edit/media";
 import { dateFixContext, type DateFixContext, proposeDateFix } from "../fixDates";
 import { normalizeDateString } from "../../normalize/date";
@@ -1012,8 +1014,12 @@ export function reshapeSources(
 
   const { fold, pageMedia, baptismTag, createRepos, coverage } = resolveFormatOptions(clone, opts);
   // Where this file states an archive's id: the repository link's call number,
-  // or the source's own filing number. One or the other, never both.
-  const callNumbers = writesCallNumbers(clone, coverage);
+  // or the source's own filing number. One or the other, never both. Read
+  // before the run writes any: its own FILNs must not count as the habit.
+  const callNumbers = writesIdAsCallNumber(clone, coverage, opts);
+  const keepFiln = keepsSourceTag(clone, "FILN", opts);
+  /** The sources this run writes, whose ids settle once their links are in. */
+  const written = new Set<GedNode>();
   // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
@@ -1118,7 +1124,7 @@ export function reshapeSources(
       // never both (see `writesCallNumbers`).
       const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
       if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
-      else fillField(sourceNode, sourceFieldTag(clone, "FILN", opts), fields.filingNumber);
+      else fillField(sourceNode, "FILN", fields.filingNumber);
     } else {
       sourceNode = createSourceRecord(clone, fields, undefined, opts);
       byXref.set(sourceNode.xref!, sourceNode);
@@ -1169,6 +1175,7 @@ export function reshapeSources(
         sourceNode.children.push(link);
       }
     }
+    written.add(sourceNode);
     const sourceXref = sourceNode.xref!;
 
 
@@ -1256,7 +1263,8 @@ export function reshapeSources(
         fillField(hit.rec, "PLAC", fields.place);
         fillField(hit.rec, "DATE", fields.dateRange);
       }
-      if (!filingNumberOf(hit.rec)) fillField(hit.rec, sourceFieldTag(clone, "FILN", opts), fields.filingNumber);
+      if (!filingNumberOf(hit.rec)) fillField(hit.rec, "FILN", fields.filingNumber);
+      written.add(hit.rec);
       counts.citationsRewritten++;
     }
 
@@ -1538,6 +1546,14 @@ export function reshapeSources(
       // cleanly: the citation's container gets the cited page's image.
       ensurePageMedia(container, order, urlFor(hit));
     }
+  }
+
+  // The ids written bare above settle on the repository links now in place,
+  // and a periodical joins the title, where the standard's forms are written.
+  if (!keepFiln) {
+    const version = sourceWriteVersion(opts);
+    const keep = { PERI: keepsSourceTag(clone, "PERI", opts) };
+    for (const rec of written) settleSourceFields(rec, version, keep);
   }
 
   return { records: clone, counts };

@@ -265,6 +265,12 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       // A reference typed by a URI is what the downgrade makes of an EXID it
       // has no 5.5.1 tag for — and what 7.0 calls an external identifier.
       report(ctx, retag(node, "EXID"), describe(node));
+    } else if (node.tag === "REPO" && node.level > 0 && !node.value?.trim()) {
+      // A repository citation with no repository record (a call number
+      // alone): 5.5.1 leaves its pointer out, 7.0 points it at @VOID@.
+      const before = describe(node);
+      node.value = VOID_XREF;
+      report(ctx, node, before);
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       upgradeObje(node, ctx);
     } else if (node.tag === "SEX" && node.value !== undefined) {
@@ -590,6 +596,15 @@ function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
         continue;
       }
       const before = `${node.tag}.${child.tag} ${VOID_XREF}`;
+      // A repository citation with no repository record is 5.5.1's too: the
+      // pointer goes, its call number stays.
+      if (child.tag === "REPO") {
+        delete child.value;
+        kept.push(child);
+        ctx.changed++;
+        ctx.onChange(before, `${node.tag}.REPO`);
+        continue;
+      }
       const replaced = child.tag === "SOUR" ? voidCitation(child) : voidAsNote(child);
       ctx.changed++;
       ctx.onChange(before, replaced ? `${node.tag}.${describe(replaced)}` : "—");

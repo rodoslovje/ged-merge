@@ -1,5 +1,5 @@
 import { AddSourceDialog } from "../AddSourceDialog";
-import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
@@ -37,7 +37,7 @@ import { keptHabits } from "../../tools/normalizeRepairs";
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -298,7 +298,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -614,6 +614,13 @@ export function ValidatePanel({
   }
 
   /** The same, for a structural finding. */
+  /** Whether a source's FILN/PERI line is the fix's to restate: always for
+   *  the `_` spelling, and for the bare one where the file does not keep it. */
+  function sourceFieldFixable(tag: string | undefined): boolean {
+    if (!tag) return false;
+    return tag.startsWith("_") || !keepsSourceTag(dataset.records, tag as "FILN" | "PERI", formatOverrides);
+  }
+
   function structRowFix(issue: StructIssue): RowFix | null {
     if (issue.category === "badDate" && issue.fix && issue.recordId) {
       return {
@@ -709,6 +716,16 @@ export function ValidatePanel({
         hint: t("tools.validate.fixOneAgencyHint"),
         kind: "agency",
         run: () => onFixConformance("agency"),
+      };
+    }
+    // A source's filing number or periodical: the standard's call number and
+    // title, in every source — unless the file keeps its own bare lines.
+    if (issue.sourceField && issue.recordId && sourceFieldFixable(issue.sample)) {
+      return {
+        label: t("tools.validate.fixOneSourceFields"),
+        hint: t("tools.validate.fixOneSourceFieldsHint"),
+        kind: "sourceFields",
+        run: () => onFixConformance("sourceFields"),
       };
     }
     // A media record's date or place: kept as the extension, in every record.
@@ -826,6 +843,11 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.agency) ? countFixableConformance(dataset, "agency") : 0),
     [structure, dataset],
   );
+  // Sources whose FILN/PERI the fix would restate.
+  const fixableSourceFields = useMemo(
+    () => (structure?.issues.some((i) => i.sourceField) ? countFixableConformance(dataset, "sourceFields", formatOverrides) : 0),
+    [structure, dataset, formatOverrides],
+  );
 
   // A translation the standard wants a language on, written without one — the
   // worklist below re-reads those lines on the main thread, so only then.
@@ -880,6 +902,7 @@ export function ValidatePanel({
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableSourceFields > 0) fixActions.push({ kind: "sourceFields", count: fixableSourceFields });
   if (fixableCitationPage > 0) fixActions.push({ kind: "citationPage", count: fixableCitationPage });
   if (fixableMediaInfo > 0) fixActions.push({ kind: "mediaInfo", count: fixableMediaInfo });
   if (fixableChildPedi > 0) fixActions.push({ kind: "childPedi", count: fixableChildPedi });

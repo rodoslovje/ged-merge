@@ -16,6 +16,7 @@ import { VENDOR_TAG_ALIASES } from "../gedcom/vendorTags";
 import { normalizeFamilyStatus, normalizePedigree } from "./familyStatus";
 import { normalizePrivacyStyle } from "./privacy";
 import { convertUpdToChan, stripInternalTags } from "./vendorInternal";
+import { settleSourceFields } from "../gedcom/edit/sources";
 
 const MAX_EXAMPLES = 12;
 
@@ -135,6 +136,19 @@ export function normalizeDataset(
       for (const change of normalizePrivacyStyle(records, profile.privacyStyle, versionFamily(profile.version))) {
         report.vendorTagsRenamed++;
         record(report.vendorTagExamples, seenVendor, change.before, change.after);
+      }
+    }
+    // A source's filing number and periodical (MacFamilyTree's FILN/PERI) in
+    // the main's form: kept bare where the main writes them so, else the
+    // repository link's call number and the title.
+    const version = versionFamily(profile.version);
+    for (const rec of records) {
+      if (rec.tag !== "SOUR") continue;
+      for (const line of settleSourceFields(rec, version, profile.sourceTags)) {
+        report.vendorTagsRenamed++;
+        const bare = line.tag.replace(/^_/, "");
+        const after = profile.sourceTags?.[bare as "FILN" | "PERI"] ? bare : bare === "FILN" ? "REPO.CALN" : "TITL";
+        record(report.vendorTagExamples, seenVendor, `SOUR.${line.tag}`, `SOUR.${after}`);
       }
     }
   }

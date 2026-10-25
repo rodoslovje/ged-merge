@@ -69,7 +69,7 @@ export {
 export type { MediaInfoFields } from "./media";
 
 export {
-  createSourceRecord, sourceFieldTag, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
+  createSourceRecord, sourceFieldTag, keepsSourceTag, writesIdAsCallNumber, settleSourceFields, sourceWriteVersion, titleWithPeriodical, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
   SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay, hangAgencyUnderData,

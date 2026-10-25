@@ -27,7 +27,7 @@ export type NormalizeRepairKind = "dangling" | "dups" | "dates" | "nonStandard" 
  *  standard has otherwise. */
 export const NORMALIZE_REPAIRS: readonly NormalizeRepairKind[] = [
   "dangling", "dups", "dates", "nonStandard",
-  "values", "repeats", "forms", "notes", "relocate", "agency", "citationPage", "mediaInfo",
+  "values", "repeats", "forms", "notes", "relocate", "agency", "sourceFields", "citationPage", "mediaInfo",
   "childPedi", "smartMatch", "assoDates", "stamps",
 ];
 
@@ -75,6 +75,6 @@ export function runNormalizeRepair(dataset: Dataset, kind: NormalizeRepairKind, 
     case "dups": return fixDuplicatePointers(dataset);
     case "dates": return fixDates(dataset, undefined, onDate);
     case "nonStandard": return fixNonStandardDates(dataset, overrides, undefined, onDate);
-    default: return fixConformance(dataset, kind);
+    default: return fixConformance(dataset, kind, undefined, overrides);
   }
 }
