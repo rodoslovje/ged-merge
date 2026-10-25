@@ -127,6 +127,22 @@ describe("tools worker scans", () => {
     }
   });
 
+  it("a scan that throws something other than an Error still answers its message", async () => {
+    vi.doMock("../tools/sourceDuplicates", () => ({
+      findSourceDuplicates: () => {
+        throw "no records";
+      },
+    }));
+    try {
+      const send = await freshWorker();
+      send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
+      send({ type: "sourceDuplicates", requestId: 7 });
+      expect(posted).toEqual([{ type: "error", requestId: 7, message: "no records" }]);
+    } finally {
+      vi.doUnmock("../tools/sourceDuplicates");
+    }
+  });
+
   it("a scan posted after a stale patch waits for the whole main, then runs on it", async () => {
     const send = await freshWorker();
     const live = dsOf(FILE);
