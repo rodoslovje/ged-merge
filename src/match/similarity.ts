@@ -487,10 +487,12 @@ export function givenNameSetSimilarity(
  * Canonical comparison key for a raw date string. Semantic equivalents like
  * "Abt. 1900" and "ABT 1900" produce the same key; unparseable dates fall back
  * to `compareKey`. Used by the review diff's agree/conflict detection so it
- * agrees with `dateSimilarity`'s date parsing.
+ * agrees with `dateSimilarity`'s date parsing. ABT, CAL and EST share the
+ * `about` qualifier but say different things — a calculated year is not a
+ * guess — so `approx` keeps them apart and the reader gets to choose.
  */
 export function dateCompareKey(value: string): string {
   const d = parseDate(value);
   if (d.qualifier === "unknown") return compareKey(value);
-  return [d.qualifier, d.year, d.month, d.day, d.year2, d.month2, d.day2].join("|");
+  return [d.qualifier, d.approx, d.year, d.month, d.day, d.year2, d.month2, d.day2].join("|");
 }
