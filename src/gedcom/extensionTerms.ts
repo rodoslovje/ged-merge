@@ -476,6 +476,11 @@ function pageVendors(tag: string): string[] {
   return vendorsByTag.get(tag) ?? [];
 }
 
+/** Whether the terms site has a page for `tag` (as a file writes it). */
+export function hasTermsPage(tag: string): boolean {
+  return pageVendors(tag.toUpperCase()).length > 0;
+}
+
 /** The site path of a tag's page, without a trailing slash. */
 export function termsPath(vendor: string, tag: string): string {
   return `/terms/${vendor}/${encodeURIComponent(tag)}`;

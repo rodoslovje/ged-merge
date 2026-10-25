@@ -1,6 +1,6 @@
 import { AddSourceDialog } from "../AddSourceDialog";
 import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
-import { TERMS_ORIGIN, termsUri } from "../../gedcom/extensionTerms";
+import { hasTermsPage, TERMS_ORIGIN, termsUri } from "../../gedcom/extensionTerms";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
@@ -1193,9 +1193,7 @@ export function ValidatePanel({
                       : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && !structRowFix(row.issue)
                         ? String(row.issue.messageVars?.software ?? dialect?.software ?? "")
                         : undefined}
-                    terms={(row.issue.category === "customTag" || row.issue.category === "unknownTag") && row.issue.sample
-                      ? termsUri(row.issue.sample, headSour).slice(TERMS_ORIGIN.length)
-                      : undefined}
+                    headSour={headSour}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
                       : mediaLinkOf(row.issue)
@@ -1269,8 +1267,36 @@ function RowFixButton({
   );
 }
 
-/** Where a row's tag goes in its message, to be replaced by its link. */
-const TAG_SLOT = "\u0001";
+/** A GEDCOM tag standing alone in a message: `_UID`, `FILN`, `INDI` in
+ *  `INDI.EDUC`. A capitalized word (`MacFamilyTree`) is not one. */
+const TAG_TOKEN = /(?<![A-Za-z0-9_])(_?[A-Z][A-Z0-9_]*)(?![A-Za-z0-9_])/;
+
+/** A finding's message with every tag the terms site documents — a program's
+ *  own or an extension — linked to its page, which opens beside the app. */
+function LinkedTags({ text, headSour, unknown }: { text: string; headSour?: string; unknown?: string }) {
+  const { t } = useTranslation();
+  const parts = text.split(TAG_TOKEN);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 && (hasTermsPage(part) || part === unknown) ? (
+          <a
+            key={i}
+            className="tools-issue-terms"
+            href={termsUri(part, headSour).slice(TERMS_ORIGIN.length)}
+            target="_blank"
+            rel="noopener"
+            title={t("tools.validate.struct.terms")}
+          >
+            {part}
+          </a>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
 
 /** The one row standing for every translation without a language. */
 const TRAN_LANG_KEY = "tools.validate.struct.issue.missingTranLang";
@@ -1413,7 +1439,7 @@ function StructRow({
   onEditSource,
   variationOf,
   open,
-  terms,
+  headSour,
   pick,
 }: {
   issue: StructIssue;
@@ -1431,8 +1457,8 @@ function StructRow({
   variationOf?: string;
   /** Takes the reader to where the finding is settled (no fix of its own). */
   open?: { label: string; run: () => void };
-  /** The page on this site that explains the row's tag. */
-  terms?: string;
+  /** The file's producer (`HEAD.SOUR`): whose page a tag in the message links. */
+  headSour?: string;
   /** The row's checkbox for a batch (empty when it has no fix). */
   pick?: ReactNode;
 }) {
@@ -1448,21 +1474,12 @@ function StructRow({
         <span className="tools-struct-loc">{t("tools.validate.struct.atLine", { line: issue.line })}</span>
       ) : null}
       <span className="tools-issue-msg">
-        {terms && typeof issue.messageVars?.tag === "string" ? (
-          // The tag itself opens the page that explains it.
-          t(issue.messageKey, { ...issue.messageVars, tag: TAG_SLOT }).split(TAG_SLOT).map((part, i) => (
-            <Fragment key={i}>
-              {i > 0 && (
-                <a className="tools-issue-terms" href={terms} target="_blank" rel="noopener" title={t("tools.validate.struct.terms")}>
-                  {String(issue.messageVars!.tag)}
-                </a>
-              )}
-              {part}
-            </Fragment>
-          ))
-        ) : (
-          t(issue.messageKey, issue.messageVars)
-        )}
+        <LinkedTags
+          text={t(issue.messageKey, issue.messageVars)}
+          headSour={headSour}
+          // A tag no table knows still gets the page that says so.
+          unknown={issue.category === "unknownTag" ? issue.sample : undefined}
+        />
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
       {variationOf !== undefined && (
