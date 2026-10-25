@@ -1047,11 +1047,14 @@ export function newSharedRecordRow(
 
 /**
  * Value-level diff of a shared record (SOUR/OBJE/NOTE), which has no typed
- * projection to compare the way individuals and families do. Both trees are
- * flattened to `TAG.SUBTAG` → values in document order and compared position by
- * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
- * (A record that is wholly new reads better as one line — see
- * {@link newSharedRecordRow}.)
+ * projection to compare the way individuals and families do. Each line is
+ * named by its path (`TAG.SUBTAG`) and paired with the line at the same place
+ * in the other tree — the same tag, the same how-many-th among its siblings,
+ * under the same parent — so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979
+ * → 12 APR 1979". The rows come in the file's order: an `EVEN`'s own `DATE`
+ * and `PLAC` follow it, as they do in the GEDCOM, and a line that went away is
+ * shown where it stood. (A record that is wholly new reads better as one line
+ * — see {@link newSharedRecordRow}.)
  *
  * @param labelFor names the target of a pointer value (see {@link makeXrefLabeler}).
  */
@@ -1063,37 +1066,51 @@ export function diffSharedRecordNodes(
 ): FieldChange[] {
   const show = (value: string) =>
     labelFor && POINTER.test(value) ? labelFor(value) ?? value : value;
-  const flatten = (node: GedNode, prefix: string, out: Map<string, string[]>) => {
+  type Line = { key: string; path: string; value: string };
+  // Every valued line in document order, keyed by its place in the tree.
+  const flatten = (node: GedNode, keyPrefix: string, pathPrefix: string, out: Line[]) => {
+    const seen = new Map<string, number>();
     for (const child of node.children) {
-      const path = prefix ? `${prefix}.${child.tag}` : child.tag;
+      const nth = seen.get(child.tag) ?? 0;
+      seen.set(child.tag, nth + 1);
+      const key = `${keyPrefix}/${child.tag}#${nth}`;
+      const path = pathPrefix ? `${pathPrefix}.${child.tag}` : child.tag;
       const value = child.value?.trim();
-      if (value) {
-        const list = out.get(path);
-        if (list) list.push(value);
-        else out.set(path, [value]);
-      }
-      flatten(child, path, out);
+      if (value) out.push({ key, path, value });
+      flatten(child, key, path, out);
     }
   };
-  const beforeVals = new Map<string, string[]>();
-  const afterVals = new Map<string, string[]>();
-  flatten(before, "", beforeVals);
-  flatten(after, "", afterVals);
+  const beforeLines: Line[] = [];
+  const afterLines: Line[] = [];
+  flatten(before, "", "", beforeLines);
+  flatten(after, "", "", afterLines);
+  const beforeByKey = new Map(beforeLines.map((l) => [l.key, l]));
+  const afterKeys = new Set(afterLines.map((l) => l.key));
+
+  // A line only the old record had is shown after the last line before it
+  // that both have (or first, when there is none).
+  const goneAfter = new Map<string, Line[]>();
+  let anchor = "";
+  for (const line of beforeLines) {
+    if (afterKeys.has(line.key)) anchor = line.key;
+    else {
+      const list = goneAfter.get(anchor);
+      if (list) list.push(line);
+      else goneAfter.set(anchor, [line]);
+    }
+  }
 
   const changes: FieldChange[] = [];
-  for (const path of new Set([...beforeVals.keys(), ...afterVals.keys()])) {
-    const from = beforeVals.get(path) ?? [];
-    const to = afterVals.get(path) ?? [];
-    for (let i = 0; i < Math.max(from.length, to.length); i++) {
-      if (from[i] === to[i]) continue;
-      changes.push({
-        recordId: id,
-        field: path,
-        from: from[i] ? show(from[i]) : "",
-        to: to[i] ? show(to[i]) : "",
-        action: "incoming",
-      });
-    }
+  const push = (path: string, from: string, to: string) =>
+    changes.push({ recordId: id, field: path, from: from ? show(from) : "", to: to ? show(to) : "", action: "incoming" });
+  const pushGone = (key: string) => {
+    for (const line of goneAfter.get(key) ?? []) push(line.path, line.value, "");
+  };
+  pushGone("");
+  for (const line of afterLines) {
+    const old = beforeByKey.get(line.key);
+    if (old?.value !== line.value) push(line.path, old?.value ?? "", line.value);
+    pushGone(line.key);
   }
   return changes;
 }
