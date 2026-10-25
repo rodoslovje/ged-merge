@@ -3,6 +3,7 @@ import { defaultChoice, type FieldRow } from "../review/types";
 import { isMajorDifference } from "../review/fields";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
+import { LinkedTags } from "./TagLinks";
 
 /** Navigation hooks for the relative/name links in one column. */
 export interface PersonNav {
@@ -67,7 +68,7 @@ export function ReadOnlyCompare({
             return (
               <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
                 <td colSpan={1 + valueCols} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} style={isEventHeader ? undefined : { textAlign: "left", paddingLeft: "10px" }} title={row.labelTitle}>
-                  {row.label}
+                  <LinkedTags text={row.label} />
                 </td>
               </tr>
             );
@@ -82,7 +83,7 @@ export function ReadOnlyCompare({
           const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
           return (
             <tr key={row.key} className={`field ${row.state}${isMajorDifference(row) ? " major" : ""}`}>
-              <td className="f-label">{row.displayLabel ?? row.label}</td>
+              <td className="f-label"><LinkedTags text={row.displayLabel ?? row.label} /></td>
               {row.relatives ? (
                 <td className="f-rel" colSpan={valueCols}>
                   <RelativeGrid

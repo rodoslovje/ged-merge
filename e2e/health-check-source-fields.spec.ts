@@ -46,7 +46,7 @@ test("old _FILN/_PERI lines become the repository's call number and the title", 
   const about = race.getByRole("link", { name: "RACE" });
   await expect(about).toHaveAttribute("href", "/terms/macfamilytree/RACE");
   // Only the tags the terms site documents are links: "GEDCOM" is not one.
-  await expect(race.locator("a.tools-issue-terms")).toHaveCount(1);
+  await expect(race.locator("a.tag-terms-link")).toHaveCount(1);
   const pageText = await (await page.request.get("/terms/macfamilytree/RACE/")).text();
   expect(pageText).toContain("without the underscore that marks an extension");
 

@@ -1262,6 +1262,7 @@ export const en = {
   "edit.mediaLinkChip": "Click to edit or remove the link",
   "mediaLink.title": "Edit Link",
   "edit.copyEvent": "Copy event to…",
+  "edit.tagTerms": "What {{tag}} means",
   "edit.removeEvent": "Remove this event",
   "edit.changeEventType": "Change event type",
   "copyEvent.title": "Copy {{event}} to…",

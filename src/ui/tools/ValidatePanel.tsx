@@ -1,10 +1,10 @@
 import { AddSourceDialog } from "../AddSourceDialog";
 import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
-import { hasTermsPage, TERMS_ORIGIN, termsUri } from "../../gedcom/extensionTerms";
+import { LinkedTags } from "../TagLinks";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
@@ -1167,7 +1167,7 @@ export function ValidatePanel({
                   <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
                     <PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
-                    <span className="tools-issue-msg">{t(row.issue.messageKey, issueVars(row.issue))}</span>
+                    <span className="tools-issue-msg"><LinkedTags text={t(row.issue.messageKey, issueVars(row.issue))} headSour={headSour} /></span>
                     <RowFixButton
                       fix={recordRowFix(row.issue)}
                       done={fixedRows.has(rowKey(row.issue))}
@@ -1264,37 +1264,6 @@ function RowFixButton({
     >
       {fix.label}
     </button>
-  );
-}
-
-/** A GEDCOM tag standing alone in a message: `_UID`, `FILN`, `INDI` in
- *  `INDI.EDUC`. A capitalized word (`MacFamilyTree`) is not one. */
-const TAG_TOKEN = /(?<![A-Za-z0-9_])(_?[A-Z][A-Z0-9_]*)(?![A-Za-z0-9_])/;
-
-/** A finding's message with every tag the terms site documents — a program's
- *  own or an extension — linked to its page, which opens beside the app. */
-function LinkedTags({ text, headSour, unknown }: { text: string; headSour?: string; unknown?: string }) {
-  const { t } = useTranslation();
-  const parts = text.split(TAG_TOKEN);
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1 && (hasTermsPage(part) || part === unknown) ? (
-          <a
-            key={i}
-            className="tools-issue-terms"
-            href={termsUri(part, headSour).slice(TERMS_ORIGIN.length)}
-            target="_blank"
-            rel="noopener"
-            title={t("tools.validate.struct.terms")}
-          >
-            {part}
-          </a>
-        ) : (
-          <Fragment key={i}>{part}</Fragment>
-        ),
-      )}
-    </>
   );
 }
 

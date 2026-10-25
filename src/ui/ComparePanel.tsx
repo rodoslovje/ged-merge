@@ -26,6 +26,7 @@ import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useNodeStatus } from "./useNodeStatus";
 import { lifespanOf } from "../gedcom/lifespan";
 import { collectMediaRefs } from "../gedcom/media";
+import { LinkedTags } from "./TagLinks";
 
 /** Which dataset a relative id belongs to. */
 export type RelativeSide = "main" | "incoming";
@@ -411,7 +412,7 @@ export function ComparePanel({
               return (
                 <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
                   <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"} title={row.labelTitle}>
-                    {row.label}
+                    <LinkedTags text={row.label} />
                   </td>
                 </tr>
               );
@@ -437,7 +438,7 @@ export function ComparePanel({
                     own match. Say so, or the colour reads as a difference this
                     row could resolve. */}
                 <td className="f-label" title={row.relatives ? t("compare.relativesHint") : undefined}>
-                  {row.displayLabel ?? row.label}
+                  <LinkedTags text={row.displayLabel ?? row.label} />
                 </td>
                 {row.relatives ? (
                   <td className="f-rel" colSpan={3}>

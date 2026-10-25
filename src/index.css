@@ -9326,9 +9326,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   text-align: left; font: inherit;
 }
 .tools-issue-link:hover { text-decoration: underline; }
-/* A non-standard tag in a finding's message, linking the page that explains it. */
-.tools-issue-terms { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
-.tools-issue-terms:hover { text-decoration-style: solid; }
+/* A non-standard tag in a text, linking the page that explains it. */
+.tag-terms-link { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
+.tag-terms-link:hover { text-decoration-style: solid; }
 /* Person references in Tools: name in its sex colour, then a muted lifespan,
    styled exactly like person labels elsewhere in the app. */
 .person-ref {

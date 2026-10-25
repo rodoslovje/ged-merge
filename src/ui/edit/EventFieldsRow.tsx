@@ -9,6 +9,7 @@ import type { RecordPatch } from "../historyTypes";
 import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { EventGlyph, eventMenuLabel } from "../EventGlyph";
+import { LinkedTags, termsHref } from "../TagLinks";
 import { ClearableTextarea } from "./ClearableInput";
 import { isTallNoteList, NOTE_CHIP_CH, NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
@@ -48,6 +49,7 @@ export interface SpouseAgeLabels {
  * event-type dropdown (distinct from any real tag). */
 const COPY_OPTION = "__copy_event__";
 const REMOVE_OPTION = "__remove_event__";
+const TERMS_OPTION = "__tag_terms__";
 
 /** What a field completes from on a tag the file has never written — one
  *  shared object, so a row of empty fields doesn't allocate a map each. */
@@ -59,17 +61,20 @@ const NO_CANONICAL = EMPTY_SUGGESTIONS.canonical;
  * kept in one unbreakable piece: a mark is an atomic inline, so the line may
  * break straight after it, and a name too long for the label slot would
  * otherwise leave the mark stranded on the line above its own event.
+ * With `links`, a non-standard tag in the name ("Award (NOBI)") links the
+ * page that explains it — never inside a menu's button, which has its own.
  */
-function markedLabel(tag: string | undefined, text: string, t: Translate) {
+function markedLabel(tag: string | undefined, text: string, t: Translate, links = false) {
   if (!tag) return text;
   const at = text.indexOf(" ");
+  const rest = at < 0 ? null : text.slice(at);
   return (
     <>
       <span className="edit-event-label-lead">
         <EventGlyph tag={tag} t={t} />
         {at < 0 ? text : text.slice(0, at)}
       </span>
-      {at < 0 ? null : text.slice(at)}
+      {rest && links ? <LinkedTags text={rest} /> : rest}
     </>
   );
 }
@@ -713,6 +718,8 @@ export function EventFieldsRow({
   // and/or the event copied or removed — the latter two via "Copy event to…" /
   // "Remove this event" entries appended to the end of the list.
   const showSelect = Boolean(tag) && (Boolean(onChangeTag && tagGroups) || Boolean(onCopy) || Boolean(onRemove));
+  // The page that explains a non-standard event tag (NOBI, _MILT …), if any.
+  const tagTerms = tag ? termsHref(tag) : undefined;
 
   function fieldCls(base: string, isMerge: boolean, isDirty: boolean) {
     if (isMerge) return `${base} edit-input--merge`;
@@ -986,17 +993,21 @@ export function EventFieldsRow({
                     items: g.tags.map((tg) => ({ value: tg, label: eventMenuLabel(tg, t, tagLabel?.(tg, t)) })),
                   }))
                 : []),
-              ...(onCopy || onRemove
+              ...(onCopy || onRemove || tagTerms
                 ? [{
                     items: [
                       ...(onCopy ? [{ value: COPY_OPTION, label: t("edit.copyEvent") }] : []),
                       ...(onRemove ? [{ value: REMOVE_OPTION, label: t("edit.removeEvent") }] : []),
+                      // A non-standard tag's page, which the menu's own button
+                      // cannot carry as a link.
+                      ...(tagTerms ? [{ value: TERMS_OPTION, label: t("edit.tagTerms", { tag }) }] : []),
                     ],
                   }]
                 : []),
             ]}
             onSelect={(v) => {
-              if (v === COPY_OPTION) onCopy?.();
+              if (v === TERMS_OPTION) window.open(tagTerms, "_blank", "noopener");
+              else if (v === COPY_OPTION) onCopy?.();
               else if (v === REMOVE_OPTION) onRemove?.();
               else if (onChangeTag && v !== tag) onChangeTag(v);
             }}
@@ -1019,7 +1030,7 @@ export function EventFieldsRow({
                   : undefined
             }
           >
-            {markedLabel(tag, customName || label, t)}
+            {markedLabel(tag, customName || label, t, true)}
           </div>
         )}
       </div>
