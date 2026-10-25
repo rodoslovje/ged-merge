@@ -738,6 +738,11 @@ const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
  *  otherwise count (see {@link SourceKeyOptions.sameFile}). */
 const SOURCE_CUSTOM_STAMP_TAGS = new Set(["_UPD", "_UID"]);
 
+/** A line that stamps when or by whom a record was made, not what it says. */
+export function isSourceStampTag(tag: string): boolean {
+  return SOURCE_BOOKKEEPING_TAGS.has(tag) || SOURCE_CUSTOM_STAMP_TAGS.has(tag);
+}
+
 export interface SourceKeyOptions {
   /** Both records live in ONE file (the duplicates tool), so what is
    *  file-local there means something: the repository a source's `REPO`

@@ -994,7 +994,7 @@ export const en = {
   "tools.sources.mediaInSources_one": "Attached to {{count}} source",
   "tools.sources.mediaInSources_other": "Attached to {{count}} sources",
   "tools.sources.dupHeading": "Potential duplicates",
-  "tools.sources.dupIntro": "Records that describe the same media, source or repository under different ids. A record that says less than another of the same title, such as one register without its call number, joins that record's group, and the fuller record is kept. Pick the groups to merge and apply: each group is collapsed to one record in your file and every citation re-pointed onto it, in one step.",
+  "tools.sources.dupIntro": "Records that describe the same media, source or repository under different ids. A record that says less than another of the same title, such as one register without its call number, joins that record's group. The record with the most references is kept, and what only the others say is copied into it. Pick the groups to merge and apply: each group is collapsed to one record in your file and every citation re-pointed onto it, in one step.",
   "tools.sources.dupFound_one": "{{count}} duplicate group found",
   "tools.sources.dupFound_other": "{{count}} duplicate groups found",
   "tools.sources.dupNone": "No duplicate media, sources or repositories found.",
