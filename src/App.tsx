@@ -2539,7 +2539,7 @@ function AppContent() {
                 },
               },
               { label: t("target.notice.hide"), onClick: hideTargetNotice },
-              { label: t("help.close"), onClick: () => setTargetNotice(false) },
+              { label: t("target.notice.later"), onClick: () => setTargetNotice(false) },
             ]}
           />
         )}
