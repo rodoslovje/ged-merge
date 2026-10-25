@@ -320,6 +320,13 @@ describe("dateCompareKey", () => {
     expect(dateCompareKey("ABT 1900")).not.toBe(dateCompareKey("1900"));
   });
 
+  it("distinguishes ABT, CAL and EST, but not their spellings", () => {
+    expect(dateCompareKey("ABT 1864")).not.toBe(dateCompareKey("CAL 1864"));
+    expect(dateCompareKey("ABT 1864")).not.toBe(dateCompareKey("EST 1864"));
+    expect(dateCompareKey("CAL 1864")).not.toBe(dateCompareKey("EST 1864"));
+    expect(dateCompareKey("CAL 1864")).toBe(dateCompareKey("Calculated 1864"));
+  });
+
   it("falls back to compareKey for unparseable strings", () => {
     expect(dateCompareKey("unknown date")).toBe(compareKey("unknown date"));
   });
