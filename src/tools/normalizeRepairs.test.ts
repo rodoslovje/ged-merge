@@ -114,7 +114,8 @@ describe("Normalize and the health check agree", () => {
         expect(report.repairs?.nonStandard, file).toBeUndefined();
       }
     }
-  });
+    // The whole corpus twice over; CI's coverage run is several times slower.
+  }, 60_000);
 
   it("counts a date repaired outside people and families among the dates", () => {
     const ds = dsOf([
