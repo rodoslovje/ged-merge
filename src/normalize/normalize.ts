@@ -418,6 +418,8 @@ function collectDateValues(compare: Dataset): string[] {
   return dateValues;
 }
 
+export { record as recordExample };
+
 function record(examples: NormChange[], seen: Set<string>, before: string, after: string): void {
   if (examples.length >= MAX_EXAMPLES) return;
   const signature = `${shape(before)}→${shape(after)}`;

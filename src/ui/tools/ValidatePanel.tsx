@@ -34,6 +34,7 @@ import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from ".
 import { useTranslationLang } from "./TranslationLangSection";
 import { MediaLinkDialog } from "../MediaLinkDialog";
 import { nodeAtPath } from "../../tools/conformance/conformance";
+import { keptHabits } from "../../tools/normalizeRepairs";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
@@ -190,12 +191,15 @@ export function ValidatePanel({
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
   const { target, dialect, formatOverrides } = useTargetFormat();
-  // So does a file that keeps its program's flat source fields (PLAC/DATE on
-  // the source itself).
-  const keptCoverage = !target.strict && formatOverrides.sourceCoverage === "vendor";
-  // A file kept with its variations keeps its program's event stamps: the row
-  // says whose habit it is, and offers no fix.
-  const keptStamps = !target.strict && !!dialect?.nestedStamps;
+  // A file kept with its variations keeps its program's flat source fields
+  // (PLAC/DATE/AGNC on the source itself) and its event stamps: the row says
+  // whose habit it is, and offers no fix. Normalize keeps the same ones.
+  const scanned = scans.validate.status === "done" ? scans.validate.result : null;
+  const { coverage: keptCoverage, stamps: keptStamps } = useMemo(
+    () => keptHabits(dataset, formatOverrides, dialect),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, formatOverrides, dialect, scanned],
+  );
   /** Message vars with a GEDCOM event tag turned into its display name —
    *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
    *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
@@ -731,8 +735,9 @@ export function ValidatePanel({
         run: () => onFixConformance("relocate"),
       };
     }
-    // A source's own agency: one row for the habit, moved in every source.
-    if (issue.category === "misplacedTag" && issue.agency && issue.recordId) {
+    // A source's own agency: one row for the habit, moved in every source —
+    // unless the file keeps its program's source fields, the agency among them.
+    if (issue.category === "misplacedTag" && issue.agency && issue.recordId && !keptCoverage) {
       return {
         label: t("tools.validate.fixOneAgency"),
         hint: t("tools.validate.fixOneAgencyHint"),
@@ -908,7 +913,7 @@ export function ValidatePanel({
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
-  if (fixableAgency > 0) fixActions.push({ kind: "agency", count: fixableAgency });
+  if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });
   if (fixableCitationPage > 0) fixActions.push({ kind: "citationPage", count: fixableCitationPage });
   if (fixableMediaInfo > 0) fixActions.push({ kind: "mediaInfo", count: fixableMediaInfo });
   if (fixableChildPedi > 0) fixActions.push({ kind: "childPedi", count: fixableChildPedi });
@@ -1216,7 +1221,7 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
-                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && row.issue.coverage) ? dialect?.software ?? "" : undefined}
+                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency)) ? dialect?.software ?? "" : undefined}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
                       : mediaLinkOf(row.issue)

@@ -5,12 +5,15 @@ import { bumpSourceCacheVersion, rebuildNoteReferrers } from "../gedcom/edit";
 import { clearObjeNodeCache } from "../gedcom/source";
 import type { RecordPatch } from "../ui/historyTypes";
 import { recordPatch } from "./fixConformance";
-import { normalizeRepairKinds, runNormalizeRepair } from "./normalizeRepairs";
+import { DATE_REPAIRS, normalizeRepairKinds, runNormalizeRepair } from "./normalizeRepairs";
+
+/** Every pass, for the preview — which shows what each would change. */
+const DEFAULT_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true };
 import { applyPassSafely, type PassJournal } from "./passSafety";
 import { foreignAliasTags, isNativeTag, producerSoftware } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
 import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
-import { normalizeDataset } from "../normalize/normalize";
+import { normalizeDataset, recordExample } from "../normalize/normalize";
 import { detectSourceCoverage } from "../gedcom/source";
 import { baptismTargetTag, normalizeSourceCoverage } from "./sourceReshape";
 import { detectNoteShapes, reshapeNotes } from "./noteReshape";
@@ -53,7 +56,7 @@ export function bulkNormalize(
   const preserveVendorTags = foreignAliasTags(headSour);
   const preserveFamilyStatus = !isNativeTag("_MSTAT", producerSoftware(headSour));
   const result = normalizeDataset(ds, profile, dateValues, {
-    ...(options ?? { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true }),
+    ...(options ?? DEFAULT_PASSES),
     preserveVendorTags,
     preserveFamilyStatus,
     // Never on one's own file — see `NormalizeOptions.tidyPlaceWhitespace`.
@@ -62,14 +65,22 @@ export function bulkNormalize(
   // The health check's own repairs, so a normalized file leaves none of them
   // for the health check to offer. Before the note and coverage shapes, which
   // then restate a note or a source DATA a repair wrote as the house writes it.
-  if (options?.repairs !== false) {
-    const repairs: Record<string, number> = {};
-    for (const kind of normalizeRepairKinds(ds, overrides)) {
-      const changed = runNormalizeRepair(result.dataset, kind, overrides).length;
-      if (changed) repairs[kind] = changed;
-    }
-    result.report.repairs = repairs;
+  // The date repairs are the health check's own date fixes, run with the date
+  // pass and counted with it, so every date Normalize changes is one row.
+  const runDates = (options ?? DEFAULT_PASSES).dates;
+  const seenDates = new Set<string>();
+  const onDate = (before: string, after: string) => {
+    result.report.datesChanged++;
+    recordExample(result.report.dateExamples, seenDates, before, after);
+  };
+  const repairs: Record<string, number> = {};
+  for (const kind of normalizeRepairKinds(ds, overrides)) {
+    const isDate = DATE_REPAIRS.has(kind);
+    if (isDate ? !runDates : options?.repairs === false) continue;
+    const changed = runNormalizeRepair(result.dataset, kind, overrides, onDate).length;
+    if (changed && !isDate) repairs[kind] = changed;
   }
+  result.report.repairs = repairs;
   // Note shape: restate every note as the file writes notes — a shared record
   // the referrer points at, or inline. The two levels are asked separately:
   // a file's records and its events can hold opposite habits, and "Auto"

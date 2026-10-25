@@ -9,6 +9,7 @@ import { applyBulkNormalize } from "../../tools/bulkNormalize";
 import type { NormalizeRepairKind } from "../../tools/normalizeRepairs";
 import { useFormatOverrides } from "../TargetFormatContext";
 import { FIX_SUFFIX } from "./ValidatePanel";
+import { ownVersion } from "../../save/outputFile";
 import { revealEdgeWhitespace } from "../whitespace";
 import { type ToolsScans } from "../useToolsScans";
 import { BatchSection } from "./BatchSection";
@@ -157,6 +158,10 @@ function NormalizeFileSection({ dataset, scans, active, onApplyPatches }: { data
           <>
             <p className="tools-intro">{t("tools.normalize.intro")}</p>
             <ul className="tools-norm-summary">
+              {/* First: what the file's own GEDCOM version requires, as the
+                  health check's GEDCOM tab names it. */}
+              <NormCheck label={t("tools.normalize.repairs", { count: counts.repairs, version: ownVersion(dataset) })}
+                checked={!!selected.repairs} count={counts.repairs} onChange={() => toggle("repairs")} />
               <NormCheck label={t("tools.normalize.dates", { count: counts.dates })}
                 checked={selected.dates} count={counts.dates} onChange={() => toggle("dates")} />
               <NormCheck label={t("tools.normalize.places", { count: counts.places })}
@@ -171,18 +176,9 @@ function NormalizeFileSection({ dataset, scans, active, onApplyPatches }: { data
                 checked={!!selected.sourceCoverage} count={counts.sourceCoverage} onChange={() => toggle("sourceCoverage")} />
               <NormCheck label={t("tools.normalize.noteShape", { count: counts.noteShape })}
                 checked={!!selected.noteShape} count={counts.noteShape} onChange={() => toggle("noteShape")} />
-              <NormCheck label={t("tools.normalize.repairs", { count: counts.repairs })}
-                checked={!!selected.repairs} count={counts.repairs} onChange={() => toggle("repairs")} />
               <NormCheck label={t("tools.normalize.stripInternal", { count: counts.stripInternal })}
                 checked={!!selected.stripInternal} count={counts.stripInternal} onChange={() => toggle("stripInternal")} />
             </ul>
-            {selected.dates && <NormExamples title={t("tools.normalize.exDates")} examples={report.dateExamples} />}
-            {selected.places && <NormExamples title={t("tools.normalize.exPlaces")} examples={report.placeExamples} />}
-            {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
-            {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={[...report.nameVariantExamples, ...report.unknownNameExamples]} />}
-            {selected.vendorTags && <NormExamples title={t("tools.normalize.exVendorTags")} examples={report.vendorTagExamples} />}
-            {selected.sourceCoverage && <NormExamples title={t("tools.normalize.exSourceCoverage")} examples={report.coverageExamples ?? []} />}
-            {selected.noteShape && <NormExamples title={t("tools.normalize.exNoteShape")} examples={report.noteShapeExamples ?? []} />}
             {selected.repairs && repairs.length > 0 && (
               // The health check's own buttons, as it words them.
               <div className="tools-examples">
@@ -196,6 +192,13 @@ function NormalizeFileSection({ dataset, scans, active, onApplyPatches }: { data
                 </ul>
               </div>
             )}
+            {selected.dates && <NormExamples title={t("tools.normalize.exDates")} examples={report.dateExamples} />}
+            {selected.places && <NormExamples title={t("tools.normalize.exPlaces")} examples={report.placeExamples} />}
+            {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
+            {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={[...report.nameVariantExamples, ...report.unknownNameExamples]} />}
+            {selected.vendorTags && <NormExamples title={t("tools.normalize.exVendorTags")} examples={report.vendorTagExamples} />}
+            {selected.sourceCoverage && <NormExamples title={t("tools.normalize.exSourceCoverage")} examples={report.coverageExamples ?? []} />}
+            {selected.noteShape && <NormExamples title={t("tools.normalize.exNoteShape")} examples={report.noteShapeExamples ?? []} />}
             {selected.stripInternal && <NormExamples title={t("tools.normalize.exStripInternal")} examples={report.internalExamples} />}
             <button data-busy-cursor className="nav-btn tools-run" onClick={apply} disabled={selectedChanges === 0}>
               {t("tools.normalize.apply")}

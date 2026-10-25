@@ -1,4 +1,13 @@
+/// <reference types="node" />
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { versionFamily } from "../normalize/migrate";
+import { countDanglingRefs } from "./fixDanglingRefs";
+import { countFixableDates } from "./fixDates";
+import { countFixableConformance, type ConformanceFixKind } from "./fixConformance";
+import { validateStructure } from "./structure";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
@@ -72,6 +81,51 @@ describe("Normalize runs the health check's repairs", () => {
     const text = serializeGedcom(flat.records);
     expect(text).toContain("2 CHAN\n3 DATE 1 JAN 2020");
     expect(text).toContain("1 PLAC Kranj\n1 DATE 1800-1850");
+  });
+});
+
+describe("Normalize and the health check agree", () => {
+  // Every repair Normalize takes over leaves nothing for the health check's
+  // own button, on every corpus file, kept with its variations or strict.
+  it("leaves no repair it runs for the health check to offer, on every corpus file", () => {
+    const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../__fixtures__/corpus");
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".ged"))) {
+      const buf = readFileSync(resolve(dir, file));
+      const bytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+      for (const strictMode of [false, true]) {
+        const ds = buildDataset(parseGedcom(bytes));
+        const ov = strictMode ? strict(versionFamily(ds.version) === "7.0" ? "7.0" : "5.5.1") : {};
+        const kinds = normalizeRepairKinds(ds, ov);
+        const fixesLeft = () => {
+          const left: Record<string, number> = {
+            dates: countFixableDates(ds),
+            dangling: countDanglingRefs(ds),
+            nonStandard: validateStructure(ds, ov).issues.filter((i) => i.category === "nonStandardDate" && i.fix).length,
+          };
+          for (const kind of kinds) if (!(kind in left) && kind !== "dups") left[kind] = countFixableConformance(ds, kind as ConformanceFixKind);
+          return Object.fromEntries(Object.entries(left).filter(([k, n]) => n > 0 && kinds.includes(k as never)));
+        };
+        const before = fixesLeft();
+        const { report } = bulkNormalize(ds, undefined, ov);
+        applyBulkNormalize(ds, ALL, ov);
+        expect(fixesLeft(), `${file} ${strictMode ? "strict" : "variations"}`).toEqual({});
+        // A date the health check would restyle is counted with the dates.
+        if (before.nonStandard) expect(report.datesChanged, file).toBeGreaterThan(0);
+        expect(report.repairs?.nonStandard, file).toBeUndefined();
+      }
+    }
+  });
+
+  it("counts a date repaired outside people and families among the dates", () => {
+    const ds = dsOf([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/", "1 BIRT", "2 DATE 2 FEB 1850",
+      "0 @S1@ SOUR", "1 TITL Kranj", "1 DATA", "2 EVEN BIRT", "3 DATE Abt. 1850",
+      "0 TRLR",
+    ]);
+    const { report } = bulkNormalize(ds, undefined, strict("7.0"));
+    expect(report.dateExamples).toContainEqual({ before: "Abt. 1850", after: "ABT 1850" });
+    expect(report.datesChanged).toBe(1);
   });
 });
 

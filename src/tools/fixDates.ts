@@ -212,11 +212,14 @@ function isSample(value: string, sample: string): boolean {
   return sample.endsWith("…") ? v.startsWith(sample.slice(0, -1)) : v === sample;
 }
 
+/** Told each date a fix rewrites — Normalize counts them among its dates. */
+export type OnDateFix = (before: string, after: string) => void;
+
 /** @param only — repair just the date one finding names (its row's own button),
  *  instead of every repairable date in the file. */
-export function fixDates(dataset: Dataset, only?: BadDateRef): RecordPatch[] {
+export function fixDates(dataset: Dataset, only?: BadDateRef, onFix?: OnDateFix): RecordPatch[] {
   const ctx = dateFixContext(dataset);
-  return applyDateFixes(dataset, (rec, out) => collectFixes(rec, ctx, out), only);
+  return applyDateFixes(dataset, (rec, out) => collectFixes(rec, ctx, out), only, onFix);
 }
 
 /** Rewrite the dates `collect` proposes, record by record, as undo patches. */
@@ -224,6 +227,7 @@ function applyDateFixes(
   dataset: Dataset,
   collect: (rec: GedNode, out: { node: GedNode; next: string }[]) => void,
   only?: BadDateRef,
+  onFix?: OnDateFix,
 ): RecordPatch[] {
   const patches: RecordPatch[] = [];
   for (const rec of dataset.records) {
@@ -239,7 +243,10 @@ function applyDateFixes(
     if (type === "record" && !rec.xref) continue; // can't address it for undo
 
     const before = cloneNode(rec);
-    for (const f of fixes) f.node.value = f.next;
+    for (const f of fixes) {
+      onFix?.(f.node.value ?? "", f.next);
+      f.node.value = f.next;
+    }
 
     // Re-derive the typed projection so events reflect the repaired date.
     if (type === "individual" && rec.xref) {
@@ -330,7 +337,7 @@ function collectStyleFixes(node: GedNode, ctx: DateFixContext, out: { node: GedN
 
 /** Restyle every non-standard date that has one reading (or just the one a
  *  finding names), leaving the ambiguous ones for the user. */
-export function fixNonStandardDates(dataset: Dataset, overrides?: FormatOverrides, only?: BadDateRef): RecordPatch[] {
+export function fixNonStandardDates(dataset: Dataset, overrides?: FormatOverrides, only?: BadDateRef, onFix?: OnDateFix): RecordPatch[] {
   const ctx = dateStyleContext(dataset, overrides);
-  return applyDateFixes(dataset, (rec, out) => collectStyleFixes(rec, ctx, out), only);
+  return applyDateFixes(dataset, (rec, out) => collectStyleFixes(rec, ctx, out), only, onFix);
 }
