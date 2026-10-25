@@ -36,7 +36,7 @@ import { foldSearch, matchesQuery } from "../globalSearch";
 import { useQueryTerms } from "../useQueryTerms";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
-import { idField, periodicalOffered, useTitleTakesPeriodical } from "../source/standardFields";
+import { coverageFieldsOffered, idField, periodicalOffered, useTitleTakesPeriodical } from "../source/standardFields";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { SourceLinkRow } from "../source/SourceLinkRow";
 import { SourceFieldsForm, SourceGroupHead, type SourceFormValues } from "../source/SourceFieldsForm";
@@ -1103,6 +1103,14 @@ function GroupEditDialog({
    *  type (which decides the event a citation lands on), the collection that
    *  names the repository, the book a film's pages share. */
   const [extras, setExtras] = useState<ReshapeMeta | undefined>();
+  // The place and the years: under the register the book is (a standard-
+  // coverage file states them in DATA › EVEN), else flat, only where the file
+  // writes them so.
+  const offerCoverage = coverageFieldsOffered(
+    dataset.records,
+    formatOverrides.standard,
+    coverage === "standard" && (extras?.bookType ?? meta?.bookType ?? group.bookType) !== "unknown",
+  );
 
   // Which repository the source will hang off — read from what the dialog
   // *now* holds, not from what it opened with: the place a lookup fills in is
@@ -1309,7 +1317,12 @@ function GroupEditDialog({
             // its own above (it can be traded, which a plain URL field cannot
             // say). The page is a citation's, so it is offered only where the
             // group is one link and one citation carries it.
-            show={{ note: false, page: onePage, quay: false, periodical: offerPeriodical }}
+            show={{
+              note: false, page: onePage, quay: false, periodical: offerPeriodical,
+              // The place and years are stated under the register the book is —
+              // or flat, only where the file writes them so.
+              place: offerCoverage, dateRange: offerCoverage,
+            }}
             coverage={coverage}
             idOnRepo={idLabel.caln}
             t={t}

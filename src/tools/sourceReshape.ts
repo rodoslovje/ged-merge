@@ -83,6 +83,7 @@ export {
   fsRepoCountry,
   createSiteRepo,
   applySiteSourceExtras,
+  sourceRegisterOf,
   siteSourceTitle,
   reshapeSources,
 } from "./sourceReshape/apply";

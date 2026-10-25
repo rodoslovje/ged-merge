@@ -47,8 +47,9 @@ export interface MediaMetaRow {
 /** Editable descriptive fields shown as inputs in the info panel (Edit only). */
 export interface MediaEditFields {
   title: string;
-  date: string;
-  place: string;
+  /** Absent where the panel does not offer it: the line is left as it is. */
+  date?: string;
+  place?: string;
   description: string;
   /** Private flag (PRIV / _PRIV / RESN privacy, in the file's dialect). */
   private: boolean;
@@ -119,6 +120,10 @@ export interface MediaRefContext {
   /** Writes (or clears, with `null`) the link's crop region — the part of a
    *  group photo depicting the record. Enables the viewer's crop editor. */
   onEditMediaCrop?: (addr: MediaAddress, crop: CropRegion | null) => void;
+  /** Which of a photo's date and place the info panel offers: only where a
+   *  file kept with its variations writes them (see `mediaInfoOffered`).
+   *  Both are offered when omitted. */
+  mediaFields?: { date: boolean; place: boolean };
 }
 
 interface MediaViewerCtx {
@@ -386,8 +391,8 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                 context: eventLabel,
                 initial: {
                   title: ref.title ?? "",
-                  date: ref.date ?? "",
-                  place: ref.place ?? "",
+                  ...(refCtx?.mediaFields?.date !== false ? { date: ref.date ?? "" } : {}),
+                  ...(refCtx?.mediaFields?.place !== false ? { place: ref.place ?? "" } : {}),
                   description: ref.description ?? "",
                   private: !!ref.private,
                 },
@@ -471,6 +476,7 @@ function MediaInfoEditor({
         <span>{t("media.field.title")}</span>
         <input className="edit-input" autoFocus={autoFocus} value={fields.title} onChange={(e) => set("title")(e.target.value)} onBlur={() => commit()} onKeyDown={blurOnEnter} />
       </label>
+      {fields.date !== undefined && (
       <label className="media-edit-field">
         <span>{t("media.field.date")}</span>
         {/* A typed date is written in the file's style as the field is left. */}
@@ -483,10 +489,13 @@ function MediaInfoEditor({
           label={t("media.field.date")}
         />
       </label>
+      )}
+      {fields.place !== undefined && (
       <label className="media-edit-field">
         <span>{t("media.field.place")}</span>
         <input className="edit-input" value={fields.place} onChange={(e) => set("place")(e.target.value)} onBlur={() => commit()} onKeyDown={blurOnEnter} />
       </label>
+      )}
       <label className="media-edit-field">
         <span>{t("media.field.description")}</span>
         <textarea className="edit-input" rows={3} value={fields.description} onChange={(e) => set("description")(e.target.value)} onBlur={() => commit()} />

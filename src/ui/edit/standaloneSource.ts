@@ -60,6 +60,7 @@ export function createStandaloneSource(
       repo: explicitRepo ? "none" : "auto",
       sourceCoverage: opts.sourceCoverage,
       baptism: opts.baptism,
+      standard: opts.standard,
     });
     if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneNode(repo) });
   }

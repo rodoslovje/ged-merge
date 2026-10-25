@@ -1,6 +1,6 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
 import type { GedNode } from "../../gedcom/types";
-import { keepsSourceTag, titleWithPeriodical, writesIdAsCallNumber } from "../../gedcom/edit";
+import { keepsFlatCoverage, keepsSourceTag, titleWithPeriodical, writesIdAsCallNumber } from "../../gedcom/edit";
 import type { Translate } from "../../locales/i18n";
 
 /**
@@ -80,6 +80,18 @@ export function idField(
  *  where the file keeps its `PERI` lines — elsewhere it is part of the title. */
 export function periodicalOffered(records: GedNode[], standard?: "5.5.1" | "7.0"): boolean {
   return keepsSourceTag(records, "PERI", { standard });
+}
+
+/**
+ * Whether a source form offers the place and the years a source covers. The
+ * standard states them only inside `DATA › EVEN`, under the register the
+ * source covers: where the source has that block, or its register is known,
+ * they are the standard's own fields. Elsewhere they would stand flat on the
+ * record, which only a file kept with its variations that already writes them
+ * so keeps.
+ */
+export function coverageFieldsOffered(records: GedNode[], standard: "5.5.1" | "7.0" | undefined, statesCoverage: boolean): boolean {
+  return statesCoverage || keepsFlatCoverage(records, { standard });
 }
 
 /** Where the form offers no periodical, one a paste or a lookup proposed

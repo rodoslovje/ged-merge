@@ -175,6 +175,9 @@ export type EditSourceFields = NewSourceFields & {
   /** The years the source covers; undefined leaves them as they are. */
   dateRange?: string;
   page?: string; quay?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string;
+  /** Read, never written: the record states its coverage in `DATA › EVEN`
+   *  (see {@link statesCoverage}), so its place and years are standard. */
+  statesCoverage?: boolean;
 };
 
 /** Create a top-level `REPO` record holding just a `NAME` — the manual "New
@@ -253,6 +256,23 @@ export function keepsSourceTag(records: GedNode[], tag: "FILN" | "PERI", overrid
   if (overrides?.standard) return false;
   return memoOnContent(records, `keepsSourceTag:${tag}`, () =>
     records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === tag)),
+  );
+}
+
+/** Whether a source states what it covers in the standard's `DATA › EVEN`,
+ *  where its place and years are the standard's own lines. */
+export function statesCoverage(rec: GedNode): boolean {
+  const data = firstChild(rec, "DATA");
+  return !!data && childrenByTag(data, "EVEN").length > 0;
+}
+
+/** Whether a write may put a source's place or years flat on the record,
+ *  where neither version has them: only a file kept with its variations that
+ *  already writes them so (MacFamilyTree's habit), never a strict target. */
+export function keepsFlatCoverage(records: GedNode[], overrides?: Pick<FormatOverrides, "standard">): boolean {
+  if (overrides?.standard) return false;
+  return memoOnContent(records, "keepsFlatCoverage", () =>
+    records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "PLAC" || c.tag === "DATE" || c.tag === "_DATE")),
   );
 }
 
@@ -360,6 +380,9 @@ export function setSourceRecordFields(
   // number and periodical lines, or the standard's forms are written.
   const keepFiln = keepsSourceTag(records, "FILN", overrides);
   const keepPeri = keepsSourceTag(records, "PERI", overrides);
+  // A place or years with no `DATA › EVEN` to hold them would stand flat on
+  // the record, which a strict target never adds.
+  const keepFlat = !overrides?.standard;
   // The dialog displays one line per field — the first node of the tag — so a
   // save may only touch that node: a second NOTE the dialog never showed
   // survives, an unchanged value stays byte-identical (keeping its CONC wrap
@@ -404,9 +427,10 @@ export function setSourceRecordFields(
       insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "DATA", children: [{ level: sourceNode.level + 2, tag, value: value.trim(), children: [] }] }, SOUR_FIELD_TRAILING);
       return;
     }
-    if (!data || firstChild(sourceNode, tag)) return setChild(tag, value);
+    const flat = (v: string | undefined) => (tag === "PLAC" && !keepFlat && !firstChild(sourceNode, tag) ? undefined : setChild(tag, v));
+    if (!data || firstChild(sourceNode, tag)) return flat(value);
     const holders = tag === "AGNC" ? [data] : childrenByTag(data, "EVEN");
-    if (holders.length === 0) return setChild(tag, value);
+    if (holders.length === 0) return flat(value);
     const holder = holders.find((h) => firstChild(h, tag)) ?? holders[0];
     const node = firstChild(holder, tag);
     const trimmed = value?.trim();
@@ -454,7 +478,7 @@ export function setSourceRecordFields(
       if (node && trimmed) node.value = trimmed;
       else if (node) holder.children = holder.children.filter((c) => c !== node);
       else if (trimmed) holder.children.unshift({ level: holder.level + 1, tag: "DATE", value: trimmed, children: [] });
-    } else {
+    } else if (flat || keepFlat) {
       setExtension("DATE", trimmed);
     }
   }
@@ -711,6 +735,7 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     ?.value?.trim();
   const noteVal = text("NOTE");
   return {
+    statesCoverage: statesCoverage(sourceNode),
     title: text("TITL"),
     author: text("AUTH"),
     periodical: periodicalOf(sourceNode),

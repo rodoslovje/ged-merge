@@ -74,6 +74,20 @@ describe("a source's filing number and periodical (FILN/PERI, in neither standar
     });
   }
 
+  it("adds no flat place or years in a strict target, where no DATA › EVEN holds them", () => {
+    const ds = dataset(wrap("0 @S1@ SOUR\n1 TITL Book\n", "7.0"));
+    const rec = ds.records.find((r) => r.xref === "@S1@")!;
+    setSourceRecordFields(ds.records, rec, { title: "Book", place: "Kranj", dateRange: "1850" }, undefined, { standard: "7.0" });
+    expect(lines(rec)).toEqual(["TITL Book"]);
+    expect(sourceFindings(ds)).toEqual([]);
+    // Where the record states its coverage, both are the standard's own lines.
+    const covered = dataset(wrap("0 @S1@ SOUR\n1 TITL Book\n1 DATA\n2 EVEN BIRT\n", "7.0"));
+    const crec = covered.records.find((r) => r.xref === "@S1@")!;
+    setSourceRecordFields(covered.records, crec, { title: "Book", place: "Kranj", dateRange: "FROM 1850 TO 1860" }, undefined, { standard: "7.0" });
+    expect(lines(crec.children.find((c) => c.tag === "DATA")!.children[0])).toEqual(["DATE FROM 1850 TO 1860", "PLAC Kranj"]);
+    expect(sourceRecordEditFields(covered.records, crec).statesCoverage).toBe(true);
+  });
+
   it("is checked against the version: 7.0 has no repository link without a pointer", () => {
     expect(sourceFindings(dataset(wrap("0 @S1@ SOUR\n1 TITL Book\n1 REPO\n2 CALN 5\n", "7.0")))).not.toEqual([]);
     expect(sourceFindings(dataset(wrap("0 @S1@ SOUR\n1 TITL Book\n1 REPO\n2 CALN 5\n")))).toEqual([]);

@@ -276,6 +276,25 @@ export function mediaInfoTags(records: GedNode[], overrides?: Pick<FormatOverrid
 }
 
 /**
+ * Whether a media form offers the item's date and place. Neither GEDCOM
+ * version has them on a media item, so only a file kept with its variations
+ * that already writes them — bare, or as the `_DATE`/`_PLACE` extensions —
+ * gets the fields; a strict target never does.
+ */
+export function mediaInfoOffered(records: GedNode[], overrides?: Pick<FormatOverrides, "standard">): { date: boolean; place: boolean } {
+  if (overrides?.standard) return { date: false, place: false };
+  return memoOnContent(records, "mediaInfoOffered", () => {
+    const habit = new Set<string>();
+    const look = (obje: GedNode) => { for (const c of obje.children) habit.add(c.tag); };
+    for (const rec of records) {
+      if (rec.tag === "OBJE") look(rec);
+      else for (const c of rec.children) if (c.tag === "OBJE" && !c.value) look(c);
+    }
+    return { date: habit.has("DATE") || habit.has("_DATE"), place: habit.has("PLAC") || habit.has("_PLACE") };
+  });
+}
+
+/**
  * Write a photo's descriptive fields onto its `OBJE` node — either an inline
  * block or a shared top-level record. `TITL` goes where the standard puts it
  * (see `writeMediaTitle`), any other copy removed so it can't go stale;

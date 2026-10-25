@@ -6,13 +6,13 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, sourceRegisterOf, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { detectSourceCoverage, repoLinkWanted } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
+import { coverageFieldsOffered, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
 import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { SourceDialogShell } from "./source/SourceDialogShell";
@@ -266,6 +266,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // lines; elsewhere it is part of the title.
   const offerPeriodical = periodicalOffered(dataset.records, formatOverrides.standard);
   useTitleTakesPeriodical(offerPeriodical, fields.periodical, setFields);
+  // The place and the years: the standard's own fields where the source states
+  // its coverage in DATA › EVEN (an edited one that has the block, a new one
+  // whose register is known), else only where the file writes them flat.
+  const offerCoverage = coverageFieldsOffered(
+    dataset.records,
+    formatOverrides.standard,
+    editing
+      ? !!editing.fields.statesCoverage
+      : coverage === "standard" && sourceRegisterOf(recognized?.site, fields.title) !== "unknown",
+  );
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
     parsed.url !== undefined &&
@@ -731,7 +741,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 // The quality belongs to a citation; standalone mode (Tools →
                 // Sources) writes a source record with no citation to carry it.
                 quay: !standalone,
-                dateRange: !!editing,
+                dateRange: !!editing && offerCoverage,
+                place: offerCoverage,
                 periodical: offerPeriodical,
               }}
               coverage={coverage}

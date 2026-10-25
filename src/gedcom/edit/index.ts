@@ -64,12 +64,12 @@ export type { SharedNoteChange, SharedNoteCtx } from "./notes";
 
 export {
   createMediaRecord, mediaTitleLine, writeMediaTitle, findSharedMediaByFile, attachInlineMedia, attachMediaPointer,
-  removeMediaAt, removeMediaLinkByUrl, setMediaLinkUrl, reorderMedia, setMediaInfo, setCropRegion, pruneUnreferencedMedia,
+  removeMediaAt, removeMediaLinkByUrl, setMediaLinkUrl, reorderMedia, setMediaInfo, mediaInfoOffered, setCropRegion, pruneUnreferencedMedia,
 } from "./media";
 export type { MediaInfoFields } from "./media";
 
 export {
-  createSourceRecord, sourceFieldTag, keepsSourceTag, writesIdAsCallNumber, settleSourceFields, sourceWriteVersion, titleWithPeriodical, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
+  createSourceRecord, sourceFieldTag, keepsSourceTag, keepsFlatCoverage, statesCoverage, writesIdAsCallNumber, settleSourceFields, sourceWriteVersion, titleWithPeriodical, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
   SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay, hangAgencyUnderData,

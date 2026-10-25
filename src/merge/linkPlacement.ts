@@ -662,7 +662,7 @@ function mintSource(
     dateRange: fetched?.dateRange ?? p.dateRange,
     collection: recognized.collection,
     collectionId: filingNumber,
-  });
+  }, { standard: placement.overrides?.standard, sourceCoverage: placement.overrides?.sourceCoverage });
   // The id settles on the repository link the extras may just have added.
   if (!keepFiln) settleSourceFields(source, sourceWriteVersion(placement.overrides), { PERI: true });
   const objeXref = firstChild(source, "OBJE")?.value;
