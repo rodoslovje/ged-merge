@@ -1476,7 +1476,6 @@ export const sl = {
   "edit.mediaLinkChip": "Kliknite, da povezavo uredite ali odstranite",
   "mediaLink.title": "Uredi povezavo",
   "edit.copyEvent": "Kopiraj dogodek v…",
-  "edit.tagTerms": "Kaj pomeni {{tag}}",
   "edit.removeEvent": "Odstrani ta dogodek",
   "edit.changeEventType": "Spremeni vrsto dogodka",
   "copyEvent.title": "Kopiraj dogodek {{event}} v…",

@@ -3,8 +3,9 @@ import { writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
 
-// A program's own tag shown anywhere — here MacFamilyTree's bare NOBI on an
-// event row and in the merge comparison — leads to the page that explains it.
+// A program's own tag shown anywhere — here MacFamilyTree's bare NOBI at an
+// event row's right edge and in the merge comparison — leads to the page that
+// explains it.
 const MAIN = path.join(tmpdir(), "tag-terms-main.ged");
 const COMPARE = path.join(tmpdir(), "tag-terms-compare.ged");
 const person = (award: string) => [
@@ -21,12 +22,18 @@ test("a non-standard event tag links its page from the event menu and the compar
   await page.locator("input.file-input").first().setInputFiles(MAIN);
   await page.locator(".edit-person").waitFor();
 
-  const row = page.locator(".edit-event", { hasText: "(NOBI)" });
-  await row.locator(".edit-event-label--select").click();
-  const item = page.locator(".dd-menu .dd-item", { hasText: "What NOBI means" });
-  await expect(item).toHaveCount(1);
+  // The tag stands apart from the label, which picks the event's type, at the
+  // row's right edge, and links the page that explains it.
+  const tagLink = page.locator(".edit-event a.edit-event-tag", { hasText: "NOBI" });
+  await expect(tagLink).toHaveAttribute("href", "/terms/macfamilytree/NOBI");
+  const row = page.locator(".edit-event", { has: page.locator("a.edit-event-tag") });
+  await expect(row.locator(".edit-event-label")).toHaveCount(1);
+  await expect(row.locator(".edit-event-label")).not.toContainText("(NOBI)");
+  const rowBox = (await row.boundingBox())!;
+  const tagBox = (await tagLink.boundingBox())!;
+  expect(rowBox.x + rowBox.width - (tagBox.x + tagBox.width)).toBeLessThan(4);
   const popup = page.waitForEvent("popup");
-  await item.click();
+  await tagLink.click();
   expect((await popup).url()).toContain("/terms/macfamilytree/NOBI");
 
   await page.getByRole("button", { name: "Merge", exact: true }).click();

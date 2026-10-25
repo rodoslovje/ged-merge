@@ -9329,6 +9329,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* A non-standard tag in a text, linking the page that explains it. */
 .tag-terms-link { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
 .tag-terms-link:hover { text-decoration-style: solid; }
+/* An event's non-standard tag, at the row's right edge, apart from its label. */
+.edit-event-tag { margin-left: auto; flex: none; font-family: var(--font-mono); font-size: 0.85em; white-space: nowrap; }
+.edit-event-tag-info { margin-left: 4px; display: inline-block; text-decoration: none; }
 /* Person references in Tools: name in its sex colour, then a muted lifespan,
    styled exactly like person labels elsewhere in the app. */
 .person-ref {
