@@ -134,8 +134,8 @@ function sourceUrlOf(rec: GedNode, objes: Map<string, GedNode>): string | undefi
 
 /** Bucket top-level `tag` records by `keyOf` and emit a {@link DupGroup} per
  *  bucket with 2+ members. The survivor (kept) is the one saying the most
- *  (`fullness`, where given), then the richest record, then the most-cited,
- *  then the first in file order — minimizing data loss and changes. */
+ *  (`fullness`, where given), then the most-cited — so the fewest pointers
+ *  are re-written — then the richest record, then the first in file order. */
 function groupRecords(
   records: GedNode[],
   tag: string,
@@ -160,7 +160,7 @@ function groupRecords(
     if (recs.length < 2) continue;
     const ranked = recs
       .map((rec, i) => ({ rec, i, full: fullness(rec), rich: richness(rec), use: refs.get(rec.xref!) ?? 0 }))
-      .sort((a, b) => b.full - a.full || b.rich - a.rich || b.use - a.use || a.i - b.i);
+      .sort((a, b) => b.full - a.full || b.use - a.use || b.rich - a.rich || a.i - b.i);
     const members: DupMember[] = ranked.map(({ rec }, idx) => {
       const d = describe(rec);
       return {
@@ -213,7 +213,9 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
       const info = objeInfoOf(rec);
       return { title: info.title || (info.file ? basename(info.file) : rec.xref!), detail: info.url ?? info.file, url: info.url };
     },
-    refs, groups,
+    // Media records share only their `FILE`: a dropped one's title or notes
+    // would be lost, so the one saying the most leads before the most-cited.
+    refs, groups, richness,
   );
 
   // A source or repository saying less than one other of its title is keyed

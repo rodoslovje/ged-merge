@@ -1007,6 +1007,8 @@ export const en = {
   "tools.sources.dupSelectAll": "Select all",
   "tools.sources.dupSelectNone": "Select none",
   "tools.sources.dupKeepThis": "Keep this record",
+  "tools.sources.dupUses_one": "{{count}} reference",
+  "tools.sources.dupUses_other": "{{count}} references",
   "tools.sources.dupBack": "Back to Sources",
   "tools.sources.cleanupToggle": "Organize sources",
   "tools.sources.expandAll": "Expand all",

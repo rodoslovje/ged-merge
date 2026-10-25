@@ -1671,6 +1671,10 @@ function DupGroupRow({
           <ul className="tools-dup-members">
             {group.members.map((m) => {
               const keep = m.xref === survivorXref;
+              // Members that read alike are told apart by their record id.
+              const lookalike = group.members.some(
+                (o) => o !== m && o.title === m.title && o.detail === m.detail && o.url === m.url,
+              );
               return (
                 <li key={m.xref} className={keep ? "tools-dup-member survivor" : "tools-dup-member"}>
                   <label className="tools-dup-keep-pick" title={t("tools.sources.dupKeepThis")}>
@@ -1683,7 +1687,9 @@ function DupGroupRow({
                     {keep && <span className="tools-dup-keep">{t("tools.sources.dupKeep")}</span>}
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
+                  {lookalike && <span className="tools-tree-meta gm-data">{m.xref}</span>}
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
+                  <span className="tools-tree-meta">{t("tools.sources.dupUses", { count: m.usage })}</span>
                   <RowLink url={m.url} t={t} />
                   {group.kind !== "media" && (
                     <RowEdit xref={m.xref} kind={group.kind === "repo" ? "repo" : "source"} onEditRecord={onEditRecord} t={t} />

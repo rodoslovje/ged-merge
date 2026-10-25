@@ -108,9 +108,60 @@ describe("findSourceDuplicates — media", () => {
 0 TRLR`, "media");
     expect(groups[0].members.find((m) => m.survivor)?.xref).toBe("@O2@");
   });
+
+  it("keeps the richer media record even when the other is cited more", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O1@
+0 @I2@ INDI
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE a.jpg
+0 @O2@ OBJE
+1 FILE a.jpg
+1 TITL A nice scan
+0 TRLR`, "media");
+    expect(groups[0].members.map((m) => [m.xref, m.usage])).toEqual([["@O2@", 0], ["@O1@", 2]]);
+  });
+
+  it("keeps the more-cited of two equally rich media records", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 OBJE @O2@
+0 @O1@ OBJE
+1 FILE a.jpg
+0 @O2@ OBJE
+1 FILE a.jpg
+0 TRLR`, "media");
+    expect(groups[0].members.find((m) => m.survivor)?.xref).toBe("@O2@");
+  });
 });
 
 describe("findSourceDuplicates — sources & repos", () => {
+  it("keeps the more-cited of two identical repositories, whatever their stamps", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Baptisms
+1 REPO @R2@
+0 @S2@ SOUR
+1 TITL Deaths
+1 REPO @R2@
+0 @R1@ REPO
+1 NAME Matricula Online
+1 CHAN
+2 DATE 1 JAN 2020
+0 @R2@ REPO
+1 NAME Matricula Online
+0 TRLR`, "repo");
+    expect(groups[0].members.map((m) => [m.xref, m.usage, m.survivor])).toEqual([
+      ["@R2@", 2, true],
+      ["@R1@", 0, false],
+    ]);
+  });
+
   it("groups SOUR records with identical descriptive content under different xrefs", () => {
     expect(ofKind(`0 HEAD
 1 CHAR UTF-8
