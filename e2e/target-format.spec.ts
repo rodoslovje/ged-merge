@@ -93,7 +93,7 @@ test("the own-format notice comes back on every opening until it is silenced for
   await page.reload();
   await page.locator("input.file-input").first().setInputFiles(file);
   await expect(notice).toBeVisible();
-  await notice.getByRole("button", { name: "Don't show again for this file" }).click();
+  await notice.getByRole("button", { name: "Never ask again for this file" }).click();
   await expect(notice).toHaveCount(0);
 
   // Silenced for this file from then on.

@@ -2472,7 +2472,7 @@ export const en = {
   "target.kept": "This file is GEDCOM {{version}} with variations of its own, which GED Merge keeps. To write standard GEDCOM instead, choose it in Settings → GEDCOM.",
   "target.kept.software": "This file is GEDCOM {{version}} with {{software}}'s variations, which GED Merge keeps. To write standard GEDCOM instead, choose it in Settings → GEDCOM.",
   "target.notice.settings": "Open Settings",
-  "target.notice.hide": "Don't show again for this file",
+  "target.notice.hide": "Never ask again for this file",
   "target.notice.later": "Later",
   "target.switch": "Hold this file to GEDCOM {{version}}?\n\nYour edits will follow GEDCOM {{version}}, and the save writes that version. Tools → Normalize & batch can bring the records the file already has in line too.",
   "target.switch.normalize": "Switch and open Normalize & batch",

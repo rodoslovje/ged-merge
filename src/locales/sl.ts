@@ -2825,7 +2825,7 @@ export const sl = {
   "target.kept": "Ta datoteka je GEDCOM {{version}} z lastnimi odstopanji, ki jih GED Merge ohrani. Če želite standardni GEDCOM, ga izberite v Nastavitvah → GEDCOM.",
   "target.kept.software": "Ta datoteka je GEDCOM {{version}} z odstopanji programa {{software}}, ki jih GED Merge ohrani. Če želite standardni GEDCOM, ga izberite v Nastavitvah → GEDCOM.",
   "target.notice.settings": "Odpri nastavitve",
-  "target.notice.hide": "Za to datoteko ne prikaži več",
+  "target.notice.hide": "Za to datoteko ne sprašuj več",
   "target.notice.later": "Kasneje",
   "target.switch": "Naj datoteka sledi standardu GEDCOM {{version}}?\n\nVaše spremembe bodo sledile standardu GEDCOM {{version}}, shranjena datoteka pa bo v tej različici. Z orodjem Poenoti in paketno uredi (v Orodjih) lahko standardu prilagodite tudi zapise, ki jih datoteka že ima.",
   "target.switch.normalize": "Preklopi in odpri Poenoti in paketno uredi",
