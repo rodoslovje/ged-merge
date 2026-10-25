@@ -30,14 +30,14 @@ test("the health check lists data issues and GEDCOM issues on their own tabs", a
   const list = page.locator(".tools-issues");
   await expect(list).toContainText("Sex not recorded");
   await expect(list).not.toContainText("may hold only Y");
-  await expect(page.getByRole("button", { name: "→ Note" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Move into a note" })).toHaveCount(0);
 
   await gedcom.click();
   await expect(gedcom).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".tools-group-intro")).toContainText("departs from GEDCOM 7.0");
   await expect(list).toContainText("may hold only Y");
   await expect(list).not.toContainText("Sex not recorded");
-  await expect(page.getByRole("button", { name: "→ Note" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Move into a note" }).first()).toBeVisible();
   // Text on event lines is a chip of its own, carved out of the values.
   await page.locator(".tools-chip", { hasText: "Text on event lines" }).click();
   await expect(list).toContainText("may hold only Y");

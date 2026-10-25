@@ -155,7 +155,7 @@ export const sl = {
   "tools.validate.fixConformNotesDone_few": "Besedilo dogodkov je premaknjeno v opombe v {{count}} zapisih.",
   "tools.validate.fixConformNotesDone_other": "Besedilo dogodkov je premaknjeno v opombe v {{count}} zapisih.",
   "tools.validate.fixConformNotesNone": "Ni besedila dogodkov za premik.",
-  "tools.validate.fixOneNote": "→ Opomba",
+  "tools.validate.fixOneNote": "Premakni v opombo",
   "tools.validate.fixOneNoteHint": "Besedilo se nespremenjeno prenese v opombo dogodka.",
   "tools.validate.fixOneAdd": "+ {{tag}} {{value}}",
   "tools.validate.fixOneAddHint": "Medijski datoteki se doda manjkajoča vrstica FORM, razbrana iz imena datoteke.",

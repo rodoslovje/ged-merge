@@ -127,7 +127,7 @@ export const en = {
   "tools.validate.fixConformNotesDone_one": "Moved event text into notes in {{count}} record.",
   "tools.validate.fixConformNotesDone_other": "Moved event text into notes in {{count}} records.",
   "tools.validate.fixConformNotesNone": "No event text to move.",
-  "tools.validate.fixOneNote": "→ Note",
+  "tools.validate.fixOneNote": "Move into a note",
   "tools.validate.fixOneNoteHint": "Moves this text word for word into a note on the event.",
   "tools.validate.fixOneAdd": "+ {{tag}} {{value}}",
   "tools.validate.fixOneAddHint": "Adds this media file's missing FORM line, read off the file's name.",
