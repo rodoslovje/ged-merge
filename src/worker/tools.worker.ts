@@ -6,8 +6,6 @@ import { validateStructure } from "../tools/structure";
 import { findSourceDuplicates } from "../tools/sourceDuplicates";
 import { ALL_SITES, findReshapableLinks, reshapeOptionsFromOverrides } from "../tools/sourceReshape";
 import { bulkNormalize } from "../tools/bulkNormalize";
-import { serializeGedcom } from "../gedcom/serialize";
-import { outputOptions, prepareDownload } from "../save/outputFile";
 import { applyRecordsPatch, datasetFromSnapshot } from "../state/mainSync";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "./toolsMessages";
 
@@ -89,13 +87,6 @@ function run(req: Exclude<ToolsRequest, { type: "setMain" | "patchMain" }>): Too
       // The reader's format overrides ride along, so the preview counts what
       // the apply will actually write.
       return { report: bulkNormalize(dataset, undefined, req.formatOverrides).report };
-    case "normalizeText": {
-      const { dataset: out } = bulkNormalize(dataset, req.options, req.formatOverrides);
-      // A download like any other: a complete, stamped file in the target
-      // format's version (see prepareDownload).
-      prepareDownload(out.records, dataset, req.version, undefined, req.authorName);
-      return { text: serializeGedcom(out.records, outputOptions(dataset, req.version)) };
-    }
   }
 }
 

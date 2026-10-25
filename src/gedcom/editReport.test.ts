@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { parseGedcom } from "./parser";
 import type { ChangeReport } from "../merge/merge";
-import { buildEditReport, combineReports, enrichEditReport, removeRecordFromReport, sharedRecordTitle } from "./editReport";
+import { buildEditReport, combineReports, diffSharedRecordNodes, enrichEditReport, removeRecordFromReport, sharedRecordTitle } from "./editReport";
 import { cloneNode } from "./node";
 
 function dataset(text: string) {
@@ -762,6 +762,44 @@ describe("combineReports", () => {
   it("concatenates deferred entries", () => {
     const a = mk({ deferred: [{ recordId: "@I1@", field: "f", reason: "r" }] });
     expect(combineReports(a, mk({})).deferred).toHaveLength(1);
+  });
+});
+
+describe("diffSharedRecordNodes", () => {
+  const sour = (lines: string[]) =>
+    buildDataset(parseGedcom(new TextEncoder().encode(["0 HEAD", ...lines, "0 TRLR"].join("\n")).buffer as ArrayBuffer))
+      .records.find((r) => r.tag === "SOUR")!;
+  const rows = (before: string[], after: string[]) =>
+    diffSharedRecordNodes("@S1@", sour(before), sour(after)).map((c) => `${c.field}: ${c.from}→${c.to}`);
+
+  it("lists each EVEN with its own DATE and PLAC, in the file's order", () => {
+    expect(rows(
+      ["0 @S1@ SOUR", "1 TITL Ravna Gora", "1 AGNC Arhiv", "1 PLAC Ravna Gora", "1 DATE 1759-1812"],
+      [
+        "0 @S1@ SOUR", "1 TITL Ravna Gora", "1 DATA",
+        "2 EVEN BIRT", "3 DATE FROM 1759 TO 1812", "3 PLAC Ravna Gora",
+        "2 EVEN DEAT", "3 DATE FROM 1800 TO 1812", "3 PLAC Ravna Gora",
+        "2 AGNC Arhiv",
+      ],
+    )).toEqual([
+      "AGNC: Arhiv→",
+      "PLAC: Ravna Gora→",
+      "DATE: 1759-1812→",
+      "DATA.EVEN: →BIRT",
+      "DATA.EVEN.DATE: →FROM 1759 TO 1812",
+      "DATA.EVEN.PLAC: →Ravna Gora",
+      "DATA.EVEN: →DEAT",
+      "DATA.EVEN.DATE: →FROM 1800 TO 1812",
+      "DATA.EVEN.PLAC: →Ravna Gora",
+      "DATA.AGNC: →Arhiv",
+    ]);
+  });
+
+  it("pairs a changed value with the line it replaced", () => {
+    expect(rows(
+      ["0 @S1@ SOUR", "1 DATA", "2 EVEN BIRT", "3 DATE 1759-1812", "2 EVEN DEAT", "3 DATE 1800"],
+      ["0 @S1@ SOUR", "1 DATA", "2 EVEN BIRT", "3 DATE FROM 1759 TO 1812", "2 EVEN DEAT", "3 DATE 1800"],
+    )).toEqual(["DATA.EVEN.DATE: 1759-1812→FROM 1759 TO 1812"]);
   });
 });
 

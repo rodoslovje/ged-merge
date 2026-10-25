@@ -270,6 +270,9 @@ export interface NormalizeOptions {
   /** Restate every note in the house shape — a shared `NOTE` record the
    *  referrer points at, or inline text (bulk-normalize only). */
   noteShape?: boolean;
+  /** Run the health check's repairs the target allows (bulk-normalize only;
+   *  see `tools/normalizeRepairs`). */
+  repairs?: boolean;
   /**
    * Collapse runs of spaces and trim the ends of every `PLAC`/`ADDR` value.
    * On by default: an incoming compare file is being reshaped to the house
@@ -341,6 +344,9 @@ export interface NormalizationReport {
   notesReshaped?: number;
   /** A handful of illustrative note-shape changes for display. */
   noteShapeExamples?: NormChange[];
+  /** Records each health-check repair changed, by its fix kind
+   *  (bulk-normalize only). */
+  repairs?: Record<string, number>;
   /** Incoming records merged away as same-person duplicates (detected because
    *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */

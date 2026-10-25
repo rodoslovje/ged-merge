@@ -9,10 +9,11 @@ import { useLanguageItems } from "./languageItems";
 /**
  * GEDCOM 7 translations with no `LANG` (see `tools/fixTranslationLang`): one
  * row per name, a language picker per part, pre-filled from the spelling.
- * A row is written on its own, or all rows at once with the languages chosen,
- * or all of them as undetermined.
+ * A row is written on its own, or the selected rows at once with the
+ * languages chosen, or as undetermined — selected the way the findings list
+ * picks its rows.
  *
- * The two whole-file buttons (`actions`) and the per-name rows (`list`) sit
+ * The selection bar (`actions`) and the per-name rows (`list`) sit
  * on the list's own chip page, and both read the same picks; the note that
  * the languages were written (`doneNote`) stays up after the chip is gone.
  */
@@ -37,15 +38,20 @@ export function useTranslationLang({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, freshness, needed],
   );
-  // The user's own picks, by group key; a group not in it keeps its suggestion.
-  const [picked, setPicked] = useState<Map<string, string[]>>(() => new Map());
+  // The user's own language choices, by group key; a group not in it keeps
+  // its suggestion.
+  const [chosen, setChosen] = useState<Map<string, string[]>>(() => new Map());
+  // The rows selected for one batch, by group key — as the findings list picks.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [pending, setPending] = useState<"chosen" | "und" | null>(null);
   const [done, setDone] = useState<number | null>(null);
   useEffect(() => {
-    setPicked(new Map());
+    setChosen(new Map());
     setPending(null);
     setDone(null);
   }, [dataset]);
+  // A selection points at rows of the list it was made in.
+  useEffect(() => { setSelected(new Set()); }, [groups]);
 
   const langItems = useLanguageItems(useMemo(() => groups.flatMap((g) => g.suggested), [groups]));
 
@@ -54,32 +60,52 @@ export function useTranslationLang({
   );
   if (groups.length === 0) return { actions: null, list: null, doneNote: doneNote || null };
 
-  const langsOf = (g: UntaggedTranslation) => picked.get(g.key) ?? g.suggested;
-  const lines = groups.reduce((n, g) => n + g.count, 0);
+  const langsOf = (g: UntaggedTranslation) => chosen.get(g.key) ?? g.suggested;
+  const picked = groups.filter((g) => selected.has(g.key));
+  const lines = picked.reduce((n, g) => n + g.count, 0);
+  const allPicked = picked.length === groups.length;
 
   function apply(choices: Map<string, string[]>) {
     setPending(null);
+    setSelected(new Set());
     setDone(onApply(choices));
     onApplied();
   }
   const choose = (g: UntaggedTranslation, part: number, lang: string) =>
-    setPicked((prev) => new Map(prev).set(g.key, langsOf(g).map((l, i) => (i === part ? lang : l))));
+    setChosen((prev) => new Map(prev).set(g.key, langsOf(g).map((l, i) => (i === part ? lang : l))));
+  const toggle = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
 
   const actions = (
     <>
-      <ul className="tools-fix-list">
-        <li className="tools-fix-item">
-          <span className="tools-tran-actions">
+      <div className="tools-pick-bar">
+        <label className="tools-pick-all">
+          <input
+            type="checkbox"
+            checked={allPicked}
+            onChange={() => setSelected(allPicked ? new Set() : new Set(groups.map((g) => g.key)))}
+          />
+          {t("tools.validate.pickAll", { count: groups.length })}
+        </label>
+        {picked.length > 0 && (
+          <>
+            <span className="tools-pick-count">{t("tools.validate.picked", { count: picked.length })}</span>
             <button className="nav-btn primary tools-run" onClick={() => setPending("chosen")}>
               {t("tools.validate.tranLang.apply", { count: lines })}
             </button>
             <button className="nav-btn tools-run" onClick={() => setPending("und")}>
               {t("tools.validate.tranLang.und", { count: lines })}
             </button>
-          </span>
-          <span className="tools-fix-hint">{t("tools.validate.tranLang.fixHint")}</span>
-        </li>
-      </ul>
+            <button className="nav-btn tools-run" onClick={() => setSelected(new Set())}>
+              {t("tools.validate.clearPicked")}
+            </button>
+          </>
+        )}
+      </div>
       {pending !== null && (
         <ConfirmDialog
           message={
@@ -90,7 +116,7 @@ export function useTranslationLang({
           confirmLabel={t("tools.validate.applyFix")}
           busy
           onConfirm={() =>
-            apply(new Map(groups.map((g) => [g.key, pending === "chosen" ? langsOf(g) : g.parts.map(() => UNDETERMINED)])))
+            apply(new Map(picked.map((g) => [g.key, pending === "chosen" ? langsOf(g) : g.parts.map(() => UNDETERMINED)])))
           }
           onCancel={() => setPending(null)}
         />
@@ -108,6 +134,13 @@ export function useTranslationLang({
           const split = new Set(langs).size;
           return (
             <li key={g.key} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
+              <input
+                type="checkbox"
+                className="tools-pick"
+                checked={selected.has(g.key)}
+                onChange={() => toggle(g.key)}
+                aria-label={t("tools.validate.pickOne")}
+              />
               {/* Which kind of name it translates: a place's or a person's. */}
               <span className="tools-struct-rec"><span className="tools-struct-rec-tag">{g.place ? "PLAC" : "NAME"}</span></span>
               <span className="tools-tran-parts">

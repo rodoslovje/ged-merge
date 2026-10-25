@@ -1,0 +1,156 @@
+/// <reference types="node" />
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { versionFamily } from "../normalize/migrate";
+import { countDanglingRefs } from "./fixDanglingRefs";
+import { countFixableDates } from "./fixDates";
+import { countFixableConformance, type ConformanceFixKind } from "./fixConformance";
+import { validateStructure } from "./structure";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { serializeGedcom } from "../gedcom/serialize";
+import type { Dataset } from "../gedcom/types";
+import { targetFormatOverrides } from "../normalize/target";
+import type { NormalizeOptions } from "../normalize/types";
+import { applyBulkNormalize, bulkNormalize } from "./bulkNormalize";
+import { fixableConformance, validateConformance } from "./conformance/conformance";
+import { normalizeRepairKinds } from "./normalizeRepairs";
+
+const dsOf = (lines: string[]): Dataset => buildDataset(parseGedcom(new TextEncoder().encode(lines.join("\n")).buffer as ArrayBuffer));
+const strict = (version: "5.5.1" | "7.0") => targetFormatOverrides({}, { strict: true, version });
+const ALL: NormalizeOptions = { dates: true, places: true, links: true, names: true, vendorTags: true, sourceCoverage: true, noteShape: false, repairs: true, stripInternal: false };
+
+/** A 7.0 file with findings the health check repairs: a value in the wrong
+ *  case, an exact repeat, a media file with no FORM, a pointer to nothing. */
+const V7 = [
+  "0 HEAD", "1 GEDC", "2 VERS 7.0",
+  "0 @I1@ INDI", "1 NAME Ana /Kos/", "2 TYPE birth", "1 SEX F", "1 SEX F", "1 SOUR @S9@", "1 OBJE @M1@",
+  "0 @M1@ OBJE", "1 FILE slike/ana.jpg",
+  "0 TRLR",
+];
+
+describe("Normalize runs the health check's repairs", () => {
+  it("leaves no finding the health check would fix, in 7.0", () => {
+    const ds = dsOf(V7);
+    expect(fixableConformance(ds.records).length).toBeGreaterThan(0);
+    const before = validateConformance(ds).length;
+    applyBulkNormalize(ds, ALL, strict("7.0"));
+    expect(fixableConformance(ds.records)).toEqual([]);
+    expect(validateConformance(ds).length).toBeLessThan(before);
+    const text = serializeGedcom(ds.records);
+    expect(text).toContain("2 TYPE BIRTH");
+    expect(text).toContain("2 FORM image/jpeg");
+    expect(text).not.toContain("@S9@");
+    expect(text.match(/1 SEX F/g)).toHaveLength(1);
+  });
+
+  it("adds no finding to a clean strict 5.5.1 file", () => {
+    const ds = dsOf([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/", "1 SEX F", "1 BIRT", "2 DATE 2 FEB 1850", "2 PLAC Kranj",
+      "0 TRLR",
+    ]);
+    const before = validateConformance(ds);
+    expect(applyBulkNormalize(ds, ALL, strict("5.5.1"))).toEqual([]);
+    expect(validateConformance(ds)).toEqual(before);
+  });
+
+  it("counts each repair in the preview, as the apply makes it", () => {
+    const { report } = bulkNormalize(dsOf(V7), undefined, strict("7.0"));
+    expect(report.repairs).toMatchObject({ dangling: 1, values: 1, repeats: 1, forms: 1 });
+  });
+
+  it("runs none when the reader unticks them", () => {
+    const ds = dsOf(V7);
+    applyBulkNormalize(ds, { ...ALL, repairs: false }, strict("7.0"));
+    expect(serializeGedcom(ds.records)).toContain("1 SOUR @S9@");
+  });
+
+  it("keeps the program's own source fields and event stamps in a file kept with its variations", () => {
+    const flat = dsOf([
+      "0 HEAD", "1 SOUR MacFamilyTree", "1 GEDC", "2 VERS 5.5.1",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/", "1 BIRT", "2 DATE 1850", "2 CHAN", "3 DATE 1 JAN 2020",
+      "0 @S1@ SOUR", "1 TITL Kranj, rojstva 1800–1850", "1 PLAC Kranj", "1 DATE 1800-1850",
+      "0 TRLR",
+    ]);
+    expect(normalizeRepairKinds(flat, {})).not.toContain("stamps");
+    expect(normalizeRepairKinds(flat, strict("5.5.1"))).toContain("stamps");
+    applyBulkNormalize(flat, ALL, {});
+    const text = serializeGedcom(flat.records);
+    expect(text).toContain("2 CHAN\n3 DATE 1 JAN 2020");
+    expect(text).toContain("1 PLAC Kranj\n1 DATE 1800-1850");
+  });
+});
+
+describe("Normalize and the health check agree", () => {
+  // Every repair Normalize takes over leaves nothing for the health check's
+  // own button, on every corpus file, kept with its variations or strict.
+  it("leaves no repair it runs for the health check to offer, on every corpus file", () => {
+    const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../__fixtures__/corpus");
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".ged"))) {
+      const buf = readFileSync(resolve(dir, file));
+      const bytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+      for (const strictMode of [false, true]) {
+        const ds = buildDataset(parseGedcom(bytes));
+        const ov = strictMode ? strict(versionFamily(ds.version) === "7.0" ? "7.0" : "5.5.1") : {};
+        const kinds = normalizeRepairKinds(ds, ov);
+        const fixesLeft = () => {
+          const left: Record<string, number> = {
+            dates: countFixableDates(ds),
+            dangling: countDanglingRefs(ds),
+            nonStandard: validateStructure(ds, ov).issues.filter((i) => i.category === "nonStandardDate" && i.fix).length,
+          };
+          for (const kind of kinds) if (!(kind in left) && kind !== "dups") left[kind] = countFixableConformance(ds, kind as ConformanceFixKind);
+          return Object.fromEntries(Object.entries(left).filter(([k, n]) => n > 0 && kinds.includes(k as never)));
+        };
+        const before = fixesLeft();
+        const { report } = bulkNormalize(ds, undefined, ov);
+        applyBulkNormalize(ds, ALL, ov);
+        expect(fixesLeft(), `${file} ${strictMode ? "strict" : "variations"}`).toEqual({});
+        // A date the health check would restyle is counted with the dates.
+        if (before.nonStandard) expect(report.datesChanged, file).toBeGreaterThan(0);
+        expect(report.repairs?.nonStandard, file).toBeUndefined();
+      }
+    }
+    // The whole corpus twice over; CI's coverage run is several times slower.
+  }, 60_000);
+
+  it("counts a date repaired outside people and families among the dates", () => {
+    const ds = dsOf([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/", "1 BIRT", "2 DATE 2 FEB 1850",
+      "0 @S1@ SOUR", "1 TITL Kranj", "1 DATA", "2 EVEN BIRT", "3 DATE Abt. 1850",
+      "0 TRLR",
+    ]);
+    const { report } = bulkNormalize(ds, undefined, strict("7.0"));
+    expect(report.dateExamples).toContainEqual({ before: "Abt. 1850", after: "ABT 1850" });
+    expect(report.datesChanged).toBe(1);
+  });
+});
+
+describe("applyBulkNormalize", () => {
+  it("rewrites the live records in place and returns one undo patch per changed record", () => {
+    const ds = dsOf(V7);
+    const raw = ds.individuals.get("@I1@")!.raw;
+    const original = serializeGedcom([raw]);
+    const patches = applyBulkNormalize(ds, ALL, strict("7.0"));
+    // The typed model still points at the record the file has.
+    expect(ds.individuals.get("@I1@")!.raw).toBe(raw);
+    expect(ds.records).toContain(raw);
+    const indi = patches.find((p) => p.id === "@I1@")!;
+    expect(indi.type).toBe("individual");
+    expect(serializeGedcom([indi.before!])).toBe(original);
+    expect(serializeGedcom([indi.after!])).toBe(serializeGedcom([raw]));
+    expect(patches.map((p) => p.id).sort()).toEqual(["@I1@", "@M1@"]);
+  });
+
+  it("changes nothing on a second run", () => {
+    const ds = dsOf(V7);
+    applyBulkNormalize(ds, ALL, strict("7.0"));
+    const once = serializeGedcom(ds.records);
+    expect(applyBulkNormalize(ds, ALL, strict("7.0"))).toEqual([]);
+    expect(serializeGedcom(ds.records)).toBe(once);
+  });
+});

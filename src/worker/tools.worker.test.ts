@@ -99,36 +99,6 @@ describe("tools worker scans", () => {
     expect(preview).toHaveProperty("report");
   });
 
-  it("normalizeText sends back the normalized file as a complete UTF-8 download", async () => {
-    const send = await freshWorker();
-    send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
-    const options = { dates: true, places: true, links: true, names: true, vendorTags: true };
-    send({ type: "normalizeText", requestId: 5, options, version: "5.5.1", authorName: "Ana Novak" });
-    const res = posted.at(-1)!;
-    if (res.type !== "result") throw new Error(`expected a result, got ${res.type}`);
-    const text = (res.data as { text: string }).text;
-    expect(text.startsWith("0 HEAD")).toBe(true);
-    expect(text).toContain("1 CHAR UTF-8");
-    // Repaired and stamped like every other download (prepareDownload).
-    expect(text).toContain("2 VERS 5.5.1");
-    expect(text).toContain("1 SOUR GEDMERGE");
-    expect(text).toMatch(/0 @U\d+@ SUBM\r?\n1 NAME Ana Novak/);
-    expect(text).toContain("0 @I1@ INDI");
-    expect(text.trimEnd().endsWith("0 TRLR")).toBe(true);
-  });
-
-  it("normalizeText writes the target format's version", async () => {
-    const send = await freshWorker();
-    send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
-    const options = { dates: true, places: true, links: true, names: true, vendorTags: true };
-    send({ type: "normalizeText", requestId: 6, options, version: "7.0" });
-    const res = posted.at(-1)!;
-    if (res.type !== "result") throw new Error(`expected a result, got ${res.type}`);
-    const text = (res.data as { text: string }).text;
-    expect(text).toContain("2 VERS 7.0");
-    expect(text).not.toContain("1 CHAR");
-  });
-
   it("reports the duplicate scan's progress on a large file, under the scan's id", async () => {
     const send = await freshWorker();
     // Progress comes every 256 people; just past one step keeps the scan short.
@@ -152,6 +122,22 @@ describe("tools worker scans", () => {
       send({ type: "validate", requestId: 4 });
       expect(posted.map((m) => [m.type, idOf(m)])).toEqual([["error", 3], ["result", 4]]);
       expect(posted[0]).toMatchObject({ message: "boom" });
+    } finally {
+      vi.doUnmock("../tools/sourceDuplicates");
+    }
+  });
+
+  it("a scan that throws something other than an Error still answers its message", async () => {
+    vi.doMock("../tools/sourceDuplicates", () => ({
+      findSourceDuplicates: () => {
+        throw "no records";
+      },
+    }));
+    try {
+      const send = await freshWorker();
+      send({ type: "setMain", snapshot: mainSnapshot(dsOf(FILE)) });
+      send({ type: "sourceDuplicates", requestId: 7 });
+      expect(posted).toEqual([{ type: "error", requestId: 7, message: "no records" }]);
     } finally {
       vi.doUnmock("../tools/sourceDuplicates");
     }

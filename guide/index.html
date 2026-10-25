@@ -1257,7 +1257,7 @@
               your entire main file. Each tool shows what it found, or what it would change, before you accept it.
               <strong>Health check</strong>'s one-click fixes, a <strong>Find duplicates</strong> merge, a
               <strong>Places</strong> rename and <strong>Geocode places</strong> write into your main file as you work,
-              and are saved like any other edit, as do <a href="#normalize">Batch actions</a>. <strong>Normalize file</strong>, <strong>Privacy</strong> and <strong>Organize sources</strong> instead
+              and are saved like any other edit, as do <a href="#normalize">Batch actions</a> and <strong>Normalize file</strong>. <strong>Privacy</strong> and <strong>Organize sources</strong> instead
               hand you a separate file to download. Either way the <em>.ged</em> on your disk is never rewritten: every
               save is a new file in your Downloads folder (<a href="#saving">§14</a>).
               Six tools sit in the picker at the top —
@@ -1389,9 +1389,10 @@
               language</strong> chip lists each such name once (in the findings, they are all one row, whose
               <strong>Choose languages</strong> button opens the chip), with the number of lines that carry it and a language
               suggested from its spelling (<em>Krainburg</em> → German). Change a suggestion in its menu, then write
-              one name with its <strong>Write</strong> button or all of them with <strong>Write the chosen
-              languages</strong>; <strong>Mark all as undetermined</strong> writes the standard's code <em>und</em>
-              instead, without guessing. A line holding several names in different languages (<em>M.Vellach, Media
+              one name with its <strong>Write</strong> button, or tick several names (or <strong>Select all
+              fixable</strong>) and write them with <strong>Write the chosen languages</strong>; <strong>Mark as
+              undetermined</strong> writes the standard's code <em>und</em> on the ticked names instead, without
+              guessing. A line holding several names in different languages (<em>M.Vellach, Media
               Wella</em>) is split into one TRAN line per language.
             </p>
             <p>
@@ -1537,9 +1538,29 @@
               style, then re-renders records that deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping
               places, rewriting Matricula or Geneanet links to a consistent form, and restating each source's coverage
               in the file's own shape (or the one chosen in <a href="#workspace">Settings › GEDCOM</a> — program fields
-              or the standard's <em>DATA</em> structure). A preview lists examples of each change before you download
-              the normalized copy; a source-coverage example carries the title of the source it was read from, since
-              that is where the register type comes from.
+              or the standard's <em>DATA</em> structure). A preview lists examples of each change; a source-coverage
+              example carries the title of the source it was read from, since that is where the register type comes
+              from. <strong>Apply to the file</strong> writes the ticked passes into your open main file in one step,
+              and the save preview (<a href="#saving">§14</a>) then lists every record they changed before you
+              download the file.
+            </p>
+            <p>
+              Normalize file also makes the repairs the <a href="#validate">Health check</a> proposes, so the
+              Health check has none of them left to offer on a normalized file. It repairs:
+            </p>
+            <ul>
+              <li>values written in the wrong case;</li>
+              <li>lines repeated as exact copies;</li>
+              <li>missing media file types;</li>
+              <li>references to records the file does not have;</li>
+              <li>unreadable and non-standard dates;</li>
+              <li>lines the standard puts elsewhere.</li>
+            </ul>
+            <p>
+              Which of them run follows the file's <a href="#target-format">target format</a>: a file kept with its
+              variations keeps its program's own habits. The repairs that decide something about the family itself —
+              removing a broken link, a sex read from a family role, swapped spouses, merging duplicate families —
+              stay in the Health check, where you make each one yourself.
             </p>
             <p>
               One pass is left unticked until you ask for it: <strong>note shape</strong> rewrites every note as your

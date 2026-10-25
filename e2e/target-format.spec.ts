@@ -31,7 +31,7 @@ test("a file with another program's habits keeps its variations until GEDCOM 7.0
   // Proposed on first open, and said until the reader closes it.
   const notice = page.locator(".target-notice");
   await expect(notice).toContainText("This file is GEDCOM 5.5.1 with variations of its own");
-  await notice.getByRole("button", { name: "Close" }).click();
+  await notice.getByRole("button", { name: "Later" }).click();
   await expect(notice).toHaveCount(0);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
@@ -87,7 +87,7 @@ test("the own-format notice comes back on every opening until it is silenced for
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(file);
   const notice = page.locator(".target-notice");
-  await notice.getByRole("button", { name: "Close" }).click();
+  await notice.getByRole("button", { name: "Later" }).click();
 
   // Opened again: said again.
   await page.reload();
