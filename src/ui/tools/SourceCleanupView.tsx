@@ -57,6 +57,12 @@ const SITES: readonly ReshapeSite[] = ALL_SITES;
 /** The page's lists, in the order their tabs stand. */
 const CLEANUP_TABS = ["dups", "repos", "links", "pages"] as const;
 type CleanupTab = (typeof CLEANUP_TABS)[number];
+const APPLY_LABEL: Record<CleanupTab, string> = {
+  dups: "tools.sources.applyMerge",
+  repos: "tools.sources.applyRegroup",
+  links: "tools.sources.applyConvert",
+  pages: "tools.sources.applyPageMedia",
+};
 
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
 const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
@@ -212,7 +218,9 @@ export function SourceCleanupView({
   const query = foldSearch(useDebounced(search.trim()));
   const terms = useQueryTerms(query);
   const personNames = usePersonNameIndex(dataset);
-  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  // Every list is ticked into a run rather than out of one: the page arrives
+  // with nothing armed, and the reader picks what it will do.
+  const [linkSelected, setLinkSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
   /** Also shorten the links already stored on the media the run touches. Off
@@ -237,10 +245,9 @@ export function SourceCleanupView({
   /** Records the last apply changed — the run's own receipt, cleared as soon
    *  as the re-scan brings a fresh report in. */
   const [applied, setApplied] = useState(0);
-  // Duplicates and repositories are ticked into a run rather than out of one:
-  // both merge records away, and a page that arrives with every group armed
-  // makes one stray click a file-wide change. Empty to start; Select all is
-  // one click for the reader who wants the lot.
+  // Empty to start, like the links above — a page that arrives with every
+  // group armed makes one stray click a file-wide change. Select all is one
+  // click for the reader who wants the lot.
   const [dupSelected, setDupSelected] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
   const [regroupSelected, setRegroupSelected] = useState<Set<string>>(new Set());
@@ -261,7 +268,7 @@ export function SourceCleanupView({
 
   const toggleIn = (set: (fn: (s: Set<string>) => Set<string>) => void) => (id: string) =>
     set((s) => toggledIn(s, id));
-  const toggleGroup = toggleIn(setExcluded);
+  const toggleGroup = toggleIn(setLinkSelected);
   const toggleExpand = toggleIn(setExpanded);
   const toggleDupGroup = toggleIn(setDupSelected);
   const toggleRegroupGroup = toggleIn(setRegroupSelected);
@@ -362,7 +369,7 @@ export function SourceCleanupView({
   const selectedGroups = useMemo(
     () =>
       visibleGroups
-        .filter((g) => !excluded.has(g.id))
+        .filter((g) => linkSelected.has(g.id))
         .map((g) => ({
           ...g,
           quay: quay || undefined,
@@ -374,7 +381,7 @@ export function SourceCleanupView({
             return swap ? { ...withQuay, swapUrl: swap.url, page: swap.page } : withQuay;
           }),
         })),
-    [visibleGroups, excluded, quayOverrides, quay, removeMarked, swapByLink],
+    [visibleGroups, linkSelected, quayOverrides, quay, removeMarked, swapByLink],
   );
   // Books the fetch button will actually check: only *selected* new-source
   // groups on fetchable sites, and only those not already fetched.
@@ -392,9 +399,8 @@ export function SourceCleanupView({
   const linkOf = useCallback((g: ReshapeGroup) => urlSwaps.get(g.id) ?? g.bookUrl, [urlSwaps]);
   // A FamilySearch page nothing but its own link names — a record page or a
   // catalog film, which no lookup reaches — would convert into a source called
-  // after the ark and nothing more. Such a row arrives unticked: paste its
-  // citation, or trade the link for the image behind it (✎), and it joins the
-  // run. Everything else is ticked as before.
+  // after the ark and nothing more. A ticked row like that is pointed out:
+  // paste its citation, or trade the link for the image behind it (✎).
   const heldBack = useCallback(
     (g: ReshapeGroup) =>
       g.site === "familysearch" &&
@@ -406,21 +412,9 @@ export function SourceCleanupView({
       recognizeSourceUrl(g.bookUrl)?.proposed.title === g.proposed.title,
     [linkOf, folded],
   );
-  // Seeded into the unticked set as each fresh scan lands, so the tick is an
-  // ordinary tick from there on — the editor unticks nothing back.
-  const heldBackIds = useMemo(
-    () => new Set(reshapeReport.groups.filter(heldBack).map((g) => g.id)),
-    // The list is the scan's, read once per scan: re-running it as the reader
-    // fills groups in would re-untick rows they have since ticked.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reshapeReport],
-  );
-  useEffect(() => {
-    if (heldBackIds.size) setExcluded((prev) => new Set([...prev, ...heldBackIds]));
-  }, [heldBackIds]);
-  /** How many rows on screen are waiting like that — the count falls as they
-   *  are filled in, and the reader can tick any of them anyway. */
-  const heldBackCount = visibleGroups.filter((g) => excluded.has(g.id) && heldBack(g)).length;
+  /** How many ticked rows on screen are like that — the count falls as they
+   *  are filled in. */
+  const heldBackCount = visibleGroups.filter((g) => linkSelected.has(g.id) && heldBack(g)).length;
 
   /** Rows holding a traded link — a folded book among them, where the trade
    *  was made on one of the pages it now gathers. */
@@ -433,7 +427,7 @@ export function SourceCleanupView({
     .filter(
       (g) =>
         sites.has(g.site) &&
-        !excluded.has(folded.keyOf.get(g.id) ?? g.id) &&
+        linkSelected.has(folded.keyOf.get(g.id) ?? g.id) &&
         (!g.existingSourceXref || g.urlTitled || g.site === "familysearch") &&
         !removeMarked.has(g.id) &&
         !enrichment.has(g.id) &&
@@ -451,12 +445,13 @@ export function SourceCleanupView({
 
   function apply() {
     setApplied(0);
-    // Reshape first (its existing-source targets are original xrefs), then
-    // dedupe — which also re-points the citations the reshape just wrote.
+    // The run covers the open list alone: rows ticked on another tab are not
+    // on screen, and the button must not act on what the reader cannot see.
+    const on = (k: CleanupTab) => activeTab === k;
     const patches = applySourceCleanup(
       dataset,
       {
-        groups: selectedGroups,
+        groups: on("links") ? selectedGroups : [],
         enrichment: folded.enrichment,
         options: {
           ...reshapeOptionsFromOverrides(formatOverrides),
@@ -465,9 +460,9 @@ export function SourceCleanupView({
           mergeGroups: folded.keyOf,
         },
       },
-      selectedDupGroups,
-      selectedRegroupGroups,
-      selectedPageMediaGroups,
+      on("dups") ? selectedDupGroups : [],
+      on("repos") ? selectedRegroupGroups : [],
+      on("pages") ? selectedPageMediaGroups : [],
     );
     setApplied(onApplyPatches(patches));
     // The lists describe exactly what the apply just rewrote, so they are
@@ -586,24 +581,15 @@ export function SourceCleanupView({
    *  respected: what a chip or the box has hidden is not silently ticked. */
   const selectShown = (all: boolean) => {
     if (!activeTab) return;
-    if (activeTab === "links") {
-      // This list is kept the other way round: every group converts unless it
-      // is excluded, so "none" excludes what is on screen and "all" clears it.
-      setExcluded((prev) => {
-        const next = new Set(prev);
-        for (const id of shownIds.links) if (all) next.delete(id); else next.add(id);
-        return next;
-      });
-      return;
-    }
-    const setter =
-      activeTab === "dups" ? setDupSelected : activeTab === "repos" ? setRegroupSelected : setPageMediaSelected;
+    const setter = {
+      links: setLinkSelected,
+      dups: setDupSelected,
+      repos: setRegroupSelected,
+      pages: setPageMediaSelected,
+    }[activeTab];
+    // Folded books are ticked by the key their row uses, the dups' by group id.
     const ids =
-      activeTab === "dups"
-        ? visibleDupGroups.map((g) => g.id)
-        : activeTab === "repos"
-          ? visibleRegroupGroups.map((g) => g.id)
-          : visiblePageMediaGroups.map((g) => g.id);
+      activeTab === "repos" ? visibleRegroupGroups.map((g) => g.id) : shownIds[activeTab];
     setter((prev) => {
       const next = new Set(prev);
       for (const id of ids) if (all) next.add(id); else next.delete(id);
@@ -638,50 +624,22 @@ export function SourceCleanupView({
   const shownNow = activeTab ? shownIds[activeTab] : [];
   const allShownOpen = shownNow.length > 0 && shownNow.every((id) => expanded.has(id));
   const expandActions = <ExpandAllToggle allOpen={allShownOpen} onToggle={() => expandShown(!allShownOpen)} />;
-  const nothingSelected =
-    selectedGroups.length === 0 &&
-    selectedDupGroups.length === 0 &&
-    selectedRegroupGroups.length === 0 &&
-    selectedPageMediaGroups.length === 0;
-
-  // The page's one primary action, on the head of the first list it acts on —
-  // where Geocoding and Naming keep theirs. It covers every section, so it is
-  // rendered once: on the links list when there is one, else on the duplicates,
-  // else on the repositories. Its count says how many groups will change; the
-  // summary above already spells out what the file holds, so nothing repeats it.
-  const otherSelected =
-    selectedDupGroups.length + selectedRegroupGroups.length + selectedPageMediaGroups.length;
-  // Which single list the ticked rows all come from, if they do — the button
-  // then says what it will actually do rather than the catch-all "apply".
-  const counts = {
-    links: selectedGroups.length,
-    dups: selectedDupGroups.length,
-    repos: selectedRegroupGroups.length,
-    pages: selectedPageMediaGroups.length,
-  };
-  const ticked = (Object.keys(counts) as (keyof typeof counts)[]).filter((k) => counts[k] > 0);
-  const onlySelected = ticked.length === 1 ? ticked[0] : undefined;
-  // Page images are counted one by one: the rows are sources, but what the
-  // button writes is a pointer per citation.
-  const pageMediaCount = selectedPageMediaGroups.reduce((n, g) => n + g.missing.length + g.unfiled.length, 0);
+  // The page's one primary action, beside the tabs. It acts on the open list
+  // only, and its count is that list's: the groups to change, or — for page
+  // images, whose rows are sources — the citations it gives a pointer.
+  const applyCount = !activeTab
+    ? 0
+    : {
+        links: selectedGroups.length,
+        dups: selectedDupGroups.length,
+        repos: selectedRegroupGroups.length,
+        pages: selectedPageMediaGroups.reduce((n, g) => n + g.missing.length + g.unfiled.length, 0),
+      }[activeTab];
   const applyAction = (
-    <>
-      <button data-busy-cursor className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
-        {/* Named after what it will actually do to the ticked rows: convert
-            links into sources, merge duplicates away, gather sources under
-            their repository — or, with more than one list in play, the lot at
-            once, which only "apply" covers. */}
-        {onlySelected === "links"
-          ? t("tools.sources.applyConvert", { count: selectedGroups.length })
-          : onlySelected === "dups"
-            ? t("tools.sources.applyMerge", { count: selectedDupGroups.length })
-            : onlySelected === "repos"
-              ? t("tools.sources.applyRegroup", { count: selectedRegroupGroups.length })
-              : onlySelected === "pages"
-                ? t("tools.sources.applyPageMedia", { count: pageMediaCount })
-                : t("tools.sources.cleanupApply", { count: selectedGroups.length + otherSelected })}
-      </button>
-    </>
+    <button data-busy-cursor className="nav-btn primary tools-run" onClick={apply} disabled={applyCount === 0}>
+      {/* Named after what it does to the open list's ticked rows. */}
+      {activeTab && t(APPLY_LABEL[activeTab], { count: applyCount })}
+    </button>
   );
 
   // What the run did and what is happening now, kept out of the lists: an
@@ -837,7 +795,7 @@ export function SourceCleanupView({
                 link={linkOf(g)}
                 swapped={swappedRows.has(g.id)}
                 badgeTooltip={badgeTooltip(g)}
-                checked={!excluded.has(g.id)}
+                checked={linkSelected.has(g.id)}
                 open={expanded.has(g.id)}
                 // Only groups whose source fields the apply writes are
                 // hand-editable — a reused real-titled source is left alone.
@@ -971,14 +929,6 @@ export function SourceCleanupView({
           resolvePlace={resolvePlace}
           onSave={(meta, link) => {
             setEnrichment((prev) => new Map(prev).set(editGroup.id, meta));
-            // Filled in by hand, so it is no longer a page nothing names: the
-            // row it was held back from joins the run.
-            setExcluded((prev) => {
-              if (!prev.has(editGroup.id)) return prev;
-              const next = new Set(prev);
-              next.delete(editGroup.id);
-              return next;
-            });
             setUrlSwaps((prev) => {
               const next = new Map(prev);
               // Back to the group's own link is no trade at all.

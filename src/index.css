@@ -7975,7 +7975,7 @@ kbd {
 }
 .preview-version {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  margin: 6px 0; font-size: 0.9rem;
+  margin-right: auto; font-size: 0.9rem;
 }
 .preview-conversion { margin: 4px 0 8px; font-size: 0.85rem; }
 .preview-conversion summary { cursor: pointer; color: var(--muted); }
@@ -7986,7 +7986,7 @@ kbd {
 }
 
 .preview-actions {
-  display: flex; justify-content: flex-end; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px;
   padding: 16px 32px; border-top: 1px solid var(--border); background: var(--panel);
   border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
 }

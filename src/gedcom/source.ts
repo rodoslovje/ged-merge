@@ -751,6 +751,11 @@ export interface SourceKeyOptions {
    *  must not be dropped with its record). Across two files the pointers are
    *  unrelated numbering and vendor markup differs, so neither counts. */
   sameFile?: boolean;
+  /** Repositories already known to be one record under several xrefs, each
+   *  mapped to one shared name: a source held by either copy is held by the
+   *  same archive, so the duplicates scan finds it in the same pass as the
+   *  repositories rather than only after they are merged. */
+  repoAlias?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -826,7 +831,7 @@ export function sourceContentParts(node: GedNode, opts?: SourceKeyOptions): stri
         // subtree (CALN, its MEDI) identifies which film/book this is.
         if (child.tag === "REPO") {
           const v = child.value?.trim();
-          if (sameFile && v && isPointer(v)) repos.add(v);
+          if (sameFile && v && isPointer(v)) repos.add(opts?.repoAlias?.get(v) ?? v);
           walk(child);
         }
         continue;

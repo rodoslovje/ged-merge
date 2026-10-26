@@ -12,6 +12,7 @@ import {
   sourceTitle,
   filingNumberOf,
   isSourceStampTag,
+  type SourceKeyOptions,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
 
@@ -227,29 +228,41 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   // as that fuller record, so it lands in the fuller record's group.
   // One file: the repository a source points at, and its exporter's `_` tags,
   // tell two records apart too (see `SourceKeyOptions`).
-  const keyOpts = { sameFile: true };
-  const fuller = fullerSourceOf(ds.records, ds.records, keyOpts);
   const byXref = new Map(ds.records.filter((r) => r.xref).map((r) => [r.xref!, r]));
-  const contentKey = (rec: GedNode) => {
-    const to = fuller.get(rec.xref!);
-    const k = sourceContentKey((to && byXref.get(to)) || rec, keyOpts);
-    return k ? `c:${k}` : undefined;
+  const keyer = (keyOpts: SourceKeyOptions) => {
+    const fuller = fullerSourceOf(ds.records, ds.records, keyOpts);
+    return {
+      contentKey: (rec: GedNode) => {
+        const to = fuller.get(rec.xref!);
+        const k = sourceContentKey((to && byXref.get(to)) || rec, keyOpts);
+        return k ? `c:${k}` : undefined;
+      },
+      fullness: (rec: GedNode) => sourceContentParts(rec, keyOpts).length,
+    };
   };
-  const fullness = (rec: GedNode) => sourceContentParts(rec, keyOpts).length;
 
-  groupRecords(
-    ds.records, "SOUR", "source",
-    contentKey,
-    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: filingNumberOf(rec), url: sourceUrlOf(rec, objes) }),
-    refs, groups, fullness, true,
-  );
-
+  // Repositories first: two copies of one archive make the books each holds
+  // look like two different books, so the sources are keyed with each
+  // repository group read as one — both kinds then show in the same scan.
+  const repoGroups: DupGroup[] = [];
+  const repoKeys = keyer({ sameFile: true });
   groupRecords(
     ds.records, "REPO", "repo",
-    contentKey,
+    repoKeys.contentKey,
     (rec) => ({ title: childText(rec, "NAME") || rec.xref!, detail: childText(rec, "WWW"), url: childText(rec, "WWW") }),
-    refs, groups, fullness, true,
+    refs, repoGroups, repoKeys.fullness, true,
   );
+  const repoAlias = new Map<string, string>();
+  for (const g of repoGroups) for (const m of g.members) repoAlias.set(m.xref, g.id);
+
+  const sourceKeys = keyer({ sameFile: true, repoAlias });
+  groupRecords(
+    ds.records, "SOUR", "source",
+    sourceKeys.contentKey,
+    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: filingNumberOf(rec), url: sourceUrlOf(rec, objes) }),
+    refs, groups, sourceKeys.fullness, true,
+  );
+  groups.push(...repoGroups);
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   groups.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || collator.compare(a.label, b.label));
@@ -263,13 +276,16 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
  *  matched by tag and value, level by level — so whichever record of a group
  *  is kept, nothing another member said is lost. Stamps stay the survivor's
  *  own, and a text's `CONT`/`CONC` lines belong to the text they continue. */
-function foldContent(survivor: GedNode, removed: GedNode): void {
+function foldContent(survivor: GedNode, removed: GedNode, nested = false): void {
   for (const child of removed.children) {
     if (isSourceStampTag(child.tag) || child.tag === "CONT" || child.tag === "CONC") continue;
     const v = child.value?.trim() ?? "";
     const same = survivor.children.find((c) => c.tag === child.tag && (c.value?.trim() ?? "") === v);
-    if (same) foldContent(same, child);
-    else survivor.children.push(cloneNode(child));
+    if (same) foldContent(same, child, true);
+    // Below the record's own lines, a detail the kept line already states is
+    // not stated a second time: one link visited on two dates keeps the kept
+    // record's date, rather than ending up with two.
+    else if (!(nested && survivor.children.some((c) => c.tag === child.tag))) survivor.children.push(cloneNode(child));
   }
 }
 
