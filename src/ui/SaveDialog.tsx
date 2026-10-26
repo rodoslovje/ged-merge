@@ -639,17 +639,6 @@ export function SaveDialog({
                 <li key={f}><code>{f}</code></li>
               ))}
             </ul>
-            {fileVersion && (
-              <div className="preview-version">
-                <span>{t("preview.version.label")}</span>
-                <Segmented
-                  items={(["5.5.1", "7.0"] as const).map((v) => ({ key: v, label: `GEDCOM ${v}`, title: t("preview.version.hint") }))}
-                  value={version}
-                  onChange={setVersion}
-                  label={t("preview.version.label")}
-                />
-              </div>
-            )}
             {conversion && (
               <>
                 <p className="preview-note">{t("preview.version.convert", { from: fileVersion, to: version })}</p>
@@ -682,6 +671,19 @@ export function SaveDialog({
         </div>
 
         <div className="preview-actions">
+          {/* The format the download is written in, beside the button that
+              writes it. */}
+          {fileVersion && (
+            <div className="preview-version">
+              <span>{t("preview.version.label")}</span>
+              <Segmented
+                items={(["5.5.1", "7.0"] as const).map((v) => ({ key: v, label: `GEDCOM ${v}`, title: t("preview.version.hint") }))}
+                value={version}
+                onChange={setVersion}
+                label={t("preview.version.label")}
+              />
+            </div>
+          )}
           <button className="btn-secondary" onClick={onClose}>{t("preview.cancel")}</button>
           <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={!canDownload}>
             {downloadLabel}
