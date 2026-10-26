@@ -93,5 +93,7 @@ describe("bulkNormalize", () => {
       const { once, again } = twice(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
       expect(again, file).toBe(once);
     }
-  });
+    // Two normalize passes over the whole corpus: 3–5 s on CI under coverage,
+    // past vitest's 5 s default on a busy runner.
+  }, 30_000);
 });
