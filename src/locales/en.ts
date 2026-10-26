@@ -1576,7 +1576,7 @@ export const en = {
   "preview.fix.gedc7": "The header keeps lines GEDCOM 7.0 no longer has (FORM under GEDC, CHAR). The saved file's header leaves them out.",
   "preview.fix.char": "The file's header does not name the character encoding. The saved file's header names UTF-8.",
   "preview.fix.subm": "GEDCOM 5.5.1 requires the header to name a submitter record (SUBM). The saved file's header names one, and where the file has none, a submitter record named \"{{name}}\" is added.",
-  "preview.version.label": "GEDCOM version",
+  "preview.version.label": "File format",
   "preview.version.hint": "The GEDCOM version the saved file is written in",
   "preview.version.convert": "The saved file is converted from GEDCOM {{from}} to GEDCOM {{to}}, and from then on you work on the open file in GEDCOM {{to}}.",
   "preview.version.changes": "Lines the conversion rewrites: {{count}}",
