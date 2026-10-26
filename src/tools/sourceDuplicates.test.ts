@@ -609,4 +609,30 @@ describe("findSourceDuplicates — a source that says less", () => {
       "0 @R2@ REPO\n1 NAME Matricula Online\n1 WWW https://data.matricula-online.eu/en/slovenia/ljubljana/\n2 DATE 11 MAR 2026\n3 TIME 17:18:54\n0 TRLR",
     );
   });
+
+  it("finds the books of a duplicated repository in the same scan as the repository", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR @S1@
+1 SOUR @S1@
+1 SOUR @S2@
+0 @S1@ SOUR
+1 TITL Poročna knjiga 02161
+1 REPO @R1@
+0 @S2@ SOUR
+1 TITL Poročna knjiga 02161
+1 REPO @R2@
+0 @R1@ REPO
+1 NAME Matricula Online
+0 @R2@ REPO
+1 NAME Matricula Online
+0 TRLR`);
+    const report = findSourceDuplicates(ds);
+    expect(report.byKind).toMatchObject({ source: 1, repo: 1 });
+    const out = serializeGedcom(dedupeSources(ds.records, report.groups).records);
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Poročna knjiga 02161\n1 REPO @R1@\n0 @R1@ REPO");
+    expect(out).not.toContain("@S2@");
+    expect(out).not.toContain("@R2@");
+  });
 });

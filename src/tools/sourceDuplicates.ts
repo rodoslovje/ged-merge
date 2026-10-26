@@ -12,6 +12,7 @@ import {
   sourceTitle,
   filingNumberOf,
   isSourceStampTag,
+  type SourceKeyOptions,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
 
@@ -227,29 +228,41 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   // as that fuller record, so it lands in the fuller record's group.
   // One file: the repository a source points at, and its exporter's `_` tags,
   // tell two records apart too (see `SourceKeyOptions`).
-  const keyOpts = { sameFile: true };
-  const fuller = fullerSourceOf(ds.records, ds.records, keyOpts);
   const byXref = new Map(ds.records.filter((r) => r.xref).map((r) => [r.xref!, r]));
-  const contentKey = (rec: GedNode) => {
-    const to = fuller.get(rec.xref!);
-    const k = sourceContentKey((to && byXref.get(to)) || rec, keyOpts);
-    return k ? `c:${k}` : undefined;
+  const keyer = (keyOpts: SourceKeyOptions) => {
+    const fuller = fullerSourceOf(ds.records, ds.records, keyOpts);
+    return {
+      contentKey: (rec: GedNode) => {
+        const to = fuller.get(rec.xref!);
+        const k = sourceContentKey((to && byXref.get(to)) || rec, keyOpts);
+        return k ? `c:${k}` : undefined;
+      },
+      fullness: (rec: GedNode) => sourceContentParts(rec, keyOpts).length,
+    };
   };
-  const fullness = (rec: GedNode) => sourceContentParts(rec, keyOpts).length;
 
-  groupRecords(
-    ds.records, "SOUR", "source",
-    contentKey,
-    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: filingNumberOf(rec), url: sourceUrlOf(rec, objes) }),
-    refs, groups, fullness, true,
-  );
-
+  // Repositories first: two copies of one archive make the books each holds
+  // look like two different books, so the sources are keyed with each
+  // repository group read as one — both kinds then show in the same scan.
+  const repoGroups: DupGroup[] = [];
+  const repoKeys = keyer({ sameFile: true });
   groupRecords(
     ds.records, "REPO", "repo",
-    contentKey,
+    repoKeys.contentKey,
     (rec) => ({ title: childText(rec, "NAME") || rec.xref!, detail: childText(rec, "WWW"), url: childText(rec, "WWW") }),
-    refs, groups, fullness, true,
+    refs, repoGroups, repoKeys.fullness, true,
   );
+  const repoAlias = new Map<string, string>();
+  for (const g of repoGroups) for (const m of g.members) repoAlias.set(m.xref, g.id);
+
+  const sourceKeys = keyer({ sameFile: true, repoAlias });
+  groupRecords(
+    ds.records, "SOUR", "source",
+    sourceKeys.contentKey,
+    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: filingNumberOf(rec), url: sourceUrlOf(rec, objes) }),
+    refs, groups, sourceKeys.fullness, true,
+  );
+  groups.push(...repoGroups);
 
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   groups.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || collator.compare(a.label, b.label));
