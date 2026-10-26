@@ -580,4 +580,33 @@ describe("findSourceDuplicates — a source that says less", () => {
     expect(out).toContain("0 @R2@ REPO\n1 NAME Matricula Online\n1 ADDR Ljubljana\n0 TRLR");
     expect(out).not.toContain("@R1@");
   });
+
+  it("gives the kept link one access date, not each one the other record noted", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Baptisms
+1 REPO @R2@
+0 @S2@ SOUR
+1 TITL Deaths
+1 REPO @R2@
+0 @R1@ REPO
+1 NAME Matricula Online
+1 WWW https://data.matricula-online.eu/en/slovenia/ljubljana/
+2 DATE 11 MAR 2026
+3 TIME 17:18:54
+1 WWW https://data.matricula-online.eu/en/slovenia/ljubljana/
+2 DATE 31 MAR 2025
+3 TIME 11:11:09
+0 @R2@ REPO
+1 NAME Matricula Online
+1 WWW https://data.matricula-online.eu/en/slovenia/ljubljana/
+0 TRLR`);
+    const report = findSourceDuplicates(ds);
+    expect(report.groups[0].members.find((m) => m.survivor)?.xref).toBe("@R2@");
+    const out = serializeGedcom(dedupeSources(ds.records, report.groups).records);
+    expect(out).toContain(
+      "0 @R2@ REPO\n1 NAME Matricula Online\n1 WWW https://data.matricula-online.eu/en/slovenia/ljubljana/\n2 DATE 11 MAR 2026\n3 TIME 17:18:54\n0 TRLR",
+    );
+  });
 });
