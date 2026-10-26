@@ -83,7 +83,7 @@ test("repositories are gathered per place, and the section's own selection works
 
   // Applying moves the sources and drops the emptied records: the tree then
   // shows one repository per country instead of one per collection.
-  await page.getByRole("button", { name: /Gather under repositories|Apply to the file/ }).first().click();
+  await page.getByRole("button", { name: /Gather under repositories/ }).click();
   await page.locator(".tools-cleanup-status").waitFor();
   await page.locator(".tools-cleanup-section", { hasText: "Repositories by place" }).waitFor({ state: "detached" });
   await page.locator(".tools-page-title", { hasText: "Organize sources" }).locator("..").getByRole("button").first().click();

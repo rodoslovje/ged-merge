@@ -44,15 +44,17 @@ test("a second run converts the next site after the first one re-scanned", async
   await expect(openCleanup).toBeEnabled({ timeout: 15000 });
   await openCleanup.click();
 
-  // The first site with hits arrives ticked; convert it.
-  const apply = page.getByRole("button", { name: /Convert to sources|Apply to the file/ });
+  // Nothing arrives ticked: tick the first site's rows and convert them.
+  await page.getByRole("button", { name: "Select all" }).click();
+  const apply = page.getByRole("button", { name: /Convert to sources/ });
   await expect(apply).toBeEnabled();
   await apply.click();
   await expect(page.locator(".tools-cleanup-status")).toContainText(/record/i);
 
   // Now the other site: pick its chip and convert that too.
   await page.locator(".tools-chip", { hasText: /biografija|Matricula/ }).last().click();
-  const applyAgain = page.getByRole("button", { name: /Convert to sources|Apply to the file/ });
+  await page.getByRole("button", { name: "Select all" }).click();
+  const applyAgain = page.getByRole("button", { name: /Convert to sources/ });
   await expect(applyAgain).toBeEnabled();
   await applyAgain.click();
 
