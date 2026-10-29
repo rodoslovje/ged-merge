@@ -307,15 +307,24 @@ function pageNumOf(s: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** The page numbers an OBJE candidate names itself by — its URL's `?pg=42`
+ *  and its title's `#042 - …` — so a citation's `PAGE` can be checked against it. */
+function candidatePageNums(candidate: { url?: string; title?: string }): number[] {
+  const out: number[] = [];
+  const urlMatch = candidate.url ? /[?&]pg=(\d+)/i.exec(candidate.url) : null;
+  const urlPage = urlMatch ? pageNumOf(urlMatch[1]) : undefined;
+  if (urlPage !== undefined) out.push(urlPage);
+  const titleMatch = candidate.title ? /#0*(\d+)\b/.exec(candidate.title) : null;
+  const titlePage = titleMatch ? pageNumOf(titleMatch[1]) : undefined;
+  if (titlePage !== undefined) out.push(titlePage);
+  return out;
+}
+
 /** Whether an OBJE candidate's URL (`?pg=42`) or title (`#042 - …`) names the given page. */
 export function matchesPage(candidate: { url?: string; title?: string }, page: string): boolean {
   const target = pageNumOf(page);
   if (target === undefined) return false;
-  const urlMatch = candidate.url ? /[?&]pg=(\d+)/i.exec(candidate.url) : null;
-  if (urlMatch && pageNumOf(urlMatch[1]) === target) return true;
-  const titleMatch = candidate.title ? /#0*(\d+)\b/.exec(candidate.title) : null;
-  if (titleMatch && pageNumOf(titleMatch[1]) === target) return true;
-  return false;
+  return candidatePageNums(candidate).includes(target);
 }
 
 /**
@@ -355,7 +364,14 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
     const match = candidates.find((c) => matchesPage(c, page));
     if (match) { url = match.url; exact = true; objeXref = match.xref; }
   }
-  if (!url && candidates.length === 1) {
+  // A book keeping a single page image stands for the page cited — unless the
+  // citation names a page by number and that image is plainly another page.
+  const otherPage =
+    candidates.length === 1 &&
+    !!page &&
+    pageNumOf(page) !== undefined &&
+    candidatePageNums(candidates[0]).length > 0;
+  if (!url && candidates.length === 1 && !otherPage) {
     url = candidates[0].url;
     exact = true;
     objeXref = candidates[0].xref;

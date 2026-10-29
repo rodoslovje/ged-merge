@@ -47,6 +47,34 @@ describe("resolveSourceCitation via buildDataset", () => {
     });
   });
 
+  it("does not take a book's only page image for a different page the citation names", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 58
+1 CHR
+2 SOUR @S1@
+3 PAGE fol. 3
+0 @S1@ SOUR
+1 TITL Krstna knjiga - Šenčur
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56
+0 TRLR
+`;
+    const [birth, baptism] = buildFromText(text).individuals.get("@I1@")!.events;
+    // Page 58 is not the image of page 56: the citation keeps its page, unlinked.
+    expect(birth.sources![0]).toMatchObject({ sourceId: "@S1@", page: "58", exact: false });
+    expect(birth.sources![0].url).toBeUndefined();
+    expect(birth.sources![0].objeXref).toBeUndefined();
+    // A page the image cannot be checked against still stands for the book's one image.
+    expect(baptism.sources![0]).toMatchObject({ objeXref: "@O1@", exact: true });
+  });
+
   it("links the page a citation names by address, where the source holds no image of it", () => {
     const text = `0 HEAD
 1 GEDC
