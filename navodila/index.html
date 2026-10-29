@@ -263,7 +263,7 @@
               class="gm-glyph">↩</span> <span class="gm-glyph">↪</span> v zgornji vrstici. Ena sama zgodovina drži
               celotno sejo po vrsti, kakor ste delali: polja, ki jih uredite, osebe, ki jih dodate ali izbrišete, vsak
               popravek, preimenovanje in koordinato, ki jih zapišejo Orodja, vaše odločitve pri združevanju, veje, ki
-              jih prevzamete iz vhodne datoteke, in pare, ki jih označite kot ne-dvojnike. Zgodovina hrani zadnjih sto
+              jih prevzamete iz vhodne datoteke, in pare, ki jih zavrnete, ker niso dvojniki. Zgodovina hrani zadnjih sto
               korakov. Zato tega ta navodila ne ponavljajo pri vsakem dejanju posebej: kar tu naredite, lahko tudi
               razveljavite.
             </p>
@@ -307,7 +307,7 @@
             <p>Preostali trije zavihki:</p>
             <ul>
               <li><strong>GEDCOM</strong> — na vrhu izberete <em>Obliko zapisa</em> datoteke (<a href="#target-format">§4</a>), pod njo pa preglasite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam. Pravila so razvrščena v skupine <em>Datumi</em>, <em>Imena</em>, <em>Kraji</em>, <em>Viri</em> in <em>Zasebnost</em>: obliko datumov, neznane dele datuma, dodatna imena, oznako za neznano ime, obliko krajev in ločilo med ravnmi kraja, postavitev virov in navedb, povezave strani, krstne navedbe, obseg vira (polja vašega programa ali standardna struktura <em>DATA</em>), podvojene povezave, jezika povezav Matricula in Geneanet ter oznako zasebnosti. Vsaka vrstica pokaže vzorec tega, kar izbira zapiše; privzeto je izbrano <em>Samodejno (zaznano)</em>, ki sledi navadi datoteke. Izbrana vrednost se uveljavi v poenotenju vhodne datoteke, orodju <a href="#tools">Poenoti</a>, <a href="#organize">Uredi vire</a>, Dodaj vir in urejanju; izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Pod njimi stoji <em>Domača država</em>, ki ni pravilo zapisa, ampak branje vaše datoteke: pove, v katero državo šteje kraj, ki države ne navaja (<a href="#geocode">§10</a>). Sledi datoteki — državi, o kateri se strinjajo tri četrtine krajev, ki državo sploh navajajo, in ki je izpisana kar v možnosti sami — lahko pa izberete katero koli drugo ali pa predpostavko izklopite. Glejte <a href="#house-style">§4</a> in <a href="#sources">§13</a>.</li>
-              <li><strong>Zemljevid</strong> — <em>Imeniki krajev</em> hrani geografske imenike, s katerimi se primerjajo imena vaših krajev: prenesite slovenski register GURS, hrvaški register zemljepisnih imen DGU ali katero koli državo z OpenStreetMap, uvozite datoteko GeoNames in si oglejte, kaj je naloženo, z velikostjo in datumom, ali to odstranite. Tu je ponujen tudi hrvaški <em>register naslovov DGU</em> — vse hišne številke v državi: prenesete jih enkrat, odtlej pa se iščejo kar v tem brskalniku (<a href="#geocode">§10</a>). Shranjeni so v tem brskalniku in ne v datoteki, zato ostanejo tudi po zamenjavi datoteke in služijo vsem datotekam, ki jih odprete; <a href="#geocode">Geokodiranje krajev</a> (<a href="#tools">§10</a>) ponudi iste prenose, dokler nimate nobenega. <em>Nalagaj ploščice zemljevida</em> vklopi kartografsko podlago za vse zemljevide v aplikaciji (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), <em>Osnovni zemljevid</em> pa izbere, katero: CARTO, OpenStreetMap, reliefno, Esrijevo satelitsko ali topografsko ali vašo predlogo URL ploščic. Ko so ploščice dovoljene, vzorec nad izbirnikom izriše trenutno izbiro. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§11</a>.</li>
+              <li><strong>Zemljevid</strong> — <em>Imeniki krajev</em> hrani geografske imenike, s katerimi se primerjajo imena vaših krajev: prenesite slovenski register GURS, hrvaški register zemljepisnih imen DGU ali katero koli državo z OpenStreetMap, uvozite datoteko GeoNames in si oglejte, kaj je naloženo, z velikostjo in datumom, ali to odstranite. Tu je ponujen tudi hrvaški <em>register naslovov DGU</em> — vse hišne številke v državi: prenesete jih enkrat, odtlej pa se iščejo kar v tem brskalniku (<a href="#geocode">§10</a>). Shranjeni so v tem brskalniku in ne v datoteki, zato ostanejo tudi po zamenjavi datoteke in služijo vsem datotekam, ki jih odprete; <a href="#geocode">Geokodiranje krajev</a> (<a href="#tools">§10</a>) ponudi iste prenose, dokler nimate nobenega. <em>Nalagaj ploščice zemljevida</em> vklopi kartografsko podlago za vse zemljevide v aplikaciji (zahteve za ploščice razkrijejo območje, ki si ga ogledujete; izklopljeno = vgrajeni obris brez povezave), <em>Osnovni zemljevid</em> pa izbere, katero: CARTO, OpenStreetMap, reliefno, Esrijevo satelitsko ali topografsko ali vašo predlogo URL ploščic. Ko so ploščice dovoljene, vzorec nad izbirnikom izriše trenutno izbiro. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§11</a>.</li>
               <li><strong>Napredno › Spletna iskanja</strong> — <em>Poišči podatke na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Isto stikalo poganja spletni iskanji po vrsticah (OpenStreetMap in Genealoški imenik krajev GOV) ter poizvedbe v registru naslovov GURS, ki jih uporablja <a href="#geocode">Geokodiranje krajev</a>; te storitve se kličejo neposredno, ne prek posrednika. Prenosi imenikov z OpenStreetMap, GURS in DGU z enim klikom so zunaj njega — prenos o vaši datoteki ne pove ničesar, zato je vedno na voljo. Hrvaški naslovi so izjema, ki pravilo potrjuje: ko je register naslovov DGU prenesen, nanje odgovori ta brskalnik, zato so te poizvedbe na voljo ne glede na to, ali je stikalo vklopljeno. <strong>Poleg ploščic zemljevida, ki jih vklopite posebej, so to edine funkcije, ki karkoli pošljejo z vaše naprave, in so privzeto izklopljene.</strong></li>
               <li><strong>Napredno › Lokalno hranjeni podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em>, <em>Počisti lokalno hranjene podatke</em> in <em>Skrita okna za mapo z mediji</em> (glejte <a href="#photos">§12</a>) — možnost se pokaže, ko katero od teh oken dokončno zavrnete, in ga prikliče nazaj.</li>
             </ul>
@@ -486,7 +486,7 @@
               otroke iščejo <em>znotraj</em> te družine, zato oseba, ki se ji ujemata oba starša, obdrži pravega dvojnika tudi
               tedaj, ko kak tuj zapis z enakim imenom doseže za odtenek višjo stopnjo; enako imenovana brata ali sestri
               še vedno ločijo lastni datumi in kraji. Deluje tudi navzgor: starše prepoznajo njihovi ujemajoči se
-              otroci, tako se najde tudi ženska, ki je v eni datoteki vpisana z dekliškim, v drugi pa z možovim
+              otroci, tako se najde tudi ženska, ki je v eni datoteki vpisana z dekliškim, v drugi pa z moževim
               priimkom. Taki pari nosijo v seznamu ujemanj <span class="gm-glyph">🌳</span>.
             </p>
             <p>
@@ -624,7 +624,7 @@
               Pod seznamom dogodkov stoji vrsta gumbov za <strong>hitro dodajanje</strong> —
               privzeto Rojstvo, Prebivališče, Poklic, Smrt in Pokop — vsak z enim klikom doda svoj dogodek in postavi
               kazalec v njegovo prvo polje; na začetku vrste gumbov stoji meni <strong>+ Dodaj dogodek</strong>. Enako naredijo tipke
-              <span class="gm-key">⌥</span><span class="gm-key">⇧</span> s <span class="gm-key">1</span>–<span
+              <span class="gm-key">⌥</span><span class="gm-key">⇧</span> z <span class="gm-key">1</span>–<span
               class="gm-key">9</span>, v vrstnem redu gumbov, <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span
               class="gm-key">E</span> pa odpre celoten meni. Kateri dogodki so tu, določite v
               <strong>Nastavitve → Splošno → Urejanje</strong>, kjer gumb odstranite ali dodate
@@ -797,7 +797,7 @@
               piše <em>Slovenija</em>, pa <em>Slovenija</em> — tako se ime iz imenika ujema z datoteko, v katero se
               vpiše. Trije spletni imeniki — <strong>OpenStreetMap</strong>,
               slovenski register naslovov (<strong>GURS</strong>) in <strong>Genealoški imenik krajev (GOV)</strong> —
-              se vključijo samo, kadar je v <a href="#workspace">Nastavitve › Napredno</a> vklopljeno <em>Poišči
+              se vključijo samo, kadar je v <a href="#workspace">Nastavitvah › Napredno</a> vklopljeno <em>Poišči
               podatke na spletu</em>; brez tega iskanje zajame le uvoženi imenik krajev in vrstica to pove.
             </p>
             <p>
@@ -1787,8 +1787,8 @@
               do slike, razen če vam oznaka ark zadošča. Ali pa skupino označite
               <strong>Odstrani sklice</strong>
               (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
-              brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
-              <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa
+              brez ustvarjanja vira (z <span class="gm-glyph">↩</span> oznako prekličete). Orodje upošteva vaše prepise oblike v
+              <a href="#workspace">Nastavitvah › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa
               si deli z <strong>iskalnikom dvojnikov</strong> virov in z ureditvijo hramb — štirje seznami strani so
               zavihki (<strong>Dvojniki</strong>, <strong>Hrambe</strong>, <strong>Viri</strong>,
               <strong>Strani</strong>, vsak se pokaže le, kadar ima vrstice, in šteje vrstice, ki jih odpre), ob njih pa
@@ -1896,8 +1896,8 @@
               <em>?/Grosova ulica 18</em> — ima polje za preimenovanje ob kraju še polje <strong>Naslov</strong>, torej
               enako razdelitev, kot jo ponujata seznama za geokodiranje. Taka vrednost ni napačno zapisan kraj, ampak
               hiša v kraju, ki ga vaša datoteka ni nikoli imenovala, zato jo popravite z obema polovicama:
-              <em>Kokrica, Kranj, Slovenija</em> kot kraj in <em>Grosova ulica 18</em> kot naslov, ki se zapiše na
-              dogodkovo vrstico <code>ADDR</code>. Polje za naslov se dopolnjuje iz hiš, ki jih vaša datoteka v tem kraju
+              <em>Kokrica, Kranj, Slovenija</em> kot kraj in <em>Grosova ulica 18</em> kot naslov, ki se zapiše v
+              vrstico <code>ADDR</code> dogodka. Polje za naslov se dopolnjuje iz hiš, ki jih vaša datoteka v tem kraju
               že piše, iz parov kraj · naslov, ki jih pozna, in — za spletno privolitvijo — iz registra naslovov; z
               izbiro katere koli od teh ponudb se izpolni tudi kraj ob njem, saj je hiša vedno hiša nekje. Vrstica, pod
               katero je več različnih vrednosti, te razdelitve ne ponudi: preimenovanje tam prepiše ime ravni povsod,
@@ -2079,7 +2079,7 @@
               naložili, datoteko pa prevzame država, katere imenik jih hrani največ. Ime, ki ga imata dva imenika,
               ne odloči ničesar, imenik, ki hrani manj kot polovico iskanih imen, pa ne govori za nobenega — tako
               hrvaška datoteka ne postane slovenska zaradi peščice imen, ki si jih državi delita. <em>Domača
-              država</em> v Nastavitve → GEDCOM (<a href="#workspace">§2</a>) pokaže, kaj je prebrala in katero branje
+              država</em> v Nastavitvah → GEDCOM (<a href="#workspace">§2</a>) pokaže, kaj je prebrala in katero branje
               je to — <em>Iz datoteke</em> ali <em>Iz imenikov</em> — namesto tega pa lahko izberete katero koli drugo državo ali predpostavko
               izklopite. <strong>Dopiši državo</strong> ob drugih paketnih dejanjih seznama krajev pa
               predpostavko pošteno zaključi: krajem, ki jih imenik pozna, dopiše državo — v zapisu, kakršnega uporablja
@@ -2242,8 +2242,8 @@
               koordinatami</strong> jih našteje na vrhu te strani. Razprite vrstico za zemljevid njenih koordinat, kjer vsak krogec
               nosi številko svoje vrstice v seznamu pod njim, kjer je pri vsaki vrstici zapisano tudi število dogodkov na tisti
               koordinati — dvanajst pri cerkvi in eden dva kilometra stran je
-              tipkarska napaka in ne druga cerkev. Izberite pravi krogec (ali njegovo številko v seznamu) in
-              <em>Uporabi to koordinato za vseh N dogodkov</em> vanjo prepiše vse dogodke tega kraja in naslova, v enem koraku. Kadar ni prava nobena — porodnišnica, zapisana pri treh različnih
+              tipkarska napaka in ne druga cerkev. Izberite pravi krogec (ali njegovo številko v seznamu), nato pa z gumbom
+              <em>Poenoti koordinate</em> to koordinato v enem koraku zapišite na vse dogodke tega kraja in naslova. Kadar ni prava nobena — porodnišnica, zapisana pri treh različnih
               ugibanjih, ni nobeno od njih — kliknite kamor koli na zemljevidu ali koordinato vnesite oziroma prilepite,
               in ta postane izbrana. Tudi dopolnjevanje koordinat v <a href="#tools">Pregledu</a>
               kopira samo znotraj enega naslova, zato se lega naslova ne more razširiti po naselju.
@@ -2314,7 +2314,7 @@
               istoimenskimi kraji pa je s tem zabeležena.
               <span class="gm-glyph">✎</span> ob vrstici namesto tega zapiše vaš popravek — zgodovinsko ime, kakor ga je
               pisala župnija, raven, o kateri register nima mnenja — čez vse navedbe zapisa, njegovo polje
-              <em>Naslov</em> pa hkrati vzame naslov iz zapisa na dogodkovo vrstico <code>ADDR</code>, kakor to počne
+              <em>Naslov</em> pa hkrati prenese naslov iz zapisa v vrstico <code>ADDR</code> dogodka, kakor to počne
               preimenovanje na seznamu krajev. Dopolnjuje se iz krajev vaše datoteke <em>in</em> iz imenikov —
               <strong>Poišči ta kraj v imenikih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
               zapiše, pa tudi umesti tja, kamor kažejo imeniki: k naslovu, kadar je ta imenovan in ga preneseni register
@@ -2469,7 +2469,7 @@
                 <em>Starost</em>, <em>Kraj</em>, <em>Fotografija</em> (na voljo le, dokler je naložena mapa z mediji),
                 <em>Sorodstvo</em> (oznaka sorodstva do izhodiščne osebe; pri Pahljači se ne izriše) in
                 <em>Poročni priimek</em>. Zadnji se sprva ravna po nastavitvi <em>Prikaži poročni priimek</em> v
-                Nastavitve → Imena (<a href="#workspace">§2</a>), ko se ga enkrat dotaknete, pa gre svojo pot — tako je
+                Nastavitvah → Imena (<a href="#workspace">§2</a>), ko se ga enkrat dotaknete, pa gre svojo pot — tako je
                 ženska povsod drugod <em>Ana Novak (Kovač)</em>, na diagramu, ki ga tiskate, pa le pod dekliškim
                 priimkom. Ta skupina se ne prikaže, ko je odprto Poročilo ali Zemljevid; preklopite na drugo vrsto,
                 da jo spremenite, Poročilo pa upošteva zadnjo izbrano vrednost.</li>
@@ -2566,7 +2566,7 @@
               Diagram se prereže na vejah in nikoli sredi
               okvirja: veja, ki ne gre na list, se nadaljuje na svojem listu, oseba, pri kateri je bil rez, pa obdrži
               zeleni krogec s številko — <span class="gm-badge rep round">3</span> — ki pove, na katerem listu se veja
-              nadaljuje. Glava vsakega lista ga poimenuje (<em>List 3 od 7 · nadaljuje osebo Ana Novak z lista 1</em>),
+              nadaljuje. Glava vsakega lista ga poimenuje (<em>List 3 od 7 · Ana Novak — nadaljevanje z lista 1</em>),
               vsi listi pa se natisnejo v enakem merilu, tako da so okvirji povsod enako veliki in natisnjen komplet
               sestavite v en sam diagram. Dolgo in ozko rodbinsko linijo prereže po rodovih, da ne bi vsak rod porabil
               svojega lista.
@@ -3019,7 +3019,7 @@
               teklo. Zbirka, ki je vaša datoteka še ni navajala in ji ne navedba ne iskanje ne povesta države, dobi
               splošni zapis <em>FamilySearch.org</em>, ne pa ugibanja med kraji, ki jih vodite. Hrambe, ki jih
               datoteka vodi po zbirkah, uredi orodje <a href="#organize">Uredi vire</a> (<a href="#tools">§10</a>). Kakšno postavitev zapiše — kam pridejo navedbe, slike strani in krstni viri —
-              sledi vašim prepisom v <a href="#workspace">Nastavitve › GEDCOM</a> (<a href="#workspace">§2</a>).
+              sledi vašim prepisom v <a href="#workspace">Nastavitvah › GEDCOM</a> (<a href="#workspace">§2</a>).
             </p>
             <p>
               Zapis, ki je nastal, preden je stran lahko odgovorila — z oznako namesto naslova, brez kraja in brez
@@ -3328,7 +3328,7 @@
                 <tr><td><span class="gm-glyph">✎</span></td><td>Uredi — zamenjaj konec sorodstvene poti, uredi vir ali preimenuj vrednost kraja</td></tr>
                 <tr><td><span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span></td><td>Lega: koordinate, kjer koli so izpisane, in hišni naslovi, ki jim pripadajo. Medla, dokler ni nič umeščeno, zelena, ko je</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte <a href="#privacy">§18</a>)</td></tr>
-                <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. odznači skupino »Odstrani sklice« v Uredi vire</td></tr>
+                <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. prekliče oznako »Odstrani sklice« pri skupini v orodju Uredi vire</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo ali označi povezave za odstranitev</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Prejšnja / naslednja fotografija v pregledovalniku</td></tr>
               </tbody>

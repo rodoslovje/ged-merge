@@ -170,9 +170,10 @@ export function CoordConflicts({
                   it opens — repeating them here only crowds the name. */}
               <GeoRowHeader open={isOpen} onToggle={() => toggle(key)} place={c.value} address={c.address}>
                 <span className="tools-geo-count">
-                  {t("tools.validate.coordConflict.rowMeta", {
-                    count: c.coords.length,
-                    events: c.coords.reduce((n, x) => n + x.n, 0),
+                  {t("tools.validate.coordConflict.rowCoords", { count: c.coords.length })}
+                  {" · "}
+                  {t("tools.validate.coordConflict.rowEvents", {
+                    count: c.coords.reduce((n, x) => n + x.n, 0),
                   })}
                 </span>
               </GeoRowHeader>
