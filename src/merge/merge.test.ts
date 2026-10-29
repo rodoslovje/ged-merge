@@ -1397,6 +1397,55 @@ describe("mergeDecisions — links", () => {
     expect(out.match(/1 FILE [^\n]*pg=58/g)).toHaveLength(1);
   });
 
+  it("links the incoming file's own record of a new page instead of minting a second one", () => {
+    // The incoming file keeps page 58 as a media record of its own, beside the
+    // citation and under its copy of the book. Citing it on a matched person
+    // must bring that record across once — not mint "#58 - …" for the citation
+    // and import the incoming record for the event's image as well.
+    const title = "Krstna knjiga - Šenčur";
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" +
+          `0 @S1@ SOUR\n1 TITL ${title}\n1 OBJE @O1@\n` +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "1 CHR\n2 DATE 1850\n2 OBJE @O9@\n2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3\n3 OBJE @O9@\n" +
+          `0 @S1@ SOUR\n1 TITL ${title}\n1 OBJE @O1@\n1 OBJE @O9@\n` +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n" +
+          "0 @O9@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n2 FORM url\n2 TITL #058 - Krstna knjiga - Šenčur | Matricula Online\n",
+      ),
+    );
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr).records);
+    // One media record holds page 58: the incoming file's, with its own title…
+    expect(out.match(/1 FILE [^\n]*pg=58/g)).toHaveLength(1);
+    const obje = out.match(/0 (@[^@]+@) OBJE\n1 FILE [^\n]*pg=58\n2 FORM url\n2 TITL #058 - Krstna knjiga - Šenčur \| Matricula Online/);
+    expect(obje).not.toBeNull();
+    const xref = obje![1];
+    // …linked once beside the new citation and kept under the main's book.
+    expect(out).toContain(`1 CHR\n2 DATE 1850\n2 OBJE ${xref}\n2 SOUR @S1@\n3 PAGE 58`);
+    expect(out.match(new RegExp(`2 OBJE ${xref}`, "g"))).toHaveLength(1);
+    expect(out).toContain(`0 @S1@ SOUR\n1 TITL ${title}\n1 OBJE @O1@\n1 OBJE ${xref}`);
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+  });
+
+  it("does not link another page's image beside a citation of a page the book has no image of", () => {
+    // The incoming copy of the book keeps only page 56; a citation of page 58
+    // must not arrive with page 56's image beside it.
+    const book = "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+      "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n";
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" + book));
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n1 CHR\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 58\n" + book),
+    );
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr).records);
+    expect(out).toContain("1 CHR\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 58");
+    expect(out).not.toMatch(/1 CHR\n(?:[2-9] .*\n)*?2 OBJE @O1@/);
+  });
+
 });
 
 describe("mergeDecisions — SOUR/REPO import", () => {
@@ -3410,7 +3459,11 @@ describe("an incoming citation that names its page by address", () => {
     const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.sources": "both" }), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
-    expect(out).toContain(`0 @O2@ OBJE\n1 FILE ${PAGE_58}`);
+    // The page's image is the incoming file's own record, brought across once
+    // under the main's book — not a second one minted for the same address.
+    expect(out).toContain(`0 @CO1@ OBJE\n1 FILE ${PAGE_58}`);
+    expect(out.match(/^1 FILE .*pg=58$/gm)).toHaveLength(1);
+    expect(out).toMatch(/0 @S1@ SOUR\n(?:1 .*\n)*?1 OBJE @CO1@/);
     expect(out.match(/^0 @\w+@ SOUR/gm)).toHaveLength(1);
   });
 

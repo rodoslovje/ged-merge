@@ -13,12 +13,14 @@ import {
   getMediaAndSourceCtx,
   getSourceLookup,
   INDI_CHILD_ORDER,
+  insertGrouped,
   insertOrdered,
   linkPageMedia,
   markEventTouched,
   mediaTitleLine,
   memoOnContent,
   setCitationQuay,
+  SOUR_TRAILING_TAGS,
   sourceCitationNodes,
   writeMediaTitle,
 } from "../gedcom/edit";
@@ -40,6 +42,7 @@ import {
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import { isPointer } from "../gedcom/uri";
+import { linkKey } from "../normalize/links";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import {
@@ -139,6 +142,34 @@ export function incomingCitationPage(
   if (!placement.incoming) return undefined;
   const resolved = resolveSourceCitation(citation, placement.incoming.sourceCtx);
   return resolved?.exact && resolved.url ? { url: resolved.url, source } : undefined;
+}
+
+/**
+ * The incoming file's own media record of a page, under the xref the merge
+ * brings it across with — so a citation of a page the main does not keep yet
+ * can link that record instead of minting a second one for the same address
+ * (the incoming record follows anyway, wherever the incoming file points at
+ * it). Undefined when the incoming file keeps no record of the page, or the
+ * merge has not promised it an xref.
+ */
+export function incomingPageObje(
+  url: string,
+  placement: LinkPlacement,
+  sourMap: ReadonlyMap<string, string>,
+): string | undefined {
+  const incoming = placement.incoming;
+  if (!incoming) return undefined;
+  const byUrl = memoOnContent(incoming.records, "objeByUrlKey", () => {
+    const map = new Map<string, string>();
+    for (const [xref, info] of incoming.sourceCtx.objeIndex) {
+      if (!info.url) continue;
+      const key = linkKey(info.url);
+      if (!map.has(key)) map.set(key, xref);
+    }
+    return map;
+  });
+  const xref = byUrl.get(linkKey(url));
+  return xref ? sourMap.get(xref) : undefined;
 }
 
 /**
@@ -297,8 +328,11 @@ export function placeCitation(
   /** The incoming file's own record of the book, which names a source minted
    *  for it ahead of the address's offline proposal. */
   incomingSource?: GedNode,
+  /** The incoming file's media record of this page, as the merge brings it
+   *  across (see {@link incomingPageObje}). */
+  incomingObje?: string,
 ): PlacedLink | undefined {
-  const source = resolveSource(records, url, recognizeSourceUrl(url), placement, reserved, incomingSource);
+  const source = resolveSource(records, url, recognizeSourceUrl(url), placement, reserved, incomingSource, incomingObje);
   if (!source) return undefined;
   // The page as this file writes it: a `PAGE` holding the address keeps its
   // prose with the address swapped for what the file writes; one naming the
@@ -374,6 +408,7 @@ function resolveSource(
   placement: LinkPlacement,
   reserved: ReadonlySet<string> | undefined,
   incomingSource?: GedNode,
+  incomingObje?: string,
 ): ResolvedSource | undefined {
   const quay = recognized && siteQuay(recognized.site, url);
   // A file that cites a page by its link writes the link itself as the page
@@ -387,6 +422,7 @@ function resolveSource(
     if (byLink) return { sourceXref: existing.sourceXref, page: url, quay };
     const pageObje =
       existing.objeXref ??
+      (incomingObje && linkObjeToSource(records, existing.sourceXref, incomingObje)) ??
       addObjeToSource(records, existing.sourceXref, url, pageTitleFor(records, existing.sourceXref, recognized), reserved)
         .xref ??
       undefined;
@@ -514,6 +550,20 @@ export function previewLinkPlacement(
 function pageImageUrl(records: GedNode[], citation: SourceCitation, url: string): string {
   const node = citation.objeXref ? objeNodesFor(records).get(citation.objeXref) : undefined;
   return (node && objeInfoOf(node).url) || url;
+}
+
+/**
+ * Link the incoming file's record of a page under the main's source of its
+ * book — the record itself arrives with the other shared records the merge
+ * imports. Returns the xref, or undefined when the source is not there.
+ */
+function linkObjeToSource(records: GedNode[], sourceXref: string, objeXref: string): string | undefined {
+  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  if (!sourceNode) return undefined;
+  if (!sourceNode.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref)) {
+    insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "OBJE", value: objeXref, children: [] }, SOUR_TRAILING_TAGS);
+  }
+  return objeXref;
 }
 
 /** The name a page image added to a source the file already has gets — the

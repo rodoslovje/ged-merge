@@ -30,7 +30,7 @@ import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
-import { incomingCitationPage, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
+import { incomingCitationPage, incomingPageObje, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
 // The link-format detection lives with the placement rules that consume it;
@@ -993,7 +993,11 @@ function copyCitation(
   const clone = cloneNodeRemapped(citation, sourMap);
   collectCustomTags(clone, customTags);
   const page = placement && incomingCitationPage(citation, placement);
-  if (page && placeCitation(container, clone, page.url, records, placement, reservedXrefs(sourMap), page.source)) return;
+  if (
+    page &&
+    placeCitation(container, clone, page.url, records, placement, reservedXrefs(sourMap), page.source, incomingPageObje(page.url, placement, sourMap))
+  )
+    return;
   // The very citation already on the container — the main's own, kept under
   // "both" — is not written a second time.
   const shape = nodeShape(clone);
@@ -1095,7 +1099,11 @@ export function applyEventSources(
       const key = linkKey(url);
       if (existing.has(key)) continue;
       existing.add(key);
-      insertOrdered(event, cloneNodeRemapped(node, sourMap), EVENT_CHILD_ORDER);
+      const clone = cloneNodeRemapped(node, sourMap);
+      // The citation above may already have linked this very record beside
+      // itself — its page image, brought across under the same xref.
+      if (event.children.some((c) => c.tag === "OBJE" && c.value?.trim() === clone.value?.trim())) continue;
+      insertOrdered(event, clone, EVENT_CHILD_ORDER);
       markEventTouched(event, "changed");
     }
   }
