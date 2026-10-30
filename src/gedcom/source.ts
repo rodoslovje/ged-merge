@@ -832,6 +832,93 @@ export function fullerSourceOf(
   return out;
 }
 
+/** A title shared by more records than this is a generic one ("Census"),
+ *  not one register imported twice — pairing them all is not worth it. */
+const COMPLEMENT_MAX_VARIANTS = 50;
+
+/**
+ * Same-titled `SOUR`/`REPO` records that each say something the other lacks
+ * but contradict each other nowhere — one carries the repository and call
+ * number, the other its program's citation template — mapped xref → the xref
+ * of the group's first record. Two records contradict where the same line
+ * (by its path, `REPO>CALN`) holds values neither of which covers the other's:
+ * two films told apart by their `CALN`, two archives, two different `DATA`.
+ * A group is taken only when every two of its records agree, so a lean
+ * record that fits two films joins neither. Complements {@link fullerSourceOf},
+ * which only knows a record saying *less* than one other.
+ */
+export function complementarySourcesOf(records: GedNode[], opts?: SourceKeyOptions): Map<string, string> {
+  const byTitle = new Map<string, Map<string, { xrefs: string[]; fields: Map<string, Set<string>> }>>();
+  for (const rec of records) {
+    if ((rec.tag !== "SOUR" && rec.tag !== "REPO") || !rec.xref) continue;
+    const fields = sourceFieldValues(rec, opts);
+    const title = [...(fields.get(rec.tag === "SOUR" ? "TITL" : "NAME") ?? [])][0];
+    if (!title) continue;
+    const variants = byTitle.get(`${rec.tag}:${title}`) ?? byTitle.set(`${rec.tag}:${title}`, new Map()).get(`${rec.tag}:${title}`)!;
+    const key = sourceContentKey(rec, opts);
+    const v = variants.get(key);
+    if (v) v.xrefs.push(rec.xref);
+    else variants.set(key, { xrefs: [rec.xref], fields });
+  }
+  const agree = (a: Map<string, Set<string>>, b: Map<string, Set<string>>) => {
+    for (const [path, va] of a) {
+      const vb = b.get(path);
+      if (vb && ![...va].every((x) => vb.has(x)) && ![...vb].every((x) => va.has(x))) return false;
+    }
+    return true;
+  };
+  const out = new Map<string, string>();
+  for (const variants of byTitle.values()) {
+    if (variants.size < 2 || variants.size > COMPLEMENT_MAX_VARIANTS) continue;
+    const list = [...variants.values()];
+    // Records that agree, chained: a group whose two members disagree is
+    // ambiguous and dropped whole.
+    const seen = new Set<number>();
+    for (let i = 0; i < list.length; i++) {
+      if (seen.has(i)) continue;
+      const group = [i];
+      seen.add(i);
+      for (let g = 0; g < group.length; g++) {
+        for (let j = 0; j < list.length; j++) {
+          if (!seen.has(j) && agree(list[group[g]].fields, list[j].fields)) { seen.add(j); group.push(j); }
+        }
+      }
+      if (group.length < 2) continue;
+      if (!group.every((a, x) => group.slice(x + 1).every((b) => agree(list[a].fields, list[b].fields)))) continue;
+      const rep = list[group[0]].xrefs[0];
+      for (const idx of group) for (const xref of list[idx].xrefs) out.set(xref, rep);
+    }
+  }
+  return out;
+}
+
+/** What a record says, line by line: each line's path below the record
+ *  (`DATA>EVEN`, `REPO>CALN`) and the values it holds there. Skips what
+ *  {@link sourceContentParts} skips; a `REPO` link's pointer is kept as `REPO`. */
+function sourceFieldValues(node: GedNode, opts?: SourceKeyOptions): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  const add = (path: string, value: string) => (out.get(path) ?? out.set(path, new Set()).get(path)!).add(value);
+  const walk = (n: GedNode, prefix: string): void => {
+    for (const child of n.children) {
+      if (SOURCE_BOOKKEEPING_TAGS.has(child.tag) || SOURCE_CUSTOM_STAMP_TAGS.has(child.tag)) continue;
+      if (child.tag.startsWith("_") && !opts?.sameFile) continue;
+      const path = prefix + child.tag;
+      if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
+        if (child.tag === "REPO") {
+          const v = child.value?.trim();
+          if (opts?.sameFile && v && isPointer(v)) add(path, opts.repoAlias?.get(v) ?? v);
+          walk(child, path + ">");
+        }
+        continue;
+      }
+      add(path, (child.value ?? "").trim());
+      walk(child, path + ">");
+    }
+  };
+  walk(node, "");
+  return out;
+}
+
 /** The `tag=value` pairs {@link sourceContentKey} joins, for a caller that
  *  compares two records part by part rather than as a whole. */
 export function sourceContentParts(node: GedNode, opts?: SourceKeyOptions): string[] {

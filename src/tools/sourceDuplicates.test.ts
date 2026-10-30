@@ -636,3 +636,62 @@ describe("findSourceDuplicates — a source that says less", () => {
     expect(out).not.toContain("@R2@");
   });
 });
+
+describe("findSourceDuplicates — sources that each add a line", () => {
+  // Podzemelj, 25 Oct 2026: an import wrote @S1@ with the repository and call
+  // number beside the file's own @S2@, which carries MacFamilyTree's template.
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+0 @F1@ FAM
+1 MARR
+2 SOUR @S1@
+3 PAGE 82
+3 QUAY 3
+3 OBJE @O1@
+2 SOUR @S2@
+3 PAGE 82
+3 QUAY 3
+2 SOUR @S2@
+3 PAGE 90
+0 @S1@ SOUR
+1 TITL Poročna knjiga 01737 | Podzemelj
+1 DATA
+2 EVEN MARR
+1 REPO @R1@
+2 CALN 01737
+0 @S2@ SOUR
+1 _STE @T1@
+1 TITL Poročna knjiga 01737 | Podzemelj
+1 DATA
+2 EVEN MARR
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/podzemelj/01737/?pg=82
+2 FORM application/x-url
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 TRLR`;
+
+  it("groups them; the more-cited is kept", () => {
+    const groups = ofKind(FILE, "source");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members.map((m) => [m.xref, m.survivor])).toEqual([["@S2@", true], ["@S1@", false]]);
+  });
+
+  it("keeps both records' lines and cites the page once", () => {
+    const ds = dataset(FILE);
+    const out = serializeGedcom(dedupeSources(ds.records, findSourceDuplicates(ds).groups).records);
+    expect(out).not.toContain("0 @S1@ SOUR");
+    expect(out).toContain("1 MARR\n2 SOUR @S2@\n3 PAGE 82\n3 QUAY 3\n3 OBJE @O1@\n2 SOUR @S2@\n3 PAGE 90\n");
+    expect(out).toContain("0 @S2@ SOUR\n1 _STE @T1@\n1 TITL Poročna knjiga 01737 | Podzemelj\n1 DATA\n2 EVEN MARR\n1 REPO @R1@\n2 CALN 01737\n");
+  });
+
+  it("leaves them apart where a line says two different things", () => {
+    expect(ofKind(FILE.replace("2 EVEN MARR\n0 @O1@", "2 EVEN BAPM\n0 @O1@"), "source")).toHaveLength(0);
+    // Two films of one title, and a third record that fits either.
+    const twoFilms = FILE.replace(
+      "0 @O1@ OBJE",
+      "0 @S3@ SOUR\n1 TITL Poročna knjiga 01737 | Podzemelj\n1 REPO @R1@\n2 CALN 01738\n0 @O1@ OBJE",
+    );
+    expect(ofKind(twoFilms, "source")).toHaveLength(0);
+  });
+});
