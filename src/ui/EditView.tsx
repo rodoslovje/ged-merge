@@ -2,9 +2,8 @@ import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { lastChangedText } from "../gedcom/chanCrea";
-import { birthDateOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { birthParentFamilies, isSameSexCouple } from "../gedcom/couple";
@@ -1780,24 +1779,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataset, person, undoVersion, tick, t]);
 
-  const birthParentAges = useMemo(() => {
+  // Parents' ages at the birth date the BIRT row shows (its own, or the one
+  // a merge brings in).
+  const birthParentAgesAt = useMemo(() => {
     if (!settings.showAge || !person) return undefined;
-    const birthDate = birthDateOf(person);
-    if (!birthDate) return undefined;
     const famsOf = person.childOf.map((famId) => dataset.families.get(famId));
     const fatherId = famsOf.find((f) => f?.husband)?.husband;
     const motherId = famsOf.find((f) => f?.wife)?.wife;
     const father = fatherId ? dataset.individuals.get(fatherId) : undefined;
     const mother = motherId ? dataset.individuals.get(motherId) : undefined;
-    return coupleAgesDisplay(
-      father,
-      mother,
-      birthDate,
-      isSameSexCouple(father, mother)
-        ? { husband: t("event.age.parent"), wife: t("event.age.parent") }
-        : { husband: t("event.age.father"), wife: t("event.age.mother") },
-      t,
-    );
+    const labels = isSameSexCouple(father, mother)
+      ? { husband: t("event.age.parent"), wife: t("event.age.parent") }
+      : { husband: t("event.age.father"), wife: t("event.age.mother") };
+    return (birthDate: GedDate) => coupleAgesDisplay(father, mother, birthDate, labels, t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.showAge, person, dataset, t, tick]); // tick: parents' own dates can change without replacing `person`
 
@@ -2116,7 +2110,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             rowFocus={rowFocus}
             undoVersion={undoVersion}
             mergeGen={mergeGen}
-            birthParentAges={birthParentAges}
+            birthParentAgesAt={birthParentAgesAt}
             onCopyEvent={onCopyIndividualEvent}
           />
           <EventAddRow

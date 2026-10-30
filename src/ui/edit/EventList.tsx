@@ -1,11 +1,13 @@
-import type { Individual, GedEvent, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
+import type { Individual, GedDate, GedEvent, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
 import { eventDisplayLabel, indiEventNodes } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
-import { ageBetween, fullAgeBetween } from "../../gedcom/age";
+import { ageBetween, fullAgeBetween, type AgeBadge } from "../../gedcom/age";
+import { parseDate } from "../../gedcom/date";
+import { splitDateTime } from "../../gedcom/dateTime";
 import { lifespanAnchors, SINGLE_EVENT_TAGS, zoneSortKey } from "../../review/fields";
 import { orderingDate } from "../../gedcom/sortDate";
 import { useSettingsSlice } from "../SettingsContext";
@@ -70,7 +72,7 @@ export const EventList = memo(function EventList({
   rowFocus,
   undoVersion,
   mergeGen,
-  birthParentAges,
+  birthParentAgesAt,
   onCopyEvent,
 }: {
   person: Individual;
@@ -155,7 +157,7 @@ export const EventList = memo(function EventList({
   mergeGen?: number;
   /** Parents' ages at this person's birth ("♂32" "♀28" badges, each with a
    * full-precision tooltip), shown on the BIRT row when "Show ages" is on. */
-  birthParentAges?: { text: string; title: string }[];
+  birthParentAgesAt?: (birth: GedDate) => AgeBadge[] | undefined;
   /** Open the "Copy event to…" picker for an existing event node of this
    * person. Omitted rows (incoming-only merge suggestions) have no node yet. */
   onCopyEvent?: (node: GedNode, label: string) => void;
@@ -165,17 +167,6 @@ export const EventList = memo(function EventList({
   const { eventOffer } = useTargetFormat();
   const offeredGroups = useMemo(() => offeredEventGroups(eventOffer), [eventOffer]);
   const birtEv = person.events.find((e) => e.tag === "BIRT");
-
-  // The person's age at an event, shown after its date ("Show ages" setting);
-  // the tooltip carries the full-precision Y/M/D breakdown.
-  const birthDate = settings.showAge ? birthDateOf(person) : undefined;
-  function eventAge(ev: GedEvent): { text: string; title: string }[] | undefined {
-    if (!settings.showAge || ev.tag === "BIRT") return undefined;
-    const age = ageBetween(birthDate, ev.date);
-    if (age === undefined) return undefined;
-    const detail = fullAgeBetween(birthDate, ev.date, t);
-    return [{ text: String(age), title: detail ? `${t("event.age.person")}: ${detail}` : t("event.age.person") }];
-  }
 
   /** Merge sub-field keys (e.g. "date", "addr") touched by `update`, for `onResolveMergeField`. */
   function subsOf(update: EventFieldUpdate): string[] {
@@ -203,6 +194,22 @@ export const EventList = memo(function EventList({
   const birtMergeKeyBase = birtOriginalIdx >= 0
     ? (mainMergeKeyBases?.get(birtOriginalIdx) ?? eventKeyBases[birtOriginalIdx])
     : "BIRT";
+
+  // The person's age at an event, shown after its date ("Show ages" setting);
+  // the tooltip carries the full-precision Y/M/D breakdown. Counted from the
+  // birth the row shows: the main's, else the one the merge brings in.
+  const mergedBirth = mergeHighlight?.get(`${birtMergeKeyBase}.date`);
+  const birthDate = settings.showAge
+    ? birthDateOf(person) ?? (mergedBirth ? parseDate(splitDateTime(mergedBirth).date) : undefined)
+    : undefined;
+  const personAgeAt = useMemo(() => birthDate && ((date: GedDate) => {
+    const age = ageBetween(birthDate, date);
+    if (age === undefined) return undefined;
+    const detail = fullAgeBetween(birthDate, date, t);
+    return [{ text: String(age), title: detail ? `${t("event.age.person")}: ${detail}` : t("event.age.person") }];
+  // birthDate is rebuilt each render; its raw text is what identifies it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [birthDate?.raw, t]);
 
   // Unified sorted list: main non-BIRT events interleaved with incoming-only extra events.
   type MainRow  = { kind: "main"; ev: GedEvent; i: number; mergeKeyBase: string; compareKey?: string; stableKey: number };
@@ -288,7 +295,7 @@ export const EventList = memo(function EventList({
         eventNode={birtOriginalIdx >= 0 ? rawEventNodes[birtOriginalIdx] : undefined}
         personId={person.id}
         materializedEventIds={materializedEventIds}
-        age={birthParentAges}
+        ageAt={birthParentAgesAt}
       />
       {allRows.map((row) =>
         row.kind === "main" ? (
@@ -340,7 +347,7 @@ export const EventList = memo(function EventList({
             eventNode={rawEventNodes[row.i]}
             personId={person.id}
             materializedEventIds={materializedEventIds}
-            age={eventAge(row.ev)}
+            ageAt={personAgeAt}
           />
         ) : (
           <EventFieldsRow
@@ -395,6 +402,7 @@ export const EventList = memo(function EventList({
             mergeKeyBase={row.keyBase}
             forcedKeyBase={row.keyBase}
             resolvedSessionFields={resolvedSessionFields}
+            ageAt={personAgeAt}
           />
         ),
       )}

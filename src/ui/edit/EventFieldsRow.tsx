@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { linkGlyph, linkHref, linkTooltip, mediaLinkTooltip } from "../FieldValue";
 import { tipProps } from "../IconTip";
 import { useTranslation } from "react-i18next";
-import type { GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
+import type { GedDate, GedEvent, GedNode, GeoCoord, SourceCitation } from "../../gedcom/types";
+import { parseDate } from "../../gedcom/date";
+import type { AgeBadge } from "../../gedcom/age";
 import type { Translate } from "../../locales/i18n";
 import { LDS_ORDINANCE_TAGS, ORDINANCE_STATUSES, customEventLabel, customEventTooltip, isOccurrenceFlag, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
@@ -119,7 +121,7 @@ export function EventFieldsRow({
   eventNode,
   personId,
   materializedEventIds,
-  age,
+  ageAt,
   spouseAgeLabels,
 }: {
   ev: GedEvent | undefined;
@@ -204,8 +206,9 @@ export function EventFieldsRow({
   materializedEventIds?: Set<number>;
   /** Age badges shown after the date ("Show ages" setting) — the person's age
    * at this event, or one glyph-tagged badge per spouse/parent (e.g. "♂32"
-   * "♀28"), each with its own tooltip. */
-  age?: { text: string; title: string }[];
+   * "♀28"), each with its own tooltip. Given the date the row shows, so a
+   * merged-in or just-typed date gets its ages before it is committed. */
+  ageAt?: (date: GedDate) => AgeBadge[] | undefined;
   /** Set on a family event's row: its stated ages are each spouse's
    *  (`HUSB`/`WIFE` → `AGE`), not one of the event's own, and these name them. */
   spouseAgeLabels?: SpouseAgeLabels;
@@ -282,6 +285,8 @@ export function EventFieldsRow({
   const valueField = useField(flagOnly ? "" : ev?.value ?? "", valueMergeVal);
   // The date field carries the event's time of day after its date.
   const dateField = useField(joinDateTime(ev?.date?.raw ?? "", ev?.time), dateMergeVal);
+  const shownDate = splitDateTime(dateField.value).date;
+  const age = useMemo(() => (ageAt && shownDate ? ageAt(parseDate(shownDate)) : undefined), [ageAt, shownDate]);
   // Dates in words run longer, so the date slot widens for them.
   const { dateDisplay } = useSettingsSlice(DATE_DISPLAY_KEYS);
   const placeField = useField(ev?.place?.raw ?? "", placeMergeVal);
