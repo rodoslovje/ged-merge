@@ -2272,6 +2272,17 @@ button:focus-visible {
    do, since picking the wrong person is the cost. */
 .relative-picker-option .person-name,
 .start-option .person-name { white-space: normal; overflow-wrap: anywhere; }
+/* Where the person lived gives way before the name does: it is cut short, and
+   the tooltip writes it out in full. */
+.relative-picker-option .person-place,
+.start-option .person-place {
+  color: var(--muted);
+  font-size: 0.85em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .person-name-group {
   display: inline-flex;

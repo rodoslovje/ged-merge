@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, formatMarriage, lifespanLine, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, homePlaceOf, lifespanLine, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
 
-/** Minimal Individual carrying only the events `placeLabel` reads. */
-function person(events: { tag: string; place?: string }[]): Individual {
+/** Minimal Individual carrying only the events `placeLabel` and `homePlaceOf` read. */
+function person(events: { tag: string; place?: string; address?: string; year?: number }[]): Individual {
   return {
-    events: events.map((e) => ({ tag: e.tag, place: e.place ? parsePlace(e.place) : undefined })),
+    events: events.map((e) => ({
+      tag: e.tag,
+      place: e.place ? parsePlace(e.place) : undefined,
+      address: e.address ? parsePlace(e.address) : undefined,
+      date: e.year === undefined ? undefined : { raw: String(e.year), qualifier: "exact", year: e.year },
+    })),
   } as unknown as Individual;
 }
 
@@ -24,6 +29,32 @@ describe("placeLabel", () => {
     expect(placeLabel(person([{ tag: "BIRT", place: "Kranj 22, Slovenija" }]))).toBe("Kranj");
     expect(placeLabel(person([{ tag: "BIRT" }, { tag: "DEAT", place: "Celje" }]))).toBe("Celje");
     expect(placeLabel(person([]))).toBeUndefined();
+  });
+});
+
+describe("homePlaceOf", () => {
+  it("prefers the last residence, then birth, then death", () => {
+    const resi = person([{ tag: "BIRT", place: "Kranj" }, { tag: "RESI", place: "Maribor" }, { tag: "DEAT", place: "Celje" }]);
+    expect(homePlaceOf(resi)?.label).toBe("Maribor");
+    expect(homePlaceOf(person([{ tag: "DEAT", place: "Celje" }, { tag: "BIRT", place: "Kranj" }]))?.label).toBe("Kranj");
+    expect(homePlaceOf(person([{ tag: "BIRT" }, { tag: "DEAT", place: "Celje" }]))?.tag).toBe("DEAT");
+    expect(homePlaceOf(person([]))).toBeUndefined();
+  });
+
+  it("takes the latest dated residence, else the last one written", () => {
+    const dated = person([
+      { tag: "RESI", place: "Ptuj", year: 1890 },
+      { tag: "RESI", place: "Maribor", year: 1870 },
+      { tag: "RESI", place: "Lendava" },
+    ]);
+    expect(homePlaceOf(dated)?.label).toBe("Ptuj");
+    expect(homePlaceOf(person([{ tag: "RESI", place: "Ptuj" }, { tag: "RESI", place: "Maribor" }]))?.label).toBe("Maribor");
+  });
+
+  it("keeps the house number and leads with the street address", () => {
+    expect(homePlaceOf(person([{ tag: "BIRT", place: "Šentvid 23, Slovenija" }]))?.label).toBe("Šentvid 23");
+    const home = homePlaceOf(person([{ tag: "RESI", place: "Ljubljana, Slovenija", address: "Celovška 12" }]));
+    expect(home).toEqual({ tag: "RESI", label: "Celovška 12, Ljubljana", full: "Celovška 12 · Ljubljana, Slovenija" });
   });
 });
 
