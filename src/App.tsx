@@ -96,6 +96,8 @@ import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, t
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
+import { homePlaceOf } from "./chart/nodeDisplay";
+import { personOptionTitle } from "./ui/edit/RelativePickerCard";
 import type { FilterContext } from "./ui/globalSearch";
 import { useSearchIndex } from "./ui/useSearchIndex";
 import { SearchIcon } from "./ui/icons/SearchIcon";
@@ -1661,6 +1663,11 @@ function AppContent() {
       if (indi) {
         meta.dates = datesTooltipOf(indi) || undefined;
         meta.yearsApprox = lifespanApproxOf(indi);
+        const home = homePlaceOf(indi);
+        if (home) {
+          meta.home = home.label;
+          meta.homeTitle = personOptionTitle("", home, t);
+        }
       }
       if (settings.showKinship && startId && mainDataset && startId !== id) {
         let cached = kinshipCacheRef.current.get(id);

@@ -36,6 +36,10 @@ export interface SearchRowMeta {
   dates?: string;
   /** Which of the row's years stand on an approximate date — set in italics. */
   yearsApprox?: YearsApprox;
+  /** Where the person lived, to tell namesakes apart — see `homePlaceOf`. */
+  home?: string;
+  /** That place written out in full, with the event it came from, for its hover. */
+  homeTitle?: string;
 }
 
 interface Props {
@@ -357,6 +361,9 @@ export function GlobalSearchModal({ isOpen, onClose, rows, indexProgress, onOpen
                   )}
                   {meta.kinship && (
                     <span className={`global-search-kin ${meta.kinshipLineage ?? ""}`}>{meta.kinship}</span>
+                  )}
+                  {meta.home && (
+                    <span className="global-search-place" title={meta.homeTitle}>{meta.home}</span>
                   )}
                 </button>
                 <div className="global-search-actions">
