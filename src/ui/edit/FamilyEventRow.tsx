@@ -1,5 +1,5 @@
 import { useTargetFormat } from "../TargetFormatContext";
-import type { Family, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
+import type { Family, GedDate, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
 import { familyEventLabel } from "../../gedcom/eventTags";
@@ -75,18 +75,18 @@ export function FamilyEventRow({
   const husbandIndi = fam.husband ? individuals?.get(fam.husband) : undefined;
   const wifeIndi = fam.wife ? individuals?.get(fam.wife) : undefined;
   const sameSex = isSameSexCouple(husbandIndi, wifeIndi);
-  const coupleAges =
-    settings.showAge && individuals && ev?.date
-      ? coupleAgesDisplay(
-          husbandIndi,
-          wifeIndi,
-          ev.date,
-          sameSex
-            ? { husband: t("event.age.partner"), wife: t("event.age.partner") }
-            : { husband: t("event.age.husband"), wife: t("event.age.wife") },
-          t,
-        )
-      : undefined;
+  // Each spouse's age at the date the row shows (its own, or a merged one).
+  const coupleAgesAt = settings.showAge && individuals
+    ? (date: GedDate) => coupleAgesDisplay(
+        husbandIndi,
+        wifeIndi,
+        date,
+        sameSex
+          ? { husband: t("event.age.partner"), wife: t("event.age.partner") }
+          : { husband: t("event.age.husband"), wife: t("event.age.wife") },
+        t,
+      )
+    : undefined;
 
   // The ages the record states for each spouse: labelled by the glyph of the
   // person's actual sex (as the computed badges are), named in full in the
@@ -141,7 +141,7 @@ export function FamilyEventRow({
       mergeIncomingPageImages={mergeIncomingPageImages}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}
       resolvedSessionFields={resolvedSessionFields}
-      age={coupleAges}
+      ageAt={coupleAgesAt}
     />
   );
 }
