@@ -92,6 +92,7 @@ import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
 import { DatasetProvider, SettingsProvider, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
 import { TargetFormatContext, type TargetFormatValue } from "./ui/TargetFormatContext";
+import { noticeSnoozed, snoozeNotice } from "./ui/noticeSnooze";
 import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
@@ -997,7 +998,8 @@ function AppContent() {
 
   // A file kept in its own format says so each time it is opened — the reader
   // may want a GEDCOM version instead, and Settings → GEDCOM is where to
-  // choose it — until Don't show again silences it for that file. Once per
+  // choose it — until Don't show again silences it for that file (Later, for a
+  // week). Once per
   // load (`mainLoadGen`): a save's in-place rebuild is not an opening.
   const [targetNotice, setTargetNotice] = useState(false);
   const noticeGenRef = useRef(-1);
@@ -1009,7 +1011,7 @@ function AppContent() {
     }
     if (!targetKey || noticeGenRef.current === mainLoadGen) return;
     noticeGenRef.current = mainLoadGen;
-    setTargetNotice(true);
+    if (!noticeSnoozed(`target:${targetKey}`)) setTargetNotice(true);
   }, [mainLoadGen, targetKey, targetMode, noticeHidden]);
   const hideTargetNotice = () => {
     setTargetNotice(false);
@@ -2545,7 +2547,13 @@ function AppContent() {
                 },
               },
               { label: t("target.notice.hide"), onClick: hideTargetNotice },
-              { label: t("target.notice.later"), onClick: () => setTargetNotice(false) },
+              {
+                label: t("target.notice.later"),
+                onClick: () => {
+                  if (targetKey) snoozeNotice(`target:${targetKey}`);
+                  setTargetNotice(false);
+                },
+              },
             ]}
           />
         )}
