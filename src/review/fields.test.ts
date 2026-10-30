@@ -418,6 +418,20 @@ describe("familyMergeKeyBases", () => {
     expect(bases.get("@F9@")).toBe("fam.@F2@");
   });
 
+  it("keeps an unpaired main family's keys apart from an incoming family with the same id", () => {
+    // The incoming file reuses the main's xref for a union with a different
+    // partner, so the two stay unpaired — and must not share row keys, or the
+    // panel's keyed rows leave one family behind on the next pair shown.
+    const m = dataset(mainGed.replace(/@F9@/g, "@F2@"));
+    const c = dataset(compareGed.replace("1 NAME Tone /Horvat/", "1 NAME Janez /Kos/"));
+    const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
+    const keys = rows.map((r) => r.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(byKey(rows, "fam.main:@F2@.MARR.date")).toMatchObject({ main: "1 JAN 2000", state: "main-only" });
+    expect(byKey(rows, "fam.@F2@.MARR.place")).toMatchObject({ incoming: "Ljubljana", state: "incoming-only" });
+    expect(familyMergeKeyBases(m.individuals.get("@C@"), c.individuals.get("@C@"), m, c).get("@F2@")).toBe("fam.main:@F2@");
+  });
+
   it("surfaces a family _MSTAT status as a value row", () => {
     const statusGed = (famId: string, status: string) => `0 HEAD
 0 @C@ INDI
@@ -537,7 +551,7 @@ ${extra}0 TRLR
 
     // Each union keeps its own group, so neither partner is offered as a
     // replacement for the other.
-    expect(byKey(rows, "fam.@F1@.partner")).toMatchObject({ main: "Neja Bizjak", state: "main-only" });
+    expect(byKey(rows, "fam.main:@F1@.partner")).toMatchObject({ main: "Neja Bizjak", state: "main-only" });
     expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ incoming: "Katja Špiler", state: "incoming-only" });
     // ...and the incoming marriage place lands in the incoming union's group,
     // not on the main union's wedding.
@@ -1820,7 +1834,7 @@ describe("aligned relative lists (children/partners)", () => {
       `0 @K2@ INDI\n1 NAME Berta /Novak/\n1 BIRT\n2 DATE 5 MAR 1855\n1 FAMC @F@\n` +
       `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K0@\n1 CHIL @K1@\n1 CHIL @K2@\n0 TRLR\n`;
     const ds = dataset(text);
-    const children = byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.@F@.children")!;
+    const children = byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.main:@F@.children")!;
     const lines = children.main.split("\n");
     expect(lines.map((l) => l.match(/Ana|Berta|Cilka/)?.[0])).toEqual(["Ana", "Berta", "Cilka"]);
   });
@@ -1829,7 +1843,7 @@ describe("aligned relative lists (children/partners)", () => {
 describe("family header naming", () => {
   const header = (body: string) => {
     const ds = dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
-    return byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.@F@.header")?.label;
+    return byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.main:@F@.header")?.label;
   };
 
   it("names a family with no second parent for what it is", () => {
