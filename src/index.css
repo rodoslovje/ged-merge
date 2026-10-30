@@ -161,6 +161,8 @@ button:focus-visible {
   flex: none;
 }
 .header-file-btn:hover { border-color: var(--accent); background: var(--panel-2); }
+/* A file dragged over a pill: dropping it there replaces that file. */
+.header-file-btn.dragover { border-color: currentColor; background: var(--panel-2); }
 /* Main-header pills open the file-info panel — a chevron (▾/▴ with the panel
    state, like the section headers) makes them read as clickable. The
    tree-shell header's pills just navigate back, so they render no chevron. */

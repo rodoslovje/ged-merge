@@ -1,5 +1,5 @@
 import { Notice } from "./ui/Notice";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type DragEvent } from "react";
 import { type RecordPatch, type PendingEditApply, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
 import { cloneNode } from "./gedcom/node";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
@@ -109,6 +109,7 @@ import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances, rankedCandidates } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
+import { fileFromDrop } from "./ui/filePicker";
 import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
@@ -215,6 +216,7 @@ function AppContent() {
   // Below 880px the file pills would be a letter each: they move into the ☰.
   const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pillDrop, setPillDrop] = useState<DatasetRole | null>(null);
   // The chart's header has a ☰ of its own: the app's stays mounted (hidden)
   // under the chart, and sharing one open flag opened both — the hidden one's
   // outside-click handler then closed the visible one before a click landed.
@@ -2299,6 +2301,25 @@ function AppContent() {
     </div>
   );
 
+  // A file dropped on a header pill replaces that slot's file, exactly as a
+  // drop on its loader box in the file panel would.
+  const pillDropProps = (role: DatasetRole) => ({
+    onDragOver: (e: DragEvent<HTMLButtonElement>) => {
+      if (!e.dataTransfer.types.includes("Files")) return;
+      e.preventDefault();
+      setPillDrop(role);
+    },
+    onDragLeave: (e: DragEvent<HTMLButtonElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPillDrop(null);
+    },
+    onDrop: async (e: DragEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      setPillDrop(null);
+      const picked = await fileFromDrop(e.dataTransfer);
+      if (picked) void loadFile(role, picked.file, picked.handle);
+    },
+  });
+
   // The one app header, on the app's pages and on a full-page chart alike, so
   // every control keeps its place wherever the user is. On a chart no mode tab
   // is lit — the chart is not a mode — and the tabs, the file pills and Add
@@ -2316,13 +2337,13 @@ function AppContent() {
           {!filesInMenu && (lastMainFile || compare.status === "loaded") && (
             <div className="app-head-file-pills">
               {lastMainFile && (
-                <button className="header-file-btn gm-file main" onClick={onChart ? openFilesFromChart : toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>
+                <button className={`header-file-btn gm-file main${pillDrop === "main" ? " dragover" : ""}`} {...pillDropProps("main")} onClick={onChart ? openFilesFromChart : toggleInfoPanel} title={`${t("tree.main")}: ${lastMainFile.fileName} — ${t("header.filePill.hint")}`}>
                   <span className="header-file-name">{lastMainFile.fileName}</span>
                   <span className="header-file-caret" aria-hidden="true">{!onChart && infoPanelOpen ? "▴" : "▾"}</span>
                 </button>
               )}
               {compare.status === "loaded" && (
-                <button className="header-file-btn gm-file incoming" onClick={onChart ? openFilesFromChart : toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
+                <button className={`header-file-btn gm-file incoming${pillDrop === "compare" ? " dragover" : ""}`} {...pillDropProps("compare")} onClick={onChart ? openFilesFromChart : toggleInfoPanel} title={`${t("tree.incoming")}: ${compare.file.fileName} — ${t("header.filePill.hint")}`}>
                   <span className="header-file-name">{compare.file.fileName}</span>
                   <span className="header-file-caret" aria-hidden="true">{!onChart && infoPanelOpen ? "▴" : "▾"}</span>
                 </button>
