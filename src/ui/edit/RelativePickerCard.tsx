@@ -10,6 +10,7 @@ import { YearsText } from "../YearsText";
 import { lifespanApproxOf } from "../../gedcom/lifespan";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
 import { handleListKey } from "../../keyboard/useListKeyboard";
+import { homePlaceOf, type HomePlace } from "../../chart/nodeDisplay";
 
 /** The preferences the rows read — the same ones the person cards honour, so a
  *  name reads identically whether it sits on a card or in this list. */
@@ -26,6 +27,8 @@ export interface PersonOption {
   span: string;
   sex: Individual["sex"];
   xref: string;
+  /** Where they lived, to tell namesakes apart — see {@link homePlaceOf}. */
+  home?: HomePlace;
   search: string;
 }
 
@@ -60,6 +63,7 @@ export function usePersonOptions(
                 span,
                 sex: i.sex,
                 xref: xrefLabel(i.id),
+                home: homePlaceOf(i),
                 // Searchable on every name the person carries, not just the one
                 // on show: a maiden name still finds them while married names
                 // are displayed, and the record id finds them outright.
@@ -89,6 +93,12 @@ export function matchPersonOptions(people: PersonOption[], query: string, max = 
   return shown;
 }
 
+/** A person row's tooltip: the full dates, then the row's place written out in full. */
+export function personOptionTitle(dates: string, home: HomePlace | undefined, t: Translate): string {
+  const place = home && `${t(`event.${home.tag}`)}: ${home.full}`;
+  return [dates, place].filter(Boolean).join("\n");
+}
+
 /** One row of that list, wherever it is drawn. */
 export function PersonOptionRow({
   option,
@@ -108,7 +118,7 @@ export function PersonOptionRow({
     <button
       type="button"
       className={`relative-picker-option${highlighted ? " highlighted" : ""}`}
-      title={lifespanTooltipOf(option.indi, settings.showAge, t)}
+      title={personOptionTitle(lifespanTooltipOf(option.indi, settings.showAge, t), option.home, t)}
       onMouseEnter={onHighlight}
       onFocus={onHighlight}
       // mousedown only keeps the search box's focus; the pick is the click, so
@@ -120,6 +130,7 @@ export function PersonOptionRow({
         <span className="person-name">{option.name}</span>
         {settings.showXref && <span className="person-xref gm-data">{option.xref}</span>}
         {option.span && <span className="person-years gm-data"><YearsText text={option.span} approx={lifespanApproxOf(option.indi)} /></span>}
+        {option.home && <span className="person-place">{option.home.label}</span>}
       </span>
     </button>
   );

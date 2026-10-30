@@ -12,6 +12,8 @@ import { YearsText } from "./YearsText";
 import { lifespanApproxOf } from "../gedcom/lifespan";
 import { SearchIcon } from "./icons/SearchIcon";
 import { HomeIcon } from "./icons/HomeIcon";
+import { homePlaceOf } from "../chart/nodeDisplay";
+import { personOptionTitle } from "./edit/RelativePickerCard";
 
 /** The preferences the rows read — the same the person cards honour, so a name
  *  reads identically wherever it appears. */
@@ -100,6 +102,7 @@ export function StartPersonSelector({
               const span = lifespanWithAge(i, settings.showAge);
               const name = nameOf(i);
               const search = foldSearch(`${nameSearchText(i)} ${span} ${i.id}`);
+              const home = homePlaceOf(i);
               return {
                 id: i.id,
                 name,
@@ -107,7 +110,8 @@ export function StartPersonSelector({
                 sex: i.sex,
                 xref: xrefLabel(i.id),
                 text: span ? `${name} ${span}` : name,
-                title: lifespanTooltipOf(i, settings.showAge, t),
+                home: home?.label,
+                title: personOptionTitle(lifespanTooltipOf(i, settings.showAge, t), home, t),
                 search,
               };
             })
@@ -241,6 +245,7 @@ export function StartPersonSelector({
                       <span className="person-name">{o.name}</span>
                       {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
                       {o.span && <span className="person-years gm-data"><YearsText text={o.span} approx={lifespanApproxOf(individuals.get(o.id))} /></span>}
+                      {o.home && <span className="person-place">{o.home}</span>}
                     </span>
                   </button>
                 </li>

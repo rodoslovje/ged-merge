@@ -3,7 +3,7 @@
 // here keeps all four in sync as the Chart-settings toggles change which fields a
 // node shows, and how living people are redacted for privacy.
 
-import type { Individual, Sex } from "../gedcom/types";
+import type { GedEvent, Individual, Sex } from "../gedcom/types";
 import type { YearsApprox } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import type { Lineage } from "../match/kinship";
@@ -115,6 +115,47 @@ export function placeLabel(indi: Individual | undefined): string | undefined {
     }
   }
   return undefined;
+}
+
+/** A person's place as a search list shows it: a short label beside the name,
+ *  and the event it came from with the full place and address for the tooltip. */
+export interface HomePlace {
+  tag: "RESI" | "BIRT" | "DEAT";
+  label: string;
+  full: string;
+}
+
+/** The residence the person was last recorded at: the latest dated one, else the last one written. */
+function lastResidence(indi: Individual): GedEvent | undefined {
+  let last: GedEvent | undefined;
+  for (const e of indi.events) {
+    if (e.tag !== "RESI" || !(e.place || e.address)) continue;
+    const year = e.date?.year;
+    const lastYear = last?.date?.year;
+    // A dated residence outranks an undated one; among equals the later written wins.
+    if (lastYear === undefined || (year !== undefined && year >= lastYear)) last = e;
+  }
+  return last;
+}
+
+/**
+ * Where a person lived, to tell namesakes apart in a person search: the last
+ * residence, else the birth place, else the death place — births and deaths
+ * come after the residence because they are often recorded at a hospital. The
+ * label is the locality with its house number kept, then the address, since
+ * those are what set two people of one village apart.
+ */
+export function homePlaceOf(indi: Individual | undefined): HomePlace | undefined {
+  if (!indi) return undefined;
+  const event =
+    lastResidence(indi) ??
+    [findEvent(indi, "BIRT"), findEvent(indi, "DEAT")].find((e) => e?.place || e?.address);
+  if (!event) return undefined;
+  // Place · Address, as the app writes the pair everywhere else.
+  const label = [event.place?.parts[0], event.address?.raw].filter(Boolean).join(" · ");
+  if (!label) return undefined;
+  const full = [event.place?.raw, event.address?.raw].filter(Boolean).join(" · ");
+  return { tag: event.tag as HomePlace["tag"], label, full };
 }
 
 export interface NodeDisplayInput {
