@@ -463,7 +463,7 @@ function buildFamilyRows(
   famPairs.forEach((pair) => {
     const mFam = pair.mainFam;
     const cFam = pair.compareFam;
-    const famKey = cFam ? `fam.${cFam.id}` : `fam.${mFam!.id}`;
+    const famKey = familyKeyBase(pair);
 
     const mSpouseId = mFam ? (mFam.husband === main?.id ? mFam.wife : mFam.husband) : undefined;
     const cSpouseId = cFam ? (cFam.husband === compare?.id ? cFam.wife : cFam.husband) : undefined;
@@ -626,6 +626,19 @@ interface FamPair {
   compareFam?: Family;
 }
 
+/**
+ * The key base of one family's rows: the incoming family's id when the pair
+ * has one (the merge reads its choices under that key), and a main-only
+ * family's id in a namespace of its own. The two files' xrefs are separate
+ * namespaces that can hold the same id — an incoming file made from an export
+ * of the main often does — so an unpaired main `@F1@` beside an incoming
+ * `@F1@` would otherwise give two families the same row keys, and React would
+ * leave one family's rows behind on the next pair the panel shows.
+ */
+function familyKeyBase(pair: FamPair): string {
+  return pair.compareFam ? `fam.${pair.compareFam.id}` : `fam.main:${pair.mainFam!.id}`;
+}
+
 function pairFamilies(
   main: Individual | undefined,
   compare: Individual | undefined,
@@ -674,6 +687,11 @@ function pairFamilies(
          // One union on each side and no partner named on one of them: nothing
          // else to confuse them with.
          sim = 1;
+      } else if (!mSpouse && !cSpouse) {
+         // Neither union names a partner: the same "family with no partner" on
+         // both sides, unless shared children tie it to another one. Left
+         // apart, the incoming copy would be offered as a family of its own.
+         sim = Math.max(childOverlap(), 0.5);
       } else {
          sim = childOverlap();
       }
@@ -743,9 +761,7 @@ export function familyMergeKeyBases(
 ): Map<string, string> {
   const map = new Map<string, string>();
   for (const pair of pairFamilies(main, compare, mainDs, compareDs)) {
-    if (!pair.mainFam) continue;
-    const key = pair.compareFam ? `fam.${pair.compareFam.id}` : `fam.${pair.mainFam.id}`;
-    map.set(pair.mainFam.id, key);
+    if (pair.mainFam) map.set(pair.mainFam.id, familyKeyBase(pair));
   }
   return map;
 }
