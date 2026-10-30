@@ -7,6 +7,7 @@ import {
   objeInfoOf,
   objeNodesFor,
   fullerSourceOf,
+  complementarySourcesOf,
   sourceContentKey,
   sourceContentParts,
   sourceTitle,
@@ -41,7 +42,8 @@ import { linkKey } from "../normalize/links";
  *    `_` tags, but no media pointers and no `CHAN`/`CREA`/`_UPD` stamps. Identical content ⇒ same real-world source/repository even
  *    under different xrefs. A record that says less than one other of its
  *    title — the same register imported without its call number or `DATA` —
- *    joins that record's group, which keeps the fuller one.
+ *    joins that record's group, which keeps the fuller one; so do same-titled
+ *    records that each add a line the other lacks and contradict nowhere.
  */
 
 export type DupKind = "media" | "source" | "repo";
@@ -231,9 +233,11 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   const byXref = new Map(ds.records.filter((r) => r.xref).map((r) => [r.xref!, r]));
   const keyer = (keyOpts: SourceKeyOptions) => {
     const fuller = fullerSourceOf(ds.records, ds.records, keyOpts);
+    const complement = complementarySourcesOf(ds.records, keyOpts);
     return {
       contentKey: (rec: GedNode) => {
-        const to = fuller.get(rec.xref!);
+        const via = complement.get(rec.xref!) ?? fuller.get(rec.xref!);
+        const to = (via && complement.get(via)) ?? via;
         const k = sourceContentKey((to && byXref.get(to)) || rec, keyOpts);
         return k ? `c:${k}` : undefined;
       },
