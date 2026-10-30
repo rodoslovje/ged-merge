@@ -41,6 +41,16 @@ test("a typed date reads back in words and is written in the file's style", asyn
   await expect(birth).toHaveValue("ABT 5 MAR 1850");
   await expect(birth).toHaveClass(/is-approx/);
   await expect(preview).toHaveCount(0);
+  // Longer than a plain date's slot, it still shares the line with its label
+  // and shows whole: the field holds the text without scrolling it.
+  await expect(async () => {
+    const fit = await page.locator(".edit-event").first().evaluate((ev) => {
+      const input = ev.querySelector("input.edit-event-date") as HTMLInputElement;
+      const label = ev.querySelector(".edit-event-type-row")!.getBoundingClientRect();
+      return { line: Math.abs(input.getBoundingClientRect().top - label.top) < label.height, whole: input.scrollWidth <= input.clientWidth };
+    });
+    expect(fit).toEqual({ line: true, whole: true });
+  }).toPass();
 
   // A numeric date whose day and month could swap offers the other reading.
   const death = page.locator(".edit-event").nth(1).locator(".edit-event-date");

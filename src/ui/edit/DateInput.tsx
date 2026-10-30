@@ -77,10 +77,11 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
     ...rest,
     ref,
     className: (className ?? "") + (approx ? " is-approx" : ""),
-    // An approximate date is set in italics and carries its qualifier, so it
-    // runs longer than the slot sized for a plain date: the field is sized to
-    // its own text (see `.is-approx` in index.css) rather than cut short.
-    style: approx ? { ...rest.style, "--date-chars": shown.length } as React.CSSProperties : rest.style,
+    // Safari and Firefox size the Edit row from a field's `size`, not its CSS
+    // width: an approximate date's slot may outgrow the default 20, and the
+    // date would drop under its label. Generous, since a `size` counts
+    // narrower characters than the monospace digits the field shows.
+    size: approx ? Math.max(20, Math.ceil(shown.length * 1.6)) : rest.size,
     value: shown,
     title: hover || undefined,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
@@ -102,7 +103,14 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
   };
 
   return (
-    <div className={"date-input" + (wrapClassName ? ` ${wrapClassName}` : "")}>
+    // An approximate date is set in italics and carries its qualifier, so it
+    // runs longer than the slot sized for a plain date: the wrapper tells the
+    // stylesheet its length (see `.is-approx` in index.css), and a slot that
+    // is this wrapper sizes itself to it rather than cutting it short.
+    <div
+      className={"date-input" + (wrapClassName ? ` ${wrapClassName}` : "")}
+      style={approx ? ({ "--date-chars": shown.length } as React.CSSProperties) : undefined}
+    >
       {onClear ? (
         <ClearableInput {...inputProps} onClear={onClear} clearTitle={label} />
       ) : (

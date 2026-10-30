@@ -8,6 +8,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { revealEdgeWhitespace } from "./whitespace";
 import { Notice } from "./Notice";
 import { mediaOfferSuppressed, suppressMediaOffer } from "./mediaPrefs";
+import { noticeSnoozed, snoozeNotice } from "./noticeSnooze";
 import { pickFile, fileFromDrop, supportsFilePicker, type AcceptSpec } from "./filePicker";
 
 function countLocalMedia(records: GedNode[]): number {
@@ -43,6 +44,7 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
     const { fileName, dataset } = main.file;
     if (offeredFor === fileName) return;
     offeredFor = fileName;
+    if (noticeSnoozed(`media:${fileName}`)) return;
     const n = countLocalMedia(dataset.records);
     if (n > 0) setOfferCount(n);
   }, [main, folderName]);
@@ -57,7 +59,13 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
       actions={[
         { label: t("loader.mediaFolder.select"), primary: true, onClick: () => { setOfferCount(null); openFolder(); } },
         { label: t("loader.mediaFolder.neverAsk"), onClick: () => { suppressMediaOffer(); setOfferCount(null); } },
-        { label: t("loader.mediaFolder.later"), onClick: () => setOfferCount(null) },
+        {
+          label: t("loader.mediaFolder.later"),
+          onClick: () => {
+            if (main.status === "loaded") snoozeNotice(`media:${main.file.fileName}`);
+            setOfferCount(null);
+          },
+        },
       ]}
     />
   );

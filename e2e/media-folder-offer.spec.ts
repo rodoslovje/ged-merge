@@ -36,9 +36,15 @@ test("the media-folder offer gives three answers and honours the never one", asy
   // A notice, not a dialog: the page behind it stays usable.
   await expect(page.locator(".modal-overlay")).toHaveCount(0);
 
-  // "Later" leaves the offer standing for the next load…
+  // "Later" puts the offer away for a week…
   await dialog.getByRole("button", { name: "Later" }).click();
   await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await page.locator("input.file-input").first().setInputFiles(upload);
+  await expect(page.getByRole("button", { name: "Tools", exact: true })).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  // …and makes it again once the week is over.
+  await page.evaluate(() => localStorage.setItem("noticeSnoozedUntil", JSON.stringify({ "media:media.ged": 0 })));
   await page.reload();
   await page.locator("input.file-input").first().setInputFiles(upload);
   await expect(dialog).toBeVisible();

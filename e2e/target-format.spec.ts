@@ -89,7 +89,19 @@ test("the own-format notice comes back on every opening until it is silenced for
   const notice = page.locator(".target-notice");
   await notice.getByRole("button", { name: "Later" }).click();
 
-  // Opened again: said again.
+  // Later: not said again for a week.
+  await page.reload();
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await expect(notice).toHaveCount(0);
+
+  // A week later, opened again: said again.
+  await page.evaluate(() => {
+    const snoozed = JSON.parse(localStorage.getItem("noticeSnoozedUntil") ?? "{}") as Record<string, number>;
+    for (const key of Object.keys(snoozed)) snoozed[key] = 0;
+    localStorage.setItem("noticeSnoozedUntil", JSON.stringify(snoozed));
+  });
   await page.reload();
   await page.locator("input.file-input").first().setInputFiles(file);
   await expect(notice).toBeVisible();
