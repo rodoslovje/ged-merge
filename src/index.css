@@ -161,6 +161,16 @@ button:focus-visible {
   flex: none;
 }
 .header-file-btn:hover { border-color: var(--accent); background: var(--panel-2); }
+/* A file dragged over a pill: dropping it there replaces that file, so the
+   pill turns into a small drop area — the loader box's dashed border and
+   squarer corners (the half-pixel comes off the padding, so nothing moves). */
+.header-file-btn { transition: border-color 0.15s, background 0.15s, border-radius 0.15s; }
+.header-file-btn.dragover {
+  border: 1.5px dashed currentColor;
+  border-radius: var(--radius-lg);
+  padding: 2.5px 10.5px 2.5px 8.5px;
+  background: var(--bg);
+}
 /* Main-header pills open the file-info panel — a chevron (▾/▴ with the panel
    state, like the section headers) makes them read as clickable. The
    tree-shell header's pills just navigate back, so they render no chevron. */
