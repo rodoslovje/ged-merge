@@ -3488,7 +3488,6 @@ button:focus-visible {
   align-items: center;
   justify-content: flex-end;
 }
-.edit-event-date-cell > .date-input { flex: 1 1 auto; min-width: 0; display: flex; }
 /* The shared date field (DateInput): the field fills its box, and the
  * preview line below hangs from the box's left edge. */
 .date-input { position: relative; }
@@ -3497,12 +3496,27 @@ button:focus-visible {
 .date-input > .clearable-wrap > input { width: 100%; }
 /* A date that is not stated exactly carries its qualifier (ABT 23 AUG 1868,
  * FROM 1768 TO 1798) and is set in italics, whose last digit leans past its
- * advance: a right-aligned field one character too narrow shows the start and
- * cuts that digit off. Such a field is sized to its own text (DateInput sets
- * `--date-chars`), in `ch` of its monospace font, plus one for the slant and
- * its padding; the slot grows to hold it, never below its usual width. */
-.edit-event-date-cell:has(input.is-approx) { flex: 0 0 auto; min-width: 9em; }
-.edit-event-date-cell input.is-approx { width: calc((var(--date-chars) + 1) * 1ch + 24px); }
+ * advance — further still when the edited field turns bold. An input clips its
+ * text at the content edge, so right-aligned italics lose that lean however
+ * wide the field is. So the text starts at the left, pushed right by however
+ * much the slot is wider than the text (DateInput sets `--date-chars` on the
+ * slot; `ch` of the monospace font, plus half a character for the slant and
+ * 26px for the field's padding and border): the year stays in the column
+ * within that half character. A long one widens the slot to fit. The field
+ * still fills its slot as a plain date's does — Safari and Firefox size the
+ * row from the field's own `size`, not from its CSS width, and DateInput
+ * raises that `size` to match. The slot takes the mono font only so its `ch`
+ * is the field's. */
+.edit-event-date-cell:has(input.is-approx) {
+  --date-w: calc((var(--date-chars) + 0.5) * 1ch + 26px);
+  flex-basis: max(9em, var(--date-w));
+  font-family: var(--font-mono);
+}
+.edit-event-date-cell:has(input.is-approx) .edit-date-preview { font-family: var(--font-sans); }
+.edit-event-date-cell input.is-approx {
+  text-align: left;
+  padding-left: calc(6px + max(0px, 9em - var(--date-w)));
+}
 /* Dates in words ("okoli 5. marca 1850") run longer than the file's own. */
 .edit-event-date-cell.is-words { flex-basis: 13em; }
 /* How a date being typed reads, and what it will be written as — floated under
@@ -9052,8 +9066,7 @@ kbd {
    * before the body wraps beneath. The full-slot input gets an explicit width
    * here — without the fixed cell it would grow to the input's own intrinsic
    * size instead. */
-  .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
-  .edit-event-date-cell > .date-input { flex: 0 1 auto; width: 9em; }
+  .edit-event-date-cell { flex: 0 1 auto; width: 9em; justify-content: flex-start; }
 
   /* Not enough room for the source dialog's two detail columns. */
   .add-source-details-grid { grid-template-columns: 1fr; }

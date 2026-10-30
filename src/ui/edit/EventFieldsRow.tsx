@@ -1033,11 +1033,12 @@ export function EventFieldsRow({
 
       {/* Leading item 2: the date — the input fills its fixed slot (text kept
        * right-aligned so the years line up in a column); the age badge follows
-       * outside the slot so it never changes the date's position or size. */}
-      <div className={"edit-event-date-cell" + (dateDisplay === DATE_DISPLAY_WORDS ? " is-words" : "") + optCls(show.date)}>
-        {/* A typed date is written in the file's style as the field is
-            left, and that written value is what the row commits. */}
+       * outside the slot so it never changes the date's position or size. The
+       * slot is the field's own wrapper, which knows how long the date is.
+       * A typed date is written in the file's style as the field is left,
+       * and that written value is what the row commits. */}
         <DateInput
+          wrapClassName={"edit-event-date-cell" + (dateDisplay === DATE_DISPLAY_WORDS ? " is-words" : "") + optCls(show.date)}
           data-detail="date"
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
@@ -1050,7 +1051,6 @@ export function EventFieldsRow({
           withTime
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
-      </div>
       {/* A GEDCOM 7 date's own wording (DATE.PHRASE) reads beside the value it
           words; an edit of the date keeps it. */}
       {ev?.date?.phrase && (
