@@ -142,8 +142,8 @@ function lastResidence(indi: Individual): GedEvent | undefined {
  * Where a person lived, to tell namesakes apart in a person search: the last
  * residence, else the birth place, else the death place — births and deaths
  * come after the residence because they are often recorded at a hospital. The
- * label keeps the house number and the street, since those are what set two
- * people of one village apart.
+ * label is the locality with its house number kept, then the address, since
+ * those are what set two people of one village apart.
  */
 export function homePlaceOf(indi: Individual | undefined): HomePlace | undefined {
   if (!indi) return undefined;
@@ -151,11 +151,10 @@ export function homePlaceOf(indi: Individual | undefined): HomePlace | undefined
     lastResidence(indi) ??
     [findEvent(indi, "BIRT"), findEvent(indi, "DEAT")].find((e) => e?.place || e?.address);
   if (!event) return undefined;
-  const street = event.address?.parts[0];
-  const locality = event.place?.parts[0];
-  const label = [street, locality !== street ? locality : undefined].filter(Boolean).join(", ");
+  // Place · Address, as the app writes the pair everywhere else.
+  const label = [event.place?.parts[0], event.address?.raw].filter(Boolean).join(" · ");
   if (!label) return undefined;
-  const full = [event.address?.raw, event.place?.raw].filter(Boolean).join(" · ");
+  const full = [event.place?.raw, event.address?.raw].filter(Boolean).join(" · ");
   return { tag: event.tag as HomePlace["tag"], label, full };
 }
 

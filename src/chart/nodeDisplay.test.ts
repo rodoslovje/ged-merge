@@ -51,10 +51,11 @@ describe("homePlaceOf", () => {
     expect(homePlaceOf(person([{ tag: "RESI", place: "Ptuj" }, { tag: "RESI", place: "Maribor" }]))?.label).toBe("Maribor");
   });
 
-  it("keeps the house number and leads with the street address", () => {
+  it("writes Place · Address, keeping the house number", () => {
     expect(homePlaceOf(person([{ tag: "BIRT", place: "Šentvid 23, Slovenija" }]))?.label).toBe("Šentvid 23");
     const home = homePlaceOf(person([{ tag: "RESI", place: "Ljubljana, Slovenija", address: "Celovška 12" }]));
-    expect(home).toEqual({ tag: "RESI", label: "Celovška 12, Ljubljana", full: "Celovška 12 · Ljubljana, Slovenija" });
+    expect(home).toEqual({ tag: "RESI", label: "Ljubljana · Celovška 12", full: "Ljubljana, Slovenija · Celovška 12" });
+    expect(homePlaceOf(person([{ tag: "RESI", address: "Celovška 12" }]))?.label).toBe("Celovška 12");
   });
 });
 
