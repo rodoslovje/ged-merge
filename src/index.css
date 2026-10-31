@@ -9455,7 +9455,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-bar-track { height: 8px; background: var(--stats-track); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
 /* Completeness rows grade the file's own data in the status chips' pairing — the fill in the
-   chip's ink, the track in its tint — and the percentage beside it says the same in words.
+   chip's ink, the track in its tint — and the percentage beside it says the same in words.  */
 .stats-status-good { --stats-bar: var(--accent); --stats-track: var(--accent-soft); }
 .stats-status-fair { --stats-bar: var(--state-minor); --stats-track: color-mix(in oklch, var(--state-minor) 20%, transparent); }
 .stats-status-poor { --stats-bar: var(--state-major); --stats-track: color-mix(in oklch, var(--state-major) 22%, transparent); }
