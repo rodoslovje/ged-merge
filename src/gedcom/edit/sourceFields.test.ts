@@ -4,7 +4,7 @@ import { parseGedcom } from "../parser";
 import { filingNumberOf, periodicalOf } from "../source";
 import { validateConformance } from "../../tools/conformance/conformance";
 import {
-  createSourceRecord, keepsSourceTag, setSourceRecordFields, settleSourceFields, sourceRecordEditFields, titleWithPeriodical,
+  completedSourceFields, createSourceRecord, keepsSourceTag, setSourceRecordFields, settleSourceFields, sourceRecordEditFields, titleWithPeriodical,
 } from "./sources";
 
 function dataset(text: string) {
@@ -137,5 +137,31 @@ describe("a source's date range in the source editor", () => {
     const rec = ds.records.find((r) => r.xref === "@S1@")!;
     setSourceRecordFields(ds.records, rec, { title: "Book 2" });
     expect(lines(rec)).toEqual(["TITL Book 2", "DATE 1768"]);
+  });
+});
+
+describe("completing a just-added source from a late page lookup", () => {
+  it("fills what still holds the value the Add wrote, and leaves edits made meanwhile", () => {
+    const ds = dataset(wrap("0 @S1@ SOUR\n1 TITL Matricula 01-02\n1 AUTH Hand-typed\n"));
+    const next = completedSourceFields(
+      ds.records,
+      "@S1@",
+      { title: "Matricula 01-02", author: "Someone" },
+      { title: "Taufbuch 1850-1860", author: "Pfarre", publisher: "Diözese" },
+    );
+    expect(next?.title).toBe("Taufbuch 1850-1860");
+    // The author was retyped after the Add: the lookup must not overwrite it.
+    expect(next?.author).toBe("Hand-typed");
+    expect(next?.publisher).toBe("Diözese");
+    const node = ds.records.find((r) => r.xref === "@S1@")!;
+    setSourceRecordFields(ds.records, node, next!);
+    expect(lines(node)).toEqual(["TITL Taufbuch 1850-1860", "AUTH Hand-typed", "PUBL Diözese"]);
+    expect(sourceFindings(ds)).toEqual([]);
+  });
+
+  it("has nothing to write when the answer adds nothing, or the source is gone", () => {
+    const ds = dataset(wrap("0 @S1@ SOUR\n1 TITL Book\n"));
+    expect(completedSourceFields(ds.records, "@S1@", { title: "Book" }, { title: "Book" })).toBeUndefined();
+    expect(completedSourceFields(ds.records, "@S9@", { title: "Book" }, { title: "Other" })).toBeUndefined();
   });
 });

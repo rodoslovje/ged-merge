@@ -113,3 +113,21 @@ export function rebuildFamily(dataset: Dataset, fam: Family): Family {
   reindexRecord(dataset.records, fam.raw);
   return rebuilt;
 }
+
+/**
+ * Re-derive the typed projections of every individual/family whose lines
+ * point at one of `xrefs` under one of `tags` — text they copied from a shared
+ * record (a note's, a source's title) is stale once that record is edited.
+ * `skipId` is the owner the caller already rebuilds through its own commit.
+ */
+export function rebuildReferrers(dataset: Dataset, xrefs: Set<string>, tags: readonly string[], skipId?: string): void {
+  if (!xrefs.size) return;
+  const refers = (node: GedNode): boolean =>
+    node.children.some((c) => (tags.includes(c.tag) && !!c.value && xrefs.has(c.value.trim())) || refers(c));
+  for (const indi of dataset.individuals.values()) {
+    if (indi.id !== skipId && refers(indi.raw)) rebuildIndividual(dataset, indi);
+  }
+  for (const fam of dataset.families.values()) {
+    if (fam.id !== skipId && refers(fam.raw)) rebuildFamily(dataset, fam);
+  }
+}

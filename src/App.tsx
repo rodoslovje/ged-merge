@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
 import { NOT_GEDCOM } from "./gedcom/parser";
 import { isTableFile } from "./csv/compareCsv";
-import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
+import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, rebuildReferrers, type EditSourceFields, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
 import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
@@ -1579,6 +1579,18 @@ function AppContent() {
    *  patch batch — the mutation may cascade (a URL retarget creates or prunes
    *  an `OBJE`, a note edit lands in the shared `NOTE` record), so diffing
    *  beats enumerating what it touched. */
+  /** Save a `SOUR` record's own fields — Tools → Sources' editor, and a page
+   *  lookup that answered after Add source had already written the record. */
+  function editSourceRecord(sourceXref: string, fields: EditSourceFields) {
+    applySharedRecordEdit((records, notes) => {
+      const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+      if (!node) return;
+      setSourceRecordFields(records, node, fields, notes, formatOverrides);
+      // The citations people and families show carry the source's title.
+      if (mainDataset) rebuildReferrers(mainDataset, new Set([sourceXref]), ["SOUR"]);
+    });
+  }
+
   function applySharedRecordEdit(mutate: (records: GedNode[], notes: SharedNoteCtx) => void) {
     if (!mainDataset) return;
     const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE" || r.tag === "REPO") && !!r.xref;
@@ -2736,6 +2748,7 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecisionForKey}
               onPushEdit={handlePushEdit}
+              onEditSourceRecord={editSourceRecord}
               onPatchApplied={handlePatchApplied}
               pendingApply={pendingEditApply}
               onApplied={() => setPendingEditApply(null)}
@@ -2769,21 +2782,16 @@ function AppContent() {
               view={toolView}
               onToolChange={(next) => goToPage({ tool: next, toolView: "tree" })}
               onViewChange={(next) => goToPage({ toolView: next })}
-              onAddSource={(fields) =>
-                applyToolPatches(
-                  createStandaloneSource(mainDataset.records, fields, {
-                    sourceLayout: formatOverrides.sourceLayout ?? "auto",
-                    standard: formatOverrides.standard,
-                    writeVersion: formatOverrides.writeVersion,
-                  }).extraPatches,
-                )
-              }
-              onEditSource={(sourceXref, fields) =>
-                applySharedRecordEdit((records, notes) => {
-                  const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
-                  if (node) setSourceRecordFields(records, node, fields, notes, formatOverrides);
-                })
-              }
+              onAddSource={(fields) => {
+                const { sourceXref, extraPatches } = createStandaloneSource(mainDataset.records, fields, {
+                  sourceLayout: formatOverrides.sourceLayout ?? "auto",
+                  standard: formatOverrides.standard,
+                  writeVersion: formatOverrides.writeVersion,
+                });
+                applyToolPatches(extraPatches);
+                return sourceXref;
+              }}
+              onEditSource={editSourceRecord}
               onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}
               onEditRepo={(repoXref, fields) =>
                 applySharedRecordEdit((records, notes) => {

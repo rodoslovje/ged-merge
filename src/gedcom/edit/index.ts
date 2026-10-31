@@ -71,11 +71,11 @@ export type { MediaInfoFields } from "./media";
 export {
   createSourceRecord, sourceFieldTag, keepsSourceTag, keepsFlatCoverage, statesCoverage, writesIdAsCallNumber, settleSourceFields, sourceWriteVersion, titleWithPeriodical, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
-  setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
+  setSourceRecordFields, completedSourceFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
   SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay, hangAgencyUnderData,
 } from "./sources";
-export type { EditSourceFields, EditRepoFields, NewSourceFields, NewCitation } from "./sources";
+export type { EditSourceFields, CompletableSourceFields, EditRepoFields, NewSourceFields, NewCitation } from "./sources";
 
-export { bumpContentVersion, bumpSourceCacheVersion, contentStamp, getMediaAndSourceCtx, getSourceLookup, memoOnContent, rebuildIndividual, rebuildFamily } from "./cache";
+export { bumpContentVersion, bumpSourceCacheVersion, contentStamp, getMediaAndSourceCtx, getSourceLookup, memoOnContent, rebuildIndividual, rebuildFamily, rebuildReferrers } from "./cache";
 
 export { clearPlaceGov, formatCoordValue, setPlaceCoord } from "./geo";

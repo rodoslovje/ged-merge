@@ -78,6 +78,7 @@
   --status-diff:   #fcd34d;  /* values differ                      */
   --status-link:   #93c5fd;  /* carries a link / source            */
   --status-import: #c4b5fd;  /* importable candidate count         */
+  --status-pending: #fcd34d; /* a lookup still on its way          */
 
   /* ---- line diff (the save preview's GEDCOM-lines view) ----
      A tinted row plus its own text colour: the tint carries the reading at a
@@ -173,6 +174,7 @@
   --status-diff:   #b45309;
   --status-link:   #2563eb;
   --status-import: #7c3aed;
+  --status-pending: #b45309;
 
   /* The tints mix into paper, so they need more of the hue to read at all; the
      text colours are the same deep ones the rest of the light theme uses. */

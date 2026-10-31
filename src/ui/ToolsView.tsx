@@ -62,7 +62,7 @@ interface Props {
   onNavigate: (id: string) => void;
   /** Create a standalone `SOUR` record (cited by nothing yet) from the Add
    * Source dialog's confirmed fields and push to the undo stack. */
-  onAddSource: (fields: AddSourceResult) => void;
+  onAddSource: (fields: AddSourceResult) => string | void;
   /** Write edited fields to an existing `SOUR` record and push to the undo stack. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
   /** Delete an uncited `SOUR` record (and its orphaned page media) and push to
