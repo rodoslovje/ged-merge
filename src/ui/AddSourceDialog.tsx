@@ -173,15 +173,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // The page lookup in flight for the pasted link — an Add confirmed before it
   // answers waits for it, and writes what the answer would have filled in.
   const pendingLookup = useRef<{ url: string; answer: Promise<ReshapeMeta | undefined> } | undefined>(undefined);
-  // What a waiting Add checks before writing: the dialog is still mounted (a
-  // file reload remounts Edit) and the file is still the one it was asked for.
-  const live = useRef({ mounted: true, dataset });
-  live.current.dataset = dataset;
-  useEffect(() => {
-    const state = live.current;
-    state.mounted = true;
-    return () => { state.mounted = false; };
-  }, []);
+  // What a waiting Add checks before writing: the file is still the one it
+  // was asked for. Not whether the dialog is still mounted — Tools → Sources
+  // unmounts it with the tool, and the Add must land all the same.
+  const liveDataset = useRef(dataset);
+  liveDataset.current = dataset;
   const { settings } = useSettings();
   const formatOverrides = useFormatOverrides();
   const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
@@ -658,7 +654,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const touched = repoTouched.current;
     const form = fields;
     const answered = inFlight.answer.then((meta) => {
-      if (!live.current.mounted || live.current.dataset !== asked) return undefined;
+      if (liveDataset.current !== asked) return undefined;
       if (!meta) return addResult(form, repo, undefined, undefined);
       let upgraded = upgradeFromLookup(form, meta, site, resolvePlace, onCaln);
       if (!offerPeriodical && upgraded.periodical.trim()) {
