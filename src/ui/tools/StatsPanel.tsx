@@ -49,7 +49,7 @@ interface Pick {
 const gradeOf = (part: number): "good" | "fair" | "poor" => (part >= 0.9 ? "good" : part >= 0.5 ? "fair" : "poor");
 
 /** Cards that share another card's explanation: the overview's top five are the names page's lists. */
-const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale" };
+const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale", topBirthPlaces: "birthPlaces" };
 
 /** Whether the filters are unfolded — the reader's own layout, kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
@@ -466,6 +466,8 @@ export function StatsPanel({
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
             {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
             {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}
+            {card("topBirthPlaces", t("stats.topBirthPlaces"), null, ranked("topBirthPlaces", t("stats.birthPlaces"), ov.topBirthPlaces, OVERVIEW_TOP))}
+            {card("topPlaces", t("stats.topPlaces"), null, ranked("topPlaces", t("stats.placeName"), ov.topPlaces, OVERVIEW_TOP))}
           </>
         )}
 

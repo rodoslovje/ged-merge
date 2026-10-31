@@ -3,7 +3,8 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildStatsFacts } from "./facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts, type StatsScope } from "./scope";
-import { birthStats, byPeriod, deathStats, occupationStats, rankText } from "./vitals";
+import { rankText } from "./aggregate";
+import { birthStats, byPeriod, deathStats, occupationStats } from "./vitals";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));

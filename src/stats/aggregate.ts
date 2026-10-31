@@ -1,3 +1,4 @@
+import { foldSearch } from "../ui/globalSearch";
 
 import type { FamilyFacts, PersonFacts } from "./facts";
 import type { ScopedFacts } from "./scope";
@@ -86,6 +87,38 @@ export function rankNames(rows: PersonFacts[], part: "given" | "surname"): Bucke
   return out.sort((a, b) => b.count - a.count || byLabel.compare(a.label!, b.label!));
 }
 
+/**
+ * Rank free text by frequency, accent- and case-blind, each row counted once
+ * per distinct value — places, causes of death, occupations. Labelled by the
+ * spelling the file uses most.
+ */
+export function rankText<T>(rows: T[], valuesOf: (r: T) => (string | undefined)[], idOf: (r: T) => string): Bucket[] {
+  const folded = new Map<string, string>();
+  const groups = new Map<string, { ids: string[]; spellings: Map<string, number> }>();
+  for (const r of rows) {
+    const seen = new Set<string>();
+    for (const raw of valuesOf(r)) {
+      const v = raw?.trim();
+      if (!v) continue;
+      let key = folded.get(v);
+      if (key === undefined) folded.set(v, (key = foldSearch(v)));
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let g = groups.get(key);
+      if (!g) groups.set(key, (g = { ids: [], spellings: new Map() }));
+      g.ids.push(idOf(r));
+      g.spellings.set(v, (g.spellings.get(v) ?? 0) + 1);
+    }
+  }
+  const out: Bucket[] = [];
+  for (const [key, g] of groups) {
+    let label = "";
+    let best = -1;
+    for (const [s, c] of g.spellings) if (c > best) { best = c; label = s; }
+    out.push({ key, label, count: g.ids.length, ids: g.ids });
+  }
+  return out.sort((a, b) => b.count - a.count || byLabel.compare(a.label!, b.label!));
+}
 /**
  * Numeric values into fixed-width bins `[start, start+width)` up to `end`, with
  * an open bin for everything from `end` on and, when `under` is set, one for
@@ -185,6 +218,8 @@ export interface Overview {
   topSurnames: Bucket[];
   topGivenMale: Bucket[];
   topGivenFemale: Bucket[];
+  topBirthPlaces: Bucket[];
+  topPlaces: Bucket[];
   ageAtDeath?: Mean;
   oldest?: { id: string; age: number };
   largestFamily?: { id: string; children: number };
@@ -265,6 +300,8 @@ export function overview(s: ScopedFacts): Overview {
     topSurnames: surnames.slice(0, OVERVIEW_TOP),
     topGivenMale: rankNames(s.people.filter((p) => p.sex === "M"), "given").slice(0, OVERVIEW_TOP),
     topGivenFemale: rankNames(s.people.filter((p) => p.sex === "F"), "given").slice(0, OVERVIEW_TOP),
+    topBirthPlaces: rankText(s.people, (p) => [p.birthPlace], (p) => p.id).slice(0, OVERVIEW_TOP),
+    topPlaces: rankText(s.people, (p) => p.places, (p) => p.id).slice(0, OVERVIEW_TOP),
     ageAtDeath: mean(ages),
     oldest,
     largestFamily: largestFamily && largestFamily.children > 0 ? largestFamily : undefined,

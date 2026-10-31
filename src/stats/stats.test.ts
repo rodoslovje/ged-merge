@@ -165,6 +165,8 @@ describe("aggregates", () => {
     expect(o.places).toBe(2);
     expect(o.completeness.place.n).toBe(3);
     expect(o.completeness.mapped.n).toBe(0);
+    expect(o.topBirthPlaces[0]).toMatchObject({ label: "Bled, Slovenija", count: 2 });
+    expect(o.topPlaces.map((b) => b.count)).toEqual([2, 1]);
     expect(overview(scoped({ country: "hr" })).places).toBe(1);
   });
 
