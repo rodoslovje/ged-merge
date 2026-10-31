@@ -340,11 +340,17 @@ export function personsOfRecord(dataset: Dataset, recordId: string): PersonRef[]
  * into the hierarchy, so it's cheap enough for an always-visible header stat. */
 export function countDistinctPlaces(dataset: Dataset): number {
   const distinct = new Set<string>();
-  const mentions: PlaceMention[] = [];
-  for (const indi of dataset.individuals.values()) collectPlaces(indi.raw, mentions);
-  for (const fam of dataset.families.values()) collectPlaces(fam.raw, mentions);
-  for (const m of mentions) distinct.add(m.addr ? `${m.raw} | ${m.addr}` : m.raw);
+  for (const indi of dataset.individuals.values()) for (const key of placeKeysOf(indi.raw)) distinct.add(key);
+  for (const fam of dataset.families.values()) for (const key of placeKeysOf(fam.raw)) distinct.add(key);
   return distinct.size;
+}
+
+/** The distinct-place keys one record mentions, keyed as {@link countDistinctPlaces}
+ *  counts them — so a subset of the file can be counted the same way. */
+export function placeKeysOf(raw: GedNode): string[] {
+  const mentions: PlaceMention[] = [];
+  collectPlaces(raw, mentions);
+  return mentions.map((m) => (m.addr ? `${m.raw} | ${m.addr}` : m.raw));
 }
 
 export function buildPlaceTree(dataset: Dataset): PlaceTree {

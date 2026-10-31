@@ -19,7 +19,12 @@ export interface ExportItem {
   onSelect: () => void;
 }
 
-export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?: boolean }) {
+export function ExportMenu({ items, disabled, compact = false }: {
+  items: ExportItem[];
+  disabled?: boolean;
+  /** The trigger as a bare icon, for a card's corner rather than a toolbar. */
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { containerRef, triggerRef, close, onTriggerKeyDown } = usePopoverKeyboard(open, setOpen, { arrows: true });
@@ -28,7 +33,7 @@ export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?
     <div className="export-menu" ref={containerRef}>
       <button
         ref={triggerRef}
-        className={`tree-open-btn tree-export-btn${open ? " open" : ""}`}
+        className={compact ? `stats-info${open ? " open" : ""}` : `tree-open-btn tree-export-btn${open ? " open" : ""}`}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onTriggerKeyDown}
@@ -37,7 +42,7 @@ export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?
         title={t("export.tooltip")}
         aria-label={t("export.button")}
       >
-        <DownloadIcon /> <span className="export-menu-label">{t("export.button")}</span>
+        {compact ? <DownloadIcon size={14} /> : <><DownloadIcon /> <span className="export-menu-label">{t("export.button")}</span></>}
       </button>
       {open && (
         <div className="export-menu-popover" role="menu" aria-label={t("export.button")}>

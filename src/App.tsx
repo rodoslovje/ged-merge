@@ -376,7 +376,7 @@ function AppContent() {
   // Where Tools stands: which tool, and which of its pages. Held here, not in
   // ToolsView, because both are browser-history steps — the entry the app is on
   // records them, and a Back press puts them back (see ToolView).
-  const [tool, setTool] = useState<Tool>("places");
+  const [tool, setTool] = useState<Tool>("stats");
   const [toolView, setToolView] = useState<ToolView>("tree");
 
   // Light/dark theme mode + applied `data-theme`, in a self-contained hook.
@@ -1617,6 +1617,15 @@ function AppContent() {
   /** The header Charts trigger: the person the active mode is looking at, or
    *  the start person, or the file's default — so charts are reachable from
    *  every mode without first switching to Edit. */
+  // A diagram of how two people other than the start person are related (a
+  // couple from Statistics): the hub measures from `relationFrom` until it closes.
+  const [relationFrom, setRelationFrom] = useState<string | undefined>();
+  useEffect(() => { if (!chartsRootId) setRelationFrom(undefined); }, [chartsRootId]);
+  function openRelationship(fromId: string, toId: string) {
+    setRelationFrom(fromId);
+    openCharts(toId, "relationship");
+  }
+
   function openChartsFromHeader() {
     if (!mainDataset) return;
     const id =
@@ -2562,6 +2571,7 @@ function AppContent() {
           // history entries, so Back leaves the hub in one press.
           onRootChange={(id) => openCharts(id)}
           startId={startId}
+          relationFromId={relationFrom}
           changedPersonIds={changedPersonIds}
           decisions={decisions}
           backLabel={backLabel}
@@ -2803,6 +2813,7 @@ function AppContent() {
               // undo, and a tool's own Back button walks up to its front page.
               tool={tool}
               view={toolView}
+              onOpenRelationship={openRelationship}
               onToolChange={(next) => goToPage({ tool: next, toolView: "tree" })}
               onViewChange={(next) => goToPage({ toolView: next })}
               onAddSource={(fields) =>

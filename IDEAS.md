@@ -175,20 +175,40 @@ browser-only, file-in/file-out tool and is not pursued here.
    list with a CSV download, which also settles the **CSV / JSON export** item
    under Import / export and overlaps the **Source coverage report** under
    Tools tab.
-2. **Hourglass chart and a statistics page** — the one missing pedigree layout is
-   the hourglass (one person's ancestors and descendants in a single chart), which
-   `personTree` + `treeLayout` already have the pieces for. Alongside it, a
-   statistics page the app has all the data for and shows none of: surname and
-   given-name distribution, age at death, family size, births per decade.
+2. **Hourglass chart** — the one missing pedigree layout is the hourglass (one
+   person's ancestors and descendants in a single chart), which `personTree` +
+   `treeLayout` already have the pieces for. *(The statistics page this item also
+   asked for is Tools → Statistics, 2026-10-31; its follow-ups are under
+   [Statistics](#statistics).)*
 
 ### Sources
 - **Show source images in the Add/edit source dialog** — some sources carry a
   photo/image (OBJE); display it (at least a thumbnail) when adding/editing a
   source so the record page is visible while filling in the fields.
 
+### Statistics
+Follow-ups to Tools → Statistics (2026-10-31), which has ten pages, a scope bar,
+click-through lists, the father's/mother's side on Generations and Research, and
+CSV, SVG and PNG export of every card and of the whole page.
+- **Two scopes side by side** — any two scopes (Slovenia vs Croatia, the 18th vs
+  the 19th century, one surname vs another) as paired bars on every page; the
+  `PairBarList` built for the two sides is the chart for it.
+- **A century click sets the birth-year filter** — clicking "19. st." narrows
+  every page to 1800–1899.
+- **Density map** — births or deaths per place on the existing map.
+- **Names over time** — given names that appear or fade out century by century.
+- **Life expectancy by age reached** — how many more years those who reached
+  20, 40, 60 lived, per century (the classic life table).
+- **Conception season** — births dated back nine months, which shows the
+  farming year.
+- **"Your file in numbers"** — the overview as a printable PDF report.
+- **Tools layout** — the seven tool cards take two rows above every tool; a
+  compact picker would give the statistics the room.
+
 ### Tools tab
 - **Source coverage report** — which facts / persons have no citation at all
-  (extends the existing health check).
+  (extends the existing health check). *(Tools → Statistics → Research now
+  counts sourced events by type and lists the unsourced ones per type.)*
 - **Place gazetteer standardization** — validate & fix place spelling and
   hierarchy against GeoNames / GOV, beyond the current reshape.
 

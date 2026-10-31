@@ -48,11 +48,14 @@ interface Props {
   onNavigate: (id: string) => void;
   /** Set the app-wide start person (from the relationship kind's inline prompt). */
   onPickStart?: (id: string) => void;
+  /** The person the relationship diagram measures from when it is not the start
+   *  person — a couple opened from Statistics, related to each other. */
+  relationFromId?: string;
   /** Open Tools → Places → Geocode places (the Contemporaries map's unplaced list). */
   onOpenGeocode?: () => void;
 }
 
-export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
   // The user's ancestors/descendants/both choice — owned here (not by
@@ -67,7 +70,8 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
   // Digits 1–8 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only
   // on the start-person prompt page, where no chart is mounted to own it.
-  const showingPrompt = settings.kind === "relationship" && !startId;
+  const relationFrom = relationFromId ?? startId;
+  const showingPrompt = settings.kind === "relationship" && !relationFrom;
   // H re-roots on the start person, whichever kind is up — the chart-side twin
   // of Edit's "go home". Registered here rather than per chart because the hub
   // owns the root; standing on them already, the key does nothing.
@@ -155,7 +159,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
   if (settings.kind === "relationship") {
     // The diagram needs a start person to measure from; prompt inline instead of
     // hiding the kind behind a disabled control.
-    if (!startId) {
+    if (!relationFrom) {
       return (
         <ChartPage
           backLabel={backLabel}
@@ -184,12 +188,13 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
     return (
       <RelationshipChart
         mainDs={mainDs}
-        startId={startId}
+        startId={relationFrom}
         targetId={rootId}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
         onTargetChange={onRootChange}
+        preferBlood={!!relationFromId}
         kindSwitcher={kindSwitcher}
       />
     );

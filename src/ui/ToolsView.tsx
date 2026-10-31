@@ -3,7 +3,6 @@ import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord, Translation } from "../gedcom/types";
 import type { CandidateDecision } from "../review/types";
-import { countDistinctPlaces } from "../tools/places";
 import type { AddressRename } from "../tools/addresses";
 import { useToolsScans } from "./useToolsScans";
 import type { ChangeJournal } from "../state/mainSync";
@@ -12,6 +11,7 @@ import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
 import type { ClusterRelativeGroup } from "../tools/mergeCluster";
 import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
+import { StatsPanel } from "./tools/StatsPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
 import type { EditRepoFields, EditSourceFields } from "../gedcom/edit";
@@ -28,7 +28,7 @@ import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
-export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
+export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places" | "stats";
 
 /**
  * The page open inside a tool that has more than one — every one of them a
@@ -39,10 +39,13 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  * Normalize & batch opens on its batch section; `normalize` is its other one,
  * which choosing a GEDCOM target format can send the reader straight to. The
  * health check opens on its data issues; `gedcom` is its GEDCOM half.
+ * Statistics opens on its overview; `names`, `lifespan`, `families`, `births`,
+ * `deaths`, `occupations`, `migration`, `generations` and `research` are its
+ * other pages.
  */
-export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom";
+export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations" | "migration" | "generations" | "research";
 
-const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
+const TOOLS: Tool[] = ["stats", "places", "sources", "validate", "duplicates", "normalize", "privacy"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -163,14 +166,16 @@ interface Props {
   tool: Tool;
   view: ToolView;
   onToolChange: (tool: Tool) => void;
+  /** Open the relationship diagram between two people (Statistics' related couples). */
+  onOpenRelationship: (fromId: string, toId: string) => void;
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
-  // steps: see ToolView. Places leads the tabs and is where most work starts,
-  // so it is what Tools opens on.
+  // steps: see ToolView. Statistics leads the tabs: its overview says what the
+  // file holds, so it is what Tools opens on.
   const phone = usePhone();
   // Set by a ref callback, so the panels re-render once it exists and can
   // portal their summary into it.
@@ -189,29 +194,9 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
     [dataset, placeUsesAt, onNavigate],
   );
 
-  // Whole-file counts for the header overview; recomputed only per dataset,
-  // and only once Tools is on screen — the view stays mounted behind Edit,
-  // and the distinct-place count walks every record.
-  const stats = useMemo(() => (active ? {
-    indi: dataset.individuals.size,
-    fam: dataset.families.size,
-    sources: dataset.records.filter((r) => r.tag === "SOUR" && r.xref).length,
-    media: dataset.records.filter((r) => r.tag === "OBJE" && r.xref).length,
-    places: countDistinctPlaces(dataset),
-  } : undefined), [dataset, active]);
-
+  // What the file holds is stated on the Statistics overview, not above the tabs.
   return (
     <div className="tools-view">
-      <div className="tools-head">
-        {/* Each count carries its own noun — "11 242 oseb", not "oseb: 11 242"
-            — so each needs its own plural form, and Slovenian needs four per
-            noun. One key apiece, joined here. */}
-        <p className="tools-stats">
-          {stats && (["indi", "fam", "places", "sources", "media"] as const)
-            .map((k) => t(`tools.stats.${k}`, { count: stats[k] }))
-            .join(" · ")}
-        </p>
-      </div>
       {/* Six description-carrying cards filled a phone screen and a half before
           any result. A dropdown names the tool you are in and lists the rest,
           with the tool's own summary line beside it (see ToolSummary). */}
@@ -256,6 +241,9 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
+        )}
+        {tool === "stats" && (
+          <StatsPanel dataset={dataset} fileName={fileName} editVersion={editVersion} onNavigate={onNavigate} onOpenRelationship={onOpenRelationship} active={active} startId={startId} view={view} onViewChange={onViewChange} />
         )}
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />

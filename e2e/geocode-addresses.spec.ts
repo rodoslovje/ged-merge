@@ -243,6 +243,7 @@ test("a house already placed says so, and its coordinate opens the panel", async
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
 
@@ -298,6 +299,7 @@ test("a position staged for a house survives renaming that house's address", asy
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
 
@@ -375,6 +377,7 @@ test("OpenStreetMap answers the addresses the register cannot take", async ({ pa
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
 
@@ -435,6 +438,7 @@ test("hits that share a name are told apart by what they are, and numbered onto 
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
 
@@ -491,6 +495,7 @@ test("the lookup answers in the language the file writes, not the interface's", 
   await page.locator("input.file-input").first().setInputFiles(file);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
 
