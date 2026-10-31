@@ -95,6 +95,8 @@ export interface FamilyFacts {
   marriageApprox: boolean;
   /** The year the family is dated by: its marriage, else its first child's birth. */
   year?: number;
+  /** That year rests on an approximate date. */
+  yearApprox: boolean;
   /** Ages at the marriage, when both dates are known. */
   husbandAge?: number;
   wifeAge?: number;
@@ -106,6 +108,8 @@ export interface FamilyFacts {
   children: string[];
   /** Months from the marriage to the first child's birth, when both name the month. */
   firstChildMonths?: number;
+  /** The first child's birth date is approximate. */
+  firstChildApprox: boolean;
   /** The mother's and father's ages at their first and last child in this family. */
   motherAgeFirst?: number;
   motherAgeLast?: number;
@@ -316,6 +320,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       marriageMonth: marr?.month,
       marriageApprox: marrApprox,
       year: marr?.year ?? first?.year,
+      yearApprox: marr ? marrApprox : isApproximate(first),
       husbandAge: marr ? ageBetween(hb, marr) : undefined,
       wifeAge: marr ? ageBetween(wb, marr) : undefined,
       agesApprox: marrApprox || isApproximate(hb) || isApproximate(wb),
@@ -323,6 +328,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       wifeFirst: false,
       children: fam.children,
       firstChildMonths: marr && first ? monthsBetween(marr, first) : undefined,
+      firstChildApprox: isApproximate(first),
       motherAgeFirst: first ? ageBetween(wb, first) : undefined,
       motherAgeLast: last ? ageBetween(wb, last) : undefined,
       fatherAgeFirst: first ? ageBetween(hb, first) : undefined,

@@ -236,6 +236,27 @@ describe("aggregates", () => {
     expect(f.mostUnions).toEqual({ id: "@I3@", count: 2 });
     expect(f.childrenMean).toEqual({ value: 1, n: 3 });
   });
+
+  it("leaves a family dated only by an approximate child out of the century means by default", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 BIRT
+2 DATE ABT 1850
+1 FAMC @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 TRLR`);
+    const facts = buildStatsFacts(ds);
+    const scopedOf = (approx: boolean) => {
+      const scope = { ...DEFAULT_SCOPE, approx };
+      return applyCountry(facts, scopeFacts(facts, scope, null, undefined), scope);
+    };
+    expect(familyStats(scopedOf(false)).childrenByCentury).toEqual([]);
+    expect(familyStats(scopedOf(true)).childrenByCentury.map((p) => p.ids)).toEqual([["@F1@"]]);
+  });
 });
 
 describe("map completeness", () => {
