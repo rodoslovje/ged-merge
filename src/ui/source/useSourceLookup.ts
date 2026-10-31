@@ -39,6 +39,10 @@ export interface SourceLookup {
    * has been asked for since — in both cases the caller has nothing to write.
    */
   lookUp(url: string, opts?: { anyPage?: boolean }): Promise<ReshapeMeta | undefined>;
+  /** {@link lookUp}, handing back besides the page's own `answer`, which a
+   *  newer link never voids — what an Add confirmed mid-lookup waits for: it
+   *  writes the page it was confirmed on, whatever the fields moved on to. */
+  begin(url: string, opts?: { anyPage?: boolean }): { answer: Promise<ReshapeMeta | undefined>; current: Promise<ReshapeMeta | undefined> };
   /** A lookup is in flight. */
   fetching: boolean;
   /** The last one came back empty-handed — blocked relay, or a page this
@@ -60,31 +64,41 @@ export function useSourceLookup(allowed: boolean): SourceLookup {
     return !opts?.readable || isFetchableSite(site.site, site.bookUrl) ? site : undefined;
   }, []);
 
-  const lookUp = useCallback(
-    async (url: string, opts?: { anyPage?: boolean }): Promise<ReshapeMeta | undefined> => {
+  const begin = useCallback(
+    (url: string, opts?: { anyPage?: boolean }) => {
       const trimmed = url.trim();
-      if (!trimmed || !allowed) return undefined;
+      if (!trimmed || !allowed) {
+        const none = Promise.resolve(undefined);
+        return { answer: none, current: none };
+      }
       const normalized = familySearchPageUrl(trimmed);
       const site = recognizeSourceUrl(normalized);
       const key = linkKey(normalized);
       awaiting.current = key;
       setFetching(true);
       setFailed(false);
-      const meta = await (site
+      const answer: Promise<ReshapeMeta | undefined> = (site
         ? fetchBookMeta(site.site, site.bookUrl, fetchPageHtml)
         : opts?.anyPage
           ? fetchPageTitle(normalized).then((title) => (title ? { title } : undefined))
           : Promise.resolve(undefined)
       ).catch(() => undefined);
-      // A newer link is on its way: this answer is about a page the reader has
-      // already moved on from, and must not touch the fields.
-      if (awaiting.current !== key) return undefined;
-      setFetching(false);
-      setFailed(!meta);
-      return meta;
+      const current = answer.then((meta) => {
+        // A newer link is on its way: this answer is about a page the reader
+        // has already moved on from, and must not touch the fields.
+        if (awaiting.current !== key) return undefined;
+        setFetching(false);
+        setFailed(!meta);
+        return meta;
+      });
+      return { answer, current };
     },
     [allowed],
   );
+  const lookUp = useCallback(
+    (url: string, opts?: { anyPage?: boolean }) => begin(url, opts).current,
+    [begin],
+  );
 
-  return { targetOf, lookUp, fetching, failed };
+  return { targetOf, lookUp, begin, fetching, failed };
 }

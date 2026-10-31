@@ -180,7 +180,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   liveDataset.current = dataset;
   const { settings } = useSettings();
   const formatOverrides = useFormatOverrides();
-  const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
+  const { targetOf, lookUp, begin, fetching } = useSourceLookup(settings.allowLinkFetch);
 
   // Both derivations walk the whole file, and the dialog is mounted shut on
   // every Edit page — so they wait for it to open (a second each on a
@@ -468,9 +468,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   useEffect(() => {
     if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) return;
     let cancelled = false;
-    const answer = lookUp(normalizedUrl, { anyPage: true });
+    const { answer, current } = begin(normalizedUrl, { anyPage: true });
     pendingLookup.current = { url: normalizedUrl, answer };
-    void answer.then((meta) => {
+    void current.then((meta) => {
       if (pendingLookup.current?.answer === answer) pendingLookup.current = undefined;
       if (cancelled || !meta) return;
       setFetched(meta);
@@ -479,7 +479,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       if (id) setRepoCaln((caln) => (caln.trim() ? caln : id));
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, lookUp]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, begin]);
 
   if (!isOpen) return null;
 
