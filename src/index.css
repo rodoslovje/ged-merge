@@ -9454,6 +9454,11 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-bar-label { overflow-wrap: anywhere; }
 .stats-bar-track { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
+/* Completeness rows grade the file's own data: the bar wears the status colour, the
+   percentage beside it says the same in words. */
+.stats-status-good { --stats-bar: var(--state-match); }
+.stats-status-fair { --stats-bar: var(--state-minor); }
+.stats-status-poor { --stats-bar: var(--state-major); }
 .stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats-more { margin-top: 6px; align-self: flex-start; }
 

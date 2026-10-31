@@ -45,6 +45,9 @@ interface Pick {
 }
 
 
+/** Completeness grades: at least 90 % is good, at least 50 % fair, anything less poor. */
+const gradeOf = (part: number): "good" | "fair" | "poor" => (part >= 0.9 ? "good" : part >= 0.5 ? "fair" : "poor");
+
 /** Cards that share another card's explanation: the overview's top five are the names page's lists. */
 const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale" };
 
@@ -216,7 +219,7 @@ export function StatsPanel({
   );
 
   /** Shares as percentage bars; a pick lists the rows `missing` holds when `listMissing`. */
-  const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean) => (
+  const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean, graded = false) => (
     <BarList
       max={100}
       picked={pickedIn(card)}
@@ -224,6 +227,7 @@ export function StatsPanel({
         key,
         label,
         tone,
+        status: graded && share.of ? gradeOf(share.n / share.of) : undefined,
         value: share.of ? (100 * share.n) / share.of : 0,
         display: pct(share.n, share.of),
         tip: t("stats.shareTip", { n: num(share.n), of: num(share.of) }),
@@ -458,7 +462,7 @@ export function StatsPanel({
               { key: "mapped", label: t("stats.has.mapped"), share: ov.completeness.mapped },
               { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
               { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
-            ], true))}
+            ], true, true))}
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
             {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
             {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}

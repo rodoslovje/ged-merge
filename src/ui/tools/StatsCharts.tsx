@@ -80,6 +80,8 @@ export interface BarRow {
   count: number;
   /** The row is about one sex only, in a list that mixes them. */
   tone?: Tone;
+  /** How good a share is, where the row measures the data's own quality — the bar wears the status colour. */
+  status?: "good" | "fair" | "poor";
 }
 
 /** A ranked list of horizontal bars, the first `limit` shown until asked for all. */
@@ -110,7 +112,7 @@ export function BarList({
         <button
           key={r.key}
           type="button"
-          className={`stats-bar${picked === r.key ? " picked" : ""}${toneClass(r.tone)}`}
+          className={`stats-bar${picked === r.key ? " picked" : ""}${toneClass(r.tone)}${r.status ? ` stats-status-${r.status}` : ""}`}
           disabled={r.count === 0}
           onClick={() => onPick(r.key)}
           {...(r.tip ? tipProps(r.tip) : {})}
