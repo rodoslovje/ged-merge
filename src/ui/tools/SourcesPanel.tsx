@@ -431,7 +431,7 @@ export function SourcesPanel({
   onNavigate: (id: string) => void;
   /** Create a standalone `SOUR` record (cited by nothing yet) from the Add
    * Source dialog's confirmed fields — an undoable whole-file edit. */
-  onAddSource: (fields: AddSourceResult) => string | void;
+  onAddSource: (fields: AddSourceResult) => void;
   /** Write edited fields to an existing `SOUR` record — an undoable whole-file edit. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
   /** Delete an uncited `SOUR` record (and its orphaned page media). */
@@ -637,14 +637,13 @@ export function SourcesPanel({
         isOpen={addOpen || editing !== undefined}
         onClose={closeDialog}
         onAdd={(fields) => {
-          const sourceXref = onAddSource(fields);
           closeDialog();
-          refreshTree(); // rebuilt (now including the new record) by the active-panel effect
-          return sourceXref;
-        }}
-        onCompleteSource={(sourceXref, fields) => {
-          onEditSource(sourceXref, fields);
-          refreshTree();
+          // An Add confirmed mid-lookup is written once the page has answered.
+          void Promise.resolve(fields).then((answered) => {
+            if (!answered) return;
+            onAddSource(answered);
+            refreshTree(); // rebuilt (now including the new record) by the active-panel effect
+          });
         }}
         dataset={dataset}
         t={t}

@@ -1,7 +1,7 @@
 import { useFormatOverrides } from "./TargetFormatContext";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
-import { completedSourceFields, getSourceLookup, type CompletableSourceFields, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
+import { getSourceLookup, titleWithPeriodical, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
 import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
@@ -58,11 +58,11 @@ export type AddSourceResult = NewSourceFields & {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  /** Returns the source record the Add created, when it made a new one. */
-  onAdd: (fields: AddSourceResult) => string | void;
-  /** Save a source record's fields: an Add confirmed while the page lookup
-   *  was still running fills the source it created once the answer comes. */
-  onCompleteSource?: (sourceXref: string, fields: EditSourceFields) => void;
+  /** The confirmed fields — or, for an Add confirmed while the page lookup
+   *  was still running, a promise of the fields the dialog would have shown
+   *  once it answered (undefined when the file it was asked for is gone). The
+   *  caller writes them to the target the dialog was opened for. */
+  onAdd: (fields: AddSourceResult | Promise<AddSourceResult | undefined>) => void;
   dataset: Dataset;
   t: Translate;
   /** When given, the dialog edits an existing citation instead of adding a
@@ -143,18 +143,12 @@ function upgradeFromLookup(
   };
 }
 
-/** The fields a lookup answering after the Add may still fill on the source. */
-function completable(f: FormState): CompletableSourceFields {
-  const trim = (s: string) => s.trim() || undefined;
-  return { title: trim(f.title), author: trim(f.author), periodical: trim(f.periodical), publisher: trim(f.publisher), agency: trim(f.agency) };
-}
-
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   const rec = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
 }
 
-export function AddSourceDialog({ isOpen, onClose, onAdd, onCompleteSource, dataset, t, editing, standalone }: Props) {
+export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone }: Props) {
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   // The Repository dropdown: "" = none, a REPO xref, "@create@" for the
@@ -176,9 +170,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, onCompleteSource, data
   // upgrades the same field instead of filling both.
   const idOnCaln = useRef(false);
   // The page lookup in flight for the pasted link — an Add confirmed before it
-  // answers still gets its answer, written onto the source it created.
+  // answers waits for it, and writes what the answer would have filled in.
   const pendingLookup = useRef<{ url: string; answer: Promise<ReshapeMeta | undefined> } | undefined>(undefined);
-  // What a late answer checks before writing: the dialog is still mounted (a
+  // What a waiting Add checks before writing: the dialog is still mounted (a
   // file reload remounts Edit) and the file is still the one it was asked for.
   const live = useRef({ mounted: true, dataset });
   live.current.dataset = dataset;
@@ -607,7 +601,14 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, onCompleteSource, data
     };
   }
 
-  function handleAdd() {
+  /** What an Add writes from the dialog's state: the fields, the repository
+   *  choice, and the lookup's answer (`picked`: narrowed to the chosen register). */
+  function addResult(
+    form: FormState,
+    repo: { sel: string; name: string; caln: string },
+    answer: ReshapeMeta | undefined,
+    picked: ReshapeMeta | undefined,
+  ): AddSourceResult {
     // The film's own image number for the page-image title: what the link's
     // `i=` or the lookup said, never the Page field the user may have retyped
     // (a typed number could be the book's printed page, which the film does
@@ -615,42 +616,67 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, onCompleteSource, data
     // entry — only a plain number is the film's.
     const fsImage =
       recognized?.site === "familysearch"
-        ? [recognized.page, chosen?.page].find((p) => !!p && /^\d+$/.test(p))
+        ? [recognized.page, picked?.page].find((p) => !!p && /^\d+$/.test(p))
         : undefined;
-    // A lookup still on its way for this link: the Add goes ahead with what
-    // the fields hold now, and the answer completes the source it created.
-    const inFlight = pendingLookup.current;
-    const pending = inFlight && fetching && inFlight.url === normalizedUrl ? inFlight.answer : undefined;
-    const sourceXref = onAdd({
-      ...trimmedFields(fields),
+    return {
+      ...trimmedFields(form),
       fsImage,
       site: recognized?.site,
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
-      dateRange: chosen?.dateRange ?? recognized?.proposed.dateRange,
+      dateRange: picked?.dateRange ?? recognized?.proposed.dateRange,
       // The lookup's collection first; the citation's own quoted one when no
       // lookup ran — either names the repository the "＋ …" choice creates.
-      collection: fetched?.collection ?? recognized?.collection,
-      collectionId: fetched?.collectionId,
-      repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
-      repoCreateSite: repoSel === "@create@" || undefined,
+      collection: answer?.collection ?? recognized?.collection,
+      collectionId: answer?.collectionId,
+      repoXref: repo.sel === "@create@" || repo.sel === "@new@" ? undefined : repo.sel,
+      repoCreateSite: repo.sel === "@create@" || undefined,
       // For the site proposal this is the (possibly edited) name of the record
       // to create — the site/collection WWW still goes under it.
-      repoCreateName: repoSel === "@new@" || repoSel === "@create@" ? repoName.trim() || undefined : undefined,
-      repoCaln: repoCaln.trim() || undefined,
-    });
-    if (pending && sourceXref && onCompleteSource) {
-      const written = fields;
-      const asked = dataset;
-      const site = recognized;
-      const onCaln = idOnCaln.current;
-      void pending.then((meta) => {
-        if (!meta || !live.current.mounted || live.current.dataset !== asked) return;
-        const after = completable(upgradeFromLookup(written, meta, site, resolvePlace, onCaln));
-        const next = completedSourceFields(asked.records, sourceXref, completable(written), after);
-        if (next) onCompleteSource(sourceXref, next);
-      });
+      repoCreateName: repo.sel === "@new@" || repo.sel === "@create@" ? repo.name.trim() || undefined : undefined,
+      repoCaln: repo.caln.trim() || undefined,
+    };
+  }
+
+  function handleAdd() {
+    const repo = { sel: repoSel, name: repoName, caln: repoCaln };
+    const inFlight = pendingLookup.current;
+    if (!inFlight || !fetching || inFlight.url !== normalizedUrl) {
+      onAdd(addResult(fields, repo, fetched, chosen));
+      reset();
+      return;
     }
+    // The page lookup is still on its way: the dialog closes now, and the Add
+    // waits for the answer to write exactly what the open dialog would have
+    // shown — the upgrades the lookup effect, the repository effect and the
+    // periodical fold make, applied to the state as it was at the click.
+    const asked = dataset;
+    const url = inFlight.url;
+    const site = recognized;
+    const onCaln = idOnCaln.current;
+    const touched = repoTouched.current;
+    const form = fields;
+    onAdd(
+      inFlight.answer.then((meta) => {
+        if (!live.current.mounted || live.current.dataset !== asked) return undefined;
+        if (!meta) return addResult(form, repo, undefined, undefined);
+        let upgraded = upgradeFromLookup(form, meta, site, resolvePlace, onCaln);
+        if (!offerPeriodical && upgraded.periodical.trim()) {
+          upgraded = { ...upgraded, title: titleWithPeriodical(upgraded.title, upgraded.periodical) ?? "", periodical: "" };
+        }
+        const id = onCaln ? meta.filingNumber ?? site?.proposed.filingNumber : undefined;
+        const fetchedRepo =
+          site && (meta.collection || meta.collectionId || meta.place)
+            ? proposedSiteRepo(asked.records, site.site, url, site.proposed.agency, {
+                title: meta.collection,
+                id: meta.collectionId,
+                place: meta.place ?? site.proposed.place,
+              })
+            : undefined;
+        const sel = !touched && fetchedRepo?.xref ? fetchedRepo.xref : repo.sel;
+        return addResult(upgraded, { sel, name: repo.name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
+      }),
+    );
     reset();
   }
 

@@ -1574,13 +1574,7 @@ function AppContent() {
     return patches.length;
   }
 
-  /** Run a mutation over the shared `SOUR`/`OBJE`/`NOTE` records (a Tools →
-   *  Sources edit or removal) and apply the before/after diff as one undoable
-   *  patch batch — the mutation may cascade (a URL retarget creates or prunes
-   *  an `OBJE`, a note edit lands in the shared `NOTE` record), so diffing
-   *  beats enumerating what it touched. */
-  /** Save a `SOUR` record's own fields — Tools → Sources' editor, and a page
-   *  lookup that answered after Add source had already written the record. */
+  /** Save a `SOUR` record's own fields — Tools → Sources' editor. */
   function editSourceRecord(sourceXref: string, fields: EditSourceFields) {
     applySharedRecordEdit((records, notes) => {
       const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
@@ -1591,6 +1585,11 @@ function AppContent() {
     });
   }
 
+  /** Run a mutation over the shared `SOUR`/`OBJE`/`NOTE` records (a Tools →
+   *  Sources edit or removal) and apply the before/after diff as one undoable
+   *  patch batch — the mutation may cascade (a URL retarget creates or prunes
+   *  an `OBJE`, a note edit lands in the shared `NOTE` record), so diffing
+   *  beats enumerating what it touched. */
   function applySharedRecordEdit(mutate: (records: GedNode[], notes: SharedNoteCtx) => void) {
     if (!mainDataset) return;
     const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE" || r.tag === "REPO") && !!r.xref;
@@ -2748,7 +2747,6 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecisionForKey}
               onPushEdit={handlePushEdit}
-              onEditSourceRecord={editSourceRecord}
               onPatchApplied={handlePatchApplied}
               pendingApply={pendingEditApply}
               onApplied={() => setPendingEditApply(null)}
@@ -2782,15 +2780,15 @@ function AppContent() {
               view={toolView}
               onToolChange={(next) => goToPage({ tool: next, toolView: "tree" })}
               onViewChange={(next) => goToPage({ toolView: next })}
-              onAddSource={(fields) => {
-                const { sourceXref, extraPatches } = createStandaloneSource(mainDataset.records, fields, {
-                  sourceLayout: formatOverrides.sourceLayout ?? "auto",
-                  standard: formatOverrides.standard,
-                  writeVersion: formatOverrides.writeVersion,
-                });
-                applyToolPatches(extraPatches);
-                return sourceXref;
-              }}
+              onAddSource={(fields) =>
+                applyToolPatches(
+                  createStandaloneSource(mainDataset.records, fields, {
+                    sourceLayout: formatOverrides.sourceLayout ?? "auto",
+                    standard: formatOverrides.standard,
+                    writeVersion: formatOverrides.writeVersion,
+                  }).extraPatches,
+                )
+              }
               onEditSource={editSourceRecord}
               onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}
               onEditRepo={(repoXref, fields) =>
