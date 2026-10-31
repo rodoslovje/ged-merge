@@ -351,10 +351,22 @@ function calculatedOverEstimate(m: GedDate, i: GedDate): boolean {
   return m.qualifier === "about" && m.approx !== "CAL" && i.qualifier === "about" && i.approx === "CAL";
 }
 
-/** A stated date beats a mere bound: "27 OCT 1726" replaces "BEF 1727" (or
- *  an AFT date), whatever year the bound names. */
+/** A stated date beats a mere bound it falls within: "27 OCT 1726" replaces
+ *  "BEF 1727", "3 MAY 1801" "AFT 1800". One beyond the bound contradicts it
+ *  and is left to the reader — so is a bare year against a bound pinned to
+ *  the day, which would only lose what the main knows. */
 function exactOverBound(m: GedDate, i: GedDate): boolean {
-  return (m.qualifier === "before" || m.qualifier === "after") && i.qualifier === "exact";
+  if ((m.qualifier !== "before" && m.qualifier !== "after") || i.qualifier !== "exact") return false;
+  if (m.year == null || i.year == null) return false;
+  if (datePrecision(i) < datePrecision({ ...m, qualifier: "exact" })) return false;
+  // The bound's own span — "1727" runs from its first day to its last — and
+  // the stated date's first day; a date inside the bound's span is allowed,
+  // as a "BEF 1727" often means "by 1727".
+  const key = (y: number, mo: number, d: number) => y * 10000 + mo * 100 + d;
+  const stated = key(i.year, i.month ?? 1, i.day ?? 1);
+  return m.qualifier === "before"
+    ? stated <= key(m.year, m.month ?? 12, m.day ?? 31)
+    : stated >= key(m.year, m.month ?? 1, m.day ?? 1);
 }
 
 /**
