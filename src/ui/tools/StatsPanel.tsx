@@ -20,7 +20,7 @@ import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
-import { BarList, ColumnChart, StatTile, type BarRow, type Column } from "./StatsCharts";
+import { BarList, ColumnChart, StatTile, toneClass, type BarRow, type Column, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
@@ -123,11 +123,11 @@ export function StatsPanel({
   const rangeLabel = (b: Bucket) =>
     b.lo === undefined ? `<${signed(b.hi! + 1)}`
       : b.hi === undefined ? `${signed(b.lo)}+`
-        : b.lo === b.hi ? signed(b.lo) : `${signed(b.lo)}${b.lo < 0 ? "…" : "–"}${signed(b.hi)}`;
+        : b.lo === b.hi ? signed(b.lo) : `${signed(b.lo)}${b.lo < 0 ? "…\u200b" : "–"}${signed(b.hi)}`;
   const centuryLabel = (c: number) => t("stats.century", { from: c, to: c + 99, n: c / 100 + 1 });
 
   /** A column chart over buckets; picking a column lists its rows. */
-  const buckets = (card: string, title: string, list: Bucket[], opts: { families?: boolean; tone?: "male" | "female"; label?: (b: Bucket) => string } = {}) => {
+  const buckets = (card: string, title: string, list: Bucket[], opts: { families?: boolean; tone?: Tone; label?: (b: Bucket) => string } = {}) => {
     const label = opts.label ?? rangeLabel;
     const columns: Column[] = list.map((b) => ({ key: b.key, label: label(b), value: b.count, count: b.count, tip: `${label(b)}: ${num(b.count)}` }));
     return (
@@ -156,6 +156,7 @@ export function StatsPanel({
         tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: format(p.value), n: num(p.n) }),
       }))}
       format={format}
+      labelEvery={points.length > 8 ? 2 : 1}
       picked={pickedIn(card)}
       onPick={(key) => {
         const p = points.find((x) => String(x.century) === key)!;
@@ -165,9 +166,10 @@ export function StatsPanel({
   );
 
   /** A ranked list of names. */
-  const ranked = (card: string, title: string, list: Bucket[], limit: number) => (
+  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone) => (
     <BarList
       limit={limit}
+      tone={tone}
       picked={pickedIn(card)}
       rows={list.map((b) => ({ key: b.key, label: b.label, value: b.count, display: num(b.count), count: b.count }))}
       onPick={(key) => {
@@ -178,13 +180,14 @@ export function StatsPanel({
   );
 
   /** Shares as percentage bars; a pick lists the rows `missing` holds when `listMissing`. */
-  const shares = (card: string, items: { key: string; label: string; share: Share }[], listMissing: boolean) => (
+  const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean) => (
     <BarList
       max={100}
       picked={pickedIn(card)}
-      rows={items.map<BarRow>(({ key, label, share }) => ({
+      rows={items.map<BarRow>(({ key, label, share, tone }) => ({
         key,
         label,
+        tone,
         value: share.of ? (100 * share.n) / share.of : 0,
         display: pct(share.n, share.of),
         tip: t("stats.shareTip", { n: num(share.n), of: num(share.of) }),
@@ -214,6 +217,8 @@ export function StatsPanel({
   const total = (list: Bucket[]) => list.reduce((a, b) => a + b.count, 0);
   const monthLabel = (b: Bucket) => new Date(2000, b.lo! - 1, 1).toLocaleString(lang, { month: "short" });
   const people = scoped.people.length;
+  // A scope of one sex colours every chart that is not already about one.
+  const scopeTone: Tone | undefined = scope.sex === "M" ? "male" : scope.sex === "F" ? "female" : undefined;
   const families = scoped.families.length;
 
   return (
@@ -278,14 +283,14 @@ export function StatsPanel({
       {people === 0 ? (
         <p className="tools-clean">{t("stats.nobody")}</p>
       ) : (
-      <div className="stats-grid">
+      <div className={`stats-grid${toneClass(scopeTone)}`}>
         {ov && (
           <>
             <section className="stats-card wide stats-tiles">
               <StatTile label={t("stats.people")} value={num(ov.people)} onClick={() => choose("tiles", "people", t("stats.people"), scoped.people.map((p) => p.id))} picked={pickedIn("tiles") === "people"} />
               <StatTile label={t("stats.families")} value={num(ov.families)} onClick={() => choose("tiles", "families", t("stats.families"), scoped.families.map((f) => f.id), true)} picked={pickedIn("tiles") === "families"} />
-              <StatTile label={t("stats.men")} value={num(ov.male.length)} sub={pct(ov.male.length, ov.people)} onClick={() => choose("tiles", "men", t("stats.men"), ov.male)} picked={pickedIn("tiles") === "men"} />
-              <StatTile label={t("stats.women")} value={num(ov.female.length)} sub={pct(ov.female.length, ov.people)} onClick={() => choose("tiles", "women", t("stats.women"), ov.female)} picked={pickedIn("tiles") === "women"} />
+              {scope.sex !== "F" && <StatTile tone="male" label={t("stats.men")} value={num(ov.male.length)} sub={pct(ov.male.length, ov.people)} onClick={() => choose("tiles", "men", t("stats.men"), ov.male)} picked={pickedIn("tiles") === "men"} />}
+              {scope.sex !== "M" && <StatTile tone="female" label={t("stats.women")} value={num(ov.female.length)} sub={pct(ov.female.length, ov.people)} onClick={() => choose("tiles", "women", t("stats.women"), ov.female)} picked={pickedIn("tiles") === "women"} />}
               {ov.unknownSex.length > 0 && (
                 <StatTile label={t("stats.sexUnknown")} value={num(ov.unknownSex.length)} onClick={() => choose("tiles", "sexUnknown", t("stats.sexUnknown"), ov.unknownSex)} picked={pickedIn("tiles") === "sexUnknown"} />
               )}
@@ -321,16 +326,16 @@ export function StatsPanel({
               { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
             ], true))}
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, 5))}
-            {card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, 5))}
-            {card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, 5))}
+            {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, 5, "male"))}
+            {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, 5, "female"))}
           </>
         )}
 
         {names && (
           <>
             {card("surnames", t("stats.surnamesTitle"), basedOn(total(names.surnames), people), ranked("surnames", t("stats.surname"), names.surnames, 20))}
-            {card("givenMale", t("stats.givenMaleTitle"), basedOn(total(names.givenMale), people), ranked("givenMale", t("stats.givenName"), names.givenMale, 20))}
-            {card("givenFemale", t("stats.givenFemaleTitle"), basedOn(total(names.givenFemale), people), ranked("givenFemale", t("stats.givenName"), names.givenFemale, 20))}
+            {scope.sex !== "F" && card("givenMale", t("stats.givenMaleTitle"), basedOn(total(names.givenMale), people), ranked("givenMale", t("stats.givenName"), names.givenMale, 20, "male"))}
+            {scope.sex !== "M" && card("givenFemale", t("stats.givenFemaleTitle"), basedOn(total(names.givenFemale), people), ranked("givenFemale", t("stats.givenName"), names.givenFemale, 20, "female"))}
             {card("byCentury", t("stats.namesByCentury"), null, (
               <table className="stats-table">
                 <thead>
@@ -341,7 +346,7 @@ export function StatsPanel({
                     <tr key={row.century}>
                       <th scope="row">{centuryLabel(row.century)}</th>
                       {([["male", row.male], ["female", row.female]] as const).map(([side, list]) => (
-                        <td key={side}>
+                        <td key={side} className={toneClass(side).trim()}>
                           {list.map((b) => (
                             <button
                               key={b.key}
@@ -361,10 +366,10 @@ export function StatsPanel({
             ), true)}
             {card("givenCount", t("stats.givenCount"), basedOn(total(names.givenCount), people), buckets("givenCount", t("stats.givenCount"), names.givenCount))}
             {card("namesakes", t("stats.namesakes"), t("stats.namesakesNote"), shares("namesakes", [
-              { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather },
-              { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather },
-              { key: "daughterMother", label: t("stats.namesake.daughterMother"), share: names.namesakes.daughterMother },
-              { key: "daughterGrandmother", label: t("stats.namesake.daughterGrandmother"), share: names.namesakes.daughterGrandmother },
+              { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
+              { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
+              { key: "daughterMother", label: t("stats.namesake.daughterMother"), share: names.namesakes.daughterMother, tone: "female" },
+              { key: "daughterGrandmother", label: t("stats.namesake.daughterGrandmother"), share: names.namesakes.daughterGrandmother, tone: "female" },
             ], false))}
           </>
         )}
@@ -373,8 +378,8 @@ export function StatsPanel({
           <>
             <section className="stats-card wide stats-tiles">
               {life.all && <StatTile label={t("stats.meanAgeAtDeath")} value={dec(life.all.value)} sub={basedOn(life.all.n, people)} />}
-              {life.male && <StatTile label={t("stats.meanAgeMen")} value={dec(life.male.value)} sub={basedOn(life.male.n, scoped.people.filter((p) => p.sex === "M").length)} />}
-              {life.female && <StatTile label={t("stats.meanAgeWomen")} value={dec(life.female.value)} sub={basedOn(life.female.n, scoped.people.filter((p) => p.sex === "F").length)} />}
+              {life.male && <StatTile tone="male" label={t("stats.meanAgeMen")} value={dec(life.male.value)} sub={basedOn(life.male.n, scoped.people.filter((p) => p.sex === "M").length)} />}
+              {life.female && <StatTile tone="female" label={t("stats.meanAgeWomen")} value={dec(life.female.value)} sub={basedOn(life.female.n, scoped.people.filter((p) => p.sex === "F").length)} />}
             </section>
             {card("ageAtDeath", t("stats.ageAtDeath"), basedOn(total(life.ageAtDeath), people), buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
             {card("lifeByCentury", t("stats.lifeByCentury"), t("stats.byBirthCentury"), centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
@@ -396,16 +401,16 @@ export function StatsPanel({
         {fams && (
           <>
             <section className="stats-card wide stats-tiles">
-              {fams.firstMarriageMaleMean && <StatTile label={t("stats.meanMarriageMen")} value={dec(fams.firstMarriageMaleMean.value)} sub={t("stats.nPeople", { count: fams.firstMarriageMaleMean.n })} />}
-              {fams.firstMarriageFemaleMean && <StatTile label={t("stats.meanMarriageWomen")} value={dec(fams.firstMarriageFemaleMean.value)} sub={t("stats.nPeople", { count: fams.firstMarriageFemaleMean.n })} />}
+              {fams.firstMarriageMaleMean && <StatTile tone="male" label={t("stats.meanMarriageMen")} value={dec(fams.firstMarriageMaleMean.value)} sub={t("stats.nPeople", { count: fams.firstMarriageMaleMean.n })} />}
+              {fams.firstMarriageFemaleMean && <StatTile tone="female" label={t("stats.meanMarriageWomen")} value={dec(fams.firstMarriageFemaleMean.value)} sub={t("stats.nPeople", { count: fams.firstMarriageFemaleMean.n })} />}
               <StatTile label={t("stats.families")} value={num(families)} />
               <StatTile label={t("stats.childless")} value={num(fams.children[0].count)} sub={pct(fams.children[0].count, families)} onClick={() => choose("famTiles", "childless", t("stats.childless"), fams.children[0].ids, true)} picked={pickedIn("famTiles") === "childless"} />
               {pick?.card === "famTiles" && (
                 <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
-            {card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
+            {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
+            {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true }))}
             {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}

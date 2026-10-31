@@ -9339,6 +9339,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-scope .tools-search-input { padding-right: 10px; }
 .stats-scope .stats-year { width: 6.5em; }
 .stats-scope .stats-scope-place { width: 16em; max-width: 100%; }
+/* Every bar fills with --stats-bar: the accent, or a sex's colour wherever a
+   card, list, row or the whole scope is about one sex only — the nearest wins. */
+.stats-grid { --stats-bar: var(--accent); }
+.stats-male { --stats-bar: var(--sex-male); }
+.stats-female { --stats-bar: var(--sex-female); }
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
@@ -9375,14 +9380,14 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 button.stats-tile { cursor: pointer; }
 button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-tile-value { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* A number about one sex only carries its colour as a stripe; the digits stay in text ink. */
+.stats-tile.stats-male, .stats-tile.stats-female { box-shadow: inset 3px 0 0 var(--stats-bar); }
 .stats-tile-label { color: var(--muted); font-size: 0.8rem; }
 .stats-tile-sub { color: var(--faint); font-size: 0.75rem; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */
-.stats-columns { display: flex; gap: 2px; align-items: stretch; --stats-bar: var(--accent); }
-.stats-columns.stats-male { --stats-bar: var(--sex-male); }
-.stats-columns.stats-female { --stats-bar: var(--sex-female); }
+.stats-columns { display: flex; gap: 2px; align-items: stretch; }
 .stats-col {
   flex: 1 1 0;
   min-width: 0;
@@ -9413,9 +9418,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
   text-align: center;
   font-size: 0.7rem;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
 }
 
 /* Ranked bars: label, track, value — one grid per row so the tracks line up. */
@@ -9440,7 +9443,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-bar.picked .stats-bar-label { color: var(--accent); font-weight: 600; }
 .stats-bar-label { overflow-wrap: anywhere; }
 .stats-bar-track { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
-.stats-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
 .stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats-more { margin-top: 6px; align-self: flex-start; }
 
@@ -9460,6 +9463,8 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
   cursor: pointer;
 }
 .stats-name-chip:hover, .stats-name-chip.picked { border-color: var(--accent); }
+/* The men's and women's columns of the names-by-century table. */
+.stats-table td.stats-male .stats-name-chip, .stats-table td.stats-female .stats-name-chip { border-color: color-mix(in oklch, var(--stats-bar) 50%, var(--border)); }
 .stats-oldest { margin: 0; padding-left: 1.6em; font-size: 0.9rem; }
 .stats-oldest li { padding: 2px 0; }
 

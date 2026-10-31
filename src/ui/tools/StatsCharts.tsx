@@ -7,6 +7,12 @@ import { tipProps } from "../IconTip";
 // a ranked bar list for categories (names, completeness), and a stat tile for
 // single numbers. Every bar is a button — it lists the people behind it.
 
+/** What a chart, row or tile is about when it is about one sex only: it then
+ *  wears that sex's colour (see `.stats-male` / `.stats-female`). */
+export type Tone = "male" | "female";
+
+export const toneClass = (tone: Tone | undefined) => (tone ? ` stats-${tone}` : "");
+
 export interface Column {
   key: string;
   /** The axis label under the column. */
@@ -29,19 +35,22 @@ export function ColumnChart({
   picked,
   tone,
   format = (v) => String(v),
+  labelEvery = 1,
 }: {
   columns: Column[];
   onPick: (key: string) => void;
   picked?: string;
-  /** Colour the bars by sex rather than in the accent. */
-  tone?: "male" | "female";
+  tone?: Tone;
   format?: (value: number) => string;
+  /** Write every n-th axis label only, where wide labels would run together;
+   *  the hover tip still names every column. */
+  labelEvery?: number;
 }) {
   const max = Math.max(1, ...columns.map((c) => c.value));
   const labelled = columns.length <= VALUE_LABELS_UP_TO;
   return (
-    <div className={`stats-columns${tone ? ` stats-${tone}` : ""}`}>
-      {columns.map((c) => (
+    <div className={`stats-columns${toneClass(tone)}`}>
+      {columns.map((c, i) => (
         <button
           key={c.key}
           type="button"
@@ -54,7 +63,7 @@ export function ColumnChart({
             {labelled && !(c.empty ?? c.count === 0) && <span className="stats-col-value">{format(c.value)}</span>}
             <span className="stats-col-bar" style={{ height: `${(100 * c.value) / max}%` }} />
           </span>
-          <span className="stats-col-label">{c.label}</span>
+          <span className="stats-col-label">{i % labelEvery === 0 ? c.label : " "}</span>
         </button>
       ))}
     </div>
@@ -69,6 +78,8 @@ export interface BarRow {
   display: string;
   tip?: string;
   count: number;
+  /** The row is about one sex only, in a list that mixes them. */
+  tone?: Tone;
 }
 
 /** A ranked list of horizontal bars, the first `limit` shown until asked for all. */
@@ -78,6 +89,7 @@ export function BarList({
   picked,
   limit,
   max: fixedMax,
+  tone,
 }: {
   rows: BarRow[];
   onPick: (key: string) => void;
@@ -85,6 +97,7 @@ export function BarList({
   limit?: number;
   /** The value a full bar stands for (100 for percentages); the largest row otherwise. */
   max?: number;
+  tone?: Tone;
 }) {
   const { t } = useTranslation();
   const [all, setAll] = useState(false);
@@ -92,12 +105,12 @@ export function BarList({
   const shown = limit && !all ? rows.slice(0, limit) : rows;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
-    <div className="stats-bars">
+    <div className={`stats-bars${toneClass(tone)}`}>
       {shown.map((r) => (
         <button
           key={r.key}
           type="button"
-          className={`stats-bar${picked === r.key ? " picked" : ""}`}
+          className={`stats-bar${picked === r.key ? " picked" : ""}${toneClass(r.tone)}`}
           disabled={r.count === 0}
           onClick={() => onPick(r.key)}
           {...(r.tip ? tipProps(r.tip) : {})}
@@ -125,12 +138,15 @@ export function StatTile({
   sub,
   onClick,
   picked,
+  tone,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   onClick?: () => void;
   picked?: boolean;
+  /** A number about one sex only carries that sex's colour as a stripe. */
+  tone?: Tone;
 }) {
   const body = (
     <>
@@ -140,10 +156,10 @@ export function StatTile({
     </>
   );
   return onClick ? (
-    <button type="button" className={`stats-tile${picked ? " picked" : ""}`} onClick={onClick}>
+    <button type="button" className={`stats-tile${picked ? " picked" : ""}${toneClass(tone)}`} onClick={onClick}>
       {body}
     </button>
   ) : (
-    <div className="stats-tile">{body}</div>
+    <div className={`stats-tile${toneClass(tone)}`}>{body}</div>
   );
 }
