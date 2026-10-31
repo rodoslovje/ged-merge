@@ -305,7 +305,8 @@ export function StatsPanel({
     <BarList
       max={100}
       picked={pickedIn(card)}
-      rows={items.map<BarRow>(({ key, label, share, tone }) => ({
+      // A share of nobody (no deceased to have a death date) is no row at all.
+      rows={items.filter(({ share }) => share.of > 0).map<BarRow>(({ key, label, share, tone }) => ({
         key,
         label,
         tone,

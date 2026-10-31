@@ -9491,7 +9491,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-status-good { --stats-bar: var(--accent); --stats-track: var(--accent-soft); }
 .stats-status-fair { --stats-bar: var(--state-minor); --stats-track: color-mix(in oklch, var(--state-minor) 20%, transparent); }
 .stats-status-poor { --stats-bar: var(--state-major); --stats-track: color-mix(in oklch, var(--state-major) 22%, transparent); }
-.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.4em; text-align: right; }
 
 /* Two shares per row — the father's side and the mother's — under a legend whose
    swatches carry the two lines' colours; the words stay in text ink. */
