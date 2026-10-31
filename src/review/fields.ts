@@ -331,8 +331,11 @@ function buildEventRows(
     // wording (PHRASE) travels with its DATE line and shows on the hover.
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw, undefined, phraseTitle(me?.date), phraseTitle(ce?.date));
     // A supplementary value (a residence's address, a death's description) is
-    // not the event itself, so it is labelled as Edit labels it, not by the tag.
-    const valueLabel = isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag) ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
+    // not the event itself, so it is labelled as Edit labels it, not by the tag
+    // — as is a description an exporter wrote on any other event's line
+    // (`1 BIRT nezakonski otrok`).
+    const valueLabel = isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag) || !VALUE_EVENT_TAGS.has(tag)
+      ? t("event.colValue") : formatFieldLabel(t, `${tag}.value`);
     pushRow(subRows, `${keyBase}.value`, valueLabel,
       eventValueText(me, isEven), eventValueText(ce, isEven));
     // Places are already reshaped into the main's layout when the incoming

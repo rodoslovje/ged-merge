@@ -220,15 +220,21 @@ export function EventFieldsRow({
   // always-shown "Title" extra, and the tag's own line value (`1 EVEN <v>`,
   // `1 FACT <v>`) in the "Value" extra, the description GEDCOM 7 gives it.
   const isEven = tag === "EVEN" || tag === "FACT";
-  const showValue = isEven || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
+  const kBase = mergeKeyBase ?? tag ?? "";
+  // Any other event may still carry a description on its own line
+  // (`1 BIRT nezakonski otrok`). Merge compares it, so Edit shows it while it
+  // is there — to edit or clear — but never offers it on an event whose
+  // standard payload is only the `Y` flag.
+  const strayValue = !isEven && tag !== undefined && !VALUE_EVENT_TAGS.has(tag)
+    && ((Boolean(ev?.value?.trim()) && !isOccurrenceFlag(ev?.value)) || mergeHighlight?.has(`${kBase}.value`) === true);
+  const showValue = isEven || strayValue || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
   // A residence's value is supplementary, not its headline (see
   // `SECONDARY_VALUE_EVENT_TAGS`): the row still leads with the date, and the
   // value rides on the extras line like the agency or the cause. A custom
-  // event's value is too, since its name is the TYPE.
-  const valueIsExtra = showValue && tag !== undefined && (isEven || SECONDARY_VALUE_EVENT_TAGS.has(tag));
+  // event's value is too, since its name is the TYPE, and so is a stray one.
+  const valueIsExtra = showValue && tag !== undefined && (isEven || strayValue || SECONDARY_VALUE_EVENT_TAGS.has(tag));
 
   // Compute merge values before hooks so they can be used as initial state.
-  const kBase = mergeKeyBase ?? tag ?? "";
   const dateMergeVal = mergeHighlight?.get(`${kBase}.date`);
   const valueMergeVal = showValue ? mergeHighlight?.get(`${kBase}.value`) : undefined;
   const placeMergeVal = mergeHighlight?.get(`${kBase}.place`);
@@ -610,7 +616,7 @@ export function EventFieldsRow({
   // only while not already showing. Place/address adapt to the event kind
   // (ordinary events show Place on the primary line, so only Address is offered).
   const addable: { key: string; label: string }[] = [
-    ...(valueIsExtra ? [{ key: "value", label: t("event.colValue") }] : []),
+    ...(valueIsExtra && !strayValue ? [{ key: "value", label: t("event.colValue") }] : []),
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
     { key: "agency", label: t("event.colAgency") },
