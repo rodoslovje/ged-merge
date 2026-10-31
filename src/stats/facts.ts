@@ -57,6 +57,10 @@ export interface PersonFacts {
   hasDeathDate: boolean;
   hasParents: boolean;
   hasSource: boolean;
+  /** Any of the person's own events names a place. */
+  hasPlace: boolean;
+  /** One of those places has coordinates somewhere in the file — the person can be put on a map. */
+  mapped: boolean;
   father?: string;
   mother?: string;
   /** What the record names: its distinct places, cited sources and linked media. */
@@ -234,6 +238,8 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       hasDeathDate: !!death,
       hasParents: !!(father || mother),
       hasSource: !!indi.sources?.length || indi.events.some((e) => !!e.sources?.length),
+      hasPlace: indi.events.some((e) => !!e.place?.raw.trim()),
+      mapped: false,
       father,
       mother,
       refs: refsOf(indi.raw),
@@ -292,6 +298,19 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   for (const [spouse, { fam }] of earliest) {
     if (fam.husband === spouse) fam.husbandFirst = true;
     if (fam.wife === spouse) fam.wifeFirst = true;
+  }
+  // A place value has coordinates when any event writing it carries them,
+  // as the Places tool reads it; a person is on the map through any of theirs.
+  const placed = new Set<string>();
+  const notePlaced = (events: GedEvent[]) => {
+    for (const e of events) if (e.place?.coord) placed.add(e.place.raw.trim());
+  };
+  for (const indi of ds.individuals.values()) notePlaced(indi.events);
+  for (const fam of ds.families.values()) notePlaced(fam.events);
+  if (placed.size) {
+    for (const indi of ds.individuals.values()) {
+      byId.get(indi.id)!.mapped = indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim()));
+    }
   }
   return { people, families, byId };
 }

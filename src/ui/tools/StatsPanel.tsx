@@ -454,6 +454,8 @@ export function StatsPanel({
               { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
               { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
               { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
+              { key: "place", label: t("stats.has.place"), share: ov.completeness.place },
+              { key: "mapped", label: t("stats.has.mapped"), share: ov.completeness.mapped },
               { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
               { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
             ], true))}

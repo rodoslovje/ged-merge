@@ -175,6 +175,8 @@ export interface Overview {
     birthPlace: Share;
     deathDate: Share;
     parents: Share;
+    place: Share;
+    mapped: Share;
     source: Share;
   };
   topSurnames: Bucket[];
@@ -253,6 +255,8 @@ export function overview(s: ScopedFacts): Overview {
       birthPlace: share(s.people, (p) => p.hasBirthPlace),
       deathDate: share(s.people.filter((p) => p.deceased), (p) => p.hasDeathDate),
       parents: share(s.people, (p) => p.hasParents),
+      place: share(s.people, (p) => p.hasPlace),
+      mapped: share(s.people, (p) => p.mapped),
       source: share(s.people, (p) => p.hasSource),
     },
     topSurnames: surnames.slice(0, 5),

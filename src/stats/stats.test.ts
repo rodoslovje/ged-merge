@@ -163,6 +163,8 @@ describe("aggregates", () => {
     expect(o.completeness.birthPlace.n).toBe(3);
     expect(o.countries).toBe(2);
     expect(o.places).toBe(2);
+    expect(o.completeness.place.n).toBe(3);
+    expect(o.completeness.mapped.n).toBe(0);
     expect(overview(scoped({ country: "hr" })).places).toBe(1);
   });
 
@@ -189,5 +191,37 @@ describe("aggregates", () => {
     expect(f.marriageMonth[4].ids).toEqual(["@F2@"]);
     expect(f.firstChild.find((b) => b.key === "0")?.ids).toEqual(["@F2@"]);
     expect(f.children[0].ids).toEqual(["@F3@"]);
+  });
+});
+
+describe("map completeness", () => {
+  it("puts a person on the map through a place whose coordinates another event carries", () => {
+    const mapped = buildStatsFacts(dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 BIRT
+2 PLAC Bled
+3 MAP
+4 LATI N46.3683
+4 LONG E14.1146
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 RESI
+2 PLAC Bled
+0 @I3@ INDI
+1 NAME Tone /Novak/
+1 DEAT
+2 PLAC Kranj
+0 @I4@ INDI
+1 NAME Neža /Novak/
+0 TRLR
+`));
+    expect([...mapped.byId.values()].map((p) => [p.id, p.hasPlace, p.mapped])).toEqual([
+      ["@I1@", true, true],
+      ["@I2@", true, true],
+      ["@I3@", true, false],
+      ["@I4@", false, false],
+    ]);
   });
 });
