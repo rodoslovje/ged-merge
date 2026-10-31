@@ -189,12 +189,10 @@ browser-only, file-in/file-out tool and is not pursued here.
 ### Statistics
 Follow-ups to Tools → Statistics (2026-10-31), which has ten pages, a scope bar,
 click-through lists, the father's/mother's side on Generations and Research, and
-CSV download of every card and list.
+CSV, SVG and PNG export of every card and of the whole page.
 - **Two scopes side by side** — any two scopes (Slovenia vs Croatia, the 18th vs
   the 19th century, one surname vs another) as paired bars on every page; the
   `PairBarList` built for the two sides is the chart for it.
-- **Chart images** — PNG/SVG download of a card. The statistics charts are HTML,
-  so `exportSvg.ts` does not reach them; they need drawing as SVG first.
 - **A century click sets the birth-year filter** — clicking "19. st." narrows
   every page to 1800–1899.
 - **Density map** — births or deaths per place on the existing map.
