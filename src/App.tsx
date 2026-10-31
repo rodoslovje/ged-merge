@@ -1448,11 +1448,12 @@ function AppContent() {
     const was = decisions.get(key)?.status ?? "undecided";
     const after = withFreshDecision(decisions, key, stampMainRows(next, current.mainId, current.compareId));
     commitDecisions(decisions, after, current.mainId, current.compareId);
-    // A pair followed by a link (a relative, a conflicting parent) was opened
-    // to settle something for the pair it was followed from, so deciding it
-    // returns there; one reached in the list moves on in the list.
-    if (next.status !== was && next.status !== "undecided" && returnFromFollowed(current)) return;
-    if (next.status === "rejected" && was !== "rejected") selectAfterReject(current.mainId, current.compareId);
+    // A rejected pair leaves the list, so the screen must move: back to the
+    // pair a link (a relative, a conflicting parent) was followed from, else
+    // on along the list. Confirm and Defer keep the pair on screen.
+    if (next.status === "rejected" && was !== "rejected" && !returnFromFollowed(current)) {
+      selectAfterReject(current.mainId, current.compareId);
+    }
   }
 
   // Same as `updateDecision`, but for EditView: the person being edited there
