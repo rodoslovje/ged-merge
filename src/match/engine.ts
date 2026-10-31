@@ -8,7 +8,7 @@ import {
   sexConflicts,
 } from "./scoreIndividual";
 import { buildNameFrequencies, type NameFrequencies } from "./nameFrequency";
-import { birthYearsApart, differentGiven, parentsVerdict } from "./similarity";
+import { birthYearsApart, conflictingBirthYears, differentGiven, parentsVerdict } from "./similarity";
 import { clearTextCaches } from "./text";
 import {
   categorize,
@@ -279,6 +279,10 @@ function findIncomingDuplicateClusters(
       // and has no business accepting a pair the matcher would have refused to
       // score, e.g. one whose lifespan ends before the other's wedding.
       if (differentGiven(keep, cand) || birthYearsApart(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
+      // Two children of one family with exact births in different years are
+      // sisters or brothers (Marija 1859, Marjeta 1862), not one child twice —
+      // the year tolerance above is for copies that share no relatives.
+      if (sharedBirthFamily(keep, cand) && conflictingBirthYears(keep, cand)) continue;
       if (sexConflicts(keep, cand) || !plausibleIndividualMatch(keep, cand, config.gates, compareDs, compareDs)) continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.
@@ -292,6 +296,11 @@ function findIncomingDuplicateClusters(
     }
   }
   return clusters;
+}
+
+/** True when the two records are children of one and the same family. */
+function sharedBirthFamily(a: Individual, b: Individual): boolean {
+  return a.childOf.some((famId) => b.childOf.includes(famId));
 }
 
 /**

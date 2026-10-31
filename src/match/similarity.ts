@@ -3,7 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { birthYear } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
 import { canonicalPlaceToken } from "./place";
-import { cachedFatherName, cachedMotherName } from "./profileCache";
+import { cachedFatherName, cachedFindEvent, cachedMotherName } from "./profileCache";
 import { primaryName } from "./relatives";
 import { compareKey, foldToken, isPlaceholderName, jaroWinkler } from "./text";
 import { foldedGivenTokenSimilarity, givenTokenSimilarity } from "./givenVariants";
@@ -175,6 +175,17 @@ export function birthYearsApart(a: Individual, b: Individual): boolean {
   const yb = birthYear(b);
   if (ya === undefined || yb === undefined) return false;
   return Math.abs(ya - yb) > SAME_PERSON_YEAR_GAP;
+}
+
+/** True when both records carry an exact birth date and the years differ —
+ *  distinct people, never one person twice. Approximate/bounded dates
+ *  (ABT/BEF/…) are left to the scorer, which already treats them as fuzzy. */
+export function conflictingBirthYears(a: Individual, b: Individual): boolean {
+  const da = cachedFindEvent(a, "BIRT")?.date;
+  const db = cachedFindEvent(b, "BIRT")?.date;
+  if (da?.qualifier !== "exact" || db?.qualifier !== "exact") return false;
+  if (da.year === undefined || db.year === undefined) return false;
+  return da.year !== db.year;
 }
 
 /** Verdict for the two records' father given names, each side resolved through

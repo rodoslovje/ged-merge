@@ -7,7 +7,7 @@ import {
 } from "../match/scoreIndividual";
 import { nameFrequenciesFor } from "../match/nameFrequency";
 import { cachedFindEvent } from "../match/profileCache";
-import { differentGiven, fatherGivenVerdict, parentsVerdict } from "../match/similarity";
+import { conflictingBirthYears, differentGiven, fatherGivenVerdict, parentsVerdict } from "../match/similarity";
 import { soundex } from "../match/text";
 import { DEFAULT_CONFIG, type MatchCategory, type MatchConfig } from "../match/types";
 import { label } from "../match/relatives";
@@ -378,15 +378,4 @@ function sameExactBirthDay(a: Individual, b: Individual): boolean {
     da.month !== undefined && da.month === db.month &&
     da.day !== undefined && da.day === db.day
   );
-}
-
-/** True when both records carry an exact birth date and the years differ —
- *  distinct people, never one person twice. Approximate/bounded dates
- *  (ABT/BEF/…) are left to the scorer, which already treats them as fuzzy. */
-function conflictingBirthYears(a: Individual, b: Individual): boolean {
-  const da = cachedFindEvent(a, "BIRT")?.date;
-  const db = cachedFindEvent(b, "BIRT")?.date;
-  if (da?.qualifier !== "exact" || db?.qualifier !== "exact") return false;
-  if (da.year === undefined || db.year === undefined) return false;
-  return da.year !== db.year;
 }
