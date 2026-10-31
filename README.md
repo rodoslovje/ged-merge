@@ -152,7 +152,7 @@ Safari use an in-memory fallback.
 
 | Document | What's in it |
 |----------|--------------|
-| [AGENTS.md](AGENTS.md) | Full module map, development workflow, and the CSS token/styling conventions. |
+| [AGENTS.md](AGENTS.md) | Module map and development workflow; the detailed rules (architecture and CSS conventions, GEDCOM compliance, Slovenian copy, merging) are in [docs/agents/](docs/agents/). |
 | [MATCHING.md](MATCHING.md) | The matching algorithm: pipeline stages, weights, gates, penalties, calibrated thresholds, and how to verify a change to any of them. |
 | [MAPVIEW.md](MAPVIEW.md) | Map and geocoding design — providers, caching, the coordinate write-back. |
 | [IDEAS.md](IDEAS.md) | The backlog: what might come next, and what was deliberately rejected. |
@@ -174,7 +174,7 @@ CI runs lint, typecheck, the unit suite with coverage floors, and the Playwright
 pull request. All changes reach `main` through a pull request: direct pushes are refused, and a PR
 merges (with a merge commit) only once CI is green. Two house rules worth knowing: user-facing strings change in **both** `src/locales/en.ts`
 and `src/locales/sl.ts` in the same commit, and colours and radii come from the design tokens in
-`src/theme/heritage-pine.css` rather than literals. `AGENTS.md` has the rest.
+`src/theme/heritage-pine.css` rather than literals. `AGENTS.md` and `docs/agents/` have the rest.
 
 Regenerate the screenshots above after a UI change with `node scripts/screenshots.mjs` (with the
 dev server running).
