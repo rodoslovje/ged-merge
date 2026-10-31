@@ -287,7 +287,6 @@ export function StatsPanel({
     </section>
   );
   };
-  const basedOn = (n: number, of: number) => t("stats.basedOn", { n: num(n), of: num(of) });
   const total = (list: Bucket[]) => list.reduce((a, b) => a + b.count, 0);
   const monthLabel = (b: Bucket) => new Date(2000, b.lo! - 1, 1).toLocaleString(lang, { month: "short" });
   const countryName = (code: string) => (code ? countryFacetLabel(code, lang) : t("tools.geocode.countryUnknown"));
@@ -459,7 +458,7 @@ export function StatsPanel({
               <StatTile label={t("stats.sourcesCited")} value={num(ov.sources)} />
               <StatTile label={t("stats.mediaLinked")} value={num(ov.media)} />
               {ov.ageAtDeath && (
-                <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} sub={basedOn(ov.ageAtDeath.n, people)} />
+                <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} />
               )}
               {ov.oldest && (
                 <StatTile label={t("stats.oldest")} value={t("stats.years", { count: ov.oldest.age })} sub={<NameLink dataset={dataset} id={ov.oldest.id} onNavigate={onNavigate} />} />
@@ -503,15 +502,15 @@ export function StatsPanel({
 
         {names && (
           <>
-            {card("surnames", t("stats.surnamesTitle"), basedOn(total(names.surnames), people), ranked("surnames", t("stats.surname"), names.surnames, 20))}
-            {scope.sex !== "F" && card("givenMale", t("stats.givenMaleTitle"), basedOn(total(names.givenMale), people), ranked("givenMale", t("stats.givenName"), names.givenMale, 20, "male"))}
-            {scope.sex !== "M" && card("givenFemale", t("stats.givenFemaleTitle"), basedOn(total(names.givenFemale), people), ranked("givenFemale", t("stats.givenName"), names.givenFemale, 20, "female"))}
+            {card("surnames", t("stats.surnamesTitle"), null, ranked("surnames", t("stats.surname"), names.surnames, 20))}
+            {scope.sex !== "F" && card("givenMale", t("stats.givenMaleTitle"), null, ranked("givenMale", t("stats.givenName"), names.givenMale, 20, "male"))}
+            {scope.sex !== "M" && card("givenFemale", t("stats.givenFemaleTitle"), null, ranked("givenFemale", t("stats.givenName"), names.givenFemale, 20, "female"))}
             {card("byCentury", t("stats.namesByCentury"), null, centuryTable(
               "byCentury",
               [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
-            {card("givenCount", t("stats.givenCount"), basedOn(total(names.givenCount), people), buckets("givenCount", t("stats.givenCount"), names.givenCount))}
+            {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
             {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
               { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
               { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
@@ -524,11 +523,11 @@ export function StatsPanel({
         {life && (
           <>
             <section className="stats-card wide stats-tiles">
-              {life.all && <StatTile label={t("stats.meanAgeAtDeath")} value={dec(life.all.value)} sub={basedOn(life.all.n, people)} />}
-              {life.male && <StatTile tone="male" label={t("stats.meanAgeMen")} value={dec(life.male.value)} sub={basedOn(life.male.n, scoped.people.filter((p) => p.sex === "M").length)} />}
-              {life.female && <StatTile tone="female" label={t("stats.meanAgeWomen")} value={dec(life.female.value)} sub={basedOn(life.female.n, scoped.people.filter((p) => p.sex === "F").length)} />}
+              {life.all && <StatTile label={t("stats.meanAgeAtDeath")} value={dec(life.all.value)} />}
+              {life.male && <StatTile tone="male" label={t("stats.meanAgeMen")} value={dec(life.male.value)} />}
+              {life.female && <StatTile tone="female" label={t("stats.meanAgeWomen")} value={dec(life.female.value)} />}
             </section>
-            {card("ageAtDeath", t("stats.ageAtDeath"), basedOn(total(life.ageAtDeath), people), buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
+            {card("ageAtDeath", t("stats.ageAtDeath"), null, buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
             {card("lifeByCentury", t("stats.lifeByCentury"), t("stats.byBirthCentury"), centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
             {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), t("stats.byBirthCentury"), centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
             {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), t("stats.byBirthCentury"), centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
@@ -581,16 +580,16 @@ export function StatsPanel({
                 <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("birthDecade", t("stats.birthsOverTime"), basedOn(total(births.perPeriod), people), buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
-            {card("birthMonth", t("stats.birthsByMonth"), basedOn(total(births.byMonth), people), buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
+            {card("birthDecade", t("stats.birthsOverTime"), null, buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
+            {card("birthMonth", t("stats.birthsByMonth"), null, buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
             {card("baptism", t("stats.baptism"), t("stats.nPeople", { count: total(births.baptism) }), buckets("baptism", t("stats.baptism"), births.baptism, { label: (b) => t(`stats.baptism.${b.key}`) }))}
-            {card("birthPlaces", t("stats.birthPlaces"), basedOn(total(births.places), people), ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
+            {card("birthPlaces", t("stats.birthPlaces"), null, ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
           </>
         )}
 
         {deaths && (
           <>
-            {card("causes", t("stats.causes"), basedOn(deaths.withCause.n, deaths.withCause.of), ranked("causes", t("stats.causes"), deaths.causes, 15))}
+            {card("causes", t("stats.causes"), null, ranked("causes", t("stats.causes"), deaths.causes, 15))}
             {card("causeAge", t("stats.causeAge"), t("stats.causeAgeNote", { n: CAUSE_AGE_MIN }), (
               <BarList
                 limit={15}
@@ -602,15 +601,15 @@ export function StatsPanel({
                 }}
               />
             ))}
-            {card("deathPlaces", t("stats.deathPlaces"), basedOn(total(deaths.places), people), ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
-            {card("deathDecade", t("stats.deathsOverTime"), basedOn(total(deaths.perPeriod), people), buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
-            {card("deathMonth", t("stats.deathsByMonth"), basedOn(total(deaths.byMonth), people), buckets("deathMonth", t("stats.deathsByMonth"), deaths.byMonth, { label: monthLabel }))}
+            {card("deathPlaces", t("stats.deathPlaces"), null, ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
+            {card("deathDecade", t("stats.deathsOverTime"), null, buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
+            {card("deathMonth", t("stats.deathsByMonth"), null, buckets("deathMonth", t("stats.deathsByMonth"), deaths.byMonth, { label: monthLabel }))}
           </>
         )}
 
         {jobs && (
           <>
-            {card("occupations", t("stats.occupations"), basedOn(jobs.withOccupation.n, jobs.withOccupation.of), ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
+            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
             {card("sonFatherJob", t("stats.sonFatherJob"), null, shares("sonFatherJob", [
               { key: "sonFather", label: t("stats.sonFatherJobRow"), share: jobs.sonFather, tone: "male" },
             ], false))}
