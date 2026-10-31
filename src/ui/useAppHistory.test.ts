@@ -241,6 +241,23 @@ describe("useAppHistory: entries and Back", () => {
     history.back();
     expect(app.selected.at(-1)).toEqual({ mainId: "@I1@", compareId: "@X1@" });
   });
+
+  it("a decision on a followed pair returns to the pair it was followed from", async () => {
+    const app = await mount({ mode: "merge", current: { mainId: "@I1@", compareId: "@X1@" } });
+    expect(app.api.returnFromFollowed({ mainId: "@I1@", compareId: "@X1@" })).toBe(false);
+    app.api.selectFromPage({ mainId: "@I2@", compareId: "@X2@" });
+    // Walked on in the list since: the pair on screen is not the followed one.
+    expect(app.api.returnFromFollowed({ mainId: "@I3@", compareId: "@X3@" })).toBe(false);
+    expect(app.api.returnFromFollowed({ mainId: "@I2@", compareId: "@X2@" })).toBe(true);
+    expect(app.selected.at(-1)).toEqual({ mainId: "@I1@", compareId: "@X1@" });
+  });
+
+  it("the followed mark stays on its own entry, not on steps taken from it", async () => {
+    const app = await mount({ mode: "merge", current: { mainId: "@I1@", compareId: "@X1@" } });
+    app.api.selectFromPage({ mainId: "@I2@", compareId: "@X2@" });
+    app.api.goToPage({ mode: "edit" });
+    expect((history.state as { gedSelFollowed?: boolean }).gedSelFollowed).toBeUndefined();
+  });
 });
 
 describe("useAppHistory: the leave guard", () => {

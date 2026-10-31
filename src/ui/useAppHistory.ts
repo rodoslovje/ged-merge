@@ -156,7 +156,9 @@ export function useAppHistory(opts: AppHistoryOptions) {
     // entry claiming to be the one the leave-guard sits under — so Back would
     // read as "nothing left of ours" one press in, and the views' own Back
     // buttons would go dead in the middle of a trail they could still walk.
-    const { gedPage: _bottom, ...rest } = state;
+    // Nor the mark of a followed pair (see `selectFromPage`): it belongs to
+    // the one entry that followed it, never to a step taken on from there.
+    const { gedPage: _bottom, gedSelFollowed: _followed, ...rest } = state;
     // Picking a match from the list is not a step, so the entry being left may
     // still name a pair chosen before it — Back would then restore that one
     // instead of the pair the reader left from.
@@ -481,7 +483,21 @@ export function useAppHistory(opts: AppHistoryOptions) {
   function selectFromPage(next: SelRef) {
     rememberSelection();
     pushEntry({ ...window.history.state, gedSel: next });
+    window.history.replaceState({ ...window.history.state, gedSelFollowed: true }, "");
     opts.setSelectedId(next);
+  }
+
+  /** Step Back to the pair a link was followed from, when the pair on screen
+   *  is that followed one — a decision made there settles what the reader went
+   *  to look at, so they return to where they left from. False (and nothing
+   *  done) when the pair was reached any other way, or walked away from in the
+   *  list since. */
+  function returnFromFollowed(sel: SelRef): boolean {
+    const st = (window.history.state ?? {}) as { gedSel?: SelRef; gedSelFollowed?: boolean };
+    if (!st.gedSelFollowed || !canGoBackRef.current) return false;
+    if (st.gedSel?.mainId !== sel.mainId || st.gedSel?.compareId !== sel.compareId) return false;
+    window.history.back();
+    return true;
   }
 
   function openTree(mainId: string, compareId: string) {
@@ -618,6 +634,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     navigateFromOverlay,
     navigateFromPage,
     selectFromPage,
+    returnFromFollowed,
     goToPage,
     canGoBack,
     goBackPage,
