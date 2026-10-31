@@ -45,6 +45,9 @@ interface Pick {
 /** How many people a picked bar lists before asking. */
 const LIST_LIMIT = 100;
 
+/** Cards that share another card's explanation: the overview's top five are the names page's lists. */
+const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale" };
+
 /** Whether the filters are unfolded — the reader's own layout, kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
 function readFiltersOpen(): boolean {
@@ -234,11 +237,27 @@ export function StatsPanel({
     />
   );
 
-  const card = (id: string, title: string, note: ReactNode, body: ReactNode, wide = false) => (
+  /** What a click on the card does, said once in its tip: a list of who is
+   *  missing the item, of who carries the name or occupation, or of who is in the bar. */
+  const clickHint = (id: string) =>
+    id === "complete" ? t("stats.click.missing")
+      : id === "byCentury" ? t("stats.click.chip")
+        : id === "jobsByCentury" ? t("stats.click.job")
+        : id === "oldest" ? ""
+          : t("stats.click.bar");
+  const card = (id: string, title: string, note: ReactNode, body: ReactNode, wide = false) => {
+    // What the numbers are and how they were taken — one tip per card.
+    const about = `stats.about.${ABOUT_ALIAS[id] ?? id}`;
+    return (
     <section className={`stats-card${wide ? " wide" : ""}`} key={id}>
       <header className="stats-card-head">
         <h3>{title}</h3>
         {note && <span className="stats-card-note">{note}</span>}
+        {i18n.exists(about) && (
+          <button type="button" className="stats-info" {...tipProps([t(about), clickHint(id)].filter(Boolean).join("\n\n"), { heading: title })}>
+            <InfoIcon size={14} />
+          </button>
+        )}
       </header>
       {body}
       {pick?.card === id && (
@@ -246,6 +265,7 @@ export function StatsPanel({
       )}
     </section>
   );
+  };
   const basedOn = (n: number, of: number) => t("stats.basedOn", { n: num(n), of: num(of) });
   const total = (list: Bucket[]) => list.reduce((a, b) => a + b.count, 0);
   const monthLabel = (b: Bucket) => new Date(2000, b.lo! - 1, 1).toLocaleString(lang, { month: "short" });
@@ -305,10 +325,6 @@ export function StatsPanel({
           person, and how many of the file that leaves. The filters below it
           fold away. */}
       <div className="stats-head">
-        {/* How the page works, in one place rather than a hint on every card. */}
-        <button type="button" className="stats-info" {...tipProps(t("stats.help"), { heading: t("tools.tool.stats") })}>
-          <InfoIcon size={18} />
-        </button>
         <Segmented
           label={t("stats.pages")}
           value={page}
@@ -518,8 +534,8 @@ export function StatsPanel({
         {births && (
           <>
             <section className="stats-card wide stats-tiles">
-              {births.baptismMean && <StatTile label={t("stats.baptismMean")} value={dec(births.baptismMean.value)} sub={t("stats.nPeople", { count: births.baptismMean.n })} />}
               <StatTile label={t("stats.twins")} value={num(births.twins.sets)} sub={t("stats.nPeople", { count: births.twins.ids.length })} onClick={births.twins.sets ? () => choose("birthTiles", "twins", t("stats.twins"), births.twins.ids) : undefined} picked={pickedIn("birthTiles") === "twins"} />
+              {births.baptismMean && <StatTile label={t("stats.baptismMean")} value={dec(births.baptismMean.value)} sub={t("stats.nPeople", { count: births.baptismMean.n })} />}
               {pick?.card === "birthTiles" && (
                 <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}

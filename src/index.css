@@ -9336,7 +9336,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    end, the head count and the filters' fold toggle. */
 .stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
 .stats-head .tree-mode { flex-wrap: wrap; }
-.stats-info { display: inline-flex; padding: 4px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
+.stats-card-head .stats-info { margin-left: auto; }
+.stats-info { display: inline-flex; padding: 2px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
 .stats-info:hover, .stats-info:focus-visible { color: var(--accent); }
 .stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
 .stats-start { flex: 0 1 280px; min-width: 180px; }
