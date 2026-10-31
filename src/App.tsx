@@ -100,7 +100,7 @@ import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { homePlaceOf } from "./chart/nodeDisplay";
 import { personOptionTitle } from "./ui/edit/RelativePickerCard";
-import type { FilterContext } from "./ui/globalSearch";
+import { fullTextLookup, type FilterContext } from "./ui/globalSearch";
 import { useSearchIndex } from "./ui/useSearchIndex";
 import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
@@ -1667,10 +1667,12 @@ function AppContent() {
     let distances: Map<string, number> | undefined;
     const hops = () =>
       (distances ??= startId && mainDataset ? computeDistances(mainDataset, startId) : new Map<string, number>());
+    const fullText = mainDataset ? fullTextLookup(mainDataset.individuals, mainDataset.records) : () => "";
     return {
       isEdited: (id) => changedPersonIds.has(id),
       decisionOf: (id) => decisionByMain.get(id),
       kinshipHops: (id) => hops().get(id),
+      fullText,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changedPersonIds, decisionByMain, startId, mainDataset, editVersion]);

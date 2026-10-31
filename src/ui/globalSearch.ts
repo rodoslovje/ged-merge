@@ -1,6 +1,8 @@
 import type { GedNode, Individual, Sex } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { lifespanOf, birthYear, birthSortKey, deathYear } from "../gedcom/lifespan";
+import { NOTE_TAGS } from "../gedcom/builder";
+import { isPointer } from "../gedcom/uri";
 import { nameSearchText } from "../match/relatives";
 import type { MatchDecisionStatus } from "../review/types";
 import { collectFirstImage } from "./PersonMedia";
@@ -105,6 +107,57 @@ function noteText(indi: Individual): string {
     if (note) parts.push(note);
   }
   return foldSearch(parts.join(" "));
+}
+
+/**
+ * Every text the person's own record carries, folded — names, dates, places,
+ * addresses, occupations, citation pages, notes: each line's value, with the
+ * shared note a pointer names read in place of the pointer. Other pointers and
+ * bare `Y` occurrence flags carry no text and are left out.
+ */
+export function personFullText(raw: GedNode, sharedNotes: ReadonlyMap<string, GedNode>): string {
+  const parts: string[] = [];
+  const walk = (node: GedNode) => {
+    for (const child of node.children) {
+      const v = child.value?.trim();
+      if (v && isPointer(v)) {
+        const note = NOTE_TAGS.includes(child.tag) ? sharedNotes.get(v) : undefined;
+        if (note) {
+          if (note.value) parts.push(note.value);
+          walk(note);
+        }
+      } else if (v && v !== "Y") {
+        parts.push(v);
+      }
+      walk(child);
+    }
+  };
+  walk(raw);
+  return foldSearch(parts.join("\n"));
+}
+
+/**
+ * A lazy `id → full text` lookup for the "any field" filters. Nothing is
+ * indexed up front — holding every person's whole record as text would double
+ * a large file's memory for a filter most sessions never use — so each
+ * person's text is built the first time a scan asks and kept for the next
+ * keystroke. Make a new lookup when the dataset changes.
+ */
+export function fullTextLookup(individuals: Map<string, Individual>, records: GedNode[]): (id: string) => string {
+  let sharedNotes: Map<string, GedNode> | undefined;
+  const cache = new Map<string, string>();
+  return (id) => {
+    let text = cache.get(id);
+    if (text === undefined) {
+      sharedNotes ??= new Map(
+        records.filter((r) => r.xref && NOTE_TAGS.includes(r.tag)).map((r) => [r.xref!, r]),
+      );
+      const indi = individuals.get(id);
+      text = indi ? personFullText(indi.raw, sharedNotes) : "";
+      cache.set(id, text);
+    }
+    return text;
+  };
 }
 
 function placeText(indi: Individual): string {
@@ -331,6 +384,9 @@ export interface GlobalFilters {
   bornTo?: number;
   /** Case-insensitive substring over event places. */
   place: string;
+  /** Terms that must all appear somewhere in the person's record — any field
+   *  (see {@link personFullText}). */
+  anyField: string;
   hasLinks: boolean;
   hasNotes: boolean;
   hasSources: boolean;
@@ -345,6 +401,7 @@ export interface GlobalFilters {
 
 export const NO_FILTERS: GlobalFilters = {
   place: "",
+  anyField: "",
   hasLinks: false,
   hasNotes: false,
   hasSources: false,
@@ -358,6 +415,8 @@ export interface FilterContext {
   decisionOf: (id: string) => MatchDecisionStatus | undefined;
   /** Relationship hops from the start person, or undefined when unreachable / no start. */
   kinshipHops: (id: string) => number | undefined;
+  /** The person's whole record as folded text (see {@link fullTextLookup}). */
+  fullText: (id: string) => string;
 }
 
 /** True when at least one facet is narrowing the result set. */
@@ -367,6 +426,7 @@ export function hasActiveFilters(f: GlobalFilters): boolean {
     f.bornFrom !== undefined ||
     f.bornTo !== undefined ||
     f.place.trim() !== "" ||
+    f.anyField.trim() !== "" ||
     f.hasLinks ||
     f.hasNotes ||
     f.hasSources ||
@@ -391,6 +451,9 @@ function matchesFilters(row: SearchRow, f: GlobalFilters, ctx: FilterContext): b
     const hops = ctx.kinshipHops(row.id);
     if (hops === undefined || hops > f.maxKinship) return false;
   }
+  // Last: the only facet that may have to build the person's text first.
+  const anyField = queryTerms(f.anyField);
+  if (anyField.length > 0 && !matchesTerms(ctx.fullText(row.id), anyField)) return false;
   return true;
 }
 

@@ -24,7 +24,7 @@ import {
 import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, removeRecordsByXref } from "../gedcom/edit/shared";
 import { carriesLineValue, isNonStandardTag, isOccurrenceFlag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
-import { buildSearchRows, foldSearch, type SearchRow } from "../ui/globalSearch";
+import { buildSearchRows, foldSearch, matchesTerms, queryTerms, type SearchRow } from "../ui/globalSearch";
 import { patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 
 /**
@@ -83,6 +83,9 @@ export type BatchCriterion =
    *  Matched against the verbatim note text, so a note that is nothing but a
    *  URL ("https://web.facebook.com/…") is findable by any part of it. */
   | { kind: "note"; text: string }
+  /** Text anywhere in the person's record — any field, shared notes included
+   *  (see `personFullText`); every term must appear, in any order. */
+  | { kind: "anyField"; text: string }
   /** The person's own record flagged private, or not. */
   | { kind: "private"; value: boolean }
   /** Whether any note the person carries is flagged private — which is a
@@ -102,7 +105,7 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "private",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "private",
   "privateNote", "media", "sources", "relation", "kinship", "line",
 ];
 
@@ -228,6 +231,9 @@ export interface BatchContext {
   /** Blood-line sets relative to the start person, or null when no start
    *  person is set (a `kinship` criterion then matches nobody). */
   kinship: KinshipSets | null;
+  /** The person's whole record as folded text, built on first ask (see
+   *  `fullTextLookup`) — only an `anyField` criterion reads it. */
+  fullText: (id: string) => string;
 }
 
 /** Blood-line classification of the whole file relative to the start person. */
@@ -359,6 +365,9 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         break;
       case "note":
         if (!row.noteText.includes(foldSearch(c.text))) return false;
+        break;
+      case "anyField":
+        if (!matchesTerms(ctx.fullText(row.id), queryTerms(c.text))) return false;
         break;
       case "private":
         if (row.private !== c.value) return false;

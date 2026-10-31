@@ -4,6 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import type { Dataset } from "../gedcom/types";
 import { isDeceased } from "../gedcom/lifespan";
 import { marriedSurnamesOf } from "../match/relatives";
+import { fullTextLookup } from "../ui/globalSearch";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -122,7 +123,7 @@ describe("batch criteria", () => {
 1 TITL Parish book
 0 TRLR`);
   const rows = buildBatchRows(ds, nameOf, new Date(2026, 0, 15));
-  const ctx = { lineSides: null, kinship: null };
+  const ctx = { lineSides: null, kinship: null, fullText: () => "" };
   const match = (criteria: BatchCriterion[]) =>
     rows.filter((r) => matchesBatch(r, criteria, ctx)).map((r) => r.id).sort();
 
@@ -283,7 +284,7 @@ describe("name-part and relative presence criteria", () => {
 0 TRLR`);
   const rows = buildBatchRows(ds, nameOf);
   const match = (criteria: BatchCriterion[]) =>
-    rows.filter((r) => matchesBatch(r, criteria, { lineSides: null, kinship: null })).map((r) => r.id).sort();
+    rows.filter((r) => matchesBatch(r, criteria, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
 
   it("reads the given name and surname off the primary name", () => {
     expect(match([{ kind: "nameField", field: "given", mode: "lacks" }])).toEqual(["@I6@"]);
@@ -346,7 +347,7 @@ describe("computeKinship", () => {
   const rows = buildBatchRows(ds, nameOf);
   const kinship = computeKinship(ds, "@I1@")!;
   const match = (criteria: BatchCriterion[], k: KinshipSets | null = kinship) =>
-    rows.filter((r) => matchesBatch(r, criteria, { lineSides: null, kinship: k })).map((r) => r.id).sort();
+    rows.filter((r) => matchesBatch(r, criteria, { lineSides: null, kinship: k, fullText: () => "" })).map((r) => r.id).sort();
 
   it("classifies ancestors, descendants and blood relatives", () => {
     expect(match([{ kind: "kinship", rel: "ancestor" }])).toEqual(["@I2@", "@I3@", "@I4@", "@I5@"]);
@@ -609,7 +610,7 @@ describe("addMarriedName across unions", () => {
     const ds = dataset(FILE);
     const rows = buildBatchRows(ds, nameOf);
     const match = (c: BatchCriterion[]) =>
-      rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null })).map((r) => r.id).sort();
+      rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
     // The question the married-name action raises: partnered, but never married.
     expect(match([
       { kind: "relation", rel: "spouse", mode: "has" },
@@ -877,7 +878,7 @@ describe("applyBatchAction", () => {
 2 DATE 1900
 0 TRLR`);
     const rows = buildBatchRows(ds, nameOf);
-    const has = rows.filter((r) => matchesBatch(r, [{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "has" }], { lineSides: null, kinship: null }));
+    const has = rows.filter((r) => matchesBatch(r, [{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "has" }], { lineSides: null, kinship: null, fullText: () => "" }));
     expect(has.map((r) => r.id)).toEqual(["@I1@"]);
   });
 
@@ -1002,5 +1003,52 @@ describe("applyBatchAction", () => {
     expect(hasObje("@I3@")).toBe(true);
     // The shared record itself survives.
     expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === "@O1@")).toBe(true);
+  });
+});
+
+describe("anyField criterion", () => {
+  const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 OCCU Župnik
+1 BIRT
+2 SOUR @S1@
+3 PAGE Knjiga krstov, folio 12
+0 @I2@ INDI
+1 NAME Jože /Novak/
+1 NOTE @N1@
+0 @I3@ INDI
+1 NAME Marko /Kos/
+1 RESI
+2 ADDR Glavni trg 3
+0 @N1@ NOTE Emigriral v Ameri
+1 CONC ko leta 1905
+0 @S1@ SOUR
+1 TITL Matricula
+0 TRLR`);
+  const rows = buildBatchRows(ds, nameOf);
+  const ctx = { lineSides: null, kinship: null, fullText: fullTextLookup(ds.individuals, ds.records) };
+  const match = (text: string) =>
+    rows.filter((r) => matchesBatch(r, [{ kind: "anyField", text }], ctx)).map((r) => r.id).sort();
+
+  it("finds text in any line of the record, accent-blind", () => {
+    expect(match("zupnik")).toEqual(["@I1@"]);
+    expect(match("folio 12")).toEqual(["@I1@"]);
+    expect(match("glavni")).toEqual(["@I3@"]);
+  });
+
+  it("reads a shared note in place of its pointer, continuations joined", () => {
+    expect(match("ameriko")).toEqual(["@I2@"]);
+  });
+
+  it("needs every term, in any order, and names count too", () => {
+    expect(match("trg kos")).toEqual(["@I3@"]);
+    expect(match("kos")).toEqual(["@I1@", "@I3@"]);
+  });
+
+  it("does not match pointers or the cited source's own record", () => {
+    expect(match("@S1@")).toEqual([]);
+    expect(match("matricula")).toEqual([]);
   });
 });

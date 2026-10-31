@@ -280,6 +280,18 @@ export function GlobalSearchModal({ isOpen, onClose, rows, indexProgress, onOpen
               />
             </div>
 
+            <div className="gsf-group gsf-grow">
+              <span className="gsf-label">{t("globalSearch.facet.anyField")}</span>
+              <input
+                type="text"
+                className="gsf-place"
+                placeholder={t("globalSearch.facet.anyFieldPlaceholder")}
+                title={t("globalSearch.facet.anyFieldHint")}
+                value={filters.anyField}
+                onChange={(e) => setFilters((f) => ({ ...f, anyField: e.target.value }))}
+              />
+            </div>
+
             <div className="gsf-group">
               <span className="gsf-label">{t("globalSearch.facet.has")}</span>
               <button type="button" className={`gsf-chip${filters.hasLinks ? " active" : ""}`} onClick={() => setFilters((f) => ({ ...f, hasLinks: !f.hasLinks }))}>
