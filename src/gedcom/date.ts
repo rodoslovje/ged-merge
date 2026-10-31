@@ -335,13 +335,20 @@ function withBce(rest: string, raw: string, order?: DateOrder): GedDate | undefi
  * How precise a single, plain date is (no range/placeholder):
  *   0 = nothing known · 1 = year · 2 = year+month · 3 = full date.
  * An `about`-style estimate counts as half a step less precise than the same
- * granularity asserted exactly, so "12 MAR 1949" beats "ABT 12 MAR 1949".
+ * granularity asserted exactly, so "12 MAR 1949" beats "ABT 12 MAR 1949"; a
+ * calculated date sits between the two, so "CAL 1949" beats "ABT 1949".
  */
 function datePrecision(d: GedDate): number {
   if (d.year == null) return 0;
   let rank = d.month == null ? 1 : d.day == null ? 2 : 3;
-  if (d.qualifier !== "exact") rank -= 0.5;
+  if (d.qualifier !== "exact") rank -= d.approx === "CAL" ? 0.25 : 0.5;
   return rank;
+}
+
+/** A date reckoned from something (an age at death, a stated age) rather
+ *  than guessed: CAL beats ABT and EST even in another year. */
+function calculatedOverEstimate(m: GedDate, i: GedDate): boolean {
+  return m.qualifier === "about" && m.approx !== "CAL" && i.qualifier === "about" && i.approx === "CAL";
 }
 
 /**
@@ -373,15 +380,18 @@ export function dateToSortKey(d: GedDate | undefined): number {
  * doesn't contradict it — e.g. main "1949" refined by incoming "12 MAR 1949".
  * Both must be single (non-range) dates sharing the same year, and every
  * component the main already pins (month, day) must agree. Used so a merge
- * defaults to the incoming side when it carries the more exact date.
+ * defaults to the incoming side when it carries the more exact date. One
+ * exception to the shared year: a calculated date always replaces an
+ * estimated one (ABT/EST), being reckoned rather than guessed.
  */
 export function dateRefines(mainRaw: string, incomingRaw: string, order?: DateOrder): boolean {
   const m = parseDate(mainRaw, order);
   const i = parseDate(incomingRaw, order);
   if (m.year == null || i.year == null) return false;
-  if (m.year !== i.year) return false;
   // Ranges/periods aren't a simple precision ladder — leave them to the default.
   if (m.year2 != null || i.year2 != null) return false;
+  if (calculatedOverEstimate(m, i)) return true;
+  if (m.year !== i.year) return false;
   if (m.month != null && m.month !== i.month) return false;
   if (m.day != null && m.day !== i.day) return false;
   return datePrecision(i) > datePrecision(m);

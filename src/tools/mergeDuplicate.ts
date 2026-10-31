@@ -469,12 +469,14 @@ export function duplicateDefaults(rows: FieldRow[]): Record<string, FieldChoice>
   return fields;
 }
 
-/** Rough date precision rank: exact day/month/year beat a bare or approximate year. */
+/** Rough date precision rank: exact day/month/year beat a bare or approximate
+ *  year, and a calculated date (CAL) beats an estimated one (ABT/EST). */
 function datePrecision(raw: string): number {
   if (!raw) return 0;
   const d = parseDate(raw);
   if (d.qualifier === "exact") return d.day ? 4 : d.month ? 3 : 2;
-  return d.year != null ? 1 : 0;
+  if (d.year == null) return 0;
+  return d.qualifier === "about" && d.approx === "CAL" ? 1.5 : 1;
 }
 
 // ── Lines no comparison row covers ───────────────────────────────────────────

@@ -488,8 +488,8 @@ export function useAppHistory(opts: AppHistoryOptions) {
   }
 
   /** Step Back to the pair a link was followed from, when the pair on screen
-   *  is that followed one — a decision made there settles what the reader went
-   *  to look at, so they return to where they left from. False (and nothing
+   *  is that followed one — rejecting it takes the pair off the list, so the
+   *  reader returns to where they left from. False (and nothing
    *  done) when the pair was reached any other way, or walked away from in the
    *  list since. */
   function returnFromFollowed(sel: SelRef): boolean {
