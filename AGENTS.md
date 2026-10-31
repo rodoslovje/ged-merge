@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to coding agents (Claude Code, Codex, …) when working with code in this repository.
+This file provides guidance to coding agents (Claude Code, Codex, …) when working with code in this repository. It holds the rules most tasks need; the rest lives in the files listed under **Further rules** at the end — read the one that matches your task before you start it.
 
 ## MANDATORY FIRST STEP: work in a worktree, never on main
 
@@ -40,185 +40,35 @@ Node: CI runs the version in `.nvmrc` (24 LTS); newer local versions work too.
 
 - **Minimal change.** Implement a feature with the smallest change that does the job. If you spot a broader improvement (refactor, better abstraction, adjacent cleanup), suggest it to the user instead of doing it unasked.
 - **Reuse before writing.** When making changes, actively look for opportunities to reuse existing code and deduplicate — prefer extending an existing helper/component over adding a parallel one.
-- **One workspace per chat.** Each chat session works in its own git worktree — see the mandatory first-step section at the top of this file. Never edit in the main checkout.
 - **Test and commit per feature/phase.** Every feature or development phase is run through basic tests (`npm run typecheck`, `npm run lint`, relevant `vitest` files) and committed before moving on.
 - **Dev server for user validation.** After a feature is implemented and committed, start `npm run dev` in the worktree, push the branch and open its PR, and give the user both the dev-server URL and the PR link so they can validate it live while CI runs.
-- **Update the changelog on merge.** Before merging to main, add a dated entry (today's date, newest entry at the top) to **both** `changelog/index.html` (English) and `posodobitve/index.html` (Slovenian) — same content in each. Log **only new functionality or major improvements** — skip bug fixes, minor tweaks, internal refactors/cleanup, and doc-only updates entirely. A fix does not become loggable by being folded into a feature bullet: the reader does not care what was broken. **Hard budget: one sentence per bullet**, counted — the `2026-08-05` entry is the model; a bullet that needs a second sentence to explain itself is over budget and must be cut, not trimmed. **Merge related news into one bullet** rather than giving each part its own: a day's entry is a handful of short lines, not a list of everything that changed. **Lead with what is new**, never with the old behaviour: it earns at most one short clause, and only when the new thing makes no sense without it. No internal mechanics and no step-by-step instructions — that is the User's Guide's job. **Order the bullets under one date by area, biggest first**: bullets about the same area of the app (maps, geocoding, sources, charts, …) sit next to each other, the areas run from the one with the most substantial news down, and within an area the larger feature comes before the smaller refinement. Grouping means adjacency only — no sub-headings. When a merge adds bullets to a date that already has some, re-sort the whole entry rather than appending. Commit it in the worktree branch so it merges along with the feature. **The changelog also feeds the landing screen**: the landing page's "What's new" panel reads the newest bullets from these pages at runtime and shows each bullet's `<strong>` lead-in as a headline. So every bullet must start with a `<strong>` lead-in sentence (in both languages) that stands alone as a short headline, the entry must keep the `.changelog-entry` → `h2` + `ul > li` structure, and after editing the changelog check the landing panel shows sensible titles.
-- **Update the User's Guide on merge.** When a merge adds or changes a user-facing workflow, feature or icon, also update the matching section in **both** `guide/index.html` (English) and `navodila/index.html` (Slovenian) — write English first, then mirror it in Slovenian — keeping section numbers, `id` anchors and `§` cross-references consistent across the two. Prefer folding new material into an existing numbered section over renumbering. If the change genuinely needs no guide edit (pure internal work), that's fine — but decide it explicitly, don't skip by default. Commit the guide changes in the worktree branch so they merge with the feature.
-- **Undo is explained once, never per action.** Every action in the app is undoable, so saying so again on each tooltip, hint, intro and guide sentence is noise — the guide's §2 *Undo & redo* (`#undo` in both languages) is the single place that explains the shared history, the hundred-step depth, the one-step-per-tool-pass rule and what clears it. New UI strings and doc sentences must not add "you can undo it", "(undoable)", "one undoable step" or the like; where a whole-file pass being **one** step matters, write "in one step" and let §2 supply the rest. The two exceptions, kept deliberately: the destructive confirmations for deleting a person and merging duplicates, where the reassurance is the point of the sentence. Controls that *are* undo (Undo/Redo, *Undo reject*, the shortcut sheet) are unaffected.
-- **Keep translations in parity.** Every user-facing string change ships in both languages in the same merge: UI strings in `src/locales/en.ts` **and** `src/locales/sl.ts`, plus the paired English/Slovenian changelog and guide pages above. When writing Slovenian guide or changelog copy, reuse the app's existing Slovenian UI terms (grep `src/locales/sl.ts`) so the docs and the interface agree. Follow the **Writing Slovenian copy** section below.
-
-## Writing Slovenian copy (sl.ts · navodila/ · posodobitve/)
-
-The user reads the Slovenian pages closely and judges them **as Slovenian, not as a translation**. Before committing any Slovenian sentence, re-read it without the English source in view; if it only parses once you know the English underneath, rewrite it from the meaning.
-
-- **No transposed English.** Recurring calques caught in review — never reproduce them: *"velja skozi vsa navodila"* (holds throughout → `velja povsod v teh navodilih`), *"vanj primerjate"* (compare into it — impossible verb+case), *"Najdba je v vašo presojo"* (yours to judge → `vprašanje za vašo presojo`), *"privzeta izbira spletnega iskanja"* (opt-in ≠ *privzeta izbira* — it is `privolitev v spletna iskanja`), *"poskusite znova čez trenutek"* (→ `malo pozneje`), *"eno po eno"* patterns forced against gender. When an English idiom has no Slovenian twin, say the plain thing.
-- **Terminology: the UI wins, one concept = one name.** Grep `src/locales/sl.ts` for a term before writing it into a doc. Fixed choices: **diagram** (not *grafikon*), **mediji/medijski** (never *predstavnost*), **rod** (not *generacija*), **krogec** for map dots only (the teardrop `PinIcon` alone is **bucika**, fem.), **stopnja ujemanja** (never *ocena/rezultat/točke*), **prednastavitev**, **vhodna datoteka** (never *dohodna*, *primerjalna* or *uvožena*), **izhodiščna oseba** (not *začetna*), **hramba** for a GEDCOM REPO (never *repozitorij*), **Pregled** for the health check, **Ponovi** for redo (*Uveljavi* = apply), **koren** of a report/tree (never *korenina*), **kazalec** (not *kazalka*), **Ohranjeni** zapis for the kept duplicate (never *preživeli*), **prikriti** for privacy scrubbing (never *prečistiti* — that reads as purging people), **tekstovna datoteka** for a plain `.txt` file (never *besedilna* — *besedilno poročilo* for the Report chart kind is fine, the adjective is wrong only on *datoteka*). A UI chip is never *čip* (that is a microchip). When docs quote a button, copy the label letter-for-letter from `sl.ts` — never name a control from memory or by translating the English label yourself.
-- **Every pronoun needs a findable noun.** Each *jo / ta / vsaka / oba* must have an antecedent in the same sentence that agrees in gender; if you can't point at it, repeat the noun. Long English hints mirrored clause-for-clause are where this dies — rewrite them from the meaning, in a new sentence order.
-- **The program is not a person where agency matters.** Data never *pride*, stamps never *zapustijo seznam*, a branch never *ima koga za nekoga*, and a button label never stands bare as a sentence subject. Use impersonal *se*-forms (*oznaka se shrani*), name the tool once (*orodje Poenoti datoteko …*), or make the user the actor (*potrdite jih z gumbom Zapiši koordinate*). A label inside prose is prefixed with *gumb* or quoted »…«; never splice labels into a sentence so the label itself must carry case — carry the case in the surrounding words.
-- **A word must carry the meaning in Slovenian, not in English.** Caught in review — never reuse: *pariti se* (animal mating → `povezati v par`), *prečistiti* (→ `prikriti`), *neverjeten* for unlikely (→ `malo verjeten`), *prvovrsten* (→ `enakovreden`), *prevesti* for reshaping (→ `pretvoriti`/`prepisati`), *odločen* for records (→ `odločitev je sprejeta`), *trajnost* for persistence (→ `trajno shranjevanje`), *utišan* for dialogs (→ `skrit`), *odkljukati* for untick (it means to tick → `izklopiti`), *pladenj* (tray), *pogon* (engine), *žeton* (chip), *prehod* for a pass (→ `pregled`), *spoštovati pravila* (→ `upoštevati`), *ukrep nad* (→ `na`). If SSKJ doesn't carry the sense, say the plain thing.
-- **Every sentence needs a finite verb and a named subject.** No verbless fragments (*Pregledano tu in razveljavljivo.*), no telegraphic parentheticals (*izriše simbole, poizveduje naslov*), no dropped obligatory complements. Budget: one thought per sentence, at most two subordinate clauses; more than three listed items become a `<ul>`; one topic per guide paragraph.
-- **Placeholders must survive declension.** No gendered participle next to a name slot (*prikaže se {{name}}*, never *prikazan je {{name}}*); counts either get `_one/_two/_few` plural keys or the colon shape (*odstranjenih: {{n}}*), never a frozen genitive (*{{n}} oseb*); a value list substituted after a preposition is stored in the case that frame demands (*prek matere*); one shared suffix cannot serve two cases (*leti* vs *letih* need two keys).
-- **Menu paths take the locative after non-motion verbs:** *uredite v Nastavitvah → Zemljevid*; accusative only with real motion (*dodajte v Nastavitve → Zemljevid*).
-- **Grammar traps that actually occurred:** dual for exactly two (*datoteki se ujemata, njuni zapisi*); attributive l-participle takes the definite form (*zašli datum*, *zašle datume* — never *zašel datum*, *zaidle*); case after prepositions (*ob razponih let*, not *za razponi*); clitic in second position (*tam jo uredite*, not *uredite ali odstranite jo tam*); locative of place names (*v Gradcu*); an empty field/level is **prazen**, not *pust*; adjective agreement in appositions.
-- **Register:** running prose addresses the reader with polite **vi**; button/menu labels are bare imperatives (*Odstrani*, *Izberi mapo*); never slip into *ti* forms (*tvoj*, *uporabiš*, *uvoziš*) — this includes instruction clauses inside tooltips (*delajte*, not *delaj*). Confirm-questions speak in the app's first person (*Nadaljujem?*, *Izvedem ukrep …?*), never as bare imperatives. No colloquial *za* + infinitive (*za pospravit*, *za obkljukati*). Inclusive *mi* (»če ga stisnemo na A4«) is fine for didactic asides.
-- **Punctuation:** quotes are »…« (never „…“ or "…"), thousands in map scales use a space (`1:75 000`), asides take the em-dash — with spaces (not –), *kateri koli / kdor koli* are written apart, UI-label ellipses attach (*Naloži…*).
-- **Changelog `<strong>` lead-ins must stand alone** as Slovenian headlines on the landing panel: explicit subject, literal verb, no metaphor that only makes sense with the body text.
-- **Renames:** when a UI label changes, grep both guide pages **and** both changelogs for the old name and update live references — but changelog entries are historical: an entry keeps the name that was current on its date (the English changelog does the same). Never name a UI value the app doesn't actually display (check what `sl.ts`/the code really renders, e.g. `Živ(a)` vs `Živ/a`).
-- **Mechanical checks before committing Slovenian copy:** (1) `grep -nE 'Ã|Å|Â|â€'` over `sl.ts` and both HTML pages — catches double-encoded UTF-8; (2) en/sl key parity + `{{placeholder}}` parity per key — the only sanctioned drifts are `meaningEn`/`meaningSl`, the `_two`/`_few` duals, `_M`/`_F`/`_Mp`/`_Fp` narrative variants, and the Slovenian remarriage keys that carry the subject in the verb; (3) every `§` number and `#anchor` cross-reference must point at an `id` that exists, in **both** languages; (4) grep for `„`, straight `"` quotes and ` – ` used as an aside dash; (5) check *z/s* before the following consonant (*s takratnimi*, never *z takratnimi*); (6) two singular subjects joined by *ali* take singular, not dual (*ime ali letnica se razlikuje*).
-- **Hand the words to the user.** At the end of a feature, list every new `sl.ts` string and every new Slovenian doc sentence for the user to see (standing agreement), rather than burying Slovenian copy in a larger diff.
-- **Merge to main = PR + green CI + cleanup.** When the user confirms the merge: stop the dev server, `gh pr merge --merge --auto`, wait for it to land, then remove the worktree and delete its branch. CI runs the complete regression suite (build, lint, typecheck, unit tests with coverage, e2e) on the PR, so there is no local rerun on main.
 - **Never kill processes by port — you will kill the user's browser.** `lsof -ti tcp:5173 | xargs kill` (likewise `fuser -k`, `kill $(lsof -t -i:PORT)`) lists *every* process holding a socket on that port, and that includes the browser tab connected to the dev server. This has killed the user's Firefox more than once. Stop the dev server by the process you started: launch it with a known PID (`npm run dev & echo $!`, or a background Bash call) and kill that PID, or at most `pkill -f "vite.*<this worktree path>"`. Never kill a process you did not start.
 - **Keep CI green.** A PR merges only when its checks pass, but main's own CI run can still break (two PRs that pass alone fail together) — fix that immediately, on a new branch through a PR.
-- **Deploy: test site automatically, production only on request.** Every green push to `main` is published to the test site (GitHub Pages, `test.gedmerge.com`). Production (`gedmerge.com`) is released only when the user asks: `gh workflow run deploy-production.yml` releases what the test site serves, or add `-f ref=<sha|tag>` for a specific commit on `main`. It joins the tailnet (the server is reachable only over Tailscale), rsyncs the build to the server and tags the release with its date (`2026-10-04`, then `2026-10-04.2`). Never trigger a production deploy on your own.
-- **E2E tests wait for conditions, never for durations.** This machine runs several sessions' suites at once, so a test written against an idle machine's timings fails on a busy one and the failure ("Timeout of 30000ms exceeded") says nothing about the app. `playwright.config.ts` carries the budgets — 90 s per test, 15 s per assertion, 2 retries, workers scaled to the machine's free capacity — so a new spec needs no timeout of its own unless it is genuinely heavier than that (`test.setTimeout`, as the whole-file scan specs do). In the specs: no `page.waitForTimeout` standing in for "it should have finished by now" — wait for the thing the step produces (`await expect(locator).toBeVisible()`, `toHaveCount(n)`, `toHaveValue(…)`). Assert through a retrying `expect`, never on a value read once (`expect(await x.count()).toBe(n)` reads a list that may still be filling — `await expect(x).toHaveCount(n)` waits for it). Where a step must be repeated until it takes (scroll a virtual list to its end), bound the loop by time with `expect(async () => {…}).toPass({ timeout })`, not by a count of iterations.
+- **Merge-time docs and deploys.** Before a merge, update the changelog and the User's Guide in both languages, following [docs/agents/merging.md](docs/agents/merging.md). Production is deployed only when the user asks — never on your own.
+- **Keep translations in parity.** Every user-facing string change ships in both languages in the same merge: UI strings in `src/locales/en.ts` **and** `src/locales/sl.ts`, plus the paired English/Slovenian changelog and guide pages. Before writing any Slovenian, read [docs/agents/slovenian-copy.md](docs/agents/slovenian-copy.md). At the end of a feature, list every new `sl.ts` string and Slovenian doc sentence for the user.
+- **Undo is explained once, never per action.** New UI strings and doc sentences never add "you can undo it", "(undoable)" or the like — the guide's §2 (`#undo`) covers it. Exceptions and wording: [docs/agents/merging.md](docs/agents/merging.md).
+- **E2E tests wait for conditions, never for durations.** No `page.waitForTimeout`; assert through a retrying `expect` (`toBeVisible`, `toHaveCount(n)`), never on a value read once; bound repeat-until loops with `expect(async () => {…}).toPass({ timeout })`. `playwright.config.ts` carries the budgets, so a new spec needs no timeout of its own unless it is genuinely heavier.
 - **Ask when unsure.** If you need help understanding a requirement or existing behavior, ask the user rather than guessing.
 
-## GEDCOM standard compliance (target formats)
+## GEDCOM output
 
-GED Merge reads anything. What it writes follows the main file's **target format**, chosen per main file. Every feature that creates, rewrites, offers, checks or normalizes GEDCOM lines takes the target format into account. The review of 2026-10-24 found most violations in code written before these rules existed. When you touch such code, bring it into line rather than copying its pattern.
+GED Merge reads anything; what it writes follows the main file's **target format** — Master file (keep the file's own dialect), strict GEDCOM 5.5.1, or strict 7.0 — stored per main file. Any code that creates, rewrites, offers, checks or normalizes GEDCOM lines must follow [docs/agents/gedcom-standard.md](docs/agents/gedcom-standard.md); read it first. The rules most changes touch:
 
-**The three target formats.**
-- **Master file:** respect the file's own format, even where it is not compliant. This mode is for files that another genealogy program keeps writing with its own habits (MacFamilyTree's bare `NOBI`/`LATR`/`DEED`, `PRIV`, numeric dates…), which GED Merge must not break.
-- **GEDCOM 5.5.1:** strict 5.5.1, the last official 5.x. 5.5.5 is a community revision, not a target.
-- **GEDCOM 7.0:** strict 7.0, the current FamilySearch release (patch releases 7.0.x clarify it; files declare `VERS 7.0`). 7.1 is unreleased and is not a target until FamilySearch publishes it.
-
-**The target format is part of the main file's settings.**
-- It is stored with the main file in IndexedDB, not in the global AppSettings, so two files can follow different targets.
-- On first open the app proposes one. It proposes Master file when the file shows a recognised vendor dialect, or many deviations of the same kind; otherwise it proposes the strict mode for the file's declared version. It says which it chose in one line, and the choice can be changed in Settings.
-- Switching from Master file to a strict mode offers to run Normalize, in one step.
-- The format choices in Settings → formats belong to the same per-file settings. In a strict mode, only choices valid in that version are offered (no numeric date patterns, no `PRIV` marker, no vendor source fields).
-
-**What each mode does.**
-
-| | Master file | GEDCOM 5.5.1 / 7.0 |
-|---|---|---|
-| New lines are written in | the file's dialect, where the file shows one; otherwise the standard form | strict form of that version |
-| Dates are written | in the file's date style | **always in the GEDCOM date grammar** (`D MON YYYY`, uppercase months, standard qualifiers, calendar escapes, 7.0 `PHRASE`) |
-| Menus and pickers offer | standard items, plus the dialect's own tags, marked | that version's standard items, plus `_` extensions, marked |
-| The health check | reports every deviation from the declared version; items belonging to the recognised dialect are grouped as the program's dialect | reports every deviation |
-| Normalize fixes | real errors only, and keeps the dialect | everything, to that version |
-| Save writes | the file's own version, dialect kept | that version, converting the file when it was in the other one |
-| An incoming compare file is reshaped | into the master's dialect | into that version |
-
-**What counts as a dialect.** A dialect is a consistent habit that a known program writes, recorded in `VENDOR_TAGS`/`vendorTags.ts` and the format detection: bare vendor tags, numeric dates, `PRIV`, vendor source fields, record-level `WWW`. Everything else is an **error** in every mode, and Normalize fixes it even in Master file mode: dangling pointers, one-way links, unparseable dates, out-of-range enumerations (`QUAY 4`), a missing required `FORM`, wrong case on a standard tag. Master file mode copies only habits the file actually has. Where the file shows no habit, it writes the standard form, so the mode never adds a *new* kind of non-compliance.
-
-**The target is a parameter, not a habit.**
-- Writers receive the target (mode + version + the file's dialect) explicitly.
-- Never re-read HEAD in a helper (`isV7(records)`), and never let a count of the file's lines (`prefersMimeForm`, "the main's last tag, else the incoming's") decide anything in a strict mode.
-- Inside the normalize/merge path the target is the **main** file's, never the compare file's.
-- One helper next to the spec tables answers "may I write this here?" In a strict mode it answers from the standard alone; in Master file mode, from the standard plus the file's dialect.
-
-**Strict modes: the output is valid in its version.**
-- A line the app writes or rewrites must be valid for the target version: allowed under its parent, within cardinality, with the right payload kind (none / `Y` / text / pointer to the right record type) and enumeration spelling. This covers the editor, merge, Tools passes, health-check fixes, CSV import and version conversion.
-- Enumerations follow the version's case and value set: RESN is lowercase in 5.5.1 and an uppercase list in 7.0; PEDI, FAMC.STAT, MEDI, ROLE, NAME.TYPE and QUAY likewise. A 7.0 value outside the set becomes `OTHER` + `PHRASE`.
-- Prefer the version's standard form over an extension: in 7.0 that means `EXID` over `_FID`/`_FSFTID`, `UID` over `_UID`, and `NAME` + `TYPE MARRIED` over `_MARNM`.
-- Every 7.0-only structure (`SNOTE`, `EXID`, `UID`, `CREA`, `NO`, `SDATE`, `TRAN`, `PHRASE`, `MIME`, `CROP`, `INIL`, `@VOID@`, `SEX X`, event `TIME`) needs a stated 5.5.1 form. The reverse holds for 5.5.1-only structures (`ROMN`/`FONE`, `RFN`/`RIN`/`AFN`, inline `OBJE`, text `SOUR` citations, `NOTE` records, `SUBN`, `CONC`).
-- Converting between versions (`convertVersion` → `migrateVersion`) produces a file valid in the target version. A structure with no counterpart becomes a `_` extension, or a NOTE when its text is the point; it is never left in the source version's form. Every rewrite is listed in the conversion report.
-- Invalid input the user never touched may stay as read until Normalize runs, for losslessness. The health check reports it, and the save preview says how much remains and offers the fix.
-
-**Every download goes through one path.** Save, privacy export, branch export, Tools → Normalize, and any new export use `prepareDownload` in `src/save/outputFile.ts`, then `serializeGedcom` with `outputOptions`. Never serialize a download by hand: that skips the HEAD/GEDC/CHAR/SUBM/TRLR repair, the HEAD.SOUR stamp and HEAD.SCHMA. This holds in every mode; the file-level structure is always made valid.
-
-**Extension tags.**
-- In a strict mode an extension tag always starts with `_`. A bare vendor tag (`RACE`, `NOBI`, `LATR`, `DEED`, `ILL`, `PRIV`, `SEPA`, `PERI`, `FILN`, `EDTN`, `WWW` on a record…) is never written: use the `_` form, or the standard structure that carries the meaning. In Master file mode a bare vendor tag is written only when the file's dialect already uses it.
-- In 7.0 every `_` tag is declared in HEAD.SCHMA (`writeSchema`) and written uppercase. 7.0 tags are `[A-Z0-9_]`, so clear `GedNode.spelling` when writing 7.0.
-- A FamilySearch-registered tag (`gedcom/extensionRegistry.ts`) gets the registry's URI. Any other tag gets a GED Merge terms page (`gedcom/extensionTerms.ts`, served under `gedmerge.com/terms/`). A tag GED Merge starts writing needs its terms page in the same merge, and that page must be live on production before files declaring it ship.
-- Don't invent an extension where a standard structure exists: a media description is a `NOTE`, a filing number is `REPO.CALN`, a source's agency is `DATA.AGNC`.
-
-**One source of truth for the standard.**
-- `src/tools/conformance/spec70.ts` and `spec551.ts` hold which tags exist, where, how often, with which payload and enumeration.
-- `spec70.ts` is generated by `scripts/gedcom7-spec-table.ts` from a **pinned FamilySearch/GEDCOM release tag** (e.g. `v7.0.18`), never from `main`, which carries 7.1 work. The generated file records the tag it came from. Moving to a newer 7.0.x is a deliberate regeneration reviewed as its own change.
-- Do not add another hard-coded list of tags, enum values or "is this standard?" predicates. Several already exist (`KNOWN_TAGS`, the event-order lists, `NAME_TYPES_*`, `STAT_ENUM`, the PEDI list in `migrate.ts`, `QUAY_VALUES`, …) and are being folded into the tables.
-- New code asks the tables, through a helper next to them when one is missing. `VENDOR_TAGS` supplies labels, the owning program (the dialect) and standard equivalents for extensions; it never decides what is standard.
-
-**The UI shows what is standard.**
-- Pickers (add event/attribute, name type, media format, privacy, ASSO role, PEDI, QUAY, sex …) list what the target allows, read from the spec tables.
-- Extensions and dialect tags appear in a separate, visibly marked part of a menu.
-- A feature the version cannot carry is hidden, or says why it is unavailable. It never silently writes an extension.
-- Every non-standard tag is visibly marked wherever it is shown (Edit rows, menus, chips, merge review, charts, reports, health check). The marks are the ◦ glyph and the "(TAG)" suffix, through `eventDisplayLabel` / `eventGlyph` in `gedcom/eventTags.ts`. Never index `EVENT_GLYPHS` directly or keep a local label list.
-
-**The health check knows the standard and repairs it.**
-- Every standard rule a writer obeys is also a health-check rule, checked against the file's **declared** version's table, never a union of versions. That means tags from the other version, bare vendor tags, `_` tags with a standard equivalent in this version, payload kind, empty pointers, cardinality, enumerations, value grammars (DATE, AGE, LANG, MIME, URI, LATI/LONG) and reciprocal links from both sides.
-- Dates are judged against the GEDCOM date grammar, never against the file's own style.
-- Offer an auto-fix wherever the repair is mechanical. Build it on the conversions `migrate.ts` already has rather than writing a second implementation.
-- A fix must write valid lines for the target, be idempotent, run through `applyPassSafely` as one undo step, and not create a finding that another fix undoes (no ping-pong).
-- Prefer repairing over deleting. A one-way link gets its missing back-pointer; a dangling 7.0 pointer that carries detail becomes `@VOID@`.
-- A problem only the save repairs (header, trailer, SCHMA) is shown as "repaired on save", not hidden.
-
-**Merging and importing keep the main's target.**
-- Compare-file content is migrated to the main's version and reshaped to its target before it is copied.
-- Copied records get a fresh xref whenever theirs is not valid for the target version (7.0: `@[A-Z0-9_]+@`, not `@VOID@`; 5.5.1: at most 20 characters between the `@`s).
-- Unparsed (`verbatim`) lines are not carried from one file into the other.
-- Pointers stay reciprocal on both sides.
-
-**Test it like the standard would.**
-- A new writer, fix or conversion gets a unit test that runs its output through `validateConformance` in the strict 5.5.1 and 7.0 modes and asserts that it adds no finding. Where its Master file behaviour differs, a test also shows that it copies the dialect it was given.
-- A new health-check rule gets one negative fixture per violation class, so a lenient table entry can't slip back in.
-
-**Performance on 500k-person files.**
-- No `records.find(...)` per item inside a loop over people, citations or links: build an xref index once, or use the dataset's own maps.
-- Walk the tree once per pass, keeping ancestors on a push/pop stack rather than copying an array per node.
-- Allocate xrefs from one counter per prefix.
-- Batch new records into place instead of calling `insertRecord` per record.
-- Group repeated health-check findings (count + samples), and compute counts in the worker.
+- **The target is a parameter.** Writers receive mode + version + dialect explicitly; never re-read HEAD in a helper. Inside normalize/merge the target is always the **main** file's.
+- **Every download goes through one path:** `prepareDownload` in `src/save/outputFile.ts`, then `serializeGedcom` with `outputOptions`.
+- **Extensions:** in a strict mode an extension tag starts with `_`; a bare vendor tag is never written.
+- **One source of truth:** `src/tools/conformance/spec70.ts` / `spec551.ts` decide what is standard. Never add another hard-coded tag or enum list.
+- **Mark non-standard tags** through `eventDisplayLabel` / `eventGlyph` in `gedcom/eventTags.ts`.
+- **Test like the standard:** a new writer, fix or conversion gets a unit test that runs its output through `validateConformance` in strict 5.5.1 and 7.0.
+- **500k-person files:** no `records.find(...)` inside a loop — build an xref index once.
 
 ## Architecture
 
-**Browser-only React + TypeScript + Vite app.** No backend; all data stays local.
+**Browser-only React + TypeScript + Vite app.** No backend; all data stays local. `GedNode` (`src/gedcom/types.ts`) is the lossless raw line tree everything serializes from; `Individual` / `Family` / `Dataset` are a typed projection with a `.raw` back-reference. Heavy work runs in `src/worker/gedcom.worker.ts`. Edit and Merge views stay mounted and are toggled with CSS `display`.
 
-### Data model (two layers)
+**Styling:** plain global CSS. Use the tokens in `src/theme/heritage-pine.css`, never a raw hex or radius; a new token is defined in both themes; avoid `!important`; breakpoints are `1100` / `880` / `720` / `560`.
 
-`src/gedcom/types.ts` defines both:
-- **`GedNode`** — lossless raw line tree (level/tag/value/children). Everything serializes from this; no information is lost.
-- **Typed domain model** (`Individual`, `Family`, `Dataset`) — a projection built on top for matching and UI. Each domain object keeps a `.raw` back-reference to its `GedNode`.
-
-### Web Worker
-
-All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The worker owns the parse → normalize → match pipeline and communicates via typed messages (`src/worker/messages.ts`):
-
-- `parse` → emits `parsed` (detections and, for the main, the inferred profile — **never the `Dataset`**: the main thread builds its own copy from the same bytes in `src/state/localLoad.ts`, because cloning a typed dataset across the boundary cost ~18 s on a 500k-person file; only a table-built compare travels) and then `matching`/`matched`. The compare's consolidation of incoming duplicates is announced as clusters the main thread replays.
-- `parseCsv` → loads a CSV or spreadsheet into the compare slot: a genealogical-index matches export (indeks.rodoslovje.si), matched pair by pair, or a Slovenian parish-register index (Matricula P/K sheets), matched by the ordinary engine. **Answers asynchronously** (a workbook must be inflated), guarded by a compare generation so a superseded file cannot land
-- `setStart` → re-ranks the last match result by kinship distance; emits `matching`/`matched` carrying only the new order (a `KinshipRanking` of positions into the list the main thread already holds)
-- `scoreDetail` → one pair's score breakdown for the score tooltip; the match list itself travels without breakdowns
-
-The worker keeps its own copies of `mainDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
-
-### Normalization
-
-When the compare file loads, `src/normalize/` reshapes it to match the main file's "house style" — date format (e.g. `DD.MM.YYYY` vs `JAN 1900`), place layout (`structured-addr` / `packed-plac` / …), and link languages (Matricula, Geneanet). The `NormalizationReport` summarizes what changed. Downstream matching compares like-for-like.
-
-### Matching
-
-`src/match/engine.ts` scores each main/compare individual pair 0–100 over weighted field components (surname, given name, birth date/place, parents, partners, children, marriage). Hard gates on surname/given/year-gap prune implausible pairs before scoring. `src/match/distance.ts` re-ranks results by kinship hops from the home person. The full algorithm — pipeline stages, penalties, calibrated thresholds, and how to verify changes — is documented in [MATCHING.md](MATCHING.md).
-
-### App state (App.tsx)
-
-Both **Edit** and **Merge** mode views stay mounted simultaneously and are toggled with CSS `display`, not conditional rendering — avoids remounting large unvirtualized lists on mode switches.
-
-Key state:
-- `main` / `compare` — `SlotState` (empty → loading → loaded | error)
-- `lastMainFile` — the last successfully loaded main file, preserved while a reload is in progress so the views don't flash back to the landing page
-- `decisions` — `Map<string, CandidateDecision>` keyed by `decisionKey("individual", mainId, compareId)`
-- **Unified undo/redo** stack covers both edit patches (`RecordPatch[]`) and merge decisions in one history
-
-### Save flow
-
-`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. After confirming, the live `mainDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
-
-### Styling
-
-Plain global CSS (no CSS Modules / CSS-in-JS). Files load in a deliberate order — keep it:
-
-`theme/fonts.css` → `theme/heritage-pine.css` → `index.css` → `theme/components.css` (overrides win last). `src/guide.css` is the standalone guide page.
-
-- **`theme/heritage-pine.css` is the single source of design tokens** (`--bg`, `--panel`, `--accent`, `--danger`, `--status-*`, `--sex-*`, `--state-*`, `--node-*`, `--radius*`, …). `index.css` is layout/components; `components.css` is targeted overrides that must win the cascade.
-- **Use a token, don't hardcode.** No raw hex/`rgb()` for anything that maps to an existing token. Colors → the `--*` color tokens; corner radii → the `--radius-sm` / `--radius` / `--radius-lg` / `--radius-pill` scale; destructive UI → `--danger` (+ `--danger-soft` for tinted fills); male/female → `--sex-male` / `--sex-female`; field accents (new / changed / link / importable) → `--status-*`.
-- **New semantic color ⇒ new token, defined in *both* themes.** Add it to the dark `:root` *and* the `[data-theme="light"]` block. A color used in only one place can stay literal, but anything reused or theme-sensitive becomes a token. Don't use `var(--x, #fallback)` to paper over a missing definition — define `--x` instead (a dangling token with a fallback hides the gap and drifts).
-- **Don't tokenize a foreground color that sits on a hardcoded colored background** (e.g. the status chips `background:#14492f; color:#…`) unless you token-ize the background too — otherwise light theme breaks. Convert the pair together or leave both literal.
-- **Avoid `!important`** — fix specificity instead (e.g. match the descendant-selector weight and rely on source order). The few existing uses are for genuine cases (drag cursor, responsive grid resets).
-- **Breakpoints (max-width): `1100` / `880` / `720` / `560`** — reuse these, don't invent new ones. Most overrides are grouped in the responsive section at the bottom of `index.css`; some live next to their component.
-
-Sanity check after CSS edits: every referenced var must resolve to a definition, and `npm run build` must pass (it compiles the CSS).
+Worker messages, normalization, matching, app state, the save flow and the full styling rules: [docs/agents/architecture.md](docs/agents/architecture.md).
 
 ### Module map
 
@@ -236,3 +86,13 @@ Sanity check after CSS edits: every referenced var must resolve to a definition,
 | `src/ui/` | React components |
 | `src/locales/` | i18n strings (English `en`, Slovenian `sl`) via i18next |
 | `src/worker/` | Web Worker entry point + message types |
+
+## Further rules
+
+| File | Read it when |
+|------|--------------|
+| [docs/agents/slovenian-copy.md](docs/agents/slovenian-copy.md) | writing any Slovenian (`sl.ts`, `navodila/`, `posodobitve/`) |
+| [docs/agents/gedcom-standard.md](docs/agents/gedcom-standard.md) | code creates, rewrites, offers, checks or normalizes GEDCOM lines |
+| [docs/agents/merging.md](docs/agents/merging.md) | the user approves a merge: changelog, User's Guide, undo wording, production deploy |
+| [docs/agents/architecture.md](docs/agents/architecture.md) | touching the worker, normalization, matching, app state, save flow or CSS |
+| [MATCHING.md](MATCHING.md) | changing match scoring |
