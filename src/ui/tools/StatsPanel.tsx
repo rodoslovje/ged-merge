@@ -463,7 +463,7 @@ export function StatsPanel({
                 <StatTile label={t("stats.oldest")} value={t("stats.years", { count: ov.oldest.age })} sub={<PersonLink dataset={dataset} id={ov.oldest.id} fallback={ov.oldest.id} onNavigate={onNavigate} />} />
               )}
               {ov.largestFamily && (
-                <StatTile label={t("stats.largestFamily")} value={t("stats.children", { count: ov.largestFamily.children })} onClick={() => choose("tiles", "largest", t("stats.largestFamily"), [ov.largestFamily!.id], true)} picked={pickedIn("tiles") === "largest"} />
+                <StatTile label={t("stats.largestFamily")} value={t("stats.children", { count: ov.largestFamily.children })} sub={<Couple dataset={dataset} id={ov.largestFamily.id} onNavigate={onNavigate} />} />
               )}
               {ov.childrenPerFamily && (
                 <StatTile label={t("stats.childrenPerFamily")} value={dec(ov.childrenPerFamily.value)} />
