@@ -29,6 +29,14 @@ export interface Column {
 /** Show values over the columns only where they still fit side by side. */
 const VALUE_LABELS_UP_TO = 13;
 
+/** The largest value, at least 1 — by a loop: a file's surname or place list
+ *  can run past the arguments a `Math.max(...)` spread may take (Safari: 65 536). */
+function largestValue(items: readonly { value: number }[]): number {
+  let max = 1;
+  for (const item of items) if (item.value > max) max = item.value;
+  return max;
+}
+
 export function ColumnChart({
   columns,
   onPick,
@@ -46,7 +54,7 @@ export function ColumnChart({
    *  the hover tip still names every column. */
   labelEvery?: number;
 }) {
-  const max = Math.max(1, ...columns.map((c) => c.value));
+  const max = largestValue(columns);
   const labelled = columns.length <= VALUE_LABELS_UP_TO;
   return (
     // With every other label blank, a written one may spill over its blank neighbours.
@@ -106,7 +114,7 @@ export function BarList({
   labelWidth?: string;
 }) {
   const { t } = useTranslation();
-  const max = fixedMax ?? Math.max(1, ...rows.map((r) => r.value));
+  const max = fixedMax ?? largestValue(rows);
   const shown = limit ? rows.slice(0, limit) : rows;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
