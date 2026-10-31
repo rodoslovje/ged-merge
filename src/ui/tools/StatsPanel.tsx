@@ -397,9 +397,12 @@ export function StatsPanel({
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
 
   /** Top names or occupations per century, as chips that list their people. */
-  const centuryTable = (id: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => withCsv(
+  const centuryTable = (id: string, itemHead: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => withCsv(
     id,
-    () => [[t("stats.centuryCol"), "", t("stats.csv.count")], ...rows.flatMap((row) => row.cells.flatMap((list, col) => list.map((b) => [`${row.century}–${row.century + 99}`, columns.length > 1 ? `${columns[col].head}: ${b.label}` : b.label!, b.count])))],
+    // With a column per sex, the sex gets a column of its own in the export.
+    () => columns.length > 1
+      ? [[t("stats.centuryCol"), t("stats.sex"), itemHead, t("stats.csv.count")], ...rows.flatMap((row) => row.cells.flatMap((list, col) => list.map((b) => [`${row.century}–${row.century + 99}`, columns[col].head, b.label!, b.count])))]
+      : [[t("stats.centuryCol"), itemHead, t("stats.csv.count")], ...rows.flatMap((row) => row.cells[0].map((b) => [`${row.century}–${row.century + 99}`, b.label!, b.count]))],
     <table className="stats-table">
       <thead>
         <tr><th>{t("stats.centuryCol")}</th>{columns.map((c) => <th key={c.head}>{c.head}</th>)}</tr>
@@ -662,6 +665,7 @@ export function StatsPanel({
             {scope.sex !== "M" && card("givenFemale", t("stats.givenFemaleTitle"), null, ranked("givenFemale", t("stats.givenName"), names.givenFemale, 20, "female"))}
             {card("byCentury", t("stats.namesByCentury"), null, centuryTable(
               "byCentury",
+              t("stats.givenName"),
               [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
@@ -796,6 +800,7 @@ export function StatsPanel({
             {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 20))}
             {card("jobsByCentury", t("stats.occupationsByCentury"), null, centuryTable(
               "jobsByCentury",
+              t("stats.occupation"),
               [{ head: t("stats.occupations") }],
               jobs.byCentury.map((row) => ({ century: row.century, cells: [row.top] })),
             ), true)}
