@@ -55,6 +55,10 @@ export interface PersonFacts {
   /** The birth (or baptism) place and the death (or burial) place, `""` for none. */
   birthPlace: string;
   deathPlace: string;
+  /** `place` and `birthPlace` folded for search (see `foldSearch`), `""` for none —
+   *  folded once here, not per person on every keystroke of the place filter. */
+  placeKey: string;
+  birthPlaceKey: string;
   /** The birth date as `year-month-day`, when it names the day exactly — what twins share. */
   birthDay?: string;
   /** Days from the birth to the baptism (or christening), when both name the day. */
@@ -288,6 +292,8 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
       birthPlace,
       deathPlace,
+      placeKey: fold(place) ?? "",
+      birthPlaceKey: fold(birthPlace) ?? "",
       birthDay: dayKey(birth),
       baptismDays: baptismDays(indi),
       occupations: listedValues(indi, "OCCU"),

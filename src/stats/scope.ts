@@ -62,7 +62,7 @@ export function scopeFacts(
       if (scope.from !== undefined && p.birthYear < scope.from) return false;
       if (scope.to !== undefined && p.birthYear > scope.to) return false;
     }
-    if (place && !foldSearch(p.place).includes(place)) return false;
+    if (place && !p.placeKey.includes(place)) return false;
     return true;
   });
 }

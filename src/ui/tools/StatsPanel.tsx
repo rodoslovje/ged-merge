@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { computeKinship, computeLineSides } from "../../tools/batch";
@@ -174,10 +174,13 @@ export function StatsPanel({
   const statsStart = ownStart && dataset.individuals.has(ownStart) ? ownStart : startId;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
   const kinship = useMemo(() => (lined && statsStart ? computeKinship(dataset, statsStart) : null), [lined, dataset, statsStart, seenVersion]);
-  const base = useMemo(() => (facts ? scopeFacts(facts, scope, kinship, statsStart) : []), [facts, scope, kinship, statsStart]);
+  // The fields show each keystroke at once; the numbers follow when React has
+  // a moment — a year typed digit by digit (1, 18, 185, 1850) re-scopes once.
+  const settledScope = useDeferredValue(scope);
+  const base = useMemo(() => (facts ? scopeFacts(facts, settledScope, kinship, statsStart) : []), [facts, settledScope, kinship, statsStart]);
   const [filtersOpen, setFiltersOpen] = useState(readFiltersOpen);
   const toggleFilters = () => setFiltersOpen((open) => { writeFiltersOpen(!open); return !open; });
-  const scoped = useMemo(() => (facts ? applyCountry(facts, base, scope) : undefined), [facts, base, scope]);
+  const scoped = useMemo(() => (facts ? applyCountry(facts, base, settledScope) : undefined), [facts, base, settledScope]);
   const chips = useMemo(() => {
     const byCode = new Map<string, CountryChip>();
     for (const p of base) {
