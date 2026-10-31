@@ -15,7 +15,7 @@ import {
   type CenturyPoint,
   type Share,
 } from "../../stats/aggregate";
-import { birthStats, CAUSE_AGE_MIN, deathStats, occupationStats } from "../../stats/vitals";
+import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -531,9 +531,9 @@ export function StatsPanel({
               {life.female && <StatTile tone="female" label={t("stats.meanAgeWomen")} value={dec(life.female.value)} />}
             </section>
             {card("ageAtDeath", t("stats.ageAtDeath"), null, buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
-            {card("lifeByCentury", t("stats.lifeByCentury"), t("stats.byBirthCentury"), centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
-            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), t("stats.byBirthCentury"), centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
-            {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), t("stats.byBirthCentury"), centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
+            {card("lifeByCentury", t("stats.lifeByCentury"), null, centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
+            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
+            {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
             {card("oldest", t("stats.oldestList"), null, (
               <ol className="stats-oldest">
                 {life.oldest.map((o) => (
@@ -563,7 +563,7 @@ export function StatsPanel({
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}
             {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
-            {card("childrenByCentury", t("stats.childrenByCentury"), t("stats.byFamilyCentury"), centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
+            {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
             {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
             {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
             {card("motherFirst", t("stats.motherFirst"), t("stats.nFamilies", { count: total(fams.motherFirst) }), buckets("motherFirst", t("stats.motherFirst"), fams.motherFirst, { families: true, tone: "female" }))}
@@ -593,7 +593,7 @@ export function StatsPanel({
         {deaths && (
           <>
             {card("causes", t("stats.causes"), null, ranked("causes", t("stats.causes"), deaths.causes, 15))}
-            {card("causeAge", t("stats.causeAge"), t("stats.causeAgeNote", { n: CAUSE_AGE_MIN }), (
+            {card("causeAge", t("stats.causeAge"), null, (
               <BarList
                 limit={15}
                 picked={pickedIn("causeAge")}
