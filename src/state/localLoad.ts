@@ -7,7 +7,7 @@ import { normalizeDataset } from "../normalize/normalize";
 import { applyNormPatch } from "../normalize/normPatch";
 import { collectLayoutValues, primePlaceExportFormat } from "../normalize/profile";
 import type { MainProfile } from "../normalize/types";
-import { mergeDuplicate } from "../tools/mergeDuplicate";
+import { consolidateDuplicates } from "../tools/mergeDuplicate";
 import type { WorkerRequest, WorkerResponse } from "../worker/messages";
 
 type Parsed = Extract<WorkerResponse, { type: "parsed" }>;
@@ -135,9 +135,7 @@ export class LocalLoads {
     if (msg.consolidated) {
       const currentCompare = this.lastCompare?.fileName === msg.fileName ? this.lastCompare.dataset : undefined;
       if (!currentCompare) return undefined;
-      for (const { keepId, mergeIds } of msg.consolidated) {
-        for (const id of mergeIds) mergeDuplicate(currentCompare, keepId, id, { status: "confirmed", fields: {} }, rawLabel);
-      }
+      consolidateDuplicates(currentCompare, msg.consolidated);
       // A fresh identity, so everything derived from the compare recomputes.
       return { ...currentCompare };
     }
@@ -227,6 +225,3 @@ function nextTask(): Promise<void> {
   });
 }
 
-/** The worker merges with a no-op translator (it has no i18n); the replay must
- *  write the very same text. */
-const rawLabel = (key: string) => key;

@@ -16,7 +16,7 @@ import { applyRecordsPatch } from "../state/mainSync";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
 import { matchGiPairs } from "../match/giMatch";
-import { mergeDuplicate } from "../tools/mergeDuplicate";
+import { consolidateDuplicates } from "../tools/mergeDuplicate";
 import { kinshipRanking } from "../match/distance";
 import type { MatchResult, ScoredMatchResult } from "../match/types";
 import { parseCompareTable } from "../csv/compareCsv";
@@ -350,11 +350,7 @@ function maybeMatch(): void {
   // compare so the merge and tree see a single record carrying all the data.
   if (result.incomingDuplicates?.length) {
     const clusters = result.incomingDuplicates;
-    for (const { keepId, mergeIds } of clusters) {
-      for (const id of mergeIds) {
-        mergeDuplicate(compareNormalized, keepId, id, { status: "confirmed", fields: {} }, rawLabel);
-      }
-    }
+    consolidateDuplicates(compareNormalized, clusters);
     const consolidated = clusters.reduce((n, c) => n + c.mergeIds.length, 0);
     result = { individuals: result.individuals };
     if (lastCompareMeta?.report) lastCompareMeta.report.consolidatedDuplicates = consolidated;
@@ -379,9 +375,6 @@ function postMatched(result: MatchResult | undefined, main: Dataset, list: Match
   );
 }
 
-/** Field labels are irrelevant to the merges replayed here, so use a no-op
- * translator (the worker has no i18n context). */
-const rawLabel = (key: string) => key;
 
 function post(res: WorkerResponse, transfer: Transferable[] = []): void {
   (self as DedicatedWorkerGlobalScope).postMessage(res, transfer);
