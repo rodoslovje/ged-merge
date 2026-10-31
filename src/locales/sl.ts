@@ -172,7 +172,7 @@ export const sl = {
   "stats.completeness": "Popolnost podatkov",
   "stats.has.birthDate": "Datum rojstva",
   "stats.has.birthPlace": "Kraj rojstva",
-  "stats.has.deathDate": "Datum smrti (pri umrlih)",
+  "stats.has.deathDate": "Datum smrti",
   "stats.has.place": "Kateri koli kraj",
   "stats.has.mapped": "Na zemljevidu",
   "stats.has.parents": "Starši",

@@ -166,7 +166,7 @@ export const en = {
   "stats.completeness": "Completeness",
   "stats.has.birthDate": "Birth date",
   "stats.has.birthPlace": "Birth place",
-  "stats.has.deathDate": "Death date (of the deceased)",
+  "stats.has.deathDate": "Death date",
   "stats.has.place": "Any place",
   "stats.has.mapped": "On the map",
   "stats.has.parents": "Parents",
