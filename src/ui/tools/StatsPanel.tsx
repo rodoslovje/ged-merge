@@ -21,6 +21,7 @@ import { InfoIcon } from "../icons/InfoIcon";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
+import { useVirtualList } from "../useVirtualList";
 import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
 import { ToolsLoading } from "./shared";
@@ -43,8 +44,6 @@ interface Pick {
   families: boolean;
 }
 
-/** How many people a picked bar lists before asking. */
-const LIST_LIMIT = 100;
 
 /** Cards that share another card's explanation: the overview's top five are the names page's lists. */
 const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale" };
@@ -612,8 +611,9 @@ function YearInput({ value, onChange, label }: { value?: number; onChange: (v: n
 /** The people (or couples) behind a picked bar, each opening in Edit. */
 function PickList({ pick, dataset, onNavigate, onClose }: { pick: Pick; dataset: Dataset; onNavigate: (id: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
-  const [all, setAll] = useState(false);
-  const shown = all ? pick.ids : pick.ids.slice(0, LIST_LIMIT);
+  // The whole list, windowed: a bar can stand for half a million people, and
+  // only the rows in the scroll box are ever mounted.
+  const virtual = useVirtualList({ count: pick.ids.length, estimate: 34, itemsKey: pick.ids });
   return (
     <div className="stats-pick">
       <div className="stats-pick-head">
@@ -622,17 +622,17 @@ function PickList({ pick, dataset, onNavigate, onClose }: { pick: Pick; dataset:
         <button type="button" className="tools-issue-link stats-pick-close" onClick={onClose} aria-label={t("stats.closeList")}>✕</button>
       </div>
       <ul className="tools-issues">
-        {shown.map((id, i) => (
-          <li key={id} className={`tools-issue${i % 2 ? " zebra" : ""}`}>
-            {pick.families ? <Couple dataset={dataset} id={id} onNavigate={onNavigate} /> : <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />}
-          </li>
-        ))}
+        <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+        {pick.ids.slice(virtual.start, virtual.end).map((id, k) => {
+          const i = virtual.start + k;
+          return (
+            <li key={id} className={`tools-issue${i % 2 ? " zebra" : ""}`}>
+              {pick.families ? <Couple dataset={dataset} id={id} onNavigate={onNavigate} /> : <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />}
+            </li>
+          );
+        })}
+        <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
       </ul>
-      {pick.ids.length > LIST_LIMIT && !all && (
-        <button type="button" className="tools-issue-link stats-more" onClick={() => setAll(true)}>
-          {t("stats.showAll", { count: pick.ids.length })}
-        </button>
-      )}
     </div>
   );
 }
