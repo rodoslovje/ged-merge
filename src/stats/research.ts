@@ -7,6 +7,9 @@ import { mean, type Bucket, type Mean } from "./aggregate";
 
 /** One event type: how many of its events cite a source, and whose. */
 export interface SourcedTag {
+  /** The tag and whose events these are: RESI, CENS, EVEN, FACT and NCHI
+   *  stand on people and families alike, and the two are counted apart. */
+  key: string;
   tag: string;
   /** Events of this type, and those citing a source. */
   events: number;
@@ -37,8 +40,9 @@ export function researchStats(s: ScopedFacts): ResearchStats {
   const note = (id: string, eventTags: string[], sourcedTags: string[], families: boolean) => {
     const left = [...sourcedTags];
     for (const tag of eventTags) {
-      let t = tags.get(tag);
-      if (!t) tags.set(tag, (t = { tag, events: 0, sourced: 0, missing: [], families }));
+      const key = `${families ? "F" : "I"}:${tag}`;
+      let t = tags.get(key);
+      if (!t) tags.set(key, (t = { key, tag, events: 0, sourced: 0, missing: [], families }));
       t.events++;
       const at = left.indexOf(tag);
       if (at >= 0) {

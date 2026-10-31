@@ -18,8 +18,8 @@ import {
 import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { migrationStats } from "../../stats/migration";
 import { COUPLE_KINSHIP, lineageStats, relatedCouples, type CoupleKinship } from "../../stats/lineage";
-import { researchStats } from "../../stats/research";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { researchStats, type SourcedTag } from "../../stats/research";
+import { eventDisplayLabel, familyEventLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
 import { FileTextIcon, ImageIcon } from "../icons/FormatIcons";
@@ -506,15 +506,17 @@ export function StatsPanel({
     csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places")], ...lineage.repeated.map((r) => [personName(r.id), r.count])]);
     csvOf.set("descendantsGen", () => [[t("stats.csv.generation"), t("stats.csv.count")], ...lineage.descendants.map((g) => [g.gen, g.ids.length])]);
   }
-  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [eventDisplayLabel(s.tag, t), s.sourced, s.events, pct(s.sourced, s.events)])]);
+  /** A research row's event, named as a family's where it stands on families. */
+  const tagLabel = (s: SourcedTag) => (s.families ? familyEventLabel(s.tag, t) : eventDisplayLabel(s.tag, t));
+  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [tagLabel(s), s.sourced, s.events, pct(s.sourced, s.events)])]);
   if (research && researchBySide) csvOf.set("sourcedBySide", () => [
     [t("stats.csv.event"), t("stats.side.paternal"), t("stats.side.maternal")],
     ...research.byTag.map((s) => {
       const side = (r: typeof research) => {
-        const x = r.byTag.find((y) => y.tag === s.tag);
+        const x = r.byTag.find((y) => y.key === s.key);
         return x && x.events ? pct(x.sourced, x.events) : "";
       };
-      return [eventDisplayLabel(s.tag, t), side(researchBySide.paternal), side(researchBySide.maternal)];
+      return [tagLabel(s), side(researchBySide.paternal), side(researchBySide.maternal)];
     }),
   ]);
   if (related) csvOf.set("relatedCouples", () => [[t("stats.relatedCouples"), t("stats.csv.count")], ...COUPLE_KINSHIP.map((k) => [t(`stats.kin.${k}`), related.byKind[k].length])]);
@@ -985,8 +987,8 @@ export function StatsPanel({
                 max={100}
                 picked={pickedIn("sourcedByTag")}
                 rows={research.byTag.map((s) => ({
-                  key: s.tag,
-                  label: eventDisplayLabel(s.tag, t),
+                  key: s.key,
+                  label: tagLabel(s),
                   value: (100 * s.sourced) / s.events,
                   display: pct(s.sourced, s.events),
                   tip: t("stats.shareTip", { n: num(s.sourced), of: num(s.events) }),
@@ -994,8 +996,8 @@ export function StatsPanel({
                   status: gradeOf(s.sourced / s.events),
                 }))}
                 onPick={(key) => {
-                  const s = research.byTag.find((x) => x.tag === key)!;
-                  choose("sourcedByTag", key, t("stats.missingTitle", { what: eventDisplayLabel(s.tag, t) }), s.missing, s.families);
+                  const s = research.byTag.find((x) => x.key === key)!;
+                  choose("sourcedByTag", key, t("stats.missingTitle", { what: tagLabel(s) }), s.missing, s.families);
                 }}
               />
             ))}
@@ -1005,14 +1007,14 @@ export function StatsPanel({
                 picked={pickedIn("sourcedBySide")}
                 rows={research.byTag.map<PairRow>((tag) => {
                   const of = (stats: typeof research) => {
-                    const s = stats.byTag.find((x) => x.tag === tag.tag);
+                    const s = stats.byTag.find((x) => x.key === tag.key);
                     return s && s.events ? { value: (100 * s.sourced) / s.events, display: pct(s.sourced, s.events), tip: t("stats.shareTip", { n: num(s.sourced), of: num(s.events) }), count: s.missing.length } : undefined;
                   };
-                  return { key: tag.tag, label: eventDisplayLabel(tag.tag, t), a: of(researchBySide.paternal), b: of(researchBySide.maternal) };
+                  return { key: tag.key, label: tagLabel(tag), a: of(researchBySide.paternal), b: of(researchBySide.maternal) };
                 })}
                 onPick={(key, side) => {
-                  const s = (side === "a" ? researchBySide.paternal : researchBySide.maternal).byTag.find((x) => x.tag === key)!;
-                  choose("sourcedBySide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.missingTitle", { what: eventDisplayLabel(key, t) })}`, s.missing, s.families);
+                  const s = (side === "a" ? researchBySide.paternal : researchBySide.maternal).byTag.find((x) => x.key === key)!;
+                  choose("sourcedBySide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.missingTitle", { what: tagLabel(s) })}`, s.missing, s.families);
                 }}
               />
             ))}
