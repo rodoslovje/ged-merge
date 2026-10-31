@@ -28,7 +28,7 @@ import { exportStats } from "./statsSvg";
 import { ChartIcon } from "../icons/ChartIcon";
 import { DownloadIcon } from "../icons/DownloadIcon";
 import { downloadText, savedName } from "../download";
-import { toCsv } from "../../stats/csv";
+import { csvStyleFor, percentOf, toCsv } from "../../stats/csv";
 import { lifespanOf } from "../../gedcom/lifespan";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
@@ -307,7 +307,7 @@ export function StatsPanel({
   /** Shares as percentage bars; a pick lists the rows `missing` holds when `listMissing`. */
   const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean, graded = false) => withCsv(
     card,
-    () => [["", t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...items.map(({ label, share }) => [label, share.n, share.of, pct(share.n, share.of)])],
+    () => [["", t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...items.map(({ label, share }) => [label, share.n, share.of, percentOf(share.n, share.of)])],
     <BarList
       max={100}
       picked={pickedIn(card)}
@@ -366,7 +366,7 @@ export function StatsPanel({
       if (node) void exportStats(node, format, base, { title, fileName: base, subtitle: scopeLine() || undefined });
     };
     return [
-      ...(csv ? [{ key: "csv", icon: <FileTextIcon />, label: t("export.csv"), onSelect: () => downloadText(savedName(fileName, `${name}.csv`), toCsv(csv()), "text/csv;charset=utf-8") }] : []),
+      ...(csv ? [{ key: "csv", icon: <FileTextIcon />, label: t("export.csv"), onSelect: () => downloadText(savedName(fileName, `${name}.csv`), toCsv(csv(), csvStyleFor(lang)), "text/csv;charset=utf-8") }] : []),
       { key: "svg", icon: <ImageIcon />, label: t("export.svg"), onSelect: picture("svg") },
       { key: "png", icon: <ImageIcon />, label: t("export.png"), onSelect: picture("png") },
     ];
@@ -508,13 +508,13 @@ export function StatsPanel({
   }
   /** A research row's event, named as a family's where it stands on families. */
   const tagLabel = (s: SourcedTag) => (s.families ? familyEventLabel(s.tag, t) : eventDisplayLabel(s.tag, t));
-  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [tagLabel(s), s.sourced, s.events, pct(s.sourced, s.events)])]);
+  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [tagLabel(s), s.sourced, s.events, percentOf(s.sourced, s.events)])]);
   if (research && researchBySide) csvOf.set("sourcedBySide", () => [
     [t("stats.csv.event"), t("stats.side.paternal"), t("stats.side.maternal")],
     ...research.byTag.map((s) => {
       const side = (r: typeof research) => {
         const x = r.byTag.find((y) => y.key === s.key);
-        return x && x.events ? pct(x.sourced, x.events) : "";
+        return x ? percentOf(x.sourced, x.events) : "";
       };
       return [tagLabel(s), side(researchBySide.paternal), side(researchBySide.maternal)];
     }),
@@ -1053,7 +1053,7 @@ function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
   onClose: () => void;
   onRelate?: (fromId: string, toId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
   // The whole list, windowed: a bar can stand for half a million people, and
   // only the rows in the scroll box are ever mounted.
@@ -1071,7 +1071,7 @@ function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
           return [id, ...person(fam?.husband), ...person(fam?.wife)];
         })]
       : [[t("stats.csv.id"), t("stats.csv.person"), t("stats.csv.years")], ...pick.ids.map((id) => [id, ...person(id)])];
-    downloadText(savedName(fileName, "list.csv"), toCsv(rows), "text/csv;charset=utf-8");
+    downloadText(savedName(fileName, "list.csv"), toCsv(rows, csvStyleFor(i18n.language)), "text/csv;charset=utf-8");
   };
   return (
     <div className="stats-pick">
