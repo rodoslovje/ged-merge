@@ -37,7 +37,7 @@ const death = (year: number): GedEvent => ({ tag: "DEAT", date: { raw: String(ye
 
 const nameOf = (i: Individual) => i.names[0]?.full ?? "";
 const toMap = (list: Individual[]) => new Map(list.map((i) => [i.id, i]));
-const noCtx: FilterContext = { isEdited: () => false, decisionOf: () => undefined, kinshipHops: () => undefined };
+const noCtx: FilterContext = { isEdited: () => false, decisionOf: () => undefined, kinshipHops: () => undefined, fullText: () => "" };
 const filters = (over: Partial<GlobalFilters> = {}): GlobalFilters => ({ ...NO_FILTERS, ...over });
 
 describe("buildSearchRows", () => {
@@ -196,18 +196,24 @@ describe("searchPeople — facets", () => {
     expect(searchPeople(rows, "", filters({ place: "šentvid" }), noCtx).map((r) => r.name)).toEqual(["Marija Kovačič"]);
   });
 
+  it("filters by text in any field via context", () => {
+    const ctx: FilterContext = { ...noCtx, fullText: (id) => (id === male.id ? "kovac ljubljana" : "") };
+    expect(searchPeople(rows, "", filters({ anyField: "Ljubljana Kovač" }), ctx).map((r) => r.name)).toEqual(["Marko Novak"]);
+    expect(hasActiveFilters(filters({ anyField: "  " }))).toBe(false);
+  });
+
   it("filters by attachments", () => {
     expect(searchPeople(rows, "", filters({ hasSources: true }), noCtx).map((r) => r.name)).toEqual(["Marija Kovačič"]);
   });
 
   it("filters by edit status via context", () => {
-    const ctx: FilterContext = { isEdited: (id) => id === female.id, decisionOf: () => undefined, kinshipHops: () => undefined };
+    const ctx: FilterContext = { isEdited: (id) => id === female.id, decisionOf: () => undefined, kinshipHops: () => undefined, fullText: () => "" };
     expect(searchPeople(rows, "", filters({ edited: true }), ctx).map((r) => r.name)).toEqual(["Marija Kovačič"]);
   });
 
   it("filters by decision status via context", () => {
     const decision: MatchDecisionStatus = "confirmed";
-    const ctx: FilterContext = { isEdited: () => false, decisionOf: (id) => (id === male.id ? decision : undefined), kinshipHops: () => undefined };
+    const ctx: FilterContext = { isEdited: () => false, decisionOf: (id) => (id === male.id ? decision : undefined), kinshipHops: () => undefined, fullText: () => "" };
     expect(searchPeople(rows, "", filters({ decision }), ctx).map((r) => r.name)).toEqual(["Marko Novak"]);
   });
 
@@ -216,6 +222,7 @@ describe("searchPeople — facets", () => {
       isEdited: () => false,
       decisionOf: () => undefined,
       kinshipHops: (id) => (id === male.id ? 2 : id === female.id ? 6 : undefined),
+      fullText: () => "",
     };
     expect(searchPeople(rows, "", filters({ maxKinship: 4 }), ctx).map((r) => r.name)).toEqual(["Marko Novak"]);
     expect(searchPeople(rows, "", filters({ maxKinship: 8 }), ctx).map((r) => r.name)).toEqual(["Marija Kovačič", "Marko Novak"]);

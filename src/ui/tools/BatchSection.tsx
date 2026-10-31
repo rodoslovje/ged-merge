@@ -26,6 +26,7 @@ import {
   type BatchCriterion,
   type SavedBatchFilter,
 } from "../../tools/batch";
+import { fullTextLookup } from "../globalSearch";
 import type { RecordPatch } from "../historyTypes";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { createKinshipResolver, lineageClass } from "../../match/kinship";
@@ -115,7 +116,12 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
     [dataset, startId, settings.showKinship, t, ver],
   );
-  const ctx: BatchContext = useMemo(() => ({ lineSides, kinship }), [lineSides, kinship]);
+  const fullText = useMemo(
+    () => fullTextLookup(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+    [dataset, ver],
+  );
+  const ctx: BatchContext = useMemo(() => ({ lineSides, kinship, fullText }), [lineSides, kinship, fullText]);
 
   /** Tags offered by the event filter: the life-cycle basics plus whatever
    *  the file actually uses, in canonical order. */
@@ -262,6 +268,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
       note: { kind: "note", text: "" },
+      anyField: { kind: "anyField", text: "" },
       private: { kind: "private", value: true },
       privateNote: { kind: "privateNote", mode: "has" },
       media: { kind: "media", mode: "none" },
@@ -557,7 +564,7 @@ function CriterionRow({
           }))}
         />
       )}
-      {(c.kind === "name" || c.kind === "place" || c.kind === "note") && (
+      {(c.kind === "name" || c.kind === "place" || c.kind === "note" || c.kind === "anyField") && (
         <input
           className="batch-input"
           value={c.text}
