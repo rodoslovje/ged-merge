@@ -395,6 +395,9 @@ export function StatsPanel({
   const people = scoped.people.length;
   // A scope of one sex colours every chart that is not already about one.
   const scopeTone: Tone | undefined = scope.sex === "M" ? "male" : scope.sex === "F" ? "female" : undefined;
+  // Generations are one person's tree: the page reads neither the line nor the
+  // filters, so it offers only the person.
+  const personal = page === "generations";
   // How many filters narrow the scope — shown on the toggle, so a folded
   // filter row still says it is in force.
   const activeFilters = [
@@ -421,12 +424,14 @@ export function StatsPanel({
         {/* The line and whose line it is stay side by side; the count and the
             filter toggle wrap away first. */}
         <div className="stats-line">
+          {!personal && (
           <Segmented
             label={t("stats.who")}
             value={scope.who}
             onChange={(who) => set({ who })}
             items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
           />
+          )}
           {(lined || page === "generations" || page === "research") && (
             <div className={`stats-start${ownStart && ownStart !== startId ? " own" : ""}`}>
               <StartPersonSelector
@@ -444,6 +449,7 @@ export function StatsPanel({
             </div>
           )}
         </div>
+        {!personal && (
         <div className="stats-head-end">
           <ToolSummary>{t("stats.summary", { count: facts.people.length, scoped: num(people) })}</ToolSummary>
           <button
@@ -459,9 +465,10 @@ export function StatsPanel({
             {activeFilters > 0 && <span className="tools-chip-count"> {activeFilters}</span>}
           </button>
         </div>
+        )}
       </div>
 
-      {filtersOpen && (
+      {filtersOpen && !personal && (
       <div className="stats-scope">
         <div className="stats-scope-row">
           <Segmented
