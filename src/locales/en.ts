@@ -117,6 +117,7 @@ export const en = {
   "stats.about.jobsByCentury": "The five most common occupations among the people born in each century.",
   "stats.baptismMean": "Average days to baptism",
   "stats.twins": "Twin births",
+  "stats.multiples": "Triplets or more",
   "stats.birthsOverTime": "Births over time",
   "stats.birthsByMonth": "Births by month",
   "stats.baptism": "Days from birth to baptism",

@@ -113,8 +113,10 @@ export interface BirthStats {
   /** Days from birth to baptism, for those whose both dates name the day. */
   baptism: Bucket[];
   baptismMean?: Mean;
-  /** Children of one family born on the same day: how many sets, and who. */
+  /** Children of one family born on the same day, in pairs (twins) and in sets
+   *  of three or more: how many sets, and who. */
   twins: { sets: number; ids: string[] };
+  multiples: { sets: number; ids: string[] };
   places: Bucket[];
 }
 
@@ -133,13 +135,15 @@ export function birthStats(s: ScopedFacts): BirthStats {
       else sets.set(key, [child]);
     }
   }
-  const twinSets = [...sets.values()].filter((list) => list.length > 1);
+  const pairs = [...sets.values()].filter((list) => list.length === 2);
+  const larger = [...sets.values()].filter((list) => list.length > 2);
   return {
     perPeriod: byPeriod(s.people, year, id),
     byMonth: byMonth(s.people, (p) => (s.approx || !p.birthApprox ? p.birthMonth : undefined), id),
     baptism: baptismBuckets(withBaptism),
     baptismMean: mean(withBaptism.map((p) => p.baptismDays!)),
-    twins: { sets: twinSets.length, ids: twinSets.flat() },
+    twins: { sets: pairs.length, ids: pairs.flat() },
+    multiples: { sets: larger.length, ids: larger.flat() },
     places: rankText(s.people, (p) => [p.birthPlace], id),
   };
 }

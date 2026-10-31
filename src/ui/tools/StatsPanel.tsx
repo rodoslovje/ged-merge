@@ -537,6 +537,9 @@ export function StatsPanel({
           <>
             <section className="stats-card wide stats-tiles">
               <StatTile label={t("stats.twins")} value={num(births.twins.sets)} sub={t("stats.nPeople", { count: births.twins.ids.length })} onClick={births.twins.sets ? () => choose("birthTiles", "twins", t("stats.twins"), births.twins.ids) : undefined} picked={pickedIn("birthTiles") === "twins"} />
+              {births.multiples.sets > 0 && (
+                <StatTile label={t("stats.multiples")} value={num(births.multiples.sets)} sub={t("stats.nPeople", { count: births.multiples.ids.length })} onClick={() => choose("birthTiles", "multiples", t("stats.multiples"), births.multiples.ids)} picked={pickedIn("birthTiles") === "multiples"} />
+              )}
               {births.baptismMean && <StatTile label={t("stats.baptismMean")} value={dec(births.baptismMean.value)} sub={t("stats.nPeople", { count: births.baptismMean.n })} />}
               {pick?.card === "birthTiles" && (
                 <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />

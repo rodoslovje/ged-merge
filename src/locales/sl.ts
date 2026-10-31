@@ -119,6 +119,7 @@ export const sl = {
   "stats.about.jobsByCentury": "Pet najpogostejših poklicev med osebami, rojenimi v posameznem stoletju.",
   "stats.baptismMean": "Povprečje dni do krsta",
   "stats.twins": "Rojstva dvojčkov",
+  "stats.multiples": "Trojčki ali več",
   "stats.birthsOverTime": "Rojstva skozi čas",
   "stats.birthsByMonth": "Rojstva po mesecih",
   "stats.baptism": "Dnevi od rojstva do krsta",

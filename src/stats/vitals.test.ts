@@ -88,6 +88,7 @@ describe("birthStats", () => {
   it("finds twins, baptism delays, months and places", () => {
     const b = birthStats(scoped());
     expect(b.twins).toEqual({ sets: 1, ids: ["@I3@", "@I4@"] });
+    expect(b.multiples).toEqual({ sets: 0, ids: [] });
     expect(b.baptism.find((x) => x.key === "1")?.ids).toEqual(["@I3@"]);
     expect(b.baptismMean).toEqual({ value: 1, n: 1 });
     expect(b.byMonth[6].count).toBe(2);
