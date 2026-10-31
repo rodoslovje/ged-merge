@@ -3,6 +3,7 @@ import {
   ageBetween,
   agePartsBetween,
   coupleAgesDisplay,
+  daysBetween,
   fullAgeBetween,
   lifespanAge,
   lifespanTooltipOf,
@@ -21,6 +22,23 @@ const d = (year?: number, month?: number, day?: number): GedDate => ({
   year,
   month,
   day,
+});
+
+describe("daysBetween", () => {
+  it("counts days across a leap February, either way round", () => {
+    expect(daysBetween(d(1860, 2, 27), d(1860, 3, 2))).toBe(4);
+    expect(daysBetween(d(1860, 3, 2), d(1860, 2, 27))).toBe(-4);
+  });
+
+  it("reads a two-digit year as that year, not the 1900s", () => {
+    expect(daysBetween(d(99, 12, 31), d(100, 1, 1))).toBe(1);
+  });
+
+  it("needs full dates in one calendar", () => {
+    expect(daysBetween(d(1860, 2), d(1860, 3, 2))).toBeUndefined();
+    expect(daysBetween({ ...d(1700, 1, 1), calendar: "JULIAN" }, d(1700, 1, 5))).toBeUndefined();
+    expect(daysBetween({ ...d(1700, 1, 1), calendar: "GREGORIAN" }, d(1700, 1, 5))).toBe(4);
+  });
 });
 
 describe("ageBetween", () => {

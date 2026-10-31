@@ -1,7 +1,7 @@
 import type { Dataset, GedDate, GedEvent, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { distanceKm } from "../geo/points";
 import { BIRTH_TAGS, birthDateOf, DEATH_TAGS, deathDateOf, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
-import { ageBetween } from "../gedcom/age";
+import { ageBetween, daysBetween } from "../gedcom/age";
 import { birthParentFamilies } from "../gedcom/couple";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
@@ -200,7 +200,7 @@ function baptismDays(indi: Individual): number | undefined {
   const birth = exact("BIRT");
   const baptism = exact("BAPM") ?? exact("CHR");
   if (!birth || !baptism) return undefined;
-  return Math.round((Date.UTC(baptism.year!, baptism.month! - 1, baptism.day!) - Date.UTC(birth.year!, birth.month! - 1, birth.day!)) / 86_400_000);
+  return daysBetween(birth, baptism);
 }
 
 /** Whole months from one dated event to another, when both name the month. */

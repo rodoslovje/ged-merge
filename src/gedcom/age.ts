@@ -37,6 +37,21 @@ export interface AgeParts {
 }
 
 /**
+ * Days from one full date (day, month and year) to another — negative when
+ * `to` comes first. Undefined unless both name the day and the same calendar:
+ * a Julian date and a Gregorian one sit 10–13 days apart on equal components.
+ */
+export function daysBetween(from: GedDate | undefined, to: GedDate | undefined): number | undefined {
+  if (from?.year === undefined || from.month === undefined || from.day === undefined) return undefined;
+  if (to?.year === undefined || to.month === undefined || to.day === undefined) return undefined;
+  const calendar = (d: GedDate) => (d.calendar === "JULIAN" ? "JULIAN" : "GREGORIAN");
+  if (calendar(from) !== calendar(to)) return undefined;
+  // setUTCFullYear, not Date.UTC: that one reads years 0–99 as 1900–1999.
+  const at = (d: GedDate) => new Date(0).setUTCFullYear(d.year!, d.month! - 1, d.day!);
+  return Math.round((at(to) - at(from)) / 86_400_000);
+}
+
+/**
  * {@link ageBetween} broken into calendar components, at the precision both
  * dates share: bare years → `{years}` (may be off by one), months known →
  * `{years, months}`, full dates → `{years, months, days}`.

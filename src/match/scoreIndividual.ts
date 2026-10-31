@@ -1,6 +1,7 @@
 import { isBinarySex } from "../gedcom/sex";
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
 import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
+import { daysBetween } from "../gedcom/age";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
 import type { NameFrequencies } from "./nameFrequency";
 import { displayName, pairTitle, primaryName } from "./relatives";
@@ -697,9 +698,8 @@ function exactBirthsApart(a: Individual, b: Individual): boolean {
   const da = birthDateOf(a);
   const db = birthDateOf(b);
   if (!da || !db || da.qualifier !== "exact" || db.qualifier !== "exact") return false;
-  if (da.day === undefined || da.month === undefined || db.day === undefined || db.month === undefined) return false;
-  const days = Math.abs(Date.UTC(da.year!, da.month - 1, da.day) - Date.UTC(db.year!, db.month - 1, db.day)) / 86_400_000;
-  return days > EXACT_BIRTH_GAP_DAYS;
+  const days = daysBetween(da, db);
+  return days !== undefined && Math.abs(days) > EXACT_BIRTH_GAP_DAYS;
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {
