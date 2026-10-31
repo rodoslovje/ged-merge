@@ -132,7 +132,8 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   await completeness.getByRole("button", { name: "Export" }).click();
   await completeness.getByRole("menuitem", { name: "CSV table" }).click();
   const numbers = readFileSync((await (await cardCsv).path())!, "utf-8");
-  expect(numbers).toContain("Birth place,3,4,75%");
+  // The share is a number a spreadsheet can compute with, not "75 %" text.
+  expect(numbers).toContain("Birth place,3,4,75\r\n");
 
   await completeness.locator(".stats-bar", { hasText: "Birth place" }).click();
   const listCsv = page.waitForEvent("download");
