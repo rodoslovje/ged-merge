@@ -158,7 +158,7 @@ export const en = {
   "stats.sourcesCited": "Sources cited",
   "stats.mediaLinked": "Media linked",
   "stats.meanAgeAtDeath": "Average age at death",
-  "stats.basedOn": "counted: {{n}} of {{of}}",
+  "stats.basedOn": "{{n}} of {{of}}",
   "stats.oldest": "Highest age",
   "stats.years_one": "{{count}} year",
   "stats.years_other": "{{count}} years",

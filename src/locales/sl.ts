@@ -160,7 +160,7 @@ export const sl = {
   "stats.sourcesCited": "Navedeni viri",
   "stats.mediaLinked": "Povezani mediji",
   "stats.meanAgeAtDeath": "Povprečna starost ob smrti",
-  "stats.basedOn": "upoštevanih: {{n}} od {{of}}",
+  "stats.basedOn": "{{n}} od {{of}}",
   "stats.oldest": "Najvišja starost",
   "stats.years_one": "{{count}} leto",
   "stats.years_two": "{{count}} leti",
