@@ -9379,7 +9379,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 }
 .stats-card.wide { grid-column: 1 / -1; }
 .stats-card-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 10px; padding-right: 22px; }
-.stats-card > .stats-columns { margin-top: auto; }
+/* A chart grows into whatever height its row gives the card, never below its own. */
+.stats-card > .stats-columns { flex: 1 1 auto; }
 .stats-columns.spread .stats-col-label { overflow: visible; text-overflow: clip; }
 .stats-card-head h3 { margin: 0; font-size: 0.95rem; }
 .stats-card-note { color: var(--muted); font-size: 0.8rem; }
@@ -9427,7 +9428,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
   cursor: pointer;
 }
 .stats-col:disabled { cursor: default; }
-.stats-col-plot { height: 140px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
+.stats-col-plot { flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
 .stats-col-value { text-align: center; font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats-col-bar {
   display: block;
