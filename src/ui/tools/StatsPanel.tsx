@@ -66,7 +66,10 @@ function shortPlace(value: string, home: string): string {
 }
 
 /** Cards that share another card's explanation: the overview's top five are the names page's lists. */
-const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale", topBirthPlaces: "birthPlaces" };
+const ABOUT_ALIAS: Record<string, string> = {
+  topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale", topBirthPlaces: "birthPlaces",
+  ageAtDeathMale: "ageAtDeath", ageAtDeathFemale: "ageAtDeath", lifeByCenturyMale: "lifeByCentury", lifeByCenturyFemale: "lifeByCentury",
+};
 
 /** Whether the filters are unfolded — the reader's own layout, kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
@@ -219,8 +222,9 @@ export function StatsPanel({
   };
 
   /** A column chart of a by-century average or share. */
-  const centuries = (card: string, title: string, points: CenturyPoint[], format: (v: number) => string, opts: { families?: boolean } = {}) => (
+  const centuries = (card: string, title: string, points: CenturyPoint[], format: (v: number) => string, opts: { families?: boolean; tone?: Tone } = {}) => (
     <ColumnChart
+      tone={opts.tone}
       columns={points.map((p) => ({
         key: String(p.century),
         label: centuryLabel(p.century),
@@ -614,7 +618,11 @@ export function StatsPanel({
               {life.female && <StatTile tone="female" label={t("stats.meanAgeWomen")} value={dec(life.female.value)} />}
             </section>
             {card("ageAtDeath", t("stats.ageAtDeath"), null, buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
+            {scope.sex !== "F" && card("ageAtDeathMale", t("stats.ageAtDeathMale"), t("stats.nPeople", { count: total(life.ageAtDeathMale) }), buckets("ageAtDeathMale", t("stats.ageAtDeathMale"), life.ageAtDeathMale, { tone: "male", labelEvery: 2, label: lowerBound, tipLabel: rangeLabel }))}
+            {scope.sex !== "M" && card("ageAtDeathFemale", t("stats.ageAtDeathFemale"), t("stats.nPeople", { count: total(life.ageAtDeathFemale) }), buckets("ageAtDeathFemale", t("stats.ageAtDeathFemale"), life.ageAtDeathFemale, { tone: "female", labelEvery: 2, label: lowerBound, tipLabel: rangeLabel }))}
             {card("lifeByCentury", t("stats.lifeByCentury"), null, centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
+            {scope.sex !== "F" && card("lifeByCenturyMale", t("stats.lifeByCenturyMale"), null, centuries("lifeByCenturyMale", t("stats.lifeByCenturyMale"), life.byCenturyMale, dec, { tone: "male" }))}
+            {scope.sex !== "M" && card("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), null, centuries("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), life.byCenturyFemale, dec, { tone: "female" }))}
             {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
             {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
             {card("oldest", t("stats.oldestList"), null, (
@@ -746,7 +754,12 @@ export function StatsPanel({
               <BarList
                 limit={listLimit("countryMoves", moves.countryMoves.length, 15)}
                 picked={pickedIn("countryMoves")}
-                rows={moves.countryMoves.map((b) => ({ key: b.key, label: countryMove(b.key), value: b.count, display: num(b.count), count: b.count }))}
+                rows={moves.countryMoves.map((b) => {
+                  // From above, to below: two country names side by side never fit a label.
+                  const [from, to] = b.key.split(">");
+                  const label = <span className="stats-move"><span>{countryName(from)}</span><span>→ {countryName(to)}</span></span>;
+                  return { key: b.key, label, tip: countryMove(b.key), value: b.count, display: num(b.count), count: b.count };
+                })}
                 onPick={(key) => {
                   const b = moves.countryMoves.find((x) => x.key === key)!;
                   choose("countryMoves", key, `${t("stats.countryMoves")} — ${countryMove(key)}`, b.ids);
@@ -968,7 +981,7 @@ function Couple({ dataset, id, onNavigate, nameOnly = false, onRelate }: {
       ))}
       {onRelate && spouses.length === 2 && (
         <button type="button" className="stats-info stats-relate" onClick={() => onRelate(spouses[0], spouses[1])} {...tipProps(t("stats.showRelationship"))}>
-          <ChartIcon size={14} />
+          <ChartIcon size={18} />
         </button>
       )}
     </span>

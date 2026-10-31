@@ -435,6 +435,11 @@ export const CHILD_AGE = 5;
 export interface LifespanStats {
   /** Age at death in five-year bins. */
   ageAtDeath: Bucket[];
+  /** The same, and the average per century of birth, for men and for women apart. */
+  ageAtDeathMale: Bucket[];
+  ageAtDeathFemale: Bucket[];
+  byCenturyMale: CenturyPoint[];
+  byCenturyFemale: CenturyPoint[];
   all?: Mean;
   male?: Mean;
   female?: Mean;
@@ -468,10 +473,14 @@ export function lifespanStats(s: ScopedFacts): LifespanStats {
   }
   return {
     ageAtDeath: histogram(dated, age, id, { start: 0, width: 5, end: 100 }),
+    ageAtDeathMale: histogram(dated.filter((p) => p.sex === "M"), age, id, { start: 0, width: 5, end: 100 }),
+    ageAtDeathFemale: histogram(dated.filter((p) => p.sex === "F"), age, id, { start: 0, width: 5, end: 100 }),
     all: mean(dated.map((p) => age(p)!)),
     male: mean(dated.filter((p) => p.sex === "M").map((p) => age(p)!)),
     female: mean(dated.filter((p) => p.sex === "F").map((p) => age(p)!)),
     byCentury: meanByCentury(dated, by, age, id),
+    byCenturyMale: meanByCentury(dated.filter((p) => p.sex === "M"), by, age, id),
+    byCenturyFemale: meanByCentury(dated.filter((p) => p.sex === "F"), by, age, id),
     byCenturyAdults: meanByCentury(dated.filter((p) => age(p)! >= CHILD_AGE), by, age, id),
     childDeaths,
     oldest: dated

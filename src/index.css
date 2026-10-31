@@ -9414,7 +9414,10 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 /* The ⚭ between a couple comes from a fallback font with a taller line; held to
    the text's own height, a couple's line sits where a single name's does. */
 .stats-couple .muted { line-height: 1; }
-.stats-relate { margin-left: 6px; vertical-align: middle; }
+/* A couple in a list: the names wrap as they need, the diagram button keeps the
+   row's right edge, centred on the pair. */
+.stats-pick .stats-couple { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; flex: 1 1 auto; }
+.stats-relate { margin-left: auto; padding: 4px; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */
@@ -9477,6 +9480,8 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-bar:hover:not(:disabled), .stats-bar.picked { background: var(--panel-2); }
 .stats-bar.picked .stats-bar-label { color: var(--accent); font-weight: 600; }
 .stats-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-move { display: flex; flex-direction: column; line-height: 1.25; }
+.stats-move > span { overflow: hidden; text-overflow: ellipsis; }
 .stats-bar-track { height: 8px; background: var(--stats-track); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
 /* Completeness rows grade the file's own data in the status chips' pairing — the fill in the
@@ -9529,6 +9534,8 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pick-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; }
 .stats-pick-close { margin-left: auto; }
 .stats-pick .tools-issues { max-height: 360px; overflow-y: auto; }
+/* The listed people sit as compact as the search and dropdown rows. */
+.stats-pick .tools-issue { padding: 3px 8px; font-size: 0.85rem; }
 /* Picking findings for one batch: the bar above the list, a box on each row. */
 /* As tall with its buttons as without them, so selecting a row never moves
    the list below. */
