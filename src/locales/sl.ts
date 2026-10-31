@@ -81,7 +81,7 @@ export const sl = {
   "stats.page.occupations": "Poklic",
   "stats.page.migration": "Selitve",
   "stats.page.generations": "Rodovi",
-  "stats.page.research": "Dokumentiranost",
+  "stats.page.research": "Raziskava",
   "stats.meanDistance": "Povprečna razdalja selitve",
   "stats.km": "{{value}} km",
   "stats.emigrants": "Umrli v drugi državi",
