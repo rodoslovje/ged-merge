@@ -9345,6 +9345,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-start.own .start-icon-btn { color: var(--accent); }
 .stats-head-end { margin-left: auto; display: flex; gap: 12px; align-items: center; }
 .stats-head-end .tools-summary { margin: 0; }
+/* The filters' fold toggle: a drawn chevron, turned down while they are open. */
+.stats-head-end .tools-chip { display: inline-flex; align-items: center; gap: 5px; }
+.stats-chevron { transition: transform 0.15s; }
+.tools-chip[aria-expanded="true"] .stats-chevron { transform: rotate(90deg); }
 .stats-scope-years { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 0.9rem; }
 .stats-scope .tools-search-input { padding-right: 10px; }
 .stats-scope .stats-year { width: 6.5em; }

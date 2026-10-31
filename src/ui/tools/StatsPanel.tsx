@@ -388,7 +388,10 @@ export function StatsPanel({
             aria-expanded={filtersOpen}
             onClick={toggleFilters}
           >
-            {filtersOpen ? "▾" : "▸"} {t("stats.filters")}
+            <svg className="stats-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="9,5 16,12 9,19" />
+            </svg>
+            {t("stats.filters")}
             {activeFilters > 0 && <span className="tools-chip-count"> {activeFilters}</span>}
           </button>
         </div>
