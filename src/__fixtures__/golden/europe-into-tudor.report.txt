@@ -1,9 +1,9 @@
 changeReport.title
 ==================
 
-changeReport.stat.records:        123
-changeReport.stat.fields:         108
-changeReport.stat.newFields:      107
+changeReport.stat.records:        124
+changeReport.stat.fields:         109
+changeReport.stat.newFields:      108
 changeReport.stat.added:           80
 changeReport.stat.removed:          0
 changeReport.stat.undescribed:      0
@@ -192,6 +192,10 @@ Edward Burgh + Catherine Parr  @F76@
 John Neville + Catherine Parr  @F77@
 ------------------------------------
   event.colDate: changeReport.verb.added "1533"
+
+Thomas Seymour + Catherine Parr  @F78@
+--------------------------------------
+  event.colDate: changeReport.verb.added "4 Apr 1547"
 
 John Stewart  @I80@
 -------------------
