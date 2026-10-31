@@ -599,38 +599,6 @@ export function setSourceRecordFields(
   }
 }
 
-/** The source fields a page lookup can still fill after the source was added.
- *  The place and years are not among them: a new source states those in the
- *  site's coverage block, which only the Add writes. */
-export type CompletableSourceFields = Partial<Pick<EditSourceFields, "title" | "author" | "periodical" | "publisher" | "agency">>;
-
-/**
- * The fields to save on a just-added `SOUR` record once a page lookup answers
- * after the Add, for {@link setSourceRecordFields}: each field takes its
- * `after` value only while the record still holds the `before` one it was
- * written with, so an edit made in the meantime wins. Undefined when nothing
- * would change — or the record is gone (the Add was undone).
- */
-export function completedSourceFields(
-  records: GedNode[],
-  sourceXref: string,
-  before: CompletableSourceFields,
-  after: CompletableSourceFields,
-): EditSourceFields | undefined {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
-  if (!sourceNode) return undefined;
-  const current = sourceRecordEditFields(records, sourceNode);
-  const next: EditSourceFields = { ...current };
-  let changed = false;
-  for (const key of Object.keys(after) as (keyof CompletableSourceFields)[]) {
-    const value = after[key]?.trim();
-    if (!value || value === current[key] || (current[key] ?? "") !== (before[key]?.trim() ?? "")) continue;
-    next[key] = value;
-    changed = true;
-  }
-  return changed ? next : undefined;
-}
-
 /** Fields editable on a `REPO` record (Tools → Sources repository edit) —
  * the GEDCOM repository set: name, postal address (multi-line, `ADDR`+`CONT`),
  * phone, e-mail, web link and note. `undefined` leaves a field untouched,
