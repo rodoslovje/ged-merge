@@ -42,6 +42,8 @@ interface Props {
   /** When set (and a start person is chosen), the start icon becomes a button that
    *  navigates back to the start person. Only meaningful with `icon="house"`. */
   onStartClick?: () => void;
+  /** The house button's hover text, where it does something other than go to the start person. */
+  startClickTitle?: string;
   /** When true (default), the selected person's name is shown as the input
    * placeholder. Set false for a pure search field that should always show the
    * generic `placeholder` hint instead (e.g. Edit's "jump to person" search). */
@@ -68,6 +70,7 @@ export function StartPersonSelector({
   tooltip,
   icon = "house",
   onStartClick,
+  startClickTitle,
   selectedAsPlaceholder = true,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -191,7 +194,7 @@ export function StartPersonSelector({
     <div className={startId ? "start-selector" : "start-selector unset"}>
       <div className="start-control">
         {clickableStart ? (
-          <button type="button" className="start-icon start-icon-btn" title={keyHint(t("start.goto"), KEY.home.toUpperCase())} onClick={onStartClick}>
+          <button type="button" className="start-icon start-icon-btn" title={startClickTitle ?? keyHint(t("start.goto"), KEY.home.toUpperCase())} onClick={onStartClick}>
             {glyph}
           </button>
         ) : (

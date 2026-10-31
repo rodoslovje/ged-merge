@@ -56,6 +56,17 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
   await expect(people.locator(".stats-tile-value")).toHaveText("1");
   await panel.locator(".tools-chip", { hasText: "All" }).click();
 
+  // A line follows the app's start person (Petra: herself and her parents)
+  // until another is picked here; the house gives the line back to Petra.
+  await panel.getByRole("tab", { name: "Ancestors" }).click();
+  await expect(panel.locator(".tools-summary")).toHaveText("3 of 4 people in scope");
+  await panel.locator(".stats-start input").fill("Marko");
+  await panel.locator(".stats-start .start-option", { hasText: "Marko" }).click();
+  await expect(panel.locator(".tools-summary")).toHaveText("1 of 4 people in scope");
+  await panel.getByRole("button", { name: "Back to the start person" }).click();
+  await expect(panel.locator(".tools-summary")).toHaveText("3 of 4 people in scope");
+  await panel.getByRole("tab", { name: "All", exact: true }).click();
+
   // Lifespan: the infant death is the one bar under five.
   await panel.getByRole("tab", { name: "Lifespan" }).click();
   await panel.getByRole("button", { name: "0–4: 1", exact: true }).click();

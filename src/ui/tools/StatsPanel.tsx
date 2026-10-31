@@ -266,24 +266,32 @@ export function StatsPanel({
           onChange={(p) => onViewChange(p)}
           items={PAGES.map((p) => ({ key: p, label: t(`stats.page.${p}`) }))}
         />
-        <Segmented
-          label={t("stats.who")}
-          value={scope.who}
-          onChange={(who) => set({ who })}
-          items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
-        />
-        {lined && (
-          <div className="stats-start" title={t("stats.startHint")}>
-            <StartPersonSelector
-              individuals={dataset.individuals}
-              version={seenVersion}
-              startId={statsStart}
-              onChange={setOwnStart}
-              placeholder={t("stats.startPick")}
-              tooltip={t("stats.startHint")}
-            />
-          </div>
-        )}
+        {/* The line and whose line it is stay side by side; the count and the
+            filter toggle wrap away first. */}
+        <div className="stats-line">
+          <Segmented
+            label={t("stats.who")}
+            value={scope.who}
+            onChange={(who) => set({ who })}
+            items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
+          />
+          {lined && (
+            <div className={`stats-start${ownStart && ownStart !== startId ? " own" : ""}`}>
+              <StartPersonSelector
+                individuals={dataset.individuals}
+                version={seenVersion}
+                startId={statsStart}
+                onChange={setOwnStart}
+                placeholder={t("stats.startPick")}
+                tooltip={t("stats.startHint")}
+                // A person picked here gives way to the app's start person
+                // again at a click on the house.
+                onStartClick={ownStart && ownStart !== startId ? () => setOwnStart(undefined) : undefined}
+                startClickTitle={t("stats.startReset")}
+              />
+            </div>
+          )}
+        </div>
         <div className="stats-head-end">
           <ToolSummary>{t("stats.summary", { count: facts.people.length, scoped: num(people) })}</ToolSummary>
           <button
