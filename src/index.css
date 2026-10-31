@@ -9454,12 +9454,12 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 }
 
 /* Ranked bars: label, track, value — one grid per row so the tracks line up. */
-.stats-bars { display: flex; flex-direction: column; gap: 2px; }
+.stats-bars { display: flex; flex-direction: column; gap: 2px; --stats-label: 11em; }
 /* An unfolded list scrolls inside its card rather than stretching the page. */
 .stats-card > .stats-bars { max-height: 560px; overflow-y: auto; }
 .stats-bar {
   display: grid;
-  grid-template-columns: minmax(0, 11em) 1fr auto;
+  grid-template-columns: minmax(0, var(--stats-label)) 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 3px 6px;
@@ -9487,10 +9487,10 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 
 /* Two shares per row — the father's side and the mother's — under a legend whose
    swatches carry the two lines' colours; the words stay in text ink. */
-.stats-pairs { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; }
-.stats-pair-row { display: grid; grid-template-columns: minmax(0, 11em) 1fr; gap: 10px; align-items: center; }
+.stats-pairs { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; --stats-label: 11em; }
+.stats-pair-row { display: grid; grid-template-columns: minmax(0, var(--stats-label)) 1fr; gap: 10px; align-items: center; }
 .stats-pair-legend { display: flex; gap: 16px; justify-content: flex-end; }
-.stats-pair-legend { color: var(--muted); font-size: 0.8rem; padding: 0 6px 4px; }
+.stats-pair-legend { color: var(--muted); font-size: 0.8rem; padding: 6px 6px 0; }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }

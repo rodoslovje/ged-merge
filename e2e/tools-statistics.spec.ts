@@ -106,7 +106,7 @@ test("generations follow the line's person, research counts the sources", async 
   // Petra's two parents fill her first generation; she has no descendants.
   await panel.getByRole("tab", { name: "Generations" }).click();
   await expect(panel.locator(".stats-tile", { has: page.locator(".stats-tile-label", { hasText: /^Ancestors$/ }) }).locator(".stats-tile-value")).toHaveText("2");
-  await panel.locator(".stats-bar", { hasText: "Generation 1" }).click();
+  await panel.locator(".stats-card", { has: page.getByRole("heading", { name: "Ancestors by generation", exact: true }) }).locator(".stats-bar").first().click();
   await expect(panel.locator(".stats-pick .tools-issue")).toHaveCount(2);
 
   // No event in the file cites a source.

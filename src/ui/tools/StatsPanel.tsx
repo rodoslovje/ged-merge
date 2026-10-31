@@ -754,10 +754,11 @@ export function StatsPanel({
               <BarList
                 max={100}
                 limit={listLimit("ancestorsGen", lineage.ancestors.length, 12)}
+                labelWidth="2.5em"
                 picked={pickedIn("ancestorsGen")}
                 rows={lineage.ancestors.map((g) => ({
                   key: String(g.gen),
-                  label: t("stats.genLabel", { n: g.gen }),
+                  label: String(g.gen),
                   value: (100 * g.filled) / g.slots,
                   display: pct(g.filled, g.slots),
                   tip: t("stats.shareTip", { n: num(g.filled), of: num(g.slots) }),
@@ -775,6 +776,7 @@ export function StatsPanel({
                 names={[t("stats.side.paternal"), t("stats.side.maternal")]}
                 picked={pickedIn("ancestorsSide")}
                 limit={listLimit("ancestorsSide", lineage.ancestors.length, 12)}
+                labelWidth="2.5em"
                 rows={lineage.ancestors.map<PairRow>((g) => {
                   const half = g.slots / 2;
                   const of = (side: { filled: number; ids: string[] }) => ({
@@ -783,7 +785,7 @@ export function StatsPanel({
                     tip: t("stats.shareTip", { n: num(side.filled), of: num(half) }),
                     count: side.ids.length,
                   });
-                  return { key: String(g.gen), label: t("stats.genLabel", { n: g.gen }), a: of(g.paternal), b: of(g.maternal) };
+                  return { key: String(g.gen), label: String(g.gen), a: of(g.paternal), b: of(g.maternal) };
                 })}
                 onPick={(key, side) => {
                   const g = lineage.ancestors.find((x) => String(x.gen) === key)!;

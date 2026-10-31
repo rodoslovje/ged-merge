@@ -93,6 +93,7 @@ export function BarList({
   limit,
   max: fixedMax,
   tone,
+  labelWidth,
 }: {
   rows: BarRow[];
   onPick: (key: string) => void;
@@ -101,13 +102,15 @@ export function BarList({
   /** The value a full bar stands for (100 for percentages); the largest row otherwise. */
   max?: number;
   tone?: Tone;
+  /** The label column's width where the labels are short (numbers); 11em otherwise. */
+  labelWidth?: string;
 }) {
   const { t } = useTranslation();
   const max = fixedMax ?? Math.max(1, ...rows.map((r) => r.value));
   const shown = limit ? rows.slice(0, limit) : rows;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
-    <div className={`stats-bars${toneClass(tone)}`}>
+    <div className={`stats-bars${toneClass(tone)}`} style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
       {shown.map((r) => (
         <button
           key={r.key}
@@ -148,8 +151,8 @@ export interface PairRow {
 
 /**
  * Two shares per row, one above the other on one scale so they compare — the
- * father's side and the mother's — each in its line's colour, under a legend
- * naming the two. Either bar lists its
+ * father's side and the mother's — each in its line's colour, with a legend
+ * below naming the two. Either bar lists its
  * own people.
  */
 export function PairBarList({
@@ -158,6 +161,7 @@ export function PairBarList({
   onPick,
   picked,
   limit,
+  labelWidth,
 }: {
   rows: PairRow[];
   /** What the two bars stand for, in the legend. */
@@ -167,6 +171,7 @@ export function PairBarList({
   picked?: string;
   /** Show the first rows only — the card that holds the list offers the rest. */
   limit?: number;
+  labelWidth?: string;
 }) {
   const { t } = useTranslation();
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
@@ -187,11 +192,7 @@ export function PairBarList({
     );
   };
   return (
-    <div className="stats-pairs">
-      <div className="stats-pair-legend">
-        <span className="stats-pair-a">{names[0]}</span>
-        <span className="stats-pair-b">{names[1]}</span>
-      </div>
+    <div className="stats-pairs" style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
       {(limit ? rows.slice(0, limit) : rows).map((r) => (
         <div key={r.key} className="stats-pair-row">
           <span className="stats-bar-label">{r.label}</span>
@@ -201,6 +202,10 @@ export function PairBarList({
           </span>
         </div>
       ))}
+      <div className="stats-pair-legend">
+        <span className="stats-pair-a">{names[0]}</span>
+        <span className="stats-pair-b">{names[1]}</span>
+      </div>
     </div>
   );
 }
