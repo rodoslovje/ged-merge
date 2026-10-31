@@ -1,5 +1,6 @@
 import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
+import { birthParentFamilies } from "../gedcom/couple";
 import {
   DEATH_TAGS, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf, estimateBirthYear, isDeceased,
 } from "../gedcom/lifespan";
@@ -250,11 +251,12 @@ export interface KinshipSets {
 /** Compute {@link KinshipSets} for a start person, or null if they're unknown. */
 export function computeKinship(ds: Dataset, startId: string): KinshipSets | null {
   if (!ds.individuals.has(startId)) return null;
+  // Blood lines run through birth families only: an adoptive or foster
+  // family (by its PEDI) makes no one an ancestor.
   const parentsOf = (id: string): string[] => {
+    const indi = ds.individuals.get(id);
     const out: string[] = [];
-    for (const famId of ds.individuals.get(id)?.childOf ?? []) {
-      const fam = ds.families.get(famId);
-      if (!fam) continue;
+    for (const fam of indi ? birthParentFamilies(indi, ds) : []) {
       if (fam.husband) out.push(fam.husband);
       if (fam.wife) out.push(fam.wife);
     }

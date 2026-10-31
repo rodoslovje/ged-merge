@@ -1,7 +1,8 @@
 import type { Dataset, GedDate, GedEvent, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { distanceKm } from "../geo/points";
-import { BIRTH_TAGS, DEATH_TAGS, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
-import { ageBetween } from "../gedcom/age";
+import { BIRTH_TAGS, birthDateOf, DEATH_TAGS, deathDateOf, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { ageBetween, daysBetween } from "../gedcom/age";
+import { birthParentFamilies } from "../gedcom/couple";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
 import { isUnknownNameToken } from "../gedcom/name";
@@ -54,6 +55,10 @@ export interface PersonFacts {
   /** The birth (or baptism) place and the death (or burial) place, `""` for none. */
   birthPlace: string;
   deathPlace: string;
+  /** `place` and `birthPlace` folded for search (see `foldSearch`), `""` for none —
+   *  folded once here, not per person on every keystroke of the place filter. */
+  placeKey: string;
+  birthPlaceKey: string;
   /** The birth date as `year-month-day`, when it names the day exactly — what twins share. */
   birthDay?: string;
   /** Days from the birth to the baptism (or christening), when both name the day. */
@@ -94,6 +99,8 @@ export interface FamilyFacts {
   marriageApprox: boolean;
   /** The year the family is dated by: its marriage, else its first child's birth. */
   year?: number;
+  /** That year rests on an approximate date. */
+  yearApprox: boolean;
   /** Ages at the marriage, when both dates are known. */
   husbandAge?: number;
   wifeAge?: number;
@@ -105,6 +112,8 @@ export interface FamilyFacts {
   children: string[];
   /** Months from the marriage to the first child's birth, when both name the month. */
   firstChildMonths?: number;
+  /** The first child's birth date is approximate. */
+  firstChildApprox: boolean;
   /** The mother's and father's ages at their first and last child in this family. */
   motherAgeFirst?: number;
   motherAgeLast?: number;
@@ -135,14 +144,20 @@ export interface RecordRefs {
   media: string[];
 }
 
-function refsOf(raw: GedNode): RecordRefs {
+/** What `raw` names, and how many source citations it holds at any depth —
+ *  a name's, a birth family link's or an association's as well as the
+ *  record's and its events', pointer or inline: the citations a reader counts. */
+function refsOf(raw: GedNode): { refs: RecordRefs; citations: number } {
   const sources: string[] = [];
   const media: string[] = [];
+  let citations = 0;
   const walk = (node: GedNode) => {
     for (const child of node.children) {
       const v = child.value?.trim();
-      if (child.tag === "SOUR" && v && isPointer(v)) sources.push(v);
-      else if (child.tag === "OBJE") {
+      if (child.tag === "SOUR" && v) {
+        citations++;
+        if (isPointer(v)) sources.push(v);
+      } else if (child.tag === "OBJE") {
         if (v && isPointer(v)) media.push(v);
         else {
           const file = child.children.find((c) => c.tag === "FILE")?.value?.trim();
@@ -153,15 +168,7 @@ function refsOf(raw: GedNode): RecordRefs {
     }
   };
   walk(raw);
-  return { places: placeKeysOf(raw), sources, media };
-}
-
-function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
-  for (const tag of tags) {
-    const e = indi.events.find((ev) => ev.tag === tag && ev.date?.year !== undefined);
-    if (e) return e;
-  }
-  return undefined;
+  return { refs: { places: placeKeysOf(raw), sources, media }, citations };
 }
 
 function firstPlace(indi: Individual, tags: readonly string[]): string {
@@ -197,7 +204,7 @@ function baptismDays(indi: Individual): number | undefined {
   const birth = exact("BIRT");
   const baptism = exact("BAPM") ?? exact("CHR");
   if (!birth || !baptism) return undefined;
-  return Math.round((Date.UTC(baptism.year!, baptism.month! - 1, baptism.day!) - Date.UTC(birth.year!, birth.month! - 1, birth.day!)) / 86_400_000);
+  return daysBetween(birth, baptism);
 }
 
 /** Whole months from one dated event to another, when both name the month. */
@@ -225,25 +232,41 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     if (key === undefined) folded.set(s, (key = foldSearch(s)));
     return key;
   };
+  // A place value has coordinates when any event writing it carries them,
+  // as the Places tool reads it; a person is on the map through any of theirs.
+  // Gathered first, so each person's row is finished in the one pass below.
+  const placed = new Map<string, GeoCoord>();
+  const notePlaced = (events: GedEvent[]) => {
+    for (const e of events) {
+      const raw = e.place?.raw.trim();
+      if (raw && e.place?.coord && !placed.has(raw)) placed.set(raw, e.place.coord);
+    }
+  };
+  for (const indi of ds.individuals.values()) notePlaced(indi.events);
+  for (const fam of ds.families.values()) notePlaced(fam.events);
   for (const indi of ds.individuals.values()) {
     const name = indi.names[0];
     // A stand-in for an unknown name (NN, ???, neznano) is no name: it is
     // neither ranked nor counted as known.
     const givenText = isUnknownNameToken(name?.given) ? "" : (name?.given ?? "").trim();
     const givens = givenText.split(/\s+/).filter(Boolean);
-    const birth = firstDated(indi, BIRTH_TAGS);
-    const death = firstDated(indi, DEATH_TAGS);
+    // The dates every list and card of the app reads (see `birthDateOf`), so
+    // a bar and the people it lists agree on the year.
+    const birth = birthDateOf(indi);
+    const death = deathDateOf(indi);
     const birthPlace = firstPlace(indi, BIRTH_TAGS);
     const deathPlace = firstPlace(indi, DEATH_TAGS);
     const place = birthPlace || deathPlace;
+    // The birth parents, as the Ancestors and Blood scopes follow them: an
+    // adoptive family listed first must not stand in the pedigree.
     let father: string | undefined;
     let mother: string | undefined;
-    for (const famId of indi.childOf) {
-      const fam = ds.families.get(famId);
-      father ??= fam?.husband;
-      mother ??= fam?.wife;
+    for (const fam of birthParentFamilies(indi, ds)) {
+      father ??= fam.husband;
+      mother ??= fam.wife;
     }
     const deceased = isDeceased(indi);
+    const { refs, citations } = refsOf(indi.raw);
     const surname = (isUnknownNameToken(name?.surname) ? "" : name?.surname?.trim()) || undefined;
     const f: PersonFacts = {
       id: indi.id,
@@ -253,15 +276,15 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       surname,
       givenKey: fold(givens[0]),
       surnameKey: fold(surname),
-      birthYear: birth?.date?.year,
-      birthMonth: birth?.date?.month,
-      birthApprox: isApproximate(birth?.date),
-      deathYear: death?.date?.year,
-      deathMonth: death?.date?.month,
-      deathApprox: isApproximate(death?.date),
+      birthYear: birth?.year,
+      birthMonth: birth?.month,
+      birthApprox: isApproximate(birth),
+      deathYear: death?.year,
+      deathMonth: death?.month,
+      deathApprox: isApproximate(death),
       deceased,
       living: !deceased && isPresumedLiving(indi, ds, now),
-      ageAtDeath: death ? ageBetween(birth?.date, death.date) : undefined,
+      ageAtDeath: death ? ageBetween(birth, death) : undefined,
       place,
       country: place ? countryOf(place, home) : "",
       birthCountry: birthPlace ? countryOf(birthPlace, home) : "",
@@ -269,7 +292,9 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
       birthPlace,
       deathPlace,
-      birthDay: dayKey(birth?.date),
+      placeKey: fold(place) ?? "",
+      birthPlaceKey: fold(birthPlace) ?? "",
+      birthDay: dayKey(birth),
       baptismDays: baptismDays(indi),
       occupations: listedValues(indi, "OCCU"),
       education: listedValues(indi, "EDUC"),
@@ -278,19 +303,23 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       hasBirthPlace: !!birthPlace,
       hasDeathDate: !!death,
       hasParents: !!(father || mother),
-      hasSource: !!indi.sources?.length || indi.events.some((e) => !!e.sources?.length),
+      hasSource: citations > 0,
       eventTags: indi.events.map((e) => e.tag),
       sourcedTags: indi.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
-      citations: (indi.sources?.length ?? 0) + indi.events.reduce((n, e) => n + (e.sources?.length ?? 0), 0),
+      citations,
       hasPlace: indi.events.some((e) => !!e.place?.raw.trim()),
-      mapped: false,
+      mapped: placed.size > 0 && indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim())),
       father,
       mother,
-      refs: refsOf(indi.raw),
+      refs,
     };
+    // How far a life moved: from the birth place to the death place, when both are on the map.
+    const from = birthPlace ? placed.get(birthPlace) : undefined;
+    const to = deathPlace ? placed.get(deathPlace) : undefined;
+    if (from && to) f.movedKm = distanceKm(from, to);
     people.push(f);
     byId.set(f.id, f);
-    birthDates.set(indi.id, birth?.date);
+    birthDates.set(indi.id, birth);
   }
 
   const families: FamilyFacts[] = [];
@@ -313,6 +342,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       marriageMonth: marr?.month,
       marriageApprox: marrApprox,
       year: marr?.year ?? first?.year,
+      yearApprox: marr ? marrApprox : isApproximate(first),
       husbandAge: marr ? ageBetween(hb, marr) : undefined,
       wifeAge: marr ? ageBetween(wb, marr) : undefined,
       agesApprox: marrApprox || isApproximate(hb) || isApproximate(wb),
@@ -320,13 +350,14 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       wifeFirst: false,
       children: fam.children,
       firstChildMonths: marr && first ? monthsBetween(marr, first) : undefined,
+      firstChildApprox: isApproximate(first),
       motherAgeFirst: first ? ageBetween(wb, first) : undefined,
       motherAgeLast: last ? ageBetween(wb, last) : undefined,
       fatherAgeFirst: first ? ageBetween(hb, first) : undefined,
       parentAgesApprox: isApproximate(hb) || isApproximate(wb) || isApproximate(first) || isApproximate(last),
       eventTags: fam.events.map((e) => e.tag),
       sourcedTags: fam.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
-      refs: refsOf(fam.raw),
+      refs: refsOf(fam.raw).refs,
     });
   }
 
@@ -344,27 +375,6 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   for (const [spouse, { fam }] of earliest) {
     if (fam.husband === spouse) fam.husbandFirst = true;
     if (fam.wife === spouse) fam.wifeFirst = true;
-  }
-  // A place value has coordinates when any event writing it carries them,
-  // as the Places tool reads it; a person is on the map through any of theirs.
-  const placed = new Map<string, GeoCoord>();
-  const notePlaced = (events: GedEvent[]) => {
-    for (const e of events) {
-      const raw = e.place?.raw.trim();
-      if (raw && e.place?.coord && !placed.has(raw)) placed.set(raw, e.place.coord);
-    }
-  };
-  for (const indi of ds.individuals.values()) notePlaced(indi.events);
-  for (const fam of ds.families.values()) notePlaced(fam.events);
-  if (placed.size) {
-    for (const indi of ds.individuals.values()) {
-      const p = byId.get(indi.id)!;
-      p.mapped = indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim()));
-      // How far a life moved: from the birth place to the death place, when both are on the map.
-      const from = p.birthPlace ? placed.get(p.birthPlace) : undefined;
-      const to = p.deathPlace ? placed.get(p.deathPlace) : undefined;
-      if (from && to) p.movedKm = distanceKm(from, to);
-    }
   }
   return { people, families, byId };
 }

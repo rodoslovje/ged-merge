@@ -1,7 +1,7 @@
 import { useFormatOverrides } from "./TargetFormatContext";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { Dataset } from "../gedcom/types";
-import { getSourceLookup, titleWithPeriodical, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
+import type { Dataset, GedNode } from "../gedcom/types";
+import { getSourceLookup, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
 import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
@@ -12,7 +12,7 @@ import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { coverageFieldsOffered, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
+import { coverageFieldsOffered, foldPeriodical, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
 import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { trackPendingAdd } from "./source/pendingAdds";
@@ -144,6 +144,29 @@ function upgradeFromLookup(
   };
 }
 
+/** The call number a lookup's answer fills in, when the seed put the id on
+ *  the repository link (`idOnCaln`). */
+function lookupCallNumber(meta: ReshapeMeta, recognized: RecognizedSourceUrl | undefined, idOnCaln: boolean): string | undefined {
+  return idOnCaln ? meta.filingNumber ?? recognized?.proposed.filingNumber : undefined;
+}
+
+/** The site repository proposal once the lookup has answered: the collection
+ *  and the place the records cover are what pick the country's repository.
+ *  Nothing when the answer names neither. */
+function fetchedRepoProposal(
+  records: GedNode[],
+  recognized: RecognizedSourceUrl | undefined,
+  url: string | undefined,
+  meta: ReshapeMeta | undefined,
+) {
+  if (!recognized || !url || !(meta?.collection || meta?.collectionId || meta?.place)) return undefined;
+  return proposedSiteRepo(records, recognized.site, url, recognized.proposed.agency, {
+    title: meta.collection,
+    id: meta.collectionId,
+    place: meta.place ?? recognized.proposed.place,
+  });
+}
+
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   const rec = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
@@ -173,18 +196,14 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // The page lookup in flight for the pasted link — an Add confirmed before it
   // answers waits for it, and writes what the answer would have filled in.
   const pendingLookup = useRef<{ url: string; answer: Promise<ReshapeMeta | undefined> } | undefined>(undefined);
-  // What a waiting Add checks before writing: the dialog is still mounted (a
-  // file reload remounts Edit) and the file is still the one it was asked for.
-  const live = useRef({ mounted: true, dataset });
-  live.current.dataset = dataset;
-  useEffect(() => {
-    const state = live.current;
-    state.mounted = true;
-    return () => { state.mounted = false; };
-  }, []);
+  // What a waiting Add checks before writing: the file is still the one it
+  // was asked for. Not whether the dialog is still mounted — Tools → Sources
+  // unmounts it with the tool, and the Add must land all the same.
+  const liveDataset = useRef(dataset);
+  liveDataset.current = dataset;
   const { settings } = useSettings();
   const formatOverrides = useFormatOverrides();
-  const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
+  const { targetOf, lookUp, begin, fetching } = useSourceLookup(settings.allowLinkFetch);
 
   // Both derivations walk the whole file, and the dialog is mounted shut on
   // every Edit page — so they wait for it to open (a second each on a
@@ -278,14 +297,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // repository. Deliberately separate from `repoDefault` — it must not re-seed
   // the fields the lookup just filled.
   const repoFetched = useMemo(
-    () =>
-      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId || fetched?.place)
-        ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, {
-            title: fetched.collection,
-            id: fetched.collectionId,
-            place: fetched.place ?? recognized.proposed.place,
-          })
-        : undefined,
+    () => fetchedRepoProposal(dataset.records, recognized, normalizedUrl, fetched),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId, fetched?.place],
   );
   const repoProposal = repoFetched ?? repoDefault;
@@ -472,18 +485,18 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   useEffect(() => {
     if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) return;
     let cancelled = false;
-    const answer = lookUp(normalizedUrl, { anyPage: true });
+    const { answer, current } = begin(normalizedUrl, { anyPage: true });
     pendingLookup.current = { url: normalizedUrl, answer };
-    void answer.then((meta) => {
+    void current.then((meta) => {
       if (pendingLookup.current?.answer === answer) pendingLookup.current = undefined;
       if (cancelled || !meta) return;
       setFetched(meta);
       setFields((f) => (f.url !== normalizedUrl ? f : upgradeFromLookup(f, meta, recognized, resolvePlace, idOnCaln.current)));
-      const id = idOnCaln.current ? meta.filingNumber ?? recognized?.proposed.filingNumber : undefined;
+      const id = lookupCallNumber(meta, recognized, idOnCaln.current);
       if (id) setRepoCaln((caln) => (caln.trim() ? caln : id));
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, lookUp]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, begin]);
 
   if (!isOpen) return null;
 
@@ -658,21 +671,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const touched = repoTouched.current;
     const form = fields;
     const answered = inFlight.answer.then((meta) => {
-      if (!live.current.mounted || live.current.dataset !== asked) return undefined;
+      if (liveDataset.current !== asked) return undefined;
       if (!meta) return addResult(form, repo, undefined, undefined);
-      let upgraded = upgradeFromLookup(form, meta, site, resolvePlace, onCaln);
-      if (!offerPeriodical && upgraded.periodical.trim()) {
-        upgraded = { ...upgraded, title: titleWithPeriodical(upgraded.title, upgraded.periodical) ?? "", periodical: "" };
-      }
-      const id = onCaln ? meta.filingNumber ?? site?.proposed.filingNumber : undefined;
-      const fetchedRepo =
-        site && (meta.collection || meta.collectionId || meta.place)
-          ? proposedSiteRepo(asked.records, site.site, url, site.proposed.agency, {
-              title: meta.collection,
-              id: meta.collectionId,
-              place: meta.place ?? site.proposed.place,
-            })
-          : undefined;
+      const upgraded = foldPeriodical(upgradeFromLookup(form, meta, site, resolvePlace, onCaln), offerPeriodical);
+      const id = lookupCallNumber(meta, site, onCaln);
+      const fetchedRepo = fetchedRepoProposal(asked.records, site, url, meta);
       const sel = !touched && fetchedRepo?.xref ? fetchedRepo.xref : repo.sel;
       return addResult(upgraded, { sel, name: repo.name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
     });

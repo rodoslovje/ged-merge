@@ -6,11 +6,12 @@ import {
   rebuildFamily,
   rebuildIndividual,
   rebuildNoteReferrers,
+  rebuildReferrers,
   recordPosition,
   removeRecordsByXref,
   type SharedNoteChange,
 } from "../gedcom/edit";
-import { clearObjeNodeCache } from "../gedcom/source";
+import { citationShownKey, clearObjeNodeCache } from "../gedcom/source";
 
 export interface RecordPatch {
   /** "record" covers a top-level non-INDI/FAM record (e.g. a `SOUR`/`OBJE`
@@ -283,7 +284,15 @@ export function applyRecordPatches(dataset: Dataset, patches: RecordPatch[], dir
     .filter((p) => p.type === "record" && (p.before ?? p.after)?.tag === "NOTE")
     .map((p) => ({ xref: p.id }));
   if (noteChanges.length) rebuildNoteReferrers(dataset, noteChanges);
-  return noteChanges.length > 0;
+  // Likewise a restored source whose title (or anything else its citations
+  // show) differs: the people and families citing it show it again.
+  const sourceChanges = new Set(
+    patches
+      .filter((p) => p.type === "record" && (p.before ?? p.after)?.tag === "SOUR" && citationShownKey(p.before) !== citationShownKey(p.after))
+      .map((p) => p.id),
+  );
+  if (sourceChanges.size) rebuildReferrers(dataset, sourceChanges, ["SOUR"]);
+  return noteChanges.length > 0 || sourceChanges.size > 0;
 }
 
 /** Queued by App.tsx after an undo/redo; consumed by EditView once it is mounted. */

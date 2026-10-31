@@ -1,4 +1,3 @@
-import { foldSearch } from "../ui/globalSearch";
 import type { ScopedFacts } from "./scope";
 import { birthYearOf, byLabel, centuryOf, mean, share, type Bucket, type CenturyPoint, type Mean, type Share } from "./aggregate";
 
@@ -60,10 +59,7 @@ export function migrationStats(s: ScopedFacts): MigrationStats {
     else moves.set(key, [p.id]);
   }
 
-  const birthKey = (pid: string | undefined) => {
-    const place = pid ? s.byId.get(pid)?.birthPlace : undefined;
-    return place ? foldSearch(place) : undefined;
-  };
+  const birthKey = (pid: string | undefined) => (pid && s.byId.get(pid)?.birthPlaceKey) || undefined;
   const couples = s.families.filter((f) => birthKey(f.husband) && birthKey(f.wife));
 
   return {

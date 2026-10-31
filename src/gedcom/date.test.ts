@@ -172,6 +172,13 @@ describe("dateRefines — incoming is a more exact same date", () => {
     expect(dateRefines("BEF 1727", "1726")).toBe(true);
     expect(dateRefines("27 OCT 1726", "BEF 1727")).toBe(false);
     expect(dateRefines("BEF 1727", "ABT 1726")).toBe(false);
+    expect(dateRefines("AFT 1800", "3 MAY 1800")).toBe(true);
+  });
+
+  it("leaves an exact date that contradicts the bound, or says less than it, to the reader", () => {
+    expect(dateRefines("BEF 1727", "15 MAR 1780")).toBe(false);
+    expect(dateRefines("AFT 1800", "3 MAY 1750")).toBe(false);
+    expect(dateRefines("BEF 12 MAR 1727", "1700")).toBe(false);
   });
 
   it("leaves ranges to the default", () => {

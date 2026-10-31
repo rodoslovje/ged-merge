@@ -121,6 +121,43 @@ describe("buildStatsFacts", () => {
     expect(f2).toMatchObject({ husbandFirst: true, wifeFirst: true, husbandAge: 25, wifeAge: 20, firstChildMonths: 7 });
     expect(f3).toMatchObject({ husbandFirst: false, wifeFirst: true, husbandAge: 33 });
   });
+
+  it("follows the birth family, not an adoptive one listed first, as the Ancestors scope does", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 FAMC @F2@
+2 PEDI adopted
+1 FAMC @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+0 @I3@ INDI
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I3@
+1 CHIL @I1@
+0 TRLR`);
+    expect(buildStatsFacts(ds).byId.get("@I1@")!.father).toBe("@I2@");
+    expect([...computeKinship(ds, "@I1@")!.ancestors]).not.toContain("@I3@");
+  });
+
+  it("counts a citation on the name or the birth family link as a source", () => {
+    const f = buildStatsFacts(dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Ana /Kos/
+2 SOUR @S1@
+1 FAMC @F1@
+2 SOUR Krstna knjiga
+0 @I2@ INDI
+1 NAME Tone /Kos/
+0 @S1@ SOUR
+1 TITL Register
+0 TRLR`));
+    expect(f.byId.get("@I1@")).toMatchObject({ hasSource: true, citations: 2 });
+    expect(f.byId.get("@I2@")).toMatchObject({ hasSource: false, citations: 0 });
+  });
 });
 
 describe("scope", () => {
@@ -198,6 +235,27 @@ describe("aggregates", () => {
     expect(f.children[0].ids).toEqual(["@F3@"]);
     expect(f.mostUnions).toEqual({ id: "@I3@", count: 2 });
     expect(f.childrenMean).toEqual({ value: 1, n: 3 });
+  });
+
+  it("leaves a family dated only by an approximate child out of the century means by default", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 BIRT
+2 DATE ABT 1850
+1 FAMC @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 TRLR`);
+    const facts = buildStatsFacts(ds);
+    const scopedOf = (approx: boolean) => {
+      const scope = { ...DEFAULT_SCOPE, approx };
+      return applyCountry(facts, scopeFacts(facts, scope, null, undefined), scope);
+    };
+    expect(familyStats(scopedOf(false)).childrenByCentury).toEqual([]);
+    expect(familyStats(scopedOf(true)).childrenByCentury.map((p) => p.ids)).toEqual([["@F1@"]]);
   });
 });
 

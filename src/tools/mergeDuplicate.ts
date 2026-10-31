@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
-import { parseDate } from "../gedcom/date";
+import { datePrecision, parseDate } from "../gedcom/date";
 import { recordsNaming, repointAssociations } from "../gedcom/assoc";
 import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
 import { LINK_TAGS } from "../gedcom/builder";
@@ -461,7 +461,7 @@ export function duplicateDefaults(rows: FieldRow[]): Record<string, FieldChoice>
     } else if (row.state === "incoming-only") {
       fields[row.key] = "incoming";
     } else if (row.key.endsWith(".date")) {
-      fields[row.key] = datePrecision(row.incoming) > datePrecision(row.main) ? "incoming" : "main";
+      fields[row.key] = datePrecision(parseDate(row.incoming ?? "")) > datePrecision(parseDate(row.main ?? "")) ? "incoming" : "main";
     } else {
       fields[row.key] = "main";
     }
@@ -469,15 +469,6 @@ export function duplicateDefaults(rows: FieldRow[]): Record<string, FieldChoice>
   return fields;
 }
 
-/** Rough date precision rank: exact day/month/year beat a bare or approximate
- *  year, and a calculated date (CAL) beats an estimated one (ABT/EST). */
-function datePrecision(raw: string): number {
-  if (!raw) return 0;
-  const d = parseDate(raw);
-  if (d.qualifier === "exact") return d.day ? 4 : d.month ? 3 : 2;
-  if (d.year == null) return 0;
-  return d.qualifier === "about" && d.approx === "CAL" ? 1.5 : 1;
-}
 
 // ── Lines no comparison row covers ───────────────────────────────────────────
 
