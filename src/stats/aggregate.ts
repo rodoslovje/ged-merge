@@ -203,7 +203,7 @@ export const ageAtDeathOf = (s: ScopedFacts) => (p: PersonFacts) =>
 // Overview
 
 /** How many names the overview ranks — as many rows as its completeness card has. */
-export const OVERVIEW_TOP = 7;
+export const OVERVIEW_TOP = 8;
 
 export interface Overview {
   people: number;

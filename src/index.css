@@ -9428,7 +9428,9 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
   text-align: center;
   font-size: 0.7rem;
   color: var(--muted);
-  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Ranked bars: label, track, value — one grid per row so the tracks line up. */
@@ -9451,7 +9453,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-bar:disabled { cursor: default; }
 .stats-bar:hover:not(:disabled), .stats-bar.picked { background: var(--panel-2); }
 .stats-bar.picked .stats-bar-label { color: var(--accent); font-weight: 600; }
-.stats-bar-label { overflow-wrap: anywhere; }
+.stats-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stats-bar-track { height: 8px; background: var(--stats-track); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
 /* Completeness rows grade the file's own data in the status chips' pairing — the fill in the

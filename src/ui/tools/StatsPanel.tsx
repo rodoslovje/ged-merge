@@ -166,7 +166,7 @@ export function StatsPanel({
   const rangeLabel = (b: Bucket) =>
     b.lo === undefined ? `<${signed(b.hi! + 1)}`
       : b.hi === undefined ? `${signed(b.lo)}+`
-        : b.lo === b.hi ? signed(b.lo) : `${signed(b.lo)}${b.lo < 0 ? "…\u200b" : "–"}${signed(b.hi)}`;
+        : b.lo === b.hi ? signed(b.lo) : `${signed(b.lo)}–${signed(b.hi)}`;
   const centuryLabel = (c: number) => t("stats.century", { from: c, to: c + 99, n: c / 100 + 1 });
 
   /** A column chart over buckets; picking a column lists its rows. */
@@ -289,6 +289,8 @@ export function StatsPanel({
   const total = (list: Bucket[]) => list.reduce((a, b) => a + b.count, 0);
   const monthLabel = (b: Bucket) => new Date(2000, b.lo! - 1, 1).toLocaleString(lang, { month: "short" });
   const countryName = (code: string) => (code ? countryFacetLabel(code, lang) : t("tools.geocode.countryUnknown"));
+  // A signed range is too wide for a column: the axis names its lower bound, the tip the range.
+  const lowerBound = (b: Bucket) => (b.lo === undefined ? rangeLabel(b) : b.hi === undefined ? `${signed(b.lo)}+` : signed(b.lo));
   const periodLabel = (b: Bucket) => String(b.lo);
   /** Label about a dozen periods however many there are. */
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
@@ -554,7 +556,7 @@ export function StatsPanel({
             </section>
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
             {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
-            {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true }))}
+            {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}
             {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
             {card("childrenByCentury", t("stats.childrenByCentury"), t("stats.byFamilyCentury"), centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}

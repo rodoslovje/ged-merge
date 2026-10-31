@@ -115,7 +115,8 @@ export function BarList({
           className={`stats-bar${picked === r.key ? " picked" : ""}${toneClass(r.tone)}${r.status ? ` stats-status-${r.status}` : ""}`}
           disabled={r.count === 0}
           onClick={() => onPick(r.key)}
-          {...(r.tip ? tipProps(r.tip) : {})}
+          // A label is cut to one line, so a row without a tip of its own shows it whole.
+          {...((r.tip ?? (typeof r.label === "string" ? r.label : undefined)) ? tipProps(r.tip ?? (r.label as string)) : {})}
         >
           <span className="stats-bar-label">{r.label}</span>
           <span className="stats-bar-track">
