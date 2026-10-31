@@ -983,7 +983,7 @@ function AppContent() {
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay, goToPageFromOverlay,
-    navigateFromPage, selectFromPage, goToPage, canGoBack, goBackPage,
+    navigateFromPage, selectFromPage, returnFromFollowed, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, editPersonId, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
@@ -1445,10 +1445,14 @@ function AppContent() {
   function updateDecision(next: CandidateDecision) {
     if (!current) return;
     const key = decisionKey("individual", current.mainId, current.compareId);
-    const wasRejected = decisions.get(key)?.status === "rejected";
+    const was = decisions.get(key)?.status ?? "undecided";
     const after = withFreshDecision(decisions, key, stampMainRows(next, current.mainId, current.compareId));
     commitDecisions(decisions, after, current.mainId, current.compareId);
-    if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
+    // A pair followed by a link (a relative, a conflicting parent) was opened
+    // to settle something for the pair it was followed from, so deciding it
+    // returns there; one reached in the list moves on in the list.
+    if (next.status !== was && next.status !== "undecided" && returnFromFollowed(current)) return;
+    if (next.status === "rejected" && was !== "rejected") selectAfterReject(current.mainId, current.compareId);
   }
 
   // Same as `updateDecision`, but for EditView: the person being edited there
