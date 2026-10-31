@@ -1,3 +1,5 @@
+import { withBusyCursor } from "../busyCursor";
+
 /**
  * Add source dialogs confirmed while their page lookup was still running —
  * each entry settles once its Add has been written. Save waits for them, so
@@ -22,4 +24,15 @@ export function hasPendingAdds(): boolean {
  *  the earlier ones were still on their way. */
 export async function pendingAddsSettled(): Promise<void> {
   while (pending.size) await Promise.all([...pending]);
+}
+
+/** Run a download once every waiting Add has been written — at once when
+ *  none is waiting, else under the busy cursor after they land — so a file
+ *  exported straight after an Add holds it, as a saved one does. */
+export function afterPendingAdds(run: () => void): void {
+  if (!hasPendingAdds()) return run();
+  void withBusyCursor(async () => {
+    await pendingAddsSettled();
+    run();
+  });
 }
