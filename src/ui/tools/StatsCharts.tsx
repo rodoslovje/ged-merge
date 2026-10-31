@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { tipProps } from "../IconTip";
+import { useVirtualList } from "../useVirtualList";
 
 // The few chart forms the statistics need, drawn as plain HTML bars in the
 // theme's tokens: a column chart for ordered buckets (ages, months, centuries),
@@ -28,6 +29,9 @@ export interface Column {
 
 /** Show values over the columns only where they still fit side by side. */
 const VALUE_LABELS_UP_TO = 13;
+
+/** A bar list longer than this is windowed (see {@link BarList}). */
+const WINDOWED_FROM = 150;
 
 /** The largest value, at least 1 — by a loop: a file's surname or place list
  *  can run past the arguments a `Math.max(...)` spread may take (Safari: 65 536). */
@@ -102,6 +106,7 @@ export function BarList({
   max: fixedMax,
   tone,
   labelWidth,
+  itemsKey,
 }: {
   rows: BarRow[];
   onPick: (key: string) => void;
@@ -112,14 +117,22 @@ export function BarList({
   tone?: Tone;
   /** The label column's width where the labels are short (numbers); 11em otherwise. */
   labelWidth?: string;
+  /** What the rows were made from, when that is steadier than `rows` itself —
+   *  an unfolded list is windowed, and its row measurements last as long as this. */
+  itemsKey?: unknown;
 }) {
   const { t } = useTranslation();
   const max = fixedMax ?? largestValue(rows);
   const shown = limit ? rows.slice(0, limit) : rows;
+  // An unfolded list of a large file's surnames runs to tens of thousands of
+  // rows: only those in the card's scroll box are mounted.
+  const virtual = useVirtualList({ count: shown.length, estimate: 26, itemsKey: itemsKey ?? rows, threshold: WINDOWED_FROM });
+  const windowed = shown.length > WINDOWED_FROM;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
     <div className={`stats-bars${toneClass(tone)}`} style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
-      {shown.map((r) => (
+      {windowed && <div className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />}
+      {shown.slice(virtual.start, virtual.end).map((r) => (
         <button
           key={r.key}
           type="button"
@@ -136,6 +149,7 @@ export function BarList({
           <span className="stats-bar-value">{r.display}</span>
         </button>
       ))}
+      {windowed && <div className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />}
     </div>
   );
 }

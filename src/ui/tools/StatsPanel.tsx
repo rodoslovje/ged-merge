@@ -282,10 +282,13 @@ export function StatsPanel({
     card,
     () => [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
     <BarList
-      limit={listLimit(card, list.length, limit)}
       tone={tone}
       picked={pickedIn(card)}
-      rows={list.map((b) => ({
+      // Rows only for what is shown: a file's surnames or places run to tens of
+      // thousands, and a place's short label costs a lookup each.
+      max={list.reduce((m, b) => Math.max(m, b.count), 1)}
+      itemsKey={list}
+      rows={list.slice(0, listLimit(card, list.length, limit)).map((b) => ({
         key: b.key,
         // A place reads by its own name and its country's flag; the whole value is the tip.
         label: places ? shortPlace(b.label!, home) : b.label,
