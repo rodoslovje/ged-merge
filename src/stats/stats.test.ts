@@ -121,6 +121,22 @@ describe("buildStatsFacts", () => {
     expect(f2).toMatchObject({ husbandFirst: true, wifeFirst: true, husbandAge: 25, wifeAge: 20, firstChildMonths: 7 });
     expect(f3).toMatchObject({ husbandFirst: false, wifeFirst: true, husbandAge: 33 });
   });
+
+  it("counts a citation on the name or the birth family link as a source", () => {
+    const f = buildStatsFacts(dataset(`0 HEAD
+0 @I1@ INDI
+1 NAME Ana /Kos/
+2 SOUR @S1@
+1 FAMC @F1@
+2 SOUR Krstna knjiga
+0 @I2@ INDI
+1 NAME Tone /Kos/
+0 @S1@ SOUR
+1 TITL Register
+0 TRLR`));
+    expect(f.byId.get("@I1@")).toMatchObject({ hasSource: true, citations: 2 });
+    expect(f.byId.get("@I2@")).toMatchObject({ hasSource: false, citations: 0 });
+  });
 });
 
 describe("scope", () => {

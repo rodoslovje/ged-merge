@@ -135,14 +135,20 @@ export interface RecordRefs {
   media: string[];
 }
 
-function refsOf(raw: GedNode): RecordRefs {
+/** What `raw` names, and how many source citations it holds at any depth —
+ *  a name's, a birth family link's or an association's as well as the
+ *  record's and its events', pointer or inline: the citations a reader counts. */
+function refsOf(raw: GedNode): { refs: RecordRefs; citations: number } {
   const sources: string[] = [];
   const media: string[] = [];
+  let citations = 0;
   const walk = (node: GedNode) => {
     for (const child of node.children) {
       const v = child.value?.trim();
-      if (child.tag === "SOUR" && v && isPointer(v)) sources.push(v);
-      else if (child.tag === "OBJE") {
+      if (child.tag === "SOUR" && v) {
+        citations++;
+        if (isPointer(v)) sources.push(v);
+      } else if (child.tag === "OBJE") {
         if (v && isPointer(v)) media.push(v);
         else {
           const file = child.children.find((c) => c.tag === "FILE")?.value?.trim();
@@ -153,7 +159,7 @@ function refsOf(raw: GedNode): RecordRefs {
     }
   };
   walk(raw);
-  return { places: placeKeysOf(raw), sources, media };
+  return { refs: { places: placeKeysOf(raw), sources, media }, citations };
 }
 
 function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
@@ -244,6 +250,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       mother ??= fam?.wife;
     }
     const deceased = isDeceased(indi);
+    const { refs, citations } = refsOf(indi.raw);
     const surname = (isUnknownNameToken(name?.surname) ? "" : name?.surname?.trim()) || undefined;
     const f: PersonFacts = {
       id: indi.id,
@@ -278,15 +285,15 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       hasBirthPlace: !!birthPlace,
       hasDeathDate: !!death,
       hasParents: !!(father || mother),
-      hasSource: !!indi.sources?.length || indi.events.some((e) => !!e.sources?.length),
+      hasSource: citations > 0,
       eventTags: indi.events.map((e) => e.tag),
       sourcedTags: indi.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
-      citations: (indi.sources?.length ?? 0) + indi.events.reduce((n, e) => n + (e.sources?.length ?? 0), 0),
+      citations,
       hasPlace: indi.events.some((e) => !!e.place?.raw.trim()),
       mapped: false,
       father,
       mother,
-      refs: refsOf(indi.raw),
+      refs,
     };
     people.push(f);
     byId.set(f.id, f);
@@ -326,7 +333,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       parentAgesApprox: isApproximate(hb) || isApproximate(wb) || isApproximate(first) || isApproximate(last),
       eventTags: fam.events.map((e) => e.tag),
       sourcedTags: fam.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
-      refs: refsOf(fam.raw),
+      refs: refsOf(fam.raw).refs,
     });
   }
 
