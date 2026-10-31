@@ -9394,6 +9394,9 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-tile.stats-male, .stats-tile.stats-female { box-shadow: inset 3px 0 0 var(--stats-bar); }
 .stats-tile-label { color: var(--muted); font-size: 0.8rem; }
 .stats-tile-sub { color: var(--faint); font-size: 0.75rem; }
+/* The ⚭ between a couple comes from a fallback font with a taller line; held to
+   the text's own height, a couple's line sits where a single name's does. */
+.stats-couple .muted { line-height: 1; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */
