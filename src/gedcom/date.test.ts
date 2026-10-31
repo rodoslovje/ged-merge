@@ -166,6 +166,14 @@ describe("dateRefines — incoming is a more exact same date", () => {
     expect(dateRefines("1841", "CAL 1841")).toBe(false);
   });
 
+  it("prefers an exact date to a BEF/AFT bound, even in another year", () => {
+    expect(dateRefines("BEF 1727", "27 OCT 1726")).toBe(true);
+    expect(dateRefines("AFT 1800", "3 MAY 1802")).toBe(true);
+    expect(dateRefines("BEF 1727", "1726")).toBe(true);
+    expect(dateRefines("27 OCT 1726", "BEF 1727")).toBe(false);
+    expect(dateRefines("BEF 1727", "ABT 1726")).toBe(false);
+  });
+
   it("leaves ranges to the default", () => {
     expect(dateRefines("BET 1949 AND 1950", "12 MAR 1949")).toBe(false);
   });

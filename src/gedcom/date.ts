@@ -351,6 +351,12 @@ function calculatedOverEstimate(m: GedDate, i: GedDate): boolean {
   return m.qualifier === "about" && m.approx !== "CAL" && i.qualifier === "about" && i.approx === "CAL";
 }
 
+/** A stated date beats a mere bound: "27 OCT 1726" replaces "BEF 1727" (or
+ *  an AFT date), whatever year the bound names. */
+function exactOverBound(m: GedDate, i: GedDate): boolean {
+  return (m.qualifier === "before" || m.qualifier === "after") && i.qualifier === "exact";
+}
+
 /**
  * Sort key for a single GedDate that is precision- and qualifier-aware:
  *  - BEF Y  → just before year start (Y*10000 - 1), so it sorts before any Y date
@@ -380,9 +386,10 @@ export function dateToSortKey(d: GedDate | undefined): number {
  * doesn't contradict it — e.g. main "1949" refined by incoming "12 MAR 1949".
  * Both must be single (non-range) dates sharing the same year, and every
  * component the main already pins (month, day) must agree. Used so a merge
- * defaults to the incoming side when it carries the more exact date. One
- * exception to the shared year: a calculated date always replaces an
- * estimated one (ABT/EST), being reckoned rather than guessed.
+ * defaults to the incoming side when it carries the more exact date. Two
+ * exceptions to the shared year: a calculated date always replaces an
+ * estimated one (ABT/EST), being reckoned rather than guessed, and an exact
+ * date always replaces a BEF/AFT bound.
  */
 export function dateRefines(mainRaw: string, incomingRaw: string, order?: DateOrder): boolean {
   const m = parseDate(mainRaw, order);
@@ -390,7 +397,7 @@ export function dateRefines(mainRaw: string, incomingRaw: string, order?: DateOr
   if (m.year == null || i.year == null) return false;
   // Ranges/periods aren't a simple precision ladder — leave them to the default.
   if (m.year2 != null || i.year2 != null) return false;
-  if (calculatedOverEstimate(m, i)) return true;
+  if (calculatedOverEstimate(m, i) || exactOverBound(m, i)) return true;
   if (m.year !== i.year) return false;
   if (m.month != null && m.month !== i.month) return false;
   if (m.day != null && m.day !== i.day) return false;
