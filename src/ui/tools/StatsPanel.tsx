@@ -863,7 +863,7 @@ export function StatsPanel({
                   choose("sourcedBySide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.missingTitle", { what: eventDisplayLabel(key, t) })}`, s.missing, s.families);
                 }}
               />
-            ), true)}
+            ))}
             {card("citations", t("stats.citations"), t("stats.nPeople", { count: people }), buckets("citations", t("stats.citations"), research.citations))}
           </>
         )}

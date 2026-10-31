@@ -9488,13 +9488,15 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 /* Two shares per row — the father's side and the mother's — under a legend whose
    swatches carry the two lines' colours; the words stay in text ink. */
 .stats-pairs { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; }
-.stats-pair-legend, .stats-pair-row { display: grid; grid-template-columns: minmax(0, 9em) 1fr 1fr; gap: 10px; align-items: center; }
+.stats-pair-row { display: grid; grid-template-columns: minmax(0, 11em) 1fr; gap: 10px; align-items: center; }
+.stats-pair-legend { display: flex; gap: 16px; justify-content: flex-end; }
 .stats-pair-legend { color: var(--muted); font-size: 0.8rem; padding: 0 6px 4px; }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
-.stats-pair-legend span:first-child::before { display: none; }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }
 .stats-pair-row { padding: 3px 6px; border-radius: var(--radius-sm); }
+.stats-pair-bars { display: flex; flex-direction: column; gap: 3px; }
+.stats-pair-bars .stats-bar-track { height: 6px; }
 .stats-pair-cell { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .stats-pair-cell:disabled { cursor: default; }
 .stats-pair-cell:hover:not(:disabled) .stats-bar-track, .stats-pair-cell.picked .stats-bar-track { outline: 1px solid var(--stats-bar); outline-offset: 1px; }

@@ -147,8 +147,9 @@ export interface PairRow {
 }
 
 /**
- * Two shares side by side per row — the father's side and the mother's — each
- * in its line's colour, under a legend naming the two. Either bar lists its
+ * Two shares per row, one above the other on one scale so they compare — the
+ * father's side and the mother's — each in its line's colour, under a legend
+ * naming the two. Either bar lists its
  * own people.
  */
 export function PairBarList({
@@ -188,15 +189,16 @@ export function PairBarList({
   return (
     <div className="stats-pairs">
       <div className="stats-pair-legend">
-        <span />
         <span className="stats-pair-a">{names[0]}</span>
         <span className="stats-pair-b">{names[1]}</span>
       </div>
       {(limit ? rows.slice(0, limit) : rows).map((r) => (
         <div key={r.key} className="stats-pair-row">
           <span className="stats-bar-label">{r.label}</span>
-          {bar(r, "a")}
-          {bar(r, "b")}
+          <span className="stats-pair-bars">
+            {bar(r, "a")}
+            {bar(r, "b")}
+          </span>
         </div>
       ))}
     </div>
