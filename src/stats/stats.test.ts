@@ -122,6 +122,27 @@ describe("buildStatsFacts", () => {
     expect(f3).toMatchObject({ husbandFirst: false, wifeFirst: true, husbandAge: 33 });
   });
 
+  it("follows the birth family, not an adoptive one listed first, as the Ancestors scope does", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 FAMC @F2@
+2 PEDI adopted
+1 FAMC @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+0 @I3@ INDI
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I3@
+1 CHIL @I1@
+0 TRLR`);
+    expect(buildStatsFacts(ds).byId.get("@I1@")!.father).toBe("@I2@");
+    expect([...computeKinship(ds, "@I1@")!.ancestors]).not.toContain("@I3@");
+  });
+
   it("counts a citation on the name or the birth family link as a source", () => {
     const f = buildStatsFacts(dataset(`0 HEAD
 0 @I1@ INDI

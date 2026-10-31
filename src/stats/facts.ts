@@ -2,6 +2,7 @@ import type { Dataset, GedDate, GedEvent, GedNode, GeoCoord, Individual } from "
 import { distanceKm } from "../geo/points";
 import { BIRTH_TAGS, birthDateOf, DEATH_TAGS, deathDateOf, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import { ageBetween } from "../gedcom/age";
+import { birthParentFamilies } from "../gedcom/couple";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
 import { isUnknownNameToken } from "../gedcom/name";
@@ -236,12 +237,13 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     const birthPlace = firstPlace(indi, BIRTH_TAGS);
     const deathPlace = firstPlace(indi, DEATH_TAGS);
     const place = birthPlace || deathPlace;
+    // The birth parents, as the Ancestors and Blood scopes follow them: an
+    // adoptive family listed first must not stand in the pedigree.
     let father: string | undefined;
     let mother: string | undefined;
-    for (const famId of indi.childOf) {
-      const fam = ds.families.get(famId);
-      father ??= fam?.husband;
-      mother ??= fam?.wife;
+    for (const fam of birthParentFamilies(indi, ds)) {
+      father ??= fam.husband;
+      mother ??= fam.wife;
     }
     const deceased = isDeceased(indi);
     const { refs, citations } = refsOf(indi.raw);
