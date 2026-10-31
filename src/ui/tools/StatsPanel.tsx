@@ -107,6 +107,8 @@ export function StatsPanel({
   const home = useHomeCountry();
   const [scope, setScope] = useState<StatsScope>(DEFAULT_SCOPE);
   const [pick, setPick] = useState<Pick | null>(null);
+  // The ranked lists unfolded to their full length, by card.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [ready, setReady] = useState(false);
   const page: Page = (PAGES as readonly string[]).includes(view) ? (view as Page) : "tree";
 
@@ -217,9 +219,21 @@ export function StatsPanel({
   );
 
   /** A ranked list of names. */
+  // How long each cut list really is, filled as the lists render (before the
+  // card around them), so the card can offer the rest from its header.
+  const moreOf = new Map<string, number>();
+  const listLimit = (card: string, count: number, limit: number) => {
+    if (count > limit) moreOf.set(card, count);
+    return expanded.has(card) ? undefined : limit;
+  };
+  const toggleExpanded = (card: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (!next.delete(card)) next.add(card);
+    return next;
+  });
   const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false) => (
     <BarList
-      limit={limit}
+      limit={listLimit(card, list.length, limit)}
       tone={tone}
       picked={pickedIn(card)}
       rows={list.map((b) => ({
@@ -272,16 +286,36 @@ export function StatsPanel({
   const card = (id: string, title: string, note: ReactNode, body: ReactNode, wide = false) => {
     // What the numbers are and how they were taken — one tip per card.
     const about = `stats.about.${ABOUT_ALIAS[id] ?? id}`;
+    // A list cut short offers the rest from the corner, beside the tip.
+    const more = moreOf.get(id);
+    const open = expanded.has(id);
     return (
     <section className={`stats-card${wide ? " wide" : ""}`} key={id}>
       <header className="stats-card-head">
         <h3>{title}</h3>
         {note && <span className="stats-card-note">{note}</span>}
-        {i18n.exists(about) && (
-          <button type="button" className="stats-info" {...tipProps([t(about), clickHint(id)].filter(Boolean).join("\n\n"), { heading: title })}>
-            <InfoIcon size={14} />
-          </button>
-        )}
+        <span className="stats-card-tools">
+          {more !== undefined && (
+            <button
+              type="button"
+              className="stats-info"
+              aria-pressed={open}
+              onClick={() => toggleExpanded(id)}
+              {...tipProps(open ? t("stats.showFewer") : t("stats.showAll", { count: more }))}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {open
+                  ? <><polyline points="7,4 12,9 17,4" /><polyline points="7,20 12,15 17,20" /></>
+                  : <><polyline points="7,9 12,4 17,9" /><polyline points="7,15 12,20 17,15" /></>}
+              </svg>
+            </button>
+          )}
+          {i18n.exists(about) && (
+            <button type="button" className="stats-info" {...tipProps([t(about), clickHint(id)].filter(Boolean).join("\n\n"), { heading: title })}>
+              <InfoIcon size={14} />
+            </button>
+          )}
+        </span>
       </header>
       {body}
       {pick?.card === id && (
@@ -608,7 +642,7 @@ export function StatsPanel({
             {card("causes", t("stats.causes"), null, ranked("causes", t("stats.causes"), deaths.causes, 15))}
             {card("causeAge", t("stats.causeAge"), null, (
               <BarList
-                limit={15}
+                limit={listLimit("causeAge", deaths.ageByCause.length, 15)}
                 picked={pickedIn("causeAge")}
                 rows={deaths.ageByCause.map((c) => ({ key: c.key, label: c.label, value: c.value, display: dec(c.value), count: c.ids.length, tip: t("stats.nPeople", { count: c.ids.length }) }))}
                 onPick={(key) => {

@@ -9336,8 +9336,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    end, the head count and the filters' fold toggle. */
 .stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
 .stats-head .tree-mode { flex-wrap: wrap; }
-/* Pinned to the card's corner, so a title that wraps never pushes it onto a line of its own. */
-.stats-card-head .stats-info { position: absolute; top: 10px; right: 10px; }
+/* The card's corner tools — show all, the tip — pinned there, so a title that
+   wraps never pushes them onto a line of their own. */
+.stats-card-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
+.stats-info[aria-pressed="true"] { color: var(--accent); }
 .stats-info { display: inline-flex; padding: 2px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
 .stats-info:hover, .stats-info:focus-visible { color: var(--accent); }
 .stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
@@ -9378,7 +9380,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   position: relative;
 }
 .stats-card.wide { grid-column: 1 / -1; }
-.stats-card-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 10px; padding-right: 22px; }
+.stats-card-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 10px; padding-right: 46px; }
 /* A chart grows into whatever height its row gives the card, never below its own. */
 .stats-card > .stats-columns { flex: 1 1 auto; }
 .stats-columns.spread .stats-col-label { overflow: visible; text-overflow: clip; }
@@ -9451,6 +9453,8 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 
 /* Ranked bars: label, track, value — one grid per row so the tracks line up. */
 .stats-bars { display: flex; flex-direction: column; gap: 2px; }
+/* An unfolded list scrolls inside its card rather than stretching the page. */
+.stats-card > .stats-bars { max-height: 560px; overflow-y: auto; }
 .stats-bar {
   display: grid;
   grid-template-columns: minmax(0, 11em) 1fr auto;
@@ -9478,7 +9482,6 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-status-fair { --stats-bar: var(--state-minor); --stats-track: color-mix(in oklch, var(--state-minor) 20%, transparent); }
 .stats-status-poor { --stats-bar: var(--state-major); --stats-track: color-mix(in oklch, var(--state-major) 22%, transparent); }
 .stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
-.stats-more { margin-top: 6px; align-self: flex-start; }
 
 .stats-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .stats-table th, .stats-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }

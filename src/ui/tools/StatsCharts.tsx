@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { tipProps } from "../IconTip";
 
@@ -85,7 +85,7 @@ export interface BarRow {
   status?: "good" | "fair" | "poor";
 }
 
-/** A ranked list of horizontal bars, the first `limit` shown until asked for all. */
+/** A ranked list of horizontal bars, the first `limit` of them — the card that holds the list offers the rest. */
 export function BarList({
   rows,
   onPick,
@@ -103,9 +103,8 @@ export function BarList({
   tone?: Tone;
 }) {
   const { t } = useTranslation();
-  const [all, setAll] = useState(false);
   const max = fixedMax ?? Math.max(1, ...rows.map((r) => r.value));
-  const shown = limit && !all ? rows.slice(0, limit) : rows;
+  const shown = limit ? rows.slice(0, limit) : rows;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
     <div className={`stats-bars${toneClass(tone)}`}>
@@ -126,11 +125,6 @@ export function BarList({
           <span className="stats-bar-value">{r.display}</span>
         </button>
       ))}
-      {limit !== undefined && rows.length > limit && (
-        <button type="button" className="tools-issue-link stats-more" onClick={() => setAll((a) => !a)}>
-          {all ? t("stats.showFewer") : t("stats.showAll", { count: rows.length })}
-        </button>
-      )}
     </div>
   );
 }
