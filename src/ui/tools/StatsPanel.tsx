@@ -457,11 +457,11 @@ export function StatsPanel({
               <StatTile label={t("stats.placesNamed")} value={num(ov.places)} />
               <StatTile label={t("stats.sourcesCited")} value={num(ov.sources)} />
               <StatTile label={t("stats.mediaLinked")} value={num(ov.media)} />
-              {ov.ageAtDeath && (
-                <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} />
-              )}
               {ov.oldest && (
                 <StatTile label={t("stats.oldest")} value={t("stats.years", { count: ov.oldest.age })} sub={<NameLink dataset={dataset} id={ov.oldest.id} onNavigate={onNavigate} />} />
+              )}
+              {ov.ageAtDeath && (
+                <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} />
               )}
               {ov.largestFamily && (
                 <StatTile label={t("stats.largestFamily")} value={t("stats.children", { count: ov.largestFamily.children })} sub={<Couple dataset={dataset} id={ov.largestFamily.id} onNavigate={onNavigate} nameOnly />} />
