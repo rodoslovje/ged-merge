@@ -1022,13 +1022,28 @@ describe("anyField criterion", () => {
 1 NAME Marko /Kos/
 1 RESI
 2 ADDR Glavni trg 3
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Mojca /Kos/
+1 FAMS @F1@
+0 @I5@ INDI
+1 NAME Luka /Kos/
+1 FAMC @F1@
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I5@
+1 MARR
+2 DATE 1890
+2 PLAC Šmarje pri Jelšah
+2 NOTE Priči Janez in Polona
 0 @N1@ NOTE Emigriral v Ameri
 1 CONC ko leta 1905
 0 @S1@ SOUR
 1 TITL Matricula
 0 TRLR`);
   const rows = buildBatchRows(ds, nameOf);
-  const ctx = { lineSides: null, kinship: null, fullText: fullTextLookup(ds.individuals, ds.records) };
+  const ctx = { lineSides: null, kinship: null, fullText: fullTextLookup(ds) };
   const match = (text: string) =>
     rows.filter((r) => matchesBatch(r, [{ kind: "anyField", text }], ctx)).map((r) => r.id).sort();
 
@@ -1044,7 +1059,13 @@ describe("anyField criterion", () => {
 
   it("needs every term, in any order, and names count too", () => {
     expect(match("trg kos")).toEqual(["@I3@"]);
-    expect(match("kos")).toEqual(["@I1@", "@I3@"]);
+    expect(match("kos")).toEqual(["@I1@", "@I3@", "@I4@", "@I5@"]);
+  });
+
+  it("reads the events of the unions a person is a partner in, not their children's", () => {
+    expect(match("smarje")).toEqual(["@I3@", "@I4@"]);
+    expect(match("polona 1890")).toEqual(["@I3@", "@I4@"]);
+    expect(match("mojca smarje")).toEqual(["@I4@"]);
   });
 
   it("does not match pointers or the cited source's own record", () => {

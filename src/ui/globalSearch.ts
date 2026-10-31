@@ -1,4 +1,4 @@
-import type { GedNode, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { lifespanOf, birthYear, birthSortKey, deathYear } from "../gedcom/lifespan";
 import { NOTE_TAGS } from "../gedcom/builder";
@@ -111,28 +111,40 @@ function noteText(indi: Individual): string {
 
 /**
  * Every text the person's own record carries, folded — names, dates, places,
- * addresses, occupations, citation pages, notes: each line's value, with the
- * shared note a pointer names read in place of the pointer. Other pointers and
- * bare `Y` occurrence flags carry no text and are left out.
+ * addresses, occupations, citation pages, notes — plus the events of every
+ * union they are a partner in (the marriage's date, place, notes…): each
+ * line's value, with the shared note a pointer names read in place of the
+ * pointer. Other pointers and bare `Y` occurrence flags carry no text and are
+ * left out.
  */
-export function personFullText(raw: GedNode, sharedNotes: ReadonlyMap<string, GedNode>): string {
+export function personFullText(
+  indi: Individual,
+  families: ReadonlyMap<string, Family>,
+  sharedNotes: ReadonlyMap<string, GedNode>,
+): string {
   const parts: string[] = [];
-  const walk = (node: GedNode) => {
-    for (const child of node.children) {
-      const v = child.value?.trim();
-      if (v && isPointer(v)) {
-        const note = NOTE_TAGS.includes(child.tag) ? sharedNotes.get(v) : undefined;
-        if (note) {
-          if (note.value) parts.push(note.value);
-          walk(note);
-        }
-      } else if (v && v !== "Y") {
-        parts.push(v);
+  const line = (node: GedNode) => {
+    const v = node.value?.trim();
+    if (v && isPointer(v)) {
+      const note = NOTE_TAGS.includes(node.tag) ? sharedNotes.get(v) : undefined;
+      if (note) {
+        if (note.value) parts.push(note.value);
+        note.children.forEach(line);
       }
-      walk(child);
+    } else if (v && v !== "Y") {
+      parts.push(v);
     }
+    node.children.forEach(line);
   };
-  walk(raw);
+  indi.raw.children.forEach(line);
+  for (const famId of indi.spouseOf) {
+    const fam = families.get(famId);
+    if (!fam || fam.events.length === 0) continue;
+    // The union's lines that are its events — the ones the app lifts into
+    // `events` — not its partner/child pointers or record-level bookkeeping.
+    const eventTags = new Set(fam.events.map((e) => e.tag));
+    for (const child of fam.raw.children) if (eventTags.has(child.tag)) line(child);
+  }
   return foldSearch(parts.join("\n"));
 }
 
@@ -143,7 +155,7 @@ export function personFullText(raw: GedNode, sharedNotes: ReadonlyMap<string, Ge
  * person's text is built the first time a scan asks and kept for the next
  * keystroke. Make a new lookup when the dataset changes.
  */
-export function fullTextLookup(individuals: Map<string, Individual>, records: GedNode[]): (id: string) => string {
+export function fullTextLookup({ individuals, families, records }: Pick<Dataset, "individuals" | "families" | "records">): (id: string) => string {
   let sharedNotes: Map<string, GedNode> | undefined;
   const cache = new Map<string, string>();
   return (id) => {
@@ -153,7 +165,7 @@ export function fullTextLookup(individuals: Map<string, Individual>, records: Ge
         records.filter((r) => r.xref && NOTE_TAGS.includes(r.tag)).map((r) => [r.xref!, r]),
       );
       const indi = individuals.get(id);
-      text = indi ? personFullText(indi.raw, sharedNotes) : "";
+      text = indi ? personFullText(indi, families, sharedNotes) : "";
       cache.set(id, text);
     }
     return text;

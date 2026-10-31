@@ -1962,7 +1962,7 @@ export const sl = {
   "globalSearch.facet.placePlaceholder": "Kateri koli kraj…",
   "globalSearch.facet.anyField": "Katero koli polje",
   "globalSearch.facet.anyFieldPlaceholder": "Besedilo kjer koli v zapisu…",
-  "globalSearch.facet.anyFieldHint": "Vsaka beseda se mora pojaviti nekje v zapisu osebe: v imenih, datumih, krajih, poklicih, navedbah virov ali opombah.",
+  "globalSearch.facet.anyFieldHint": "Vsaka beseda se mora pojaviti nekje v zapisu osebe ali v dogodkih njenih zvez: v imenih, datumih, krajih, poklicih, navedbah virov ali opombah.",
   "globalSearch.facet.has": "Vsebuje",
   "globalSearch.facet.links": "Povezave",
   "globalSearch.facet.notes": "Opombe",

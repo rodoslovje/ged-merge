@@ -1667,7 +1667,7 @@ function AppContent() {
     let distances: Map<string, number> | undefined;
     const hops = () =>
       (distances ??= startId && mainDataset ? computeDistances(mainDataset, startId) : new Map<string, number>());
-    const fullText = mainDataset ? fullTextLookup(mainDataset.individuals, mainDataset.records) : () => "";
+    const fullText = mainDataset ? fullTextLookup(mainDataset) : () => "";
     return {
       isEdited: (id) => changedPersonIds.has(id),
       decisionOf: (id) => decisionByMain.get(id),

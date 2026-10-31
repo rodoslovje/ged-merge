@@ -117,7 +117,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     [dataset, startId, settings.showKinship, t, ver],
   );
   const fullText = useMemo(
-    () => fullTextLookup(dataset.individuals, dataset.records),
+    () => fullTextLookup(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
     [dataset, ver],
   );

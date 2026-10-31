@@ -1734,7 +1734,7 @@ export const en = {
   "globalSearch.facet.placePlaceholder": "Any place…",
   "globalSearch.facet.anyField": "Any field",
   "globalSearch.facet.anyFieldPlaceholder": "Text anywhere in the record…",
-  "globalSearch.facet.anyFieldHint": "Every word must appear somewhere in the person's record: names, dates, places, occupations, source citations or notes.",
+  "globalSearch.facet.anyFieldHint": "Every word must appear somewhere in the person's record or in the events of their unions: names, dates, places, occupations, source citations or notes.",
   "globalSearch.facet.has": "Has",
   "globalSearch.facet.links": "Links",
   "globalSearch.facet.notes": "Notes",
