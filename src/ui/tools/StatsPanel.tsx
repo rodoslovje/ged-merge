@@ -616,10 +616,18 @@ export function StatsPanel({
 
         {jobs && (
           <>
+            <section className="stats-card wide stats-tiles">
+              <StatTile label={t("stats.distinctOccupations")} value={num(jobs.occupations.length)} />
+              <StatTile label={t("stats.withOccupation")} value={num(jobs.withOccupation.n)} sub={pct(jobs.withOccupation.n, jobs.withOccupation.of)} onClick={() => choose("jobTiles", "with", t("stats.withOccupation"), jobs.withOccupation.ids)} picked={pickedIn("jobTiles") === "with"} />
+              {jobs.withEducation.n > 0 && (
+                <StatTile label={t("stats.withEducation")} value={num(jobs.withEducation.n)} sub={pct(jobs.withEducation.n, jobs.withEducation.of)} onClick={() => choose("jobTiles", "edu", t("stats.withEducation"), jobs.withEducation.ids)} picked={pickedIn("jobTiles") === "edu"} />
+              )}
+              {pick?.card === "jobTiles" && (
+                <PickList key={`jobTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+              )}
+            </section>
             {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
-            {card("sonFatherJob", t("stats.sonFatherJob"), null, shares("sonFatherJob", [
-              { key: "sonFather", label: t("stats.sonFatherJobRow"), share: jobs.sonFather, tone: "male" },
-            ], false))}
+            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 20))}
             {card("jobsByCentury", t("stats.occupationsByCentury"), null, centuryTable(
               "jobsByCentury",
               [{ head: t("stats.occupations") }],

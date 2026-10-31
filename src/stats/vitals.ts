@@ -1,4 +1,3 @@
-import { foldSearch } from "../ui/globalSearch";
 import type { PersonFacts } from "./facts";
 import type { ScopedFacts } from "./scope";
 import {
@@ -180,8 +179,9 @@ export interface OccupationStats {
   withOccupation: Share;
   /** The most common occupations per century of birth. */
   byCentury: { century: number; top: Bucket[] }[];
-  /** Sons whose occupations include one of their father's, of the sons where both have one. */
-  sonFather: Share;
+  /** Education (EDUC) the same way: ranked, and who has any. */
+  education: Bucket[];
+  withEducation: Share;
 }
 
 export function occupationStats(s: ScopedFacts): OccupationStats {
@@ -195,17 +195,13 @@ export function occupationStats(s: ScopedFacts): OccupationStats {
     if (!list) centuries.set(c, (list = []));
     list.push(p);
   }
-  const keys = (p: PersonFacts | undefined) => new Set((p?.occupations ?? []).map((o) => foldSearch(o)));
-  const sons = s.people.filter((p) => p.sex === "M" && p.occupations.length && p.father && s.byId.get(p.father)?.occupations.length);
   return {
     occupations: rankText(s.people, (p) => p.occupations, id),
     withOccupation: share(s.people, (p) => p.occupations.length > 0),
     byCentury: [...centuries]
       .sort((a, b) => a[0] - b[0])
       .map(([century, list]) => ({ century, top: rankText(list, (p) => p.occupations, id).slice(0, 5) })),
-    sonFather: share(sons, (p) => {
-      const father = keys(s.byId.get(p.father!));
-      return [...keys(p)].some((k) => father.has(k));
-    }),
+    education: rankText(s.people, (p) => p.education, id),
+    withEducation: share(s.people, (p) => p.education.length > 0),
   };
 }

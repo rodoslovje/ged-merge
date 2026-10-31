@@ -49,7 +49,8 @@ const FILE = `0 HEAD
 0 @I4@ INDI
 1 NAME Janez /Novak/
 1 SEX M
-1 OCCU kovač
+1 OCCU kovač, kmet
+1 EDUC osnovna šola
 1 BIRT
 2 DATE 4 JUL 1850
 2 PLAC Bled
@@ -109,11 +110,13 @@ describe("deathStats", () => {
 });
 
 describe("occupationStats", () => {
-  it("ranks occupations and finds sons who follow their father", () => {
+  it("ranks occupations, splitting a value that lists several, and education", () => {
     const o = occupationStats(scoped());
-    expect(o.occupations[0]).toMatchObject({ key: "kmet", count: 2 });
+    expect(o.occupations[0]).toMatchObject({ key: "kmet", count: 3 });
+    expect(o.occupations.map((b) => b.key)).toEqual(["kmet", "kovac"]);
     expect(o.withOccupation).toMatchObject({ n: 3, of: 4 });
-    expect(o.sonFather).toMatchObject({ n: 1, of: 2, ids: ["@I3@"] });
+    expect(o.education).toEqual([{ key: "osnovna sola", label: "osnovna šola", count: 1, ids: ["@I4@"] }]);
+    expect(o.withEducation).toMatchObject({ n: 1, of: 4 });
     expect(o.byCentury.map((c) => c.century)).toEqual([1800]);
   });
 });

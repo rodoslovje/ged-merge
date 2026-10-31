@@ -53,8 +53,11 @@ export interface PersonFacts {
   birthDay?: string;
   /** Days from the birth to the baptism (or christening), when both name the day. */
   baptismDays?: number;
-  /** The occupations (OCCU) the person carries, as written, each once. */
+  /** The occupations (OCCU) and the education (EDUC) the person carries, as
+   *  written, each once; a value listing several (`¼ zemljak, ½ zemljak`)
+   *  gives each of them. */
   occupations: string[];
+  education: string[];
   /** Both a given name and a surname, neither of them a stand-in for an unknown one (NN, ?). */
   hasName: boolean;
   hasBirthDate: boolean;
@@ -156,6 +159,19 @@ function firstPlace(indi: Individual, tags: readonly string[]): string {
   return "";
 }
 
+/** The values of one attribute, split where a value lists several, each once. */
+function listedValues(indi: Individual, tag: string): string[] {
+  const out = new Set<string>();
+  for (const e of indi.events) {
+    if (e.tag !== tag) continue;
+    for (const part of (e.value ?? "").split(/[,;]/)) {
+      const v = part.trim();
+      if (v) out.add(v);
+    }
+  }
+  return [...out];
+}
+
 /** A date that names its day exactly, as a comparable key. */
 function dayKey(d: GedDate | undefined): string | undefined {
   if (d?.year === undefined || d.month === undefined || d.day === undefined || isApproximate(d)) return undefined;
@@ -241,7 +257,8 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       deathPlace,
       birthDay: dayKey(birth?.date),
       baptismDays: baptismDays(indi),
-      occupations: [...new Set(indi.events.filter((e) => e.tag === "OCCU").map((e) => e.value?.trim()).filter((v): v is string => !!v))],
+      occupations: listedValues(indi, "OCCU"),
+      education: listedValues(indi, "EDUC"),
       hasName: givens.length > 0 && !!surname,
       hasBirthDate: !!birth,
       hasBirthPlace: !!birthPlace,
