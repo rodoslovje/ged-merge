@@ -158,7 +158,8 @@ describe("aggregates", () => {
     expect(o.people).toBe(8);
     expect(o.male).toHaveLength(4);
     expect(o.firstBirth).toEqual({ year: 1800, id: "@I1@" });
-    expect(o.oldest).toEqual({ id: "@I1@", age: 70 });
+    expect(o.oldestMale).toEqual({ id: "@I1@", age: 70 });
+    expect(o.oldestFemale).toEqual({ id: "@I4@", age: 27 });
     expect(o.largestFamily).toEqual({ id: "@F2@", children: 2 });
     expect(o.mostChildrenMale).toEqual({ id: "@I3@", children: 2 });
     expect(o.mostChildrenFemale).toEqual({ id: "@I4@", children: 2 });

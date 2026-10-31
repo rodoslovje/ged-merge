@@ -40,9 +40,10 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  * which choosing a GEDCOM target format can send the reader straight to. The
  * health check opens on its data issues; `gedcom` is its GEDCOM half.
  * Statistics opens on its overview; `names`, `lifespan`, `families`, `births`,
- * `deaths` and `occupations` are its other pages.
+ * `deaths`, `occupations`, `migration`, `generations` and `research` are its
+ * other pages.
  */
-export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations";
+export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations" | "migration" | "generations" | "research";
 
 const TOOLS: Tool[] = ["stats", "places", "sources", "validate", "duplicates", "normalize", "privacy"];
 

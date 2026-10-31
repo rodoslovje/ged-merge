@@ -1,4 +1,5 @@
-import type { Dataset, GedDate, GedEvent, GedNode, Individual } from "../gedcom/types";
+import type { Dataset, GedDate, GedEvent, GedNode, GeoCoord, Individual } from "../gedcom/types";
+import { distanceKm } from "../geo/points";
 import { BIRTH_TAGS, DEATH_TAGS, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import { ageBetween } from "../gedcom/age";
 import { countryOf } from "../tools/geocode";
@@ -44,6 +45,10 @@ export interface PersonFacts {
   country: string;
   /** The birth (or baptism) place's country facet; `""` when there is no birth place. */
   birthCountry: string;
+  /** The death (or burial) place's country facet; `""` when there is no death place. */
+  deathCountry: string;
+  /** Kilometres from the birth place to the death place, when both are on the map. */
+  movedKm?: number;
   /** The death's cause (CAUS), as written. */
   cause?: string;
   /** The birth (or baptism) place and the death (or burial) place, `""` for none. */
@@ -65,6 +70,11 @@ export interface PersonFacts {
   hasDeathDate: boolean;
   hasParents: boolean;
   hasSource: boolean;
+  /** The tags of the person's own events, and of those among them that cite a source. */
+  eventTags: string[];
+  sourcedTags: string[];
+  /** Source citations on the person and on their events. */
+  citations: number;
   /** Any of the person's own events names a place. */
   hasPlace: boolean;
   /** One of those places has coordinates somewhere in the file — the person can be put on a map. */
@@ -101,6 +111,9 @@ export interface FamilyFacts {
   fatherAgeFirst?: number;
   /** One of the dates the parents' ages rest on is approximate. */
   parentAgesApprox: boolean;
+  /** The family's own events (MARR, DIV, …), and those among them that cite a source. */
+  eventTags: string[];
+  sourcedTags: string[];
   refs: RecordRefs;
 }
 
@@ -252,6 +265,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       place,
       country: place ? countryOf(place, home) : "",
       birthCountry: birthPlace ? countryOf(birthPlace, home) : "",
+      deathCountry: deathPlace ? countryOf(deathPlace, home) : "",
       cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
       birthPlace,
       deathPlace,
@@ -265,6 +279,9 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       hasDeathDate: !!death,
       hasParents: !!(father || mother),
       hasSource: !!indi.sources?.length || indi.events.some((e) => !!e.sources?.length),
+      eventTags: indi.events.map((e) => e.tag),
+      sourcedTags: indi.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
+      citations: (indi.sources?.length ?? 0) + indi.events.reduce((n, e) => n + (e.sources?.length ?? 0), 0),
       hasPlace: indi.events.some((e) => !!e.place?.raw.trim()),
       mapped: false,
       father,
@@ -307,6 +324,8 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       motherAgeLast: last ? ageBetween(wb, last) : undefined,
       fatherAgeFirst: first ? ageBetween(hb, first) : undefined,
       parentAgesApprox: isApproximate(hb) || isApproximate(wb) || isApproximate(first) || isApproximate(last),
+      eventTags: fam.events.map((e) => e.tag),
+      sourcedTags: fam.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
       refs: refsOf(fam.raw),
     });
   }
@@ -328,15 +347,23 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   }
   // A place value has coordinates when any event writing it carries them,
   // as the Places tool reads it; a person is on the map through any of theirs.
-  const placed = new Set<string>();
+  const placed = new Map<string, GeoCoord>();
   const notePlaced = (events: GedEvent[]) => {
-    for (const e of events) if (e.place?.coord) placed.add(e.place.raw.trim());
+    for (const e of events) {
+      const raw = e.place?.raw.trim();
+      if (raw && e.place?.coord && !placed.has(raw)) placed.set(raw, e.place.coord);
+    }
   };
   for (const indi of ds.individuals.values()) notePlaced(indi.events);
   for (const fam of ds.families.values()) notePlaced(fam.events);
   if (placed.size) {
     for (const indi of ds.individuals.values()) {
-      byId.get(indi.id)!.mapped = indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim()));
+      const p = byId.get(indi.id)!;
+      p.mapped = indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim()));
+      // How far a life moved: from the birth place to the death place, when both are on the map.
+      const from = p.birthPlace ? placed.get(p.birthPlace) : undefined;
+      const to = p.deathPlace ? placed.get(p.deathPlace) : undefined;
+      if (from && to) p.movedKm = distanceKm(from, to);
     }
   }
   return { people, families, byId };

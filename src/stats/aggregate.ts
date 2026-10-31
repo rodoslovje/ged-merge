@@ -238,7 +238,9 @@ export interface Overview {
   topBirthPlaces: Bucket[];
   topBirthCountries: Bucket[];
   ageAtDeath?: Mean;
-  oldest?: { id: string; age: number };
+  /** The oldest man and woman at death. */
+  oldestMale?: { id: string; age: number };
+  oldestFemale?: { id: string; age: number };
   largestFamily?: { id: string; children: number };
   /** The man and the woman with the most children over all their unions. */
   mostChildrenMale?: { id: string; children: number };
@@ -267,7 +269,8 @@ export function overview(s: ScopedFacts): Overview {
   const deceased: string[] = [];
   let firstBirth: Overview["firstBirth"];
   let lastBirth: Overview["lastBirth"];
-  let oldest: Overview["oldest"];
+  let oldestMale: Overview["oldestMale"];
+  let oldestFemale: Overview["oldestFemale"];
   const countries = new Set<string>();
   const ages: number[] = [];
   const by = birthYearOf(s);
@@ -285,7 +288,8 @@ export function overview(s: ScopedFacts): Overview {
     const a = age(p);
     if (a !== undefined) {
       ages.push(a);
-      if (!oldest || a > oldest.age) oldest = { id: p.id, age: a };
+      if (p.sex === "M" && (!oldestMale || a > oldestMale.age)) oldestMale = { id: p.id, age: a };
+      if (p.sex === "F" && (!oldestFemale || a > oldestFemale.age)) oldestFemale = { id: p.id, age: a };
     }
   }
   let largestFamily: Overview["largestFamily"];
@@ -340,7 +344,8 @@ export function overview(s: ScopedFacts): Overview {
     topBirthPlaces: rankText(s.people, (p) => [p.birthPlace], (p) => p.id).slice(0, OVERVIEW_TOP),
     topBirthCountries: rankCountries(s.people),
     ageAtDeath: mean(ages),
-    oldest,
+    oldestMale,
+    oldestFemale,
     largestFamily: largestFamily && largestFamily.children > 0 ? largestFamily : undefined,
     mostChildrenMale: mostChildren("M"),
     mostChildrenFemale: mostChildren("F"),

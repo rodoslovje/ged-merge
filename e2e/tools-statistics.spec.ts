@@ -91,3 +91,31 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
 
   expect(errors).toEqual([]);
 });
+
+test("generations follow the line's person, research counts the sources", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  const panel = page.locator(".tools-stats-panel");
+  await panel.locator(".stats-tile").first().waitFor();
+
+  // Petra's two parents fill her first generation; she has no descendants.
+  await panel.getByRole("tab", { name: "Generations" }).click();
+  await expect(panel.locator(".stats-tile", { has: page.locator(".stats-tile-label", { hasText: /^Ancestors$/ }) }).locator(".stats-tile-value")).toHaveText("2");
+  await panel.locator(".stats-bar", { hasText: "Generation 1" }).click();
+  await expect(panel.locator(".stats-pick .tools-issue")).toHaveCount(2);
+
+  // No event in the file cites a source.
+  await panel.getByRole("tab", { name: "Research" }).click();
+  await expect(panel.locator(".stats-tile", { hasText: "Events with a source" }).locator(".stats-tile-value")).toHaveText("0%");
+
+  // Without coordinates there are no distances, and the page says why.
+  await panel.getByRole("tab", { name: "Migration" }).click();
+  await expect(panel.locator(".stats-note")).toBeVisible();
+
+  expect(errors).toEqual([]);
+});

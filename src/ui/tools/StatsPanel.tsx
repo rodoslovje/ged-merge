@@ -16,6 +16,10 @@ import {
   type Share,
 } from "../../stats/aggregate";
 import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
+import { migrationStats } from "../../stats/migration";
+import { lineageStats } from "../../stats/lineage";
+import { researchStats } from "../../stats/research";
+import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -34,7 +38,7 @@ import { BarList, ColumnChart, StatTile, toneClass, type BarRow, type Column, ty
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
-const PAGES = ["tree", "names", "lifespan", "families", "births", "deaths", "occupations"] as const;
+const PAGES = ["tree", "names", "lifespan", "families", "births", "deaths", "occupations", "migration", "generations", "research"] as const;
 type Page = (typeof PAGES)[number];
 const WHO: StatsWho[] = ["all", "blood", "ancestors", "descendants"];
 
@@ -107,6 +111,7 @@ export function StatsPanel({
   const home = useHomeCountry();
   const [scope, setScope] = useState<StatsScope>(DEFAULT_SCOPE);
   const [pick, setPick] = useState<Pick | null>(null);
+  const nameOf = useNameOf();
   // The ranked lists unfolded to their full length, by card.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [ready, setReady] = useState(false);
@@ -154,6 +159,10 @@ export function StatsPanel({
   const births = useMemo(() => (scoped && page === "births" ? birthStats(scoped) : undefined), [scoped, page]);
   const deaths = useMemo(() => (scoped && page === "deaths" ? deathStats(scoped) : undefined), [scoped, page]);
   const jobs = useMemo(() => (scoped && page === "occupations" ? occupationStats(scoped) : undefined), [scoped, page]);
+  const moves = useMemo(() => (scoped && page === "migration" ? migrationStats(scoped) : undefined), [scoped, page]);
+  const research = useMemo(() => (scoped && page === "research" ? researchStats(scoped) : undefined), [scoped, page]);
+  // Generations are one person's tree, so they follow the line's person whatever the scope.
+  const lineage = useMemo(() => (facts && statsStart && page === "generations" ? lineageStats(facts, statsStart) : undefined), [facts, statsStart, page]);
 
   // A list belongs to the numbers it was picked from.
   useEffect(() => setPick(null), [scope, page, facts]);
@@ -282,6 +291,8 @@ export function StatsPanel({
       : id === "byCentury" ? t("stats.click.chip")
         : id === "jobsByCentury" ? t("stats.click.job")
         : id === "oldest" ? ""
+          : id === "repeatedAncestors" ? t("stats.click.person")
+          : id === "sourcedByTag" ? t("stats.click.unsourced")
           : t("stats.click.bar");
   const card = (id: string, title: string, note: ReactNode, body: ReactNode, wide = false) => {
     // What the numbers are and how they were taken — one tip per card.
@@ -329,6 +340,13 @@ export function StatsPanel({
   const countryName = (code: string) => (code ? countryFacetLabel(code, lang) : t("tools.geocode.countryUnknown"));
   // A signed range is too wide for a column: the axis names its lower bound, the tip the range.
   const lowerBound = (b: Bucket) => (b.lo === undefined ? rangeLabel(b) : b.hi === undefined ? `${signed(b.lo)}+` : signed(b.lo));
+  const distanceLabel = (b: Bucket) =>
+    b.lo === 0 ? t("stats.samePlace") : t("stats.km", { value: b.hi === undefined ? `${num(b.lo!)}+` : `${num(b.lo!)}–${num(b.hi)}` });
+  /** A move between countries: the two countries' names, flags first. */
+  const countryMove = (key: string) => {
+    const [from, to] = key.split(">");
+    return `${countryName(from)} → ${countryName(to)}`;
+  };
   const periodLabel = (b: Bucket) => String(b.lo);
   /** Label about a dozen periods however many there are. */
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
@@ -400,7 +418,7 @@ export function StatsPanel({
             onChange={(who) => set({ who })}
             items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
           />
-          {lined && (
+          {(lined || page === "generations") && (
             <div className={`stats-start${ownStart && ownStart !== startId ? " own" : ""}`}>
               <StartPersonSelector
                 individuals={dataset.individuals}
@@ -497,8 +515,11 @@ export function StatsPanel({
               <StatTile label={t("stats.placesNamed")} value={num(ov.places)} />
               <StatTile label={t("stats.sourcesCited")} value={num(ov.sources)} />
               <StatTile label={t("stats.mediaLinked")} value={num(ov.media)} />
-              {ov.oldest && (
-                <StatTile label={t("stats.oldest")} value={t("stats.years", { count: ov.oldest.age })} sub={<NameLink dataset={dataset} id={ov.oldest.id} onNavigate={onNavigate} />} />
+              {scope.sex !== "F" && ov.oldestMale && (
+                <StatTile tone="male" label={t("stats.oldestMale")} value={t("stats.years", { count: ov.oldestMale.age })} sub={<NameLink dataset={dataset} id={ov.oldestMale.id} onNavigate={onNavigate} />} />
+              )}
+              {scope.sex !== "M" && ov.oldestFemale && (
+                <StatTile tone="female" label={t("stats.oldestFemale")} value={t("stats.years", { count: ov.oldestFemale.age })} sub={<NameLink dataset={dataset} id={ov.oldestFemale.id} onNavigate={onNavigate} />} />
               )}
               {ov.ageAtDeath && (
                 <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} />
@@ -676,6 +697,128 @@ export function StatsPanel({
               [{ head: t("stats.occupations") }],
               jobs.byCentury.map((row) => ({ century: row.century, cells: [row.top] })),
             ), true)}
+          </>
+        )}
+
+        {moves && (
+          <>
+            <section className="stats-card wide stats-tiles">
+              {moves.distanceMean && <StatTile label={t("stats.meanDistance")} value={t("stats.km", { value: num(Math.round(moves.distanceMean.value)) })} sub={t("stats.nPeople", { count: moves.distanceMean.n })} />}
+              <StatTile label={t("stats.emigrants")} value={num(moves.emigrants.n)} sub={pct(moves.emigrants.n, moves.emigrants.of)} onClick={moves.emigrants.n ? () => choose("moveTiles", "emigrants", t("stats.emigrants"), moves.emigrants.ids) : undefined} picked={pickedIn("moveTiles") === "emigrants"} />
+              <StatTile label={t("stats.samePlaceCouples")} value={num(moves.samePlaceCouples.n)} sub={pct(moves.samePlaceCouples.n, moves.samePlaceCouples.of)} onClick={moves.samePlaceCouples.n ? () => choose("moveTiles", "samePlace", t("stats.samePlaceCouples"), moves.samePlaceCouples.ids, true) : undefined} picked={pickedIn("moveTiles") === "samePlace"} />
+              {pick?.card === "moveTiles" && (
+                <PickList key={`moveTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+              )}
+            </section>
+            {!moves.distanceMean && <p className="muted stats-empty stats-note">{t("stats.noDistances")}</p>}
+            {moves.distanceMean && card("distance", t("stats.distance"), t("stats.nPeople", { count: total(moves.distance) }), buckets("distance", t("stats.distance"), moves.distance, { label: distanceLabel }))}
+            {moves.distanceMean && card("distanceByCentury", t("stats.meanDistance"), null, centuries("distanceByCentury", t("stats.meanDistance"), moves.distanceByCentury, (v) => t("stats.km", { value: num(Math.round(v)) })))}
+            {card("countryMoves", t("stats.countryMoves"), t("stats.nPeople", { count: moves.emigrants.n }), (
+              <BarList
+                limit={listLimit("countryMoves", moves.countryMoves.length, 15)}
+                picked={pickedIn("countryMoves")}
+                rows={moves.countryMoves.map((b) => ({ key: b.key, label: countryMove(b.key), value: b.count, display: num(b.count), count: b.count }))}
+                onPick={(key) => {
+                  const b = moves.countryMoves.find((x) => x.key === key)!;
+                  choose("countryMoves", key, `${t("stats.countryMoves")} — ${countryMove(key)}`, b.ids);
+                }}
+              />
+            ))}
+          </>
+        )}
+
+        {page === "generations" && !lineage && (
+          <p className="tools-clean">{t("stats.lineagePick")}</p>
+        )}
+        {lineage && (
+          <>
+            <section className="stats-card wide stats-tiles">
+              <StatTile label={t("stats.distinctAncestors")} value={num(lineage.distinctAncestors)} />
+              <StatTile label={t("stats.generationsDeep")} value={num(lineage.ancestors.length)} />
+              {lineage.implex > 0 && <StatTile label={t("stats.implex")} value={pct(lineage.implex, 1)} />}
+              <StatTile label={t("stats.descendantsCount")} value={num(lineage.descendantIds.length)} onClick={lineage.descendantIds.length ? () => choose("genTiles", "desc", t("stats.descendantsCount"), lineage.descendantIds) : undefined} picked={pickedIn("genTiles") === "desc"} />
+              <StatTile label={t("stats.livingDescendants")} value={num(lineage.livingDescendants.length)} onClick={lineage.livingDescendants.length ? () => choose("genTiles", "living", t("stats.livingDescendants"), lineage.livingDescendants) : undefined} picked={pickedIn("genTiles") === "living"} />
+              {pick?.card === "genTiles" && (
+                <PickList key={`genTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+              )}
+            </section>
+            {lineage.ancestors.length > 0 && card("ancestorsGen", t("stats.ancestorsByGen"), null, (
+              <BarList
+                max={100}
+                limit={listLimit("ancestorsGen", lineage.ancestors.length, 12)}
+                picked={pickedIn("ancestorsGen")}
+                rows={lineage.ancestors.map((g) => ({
+                  key: String(g.gen),
+                  label: t("stats.genLabel", { n: g.gen }),
+                  value: (100 * g.filled) / g.slots,
+                  display: pct(g.filled, g.slots),
+                  tip: t("stats.shareTip", { n: num(g.filled), of: num(g.slots) }),
+                  count: g.ids.length,
+                  status: gradeOf(g.filled / g.slots),
+                }))}
+                onPick={(key) => {
+                  const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
+                  choose("ancestorsGen", key, `${t("stats.ancestorsByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
+                }}
+              />
+            ))}
+            {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
+              <BarList
+                limit={listLimit("repeatedAncestors", lineage.repeated.length, 12)}
+                rows={lineage.repeated.map((r) => {
+                  const indi = dataset.individuals.get(r.id);
+                  return { key: r.id, label: indi ? nameOf(indi) : r.id, value: r.count, display: `×${num(r.count)}`, count: 1, tone: indi?.sex === "M" ? "male" as const : indi?.sex === "F" ? "female" as const : undefined };
+                })}
+                onPick={onNavigate}
+              />
+            ))}
+            {lineage.descendants.length > 0 && card("descendantsGen", t("stats.descendantsByGen"), null, (
+              <ColumnChart
+                columns={lineage.descendants.map((g) => ({ key: String(g.gen), label: String(g.gen), value: g.ids.length, count: g.ids.length, tip: `${t("stats.genLabel", { n: g.gen })}: ${num(g.ids.length)}` }))}
+                format={num}
+                picked={pickedIn("descendantsGen")}
+                onPick={(key) => {
+                  const g = lineage.descendants.find((x) => String(x.gen) === key)!;
+                  choose("descendantsGen", key, `${t("stats.descendantsByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
+                }}
+              />
+            ))}
+            {!lineage.ancestors.length && !lineage.descendants.length && (
+              <p className="tools-clean">{t("stats.noLineage")}</p>
+            )}
+          </>
+        )}
+
+        {research && (
+          <>
+            <section className="stats-card wide stats-tiles">
+              <StatTile label={t("stats.sourcedEvents")} value={pct(research.sourcedEvents, research.events)} sub={t("stats.shareTip", { n: num(research.sourcedEvents), of: num(research.events) })} />
+              {research.citationsMean && <StatTile label={t("stats.citationsMean")} value={dec(research.citationsMean.value)} />}
+              <StatTile label={t("stats.noEvents")} value={num(research.noEvents.length)} sub={pct(research.noEvents.length, people)} onClick={research.noEvents.length ? () => choose("researchTiles", "noEvents", t("stats.noEvents"), research.noEvents) : undefined} picked={pickedIn("researchTiles") === "noEvents"} />
+              {pick?.card === "researchTiles" && (
+                <PickList key={`researchTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+              )}
+            </section>
+            {card("sourcedByTag", t("stats.sourcedByTag"), null, (
+              <BarList
+                max={100}
+                picked={pickedIn("sourcedByTag")}
+                rows={research.byTag.map((s) => ({
+                  key: s.tag,
+                  label: eventDisplayLabel(s.tag, t),
+                  value: (100 * s.sourced) / s.events,
+                  display: pct(s.sourced, s.events),
+                  tip: t("stats.shareTip", { n: num(s.sourced), of: num(s.events) }),
+                  count: s.missing.length,
+                  status: gradeOf(s.sourced / s.events),
+                }))}
+                onPick={(key) => {
+                  const s = research.byTag.find((x) => x.tag === key)!;
+                  choose("sourcedByTag", key, t("stats.missingTitle", { what: eventDisplayLabel(s.tag, t) }), s.missing, s.families);
+                }}
+              />
+            ))}
+            {card("citations", t("stats.citations"), t("stats.nPeople", { count: people }), buckets("citations", t("stats.citations"), research.citations))}
           </>
         )}
       </div>
