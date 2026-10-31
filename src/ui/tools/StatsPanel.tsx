@@ -734,6 +734,7 @@ export function StatsPanel({
           <>
             <section className="stats-card wide stats-tiles">
               <StatTile label={t("stats.distinctAncestors")} value={num(lineage.distinctAncestors)} />
+              <StatTile label={t("stats.livingAncestors")} value={num(lineage.livingAncestors.length)} onClick={lineage.livingAncestors.length ? () => choose("genTiles", "livingAnc", t("stats.livingAncestors"), lineage.livingAncestors) : undefined} picked={pickedIn("genTiles") === "livingAnc"} />
               <StatTile label={t("stats.generationsDeep")} value={num(lineage.ancestors.length)} />
               {lineage.implex > 0 && <StatTile label={t("stats.implex")} value={pct(lineage.implex, 1)} />}
               <StatTile label={t("stats.descendantsCount")} value={num(lineage.descendantIds.length)} onClick={lineage.descendantIds.length ? () => choose("genTiles", "desc", t("stats.descendantsCount"), lineage.descendantIds) : undefined} picked={pickedIn("genTiles") === "desc"} />

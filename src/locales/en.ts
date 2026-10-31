@@ -93,6 +93,7 @@ export const en = {
   "stats.generationsDeep": "Generations of ancestors",
   "stats.implex": "Pedigree collapse",
   "stats.descendantsCount": "Descendants",
+  "stats.livingAncestors": "Presumed living ancestors",
   "stats.livingDescendants": "Presumed living descendants",
   "stats.ancestorsByGen": "Ancestors by generation",
   "stats.genLabel": "Generation {{n}}",

@@ -118,6 +118,8 @@ describe("lineageStats", () => {
     expect(l.distinctAncestors).toBe(8);
     expect(l.implex).toBeCloseTo(0.2);
     expect(l.repeated).toEqual([{ id: "@I1@", count: 2 }, { id: "@I2@", count: 2 }]);
+    expect(l.livingAncestors).not.toContain("@I1@");
+    expect(l.livingAncestors).not.toContain("@I2@");
 
     const d = lineageStats(facts, "@I1@");
     expect(d.descendants.map((g) => g.ids.length)).toEqual([2, 2, 1]);

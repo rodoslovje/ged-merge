@@ -34,6 +34,8 @@ export interface LineageStats {
   /** Every descendant, and those presumed living. */
   descendantIds: string[];
   livingDescendants: string[];
+  /** Ancestors presumed living. */
+  livingAncestors: string[];
 }
 
 export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
@@ -87,6 +89,7 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   return {
     ancestors,
     distinctAncestors: positions.size,
+    livingAncestors: [...positions.keys()].filter((id) => facts.byId.get(id)?.living),
     implex: filled ? 1 - positions.size / filled : 0,
     repeated,
     descendants,

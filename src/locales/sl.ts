@@ -95,6 +95,7 @@ export const sl = {
   "stats.generationsDeep": "Rodovi prednikov",
   "stats.implex": "Implex",
   "stats.descendantsCount": "Potomci",
+  "stats.livingAncestors": "Domnevno živi predniki",
   "stats.livingDescendants": "Domnevno živi potomci",
   "stats.ancestorsByGen": "Predniki po rodovih",
   "stats.genLabel": "{{n}}. rod",
