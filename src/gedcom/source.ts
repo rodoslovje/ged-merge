@@ -906,60 +906,59 @@ export function complementarySourcesOf(records: GedNode[], opts?: SourceKeyOptio
 }
 
 /** What a record says, line by line: each line's path below the record
- *  (`DATA>EVEN`, `REPO>CALN`) and the values it holds there. Skips what
- *  {@link sourceContentParts} skips; a `REPO` link's pointer is kept as `REPO`. */
+ *  (`DATA>EVEN`, `REPO>CALN`) and the values it holds there, as
+ *  {@link walkSourceContent} reads them; a `REPO` link's pointer is kept as `REPO`. */
 function sourceFieldValues(node: GedNode, opts?: SourceKeyOptions): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
   const add = (path: string, value: string) => (out.get(path) ?? out.set(path, new Set()).get(path)!).add(value);
-  const walk = (n: GedNode, prefix: string): void => {
-    for (const child of n.children) {
-      if (SOURCE_BOOKKEEPING_TAGS.has(child.tag) || SOURCE_CUSTOM_STAMP_TAGS.has(child.tag)) continue;
-      if (child.tag.startsWith("_") && !opts?.sameFile) continue;
-      const path = prefix + child.tag;
-      if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
-        if (child.tag === "REPO") {
-          const v = child.value?.trim();
-          if (opts?.sameFile && v && isPointer(v)) add(path, opts.repoAlias?.get(v) ?? v);
-          walk(child, path + ">");
-        }
-        continue;
-      }
-      add(path, (child.value ?? "").trim());
-      walk(child, path + ">");
-    }
-  };
-  walk(node, "");
+  walkSourceContent(node, opts, (path, _tag, value) => add(path, value), add);
   return out;
 }
 
 /** The `tag=value` pairs {@link sourceContentKey} joins, for a caller that
  *  compares two records part by part rather than as a whole. */
 export function sourceContentParts(node: GedNode, opts?: SourceKeyOptions): string[] {
-  const sameFile = !!opts?.sameFile;
   const parts: string[] = [];
   const repos = new Set<string>();
-  const walk = (n: GedNode): void => {
-    for (const child of n.children) {
-      if (SOURCE_BOOKKEEPING_TAGS.has(child.tag) || SOURCE_CUSTOM_STAMP_TAGS.has(child.tag)) continue;
-      if (child.tag.startsWith("_") && !sameFile) continue;
-      if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
-        // The xref the link carries is file-local, but a repo link's own
-        // subtree (CALN, its MEDI) identifies which film/book this is.
-        if (child.tag === "REPO") {
-          const v = child.value?.trim();
-          if (sameFile && v && isPointer(v)) repos.add(opts?.repoAlias?.get(v) ?? v);
-          walk(child);
-        }
-        continue;
-      }
-      parts.push(`${child.tag}=${(child.value ?? "").trim()}`);
-      walk(child);
-    }
-  };
-  walk(node);
+  walkSourceContent(node, opts, (_path, tag, value) => parts.push(`${tag}=${value}`), (_path, xref) => repos.add(xref));
   // Order-free: which repositories hold it, not the order they are listed.
   for (const r of [...repos].sort()) parts.push(`REPO=${r}`);
   return parts;
+}
+
+/**
+ * The lines of a `SOUR`/`REPO` record that say what it is, depth first: each
+ * line's path below the record (`DATA>EVEN`, `REPO>CALN`), tag and trimmed
+ * value. Skipped: bookkeeping stamps, `_` tags across files, and the
+ * relational links — except a repository link, whose own subtree (its `CALN`,
+ * its `MEDI`) identifies which film or book this is, and whose pointer is
+ * handed to `repo` (aliased) within one file only, the xref being file-local.
+ */
+function walkSourceContent(
+  node: GedNode,
+  opts: SourceKeyOptions | undefined,
+  line: (path: string, tag: string, value: string) => void,
+  repo: (path: string, xref: string) => void,
+): void {
+  const sameFile = !!opts?.sameFile;
+  const walk = (n: GedNode, prefix: string): void => {
+    for (const child of n.children) {
+      if (SOURCE_BOOKKEEPING_TAGS.has(child.tag) || SOURCE_CUSTOM_STAMP_TAGS.has(child.tag)) continue;
+      if (child.tag.startsWith("_") && !sameFile) continue;
+      const path = prefix + child.tag;
+      if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
+        if (child.tag === "REPO") {
+          const v = child.value?.trim();
+          if (sameFile && v && isPointer(v)) repo(path, opts?.repoAlias?.get(v) ?? v);
+          walk(child, path + ">");
+        }
+        continue;
+      }
+      line(path, child.tag, (child.value ?? "").trim());
+      walk(child, path + ">");
+    }
+  };
+  walk(node, "");
 }
 
 /** Depth-first visit of every sub-record `SOUR` citation's value (skips top-level `SOUR` records, which have an xref). */
