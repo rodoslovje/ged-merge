@@ -15,7 +15,7 @@ import {
 } from "../gedcom/edit";
 import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
-import { eventDisplayLabel } from "../gedcom/eventTags";
+import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
@@ -124,6 +124,14 @@ export function effectiveEventSubChoice(sub: EventSubField, choice: FieldChoice)
   return choice === "both" && !REPEATABLE_EVENT_SUBS.has(sub) ? "incoming" : choice;
 }
 
+/** "Both" on the line value of an event a person may have many of (two
+ *  occupations, two titles — a kajžar who later worked on the railway) keeps
+ *  the main's event as it is and adds the incoming one beside it as an event
+ *  of its own, every sub-field with it. Birth, death and burial happen once. */
+function splitsEvent(parsed: ParsedEventRowKey): boolean {
+  return parsed.sub === "value" && !SINGLE_EVENT_TAGS.has(parsed.tag);
+}
+
 /**
  * Whether "both" genuinely keeps both values for this row. False for the
  * single-cardinality fields (SEX, NICK, an event's TYPE/DATE/PLAC/… sub-tag or
@@ -134,7 +142,7 @@ export function effectiveEventSubChoice(sub: EventSubField, choice: FieldChoice)
 export function rowCanKeepBoth(key: string): boolean {
   if (key === "sex" || key === "nickname") return false;
   const parsed = parseEventRowKey(key);
-  if (parsed) return effectiveEventSubChoice(parsed.sub, "both") === "both";
+  if (parsed) return effectiveEventSubChoice(parsed.sub, "both") === "both" || splitsEvent(parsed);
   // Family event rows: fam.<incFamId>.<TAG>.<sub>.
   const parts = key.split(".");
   const famSub = key.startsWith("fam.") && parts.length >= 4 ? parts[parts.length - 1] : undefined;
@@ -358,21 +366,33 @@ export function applyRows(
   // The record-level "Sources" row's plain links, held back until the loop ends
   // — see the `row.key === "links"` branch.
   let pendingLinks: Row | undefined;
+  // Paired events whose line value was kept "both" (see `splitsEvent`): the
+  // incoming event is added as one of its own, so every row of it — agreeing
+  // ones too — writes to that new event, and the main's is left alone.
+  const splitEvents = new Set<string>();
   for (const row of rows) {
+    const parsed = parseEventRowKey(row.key);
+    if (parsed && splitsEvent(parsed) && fields[row.key] === "both" && (row.eventMainIdx ?? 0) >= 0
+        && (row.state === "conflict" || row.state === "incoming-only")) {
+      splitEvents.add(parsed.eventKey);
+    }
+  }
+  for (const row of rows) {
+    const parsed = parseEventRowKey(row.key);
+    const split = !!parsed && splitEvents.has(parsed.eventKey);
     // Nothing on the incoming side to take, or the two already agree.
-    if (row.state === "agree" || row.state === "main-only") continue;
+    if (row.state === "main-only" || (row.state === "agree" && !split)) continue;
     // Handled elsewhere (family spouses/children go through applyFamilyStructure).
     if (handled.has(row.key) || row.key.startsWith("fam.")) continue;
-    let choice = fields[row.key] ?? defaultChoice(row as never);
+    let choice = split ? "both" : fields[row.key] ?? defaultChoice(row as never);
     if (choice === "main") continue;
-    const parsed = parseEventRowKey(row.key);
 
     // "Both" on a field that can hold only one value (SEX, NICK, an event's
     // TYPE/DATE/PLAC/… sub-tag or line value) cannot keep two: writing a second
     // sub-node would be invalid GEDCOM, so it means "replace" — i.e. exactly
     // "incoming", held to the same edited-after-confirm gate below. Only the
     // genuinely repeatable rows (names, notes, sources, links, ids) append.
-    if (choice === "both" && !rowCanKeepBoth(row.key)) choice = "incoming";
+    if (choice === "both" && !split && !rowCanKeepBoth(row.key)) choice = "incoming";
 
     // An Edit-mode change made *after* this match was confirmed wins over the
     // incoming value: the field choice was made against a value the user has
@@ -436,7 +456,7 @@ export function applyRows(
       // back out of `key` — that numeric suffix is an output-order index from
       // date/place pairing, not necessarily either side's real array index
       // once a tag has more than one instance (see `FieldRow.eventMainIdx`).
-      const mainIdx = row.eventMainIdx ?? 0;
+      const mainIdx = split ? -1 : row.eventMainIdx ?? 0;
       const compareIdx = row.eventCompareIdx ?? 0;
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);

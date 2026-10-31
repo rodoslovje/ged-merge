@@ -10,6 +10,7 @@ import { normalizeDataset } from "../normalize/normalize";
 import { formatReport, materializeAdditionalNames, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
 import { readBookPages } from "../tools/sourceReshape";
+import { validateConformance } from "../tools/conformance/conformance";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -2020,6 +2021,41 @@ describe("mergeDecisions — preview groups a new event's sub-field changes into
   });
 });
 
+describe("mergeDecisions — both occupations kept", () => {
+  // One undated occupation on each side pairs as one event, yet a kajžar who
+  // later worked on the railway had both: "both" on the value keeps the
+  // main's event untouched and adds the incoming one, all of it, beside it.
+  const main = wrap("0 @I1@ INDI\n1 NAME Jožef /Bernard/\n1 SEX M\n1 OCCU delavec na železnici\n2 PLAC Kranj\n");
+  const compare = wrap(
+    "0 @P1@ INDI\n1 NAME Jožef /Bernard/\n1 SEX M\n1 OCCU kajžar\n2 PLAC Kranj\n2 NOTE Stražišče\n",
+  );
+
+  it("adds the incoming occupation as an event of its own", () => {
+    const { records, report } = mergeDecisions(dataset(main), dataset(compare), confirmed({ "OCCU.value": "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 OCCU delavec na železnici\n2 PLAC Kranj\n1 OCCU kajžar\n2 PLAC Kranj\n2 NOTE Stražišče\n");
+    const occu = report.changes.filter((c) => c.group === "event.OCCU");
+    expect(occu).toHaveLength(1);
+    expect(occu[0].action).toBe("both");
+  });
+
+  it("still replaces the value on Incoming", () => {
+    const { records } = mergeDecisions(dataset(main), dataset(compare), confirmed({ "OCCU.value": "incoming" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/1 OCCU/g)).toHaveLength(1);
+    expect(out).toContain("1 OCCU kajžar");
+  });
+
+  it("writes a file valid in strict 5.5.1 and 7.0", () => {
+    for (const vers of ["5.5.1", "7.0"]) {
+      const text = (s: string) => s.replace("2 VERS 5.5.1", `2 VERS ${vers}`);
+      const { records } = mergeDecisions(dataset(text(main)), dataset(text(compare)), confirmed({ "OCCU.value": "both" }), NO_MATCHES, tr);
+      const before = validateConformance(dataset(text(main))).length;
+      expect(validateConformance(dataset(serializeGedcom(records))).length, vers).toBe(before);
+    }
+  });
+});
+
 describe("mergeDecisions — rejectedEvents keeps a deleted main event from being re-added from incoming", () => {
   // Main and incoming both originally had this OCCU (an "agree" pair, so it
   // never showed as a merge suggestion) — then the user deleted main's copy.
@@ -2968,11 +3004,12 @@ describe("merge xref allocation respects shared-record reservations", () => {
 describe("rowCanKeepBoth", () => {
   it("matches the engine's replace-vs-append rule per row key", () => {
     // Single-cardinality → "both" would replace, so the UI must not offer it.
-    for (const key of ["sex", "nickname", "BIRT.date", "RESI.1.place", "OCCU.value", "fam.@G1@.MARR.date", "fam.@G1@.EVEN.value"]) {
+    for (const key of ["sex", "nickname", "BIRT.date", "BIRT.value", "RESI.1.place", "fam.@G1@.MARR.date", "fam.@G1@.EVEN.value"]) {
       expect(rowCanKeepBoth(key), key).toBe(false);
     }
-    // Genuinely repeatable → "both" appends and stays offered.
-    for (const key of ["given", "surname", "notes", "fsid", "links", "BIRT.note", "BIRT.sources", "fam.@G1@.MARR.sources", "fam.@G1@.notes"]) {
+    // Genuinely repeatable → "both" appends and stays offered; a repeatable
+    // event's line value keeps both by adding the incoming event beside.
+    for (const key of ["given", "surname", "notes", "fsid", "links", "BIRT.note", "BIRT.sources", "fam.@G1@.MARR.sources", "fam.@G1@.notes", "OCCU.value", "TITL.1.value"]) {
       expect(rowCanKeepBoth(key), key).toBe(true);
     }
   });
