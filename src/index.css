@@ -9351,7 +9351,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-scope .stats-scope-place { width: 16em; max-width: 100%; }
 /* Every bar fills with --stats-bar: the accent, or a sex's colour wherever a
    card, list, row or the whole scope is about one sex only — the nearest wins. */
-.stats-grid { --stats-bar: var(--accent); }
+.stats-grid { --stats-bar: var(--accent); --stats-track: var(--panel-2); }
 .stats-male { --stats-bar: var(--sex-male); }
 .stats-female { --stats-bar: var(--sex-female); }
 .stats-grid {
@@ -9452,13 +9452,13 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-bar:hover:not(:disabled), .stats-bar.picked { background: var(--panel-2); }
 .stats-bar.picked .stats-bar-label { color: var(--accent); font-weight: 600; }
 .stats-bar-label { overflow-wrap: anywhere; }
-.stats-bar-track { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.stats-bar-track { height: 8px; background: var(--stats-track); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
-/* Completeness rows grade the file's own data: the bar wears the status colour, the
-   percentage beside it says the same in words. */
-.stats-status-good { --stats-bar: var(--accent); }
-.stats-status-fair { --stats-bar: var(--status-diff); }
-.stats-status-poor { --stats-bar: var(--danger); }
+/* Completeness rows grade the file's own data in the status chips' pairing — the fill in the
+   chip's ink, the track in its tint — and the percentage beside it says the same in words.
+.stats-status-good { --stats-bar: var(--accent); --stats-track: var(--accent-soft); }
+.stats-status-fair { --stats-bar: var(--state-minor); --stats-track: color-mix(in oklch, var(--state-minor) 20%, transparent); }
+.stats-status-poor { --stats-bar: var(--state-major); --stats-track: color-mix(in oklch, var(--state-major) 22%, transparent); }
 .stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats-more { margin-top: 6px; align-self: flex-start; }
 
