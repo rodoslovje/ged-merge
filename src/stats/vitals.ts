@@ -114,36 +114,47 @@ export interface BirthStats {
   baptism: Bucket[];
   baptismMean?: Mean;
   /** Children of one family born on the same day, in pairs (twins) and in sets
-   *  of three or more: how many sets, and who. */
-  twins: { sets: number; ids: string[] };
-  multiples: { sets: number; ids: string[] };
+   *  of three or more: how many sets, and the families they were born into. */
+  twins: MultipleBirths;
+  multiples: MultipleBirths;
   places: Bucket[];
+}
+
+export interface MultipleBirths {
+  sets: number;
+  /** Each family once, however many sets it had. */
+  families: string[];
+}
+
+function multipleBirths(sets: { family: string; children: string[] }[]): MultipleBirths {
+  return { sets: sets.length, families: [...new Set(sets.map((set) => set.family))] };
 }
 
 export function birthStats(s: ScopedFacts): BirthStats {
   const year = birthYearOf(s);
   const withBaptism = s.people.filter((p) => p.baptismDays !== undefined && p.baptismDays >= 0);
   // Twins: siblings in scope sharing a family and an exact birth day.
-  const sets = new Map<string, string[]>();
+  const sets = new Map<string, { family: string; children: string[] }>();
   for (const f of s.families) {
     for (const child of f.children) {
       const p = s.byId.get(child);
       if (!p?.birthDay || !s.ids.has(child)) continue;
       const key = `${f.id}|${p.birthDay}`;
-      const list = sets.get(key);
-      if (list) list.push(child);
-      else sets.set(key, [child]);
+      const set = sets.get(key);
+      if (set) set.children.push(child);
+      else sets.set(key, { family: f.id, children: [child] });
     }
   }
-  const pairs = [...sets.values()].filter((list) => list.length === 2);
-  const larger = [...sets.values()].filter((list) => list.length > 2);
+  const all = [...sets.values()];
+  const pairs = all.filter((set) => set.children.length === 2);
+  const larger = all.filter((set) => set.children.length > 2);
   return {
     perPeriod: byPeriod(s.people, year, id),
     byMonth: byMonth(s.people, (p) => (s.approx || !p.birthApprox ? p.birthMonth : undefined), id),
     baptism: baptismBuckets(withBaptism),
     baptismMean: mean(withBaptism.map((p) => p.baptismDays!)),
-    twins: { sets: pairs.length, ids: pairs.flat() },
-    multiples: { sets: larger.length, ids: larger.flat() },
+    twins: multipleBirths(pairs),
+    multiples: multipleBirths(larger),
     places: rankText(s.people, (p) => [p.birthPlace], id),
   };
 }
