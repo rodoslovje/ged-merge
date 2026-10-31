@@ -3,6 +3,7 @@ import { BIRTH_TAGS, DEATH_TAGS, isApproximate, isDeceased, isPresumedLiving } f
 import { ageBetween } from "../gedcom/age";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
+import { isUnknownNameToken } from "../gedcom/name";
 import { placeKeysOf } from "../tools/places";
 import { isPointer } from "../gedcom/uri";
 
@@ -54,6 +55,8 @@ export interface PersonFacts {
   baptismDays?: number;
   /** The occupations (OCCU) the person carries, as written, each once. */
   occupations: string[];
+  /** Both a given name and a surname, neither of them a stand-in for an unknown one (NN, ?). */
+  hasName: boolean;
   hasBirthDate: boolean;
   hasBirthPlace: boolean;
   hasDeathDate: boolean;
@@ -195,7 +198,10 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   };
   for (const indi of ds.individuals.values()) {
     const name = indi.names[0];
-    const givens = (name?.given ?? "").trim().split(/\s+/).filter(Boolean);
+    // A stand-in for an unknown name (NN, ???, neznano) is no name: it is
+    // neither ranked nor counted as known.
+    const givenText = isUnknownNameToken(name?.given) ? "" : (name?.given ?? "").trim();
+    const givens = givenText.split(/\s+/).filter(Boolean);
     const birth = firstDated(indi, BIRTH_TAGS);
     const death = firstDated(indi, DEATH_TAGS);
     const birthPlace = firstPlace(indi, BIRTH_TAGS);
@@ -209,7 +215,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       mother ??= fam?.wife;
     }
     const deceased = isDeceased(indi);
-    const surname = name?.surname?.trim() || undefined;
+    const surname = (isUnknownNameToken(name?.surname) ? "" : name?.surname?.trim()) || undefined;
     const f: PersonFacts = {
       id: indi.id,
       sex: indi.sex === "M" || indi.sex === "F" ? indi.sex : "U",
@@ -236,6 +242,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       birthDay: dayKey(birth?.date),
       baptismDays: baptismDays(indi),
       occupations: [...new Set(indi.events.filter((e) => e.tag === "OCCU").map((e) => e.value?.trim()).filter((v): v is string => !!v))],
+      hasName: givens.length > 0 && !!surname,
       hasBirthDate: !!birth,
       hasBirthPlace: !!birthPlace,
       hasDeathDate: !!death,

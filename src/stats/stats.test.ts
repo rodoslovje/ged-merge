@@ -227,3 +227,24 @@ describe("map completeness", () => {
     ]);
   });
 });
+
+describe("name completeness", () => {
+  it("needs a given name and a surname, and counts neither stand-in for an unknown one", () => {
+    const named = buildStatsFacts(dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+0 @I2@ INDI
+1 NAME NN /Novak/
+0 @I3@ INDI
+1 NAME Ana //
+0 @I4@ INDI
+1 NAME Jože /N.N./
+0 TRLR
+`));
+    expect([...named.byId.values()].map((p) => p.hasName)).toEqual([true, false, false, false]);
+    // A stand-in is no name, so it is not ranked either.
+    expect(rankNames(named.people, "surname").map((b) => [b.label, b.count])).toEqual([["Novak", 2]]);
+    expect(rankNames(named.people, "given").map((b) => b.label)).toEqual(["Ana", "Janez", "Jože"]);
+  });
+});

@@ -223,6 +223,7 @@ export interface Overview {
   sources: number;
   media: number;
   completeness: {
+    name: Share;
     birthDate: Share;
     birthPlace: Share;
     deathDate: Share;
@@ -305,6 +306,7 @@ export function overview(s: ScopedFacts): Overview {
     countries: countries.size,
     ...distinctRefs(s),
     completeness: {
+      name: share(s.people, (p) => p.hasName),
       birthDate: share(s.people, (p) => p.hasBirthDate),
       birthPlace: share(s.people, (p) => p.hasBirthPlace),
       deathDate: share(s.people.filter((p) => p.deceased), (p) => p.hasDeathDate),

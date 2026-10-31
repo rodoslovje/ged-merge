@@ -471,6 +471,7 @@ export function StatsPanel({
               )}
             </section>
             {card("complete", t("stats.completeness"), null, shares("complete", [
+              { key: "name", label: t("stats.has.name"), share: ov.completeness.name },
               { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
               { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
               { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
