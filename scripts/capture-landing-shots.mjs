@@ -52,7 +52,14 @@ async function openCharts(page) {
   await page.locator(".landing-b").waitFor({ state: "detached" });
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
-  await page.locator(".charts-open-btn").click();
+  await showCharts(page);
+}
+
+/** The top bar's Charts button; a phone keeps it in the ☰ menu, so use V. */
+async function showCharts(page) {
+  const btn = page.locator(".charts-open-btn");
+  if (await btn.isVisible()) await btn.click();
+  else await page.keyboard.press("v");
   await page.locator("svg.tree-svg").waitFor();
 }
 
@@ -64,11 +71,14 @@ async function chartShot(page, file) {
   await page.screenshot({ path: file });
 }
 
-/** Switch chart kind: desktop tabs, or the phone's picker dropdown. */
+/** The hub's digit keys, in its tab order (ChartsHub's HUB_KINDS). */
+const KIND_KEY = { Tree: "1", Fan: "2", Map: "6" };
+
+/** Switch chart kind: desktop tabs; a phone folds them into the ☰ menu, so
+ *  use the hub's digit key instead. */
 async function pickKind(page, phone, name) {
   if (phone) {
-    await page.locator(".charts-kind-picker .picker-menu-btn").click();
-    await page.locator(".picker-menu-popover").getByText(name, { exact: true }).click();
+    await page.keyboard.press(KIND_KEY[name]);
   } else {
     await page.getByRole("tab", { name }).click();
   }
@@ -80,7 +90,10 @@ async function openMap(page, phone) {
   await openCharts(page);
   await pickKind(page, phone, "Map");
   await page.locator(".map-canvas.leaflet-container").waitFor();
-  await page.getByRole("button", { name: "Descendants" }).click();
+  // A phone folds the direction into the ☰ menu; its default, Both, draws
+  // the descendants too.
+  const desc = page.getByRole("tab", { name: "Descendants" });
+  if (await desc.isVisible()) await desc.click();
   await page.locator(".map-paths-chip:not(.active)").click({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(1500);
 }
@@ -91,21 +104,28 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
   {
     const { ctx, page } = await makePage(theme, true, phone);
     await page.goto(base);
-    await page.locator(".lb-sample-row").nth(2).click();
+    await page.locator(".lp-sample-tile").nth(1).click();
     await page.locator(".landing-b").waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.locator(".edit-person").waitFor();
+    // The first-open target-format notice is not what the shot is about.
+    const later = page.getByRole("button", { name: "Later", exact: true });
+    if (await later.isVisible()) await later.click();
     await page.waitForTimeout(1200);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${outDir}/edit-${theme}${m}.png` });
 
-    await page.locator(".charts-open-btn").click();
-    await page.locator("svg.tree-svg").waitFor();
+    await showCharts(page);
+    // The hub opens on Both (a bowtie); the shots show the ancestors (A).
+    await page.keyboard.press("a");
     if (phone) {
       // Zoom out to ~50% and pin the root at the left: root, parents and the
       // grandparents' half-cut column — 2½ readable generations.
-      for (let i = 0; i < 3; i++) {
-        await page.locator(".tree-zoom-btn:has-text('−')").first().click();
+      // Step from whatever the chart opened at, by the zoom readout.
+      for (let i = 0; i < 12; i++) {
+        const pct = parseInt(await page.locator(".tree-zoom-pct").first().textContent(), 10);
+        if (Math.abs(Math.log(pct / 51)) < Math.log(1.25) / 2) break;
+        await page.locator(pct > 51 ? ".tree-zoom-btn:has-text('−')" : ".tree-zoom-btn:has-text('+')").first().click();
         await page.waitForTimeout(150);
       }
       await page.evaluate(() => { document.querySelector(".tree-canvas").scrollLeft = 0; });
@@ -121,21 +141,45 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.waitForTimeout(600);
     await page.keyboard.press("f");
     await page.waitForTimeout(600);
+    // The drawn wedges' union — the svg's first <g> is no longer the whole fan.
+    await page.evaluate(() => {
+      window.__fanBox = () => {
+        const rs = [...document.querySelectorAll(".tree-canvas svg path")].map((p) => p.getBoundingClientRect()).filter((b) => b.width && b.height);
+        const left = Math.min(...rs.map((b) => b.left)), top = Math.min(...rs.map((b) => b.top));
+        const right = Math.max(...rs.map((b) => b.right)), bottom = Math.max(...rs.map((b) => b.bottom));
+        return { left, top, width: right - left, height: bottom - top };
+      };
+    });
     const factor = await page.evaluate((ph) => {
       const canvas = document.querySelector(".tree-canvas");
-      const r = canvas.querySelector("svg g").getBoundingClientRect();
+      const r = window.__fanBox();
       const byHeight = (ph ? 0.7 : 0.9) * canvas.clientHeight / r.height;
       return ph ? byHeight : Math.min(0.94 * canvas.clientWidth / r.width, byHeight);
     }, phone);
-    const steps = Math.round(Math.log(factor) / Math.log(1.25));
-    for (let i = 0; i < Math.abs(steps); i++) {
-      await page.locator(steps > 0 ? ".tree-zoom-btn:has-text('+')" : ".tree-zoom-btn:has-text('−')").first().click();
+    // Step by the zoom readout, not by an assumed step size: stop at the last
+    // step that stays under the target.
+    const readPct = async () => parseInt(await page.locator(".tree-zoom-pct").first().textContent(), 10);
+    const target = (await readPct()) * factor;
+    for (let i = 0; i < 12; i++) {
+      const pct = await readPct();
+      if (pct > target) {
+        await page.locator(".tree-zoom-btn:has-text('−')").first().click();
+        await page.waitForTimeout(120);
+        if ((await readPct()) <= target) break;
+        continue;
+      }
+      await page.locator(".tree-zoom-btn:has-text('+')").first().click();
       await page.waitForTimeout(120);
+      if ((await readPct()) > target) {
+        await page.locator(".tree-zoom-btn:has-text('−')").first().click();
+        await page.waitForTimeout(120);
+        break;
+      }
     }
     await page.waitForTimeout(400);
     await page.evaluate(() => {
       const canvas = document.querySelector(".tree-canvas");
-      const r = canvas.querySelector("svg g").getBoundingClientRect();
+      const r = window.__fanBox();
       const c = canvas.getBoundingClientRect();
       canvas.scrollLeft += (r.left + r.width / 2) - (c.left + c.width / 2);
       canvas.scrollTop += (r.top + r.height / 2) - (c.top + c.height / 2);
@@ -145,7 +189,7 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
 
     // Merge: Europe Royal Families as main, the Tudor file as compare.
     await page.goto(base);
-    await page.locator(".lb-sample-row").nth(1).click();
+    await page.locator(".lp-sample-tile").nth(0).click();
     await page.locator(".landing-b").waitFor({ state: "detached", timeout: 60000 });
     await page.locator(".edit-person, .candidate, .merge-view, .match-results").first().waitFor({ timeout: 60000 }).catch(() => {});
     await page.getByRole("button", { name: "Merge", exact: true }).click();
