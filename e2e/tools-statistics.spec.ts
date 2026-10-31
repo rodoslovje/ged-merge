@@ -71,7 +71,7 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
 
   // Lifespan: the infant death is the one bar under five.
   await panel.getByRole("tab", { name: "Lifespan" }).click();
-  await panel.getByRole("button", { name: "0–4: 1", exact: true }).click();
+  await panel.locator(".stats-card", { has: page.getByRole("heading", { name: "Age at death", exact: true }) }).getByRole("button", { name: "0–4: 1", exact: true }).click();
   await expect(panel.locator(".stats-pick .tools-issue")).toHaveCount(1);
   await expect(panel.locator(".stats-pick")).toContainText("Marko");
 
