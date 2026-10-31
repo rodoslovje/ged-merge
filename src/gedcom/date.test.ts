@@ -151,6 +151,21 @@ describe("dateRefines — incoming is a more exact same date", () => {
     expect(dateRefines("12 MAR 1949", "1949")).toBe(false);
   });
 
+  it("prefers a calculated date to an estimated one, even in another year", () => {
+    expect(dateRefines("ABT 1841", "CAL 1841")).toBe(true);
+    expect(dateRefines("EST 1840", "CAL 1841")).toBe(true);
+    expect(dateRefines("ABT 25 MAR 1841", "CAL 1841")).toBe(true);
+    expect(dateRefines("CAL 1841", "ABT 1841")).toBe(false);
+    expect(dateRefines("CAL 1841", "EST 1841")).toBe(false);
+  });
+
+  it("still prefers an exact date to a calculated, estimated or bounded one", () => {
+    expect(dateRefines("CAL 1841", "25 MAR 1841")).toBe(true);
+    expect(dateRefines("BEF 1841", "25 MAR 1841")).toBe(true);
+    expect(dateRefines("25 MAR 1841", "CAL 1841")).toBe(false);
+    expect(dateRefines("1841", "CAL 1841")).toBe(false);
+  });
+
   it("leaves ranges to the default", () => {
     expect(dateRefines("BET 1949 AND 1950", "12 MAR 1949")).toBe(false);
   });
