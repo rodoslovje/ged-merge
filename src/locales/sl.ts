@@ -269,6 +269,7 @@ export const sl = {
   "stats.mostUnions": "Največ zvez",
   "stats.marriedRelatives": "Poroke med sorodniki",
   "stats.relatedCouples": "Sorodstvo med zakoncema",
+  "stats.showRelationship": "Prikaži sorodstvo med njima",
   "stats.kin.siblings": "Brat in sestra",
   "stats.kin.cousin1": "Bratranec in sestrična",
   "stats.kin.cousin2": "V 2. kolenu",

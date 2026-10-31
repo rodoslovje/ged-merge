@@ -9414,6 +9414,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 /* The ⚭ between a couple comes from a fallback font with a taller line; held to
    the text's own height, a couple's line sits where a single name's does. */
 .stats-couple .muted { line-height: 1; }
+.stats-relate { margin-left: 6px; vertical-align: middle; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */

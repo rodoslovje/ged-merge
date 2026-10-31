@@ -51,6 +51,9 @@ interface Props {
   onNavigate: (id: string) => void;
   /** The Charts-hub kind switcher, rendered under the toolbar. */
   kindSwitcher?: React.ReactNode;
+  /** Open on the blood relationship even where a shorter path exists — for a
+   *  couple, whose shortest path is always their own marriage. */
+  preferBlood?: boolean;
   /** Reports target swaps up to the Charts hub, so switching to a pedigree
    *  chart roots on the person this diagram currently points at. */
   onTargetChange?: (id: string) => void;
@@ -68,7 +71,7 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange, preferBlood = false }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const formatName = useNameOf(marriedNameOverride(settings.showMarriedName));
@@ -122,14 +125,15 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       // equal or longer. Insert before the first bloodline that's strictly
       // longer, so equal-length bloodlines stay ahead of it — a tie in step
       // count still defaults to the blood relationship (index 0).
-      const insertAt = blood.findIndex((b) => b.hops > shortest.hops);
+      // Asked to prefer the blood relationship, the shortest path goes last.
+      const insertAt = preferBlood ? -1 : blood.findIndex((b) => b.hops > shortest.hops);
       opts.splice(insertAt === -1 ? opts.length : insertAt, 0, {
         path: shortest,
         label: t("relpath.optShortest", { count: shortest.hops }),
       });
     }
     return opts;
-  }, [mainDs, startSel, targetSel, t, nameOf]);
+  }, [mainDs, startSel, targetSel, t, nameOf, preferBlood]);
 
   const { alignment } = settings;
   const nodeH = nodeHeight(settings);

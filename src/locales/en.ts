@@ -259,6 +259,7 @@ export const en = {
   "stats.mostUnions": "Most unions",
   "stats.marriedRelatives": "Marriages between relatives",
   "stats.relatedCouples": "Kinship between spouses",
+  "stats.showRelationship": "Show how the two are related",
   "stats.kin.siblings": "Siblings",
   "stats.kin.cousin1": "1st cousins",
   "stats.kin.cousin2": "2nd cousins",

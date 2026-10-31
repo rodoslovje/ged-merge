@@ -22,6 +22,7 @@ import { researchStats } from "../../stats/research";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
+import { ChartIcon } from "../icons/ChartIcon";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -93,6 +94,7 @@ export function StatsPanel({
   dataset,
   editVersion,
   onNavigate,
+  onOpenRelationship,
   active,
   startId,
   view,
@@ -101,6 +103,7 @@ export function StatsPanel({
   dataset: Dataset;
   editVersion: number;
   onNavigate: (id: string) => void;
+  onOpenRelationship: (fromId: string, toId: string) => void;
   active: boolean;
   startId?: string;
   view: ToolView;
@@ -339,7 +342,7 @@ export function StatsPanel({
       </header>
       {body}
       {pick?.card === id && (
-        <PickList key={`${pick.card}:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+        <PickList key={`${pick.card}:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={id === "relatedCouples" ? onOpenRelationship : undefined} />
       )}
     </section>
   );
@@ -642,7 +645,7 @@ export function StatsPanel({
                 <StatTile label={t("stats.marriedRelatives")} value={num(relatedIds.length)} sub={pct(relatedIds.length, related.of)} onClick={relatedIds.length ? () => choose("famTiles", "related", t("stats.marriedRelatives"), relatedIds, true) : undefined} picked={pickedIn("famTiles") === "related"} />
               )}
               {pick?.card === "famTiles" && (
-                <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={pick.key === "related" ? onOpenRelationship : undefined} />
               )}
             </section>
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
@@ -912,7 +915,7 @@ function YearInput({ value, onChange, label }: { value?: number; onChange: (v: n
 }
 
 /** The people (or couples) behind a picked bar, each opening in Edit. */
-function PickList({ pick, dataset, onNavigate, onClose }: { pick: Pick; dataset: Dataset; onNavigate: (id: string) => void; onClose: () => void }) {
+function PickList({ pick, dataset, onNavigate, onClose, onRelate }: { pick: Pick; dataset: Dataset; onNavigate: (id: string) => void; onClose: () => void; onRelate?: (fromId: string, toId: string) => void }) {
   const { t } = useTranslation();
   // The whole list, windowed: a bar can stand for half a million people, and
   // only the rows in the scroll box are ever mounted.
@@ -930,7 +933,7 @@ function PickList({ pick, dataset, onNavigate, onClose }: { pick: Pick; dataset:
           const i = virtual.start + k;
           return (
             <li key={id} className={`tools-issue${i % 2 ? " zebra" : ""}`}>
-              {pick.families ? <Couple dataset={dataset} id={id} onNavigate={onNavigate} /> : <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />}
+              {pick.families ? <Couple dataset={dataset} id={id} onNavigate={onNavigate} onRelate={onRelate} /> : <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />}
             </li>
           );
         })}
@@ -941,7 +944,15 @@ function PickList({ pick, dataset, onNavigate, onClose }: { pick: Pick; dataset:
 }
 
 /** A family as its couple — the spouses it names, or the record itself when it names none. */
-function Couple({ dataset, id, onNavigate, nameOnly = false }: { dataset: Dataset; id: string; onNavigate: (id: string) => void; nameOnly?: boolean }) {
+function Couple({ dataset, id, onNavigate, nameOnly = false, onRelate }: {
+  dataset: Dataset;
+  id: string;
+  onNavigate: (id: string) => void;
+  nameOnly?: boolean;
+  /** Offer the diagram of how the two spouses are related. */
+  onRelate?: (fromId: string, toId: string) => void;
+}) {
+  const { t } = useTranslation();
   const fam = dataset.families.get(id);
   const spouses = [fam?.husband, fam?.wife].filter((s): s is string => !!s);
   if (!spouses.length) return <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />;
@@ -955,6 +966,11 @@ function Couple({ dataset, id, onNavigate, nameOnly = false }: { dataset: Datase
             : <PersonLink dataset={dataset} id={s} fallback={s} onNavigate={onNavigate} />}
         </span>
       ))}
+      {onRelate && spouses.length === 2 && (
+        <button type="button" className="stats-info stats-relate" onClick={() => onRelate(spouses[0], spouses[1])} {...tipProps(t("stats.showRelationship"))}>
+          <ChartIcon size={14} />
+        </button>
+      )}
     </span>
   );
 }
