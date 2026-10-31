@@ -48,6 +48,12 @@ interface Pick {
 /** Completeness grades: at least 90 % is good, at least 50 % fair, anything less poor. */
 const gradeOf = (part: number): "good" | "fair" | "poor" => (part >= 0.9 ? "good" : part >= 0.5 ? "fair" : "poor");
 
+/** A place by its two ends — the named place and its country — when it has levels between. */
+function shortPlace(value: string): string {
+  const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+  return parts.length > 2 ? `${parts[0]}, ${parts[parts.length - 1]}` : value;
+}
+
 /** Cards that share another card's explanation: the overview's top five are the names page's lists. */
 const ABOUT_ALIAS: Record<string, string> = { topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale", topBirthPlaces: "birthPlaces" };
 
@@ -205,12 +211,20 @@ export function StatsPanel({
   );
 
   /** A ranked list of names. */
-  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone) => (
+  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false) => (
     <BarList
       limit={limit}
       tone={tone}
       picked={pickedIn(card)}
-      rows={list.map((b) => ({ key: b.key, label: b.label, value: b.count, display: num(b.count), count: b.count }))}
+      rows={list.map((b) => ({
+        key: b.key,
+        // A long place reads by its two ends; the whole value is the tip.
+        label: places ? shortPlace(b.label!) : b.label,
+        tip: places && shortPlace(b.label!) !== b.label ? b.label : undefined,
+        value: b.count,
+        display: num(b.count),
+        count: b.count,
+      }))}
       onPick={(key) => {
         const b = list.find((x) => x.key === key)!;
         choose(card, key, `${title} — ${b.label}`, b.ids);
@@ -466,8 +480,8 @@ export function StatsPanel({
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
             {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
             {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}
-            {card("topBirthPlaces", t("stats.topBirthPlaces"), null, ranked("topBirthPlaces", t("stats.birthPlaces"), ov.topBirthPlaces, OVERVIEW_TOP))}
-            {card("topPlaces", t("stats.topPlaces"), null, ranked("topPlaces", t("stats.placeName"), ov.topPlaces, OVERVIEW_TOP))}
+            {card("topBirthPlaces", t("stats.topBirthPlaces"), null, ranked("topBirthPlaces", t("stats.birthPlaces"), ov.topBirthPlaces, OVERVIEW_TOP, undefined, true))}
+            {card("topPlaces", t("stats.topPlaces"), null, ranked("topPlaces", t("stats.placeName"), ov.topPlaces, OVERVIEW_TOP, undefined, true))}
           </>
         )}
 
@@ -554,7 +568,7 @@ export function StatsPanel({
             {card("birthDecade", t("stats.birthsOverTime"), basedOn(total(births.perPeriod), people), buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
             {card("birthMonth", t("stats.birthsByMonth"), basedOn(total(births.byMonth), people), buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
             {card("baptism", t("stats.baptism"), t("stats.nPeople", { count: total(births.baptism) }), buckets("baptism", t("stats.baptism"), births.baptism, { label: (b) => t(`stats.baptism.${b.key}`) }))}
-            {card("birthPlaces", t("stats.birthPlaces"), basedOn(total(births.places), people), ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15))}
+            {card("birthPlaces", t("stats.birthPlaces"), basedOn(total(births.places), people), ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
           </>
         )}
 
@@ -572,7 +586,7 @@ export function StatsPanel({
                 }}
               />
             ))}
-            {card("deathPlaces", t("stats.deathPlaces"), basedOn(total(deaths.places), people), ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15))}
+            {card("deathPlaces", t("stats.deathPlaces"), basedOn(total(deaths.places), people), ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
             {card("deathDecade", t("stats.deathsOverTime"), basedOn(total(deaths.perPeriod), people), buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
             {card("deathMonth", t("stats.deathsByMonth"), basedOn(total(deaths.byMonth), people), buckets("deathMonth", t("stats.deathsByMonth"), deaths.byMonth, { label: monthLabel }))}
           </>

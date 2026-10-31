@@ -11,7 +11,7 @@ const FILE = path.join(tmpdir(), "tools-statistics.ged");
 writeFileSync(FILE, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @I1@ INDI", "1 NAME Petra /Zorman/", "1 SEX F",
-  "1 BIRT", "2 DATE 12 MAR 1925", "2 PLAC Kranj, Slovenia",
+  "1 BIRT", "2 DATE 12 MAR 1925", "2 PLAC Kranj, Gorenjska, Slovenia",
   "1 DEAT", "2 DATE 1990",
   "1 FAMC @F1@",
   "0 @I2@ INDI", "1 NAME Franc /Zorman/", "1 SEX M", "1 OCCU kmet",
@@ -44,6 +44,8 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
   const people = panel.locator(".stats-tile", { hasText: "People" });
   await expect(people.locator(".stats-tile-value")).toHaveText("4");
   await expect(panel.locator(".stats-tile", { hasText: "Birth years" })).toContainText("1890–1930");
+  // A place with levels between reads by its two ends; the whole value is the tip.
+  await expect(panel.locator(".stats-card", { hasText: "Most common birth places" }).locator(".stats-bar-label", { hasText: "Kranj" })).toHaveText("Kranj, Slovenia");
 
   // The completeness row lists who is missing a birth place.
   await panel.locator(".stats-bar", { hasText: "Birth place" }).click();
