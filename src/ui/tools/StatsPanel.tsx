@@ -26,7 +26,8 @@ import { sexClass } from "../sex";
 import { useVirtualList } from "../useVirtualList";
 import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
-import { countryFacetLabel } from "../../geo/placeCountry";
+import { countryFacetLabel, flagEmoji } from "../../geo/placeCountry";
+import { countryOf } from "../../tools/geocode";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { BarList, ColumnChart, StatTile, toneClass, type BarRow, type Column, type Tone } from "./StatsCharts";
@@ -51,10 +52,12 @@ interface Pick {
 /** Completeness grades: at least 90 % is good, at least 50 % fair, anything less poor. */
 const gradeOf = (part: number): "good" | "fair" | "poor" => (part >= 0.9 ? "good" : part >= 0.5 ? "fair" : "poor");
 
-/** A place by its two ends — the named place and its country — when it has levels between. */
-function shortPlace(value: string): string {
-  const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
-  return parts.length > 2 ? `${parts[0]}, ${parts[parts.length - 1]}` : value;
+/** A place by its own name, with its country as a flag; the whole value is the tip. */
+function shortPlace(value: string, home: string): string {
+  const first = value.split(",").map((p) => p.trim()).find(Boolean) ?? value;
+  // The country is read as the country chips read it: named, else the home one.
+  const code = countryOf(value, home);
+  return /^[a-z]{2}$/i.test(code) ? `${flagEmoji(code)} ${first}` : first;
 }
 
 /** Cards that share another card's explanation: the overview's top five are the names page's lists. */
@@ -221,9 +224,9 @@ export function StatsPanel({
       picked={pickedIn(card)}
       rows={list.map((b) => ({
         key: b.key,
-        // A long place reads by its two ends; the whole value is the tip.
-        label: places ? shortPlace(b.label!) : b.label,
-        tip: places && shortPlace(b.label!) !== b.label ? b.label : undefined,
+        // A place reads by its own name and its country's flag; the whole value is the tip.
+        label: places ? shortPlace(b.label!, home) : b.label,
+        tip: places ? b.label : undefined,
         value: b.count,
         display: num(b.count),
         count: b.count,
