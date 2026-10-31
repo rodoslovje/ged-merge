@@ -92,6 +92,22 @@ export function rankNames(rows: PersonFacts[], part: "given" | "surname"): Bucke
  * per distinct value — places, causes of death, occupations. Labelled by the
  * spelling the file uses most.
  */
+/** Birth countries by frequency, over the people with a birth place: the key is the
+ *  country facet, `""` for a place naming no country the file can tell. */
+export function rankCountries(people: PersonFacts[]): Bucket[] {
+  const groups = new Map<string, string[]>();
+  for (const p of people) {
+    if (!p.birthPlace) continue;
+    const ids = groups.get(p.birthCountry);
+    if (ids) ids.push(p.id);
+    else groups.set(p.birthCountry, [p.id]);
+  }
+  return [...groups]
+    .map(([key, ids]) => ({ key, count: ids.length, ids }))
+    .sort((a, b) => b.count - a.count || byLabel.compare(a.key, b.key))
+    .slice(0, OVERVIEW_TOP);
+}
+
 export function rankText<T>(rows: T[], valuesOf: (r: T) => (string | undefined)[], idOf: (r: T) => string): Bucket[] {
   const folded = new Map<string, string>();
   const groups = new Map<string, { ids: string[]; spellings: Map<string, number> }>();
@@ -219,7 +235,7 @@ export interface Overview {
   topGivenMale: Bucket[];
   topGivenFemale: Bucket[];
   topBirthPlaces: Bucket[];
-  topPlaces: Bucket[];
+  topBirthCountries: Bucket[];
   ageAtDeath?: Mean;
   oldest?: { id: string; age: number };
   largestFamily?: { id: string; children: number };
@@ -301,7 +317,7 @@ export function overview(s: ScopedFacts): Overview {
     topGivenMale: rankNames(s.people.filter((p) => p.sex === "M"), "given").slice(0, OVERVIEW_TOP),
     topGivenFemale: rankNames(s.people.filter((p) => p.sex === "F"), "given").slice(0, OVERVIEW_TOP),
     topBirthPlaces: rankText(s.people, (p) => [p.birthPlace], (p) => p.id).slice(0, OVERVIEW_TOP),
-    topPlaces: rankText(s.people, (p) => p.places, (p) => p.id).slice(0, OVERVIEW_TOP),
+    topBirthCountries: rankCountries(s.people),
     ageAtDeath: mean(ages),
     oldest,
     largestFamily: largestFamily && largestFamily.children > 0 ? largestFamily : undefined,

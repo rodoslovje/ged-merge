@@ -24,6 +24,7 @@ import { StartPersonSelector } from "../StartPersonSelector";
 import { useVirtualList } from "../useVirtualList";
 import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
+import { countryFacetLabel } from "../../geo/placeCountry";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { BarList, ColumnChart, StatTile, toneClass, type BarRow, type Column, type Tone } from "./StatsCharts";
@@ -287,6 +288,7 @@ export function StatsPanel({
   const basedOn = (n: number, of: number) => t("stats.basedOn", { n: num(n), of: num(of) });
   const total = (list: Bucket[]) => list.reduce((a, b) => a + b.count, 0);
   const monthLabel = (b: Bucket) => new Date(2000, b.lo! - 1, 1).toLocaleString(lang, { month: "short" });
+  const countryName = (code: string) => (code ? countryFacetLabel(code, lang) : t("tools.geocode.countryUnknown"));
   const periodLabel = (b: Bucket) => String(b.lo);
   /** Label about a dozen periods however many there are. */
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
@@ -480,8 +482,17 @@ export function StatsPanel({
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
             {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
             {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}
+            {card("topBirthCountries", t("stats.topBirthCountries"), null, (
+              <BarList
+                picked={pickedIn("topBirthCountries")}
+                rows={ov.topBirthCountries.map((b) => ({ key: b.key, label: countryName(b.key), value: b.count, display: num(b.count), count: b.count }))}
+                onPick={(key) => {
+                  const b = ov.topBirthCountries.find((x) => x.key === key)!;
+                  choose("topBirthCountries", key, `${t("stats.topBirthCountries")} — ${countryName(key)}`, b.ids);
+                }}
+              />
+            ))}
             {card("topBirthPlaces", t("stats.topBirthPlaces"), null, ranked("topBirthPlaces", t("stats.birthPlaces"), ov.topBirthPlaces, OVERVIEW_TOP, undefined, true))}
-            {card("topPlaces", t("stats.topPlaces"), null, ranked("topPlaces", t("stats.placeName"), ov.topPlaces, OVERVIEW_TOP, undefined, true))}
           </>
         )}
 

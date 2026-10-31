@@ -41,6 +41,8 @@ export interface PersonFacts {
   place: string;
   /** The place's country facet (see `placeCountryFacet`); `""` for none. */
   country: string;
+  /** The birth (or baptism) place's country facet; `""` when there is no birth place. */
+  birthCountry: string;
   /** The death's cause (CAUS), as written. */
   cause?: string;
   /** The birth (or baptism) place and the death (or burial) place, `""` for none. */
@@ -52,8 +54,6 @@ export interface PersonFacts {
   baptismDays?: number;
   /** The occupations (OCCU) the person carries, as written, each once. */
   occupations: string[];
-  /** Every place the person's own events and their unions' events name, as written, each once. */
-  places: string[];
   hasBirthDate: boolean;
   hasBirthPlace: boolean;
   hasDeathDate: boolean;
@@ -153,21 +153,6 @@ function firstPlace(indi: Individual, tags: readonly string[]): string {
   return "";
 }
 
-/** Whole months from one dated event to another, when both name the month. */
-/** The places a person's life names: their own events', and their unions' (a wedding). */
-function placesOf(indi: Individual, ds: Dataset): string[] {
-  const out = new Set<string>();
-  const add = (events: GedEvent[]) => {
-    for (const e of events) {
-      const raw = e.place?.raw.trim();
-      if (raw) out.add(raw);
-    }
-  };
-  add(indi.events);
-  for (const famId of indi.spouseOf) add(ds.families.get(famId)?.events ?? []);
-  return [...out];
-}
-
 /** A date that names its day exactly, as a comparable key. */
 function dayKey(d: GedDate | undefined): string | undefined {
   if (d?.year === undefined || d.month === undefined || d.day === undefined || isApproximate(d)) return undefined;
@@ -183,6 +168,7 @@ function baptismDays(indi: Individual): number | undefined {
   return Math.round((Date.UTC(baptism.year!, baptism.month! - 1, baptism.day!) - Date.UTC(birth.year!, birth.month! - 1, birth.day!)) / 86_400_000);
 }
 
+/** Whole months from one dated event to another, when both name the month. */
 function monthsBetween(from: GedDate | undefined, to: GedDate | undefined): number | undefined {
   if (from?.year === undefined || from.month === undefined || to?.year === undefined || to.month === undefined) return undefined;
   let months = (to.year - from.year) * 12 + (to.month - from.month);
@@ -243,13 +229,13 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       ageAtDeath: death ? ageBetween(birth?.date, death.date) : undefined,
       place,
       country: place ? countryOf(place, home) : "",
+      birthCountry: birthPlace ? countryOf(birthPlace, home) : "",
       cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
       birthPlace,
       deathPlace,
       birthDay: dayKey(birth?.date),
       baptismDays: baptismDays(indi),
       occupations: [...new Set(indi.events.filter((e) => e.tag === "OCCU").map((e) => e.value?.trim()).filter((v): v is string => !!v))],
-      places: placesOf(indi, ds),
       hasBirthDate: !!birth,
       hasBirthPlace: !!birthPlace,
       hasDeathDate: !!death,

@@ -45,7 +45,7 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
   await expect(people.locator(".stats-tile-value")).toHaveText("4");
   await expect(panel.locator(".stats-tile", { hasText: "Birth years" })).toContainText("1890–1930");
   // A place with levels between reads by its two ends; the whole value is the tip.
-  await expect(panel.locator(".stats-card", { hasText: "Most common birth places" }).locator(".stats-bar-label", { hasText: "Kranj" })).toHaveText("Kranj, Slovenia");
+  await expect(panel.locator(".stats-card", { has: page.getByRole("heading", { name: "Birth places", exact: true }) }).locator(".stats-bar-label", { hasText: "Kranj" })).toHaveText("Kranj, Slovenia");
 
   // The completeness row lists who is missing a birth place.
   await panel.locator(".stats-bar", { hasText: "Birth place" }).click();
