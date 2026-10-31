@@ -17,7 +17,7 @@ import {
 } from "../../stats/aggregate";
 import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { migrationStats } from "../../stats/migration";
-import { lineageStats } from "../../stats/lineage";
+import { COUPLE_KINSHIP, lineageStats, relatedCouples, type CoupleKinship } from "../../stats/lineage";
 import { researchStats } from "../../stats/research";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
@@ -156,6 +156,8 @@ export function StatsPanel({
   const names = useMemo(() => (scoped && page === "names" ? namesStats(scoped) : undefined), [scoped, page]);
   const life = useMemo(() => (scoped && page === "lifespan" ? lifespanStats(scoped) : undefined), [scoped, page]);
   const fams = useMemo(() => (scoped && page === "families" ? familyStats(scoped) : undefined), [scoped, page]);
+  const related = useMemo(() => (scoped && page === "families" ? relatedCouples(scoped.byId, scoped.families) : undefined), [scoped, page]);
+  const relatedIds = useMemo(() => (related ? COUPLE_KINSHIP.flatMap((k) => related.byKind[k]) : []), [related]);
   const births = useMemo(() => (scoped && page === "births" ? birthStats(scoped) : undefined), [scoped, page]);
   const deaths = useMemo(() => (scoped && page === "deaths" ? deathStats(scoped) : undefined), [scoped, page]);
   const jobs = useMemo(() => (scoped && page === "occupations" ? occupationStats(scoped) : undefined), [scoped, page]);
@@ -629,6 +631,9 @@ export function StatsPanel({
               {fams.mostUnions && fams.mostUnions.count > 1 && (
                 <StatTile label={t("stats.mostUnions")} value={t("stats.unions", { count: fams.mostUnions.count })} sub={<NameLink dataset={dataset} id={fams.mostUnions.id} onNavigate={onNavigate} />} />
               )}
+              {related && (
+                <StatTile label={t("stats.marriedRelatives")} value={num(relatedIds.length)} sub={pct(relatedIds.length, related.of)} onClick={relatedIds.length ? () => choose("famTiles", "related", t("stats.marriedRelatives"), relatedIds, true) : undefined} picked={pickedIn("famTiles") === "related"} />
+              )}
               {pick?.card === "famTiles" && (
                 <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
@@ -640,6 +645,13 @@ export function StatsPanel({
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
             {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
             {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
+            {related && card("relatedCouples", t("stats.relatedCouples"), t("stats.nFamilies", { count: related.of }), (
+              <BarList
+                picked={pickedIn("relatedCouples")}
+                rows={COUPLE_KINSHIP.map((k) => ({ key: k, label: t(`stats.kin.${k}`), value: related.byKind[k].length, display: num(related.byKind[k].length), count: related.byKind[k].length }))}
+                onPick={(key) => choose("relatedCouples", key, `${t("stats.relatedCouples")} — ${t(`stats.kin.${key}`)}`, related.byKind[key as CoupleKinship], true)}
+              />
+            ))}
             {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
             {card("motherFirst", t("stats.motherFirst"), t("stats.nFamilies", { count: total(fams.motherFirst) }), buckets("motherFirst", t("stats.motherFirst"), fams.motherFirst, { families: true, tone: "female" }))}
             {card("motherLast", t("stats.motherLast"), t("stats.nFamilies", { count: total(fams.motherLast) }), buckets("motherLast", t("stats.motherLast"), fams.motherLast, { families: true, tone: "female" }))}

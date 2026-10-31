@@ -115,3 +115,61 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
     livingDescendants: descendantIds.filter((id) => facts.byId.get(id)?.living),
   };
 }
+
+/** How a couple is related through their nearest common ancestor. */
+export type CoupleKinship = "siblings" | "cousin1" | "cousin2" | "cousin3" | "other";
+export const COUPLE_KINSHIP: CoupleKinship[] = ["siblings", "cousin1", "cousin2", "cousin3", "other"];
+
+/** Common ancestors are looked for this many generations up from each spouse. */
+const KIN_DEPTH = 4;
+
+/** Each ancestor of a person up to {@link KIN_DEPTH} generations, with the nearest generation they stand in. */
+function ancestorDepths(byId: StatsFacts["byId"], id: string): Map<string, number> {
+  const depths = new Map<string, number>();
+  let front = [id];
+  for (let gen = 1; gen <= KIN_DEPTH && front.length; gen++) {
+    const next: string[] = [];
+    for (const pid of front) {
+      const p = byId.get(pid);
+      for (const parent of [p?.father, p?.mother]) {
+        if (!parent || depths.has(parent)) continue;
+        depths.set(parent, gen);
+        next.push(parent);
+      }
+    }
+    front = next;
+  }
+  return depths;
+}
+
+/**
+ * Couples whose spouses share an ancestor within {@link KIN_DEPTH} generations,
+ * by how near: through the nearest common ancestor, the same generation on both
+ * sides makes siblings (1) or cousins (2–4), unequal ones some other kinship
+ * (uncle and niece, cousins once removed). Keys are family ids.
+ */
+export function relatedCouples(byId: StatsFacts["byId"], families: { id: string; husband?: string; wife?: string }[]): {
+  of: number;
+  byKind: Record<CoupleKinship, string[]>;
+} {
+  const byKind = Object.fromEntries(COUPLE_KINSHIP.map((k) => [k, [] as string[]])) as Record<CoupleKinship, string[]>;
+  let of = 0;
+  for (const f of families) {
+    if (!f.husband || !f.wife) continue;
+    of++;
+    const h = ancestorDepths(byId, f.husband);
+    if (!h.size) continue;
+    const w = ancestorDepths(byId, f.wife);
+    let best: [number, number] | undefined;
+    for (const [id, dw] of w) {
+      const dh = h.get(id);
+      if (dh === undefined) continue;
+      if (!best || dh + dw < best[0] + best[1]) best = [dh, dw];
+    }
+    if (!best) continue;
+    const [dh, dw] = best;
+    const kind: CoupleKinship = dh !== dw ? "other" : dh === 1 ? "siblings" : (`cousin${dh - 1}` as CoupleKinship);
+    byKind[kind].push(f.id);
+  }
+  return { of, byKind };
+}

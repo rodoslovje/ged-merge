@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildStatsFacts } from "./facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts } from "./scope";
-import { lineageStats } from "./lineage";
+import { lineageStats, relatedCouples } from "./lineage";
 import { migrationStats } from "./migration";
 import { researchStats } from "./research";
 
@@ -127,6 +127,16 @@ describe("lineageStats", () => {
     const d = lineageStats(facts, "@I1@");
     expect(d.descendants.map((g) => g.ids.length)).toEqual([2, 2, 1]);
     expect(d.descendantIds).toHaveLength(5);
+  });
+});
+
+describe("relatedCouples", () => {
+  it("finds the cousins who married, through their nearest common ancestor", () => {
+    const r = relatedCouples(facts.byId, facts.families);
+    expect(r.of).toBe(4);
+    expect(r.byKind.cousin1).toEqual(["@F4@"]);
+    expect(r.byKind.siblings).toEqual([]);
+    expect(r.byKind.other).toEqual([]);
   });
 });
 
