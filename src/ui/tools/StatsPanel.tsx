@@ -652,6 +652,7 @@ export function StatsPanel({
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
             {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
             {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
+            {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
             {related && card("relatedCouples", t("stats.relatedCouples"), t("stats.nFamilies", { count: related.of }), (
               <BarList
                 picked={pickedIn("relatedCouples")}
@@ -659,7 +660,6 @@ export function StatsPanel({
                 onPick={(key) => choose("relatedCouples", key, `${t("stats.relatedCouples")} — ${t(`stats.kin.${key}`)}`, related.byKind[key as CoupleKinship], true)}
               />
             ))}
-            {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
             {card("motherFirst", t("stats.motherFirst"), t("stats.nFamilies", { count: total(fams.motherFirst) }), buckets("motherFirst", t("stats.motherFirst"), fams.motherFirst, { families: true, tone: "female" }))}
             {card("motherLast", t("stats.motherLast"), t("stats.nFamilies", { count: total(fams.motherLast) }), buckets("motherLast", t("stats.motherLast"), fams.motherLast, { families: true, tone: "female" }))}
           </>
