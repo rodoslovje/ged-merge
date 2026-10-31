@@ -389,6 +389,19 @@ export function resolveSourceCitation(citationNode: GedNode, ctx: SourceContext)
   return { sourceId: value, title, agency, filingNumber, page, url, exact, objeXref };
 }
 
+/** What of a `SOUR` record its citations show (see {@link resolveSourceCitation}):
+ *  the title, agency, filing number, page images and repository. A record
+ *  edit that leaves this alone leaves every citing person's projection alone. */
+export function citationShownKey(sourceNode: GedNode | null | undefined): string {
+  if (!sourceNode) return "";
+  return JSON.stringify([
+    sourceTitle(sourceNode),
+    childText(sourceNode, "AGNC"),
+    filingNumberOf(sourceNode),
+    sourceNode.children.filter((c) => c.tag === "OBJE" || c.tag === "REPO").map((c) => `${c.tag} ${c.value?.trim() ?? ""}`),
+  ]);
+}
+
 /** The first address in a citation's `PAGE` text, if any — the page a file
  *  that keeps no page images cites by its link (`PAGE https://…/?pg=86`). */
 export function pageTextUrl(page: string | undefined): string | undefined {
