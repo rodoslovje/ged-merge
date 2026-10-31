@@ -11,6 +11,7 @@ import { useMatchList } from "./ui/useMatchList";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
 import { withBusyCursor } from "./ui/busyCursor";
+import { citationShownKey } from "./gedcom/source";
 import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
@@ -1610,9 +1611,11 @@ function AppContent() {
     applySharedRecordEdit((records, notes) => {
       const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
       if (!node) return;
+      const shown = citationShownKey(node);
       setSourceRecordFields(records, node, fields, notes, formatOverrides);
-      // The citations people and families show carry the source's title.
-      if (mainDataset) rebuildReferrers(mainDataset, new Set([sourceXref]), ["SOUR"]);
+      // The citations people and families show carry the source's title — a
+      // register cited 50k times is worth re-projecting only when it changed.
+      if (mainDataset && citationShownKey(node) !== shown) rebuildReferrers(mainDataset, new Set([sourceXref]), ["SOUR"]);
     });
   }
 
