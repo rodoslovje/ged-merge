@@ -1,7 +1,7 @@
 import { useFormatOverrides } from "./TargetFormatContext";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { Dataset } from "../gedcom/types";
-import { getSourceLookup, titleWithPeriodical, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
+import type { Dataset, GedNode } from "../gedcom/types";
+import { getSourceLookup, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
 import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
@@ -12,7 +12,7 @@ import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { coverageFieldsOffered, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
+import { coverageFieldsOffered, foldPeriodical, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
 import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { trackPendingAdd } from "./source/pendingAdds";
@@ -142,6 +142,29 @@ function upgradeFromLookup(
     filingNumber: idOnCaln ? f.filingNumber : upgrade(f.filingNumber, proposal?.filingNumber, id),
     page: upgrade(f.page, recognized?.page, meta.page),
   };
+}
+
+/** The call number a lookup's answer fills in, when the seed put the id on
+ *  the repository link (`idOnCaln`). */
+function lookupCallNumber(meta: ReshapeMeta, recognized: RecognizedSourceUrl | undefined, idOnCaln: boolean): string | undefined {
+  return idOnCaln ? meta.filingNumber ?? recognized?.proposed.filingNumber : undefined;
+}
+
+/** The site repository proposal once the lookup has answered: the collection
+ *  and the place the records cover are what pick the country's repository.
+ *  Nothing when the answer names neither. */
+function fetchedRepoProposal(
+  records: GedNode[],
+  recognized: RecognizedSourceUrl | undefined,
+  url: string | undefined,
+  meta: ReshapeMeta | undefined,
+) {
+  if (!recognized || !url || !(meta?.collection || meta?.collectionId || meta?.place)) return undefined;
+  return proposedSiteRepo(records, recognized.site, url, recognized.proposed.agency, {
+    title: meta.collection,
+    id: meta.collectionId,
+    place: meta.place ?? recognized.proposed.place,
+  });
 }
 
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
@@ -274,14 +297,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // repository. Deliberately separate from `repoDefault` — it must not re-seed
   // the fields the lookup just filled.
   const repoFetched = useMemo(
-    () =>
-      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId || fetched?.place)
-        ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, {
-            title: fetched.collection,
-            id: fetched.collectionId,
-            place: fetched.place ?? recognized.proposed.place,
-          })
-        : undefined,
+    () => fetchedRepoProposal(dataset.records, recognized, normalizedUrl, fetched),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId, fetched?.place],
   );
   const repoProposal = repoFetched ?? repoDefault;
@@ -475,7 +492,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       if (cancelled || !meta) return;
       setFetched(meta);
       setFields((f) => (f.url !== normalizedUrl ? f : upgradeFromLookup(f, meta, recognized, resolvePlace, idOnCaln.current)));
-      const id = idOnCaln.current ? meta.filingNumber ?? recognized?.proposed.filingNumber : undefined;
+      const id = lookupCallNumber(meta, recognized, idOnCaln.current);
       if (id) setRepoCaln((caln) => (caln.trim() ? caln : id));
     });
     return () => { cancelled = true; };
@@ -656,19 +673,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const answered = inFlight.answer.then((meta) => {
       if (liveDataset.current !== asked) return undefined;
       if (!meta) return addResult(form, repo, undefined, undefined);
-      let upgraded = upgradeFromLookup(form, meta, site, resolvePlace, onCaln);
-      if (!offerPeriodical && upgraded.periodical.trim()) {
-        upgraded = { ...upgraded, title: titleWithPeriodical(upgraded.title, upgraded.periodical) ?? "", periodical: "" };
-      }
-      const id = onCaln ? meta.filingNumber ?? site?.proposed.filingNumber : undefined;
-      const fetchedRepo =
-        site && (meta.collection || meta.collectionId || meta.place)
-          ? proposedSiteRepo(asked.records, site.site, url, site.proposed.agency, {
-              title: meta.collection,
-              id: meta.collectionId,
-              place: meta.place ?? site.proposed.place,
-            })
-          : undefined;
+      const upgraded = foldPeriodical(upgradeFromLookup(form, meta, site, resolvePlace, onCaln), offerPeriodical);
+      const id = lookupCallNumber(meta, site, onCaln);
+      const fetchedRepo = fetchedRepoProposal(asked.records, site, url, meta);
       const sel = !touched && fetchedRepo?.xref ? fetchedRepo.xref : repo.sel;
       return addResult(upgraded, { sel, name: repo.name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
     });
