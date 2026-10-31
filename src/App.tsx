@@ -20,6 +20,7 @@ import { NOT_GEDCOM } from "./gedcom/parser";
 import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, rebuildReferrers, type EditSourceFields, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
+import { hasPendingAdds, pendingAddsSettled } from "./ui/source/pendingAdds";
 import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
 import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
@@ -1913,6 +1914,17 @@ function AppContent() {
 
   async function openSavePreview(convertTo?: OutputVersion) {
     if (!mainDataset || main.status !== "loaded") return;
+    // A source added while its page was still being read is written once the
+    // page answers: the save waits for it, so the file holds it. The Adds land
+    // through state this render cannot see — the save starts over from the
+    // next one.
+    if (hasPendingAdds()) {
+      setReadingSources(true);
+      await pendingAddsSettled();
+      setReadingSources(false);
+      setSaveAfterAdds({ convertTo });
+      return;
+    }
     // A strict target format saves in its own version, converting a file
     // that is in the other one.
     if (!convertTo && target.strict && target.version !== ownVersion(mainDataset)) convertTo = target.version;
@@ -1936,6 +1948,14 @@ function AppContent() {
   function handleSave(convertTo?: OutputVersion) {
     return withBusyCursor(() => openSavePreview(convertTo));
   }
+  // The save that waited for pending source Adds, resumed with what they wrote.
+  const [saveAfterAdds, setSaveAfterAdds] = useState<{ convertTo?: OutputVersion } | null>(null);
+  useEffect(() => {
+    if (!saveAfterAdds) return;
+    setSaveAfterAdds(null);
+    void handleSave(saveAfterAdds.convertTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveAfterAdds]);
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
   globalShortcutRef.current.save = () => void handleSave();

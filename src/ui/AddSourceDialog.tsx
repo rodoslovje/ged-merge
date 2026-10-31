@@ -15,6 +15,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { coverageFieldsOffered, idField, periodicalOffered, useTitleTakesPeriodical } from "./source/standardFields";
 import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
+import { trackPendingAdd } from "./source/pendingAdds";
 import { SourceDialogShell } from "./source/SourceDialogShell";
 import { SourceLinkRow } from "./source/SourceLinkRow";
 import type { Translate } from "../locales/i18n";
@@ -656,27 +657,29 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const onCaln = idOnCaln.current;
     const touched = repoTouched.current;
     const form = fields;
-    onAdd(
-      inFlight.answer.then((meta) => {
-        if (!live.current.mounted || live.current.dataset !== asked) return undefined;
-        if (!meta) return addResult(form, repo, undefined, undefined);
-        let upgraded = upgradeFromLookup(form, meta, site, resolvePlace, onCaln);
-        if (!offerPeriodical && upgraded.periodical.trim()) {
-          upgraded = { ...upgraded, title: titleWithPeriodical(upgraded.title, upgraded.periodical) ?? "", periodical: "" };
-        }
-        const id = onCaln ? meta.filingNumber ?? site?.proposed.filingNumber : undefined;
-        const fetchedRepo =
-          site && (meta.collection || meta.collectionId || meta.place)
-            ? proposedSiteRepo(asked.records, site.site, url, site.proposed.agency, {
-                title: meta.collection,
-                id: meta.collectionId,
-                place: meta.place ?? site.proposed.place,
-              })
-            : undefined;
-        const sel = !touched && fetchedRepo?.xref ? fetchedRepo.xref : repo.sel;
-        return addResult(upgraded, { sel, name: repo.name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
-      }),
-    );
+    const answered = inFlight.answer.then((meta) => {
+      if (!live.current.mounted || live.current.dataset !== asked) return undefined;
+      if (!meta) return addResult(form, repo, undefined, undefined);
+      let upgraded = upgradeFromLookup(form, meta, site, resolvePlace, onCaln);
+      if (!offerPeriodical && upgraded.periodical.trim()) {
+        upgraded = { ...upgraded, title: titleWithPeriodical(upgraded.title, upgraded.periodical) ?? "", periodical: "" };
+      }
+      const id = onCaln ? meta.filingNumber ?? site?.proposed.filingNumber : undefined;
+      const fetchedRepo =
+        site && (meta.collection || meta.collectionId || meta.place)
+          ? proposedSiteRepo(asked.records, site.site, url, site.proposed.agency, {
+              title: meta.collection,
+              id: meta.collectionId,
+              place: meta.place ?? site.proposed.place,
+            })
+          : undefined;
+      const sel = !touched && fetchedRepo?.xref ? fetchedRepo.xref : repo.sel;
+      return addResult(upgraded, { sel, name: repo.name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
+    });
+    onAdd(answered);
+    // After `onAdd`, so the caller's write is chained first: Save, waiting on
+    // this, finds the source already in the file.
+    trackPendingAdd(answered);
     reset();
   }
 

@@ -736,7 +736,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     KeyC: () => openRelativeSlot("child"),
   };
 
-  const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
+  const commitFamily: FamilyCommit = useStableHandler((given: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
+    // The family as the file holds it now: a caller that waited (an Add source
+    // for its page lookup) may hold one an undo or a save has since replaced.
+    const fam = dataset.families.get(given.id) ?? given;
     const before = cloneNode(fam.raw);
     const notes = noteCtx(dataset.records, privacyStyle);
     mutate(fam, notes);
