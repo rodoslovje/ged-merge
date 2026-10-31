@@ -553,7 +553,11 @@ export function StatsPanel({
               {fams.firstMarriageMaleMean && <StatTile tone="male" label={t("stats.meanMarriageMen")} value={dec(fams.firstMarriageMaleMean.value)} sub={t("stats.nPeople", { count: fams.firstMarriageMaleMean.n })} />}
               {fams.firstMarriageFemaleMean && <StatTile tone="female" label={t("stats.meanMarriageWomen")} value={dec(fams.firstMarriageFemaleMean.value)} sub={t("stats.nPeople", { count: fams.firstMarriageFemaleMean.n })} />}
               <StatTile label={t("stats.families")} value={num(families)} />
+              {fams.childrenMean && <StatTile label={t("stats.childrenPerFamily")} value={dec(fams.childrenMean.value)} />}
               <StatTile label={t("stats.childless")} value={num(fams.children[0].count)} sub={pct(fams.children[0].count, families)} onClick={() => choose("famTiles", "childless", t("stats.childless"), fams.children[0].ids, true)} picked={pickedIn("famTiles") === "childless"} />
+              {fams.mostUnions && fams.mostUnions.count > 1 && (
+                <StatTile label={t("stats.mostUnions")} value={t("stats.unions", { count: fams.mostUnions.count })} sub={<NameLink dataset={dataset} id={fams.mostUnions.id} onNavigate={onNavigate} />} />
+              )}
               {pick?.card === "famTiles" && (
                 <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}

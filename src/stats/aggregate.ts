@@ -471,6 +471,9 @@ export interface FamilyStats {
   childrenByCentury: CenturyPoint[];
   /** Unions per person among the scoped people who have one; ids are people. */
   unionsPerPerson: Bucket[];
+  /** The person in scope with the most unions; ties go to the first found. */
+  mostUnions?: { id: string; count: number };
+  childrenMean?: Mean;
   /** Marriages per calendar month (1–12); ids are families. */
   marriageMonth: Bucket[];
   /** Months from marriage to the first child; ids are families. */
@@ -509,6 +512,8 @@ export function familyStats(s: ScopedFacts): FamilyStats {
     children: histogram(s.families, (f) => f.children.length, famId, { start: 0, width: 1, end: 13 }),
     childrenByCentury: meanByCentury(s.families, (f) => f.year, (f) => f.children.length, famId),
     unionsPerPerson: histogram([...unions], ([, n]) => n, ([id]) => id, { start: 1, width: 1, end: 3 }),
+    mostUnions: [...unions].reduce<{ id: string; count: number } | undefined>((best, [id, count]) => (!best || count > best.count ? { id, count } : best), undefined),
+    childrenMean: mean(s.families.map((f) => f.children.length)),
     marriageMonth: month,
     firstChild: firstChildBuckets(s.families.filter((f) => f.firstChildMonths !== undefined && (s.approx || !f.marriageApprox))),
     motherFirst: histogram(s.families.filter(parentsOk), (f) => f.motherAgeFirst, famId, marriageBins),

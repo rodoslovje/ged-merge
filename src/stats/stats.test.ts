@@ -193,6 +193,8 @@ describe("aggregates", () => {
     expect(f.marriageMonth[4].ids).toEqual(["@F2@"]);
     expect(f.firstChild.find((b) => b.key === "0")?.ids).toEqual(["@F2@"]);
     expect(f.children[0].ids).toEqual(["@F3@"]);
+    expect(f.mostUnions).toEqual({ id: "@I3@", count: 2 });
+    expect(f.childrenMean).toEqual({ value: 1, n: 3 });
   });
 });
 
