@@ -27,8 +27,6 @@ export interface PersonOption {
   span: string;
   sex: Individual["sex"];
   xref: string;
-  /** Where they lived, to tell namesakes apart — see {@link homePlaceOf}. */
-  home?: HomePlace;
   search: string;
 }
 
@@ -63,7 +61,6 @@ export function usePersonOptions(
                 span,
                 sex: i.sex,
                 xref: xrefLabel(i.id),
-                home: homePlaceOf(i),
                 // Searchable on every name the person carries, not just the one
                 // on show: a maiden name still finds them while married names
                 // are displayed, and the record id finds them outright.
@@ -114,11 +111,14 @@ export function PersonOptionRow({
   t: Translate;
 }) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  // Where they lived, to tell namesakes apart — read for the rows on show
+  // only, not for every person the list was built from.
+  const home = homePlaceOf(option.indi);
   return (
     <button
       type="button"
       className={`relative-picker-option${highlighted ? " highlighted" : ""}`}
-      title={personOptionTitle(lifespanTooltipOf(option.indi, settings.showAge, t), option.home, t)}
+      title={personOptionTitle(lifespanTooltipOf(option.indi, settings.showAge, t), home, t)}
       onMouseEnter={onHighlight}
       onFocus={onHighlight}
       // mousedown only keeps the search box's focus; the pick is the click, so
@@ -130,7 +130,7 @@ export function PersonOptionRow({
         <span className="person-name">{option.name}</span>
         {settings.showXref && <span className="person-xref gm-data">{option.xref}</span>}
         {option.span && <span className="person-years gm-data"><YearsText text={option.span} approx={lifespanApproxOf(option.indi)} /></span>}
-        {option.home && <span className="person-place">{option.home.label}</span>}
+        {home && <span className="person-place">{home.label}</span>}
       </span>
     </button>
   );
