@@ -31,7 +31,7 @@ import { sexClass } from "../sex";
 import { useVirtualList } from "../useVirtualList";
 import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
-import { countryFacetLabel, flagEmoji } from "../../geo/placeCountry";
+import { countryFacetLabel, countryFacetName, flagEmoji } from "../../geo/placeCountry";
 import { countryOf } from "../../tools/geocode";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
@@ -757,7 +757,13 @@ export function StatsPanel({
                 rows={moves.countryMoves.map((b) => {
                   // From above, to below: two country names side by side never fit a label.
                   const [from, to] = b.key.split(">");
-                  const label = <span className="stats-move"><span>{countryName(from)}</span><span>→ {countryName(to)}</span></span>;
+                  const country = (code: string) => (
+                    <span>
+                      {/^[a-z]{2}$/.test(code) && <span className="stats-flag">{flagEmoji(code)} </span>}
+                      {code ? countryFacetName(code, lang) : t("tools.geocode.countryUnknown")}
+                    </span>
+                  );
+                  const label = <span className="stats-move">{country(from)}<span>→ {country(to)}</span></span>;
                   return { key: b.key, label, tip: countryMove(b.key), value: b.count, display: num(b.count), count: b.count };
                 })}
                 onPick={(key) => {
