@@ -140,7 +140,9 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   const list = readFileSync((await (await listCsv).path())!, "utf-8");
   expect(list).toContain("@I3@,Ivana Bergant,1895–1970");
 
-  // The card as a picture: its title and rows drawn as SVG text.
+  // The card as a picture: its title and rows drawn as SVG text, and the
+  // scope it was taken over in the subtitle.
+  await panel.getByRole("tab", { name: "Ancestors" }).click();
   const cardSvg = page.waitForEvent("download");
   await completeness.getByRole("button", { name: "Export" }).click();
   await completeness.getByRole("menuitem", { name: "SVG image" }).click();
@@ -148,6 +150,7 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   expect(svg).toContain("<svg");
   expect(svg).toContain(">Completeness<");
   expect(svg).toContain(">Birth place<");
+  expect(svg).toContain("Ancestors: Petra Zorman");
 
   // The whole page as a PNG.
   const pagePng = page.waitForEvent("download");

@@ -337,13 +337,30 @@ export function StatsPanel({
           : id === "repeatedAncestors" ? t("stats.click.person")
           : id === "sourcedByTag" ? t("stats.click.unsourced")
           : t("stats.click.bar");
+  /** Whose numbers a picture shows, for its subtitle: the line and its person,
+   *  and every filter in force; empty for the whole file unfiltered. */
+  const scopeLine = () => {
+    const person = statsStart ? dataset.individuals.get(statsStart) : undefined;
+    const name = person ? nameOf(person) : "";
+    const parts: string[] = [];
+    if (page === "generations") {
+      if (name) parts.push(name);
+    } else {
+      if (lined) parts.push(name ? `${t(`stats.who.${scope.who}`)}: ${name}` : t(`stats.who.${scope.who}`));
+      if (scope.sex !== "all") parts.push(t(`stats.sex.${scope.sex}`));
+      if (scope.from !== undefined || scope.to !== undefined) parts.push(`${t("stats.born")} ${scope.from ?? ""}–${scope.to ?? ""}`);
+      if (scope.place.trim()) parts.push(scope.place.trim());
+      if (scope.country !== null) parts.push(countryName(scope.country));
+    }
+    return parts.join(" · ");
+  };
   /** Downloads of what `root` shows: its numbers as CSV where it has them, and
    *  the picture as SVG or PNG. */
   const exportsOf = (name: string, title: string, root: () => HTMLElement | null, csv?: () => (string | number)[][]): ExportItem[] => {
     const base = `${fileName.replace(/\.[^.]+$/, "")}.${name}`;
     const picture = (format: "svg" | "png") => () => {
       const node = root();
-      if (node) void exportStats(node, format, base, { title, fileName: base });
+      if (node) void exportStats(node, format, base, { title, fileName: base, subtitle: scopeLine() || undefined });
     };
     return [
       ...(csv ? [{ key: "csv", icon: <FileTextIcon />, label: t("export.csv"), onSelect: () => downloadText(savedName(fileName, `${name}.csv`), toCsv(csv()), "text/csv;charset=utf-8") }] : []),
