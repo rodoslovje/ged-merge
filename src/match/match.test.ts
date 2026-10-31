@@ -977,6 +977,33 @@ describe("incoming duplicate consolidation: detects same person split across inc
   });
 });
 
+describe("incoming duplicate consolidation: sisters of one family stay two people", () => {
+  // Main knows only Marija (b 1 OCT 1859). The incoming file adds her sister
+  // Marjeta (b 18 OCT 1862) under the same parents. Marija/Marjeta clears the
+  // given-name veto and three years the year gap, but two children of one
+  // family with exact births in different years are siblings.
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @MAT@ INDI\n1 NAME Matija /Drinovec/\n1 SEX M\n1 BIRT\n2 DATE 1828\n1 FAMS @MF@
+0 @MAR@ INDI\n1 NAME Marjeta /Šink/\n1 SEX F\n1 BIRT\n2 DATE 1834\n1 FAMS @MF@
+0 @MARIJA@ INDI\n1 NAME Marija /Drinovec/\n1 SEX F\n1 BIRT\n2 DATE 1 OCT 1859\n2 PLAC Breg ob Savi\n1 FAMC @MF@
+0 @MF@ FAM\n1 HUSB @MAT@\n1 WIFE @MAR@\n1 CHIL @MARIJA@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @MAT2@ INDI\n1 NAME Matija /Drinovec/\n1 SEX M\n1 BIRT\n2 DATE 1828\n1 FAMS @IF@
+0 @MAR2@ INDI\n1 NAME Marjeta /Šink/\n1 SEX F\n1 BIRT\n2 DATE 1834\n1 FAMS @IF@
+0 @MARIJA2@ INDI\n1 NAME Marija /Drinovec/\n1 SEX F\n1 BIRT\n2 DATE 1 OCT 1859\n2 PLAC Breg ob Savi\n1 FAMC @IF@
+0 @MARJETA2@ INDI\n1 NAME Marjeta /Drinovec/\n1 SEX F\n1 BIRT\n2 DATE 18 OCT 1862\n2 PLAC Breg ob Savi\n1 FAMC @IF@
+0 @IF@ FAM\n1 HUSB @MAT2@\n1 WIFE @MAR2@\n1 CHIL @MARIJA2@\n1 CHIL @MARJETA2@
+0 TRLR\n`;
+  const r = matchDatasets(dataset(main), dataset(compare));
+
+  it("does not fold the younger sister into the matched one", () => {
+    expect(r.individuals.find((c) => c.mainId === "@MARIJA@")?.compareId).toBe("@MARIJA2@");
+    const merged = new Set(r.incomingDuplicates?.flatMap((c) => c.mergeIds) ?? []);
+    expect(merged.has("@MARJETA2@")).toBe(false);
+  });
+});
+
 describe("relationship pass: ignores weak relative matches (no false link from cross-family noise)", () => {
   // Karolina (main) and Antonija (incoming) are different people with totally
   // different names. The greedy pass cross-matches their similar-surnamed but
