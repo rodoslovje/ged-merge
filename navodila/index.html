@@ -155,6 +155,7 @@
             <li><a href="#edit">8. Urejanje</a></li>
             <li><a href="#merge">9. Združevanje</a></li>
             <li><a href="#tools">10. Orodja</a></li>
+            <li class="guide-toc-sub"><a href="#statistics">↳ Statistika</a></li>
             <li class="guide-toc-sub"><a href="#validate">↳ Pregled</a></li>
             <li class="guide-toc-sub"><a href="#duplicates">↳ Dvojniki</a></li>
             <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti in paketno uredi</a></li>
@@ -1294,10 +1295,51 @@
               <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti in jih shranite kot vsako drugo urejanje, prav tako <a href="#normalize">paketna opravila</a> in <strong>Poenoti datoteko</strong>. <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
               pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku nikoli ne
               prepiše: vsako shranjevanje je nova datoteka v mapi s prenosi (<a href="#saving">§14</a>).
-              V izbirniku na vrhu je šest orodij —
-              <strong>Pregled</strong>, <strong>Dvojniki</strong>, <strong>Poenoti in paketno uredi</strong>, <strong>Zasebnost</strong>,
-              <strong>Viri</strong> in <strong>Kraji</strong>. Dve se odpreta iz zadnjih dveh:
-              <a href="#organize">Uredi vire</a> iz Virov in <a href="#geocode">Geokodiranje krajev</a> iz Krajev.
+              V izbirniku na vrhu je sedem orodij —
+              <strong>Statistika</strong>, <strong>Kraji</strong>, <strong>Viri</strong>, <strong>Pregled</strong>,
+              <strong>Dvojniki</strong>, <strong>Poenoti in paketno uredi</strong> in <strong>Zasebnost</strong> —
+              Orodja pa se odprejo na Statistiki, ki datoteko le bere. Še dve orodji se odpreta iz Krajev in Virov:
+              <a href="#geocode">Geokodiranje krajev</a> iz Krajev in <a href="#organize">Uredi vire</a> iz Virov.
+            </p>
+            <h3 id="statistics">Statistika</h3>
+            <p>
+              Statistika prikaže datoteko v številkah. Na vrhu je deset strani:
+            </p>
+            <ul>
+              <li><strong>Povzetek</strong> — glavna števila (osebe, družine, moški in ženske, živi in umrli, letnice
+                rojstev, najvišje starosti, največje družine), popolnost podatkov, najpogostejša imena ter države in kraji
+                rojstva.</li>
+              <li><strong>Imena</strong> — priimki, moška in ženska imena, najpogostejša imena po stoletjih, število imen
+                posamezne osebe in otroci, ki imajo ime po enem od staršev ali starih staršev.</li>
+              <li><strong>Življenjska doba</strong> — starost ob smrti za vse ter posebej za moške in ženske, njeno
+                povprečje po stoletju rojstva in delež otrok, ki so umrli pred 5. letom starosti.</li>
+              <li><strong>Družine</strong> — starost ob prvi poroki, starostna razlika med zakoncema, poroke po mesecih,
+                število otrok v družini, prvi otrok po poroki, število zvez na osebo, starost matere ob prvem in zadnjem
+                otroku ter poroke med sorodniki.</li>
+              <li><strong>Rojstvo</strong> in <strong>Smrt</strong> — rojstva in smrti skozi čas in po mesecih, dnevi od
+                rojstva do krsta, dvojčki, vzroki smrti ter kraji rojstva in smrti.</li>
+              <li><strong>Poklic</strong> — poklici in izobrazba ter najpogostejši poklici po stoletjih.</li>
+              <li><strong>Selitve</strong> — razdalja od kraja rojstva do kraja smrti, selitve med državami in zakonca,
+                rojena v istem kraju.</li>
+              <li><strong>Rodovi</strong> — predniki ene osebe po rodovih, na očetovi in na materini strani, predniki, ki
+                so v drevesu na več mestih, ter potomci te osebe.</li>
+              <li><strong>Raziskava</strong> — koliko dogodkov ima navedbo vira, po vrstah dogodkov in po straneh
+                družine, ter koliko navedb virov ima posamezna oseba.</li>
+            </ul>
+            <p>
+              Z gumbi <em>Vsi</em>, <em>Krvni sorodniki</em>, <em>Predniki</em> in <em>Potomci</em> poleg strani
+              izberete, čigave številke vidite. Oseba ob njih je izhodiščna oseba (<a href="#home-person">§7</a>),
+              dokler tam ne izberete druge; ta izbira velja le za Statistiko. S klikom na hišico se vrnete k izhodiščni
+              osebi. <em>Filtri</em> izbor dodatno zožijo po spolu, letnicah rojstva, kraju in državi, z možnostjo
+              »Štej približne datume« pa določite, ali štejejo tudi starosti iz približnih datumov. Število ob filtrih
+              pove, koliko oseb ostane v izboru.
+            </p>
+            <p>
+              Ko kliknete stolpec, vrstico ali število, se prikažejo osebe, iz katerih je izračunano, in vsako lahko
+              odprete v Urejanju. Vrstica popolnosti podatkov je tako delovni seznam oseb, ki jim še manjka na primer
+              kraj rojstva ali navedba vira. Ob zakoncih, ki sta v sorodu, je gumb za diagram sorodstva med njima.
+              Ikona ⓘ na kartici pove, kaj kartica šteje. V meniju <em>Izvoz</em> na vsaki kartici in na vrhu strani
+              prenesete številke kot CSV ali sliko kot SVG ali PNG.
             </p>
             <h3 id="validate">Pregled</h3>
             <p>

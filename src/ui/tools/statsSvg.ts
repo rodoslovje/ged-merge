@@ -93,7 +93,14 @@ function paint(root: HTMLElement, skip: (node: Element) => boolean): { svg: SVGS
     // A tile's sex stripe is an inset shadow along its left edge.
     const stripe = /(rgba?\([^)]*\))\s+(\d+(?:\.\d+)?)px\s+0px\s+0px\s+0px\s+inset/.exec(cs.boxShadow);
     if (stripe && visible(stripe[1])) {
-      into.appendChild(el("rect", { x: box.x, y: box.y, width: parseFloat(stripe[2]), height: box.height, fill: stripe[1] }));
+      // Cut to the tile's own rounded outline, as the page draws it.
+      const id = `c${clips++}`;
+      const clip = el("clipPath", { id });
+      clip.appendChild(el("rect", { ...box, rx: radius }));
+      defs.appendChild(clip);
+      const g = el("g", { "clip-path": `url(#${id})` });
+      g.appendChild(el("rect", { x: box.x, y: box.y, width: parseFloat(stripe[2]), height: box.height, fill: stripe[1] }));
+      into.appendChild(g);
     }
     const border = parseFloat(cs.borderTopWidth);
     if (border > 0 && cs.borderTopStyle !== "none" && visible(cs.borderTopColor)) {
@@ -127,13 +134,24 @@ function paint(root: HTMLElement, skip: (node: Element) => boolean): { svg: SVGS
 const SKIP = (node: Element) =>
   node.matches(".stats-card-tools, .stats-pick, .stats-relate, button.stats-info, .export-menu");
 
+/** The margin around the drawing, inside the title and footer bands. */
+const PAD_X = 24;
+const PAD_Y = 16;
+
 /** Draw `root` as a standalone, banded SVG and download it as SVG or PNG. */
 export async function exportStats(root: HTMLElement, format: "svg" | "png", fileName: string, opts: SvgExportOptions): Promise<void> {
-  const { svg, width, height, foreground } = withLightPalette(() => ({
+  const painted = withLightPalette(() => ({
     ...paint(root, SKIP),
     foreground: getComputedStyle(document.body).color,
   }));
-  const built = wrapWithBands(svg, width, height, opts, foreground);
+  // The cards would otherwise touch the image's edges.
+  const width = painted.width + 2 * PAD_X;
+  const height = painted.height + 2 * PAD_Y;
+  const svg = el("svg", { xmlns: SVG_NS, width, height, viewBox: `0 0 ${width} ${height}` });
+  const inner = el("g", { transform: `translate(${PAD_X} ${PAD_Y})` });
+  for (const child of [...painted.svg.childNodes]) inner.appendChild(child);
+  svg.appendChild(inner);
+  const built = wrapWithBands(svg, width, height, opts, painted.foreground);
   if (format === "svg") downloadBuiltSvg(built, fileName);
   else await downloadBuiltPng(built, fileName);
 }
