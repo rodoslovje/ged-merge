@@ -159,6 +159,10 @@ export interface Overview {
   surnames: number;
   givenNames: number;
   countries: number;
+  /** Distinct places, cited sources and linked media of the scope's people and their families. */
+  places: number;
+  sources: number;
+  media: number;
   completeness: {
     birthDate: Share;
     birthPlace: Share;
@@ -173,6 +177,19 @@ export interface Overview {
   oldest?: { id: string; age: number };
   largestFamily?: { id: string; children: number };
   childrenPerFamily?: Mean;
+}
+
+/** How many distinct places, sources and media the scope's records name. */
+function distinctRefs(s: ScopedFacts): { places: number; sources: number; media: number } {
+  const places = new Set<string>();
+  const sources = new Set<string>();
+  const media = new Set<string>();
+  for (const { refs } of [...s.people, ...s.families]) {
+    for (const v of refs.places) places.add(v);
+    for (const v of refs.sources) sources.add(v);
+    for (const v of refs.media) media.add(v);
+  }
+  return { places: places.size, sources: sources.size, media: media.size };
 }
 
 export function overview(s: ScopedFacts): Overview {
@@ -223,6 +240,7 @@ export function overview(s: ScopedFacts): Overview {
     surnames: surnames.length,
     givenNames: givens.size,
     countries: countries.size,
+    ...distinctRefs(s),
     completeness: {
       birthDate: share(s.people, (p) => p.hasBirthDate),
       birthPlace: share(s.people, (p) => p.hasBirthPlace),

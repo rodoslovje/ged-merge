@@ -1,8 +1,10 @@
-import type { Dataset, GedDate, GedEvent, Individual } from "../gedcom/types";
+import type { Dataset, GedDate, GedEvent, GedNode, Individual } from "../gedcom/types";
 import { BIRTH_TAGS, DEATH_TAGS, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import { ageBetween } from "../gedcom/age";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
+import { placeKeysOf } from "../tools/places";
+import { isPointer } from "../gedcom/uri";
 
 /**
  * Statistics read the file once: one flat row per person and one per family,
@@ -48,6 +50,8 @@ export interface PersonFacts {
   hasSource: boolean;
   father?: string;
   mother?: string;
+  /** What the record names: its distinct places, cited sources and linked media. */
+  refs: RecordRefs;
 }
 
 export interface FamilyFacts {
@@ -76,6 +80,7 @@ export interface FamilyFacts {
   fatherAgeFirst?: number;
   /** One of the dates the parents' ages rest on is approximate. */
   parentAgesApprox: boolean;
+  refs: RecordRefs;
 }
 
 export interface StatsFacts {
@@ -83,6 +88,38 @@ export interface StatsFacts {
   families: FamilyFacts[];
   /** Index into `people` by id. */
   byId: Map<string, PersonFacts>;
+}
+
+/** What one record names, so a scope can count the places, sources and media
+ *  of its own people rather than of the whole file. */
+export interface RecordRefs {
+  /** Distinct-place keys, as the Places tool counts them. */
+  places: string[];
+  /** Source records cited anywhere in the record. */
+  sources: string[];
+  /** Media linked anywhere in the record: the shared record's xref, or an inline one's file. */
+  media: string[];
+}
+
+function refsOf(raw: GedNode): RecordRefs {
+  const sources: string[] = [];
+  const media: string[] = [];
+  const walk = (node: GedNode) => {
+    for (const child of node.children) {
+      const v = child.value?.trim();
+      if (child.tag === "SOUR" && v && isPointer(v)) sources.push(v);
+      else if (child.tag === "OBJE") {
+        if (v && isPointer(v)) media.push(v);
+        else {
+          const file = child.children.find((c) => c.tag === "FILE")?.value?.trim();
+          if (file) media.push(`file:${file}`);
+        }
+      }
+      walk(child);
+    }
+  };
+  walk(raw);
+  return { places: placeKeysOf(raw), sources, media };
 }
 
 function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
@@ -169,6 +206,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       hasSource: !!indi.sources?.length || indi.events.some((e) => !!e.sources?.length),
       father,
       mother,
+      refs: refsOf(indi.raw),
     };
     people.push(f);
     byId.set(f.id, f);
@@ -206,6 +244,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       motherAgeLast: last ? ageBetween(wb, last) : undefined,
       fatherAgeFirst: first ? ageBetween(hb, first) : undefined,
       parentAgesApprox: isApproximate(hb) || isApproximate(wb) || isApproximate(first) || isApproximate(last),
+      refs: refsOf(fam.raw),
     });
   }
 

@@ -162,6 +162,8 @@ describe("aggregates", () => {
     expect(o.largestFamily).toEqual({ id: "@F2@", children: 2 });
     expect(o.completeness.birthPlace.n).toBe(3);
     expect(o.countries).toBe(2);
+    expect(o.places).toBe(2);
+    expect(overview(scoped({ country: "hr" })).places).toBe(1);
   });
 
   it("counts namesakes of parents and grandparents", () => {

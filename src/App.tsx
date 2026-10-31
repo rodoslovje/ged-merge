@@ -376,7 +376,7 @@ function AppContent() {
   // Where Tools stands: which tool, and which of its pages. Held here, not in
   // ToolsView, because both are browser-history steps — the entry the app is on
   // records them, and a Back press puts them back (see ToolView).
-  const [tool, setTool] = useState<Tool>("places");
+  const [tool, setTool] = useState<Tool>("stats");
   const [toolView, setToolView] = useState<ToolView>("tree");
 
   // Light/dark theme mode + applied `data-theme`, in a self-contained hook.

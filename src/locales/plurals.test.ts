@@ -137,30 +137,23 @@ describe("locale files", () => {
     expect(missing).toEqual([]);
   });
 
-  it("declines every noun of the file summary", () => {
-    // The Tools heading counts five things at once, each with its own noun, so
-    // each carries its own four forms: 1 oseba, 2 osebi, 3 osebe, 5 oseb — and
-    // the same for families, places, sources and media. The number is grouped
-    // in the reader's own language too: 11.242 in Slovenian, 11,242 in English.
+  it("declines every noun the statistics count", () => {
+    // Each count carries its own noun, so each carries its own four forms:
+    // 1 oseba, 2 osebi, 3 osebe, 5 oseb — and the same for families, years and
+    // children. The number is grouped in the reader's own language too: 11.242
+    // in Slovenian, 11,242 in English.
     const forms = (key: string) => [1, 2, 3, 5, 11242].map((n) => t(key, n, "sl"));
-    expect(forms("tools.stats.indi")).toEqual([
+    expect(forms("stats.nPeople")).toEqual([
       "1 oseba", "2 osebi", "3 osebe", "5 oseb", "11.242 oseb",
     ]);
-    expect(forms("tools.stats.fam")).toEqual([
+    expect(forms("stats.nFamilies")).toEqual([
       "1 družina", "2 družini", "3 družine", "5 družin", "11.242 družin",
     ]);
-    expect(forms("tools.stats.places")).toEqual([
-      "1 kraj", "2 kraja", "3 kraji", "5 krajev", "11.242 krajev",
-    ]);
-    expect(forms("tools.stats.sources")).toEqual([
-      "1 vir", "2 vira", "3 viri", "5 virov", "11.242 virov",
-    ]);
-    expect(forms("tools.stats.media")).toEqual([
-      "1 medij", "2 medija", "3 mediji", "5 medijev", "11.242 medijev",
-    ]);
-    expect(t("tools.stats.indi", 1, "en")).toBe("1 individual");
-    expect(t("tools.stats.indi", 2, "en")).toBe("2 individuals");
-    expect(t("tools.stats.indi", 11242, "en")).toBe("11,242 individuals");
+    expect([1, 2, 3, 5].map((n) => t("stats.years", n, "sl"))).toEqual(["1 leto", "2 leti", "3 leta", "5 let"]);
+    expect([1, 2, 3, 5].map((n) => t("stats.children", n, "sl"))).toEqual(["1 otrok", "2 otroka", "3 otroci", "5 otrok"]);
+    expect(t("stats.nPeople", 1, "en")).toBe("1 person");
+    expect(t("stats.nPeople", 2, "en")).toBe("2 people");
+    expect(t("stats.nPeople", 11242, "en")).toBe("11,242 people");
   });
 
   it("has no leftover base key shadowing a pluralized one", () => {

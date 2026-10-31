@@ -15,7 +15,8 @@ import {
   type Share,
 } from "../../stats/aggregate";
 import { useHomeCountry } from "../DatasetDerivations";
-import { PersonLink, PersonRefLabel } from "../PersonLink";
+import { PersonLink } from "../PersonLink";
+import { StartPersonSelector } from "../StartPersonSelector";
 import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
 import { ToolsLoading } from "./shared";
@@ -40,6 +41,23 @@ interface Pick {
 
 /** How many people a picked bar lists before asking. */
 const LIST_LIMIT = 100;
+
+/** Whether the filters are unfolded — the reader's own layout, kept per browser. */
+const FILTERS_KEY = "gedmerge.statsFiltersOpen";
+function readFiltersOpen(): boolean {
+  try {
+    return localStorage.getItem(FILTERS_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+function writeFiltersOpen(open: boolean): void {
+  try {
+    localStorage.setItem(FILTERS_KEY, open ? "1" : "0");
+  } catch {
+    // Storage may be off (private window); the toggle still works for the session.
+  }
+}
 
 /** Let React paint the "working…" state before the first walk over the file. */
 function nextTick(): Promise<void> {
@@ -86,9 +104,15 @@ export function StatsPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
   const facts = useMemo(() => (ready ? buildStatsFacts(dataset, home) : undefined), [ready, dataset, seenVersion, home]);
   const lined = scope.who !== "all";
+  // Whose line the statistics follow: the app's start person until another is
+  // picked here. The choice is the statistics' own and moves nothing else.
+  const [ownStart, setOwnStart] = useState<string | undefined>();
+  const statsStart = ownStart && dataset.individuals.has(ownStart) ? ownStart : startId;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
-  const kinship = useMemo(() => (lined && startId ? computeKinship(dataset, startId) : null), [lined, dataset, startId, seenVersion]);
-  const base = useMemo(() => (facts ? scopeFacts(facts, scope, kinship, startId) : []), [facts, scope, kinship, startId]);
+  const kinship = useMemo(() => (lined && statsStart ? computeKinship(dataset, statsStart) : null), [lined, dataset, statsStart, seenVersion]);
+  const base = useMemo(() => (facts ? scopeFacts(facts, scope, kinship, statsStart) : []), [facts, scope, kinship, statsStart]);
+  const [filtersOpen, setFiltersOpen] = useState(readFiltersOpen);
+  const toggleFilters = () => setFiltersOpen((open) => { writeFiltersOpen(!open); return !open; });
   const scoped = useMemo(() => (facts ? applyCountry(facts, base, scope) : undefined), [facts, base, scope]);
   const chips = useMemo(() => {
     const byCode = new Map<string, CountryChip>();
@@ -219,25 +243,63 @@ export function StatsPanel({
   const people = scoped.people.length;
   // A scope of one sex colours every chart that is not already about one.
   const scopeTone: Tone | undefined = scope.sex === "M" ? "male" : scope.sex === "F" ? "female" : undefined;
+  // How many filters narrow the scope — shown on the toggle, so a folded
+  // filter row still says it is in force.
+  const activeFilters = [
+    scope.sex !== "all",
+    scope.from !== undefined || scope.to !== undefined,
+    !!scope.place.trim(),
+    scope.country !== null,
+    scope.approx,
+  ].filter(Boolean).length;
   const families = scoped.families.length;
 
   return (
     <div className="tools-stats-panel">
-      <p className="tools-intro">{t("stats.intro")}</p>
-      <ToolSummary>{t("stats.summary", { count: people })}</ToolSummary>
-
-      <div className="stats-scope">
-        <div className="stats-scope-row">
-          <Segmented
-            label={t("stats.who")}
-            value={scope.who}
-            onChange={(who) => set({ who })}
-            items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
-          />
-          {lined && (startId
-            ? <span className="stats-scope-start">{t("stats.ofStart")} <PersonRefLabel dataset={dataset} id={startId} fallback={startId} /></span>
-            : <span className="muted">{t("stats.noStart")}</span>)}
+      {/* One row says which numbers and whose: the page, the line, the line's
+          person, and how many of the file that leaves. The filters below it
+          fold away. */}
+      <div className="stats-head">
+        <Segmented
+          label={t("stats.pages")}
+          value={page}
+          onChange={(p) => onViewChange(p)}
+          items={PAGES.map((p) => ({ key: p, label: t(`stats.page.${p}`) }))}
+        />
+        <Segmented
+          label={t("stats.who")}
+          value={scope.who}
+          onChange={(who) => set({ who })}
+          items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
+        />
+        {lined && (
+          <div className="stats-start" title={t("stats.startHint")}>
+            <StartPersonSelector
+              individuals={dataset.individuals}
+              version={seenVersion}
+              startId={statsStart}
+              onChange={setOwnStart}
+              placeholder={t("stats.startPick")}
+              tooltip={t("stats.startHint")}
+            />
+          </div>
+        )}
+        <div className="stats-head-end">
+          <ToolSummary>{t("stats.summary", { count: facts.people.length, scoped: num(people) })}</ToolSummary>
+          <button
+            type="button"
+            className={`tools-chip${activeFilters ? " active" : ""}`}
+            aria-expanded={filtersOpen}
+            onClick={toggleFilters}
+          >
+            {filtersOpen ? "▾" : "▸"} {t("stats.filters")}
+            {activeFilters > 0 && <span className="tools-chip-count"> {activeFilters}</span>}
+          </button>
         </div>
+      </div>
+
+      {filtersOpen && (
+      <div className="stats-scope">
         <div className="stats-scope-row">
           <Segmented
             label={t("stats.sex")}
@@ -272,13 +334,7 @@ export function StatsPanel({
           assumed={home || undefined}
         />
       </div>
-
-      <Segmented
-        label={t("stats.pages")}
-        value={page}
-        onChange={(p) => onViewChange(p)}
-        items={PAGES.map((p) => ({ key: p, label: t(`stats.page.${p}`) }))}
-      />
+      )}
 
       {people === 0 ? (
         <p className="tools-clean">{t("stats.nobody")}</p>
@@ -302,6 +358,9 @@ export function StatsPanel({
               <StatTile label={t("stats.surnames")} value={num(ov.surnames)} />
               <StatTile label={t("stats.givenNames")} value={num(ov.givenNames)} />
               <StatTile label={t("stats.countries")} value={num(ov.countries)} />
+              <StatTile label={t("stats.placesNamed")} value={num(ov.places)} />
+              <StatTile label={t("stats.sourcesCited")} value={num(ov.sources)} />
+              <StatTile label={t("stats.mediaLinked")} value={num(ov.media)} />
               {ov.ageAtDeath && (
                 <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} sub={basedOn(ov.ageAtDeath.n, people)} />
               )}

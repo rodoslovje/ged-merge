@@ -9151,8 +9151,6 @@ kbd {
   max-width: 1200px;
   margin: 0 auto;
 }
-.tools-head { margin-bottom: 18px; }
-.tools-stats { margin: 0; color: var(--text); font-size: 0.9rem; font-weight: 600; }
 .tools-subtabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 22px; }
 .tools-tab {
   text-align: left;
@@ -9334,7 +9332,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-scope .tools-chips { margin-bottom: 0; }
 .stats-scope-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
 .stats-scope-row .tree-mode { flex-wrap: wrap; }
-.stats-scope-start { color: var(--muted); font-size: 0.9rem; }
+/* One header row: the page, the line, the line's person — then, pushed to the
+   end, the head count and the filters' fold toggle. */
+.stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
+.stats-head .tree-mode { flex-wrap: wrap; }
+.stats-start { flex: 0 1 280px; min-width: 200px; }
+.stats-head-end { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+.stats-head-end .tools-summary { margin: 0; }
 .stats-scope-years { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 0.9rem; }
 .stats-scope .tools-search-input { padding-right: 10px; }
 .stats-scope .stats-year { width: 6.5em; }
@@ -11075,9 +11079,6 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
      instead; all that is left is its spacing. */
   .tools-view {
     padding: 12px;
-  }
-  .tools-head {
-    margin-bottom: 10px;
   }
   /* Content-width picker with the tool's own summary beside it (portalled in
      from the panel by ToolSummary) — one row instead of two, and the count
