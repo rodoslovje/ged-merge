@@ -21,6 +21,8 @@ import { InfoIcon } from "../icons/InfoIcon";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
+import { useNameOf } from "../SettingsContext";
+import { sexClass } from "../sex";
 import { useVirtualList } from "../useVirtualList";
 import { Segmented } from "../Segmented";
 import { CountryChips, type CountryChip } from "./CountryChips";
@@ -460,10 +462,10 @@ export function StatsPanel({
                 <StatTile label={t("stats.meanAgeAtDeath")} value={dec(ov.ageAtDeath.value)} sub={basedOn(ov.ageAtDeath.n, people)} />
               )}
               {ov.oldest && (
-                <StatTile label={t("stats.oldest")} value={t("stats.years", { count: ov.oldest.age })} sub={<PersonLink dataset={dataset} id={ov.oldest.id} fallback={ov.oldest.id} onNavigate={onNavigate} />} />
+                <StatTile label={t("stats.oldest")} value={t("stats.years", { count: ov.oldest.age })} sub={<NameLink dataset={dataset} id={ov.oldest.id} onNavigate={onNavigate} />} />
               )}
               {ov.largestFamily && (
-                <StatTile label={t("stats.largestFamily")} value={t("stats.children", { count: ov.largestFamily.children })} sub={<Couple dataset={dataset} id={ov.largestFamily.id} onNavigate={onNavigate} />} />
+                <StatTile label={t("stats.largestFamily")} value={t("stats.children", { count: ov.largestFamily.children })} sub={<Couple dataset={dataset} id={ov.largestFamily.id} onNavigate={onNavigate} nameOnly />} />
               )}
               {ov.childrenPerFamily && (
                 <StatTile label={t("stats.childrenPerFamily")} value={dec(ov.childrenPerFamily.value)} />
@@ -672,7 +674,7 @@ function PickList({ pick, dataset, onNavigate, onClose }: { pick: Pick; dataset:
 }
 
 /** A family as its couple — the spouses it names, or the record itself when it names none. */
-function Couple({ dataset, id, onNavigate }: { dataset: Dataset; id: string; onNavigate: (id: string) => void }) {
+function Couple({ dataset, id, onNavigate, nameOnly = false }: { dataset: Dataset; id: string; onNavigate: (id: string) => void; nameOnly?: boolean }) {
   const fam = dataset.families.get(id);
   const spouses = [fam?.husband, fam?.wife].filter((s): s is string => !!s);
   if (!spouses.length) return <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />;
@@ -681,9 +683,23 @@ function Couple({ dataset, id, onNavigate }: { dataset: Dataset; id: string; onN
       {spouses.map((s, i) => (
         <span key={s}>
           {i > 0 && <span className="muted"> ⚭ </span>}
-          <PersonLink dataset={dataset} id={s} fallback={s} onNavigate={onNavigate} />
+          {nameOnly
+            ? <NameLink dataset={dataset} id={s} onNavigate={onNavigate} />
+            : <PersonLink dataset={dataset} id={s} fallback={s} onNavigate={onNavigate} />}
         </span>
       ))}
     </span>
+  );
+}
+
+/** A person by name alone, for a tile: the years would only crowd it, and the
+ *  click opens the person anyway. */
+function NameLink({ dataset, id, onNavigate }: { dataset: Dataset; id: string; onNavigate: (id: string) => void }) {
+  const nameOf = useNameOf();
+  const indi = dataset.individuals.get(id);
+  return (
+    <button type="button" className="tools-issue-link person-ref" onClick={() => onNavigate(id)}>
+      <span className={`person-name ${sexClass(indi?.sex)}`}>{indi ? nameOf(indi) : id}</span>
+    </button>
   );
 }
