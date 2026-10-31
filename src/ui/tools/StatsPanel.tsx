@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { computeKinship, computeLineSides } from "../../tools/batch";
-import { buildStatsFacts } from "../../stats/facts";
+import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, type StatsScope, type StatsWho } from "../../stats/scope";
 import {
   CHILD_AGE,
@@ -100,6 +100,18 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/**
+ * The fact rows last built for a file, at the edit version and home country
+ * they were built at. The panel mounts only while its tool is open, so without
+ * this every visit to Statistics walked the whole file again.
+ */
+const factsCache = new WeakMap<Dataset, { version: number; home: string; facts: StatsFacts }>();
+
+function cachedFacts(dataset: Dataset, version: number, home: string): StatsFacts | undefined {
+  const hit = factsCache.get(dataset);
+  return hit && hit.version === version && hit.home === home ? hit.facts : undefined;
+}
+
 export function StatsPanel({
   dataset,
   editVersion,
@@ -130,7 +142,8 @@ export function StatsPanel({
   const nameOf = useNameOf();
   // The ranked lists unfolded to their full length, by card.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [ready, setReady] = useState(false);
+  // A return with the file unchanged has its rows already: no loading pass.
+  const [ready, setReady] = useState(() => cachedFacts(dataset, editVersion, home) !== undefined);
   const page: Page = (PAGES as readonly string[]).includes(view) ? (view as Page) : "tree";
 
   useEffect(() => {
@@ -145,8 +158,15 @@ export function StatsPanel({
   // returns — and only then, so a return without an edit walks nothing.
   const [seenVersion, setSeenVersion] = useState(editVersion);
   useEffect(() => { if (active) setSeenVersion(editVersion); }, [active, editVersion]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
-  const facts = useMemo(() => (ready ? buildStatsFacts(dataset, home) : undefined), [ready, dataset, seenVersion, home]);
+  // seenVersion keys the rows: the dataset is mutated in place.
+  const facts = useMemo(() => {
+    if (!ready) return undefined;
+    const hit = cachedFacts(dataset, seenVersion, home);
+    if (hit) return hit;
+    const built = buildStatsFacts(dataset, home);
+    factsCache.set(dataset, { version: seenVersion, home, facts: built });
+    return built;
+  }, [ready, dataset, seenVersion, home]);
   const lined = scope.who !== "all";
   // Whose line the statistics follow: the app's start person until another is
   // picked here. The choice is the statistics' own and moves nothing else.

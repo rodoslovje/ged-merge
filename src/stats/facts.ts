@@ -228,6 +228,18 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     if (key === undefined) folded.set(s, (key = foldSearch(s)));
     return key;
   };
+  // A place value has coordinates when any event writing it carries them,
+  // as the Places tool reads it; a person is on the map through any of theirs.
+  // Gathered first, so each person's row is finished in the one pass below.
+  const placed = new Map<string, GeoCoord>();
+  const notePlaced = (events: GedEvent[]) => {
+    for (const e of events) {
+      const raw = e.place?.raw.trim();
+      if (raw && e.place?.coord && !placed.has(raw)) placed.set(raw, e.place.coord);
+    }
+  };
+  for (const indi of ds.individuals.values()) notePlaced(indi.events);
+  for (const fam of ds.families.values()) notePlaced(fam.events);
   for (const indi of ds.individuals.values()) {
     const name = indi.names[0];
     // A stand-in for an unknown name (NN, ???, neznano) is no name: it is
@@ -290,11 +302,15 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       sourcedTags: indi.events.filter((e) => !!e.sources?.length).map((e) => e.tag),
       citations,
       hasPlace: indi.events.some((e) => !!e.place?.raw.trim()),
-      mapped: false,
+      mapped: placed.size > 0 && indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim())),
       father,
       mother,
       refs,
     };
+    // How far a life moved: from the birth place to the death place, when both are on the map.
+    const from = birthPlace ? placed.get(birthPlace) : undefined;
+    const to = deathPlace ? placed.get(deathPlace) : undefined;
+    if (from && to) f.movedKm = distanceKm(from, to);
     people.push(f);
     byId.set(f.id, f);
     birthDates.set(indi.id, birth);
@@ -353,27 +369,6 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   for (const [spouse, { fam }] of earliest) {
     if (fam.husband === spouse) fam.husbandFirst = true;
     if (fam.wife === spouse) fam.wifeFirst = true;
-  }
-  // A place value has coordinates when any event writing it carries them,
-  // as the Places tool reads it; a person is on the map through any of theirs.
-  const placed = new Map<string, GeoCoord>();
-  const notePlaced = (events: GedEvent[]) => {
-    for (const e of events) {
-      const raw = e.place?.raw.trim();
-      if (raw && e.place?.coord && !placed.has(raw)) placed.set(raw, e.place.coord);
-    }
-  };
-  for (const indi of ds.individuals.values()) notePlaced(indi.events);
-  for (const fam of ds.families.values()) notePlaced(fam.events);
-  if (placed.size) {
-    for (const indi of ds.individuals.values()) {
-      const p = byId.get(indi.id)!;
-      p.mapped = indi.events.some((e) => !!e.place && placed.has(e.place.raw.trim()));
-      // How far a life moved: from the birth place to the death place, when both are on the map.
-      const from = p.birthPlace ? placed.get(p.birthPlace) : undefined;
-      const to = p.deathPlace ? placed.get(p.deathPlace) : undefined;
-      if (from && to) p.movedKm = distanceKm(from, to);
-    }
   }
   return { people, families, byId };
 }
