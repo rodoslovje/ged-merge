@@ -49,7 +49,8 @@ export function ColumnChart({
   const max = Math.max(1, ...columns.map((c) => c.value));
   const labelled = columns.length <= VALUE_LABELS_UP_TO;
   return (
-    <div className={`stats-columns${toneClass(tone)}`}>
+    // With every other label blank, a written one may spill over its blank neighbours.
+    <div className={`stats-columns${toneClass(tone)}${labelEvery > 1 ? " spread" : ""}`}>
       {columns.map((c, i) => (
         <button
           key={c.key}

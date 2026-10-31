@@ -9336,7 +9336,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    end, the head count and the filters' fold toggle. */
 .stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
 .stats-head .tree-mode { flex-wrap: wrap; }
-.stats-card-head .stats-info { margin-left: auto; }
+/* Pinned to the card's corner, so a title that wraps never pushes it onto a line of its own. */
+.stats-card-head .stats-info { position: absolute; top: 10px; right: 10px; }
 .stats-info { display: inline-flex; padding: 2px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
 .stats-info:hover, .stats-info:focus-visible { color: var(--accent); }
 .stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
@@ -9370,14 +9371,21 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border-radius: var(--radius-lg);
   padding: 12px 14px;
   min-width: 0;
+  /* A column: a chart sits on the card's floor, so the axes of one row line
+     up whatever the titles above them take. */
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 .stats-card.wide { grid-column: 1 / -1; }
-.stats-card-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 10px; }
+.stats-card-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 10px; padding-right: 22px; }
+.stats-card > .stats-columns { margin-top: auto; }
+.stats-columns.spread .stats-col-label { overflow: visible; text-overflow: clip; }
 .stats-card-head h3 { margin: 0; font-size: 0.95rem; }
 .stats-card-note { color: var(--muted); font-size: 0.8rem; }
 .stats-empty { margin: 0; font-size: 0.85rem; }
 
-.stats-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.stats-tiles { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; }
 .stats-tile {
   display: flex;
   flex-direction: column;
