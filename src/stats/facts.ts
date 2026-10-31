@@ -1,0 +1,228 @@
+import type { Dataset, GedDate, GedEvent, Individual } from "../gedcom/types";
+import { BIRTH_TAGS, DEATH_TAGS, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { ageBetween } from "../gedcom/age";
+import { countryOf } from "../tools/geocode";
+import { foldSearch } from "../ui/globalSearch";
+
+/**
+ * Statistics read the file once: one flat row per person and one per family,
+ * holding exactly the values the statistics group by. Every page and every
+ * scope is then a filter and a group-by over these rows, so changing the scope
+ * never walks the records again.
+ */
+
+export interface PersonFacts {
+  id: string;
+  sex: "M" | "F" | "U";
+  /** The first given name, as written. */
+  given?: string;
+  /** How many given names the primary name carries. */
+  givenCount: number;
+  surname?: string;
+  /** `given` and `surname` folded accent- and case-blind — what names are counted by. */
+  givenKey?: string;
+  surnameKey?: string;
+  birthYear?: number;
+  birthMonth?: number;
+  /** The birth (or baptism) date names a neighbourhood, not a day or a year. */
+  birthApprox: boolean;
+  deathYear?: number;
+  deathMonth?: number;
+  deathApprox: boolean;
+  /** The record carries a death, burial or cremation. */
+  deceased: boolean;
+  /** Not deceased and born (or estimated born) within the living window. */
+  living: boolean;
+  /** Whole years from birth to death, when both are dated. */
+  ageAtDeath?: number;
+  /** The birth or death place, whichever the file gives first; `""` for none. */
+  place: string;
+  /** The place's country facet (see `placeCountryFacet`); `""` for none. */
+  country: string;
+  /** The death's cause (CAUS), as written. */
+  cause?: string;
+  hasBirthDate: boolean;
+  hasBirthPlace: boolean;
+  hasDeathDate: boolean;
+  hasParents: boolean;
+  hasSource: boolean;
+  father?: string;
+  mother?: string;
+}
+
+export interface FamilyFacts {
+  id: string;
+  husband?: string;
+  wife?: string;
+  marriageYear?: number;
+  marriageMonth?: number;
+  marriageApprox: boolean;
+  /** The year the family is dated by: its marriage, else its first child's birth. */
+  year?: number;
+  /** Ages at the marriage, when both dates are known. */
+  husbandAge?: number;
+  wifeAge?: number;
+  /** Either age above rests on an approximate date. */
+  agesApprox: boolean;
+  /** This union is the earliest-dated one of that spouse (their first marriage). */
+  husbandFirst: boolean;
+  wifeFirst: boolean;
+  children: string[];
+  /** Months from the marriage to the first child's birth, when both name the month. */
+  firstChildMonths?: number;
+  /** The mother's and father's ages at their first and last child in this family. */
+  motherAgeFirst?: number;
+  motherAgeLast?: number;
+  fatherAgeFirst?: number;
+  /** One of the dates the parents' ages rest on is approximate. */
+  parentAgesApprox: boolean;
+}
+
+export interface StatsFacts {
+  people: PersonFacts[];
+  families: FamilyFacts[];
+  /** Index into `people` by id. */
+  byId: Map<string, PersonFacts>;
+}
+
+function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
+  for (const tag of tags) {
+    const e = indi.events.find((ev) => ev.tag === tag && ev.date?.year !== undefined);
+    if (e) return e;
+  }
+  return undefined;
+}
+
+function firstPlace(indi: Individual, tags: readonly string[]): string {
+  for (const tag of tags) {
+    const raw = indi.events.find((ev) => ev.tag === tag && ev.place?.raw.trim())?.place?.raw.trim();
+    if (raw) return raw;
+  }
+  return "";
+}
+
+/** Whole months from one dated event to another, when both name the month. */
+function monthsBetween(from: GedDate | undefined, to: GedDate | undefined): number | undefined {
+  if (from?.year === undefined || from.month === undefined || to?.year === undefined || to.month === undefined) return undefined;
+  let months = (to.year - from.year) * 12 + (to.month - from.month);
+  if (from.day !== undefined && to.day !== undefined && to.day < from.day) months--;
+  return months;
+}
+
+/**
+ * The fact rows for a whole file. `home` is the home country, which a place
+ * naming no country of its own is counted under (as the place lists do).
+ */
+export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date().getFullYear()): StatsFacts {
+  const people: PersonFacts[] = [];
+  const byId = new Map<string, PersonFacts>();
+  const birthDates = new Map<string, GedDate | undefined>();
+  // A file repeats a few hundred names over its whole population, and folding
+  // is the dearest step per person — so each spelling is folded once.
+  const folded = new Map<string, string>();
+  const fold = (s: string | undefined) => {
+    if (!s) return undefined;
+    let key = folded.get(s);
+    if (key === undefined) folded.set(s, (key = foldSearch(s)));
+    return key;
+  };
+  for (const indi of ds.individuals.values()) {
+    const name = indi.names[0];
+    const givens = (name?.given ?? "").trim().split(/\s+/).filter(Boolean);
+    const birth = firstDated(indi, BIRTH_TAGS);
+    const death = firstDated(indi, DEATH_TAGS);
+    const birthPlace = firstPlace(indi, BIRTH_TAGS);
+    const place = birthPlace || firstPlace(indi, DEATH_TAGS);
+    let father: string | undefined;
+    let mother: string | undefined;
+    for (const famId of indi.childOf) {
+      const fam = ds.families.get(famId);
+      father ??= fam?.husband;
+      mother ??= fam?.wife;
+    }
+    const deceased = isDeceased(indi);
+    const surname = name?.surname?.trim() || undefined;
+    const f: PersonFacts = {
+      id: indi.id,
+      sex: indi.sex === "M" || indi.sex === "F" ? indi.sex : "U",
+      given: givens[0],
+      givenCount: givens.length,
+      surname,
+      givenKey: fold(givens[0]),
+      surnameKey: fold(surname),
+      birthYear: birth?.date?.year,
+      birthMonth: birth?.date?.month,
+      birthApprox: isApproximate(birth?.date),
+      deathYear: death?.date?.year,
+      deathMonth: death?.date?.month,
+      deathApprox: isApproximate(death?.date),
+      deceased,
+      living: !deceased && isPresumedLiving(indi, ds, now),
+      ageAtDeath: death ? ageBetween(birth?.date, death.date) : undefined,
+      place,
+      country: place ? countryOf(place, home) : "",
+      cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
+      hasBirthDate: !!birth,
+      hasBirthPlace: !!birthPlace,
+      hasDeathDate: !!death,
+      hasParents: !!(father || mother),
+      hasSource: !!indi.sources?.length || indi.events.some((e) => !!e.sources?.length),
+      father,
+      mother,
+    };
+    people.push(f);
+    byId.set(f.id, f);
+    birthDates.set(indi.id, birth?.date);
+  }
+
+  const families: FamilyFacts[] = [];
+  for (const fam of ds.families.values()) {
+    const marr = fam.events.find((e) => e.tag === "MARR" && e.date?.year !== undefined)?.date;
+    const kids = fam.children
+      .map((id) => ({ id, date: birthDates.get(id) }))
+      .filter((k): k is { id: string; date: GedDate } => k.date?.year !== undefined)
+      .sort((a, b) => a.date.year! - b.date.year! || (a.date.month ?? 0) - (b.date.month ?? 0) || (a.date.day ?? 0) - (b.date.day ?? 0));
+    const first = kids[0]?.date;
+    const last = kids[kids.length - 1]?.date;
+    const hb = fam.husband ? birthDates.get(fam.husband) : undefined;
+    const wb = fam.wife ? birthDates.get(fam.wife) : undefined;
+    const marrApprox = isApproximate(marr);
+    families.push({
+      id: fam.id,
+      husband: fam.husband,
+      wife: fam.wife,
+      marriageYear: marr?.year,
+      marriageMonth: marr?.month,
+      marriageApprox: marrApprox,
+      year: marr?.year ?? first?.year,
+      husbandAge: marr ? ageBetween(hb, marr) : undefined,
+      wifeAge: marr ? ageBetween(wb, marr) : undefined,
+      agesApprox: marrApprox || isApproximate(hb) || isApproximate(wb),
+      husbandFirst: false,
+      wifeFirst: false,
+      children: fam.children,
+      firstChildMonths: marr && first ? monthsBetween(marr, first) : undefined,
+      motherAgeFirst: first ? ageBetween(wb, first) : undefined,
+      motherAgeLast: last ? ageBetween(wb, last) : undefined,
+      fatherAgeFirst: first ? ageBetween(hb, first) : undefined,
+      parentAgesApprox: isApproximate(hb) || isApproximate(wb) || isApproximate(first) || isApproximate(last),
+    });
+  }
+
+  // A spouse's first marriage is their earliest-dated union; an undated union
+  // is nobody's first, since it cannot be placed among the others.
+  const earliest = new Map<string, { fam: FamilyFacts; year: number }>();
+  for (const fam of families) {
+    if (fam.marriageYear === undefined) continue;
+    for (const spouse of [fam.husband, fam.wife]) {
+      if (!spouse) continue;
+      const seen = earliest.get(spouse);
+      if (!seen || fam.marriageYear < seen.year) earliest.set(spouse, { fam, year: fam.marriageYear });
+    }
+  }
+  for (const [spouse, { fam }] of earliest) {
+    if (fam.husband === spouse) fam.husbandFirst = true;
+    if (fam.wife === spouse) fam.wifeFirst = true;
+  }
+  return { people, families, byId };
+}

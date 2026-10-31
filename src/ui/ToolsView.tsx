@@ -12,6 +12,7 @@ import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
 import type { ClusterRelativeGroup } from "../tools/mergeCluster";
 import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
+import { StatsPanel } from "./tools/StatsPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
 import type { EditRepoFields, EditSourceFields } from "../gedcom/edit";
@@ -28,7 +29,7 @@ import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
-export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
+export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places" | "stats";
 
 /**
  * The page open inside a tool that has more than one — every one of them a
@@ -39,10 +40,12 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  * Normalize & batch opens on its batch section; `normalize` is its other one,
  * which choosing a GEDCOM target format can send the reader straight to. The
  * health check opens on its data issues; `gedcom` is its GEDCOM half.
+ * Statistics opens on its overview; `names`, `lifespan` and `families` are its
+ * other pages.
  */
-export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom";
+export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families";
 
-const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
+const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy", "stats"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -256,6 +259,9 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
+        )}
+        {tool === "stats" && (
+          <StatsPanel dataset={dataset} editVersion={editVersion} onNavigate={onNavigate} active={active} startId={startId} view={view} onViewChange={onViewChange} />
         )}
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />

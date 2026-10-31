@@ -9325,6 +9325,149 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The rows read like the findings around them: plain names, and a language
    picker the size of a row chip rather than a form field. */
 .tools-tran-list .tools-issue { align-items: center; }
+
+/* ---- Statistics (Tools → Statistics) ----
+   The scope bar, then a grid of cards: tiles for single numbers, column charts
+   for ordered buckets, bar lists for rankings. Every bar is a button that lists
+   the people behind it in the card that holds it. */
+.stats-scope { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.stats-scope .tools-chips { margin-bottom: 0; }
+.stats-scope-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.stats-scope-row .tree-mode { flex-wrap: wrap; }
+.stats-scope-start { color: var(--muted); font-size: 0.9rem; }
+.stats-scope-years { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 0.9rem; }
+.stats-scope .tools-search-input { padding-right: 10px; }
+.stats-scope .stats-year { width: 6.5em; }
+.stats-scope .stats-scope-place { width: 16em; max-width: 100%; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.stats-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  min-width: 0;
+}
+.stats-card.wide { grid-column: 1 / -1; }
+.stats-card-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 10px; }
+.stats-card-head h3 { margin: 0; font-size: 0.95rem; }
+.stats-card-note { color: var(--muted); font-size: 0.8rem; }
+.stats-empty { margin: 0; font-size: 0.85rem; }
+
+.stats-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+button.stats-tile { cursor: pointer; }
+button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
+.stats-tile-value { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stats-tile-label { color: var(--muted); font-size: 0.8rem; }
+.stats-tile-sub { color: var(--faint); font-size: 0.75rem; }
+.stats-tiles .stats-pick { flex: 1 0 100%; }
+
+/* Columns: the plot is a fixed-height box; each bar grows from its floor. */
+.stats-columns { display: flex; gap: 2px; align-items: stretch; --stats-bar: var(--accent); }
+.stats-columns.stats-male { --stats-bar: var(--sex-male); }
+.stats-columns.stats-female { --stats-bar: var(--sex-female); }
+.stats-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.stats-col:disabled { cursor: default; }
+.stats-col-plot { height: 140px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
+.stats-col-value { text-align: center; font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats-col-bar {
+  display: block;
+  background: var(--stats-bar);
+  border-radius: 4px 4px 0 0;
+  opacity: 0.8;
+}
+.stats-col:hover .stats-col-bar, .stats-col.picked .stats-col-bar { opacity: 1; }
+.stats-col.picked .stats-col-label { color: var(--accent); font-weight: 600; }
+.stats-col-label {
+  border-top: 1px solid var(--border-2);
+  padding-top: 3px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ranked bars: label, track, value — one grid per row so the tracks line up. */
+.stats-bars { display: flex; flex-direction: column; gap: 2px; }
+.stats-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 11em) 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 3px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.stats-bar:disabled { cursor: default; }
+.stats-bar:hover:not(:disabled), .stats-bar.picked { background: var(--panel-2); }
+.stats-bar.picked .stats-bar-label { color: var(--accent); font-weight: 600; }
+.stats-bar-label { overflow-wrap: anywhere; }
+.stats-bar-track { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.stats-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats-more { margin-top: 6px; align-self: flex-start; }
+
+.stats-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.stats-table th, .stats-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.stats-table thead th { color: var(--muted); font-weight: 600; }
+.stats-table tbody th { white-space: nowrap; color: var(--muted); }
+.stats-name-chip {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+.stats-name-chip:hover, .stats-name-chip.picked { border-color: var(--accent); }
+.stats-oldest { margin: 0; padding-left: 1.6em; font-size: 0.9rem; }
+.stats-oldest li { padding: 2px 0; }
+
+/* The people behind a picked bar, inside the card that was clicked. */
+.stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.stats-pick-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; }
+.stats-pick-close { margin-left: auto; }
+.stats-pick .tools-issues { max-height: 360px; overflow-y: auto; }
 /* Picking findings for one batch: the bar above the list, a box on each row. */
 /* As tall with its buttons as without them, so selecting a row never moves
    the list below. */
