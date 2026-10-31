@@ -276,6 +276,27 @@ export function mergeDuplicateChain(
   return [...byKey.values()].filter((p) => p.before !== null || p.after !== null);
 }
 
+/**
+ * Fold the incoming duplicates the matcher found (`incomingDuplicates`) into
+ * their kept record, each with the confirmed default decision. The worker and
+ * the main thread's replay both run this, so their copies agree record for
+ * record. Like a chain, it reads the file's link habits once and keeps one
+ * pointer index for all pairs: bare, each pair walked the whole file — ~1 s
+ * per pair on a 100k-person index file, minutes for its ~150 duplicates.
+ */
+export function consolidateDuplicates(dataset: Dataset, clusters: Array<{ keepId: string; mergeIds: string[] }>): void {
+  withPointerIndex(dataset, () => {
+    const placement = linkPlacementFor(dataset);
+    for (const { keepId, mergeIds } of clusters) {
+      for (const id of mergeIds) mergeDuplicate(dataset, keepId, id, { status: "confirmed", fields: {} }, rawLabel, undefined, placement);
+    }
+  });
+}
+
+/** Consolidation has no reader to show field labels to (the worker has no
+ *  i18n), and the replay must write the very same text. */
+const rawLabel = (key: string) => key;
+
 /** A partner/children row is taken (re-pointed onto the survivor) unless the
  *  user explicitly chose "main" for it. Default is union ("both"). */
 function wantsRelative(fields: Record<string, FieldChoice>, key: string): boolean {

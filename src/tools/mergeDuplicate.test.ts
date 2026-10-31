@@ -10,6 +10,7 @@ import { removeIndividual } from "../gedcom/edit";
 import { findDuplicates, makeDuplicatePair } from "./duplicates";
 import { clusterMergeSteps } from "./mergeCluster";
 import {
+  consolidateDuplicates,
   mergeDuplicate,
   mergeDuplicateChain,
   duplicateDefaults,
@@ -654,5 +655,38 @@ describe("mergeDuplicate — lines no row compares", () => {
     const ds = dataset(FILE);
     mergeDuplicate(ds, "@I1@", "@I2@", decide({ "DEAT.date": "main" }), tr);
     expect(serializeGedcom(ds.records)).not.toContain("death extra");
+  });
+});
+
+describe("consolidateDuplicates", () => {
+  // Three pairs tied by families, an association and a cited link, so the
+  // pointer index and the once-read link habits both have something to answer.
+  const text = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F1@\n" +
+    "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1851\n1 FAMS @F2@\n" +
+    "0 @I3@ INDI\n1 NAME Ana /Kovač/\n1 SEX F\n1 FAMS @F1@\n" +
+    "0 @I4@ INDI\n1 NAME Ana /Kovač/\n1 SEX F\n1 FAMS @F2@\n" +
+    "0 @I5@ INDI\n1 NAME Miha /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+    "0 @I6@ INDI\n1 NAME Miha /Novak/\n1 SEX M\n1 FAMC @F2@\n1 ASSO @I2@\n2 RELA Godfather\n" +
+    "1 SOUR @S1@\n2 PAGE https://example.org/page/1\n" +
+    "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n1 CHIL @I5@\n" +
+    "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I4@\n1 CHIL @I6@\n" +
+    "0 @S1@ SOUR\n1 TITL Krstna knjiga\n",
+  );
+  const clusters = [
+    { keepId: "@I1@", mergeIds: ["@I2@"] },
+    { keepId: "@I3@", mergeIds: ["@I4@"] },
+    { keepId: "@I5@", mergeIds: ["@I6@"] },
+  ];
+
+  it("writes the same file as merging each pair on its own", () => {
+    const bare = dataset(text);
+    for (const { keepId, mergeIds } of clusters) {
+      for (const id of mergeIds) mergeDuplicate(bare, keepId, id, decide({}), tr);
+    }
+    const fast = dataset(text);
+    consolidateDuplicates(fast, clusters);
+    expect(serializeGedcom(fast.records)).toBe(serializeGedcom(bare.records));
+    expect([...fast.individuals.keys()].sort()).toEqual(["@I1@", "@I3@", "@I5@"]);
   });
 });
