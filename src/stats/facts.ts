@@ -1,6 +1,6 @@
 import type { Dataset, GedDate, GedEvent, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { distanceKm } from "../geo/points";
-import { BIRTH_TAGS, DEATH_TAGS, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { BIRTH_TAGS, birthDateOf, DEATH_TAGS, deathDateOf, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import { ageBetween } from "../gedcom/age";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
@@ -162,14 +162,6 @@ function refsOf(raw: GedNode): { refs: RecordRefs; citations: number } {
   return { refs: { places: placeKeysOf(raw), sources, media }, citations };
 }
 
-function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
-  for (const tag of tags) {
-    const e = indi.events.find((ev) => ev.tag === tag && ev.date?.year !== undefined);
-    if (e) return e;
-  }
-  return undefined;
-}
-
 function firstPlace(indi: Individual, tags: readonly string[]): string {
   for (const tag of tags) {
     const raw = indi.events.find((ev) => ev.tag === tag && ev.place?.raw.trim())?.place?.raw.trim();
@@ -237,8 +229,10 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     // neither ranked nor counted as known.
     const givenText = isUnknownNameToken(name?.given) ? "" : (name?.given ?? "").trim();
     const givens = givenText.split(/\s+/).filter(Boolean);
-    const birth = firstDated(indi, BIRTH_TAGS);
-    const death = firstDated(indi, DEATH_TAGS);
+    // The dates every list and card of the app reads (see `birthDateOf`), so
+    // a bar and the people it lists agree on the year.
+    const birth = birthDateOf(indi);
+    const death = deathDateOf(indi);
     const birthPlace = firstPlace(indi, BIRTH_TAGS);
     const deathPlace = firstPlace(indi, DEATH_TAGS);
     const place = birthPlace || deathPlace;
@@ -260,15 +254,15 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       surname,
       givenKey: fold(givens[0]),
       surnameKey: fold(surname),
-      birthYear: birth?.date?.year,
-      birthMonth: birth?.date?.month,
-      birthApprox: isApproximate(birth?.date),
-      deathYear: death?.date?.year,
-      deathMonth: death?.date?.month,
-      deathApprox: isApproximate(death?.date),
+      birthYear: birth?.year,
+      birthMonth: birth?.month,
+      birthApprox: isApproximate(birth),
+      deathYear: death?.year,
+      deathMonth: death?.month,
+      deathApprox: isApproximate(death),
       deceased,
       living: !deceased && isPresumedLiving(indi, ds, now),
-      ageAtDeath: death ? ageBetween(birth?.date, death.date) : undefined,
+      ageAtDeath: death ? ageBetween(birth, death) : undefined,
       place,
       country: place ? countryOf(place, home) : "",
       birthCountry: birthPlace ? countryOf(birthPlace, home) : "",
@@ -276,7 +270,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
       birthPlace,
       deathPlace,
-      birthDay: dayKey(birth?.date),
+      birthDay: dayKey(birth),
       baptismDays: baptismDays(indi),
       occupations: listedValues(indi, "OCCU"),
       education: listedValues(indi, "EDUC"),
@@ -297,7 +291,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     };
     people.push(f);
     byId.set(f.id, f);
-    birthDates.set(indi.id, birth?.date);
+    birthDates.set(indi.id, birth);
   }
 
   const families: FamilyFacts[] = [];
