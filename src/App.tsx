@@ -113,6 +113,7 @@ import { computeDistances, rankedCandidates } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
 import { fileFromDrop } from "./ui/filePicker";
+import { leftTarget, useDropHighlight } from "./ui/useDropHighlight";
 import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
@@ -219,7 +220,7 @@ function AppContent() {
   // Below 880px the file pills would be a letter each: they move into the ☰.
   const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pillDrop, setPillDrop] = useState<DatasetRole | null>(null);
+  const [pillDrop, setPillDrop] = useDropHighlight<DatasetRole>();
   // The chart's header has a ☰ of its own: the app's stays mounted (hidden)
   // under the chart, and sharing one open flag opened both — the hidden one's
   // outside-click handler then closed the visible one before a click landed.
@@ -2385,7 +2386,7 @@ function AppContent() {
       setPillDrop(role);
     },
     onDragLeave: (e: DragEvent<HTMLButtonElement>) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPillDrop(null);
+      if (leftTarget(e)) setPillDrop(null);
     },
     onDrop: async (e: DragEvent<HTMLButtonElement>) => {
       e.preventDefault();
