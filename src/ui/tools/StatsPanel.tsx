@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { computeKinship, computeLineSides } from "../../tools/batch";
-import { buildStatsFacts } from "../../stats/facts";
+import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, type StatsScope, type StatsWho } from "../../stats/scope";
 import {
   CHILD_AGE,
@@ -18,8 +18,8 @@ import {
 import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { migrationStats } from "../../stats/migration";
 import { COUPLE_KINSHIP, lineageStats, relatedCouples, type CoupleKinship } from "../../stats/lineage";
-import { researchStats } from "../../stats/research";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { researchStats, type SourcedTag } from "../../stats/research";
+import { eventDisplayLabel, familyEventLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
 import { FileTextIcon, ImageIcon } from "../icons/FormatIcons";
@@ -28,7 +28,7 @@ import { exportStats } from "./statsSvg";
 import { ChartIcon } from "../icons/ChartIcon";
 import { DownloadIcon } from "../icons/DownloadIcon";
 import { downloadText, savedName } from "../download";
-import { toCsv } from "../../stats/csv";
+import { csvStyleFor, percentOf, toCsv } from "../../stats/csv";
 import { lifespanOf } from "../../gedcom/lifespan";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
@@ -100,6 +100,18 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/**
+ * The fact rows last built for a file, at the edit version and home country
+ * they were built at. The panel mounts only while its tool is open, so without
+ * this every visit to Statistics walked the whole file again.
+ */
+const factsCache = new WeakMap<Dataset, { version: number; home: string; facts: StatsFacts }>();
+
+function cachedFacts(dataset: Dataset, version: number, home: string): StatsFacts | undefined {
+  const hit = factsCache.get(dataset);
+  return hit && hit.version === version && hit.home === home ? hit.facts : undefined;
+}
+
 export function StatsPanel({
   dataset,
   editVersion,
@@ -130,7 +142,8 @@ export function StatsPanel({
   const nameOf = useNameOf();
   // The ranked lists unfolded to their full length, by card.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [ready, setReady] = useState(false);
+  // A return with the file unchanged has its rows already: no loading pass.
+  const [ready, setReady] = useState(() => cachedFacts(dataset, editVersion, home) !== undefined);
   const page: Page = (PAGES as readonly string[]).includes(view) ? (view as Page) : "tree";
 
   useEffect(() => {
@@ -145,8 +158,15 @@ export function StatsPanel({
   // returns — and only then, so a return without an edit walks nothing.
   const [seenVersion, setSeenVersion] = useState(editVersion);
   useEffect(() => { if (active) setSeenVersion(editVersion); }, [active, editVersion]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
-  const facts = useMemo(() => (ready ? buildStatsFacts(dataset, home) : undefined), [ready, dataset, seenVersion, home]);
+  // seenVersion keys the rows: the dataset is mutated in place.
+  const facts = useMemo(() => {
+    if (!ready) return undefined;
+    const hit = cachedFacts(dataset, seenVersion, home);
+    if (hit) return hit;
+    const built = buildStatsFacts(dataset, home);
+    factsCache.set(dataset, { version: seenVersion, home, facts: built });
+    return built;
+  }, [ready, dataset, seenVersion, home]);
   const lined = scope.who !== "all";
   // Whose line the statistics follow: the app's start person until another is
   // picked here. The choice is the statistics' own and moves nothing else.
@@ -154,10 +174,13 @@ export function StatsPanel({
   const statsStart = ownStart && dataset.individuals.has(ownStart) ? ownStart : startId;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
   const kinship = useMemo(() => (lined && statsStart ? computeKinship(dataset, statsStart) : null), [lined, dataset, statsStart, seenVersion]);
-  const base = useMemo(() => (facts ? scopeFacts(facts, scope, kinship, statsStart) : []), [facts, scope, kinship, statsStart]);
+  // The fields show each keystroke at once; the numbers follow when React has
+  // a moment — a year typed digit by digit (1, 18, 185, 1850) re-scopes once.
+  const settledScope = useDeferredValue(scope);
+  const base = useMemo(() => (facts ? scopeFacts(facts, settledScope, kinship, statsStart) : []), [facts, settledScope, kinship, statsStart]);
   const [filtersOpen, setFiltersOpen] = useState(readFiltersOpen);
   const toggleFilters = () => setFiltersOpen((open) => { writeFiltersOpen(!open); return !open; });
-  const scoped = useMemo(() => (facts ? applyCountry(facts, base, scope) : undefined), [facts, base, scope]);
+  const scoped = useMemo(() => (facts ? applyCountry(facts, base, settledScope) : undefined), [facts, base, settledScope]);
   const chips = useMemo(() => {
     const byCode = new Map<string, CountryChip>();
     for (const p of base) {
@@ -282,10 +305,13 @@ export function StatsPanel({
     card,
     () => [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
     <BarList
-      limit={listLimit(card, list.length, limit)}
       tone={tone}
       picked={pickedIn(card)}
-      rows={list.map((b) => ({
+      // Rows only for what is shown: a file's surnames or places run to tens of
+      // thousands, and a place's short label costs a lookup each.
+      max={list.reduce((m, b) => Math.max(m, b.count), 1)}
+      itemsKey={list}
+      rows={list.slice(0, listLimit(card, list.length, limit)).map((b) => ({
         key: b.key,
         // A place reads by its own name and its country's flag; the whole value is the tip.
         label: places ? shortPlace(b.label!, home) : b.label,
@@ -304,7 +330,7 @@ export function StatsPanel({
   /** Shares as percentage bars; a pick lists the rows `missing` holds when `listMissing`. */
   const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean, graded = false) => withCsv(
     card,
-    () => [["", t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...items.map(({ label, share }) => [label, share.n, share.of, pct(share.n, share.of)])],
+    () => [["", t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...items.map(({ label, share }) => [label, share.n, share.of, percentOf(share.n, share.of)])],
     <BarList
       max={100}
       picked={pickedIn(card)}
@@ -363,7 +389,7 @@ export function StatsPanel({
       if (node) void exportStats(node, format, base, { title, fileName: base, subtitle: scopeLine() || undefined });
     };
     return [
-      ...(csv ? [{ key: "csv", icon: <FileTextIcon />, label: t("export.csv"), onSelect: () => downloadText(savedName(fileName, `${name}.csv`), toCsv(csv()), "text/csv;charset=utf-8") }] : []),
+      ...(csv ? [{ key: "csv", icon: <FileTextIcon />, label: t("export.csv"), onSelect: () => downloadText(savedName(fileName, `${name}.csv`), toCsv(csv(), csvStyleFor(lang)), "text/csv;charset=utf-8") }] : []),
       { key: "svg", icon: <ImageIcon />, label: t("export.svg"), onSelect: picture("svg") },
       { key: "png", icon: <ImageIcon />, label: t("export.png"), onSelect: picture("png") },
     ];
@@ -503,15 +529,17 @@ export function StatsPanel({
     csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places")], ...lineage.repeated.map((r) => [personName(r.id), r.count])]);
     csvOf.set("descendantsGen", () => [[t("stats.csv.generation"), t("stats.csv.count")], ...lineage.descendants.map((g) => [g.gen, g.ids.length])]);
   }
-  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [eventDisplayLabel(s.tag, t), s.sourced, s.events, pct(s.sourced, s.events)])]);
+  /** A research row's event, named as a family's where it stands on families. */
+  const tagLabel = (s: SourcedTag) => (s.families ? familyEventLabel(s.tag, t) : eventDisplayLabel(s.tag, t));
+  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [tagLabel(s), s.sourced, s.events, percentOf(s.sourced, s.events)])]);
   if (research && researchBySide) csvOf.set("sourcedBySide", () => [
     [t("stats.csv.event"), t("stats.side.paternal"), t("stats.side.maternal")],
     ...research.byTag.map((s) => {
       const side = (r: typeof research) => {
-        const x = r.byTag.find((y) => y.tag === s.tag);
-        return x && x.events ? pct(x.sourced, x.events) : "";
+        const x = r.byTag.find((y) => y.key === s.key);
+        return x ? percentOf(x.sourced, x.events) : "";
       };
-      return [eventDisplayLabel(s.tag, t), side(researchBySide.paternal), side(researchBySide.maternal)];
+      return [tagLabel(s), side(researchBySide.paternal), side(researchBySide.maternal)];
     }),
   ]);
   if (related) csvOf.set("relatedCouples", () => [[t("stats.relatedCouples"), t("stats.csv.count")], ...COUPLE_KINSHIP.map((k) => [t(`stats.kin.${k}`), related.byKind[k].length])]);
@@ -982,8 +1010,8 @@ export function StatsPanel({
                 max={100}
                 picked={pickedIn("sourcedByTag")}
                 rows={research.byTag.map((s) => ({
-                  key: s.tag,
-                  label: eventDisplayLabel(s.tag, t),
+                  key: s.key,
+                  label: tagLabel(s),
                   value: (100 * s.sourced) / s.events,
                   display: pct(s.sourced, s.events),
                   tip: t("stats.shareTip", { n: num(s.sourced), of: num(s.events) }),
@@ -991,8 +1019,8 @@ export function StatsPanel({
                   status: gradeOf(s.sourced / s.events),
                 }))}
                 onPick={(key) => {
-                  const s = research.byTag.find((x) => x.tag === key)!;
-                  choose("sourcedByTag", key, t("stats.missingTitle", { what: eventDisplayLabel(s.tag, t) }), s.missing, s.families);
+                  const s = research.byTag.find((x) => x.key === key)!;
+                  choose("sourcedByTag", key, t("stats.missingTitle", { what: tagLabel(s) }), s.missing, s.families);
                 }}
               />
             ))}
@@ -1002,14 +1030,14 @@ export function StatsPanel({
                 picked={pickedIn("sourcedBySide")}
                 rows={research.byTag.map<PairRow>((tag) => {
                   const of = (stats: typeof research) => {
-                    const s = stats.byTag.find((x) => x.tag === tag.tag);
+                    const s = stats.byTag.find((x) => x.key === tag.key);
                     return s && s.events ? { value: (100 * s.sourced) / s.events, display: pct(s.sourced, s.events), tip: t("stats.shareTip", { n: num(s.sourced), of: num(s.events) }), count: s.missing.length } : undefined;
                   };
-                  return { key: tag.tag, label: eventDisplayLabel(tag.tag, t), a: of(researchBySide.paternal), b: of(researchBySide.maternal) };
+                  return { key: tag.key, label: tagLabel(tag), a: of(researchBySide.paternal), b: of(researchBySide.maternal) };
                 })}
                 onPick={(key, side) => {
-                  const s = (side === "a" ? researchBySide.paternal : researchBySide.maternal).byTag.find((x) => x.tag === key)!;
-                  choose("sourcedBySide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.missingTitle", { what: eventDisplayLabel(key, t) })}`, s.missing, s.families);
+                  const s = (side === "a" ? researchBySide.paternal : researchBySide.maternal).byTag.find((x) => x.key === key)!;
+                  choose("sourcedBySide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.missingTitle", { what: tagLabel(s) })}`, s.missing, s.families);
                 }}
               />
             ))}
@@ -1048,7 +1076,7 @@ function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
   onClose: () => void;
   onRelate?: (fromId: string, toId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
   // The whole list, windowed: a bar can stand for half a million people, and
   // only the rows in the scroll box are ever mounted.
@@ -1066,7 +1094,7 @@ function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
           return [id, ...person(fam?.husband), ...person(fam?.wife)];
         })]
       : [[t("stats.csv.id"), t("stats.csv.person"), t("stats.csv.years")], ...pick.ids.map((id) => [id, ...person(id)])];
-    downloadText(savedName(fileName, "list.csv"), toCsv(rows), "text/csv;charset=utf-8");
+    downloadText(savedName(fileName, "list.csv"), toCsv(rows, csvStyleFor(i18n.language)), "text/csv;charset=utf-8");
   };
   return (
     <div className="stats-pick">

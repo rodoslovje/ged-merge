@@ -162,4 +162,27 @@ describe("researchStats", () => {
     expect(r.citations.find((b) => b.key === "1")?.ids).toEqual(["@I1@"]);
     expect(r.noEvents).toEqual(["@I5@", "@I6@", "@I7@", "@I8@", "@I9@"]);
   });
+
+  it("counts a family's residence apart from a person's", () => {
+    const ds = dataset(`0 HEAD
+0 @I1@ INDI
+1 RESI
+2 PLAC Kranj
+2 SOUR @S1@
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 RESI
+2 PLAC Ljubljana
+0 @S1@ SOUR
+1 TITL Register
+0 TRLR`);
+    const f = buildStatsFacts(ds);
+    const r = researchStats(applyCountry(f, scopeFacts(f, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
+    const resi = r.byTag.filter((t) => t.tag === "RESI");
+    expect(resi.map((t) => [t.key, t.events, t.sourced, t.missing])).toEqual([
+      ["I:RESI", 1, 1, []],
+      ["F:RESI", 1, 0, ["@F1@"]],
+    ]);
+  });
 });

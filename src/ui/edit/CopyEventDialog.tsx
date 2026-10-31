@@ -9,7 +9,7 @@ import { YearsText } from "../YearsText";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
 import { useNameOf } from "../SettingsContext";
 import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
-import { homePlaceOf, type HomePlace } from "../../chart/nodeDisplay";
+import { homePlaceOf } from "../../chart/nodeDisplay";
 import { personOptionTitle } from "./RelativePickerCard";
 
 /** An event the user asked to copy, and where it came from. */
@@ -36,8 +36,6 @@ interface Row {
   detailTitle?: string;
   /** A person's approximate years in `detail` — set in italics. */
   detailApprox?: YearsApprox;
-  /** Where a person lived, to tell namesakes apart — see {@link homePlaceOf}. */
-  home?: HomePlace;
   /** Set when this record can't take the copy — the reason is shown inline. */
   blocked?: CopyEventBlock;
   search: string;
@@ -123,7 +121,6 @@ export function CopyEventDialog({
           detail,
           detailTitle: datesTooltipOf(indi) || undefined,
           detailApprox: lifespanApproxOf(indi),
-          home: homePlaceOf(indi),
           blocked: individualCopyBlock(indi, node),
           search: foldSearch(`${name} ${detail} ${indi.id}`),
         });
@@ -259,11 +256,7 @@ export function CopyEventDialog({
                             <YearsText text={r.detail} approx={r.detailApprox} />
                           </span>
                         )}
-                        {r.home && (
-                          <span className="copy-event-place" title={personOptionTitle("", r.home, t)}>
-                            {r.home.label}
-                          </span>
-                        )}
+                        {kind === "individual" && <HomePlaceLabel indi={dataset.individuals.get(r.id)} t={t} />}
                         {r.blocked && (
                           <span className="copy-event-blocked">{t(`copyEvent.blocked.${r.blocked}`)}</span>
                         )}
@@ -288,4 +281,11 @@ export function CopyEventDialog({
       </div>
     </div>
   );
+}
+
+/** Where a person lived, to tell namesakes apart — read for the rows on show
+ *  only (see {@link homePlaceOf}), not for every person the list is built from. */
+function HomePlaceLabel({ indi, t }: { indi: Individual | undefined; t: Translate }) {
+  const home = homePlaceOf(indi);
+  return home ? <span className="copy-event-place" title={personOptionTitle("", home, t)}>{home.label}</span> : null;
 }

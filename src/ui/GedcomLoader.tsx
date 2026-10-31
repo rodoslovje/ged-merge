@@ -10,6 +10,7 @@ import { Notice } from "./Notice";
 import { mediaOfferSuppressed, suppressMediaOffer } from "./mediaPrefs";
 import { noticeSnoozed, snoozeNotice } from "./noticeSnooze";
 import { pickFile, fileFromDrop, supportsFilePicker, type AcceptSpec } from "./filePicker";
+import { leftTarget, useDropHighlight } from "./useDropHighlight";
 
 function countLocalMedia(records: GedNode[]): number {
   let n = 0;
@@ -91,7 +92,7 @@ interface Props {
 
 export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight, tooltip, description, canVerify, onVerify }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const [dragging, setDragging] = useDropHighlight<true>();
   const { t } = useTranslation();
   const { folderName, openFolder, clearFolder } = useMediaFolder();
 
@@ -125,7 +126,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
 
   async function onDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    setDragging(false);
+    setDragging(null);
     const picked = await fileFromDrop(e.dataTransfer);
     if (picked) onLoad(picked.file, picked.handle);
   }
@@ -190,7 +191,7 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
 
       {state.status !== "loading" && (
         <div
-          className={`dropzone${dragging ? " dragover" : ""}${highlight ? " highlight" : ""}${loaded ? " compact" : ""}`}
+          className={`dropzone${dragging !== null ? " dragover" : ""}${highlight ? " highlight" : ""}${loaded ? " compact" : ""}`}
           role="button"
           tabIndex={0}
           title={tooltip}
@@ -200,7 +201,9 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
             e.preventDefault();
             setDragging(true);
           }}
-          onDragLeave={() => setDragging(false)}
+          onDragLeave={(e) => {
+            if (leftTarget(e)) setDragging(null);
+          }}
           onDrop={onDrop}
         >
           <input

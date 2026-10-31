@@ -129,6 +129,7 @@ import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
 import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { leftTarget, useDropHighlight } from "./useDropHighlight";
 
 
 interface Props {
@@ -587,22 +588,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   );
   // Which FamilySearch-id tag a newly added id gets — the file's own dialect.
   const fsIdTag = useMemo(() => preferredFsIdTag(dataset, formatOverrides), [dataset, formatOverrides]);
-  const [mediaDragOver, setMediaDragOver] = useState(false);
-  /** A file drag that crosses the person panel but ends somewhere else — dropped
-   *  on the loader, or abandoned outside the window — never delivers a `drop`
-   *  here, and its closing `dragleave` fires at whichever child the pointer last
-   *  sat over. Only end-of-drag events on the window reliably put the highlight
-   *  out again. */
-  useEffect(() => {
-    if (!mediaDragOver) return;
-    const clear = () => setMediaDragOver(false);
-    window.addEventListener("drop", clear);
-    window.addEventListener("dragend", clear);
-    return () => {
-      window.removeEventListener("drop", clear);
-      window.removeEventListener("dragend", clear);
-    };
-  }, [mediaDragOver]);
+  // A media file dragged over the person panel (see useDropHighlight).
+  const [mediaDrop, setMediaDrop] = useDropHighlight<true>();
+  const mediaDragOver = mediaDrop !== null;
 
   /** After a commit whose note ctx touched shared NOTE records: refresh every
    *  other referrer's stale projection and remount the note editors. */
@@ -982,7 +970,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function handleMediaDrop(e: React.DragEvent) {
     if (!e.dataTransfer.types.includes("Files")) return; // internal reorder drag
     e.preventDefault();
-    setMediaDragOver(false);
+    setMediaDrop(null);
     const handlePromises: Promise<FileSystemHandle | null>[] = [];
     let fileCount = 0;
     for (const item of Array.from(e.dataTransfer.items)) {
@@ -1941,12 +1929,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           onDragOver={(e) => {
             if (!e.dataTransfer.types.includes("Files")) return;
             e.preventDefault();
-            setMediaDragOver(true);
+            setMediaDrop(true);
           }}
           onDragLeave={(e) => {
-            // Leaving for a child of the panel is not leaving the panel.
-            const next = e.relatedTarget as Node | null;
-            if (!next || !e.currentTarget.contains(next)) setMediaDragOver(false);
+            if (leftTarget(e)) setMediaDrop(null);
           }}
           onDrop={handleMediaDrop}
         >

@@ -206,6 +206,23 @@ describe("undo of a pruned shared note", () => {
   });
 });
 
+describe("undo of a source record edit", () => {
+  it("shows the restored title on the people citing it", () => {
+    const text = [
+      "0 HEAD", "0 @I1@ INDI", "1 BIRT", "2 SOUR @S1@", "0 @S1@ SOUR", "1 TITL Old title", "0 TRLR",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+    const src = ds.records.find((r) => r.xref === "@S1@")!;
+    const before = structuredClone(src);
+    src.children[0].value = "New title";
+    const after = structuredClone(src);
+    applyRecordPatches(ds, [{ type: "record", id: "@S1@", before, after }], "redo");
+    expect(ds.individuals.get("@I1@")!.events[0].sources?.[0].title).toBe("New title");
+    expect(applyRecordPatches(ds, [{ type: "record", id: "@S1@", before, after }], "undo")).toBe(true);
+    expect(ds.individuals.get("@I1@")!.events[0].sources?.[0].title).toBe("Old title");
+  });
+});
+
 // ── a delete leaves no pointer to the person behind ────────────────────────
 // Regression: deleting a person stripped only ASSO/_ASSO lines at levels 1–2;
 // an ALIA, ANCI/DESI, a level-3 _ASSO or a vendor pointer kept naming them.

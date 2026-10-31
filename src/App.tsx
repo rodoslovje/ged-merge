@@ -11,6 +11,7 @@ import { useMatchList } from "./ui/useMatchList";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
 import { withBusyCursor } from "./ui/busyCursor";
+import { citationShownKey } from "./gedcom/source";
 import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
@@ -112,6 +113,7 @@ import { computeDistances, rankedCandidates } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
 import { MediaViewerProvider } from "./ui/MediaViewer";
 import { fileFromDrop } from "./ui/filePicker";
+import { leftTarget, useDropHighlight } from "./ui/useDropHighlight";
 import {
   DEFAULT_FILTERS,
   DEFAULT_SORT,
@@ -218,7 +220,7 @@ function AppContent() {
   // Below 880px the file pills would be a letter each: they move into the ☰.
   const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pillDrop, setPillDrop] = useState<DatasetRole | null>(null);
+  const [pillDrop, setPillDrop] = useDropHighlight<DatasetRole>();
   // The chart's header has a ☰ of its own: the app's stays mounted (hidden)
   // under the chart, and sharing one open flag opened both — the hidden one's
   // outside-click handler then closed the visible one before a click landed.
@@ -1212,6 +1214,20 @@ function AppContent() {
    *  (pushed with `stay`) costs as much to take back as it did to apply, so
    *  that step runs a paint later, under the progress cursor. */
   function undoStep(direction: "undo" | "redo") {
+    // A source Add still waiting for its page was confirmed before this
+    // press: it lands first, so it takes its place in the history ahead of the
+    // step — landing after, it would clear the redo stack. The Adds land
+    // through state this render cannot see; the step runs from the next one.
+    // Presses made while it waits, under the busy cursor, are not stacked up.
+    if (hasPendingAdds()) {
+      if (undoAfterAdds.current) return;
+      undoAfterAdds.current = direction;
+      void withBusyCursor(async () => {
+        await pendingAddsSettled();
+        setAddsLanded((n) => n + 1);
+      });
+      return;
+    }
     const run = direction === "undo" ? handleUndo : handleRedo;
     const next = undoRedo.peek(direction);
     if (next?.mode !== "edit" || !next.stay) return run();
@@ -1221,6 +1237,17 @@ function AppContent() {
       run();
     }));
   }
+
+  // The step pressed while source Adds were waiting, run once they have landed.
+  const undoAfterAdds = useRef<"undo" | "redo" | null>(null);
+  const [addsLanded, setAddsLanded] = useState(0);
+  useEffect(() => {
+    const direction = undoAfterAdds.current;
+    if (!direction) return;
+    undoAfterAdds.current = null;
+    undoStep(direction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addsLanded]);
 
   const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
   globalShortcutRef.current.undo = () => undoStep("undo");
@@ -1585,9 +1612,11 @@ function AppContent() {
     applySharedRecordEdit((records, notes) => {
       const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
       if (!node) return;
+      const shown = citationShownKey(node);
       setSourceRecordFields(records, node, fields, notes, formatOverrides);
-      // The citations people and families show carry the source's title.
-      if (mainDataset) rebuildReferrers(mainDataset, new Set([sourceXref]), ["SOUR"]);
+      // The citations people and families show carry the source's title — a
+      // register cited 50k times is worth re-projecting only when it changed.
+      if (mainDataset && citationShownKey(node) !== shown) rebuildReferrers(mainDataset, new Set([sourceXref]), ["SOUR"]);
     });
   }
 
@@ -2357,7 +2386,7 @@ function AppContent() {
       setPillDrop(role);
     },
     onDragLeave: (e: DragEvent<HTMLButtonElement>) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPillDrop(null);
+      if (leftTarget(e)) setPillDrop(null);
     },
     onDrop: async (e: DragEvent<HTMLButtonElement>) => {
       e.preventDefault();

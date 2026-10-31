@@ -104,6 +104,14 @@ export function useTitleTakesPeriodical<T extends { title: string; periodical: s
 ): void {
   useEffect(() => {
     if (offered || !periodical.trim()) return;
-    setFields((f) => ({ ...f, title: titleWithPeriodical(f.title, f.periodical) ?? "", periodical: "" }));
+    setFields((f) => foldPeriodical(f, offered));
   }, [offered, periodical, setFields]);
+}
+
+/** The fold {@link useTitleTakesPeriodical} makes, for a form that is not on
+ *  screen (an Add written once its lookup answers): the periodical joins the
+ *  title where the form offers no periodical of its own. */
+export function foldPeriodical<T extends { title: string; periodical: string }>(f: T, offered: boolean): T {
+  if (offered || !f.periodical.trim()) return f;
+  return { ...f, title: titleWithPeriodical(f.title, f.periodical) ?? "", periodical: "" };
 }

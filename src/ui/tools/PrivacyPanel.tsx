@@ -18,6 +18,7 @@ import { downloadText, savedName } from "../download";
 import { PersonLink } from "../PersonLink";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
+import { afterPendingAdds } from "../source/pendingAdds";
 
 const NAME_STRATEGIES: NameStrategy[] = ["living", "private", "initials", "initialSurname", "surnameOnly"];
 const ACTIONS: PrivacyAction[] = ["sanitize", "remove", "removeDescendants"];
@@ -96,11 +97,13 @@ export function PrivacyPanel({
     setOptions((o) => ({ ...o, file: { ...o.file, [key]: !o.file[key] } }));
 
   function download() {
-    const { records, report } = privatizeDataset(dataset, options);
-    const d = new Date(); // one shared stamp so the .ged and its report sort together
-    prepareDownload(records, dataset, undefined, d); // UTF-8, stamped, complete
-    downloadText(savedName(fileName, "ged", d), serializeGedcom(records, downloadOptions(dataset)));
-    downloadText(savedName(fileName, "report.txt", d), privacyReportText(report.flagged, options));
+    afterPendingAdds(() => {
+      const { records, report } = privatizeDataset(dataset, options);
+      const d = new Date(); // one shared stamp so the .ged and its report sort together
+      prepareDownload(records, dataset, undefined, d); // UTF-8, stamped, complete
+      downloadText(savedName(fileName, "ged", d), serializeGedcom(records, downloadOptions(dataset)));
+      downloadText(savedName(fileName, "report.txt", d), privacyReportText(report.flagged, options));
+    });
   }
 
   return (

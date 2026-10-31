@@ -4,6 +4,7 @@ import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
 import { eventDisplayLabel, indiEventNodes } from "../../gedcom/eventTags";
+import { childText } from "../../gedcom/node";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween, type AgeBadge } from "../../gedcom/age";
 import { parseDate } from "../../gedcom/date";
@@ -319,7 +320,16 @@ export const EventList = memo(function EventList({
                 onRejectIncomingEvent?.(ctag, Number(cidx));
               }
             }}
-            onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches) })}
+            onAddSource={() => {
+              // An Add confirmed mid-lookup lands seconds later, when events
+              // may have been added or removed: it finds this event again
+              // rather than trusting the position it had when the dialog opened.
+              const node = rawEventNodes[row.i];
+              onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => {
+                const at = currentEventIndex(indi, node, row.i);
+                if (at >= 0) setEventFieldAtIndex(indi, at, update);
+              }, extraPatches) });
+            }}
             onEditSource={(idx) => openEditSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
             onOpenMediaLink={(url) => openMediaLink(rawEventNodes[row.i], { kind: "individual", indi: person }, url)}
             onOpenSourceDialog={onOpenSourceDialog}
@@ -409,3 +419,16 @@ export const EventList = memo(function EventList({
     </div>
   );
 });
+
+/** Where an event the user opened a dialog on sits among the person's events
+ *  now: the same node, else (an undo restores records from copies) the event
+ *  at the old position when it is still that tag and date. -1 when it is gone. */
+function currentEventIndex(indi: Individual, node: GedNode | undefined, was: number): number {
+  if (!node) return -1;
+  const nodes = indiEventNodes(indi.raw);
+  const at = nodes.indexOf(node);
+  if (at >= 0) return at;
+  const date = (n: GedNode) => childText(n, "DATE") ?? "";
+  const same = (n: GedNode | undefined) => !!n && n.tag === node.tag && date(n) === date(node);
+  return same(nodes[was]) ? was : nodes.findIndex(same);
+}

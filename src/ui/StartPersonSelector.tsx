@@ -105,7 +105,6 @@ export function StartPersonSelector({
               const span = lifespanWithAge(i, settings.showAge);
               const name = nameOf(i);
               const search = foldSearch(`${nameSearchText(i)} ${span} ${i.id}`);
-              const home = homePlaceOf(i);
               return {
                 id: i.id,
                 name,
@@ -113,8 +112,6 @@ export function StartPersonSelector({
                 sex: i.sex,
                 xref: xrefLabel(i.id),
                 text: span ? `${name} ${span}` : name,
-                home: home?.label,
-                title: personOptionTitle(lifespanTooltipOf(i, settings.showAge, t), home, t),
                 search,
               };
             })
@@ -235,12 +232,16 @@ export function StartPersonSelector({
               ]
                 .filter(Boolean)
                 .join(" ");
+              // Where they lived, read for the rows on show only (see homePlaceOf).
+              const indi = individuals.get(o.id);
+              const home = homePlaceOf(indi);
+              const title = personOptionTitle(lifespanTooltipOf(indi, settings.showAge, t), home, t);
               return (
                 <li key={o.id}>
                   <button
                     className={cls}
                     data-index={i}
-                    title={o.title || undefined}
+                    title={title || undefined}
                     onMouseEnter={() => setActiveIndex(i)}
                     onClick={() => confirm(o.id)}
                   >
@@ -248,7 +249,7 @@ export function StartPersonSelector({
                       <span className="person-name">{o.name}</span>
                       {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
                       {o.span && <span className="person-years gm-data"><YearsText text={o.span} approx={lifespanApproxOf(individuals.get(o.id))} /></span>}
-                      {o.home && <span className="person-place">{o.home}</span>}
+                      {home && <span className="person-place">{home.label}</span>}
                     </span>
                   </button>
                 </li>

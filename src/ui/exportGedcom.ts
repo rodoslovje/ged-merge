@@ -3,6 +3,7 @@ import { extractBranch } from "../gedcom/branchExport";
 import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import { prepareDownload } from "../save/outputFile";
 import { downloadText } from "./download";
+import { afterPendingAdds } from "./source/pendingAdds";
 
 /**
  * The Export-menu "GEDCOM" action shared by every chart: cut the chart's
@@ -11,9 +12,12 @@ import { downloadText } from "./download";
  * it in GED Merge as a compare file and merges it into their own tree.
  */
 export function exportChartGedcom(ds: Dataset, personIds: Iterable<string>, slug: string, authorName?: string): void {
-  const { records } = extractBranch(ds, personIds);
-  // Records are clones; downloads are UTF-8 bytes, stamped, complete — a 5.5.1
-  // branch without a submitter gets one named after the reader (Settings).
-  prepareDownload(records, ds, undefined, undefined, authorName);
-  downloadText(`${slug}.ged`, serializeGedcom(records, downloadOptions(ds)));
+  const ids = [...personIds];
+  afterPendingAdds(() => {
+    const { records } = extractBranch(ds, ids);
+    // Records are clones; downloads are UTF-8 bytes, stamped, complete — a 5.5.1
+    // branch without a submitter gets one named after the reader (Settings).
+    prepareDownload(records, ds, undefined, undefined, authorName);
+    downloadText(`${slug}.ged`, serializeGedcom(records, downloadOptions(ds)));
+  });
 }
