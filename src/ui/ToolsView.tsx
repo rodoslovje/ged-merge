@@ -243,7 +243,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "stats" && (
-          <StatsPanel dataset={dataset} editVersion={editVersion} onNavigate={onNavigate} onOpenRelationship={onOpenRelationship} active={active} startId={startId} view={view} onViewChange={onViewChange} />
+          <StatsPanel dataset={dataset} fileName={fileName} editVersion={editVersion} onNavigate={onNavigate} onOpenRelationship={onOpenRelationship} active={active} startId={startId} view={view} onViewChange={onViewChange} />
         )}
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />

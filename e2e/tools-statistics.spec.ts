@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
 
@@ -118,4 +118,24 @@ test("generations follow the line's person, research counts the sources", async 
   await expect(panel.locator(".stats-note")).toBeVisible();
 
   expect(errors).toEqual([]);
+});
+
+test("a card and the people behind a bar download as CSV", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  const panel = page.locator(".tools-stats-panel");
+  const completeness = panel.locator(".stats-card", { has: page.getByRole("heading", { name: "Completeness", exact: true }) });
+
+  const cardCsv = page.waitForEvent("download");
+  await completeness.getByRole("button", { name: "Download the numbers as CSV" }).click();
+  const numbers = readFileSync((await (await cardCsv).path())!, "utf-8");
+  expect(numbers).toContain("Birth place,3,4,75%");
+
+  await completeness.locator(".stats-bar", { hasText: "Birth place" }).click();
+  const listCsv = page.waitForEvent("download");
+  await completeness.getByRole("button", { name: "Download the list as CSV" }).click();
+  const list = readFileSync((await (await listCsv).path())!, "utf-8");
+  expect(list).toContain("@I3@,Ivana Bergant,1895–1970");
 });

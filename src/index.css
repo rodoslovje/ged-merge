@@ -9536,7 +9536,7 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 /* The people behind a picked bar, inside the card that was clicked. */
 .stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
 .stats-pick-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; }
-.stats-pick-close { margin-left: auto; }
+.stats-pick-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .stats-pick .tools-issues { max-height: 360px; overflow-y: auto; }
 /* The listed people sit as compact as the search and dropdown rows. */
 .stats-pick .tools-issue { padding: 3px 8px; font-size: 0.85rem; }

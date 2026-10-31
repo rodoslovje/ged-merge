@@ -23,6 +23,10 @@ import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
 import { ChartIcon } from "../icons/ChartIcon";
+import { DownloadIcon } from "../icons/DownloadIcon";
+import { downloadText, savedName } from "../download";
+import { toCsv } from "../../stats/csv";
+import { lifespanOf } from "../../gedcom/lifespan";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -98,6 +102,7 @@ export function StatsPanel({
   editVersion,
   onNavigate,
   onOpenRelationship,
+  fileName,
   active,
   startId,
   view,
@@ -107,6 +112,8 @@ export function StatsPanel({
   editVersion: number;
   onNavigate: (id: string) => void;
   onOpenRelationship: (fromId: string, toId: string) => void;
+  /** The open file's name, which the CSV downloads are named after. */
+  fileName: string;
   active: boolean;
   startId?: string;
   view: ToolView;
@@ -200,11 +207,21 @@ export function StatsPanel({
         : b.lo === b.hi ? signed(b.lo) : `${signed(b.lo)}–${signed(b.hi)}`;
   const centuryLabel = (c: number) => t("stats.century", { from: c, to: c + 99, n: c / 100 + 1 });
 
+  // The data behind each card, as table rows for its CSV download — registered
+  // as the charts render (before the card around them), built only on a click.
+  const csvOf = new Map<string, () => (string | number)[][]>();
+  /** Register a card's export rows and hand its body back. */
+  const withCsv = (card: string, rows: () => (string | number)[][], body: ReactNode) => {
+    csvOf.set(card, rows);
+    return body;
+  };
+
   /** A column chart over buckets; picking a column lists its rows. */
   const buckets = (card: string, title: string, list: Bucket[], opts: { families?: boolean; tone?: Tone; label?: (b: Bucket) => string; labelEvery?: number; tipLabel?: (b: Bucket) => string } = {}) => {
     const label = opts.label ?? rangeLabel;
     // The hover text and the list's title name the bucket in full where the axis abbreviates it.
     const full = opts.tipLabel ?? label;
+    csvOf.set(card, () => [[title, t("stats.csv.count")], ...list.map((b) => [full(b), b.count])]);
     const columns: Column[] = list.map((b) => ({ key: b.key, label: label(b), value: b.count, count: b.count, tip: `${full(b)}: ${num(b.count)}` }));
     return (
       <ColumnChart
@@ -222,7 +239,9 @@ export function StatsPanel({
   };
 
   /** A column chart of a by-century average or share. */
-  const centuries = (card: string, title: string, points: CenturyPoint[], format: (v: number) => string, opts: { families?: boolean; tone?: Tone } = {}) => (
+  const centuries = (card: string, title: string, points: CenturyPoint[], format: (v: number) => string, opts: { families?: boolean; tone?: Tone } = {}) => withCsv(
+    card,
+    () => [[t("stats.centuryCol"), title, t("stats.csv.counted")], ...points.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.value * 10) / 10, p.n])],
     <ColumnChart
       tone={opts.tone}
       columns={points.map((p) => ({
@@ -256,7 +275,9 @@ export function StatsPanel({
     if (!next.delete(card)) next.add(card);
     return next;
   });
-  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false) => (
+  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false) => withCsv(
+    card,
+    () => [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
     <BarList
       limit={listLimit(card, list.length, limit)}
       tone={tone}
@@ -278,7 +299,9 @@ export function StatsPanel({
   );
 
   /** Shares as percentage bars; a pick lists the rows `missing` holds when `listMissing`. */
-  const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean, graded = false) => (
+  const shares = (card: string, items: { key: string; label: string; share: Share; tone?: Tone }[], listMissing: boolean, graded = false) => withCsv(
+    card,
+    () => [["", t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...items.map(({ label, share }) => [label, share.n, share.of, pct(share.n, share.of)])],
     <BarList
       max={100}
       picked={pickedIn(card)}
@@ -322,6 +345,11 @@ export function StatsPanel({
         <h3>{title}</h3>
         {note && <span className="stats-card-note">{note}</span>}
         <span className="stats-card-tools">
+          {csvOf.has(id) && (
+            <button type="button" className="stats-info" onClick={() => downloadText(savedName(fileName, `${id}.csv`), toCsv(csvOf.get(id)!()), "text/csv;charset=utf-8")} {...tipProps(t("stats.downloadCsv"))}>
+              <DownloadIcon size={14} />
+            </button>
+          )}
           {more !== undefined && (
             <button
               type="button"
@@ -346,7 +374,7 @@ export function StatsPanel({
       </header>
       {body}
       {pick?.card === id && (
-        <PickList key={`${pick.card}:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={id === "relatedCouples" ? onOpenRelationship : undefined} />
+        <PickList key={`${pick.card}:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={id === "relatedCouples" ? onOpenRelationship : undefined} />
       )}
     </section>
   );
@@ -368,7 +396,9 @@ export function StatsPanel({
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
 
   /** Top names or occupations per century, as chips that list their people. */
-  const centuryTable = (id: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => (
+  const centuryTable = (id: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => withCsv(
+    id,
+    () => [[t("stats.centuryCol"), "", t("stats.csv.count")], ...rows.flatMap((row) => row.cells.flatMap((list, col) => list.map((b) => [`${row.century}–${row.century + 99}`, columns.length > 1 ? `${columns[col].head}: ${b.label}` : b.label!, b.count])))],
     <table className="stats-table">
       <thead>
         <tr><th>{t("stats.centuryCol")}</th>{columns.map((c) => <th key={c.head}>{c.head}</th>)}</tr>
@@ -415,6 +445,40 @@ export function StatsPanel({
     scope.approx,
   ].filter(Boolean).length;
   const families = scoped.families.length;
+
+  // The export rows of the cards drawn without the shared helpers above.
+  const personName = (id: string) => {
+    const indi = dataset.individuals.get(id);
+    return indi ? nameOf(indi) : id;
+  };
+  if (ov) csvOf.set("topBirthCountries", () => [[t("stats.topBirthCountries"), t("stats.csv.count")], ...ov.topBirthCountries.map((b) => [countryName(b.key), b.count])]);
+  if (life) csvOf.set("oldest", () => [[t("stats.csv.person"), t("stats.ageAtDeath")], ...life.oldest.map((o) => [personName(o.id), o.age])]);
+  if (deaths) csvOf.set("causeAge", () => [[t("stats.causes"), t("stats.meanAgeAtDeath"), t("stats.csv.counted")], ...deaths.ageByCause.map((c) => [c.label, Math.round(c.value * 10) / 10, c.ids.length])]);
+  if (moves) csvOf.set("countryMoves", () => [[t("stats.csv.from"), t("stats.csv.to"), t("stats.csv.count")], ...moves.countryMoves.map((b) => {
+    const [from, to] = b.key.split(">");
+    return [countryName(from), countryName(to), b.count];
+  })]);
+  if (lineage) {
+    csvOf.set("ancestorsGen", () => [[t("stats.csv.generation"), t("stats.csv.has"), t("stats.csv.of")], ...lineage.ancestors.map((g) => [g.gen, g.filled, g.slots])]);
+    csvOf.set("ancestorsSide", () => [
+      [t("stats.csv.generation"), t("stats.side.paternal"), t("stats.side.maternal"), t("stats.csv.of")],
+      ...lineage.ancestors.map((g) => [g.gen, g.paternal.filled, g.maternal.filled, g.slots / 2]),
+    ]);
+    csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places")], ...lineage.repeated.map((r) => [personName(r.id), r.count])]);
+    csvOf.set("descendantsGen", () => [[t("stats.csv.generation"), t("stats.csv.count")], ...lineage.descendants.map((g) => [g.gen, g.ids.length])]);
+  }
+  if (research) csvOf.set("sourcedByTag", () => [[t("stats.csv.event"), t("stats.csv.has"), t("stats.csv.of"), t("stats.csv.share")], ...research.byTag.map((s) => [eventDisplayLabel(s.tag, t), s.sourced, s.events, pct(s.sourced, s.events)])]);
+  if (research && researchBySide) csvOf.set("sourcedBySide", () => [
+    [t("stats.csv.event"), t("stats.side.paternal"), t("stats.side.maternal")],
+    ...research.byTag.map((s) => {
+      const side = (r: typeof research) => {
+        const x = r.byTag.find((y) => y.tag === s.tag);
+        return x && x.events ? pct(x.sourced, x.events) : "";
+      };
+      return [eventDisplayLabel(s.tag, t), side(researchBySide.paternal), side(researchBySide.maternal)];
+    }),
+  ]);
+  if (related) csvOf.set("relatedCouples", () => [[t("stats.relatedCouples"), t("stats.csv.count")], ...COUPLE_KINSHIP.map((k) => [t(`stats.kin.${k}`), related.byKind[k].length])]);
 
   return (
     <div className="tools-stats-panel">
@@ -560,7 +624,7 @@ export function StatsPanel({
                 <StatTile label={t("stats.childrenPerFamily")} value={dec(ov.childrenPerFamily.value)} />
               )}
               {pick?.card === "tiles" && (
-                <PickList key={`tiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`tiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
             {card("complete", t("stats.completeness"), null, shares("complete", [
@@ -653,7 +717,7 @@ export function StatsPanel({
                 <StatTile label={t("stats.marriedRelatives")} value={num(relatedIds.length)} sub={pct(relatedIds.length, related.of)} onClick={relatedIds.length ? () => choose("famTiles", "related", t("stats.marriedRelatives"), relatedIds, true) : undefined} picked={pickedIn("famTiles") === "related"} />
               )}
               {pick?.card === "famTiles" && (
-                <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={pick.key === "related" ? onOpenRelationship : undefined} />
+                <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={pick.key === "related" ? onOpenRelationship : undefined} />
               )}
             </section>
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
@@ -685,7 +749,7 @@ export function StatsPanel({
               )}
               {births.baptismMean && <StatTile label={t("stats.baptismMean")} value={dec(births.baptismMean.value)} sub={t("stats.nPeople", { count: births.baptismMean.n })} />}
               {pick?.card === "birthTiles" && (
-                <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
             {card("birthDecade", t("stats.birthsOverTime"), null, buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
@@ -724,7 +788,7 @@ export function StatsPanel({
                 <StatTile label={t("stats.withEducation")} value={num(jobs.withEducation.n)} sub={pct(jobs.withEducation.n, jobs.withEducation.of)} onClick={() => choose("jobTiles", "edu", t("stats.withEducation"), jobs.withEducation.ids)} picked={pickedIn("jobTiles") === "edu"} />
               )}
               {pick?.card === "jobTiles" && (
-                <PickList key={`jobTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`jobTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
             {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
@@ -744,7 +808,7 @@ export function StatsPanel({
               <StatTile label={t("stats.emigrants")} value={num(moves.emigrants.n)} sub={pct(moves.emigrants.n, moves.emigrants.of)} onClick={moves.emigrants.n ? () => choose("moveTiles", "emigrants", t("stats.emigrants"), moves.emigrants.ids) : undefined} picked={pickedIn("moveTiles") === "emigrants"} />
               <StatTile label={t("stats.samePlaceCouples")} value={num(moves.samePlaceCouples.n)} sub={pct(moves.samePlaceCouples.n, moves.samePlaceCouples.of)} onClick={moves.samePlaceCouples.n ? () => choose("moveTiles", "samePlace", t("stats.samePlaceCouples"), moves.samePlaceCouples.ids, true) : undefined} picked={pickedIn("moveTiles") === "samePlace"} />
               {pick?.card === "moveTiles" && (
-                <PickList key={`moveTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`moveTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
             {!moves.distanceMean && <p className="muted stats-empty stats-note">{t("stats.noDistances")}</p>}
@@ -788,7 +852,7 @@ export function StatsPanel({
               <StatTile label={t("stats.descendantsCount")} value={num(lineage.descendantIds.length)} onClick={lineage.descendantIds.length ? () => choose("genTiles", "desc", t("stats.descendantsCount"), lineage.descendantIds) : undefined} picked={pickedIn("genTiles") === "desc"} />
               <StatTile label={t("stats.livingDescendants")} value={num(lineage.livingDescendants.length)} onClick={lineage.livingDescendants.length ? () => choose("genTiles", "living", t("stats.livingDescendants"), lineage.livingDescendants) : undefined} picked={pickedIn("genTiles") === "living"} />
               {pick?.card === "genTiles" && (
-                <PickList key={`genTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`genTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
             {lineage.ancestors.length > 0 && card("ancestorsGen", t("stats.ancestorsByGen"), null, (
@@ -868,7 +932,7 @@ export function StatsPanel({
               {research.citationsMean && <StatTile label={t("stats.citationsMean")} value={dec(research.citationsMean.value)} />}
               <StatTile label={t("stats.noEvents")} value={num(research.noEvents.length)} sub={pct(research.noEvents.length, people)} onClick={research.noEvents.length ? () => choose("researchTiles", "noEvents", t("stats.noEvents"), research.noEvents) : undefined} picked={pickedIn("researchTiles") === "noEvents"} />
               {pick?.card === "researchTiles" && (
-                <PickList key={`researchTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+                <PickList key={`researchTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
             {card("sourcedByTag", t("stats.sourcedByTag"), null, (
@@ -934,17 +998,45 @@ function YearInput({ value, onChange, label }: { value?: number; onChange: (v: n
 }
 
 /** The people (or couples) behind a picked bar, each opening in Edit. */
-function PickList({ pick, dataset, onNavigate, onClose, onRelate }: { pick: Pick; dataset: Dataset; onNavigate: (id: string) => void; onClose: () => void; onRelate?: (fromId: string, toId: string) => void }) {
+function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
+  pick: Pick;
+  dataset: Dataset;
+  fileName: string;
+  onNavigate: (id: string) => void;
+  onClose: () => void;
+  onRelate?: (fromId: string, toId: string) => void;
+}) {
   const { t } = useTranslation();
+  const nameOf = useNameOf();
   // The whole list, windowed: a bar can stand for half a million people, and
   // only the rows in the scroll box are ever mounted.
   const virtual = useVirtualList({ count: pick.ids.length, estimate: 34, itemsKey: pick.ids });
+  /** The listed people (or couples) as a table: record id, name, years. */
+  const download = () => {
+    const person = (id: string | undefined) => {
+      const indi = id ? dataset.individuals.get(id) : undefined;
+      return indi ? [nameOf(indi), lifespanOf(indi)] : ["", ""];
+    };
+    const rows: (string | number)[][] = pick.families
+      ? [[t("stats.csv.id"), t("stats.csv.husband"), t("stats.csv.years"), t("stats.csv.wife"), t("stats.csv.years")],
+        ...pick.ids.map((id) => {
+          const fam = dataset.families.get(id);
+          return [id, ...person(fam?.husband), ...person(fam?.wife)];
+        })]
+      : [[t("stats.csv.id"), t("stats.csv.person"), t("stats.csv.years")], ...pick.ids.map((id) => [id, ...person(id)])];
+    downloadText(savedName(fileName, "list.csv"), toCsv(rows), "text/csv;charset=utf-8");
+  };
   return (
     <div className="stats-pick">
       <div className="stats-pick-head">
         <strong>{pick.title}</strong>
         <span className="muted">{pick.families ? t("stats.nFamilies", { count: pick.ids.length }) : t("stats.nPeople", { count: pick.ids.length })}</span>
-        <button type="button" className="tools-issue-link stats-pick-close" onClick={onClose} aria-label={t("stats.closeList")}>✕</button>
+        <span className="stats-pick-tools">
+          <button type="button" className="stats-info" onClick={download} {...tipProps(t("stats.downloadList"))}>
+            <DownloadIcon size={14} />
+          </button>
+          <button type="button" className="tools-issue-link stats-pick-close" onClick={onClose} aria-label={t("stats.closeList")}>✕</button>
+        </span>
       </div>
       <ul className="tools-issues">
         <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
