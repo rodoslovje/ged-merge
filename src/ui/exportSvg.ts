@@ -172,7 +172,7 @@ function bakeColorMix(value: string, ctx: ColorCtx): string {
  * back — an export looks the same whichever scheme the UI is in. Everything
  * inside must be synchronous, or the page paints a frame in the wrong theme.
  */
-function withLightPalette<T>(fn: () => T): T {
+export function withLightPalette<T>(fn: () => T): T {
   const root = document.documentElement;
   const prev = root.getAttribute("data-theme");
   root.setAttribute("data-theme", "light");
@@ -385,7 +385,7 @@ function svgText(text: string, x: number, y: number, attrs: Record<string, strin
   return el;
 }
 
-interface BuiltSvg {
+export interface BuiltSvg {
   svg: SVGSVGElement;
   width: number;
   height: number;
@@ -675,6 +675,38 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
   const { svg } = await buildExportSvg(live, opts);
   const blob = new Blob([serialize(svg)], { type: "image/svg+xml;charset=utf-8" });
   downloadBlob(withExportStem(fileName, "svg"), blob);
+}
+
+/** Download a standalone, banded SVG built elsewhere (Statistics draws its
+ *  cards from the page) as a `.svg` file. */
+export function downloadBuiltSvg(built: BuiltSvg, fileName: string): void {
+  const blob = new Blob([serialize(built.svg)], { type: "image/svg+xml;charset=utf-8" });
+  downloadBlob(withExportStem(fileName, "svg"), blob);
+}
+
+/** The same picture as a `.png`, drawn at `scale` times its size so text stays
+ *  sharp on a high-density screen or in print. */
+export async function downloadBuiltPng(built: BuiltSvg, fileName: string, scale = 2): Promise<void> {
+  const url = URL.createObjectURL(new Blob([serialize(built.svg)], { type: "image/svg+xml;charset=utf-8" }));
+  try {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("SVG could not be drawn"));
+      img.src = url;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(built.width * scale);
+    canvas.height = Math.ceil(built.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, built.width, built.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (blob) downloadBlob(withExportStem(fileName, "png"), blob);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /**

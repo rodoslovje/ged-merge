@@ -129,7 +129,8 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   const completeness = panel.locator(".stats-card", { has: page.getByRole("heading", { name: "Completeness", exact: true }) });
 
   const cardCsv = page.waitForEvent("download");
-  await completeness.getByRole("button", { name: "Download the numbers as CSV" }).click();
+  await completeness.getByRole("button", { name: "Export" }).click();
+  await completeness.getByRole("menuitem", { name: "CSV table" }).click();
   const numbers = readFileSync((await (await cardCsv).path())!, "utf-8");
   expect(numbers).toContain("Birth place,3,4,75%");
 
@@ -138,4 +139,21 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   await completeness.getByRole("button", { name: "Download the list as CSV" }).click();
   const list = readFileSync((await (await listCsv).path())!, "utf-8");
   expect(list).toContain("@I3@,Ivana Bergant,1895–1970");
+
+  // The card as a picture: its title and rows drawn as SVG text.
+  const cardSvg = page.waitForEvent("download");
+  await completeness.getByRole("button", { name: "Export" }).click();
+  await completeness.getByRole("menuitem", { name: "SVG image" }).click();
+  const svg = readFileSync((await (await cardSvg).path())!, "utf-8");
+  expect(svg).toContain("<svg");
+  expect(svg).toContain(">Completeness<");
+  expect(svg).toContain(">Birth place<");
+
+  // The whole page as a PNG.
+  const pagePng = page.waitForEvent("download");
+  await panel.locator(".stats-head").getByRole("button", { name: "Export" }).click();
+  await panel.locator(".stats-head").getByRole("menuitem", { name: "PNG image" }).click();
+  const png = await pagePng;
+  expect(png.suggestedFilename()).toMatch(/\.png$/);
+  expect(readFileSync((await png.path())!).subarray(1, 4).toString()).toBe("PNG");
 });

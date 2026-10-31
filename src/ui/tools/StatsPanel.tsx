@@ -22,6 +22,9 @@ import { researchStats } from "../../stats/research";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { tipProps } from "../IconTip";
 import { InfoIcon } from "../icons/InfoIcon";
+import { FileTextIcon, ImageIcon } from "../icons/FormatIcons";
+import { ExportMenu, type ExportItem } from "../ExportMenu";
+import { exportStats } from "./statsSvg";
 import { ChartIcon } from "../icons/ChartIcon";
 import { DownloadIcon } from "../icons/DownloadIcon";
 import { downloadText, savedName } from "../download";
@@ -334,6 +337,22 @@ export function StatsPanel({
           : id === "repeatedAncestors" ? t("stats.click.person")
           : id === "sourcedByTag" ? t("stats.click.unsourced")
           : t("stats.click.bar");
+  /** Downloads of what `root` shows: its numbers as CSV where it has them, and
+   *  the picture as SVG or PNG. */
+  const exportsOf = (name: string, title: string, root: () => HTMLElement | null, csv?: () => (string | number)[][]): ExportItem[] => {
+    const base = `${fileName.replace(/\.[^.]+$/, "")}.${name}`;
+    const picture = (format: "svg" | "png") => () => {
+      const node = root();
+      if (node) void exportStats(node, format, base, { title, fileName: base });
+    };
+    return [
+      ...(csv ? [{ key: "csv", icon: <FileTextIcon />, label: t("export.csv"), onSelect: () => downloadText(savedName(fileName, `${name}.csv`), toCsv(csv()), "text/csv;charset=utf-8") }] : []),
+      { key: "svg", icon: <ImageIcon />, label: t("export.svg"), onSelect: picture("svg") },
+      { key: "png", icon: <ImageIcon />, label: t("export.png"), onSelect: picture("png") },
+    ];
+  };
+  const cardExports = (id: string, title: string) =>
+    exportsOf(id, title, () => document.querySelector<HTMLElement>(`[data-stats-card="${id}"]`), csvOf.get(id));
   const card = (id: string, title: string, note: ReactNode, body: ReactNode, wide = false) => {
     // What the numbers are and how they were taken — one tip per card.
     const about = `stats.about.${ABOUT_ALIAS[id] ?? id}`;
@@ -341,16 +360,12 @@ export function StatsPanel({
     const more = moreOf.get(id);
     const open = expanded.has(id);
     return (
-    <section className={`stats-card${wide ? " wide" : ""}`} key={id}>
+    <section className={`stats-card${wide ? " wide" : ""}`} key={id} data-stats-card={id}>
       <header className="stats-card-head">
         <h3>{title}</h3>
         {note && <span className="stats-card-note">{note}</span>}
         <span className="stats-card-tools">
-          {csvOf.has(id) && (
-            <button type="button" className="stats-info" onClick={() => downloadText(savedName(fileName, `${id}.csv`), toCsv(csvOf.get(id)!()), "text/csv;charset=utf-8")} {...tipProps(t("stats.downloadCsv"))}>
-              <DownloadIcon size={14} />
-            </button>
-          )}
+          <ExportMenu compact items={cardExports(id, title)} />
           {more !== undefined && (
             <button
               type="button"
@@ -541,6 +556,10 @@ export function StatsPanel({
           </button>
         </div>
         )}
+        {/* The whole page as one picture: every card as it stands. */}
+        <span className={personal ? "stats-head-end" : undefined}>
+          <ExportMenu items={exportsOf(page === "tree" ? "statistics" : `statistics-${page}`, `${t("tools.tool.stats")} — ${t(`stats.page.${page}`)}`, () => document.querySelector<HTMLElement>(".tools-stats-panel .stats-grid"))} />
+        </span>
       </div>
 
       {filtersOpen && !personal && (
