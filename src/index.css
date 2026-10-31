@@ -9528,8 +9528,10 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-name-chip:hover, .stats-name-chip.picked { border-color: var(--accent); }
 /* The men's and women's columns of the names-by-century table. */
 .stats-table td.stats-male .stats-name-chip, .stats-table td.stats-female .stats-name-chip { border-color: color-mix(in oklch, var(--stats-bar) 50%, var(--border)); }
-.stats-oldest { margin: 0; padding-left: 1.6em; font-size: 0.9rem; }
+.stats-oldest { margin: 0; padding-left: 1.6em; font-size: 0.85rem; }
 .stats-oldest li { padding: 2px 0; }
+/* A name, and the age set to the right edge so the ages read as one column. */
+.stats-oldest-age { float: right; font-variant-numeric: tabular-nums; }
 
 /* The people behind a picked bar, inside the card that was clicked. */
 .stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }

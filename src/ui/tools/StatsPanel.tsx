@@ -629,8 +629,8 @@ export function StatsPanel({
               <ol className="stats-oldest">
                 {life.oldest.map((o) => (
                   <li key={o.id}>
-                    <PersonLink dataset={dataset} id={o.id} fallback={o.id} onNavigate={onNavigate} />
-                    <span className="muted"> {t("stats.years", { count: o.age })}</span>
+                    <NameLink dataset={dataset} id={o.id} onNavigate={onNavigate} />
+                    <span className="muted stats-oldest-age">{t("stats.years", { count: o.age })}</span>
                   </li>
                 ))}
               </ol>
