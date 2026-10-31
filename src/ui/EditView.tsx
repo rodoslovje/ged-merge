@@ -197,6 +197,9 @@ interface Props {
   onUpdateDecision?: (key: string, next: CandidateDecision) => void;
   /** Called with each edit's patches so the parent can push to the unified undo stack. */
   onPushEdit: (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => void;
+  /** Save a source record's own fields — the page lookup Add source left
+   *  running fills the source it created once it answers. */
+  onEditSourceRecord?: (sourceXref: string, fields: EditSourceFields) => void;
   /** Called after undo/redo patches are applied so the parent can update dirty tracking. */
   onPatchApplied?: (patches: RecordPatch[], direction: "undo" | "redo") => void;
   /** When non-null, apply these patches and then call onApplied. */
@@ -234,7 +237,7 @@ const SETTINGS_KEYS = ["order", "showAge", "showEditMap", "showKinship", "quickE
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onEditSourceRecord, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -1021,7 +1024,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    */
   function resolveSourceFields(
     fields: AddSourceResult,
-  ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
+  ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[]; created?: boolean } {
     if (fields.url) {
       // The film, collection and page about to be written are what decide
       // which source this citation joins — a FamilySearch link says none of
@@ -1049,7 +1052,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         return { sourceXref: match.sourceXref, page: fields.page ?? match.page, pageObjeXref, extraPatches };
       }
     }
-    return createStandaloneSource(dataset.records, fields, {
+    const created = createStandaloneSource(dataset.records, fields, {
       sourceLayout: formatOverrides.sourceLayout ?? "auto",
       sourceCoverage: formatOverrides.sourceCoverage ?? "auto",
       baptism: formatOverrides.baptism ?? "auto",
@@ -1057,6 +1060,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       standard: formatOverrides.standard,
       writeVersion: formatOverrides.writeVersion,
     });
+    return { ...created, created: true };
   }
 
   /** How this file names a cited page — Settings → Cited page, whose "auto"
@@ -1093,9 +1097,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     linkPageMedia(event, pageObjeXref, EVENT_CHILD_ORDER);
   }
 
-  function handleAddSource(fields: AddSourceResult) {
+  /** Returns the source record the Add created, if it made a new one. */
+  function handleAddSource(fields: AddSourceResult): string | undefined {
     if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
-    const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(fields);
+    const { sourceXref, page, pageObjeXref, extraPatches, created } = resolveSourceFields(fields);
     // How good the reader judged this reference's evidence: the dialog's own
     // field, not something the source record can say.
     const cite: NewCitation = { sourceXref, page, quay: fields.quay };
@@ -1131,6 +1136,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       sourceDialogTarget.commitField({ addSource: { ...cite, pageObjeXref: pageObje } }, extraPatches);
     }
     setSourceDialogTarget(null);
+    return created ? sourceXref : undefined;
   }
 
 /**
@@ -2292,6 +2298,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         isOpen={sourceDialogTarget !== null}
         onClose={() => setSourceDialogTarget(null)}
         onAdd={handleAddSource}
+        onCompleteSource={onEditSourceRecord}
         dataset={dataset}
         t={t}
         editing={editingSourceDialog}

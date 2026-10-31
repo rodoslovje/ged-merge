@@ -1,12 +1,12 @@
 import { useFormatOverrides } from "./TargetFormatContext";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
-import { getSourceLookup, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
+import { completedSourceFields, getSourceLookup, type CompletableSourceFields, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
 import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, sourceRegisterOf, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, sourceRegisterOf, splitFsRegisters, type RecognizedSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { detectSourceCoverage, repoLinkWanted } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
@@ -58,7 +58,11 @@ export type AddSourceResult = NewSourceFields & {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (fields: AddSourceResult) => void;
+  /** Returns the source record the Add created, when it made a new one. */
+  onAdd: (fields: AddSourceResult) => string | void;
+  /** Save a source record's fields: an Add confirmed while the page lookup
+   *  was still running fills the source it created once the answer comes. */
+  onCompleteSource?: (sourceXref: string, fields: EditSourceFields) => void;
   dataset: Dataset;
   t: Translate;
   /** When given, the dialog edits an existing citation instead of adding a
@@ -103,12 +107,54 @@ function extractPage(url: string): string | undefined {
 /** No link language known while the dialog is shut (nothing is rewritten). */
 const CLOSED_LINK_LANGS = { matricula: undefined, geneanet: undefined };
 
+/**
+ * Upgrade the seeded fields with what the page lookup said — a field only
+ * while it still holds the offline proposal (or is empty), so the user's own
+ * edits always win. The archive's id is as good offline as fetched, and the
+ * fetched title — a cemetery's name — must not drop it (same as `refetch`).
+ * It lands in the field the seed picked: the call number (`idOnCaln`, which
+ * the caller fills), or the filing number.
+ */
+function upgradeFromLookup(
+  f: FormState,
+  meta: ReshapeMeta,
+  recognized: RecognizedSourceUrl | undefined,
+  resolvePlace: (place: string | undefined) => string | undefined,
+  idOnCaln: boolean,
+): FormState {
+  const proposal = recognized?.proposed;
+  // The seed stitched the id into a Geneanet title, so that — not the bare
+  // proposal — is the baseline a fetched title may replace.
+  const proposedTitle = siteSourceTitle(recognized?.site, proposal?.title, proposal?.filingNumber) ?? proposal?.title;
+  const upgrade = (current: string, proposed: string | undefined, value: string | undefined) =>
+    value && (!current.trim() || current === proposed) ? value : current;
+  const id = meta.filingNumber ?? proposal?.filingNumber;
+  const title = upgrade(f.title, proposedTitle, meta.title);
+  return {
+    ...f,
+    title: siteSourceTitle(recognized?.site, title, id || f.filingNumber) ?? title,
+    author: upgrade(f.author, undefined, meta.author),
+    periodical: upgrade(f.periodical, undefined, meta.periodical),
+    publisher: upgrade(f.publisher, undefined, meta.publisher),
+    agency: upgrade(f.agency, proposal?.agency, meta.agency),
+    place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
+    filingNumber: idOnCaln ? f.filingNumber : upgrade(f.filingNumber, proposal?.filingNumber, id),
+    page: upgrade(f.page, recognized?.page, meta.page),
+  };
+}
+
+/** The fields a lookup answering after the Add may still fill on the source. */
+function completable(f: FormState): CompletableSourceFields {
+  const trim = (s: string) => s.trim() || undefined;
+  return { title: trim(f.title), author: trim(f.author), periodical: trim(f.periodical), publisher: trim(f.publisher), agency: trim(f.agency) };
+}
+
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   const rec = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
 }
 
-export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone }: Props) {
+export function AddSourceDialog({ isOpen, onClose, onAdd, onCompleteSource, dataset, t, editing, standalone }: Props) {
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   // The Repository dropdown: "" = none, a REPO xref, "@create@" for the
@@ -129,6 +175,18 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // number, or the source's own filing number — so the lookup answering later
   // upgrades the same field instead of filling both.
   const idOnCaln = useRef(false);
+  // The page lookup in flight for the pasted link — an Add confirmed before it
+  // answers still gets its answer, written onto the source it created.
+  const pendingLookup = useRef<{ url: string; answer: Promise<ReshapeMeta | undefined> } | undefined>(undefined);
+  // What a late answer checks before writing: the dialog is still mounted (a
+  // file reload remounts Edit) and the file is still the one it was asked for.
+  const live = useRef({ mounted: true, dataset });
+  live.current.dataset = dataset;
+  useEffect(() => {
+    const state = live.current;
+    state.mounted = true;
+    return () => { state.mounted = false; };
+  }, []);
   const { settings } = useSettings();
   const formatOverrides = useFormatOverrides();
   const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
@@ -419,37 +477,15 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   useEffect(() => {
     if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) return;
     let cancelled = false;
-    const proposal = recognized?.proposed;
-    // The seed stitched the id into a Geneanet title, so that — not the bare
-    // proposal — is the baseline a fetched title may replace.
-    const proposedTitle = siteSourceTitle(recognized?.site, proposal?.title, proposal?.filingNumber) ?? proposal?.title;
-    void lookUp(normalizedUrl, { anyPage: true }).then((meta) => {
+    const answer = lookUp(normalizedUrl, { anyPage: true });
+    pendingLookup.current = { url: normalizedUrl, answer };
+    void answer.then((meta) => {
+      if (pendingLookup.current?.answer === answer) pendingLookup.current = undefined;
       if (cancelled || !meta) return;
       setFetched(meta);
-      // Fetched metadata upgrades a field only while it still holds the
-      // offline proposal (or is empty) — the user's own edits always win.
-      const upgrade = (current: string, proposed: string | undefined, value: string | undefined) =>
-        value && (!current.trim() || current === proposed) ? value : current;
-      // The archive's id is as good offline as fetched, and the fetched title
-      // — the cemetery's name — must not drop it (same as `refetch`). It lands
-      // in the field the seed picked: the call number, or the filing number.
-      const id = meta.filingNumber ?? proposal?.filingNumber;
-      setFields((f) => {
-        if (f.url !== normalizedUrl) return f;
-        const title = upgrade(f.title, proposedTitle, meta.title);
-        return {
-          ...f,
-          title: siteSourceTitle(recognized?.site, title, id || f.filingNumber) ?? title,
-          author: upgrade(f.author, undefined, meta.author),
-          periodical: upgrade(f.periodical, undefined, meta.periodical),
-          publisher: upgrade(f.publisher, undefined, meta.publisher),
-          agency: upgrade(f.agency, proposal?.agency, meta.agency),
-          place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
-          filingNumber: idOnCaln.current ? f.filingNumber : upgrade(f.filingNumber, proposal?.filingNumber, id),
-          page: upgrade(f.page, recognized?.page, meta.page),
-        };
-      });
-      if (idOnCaln.current && id) setRepoCaln((caln) => (caln.trim() ? caln : id));
+      setFields((f) => (f.url !== normalizedUrl ? f : upgradeFromLookup(f, meta, recognized, resolvePlace, idOnCaln.current)));
+      const id = idOnCaln.current ? meta.filingNumber ?? recognized?.proposed.filingNumber : undefined;
+      if (id) setRepoCaln((caln) => (caln.trim() ? caln : id));
     });
     return () => { cancelled = true; };
   }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, lookUp]);
@@ -581,7 +617,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       recognized?.site === "familysearch"
         ? [recognized.page, chosen?.page].find((p) => !!p && /^\d+$/.test(p))
         : undefined;
-    onAdd({
+    // A lookup still on its way for this link: the Add goes ahead with what
+    // the fields hold now, and the answer completes the source it created.
+    const inFlight = pendingLookup.current;
+    const pending = inFlight && fetching && inFlight.url === normalizedUrl ? inFlight.answer : undefined;
+    const sourceXref = onAdd({
       ...trimmedFields(fields),
       fsImage,
       site: recognized?.site,
@@ -599,6 +639,18 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       repoCreateName: repoSel === "@new@" || repoSel === "@create@" ? repoName.trim() || undefined : undefined,
       repoCaln: repoCaln.trim() || undefined,
     });
+    if (pending && sourceXref && onCompleteSource) {
+      const written = fields;
+      const asked = dataset;
+      const site = recognized;
+      const onCaln = idOnCaln.current;
+      void pending.then((meta) => {
+        if (!meta || !live.current.mounted || live.current.dataset !== asked) return;
+        const after = completable(upgradeFromLookup(written, meta, site, resolvePlace, onCaln));
+        const next = completedSourceFields(asked.records, sourceXref, completable(written), after);
+        if (next) onCompleteSource(sourceXref, next);
+      });
+    }
     reset();
   }
 
@@ -694,7 +746,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             </div>
           )}
           {!match && !editing && recognized && (
-            <div className="add-source-chip">
+            <div className={`add-source-chip${fetching ? " is-fetching" : ""}`}>
               <span className="add-source-chip-check" aria-hidden="true">{fetching ? "…" : "✓"}</span>
               <span>{t(fetching ? "addSource.fetching" : "addSource.recognized")}</span>
               <span className="add-source-chip-site">
@@ -727,7 +779,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           {!match && !editing && recognized && !settings.allowLinkFetch && (
             <div className="add-source-hint">{t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</div>
           )}
-          {fetching && !recognized && <div className="add-source-hint">{t("addSource.fetching")}</div>}
+          {fetching && !recognized && <div className="add-source-hint is-fetching">{t("addSource.fetching")}</div>}
           {!match && (
             <SourceFieldsForm
               values={fields}

@@ -7696,6 +7696,9 @@ kbd {
   border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
   border-radius: var(--radius);
 }
+/* The page is still being read: not yet the green of a finished lookup. */
+.add-source-chip.is-fetching,
+.add-source-hint.is-fetching { --accent: var(--status-pending); }
 .add-source-chip-site {
   margin-left: auto;
   font-family: var(--font-mono);

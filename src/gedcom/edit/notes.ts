@@ -3,7 +3,7 @@ import { isPointer } from "../uri";
 import { detectPrivacyStyle, isPrivateNode, isV7, setPrivateFlag, type PrivacyTagStyle } from "../private";
 import { isHtmlNote } from "../noteHtml";
 import type { Dataset, GedNode, NoteRef } from "../types";
-import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
+import { bumpSourceCacheVersion, rebuildReferrers } from "./cache";
 import { insertOrdered, insertRecord, nextXref } from "./shared";
 import { NOTE_TAGS } from "../builder";
 
@@ -346,18 +346,5 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
  */
 export function rebuildNoteReferrers(dataset: Dataset, changes: { xref: string }[], skipId?: string): void {
   if (!changes.length) return;
-  const xrefs = new Set(changes.map((c) => c.xref));
-  const referencesChanged = (raw: GedNode): boolean => {
-    const walk = (node: GedNode): boolean =>
-      node.children.some(
-        (c) => (NOTE_TAGS.includes(c.tag) && c.value && xrefs.has(c.value.trim())) || walk(c),
-      );
-    return walk(raw);
-  };
-  for (const indi of dataset.individuals.values()) {
-    if (indi.id !== skipId && referencesChanged(indi.raw)) rebuildIndividual(dataset, indi);
-  }
-  for (const fam of dataset.families.values()) {
-    if (fam.id !== skipId && referencesChanged(fam.raw)) rebuildFamily(dataset, fam);
-  }
+  rebuildReferrers(dataset, new Set(changes.map((c) => c.xref)), NOTE_TAGS, skipId);
 }
