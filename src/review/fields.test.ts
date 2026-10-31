@@ -189,6 +189,12 @@ describe("attribute tags and vendor events (BK premium support)", () => {
     expect(byKey(individualFieldRows(tr, flagged.individuals.get("@I1@"), undefined), "DEAT.value")).toBeUndefined();
   });
 
+  it("labels a description on a birth's line as a value", () => {
+    const rows = individualFieldRows(tr, dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT nezakonski otrok\n2 DATE 1814\n0 TRLR\n`).individuals.get("@I1@"), undefined);
+    expect(byKey(rows, "BIRT.value")?.main).toBe("nezakonski otrok");
+    expect(byKey(rows, "BIRT.value")?.label).toBe("event.colValue");
+  });
+
   it("lifts Brother's Keeper _INTE/_FNRL/_MILT as events with date and place", () => {
     const rows = individualFieldRows(tr,
       dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n1 DEAT\n2 DATE 20 APR 1910\n1 _MILT vojak\n2 DATE 1871\n1 _FNRL\n2 DATE 24 APR 1910\n2 PLAC Tunjice\n1 _INTE\n2 PLAC Tunjice\n0 TRLR\n`).individuals.get("@I1@"),

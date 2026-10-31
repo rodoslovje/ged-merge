@@ -7,9 +7,11 @@ import { tmpdir } from "./tmpdir";
 // (`1 DEAT exact date unknown`). Merge always compared it; Edit now shows it on
 // the extras line too. A bare `1 DEAT Y` only says the person died: Edit shows
 // no value for it and keeps the flag when another field of the death changes.
+// Any other event may carry such a description too (`1 BIRT nezakonski otrok`):
+// Edit shows it while it is there, to edit or clear.
 
 function fixture(name: string, deathLine: string): string {
-  const file = path.join(tmpdir(), `death-line-value-${name}.ged`);
+  const file = path.join(tmpdir(), `event-line-value-${name}.ged`);
   writeFileSync(file, [
     "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
     "0 @I1@ INDI", "1 NAME Anton /Renka/", "1 SEX M",
@@ -47,4 +49,14 @@ test("a bare Y on the death line stays a flag", async ({ page }) => {
   await person.getByRole("textbox", { name: "Death date" }).fill("1919");
   await person.getByRole("textbox", { name: "Death date" }).press("Tab");
   expect(await saveContent(page)).toMatch(/1 DEAT Y\r?\n2 DATE 1919/);
+});
+
+test("a birth's line value shows in Edit and can be cleared", async ({ page }) => {
+  const person = await open(page, fixture("birth", "1 BIRT nezakonski otrok"));
+  const value = person.getByRole("textbox", { name: "Birth value" });
+  await expect(value).toHaveValue("nezakonski otrok");
+  await value.fill("");
+  await value.press("Tab");
+  await expect(value).toHaveCount(0);
+  expect(await saveContent(page)).toMatch(/1 BIRT\r?\n2 DATE 1918/);
 });
