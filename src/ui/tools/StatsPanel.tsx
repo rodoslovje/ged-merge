@@ -472,6 +472,12 @@ export function StatsPanel({
               {ov.largestFamily && (
                 <StatTile label={t("stats.largestFamily")} value={t("stats.children", { count: ov.largestFamily.children })} sub={<Couple dataset={dataset} id={ov.largestFamily.id} onNavigate={onNavigate} nameOnly />} />
               )}
+              {scope.sex !== "F" && ov.mostChildrenMale && (
+                <StatTile tone="male" label={t("stats.mostChildrenMale")} value={t("stats.children", { count: ov.mostChildrenMale.children })} sub={<NameLink dataset={dataset} id={ov.mostChildrenMale.id} onNavigate={onNavigate} />} />
+              )}
+              {scope.sex !== "M" && ov.mostChildrenFemale && (
+                <StatTile tone="female" label={t("stats.mostChildrenFemale")} value={t("stats.children", { count: ov.mostChildrenFemale.children })} sub={<NameLink dataset={dataset} id={ov.mostChildrenFemale.id} onNavigate={onNavigate} />} />
+              )}
               {ov.childrenPerFamily && (
                 <StatTile label={t("stats.childrenPerFamily")} value={dec(ov.childrenPerFamily.value)} />
               )}

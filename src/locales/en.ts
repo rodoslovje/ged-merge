@@ -163,6 +163,8 @@ export const en = {
   "stats.years_one": "{{count}} year",
   "stats.years_other": "{{count}} years",
   "stats.largestFamily": "Largest family",
+  "stats.mostChildrenMale": "Most children, man",
+  "stats.mostChildrenFemale": "Most children, woman",
   "stats.children_one": "{{count}} child",
   "stats.children_other": "{{count}} children",
   "stats.childrenPerFamily": "Average children",

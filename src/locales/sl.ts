@@ -167,6 +167,8 @@ export const sl = {
   "stats.years_few": "{{count}} leta",
   "stats.years_other": "{{count}} let",
   "stats.largestFamily": "Največja družina",
+  "stats.mostChildrenMale": "Največ otrok, moški",
+  "stats.mostChildrenFemale": "Največ otrok, ženska",
   "stats.children_one": "{{count}} otrok",
   "stats.children_two": "{{count}} otroka",
   "stats.children_few": "{{count}} otroci",

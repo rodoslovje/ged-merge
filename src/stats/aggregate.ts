@@ -240,6 +240,9 @@ export interface Overview {
   ageAtDeath?: Mean;
   oldest?: { id: string; age: number };
   largestFamily?: { id: string; children: number };
+  /** The man and the woman with the most children over all their unions. */
+  mostChildrenMale?: { id: string; children: number };
+  mostChildrenFemale?: { id: string; children: number };
   childrenPerFamily?: Mean;
 }
 
@@ -286,9 +289,25 @@ export function overview(s: ScopedFacts): Overview {
     }
   }
   let largestFamily: Overview["largestFamily"];
+  // A parent's children over all their unions, each child once.
+  const childrenOf = new Map<string, Set<string>>();
   for (const f of s.families) {
     if (!largestFamily || f.children.length > largestFamily.children) largestFamily = { id: f.id, children: f.children.length };
+    for (const parent of [f.husband, f.wife]) {
+      if (!parent || !s.ids.has(parent)) continue;
+      let kids = childrenOf.get(parent);
+      if (!kids) childrenOf.set(parent, (kids = new Set()));
+      for (const child of f.children) kids.add(child);
+    }
   }
+  const mostChildren = (sex: "M" | "F") => {
+    let best: { id: string; children: number } | undefined;
+    for (const [id, kids] of childrenOf) {
+      if (s.byId.get(id)?.sex !== sex || !kids.size) continue;
+      if (!best || kids.size > best.children) best = { id, children: kids.size };
+    }
+    return best;
+  };
   const surnames = rankNames(s.people, "surname");
   const givens = new Set(s.people.map((p) => p.givenKey).filter(Boolean));
   return {
@@ -323,6 +342,8 @@ export function overview(s: ScopedFacts): Overview {
     ageAtDeath: mean(ages),
     oldest,
     largestFamily: largestFamily && largestFamily.children > 0 ? largestFamily : undefined,
+    mostChildrenMale: mostChildren("M"),
+    mostChildrenFemale: mostChildren("F"),
     childrenPerFamily: mean(s.families.map((f) => f.children.length)),
   };
 }

@@ -160,6 +160,8 @@ describe("aggregates", () => {
     expect(o.firstBirth).toEqual({ year: 1800, id: "@I1@" });
     expect(o.oldest).toEqual({ id: "@I1@", age: 70 });
     expect(o.largestFamily).toEqual({ id: "@F2@", children: 2 });
+    expect(o.mostChildrenMale).toEqual({ id: "@I3@", children: 2 });
+    expect(o.mostChildrenFemale).toEqual({ id: "@I4@", children: 2 });
     expect(o.completeness.birthPlace.n).toBe(3);
     expect(o.countries).toBe(2);
     expect(o.places).toBe(2);
