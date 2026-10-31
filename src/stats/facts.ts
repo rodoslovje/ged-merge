@@ -43,6 +43,15 @@ export interface PersonFacts {
   country: string;
   /** The death's cause (CAUS), as written. */
   cause?: string;
+  /** The birth (or baptism) place and the death (or burial) place, `""` for none. */
+  birthPlace: string;
+  deathPlace: string;
+  /** The birth date as `year-month-day`, when it names the day exactly — what twins share. */
+  birthDay?: string;
+  /** Days from the birth to the baptism (or christening), when both name the day. */
+  baptismDays?: number;
+  /** The occupations (OCCU) the person carries, as written, each once. */
+  occupations: string[];
   hasBirthDate: boolean;
   hasBirthPlace: boolean;
   hasDeathDate: boolean;
@@ -139,6 +148,21 @@ function firstPlace(indi: Individual, tags: readonly string[]): string {
 }
 
 /** Whole months from one dated event to another, when both name the month. */
+/** A date that names its day exactly, as a comparable key. */
+function dayKey(d: GedDate | undefined): string | undefined {
+  if (d?.year === undefined || d.month === undefined || d.day === undefined || isApproximate(d)) return undefined;
+  return `${d.year}-${d.month}-${d.day}`;
+}
+
+/** Days from the birth to the baptism (or christening), both stated to the day. */
+function baptismDays(indi: Individual): number | undefined {
+  const exact = (tag: string) => indi.events.find((e) => e.tag === tag && dayKey(e.date))?.date;
+  const birth = exact("BIRT");
+  const baptism = exact("BAPM") ?? exact("CHR");
+  if (!birth || !baptism) return undefined;
+  return Math.round((Date.UTC(baptism.year!, baptism.month! - 1, baptism.day!) - Date.UTC(birth.year!, birth.month! - 1, birth.day!)) / 86_400_000);
+}
+
 function monthsBetween(from: GedDate | undefined, to: GedDate | undefined): number | undefined {
   if (from?.year === undefined || from.month === undefined || to?.year === undefined || to.month === undefined) return undefined;
   let months = (to.year - from.year) * 12 + (to.month - from.month);
@@ -169,7 +193,8 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     const birth = firstDated(indi, BIRTH_TAGS);
     const death = firstDated(indi, DEATH_TAGS);
     const birthPlace = firstPlace(indi, BIRTH_TAGS);
-    const place = birthPlace || firstPlace(indi, DEATH_TAGS);
+    const deathPlace = firstPlace(indi, DEATH_TAGS);
+    const place = birthPlace || deathPlace;
     let father: string | undefined;
     let mother: string | undefined;
     for (const famId of indi.childOf) {
@@ -199,6 +224,11 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       place,
       country: place ? countryOf(place, home) : "",
       cause: indi.events.find((e) => e.tag === "DEAT")?.cause?.trim() || undefined,
+      birthPlace,
+      deathPlace,
+      birthDay: dayKey(birth?.date),
+      baptismDays: baptismDays(indi),
+      occupations: [...new Set(indi.events.filter((e) => e.tag === "OCCU").map((e) => e.value?.trim()).filter((v): v is string => !!v))],
       hasBirthDate: !!birth,
       hasBirthPlace: !!birthPlace,
       hasDeathDate: !!death,

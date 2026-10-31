@@ -45,21 +45,21 @@ export interface Share {
   missing: string[];
 }
 
-function mean(values: number[]): Mean | undefined {
+export function mean(values: number[]): Mean | undefined {
   if (!values.length) return undefined;
   return { value: values.reduce((a, b) => a + b, 0) / values.length, n: values.length };
 }
 
-function share<T extends { id: string }>(rows: T[], test: (r: T) => boolean): Share {
+export function share<T extends { id: string }>(rows: T[], test: (r: T) => boolean): Share {
   const ids: string[] = [];
   const missing: string[] = [];
   for (const r of rows) (test(r) ? ids : missing).push(r.id);
   return { n: ids.length, of: rows.length, ids, missing };
 }
 
-const centuryOf = (year: number) => Math.floor(year / 100) * 100;
+export const centuryOf = (year: number) => Math.floor(year / 100) * 100;
 /** Ties between equally common names fall back to alphabetical order. */
-const byLabel = new Intl.Collator();
+export const byLabel = new Intl.Collator();
 
 /**
  * Rank text values by frequency, accent- and case-blind: "Novak", "NOVAK" and
@@ -113,6 +113,13 @@ export function histogram<T>(
   return bins;
 }
 
+/** Rows per calendar month, January to December. */
+export function byMonth<T>(rows: T[], monthOf: (r: T) => number | undefined, idOf: (r: T) => string): Bucket[] {
+  const months = histogram(rows, monthOf, idOf, { start: 1, width: 1, end: 13 });
+  months.pop(); // no month 13
+  return months;
+}
+
 /** An average per century of a year, over the rows that have both. */
 function meanByCentury<T>(
   rows: T[],
@@ -139,8 +146,8 @@ function meanByCentury<T>(
 // ---------------------------------------------------------------------------
 // Per-row readings that honour the scope's "approximate dates" switch.
 
-const birthYearOf = (s: ScopedFacts) => (p: PersonFacts) => (s.approx || !p.birthApprox ? p.birthYear : undefined);
-const ageAtDeathOf = (s: ScopedFacts) => (p: PersonFacts) =>
+export const birthYearOf = (s: ScopedFacts) => (p: PersonFacts) => (s.approx || !p.birthApprox ? p.birthYear : undefined);
+export const ageAtDeathOf = (s: ScopedFacts) => (p: PersonFacts) =>
   s.approx || !(p.birthApprox || p.deathApprox) ? p.ageAtDeath : undefined;
 
 // ---------------------------------------------------------------------------
@@ -430,8 +437,7 @@ export function familyStats(s: ScopedFacts): FamilyStats {
     (f) => f.husbandAge !== undefined && f.wifeAge !== undefined && agesOk(f),
   );
   const dated = s.families.filter((f) => f.marriageMonth !== undefined && (s.approx || !f.marriageApprox));
-  const month = histogram(dated, (f) => f.marriageMonth, famId, { start: 1, width: 1, end: 13 });
-  month.pop(); // no month 13
+  const month = byMonth(dated, (f) => f.marriageMonth, famId);
   return {
     firstMarriageMale: histogram(firstMen, (f) => f.husbandAge, (f) => f.husband!, marriageBins),
     firstMarriageFemale: histogram(firstWomen, (f) => f.wifeAge, (f) => f.wife!, marriageBins),

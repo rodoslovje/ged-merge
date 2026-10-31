@@ -39,10 +39,10 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  * Normalize & batch opens on its batch section; `normalize` is its other one,
  * which choosing a GEDCOM target format can send the reader straight to. The
  * health check opens on its data issues; `gedcom` is its GEDCOM half.
- * Statistics opens on its overview; `names`, `lifespan` and `families` are its
- * other pages.
+ * Statistics opens on its overview; `names`, `lifespan`, `families`, `births`,
+ * `deaths` and `occupations` are its other pages.
  */
-export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families";
+export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations";
 
 const TOOLS: Tool[] = ["stats", "places", "sources", "validate", "duplicates", "normalize", "privacy"];
 

@@ -14,6 +14,9 @@ import {
   type CenturyPoint,
   type Share,
 } from "../../stats/aggregate";
+import { birthStats, CAUSE_AGE_MIN, deathStats, occupationStats } from "../../stats/vitals";
+import { tipProps } from "../IconTip";
+import { InfoIcon } from "../icons/InfoIcon";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -25,7 +28,7 @@ import { BarList, ColumnChart, StatTile, toneClass, type BarRow, type Column, ty
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
-const PAGES = ["tree", "names", "lifespan", "families"] as const;
+const PAGES = ["tree", "names", "lifespan", "families", "births", "deaths", "occupations"] as const;
 type Page = (typeof PAGES)[number];
 const WHO: StatsWho[] = ["all", "blood", "ancestors", "descendants"];
 
@@ -128,6 +131,9 @@ export function StatsPanel({
   const names = useMemo(() => (scoped && page === "names" ? namesStats(scoped) : undefined), [scoped, page]);
   const life = useMemo(() => (scoped && page === "lifespan" ? lifespanStats(scoped) : undefined), [scoped, page]);
   const fams = useMemo(() => (scoped && page === "families" ? familyStats(scoped) : undefined), [scoped, page]);
+  const births = useMemo(() => (scoped && page === "births" ? birthStats(scoped) : undefined), [scoped, page]);
+  const deaths = useMemo(() => (scoped && page === "deaths" ? deathStats(scoped) : undefined), [scoped, page]);
+  const jobs = useMemo(() => (scoped && page === "occupations" ? occupationStats(scoped) : undefined), [scoped, page]);
 
   // A list belongs to the numbers it was picked from.
   useEffect(() => setPick(null), [scope, page, facts]);
@@ -151,18 +157,21 @@ export function StatsPanel({
   const centuryLabel = (c: number) => t("stats.century", { from: c, to: c + 99, n: c / 100 + 1 });
 
   /** A column chart over buckets; picking a column lists its rows. */
-  const buckets = (card: string, title: string, list: Bucket[], opts: { families?: boolean; tone?: Tone; label?: (b: Bucket) => string } = {}) => {
+  const buckets = (card: string, title: string, list: Bucket[], opts: { families?: boolean; tone?: Tone; label?: (b: Bucket) => string; labelEvery?: number; tipLabel?: (b: Bucket) => string } = {}) => {
     const label = opts.label ?? rangeLabel;
-    const columns: Column[] = list.map((b) => ({ key: b.key, label: label(b), value: b.count, count: b.count, tip: `${label(b)}: ${num(b.count)}` }));
+    // The hover text and the list's title name the bucket in full where the axis abbreviates it.
+    const full = opts.tipLabel ?? label;
+    const columns: Column[] = list.map((b) => ({ key: b.key, label: label(b), value: b.count, count: b.count, tip: `${full(b)}: ${num(b.count)}` }));
     return (
       <ColumnChart
         columns={columns}
         tone={opts.tone}
+        labelEvery={opts.labelEvery}
         format={num}
         picked={pickedIn(card)}
         onPick={(key) => {
           const b = list.find((x) => x.key === key)!;
-          choose(card, key, `${title} — ${label(b)}`, b.ids, opts.families);
+          choose(card, key, `${title} — ${full(b)}`, b.ids, opts.families);
         }}
       />
     );
@@ -240,6 +249,42 @@ export function StatsPanel({
   const basedOn = (n: number, of: number) => t("stats.basedOn", { n: num(n), of: num(of) });
   const total = (list: Bucket[]) => list.reduce((a, b) => a + b.count, 0);
   const monthLabel = (b: Bucket) => new Date(2000, b.lo! - 1, 1).toLocaleString(lang, { month: "short" });
+  const periodLabel = (b: Bucket) => String(b.lo);
+  /** Label about a dozen periods however many there are. */
+  const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
+
+  /** Top names or occupations per century, as chips that list their people. */
+  const centuryTable = (id: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => (
+    <table className="stats-table">
+      <thead>
+        <tr><th>{t("stats.centuryCol")}</th>{columns.map((c) => <th key={c.head}>{c.head}</th>)}</tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.century}>
+            <th scope="row">{centuryLabel(row.century)}</th>
+            {row.cells.map((list, col) => (
+              <td key={col} className={toneClass(columns[col].tone).trim() || undefined}>
+                {list.map((b) => {
+                  const key = `${row.century}:${col}:${b.key}`;
+                  return (
+                    <button
+                      key={b.key}
+                      type="button"
+                      className={`stats-name-chip${pick?.card === id && pick.key === key ? " picked" : ""}`}
+                      onClick={() => choose(id, key, `${b.label} — ${centuryLabel(row.century)}`, b.ids)}
+                    >
+                      {b.label} <span className="muted">{num(b.count)}</span>
+                    </button>
+                  );
+                })}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
   const people = scoped.people.length;
   // A scope of one sex colours every chart that is not already about one.
   const scopeTone: Tone | undefined = scope.sex === "M" ? "male" : scope.sex === "F" ? "female" : undefined;
@@ -260,6 +305,10 @@ export function StatsPanel({
           person, and how many of the file that leaves. The filters below it
           fold away. */}
       <div className="stats-head">
+        {/* How the page works, in one place rather than a hint on every card. */}
+        <button type="button" className="stats-info" {...tipProps(t("stats.help"), { heading: t("tools.tool.stats") })}>
+          <InfoIcon size={18} />
+        </button>
         <Segmented
           label={t("stats.pages")}
           value={page}
@@ -385,7 +434,7 @@ export function StatsPanel({
                 <PickList key={`tiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("complete", t("stats.completeness"), t("stats.completenessNote"), shares("complete", [
+            {card("complete", t("stats.completeness"), null, shares("complete", [
               { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
               { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
               { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
@@ -403,36 +452,13 @@ export function StatsPanel({
             {card("surnames", t("stats.surnamesTitle"), basedOn(total(names.surnames), people), ranked("surnames", t("stats.surname"), names.surnames, 20))}
             {scope.sex !== "F" && card("givenMale", t("stats.givenMaleTitle"), basedOn(total(names.givenMale), people), ranked("givenMale", t("stats.givenName"), names.givenMale, 20, "male"))}
             {scope.sex !== "M" && card("givenFemale", t("stats.givenFemaleTitle"), basedOn(total(names.givenFemale), people), ranked("givenFemale", t("stats.givenName"), names.givenFemale, 20, "female"))}
-            {card("byCentury", t("stats.namesByCentury"), null, (
-              <table className="stats-table">
-                <thead>
-                  <tr><th>{t("stats.centuryCol")}</th><th>{t("stats.men")}</th><th>{t("stats.women")}</th></tr>
-                </thead>
-                <tbody>
-                  {names.byCentury.map((row) => (
-                    <tr key={row.century}>
-                      <th scope="row">{centuryLabel(row.century)}</th>
-                      {([["male", row.male], ["female", row.female]] as const).map(([side, list]) => (
-                        <td key={side} className={toneClass(side).trim()}>
-                          {list.map((b) => (
-                            <button
-                              key={b.key}
-                              type="button"
-                              className={`stats-name-chip${pick?.card === "byCentury" && pick.key === `${row.century}:${side}:${b.key}` ? " picked" : ""}`}
-                              onClick={() => choose("byCentury", `${row.century}:${side}:${b.key}`, `${b.label} — ${centuryLabel(row.century)}`, b.ids)}
-                            >
-                              {b.label} <span className="muted">{num(b.count)}</span>
-                            </button>
-                          ))}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {card("byCentury", t("stats.namesByCentury"), null, centuryTable(
+              "byCentury",
+              [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
+              names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
             {card("givenCount", t("stats.givenCount"), basedOn(total(names.givenCount), people), buckets("givenCount", t("stats.givenCount"), names.givenCount))}
-            {card("namesakes", t("stats.namesakes"), t("stats.namesakesNote"), shares("namesakes", [
+            {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
               { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
               { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
               { key: "daughterMother", label: t("stats.namesake.daughterMother"), share: names.namesakes.daughterMother, tone: "female" },
@@ -486,6 +512,56 @@ export function StatsPanel({
             {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
             {card("motherFirst", t("stats.motherFirst"), t("stats.nFamilies", { count: total(fams.motherFirst) }), buckets("motherFirst", t("stats.motherFirst"), fams.motherFirst, { families: true, tone: "female" }))}
             {card("motherLast", t("stats.motherLast"), t("stats.nFamilies", { count: total(fams.motherLast) }), buckets("motherLast", t("stats.motherLast"), fams.motherLast, { families: true, tone: "female" }))}
+          </>
+        )}
+
+        {births && (
+          <>
+            <section className="stats-card wide stats-tiles">
+              {births.baptismMean && <StatTile label={t("stats.baptismMean")} value={dec(births.baptismMean.value)} sub={t("stats.nPeople", { count: births.baptismMean.n })} />}
+              <StatTile label={t("stats.twins")} value={num(births.twins.sets)} sub={t("stats.nPeople", { count: births.twins.ids.length })} onClick={births.twins.sets ? () => choose("birthTiles", "twins", t("stats.twins"), births.twins.ids) : undefined} picked={pickedIn("birthTiles") === "twins"} />
+              {pick?.card === "birthTiles" && (
+                <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} onNavigate={onNavigate} onClose={() => setPick(null)} />
+              )}
+            </section>
+            {card("birthDecade", t("stats.birthsOverTime"), basedOn(total(births.perPeriod), people), buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
+            {card("birthMonth", t("stats.birthsByMonth"), basedOn(total(births.byMonth), people), buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
+            {card("baptism", t("stats.baptism"), t("stats.nPeople", { count: total(births.baptism) }), buckets("baptism", t("stats.baptism"), births.baptism, { label: (b) => t(`stats.baptism.${b.key}`) }))}
+            {card("birthPlaces", t("stats.birthPlaces"), basedOn(total(births.places), people), ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15))}
+          </>
+        )}
+
+        {deaths && (
+          <>
+            {card("causes", t("stats.causes"), basedOn(deaths.withCause.n, deaths.withCause.of), ranked("causes", t("stats.causes"), deaths.causes, 15))}
+            {card("causeAge", t("stats.causeAge"), t("stats.causeAgeNote", { n: CAUSE_AGE_MIN }), (
+              <BarList
+                limit={15}
+                picked={pickedIn("causeAge")}
+                rows={deaths.ageByCause.map((c) => ({ key: c.key, label: c.label, value: c.value, display: dec(c.value), count: c.ids.length, tip: t("stats.nPeople", { count: c.ids.length }) }))}
+                onPick={(key) => {
+                  const c = deaths.ageByCause.find((x) => x.key === key)!;
+                  choose("causeAge", key, `${t("stats.causeAge")} — ${c.label}`, c.ids);
+                }}
+              />
+            ))}
+            {card("deathPlaces", t("stats.deathPlaces"), basedOn(total(deaths.places), people), ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15))}
+            {card("deathDecade", t("stats.deathsOverTime"), basedOn(total(deaths.perPeriod), people), buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
+            {card("deathMonth", t("stats.deathsByMonth"), basedOn(total(deaths.byMonth), people), buckets("deathMonth", t("stats.deathsByMonth"), deaths.byMonth, { label: monthLabel }))}
+          </>
+        )}
+
+        {jobs && (
+          <>
+            {card("occupations", t("stats.occupations"), basedOn(jobs.withOccupation.n, jobs.withOccupation.of), ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
+            {card("sonFatherJob", t("stats.sonFatherJob"), null, shares("sonFatherJob", [
+              { key: "sonFather", label: t("stats.sonFatherJobRow"), share: jobs.sonFather, tone: "male" },
+            ], false))}
+            {card("jobsByCentury", t("stats.occupationsByCentury"), null, centuryTable(
+              "jobsByCentury",
+              [{ head: t("stats.occupations") }],
+              jobs.byCentury.map((row) => ({ century: row.century, cells: [row.top] })),
+            ), true)}
           </>
         )}
       </div>

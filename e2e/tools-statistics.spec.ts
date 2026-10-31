@@ -14,7 +14,7 @@ writeFileSync(FILE, [
   "1 BIRT", "2 DATE 12 MAR 1925", "2 PLAC Kranj, Slovenia",
   "1 DEAT", "2 DATE 1990",
   "1 FAMC @F1@",
-  "0 @I2@ INDI", "1 NAME Franc /Zorman/", "1 SEX M",
+  "0 @I2@ INDI", "1 NAME Franc /Zorman/", "1 SEX M", "1 OCCU kmet",
   "1 BIRT", "2 DATE 3 JAN 1890", "2 PLAC Škofja Loka, Slovenia",
   "1 DEAT", "2 DATE 7 JUL 1960",
   "1 FAMS @F1@",
@@ -24,7 +24,7 @@ writeFileSync(FILE, [
   "1 FAMS @F1@",
   "0 @I4@ INDI", "1 NAME Marko /Horvat/", "1 SEX M",
   "1 BIRT", "2 DATE 1930", "2 PLAC Zagreb, Croatia",
-  "1 DEAT", "2 DATE 1931",
+  "1 DEAT", "2 DATE 1931", "2 CAUS davica",
   "0 @F1@ FAM", "1 HUSB @I2@", "1 WIFE @I3@", "1 CHIL @I1@",
   "1 MARR", "2 DATE 12 JUN 1920",
   "0 TRLR", "",
@@ -73,9 +73,19 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
   await expect(panel.locator(".stats-pick .tools-issue")).toHaveCount(1);
   await expect(panel.locator(".stats-pick")).toContainText("Marko");
 
-  // Back returns to the overview page.
-  await page.goBack();
-  await expect(panel.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+  // Death lists the cause as written; Occupation the occupation, each opening its people.
+  await panel.getByRole("tab", { name: "Death" }).click();
+  await panel.locator(".stats-bar", { hasText: "davica" }).click();
+  await expect(panel.locator(".stats-pick")).toContainText("Marko");
+  await panel.getByRole("tab", { name: "Occupation" }).click();
+  await panel.locator(".stats-bar", { hasText: "kmet" }).click();
+  await expect(panel.locator(".stats-pick")).toContainText("Franc");
+
+  // Each page is a step of its own: Back retraces them to the overview.
+  for (const name of ["Death", "Lifespan", "Overview"]) {
+    await page.goBack();
+    await expect(panel.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");
+  }
 
   expect(errors).toEqual([]);
 });
