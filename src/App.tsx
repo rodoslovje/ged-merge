@@ -1212,6 +1212,20 @@ function AppContent() {
    *  (pushed with `stay`) costs as much to take back as it did to apply, so
    *  that step runs a paint later, under the progress cursor. */
   function undoStep(direction: "undo" | "redo") {
+    // A source Add still waiting for its page was confirmed before this
+    // press: it lands first, so it takes its place in the history ahead of the
+    // step — landing after, it would clear the redo stack. The Adds land
+    // through state this render cannot see; the step runs from the next one.
+    // Presses made while it waits, under the busy cursor, are not stacked up.
+    if (hasPendingAdds()) {
+      if (undoAfterAdds.current) return;
+      undoAfterAdds.current = direction;
+      void withBusyCursor(async () => {
+        await pendingAddsSettled();
+        setAddsLanded((n) => n + 1);
+      });
+      return;
+    }
     const run = direction === "undo" ? handleUndo : handleRedo;
     const next = undoRedo.peek(direction);
     if (next?.mode !== "edit" || !next.stay) return run();
@@ -1221,6 +1235,17 @@ function AppContent() {
       run();
     }));
   }
+
+  // The step pressed while source Adds were waiting, run once they have landed.
+  const undoAfterAdds = useRef<"undo" | "redo" | null>(null);
+  const [addsLanded, setAddsLanded] = useState(0);
+  useEffect(() => {
+    const direction = undoAfterAdds.current;
+    if (!direction) return;
+    undoAfterAdds.current = null;
+    undoStep(direction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addsLanded]);
 
   const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
   globalShortcutRef.current.undo = () => undoStep("undo");
