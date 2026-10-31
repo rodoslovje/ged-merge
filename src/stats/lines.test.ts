@@ -115,6 +115,9 @@ describe("lineageStats", () => {
     const l = lineageStats(facts, "@I9@");
     expect(l.ancestors.map((g) => [g.gen, g.filled, g.slots])).toEqual([[1, 2, 2], [2, 4, 4], [3, 4, 8]]);
     expect(l.ancestors[2].ids.sort()).toEqual(["@I1@", "@I2@"]);
+    // Tone (I5) opens the father's side, Neža (I6) the mother's: Adam and Eva stand on both.
+    expect(l.ancestors.map((g) => [g.paternal.filled, g.maternal.filled])).toEqual([[1, 1], [2, 2], [2, 2]]);
+    expect(l.ancestors[2].paternal.ids.sort()).toEqual(["@I1@", "@I2@"]);
     expect(l.distinctAncestors).toBe(8);
     expect(l.implex).toBeCloseTo(0.2);
     expect(l.repeated).toEqual([{ id: "@I1@", count: 2 }, { id: "@I2@", count: 2 }]);

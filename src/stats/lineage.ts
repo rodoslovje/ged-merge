@@ -19,6 +19,10 @@ export interface AncestorGeneration {
   filled: number;
   /** The ancestors in the generation, each once. */
   ids: string[];
+  /** The same, split by the side of the root's family the position stands on —
+   *  above the father or above the mother; each side has half the slots. */
+  paternal: { filled: number; ids: string[] };
+  maternal: { filled: number; ids: string[] };
 }
 
 export interface LineageStats {
@@ -41,17 +45,31 @@ export interface LineageStats {
 export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   const ancestors: AncestorGeneration[] = [];
   const positions = new Map<string, number>();
-  let generation = [rootId];
+  // Each position carries the side it stands on: the root's father opens the
+  // paternal side, the mother the maternal one, and their ancestors inherit it.
+  type Position = { id: string; paternal: boolean };
+  let generation: Position[] = [{ id: rootId, paternal: true }];
   for (let gen = 1; gen <= MAX_GENERATIONS; gen++) {
-    const next: string[] = [];
-    for (const id of generation) {
+    const next: Position[] = [];
+    for (const { id, paternal } of generation) {
       const p = facts.byId.get(id);
-      if (p?.father) next.push(p.father);
-      if (p?.mother) next.push(p.mother);
+      if (p?.father) next.push({ id: p.father, paternal: gen === 1 ? true : paternal });
+      if (p?.mother) next.push({ id: p.mother, paternal: gen === 1 ? false : paternal });
     }
     if (!next.length || next.length > MAX_POSITIONS) break;
-    for (const id of next) positions.set(id, (positions.get(id) ?? 0) + 1);
-    ancestors.push({ gen, slots: 2 ** gen, filled: next.length, ids: [...new Set(next)] });
+    for (const { id } of next) positions.set(id, (positions.get(id) ?? 0) + 1);
+    const side = (paternal: boolean) => {
+      const on = next.filter((pos) => pos.paternal === paternal);
+      return { filled: on.length, ids: [...new Set(on.map((pos) => pos.id))] };
+    };
+    ancestors.push({
+      gen,
+      slots: 2 ** gen,
+      filled: next.length,
+      ids: [...new Set(next.map((pos) => pos.id))],
+      paternal: side(true),
+      maternal: side(false),
+    });
     generation = next;
   }
   const filled = ancestors.reduce((n, g) => n + g.filled, 0);

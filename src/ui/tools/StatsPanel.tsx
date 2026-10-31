@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import { computeKinship } from "../../tools/batch";
+import { computeKinship, computeLineSides } from "../../tools/batch";
 import { buildStatsFacts } from "../../stats/facts";
-import { applyCountry, DEFAULT_SCOPE, scopeFacts, type StatsScope, type StatsWho } from "../../stats/scope";
+import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, type StatsScope, type StatsWho } from "../../stats/scope";
 import {
   CHILD_AGE,
   OVERVIEW_TOP,
@@ -34,7 +34,7 @@ import { countryFacetLabel, flagEmoji } from "../../geo/placeCountry";
 import { countryOf } from "../../tools/geocode";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
-import { BarList, ColumnChart, StatTile, toneClass, type BarRow, type Column, type Tone } from "./StatsCharts";
+import { BarList, ColumnChart, PairBarList, StatTile, toneClass, type BarRow, type Column, type PairRow, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
@@ -161,6 +161,13 @@ export function StatsPanel({
   const jobs = useMemo(() => (scoped && page === "occupations" ? occupationStats(scoped) : undefined), [scoped, page]);
   const moves = useMemo(() => (scoped && page === "migration" ? migrationStats(scoped) : undefined), [scoped, page]);
   const research = useMemo(() => (scoped && page === "research" ? researchStats(scoped) : undefined), [scoped, page]);
+  // The same, for the father's and the mother's side of the line's person apart.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
+  const sides = useMemo(() => (page === "research" && statsStart ? computeLineSides(dataset, statsStart) : null), [page, dataset, statsStart, seenVersion]);
+  const researchBySide = useMemo(() => (scoped && sides ? {
+    paternal: researchStats(narrowScoped(scoped, (id) => sides.get(id) === "paternal")),
+    maternal: researchStats(narrowScoped(scoped, (id) => sides.get(id) === "maternal")),
+  } : undefined), [scoped, sides]);
   // Generations are one person's tree, so they follow the line's person whatever the scope.
   const lineage = useMemo(() => (facts && statsStart && page === "generations" ? lineageStats(facts, statsStart) : undefined), [facts, statsStart, page]);
 
@@ -418,7 +425,7 @@ export function StatsPanel({
             onChange={(who) => set({ who })}
             items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
           />
-          {(lined || page === "generations") && (
+          {(lined || page === "generations" || page === "research") && (
             <div className={`stats-start${ownStart && ownStart !== startId ? " own" : ""}`}>
               <StartPersonSelector
                 individuals={dataset.individuals}
@@ -763,6 +770,27 @@ export function StatsPanel({
                 }}
               />
             ))}
+            {lineage.ancestors.length > 1 && card("ancestorsSide", t("stats.ancestorsBySide"), null, (
+              <PairBarList
+                names={[t("stats.side.paternal"), t("stats.side.maternal")]}
+                picked={pickedIn("ancestorsSide")}
+                limit={listLimit("ancestorsSide", lineage.ancestors.length, 12)}
+                rows={lineage.ancestors.map<PairRow>((g) => {
+                  const half = g.slots / 2;
+                  const of = (side: { filled: number; ids: string[] }) => ({
+                    value: (100 * side.filled) / half,
+                    display: pct(side.filled, half),
+                    tip: t("stats.shareTip", { n: num(side.filled), of: num(half) }),
+                    count: side.ids.length,
+                  });
+                  return { key: String(g.gen), label: t("stats.genLabel", { n: g.gen }), a: of(g.paternal), b: of(g.maternal) };
+                })}
+                onPick={(key, side) => {
+                  const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
+                  choose("ancestorsSide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.genLabel", { n: g.gen })}`, (side === "a" ? g.paternal : g.maternal).ids);
+                }}
+              />
+            ))}
             {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
               <BarList
                 limit={listLimit("repeatedAncestors", lineage.repeated.length, 12)}
@@ -819,6 +847,23 @@ export function StatsPanel({
                 }}
               />
             ))}
+            {researchBySide && card("sourcedBySide", t("stats.sourcedBySide"), null, (
+              <PairBarList
+                names={[t("stats.side.paternal"), t("stats.side.maternal")]}
+                picked={pickedIn("sourcedBySide")}
+                rows={research.byTag.map<PairRow>((tag) => {
+                  const of = (stats: typeof research) => {
+                    const s = stats.byTag.find((x) => x.tag === tag.tag);
+                    return s && s.events ? { value: (100 * s.sourced) / s.events, display: pct(s.sourced, s.events), tip: t("stats.shareTip", { n: num(s.sourced), of: num(s.events) }), count: s.missing.length } : undefined;
+                  };
+                  return { key: tag.tag, label: eventDisplayLabel(tag.tag, t), a: of(researchBySide.paternal), b: of(researchBySide.maternal) };
+                })}
+                onPick={(key, side) => {
+                  const s = (side === "a" ? researchBySide.paternal : researchBySide.maternal).byTag.find((x) => x.tag === key)!;
+                  choose("sourcedBySide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.missingTitle", { what: eventDisplayLabel(key, t) })}`, s.missing, s.families);
+                }}
+              />
+            ), true)}
             {card("citations", t("stats.citations"), t("stats.nPeople", { count: people }), buckets("citations", t("stats.citations"), research.citations))}
           </>
         )}

@@ -129,6 +129,80 @@ export function BarList({
   );
 }
 
+/** One side's share in a {@link PairBarList} row. */
+export interface PairValue {
+  /** 0–100. */
+  value: number;
+  display: string;
+  tip?: string;
+  /** Rows behind the bar; a bar with none is not clickable. */
+  count: number;
+}
+
+export interface PairRow {
+  key: string;
+  label: string;
+  a?: PairValue;
+  b?: PairValue;
+}
+
+/**
+ * Two shares side by side per row — the father's side and the mother's — each
+ * in its line's colour, under a legend naming the two. Either bar lists its
+ * own people.
+ */
+export function PairBarList({
+  rows,
+  names,
+  onPick,
+  picked,
+  limit,
+}: {
+  rows: PairRow[];
+  /** What the two bars stand for, in the legend. */
+  names: [string, string];
+  onPick: (key: string, side: "a" | "b") => void;
+  /** `key:a` or `key:b`. */
+  picked?: string;
+  /** Show the first rows only — the card that holds the list offers the rest. */
+  limit?: number;
+}) {
+  const { t } = useTranslation();
+  if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
+  const bar = (r: PairRow, side: "a" | "b") => {
+    const v = r[side];
+    if (!v) return <span className="stats-pair-cell" />;
+    return (
+      <button
+        type="button"
+        className={`stats-pair-cell stats-pair-${side}${picked === `${r.key}:${side}` ? " picked" : ""}`}
+        disabled={v.count === 0}
+        onClick={() => onPick(r.key, side)}
+        {...tipProps(v.tip ?? `${names[side === "a" ? 0 : 1]}: ${v.display}`)}
+      >
+        <span className="stats-bar-track"><span className="stats-bar-fill" style={{ width: `${v.value}%` }} /></span>
+        <span className="stats-bar-value">{v.display}</span>
+      </button>
+    );
+  };
+  return (
+    <div className="stats-pairs">
+      <div className="stats-pair-legend">
+        <span />
+        <span className="stats-pair-a">{names[0]}</span>
+        <span className="stats-pair-b">{names[1]}</span>
+      </div>
+      {(limit ? rows.slice(0, limit) : rows).map((r) => (
+        <div key={r.key} className="stats-pair-row">
+          <span className="stats-bar-label">{r.label}</span>
+          {bar(r, "a")}
+          {bar(r, "b")}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** One headline number. Clickable when it stands for a list of people. */
 export function StatTile({
   label,

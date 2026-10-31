@@ -74,3 +74,12 @@ export function applyCountry(facts: StatsFacts, people: PersonFacts[], scope: St
   const families = facts.families.filter((f) => (f.husband && ids.has(f.husband)) || (f.wife && ids.has(f.wife)));
   return { people: kept, families, ids, byId: facts.byId, approx: scope.approx };
 }
+
+/** A scope narrowed to the people `keep` admits — one side of a family, say —
+ *  with the families those people are spouses in. */
+export function narrowScoped(s: ScopedFacts, keep: (id: string) => boolean): ScopedFacts {
+  const people = s.people.filter((p) => keep(p.id));
+  const ids = new Set(people.map((p) => p.id));
+  const families = s.families.filter((f) => (f.husband && ids.has(f.husband)) || (f.wife && ids.has(f.wife)));
+  return { ...s, people, families, ids };
+}
