@@ -6,6 +6,7 @@ import { buildStatsFacts } from "../../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts, type StatsScope, type StatsWho } from "../../stats/scope";
 import {
   CHILD_AGE,
+  OVERVIEW_TOP,
   familyStats,
   lifespanStats,
   namesStats,
@@ -459,9 +460,9 @@ export function StatsPanel({
               { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
               { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
             ], true))}
-            {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, 5))}
-            {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, 5, "male"))}
-            {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, 5, "female"))}
+            {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
+            {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
+            {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}
           </>
         )}
 

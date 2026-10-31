@@ -153,6 +153,9 @@ export const ageAtDeathOf = (s: ScopedFacts) => (p: PersonFacts) =>
 // ---------------------------------------------------------------------------
 // Overview
 
+/** How many names the overview ranks — as many rows as its completeness card has. */
+export const OVERVIEW_TOP = 7;
+
 export interface Overview {
   people: number;
   families: number;
@@ -259,9 +262,9 @@ export function overview(s: ScopedFacts): Overview {
       mapped: share(s.people, (p) => p.mapped),
       source: share(s.people, (p) => p.hasSource),
     },
-    topSurnames: surnames.slice(0, 5),
-    topGivenMale: rankNames(s.people.filter((p) => p.sex === "M"), "given").slice(0, 5),
-    topGivenFemale: rankNames(s.people.filter((p) => p.sex === "F"), "given").slice(0, 5),
+    topSurnames: surnames.slice(0, OVERVIEW_TOP),
+    topGivenMale: rankNames(s.people.filter((p) => p.sex === "M"), "given").slice(0, OVERVIEW_TOP),
+    topGivenFemale: rankNames(s.people.filter((p) => p.sex === "F"), "given").slice(0, OVERVIEW_TOP),
     ageAtDeath: mean(ages),
     oldest,
     largestFamily: largestFamily && largestFamily.children > 0 ? largestFamily : undefined,
