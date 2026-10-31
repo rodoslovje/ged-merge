@@ -338,7 +338,7 @@ function withBce(rest: string, raw: string, order?: DateOrder): GedDate | undefi
  * granularity asserted exactly, so "12 MAR 1949" beats "ABT 12 MAR 1949"; a
  * calculated date sits between the two, so "CAL 1949" beats "ABT 1949".
  */
-function datePrecision(d: GedDate): number {
+export function datePrecision(d: GedDate): number {
   if (d.year == null) return 0;
   let rank = d.month == null ? 1 : d.day == null ? 2 : 3;
   if (d.qualifier !== "exact") rank -= d.approx === "CAL" ? 0.25 : 0.5;
