@@ -3843,6 +3843,11 @@ button:focus-visible {
 .edit-name-chip--merge { font-weight: 700; color: var(--state-incoming); }
 /* The person's own extra names a confirmed merge will replace. */
 .edit-name-chip--replaced { text-decoration: line-through; color: var(--muted); }
+/* The record's own notes a confirmed merge will replace. */
+.edit-input.edit-note--replaced { text-decoration: line-through; color: var(--muted); }
+/* An incoming note previewed beside the notes: keeps its own lines, left-aligned
+   like the note it will become. */
+.edit-name-chip--merge.edit-note-merge { white-space: pre-wrap; text-align: left; max-width: 100%; }
 
 .edit-person-header {
   display: flex;
@@ -3911,6 +3916,9 @@ button:focus-visible {
 .sex-select:focus { outline: none; border-color: var(--accent); }
 .sex-select.sex-m { color: var(--sex-male); }
 .sex-select.sex-f { color: var(--sex-female); }
+/* The sex or the private flag a confirmed merge will set, shown in place. */
+.sex-select.edit-name-chip--merge,
+.private-toggle.is-on.edit-name-chip--merge { color: var(--state-incoming); border-color: var(--state-incoming); }
 .sex-select.sex-x { color: var(--sex-other); }
 
 /* One consistent keyboard-focus ring for every edit chip / dropdown — the
@@ -4064,6 +4072,11 @@ button:focus-visible {
   gap: 4px;
   width: 240px;
   min-width: 200px;
+}
+/* A relative a confirmed merge links on save: dashed, in the incoming color. */
+.person-card-wrap--pending .person-card {
+  border-style: dashed;
+  border-color: var(--state-incoming);
 }
 /* And one height: when any relative card on the page carries a kinship row,
    every card without one reserves an equally tall blank row, so parents,

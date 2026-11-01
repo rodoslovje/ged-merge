@@ -7,13 +7,23 @@ import { SEX_OPTIONS, SEX_GLYPHS } from "./editConstants";
 import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
 
-/** Sex picker. Lives at the start of the "+ Add …" actions row. */
-export function SexToggle({ person, t, commit, version }: { person: Individual; t: Translate; commit: Commit; version: GedcomVersion }) {
+/** Sex picker. Lives at the start of the "+ Add …" actions row. `merge` is the
+ *  sex a confirmed match will write, shown in its place in the incoming color;
+ *  picking one decides it (`onDecide` resolves the merge row). */
+export function SexToggle({ person, t, commit, version, merge, onDecide }: {
+  person: Individual;
+  t: Translate;
+  commit: Commit;
+  version: GedcomVersion;
+  merge?: Sex;
+  onDecide?: () => void;
+}) {
+  const sex = merge ?? person.sex;
   return (
     <DropdownMenu
-      className={`sex-select ${sexClass(person.sex)}`}
-      title={t("edit.sexTooltip", { key: altShiftLabel("X") })}
-      current={person.sex}
+      className={`sex-select ${sexClass(sex)}${merge ? " edit-name-chip--merge" : ""}`}
+      title={merge ? t("edit.mergeSexTooltip") : t("edit.sexTooltip", { key: altShiftLabel("X") })}
+      current={sex}
       groups={[
         {
           items: SEX_OPTIONS.map((s) => ({
@@ -22,10 +32,13 @@ export function SexToggle({ person, t, commit, version }: { person: Individual; 
           })),
         },
       ]}
-      onSelect={(v) => commit((indi) => setSex(indi, v as Sex, version))}
+      onSelect={(v) => {
+        commit((indi) => setSex(indi, v as Sex, version));
+        if (merge) onDecide?.();
+      }}
       trigger={
         <>
-          {SEX_GLYPHS[person.sex]} {t(`sex.${person.sex}`)}
+          {SEX_GLYPHS[sex]} {t(`sex.${sex}`)}
           <span className="sex-select-caret" aria-hidden="true">▾</span>
         </>
       }

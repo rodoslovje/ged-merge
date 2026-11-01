@@ -3,7 +3,12 @@ import { childrenByTag, cloneNode } from "../../gedcom/node";
 import type { Dataset, GedNode, Individual, PersonName, SourceCitation } from "../../gedcom/types";
 import type { FormatOverrides } from "../../normalize/formatOverrides";
 import type { Translate } from "../../locales/i18n";
-import { materializeAdditionalNames, materializeEventSources } from "../../merge/merge";
+import { materializeEventSources, materializeRecordField } from "../../merge/merge";
+import { isRecordField } from "../../merge/applyFields";
+import { familyMergePreview, personMergePreview, type PersonMergePreview, type RecordMergePreview } from "../../merge/recordPreview";
+import { FAM_CHILD_ORDER, INDI_CHILD_ORDER } from "../../gedcom/edit/shared";
+import { previewRelativeLinks, type PendingRelativeLink } from "../../merge/materialize";
+import type { MatchResult } from "../../match/types";
 import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacement";
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
@@ -41,6 +46,13 @@ const EMPTY_MERGE_DATA = Object.freeze({
    * and later `NAME` records), with the review's choice for that row: `both`
    * keeps the main's own extra names beside them, anything else replaces them. */
   mergeAdditionalNames: undefined as { names: PersonName[]; choice: FieldChoice } | undefined,
+  /** Row key -> the choice of every row the merge will write (it differs and
+   *  is not held at main) — what a take-over writes, and what a skip undoes. */
+  mergePending: new Map<string, FieldChoice>(),
+  /** What the person's own record-level rows will write (see `personMergePreview`). */
+  mergePersonPreview: {} as PersonMergePreview,
+  /** main family id -> what that family's own rows will write. */
+  mergeFamilyPreviews: new Map<string, RecordMergePreview>(),
   /** Whether the current person still has a confirmed merge decision. */
   hasMergeDecision: false,
 });
@@ -53,6 +65,8 @@ interface Options {
   dataset: Dataset;
   compareDataset: Dataset | undefined;
   decisions: Map<string, CandidateDecision> | undefined;
+  /** The matcher's pairs, by which the save joins relatives to existing people. */
+  matches?: MatchResult;
   /** Settings › GEDCOM, so the preview places a citation where the save would
    *  — the reader's own citation/baptism choices, not only the file's habit. */
   formatOverrides?: FormatOverrides;
@@ -74,7 +88,7 @@ interface Options {
  * records (the bug fixed in a238d34).
  */
 export function useMergeOverlay({
-  person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides, tick, t,
+  person, selectedId, dataset, compareDataset, decisions, matches, onUpdateDecision, formatOverrides, tick, t,
 }: Options) {
   /**
    * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
@@ -163,11 +177,13 @@ export function useMergeOverlay({
         map.set(key, list);
       };
       let namesChoice: FieldChoice | undefined;
+      const mergePending = new Map<string, FieldChoice>();
       for (const row of rows) {
         if (row.isGroupHeader) continue;
         if (row.state === "agree" || row.state === "main-only") continue;
         const choice = dec.fields[row.key] ?? defaultChoice(row);
         if (choice === "main") continue;
+        mergePending.set(row.key, choice);
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
         if (row.key === "additionalNames") namesChoice = choice;
         // The record-level "Sources" row carries plain links as `incomingLinkIcons`
@@ -244,7 +260,7 @@ export function useMergeOverlay({
         } else if (inst.tag !== "BIRT") {
           // Incoming-only event — show only if there is merge data for it.
           // BIRT is always shown in its own row so exclude it from extras.
-          if (EVENT_TEXT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeIncomingSources.has(`${keyBase}.sources`)) {
+          if (EVENT_TEXT_SUBS.some((s) => mergeHighlight.has(`${keyBase}.${s}`)) || mergeHighlight.has(`${keyBase}.assoc`) || mergeIncomingSources.has(`${keyBase}.sources`)) {
             const incomingEv = inst.compareIdx >= 0 ? cByTag.get(inst.tag)?.[inst.compareIdx] : undefined;
             if (incomingEv) {
               extraMergeEvents.push({ tag: inst.tag, keyBase, sortKey: zoneSortKey(orderingDate(incomingEv), inst.tag, anchors), compareIdx: inst.compareIdx });
@@ -257,15 +273,31 @@ export function useMergeOverlay({
       const mergeAdditionalNames = namesChoice && incoming.names.length > 1
         ? { names: incoming.names.slice(1), choice: namesChoice }
         : undefined;
+      const mergePersonPreview = personMergePreview(person, incoming, (field) => mergePending.get(field));
+      const mergeFamilyPreviews = new Map<string, RecordMergePreview>();
+      for (const [mainFamId, famKey] of familyKeyBases) {
+        const mainFam = dataset.families.get(mainFamId);
+        const incFam = compareDataset.families.get(famKey.slice("fam.".length));
+        if (mainFam && incFam) mergeFamilyPreviews.set(mainFamId, familyMergePreview(mainFam, incFam, (field) => mergePending.get(`${famKey}.${field}`)));
+      }
 
-      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, mergeAdditionalNames, hasMergeDecision: true };
+      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, mergeAdditionalNames, mergePending, mergePersonPreview, mergeFamilyPreviews, hasMergeDecision: true };
     }
     return EMPTY_MERGE_DATA;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, compareDataset, person, dataset, formatOverrides, pageMediaStyle, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
+  /** Existing people the save will link this person to — parents, partners,
+   *  children — which only a dry run of the save can name. */
+  const pendingRelativeLinks = useMemo((): PendingRelativeLink[] => {
+    if (!decisions || !compareDataset || !matches || !person) return [];
+    const found = findConfirmedDecision(decisions, person.id, (id) => compareDataset.individuals.get(id));
+    return found ? previewRelativeLinks(dataset, compareDataset, matches, decisions, found.key, t, formatOverrides) : [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, compareDataset, matches, person, dataset, formatOverrides, t, tick]); // tick: relations edited in place
+
   // Only the pieces the handlers below read; the rest is spread to the caller.
-  const { mergeHighlight, mergeIncomingSources, mergeAdditionalNames, hasMergeDecision } = mergeData;
+  const { mergeHighlight, mergeIncomingSources, mergePending, hasMergeDecision } = mergeData;
 
   /**
    * `resolvedSessionFields` deliberately survives the remount that fires when
@@ -343,22 +375,33 @@ export function useMergeOverlay({
   });
 
   /**
-   * Write the incoming additional names into `raw` — the selected person's
-   * record, inside a commit — exactly as the save would, and resolve the
-   * "Additional names" row to "main" so the save does not write them again.
-   * Returns undo patches for any `SOUR`/`REPO` records the names brought
-   * along. Called when the user takes over an incoming name chip to edit or
-   * drop it: from then on the names are the record's own.
+   * Write one previewed record-level row (`key`: "notes", "fsid", …, or a
+   * family's "fam.<id>.notes") into `raw` — the person's or that family's
+   * record, inside a commit — exactly as the save would, and resolve the row
+   * to "main" so the save does not write it again. Returns undo patches for
+   * any `SOUR`/`REPO` records the copied lines brought along. Called when the
+   * user takes over a previewed incoming value to edit it: from then on it is
+   * the record's own.
    */
-  const materializeIncomingNames = useStableHandler((raw: GedNode): RecordPatch[] => {
-    if (!compareDataset || !mergeAdditionalNames) return [];
+  const takeMergeField = useStableHandler((raw: GedNode, key: string): RecordPatch[] => {
+    const choice = mergePending.get(key);
     const found = confirmedFor();
-    if (!found) return [];
-    const incoming = compareDataset.individuals.get(found.compareId);
+    if (!compareDataset || !choice || !found) return [];
+    const fam = /^fam\.([^.]+)\.([^.]+)$/.exec(key);
+    const field = fam ? fam[2] : key;
+    if (!isRecordField(field)) return [];
+    const incoming = fam ? compareDataset.families.get(fam[1]) : compareDataset.individuals.get(found.compareId);
     if (!incoming) return [];
-    const imported = materializeAdditionalNames(dataset, compareDataset, raw, incoming.raw, mergeAdditionalNames.choice);
-    onUpdateDecision?.(found.key, { ...found.decision, fields: { ...found.decision.fields, additionalNames: "main" } });
+    const imported = materializeRecordField(dataset, compareDataset, raw, incoming.raw, field, choice, fam ? FAM_CHILD_ORDER : INDI_CHILD_ORDER);
+    onUpdateDecision?.(found.key, { ...found.decision, fields: { ...found.decision.fields, [key]: "main" } });
     return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneNode(r) }));
+  });
+
+  /** Leave a previewed incoming row out of the save: its choice becomes "main". */
+  const skipMergeField = useStableHandler((key: string) => {
+    const found = confirmedFor();
+    if (!onUpdateDecision || !found) return;
+    onUpdateDecision(found.key, { ...found.decision, fields: { ...found.decision.fields, [key]: "main" } });
   });
 
   const dismissExtraEvent = useStableHandler((keyBase: string) => {
@@ -439,6 +482,7 @@ export function useMergeOverlay({
   });
   return {
     ...mergeData,
+    pendingRelativeLinks,
     /** Bumped only when `decisions` itself changes - see the ref's comment. */
     mergeGen: mergeGenRef.current,
     resolvedSessionFields,
@@ -446,7 +490,8 @@ export function useMergeOverlay({
     markMaterializedEvent,
     rejectIncomingEvent,
     materializeMergeEventSources,
-    materializeIncomingNames,
+    takeMergeField,
+    skipMergeField,
     dismissExtraEvent,
     resolveMergeFields,
     markFamilyTagRetagged,

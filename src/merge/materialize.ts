@@ -349,6 +349,84 @@ export function previewBranchJoins(
   return ctx.report.graftJoins;
 }
 
+/** A relative the save will link a person to who is already a record of the
+ *  main file. Only new people are added ahead of the save (see
+ *  `materializeAdds`), so Edit previews these links instead. */
+export interface PendingRelativeLink {
+  role: "father" | "mother" | "partner" | "child";
+  /** The main person the save links. */
+  id: string;
+  /** The family the link lands in — one of the main file's, or (`newFamily`)
+   *  one the save makes, named by the dry run's own xref. */
+  famId: string;
+  newFamily: boolean;
+  /** The save links them on the matcher's word alone (`CandidateDecision.joins`). */
+  unconfirmed: boolean;
+}
+
+/**
+ * The links to existing people one confirmed decision leaves to the save: a
+ * dry run of the save's own stitching for it (not `newOnly`, so matched
+ * relatives are joined, as the save joins them), read back as the parents,
+ * partners and children the person gains. Changes nothing.
+ */
+export function previewRelativeLinks(
+  main: Dataset,
+  compare: Dataset,
+  matches: MatchResult,
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  key: string,
+  t: Translate,
+  overrides?: FormatOverrides,
+): PendingRelativeLink[] {
+  const d = decisions.get(key);
+  const parsed = parseDecisionKey(key);
+  if (d?.status !== "confirmed" || parsed?.kind !== "individual") return [];
+  const mainIndi = main.individuals.get(parsed.mainId);
+  const incoming = compare.individuals.get(parsed.compareId);
+  if (!mainIndi || !incoming) return [];
+
+  const pinned = pinnedAdds(decisions);
+  const { ctx } = liveContext(main, compare, matches, decisions, pinned, t, overrides, false);
+  const rejectedEvents = d.rejectedEvents?.length ? new Set(d.rejectedEvents) : undefined;
+  const rows = individualFieldRows(t, mainIndi, incoming, main, compare, mergePlaceFormat(main, overrides), rejectedEvents);
+  applyIndividualRelations(parsed.mainId, mainIndi, incoming, rows, d.fields, main, compare, ctx);
+  applyIndividualFamilies(
+    parsed.mainId, mainIndi, incoming, rows, { ...d.fields, ...confirmedFamilyFields(decisions) },
+    main, compare, ctx, new Set((d.takenChildren ?? []).filter((id) => !pinned.has(id))), true,
+  );
+
+  const joined = new Set(Object.values(d.joins ?? {}));
+  const refs = (node: GedNode | undefined, tag: string) =>
+    (node?.children ?? []).filter((c) => c.tag === tag && c.value).map((c) => c.value!.trim());
+  const links: PendingRelativeLink[] = [];
+  const push = (role: PendingRelativeLink["role"], id: string | undefined, famId: string, had: Set<string>) => {
+    if (!id || id === parsed.mainId || had.has(id) || !main.individuals.has(id)) return;
+    links.push({ role, id, famId, newFamily: !main.families.has(famId), unconfirmed: joined.has(id) });
+  };
+  const person = ctx.indiNode(parsed.mainId);
+  const parentsHad = new Set(mainIndi.childOf.flatMap((f) => {
+    const fam = main.families.get(f);
+    return [fam?.husband, fam?.wife].filter((id): id is string => !!id);
+  }));
+  for (const famId of refs(person, "FAMC")) {
+    const fam = ctx.famNode(famId);
+    push("father", refs(fam, "HUSB")[0], famId, parentsHad);
+    push("mother", refs(fam, "WIFE")[0], famId, parentsHad);
+  }
+  const partnersHad = new Set(mainIndi.spouseOf.flatMap((f) => {
+    const fam = main.families.get(f);
+    return [fam?.husband, fam?.wife].filter((id): id is string => !!id);
+  }));
+  for (const famId of refs(person, "FAMS")) {
+    const fam = ctx.famNode(famId);
+    push("partner", [...refs(fam, "HUSB"), ...refs(fam, "WIFE")].find((id) => id !== parsed.mainId), famId, partnersHad);
+    const childrenHad = new Set(main.families.get(famId)?.children ?? []);
+    for (const child of refs(fam, "CHIL")) push("child", child, famId, childrenHad);
+  }
+  return links;
+}
+
 /**
  * Work out every confirmed decision's joins afresh, without changing the file
  * — for decisions that arrive without them, like a restored session's.

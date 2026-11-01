@@ -432,24 +432,8 @@ export function applyRows(
     const placedLinks: PlacedLink[] = [];
     if (row.key === "given" || row.key === "surname") {
       applied = applyNamePart(target, incomingRecord, row.key, choice, sourMap, report.customTags);
-    } else if (row.key === "sex") {
-      applied = setChild(target, "SEX", incomingRecord, choice, INDI_CHILD_ORDER, sourMap, undefined, report.customTags);
-    } else if (row.key === "nickname") {
-      applied = applyNickname(target, incomingRecord, choice, sourMap, report.customTags);
-    } else if (row.key === "additionalNames") {
-      applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
-    } else if (row.key === "notes") {
-      applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
-    } else if (row.key === "noEvents") {
-      applied = applyNoEvents(target, incomingRecord, sourMap);
-    } else if (row.key === "nameTranslations") {
-      applied = applyNameTranslations(target, incomingRecord);
-    } else if (row.key === "exid") {
-      applied = applyExids(target, incomingRecord);
-    } else if (row.key === "fsid") {
-      applied = applyFsIds(target, incomingRecord, choice);
-    } else if (row.key === "private") {
-      applied = applyPrivateFlag(target, records);
+    } else if (isRecordField(row.key)) {
+      applied = applyRecordField(target, incomingRecord, row.key, choice, sourMap, records, INDI_CHILD_ORDER, report.customTags);
     } else if (parsed) {
       const { tag, sub } = parsed;
       // The row's own true per-side array positions, not a position parsed
@@ -1717,28 +1701,66 @@ export function materializeEventSources(
   return added;
 }
 
+/** The record-level rows that write one part of the record itself — no event,
+ *  no relative — each applied by {@link applyRecordField}. A family carries
+ *  `notes`, `private` and `noEvents` of them, under its `fam.<id>.` prefix. */
+export const RECORD_FIELDS = [
+  "sex", "nickname", "additionalNames", "nameTranslations", "fsid", "exid", "noEvents", "notes", "private",
+] as const;
+export type RecordField = (typeof RECORD_FIELDS)[number];
+
+export function isRecordField(key: string): key is RecordField {
+  return (RECORD_FIELDS as readonly string[]).includes(key);
+}
+
+/** Write one record-level row's incoming value into `target`, the way the save
+ *  does: shared by `applyRows`, the family pass and Edit's take-over. */
+export function applyRecordField(
+  target: GedNode,
+  incoming: GedNode,
+  field: RecordField,
+  choice: FieldChoice,
+  sourMap: SourXrefMap,
+  records: GedNode[],
+  order: string[],
+  customTags: Record<string, CustomTagNode[]>,
+): boolean {
+  switch (field) {
+    case "sex": return setChild(target, "SEX", incoming, choice, order, sourMap, undefined, customTags);
+    case "nickname": return applyNickname(target, incoming, choice, sourMap, customTags);
+    case "additionalNames": return applyAdditionalNames(target, incoming, choice, sourMap, customTags);
+    case "notes": return applyNotes(target, incoming, choice, sourMap, order, customTags);
+    case "noEvents": return applyNoEvents(target, incoming, sourMap);
+    case "nameTranslations": return applyNameTranslations(target, incoming);
+    case "exid": return applyExids(target, incoming);
+    case "fsid": return applyFsIds(target, incoming, choice);
+    case "private": return applyPrivateFlag(target, records);
+  }
+}
+
 /**
- * Bring a confirmed match's additional names into `target` now, the way the
- * save would write them: {@link applyAdditionalNames} under the reviewer's
- * `choice` for the "Additional names" row (`both` keeps the main's own extra
- * names, anything else replaces them), with any `SOUR`/`REPO` records the
- * names cite imported from `compare`. Returns every top-level record that
- * appeared, for the caller to build undo patches from.
+ * Bring one record-level row of a confirmed match into `target` now, the way
+ * the save would write it ({@link applyRecordField} under the reviewer's
+ * `choice`), with any `SOUR`/`REPO` records the copied lines cite imported from
+ * `compare`. Returns every top-level record that appeared, for the caller to
+ * build undo patches from.
  *
- * Used by Edit mode when the user takes over an incoming alternative name to
- * edit it: once that happens the row is resolved to "main" (see EditView's
- * `resolveRecordField`), so the names must be in the record already.
+ * Used by Edit mode when the user takes over a previewed incoming value to edit
+ * it (a name, a note, an id): the row is then resolved to "main", so the value
+ * must be in the record already.
  */
-export function materializeAdditionalNames(
+export function materializeRecordField(
   dataset: Dataset,
   compare: Dataset,
   target: GedNode,
   incoming: GedNode,
+  field: RecordField,
   choice: FieldChoice,
+  order: string[],
 ): GedNode[] {
   const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
   const sourMap = buildSourXrefMap(compare.records, dataset.records);
-  if (!applyAdditionalNames(target, incoming, choice, sourMap, {})) return [];
+  if (!applyRecordField(target, incoming, field, choice, sourMap, dataset.records, order, {})) return [];
   importSourRecords(dataset.records, compare, sourMap, {});
   const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
   if (added.length) bumpSourceCacheVersion(dataset.records);

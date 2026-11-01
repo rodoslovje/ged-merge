@@ -47,6 +47,9 @@ import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData, offersEventTag } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
+import type { RecordMergePreview } from "../../merge/recordPreview";
+import type { PendingRelativeLink } from "../../merge/materialize";
+import type { RecordPatch } from "../historyTypes";
 
 /**
  * The two relative bands of the Edit view — a parents group (top) and a
@@ -181,6 +184,26 @@ interface SharedSectionProps {
   noteGen?: number;
 }
 
+/** A relative a confirmed merge links on save, previewed where they will be. */
+function PendingCard({ link, roleLabel, dataset, navigate, cardRefCtx }: {
+  link: PendingRelativeLink;
+  roleLabel?: string;
+  dataset: Dataset;
+  navigate: (id: string) => void;
+  cardRefCtx?: MediaRefContext;
+}) {
+  return (
+    <PersonCard
+      individual={dataset.individuals.get(link.id)}
+      roleLabel={roleLabel}
+      onSelect={navigate}
+      pending={{ unconfirmed: link.unconfirmed }}
+      records={dataset.records}
+      refCtx={cardRefCtx}
+    />
+  );
+}
+
 // ── Parents band ─────────────────────────────────────────────────────────────
 
 interface ParentFamilyGroupProps extends SharedSectionProps {
@@ -190,6 +213,9 @@ interface ParentFamilyGroupProps extends SharedSectionProps {
    *  siblings row shows their name and dates. Unused directly — it exists for
    *  the memo's prop comparison. */
   self: Individual;
+  /** Parents a confirmed merge links into this family on save (see
+   *  `previewRelativeLinks`), shown in their empty slots. */
+  pending?: PendingRelativeLink[];
 }
 
 export const ParentFamilyGroup = memo(function ParentFamilyGroup({
@@ -209,6 +235,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   changedPersonIds,
   startId,
   startPersonName,
+  pending,
 }: ParentFamilyGroupProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   // Only for the language — `t` arrives as a prop. Subscribing here also keeps
@@ -235,6 +262,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   const motherLabel = sameSexParents ? t("field.parent") : t("field.mother");
   const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
   const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
+  const pendingFather = !fam?.husband ? pending?.find((l) => l.role === "father") : undefined;
+  const pendingMother = !fam?.wife ? pending?.find((l) => l.role === "mother") : undefined;
   // Read-only glimpse of what binds the parents, shown between the two cards —
   // editable on either parent's own page. Just the one event: the marriage, or
   // failing that whatever stands in for it (a civil partnership, an
@@ -275,6 +304,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
+      ) : pendingFather ? (
+        <PendingCard link={pendingFather} roleLabel={fatherLabel} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
       ) : (
         <PersonCard
           individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
@@ -327,6 +358,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
+      ) : pendingMother ? (
+        <PendingCard link={pendingMother} roleLabel={motherLabel} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
       ) : (
         <PersonCard
           individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
@@ -464,6 +497,17 @@ interface FamilySectionProps extends SharedSectionProps {
   /** Open the "Copy event to…" picker for one of this family's events. */
   onCopyFamilyEvent: (fam: Family, node: GedNode, label: string) => void;
   famMergeKeyBase: string | undefined;
+  /** What a confirmed merge will write into the family record itself — its
+   *  notes, private flag and "did not happen" statements. */
+  mergePreview?: RecordMergePreview;
+  /** Write a previewed `fam.<id>.<field>` row into the family record now,
+   *  returning undo patches (see `useMergeOverlay`). */
+  takeMergeField: (raw: GedNode, key: string) => RecordPatch[];
+  /** Leave a previewed row out of the save. */
+  skipMergeField: (key: string) => void;
+  /** The partner and children a confirmed merge links into this family on
+   *  save (see `previewRelativeLinks`). */
+  pending?: PendingRelativeLink[];
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
   /** Plain links a confirmed merge will add, keyed by row — the family's own
@@ -550,6 +594,10 @@ export const FamilySection = memo(function FamilySection({
   dismissExtraEvent,
   onCopyFamilyEvent,
   famMergeKeyBase,
+  mergePreview,
+  takeMergeField,
+  skipMergeField,
+  pending,
   mergeHighlight,
   mergeIncomingSources,
   mergeIncomingLinks,
@@ -592,6 +640,18 @@ export const FamilySection = memo(function FamilySection({
     links: mergeIncomingLinks.get(famLinksKey),
     pageImages: mergeIncomingPageImages.get(famLinksKey),
   };
+  /** Take / leave out one of the family's own previewed rows (`notes`, …). */
+  const famMergeActions = (field: string) => {
+    const key = `${famMergeKeyBase}.${field}`;
+    return {
+      onTake: () => {
+        if (!fam) return;
+        const patches: RecordPatch[] = [];
+        commitFamily(fam, (f) => { patches.push(...takeMergeField(f.raw, key)); }, patches);
+      },
+      onSkip: () => skipMergeField(key),
+    };
+  };
 
   const partnerId = fam && (fam.husband === personId ? fam.wife : fam.husband);
   const partnerRole = fam && (fam.husband === personId ? "WIFE" : "HUSB");
@@ -603,6 +663,7 @@ export const FamilySection = memo(function FamilySection({
     (tag) => !shownFamilyTags.includes(tag) && offersEventTag(tag, "FAM", eventOffer),
   );
   const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
+  const pendingPartner = !partnerId ? pending?.find((l) => l.role === "partner") : undefined;
   const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;
 
   return (
@@ -622,6 +683,8 @@ export const FamilySection = memo(function FamilySection({
               onCancel={() => setPickingSlot(null)}
               t={t}
             />
+          ) : pendingPartner ? (
+            <PendingCard link={pendingPartner} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
           ) : (
             <PersonCard
               individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
@@ -659,10 +722,13 @@ export const FamilySection = memo(function FamilySection({
           {fam && (
             <PrivateToggle
               on={!!fam.private}
+              merge={mergePreview?.private}
               t={t}
               target={t("edit.privateTarget.family")}
-              onToggle={() => commitFamily(fam, (f) =>
-                setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
+              onToggle={() => mergePreview?.private
+                ? famMergeActions("private").onSkip()
+                : commitFamily(fam, (f) =>
+                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (
@@ -734,6 +800,7 @@ export const FamilySection = memo(function FamilySection({
           assertions={fam.noEvents ?? []}
           t={t}
           onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
+          merge={mergePreview?.noEvents && { assertions: mergePreview.noEvents, ...famMergeActions("noEvents") }}
         />
       )}
       <div className="edit-children-wrap">
@@ -756,6 +823,9 @@ export const FamilySection = memo(function FamilySection({
               />
             );
           })}
+          {pending?.filter((l) => l.role === "child").map((l) => (
+            <PendingCard key={`pending-${l.id}`} link={l} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
+          ))}
           {childPickerOpen ? (
             <RelativePickerCard
               individuals={dataset.individuals}
@@ -803,9 +873,10 @@ export const FamilySection = memo(function FamilySection({
       {fam && (
         <div className="edit-record-section">
           <NotesEditor
-            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}`}
+            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}-${mergeGen}`}
             notes={fam.noteRefs ?? []}
             addTrigger={famNoteAddCount}
+            incoming={mergePreview?.notes && { ...mergePreview.notes, ...famMergeActions("notes") }}
             t={t}
             onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
           />
@@ -814,3 +885,39 @@ export const FamilySection = memo(function FamilySection({
     </div>
   );
 });
+
+/**
+ * A family a confirmed merge makes on save — a partner the main file already
+ * holds, with any children it links there — previewed read-only below the
+ * person's own families.
+ */
+export function PendingFamilyGroup({ links, dataset, t, navigate, cardRefCtx }: {
+  links: PendingRelativeLink[];
+  dataset: Dataset;
+  t: Translate;
+  navigate: (id: string) => void;
+  cardRefCtx?: MediaRefContext;
+}) {
+  const partner = links.find((l) => l.role === "partner");
+  const children = links.filter((l) => l.role === "child");
+  return (
+    <div className="edit-family edit-family--pending">
+      <div className="edit-family-header">
+        <div className="person-card-role">{t("edit.pendingFamily")}</div>
+        <div className="edit-family-card-row">
+          {partner && <PendingCard link={partner} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />}
+        </div>
+      </div>
+      {children.length > 0 && (
+        <div className="edit-children-wrap">
+          <div className="person-card-role">{t("field.children")}</div>
+          <div className="edit-children">
+            {children.map((l) => (
+              <PendingCard key={l.id} link={l} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

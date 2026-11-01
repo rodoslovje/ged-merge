@@ -2832,6 +2832,7 @@ function AppContent() {
               matchCompareIdFor={matches ? (id) => indexByMain.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMainOrder : undefined}
               decisions={decisions}
+              matches={matches ?? undefined}
               changedPersonIds={changedPersonIds}
               compareDataset={compareDataset}
               onUpdateDecision={updateDecisionForKey}
