@@ -965,6 +965,7 @@ export function StatsPanel({
               )}
             </section>
             {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
+            {card("occupationsPerPerson", t("stats.occupationsPerPerson"), t("stats.nPeople", { count: total(jobs.perPerson) }), buckets("occupationsPerPerson", t("stats.occupationsPerPerson"), jobs.perPerson))}
             {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 20))}
             {card("jobsByCentury", t("stats.occupationsByCentury"), null, centuryTable(
               "jobsByCentury",

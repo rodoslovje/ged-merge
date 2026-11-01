@@ -4,6 +4,7 @@ import {
   ageAtDeathOf,
   birthYearOf,
   byPeriod,
+  histogram,
   rankText,
   centuryOf,
   byMonth,
@@ -148,6 +149,8 @@ export interface OccupationStats {
   occupations: Bucket[];
   /** The people with any occupation recorded, of everyone in scope. */
   withOccupation: Share;
+  /** How many distinct occupations those people carry: one, two, … five or more. */
+  perPerson: Bucket[];
   /** The most common occupations per century of birth. */
   byCentury: { century: number; top: Bucket[] }[];
   /** Education (EDUC) the same way: ranked, and who has any. */
@@ -169,6 +172,7 @@ export function occupationStats(s: ScopedFacts): OccupationStats {
   return {
     occupations: rankText(s.people, (p) => p.occupations, id),
     withOccupation: share(s.people, (p) => p.occupations.length > 0),
+    perPerson: histogram(s.people.filter((p) => p.occupations.length > 0), (p) => p.occupations.length, id, { start: 1, width: 1, end: 5 }),
     byCentury: [...centuries]
       .sort((a, b) => a[0] - b[0])
       .map(([century, list]) => ({ century, top: rankText(list, (p) => p.occupations, id).slice(0, 5) })),

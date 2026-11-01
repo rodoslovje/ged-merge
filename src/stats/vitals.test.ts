@@ -115,6 +115,7 @@ describe("occupationStats", () => {
     expect(o.occupations[0]).toMatchObject({ key: "kmet", count: 3 });
     expect(o.occupations.map((b) => b.key)).toEqual(["kmet", "kovac"]);
     expect(o.withOccupation).toMatchObject({ n: 3, of: 4 });
+    expect(o.perPerson.map((b) => b.count)).toEqual([2, 1, 0, 0, 0]);
     expect(o.education).toEqual([{ key: "osnovna sola", label: "osnovna šola", count: 1, ids: ["@I4@"] }]);
     expect(o.withEducation).toMatchObject({ n: 1, of: 4 });
     expect(o.byCentury.map((c) => c.century)).toEqual([1800]);
