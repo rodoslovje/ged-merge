@@ -964,15 +964,15 @@ export function StatsPanel({
                 <PickList key={`jobTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
-            {card("occupationsPerPerson", t("stats.occupationsPerPerson"), t("stats.nPeople", { count: total(jobs.perPerson) }), buckets("occupationsPerPerson", t("stats.occupationsPerPerson"), jobs.perPerson))}
-            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 20))}
             {card("jobsByCentury", t("stats.occupationsByCentury"), null, centuryTable(
               "jobsByCentury",
               t("stats.occupation"),
               [{ head: t("stats.occupations") }],
               jobs.byCentury.map((row) => ({ century: row.century, cells: [row.top] })),
             ), true)}
+            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 15))}
+            {card("occupationsPerPerson", t("stats.occupationsPerPerson"), t("stats.nPeople", { count: total(jobs.perPerson) }), buckets("occupationsPerPerson", t("stats.occupationsPerPerson"), jobs.perPerson))}
+            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 15))}
           </>
         )}
 
