@@ -9547,7 +9547,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-status-good { --stats-bar: var(--accent); --stats-track: var(--accent-soft); }
 .stats-status-fair { --stats-bar: var(--state-minor); --stats-track: color-mix(in oklch, var(--state-minor) 20%, transparent); }
 .stats-status-poor { --stats-bar: var(--state-major); --stats-track: color-mix(in oklch, var(--state-major) 22%, transparent); }
-.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.4em; text-align: right; }
+.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: var(--stats-value, 3.4em); text-align: right; }
 
 /* Two shares per row — the father's side and the mother's — under a legend whose
    swatches carry the two lines' colours; the words stay in text ink. */
@@ -9566,7 +9566,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-pair-cell { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .stats-pair-cell:disabled { cursor: default; }
 .stats-pair-cell:hover:not(:disabled) .stats-bar-track, .stats-pair-cell.picked .stats-bar-track { outline: 1px solid var(--stats-bar); outline-offset: 1px; }
-.stats-pair-cell .stats-bar-value { min-width: 3.2em; text-align: right; font-size: 0.78rem; line-height: 1.25; }
+.stats-pair-cell .stats-bar-value { min-width: var(--stats-value, 3.2em); text-align: right; font-size: 0.78rem; line-height: 1.25; }
 
 .stats-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .stats-table th, .stats-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }

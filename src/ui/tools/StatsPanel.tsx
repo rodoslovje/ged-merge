@@ -85,6 +85,11 @@ function gensLabel(gens: number[]): string {
   return [...counts].map(([g, n]) => (n > 1 ? `${g} ×${n}` : String(g))).join(", ");
 }
 
+/** A value column as wide as the longest of these values, in the figures' own width. */
+function widest(values: string[]): string {
+  return `${values.reduce((n, v) => Math.max(n, v.length), 0)}ch`;
+}
+
 /** Whether the filters are unfolded — the reader's own layout, kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
 function readFiltersOpen(): boolean {
@@ -1042,13 +1047,14 @@ export function StatsPanel({
                 max={100}
                 limit={listLimit("ancestorsGen", lineage.ancestors.length, 12)}
                 labelWidth="2.5em"
+                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsGen") ? undefined : 12).map((g) => `${num(g.filled)} / ${num(g.slots)}`))}
                 picked={pickedIn("ancestorsGen")}
                 rows={lineage.ancestors.map((g) => ({
                   key: String(g.gen),
                   label: String(g.gen),
                   value: (100 * g.filled) / g.slots,
-                  display: pct(g.filled, g.slots),
-                  tip: t("stats.shareTip", { n: num(g.filled), of: num(g.slots) }),
+                  display: `${num(g.filled)} / ${num(g.slots)}`,
+                  tip: pct(g.filled, g.slots),
                   count: g.ids.length,
                   status: gradeOf(g.filled / g.slots),
                 }))}
@@ -1064,12 +1070,13 @@ export function StatsPanel({
                 picked={pickedIn("ancestorsSide")}
                 limit={listLimit("ancestorsSide", lineage.ancestors.length, 12)}
                 labelWidth="2.5em"
+                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsSide") ? undefined : 12).flatMap((g) => [`${num(g.paternal.filled)} / ${num(g.slots / 2)}`, `${num(g.maternal.filled)} / ${num(g.slots / 2)}`]))}
                 rows={lineage.ancestors.map<PairRow>((g) => {
                   const half = g.slots / 2;
                   const of = (side: { filled: number; ids: string[] }) => ({
                     value: (100 * side.filled) / half,
-                    display: pct(side.filled, half),
-                    tip: t("stats.shareTip", { n: num(side.filled), of: num(half) }),
+                    display: `${num(side.filled)} / ${num(half)}`,
+                    tip: pct(side.filled, half),
                     count: side.ids.length,
                   });
                   return { key: String(g.gen), label: String(g.gen), a: of(g.paternal), b: of(g.maternal) };

@@ -35,6 +35,12 @@ export interface Column {
 /** Show values over the columns only where they still fit side by side. */
 const VALUE_LABELS_UP_TO = 13;
 
+/** The label and value column widths a list was given, as its CSS variables. */
+function columnWidths(label: string | undefined, value: string | undefined): React.CSSProperties | undefined {
+  if (!label && !value) return undefined;
+  return { ...(label ? { "--stats-label": label } : {}), ...(value ? { "--stats-value": value } : {}) } as React.CSSProperties;
+}
+
 /** A bar list longer than this is windowed (see {@link BarList}). */
 const WINDOWED_FROM = 150;
 
@@ -187,6 +193,7 @@ export function BarList({
   max: fixedMax,
   tone,
   labelWidth,
+  valueWidth,
   itemsKey,
 }: {
   rows: BarRow[];
@@ -198,6 +205,8 @@ export function BarList({
   tone?: Tone;
   /** The label column's width where the labels are short (numbers); 11em otherwise. */
   labelWidth?: string;
+  /** The value column's width where the values run longer than a percentage. */
+  valueWidth?: string;
   /** What the rows were made from, when that is steadier than `rows` itself —
    *  an unfolded list is windowed, and its row measurements last as long as this. */
   itemsKey?: unknown;
@@ -211,7 +220,7 @@ export function BarList({
   const windowed = shown.length > WINDOWED_FROM;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
-    <div className={`stats-bars${toneClass(tone)}`} style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
+    <div className={`stats-bars${toneClass(tone)}`} style={columnWidths(labelWidth, valueWidth)}>
       {windowed && <div className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />}
       {shown.slice(virtual.start, virtual.end).map((r) => (
         <button
@@ -273,6 +282,7 @@ export function PairBarList({
   picked,
   limit,
   labelWidth,
+  valueWidth,
 }: {
   rows: PairRow[];
   /** What the two bars stand for, in the legend. */
@@ -283,6 +293,8 @@ export function PairBarList({
   /** Show the first rows only — the card that holds the list offers the rest. */
   limit?: number;
   labelWidth?: string;
+  /** The value column's width where the values run longer than a percentage. */
+  valueWidth?: string;
 }) {
   const { t } = useTranslation();
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
@@ -303,7 +315,7 @@ export function PairBarList({
     );
   };
   return (
-    <div className="stats-pairs" style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
+    <div className="stats-pairs" style={columnWidths(labelWidth, valueWidth)}>
       {(limit ? rows.slice(0, limit) : rows).map((r) => (
         <div key={r.key} className="stats-pair-row">
           <span className="stats-bar-label">{r.label}</span>
