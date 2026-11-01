@@ -2917,7 +2917,7 @@ export const sl = {
   "kinship.sisterInLaw":      "Svakinja",
   "kinship.auntByMarriage":   "Strina",
   "kinship.auntByMarriageMaternal": "Ujna",
-  "kinship.uncleByMarriage":  "Stric",
+  "kinship.uncleByMarriage":  "Tetin mož",
   "kinship.wifeOf":           "Žena {{kinship}}",
   "kinship.husbandOf":        "Mož {{kinship}}",
   "kinship.spouseOf":         "Zakonec {{kinship}}",
