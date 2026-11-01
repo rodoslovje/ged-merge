@@ -693,16 +693,6 @@ export function StatsPanel({
                 <PickList key={`tiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("complete", t("stats.completeness"), null, shares("complete", [
-              { key: "name", label: t("stats.has.name"), share: ov.completeness.name },
-              { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
-              { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
-              { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
-              { key: "place", label: t("stats.has.place"), share: ov.completeness.place },
-              { key: "mapped", label: t("stats.has.mapped"), share: ov.completeness.mapped },
-              { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
-              { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
-            ], true, true))}
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
             {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
             {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}
@@ -717,6 +707,16 @@ export function StatsPanel({
               />
             ))}
             {card("topBirthPlaces", t("stats.topBirthPlaces"), null, ranked("topBirthPlaces", t("stats.birthPlaces"), ov.topBirthPlaces, OVERVIEW_TOP, undefined, true))}
+            {card("complete", t("stats.completeness"), null, shares("complete", [
+              { key: "name", label: t("stats.has.name"), share: ov.completeness.name },
+              { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
+              { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
+              { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
+              { key: "place", label: t("stats.has.place"), share: ov.completeness.place },
+              { key: "mapped", label: t("stats.has.mapped"), share: ov.completeness.mapped },
+              { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
+              { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
+            ], true, true))}
           </>
         )}
 
