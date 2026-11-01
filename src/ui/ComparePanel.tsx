@@ -384,6 +384,15 @@ export function ComparePanel({
     }
     if (row.state === "agree") {
       const added = [...(row.mainRefs ?? []), ...(row.relatives ?? []).map((p) => p.main?.id)].find((id) => id && addedMain.has(id));
+      // A parent or partner this match added: the tick stays, and taking it
+      // back holds the row at main, which removes them.
+      if (added && ownAdds.has(added) && row.relatives) {
+        return (
+          <button className="choice take active" title={t("compare.relativeAdded.title")} onClick={() => setField(row.key, "main")}>
+            {t("compare.childTaken.label")}
+          </button>
+        );
+      }
       return added ? addedTag(added) : <span className="muted">=</span>;
     }
     return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
