@@ -9532,6 +9532,8 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }
+.stats-survival .stats-pair-a { --stats-bar: var(--accent); }
+.stats-survival .stats-pair-b { --stats-bar: var(--state-major); }
 .stats-pair-row { padding: 3px 6px; border-radius: var(--radius-sm); }
 .stats-pair-bars { display: flex; flex-direction: column; gap: 3px; }
 .stats-pair-bars .stats-bar-track { height: 6px; }

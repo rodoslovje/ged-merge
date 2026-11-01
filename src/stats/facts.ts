@@ -42,6 +42,8 @@ export interface PersonFacts {
   deceased: boolean;
   /** Not deceased and born (or estimated born) within the living window. */
   living: boolean;
+  /** The person has a family of their own as a spouse. */
+  married: boolean;
   /** Whole years from birth to death, when both are dated. */
   ageAtDeath?: number;
   /** The birth or death place, whichever the file gives first; `""` for none. */
@@ -294,6 +296,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       deathApprox: isApproximate(death),
       deceased,
       living: !deceased && isPresumedLiving(indi, ds, now),
+      married: indi.spouseOf.length > 0,
       ageAtDeath: death ? ageBetween(birth, death) : undefined,
       place,
       country: place ? countryOf(place, home) : "",

@@ -439,6 +439,19 @@ export function namesStats(s: ScopedFacts): NamesStats {
 
 /** Deaths before this age count as child mortality. */
 export const CHILD_AGE = 5;
+/** A child who reached this age grew up. */
+export const ADULT_AGE = 18;
+
+/** A century's families with children: how many of them grew up, how many died young, on average. */
+export interface SurvivalPoint {
+  century: number;
+  /** Families counted. */
+  n: number;
+  grown: number;
+  died: number;
+  grownIds: string[];
+  diedIds: string[];
+}
 
 export interface LifespanStats {
   /** Age at death in five-year bins. */
@@ -457,6 +470,11 @@ export interface LifespanStats {
   byCenturyAdults: CenturyPoint[];
   /** The share (percent) of the dead who died before {@link CHILD_AGE}, per century of birth. */
   childDeaths: CenturyPoint[];
+  /** Per century of the family: children who reached {@link ADULT_AGE} and
+   *  children who died before it, per family with children. A child with no
+   *  dated death counts as grown when married or living past that age, and
+   *  is left out otherwise. */
+  childSurvival: SurvivalPoint[];
   oldest: { id: string; age: number }[];
 }
 
@@ -479,6 +497,27 @@ export function lifespanStats(s: ScopedFacts): LifespanStats {
   for (const [century, g] of [...centuries].sort((a, b) => a[0] - b[0])) {
     childDeaths.push({ century, value: (100 * g.ids.length) / g.all, n: g.all, ids: g.ids });
   }
+  const thisYear = new Date().getFullYear();
+  const survival = new Map<number, { n: number; grownIds: string[]; diedIds: string[] }>();
+  for (const f of s.families) {
+    const y = s.approx || !f.yearApprox ? f.year : undefined;
+    if (y === undefined || !f.children.length) continue;
+    const c = centuryOf(y);
+    let g = survival.get(c);
+    if (!g) survival.set(c, (g = { n: 0, grownIds: [], diedIds: [] }));
+    g.n++;
+    for (const childId of f.children) {
+      const child = s.byId.get(childId);
+      if (!child) continue;
+      const a = age(child);
+      const born = by(child);
+      if (a !== undefined && a < ADULT_AGE) g.diedIds.push(childId);
+      else if (a !== undefined || child.married || (child.living && born !== undefined && thisYear - born >= ADULT_AGE)) g.grownIds.push(childId);
+    }
+  }
+  const childSurvival = [...survival]
+    .sort((a, b) => a[0] - b[0])
+    .map(([century, g]) => ({ century, n: g.n, grown: g.grownIds.length / g.n, died: g.diedIds.length / g.n, grownIds: g.grownIds, diedIds: g.diedIds }));
   return {
     ageAtDeath: histogram(dated, age, id, { start: 0, width: 5, end: 100 }),
     ageAtDeathMale: histogram(dated.filter((p) => p.sex === "M"), age, id, { start: 0, width: 5, end: 100 }),
@@ -491,6 +530,7 @@ export function lifespanStats(s: ScopedFacts): LifespanStats {
     byCenturyFemale: meanByCentury(dated.filter((p) => p.sex === "F"), by, age, id),
     byCenturyAdults: meanByCentury(dated.filter((p) => age(p)! >= CHILD_AGE), by, age, id),
     childDeaths,
+    childSurvival,
     oldest: dated
       .map((p) => ({ id: p.id, age: age(p)! }))
       .sort((a, b) => b.age - a.age)

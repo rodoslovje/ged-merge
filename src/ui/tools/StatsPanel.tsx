@@ -5,6 +5,7 @@ import { computeKinship, computeLineSides } from "../../tools/batch";
 import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, STATS_WHO, type StatsScope } from "../../stats/scope";
 import {
+  ADULT_AGE,
   CHILD_AGE,
   OVERVIEW_TOP,
   familyStats,
@@ -791,6 +792,34 @@ export function StatsPanel({
             ))}
             {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
             {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
+            {card("childSurvival", t("stats.childSurvival"), null, (() => {
+              const names: [string, string] = [t("stats.childGrown", { age: ADULT_AGE }), t("stats.childDiedYoung", { age: ADULT_AGE })];
+              const top = Math.max(1e-9, ...life.childSurvival.flatMap((p) => [p.grown, p.died]));
+              return withCsv(
+                "childSurvival",
+                () => [[t("stats.centuryCol"), ...names, t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, p.n])],
+                <div className="stats-survival">
+                  <PairBarList
+                    names={names}
+                    picked={pickedIn("childSurvival")}
+                    labelWidth="4em"
+                    rows={life.childSurvival.map<PairRow>((p) => {
+                      const of = (v: number, ids: string[]) => ({
+                        value: (100 * v) / top,
+                        display: dec(v),
+                        tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: dec(v), n: num(p.n) }),
+                        count: ids.length,
+                      });
+                      return { key: String(p.century), label: centuryLabel(p.century), a: of(p.grown, p.grownIds), b: of(p.died, p.diedIds) };
+                    })}
+                    onPick={(key, side) => {
+                      const p = life.childSurvival.find((x) => String(x.century) === key)!;
+                      choose("childSurvival", `${key}:${side}`, `${names[side === "a" ? 0 : 1]} — ${centuryLabel(p.century)}`, side === "a" ? p.grownIds : p.diedIds);
+                    }}
+                  />
+                </div>,
+              );
+            })())}
           </>
         )}
 
