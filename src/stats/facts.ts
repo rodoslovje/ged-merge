@@ -6,6 +6,7 @@ import { birthParentFamilies } from "../gedcom/couple";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
 import { isUnknownNameToken } from "../gedcom/name";
+import { additionalNames } from "../match/relatives";
 import { placeKeysOf } from "../tools/places";
 import { isPointer } from "../gedcom/uri";
 
@@ -24,6 +25,9 @@ export interface PersonFacts {
   /** How many given names the primary name carries. */
   givenCount: number;
   surname?: string;
+  /** The kinds of the names beyond the primary one (`2 TYPE` or its phrase,
+   *  "nick" for a nickname, "married" for an inline `_MARNM`), as written. */
+  nameTypes: string[];
   /** `given` and `surname` folded accent- and case-blind — what names are counted by. */
   givenKey?: string;
   surnameKey?: string;
@@ -276,6 +280,10 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       given: givens[0],
       givenCount: givens.length,
       surname,
+      nameTypes: [
+        ...additionalNames(indi).map((n) => n.typePhrase ?? n.type ?? "other"),
+        ...(name?.married ? ["married"] : []),
+      ],
       givenKey: fold(givens[0]),
       surnameKey: fold(surname),
       birthYear: birth?.year,

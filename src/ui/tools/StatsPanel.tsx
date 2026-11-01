@@ -30,6 +30,7 @@ import { DownloadIcon } from "../icons/DownloadIcon";
 import { downloadText, savedName } from "../download";
 import { csvStyleFor, percentOf, toCsv } from "../../stats/csv";
 import { lifespanOf } from "../../gedcom/lifespan";
+import { nameTypeLabel } from "../../match/relatives";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -732,6 +733,30 @@ export function StatsPanel({
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
             {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
+            {card("nameKinds", t("stats.nameKinds"), t("stats.nPeople", { count: scoped.people.length }), (() => {
+              // The primary name's gaps first, in the warning colour, then the
+              // kinds of additional name the people carry.
+              const rows: { key: string; label: string; ids: string[]; status?: BarRow["status"] }[] = [
+                { key: "noGiven", label: t("stats.name.noGiven"), ids: names.nameKinds.noGiven, status: "fair" },
+                { key: "noSurname", label: t("stats.name.noSurname"), ids: names.nameKinds.noSurname, status: "fair" },
+                ...names.nameKinds.types.map((b) => {
+                  const label = nameTypeLabel(b.label!, t);
+                  return { key: `type:${b.key}`, label: label.charAt(0).toUpperCase() + label.slice(1), ids: b.ids };
+                }),
+              ];
+              return withCsv(
+                "nameKinds",
+                () => [[t("stats.nameKinds"), t("stats.csv.count")], ...rows.map((r) => [r.label, r.ids.length])],
+                <BarList
+                  picked={pickedIn("nameKinds")}
+                  rows={rows.map((r) => ({ key: r.key, label: r.label, value: r.ids.length, display: num(r.ids.length), count: r.ids.length, status: r.status }))}
+                  onPick={(key) => {
+                    const r = rows.find((x) => x.key === key)!;
+                    choose("nameKinds", key, `${t("stats.nameKinds")} — ${r.label}`, r.ids);
+                  }}
+                />,
+              );
+            })())}
             {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
               { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
               { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },

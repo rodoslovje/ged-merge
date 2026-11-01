@@ -237,6 +237,19 @@ describe("aggregates", () => {
     expect(f.childrenMean).toEqual({ value: 1, n: 3 });
   });
 
+  it("counts additional name kinds and missing name parts", () => {
+    const ds = dataset(["0 HEAD",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/", "2 _MARNM Novak", "1 NAME Ančka /Kos/", "2 TYPE aka", "1 NAME Ana /Novak/", "2 TYPE married",
+      "0 @I2@ INDI", "1 NAME NN /Kos/", "2 NICK Tone",
+      "0 @I3@ INDI", "1 NAME Janez //",
+      "0 TRLR"].join("\n"));
+    const facts = buildStatsFacts(ds);
+    const k = namesStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE)).nameKinds;
+    expect(k.noGiven).toEqual(["@I2@"]);
+    expect(k.noSurname).toEqual(["@I3@"]);
+    expect(k.types.map((b) => [b.label, b.ids])).toEqual([["aka", ["@I1@"]], ["married", ["@I1@"]], ["nick", ["@I2@"]]]);
+  });
+
   it("ranks marriage places by family, folding accents and case", () => {
     const fams: [string, string][] = [["@F1@", "2 PLAC Šmartin"], ["@F2@", "2 PLAC smartin"], ["@F3@", "2 PLAC Kranj"], ["@F4@", "2 DATE 1900"]];
     const ds = dataset(["0 HEAD", ...fams.flatMap(([id, line], i) => [
