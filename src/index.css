@@ -9490,6 +9490,9 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-stacked .stats-col { cursor: default; }
 .stats-stack-lower { --stats-bar: var(--accent); }
 .stats-stack-upper { --stats-bar: var(--state-major); }
+.stats-stacked .stats-tone-accent { --stats-bar: var(--accent); }
+.stats-stacked .stats-tone-minor { --stats-bar: var(--state-minor); }
+.stats-stacked .stats-tone-major { --stats-bar: var(--state-major); }
 .stats-stacked .stats-male { --stats-bar: var(--sex-male); }
 .stats-stacked .stats-female { --stats-bar: var(--sex-female); }
 button.stats-col-bar { width: 100%; padding: 0; border: none; font: inherit; cursor: pointer; }

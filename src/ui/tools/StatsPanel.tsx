@@ -44,7 +44,7 @@ import { countryFacetLabel, countryFacetName, flagEmoji } from "../../geo/placeC
 import { countryOf } from "../../tools/geocode";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
-import { BarList, ColumnChart, PairBarList, StackedColumnChart, StatTile, toneClass, type BarRow, type Column, type PairRow, type StackedColumn, type Tone } from "./StatsCharts";
+import { BarList, ColumnChart, PairBarList, StackedColumnChart, StatTile, toneClass, type BarRow, type Column, type PairRow, type StackedColumn, type StackTone, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
@@ -460,6 +460,38 @@ export function StatsPanel({
   const periodLabel = (b: Bucket) => String(b.lo);
   /** Label about a dozen periods however many there are. */
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
+  /** Rows per period, each column split in two (men and women, first and later
+   *  marriages), the whole count on top; a part lists its own rows. */
+  const stackedPeriods = (card: string, title: string, list: Bucket[], names: [string, string], split: (ids: string[]) => [string[], string[]], opts: { tones?: [StackTone, StackTone]; families?: boolean } = {}) => {
+    const parts = list.map((b) => split(b.ids));
+    csvOf.set(card, () => [[title, ...names, t("stats.csv.count")], ...list.map((b, i) => [rangeLabel(b), parts[i][0].length, parts[i][1].length, b.count])]);
+    const part = (b: Bucket, name: string, ids: string[]) => ({ value: ids.length, tip: `${rangeLabel(b)} — ${name}: ${num(ids.length)} / ${num(b.count)}`, count: ids.length });
+    return (
+      <StackedColumnChart
+        names={names}
+        tones={opts.tones}
+        labelEvery={periodStep(list)}
+        picked={pickedIn(card)}
+        columns={list.map<StackedColumn>((b, i) => ({
+          key: b.key,
+          label: periodLabel(b),
+          lower: part(b, names[0], parts[i][0]),
+          upper: part(b, names[1], parts[i][1]),
+          top: b.count ? num(b.count) : undefined,
+        }))}
+        onPick={(key, which) => {
+          const i = list.findIndex((b) => b.key === key);
+          const w = which === "lower" ? 0 : 1;
+          choose(card, `${key}:${which}`, `${title} — ${rangeLabel(list[i])} — ${names[w]}`, parts[i][w], opts.families);
+        }}
+      />
+    );
+  };
+  /** Split people into men and women; anyone else is in the column's total only. */
+  const bySex = (ids: string[]): [string[], string[]] => [
+    ids.filter((id) => scoped?.byId.get(id)?.sex === "M"),
+    ids.filter((id) => scoped?.byId.get(id)?.sex === "F"),
+  ];
 
   /** Top names or occupations per century, as chips that list their people. */
   const centuryTable = (id: string, itemHead: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => withCsv(
@@ -850,7 +882,16 @@ export function StatsPanel({
                 <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={pick.key === "related" ? onOpenRelationship : undefined} />
               )}
             </section>
-            {card("marriageDecade", t("stats.marriagesOverTime"), t("stats.nFamilies", { count: total(fams.marriagesPerPeriod) }), buckets("marriageDecade", t("stats.marriagesOverTime"), fams.marriagesPerPeriod, { families: true, label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(fams.marriagesPerPeriod) }), true)}
+            {card("marriageDecade", t("stats.marriagesOverTime"), t("stats.nFamilies", { count: total(fams.marriagesPerPeriod) }), (() => {
+              // A remarriage: a spouse married before, by an earlier dated union.
+              const byId = new Map(scoped.families.map((f) => [f.id, f]));
+              const again = (id: string) => {
+                const f = byId.get(id);
+                return !!f && ((!!f.husband && !f.husbandFirst) || (!!f.wife && !f.wifeFirst));
+              };
+              return stackedPeriods("marriageDecade", t("stats.marriagesOverTime"), fams.marriagesPerPeriod, [t("stats.firstMarriages"), t("stats.remarriages")],
+                (ids) => [ids.filter((id) => !again(id)), ids.filter(again)], { tones: ["accent", "minor"], families: true });
+            })(), true)}
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
             {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}
@@ -884,7 +925,7 @@ export function StatsPanel({
                 <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("birthDecade", t("stats.birthsOverTime"), null, buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
+            {card("birthDecade", t("stats.birthsOverTime"), null, stackedPeriods("birthDecade", t("stats.birthsOverTime"), births.perPeriod, [t("stats.men"), t("stats.women")], bySex, { tones: ["male", "female"] }), true)}
             {card("birthPlaces", t("stats.birthPlaces"), null, ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
             {card("birthMonth", t("stats.birthsByMonth"), null, buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
             {card("baptism", t("stats.baptism"), t("stats.nPeople", { count: total(births.baptism) }), buckets("baptism", t("stats.baptism"), births.baptism, { label: (b) => t(`stats.baptism.${b.key}`) }))}
@@ -893,7 +934,7 @@ export function StatsPanel({
 
         {deaths && (
           <>
-            {card("deathDecade", t("stats.deathsOverTime"), null, buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
+            {card("deathDecade", t("stats.deathsOverTime"), null, stackedPeriods("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, [t("stats.men"), t("stats.women")], bySex, { tones: ["male", "female"] }), true)}
             {card("deathPlaces", t("stats.deathPlaces"), null, ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
             {card("causes", t("stats.causes"), null, ranked("causes", t("stats.causes"), deaths.causes, 15))}
             {card("causeAge", t("stats.causeAge"), null, (

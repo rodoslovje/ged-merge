@@ -14,6 +14,11 @@ export type Tone = "male" | "female";
 
 export const toneClass = (tone: Tone | undefined) => (tone ? ` stats-${tone}` : "");
 
+/** A part of a {@link StackedColumnChart}: a sex's colour, or the accent or a state's. */
+export type StackTone = Tone | "accent" | "minor" | "major";
+const stackToneClass = (tone: StackTone | undefined) =>
+  !tone ? "" : tone === "male" || tone === "female" ? toneClass(tone) : ` stats-tone-${tone}`;
+
 export interface Column {
   key: string;
   /** The axis label under the column. */
@@ -104,12 +109,15 @@ export function StackedColumnChart({
   onPick,
   picked,
   tones,
+  labelEvery = 1,
 }: {
   columns: StackedColumn[];
   /** What the lower and the upper part stand for, in the legend. */
   names: [string, string];
-  /** The parts are about one sex each: drawn in its colour. */
-  tones?: [Tone, Tone];
+  /** The parts' colours; the accent below and the alarm above by default. */
+  tones?: [StackTone, StackTone];
+  /** Write every n-th axis label only (see {@link ColumnChart}). */
+  labelEvery?: number;
   onPick: (key: string, part: "lower" | "upper") => void;
   /** `key:lower` or `key:upper`. */
   picked?: string;
@@ -117,12 +125,13 @@ export function StackedColumnChart({
   const { t } = useTranslation();
   if (!columns.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   const max = largestValue(columns.map((c) => ({ value: c.lower.value + c.upper.value })));
+  const labelled = columns.length <= VALUE_LABELS_UP_TO;
   const part = (c: StackedColumn, which: "lower" | "upper") => {
     const p = c[which];
     return (
       <button
         type="button"
-        className={`stats-col-bar stats-stack-${which}${toneClass(tones?.[which === "lower" ? 0 : 1])}${picked === `${c.key}:${which}` ? " picked" : ""}${which === "lower" && !c.upper.value ? " alone" : ""}`}
+        className={`stats-col-bar stats-stack-${which}${stackToneClass(tones?.[which === "lower" ? 0 : 1])}${picked === `${c.key}:${which}` ? " picked" : ""}${which === "lower" && !c.upper.value ? " alone" : ""}`}
         style={{ height: `${(100 * p.value) / max}%` }}
         disabled={p.count === 0}
         onClick={() => onPick(c.key, which)}
@@ -132,21 +141,21 @@ export function StackedColumnChart({
   };
   return (
     <div className="stats-stacked">
-      <div className="stats-columns">
-        {columns.map((c) => (
+      <div className={`stats-columns${labelEvery > 1 ? " spread" : ""}`}>
+        {columns.map((c, i) => (
           <div key={c.key} className="stats-col">
             <span className="stats-col-plot">
-              {c.top && <span className="stats-col-value">{c.top}</span>}
+              {c.top && labelled && <span className="stats-col-value">{c.top}</span>}
               {part(c, "upper")}
               {part(c, "lower")}
             </span>
-            <span className="stats-col-label">{c.label}</span>
+            <span className="stats-col-label">{i % labelEvery === 0 ? c.label : " "}</span>
           </div>
         ))}
       </div>
       <div className="stats-pair-legend">
-        <span className={`stats-stack-lower${toneClass(tones?.[0])}`}>{names[0]}</span>
-        <span className={`stats-stack-upper${toneClass(tones?.[1])}`}>{names[1]}</span>
+        <span className={`stats-stack-lower${stackToneClass(tones?.[0])}`}>{names[0]}</span>
+        <span className={`stats-stack-upper${stackToneClass(tones?.[1])}`}>{names[1]}</span>
       </div>
     </div>
   );
