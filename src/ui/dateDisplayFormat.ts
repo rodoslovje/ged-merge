@@ -1,5 +1,5 @@
 import type { GedDate } from "../gedcom/types";
-import { formatGedDate } from "../normalize/date";
+import { formatGedDate, hasDualYear } from "../normalize/date";
 import { DATE_PATTERN_CHOICES, dateProfileFromPattern } from "../normalize/formatOverrides";
 import { inferDateProfile } from "../normalize/profile";
 import { narrativeLangFor } from "../report/narrativeText";
@@ -15,9 +15,10 @@ export const DATE_DISPLAY_CHOICES: readonly string[] = ["", DATE_DISPLAY_WORDS, 
 
 /**
  * The on-screen formatter a display choice stands for, or null for the file's
- * own text. A pattern writes the date as the normalizer would write it in that
- * format — qualifiers keep their standard keyword (`ABT 05.03.1850`), and a
- * value no pattern can hold (a calendar, an era, free text) keeps its text.
+ * own text. A pattern writes each date part as the normalizer would write it
+ * in that format, and the qualifier as a sign (`~05.03.1850`, `1850–1860`,
+ * `1850 → 1860`); a value no pattern can hold (a calendar, an era, free text)
+ * keeps its text.
  * `lang` is read per date, so a language switch needs no new formatter.
  */
 export function dateDisplayFormatter(choice: string, lang: () => string): ((d: GedDate) => string) | null {
@@ -28,5 +29,56 @@ export function dateDisplayFormatter(choice: string, lang: () => string): ((d: G
     return (d) => compact(d).replace(/(\d)\.(?=\d)/g, "$1. ");
   }
   const profile = choice ? dateProfileFromPattern(choice, inferDateProfile([]), "none") : undefined;
-  return profile ? (d) => formatGedDate(d, profile) : null;
+  if (!profile) return null;
+  // A pattern that joins its own parts with hyphens ("1850-06-03") sets the
+  // range dash apart with spaces, or the two would run together.
+  const dash = choice.includes("-") ? " – " : "–";
+  const part = (year?: number, month?: number, day?: number) =>
+    formatGedDate({ raw: "", qualifier: "exact", year, month, day }, profile);
+  return (d) => {
+    const whole = formatGedDate(d, profile);
+    if (d.calendar !== undefined || hasDualYear(d.raw)) return whole;
+    const first = part(d.year, d.month, d.day);
+    const second = part(d.year2, d.month2, d.day2);
+    const sign = qualifierSign(d.qualifier, first, second, dash);
+    return sign ?? whole;
+  };
+}
+
+/**
+ * A qualified date written with signs instead of GEDCOM keywords: ABT/CAL/EST
+ * as `~`, BEF `<`, AFT `>`, the range BET … AND … as `a–b`, and the period
+ * FROM … TO … as `a → b` — kept apart from the range, since one says when a
+ * single event fell and the other how long something lasted. An INT date
+ * shows its date; its wording stays in the field's hover with the file's text.
+ * Undefined when a part the qualifier needs did not format.
+ */
+function qualifierSign(
+  qualifier: GedDate["qualifier"],
+  first: string,
+  second: string,
+  dash: string,
+): string | undefined {
+  if (qualifier === "between" || qualifier === "range") {
+    if (!first || !second) return undefined;
+    return qualifier === "between" ? `${first}${dash}${second}` : `${first} → ${second}`;
+  }
+  if (!first) return undefined;
+  switch (qualifier) {
+    case "about":
+      return `~${first}`;
+    case "before":
+      return `<${first}`;
+    case "after":
+      return `>${first}`;
+    case "from":
+      return `${first} →`;
+    case "to":
+      return `→ ${first}`;
+    case "interpreted":
+    case "exact":
+      return first;
+    case "unknown":
+      return undefined;
+  }
 }

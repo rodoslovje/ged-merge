@@ -150,12 +150,43 @@ export interface TypedDateOptions {
 }
 
 /** Parse a date as typed by hand: "5. 3. 1850", spaced the way Slovenian is
- *  written, reads as "5.3.1850" does. */
+ *  written, reads as "5.3.1850" does, and the signs the date display writes
+ *  read back as their keywords (see `signsToKeywords`). */
 export function parseTypedDate(typed: string, order: DateOrder, opts?: TypedDateOptions): GedDate {
-  const date = parseDate(typed.trim().replace(/(\d)\.\s+(?=\d)/g, "$1."), order);
+  const spaced = typed.trim().replace(/(\d)\.\s+(?=\d)/g, "$1.");
+  const signed = signsToKeywords(spaced, opts);
+  const read = signed !== spaced ? parseDate(signed, order) : undefined;
+  // A sign whose sides are not both dates ("~ 1850 - 1860") is left to the plain grammar.
+  const date = read && endpointsRead(read) ? read : parseDate(spaced, order);
   return opts?.period && date.qualifier === "between" && DASH_YEAR_RANGE.test(typed.trim())
     ? { ...date, qualifier: "range" }
     : date;
+}
+
+/**
+ * The range and period signs the date display writes, as GEDCOM keywords:
+ * `a → b` FROM a TO b, `a →` FROM a, `→ b` TO b, and `a – b` BET a AND b — or
+ * the period FROM a TO b in a field that holds a span. The dash is an en dash,
+ * a hyphen with a space on each side, or a lone hyphen with a year on each
+ * side ("5.3.1850-6.4.1860"), so an ISO date's own hyphens never split.
+ */
+function signsToKeywords(typed: string, opts?: TypedDateOptions): string {
+  const arrow = typed.match(/^(.*?)\s*→\s*(.*)$/);
+  if (arrow) {
+    const [, a, b] = arrow;
+    if (a && b) return `FROM ${a} TO ${b}`;
+    return a ? `FROM ${a}` : b ? `TO ${b}` : typed;
+  }
+  const dash =
+    typed.match(/^(.+?)(?:\s*–\s*|\s+-\s+)(.+)$/) ?? typed.match(/^([^-]*\d{3,4}[^-]*)-([^-]*\d{3,4}[^-]*)$/);
+  if (!dash) return typed;
+  return opts?.period ? `FROM ${dash[1]} TO ${dash[2]}` : `BET ${dash[1]} AND ${dash[2]}`;
+}
+
+/** Every endpoint the date's qualifier names was read as a date. */
+function endpointsRead(d: GedDate): boolean {
+  if (d.qualifier === "between" || d.qualifier === "range") return d.year !== undefined && d.year2 !== undefined;
+  return d.year !== undefined;
 }
 
 /** A date with something to go on: a year, a declared calendar, or a
