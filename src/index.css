@@ -9539,6 +9539,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-move > span { overflow: hidden; text-overflow: ellipsis; }
 .stats-bar-track { height: 8px; background: var(--stats-track); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
+/* A bar in the two sexes' colours: the parts sit side by side, the track rounds the ends. */
+.stats-bar-track:has(.stats-bar-part) { display: flex; }
+.stats-bar-part { flex: none; border-radius: 0; }
 /* Completeness rows grade the file's own data in the status chips' pairing — the fill in the
    chip's ink, the track in its tint — and the percentage beside it says the same in words.  */
 .stats-status-good { --stats-bar: var(--accent); --stats-track: var(--accent-soft); }

@@ -173,6 +173,9 @@ export interface BarRow {
   tone?: Tone;
   /** How good a share is, where the row measures the data's own quality — the bar wears the status colour. */
   status?: "good" | "fair" | "poor";
+  /** The men and the women among the row's people: the bar is drawn in their
+   *  two colours, anyone else in the plain one after them. */
+  sexes?: { male: number; female: number };
 }
 
 /** A ranked list of horizontal bars, the first `limit` of them — the card that holds the list offers the rest. */
@@ -222,7 +225,15 @@ export function BarList({
         >
           <span className="stats-bar-label">{r.label}</span>
           <span className="stats-bar-track">
-            <span className="stats-bar-fill" style={{ width: `${(100 * r.value) / max}%` }} />
+            {r.sexes ? (
+              <>
+                <span className="stats-bar-fill stats-bar-part stats-male" style={{ width: `${(100 * r.sexes.male) / max}%` }} />
+                <span className="stats-bar-fill stats-bar-part stats-female" style={{ width: `${(100 * r.sexes.female) / max}%` }} />
+                <span className="stats-bar-fill stats-bar-part" style={{ width: `${(100 * (r.value - r.sexes.male - r.sexes.female)) / max}%` }} />
+              </>
+            ) : (
+              <span className="stats-bar-fill" style={{ width: `${(100 * r.value) / max}%` }} />
+            )}
           </span>
           <span className="stats-bar-value">{r.display}</span>
         </button>

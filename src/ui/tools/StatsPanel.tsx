@@ -308,9 +308,11 @@ export function StatsPanel({
     if (!next.delete(card)) next.add(card);
     return next;
   });
-  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false, families = false) => withCsv(
+  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false, families = false, sexes = false) => withCsv(
     card,
-    () => [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
+    () => sexes
+      ? [[title, t("stats.men"), t("stats.women"), t("stats.csv.count")], ...list.map((b) => { const [m, f] = bySex(b.ids); return [b.label!, m.length, f.length, b.count]; })]
+      : [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
     <BarList
       tone={tone}
       picked={pickedIn(card)}
@@ -318,15 +320,20 @@ export function StatsPanel({
       // thousands, and a place's short label costs a lookup each.
       max={list.reduce((m, b) => Math.max(m, b.count), 1)}
       itemsKey={list}
-      rows={list.slice(0, listLimit(card, list.length, limit)).map((b) => ({
-        key: b.key,
-        // A place reads by its own name and its country's flag; the whole value is the tip.
-        label: places ? shortPlace(b.label!, home) : b.label,
-        tip: places ? b.label : undefined,
-        value: b.count,
-        display: num(b.count),
-        count: b.count,
-      }))}
+      rows={list.slice(0, listLimit(card, list.length, limit)).map((b) => {
+        // Men and women apart, in their colours, the counts in the tip.
+        const split = sexes ? bySex(b.ids) : undefined;
+        return {
+          key: b.key,
+          // A place reads by its own name and its country's flag; the whole value is the tip.
+          label: places ? shortPlace(b.label!, home) : b.label,
+          tip: places ? b.label : split ? `${b.label} — ${t("stats.men")}: ${num(split[0].length)} · ${t("stats.women")}: ${num(split[1].length)}` : undefined,
+          value: b.count,
+          display: num(b.count),
+          count: b.count,
+          sexes: split && { male: split[0].length, female: split[1].length },
+        };
+      })}
       onPick={(key) => {
         const b = list.find((x) => x.key === key)!;
         choose(card, key, `${title} — ${b.label}`, b.ids, families);
@@ -462,7 +469,7 @@ export function StatsPanel({
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
   /** Rows per period, each column split in two (men and women, first and later
    *  marriages), the whole count on top; a part lists its own rows. */
-  const stackedPeriods = (card: string, title: string, list: Bucket[], names: [string, string], split: (ids: string[]) => [string[], string[]], opts: { tones?: [StackTone, StackTone]; families?: boolean } = {}) => {
+  const stackedPeriods = (card: string, title: string, list: Bucket[], names: [string, string], split: (ids: string[]) => [string[], string[]], opts: { tones?: [StackTone, StackTone]; families?: boolean; label?: (b: Bucket) => string } = {}) => {
     const parts = list.map((b) => split(b.ids));
     csvOf.set(card, () => [[title, ...names, t("stats.csv.count")], ...list.map((b, i) => [rangeLabel(b), parts[i][0].length, parts[i][1].length, b.count])]);
     const part = (b: Bucket, name: string, ids: string[]) => ({ value: ids.length, tip: `${rangeLabel(b)} — ${name}: ${num(ids.length)} / ${num(b.count)}`, count: ids.length });
@@ -474,7 +481,7 @@ export function StatsPanel({
         picked={pickedIn(card)}
         columns={list.map<StackedColumn>((b, i) => ({
           key: b.key,
-          label: periodLabel(b),
+          label: (opts.label ?? periodLabel)(b),
           lower: part(b, names[0], parts[i][0]),
           upper: part(b, names[1], parts[i][1]),
           top: b.count ? num(b.count) : undefined,
@@ -970,9 +977,9 @@ export function StatsPanel({
               [{ head: t("stats.occupations") }],
               jobs.byCentury.map((row) => ({ century: row.century, cells: [row.top] })),
             ), true)}
-            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 15))}
-            {card("occupationsPerPerson", t("stats.occupationsPerPerson"), t("stats.nPeople", { count: total(jobs.perPerson) }), buckets("occupationsPerPerson", t("stats.occupationsPerPerson"), jobs.perPerson))}
-            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 15))}
+            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 15, undefined, false, false, true))}
+            {card("occupationsPerPerson", t("stats.occupationsPerPerson"), t("stats.nPeople", { count: total(jobs.perPerson) }), stackedPeriods("occupationsPerPerson", t("stats.occupationsPerPerson"), jobs.perPerson, [t("stats.men"), t("stats.women")], bySex, { tones: ["male", "female"], label: rangeLabel }))}
+            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 15, undefined, false, false, true))}
           </>
         )}
 
