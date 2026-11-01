@@ -4748,6 +4748,18 @@ button:focus-visible {
 }
 .compare-col-main { color: var(--state-main); }
 .compare-col-incoming { color: var(--state-incoming); }
+/* "Merged from N records" beside the Incoming header: the record on the right
+   is one the matcher assembled from several incoming copies. */
+.compare-consolidated {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: help;
+}
 /* The "keep main" fallback tag in the choice column reads as pine, not muted. */
 .gm-main-tag {
   font-family: var(--font-mono);

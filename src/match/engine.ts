@@ -10,6 +10,7 @@ import {
 import { buildNameFrequencies, type NameFrequencies } from "./nameFrequency";
 import { birthYearsApart, conflictingBirthYears, differentGiven, parentsVerdict } from "./similarity";
 import { clearTextCaches } from "./text";
+import { birthYear, deathYear } from "../gedcom/lifespan";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -126,6 +127,7 @@ function matchIndividuals(
     runnersUp(scored, mainList.length, compareList),
     individuals,
     mainPos,
+    mainDs,
     compareDs,
     config,
     freq,
@@ -254,31 +256,41 @@ function findIncomingDuplicateClusters(
   scoredAgainst: (mainPos: number) => Individual[],
   matches: IndividualCandidate[],
   mainPos: Map<string, number>,
+  mainDs: Dataset,
   compareDs: Dataset,
   config: MatchConfig,
   freq: NameFrequencies,
 ): IncomingDuplicateCluster[] {
   const matchedCompare = new Set(matches.map((m) => m.compareId));
   const winnerOf = new Map(matches.map((m) => [m.mainId, m.compareId]));
+  // Only a confidently matched relative vouches for a half (see complementaryHalves).
+  const confidentMatch = new Map<string, string>();
+  for (const m of matches) if (m.score >= CONFIDENT_RELATIVE_SCORE) confidentMatch.set(m.mainId, m.compareId);
 
   const consumed = new Set<string>(); // each incoming id consolidated at most once
   const clusters: IncomingDuplicateCluster[] = [];
   for (const [mainId, keepId] of winnerOf) {
     if (consumed.has(keepId)) continue;
     const pos = mainPos.get(mainId);
+    const main = mainDs.individuals.get(mainId);
     const keep = compareDs.individuals.get(keepId);
-    if (pos === undefined || !keep) continue;
+    if (pos === undefined || !main || !keep) continue;
     const mergeIds: string[] = [];
     for (const cand of scoredAgainst(pos)) {
       if (cand.id === keepId || consumed.has(cand.id)) continue;
       if (matchedCompare.has(cand.id)) continue; // matched to another main → distinct
+      // Two halves of one person the main's own relatives vouch for — see
+      // complementaryHalves — clear the year and score gates below on that
+      // evidence instead; every other veto still holds.
+      const halves = complementaryHalves(main, keep, cand, mainDs, compareDs, confidentMatch);
       // Hard vetoes a weighted-average score can't be trusted to enforce:
       // a distinct sibling (given name), a namesake (birth years far apart), or
       // a same-named cousin (conflicting parents) is never one person. The
       // scorer's own gates apply too — consolidation is a merge of two records
       // and has no business accepting a pair the matcher would have refused to
       // score, e.g. one whose lifespan ends before the other's wedding.
-      if (differentGiven(keep, cand) || birthYearsApart(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
+      if (differentGiven(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
+      if (!halves && birthYearsApart(keep, cand)) continue;
       // Two children of one family with exact births in different years are
       // sisters or brothers (Marija 1859, Marjeta 1862), not one child twice —
       // the year tolerance above is for copies that share no relatives.
@@ -286,7 +298,7 @@ function findIncomingDuplicateClusters(
       if (sexConflicts(keep, cand) || !plausibleIndividualMatch(keep, cand, config.gates, compareDs, compareDs)) continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.
-      if (scoreIndividualPairValue(keep, cand, compareDs, compareDs, config, freq) < DUP_PAIR_SCORE) continue;
+      if (!halves && scoreIndividualPairValue(keep, cand, compareDs, compareDs, config, freq) < DUP_PAIR_SCORE) continue;
       mergeIds.push(cand.id);
       consumed.add(cand.id);
     }
@@ -296,6 +308,63 @@ function findIncomingDuplicateClusters(
     }
   }
   return clusters;
+}
+
+/** Birth years two halves of one person may differ by when one of them is only
+ *  an estimate — an index copy's "~1775" for a 1768 baptism. */
+const HALVES_BIRTH_GAP = 10;
+
+/**
+ * True when `keep` and `cand` are one person the incoming file split in two:
+ * one copy carries only the parents (often with the exact dates from the
+ * baptism), the other only the person's own family (with an estimated birth
+ * from the marriage). They share no relatives, and their dates can sit years
+ * apart, so neither the duplicate score nor the year tolerance sees them as
+ * one — but the main person ties both down: the first copy's parents are the
+ * matches of the main's parents, the second copy's spouse the match of the
+ * main's spouse. A namesake sibling never passes this: it carries no family of
+ * its own *and* the right spouse.
+ */
+function complementaryHalves(
+  main: Individual,
+  keep: Individual,
+  cand: Individual,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  confidentMatch: Map<string, string>,
+): boolean {
+  const parentsOnly = (p: Individual) => p.childOf.length > 0 && p.spouseOf.length === 0;
+  const familyOnly = (p: Individual) => p.spouseOf.length > 0 && p.childOf.length === 0;
+  const [withParents, withFamily] =
+    parentsOnly(keep) && familyOnly(cand) ? [keep, cand] : parentsOnly(cand) && familyOnly(keep) ? [cand, keep] : [];
+  if (!withParents || !withFamily) return false;
+  // Two estimates or exact dates that disagree are not halves: the gap is
+  // allowed only against an estimate, and the deaths must not contradict.
+  if (conflictingBirthYears(keep, cand)) return false;
+  const [by1, by2] = [birthYear(keep), birthYear(cand)];
+  if (by1 !== undefined && by2 !== undefined && Math.abs(by1 - by2) > HALVES_BIRTH_GAP) return false;
+  const [dy1, dy2] = [deathYear(keep), deathYear(cand)];
+  if (dy1 !== undefined && dy2 !== undefined && dy1 !== dy2) return false;
+  // Every parent the first copy names is the confident match of the main's
+  // parent in that role.
+  const parentsVouch = parentFamilies(main, mainDs).some((mf) =>
+    parentFamilies(withParents, compareDs).some((cf) => {
+      const roles = [[mf.father, cf.father], [mf.mother, cf.mother]] as const;
+      return roles.some(([, c]) => c) && roles.every(([m, c]) => !c || (!!m && confidentMatch.get(m.id) === c.id));
+    }),
+  );
+  if (!parentsVouch) return false;
+  // And the second copy's spouse is the confident match of the main's spouse.
+  const spouses = (p: Individual, ds: Dataset) =>
+    p.spouseOf.flatMap((famId) => {
+      const fam = ds.families.get(famId);
+      return [fam?.husband, fam?.wife].filter((id): id is string => !!id && id !== p.id);
+    });
+  const familySpouses = new Set(spouses(withFamily, compareDs));
+  return spouses(main, mainDs).some((id) => {
+    const matched = confidentMatch.get(id);
+    return matched !== undefined && familySpouses.has(matched);
+  });
 }
 
 /** True when the two records are children of one and the same family. */

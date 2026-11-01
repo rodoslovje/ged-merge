@@ -2364,6 +2364,8 @@ export const en = {
   "compare.childTaken.title": "Will be added — click to skip",
   "compare.childAdded.title": "Added to your file, where you can edit it in Edit — click to take it back",
   "compare.join.title": "On save, this person is linked to {{name}}, who is already in your file. The app suggested that match and you have not confirmed it — click to open the match and confirm or reject it.",
+  "compare.consolidated": "merged from {{count}} records",
+  "compare.consolidated.title": "The incoming file holds this person in several records ({{ids}}). They were merged into one before the comparison.",
   "compare.added.title": "Already in your file — added with this match, so you can edit it in Edit. If the match is no longer confirmed, the person is removed again.",
   "compare.addedElsewhere.title": "Already in your file — added with another match, so you can edit it in Edit.",
   "field.given": "Given name",

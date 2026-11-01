@@ -3,6 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "./engine";
 import { jaroWinkler, soundex, foldToken } from "./text";
+import { consolidateDuplicates } from "../tools/mergeDuplicate";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -974,6 +975,68 @@ describe("incoming duplicate consolidation: detects same person split across inc
     const merged = new Set(r.incomingDuplicates?.flatMap((c) => c.mergeIds) ?? []);
     expect(merged.has("@NAMESAKE@")).toBe(false);
     expect(merged.has("@SIB@")).toBe(false);
+  });
+});
+
+describe("incoming duplicate consolidation: two halves of one person, years apart", () => {
+  // Main Nikolaj (b 5 DEC 1768) has his parents and his wife Helena with two
+  // children. The incoming index splits him: @BAPT@ with the parents and the
+  // baptism date, @MARR@ with Helena, the children and an "ABT 1775" from the
+  // marriage — seven years off, beyond the plain duplicate's tolerance.
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @DAD@ INDI\n1 NAME Nikolaj /Porenta/\n1 SEX M\n1 BIRT\n2 DATE 1734\n1 FAMS @MP@
+0 @MUM@ INDI\n1 NAME Lucija /Osel/\n1 SEX F\n1 BIRT\n2 DATE 1734\n1 FAMS @MP@
+0 @MP@ FAM\n1 HUSB @DAD@\n1 WIFE @MUM@\n1 CHIL @NIK@
+0 @NIK@ INDI\n1 NAME Nikolaj /Porenta/\n1 SEX M\n1 BIRT\n2 DATE 5 DEC 1768\n1 DEAT\n2 DATE 20 OCT 1848\n1 FAMC @MP@\n1 FAMS @MS@
+0 @HEL@ INDI\n1 NAME Helena /Praprotnik/\n1 SEX F\n1 BIRT\n2 DATE 1771\n1 FAMS @MS@
+0 @K1@ INDI\n1 NAME Jakob /Porenta/\n1 SEX M\n1 BIRT\n2 DATE 1795\n1 FAMC @MS@
+0 @K2@ INDI\n1 NAME Marija /Porenta/\n1 SEX F\n1 BIRT\n2 DATE 1798\n1 FAMC @MS@
+0 @MS@ FAM\n1 HUSB @NIK@\n1 WIFE @HEL@\n1 CHIL @K1@\n1 CHIL @K2@
+0 TRLR\n`;
+  const compare = (marrBirth: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @DAD2@ INDI\n1 NAME Nikolaj /Porenta/\n1 SEX M\n1 BIRT\n2 DATE 1734\n1 FAMS @IP@
+0 @MUM2@ INDI\n1 NAME Lucija /Osel/\n1 SEX F\n1 BIRT\n2 DATE 1734\n1 FAMS @IP@
+0 @IP@ FAM\n1 HUSB @DAD2@\n1 WIFE @MUM2@\n1 CHIL @BAPT@
+0 @BAPT@ INDI\n1 NAME Nikolaj /Porenta/\n1 SEX M\n1 BIRT\n2 DATE 5 DEC 1768\n1 DEAT\n2 DATE 20 OCT 1848\n1 FAMC @IP@
+0 @MARR@ INDI\n1 NAME Nikolaj /Porenta/\n1 SEX M\n1 BIRT\n2 DATE ${marrBirth}\n1 FAMS @IS@
+0 @HEL2@ INDI\n1 NAME Helena /Praprotnik/\n1 SEX F\n1 BIRT\n2 DATE 1771\n1 FAMS @IS@
+0 @K12@ INDI\n1 NAME Jakob /Porenta/\n1 SEX M\n1 BIRT\n2 DATE 1795\n1 FAMC @IS@
+0 @K22@ INDI\n1 NAME Marija /Porenta/\n1 SEX F\n1 BIRT\n2 DATE 1798\n1 FAMC @IS@
+0 @IS@ FAM\n1 HUSB @MARR@\n1 WIFE @HEL2@\n1 CHIL @K12@\n1 CHIL @K22@
+0 TRLR\n`;
+  const clusterOf = (r: ReturnType<typeof matchDatasets>) => {
+    const keep = r.individuals.find((c) => c.mainId === "@NIK@")?.compareId;
+    return r.incomingDuplicates?.find((c) => c.keepId === keep);
+  };
+
+  it("folds the parents' half and the marriage's half into one record", () => {
+    const r = matchDatasets(dataset(main), dataset(compare("ABT 1775")));
+    const cl = clusterOf(r);
+    expect(cl).toBeDefined();
+    expect([cl!.keepId, ...cl!.mergeIds].sort()).toEqual(["@BAPT@", "@MARR@"]);
+  });
+
+  it("leaves one record with both the parents and the family, and remembers its sources", () => {
+    const cmp = dataset(compare("ABT 1775"));
+    const cl = clusterOf(matchDatasets(dataset(main), cmp))!;
+    consolidateDuplicates(cmp, [cl]);
+    const nik = cmp.individuals.get(cl.keepId)!;
+    expect(nik.childOf).toEqual(["@IP@"]);
+    expect(nik.spouseOf).toEqual(["@IS@"]);
+    expect(cmp.consolidatedFrom?.get(cl.keepId)?.sort()).toEqual(["@BAPT@", "@MARR@"]);
+  });
+
+  it("leaves them apart when the births are further apart than an estimate allows", () => {
+    expect(clusterOf(matchDatasets(dataset(main), dataset(compare("ABT 1785"))))).toBeUndefined();
+  });
+
+  it("leaves them apart when the main's own family does not vouch for the marriage's half", () => {
+    // Another wife and other children: nothing ties @MARR@'s family to the main.
+    const other = main
+      .replace("Helena /Praprotnik/", "Terezija /Ambrožič/")
+      .replace("Jakob /Porenta/", "Anton /Porenta/")
+      .replace("Marija /Porenta/", "Ana /Porenta/");
+    expect(clusterOf(matchDatasets(dataset(other), dataset(compare("ABT 1775"))))).toBeUndefined();
   });
 });
 

@@ -681,4 +681,11 @@ export interface Dataset {
    * missing-key penalty stands.
    */
   sparseBirthDates?: boolean;
+  /**
+   * Incoming records the matcher's duplicate consolidation folded together:
+   * survivor id → every original record id it now stands for (itself first).
+   * Set by `consolidateDuplicates`, so the review can say the record on the
+   * right is one assembled from several.
+   */
+  consolidatedFrom?: Map<string, string[]>;
 }
