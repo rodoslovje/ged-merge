@@ -78,6 +78,13 @@ const ABOUT_ALIAS: Record<string, string> = {
   ageAtDeathMale: "ageAtDeath", ageAtDeathFemale: "ageAtDeath", lifeByCenturyMale: "lifeByCentury", lifeByCenturyFemale: "lifeByCentury",
 };
 
+/** A repeated ancestor's generations, each once, with how often they hold it: "7, 8", "8 ×2". */
+function gensLabel(gens: number[]): string {
+  const counts = new Map<number, number>();
+  for (const g of gens) counts.set(g, (counts.get(g) ?? 0) + 1);
+  return [...counts].map(([g, n]) => (n > 1 ? `${g} ×${n}` : String(g))).join(", ");
+}
+
 /** Whether the filters are unfolded — the reader's own layout, kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
 function readFiltersOpen(): boolean {
@@ -527,7 +534,7 @@ export function StatsPanel({
       ...lineage.ancestors.map((g) => [g.gen, g.paternal.filled, g.maternal.filled, g.slots / 2]),
     ]);
     csvOf.set("walls", () => [[t("stats.csv.generation"), t("stats.csv.person"), t("stats.walls")], ...lineage.walls.map((w) => [w.gen, personName(w.id), t(w.father && w.mother ? "stats.wall.both" : w.father ? "stats.wall.father" : "stats.wall.mother")])]);
-    csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places")], ...lineage.repeated.map((r) => [personName(r.id), r.count])]);
+    csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places"), t("stats.csv.generation")], ...lineage.repeated.map((r) => [personName(r.id), r.count, gensLabel(r.gens)])]);
     csvOf.set("descendantsGen", () => [[t("stats.csv.generation"), t("stats.csv.count")], ...lineage.descendants.map((g) => [g.gen, g.ids.length])]);
   }
   /** A research row's event, named as a family's where it stands on families. */
@@ -1087,7 +1094,7 @@ export function StatsPanel({
                 {lineage.repeated.slice(0, listLimit("repeatedAncestors", lineage.repeated.length, 12)).map((r) => (
                   <li key={r.id}>
                     <NameLink dataset={dataset} id={r.id} onNavigate={onNavigate} />
-                    <span className="muted stats-walls-missing">×{num(r.count)}</span>
+                    <span className="muted stats-walls-missing" {...tipProps(t("stats.repeatedTip", { count: r.count }))}>{gensLabel(r.gens)}</span>
                   </li>
                 ))}
               </ul>

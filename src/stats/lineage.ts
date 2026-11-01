@@ -33,8 +33,9 @@ export interface LineageStats {
   distinctAncestors: number;
   /** The share of filled positions held by an ancestor who also holds another (pedigree collapse). */
   implex: number;
-  /** Ancestors holding more than one position, most positions first. */
-  repeated: { id: string; count: number }[];
+  /** Ancestors holding more than one position, most positions first, with
+   *  the generation of each position (ascending). */
+  repeated: { id: string; count: number; gens: number[] }[];
   /** The person and the ancestors with an unknown father or mother, nearest
    *  first. `gen` is the generation the missing parent would stand in (the
    *  gap in {@link AncestorGeneration}), counted from where the person or
@@ -61,6 +62,7 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   }
   const ancestors: AncestorGeneration[] = [];
   const positions = new Map<string, number>();
+  const gensOf = new Map<string, number[]>();
   // Each position carries the side it stands on: the root's father opens the
   // paternal side, the mother the maternal one, and their ancestors inherit it.
   type Position = { id: string; paternal: boolean };
@@ -81,7 +83,12 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
       if (p?.mother) next.push({ id: p.mother, paternal: gen === 1 ? false : paternal });
     }
     if (!next.length || next.length > MAX_POSITIONS) break;
-    for (const { id } of next) positions.set(id, (positions.get(id) ?? 0) + 1);
+    for (const { id } of next) {
+      positions.set(id, (positions.get(id) ?? 0) + 1);
+      const gens = gensOf.get(id);
+      if (gens) gens.push(gen);
+      else gensOf.set(id, [gen]);
+    }
     const side = (paternal: boolean) => {
       const on = next.filter((pos) => pos.paternal === paternal);
       return { filled: on.length, ids: [...new Set(on.map((pos) => pos.id))] };
@@ -101,7 +108,7 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   const filled = ancestors.reduce((n, g) => n + g.filled, 0);
   const repeated = [...positions]
     .filter(([, count]) => count > 1)
-    .map(([id, count]) => ({ id, count }))
+    .map(([id, count]) => ({ id, count, gens: gensOf.get(id)! }))
     .sort((a, b) => b.count - a.count);
 
   const seen = new Set([rootId]);

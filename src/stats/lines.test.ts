@@ -120,7 +120,7 @@ describe("lineageStats", () => {
     expect(l.ancestors[2].paternal.ids.sort()).toEqual(["@I1@", "@I2@"]);
     expect(l.distinctAncestors).toBe(8);
     expect(l.implex).toBeCloseTo(0.2);
-    expect(l.repeated).toEqual([{ id: "@I1@", count: 2 }, { id: "@I2@", count: 2 }]);
+    expect(l.repeated).toEqual([{ id: "@I1@", count: 2, gens: [3, 3] }, { id: "@I2@", count: 2, gens: [3, 3] }]);
     expect(l.livingAncestors).not.toContain("@I1@");
     expect(l.livingAncestors).not.toContain("@I2@");
     // Each ancestor counts once: Adam and Eva had two children, everyone else one.
