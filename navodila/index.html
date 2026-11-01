@@ -228,7 +228,7 @@
             <h2><span class="guide-num">2</span>Delovno okolje</h2>
             <p>Ogrodje aplikacije je enako v vseh načinih in na celostranskih diagramih. V zgornji vrstici so:</p>
             <ul>
-              <li><strong>Zavihki načinov</strong> — preklapljate med <span class="gm-pill">Urejanje</span>, <span class="gm-pill">Združevanje</span> in <span class="gm-pill">Orodja</span> (bližnjice <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>).</li>
+              <li><strong>Zavihki načinov</strong> — preklapljate med <span class="gm-pill">Urejanje</span>, <span class="gm-pill">Združevanje</span> in <span class="gm-pill">Orodja</span> (bližnjice <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>). Če datoteko spustite na <span class="gm-pill">Združevanje</span>, se naloži kot vhodna datoteka in odpre se način Združevanje.</li>
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko. Novo datoteko lahko povlečete tudi na oznako in z njo takoj zamenjate dosedanjo. Na telefonu sta imeni v meniju <span class="gm-glyph">☰</span>.</li>
               <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja, posege orodij in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>) — glejte <a href="#undo"><em>Razveljavi in ponovi</em></a> spodaj.</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>). Dokler ni ničesar novega za shranjevanje, je gumb siv.</li>
@@ -489,6 +489,15 @@
               še vedno ločijo lastni datumi in kraji. Deluje tudi navzgor: starše prepoznajo njihovi ujemajoči se
               otroci, tako se najde tudi ženska, ki je v eni datoteki vpisana z dekliškim, v drugi pa z moževim
               priimkom. Taki pari nosijo v seznamu ujemanj <span class="gm-glyph">🌳</span>.
+            </p>
+            <p>
+              <strong>Oseba, ki je v vhodni datoteki vpisana večkrat, se primerja kot en zapis.</strong> Kadar se več
+              vhodnih zapisov ujema z isto osebo v vaši datoteki in se ujemajo tudi med seboj, se pred primerjavo
+              združijo v enega. Tako se združi tudi oseba, ki jo vhodna datoteka razdeli na dva zapisa — enega s starši
+              in datumi iz krstne knjige, drugega z zakoncem in otroki —, kadar oba zapisa potrjujejo starši in zakonec
+              v vaši datoteki, čeprav se datuma rojstva razlikujeta za več let. Tak zapis ima v seznamu ujemanj in ob
+              stolpcu <em>Vhodni</em> oznako <span class="gm-glyph">⧉</span>; ko se z miško postavite nanjo ali se je
+              dotaknete, se pokaže, iz katerih zapisov je sestavljen.
             </p>
             <p>
               <strong>Eno ime v dveh jezikih ostane eno ime.</strong> Župnijske matične knjige so pisane v latinščini
@@ -1082,6 +1091,9 @@
             </p>
             <ul>
               <li><strong>≥ stopnja</strong> — najnižja stopnja ujemanja</li>
+              <li><strong>Vse osebe / Krvni sorodniki / Predniki / Potomci</strong> — samo sorodniki
+                <a href="#home-person">izhodiščne osebe</a> te vrste, skupaj z izhodiščno osebo (izbira je na voljo,
+                ko je izhodiščna oseba določena)</li>
               <li><strong>Nove osebe</strong> — samo ujemanja, ki lahko prinesejo nove prednike ali potomce</li>
               <li><strong>Novi podatki</strong> — samo ujemanja, ki dodajajo nove podatke</li>
               <li><strong>Nove povezave</strong> — samo ujemanja, ki dodajajo ali spreminjajo povezave</li>
@@ -1585,7 +1597,9 @@
             </p>
             <p>
               Pri velikih ali močno združenih datotekah se seznam začne pri visoki stopnji (<strong>≥ 85</strong>), da
-              ostane kratek in obvladljiv; z izbirnikom stopnje lahko mejo znižate in prikažete šibkejše zadetke. Sorodni
+              ostane kratek in obvladljiv; z izbirnikom stopnje lahko mejo znižate in prikažete šibkejše zadetke. Ko je
+              <a href="#home-person">izhodiščna oseba</a> določena, drugi izbirnik pusti samo pare, v katerih je vsaj en
+              zapis njen krvni sorodnik, prednik ali potomec. Sorodni
               zapisi so <strong>razvrščeni v skupine</strong> — ista oseba, vnesena večkrat (»vzporedna veja«), se zloži
               v eno glavo s številom zapisov in parov. Razprite jo za pregled parov enega za drugim ali z
               <strong>Zavrni vse</strong> zavrnite celotno skupino naenkrat. Pri vsakem paru sta ob
