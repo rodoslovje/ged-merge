@@ -522,9 +522,22 @@ name adjusted by the birth year, paired greedily above
   additional names count as in the matcher (`knownGivenSimilarity`), so a
   Milena recorded also as Helena pairs with an incoming Helena.
 
+Partners and parents are compared across all their names too
+(`knownNameSimilarity`): a mother under her maiden name in one file and her
+married name in the other pairs. An additional name missing a part takes it
+from the primary name — a married name is often a bare `/Kos/`, which alone
+would match every Kos, the father included. As for children, an alias counts
+only at the bar and at most `ALIAS_GIVEN_CEILING`.
+
 A pair the user has **confirmed** (passed in as incoming id → main id) outranks
-every name: it is taken first, whatever the two files call the child, and an
-incoming relative confirmed as someone else pairs with nobody by name.
+every name, for children, parents and partners alike: it is taken first,
+whatever the two files call the person, and an incoming relative confirmed as
+someone else pairs with nobody by name. A confirmed partner also pairs the two
+unions in `pairFamilies` (confirmed children count as shared children there),
+and since the merge writes family rows into the union the review paired
+(`pairedMainFamilies`), every row builder the merge reads — the merge itself,
+`materializeAdds`, the confirm-time snapshot and Edit's merge overlay — passes
+the same confirmed pairs.
 
 Two further rules keep the year in its place — it corroborates a name, it
 never replaces one:

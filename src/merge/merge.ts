@@ -13,7 +13,7 @@ import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import { applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
-import { decisionKey, parseDecisionKey, pinnedAdds, type CandidateDecision, type FieldChoice } from "../review/types";
+import { confirmedPeople, decisionKey, parseDecisionKey, pinnedAdds, type CandidateDecision, type FieldChoice } from "../review/types";
 import type { Translate } from "../locales/i18n";
 import {
   applyRows,
@@ -457,6 +457,8 @@ export function mergeDecisions(
   const famFields = confirmedFamilyFields(decisions, live);
   const famSnapshots = confirmedFamilySnapshots(decisions, live);
   const allTakenChildren = new Set<string>();
+  // The rows are built as the review built them: confirmed people pair there.
+  const confirmed = confirmedPeople(decisions);
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
     const parsed = parseDecisionKey(key);
@@ -476,7 +478,7 @@ export function mergeDecisions(
     if (!target || !mainIndi || !incoming) continue;
     report.recordLabels[mainId] = displayName(mainIndi.names[0]);
     const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
-    const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
+    const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents, false, confirmed);
     // The choices keyed by the rows as they stand now — an event added in Edit
     // since the choice was made re-keys its tag's rows.
     const fields = currentFieldChoices(decision.fields, decision.fieldAnchors, rows);

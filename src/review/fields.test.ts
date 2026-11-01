@@ -532,6 +532,54 @@ ${ids}0 TRLR
   });
 });
 
+describe("parents under another of their names, or confirmed", () => {
+  const parents = (father: string, mother: string) => `0 HEAD
+0 @C@ INDI
+1 NAME Anton /Kos/
+1 FAMC @F@
+0 @FA@ INDI
+1 NAME ${father}
+1 SEX M
+0 @MO@ INDI
+${mother}1 SEX F
+0 @F@ FAM
+1 HUSB @FA@
+1 WIFE @MO@
+1 CHIL @C@
+0 TRLR
+`;
+  const rowsOf = (mainGed: string, incomingGed: string, confirmed?: Map<string, string>) => {
+    const m = dataset(mainGed);
+    const c = dataset(incomingGed);
+    return individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c, undefined, undefined, false, confirmed);
+  };
+
+  it("pairs a mother through her married name, given as a surname alone", () => {
+    const rows = rowsOf(
+      parents("Janez /Kos/", "1 NAME Ana /Novak/\n1 NAME /Kos/\n2 TYPE married\n"),
+      parents("Janez /Kos/", "1 NAME Ana /Kos/\n"),
+    );
+    expect(byKey(rows, "mother")?.relatives).toHaveLength(1);
+    // The bare "/Kos/" is her name, not the father's: the parents stay put.
+    expect(byKey(rows, "father")).toMatchObject({ state: "agree" });
+  });
+
+  it("pairs a mother through a name she is also known by", () => {
+    const rows = rowsOf(
+      parents("Janez /Kos/", "1 NAME Ana /Novak/\n1 NAME Uršula /Zupan/\n2 TYPE aka\n"),
+      parents("Janez /Kos/", "1 NAME Uršula /Zupan/\n"),
+    );
+    expect(byKey(rows, "mother")?.relatives).toHaveLength(1);
+  });
+
+  it("pairs a confirmed father whatever the two files call him", () => {
+    const mainGed = parents("Peter /Kos/", "1 NAME Ana /Novak/\n");
+    const incomingGed = parents("Jurij /Kos/", "1 NAME Ana /Novak/\n");
+    expect(byKey(rowsOf(mainGed, incomingGed), "father")?.relatives).toHaveLength(2);
+    expect(byKey(rowsOf(mainGed, incomingGed, new Map([["@FA@", "@FA@"]])), "father")?.relatives).toHaveLength(1);
+  });
+});
+
 describe("pairing unions by their partners", () => {
   // One man, one union on each side — but two plainly different women. Nothing
   // may pull these into one family group.
@@ -585,6 +633,17 @@ ${extra}0 TRLR
     const c = dataset(withChild("@F2@", "Katja /Špiler/", "@W2@", "@C2@"));
 
     expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).get("@F2@")).toBe("@F1@");
+  });
+
+  it("pairs the unions of a confirmed partner whatever the two files call her", () => {
+    const m = dataset(union("@F1@", "Neja /Bizjak/", "@W1@"));
+    const c = dataset(union("@F2@", "Katja /Špiler/", "@W2@", "1 MARR\n2 PLAC Križe\n"));
+    const h = [m.individuals.get("@H@"), c.individuals.get("@H@")] as const;
+    const confirmed = new Map([["@W2@", "@W1@"]]);
+    expect(pairedMainFamilies(...h, m, c, (mi, ii) => confirmed.get(ii) === mi).get("@F2@")).toBe("@F1@");
+    const rows = individualFieldRows(tr, ...h, m, c, undefined, undefined, false, confirmed);
+    expect(byKey(rows, "fam.@F2@.partner")?.relatives).toMatchObject([{ main: { id: "@W1@" }, incoming: { id: "@W2@" } }]);
+    expect(byKey(rows, "fam.main:@F1@.partner")).toBeUndefined();
   });
 
   it("still pairs the lone unions when one of them names no partner", () => {
