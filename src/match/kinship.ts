@@ -15,7 +15,7 @@ export function kinshipLabel(
   targetId: string,
   t: Translate,
 ): string | undefined {
-  return kinshipLabelFrom(ds, startId, ancestorGens(ds, startId), targetId, t);
+  return kinshipLabelFrom(ds, startContext(ds, startId), targetId, (id) => bloodLineage(ds, startId, id), t);
 }
 
 /**
@@ -31,14 +31,14 @@ export interface KinshipResolver {
 }
 
 export function createKinshipResolver(ds: Dataset, startId: string, t: Translate): KinshipResolver {
-  const startAncs = ancestorGens(ds, startId);
+  const start = startContext(ds, startId);
   const lineageOf = makeBloodLineageResolver(ds, startId);
   const cache = new Map<string, { label?: string; lineage?: Lineage }>();
   const resolve = (targetId: string) => {
     let hit = cache.get(targetId);
     if (!hit) {
       hit = {
-        label: kinshipLabelFrom(ds, startId, startAncs, targetId, t),
+        label: kinshipLabelFrom(ds, start, targetId, lineageOf, t),
         lineage: lineageOf(targetId),
       };
       cache.set(targetId, hit);
@@ -51,13 +51,31 @@ export function createKinshipResolver(ds: Dataset, startId: string, t: Translate
   };
 }
 
+/** The start person's side of every lookup, walked once: their pedigree, and
+ *  (lazily — only an in-law needs them) each spouse's. */
+interface StartContext {
+  id: string;
+  ancs: Map<string, number>;
+  spouseAncs: () => [string, Map<string, number>][];
+}
+
+function startContext(ds: Dataset, startId: string): StartContext {
+  let spouses: [string, Map<string, number>][] | undefined;
+  return {
+    id: startId,
+    ancs: ancestorGens(ds, startId),
+    spouseAncs: () => (spouses ??= spouseIds(ds, startId).map((id) => [id, ancestorGens(ds, id)])),
+  };
+}
+
 function kinshipLabelFrom(
   ds: Dataset,
-  startId: string,
-  startAncs: Map<string, number>,
+  start: StartContext,
   targetId: string,
+  lineageOf: (id: string) => Lineage | undefined,
   t: Translate,
 ): string | undefined {
+  const startId = start.id;
   if (startId === targetId) return t("kinship.start");
 
   const startIndi = ds.individuals.get(startId);
@@ -65,36 +83,120 @@ function kinshipLabelFrom(
   if (!startIndi || !targetIndi) return undefined;
 
   // Direct spouse
-  for (const famId of startIndi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    const spouseId = fam.husband === startId ? fam.wife : fam.husband;
-    if (spouseId === targetId) return t("kinship.spouse");
-  }
+  if (spouseIds(ds, startId).includes(targetId)) return t("kinship.spouse");
 
   // The target-side ancestor-generation map (the start side is precomputed).
   const targetAncs = ancestorGens(ds, targetId);
-
-  // Find the closest common ancestor (lowest total hops)
-  let bestHG = Infinity, bestTG = Infinity;
-  for (const [id, hg] of startAncs) {
-    const tg = targetAncs.get(id);
-    if (tg !== undefined && hg + tg < bestHG + bestTG) {
-      bestHG = hg;
-      bestTG = tg;
-    }
-  }
+  const pos = closestCommon(start.ancs, targetAncs);
 
   // No blood line at all — the relationship may still be a step one (a parent's
-  // spouse, a spouse's child, or a step-parent's child from another union).
-  if (bestHG === Infinity) return stepLabel(ds, startId, targetId, targetIndi.sex ?? "U", t);
+  // spouse, a spouse's child, or a step-parent's child from another union), or
+  // one marriage away from a blood line (an in-law).
+  if (!pos) {
+    return stepLabel(ds, startId, targetId, targetIndi.sex ?? "U", t)
+      ?? inLawLabel(ds, start, targetId, targetAncs, lineageOf, t);
+  }
 
   // Siblings sharing exactly one parent are half-siblings.
-  if (bestHG === 1 && bestTG === 1 && sharedParentCount(ds, startId, targetId) === 1) {
+  if (pos.up === 1 && pos.down === 1 && sharedParentCount(ds, startId, targetId) === 1) {
     return targetIndi.sex === "F" ? t("kinship.halfSister") : t("kinship.halfBrother");
   }
 
-  return relLabel(bestHG, bestTG, targetIndi.sex ?? "U", t);
+  return relLabel(pos.up, pos.down, targetIndi.sex ?? "U", t, { lineage: () => lineageOf(targetId) });
+}
+
+/** Generations from each side up to their nearest common ancestor (lowest
+ *  total hops), or undefined when no ancestor is shared. */
+function closestCommon(
+  aAncs: Map<string, number>,
+  bAncs: Map<string, number>,
+): { up: number; down: number } | undefined {
+  // Walk the smaller map: a whole-file resolver asks this for every unrelated person.
+  const swap = bAncs.size < aAncs.size;
+  const [walk, look] = swap ? [bAncs, aAncs] : [aAncs, bAncs];
+  let best: { up: number; down: number } | undefined;
+  for (const [id, w] of walk) {
+    const l = look.get(id);
+    if (l === undefined) continue;
+    const [up, down] = swap ? [l, w] : [w, l];
+    if (!best || up + down < best.up + best.down) best = { up, down };
+  }
+  return best;
+}
+
+/**
+ * In-laws, tried after blood and step relations find nothing: one marriage
+ * away from a blood line, in either direction — the spouse of a blood relative
+ * (a son's wife, an uncle's wife) or a blood relative of the start person's
+ * spouse (a wife's father, a husband's cousin). The nearest wins; at a tie the
+ * relative's spouse is named first. Never more than one marriage: a brother's
+ * wife's sister stays unlabelled.
+ */
+function inLawLabel(
+  ds: Dataset,
+  start: StartContext,
+  targetId: string,
+  targetAncs: Map<string, number>,
+  lineageOf: (id: string) => Lineage | undefined,
+  t: Translate,
+): string | undefined {
+  const sex = ds.individuals.get(targetId)?.sex ?? "U";
+  let best: { dist: number; label: () => string | undefined } | undefined;
+  const offer = (dist: number, label: () => string | undefined) => {
+    if (!best || dist < best.dist) best = { dist, label };
+  };
+
+  for (const s of spouseIds(ds, targetId)) {
+    const pos = closestCommon(start.ancs, ancestorGens(ds, s));
+    const relSex = ds.individuals.get(s)?.sex ?? "U";
+    if (pos) offer(pos.up + pos.down, () => spouseOfRelative(pos.up, pos.down, sex, relSex, () => lineageOf(s), t));
+  }
+  for (const [sp, spAncs] of start.spouseAncs()) {
+    const pos = closestCommon(spAncs, targetAncs);
+    if (pos) offer(pos.up + pos.down, () => relativeOfSpouse(pos.up, pos.down, sex, () => bloodLineage(ds, sp, targetId), t));
+  }
+  return best?.label();
+}
+
+/** The spouse (of `sex`) of a blood relative standing at `up`/`down` from the start person. */
+function spouseOfRelative(
+  up: number,
+  down: number,
+  sex: string,
+  relSex: string,
+  relLineage: () => Lineage | undefined,
+  t: Translate,
+): string | undefined {
+  const f = sex === "F", m = sex === "M";
+  if (up === 0 && down === 1 && (f || m)) return t(f ? "kinship.daughterInLaw" : "kinship.sonInLaw");
+  if (up === 1 && down === 1 && (f || m)) return t(f ? "kinship.sisterInLaw" : "kinship.brotherInLaw");
+  if (up === 2 && down === 1) {
+    if (f && relSex === "M") return t(relLineage() === "maternal" ? "kinship.auntByMarriageMaternal" : "kinship.auntByMarriage");
+    if (m && relSex === "F") return t("kinship.uncleByMarriage");
+  }
+  const rel = relLabel(up, down, relSex, t, { lineage: relLineage, genitive: true });
+  if (!rel) return undefined;
+  const key = f ? "kinship.wifeOf" : m ? "kinship.husbandOf" : "kinship.spouseOf";
+  return t(key, { kinship: lowerFirst(rel) });
+}
+
+/** A blood relative (of `sex`) of the start person's spouse, standing at `up`/`down` from that spouse. */
+function relativeOfSpouse(
+  up: number,
+  down: number,
+  sex: string,
+  lineage: () => Lineage | undefined,
+  t: Translate,
+): string | undefined {
+  const f = sex === "F";
+  if (up === 1 && down === 0) return t(f ? "kinship.motherInLaw" : "kinship.fatherInLaw");
+  if (up === 1 && down === 1) return t(f ? "kinship.sisterInLaw" : "kinship.brotherInLaw");
+  const rel = relLabel(up, down, sex, t, { lineage });
+  return rel ? t("kinship.ofSpouse", { kinship: rel }) : undefined;
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLocaleLowerCase() + s.slice(1);
 }
 
 /** The person's parent ids, across every family they are a child of. */
@@ -234,16 +336,30 @@ export function kinshipLabelFor(
   down: number,
   sex: Sex | undefined,
   t: Translate,
+  /** The parent whose line the relative is on — names a mother's brother apart. */
+  side?: "father" | "mother" | "own",
 ): string | undefined {
-  return relLabel(up, down, sex ?? "U", t);
+  return relLabel(up, down, sex ?? "U", t, { lineage: () => (side === "mother" ? "maternal" : undefined) });
 }
 
 /**
  * Maps generation distances to a kinship label.
  * hg = hops from start to LCA; tg = hops from LCA down to target.
+ * `lineage` (asked only for an uncle) tells the father's brother from the
+ * mother's, which Slovenian names apart (stric / ujec); `genitive` asks for the
+ * form that follows "wife of" (the `_gen` context, which only Slovenian has).
  */
-function relLabel(hg: number, tg: number, sex: string, t: Translate): string | undefined {
+function relLabel(
+  hg: number,
+  tg: number,
+  sex: string,
+  translate: Translate,
+  opts: { lineage?: () => Lineage | undefined; genitive?: boolean } = {},
+): string | undefined {
   const f = sex === "F";
+  const t: Translate = opts.genitive
+    ? (key, o) => translate(key, { ...o, context: "gen" })
+    : translate;
 
   // Direct ancestor (target is ancestor of start)
   if (hg > 0 && tg === 0) {
@@ -267,7 +383,10 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
   if (hg === 1 && tg === 1) return f ? t("kinship.sister") : t("kinship.brother");
 
   // Uncle / Aunt
-  if (hg === 2 && tg === 1) return f ? t("kinship.aunt") : t("kinship.uncle");
+  if (hg === 2 && tg === 1) {
+    if (f) return t("kinship.aunt");
+    return opts.lineage?.() === "maternal" ? t("kinship.uncleMaternal") : t("kinship.uncle");
+  }
   // Nephew / Niece
   if (hg === 1 && tg === 2) return f ? t("kinship.niece") : t("kinship.nephew");
 

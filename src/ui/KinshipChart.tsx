@@ -265,7 +265,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
    *  whose kinship line means something else everywhere in the app — the
    *  relationship to your start person. Named from the positions the layout
    *  already knows, so no pedigree is walked per person. */
-  const kinshipOf = useCallback((p: KinPerson) => kinshipLabelFor(p.up, p.down, p.sex, t), [t]);
+  const kinshipOf = useCallback((p: KinPerson) => kinshipLabelFor(p.up, p.down, p.sex, t, p.side), [t]);
   const tooltipFor = useCallback(
     (p: KinPerson) => {
       const rel = kinshipOf(p);
@@ -734,7 +734,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                             ) : (
                               <PersonLink dataset={mainDs} id={p.id} fallback={p.id} onNavigate={onNavigate} />
                             )}
-                            <span className="person-kinship">{kinshipLabelFor(p.up, p.down, p.sex, t)}</span>
+                            <span className="person-kinship">{kinshipLabelFor(p.up, p.down, p.sex, t, p.side)}</span>
                           </span>
                         </li>
                       ))}
