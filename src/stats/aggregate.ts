@@ -473,7 +473,7 @@ export interface LifespanStats {
   /** Per century of the family: children who reached {@link ADULT_AGE} and
    *  children who died before it, per family with children. A child with no
    *  dated death counts as grown when married or living past that age, and
-   *  is left out otherwise. */
+   *  is left out otherwise. The running century is left out. */
   childSurvival: SurvivalPoint[];
   oldest: { id: string; age: number }[];
 }
@@ -503,6 +503,8 @@ export function lifespanStats(s: ScopedFacts): LifespanStats {
     const y = s.approx || !f.yearApprox ? f.year : undefined;
     if (y === undefined || !f.children.length) continue;
     const c = centuryOf(y);
+    // The running century's children are mostly not yet grown: no reading.
+    if (c >= centuryOf(thisYear)) continue;
     let g = survival.get(c);
     if (!g) survival.set(c, (g = { n: 0, grownIds: [], diedIds: [] }));
     g.n++;
