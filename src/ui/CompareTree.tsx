@@ -9,6 +9,7 @@ import { previewBranchJoins } from "../merge/materialize";
 import type { ImportBranchRequest } from "../merge/applyRelations";
 import { lifespanOf } from "../gedcom/lifespan";
 import { TreeNodePanel } from "./TreeNodePanel";
+import { ConsolidatedBadge } from "./ConsolidatedBadge";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import type { Lineage } from "../match/relationshipPath";
 import { sexClass } from "./sex";
@@ -394,12 +395,23 @@ export function CompareTree({
   // incoming-only person an active graft will bring in.
   const badgeOf = useCallback(
     (n: TreeNode): { status: string; letter: string; title?: string } | undefined => {
+      // "Name 1768–1848 (I12)" — a record the tooltip points at.
+      const label = (ds: Dataset, id: string) => {
+        const indi = ds.individuals.get(id);
+        const years = lifespanOf(indi);
+        return `${indi ? nameOf(indi) : id}${years ? ` ${years}` : ""} (${id.replace(/@/g, "")})`;
+      };
       const joinedTo = n.incoming ? joins.get(n.incoming.id) : undefined;
       if (joinedTo) {
-        const indi = mainDs.individuals.get(joinedTo);
-        const years = lifespanOf(indi);
-        const name = `${indi ? nameOf(indi) : joinedTo}${years ? ` ${years}` : ""} (${joinedTo.replace(/@/g, "")})`;
-        return { status: "join", letter: "⚠", title: t("tree.join.title", { name }) };
+        return { status: "join", letter: "⚠", title: t("tree.join.title", { name: label(mainDs, joinedTo) }) };
+      }
+      // A child paired by name and birth year against the matcher's own pairing.
+      if (n.matchedElsewhere) {
+        const { compareId, mainId } = n.matchedElsewhere;
+        const lines = [t("tree.matchedElsewhere.title")];
+        if (compareId) lines.push(t("tree.matchedElsewhere.main", { name: label(compareDs, compareId) }));
+        if (mainId) lines.push(t("tree.matchedElsewhere.incoming", { name: label(mainDs, mainId) }));
+        return { status: "join", letter: "⚠", title: lines.join("\n") };
       }
       const dec = decisionOf(n);
       if (dec) return dec;
@@ -408,7 +420,7 @@ export function CompareTree({
       }
       return undefined;
     },
-    [decisionOf, willImport, joins, mainDs, nameOf, t],
+    [decisionOf, willImport, joins, mainDs, compareDs, nameOf, t],
   );
 
   const rootName = tree?.name ?? "";
@@ -879,7 +891,12 @@ function NodeCompare({
       mainPerson={mainPerson}
       incomingPerson={incomingPerson}
       mainLabel={t("tree.main")}
-      incomingLabel={t("tree.incoming")}
+      incomingLabel={
+        <>
+          {t("tree.incoming")}
+          <ConsolidatedBadge compareDs={compareDs} id={node.incoming?.id} />
+        </>
+      }
       onClose={onClose}
       onSetRoot={() => onReroot(node.main?.id, node.incoming?.id)}
       onTitleClick={matchLink}

@@ -351,6 +351,12 @@ function calculatedOverEstimate(m: GedDate, i: GedDate): boolean {
   return m.qualifier === "about" && m.approx !== "CAL" && i.qualifier === "about" && i.approx === "CAL";
 }
 
+/** A stated date beats a guess even in another year: "5 DEC 1768" from the
+ *  baptism replaces the "ABT 1775" a marriage record was dated back to. */
+function exactOverEstimate(m: GedDate, i: GedDate): boolean {
+  return m.qualifier === "about" && m.approx !== "CAL" && i.qualifier === "exact";
+}
+
 /** A stated date beats a mere bound it falls within: "27 OCT 1726" replaces
  *  "BEF 1727", "3 MAY 1801" "AFT 1800". One beyond the bound contradicts it
  *  and is left to the reader — so is a bare year against a bound pinned to
@@ -398,10 +404,10 @@ export function dateToSortKey(d: GedDate | undefined): number {
  * doesn't contradict it — e.g. main "1949" refined by incoming "12 MAR 1949".
  * Both must be single (non-range) dates sharing the same year, and every
  * component the main already pins (month, day) must agree. Used so a merge
- * defaults to the incoming side when it carries the more exact date. Two
- * exceptions to the shared year: a calculated date always replaces an
- * estimated one (ABT/EST), being reckoned rather than guessed, and an exact
- * date always replaces a BEF/AFT bound.
+ * defaults to the incoming side when it carries the more exact date. Three
+ * exceptions to the shared year: a calculated or an exact date always replaces
+ * an estimated one (ABT/EST), being reckoned or stated rather than guessed,
+ * and an exact date always replaces a BEF/AFT bound it falls within.
  */
 export function dateRefines(mainRaw: string, incomingRaw: string, order?: DateOrder): boolean {
   const m = parseDate(mainRaw, order);
@@ -409,7 +415,7 @@ export function dateRefines(mainRaw: string, incomingRaw: string, order?: DateOr
   if (m.year == null || i.year == null) return false;
   // Ranges/periods aren't a simple precision ladder — leave them to the default.
   if (m.year2 != null || i.year2 != null) return false;
-  if (calculatedOverEstimate(m, i) || exactOverBound(m, i)) return true;
+  if (calculatedOverEstimate(m, i) || exactOverEstimate(m, i) || exactOverBound(m, i)) return true;
   if (m.year !== i.year) return false;
   if (m.month != null && m.month !== i.month) return false;
   if (m.day != null && m.day !== i.day) return false;

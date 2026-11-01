@@ -82,6 +82,12 @@ export interface TreeNode {
    *  the user there. Absent on the rare repeat with nowhere to point (a union
    *  whose children hang off a person rather than a spouse node). */
   repeatOf?: string;
+  /** A child paired by name and birth year although the matcher pairs one of
+   *  its two records with someone outside this family: `compareId` is the
+   *  incoming record the main side is matched to, `mainId` the main record the
+   *  incoming side is matched to. Renderers flag it, so the tree neither splits
+   *  an obvious "same child" in two nor joins them as if the matcher agreed. */
+  matchedElsewhere?: { compareId?: string; mainId?: string };
   /** How many blood relatives {@link pruneTree} cut off below this node — set
    *  only on the last drawn generation, so renderers can say "and N more, not
    *  shown". Absent when nothing was cut (or no limit is in force). */
@@ -493,7 +499,13 @@ function pairChildren(
     const paired = pairing.get(child.id);
     if (paired) used.add(paired.id);
     const node = build(child, paired);
-    if (node) out.push(node);
+    if (!node) continue;
+    if (paired && maps.mainToCompare.get(child.id) !== paired.id) {
+      const compareId = maps.mainToCompare.get(child.id);
+      const mainId = maps.compareToMain.get(paired.id);
+      if (compareId || mainId) node.matchedElsewhere = { compareId, mainId };
+    }
+    out.push(node);
   }
   for (const child of incomingKids) {
     if (used.has(child.id)) continue;
@@ -504,18 +516,26 @@ function pairChildren(
 }
 
 /** Main child id → the incoming child it is: through the match map, else by
- *  likeness for the children the map says nothing about. */
+ *  likeness for the children it leaves unpaired here — including a child the
+ *  matcher pairs with someone outside this family, which would otherwise be
+ *  drawn twice, once per side ({@link TreeNode.matchedElsewhere} flags it). */
 function childPairing(mainKids: Individual[], incomingKids: Individual[], maps: MatchMaps): Map<string, Individual> {
   const incomingById = new Map(incomingKids.map((c) => [c.id, c]));
+  const mainIds = new Set(mainKids.map((c) => c.id));
   const pairing = new Map<string, Individual>();
   for (const child of mainKids) {
     const matchedId = maps.mainToCompare.get(child.id);
     const paired = matchedId ? incomingById.get(matchedId) : undefined;
     if (paired) pairing.set(child.id, paired);
   }
+  // A child whose match partner is among this family's other-side children is
+  // spoken for; every other child is free to pair by likeness.
   const likeness = alignByLikeness(
-    mainKids.filter((c) => !maps.mainToCompare.has(c.id)),
-    incomingKids.filter((c) => !maps.compareToMain.has(c.id)),
+    mainKids.filter((c) => !pairing.has(c.id)),
+    incomingKids.filter((c) => {
+      const mainId = maps.compareToMain.get(c.id);
+      return !mainId || !mainIds.has(mainId);
+    }),
     "child",
   );
   for (const [mainId, incoming] of likeness) if (!pairing.has(mainId)) pairing.set(mainId, incoming);

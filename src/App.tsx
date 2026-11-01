@@ -1,5 +1,5 @@
 import { Notice } from "./ui/Notice";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ButtonHTMLAttributes, type DragEvent } from "react";
 import { type RecordPatch, type PendingEditApply, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
 import { cloneNode } from "./gedcom/node";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
@@ -100,6 +100,8 @@ import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { homePlaceOf } from "./chart/nodeDisplay";
+import { computeKinship } from "./tools/batch";
+import { lineOf } from "./stats/scope";
 import { personOptionTitle } from "./ui/edit/RelativePickerCard";
 import { fullTextLookup, type FilterContext } from "./ui/globalSearch";
 import { useSearchIndex } from "./ui/useSearchIndex";
@@ -220,7 +222,8 @@ function AppContent() {
   // Below 880px the file pills would be a letter each: they move into the ☰.
   const filesInMenu = useMediaQuery(FILES_IN_MENU_QUERY);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pillDrop, setPillDrop] = useDropHighlight<DatasetRole>();
+  // The header drop target a file is dragged over: a file pill, or the Merge tab.
+  const [pillDrop, setPillDrop] = useDropHighlight<DatasetRole | "mergeTab">();
   // The chart's header has a ☰ of its own: the app's stays mounted (hidden)
   // under the chart, and sharing one open flag opened both — the hidden one's
   // outside-click handler then closed the visible one before a click landed.
@@ -962,8 +965,20 @@ function AppContent() {
   // The merge "match list" view-model (ranked/filtered lists, selection, index
   // maps) — pure derivation, extracted to a hook. The stateful setters
   // (sort/filters) and navigation callbacks stay here.
+  // The main ids the kin filter keeps — the start person's line, walked only
+  // while the filter asks for one.
+  const kinLineOf = (f: Filters): Set<string> | undefined => {
+    const who = f.kin ?? "all";
+    if (who === "all" || !startId || !mainDataset) return undefined;
+    return lineOf(who, computeKinship(mainDataset, startId), startId) ?? undefined;
+  };
+  const kinLine = useMemo(
+    () => kinLineOf(filters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters.kin, startId, mainDataset],
+  );
   const { allSorted, visible, visibleMainOrder, current, visibleIndex, indexByMain, indexByCompare } =
-    useMatchList({ matches, sort, filters, decisions, selectedId });
+    useMatchList({ matches, sort, filters, decisions, selectedId, kinLine });
 
   // Refs used by the stable callbacks and the arrow-key effect so they don't
   // need to re-register whenever visible changes.
@@ -1126,7 +1141,8 @@ function AppContent() {
   // When filters change: keep current person if they survive the new filter;
   // otherwise jump to the first person in the new filtered list.
   function handleFilters(f: Filters) {
-    const newVisible = visibleCandidates(allSorted, f, decisions);
+    const newKinLine = f.kin === filters.kin ? kinLine : kinLineOf(f);
+    const newVisible = visibleCandidates(allSorted, f, decisions, newKinLine);
     const currentStillVisible = current
       ? newVisible.some(c => c.mainId === current.mainId && c.compareId === current.compareId)
       : false;
@@ -2313,9 +2329,10 @@ function AppContent() {
   // buttons) moves into the ☰ menu. The two pieces that swap places between the
   // layouts are built once here and placed by `phone` below.
   const modeTabs = (onChart: boolean) => {
-    const tab = (m: Mode, label: string, tooltip: string, key: string, go: () => void) => (
+    const tab = (m: Mode, label: string, tooltip: string, key: string, go: () => void, drop?: DropProps) => (
       <button
-        className={`seg-btn ${!onChart && mode === m ? "active" : ""}`}
+        {...drop}
+        className={`seg-btn ${!onChart && mode === m ? "active" : ""}${drop && pillDrop === "mergeTab" ? " dragover" : ""}`}
         onClick={() => { if (onChart) leaveOverlayFor(m); else if (mode !== m) go(); }}
         title={keyHint(tooltip, key.toUpperCase())}
       >
@@ -2325,7 +2342,9 @@ function AppContent() {
     return (
       <div className="mode-tabs">
         {tab("edit", t("mode.edit"), t("mode.edit.tooltip"), KEY.modeEdit, switchToEdit)}
-        {tab("merge", t("mode.merge"), t("mode.merge.tooltip"), KEY.modeMerge, switchToMerge)}
+        {/* A file dropped on Merge loads as the incoming file and opens Merge. */}
+        {tab("merge", t("mode.merge"), t("mode.merge.tooltip"), KEY.modeMerge, switchToMerge,
+          pillDropProps("compare", "mergeTab", () => { if (onChart) leaveOverlayFor("merge"); else if (mode !== "merge") switchToMerge(); }))}
         {tab("tools", t("mode.tools"), t("mode.tools.tooltip"), KEY.modeTools, switchToTools)}
       </div>
     );
@@ -2380,12 +2399,14 @@ function AppContent() {
   );
 
   // A file dropped on a header pill replaces that slot's file, exactly as a
-  // drop on its loader box in the file panel would.
-  const pillDropProps = (role: DatasetRole) => ({
+  // drop on its loader box in the file panel would. `target` names what lights
+  // up (the Merge tab drops into the incoming slot too); `then` runs once the
+  // file is on its way.
+  const pillDropProps = (role: DatasetRole, target: DatasetRole | "mergeTab" = role, then?: () => void): DropProps => ({
     onDragOver: (e: DragEvent<HTMLButtonElement>) => {
       if (!e.dataTransfer.types.includes("Files")) return;
       e.preventDefault();
-      setPillDrop(role);
+      setPillDrop(target);
     },
     onDragLeave: (e: DragEvent<HTMLButtonElement>) => {
       if (leftTarget(e)) setPillDrop(null);
@@ -2394,7 +2415,9 @@ function AppContent() {
       e.preventDefault();
       setPillDrop(null);
       const picked = await fileFromDrop(e.dataTransfer);
-      if (picked) void loadFile(role, picked.file, picked.handle);
+      if (!picked) return;
+      void loadFile(role, picked.file, picked.handle);
+      then?.();
     },
   });
 
@@ -3028,6 +3051,9 @@ function AppContent() {
     </DatasetProvider>
   );
 }
+
+/** The drag handlers that make a header button a file drop target. */
+type DropProps = Pick<ButtonHTMLAttributes<HTMLButtonElement>, "onDragOver" | "onDragLeave" | "onDrop">;
 
 export function App() {
   return (

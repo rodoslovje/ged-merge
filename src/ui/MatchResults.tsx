@@ -1,5 +1,8 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { consolidatedTitle } from "./ConsolidatedBadge";
+import { tipProps } from "./IconTip";
+import { STATS_WHO, type StatsWho } from "../stats/scope";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -43,6 +46,10 @@ interface Props {
   kinshipByMain?: Map<string, { label: string; lineageClass: string; tooltip?: string }>;
   /** Live main dataset, to resolve each row's record for the age suffix. */
   mainDataset: Dataset | undefined;
+  /** The incoming dataset, read for the records the matcher consolidated. */
+  compareDataset?: Dataset;
+  /** A start person is set, so the list can be narrowed to their relatives. */
+  kinAvailable?: boolean;
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -77,6 +84,8 @@ export function MatchResults({
   showFilters,
   kinshipByMain,
   mainDataset,
+  compareDataset,
+  kinAvailable,
 }: Props) {
   const { t } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -181,6 +190,16 @@ export function MatchResults({
                 }))}
               />
             </label>
+            {kinAvailable && (
+              <label className="filter-score" title={t("filter.kinTooltip")}>
+                <SelectMenu
+                  className="score-select"
+                  value={filters.kin ?? "all"}
+                  onChange={(v) => onFilters({ ...filters, kin: v as StatsWho })}
+                  options={STATS_WHO.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
+                />
+              </label>
+            )}
             <label className="filter-check" title={t("filter.newPeopleTooltip")}>
               <input
                 type="checkbox"
@@ -330,6 +349,7 @@ export function MatchResults({
                 kinship={kinshipByMain?.get(c.mainId)}
                 onSelect={onSelect}
                 mainDataset={mainDataset}
+                consolidated={compareDataset?.consolidatedFrom?.get(c.compareId)}
                 showAge={settings.showAge}
               />
             );
@@ -350,6 +370,7 @@ const CandidateRow = memo(function CandidateRow({
   kinship,
   onSelect,
   mainDataset,
+  consolidated,
   showAge,
 }: {
   candidate: MatchCandidate;
@@ -360,6 +381,8 @@ const CandidateRow = memo(function CandidateRow({
   kinship?: { label: string; lineageClass: string; tooltip?: string };
   onSelect: (index: number) => void;
   mainDataset: Dataset | undefined;
+  /** The incoming record ids this candidate's incoming side was merged from. */
+  consolidated: string[] | undefined;
   showAge: boolean;
 }) {
   const { t } = useTranslation();
@@ -396,10 +419,13 @@ const CandidateRow = memo(function CandidateRow({
               </span>
             )}
             {candidate.relationshipLinked && (
-              <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
+              <span className="rel-tree-badge" {...tipProps(t("list.relationshipLinked"))}>🌳</span>
+            )}
+            {consolidated && (
+              <span className="rel-tree-badge consolidated-badge" {...tipProps(consolidatedTitle(t, consolidated))}>⧉</span>
             )}
             {candidate.uidMatched && (
-              <span className="rel-tree-badge" title={t("list.uidMatched")}>🔑</span>
+              <span className="rel-tree-badge" {...tipProps(t("list.uidMatched"))}>🔑</span>
             )}
             {kinship && (
               <span className={`candidate-kinship ${kinship.lineageClass}`} title={kinship.tooltip}>

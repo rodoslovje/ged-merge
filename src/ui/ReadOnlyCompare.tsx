@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { defaultChoice, type FieldRow } from "../review/types";
 import { isMajorDifference } from "../review/fields";
@@ -20,7 +21,7 @@ interface Props {
   /** Column header for the left (main) side. */
   mainLabel: string;
   /** Column header for the right (incoming) side. */
-  incomingLabel: string;
+  incomingLabel: ReactNode;
   /** Table class — defaults to the compare-tree styling. */
   className?: string;
   /** Omit the header row entirely — useful when the column identities are already

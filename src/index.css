@@ -171,6 +171,8 @@ button:focus-visible {
   padding: 2.5px 10.5px 2.5px 8.5px;
   background: var(--bg);
 }
+/* The Merge tab takes an incoming file the same way. */
+.seg-btn.dragover { outline: 1.5px dashed var(--state-incoming); outline-offset: -3px; }
 /* Main-header pills open the file-info panel — a chevron (▾/▴ with the panel
    state, like the section headers) makes them read as clickable. The
    tree-shell header's pills just navigate back, so they render no chevron. */
@@ -6832,6 +6834,16 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   cursor: help;
   opacity: 0.85;
 }
+/* ⧉ an incoming record merged from several copies: the incoming colour, and
+   large enough to catch the eye — it changes what the right side is. */
+.consolidated-badge {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: var(--state-incoming);
+  opacity: 1;
+}
+/* The column headers set small caps-size type; the mark keeps its weight there. */
+.compare-col .consolidated-badge { font-size: 1.6em; vertical-align: -0.1em; }
 .tree-import-btn:hover { color: var(--text); border-color: var(--node-incoming); }
 .tree-import-btn.active {
   border-style: solid;

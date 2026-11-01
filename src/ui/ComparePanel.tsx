@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { isEditableTarget } from "../keyboard/shortcuts";
 import { handleListKey } from "../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
+import { ConsolidatedBadge } from "./ConsolidatedBadge";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { MatchCandidate } from "../match/types";
@@ -401,7 +402,10 @@ export function ComparePanel({
           <tr className="compare-head">
             <th />
             <th className="compare-col compare-col-main">{t("tree.main")}</th>
-            <th className="compare-col compare-col-incoming">{t("tree.incoming")}</th>
+            <th className="compare-col compare-col-incoming">
+              {t("tree.incoming")}
+              <ConsolidatedBadge compareDs={compareDs} id={candidate.compareId} />
+            </th>
             <th />
           </tr>
         </thead>

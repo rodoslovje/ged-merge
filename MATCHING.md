@@ -381,6 +381,21 @@ score ≥ 85 against the kept record directly. Erring high here means a missed
 consolidation (harmless); the vetoes exist because a wrong one merges two
 different people silently.
 
+One exception to the year and score gates: **complementary halves**
+(`complementaryHalves`). An index often splits a person into a copy with only
+the parents (the baptism's exact dates) and a copy with only their own family
+(an `ABT` birth estimated from the marriage). They share no relatives and sit
+years apart, so the gates above never pair them — and the relationship pass
+then hands the main person to whichever half has more matched relatives,
+leaving the other as a stray. The pair is consolidated anyway when the main
+person vouches for both halves: every parent the first copy names is the
+confident match of the main's parent, and the second copy's spouse the
+confident match of the main's spouse. The births may then differ by up to 10
+years, but never as two exact years, and recorded deaths must agree. A
+namesake sibling never passes: it lacks the family of its own *and* the
+right spouse. On Renko ↔ Kovačič this added 3 clusters (Nikolaj Porenta
+1768/~1775, Marija Porenta 1830/~1825, Cecilija Vodir 1934/~1930) to 137.
+
 ### 9. Kinship re-ranking (`src/match/distance.ts`)
 
 When a home person is set, candidates are annotated with BFS hop distance

@@ -1,4 +1,5 @@
 import type { MatchCandidate } from "../match/types";
+import type { StatsWho } from "../stats/scope";
 import type { Dataset } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
@@ -106,6 +107,9 @@ export interface Filters {
   onlyImports: boolean;
   /** Keep only matches scoring at least this much (0..100). */
   minScore: number;
+  /** Keep only the start person's line of this kind (main side, the start
+   *  person included — as in Statistics); absent = everyone. */
+  kin?: StatsWho;
 }
 
 export const NO_FILTERS: Filters = {
@@ -127,11 +131,17 @@ export const DEFAULT_FILTERS: Filters = {
   minScore: 80,
 };
 
-export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
+export function applyFilters<T extends Candidate>(
+  list: T[],
+  f: Filters,
+  /** The main ids `f.kin` keeps (see `lineOf`); absent when it keeps everyone
+   *  or there is no start person to be kin of. */
+  kinLine?: Set<string>,
+): T[] {
   // Name terms match independently and accent-blind, like every other person
   // search: "sebas kala" finds "Sebastjan Kalan", "ziva" finds "Živa".
   const terms = queryTerms(f.nameQuery);
-  if (!terms.length && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && !f.onlyImports && f.minScore <= 0)
+  if (!terms.length && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && !f.onlyImports && f.minScore <= 0 && !kinLine)
     return list;
   return list.filter(
     (c) =>
@@ -140,7 +150,8 @@ export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
       (!f.onlyDiff || (c.diffCount ?? 0) > 0) &&
       (!f.onlyLinks || (c.linkCount ?? 0) > 0) &&
       (!f.onlyImports || importTotal(c) > 0) &&
-      c.score >= f.minScore,
+      c.score >= f.minScore &&
+      (!kinLine || kinLine.has(c.mainId)),
   );
 }
 
@@ -154,11 +165,12 @@ export function visibleCandidates<T extends Candidate>(
   list: T[],
   filters: Filters,
   decisions: Map<string, CandidateDecision>,
+  kinLine?: Set<string>,
 ): T[] {
   const notRejected = list.filter(
     (c) => decisions.get(decisionKey("individual", c.mainId, c.compareId))?.status !== "rejected",
   );
-  return applyFilters(notRejected, filters);
+  return applyFilters(notRejected, filters, kinLine);
 }
 
 /**

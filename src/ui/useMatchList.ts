@@ -42,8 +42,10 @@ export function useMatchList(params: {
   filters: Filters;
   decisions: Map<string, CandidateDecision>;
   selectedId: SelRef | null;
+  /** The main ids the kin filter keeps (see `Filters.kin`). */
+  kinLine?: Set<string>;
 }): MatchListView {
-  const { matches, sort, filters, decisions, selectedId } = params;
+  const { matches, sort, filters, decisions, selectedId, kinLine } = params;
 
   // Sorted (but not filtered) list — used for navigation across all matches
   // regardless of the active filter, and as the base for the filtered display.
@@ -57,8 +59,8 @@ export function useMatchList(params: {
   // Filtered list for display — preserves the sort order of allSorted. Also
   // drops rejected matches (see `visibleCandidates`).
   const visible = useMemo(
-    () => visibleCandidates(allSorted, filters, decisions),
-    [allSorted, filters, decisions],
+    () => visibleCandidates(allSorted, filters, decisions, kinLine),
+    [allSorted, filters, decisions, kinLine],
   );
 
   // Main ids in `visible`'s order, deduped to one entry per main (first
