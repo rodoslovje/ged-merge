@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { consolidatedTitle } from "./ConsolidatedBadge";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -43,6 +44,8 @@ interface Props {
   kinshipByMain?: Map<string, { label: string; lineageClass: string; tooltip?: string }>;
   /** Live main dataset, to resolve each row's record for the age suffix. */
   mainDataset: Dataset | undefined;
+  /** The incoming dataset, read for the records the matcher consolidated. */
+  compareDataset?: Dataset;
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -77,6 +80,7 @@ export function MatchResults({
   showFilters,
   kinshipByMain,
   mainDataset,
+  compareDataset,
 }: Props) {
   const { t } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -330,6 +334,7 @@ export function MatchResults({
                 kinship={kinshipByMain?.get(c.mainId)}
                 onSelect={onSelect}
                 mainDataset={mainDataset}
+                consolidated={compareDataset?.consolidatedFrom?.get(c.compareId)}
                 showAge={settings.showAge}
               />
             );
@@ -350,6 +355,7 @@ const CandidateRow = memo(function CandidateRow({
   kinship,
   onSelect,
   mainDataset,
+  consolidated,
   showAge,
 }: {
   candidate: MatchCandidate;
@@ -360,6 +366,8 @@ const CandidateRow = memo(function CandidateRow({
   kinship?: { label: string; lineageClass: string; tooltip?: string };
   onSelect: (index: number) => void;
   mainDataset: Dataset | undefined;
+  /** The incoming record ids this candidate's incoming side was merged from. */
+  consolidated: string[] | undefined;
   showAge: boolean;
 }) {
   const { t } = useTranslation();
@@ -397,6 +405,9 @@ const CandidateRow = memo(function CandidateRow({
             )}
             {candidate.relationshipLinked && (
               <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
+            )}
+            {consolidated && (
+              <span className="rel-tree-badge" title={consolidatedTitle(t, consolidated)}>⧉</span>
             )}
             {candidate.uidMatched && (
               <span className="rel-tree-badge" title={t("list.uidMatched")}>🔑</span>
