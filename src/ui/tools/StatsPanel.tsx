@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { computeKinship, computeLineSides } from "../../tools/batch";
 import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
-import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, type StatsScope, type StatsWho } from "../../stats/scope";
+import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, STATS_WHO, type StatsScope } from "../../stats/scope";
 import {
   CHILD_AGE,
   OVERVIEW_TOP,
@@ -48,8 +48,6 @@ import type { ToolView } from "../ToolsView";
 /** The statistics pages; the overview is the tool's front page. */
 const PAGES = ["tree", "names", "lifespan", "families", "births", "deaths", "occupations", "migration", "generations", "research"] as const;
 type Page = (typeof PAGES)[number];
-const WHO: StatsWho[] = ["all", "blood", "ancestors", "descendants"];
-
 /** The bar whose people are listed: which card, which bar, and who. */
 interface Pick {
   card: string;
@@ -564,7 +562,7 @@ export function StatsPanel({
             label={t("stats.who")}
             value={scope.who}
             onChange={(who) => set({ who })}
-            items={WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
+            items={STATS_WHO.map((w) => ({ key: w, label: t(`stats.who.${w}`) }))}
           />
           )}
           {(lined || page === "generations" || page === "research") && (

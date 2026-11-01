@@ -289,6 +289,8 @@ export function consolidateDuplicates(dataset: Dataset, clusters: Array<{ keepId
     const placement = linkPlacementFor(dataset);
     for (const { keepId, mergeIds } of clusters) {
       for (const id of mergeIds) mergeDuplicate(dataset, keepId, id, { status: "confirmed", fields: {} }, rawLabel, undefined, placement);
+      const from = (dataset.consolidatedFrom ??= new Map());
+      from.set(keepId, [...new Set([...(from.get(keepId) ?? [keepId]), ...mergeIds])]);
     }
   });
 }

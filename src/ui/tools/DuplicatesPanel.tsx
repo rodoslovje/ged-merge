@@ -36,6 +36,8 @@ import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { someMatch, toggledIn, ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
+import { lineOf, STATS_WHO, type StatsWho } from "../../stats/scope";
+import { computeKinship } from "../../tools/batch";
 
 /** Default score floor for the duplicates list. Index-scale files produce
  *  thousands of weak pairs; starting high keeps the list actionable, and the
@@ -74,6 +76,7 @@ export function DuplicatesPanel({
   onRejectDuplicate,
   onRejectDuplicatesBulk,
   onUnrejectDuplicate,
+  startId,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -96,6 +99,8 @@ export function DuplicatesPanel({
   onRejectDuplicate: (aId: string, bId: string) => void;
   onRejectDuplicatesBulk: (pairs: Array<{ aId: string; bId: string }>) => void;
   onUnrejectDuplicate: (aId: string, bId: string) => void;
+  /** The start person, whose relatives the kin filter keeps. */
+  startId?: string;
 }) {
   const { t } = useTranslation();
   // The scan result lives in the ToolsView-level cache, so it survives
@@ -106,6 +111,8 @@ export function DuplicatesPanel({
   const [query, setQuery] = useState("");
   // Only pairs scoring at least this show; index-scale files start high.
   const [minScore, setMinScore] = useState(DEFAULT_MIN_SCORE);
+  // Only pairs touching the start person's line of this kind show.
+  const [kin, setKin] = useState<StatsWho>("all");
   // Multi-pair clusters whose member pairs are currently unfolded. Empty by
   // default → blobs start collapsed to one header row each.
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
@@ -162,13 +169,22 @@ export function DuplicatesPanel({
     () => (pairs ?? []).filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId))).length,
     [pairs, rejectedDuplicates],
   );
-  // Active/rejected split + text search, before the score filter (so we can
-  // count what the score filter hides).
+  // The ids the kin filter keeps, as the Matches list and Statistics read them.
+  const kinLine = useMemo(
+    () => (kin !== "all" && startId ? (lineOf(kin, computeKinship(dataset, startId), startId) ?? undefined) : undefined),
+    [kin, startId, dataset],
+  );
+  // Active/rejected split, kin and text search, before the score filter (so we
+  // can count what the score filter hides). A pair is kin when either record is.
   const searched = useMemo(() => {
     if (!pairs) return [];
-    const base = pairs.filter((p) => rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId)) === showRejected);
+    const base = pairs.filter(
+      (p) =>
+        rejectedDuplicates.has(duplicatePairKey(p.aId, p.bId)) === showRejected &&
+        (!kinLine || kinLine.has(p.aId) || kinLine.has(p.bId)),
+    );
     return q ? base.filter((p) => someMatch(q, p.aLabel, p.bLabel)) : base;
-  }, [pairs, q, rejectedDuplicates, showRejected]);
+  }, [pairs, q, rejectedDuplicates, showRejected, kinLine]);
   const shown = useMemo(() => searched.filter((p) => p.score >= minScore), [searched, minScore]);
   const hiddenByScore = searched.length - shown.length;
 
@@ -332,6 +348,7 @@ export function DuplicatesPanel({
     if (rejectedDuplicates.has(key)) onUnrejectDuplicate(pair.aId, pair.bId);
     if (showRejected) setShowRejected(false);
     if (q && !someMatch(q, pair.aLabel, pair.bLabel)) setQuery("");
+    if (kinLine && !kinLine.has(pair.aId) && !kinLine.has(pair.bId)) setKin("all");
     if (pair.score < minScore) setMinScore(Math.floor(pair.score));
     const rowKey = `${pair.aId}-${pair.bId}`;
     setExpanded(rowKey);
@@ -356,7 +373,7 @@ export function DuplicatesPanel({
   useEffect(() => {
     if (pendingOpenKey.current) return;
     setSelected(0);
-  }, [q, minScore, showRejected]);
+  }, [q, minScore, showRejected, kin]);
   useEffect(() => {
     setSelected((i) => (rows.length === 0 ? 0 : Math.min(i, rows.length - 1)));
   }, [rows.length]);
@@ -488,6 +505,16 @@ export function DuplicatesPanel({
                     value: String(v),
                     label: v === 100 ? "100" : `≥ ${v}`,
                   }))}
+                />
+              </label>
+            )}
+            {startId && (
+              <label className="tools-dup-score" title={t("filter.kinTooltip")}>
+                <SelectMenu
+                  className="score-select"
+                  value={kin}
+                  onChange={(v) => setKin(v as StatsWho)}
+                  options={STATS_WHO.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
                 />
               </label>
             )}

@@ -296,6 +296,49 @@ describe("buildPersonTree (spouse the matcher never paired)", () => {
   });
 });
 
+describe("buildPersonTree (child the matcher pairs outside the family)", () => {
+  const mainDs = dataset(MAIN);
+  const compareDs = dataset(COMPARE);
+  const build = (maps: { mainToCompare: Map<string, string>; compareToMain: Map<string, string> }) =>
+    buildPersonTree(tr, mainDs.individuals.get("@I2@"), compareDs.individuals.get("@P2@"), mainDs, compareDs, maps, "descendants")!;
+  const kids = (root: TreeNode) => root.partners.flatMap((p) => p.children);
+
+  it("pairs the main child with its incoming namesake and flags the matcher's other pairing", () => {
+    // Janez (main @I1@) is matched to an incoming record outside this family
+    // (@P9@); his incoming twin @P1@ has no candidate. One node, not two.
+    const root = build({
+      mainToCompare: new Map([["@I2@", "@P2@"], ["@I3@", "@P3@"], ["@I1@", "@P9@"]]),
+      compareToMain: new Map([["@P2@", "@I2@"], ["@P3@", "@I3@"], ["@P9@", "@I1@"]]),
+    });
+    expect(kids(root)).toHaveLength(1);
+    const janez = kids(root)[0];
+    expect(janez.main?.id).toBe("@I1@");
+    expect(janez.incoming?.id).toBe("@P1@");
+    expect(janez.matchedElsewhere).toEqual({ compareId: "@P9@", mainId: undefined });
+  });
+
+  it("flags the incoming child's pairing with a main record outside the family", () => {
+    const root = build({
+      mainToCompare: new Map([["@I2@", "@P2@"], ["@I3@", "@P3@"], ["@I9@", "@P1@"]]),
+      compareToMain: new Map([["@P2@", "@I2@"], ["@P3@", "@I3@"], ["@P1@", "@I9@"]]),
+    });
+    const janez = kids(root)[0];
+    expect(kids(root)).toHaveLength(1);
+    expect(janez.matchedElsewhere).toEqual({ compareId: undefined, mainId: "@I9@" });
+  });
+
+  it("leaves a child paired by the match map or by likeness alone unflagged", () => {
+    const byMap = build({
+      mainToCompare: new Map([["@I2@", "@P2@"], ["@I1@", "@P1@"]]),
+      compareToMain: new Map([["@P2@", "@I2@"], ["@P1@", "@I1@"]]),
+    });
+    expect(kids(byMap)[0].matchedElsewhere).toBeUndefined();
+    const byLikeness = build({ mainToCompare: new Map([["@I2@", "@P2@"]]), compareToMain: new Map([["@P2@", "@I2@"]]) });
+    expect(kids(byLikeness)[0].incoming?.id).toBe("@P1@");
+    expect(kids(byLikeness)[0].matchedElsewhere).toBeUndefined();
+  });
+});
+
 describe("buildPersonTree (pedigree collapse)", () => {
   // The root's father and mother are siblings (children of the same couple), so
   // the grandparents appear twice in the ancestor tree — once above each parent.

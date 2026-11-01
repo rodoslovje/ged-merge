@@ -227,7 +227,7 @@
             <h2><span class="guide-num">2</span>The workspace</h2>
             <p>The app shell is the same in every mode and on the full-page charts. From the top bar you can:</p>
             <ul>
-              <li><strong>Mode tabs</strong> — switch between <span class="gm-pill">Edit</span>, <span class="gm-pill">Merge</span> and <span class="gm-pill">Tools</span> (shortcuts <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>).</li>
+              <li><strong>Mode tabs</strong> — switch between <span class="gm-pill">Edit</span>, <span class="gm-pill">Merge</span> and <span class="gm-pill">Tools</span> (shortcuts <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>). Drop a file on <span class="gm-pill">Merge</span> to load it as the incoming file and open Merge.</li>
               <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file, or drop a new file on it to replace it straight away. On a phone the names are in the <span class="gm-glyph">☰</span> menu instead.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits, tool passes and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>) — see <a href="#undo"><em>Undo &amp; redo</em></a> below.</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>). The button is greyed out while there is nothing new to save.</li>
@@ -486,6 +486,15 @@
               are still told apart by their own dates and places. It works upwards too: parents are recognised through
               their matched children, which is how a woman recorded under her maiden name in one file and her married
               name in the other is still found. Such pairs carry a <span class="gm-glyph">🌳</span> in the match list.
+            </p>
+            <p>
+              <strong>A person entered several times in the incoming file is compared as one record.</strong> When
+              several incoming records all match the same person in your file and agree with one another, they are
+              merged into one before you compare them. This also joins a person the incoming file splits in two — one
+              copy with the parents and the baptism's dates, another with the person's own spouse and children — when
+              your file's parents and spouse confirm both halves, even if the two birth dates are years apart. Such a
+              record carries a <span class="gm-glyph">⧉</span> in the match list and beside the <em>Incoming</em>
+              column; hover over it or tap it to see which records it was made from.
             </p>
             <p>
               <strong>One name in two languages still counts as one name.</strong> Parish registers are kept in Latin or
@@ -1066,6 +1075,9 @@
             </p>
             <ul>
               <li><strong>≥ score</strong> — a minimum match-score threshold</li>
+              <li><strong>All people / Blood relatives / Ancestors / Descendants</strong> — only the
+                <a href="#home-person">start person</a>'s relatives of that kind, the start person included (offered
+                while a start person is set)</li>
               <li><strong>New persons</strong> — only matches that could bring in new ancestors or descendants</li>
               <li><strong>New data</strong> — only matches that add new field data</li>
               <li><strong>New links</strong> — only matches that add or change attached links</li>
@@ -1521,7 +1533,9 @@
             </p>
             <p>
               On large or heavily-merged files the list starts at a high score (<strong>≥ 85</strong>) so it stays
-              short and actionable; use the score picker to lower the bar and reveal weaker matches. Related records
+              short and actionable; use the score picker to lower the bar and reveal weaker matches. With a
+              <a href="#home-person">start person</a> set, a second picker keeps only the pairs in which either record
+              is one of their blood relatives, ancestors or descendants. Related records
               are <strong>grouped into clusters</strong> — a run of the same person entered several times (a “parallel
               branch”) folds into a single header showing how many records and pairs it holds. Unfold it to review the
               pairs one by one, or <strong>Reject all</strong> to reject the whole group at once. Every pair

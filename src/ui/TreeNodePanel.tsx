@@ -23,7 +23,7 @@ interface Props {
   /** Incoming-side navigation; omitted in single-column (Edit Tree) mode. */
   incomingPerson?: PersonNav;
   mainLabel: string;
-  incomingLabel?: string;
+  incomingLabel?: ReactNode;
   /** Show only labels + main column (no incoming side). */
   singleColumn?: boolean;
   onClose: () => void;
