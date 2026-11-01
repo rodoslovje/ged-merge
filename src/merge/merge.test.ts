@@ -7,8 +7,9 @@ import { individualFieldRows } from "../review/fields";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { formatReport, materializeAdditionalNames, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
+import { formatReport, materializeEventSources, materializeRecordField, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
+import { FAM_CHILD_ORDER, INDI_CHILD_ORDER } from "../gedcom/edit/shared";
 import { readBookPages } from "../tools/sourceReshape";
 import { validateConformance } from "../tools/conformance/conformance";
 
@@ -3377,7 +3378,7 @@ function lineDiff(before: string, after: string): { added: string[]; removed: st
   return { added, removed };
 }
 
-describe("materializeAdditionalNames", () => {
+describe("materializeRecordField", () => {
   // Mirrors Edit mode taking over a confirmed match's incoming name chips:
   // the names are written the way the save would write them, right now.
   const COMPARE_NAMES = wrap(
@@ -3391,7 +3392,7 @@ describe("materializeAdditionalNames", () => {
     const compareDs = dataset(COMPARE_NAMES);
     const target = mainDs.records.find((r) => r.xref === "@I1@")!;
 
-    const imported = materializeAdditionalNames(mainDs, compareDs, target, compareDs.individuals.get("@P1@")!.raw, "incoming");
+    const imported = materializeRecordField(mainDs, compareDs, target, compareDs.individuals.get("@P1@")!.raw, "additionalNames", "incoming", INDI_CHILD_ORDER);
 
     expect(namesOf(target)).toEqual(["Ana /Kos/", "Ana /Novak/"]);
     const married = target.children.filter((c) => c.tag === "NAME")[1];
@@ -3406,12 +3407,32 @@ describe("materializeAdditionalNames", () => {
     const incoming = compareDs.individuals.get("@P1@")!.raw;
 
     const replaced = dataset(MAIN_NAMES);
-    materializeAdditionalNames(replaced, compareDs, replaced.records.find((r) => r.xref === "@I1@")!, incoming, "incoming");
+    materializeRecordField(replaced, compareDs, replaced.records.find((r) => r.xref === "@I1@")!, incoming, "additionalNames", "incoming", INDI_CHILD_ORDER);
     expect(namesOf(replaced.records.find((r) => r.xref === "@I1@")!)).toEqual(["Ana /Kos/", "Ana /Novak/"]);
 
     const kept = dataset(MAIN_NAMES);
-    materializeAdditionalNames(kept, compareDs, kept.records.find((r) => r.xref === "@I1@")!, incoming, "both");
+    materializeRecordField(kept, compareDs, kept.records.find((r) => r.xref === "@I1@")!, incoming, "additionalNames", "both", INDI_CHILD_ORDER);
     expect(namesOf(kept.records.find((r) => r.xref === "@I1@")!)).toEqual(["Ana /Kos/", "Ana /Kralj/", "Ana /Novak/"]);
+  });
+
+  it("takes a note over the way the save writes it — replacing under \"incoming\", beside under \"both\"", () => {
+    const MAIN = wrap("0 @I1@ INDI\n1 NAME Ana /Kos/\n1 NOTE Own note\n0 @F1@ FAM\n1 WIFE @I1@\n");
+    const compareDs = dataset(wrap("0 @P1@ INDI\n1 NAME Ana /Kos/\n1 NOTE Register note\n0 @G1@ FAM\n1 WIFE @P1@\n1 NOTE Family note\n"));
+    const notesOf = (rec: GedNode) => rec.children.filter((c) => c.tag === "NOTE").map((n) => n.value);
+
+    const replaced = dataset(MAIN);
+    const r = replaced.records.find((x) => x.xref === "@I1@")!;
+    materializeRecordField(replaced, compareDs, r, compareDs.individuals.get("@P1@")!.raw, "notes", "incoming", INDI_CHILD_ORDER);
+    expect(notesOf(r)).toEqual(["Register note"]);
+
+    const kept = dataset(MAIN);
+    const k = kept.records.find((x) => x.xref === "@I1@")!;
+    materializeRecordField(kept, compareDs, k, compareDs.individuals.get("@P1@")!.raw, "notes", "both", INDI_CHILD_ORDER);
+    expect(notesOf(k)).toEqual(["Own note", "Register note"]);
+
+    const fam = kept.records.find((x) => x.xref === "@F1@")!;
+    materializeRecordField(kept, compareDs, fam, compareDs.families.get("@G1@")!.raw, "notes", "incoming", FAM_CHILD_ORDER);
+    expect(notesOf(fam)).toEqual(["Family note"]);
   });
 });
 

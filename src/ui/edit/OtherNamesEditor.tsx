@@ -8,6 +8,7 @@ import { primaryName, displayName, nameTypeLabel } from "../../match/relatives";
 import { NicknameEditor } from "./NicknameEditor";
 import { MarriedNameEditor } from "./MarriedNameEditor";
 import { NameVariantEditor } from "./NameVariantEditor";
+import { MergeChip, type MergeChipActions } from "./MergeChip";
 import type { Commit } from "./types";
 
 /** Nickname plus any further `NAME` records (married/maiden/aka/…), shown as
@@ -31,6 +32,7 @@ export function OtherNamesEditor({
   leadingControl,
   mergeNames,
   onTakeMergeNames,
+  mergeNickname,
 }: {
   person: Individual;
   t: Translate;
@@ -64,11 +66,13 @@ export function OtherNamesEditor({
   /** Write `mergeNames` into the record now, in one step with `then` — the
    * chips become the person's own names, ready to edit or remove. */
   onTakeMergeNames?: (then?: (indi: Individual) => void) => void;
+  /** A confirmed match's incoming nickname, which replaces the person's own. */
+  mergeNickname?: { value: string } & MergeChipActions;
 }) {
   const [editing, setEditing] = useState<"nick" | "married" | number | null>(null);
   const primary = primaryName(person);
   const extraNames = person.names.slice(1);
-  const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0 || !!mergeNames;
+  const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0 || !!mergeNames || !!mergeNickname;
   /** The person's own extra names the merge will replace — shown struck through. */
   const replaced = !!mergeNames && mergeNames.choice !== "both";
   /** Where the `i`th incoming name lands in `extraNames` once taken over. */
@@ -107,7 +111,12 @@ export function OtherNamesEditor({
             <NicknameEditor person={person} t={t} commit={commit} onDone={() => setEditing(null)} />
           ) : primary?.nickname ? (
             <span className="edit-name-chip-wrap">
-              <button type="button" className="edit-name-chip" onClick={() => setEditing("nick")}>
+              <button
+                type="button"
+                className={`edit-name-chip${mergeNickname ? " edit-name-chip--replaced" : ""}`}
+                title={mergeNickname ? t("edit.mergeReplacedTooltip") : undefined}
+                onClick={() => setEditing("nick")}
+              >
                 {primary.nickname}
                 <span className="muted"> ({nameTypeLabel("nick", t)})</span>
               </button>
@@ -121,6 +130,12 @@ export function OtherNamesEditor({
               </button>
             </span>
           ) : null}
+          {mergeNickname && editing !== "nick" && (
+            <MergeChip t={t} onTake={() => { mergeNickname.onTake(); setEditing("nick"); }} onSkip={mergeNickname.onSkip}>
+              {mergeNickname.value}
+              <span className="muted"> ({nameTypeLabel("nick", t)})</span>
+            </MergeChip>
+          )}
           {editing === "married" ? (
             <MarriedNameEditor person={person} t={t} commit={commit} onDone={() => setEditing(null)} />
           ) : primary?.married ? (

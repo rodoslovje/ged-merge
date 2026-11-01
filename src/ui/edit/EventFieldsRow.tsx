@@ -248,6 +248,8 @@ export function EventFieldsRow({
   const ageMergeVal = mergeHighlight?.get(`${kBase}.age`);
   const husbandAgeMergeVal = mergeHighlight?.get(`${kBase}.husbage`);
   const wifeAgeMergeVal = mergeHighlight?.get(`${kBase}.wifeage`);
+  /** The people the incoming event names, one per line ("Name — role"). */
+  const assocMergeVal = mergeHighlight?.get(`${kBase}.assoc`);
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
   const pageImagesMergeVal = mergeIncomingPageImages?.get(`${kBase}.sources`);
 
@@ -610,7 +612,7 @@ export function EventFieldsRow({
     wifeAge: wifeAgeShown || kept("wifeAge"),
     sortDate: sortDateShown || kept("sortDate"),
     note: noteShown || kept("note"),
-    assoc: Boolean(ev?.associations?.length) || revealed.has("assoc"),
+    assoc: Boolean(ev?.associations?.length) || Boolean(assocMergeVal) || revealed.has("assoc"),
   };
   // Fields offered by the "+ Detail" menu: source is always addable; the rest
   // only while not already showing. Place/address adapt to the event kind
@@ -1374,6 +1376,12 @@ export function EventFieldsRow({
               picking={assocPicking}
               onDonePicking={() => setAssocPicking(false)}
             />
+            {/* Read-only: who a confirmed merge will name on this event. */}
+            {assocMergeVal?.split("\n").map((line, i) => (
+              <span key={`merge-${i}`} className="edit-name-chip edit-name-chip--merge" title={t("edit.mergeAssocTooltip")}>
+                {line}
+              </span>
+            ))}
           </span>
         )}
         {!noteTall && noteEl}

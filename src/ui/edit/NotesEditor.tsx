@@ -6,6 +6,7 @@ import { noteToText } from "../../gedcom/noteHtml";
 import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
 import { translationLine } from "../../gedcom/translation";
+import { MergeChip, type MergeChipActions } from "./MergeChip";
 
 /**
  * How wide a note may be before it stops riding beside the fields it belongs to.
@@ -52,6 +53,7 @@ export function NotesEditor({
   sectionLabel,
   className,
   baselineNotes,
+  incoming,
   t,
   onCommit,
 }: {
@@ -70,6 +72,9 @@ export function NotesEditor({
   /** The note texts as they were at the last clean/saved state; any note not in
    * here is new or changed and renders bold, like other new/changed data. */
   baselineNotes?: string[];
+  /** Notes a confirmed match will write, previewed after these; `replaces` —
+   *  these give way to them (see `RecordMergePreview.notes`). */
+  incoming?: { notes: NoteRef[]; replaces: boolean } & MergeChipActions;
   t: Translate;
   onCommit: (notes: NoteRef[]) => void;
 }) {
@@ -153,7 +158,7 @@ export function NotesEditor({
               🔒
             </button>
           }
-          className={`edit-input edit-event-note${note.text.trim() && !baseline.has(note.text) ? " edit-input--dirty" : ""}`}
+          className={`edit-input edit-event-note${note.text.trim() && !baseline.has(note.text) ? " edit-input--dirty" : ""}${incoming?.replaces ? " edit-note--replaced" : ""}`}
           // Shown formatted; the stored text stays verbatim until the user
           // really edits, so an untouched blur can't rewrite the record.
           text={note.text}
@@ -175,6 +180,13 @@ export function NotesEditor({
       </span>
     );
   });
+  if (incoming) {
+    noteFields.push(...incoming.notes.map((note, i) => (
+      <MergeChip key={`merge-${i}`} className="edit-note-merge" t={t} onTake={incoming.onTake} onSkip={incoming.onSkip}>
+        {noteToText(note.text)}
+      </MergeChip>
+    )));
+  }
 
   return (
     <div className={`edit-notes${className ? ` ${className}` : ""}`}>

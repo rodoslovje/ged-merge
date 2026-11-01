@@ -569,9 +569,20 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys,
     extraMergeEvents, familyMergeKeyBases: familyKeyBaseById,
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
-    rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent, mergeAdditionalNames, materializeIncomingNames,
+    rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent, mergeAdditionalNames, takeMergeField, skipMergeField,
+    mergePersonPreview: mergePreview, mergeFamilyPreviews,
     resolveMergeFields, markFamilyTagRetagged,
   } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: formatOverrides, tick, t });
+  /** Take a previewed incoming row (`key`) into the person's record now, in one
+   *  step with `then`; `mergeActions` pairs that with leaving it out. */
+  const takePersonField = (key: string, then?: (indi: Individual) => void) => {
+    const patches: RecordPatch[] = [];
+    commit((indi) => {
+      patches.push(...takeMergeField(indi.raw, key));
+      then?.(indi);
+    }, patches);
+  };
+  const mergeActions = (key: string) => ({ onTake: () => takePersonField(key), onSkip: () => skipMergeField(key) });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
@@ -1999,37 +2010,43 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             commit={commit}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
-            showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
+            showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim()) && !mergePreview.notes}
             onAddNote={() => setNotesAdded(true)}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
             addNameNonce={addNameNonce}
-            showAddFsId={!fsIdAdded && !(person.fsids ?? []).length}
+            showAddFsId={!fsIdAdded && !(person.fsids ?? []).length && !mergePreview.fsids}
             onAddFsId={() => setFsIdAdded(true)}
             marriedNameTag={marriedNameTag}
             version={dataset.version}
             mergeNames={mergeAdditionalNames}
-            onTakeMergeNames={(then) => {
-              const patches: RecordPatch[] = [];
-              commit((indi) => {
-                patches.push(...materializeIncomingNames(indi.raw));
-                then?.(indi);
-              }, patches);
-            }}
+            onTakeMergeNames={(then) => takePersonField("additionalNames", then)}
+            mergeNickname={mergePreview.nickname ? { value: mergePreview.nickname, ...mergeActions("nickname") } : undefined}
             leadingControl={
               <>
-                <SexToggle key={`sex-${person.id}`} person={person} t={t} commit={commit} version={dataset.version} />
+                <SexToggle
+                  key={`sex-${person.id}`}
+                  person={person}
+                  t={t}
+                  commit={commit}
+                  version={dataset.version}
+                  merge={mergePreview.sex}
+                  onDecide={() => skipMergeField("sex")}
+                />
                 <PrivateToggle
                   hint={altShiftLabel("L")}
                   on={!!person.private}
+                  merge={mergePreview.private}
                   t={t}
                   target={t("edit.privateTarget.individual")}
-                  onToggle={() => commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
+                  onToggle={() => mergePreview.private
+                    ? skipMergeField("private")
+                    : commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
                 />
               </>
             }
           />
-          {((person.fsids ?? []).length > 0 || fsIdAdded) && (
+          {((person.fsids ?? []).length > 0 || fsIdAdded || mergePreview.fsids) && (
             <FsIdEditor
               key={`fsid-${person.id}-${undoVersion}`}
               person={person}
@@ -2038,10 +2055,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               t={t}
               commit={commit}
               onEmptied={() => setFsIdAdded(false)}
+              merge={mergePreview.fsids && { ...mergePreview.fsids, ...mergeActions("fsid") }}
             />
           )}
-          {(person.exids ?? []).length > 0 && <ExternalIdChips exids={person.exids!} t={t} />}
-          <TranslationChips items={(person.names[0]?.translations ?? []).map((tr) => ({ text: tr.full, lang: tr.lang }))} t={t} />
+          <ExternalIdChips
+            exids={person.exids ?? []}
+            t={t}
+            merge={mergePreview.exids && { exids: mergePreview.exids, ...mergeActions("exid") }}
+          />
+          <TranslationChips
+            items={(person.names[0]?.translations ?? []).map((tr) => ({ text: tr.full, lang: tr.lang }))}
+            t={t}
+            merge={mergePreview.translations && {
+              items: mergePreview.translations.map((tr) => ({ text: tr.full, lang: tr.lang })),
+              ...mergeActions("nameTranslations"),
+            }}
+          />
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
               <LinksEditor
@@ -2070,7 +2099,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               />
             </div>
           )}
-          {((person.noteRefs ?? []).some((r) => r.text.trim()) || notesAdded) && (() => {
+          {((person.noteRefs ?? []).some((r) => r.text.trim()) || notesAdded || mergePreview.notes) && (() => {
             // Refresh the baseline while the person is clean (its notes are the
             // saved state); keep it once edits begin so changed notes stay bold.
             const bl = noteBaselineRef.current;
@@ -2080,11 +2109,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             return (
               <div className="edit-record-section">
                 <NotesEditor
-                  key={`notes-${person.id}-${undoVersion}-${noteGenRef.current}`}
+                  // `mergeGen`: a taken-over incoming note is a new note to show.
+                  key={`notes-${person.id}-${undoVersion}-${noteGenRef.current}-${mergeGen}`}
                   notes={person.noteRefs ?? []}
                   addOnMount={notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
                   sectionLabel={t("field.notes")}
                   baselineNotes={bl.get(person.id)}
+                  incoming={mergePreview.notes && { ...mergePreview.notes, ...mergeActions("notes") }}
                   t={t}
                   onCommit={(refs) => commit((indi, notes) => setNotes(notes, indi, refs))}
                 />
@@ -2167,6 +2198,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             assertions={person.noEvents ?? []}
             t={t}
             onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
+            merge={mergePreview.noEvents && { assertions: mergePreview.noEvents, ...mergeActions("noEvents") }}
           />
           {/* The association index is deferred like the suggestion bundle: it
               is a walk over every record, and no commit should pay for it in
@@ -2264,6 +2296,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               dismissExtraEvent={dismissExtraEvent}
               onCopyFamilyEvent={onCopyFamilyEvent}
               famMergeKeyBase={fam ? familyKeyBaseById.get(fam.id) : undefined}
+              mergePreview={fam ? mergeFamilyPreviews.get(fam.id) : undefined}
+              takeMergeField={takeMergeField}
+              skipMergeField={skipMergeField}
               mergeHighlight={mergeHighlight}
               mergeIncomingSources={mergeIncomingSources}
               mergeIncomingLinks={mergeIncomingLinks}

@@ -2,6 +2,7 @@ import type { NegativeAssertion } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { AddEventSelect } from "./AddEventSelect";
+import { MergeChip, type MergeChipActions } from "./MergeChip";
 
 /**
  * The events a record states did *not* happen (GEDCOM 7 `NO`): one chip per
@@ -14,12 +15,15 @@ export function NoEventsRow({
   assertions,
   t,
   onRemove,
+  merge,
 }: {
   assertions: NegativeAssertion[];
   t: Translate;
   onRemove: (tag: string) => void;
+  /** Statements a confirmed match will add beside these. */
+  merge?: { assertions: NegativeAssertion[] } & MergeChipActions;
 }) {
-  if (!assertions.length) return null;
+  if (!assertions.length && !merge?.assertions.length) return null;
   return (
     <div className="edit-event-add-row edit-no-events">
       <span className="edit-no-events-label">{t("edit.noEvent.label")}</span>
@@ -41,6 +45,12 @@ export function NoEventsRow({
           </span>
         );
       })}
+      {merge?.assertions.map((a) => (
+        <MergeChip key={`merge-${a.tag}`} className="edit-no-event" t={t} onTake={merge.onTake} onSkip={merge.onSkip}>
+          <span aria-hidden="true">⊘</span> {eventDisplayLabel(a.tag, t)}
+          {a.date?.raw && <span className="edit-no-event-date"> ({a.date.raw})</span>}
+        </MergeChip>
+      ))}
     </div>
   );
 }

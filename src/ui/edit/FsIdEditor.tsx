@@ -7,6 +7,7 @@ import { setFsIds, type FsIdTag } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
 import { fieldWidth } from "./editConstants";
+import { MergeChip, type MergeChipActions } from "./MergeChip";
 
 /** The person's FamilySearch ids (`_FID`/`_FSFTID`) as chips: each links out to
  * the FamilySearch tree page and turns into an editable field on click. Renders
@@ -19,6 +20,7 @@ export function FsIdEditor({
   t,
   commit,
   onEmptied,
+  merge,
 }: {
   person: Individual;
   /** Tag for a newly added id — the file's existing dialect (see `preferredFsIdTag`). */
@@ -29,12 +31,15 @@ export function FsIdEditor({
   /** Called when an add is abandoned with nothing to show, so the host can
    * bring the "+ FamilySearch ID" chip back. */
   onEmptied?: () => void;
+  /** Ids a confirmed match will add; `replacesFirst` — the first takes the
+   *  place of the person's first id (see `personMergePreview`). */
+  merge?: { ids: string[]; replacesFirst: boolean } & MergeChipActions;
 }) {
   const ids = person.fsids ?? [];
   const [editing, setEditing] = useState<number | null>(addOnMount && !ids.length ? 0 : null);
   const [value, setValue] = useState("");
 
-  if (!ids.length && editing === null) return null;
+  if (!ids.length && editing === null && !merge) return null;
 
   function commitEdit(index: number) {
     const next = [...ids];
@@ -97,8 +102,8 @@ export function FsIdEditor({
               <FsIdLink id={id} className="link-icon edit-link-icon" />
               <button
                 type="button"
-                className="edit-name-chip"
-                title={t("edit.fsIdTooltip")}
+                className={`edit-name-chip${merge?.replacesFirst && i === 0 ? " edit-name-chip--replaced" : ""}`}
+                title={merge?.replacesFirst && i === 0 ? t("edit.mergeReplacedTooltip") : t("edit.fsIdTooltip")}
                 onClick={() => { setValue(id); setEditing(i); }}
               >
                 {id}
@@ -107,6 +112,12 @@ export function FsIdEditor({
             </span>
           ),
         )}
+        {merge?.ids.map((id) => (
+          <MergeChip key={`merge-${id}`} t={t} onTake={merge.onTake} onSkip={merge.onSkip}>
+            {id}
+            <span className="muted"> (FamilySearch)</span>
+          </MergeChip>
+        ))}
       </div>
     </div>
   );
@@ -118,8 +129,13 @@ export function FsIdEditor({
  * gave it. A type URI ending in a slash is the base of that system's record
  * pages (as FamilySearch's own is), so the id opens there.
  */
-export function ExternalIdChips({ exids, t }: { exids: ExternalId[]; t: Translate }) {
-  if (!exids.length) return null;
+export function ExternalIdChips({ exids, t, merge }: {
+  exids: ExternalId[];
+  t: Translate;
+  /** Ids a confirmed match will add beside these. */
+  merge?: { exids: ExternalId[] } & MergeChipActions;
+}) {
+  if (!exids.length && !merge?.exids.length) return null;
   return (
     <div className="edit-other-names">
       <div className="edit-other-names-row">
@@ -135,6 +151,12 @@ export function ExternalIdChips({ exids, t }: { exids: ExternalId[]; t: Translat
             </span>
           );
         })}
+        {merge?.exids.map((x, i) => (
+          <MergeChip key={`merge-${i}`} t={t} onTake={merge.onTake} onSkip={merge.onSkip}>
+            {x.id}
+            <span className="muted"> ({exidTypeLabel(x.type) ?? t("edit.exidUntyped")})</span>
+          </MergeChip>
+        ))}
       </div>
     </div>
   );

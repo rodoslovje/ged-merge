@@ -47,6 +47,8 @@ import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData, offersEventTag } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
+import type { RecordMergePreview } from "../../merge/recordPreview";
+import type { RecordPatch } from "../historyTypes";
 
 /**
  * The two relative bands of the Edit view — a parents group (top) and a
@@ -464,6 +466,14 @@ interface FamilySectionProps extends SharedSectionProps {
   /** Open the "Copy event to…" picker for one of this family's events. */
   onCopyFamilyEvent: (fam: Family, node: GedNode, label: string) => void;
   famMergeKeyBase: string | undefined;
+  /** What a confirmed merge will write into the family record itself — its
+   *  notes, private flag and "did not happen" statements. */
+  mergePreview?: RecordMergePreview;
+  /** Write a previewed `fam.<id>.<field>` row into the family record now,
+   *  returning undo patches (see `useMergeOverlay`). */
+  takeMergeField: (raw: GedNode, key: string) => RecordPatch[];
+  /** Leave a previewed row out of the save. */
+  skipMergeField: (key: string) => void;
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
   /** Plain links a confirmed merge will add, keyed by row — the family's own
@@ -550,6 +560,9 @@ export const FamilySection = memo(function FamilySection({
   dismissExtraEvent,
   onCopyFamilyEvent,
   famMergeKeyBase,
+  mergePreview,
+  takeMergeField,
+  skipMergeField,
   mergeHighlight,
   mergeIncomingSources,
   mergeIncomingLinks,
@@ -591,6 +604,18 @@ export const FamilySection = memo(function FamilySection({
     sources: mergeIncomingSources.get(famLinksKey),
     links: mergeIncomingLinks.get(famLinksKey),
     pageImages: mergeIncomingPageImages.get(famLinksKey),
+  };
+  /** Take / leave out one of the family's own previewed rows (`notes`, …). */
+  const famMergeActions = (field: string) => {
+    const key = `${famMergeKeyBase}.${field}`;
+    return {
+      onTake: () => {
+        if (!fam) return;
+        const patches: RecordPatch[] = [];
+        commitFamily(fam, (f) => { patches.push(...takeMergeField(f.raw, key)); }, patches);
+      },
+      onSkip: () => skipMergeField(key),
+    };
   };
 
   const partnerId = fam && (fam.husband === personId ? fam.wife : fam.husband);
@@ -659,10 +684,13 @@ export const FamilySection = memo(function FamilySection({
           {fam && (
             <PrivateToggle
               on={!!fam.private}
+              merge={mergePreview?.private}
               t={t}
               target={t("edit.privateTarget.family")}
-              onToggle={() => commitFamily(fam, (f) =>
-                setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
+              onToggle={() => mergePreview?.private
+                ? famMergeActions("private").onSkip()
+                : commitFamily(fam, (f) =>
+                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
             />
           )}
           {fam && (
@@ -734,6 +762,7 @@ export const FamilySection = memo(function FamilySection({
           assertions={fam.noEvents ?? []}
           t={t}
           onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
+          merge={mergePreview?.noEvents && { assertions: mergePreview.noEvents, ...famMergeActions("noEvents") }}
         />
       )}
       <div className="edit-children-wrap">
@@ -803,9 +832,10 @@ export const FamilySection = memo(function FamilySection({
       {fam && (
         <div className="edit-record-section">
           <NotesEditor
-            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}`}
+            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}-${mergeGen}`}
             notes={fam.noteRefs ?? []}
             addTrigger={famNoteAddCount}
+            incoming={mergePreview?.notes && { ...mergePreview.notes, ...famMergeActions("notes") }}
             t={t}
             onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
           />
