@@ -140,7 +140,7 @@ ${opts.body}
       <span class="app-footer-sep">·</span>
       <a class="app-footer-link" href="${root}terms/">Terms</a>
       <span class="app-footer-sep">·</span>
-      <a class="app-footer-link" href="mailto:support@gedmerge.com">Contact</a>
+      <a class="app-footer-link" href="${root}terms/#contact">Contact</a>
     </footer>
 
     <script>

@@ -80,7 +80,14 @@ export function AppFooter({ onShortcuts }: Props) {
         {t("footer.terms")}
       </a>
       <Sep />
-      <a href="mailto:support@gedmerge.com">{t("footer.contact")}</a>
+      <a
+        href={sl ? "pogoji/#contact" : "terms/#contact"}
+        className="app-footer-link"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {t("footer.contact")}
+      </a>
     </footer>
   );
 }
