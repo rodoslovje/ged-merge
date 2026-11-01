@@ -1764,6 +1764,8 @@ button:focus-visible {
   max-width: min(560px, 80vw);
   box-sizing: border-box;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  /* The size Edit's relative picker reads at. */
+  font-size: 0.88rem;
 }
 .start-option,
 .relative-picker-option {
