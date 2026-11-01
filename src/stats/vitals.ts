@@ -3,6 +3,8 @@ import type { ScopedFacts } from "./scope";
 import {
   ageAtDeathOf,
   birthYearOf,
+  byPeriod,
+  histogram,
   rankText,
   centuryOf,
   byMonth,
@@ -13,42 +15,12 @@ import {
   type Share,
 } from "./aggregate";
 
+export { byPeriod };
+
 /**
  * The Birth, Death and Occupation pages: the same group-bys as the other
  * pages, over the dates, places, causes and occupations the fact rows carry.
  */
-
-/** The periods a span of years is cut into, finest first. */
-const PERIODS = [10, 25, 50, 100];
-/** At most this many columns: a file reaching back a thousand years counts by century. */
-const MAX_PERIODS = 40;
-
-/**
- * Rows per period, from the first period with any to the last, empty ones kept.
- * The period is the finest of decade, quarter-century, half-century and
- * century that fits the span in {@link MAX_PERIODS} columns.
- */
-export function byPeriod<T>(rows: T[], yearOf: (r: T) => number | undefined, idOf: (r: T) => string): Bucket[] {
-  const dated: [number, string][] = [];
-  for (const r of rows) {
-    const y = yearOf(r);
-    if (y !== undefined) dated.push([y, idOf(r)]);
-  }
-  if (!dated.length) return [];
-  let min = Infinity;
-  let max = -Infinity;
-  for (const [y] of dated) { min = Math.min(min, y); max = Math.max(max, y); }
-  const width = PERIODS.find((w) => Math.floor(max / w) - Math.floor(min / w) < MAX_PERIODS) ?? PERIODS[PERIODS.length - 1];
-  const first = Math.floor(min / width) * width;
-  const out: Bucket[] = [];
-  for (let lo = first; lo <= max; lo += width) out.push({ key: String(lo), lo, hi: lo + width - 1, count: 0, ids: [] });
-  for (const [y, id] of dated) {
-    const b = out[Math.floor((y - first) / width)];
-    b.count++;
-    b.ids.push(id);
-  }
-  return out;
-}
 
 /** The few spans a baptism delay is read in: the same day, the next, the one
  *  after, within the week, the month, and later. */
@@ -177,6 +149,8 @@ export interface OccupationStats {
   occupations: Bucket[];
   /** The people with any occupation recorded, of everyone in scope. */
   withOccupation: Share;
+  /** How many distinct occupations those people carry: one, two, … five or more. */
+  perPerson: Bucket[];
   /** The most common occupations per century of birth. */
   byCentury: { century: number; top: Bucket[] }[];
   /** Education (EDUC) the same way: ranked, and who has any. */
@@ -198,6 +172,7 @@ export function occupationStats(s: ScopedFacts): OccupationStats {
   return {
     occupations: rankText(s.people, (p) => p.occupations, id),
     withOccupation: share(s.people, (p) => p.occupations.length > 0),
+    perPerson: histogram(s.people.filter((p) => p.occupations.length > 0), (p) => p.occupations.length, id, { start: 1, width: 1, end: 5 }),
     byCentury: [...centuries]
       .sort((a, b) => a[0] - b[0])
       .map(([century, list]) => ({ century, top: rankText(list, (p) => p.occupations, id).slice(0, 5) })),

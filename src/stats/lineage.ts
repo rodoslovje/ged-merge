@@ -23,6 +23,8 @@ export interface AncestorGeneration {
    *  above the father or above the mother; each side has half the slots. */
   paternal: { filled: number; ids: string[] };
   maternal: { filled: number; ids: string[] };
+  /** The average number of children the generation's ancestors had, over all their families. */
+  childrenMean: number;
 }
 
 export interface LineageStats {
@@ -31,8 +33,16 @@ export interface LineageStats {
   distinctAncestors: number;
   /** The share of filled positions held by an ancestor who also holds another (pedigree collapse). */
   implex: number;
-  /** Ancestors holding more than one position, most positions first. */
-  repeated: { id: string; count: number }[];
+  /** The ancestors where two lines of the pedigree meet: reached through
+   *  two or more of their children, so they hold more than one position. Their
+   *  own ancestors repeat only because they do and are left out. Nearest
+   *  first, with the generation of each position (ascending). */
+  repeated: { id: string; count: number; gens: number[] }[];
+  /** The person and the ancestors with an unknown father or mother, nearest
+   *  first. `gen` is the generation the missing parent would stand in (the
+   *  gap in {@link AncestorGeneration}), counted from where the person or
+   *  ancestor first appears. */
+  walls: { id: string; gen: number; father: boolean; mother: boolean }[];
   /** Descendants by generation (1 = children), each in the first generation they appear in. */
   descendants: { gen: number; ids: string[] }[];
   /** Every descendant, and those presumed living. */
@@ -43,41 +53,6 @@ export interface LineageStats {
 }
 
 export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
-  const ancestors: AncestorGeneration[] = [];
-  const positions = new Map<string, number>();
-  // Each position carries the side it stands on: the root's father opens the
-  // paternal side, the mother the maternal one, and their ancestors inherit it.
-  type Position = { id: string; paternal: boolean };
-  let generation: Position[] = [{ id: rootId, paternal: true }];
-  for (let gen = 1; gen <= MAX_GENERATIONS; gen++) {
-    const next: Position[] = [];
-    for (const { id, paternal } of generation) {
-      const p = facts.byId.get(id);
-      if (p?.father) next.push({ id: p.father, paternal: gen === 1 ? true : paternal });
-      if (p?.mother) next.push({ id: p.mother, paternal: gen === 1 ? false : paternal });
-    }
-    if (!next.length || next.length > MAX_POSITIONS) break;
-    for (const { id } of next) positions.set(id, (positions.get(id) ?? 0) + 1);
-    const side = (paternal: boolean) => {
-      const on = next.filter((pos) => pos.paternal === paternal);
-      return { filled: on.length, ids: [...new Set(on.map((pos) => pos.id))] };
-    };
-    ancestors.push({
-      gen,
-      slots: 2 ** gen,
-      filled: next.length,
-      ids: [...new Set(next.map((pos) => pos.id))],
-      paternal: side(true),
-      maternal: side(false),
-    });
-    generation = next;
-  }
-  const filled = ancestors.reduce((n, g) => n + g.filled, 0);
-  const repeated = [...positions]
-    .filter(([, count]) => count > 1)
-    .map(([id, count]) => ({ id, count }))
-    .sort((a, b) => b.count - a.count);
-
   const childrenOf = new Map<string, string[]>();
   for (const f of facts.families) {
     for (const parent of [f.husband, f.wife]) {
@@ -87,6 +62,65 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
       else childrenOf.set(parent, [...f.children]);
     }
   }
+  const ancestors: AncestorGeneration[] = [];
+  const positions = new Map<string, number>();
+  const gensOf = new Map<string, number[]>();
+  // The children an ancestor is reached through: two or more is where lines meet.
+  const via = new Map<string, Set<string>>();
+  // Each position carries the side it stands on: the root's father opens the
+  // paternal side, the mother the maternal one, and their ancestors inherit it.
+  type Position = { id: string; paternal: boolean };
+  let generation: Position[] = [{ id: rootId, paternal: true }];
+  const walls: LineageStats["walls"] = [];
+  const walled = new Set<string>();
+  for (let gen = 1; gen <= MAX_GENERATIONS; gen++) {
+    for (const { id } of generation) {
+      if (walled.has(id)) continue;
+      walled.add(id);
+      const p = facts.byId.get(id);
+      if (!p?.father || !p?.mother) walls.push({ id, gen, father: !p?.father, mother: !p?.mother });
+    }
+    const next: Position[] = [];
+    for (const { id, paternal } of generation) {
+      const p = facts.byId.get(id);
+      if (p?.father) next.push({ id: p.father, paternal: gen === 1 ? true : paternal });
+      if (p?.mother) next.push({ id: p.mother, paternal: gen === 1 ? false : paternal });
+      for (const parent of [p?.father, p?.mother]) {
+        if (!parent) continue;
+        const kids = via.get(parent);
+        if (kids) kids.add(id);
+        else via.set(parent, new Set([id]));
+      }
+    }
+    if (!next.length || next.length > MAX_POSITIONS) break;
+    for (const { id } of next) {
+      positions.set(id, (positions.get(id) ?? 0) + 1);
+      const gens = gensOf.get(id);
+      if (gens) gens.push(gen);
+      else gensOf.set(id, [gen]);
+    }
+    const side = (paternal: boolean) => {
+      const on = next.filter((pos) => pos.paternal === paternal);
+      return { filled: on.length, ids: [...new Set(on.map((pos) => pos.id))] };
+    };
+    const ids = [...new Set(next.map((pos) => pos.id))];
+    ancestors.push({
+      gen,
+      slots: 2 ** gen,
+      filled: next.length,
+      ids,
+      paternal: side(true),
+      maternal: side(false),
+      childrenMean: ids.reduce((n, id) => n + new Set(childrenOf.get(id)).size, 0) / ids.length,
+    });
+    generation = next;
+  }
+  const filled = ancestors.reduce((n, g) => n + g.filled, 0);
+  const repeated = [...positions]
+    .filter(([id, count]) => count > 1 && (via.get(id)?.size ?? 0) > 1)
+    .map(([id, count]) => ({ id, count, gens: gensOf.get(id)! }))
+    .sort((a, b) => a.gens[0] - b.gens[0] || b.count - a.count);
+
   const seen = new Set([rootId]);
   const descendants: { gen: number; ids: string[] }[] = [];
   let front = [rootId];
@@ -110,6 +144,7 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
     livingAncestors: [...positions.keys()].filter((id) => facts.byId.get(id)?.living),
     implex: filled ? 1 - positions.size / filled : 0,
     repeated,
+    walls,
     descendants,
     descendantIds,
     livingDescendants: descendantIds.filter((id) => facts.byId.get(id)?.living),

@@ -231,10 +231,49 @@ describe("aggregates", () => {
     expect(f.firstMarriageFemale.flatMap((b) => b.ids).sort()).toEqual(["@I4@", "@I7@"]);
     expect(f.unionsPerPerson.map((b) => b.count)).toEqual([4, 1, 0]);
     expect(f.marriageMonth[4].ids).toEqual(["@F2@"]);
+    expect(f.marriagesPerPeriod.flatMap((b) => b.ids)).toEqual(["@F1@", "@F2@", "@F3@"]);
     expect(f.firstChild.find((b) => b.key === "0")?.ids).toEqual(["@F2@"]);
     expect(f.children[0].ids).toEqual(["@F3@"]);
     expect(f.mostUnions).toEqual({ id: "@I3@", count: 2 });
     expect(f.childrenMean).toEqual({ value: 1, n: 3 });
+  });
+
+  it("averages grown and young-dead children per family by century", () => {
+    const ds = dataset(["0 HEAD",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 MARR", "2 DATE 1850", "1 CHIL @C1@", "1 CHIL @C2@", "1 CHIL @C3@", "1 CHIL @C4@",
+      "0 @I1@ INDI", "1 FAMS @F1@",
+      "0 @C1@ INDI", "1 BIRT", "2 DATE 1851", "1 DEAT", "2 DATE 1853", "1 FAMC @F1@",
+      "0 @C2@ INDI", "1 BIRT", "2 DATE 1852", "1 DEAT", "2 DATE 1920", "1 FAMC @F1@",
+      "0 @C3@ INDI", "1 BIRT", "2 DATE 1854", "1 FAMS @F2@", "1 FAMC @F1@",
+      "0 @C4@ INDI", "1 BIRT", "2 DATE 1856", "1 FAMC @F1@",
+      "0 @F2@ FAM", "1 HUSB @C3@",
+      "0 TRLR"].join("\n"));
+    const facts = buildStatsFacts(ds);
+    const l = lifespanStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
+    expect(l.childSurvival).toEqual([{ century: 1800, n: 1, grown: 2, died: 1, grownIds: ["@C2@", "@C3@"], diedIds: ["@C1@"] }]);
+  });
+
+  it("counts additional name kinds and missing name parts", () => {
+    const ds = dataset(["0 HEAD",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/", "2 _MARNM Novak", "1 NAME Ančka /Kos/", "2 TYPE aka", "1 NAME Ana /Novak/", "2 TYPE married",
+      "0 @I2@ INDI", "1 NAME NN /Kos/", "2 NICK Tone",
+      "0 @I3@ INDI", "1 NAME Janez //",
+      "0 TRLR"].join("\n"));
+    const facts = buildStatsFacts(ds);
+    const k = namesStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE)).nameKinds;
+    expect(k.noGiven).toEqual(["@I2@"]);
+    expect(k.noSurname).toEqual(["@I3@"]);
+    expect(k.types.map((b) => [b.label, b.ids])).toEqual([["aka", ["@I1@"]], ["married", ["@I1@"]], ["nick", ["@I2@"]]]);
+  });
+
+  it("ranks marriage places by family, folding accents and case", () => {
+    const fams: [string, string][] = [["@F1@", "2 PLAC Šmartin"], ["@F2@", "2 PLAC smartin"], ["@F3@", "2 PLAC Kranj"], ["@F4@", "2 DATE 1900"]];
+    const ds = dataset(["0 HEAD", ...fams.flatMap(([id, line], i) => [
+      `0 @I${i}@ INDI`, `1 FAMS ${id}`, `0 ${id} FAM`, `1 HUSB @I${i}@`, "1 MARR", line,
+    ]), "0 TRLR"].join("\n"));
+    const facts = buildStatsFacts(ds);
+    const f = familyStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
+    expect(f.marriagePlaces.map((b) => [b.label, b.ids])).toEqual([["Šmartin", ["@F1@", "@F2@"]], ["Kranj", ["@F3@"]]]);
   });
 
   it("leaves a family dated only by an approximate child out of the century means by default", () => {

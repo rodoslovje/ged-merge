@@ -6,6 +6,7 @@ import { birthParentFamilies } from "../gedcom/couple";
 import { countryOf } from "../tools/geocode";
 import { foldSearch } from "../ui/globalSearch";
 import { isUnknownNameToken } from "../gedcom/name";
+import { additionalNames } from "../match/relatives";
 import { placeKeysOf } from "../tools/places";
 import { isPointer } from "../gedcom/uri";
 
@@ -24,6 +25,9 @@ export interface PersonFacts {
   /** How many given names the primary name carries. */
   givenCount: number;
   surname?: string;
+  /** The kinds of the names beyond the primary one (`2 TYPE` or its phrase,
+   *  "nick" for a nickname, "married" for an inline `_MARNM`), as written. */
+  nameTypes: string[];
   /** `given` and `surname` folded accent- and case-blind — what names are counted by. */
   givenKey?: string;
   surnameKey?: string;
@@ -38,6 +42,8 @@ export interface PersonFacts {
   deceased: boolean;
   /** Not deceased and born (or estimated born) within the living window. */
   living: boolean;
+  /** The person has a family of their own as a spouse. */
+  married: boolean;
   /** Whole years from birth to death, when both are dated. */
   ageAtDeath?: number;
   /** The birth or death place, whichever the file gives first; `""` for none. */
@@ -97,6 +103,8 @@ export interface FamilyFacts {
   marriageYear?: number;
   marriageMonth?: number;
   marriageApprox: boolean;
+  /** The first marriage event's place as written, `""` for none. */
+  marriagePlace: string;
   /** The year the family is dated by: its marriage, else its first child's birth. */
   year?: number;
   /** That year rests on an approximate date. */
@@ -274,6 +282,10 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       given: givens[0],
       givenCount: givens.length,
       surname,
+      nameTypes: [
+        ...additionalNames(indi).map((n) => n.typePhrase ?? n.type ?? "other"),
+        ...(name?.married ? ["married"] : []),
+      ],
       givenKey: fold(givens[0]),
       surnameKey: fold(surname),
       birthYear: birth?.year,
@@ -284,6 +296,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       deathApprox: isApproximate(death),
       deceased,
       living: !deceased && isPresumedLiving(indi, ds, now),
+      married: indi.spouseOf.length > 0,
       ageAtDeath: death ? ageBetween(birth, death) : undefined,
       place,
       country: place ? countryOf(place, home) : "",
@@ -341,6 +354,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       marriageYear: marr?.year,
       marriageMonth: marr?.month,
       marriageApprox: marrApprox,
+      marriagePlace: fam.events.find((e) => e.tag === "MARR" && e.place?.raw.trim())?.place?.raw.trim() ?? "",
       year: marr?.year ?? first?.year,
       yearApprox: marr ? marrApprox : isApproximate(first),
       husbandAge: marr ? ageBetween(hb, marr) : undefined,

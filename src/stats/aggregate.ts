@@ -192,6 +192,38 @@ function meanByCentury<T>(
     .map(([century, g]) => ({ century, value: g.sum / g.ids.length, n: g.ids.length, ids: g.ids }));
 }
 
+/** The periods a span of years is cut into, finest first. */
+const PERIODS = [10, 25, 50, 100];
+/** At most this many columns: a file reaching back a thousand years counts by century. */
+const MAX_PERIODS = 40;
+
+/**
+ * Rows per period, from the first period with any to the last, empty ones kept.
+ * The period is the finest of decade, quarter-century, half-century and
+ * century that fits the span in {@link MAX_PERIODS} columns.
+ */
+export function byPeriod<T>(rows: T[], yearOf: (r: T) => number | undefined, idOf: (r: T) => string): Bucket[] {
+  const dated: [number, string][] = [];
+  for (const r of rows) {
+    const y = yearOf(r);
+    if (y !== undefined) dated.push([y, idOf(r)]);
+  }
+  if (!dated.length) return [];
+  let min = Infinity;
+  let max = -Infinity;
+  for (const [y] of dated) { min = Math.min(min, y); max = Math.max(max, y); }
+  const width = PERIODS.find((w) => Math.floor(max / w) - Math.floor(min / w) < MAX_PERIODS) ?? PERIODS[PERIODS.length - 1];
+  const first = Math.floor(min / width) * width;
+  const out: Bucket[] = [];
+  for (let lo = first; lo <= max; lo += width) out.push({ key: String(lo), lo, hi: lo + width - 1, count: 0, ids: [] });
+  for (const [y, id] of dated) {
+    const b = out[Math.floor((y - first) / width)];
+    b.count++;
+    b.ids.push(id);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Per-row readings that honour the scope's "approximate dates" switch.
 
@@ -364,6 +396,9 @@ export interface NamesStats {
   byCentury: { century: number; male: Bucket[]; female: Bucket[] }[];
   /** How many given names people carry: one, two, three or more. */
   givenCount: Bucket[];
+  /** People per kind of additional name, and those whose primary name lacks
+   *  a given name or a surname (blank or a stand-in such as NN). */
+  nameKinds: { noGiven: string[]; noSurname: string[]; types: Bucket[] };
   /** Children whose first given name repeats a parent's or a grandparent's. */
   namesakes: {
     sonFather: Share;
@@ -422,6 +457,11 @@ export function namesStats(s: ScopedFacts): NamesStats {
         female: rankNames(list.filter((p) => p.sex === "F"), "given").slice(0, 5),
       })),
     givenCount: histogram(withGiven, (p) => p.givenCount, (p) => p.id, { start: 1, width: 1, end: 3 }),
+    nameKinds: {
+      noGiven: s.people.filter((p) => !p.given).map((p) => p.id),
+      noSurname: s.people.filter((p) => !p.surname).map((p) => p.id),
+      types: rankText(s.people, (p) => p.nameTypes, (p) => p.id),
+    },
     namesakes,
   };
 }
@@ -431,6 +471,19 @@ export function namesStats(s: ScopedFacts): NamesStats {
 
 /** Deaths before this age count as child mortality. */
 export const CHILD_AGE = 5;
+/** A child who reached this age grew up. */
+export const ADULT_AGE = 18;
+
+/** A century's families with children: how many of them grew up, how many died young, on average. */
+export interface SurvivalPoint {
+  century: number;
+  /** Families counted. */
+  n: number;
+  grown: number;
+  died: number;
+  grownIds: string[];
+  diedIds: string[];
+}
 
 export interface LifespanStats {
   /** Age at death in five-year bins. */
@@ -449,6 +502,11 @@ export interface LifespanStats {
   byCenturyAdults: CenturyPoint[];
   /** The share (percent) of the dead who died before {@link CHILD_AGE}, per century of birth. */
   childDeaths: CenturyPoint[];
+  /** Per century of the family: children who reached {@link ADULT_AGE} and
+   *  children who died before it, per family with children. A child with no
+   *  dated death counts as grown when married or living past that age, and
+   *  is left out otherwise. The running century is left out. */
+  childSurvival: SurvivalPoint[];
   oldest: { id: string; age: number }[];
 }
 
@@ -471,6 +529,29 @@ export function lifespanStats(s: ScopedFacts): LifespanStats {
   for (const [century, g] of [...centuries].sort((a, b) => a[0] - b[0])) {
     childDeaths.push({ century, value: (100 * g.ids.length) / g.all, n: g.all, ids: g.ids });
   }
+  const thisYear = new Date().getFullYear();
+  const survival = new Map<number, { n: number; grownIds: string[]; diedIds: string[] }>();
+  for (const f of s.families) {
+    const y = s.approx || !f.yearApprox ? f.year : undefined;
+    if (y === undefined || !f.children.length) continue;
+    const c = centuryOf(y);
+    // The running century's children are mostly not yet grown: no reading.
+    if (c >= centuryOf(thisYear)) continue;
+    let g = survival.get(c);
+    if (!g) survival.set(c, (g = { n: 0, grownIds: [], diedIds: [] }));
+    g.n++;
+    for (const childId of f.children) {
+      const child = s.byId.get(childId);
+      if (!child) continue;
+      const a = age(child);
+      const born = by(child);
+      if (a !== undefined && a < ADULT_AGE) g.diedIds.push(childId);
+      else if (a !== undefined || child.married || (child.living && born !== undefined && thisYear - born >= ADULT_AGE)) g.grownIds.push(childId);
+    }
+  }
+  const childSurvival = [...survival]
+    .sort((a, b) => a[0] - b[0])
+    .map(([century, g]) => ({ century, n: g.n, grown: g.grownIds.length / g.n, died: g.diedIds.length / g.n, grownIds: g.grownIds, diedIds: g.diedIds }));
   return {
     ageAtDeath: histogram(dated, age, id, { start: 0, width: 5, end: 100 }),
     ageAtDeathMale: histogram(dated.filter((p) => p.sex === "M"), age, id, { start: 0, width: 5, end: 100 }),
@@ -483,6 +564,7 @@ export function lifespanStats(s: ScopedFacts): LifespanStats {
     byCenturyFemale: meanByCentury(dated.filter((p) => p.sex === "F"), by, age, id),
     byCenturyAdults: meanByCentury(dated.filter((p) => age(p)! >= CHILD_AGE), by, age, id),
     childDeaths,
+    childSurvival,
     oldest: dated
       .map((p) => ({ id: p.id, age: age(p)! }))
       .sort((a, b) => b.age - a.age)
@@ -509,8 +591,12 @@ export interface FamilyStats {
   /** The person in scope with the most unions; ties go to the first found. */
   mostUnions?: { id: string; count: number };
   childrenMean?: Mean;
+  /** Marriages per period of years (see {@link byPeriod}); ids are families. */
+  marriagesPerPeriod: Bucket[];
   /** Marriages per calendar month (1–12); ids are families. */
   marriageMonth: Bucket[];
+  /** Marriage places, most frequent first; ids are families. */
+  marriagePlaces: Bucket[];
   /** Months from marriage to the first child; ids are families. */
   firstChild: Bucket[];
   /** Mother's age at her first and last child in the family; ids are families. */
@@ -550,6 +636,8 @@ export function familyStats(s: ScopedFacts): FamilyStats {
     mostUnions: [...unions].reduce<{ id: string; count: number } | undefined>((best, [id, count]) => (!best || count > best.count ? { id, count } : best), undefined),
     childrenMean: mean(s.families.map((f) => f.children.length)),
     marriageMonth: month,
+    marriagesPerPeriod: byPeriod(s.families, (f) => (s.approx || !f.marriageApprox ? f.marriageYear : undefined), famId),
+    marriagePlaces: rankText(s.families, (f) => [f.marriagePlace], famId),
     firstChild: firstChildBuckets(s.families.filter((f) => f.firstChildMonths !== undefined && (s.approx || !(f.marriageApprox || f.firstChildApprox)))),
     motherFirst: histogram(s.families.filter(parentsOk), (f) => f.motherAgeFirst, famId, marriageBins),
     motherLast: histogram(s.families.filter(parentsOk), (f) => f.motherAgeLast, famId, marriageBins),

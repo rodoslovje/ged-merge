@@ -120,13 +120,40 @@ describe("lineageStats", () => {
     expect(l.ancestors[2].paternal.ids.sort()).toEqual(["@I1@", "@I2@"]);
     expect(l.distinctAncestors).toBe(8);
     expect(l.implex).toBeCloseTo(0.2);
-    expect(l.repeated).toEqual([{ id: "@I1@", count: 2 }, { id: "@I2@", count: 2 }]);
+    expect(l.repeated).toEqual([{ id: "@I1@", count: 2, gens: [3, 3] }, { id: "@I2@", count: 2, gens: [3, 3] }]);
     expect(l.livingAncestors).not.toContain("@I1@");
     expect(l.livingAncestors).not.toContain("@I2@");
+    // Each ancestor counts once: Adam and Eva had two children, everyone else one.
+    expect(l.ancestors.map((g) => g.childrenMean)).toEqual([1, 1, 2]);
+    // Lines end at Marija and Jakob, then at Adam and Eva — each listed once.
+    expect(l.walls.map((w) => [w.id, w.gen])).toEqual([["@I7@", 3], ["@I8@", 3], ["@I1@", 4], ["@I2@", 4]]);
 
     const d = lineageStats(facts, "@I1@");
     expect(d.descendants.map((g) => g.ids.length)).toEqual([2, 2, 1]);
     expect(d.descendantIds).toHaveLength(5);
+  });
+});
+
+describe("lineageStats meeting points", () => {
+  it("lists where two lines meet, not the ancestors above them", () => {
+    // R's father H and grandmother Z (W's mother) are siblings: their parents
+    // X and Y are where the lines meet; X's parents K and L only repeat.
+    const ds = dataset(["0 HEAD",
+      "0 @R@ INDI", "1 FAMC @F1@",
+      "0 @H@ INDI", "1 FAMC @F2@", "1 FAMS @F1@",
+      "0 @W@ INDI", "1 FAMC @F3@", "1 FAMS @F1@",
+      "0 @Z@ INDI", "1 FAMC @F2@", "1 FAMS @F3@",
+      "0 @X@ INDI", "1 FAMC @F4@", "1 FAMS @F2@",
+      "0 @Y@ INDI", "1 FAMS @F2@",
+      "0 @K@ INDI", "1 FAMS @F4@",
+      "0 @L@ INDI", "1 FAMS @F4@",
+      "0 @F1@ FAM", "1 HUSB @H@", "1 WIFE @W@", "1 CHIL @R@",
+      "0 @F2@ FAM", "1 HUSB @X@", "1 WIFE @Y@", "1 CHIL @H@", "1 CHIL @Z@",
+      "0 @F3@ FAM", "1 WIFE @Z@", "1 CHIL @W@",
+      "0 @F4@ FAM", "1 HUSB @K@", "1 WIFE @L@", "1 CHIL @X@",
+      "0 TRLR"].join("\n"));
+    const l = lineageStats(buildStatsFacts(ds, "si", 2026), "@R@");
+    expect(l.repeated).toEqual([{ id: "@X@", count: 2, gens: [2, 3] }, { id: "@Y@", count: 2, gens: [2, 3] }]);
   });
 });
 

@@ -539,7 +539,14 @@ export function useTreeCanvas(
   }, []);
 
   // A new tree (mode switch / different root) invalidates the old selection.
-  useEffect(() => setSelectedKey(null), [laid]);
+  // The same chart re-laid out — a match decision recolouring a node, a
+  // display toggle — keeps it while the selected node is still drawn.
+  const selectedFor = useRef(viewKey);
+  useEffect(() => {
+    const same = viewKey !== undefined && selectedFor.current === viewKey;
+    selectedFor.current = viewKey;
+    setSelectedKey((k) => (same && k && nodesByKey.has(k) ? k : null));
+  }, [laid, viewKey, nodesByKey]);
 
   // Bring a node into view, centred in the part of the canvas the detail panel
   // leaves showing — not in the middle of the canvas, which the panel covers.

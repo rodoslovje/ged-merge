@@ -1755,11 +1755,19 @@ button:focus-visible {
   left: 0;
   z-index: 5;
 }
+/* As wide as the longest name needs, like Edit's relative picker, so a name
+   stays on one line; never narrower than the field, never wider than the screen. */
 .start-options {
   margin: 4px 0 0;
-  right: 0;
-  min-width: 230px;
+  min-width: max(100%, 230px);
+  width: max-content;
+  max-width: min(560px, 80vw);
+  box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  /* The size Edit's relative picker reads at. */
+  font-size: 0.88rem;
 }
+.start-options.align-right { left: auto; right: 0; }
 .start-option,
 .relative-picker-option {
   display: block;
@@ -9384,6 +9392,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-scope .tools-search-input { padding-right: 10px; }
 .stats-scope .stats-year { width: 6.5em; }
 .stats-scope .stats-scope-place { width: 16em; max-width: 100%; }
+/* A filter beside the others, not a heading: worded like "Born". */
+.stats-scope .tools-norm-check { color: var(--muted); font-size: 0.9rem; }
 /* Every bar fills with --stats-bar: the accent, or a sex's colour wherever a
    card, list, row or the whole scope is about one sex only — the nearest wins. */
 .stats-grid { --stats-bar: var(--accent); --stats-track: var(--panel-2); }
@@ -9474,6 +9484,21 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 }
 .stats-col:hover .stats-col-bar, .stats-col.picked .stats-col-bar { opacity: 1; }
 .stats-col.picked .stats-col-label { color: var(--accent); font-weight: 600; }
+/* Stacked columns: grown below, died young above; each part is its own button. */
+.stats-card > .stats-stacked { flex: 1 1 auto; display: flex; flex-direction: column; }
+.stats-stacked > .stats-columns { flex: 1 1 auto; }
+.stats-stacked .stats-col { cursor: default; }
+.stats-stack-lower { --stats-bar: var(--accent); }
+.stats-stack-upper { --stats-bar: var(--state-major); }
+.stats-stacked .stats-tone-accent { --stats-bar: var(--accent); }
+.stats-stacked .stats-tone-minor { --stats-bar: var(--state-minor); }
+.stats-stacked .stats-tone-major { --stats-bar: var(--state-major); }
+.stats-stacked .stats-male { --stats-bar: var(--sex-male); }
+.stats-stacked .stats-female { --stats-bar: var(--sex-female); }
+button.stats-col-bar { width: 100%; padding: 0; border: none; font: inherit; cursor: pointer; }
+button.stats-col-bar:disabled { cursor: default; }
+button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
+.stats-col-bar.stats-stack-lower:not(.alone) { border-radius: 0; }
 .stats-col-label {
   border-top: 1px solid var(--border-2);
   padding-top: 3px;
@@ -9514,12 +9539,15 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-move > span { overflow: hidden; text-overflow: ellipsis; }
 .stats-bar-track { height: 8px; background: var(--stats-track); border-radius: 4px; overflow: hidden; }
 .stats-bar-fill { display: block; height: 100%; background: var(--stats-bar); border-radius: 4px; }
+/* A bar in the two sexes' colours: the parts sit side by side, the track rounds the ends. */
+.stats-bar-track:has(.stats-bar-part) { display: flex; }
+.stats-bar-part { flex: none; border-radius: 0; }
 /* Completeness rows grade the file's own data in the status chips' pairing — the fill in the
    chip's ink, the track in its tint — and the percentage beside it says the same in words.  */
 .stats-status-good { --stats-bar: var(--accent); --stats-track: var(--accent-soft); }
 .stats-status-fair { --stats-bar: var(--state-minor); --stats-track: color-mix(in oklch, var(--state-minor) 20%, transparent); }
 .stats-status-poor { --stats-bar: var(--state-major); --stats-track: color-mix(in oklch, var(--state-major) 22%, transparent); }
-.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.4em; text-align: right; }
+.stats-bar-value { color: var(--muted); font-variant-numeric: tabular-nums; min-width: var(--stats-value, 3.4em); text-align: right; }
 
 /* Two shares per row — the father's side and the mother's — under a legend whose
    swatches carry the two lines' colours; the words stay in text ink. */
@@ -9530,13 +9558,15 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }
-.stats-pair-row { padding: 3px 6px; border-radius: var(--radius-sm); }
-.stats-pair-bars { display: flex; flex-direction: column; gap: 3px; }
+.stats-pair-row { padding: 2px 6px; border-radius: var(--radius-sm); }
+/* The two bars of a row sit close, so a row reads as one pair: the values set
+   the height, held to a tight line. */
+.stats-pair-bars { display: flex; flex-direction: column; gap: 0; }
 .stats-pair-bars .stats-bar-track { height: 6px; }
 .stats-pair-cell { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .stats-pair-cell:disabled { cursor: default; }
 .stats-pair-cell:hover:not(:disabled) .stats-bar-track, .stats-pair-cell.picked .stats-bar-track { outline: 1px solid var(--stats-bar); outline-offset: 1px; }
-.stats-pair-cell .stats-bar-value { min-width: 3.2em; text-align: right; }
+.stats-pair-cell .stats-bar-value { min-width: var(--stats-value, 3.2em); text-align: right; font-size: 0.78rem; line-height: 1.25; }
 
 .stats-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .stats-table th, .stats-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -9560,6 +9590,11 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-oldest li { padding: 2px 0; }
 /* A name, and the age set to the right edge so the ages read as one column. */
 .stats-oldest-age { float: right; font-variant-numeric: tabular-nums; }
+/* Brick walls: generation, name, what is missing — one row each. */
+.stats-walls { margin: 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.stats-walls li { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 2px 0; }
+.stats-walls-gen { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-walls-missing { font-size: 0.8rem; text-align: right; }
 
 /* The people behind a picked bar, inside the card that was clicked. */
 .stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
