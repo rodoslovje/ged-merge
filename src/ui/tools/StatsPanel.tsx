@@ -44,7 +44,7 @@ import { countryFacetLabel, countryFacetName, flagEmoji } from "../../geo/placeC
 import { countryOf } from "../../tools/geocode";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
-import { BarList, ColumnChart, PairBarList, StatTile, toneClass, type BarRow, type Column, type PairRow, type Tone } from "./StatsCharts";
+import { BarList, ColumnChart, PairBarList, StackedColumnChart, StatTile, toneClass, type BarRow, type Column, type PairRow, type StackedColumn, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
@@ -794,30 +794,31 @@ export function StatsPanel({
             {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
             {card("childSurvival", t("stats.childSurvival"), null, (() => {
               const names: [string, string] = [t("stats.childGrown", { age: ADULT_AGE }), t("stats.childDiedYoung", { age: ADULT_AGE })];
-              const top = Math.max(1e-9, ...life.childSurvival.flatMap((p) => [p.grown, p.died]));
               return withCsv(
                 "childSurvival",
-                () => [[t("stats.centuryCol"), ...names, t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, p.n])],
-                <div className="stats-survival">
-                  <PairBarList
-                    names={names}
-                    picked={pickedIn("childSurvival")}
-                    labelWidth="4em"
-                    rows={life.childSurvival.map<PairRow>((p) => {
-                      const of = (v: number, ids: string[]) => ({
-                        value: (100 * v) / top,
-                        display: dec(v),
-                        tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: dec(v), n: num(p.n) }),
-                        count: ids.length,
-                      });
-                      return { key: String(p.century), label: centuryLabel(p.century), a: of(p.grown, p.grownIds), b: of(p.died, p.diedIds) };
-                    })}
-                    onPick={(key, side) => {
-                      const p = life.childSurvival.find((x) => String(x.century) === key)!;
-                      choose("childSurvival", `${key}:${side}`, `${names[side === "a" ? 0 : 1]} — ${centuryLabel(p.century)}`, side === "a" ? p.grownIds : p.diedIds);
-                    }}
-                  />
-                </div>,
+                () => [[t("stats.centuryCol"), ...names, t("stats.childSurvived", { age: ADULT_AGE }), t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), p.n])],
+                <StackedColumnChart
+                  names={names}
+                  picked={pickedIn("childSurvival")}
+                  columns={life.childSurvival.map<StackedColumn>((p) => {
+                    const part = (name: string, v: number, ids: string[]) => ({
+                      value: v,
+                      tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: `${name} ${dec(v)}`, n: num(p.n) }),
+                      count: ids.length,
+                    });
+                    return {
+                      key: String(p.century),
+                      label: centuryLabel(p.century),
+                      lower: part(names[0], p.grown, p.grownIds),
+                      upper: part(names[1], p.died, p.diedIds),
+                      top: p.grownIds.length + p.diedIds.length ? pct(p.grownIds.length, p.grownIds.length + p.diedIds.length) : undefined,
+                    };
+                  })}
+                  onPick={(key, which) => {
+                    const p = life.childSurvival.find((x) => String(x.century) === key)!;
+                    choose("childSurvival", `${key}:${which}`, `${names[which === "lower" ? 0 : 1]} — ${centuryLabel(p.century)}`, which === "lower" ? p.grownIds : p.diedIds);
+                  }}
+                />,
               );
             })())}
           </>

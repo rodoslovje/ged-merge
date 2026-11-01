@@ -83,6 +83,72 @@ export function ColumnChart({
   );
 }
 
+/** One column of a {@link StackedColumnChart}: two parts, the lower drawn first. */
+export interface StackedColumn {
+  key: string;
+  label: string;
+  lower: { value: number; tip: string; count: number };
+  upper: { value: number; tip: string; count: number };
+  /** Written over the column. */
+  top?: string;
+}
+
+/**
+ * Columns of two parts stacked one on the other — what grew up below, what
+ * died young above — each part listing its own rows, with a legend naming
+ * the two below.
+ */
+export function StackedColumnChart({
+  columns,
+  names,
+  onPick,
+  picked,
+}: {
+  columns: StackedColumn[];
+  /** What the lower and the upper part stand for, in the legend. */
+  names: [string, string];
+  onPick: (key: string, part: "lower" | "upper") => void;
+  /** `key:lower` or `key:upper`. */
+  picked?: string;
+}) {
+  const { t } = useTranslation();
+  if (!columns.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
+  const max = largestValue(columns.map((c) => ({ value: c.lower.value + c.upper.value })));
+  const part = (c: StackedColumn, which: "lower" | "upper") => {
+    const p = c[which];
+    return (
+      <button
+        type="button"
+        className={`stats-col-bar stats-stack-${which}${picked === `${c.key}:${which}` ? " picked" : ""}${which === "lower" && !c.upper.value ? " alone" : ""}`}
+        style={{ height: `${(100 * p.value) / max}%` }}
+        disabled={p.count === 0}
+        onClick={() => onPick(c.key, which)}
+        {...tipProps(p.tip)}
+      />
+    );
+  };
+  return (
+    <div className="stats-stacked">
+      <div className="stats-columns">
+        {columns.map((c) => (
+          <div key={c.key} className="stats-col">
+            <span className="stats-col-plot">
+              {c.top && <span className="stats-col-value">{c.top}</span>}
+              {part(c, "upper")}
+              {part(c, "lower")}
+            </span>
+            <span className="stats-col-label">{c.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="stats-pair-legend">
+        <span className="stats-stack-lower">{names[0]}</span>
+        <span className="stats-stack-upper">{names[1]}</span>
+      </div>
+    </div>
+  );
+}
+
 export interface BarRow {
   key: string;
   label: ReactNode;

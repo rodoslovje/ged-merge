@@ -9476,6 +9476,16 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 }
 .stats-col:hover .stats-col-bar, .stats-col.picked .stats-col-bar { opacity: 1; }
 .stats-col.picked .stats-col-label { color: var(--accent); font-weight: 600; }
+/* Stacked columns: grown below, died young above; each part is its own button. */
+.stats-card > .stats-stacked { flex: 1 1 auto; display: flex; flex-direction: column; }
+.stats-stacked > .stats-columns { flex: 1 1 auto; }
+.stats-stacked .stats-col { cursor: default; }
+.stats-stack-lower { --stats-bar: var(--accent); }
+.stats-stack-upper { --stats-bar: var(--state-major); }
+button.stats-col-bar { width: 100%; padding: 0; border: none; font: inherit; cursor: pointer; }
+button.stats-col-bar:disabled { cursor: default; }
+button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
+.stats-col-bar.stats-stack-lower:not(.alone) { border-radius: 0; }
 .stats-col-label {
   border-top: 1px solid var(--border-2);
   padding-top: 3px;
@@ -9532,8 +9542,6 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }
-.stats-survival .stats-pair-a { --stats-bar: var(--accent); }
-.stats-survival .stats-pair-b { --stats-bar: var(--state-major); }
 .stats-pair-row { padding: 3px 6px; border-radius: var(--radius-sm); }
 .stats-pair-bars { display: flex; flex-direction: column; gap: 3px; }
 .stats-pair-bars .stats-bar-track { height: 6px; }
