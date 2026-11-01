@@ -1153,6 +1153,22 @@ describe("entryDate — a typed date in the file's style", () => {
     expect(entryDate("od 1850 do 1860", words, "DMY")).toBe("FROM 1850 TO 1860");
   });
 
+  it("reads back the signs the date display writes", () => {
+    expect(entryDate(">5. 3. 1850", numeric, "DMY")).toBe("AFT 05.03.1850");
+    expect(entryDate("1850–1860", words, "DMY")).toBe("BET 1850 AND 1860");
+    expect(entryDate("5. 3. 1850 – 6. 4. 1860", words, "DMY")).toBe("BET 5 MAR 1850 AND 6 APR 1860");
+    expect(entryDate("5.3.1850-6.4.1860", words, "DMY")).toBe("BET 5 MAR 1850 AND 6 APR 1860");
+    expect(entryDate("1850-06-03 – 1860-06-03", words, "DMY")).toBe("BET 3 JUN 1850 AND 3 JUN 1860");
+    expect(entryDate("1850 → 1860", words, "DMY")).toBe("FROM 1850 TO 1860");
+    expect(entryDate("1850 →", words, "DMY")).toBe("FROM 1850");
+    expect(entryDate("→ 1860", words, "DMY")).toBe("TO 1860");
+    expect(entryDate("5.3.1850–6.4.1860", words, "DMY", { period: true })).toBe("FROM 5 MAR 1850 TO 6 APR 1860");
+    // An ISO date's own hyphens never split it into a range.
+    expect(entryDate("1850-06-03", words, "DMY")).toBe("3 JUN 1850");
+    expect(entryDate("1850-06", words, "DMY")).toBe("1850-06");
+    expect(entryDate("~ 1850 - 1860", words, "DMY")).toBe("~ 1850 - 1860");
+  });
+
   it("writes the file's own layout, reading numbers in the file's order", () => {
     expect(entryDate("5 mar 1850", numeric, "DMY")).toBe("05.03.1850");
     expect(entryDate("5.3.1850", words, "DMY")).toBe("5 MAR 1850");

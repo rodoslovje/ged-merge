@@ -30,6 +30,9 @@ export function dateDisplayFormatter(choice: string, lang: () => string): ((d: G
   }
   const profile = choice ? dateProfileFromPattern(choice, inferDateProfile([]), "none") : undefined;
   if (!profile) return null;
+  // A pattern that joins its own parts with hyphens ("1850-06-03") sets the
+  // range dash apart with spaces, or the two would run together.
+  const dash = choice.includes("-") ? " – " : "–";
   const part = (year?: number, month?: number, day?: number) =>
     formatGedDate({ raw: "", qualifier: "exact", year, month, day }, profile);
   return (d) => {
@@ -37,7 +40,7 @@ export function dateDisplayFormatter(choice: string, lang: () => string): ((d: G
     if (d.calendar !== undefined || hasDualYear(d.raw)) return whole;
     const first = part(d.year, d.month, d.day);
     const second = part(d.year2, d.month2, d.day2);
-    const sign = qualifierSign(d.qualifier, first, second);
+    const sign = qualifierSign(d.qualifier, first, second, dash);
     return sign ?? whole;
   };
 }
@@ -50,10 +53,15 @@ export function dateDisplayFormatter(choice: string, lang: () => string): ((d: G
  * shows its date; its wording stays in the field's hover with the file's text.
  * Undefined when a part the qualifier needs did not format.
  */
-function qualifierSign(qualifier: GedDate["qualifier"], first: string, second: string): string | undefined {
+function qualifierSign(
+  qualifier: GedDate["qualifier"],
+  first: string,
+  second: string,
+  dash: string,
+): string | undefined {
   if (qualifier === "between" || qualifier === "range") {
     if (!first || !second) return undefined;
-    return qualifier === "between" ? `${first}–${second}` : `${first} → ${second}`;
+    return qualifier === "between" ? `${first}${dash}${second}` : `${first} → ${second}`;
   }
   if (!first) return undefined;
   switch (qualifier) {

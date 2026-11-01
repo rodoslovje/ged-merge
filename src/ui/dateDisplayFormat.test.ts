@@ -21,7 +21,7 @@ describe("dateDisplayFormatter", () => {
     expect(show("DD.MM.YYYY", "EST 1850")).toBe("~1850");
     expect(show("DD.MM.YYYY", "BEF 1850")).toBe("<1850");
     expect(show("DD.MM.YYYY", "AFT 1850")).toBe(">1850");
-    expect(show("YYYY-MM-DD", "BET 1850 AND 3 JUN 1860")).toBe("1850–1860-06-03");
+    expect(show("YYYY-MM-DD", "BET 1850 AND 3 JUN 1860")).toBe("1850 – 1860-06-03");
     expect(show("DD.MM.YYYY", "1830-1850")).toBe("1830–1850");
     // A period is not a range: FROM … TO … says how long, BET … AND … when.
     expect(show("DD.MM.YYYY", "FROM 1850 TO 1860")).toBe("1850 → 1860");
