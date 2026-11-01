@@ -126,7 +126,7 @@ describe("lineageStats", () => {
     // Each ancestor counts once: Adam and Eva had two children, everyone else one.
     expect(l.ancestors.map((g) => g.childrenMean)).toEqual([1, 1, 2]);
     // Lines end at Marija and Jakob, then at Adam and Eva — each listed once.
-    expect(l.walls.map((w) => [w.id, w.gen])).toEqual([["@I7@", 2], ["@I8@", 2], ["@I1@", 3], ["@I2@", 3]]);
+    expect(l.walls.map((w) => [w.id, w.gen])).toEqual([["@I7@", 3], ["@I8@", 3], ["@I1@", 4], ["@I2@", 4]]);
 
     const d = lineageStats(facts, "@I1@");
     expect(d.descendants.map((g) => g.ids.length)).toEqual([2, 2, 1]);

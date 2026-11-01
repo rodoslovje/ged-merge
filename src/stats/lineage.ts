@@ -35,8 +35,10 @@ export interface LineageStats {
   implex: number;
   /** Ancestors holding more than one position, most positions first. */
   repeated: { id: string; count: number }[];
-  /** The person and the ancestors with an unknown father or mother, at the
-   *  nearest generation they stand in (0 = the person), nearest first. */
+  /** The person and the ancestors with an unknown father or mother, nearest
+   *  first. `gen` is the generation the missing parent would stand in (the
+   *  gap in {@link AncestorGeneration}), counted from where the person or
+   *  ancestor first appears. */
   walls: { id: string; gen: number; father: boolean; mother: boolean }[];
   /** Descendants by generation (1 = children), each in the first generation they appear in. */
   descendants: { gen: number; ids: string[] }[];
@@ -70,7 +72,7 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
       if (walled.has(id)) continue;
       walled.add(id);
       const p = facts.byId.get(id);
-      if (!p?.father || !p?.mother) walls.push({ id, gen: gen - 1, father: !p?.father, mother: !p?.mother });
+      if (!p?.father || !p?.mother) walls.push({ id, gen, father: !p?.father, mother: !p?.mother });
     }
     const next: Position[] = [];
     for (const { id, paternal } of generation) {
