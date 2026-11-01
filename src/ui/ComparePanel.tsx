@@ -42,6 +42,8 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Main individuals carrying unsaved edits, for a relative's "M" chip. */
   changedPersonIds: Set<string> | undefined;
+  /** Incoming people a branch marked in the Compare Tree adds on save. */
+  branchAddIds: Set<string>;
   onChange: (next: CandidateDecision) => void;
   /** Escape inside the panel: hand the keyboard back to the match list. */
   onLeave?: () => void;
@@ -66,6 +68,7 @@ export function ComparePanel({
   decision,
   decisions,
   changedPersonIds,
+  branchAddIds,
   onChange,
   canNavigate,
   onNavigate,
@@ -155,6 +158,19 @@ export function ComparePanel({
         {t("compare.childTaken.label")}
       </span>
     );
+  }
+  /** The marker for a relative a branch marked in the Compare Tree adds on save. */
+  function branchTag() {
+    return (
+      <span className="gm-added-tag" title={t("compare.addedByBranch.title")}>
+        {t("compare.childTaken.label")}
+      </span>
+    );
+  }
+  /** Parents or partners, none in the main file, that a marked branch brings in. */
+  function branchBrings(row: FieldRow) {
+    return row.state === "incoming-only" && !!row.relatives?.length
+      && row.relatives.every((p) => !!p.incoming?.id && branchAddIds.has(p.incoming.id));
   }
   // Relatives the save will join to a record the main file already has, on
   // the matcher's word alone: incoming id → that main id.
@@ -270,6 +286,9 @@ export function ComparePanel({
     if (!hasMain && incId && !forceMain && pinned.has(incId)) {
       return { mainChosen: false, incomingChosen: true, choice: addedTag(pinned.get(incId)) };
     }
+    if (!hasMain && incId && !forceMain && branchAddIds.has(incId)) {
+      return { mainChosen: false, incomingChosen: true, choice: branchTag() };
+    }
     if (hasMain) {
       const choiceNode = hasIncoming
         ? <span className="muted">=</span>
@@ -344,6 +363,7 @@ export function ComparePanel({
     if (row.state === "conflict" && (row.key === "father" || row.key === "mother")) {
       return <span className="gm-main-tag" title={t("compare.parentConflict")}>{t("compare.keepMain")}</span>;
     }
+    if (branchBrings(row)) return branchTag();
     if (row.state === "conflict" || row.state === "incoming-only") {
       // A single-cardinality field (sex, an event's date/place/…) can't hold
       // two values, so "Both" would just replace — don't offer a choice that
@@ -453,7 +473,7 @@ export function ComparePanel({
                     <RelativeGrid
                       pairs={row.relatives}
                       mainChosen={choice !== "incoming"}
-                      incomingChosen={choice !== "main"}
+                      incomingChosen={choice !== "main" || branchBrings(row)}
                       mainPerson={mainPerson}
                       incomingPerson={incomingPerson}
                       mainBadges={mainBadges}

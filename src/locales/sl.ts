@@ -2759,6 +2759,7 @@ export const sl = {
   "compare.consolidated.title": "Vhodna datoteka ima to osebo v več zapisih ({{ids}}). Pred primerjavo so bili združeni v enega.",
   "compare.added.title": "Oseba je že v vaši datoteki, dodana s tem ujemanjem, zato jo lahko uredite v Urejanju. Ko ujemanje ni več potrjeno, se oseba znova odstrani.",
   "compare.addedElsewhere.title": "Oseba je že v vaši datoteki, dodana z drugim ujemanjem, zato jo lahko uredite v Urejanju.",
+  "compare.addedByBranch.title": "Oseba se doda ob shranjevanju, s celotno linijo, ki ste jo označili v primerjalnem drevesu.",
   "field.given": "Ime",
   "field.surname": "Priimek",
   "field.sex": "Spol",

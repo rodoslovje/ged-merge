@@ -1853,12 +1853,18 @@ function AppContent() {
 
   // The people and families the marked branches would add, so the Save badge
   // counts a whole branch by its size, not as one.
-  const importRecordCount = useMemo(
+  const importRecords = useMemo(
     () => mainDataset && compareDataset && importRequests.length
-      ? branchImportRecords(importRequests, mainDataset, compareDataset, decisions, matches).size
-      : 0,
+      ? branchImportRecords(importRequests, mainDataset, compareDataset, decisions, matches)
+      : new Set<string>(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [importRequests, mainDataset, compareDataset, decisions, matches, editVersion],
+  );
+  const importRecordCount = importRecords.size;
+  // The incoming people those branches add — Merge marks them as added.
+  const branchAddIds = useMemo(
+    () => new Set([...importRecords].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
+    [importRecords],
   );
 
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
@@ -2777,6 +2783,7 @@ function AppContent() {
               onSelect={select}
               decisions={decisions}
               changedPersonIds={changedPersonIds}
+              branchAddIds={branchAddIds}
               showFilters={showFilters}
               setShowFilters={setShowFilters}
               startId={startId}

@@ -71,6 +71,16 @@ test("deciding a match on a tree node keeps its panel open", async ({ page }) =>
   await expect(page.locator(".tree-compare-decisions")).toBeVisible();
 });
 
+test("a marked branch shows its people as added in the match panel", async ({ page }) => {
+  await openTree(page, true);
+  await page.getByRole("tab", { name: /Descendants/ }).click();
+  await bring(page, "Janez");
+  await page.getByRole("button", { name: "Back to Matches" }).click();
+  const marko = page.locator(".compare-panel td.f-rel", { hasText: "Marko" });
+  await expect(marko.getByTitle(/whole branch you marked/)).toBeVisible();
+  await expect(marko.locator("button.choice.take")).toHaveCount(0);
+});
+
 for (const confirm of [false, true]) {
   const label = confirm ? "a confirmed match" : "an undecided match";
 

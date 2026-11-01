@@ -46,6 +46,8 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Main individuals with unsaved edits — the "M" chip on a relative's name. */
   changedPersonIds: Set<string> | undefined;
+  /** Incoming people a branch marked in the Compare Tree adds on save. */
+  branchAddIds: Set<string>;
   showFilters: boolean;
   setShowFilters: Dispatch<SetStateAction<boolean>>;
   startId: string | undefined;
@@ -93,6 +95,7 @@ export function MergeView({
   onSelect,
   decisions,
   changedPersonIds,
+  branchAddIds,
   showFilters,
   setShowFilters,
   startId,
@@ -394,6 +397,7 @@ export function MergeView({
                       decision={decisions.get(decisionKey("individual", current.mainId, current.compareId))}
                       decisions={decisions}
                       changedPersonIds={changedPersonIds}
+                      branchAddIds={branchAddIds}
                       onChange={onUpdateDecision}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
