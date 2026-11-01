@@ -846,8 +846,8 @@ export function StatsPanel({
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
             {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}
-            {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
             {card("marriagePlaces", t("stats.marriagePlaces"), t("stats.nFamilies", { count: total(fams.marriagePlaces) }), ranked("marriagePlaces", t("stats.marriagePlaces"), fams.marriagePlaces, 15, undefined, true, true))}
+            {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
             {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
             {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
@@ -877,14 +877,16 @@ export function StatsPanel({
               )}
             </section>
             {card("birthDecade", t("stats.birthsOverTime"), null, buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
+            {card("birthPlaces", t("stats.birthPlaces"), null, ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
             {card("birthMonth", t("stats.birthsByMonth"), null, buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
             {card("baptism", t("stats.baptism"), t("stats.nPeople", { count: total(births.baptism) }), buckets("baptism", t("stats.baptism"), births.baptism, { label: (b) => t(`stats.baptism.${b.key}`) }))}
-            {card("birthPlaces", t("stats.birthPlaces"), null, ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
           </>
         )}
 
         {deaths && (
           <>
+            {card("deathDecade", t("stats.deathsOverTime"), null, buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
+            {card("deathPlaces", t("stats.deathPlaces"), null, ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
             {card("causes", t("stats.causes"), null, ranked("causes", t("stats.causes"), deaths.causes, 15))}
             {card("causeAge", t("stats.causeAge"), null, (
               <BarList
@@ -897,8 +899,6 @@ export function StatsPanel({
                 }}
               />
             ))}
-            {card("deathPlaces", t("stats.deathPlaces"), null, ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
-            {card("deathDecade", t("stats.deathsOverTime"), null, buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
             {card("deathMonth", t("stats.deathsByMonth"), null, buckets("deathMonth", t("stats.deathsByMonth"), deaths.byMonth, { label: monthLabel }))}
           </>
         )}
