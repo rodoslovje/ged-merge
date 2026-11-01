@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
+import { tipProps } from "./IconTip";
 
 /** The tooltip naming the incoming records one was merged from. */
 export function consolidatedTitle(t: Translate, ids: string[]): string {
@@ -17,7 +18,7 @@ export function ConsolidatedBadge({ compareDs, id }: { compareDs: Dataset; id: s
   const from = id ? compareDs.consolidatedFrom?.get(id) : undefined;
   if (!from) return null;
   return (
-    <span className="rel-tree-badge consolidated-badge" data-tip={consolidatedTitle(t, from)} aria-label={consolidatedTitle(t, from)}>
+    <span className="rel-tree-badge consolidated-badge" {...tipProps(consolidatedTitle(t, from))}>
       ⧉
     </span>
   );

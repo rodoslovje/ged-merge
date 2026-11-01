@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { consolidatedTitle } from "./ConsolidatedBadge";
+import { tipProps } from "./IconTip";
 import { STATS_WHO, type StatsWho } from "../stats/scope";
 import {
   categorize,
@@ -418,13 +419,13 @@ const CandidateRow = memo(function CandidateRow({
               </span>
             )}
             {candidate.relationshipLinked && (
-              <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
+              <span className="rel-tree-badge" {...tipProps(t("list.relationshipLinked"))}>🌳</span>
             )}
             {consolidated && (
-              <span className="rel-tree-badge consolidated-badge" title={consolidatedTitle(t, consolidated)}>⧉</span>
+              <span className="rel-tree-badge consolidated-badge" {...tipProps(consolidatedTitle(t, consolidated))}>⧉</span>
             )}
             {candidate.uidMatched && (
-              <span className="rel-tree-badge" title={t("list.uidMatched")}>🔑</span>
+              <span className="rel-tree-badge" {...tipProps(t("list.uidMatched"))}>🔑</span>
             )}
             {kinship && (
               <span className={`candidate-kinship ${kinship.lineageClass}`} title={kinship.tooltip}>
