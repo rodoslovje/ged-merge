@@ -1892,6 +1892,8 @@ button:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
+/* A text-label filter (kin) reads as plain text; only the score stays bold. */
+.score-select.kin-select { font-weight: normal; }
 .score-select:focus {
   outline: none;
   border-color: var(--accent);
