@@ -159,6 +159,14 @@ describe("dateRefines — incoming is a more exact same date", () => {
     expect(dateRefines("CAL 1841", "EST 1841")).toBe(false);
   });
 
+  it("prefers an exact date to an estimated one, even in another year", () => {
+    expect(dateRefines("ABT 1775", "5 DEC 1768")).toBe(true);
+    expect(dateRefines("EST 1830", "1825")).toBe(true);
+    expect(dateRefines("5 DEC 1768", "ABT 1775")).toBe(false);
+    // A calculated date is reckoned, not guessed: only its own year refines it.
+    expect(dateRefines("CAL 1841", "25 MAR 1838")).toBe(false);
+  });
+
   it("still prefers an exact date to a calculated, estimated or bounded one", () => {
     expect(dateRefines("CAL 1841", "25 MAR 1841")).toBe(true);
     expect(dateRefines("BEF 1841", "25 MAR 1841")).toBe(true);

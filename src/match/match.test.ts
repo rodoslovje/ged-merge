@@ -4,6 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "./engine";
 import { jaroWinkler, soundex, foldToken } from "./text";
 import { consolidateDuplicates } from "../tools/mergeDuplicate";
+import { birthYear } from "../gedcom/lifespan";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -1024,6 +1025,8 @@ describe("incoming duplicate consolidation: two halves of one person, years apar
     expect(nik.childOf).toEqual(["@IP@"]);
     expect(nik.spouseOf).toEqual(["@IS@"]);
     expect(cmp.consolidatedFrom?.get(cl.keepId)?.sort()).toEqual(["@BAPT@", "@MARR@"]);
+    // The baptism's exact date wins over the marriage's estimate (dateRefines).
+    expect(birthYear(nik)).toBe(1768);
   });
 
   it("leaves them apart when the births are further apart than an estimate allows", () => {
