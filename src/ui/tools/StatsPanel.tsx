@@ -90,13 +90,13 @@ function widest(values: string[]): string {
   return `${values.reduce((n, v) => Math.max(n, v.length), 0)}ch`;
 }
 
-/** Whether the filters are unfolded — the reader's own layout, kept per browser. */
+/** Whether the filters are unfolded — folded until the reader opens them, then kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
 function readFiltersOpen(): boolean {
   try {
-    return localStorage.getItem(FILTERS_KEY) !== "0";
+    return localStorage.getItem(FILTERS_KEY) === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 function writeFiltersOpen(open: boolean): void {

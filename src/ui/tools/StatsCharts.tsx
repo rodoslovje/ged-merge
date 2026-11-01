@@ -81,7 +81,7 @@ export function ColumnChart({
           className={`stats-col${picked === c.key ? " picked" : ""}`}
           disabled={c.count === 0}
           onClick={() => onPick(c.key)}
-          {...tipProps(c.tip)}
+          {...tipProps(c.tip, { acts: true })}
         >
           <span className="stats-col-plot">
             {labelled && !(c.empty ?? c.count === 0) && <span className="stats-col-value">{format(c.value)}</span>}
@@ -141,7 +141,7 @@ export function StackedColumnChart({
         style={{ height: `${(100 * p.value) / max}%` }}
         disabled={p.count === 0}
         onClick={() => onPick(c.key, which)}
-        {...tipProps(p.tip)}
+        {...tipProps(p.tip, { acts: true })}
       />
     );
   };
@@ -230,7 +230,7 @@ export function BarList({
           disabled={r.count === 0}
           onClick={() => onPick(r.key)}
           // A label is cut to one line, so a row without a tip of its own shows it whole.
-          {...((r.tip ?? (typeof r.label === "string" ? r.label : undefined)) ? tipProps(r.tip ?? (r.label as string)) : {})}
+          {...((r.tip ?? (typeof r.label === "string" ? r.label : undefined)) ? tipProps(r.tip ?? (r.label as string), { acts: true }) : {})}
         >
           <span className="stats-bar-label">{r.label}</span>
           <span className="stats-bar-track">
@@ -307,7 +307,7 @@ export function PairBarList({
         className={`stats-pair-cell stats-pair-${side}${picked === `${r.key}:${side}` ? " picked" : ""}`}
         disabled={v.count === 0}
         onClick={() => onPick(r.key, side)}
-        {...tipProps(v.tip ?? `${names[side === "a" ? 0 : 1]}: ${v.display}`)}
+        {...tipProps(v.tip ?? `${names[side === "a" ? 0 : 1]}: ${v.display}`, { acts: true })}
       >
         <span className="stats-bar-track"><span className="stats-bar-fill" style={{ width: `${v.value}%` }} /></span>
         <span className="stats-bar-value">{v.display}</span>
