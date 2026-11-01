@@ -9587,6 +9587,8 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-walls li { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 2px 0; }
 .stats-walls-gen { text-align: right; font-variant-numeric: tabular-nums; }
 .stats-walls-missing { font-size: 0.8rem; text-align: right; }
+/* The same list without the generation column: a name and its count. */
+.stats-walls-plain li { grid-template-columns: minmax(0, 1fr) auto; }
 
 /* The people behind a picked bar, inside the card that was clicked. */
 .stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }

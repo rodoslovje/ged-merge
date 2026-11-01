@@ -1083,14 +1083,14 @@ export function StatsPanel({
               <p className="tools-clean">{t("stats.noLineage")}</p>
             )}
             {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
-              <BarList
-                limit={listLimit("repeatedAncestors", lineage.repeated.length, 12)}
-                rows={lineage.repeated.map((r) => {
-                  const indi = dataset.individuals.get(r.id);
-                  return { key: r.id, label: indi ? nameOf(indi) : r.id, value: r.count, display: `×${num(r.count)}`, count: 1, tone: indi?.sex === "M" ? "male" as const : indi?.sex === "F" ? "female" as const : undefined };
-                })}
-                onPick={onNavigate}
-              />
+              <ul className="stats-walls stats-walls-plain">
+                {lineage.repeated.slice(0, listLimit("repeatedAncestors", lineage.repeated.length, 12)).map((r) => (
+                  <li key={r.id}>
+                    <NameLink dataset={dataset} id={r.id} onNavigate={onNavigate} />
+                    <span className="muted stats-walls-missing">×{num(r.count)}</span>
+                  </li>
+                ))}
+              </ul>
             ))}
             {lineage.walls.length > 0 && card("walls", t("stats.walls"), t("stats.nPeople", { count: lineage.walls.length }), (
               <ul className="stats-walls">
