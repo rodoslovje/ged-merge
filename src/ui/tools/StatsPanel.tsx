@@ -470,6 +470,11 @@ export function StatsPanel({
     return `${countryName(from)} → ${countryName(to)}`;
   };
   const periodLabel = (b: Bucket) => String(b.lo);
+  /** Places filled of a generation's places, "47 / 64"; from 1 024 on a
+   *  number is cut to thousands ("16k") or millions ("2M"), as the deep
+   *  generations' places run to millions. */
+  const short = (n: number) => (n >= 1_000_000 ? `${num(Math.round(n / 1_000_000))}M` : n >= 1024 ? `${num(Math.round(n / 1000))}k` : num(n));
+  const filledOf = (filled: number, of: number) => `${short(filled)} / ${short(of)}`;
   /** Label about a dozen periods however many there are. */
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
   /** Rows per period, each column split in two (men and women, first and later
@@ -1047,13 +1052,13 @@ export function StatsPanel({
                 max={100}
                 limit={listLimit("ancestorsGen", lineage.ancestors.length, 12)}
                 labelWidth="2.5em"
-                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsGen") ? undefined : 12).map((g) => `${num(g.filled)} / ${num(g.slots)}`))}
+                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsGen") ? undefined : 12).map((g) => filledOf(g.filled, g.slots)))}
                 picked={pickedIn("ancestorsGen")}
                 rows={lineage.ancestors.map((g) => ({
                   key: String(g.gen),
                   label: String(g.gen),
                   value: (100 * g.filled) / g.slots,
-                  display: `${num(g.filled)} / ${num(g.slots)}`,
+                  display: filledOf(g.filled, g.slots),
                   tip: pct(g.filled, g.slots),
                   count: g.ids.length,
                   status: gradeOf(g.filled / g.slots),
@@ -1070,12 +1075,12 @@ export function StatsPanel({
                 picked={pickedIn("ancestorsSide")}
                 limit={listLimit("ancestorsSide", lineage.ancestors.length, 12)}
                 labelWidth="2.5em"
-                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsSide") ? undefined : 12).flatMap((g) => [`${num(g.paternal.filled)} / ${num(g.slots / 2)}`, `${num(g.maternal.filled)} / ${num(g.slots / 2)}`]))}
+                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsSide") ? undefined : 12).flatMap((g) => [filledOf(g.paternal.filled, g.slots / 2), filledOf(g.maternal.filled, g.slots / 2)]))}
                 rows={lineage.ancestors.map<PairRow>((g) => {
                   const half = g.slots / 2;
                   const of = (side: { filled: number; ids: string[] }) => ({
                     value: (100 * side.filled) / half,
-                    display: `${num(side.filled)} / ${num(half)}`,
+                    display: filledOf(side.filled, half),
                     tip: pct(side.filled, half),
                     count: side.ids.length,
                   });
