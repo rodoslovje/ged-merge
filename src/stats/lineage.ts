@@ -33,8 +33,10 @@ export interface LineageStats {
   distinctAncestors: number;
   /** The share of filled positions held by an ancestor who also holds another (pedigree collapse). */
   implex: number;
-  /** Ancestors holding more than one position, most positions first, with
-   *  the generation of each position (ascending). */
+  /** The ancestors where two lines of the pedigree meet: reached through
+   *  two or more of their children, so they hold more than one position. Their
+   *  own ancestors repeat only because they do and are left out. Nearest
+   *  first, with the generation of each position (ascending). */
   repeated: { id: string; count: number; gens: number[] }[];
   /** The person and the ancestors with an unknown father or mother, nearest
    *  first. `gen` is the generation the missing parent would stand in (the
@@ -63,6 +65,8 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   const ancestors: AncestorGeneration[] = [];
   const positions = new Map<string, number>();
   const gensOf = new Map<string, number[]>();
+  // The children an ancestor is reached through: two or more is where lines meet.
+  const via = new Map<string, Set<string>>();
   // Each position carries the side it stands on: the root's father opens the
   // paternal side, the mother the maternal one, and their ancestors inherit it.
   type Position = { id: string; paternal: boolean };
@@ -81,6 +85,12 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
       const p = facts.byId.get(id);
       if (p?.father) next.push({ id: p.father, paternal: gen === 1 ? true : paternal });
       if (p?.mother) next.push({ id: p.mother, paternal: gen === 1 ? false : paternal });
+      for (const parent of [p?.father, p?.mother]) {
+        if (!parent) continue;
+        const kids = via.get(parent);
+        if (kids) kids.add(id);
+        else via.set(parent, new Set([id]));
+      }
     }
     if (!next.length || next.length > MAX_POSITIONS) break;
     for (const { id } of next) {
@@ -107,9 +117,9 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   }
   const filled = ancestors.reduce((n, g) => n + g.filled, 0);
   const repeated = [...positions]
-    .filter(([, count]) => count > 1)
+    .filter(([id, count]) => count > 1 && (via.get(id)?.size ?? 0) > 1)
     .map(([id, count]) => ({ id, count, gens: gensOf.get(id)! }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => a.gens[0] - b.gens[0] || b.count - a.count);
 
   const seen = new Set([rootId]);
   const descendants: { gen: number; ids: string[] }[] = [];

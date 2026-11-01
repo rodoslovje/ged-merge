@@ -134,6 +134,29 @@ describe("lineageStats", () => {
   });
 });
 
+describe("lineageStats meeting points", () => {
+  it("lists where two lines meet, not the ancestors above them", () => {
+    // R's father H and grandmother Z (W's mother) are siblings: their parents
+    // X and Y are where the lines meet; X's parents K and L only repeat.
+    const ds = dataset(["0 HEAD",
+      "0 @R@ INDI", "1 FAMC @F1@",
+      "0 @H@ INDI", "1 FAMC @F2@", "1 FAMS @F1@",
+      "0 @W@ INDI", "1 FAMC @F3@", "1 FAMS @F1@",
+      "0 @Z@ INDI", "1 FAMC @F2@", "1 FAMS @F3@",
+      "0 @X@ INDI", "1 FAMC @F4@", "1 FAMS @F2@",
+      "0 @Y@ INDI", "1 FAMS @F2@",
+      "0 @K@ INDI", "1 FAMS @F4@",
+      "0 @L@ INDI", "1 FAMS @F4@",
+      "0 @F1@ FAM", "1 HUSB @H@", "1 WIFE @W@", "1 CHIL @R@",
+      "0 @F2@ FAM", "1 HUSB @X@", "1 WIFE @Y@", "1 CHIL @H@", "1 CHIL @Z@",
+      "0 @F3@ FAM", "1 WIFE @Z@", "1 CHIL @W@",
+      "0 @F4@ FAM", "1 HUSB @K@", "1 WIFE @L@", "1 CHIL @X@",
+      "0 TRLR"].join("\n"));
+    const l = lineageStats(buildStatsFacts(ds, "si", 2026), "@R@");
+    expect(l.repeated).toEqual([{ id: "@X@", count: 2, gens: [2, 3] }, { id: "@Y@", count: 2, gens: [2, 3] }]);
+  });
+});
+
 describe("relatedCouples", () => {
   it("finds the cousins who married, through their nearest common ancestor", () => {
     const r = relatedCouples(facts.byId, facts.families);
