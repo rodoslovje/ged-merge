@@ -1059,7 +1059,7 @@ export function StatsPanel({
                   label: String(g.gen),
                   value: (100 * g.filled) / g.slots,
                   display: filledOf(g.filled, g.slots),
-                  tip: pct(g.filled, g.slots),
+                  tip: `${t("stats.shareTip", { n: num(g.filled), of: num(g.slots) })} (${pct(g.filled, g.slots)})`,
                   count: g.ids.length,
                   status: gradeOf(g.filled / g.slots),
                 }))}
@@ -1081,7 +1081,7 @@ export function StatsPanel({
                   const of = (side: { filled: number; ids: string[] }) => ({
                     value: (100 * side.filled) / half,
                     display: filledOf(side.filled, half),
-                    tip: pct(side.filled, half),
+                    tip: `${t("stats.shareTip", { n: num(side.filled), of: num(half) })} (${pct(side.filled, half)})`,
                     count: side.ids.length,
                   });
                   return { key: String(g.gen), label: String(g.gen), a: of(g.paternal), b: of(g.maternal) };
