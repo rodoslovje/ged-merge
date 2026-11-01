@@ -123,6 +123,8 @@ describe("lineageStats", () => {
     expect(l.repeated).toEqual([{ id: "@I1@", count: 2 }, { id: "@I2@", count: 2 }]);
     expect(l.livingAncestors).not.toContain("@I1@");
     expect(l.livingAncestors).not.toContain("@I2@");
+    // Each ancestor counts once: Adam and Eva had two children, everyone else one.
+    expect(l.ancestors.map((g) => g.childrenMean)).toEqual([1, 1, 2]);
 
     const d = lineageStats(facts, "@I1@");
     expect(d.descendants.map((g) => g.ids.length)).toEqual([2, 2, 1]);

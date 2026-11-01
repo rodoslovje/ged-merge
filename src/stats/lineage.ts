@@ -23,6 +23,8 @@ export interface AncestorGeneration {
    *  above the father or above the mother; each side has half the slots. */
   paternal: { filled: number; ids: string[] };
   maternal: { filled: number; ids: string[] };
+  /** The average number of children the generation's ancestors had, over all their families. */
+  childrenMean: number;
 }
 
 export interface LineageStats {
@@ -43,6 +45,15 @@ export interface LineageStats {
 }
 
 export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
+  const childrenOf = new Map<string, string[]>();
+  for (const f of facts.families) {
+    for (const parent of [f.husband, f.wife]) {
+      if (!parent) continue;
+      const kids = childrenOf.get(parent);
+      if (kids) kids.push(...f.children);
+      else childrenOf.set(parent, [...f.children]);
+    }
+  }
   const ancestors: AncestorGeneration[] = [];
   const positions = new Map<string, number>();
   // Each position carries the side it stands on: the root's father opens the
@@ -62,13 +73,15 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
       const on = next.filter((pos) => pos.paternal === paternal);
       return { filled: on.length, ids: [...new Set(on.map((pos) => pos.id))] };
     };
+    const ids = [...new Set(next.map((pos) => pos.id))];
     ancestors.push({
       gen,
       slots: 2 ** gen,
       filled: next.length,
-      ids: [...new Set(next.map((pos) => pos.id))],
+      ids,
       paternal: side(true),
       maternal: side(false),
+      childrenMean: ids.reduce((n, id) => n + new Set(childrenOf.get(id)).size, 0) / ids.length,
     });
     generation = next;
   }
@@ -78,15 +91,6 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
     .map(([id, count]) => ({ id, count }))
     .sort((a, b) => b.count - a.count);
 
-  const childrenOf = new Map<string, string[]>();
-  for (const f of facts.families) {
-    for (const parent of [f.husband, f.wife]) {
-      if (!parent) continue;
-      const kids = childrenOf.get(parent);
-      if (kids) kids.push(...f.children);
-      else childrenOf.set(parent, [...f.children]);
-    }
-  }
   const seen = new Set([rootId]);
   const descendants: { gen: number; ids: string[] }[] = [];
   let front = [rootId];
