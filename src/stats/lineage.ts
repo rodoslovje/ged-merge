@@ -35,6 +35,9 @@ export interface LineageStats {
   implex: number;
   /** Ancestors holding more than one position, most positions first. */
   repeated: { id: string; count: number }[];
+  /** The person and the ancestors with an unknown father or mother, at the
+   *  nearest generation they stand in (0 = the person), nearest first. */
+  walls: { id: string; gen: number; father: boolean; mother: boolean }[];
   /** Descendants by generation (1 = children), each in the first generation they appear in. */
   descendants: { gen: number; ids: string[] }[];
   /** Every descendant, and those presumed living. */
@@ -60,7 +63,15 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   // paternal side, the mother the maternal one, and their ancestors inherit it.
   type Position = { id: string; paternal: boolean };
   let generation: Position[] = [{ id: rootId, paternal: true }];
+  const walls: LineageStats["walls"] = [];
+  const walled = new Set<string>();
   for (let gen = 1; gen <= MAX_GENERATIONS; gen++) {
+    for (const { id } of generation) {
+      if (walled.has(id)) continue;
+      walled.add(id);
+      const p = facts.byId.get(id);
+      if (!p?.father || !p?.mother) walls.push({ id, gen: gen - 1, father: !p?.father, mother: !p?.mother });
+    }
     const next: Position[] = [];
     for (const { id, paternal } of generation) {
       const p = facts.byId.get(id);
@@ -114,6 +125,7 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
     livingAncestors: [...positions.keys()].filter((id) => facts.byId.get(id)?.living),
     implex: filled ? 1 - positions.size / filled : 0,
     repeated,
+    walls,
     descendants,
     descendantIds,
     livingDescendants: descendantIds.filter((id) => facts.byId.get(id)?.living),

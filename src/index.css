@@ -9582,6 +9582,11 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-oldest li { padding: 2px 0; }
 /* A name, and the age set to the right edge so the ages read as one column. */
 .stats-oldest-age { float: right; font-variant-numeric: tabular-nums; }
+/* Brick walls: generation, name, what is missing — one row each. */
+.stats-walls { margin: 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.stats-walls li { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 2px 0; }
+.stats-walls-gen { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-walls-missing { font-size: 0.8rem; text-align: right; }
 
 /* The people behind a picked bar, inside the card that was clicked. */
 .stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }

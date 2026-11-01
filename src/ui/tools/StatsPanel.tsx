@@ -526,6 +526,7 @@ export function StatsPanel({
       [t("stats.csv.generation"), t("stats.side.paternal"), t("stats.side.maternal"), t("stats.csv.of")],
       ...lineage.ancestors.map((g) => [g.gen, g.paternal.filled, g.maternal.filled, g.slots / 2]),
     ]);
+    csvOf.set("walls", () => [[t("stats.csv.generation"), t("stats.csv.person"), t("stats.walls")], ...lineage.walls.map((w) => [w.gen, personName(w.id), t(w.father && w.mother ? "stats.wall.both" : w.father ? "stats.wall.father" : "stats.wall.mother")])]);
     csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places")], ...lineage.repeated.map((r) => [personName(r.id), r.count])]);
     csvOf.set("descendantsGen", () => [[t("stats.csv.generation"), t("stats.csv.count")], ...lineage.descendants.map((g) => [g.gen, g.ids.length])]);
   }
@@ -1081,6 +1082,17 @@ export function StatsPanel({
             {!lineage.ancestors.length && !lineage.descendants.length && (
               <p className="tools-clean">{t("stats.noLineage")}</p>
             )}
+            {lineage.walls.length > 0 && card("walls", t("stats.walls"), t("stats.nPeople", { count: lineage.walls.length }), (
+              <ul className="stats-walls">
+                {lineage.walls.slice(0, listLimit("walls", lineage.walls.length, 12)).map((w) => (
+                  <li key={w.id}>
+                    <span className="muted stats-walls-gen">{w.gen}</span>
+                    <NameLink dataset={dataset} id={w.id} onNavigate={onNavigate} />
+                    <span className="muted stats-walls-missing">{t(w.father && w.mother ? "stats.wall.both" : w.father ? "stats.wall.father" : "stats.wall.mother")}</span>
+                  </li>
+                ))}
+              </ul>
+            ))}
             {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
               <BarList
                 limit={listLimit("repeatedAncestors", lineage.repeated.length, 12)}
