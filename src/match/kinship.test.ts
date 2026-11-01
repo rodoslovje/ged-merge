@@ -375,11 +375,219 @@ describe("kinshipLabel cousins", () => {
   });
 });
 
+// In-laws around ego I1 (M), parents I2 + I3:
+//   I4 brother ⚭ I14, I5 sister ⚭ I15; I23 (I4's son) ⚭ I24
+//   I7 father's brother ⚭ I11; I9 mother's brother ⚭ I12; I10 mother's sister ⚭ I13
+//   I1 ⚭ I16 (parents I19 + I20, brother I21 → his son I22); I1's son I17 ⚭ I18
+//   I25 is I14's sister — two marriages away, so unnamed.
+const IN_LAW_TREE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SEX M
+1 FAMC @F1@
+1 FAMS @F9@
+0 @I2@ INDI
+1 SEX M
+1 FAMC @F2@
+1 FAMS @F1@
+0 @I3@ INDI
+1 SEX F
+1 FAMC @F3@
+1 FAMS @F1@
+0 @I4@ INDI
+1 SEX M
+1 FAMC @F1@
+1 FAMS @F7@
+0 @I5@ INDI
+1 SEX F
+1 FAMC @F1@
+1 FAMS @F8@
+0 @I6@ INDI
+1 SEX M
+1 FAMS @F2@
+0 @I7@ INDI
+1 SEX M
+1 FAMC @F2@
+1 FAMS @F4@
+0 @I8@ INDI
+1 SEX M
+1 FAMS @F3@
+0 @I9@ INDI
+1 SEX M
+1 FAMC @F3@
+1 FAMS @F5@
+0 @I10@ INDI
+1 SEX F
+1 FAMC @F3@
+1 FAMS @F6@
+0 @I11@ INDI
+1 SEX F
+1 FAMS @F4@
+0 @I12@ INDI
+1 SEX F
+1 FAMS @F5@
+0 @I13@ INDI
+1 SEX M
+1 FAMS @F6@
+0 @I14@ INDI
+1 SEX F
+1 FAMC @F12@
+1 FAMS @F7@
+0 @I15@ INDI
+1 SEX M
+1 FAMS @F8@
+0 @I16@ INDI
+1 SEX F
+1 FAMC @F11@
+1 FAMS @F9@
+0 @I17@ INDI
+1 SEX M
+1 FAMC @F9@
+1 FAMS @F10@
+0 @I18@ INDI
+1 SEX F
+1 FAMS @F10@
+0 @I19@ INDI
+1 SEX M
+1 FAMS @F11@
+0 @I20@ INDI
+1 SEX F
+1 FAMS @F11@
+0 @I21@ INDI
+1 SEX M
+1 FAMC @F11@
+1 FAMS @F13@
+0 @I22@ INDI
+1 SEX M
+1 FAMC @F13@
+0 @I23@ INDI
+1 SEX M
+1 FAMC @F7@
+1 FAMS @F14@
+0 @I24@ INDI
+1 SEX F
+1 FAMS @F14@
+0 @I25@ INDI
+1 SEX F
+1 FAMC @F12@
+0 @I26@ INDI
+1 SEX M
+1 FAMS @F12@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+1 CHIL @I4@
+1 CHIL @I5@
+0 @F2@ FAM
+1 HUSB @I6@
+1 CHIL @I2@
+1 CHIL @I7@
+0 @F3@ FAM
+1 HUSB @I8@
+1 CHIL @I3@
+1 CHIL @I9@
+1 CHIL @I10@
+0 @F4@ FAM
+1 HUSB @I7@
+1 WIFE @I11@
+0 @F5@ FAM
+1 HUSB @I9@
+1 WIFE @I12@
+0 @F6@ FAM
+1 HUSB @I13@
+1 WIFE @I10@
+0 @F7@ FAM
+1 HUSB @I4@
+1 WIFE @I14@
+1 CHIL @I23@
+0 @F8@ FAM
+1 HUSB @I15@
+1 WIFE @I5@
+0 @F9@ FAM
+1 HUSB @I1@
+1 WIFE @I16@
+1 CHIL @I17@
+0 @F10@ FAM
+1 HUSB @I17@
+1 WIFE @I18@
+0 @F11@ FAM
+1 HUSB @I19@
+1 WIFE @I20@
+1 CHIL @I16@
+1 CHIL @I21@
+0 @F12@ FAM
+1 HUSB @I26@
+1 CHIL @I14@
+1 CHIL @I25@
+0 @F13@ FAM
+1 HUSB @I21@
+1 CHIL @I22@
+0 @F14@ FAM
+1 HUSB @I23@
+1 WIFE @I24@
+0 TRLR
+`;
+
+describe("kinshipLabel in-laws and the uncle's side", () => {
+  const ds = dataset(IN_LAW_TREE);
+  // Interpolates {{kinship}} and honours the genitive context, like i18next.
+  const words: Record<string, string> = {
+    "kinship.wifeOf": "Žena {{kinship}}",
+    "kinship.ofSpouse": "{{kinship}} zakonca",
+    "kinship.nephew": "Nečak",
+    "kinship.nephew_gen": "nečaka",
+  };
+  const tr: Translate = (key, o) => {
+    const ctx = typeof o?.context === "string" ? words[`${key}_${o.context}`] : undefined;
+    const word = ctx ?? words[key] ?? key;
+    return word.replace("{{kinship}}", String(o?.kinship ?? ""));
+  };
+
+  it("names the father's brother apart from the mother's", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I7@", t)).toBe("Uncle");
+    expect(kinshipLabel(ds, "@I1@", "@I9@", t)).toBe("kinship.uncleMaternal");
+  });
+
+  it("names an uncle's wife by his side, and an aunt's husband", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I11@", t)).toBe("kinship.auntByMarriage");
+    expect(kinshipLabel(ds, "@I1@", "@I12@", t)).toBe("kinship.auntByMarriageMaternal");
+    expect(kinshipLabel(ds, "@I1@", "@I13@", t)).toBe("kinship.uncleByMarriage");
+  });
+
+  it("names a sibling's and a child's spouse", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I14@", t)).toBe("kinship.sisterInLaw");
+    expect(kinshipLabel(ds, "@I1@", "@I15@", t)).toBe("kinship.brotherInLaw");
+    expect(kinshipLabel(ds, "@I1@", "@I18@", t)).toBe("kinship.daughterInLaw");
+  });
+
+  it("names the spouse's parents and siblings", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I19@", t)).toBe("kinship.fatherInLaw");
+    expect(kinshipLabel(ds, "@I1@", "@I20@", t)).toBe("kinship.motherInLaw");
+    expect(kinshipLabel(ds, "@I1@", "@I21@", t)).toBe("kinship.brotherInLaw");
+  });
+
+  it("composes the farther in-laws, the relative in the genitive", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I24@", tr)).toBe("Žena nečaka");
+    expect(kinshipLabel(ds, "@I1@", "@I22@", tr)).toBe("Nečak zakonca");
+  });
+
+  it("stops at one marriage", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I25@", t)).toBeUndefined();
+  });
+
+  it("keeps an in-law out of the blood lineage", () => {
+    expect(bloodLineage(ds, "@I1@", "@I12@")).toBeUndefined();
+  });
+});
+
 describe("createKinshipResolver", () => {
   // The resolver is a cached view over kinshipLabel/bloodLineage: for a fixed
   // start person it must agree with the direct functions on every target and
   // every relation shape — ancestor, sibling, spouse, step, self, unrelated.
-  const trees = { TREE, STEP_TREE };
+  const trees = { TREE, STEP_TREE, IN_LAW_TREE };
 
   for (const [name, text] of Object.entries(trees)) {
     it(`matches the direct functions on every pair (${name})`, () => {
