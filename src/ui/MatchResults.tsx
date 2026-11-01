@@ -421,7 +421,7 @@ const CandidateRow = memo(function CandidateRow({
               <span className="rel-tree-badge" title={t("list.relationshipLinked")}>🌳</span>
             )}
             {consolidated && (
-              <span className="rel-tree-badge" title={consolidatedTitle(t, consolidated)}>⧉</span>
+              <span className="rel-tree-badge consolidated-badge" title={consolidatedTitle(t, consolidated)}>⧉</span>
             )}
             {candidate.uidMatched && (
               <span className="rel-tree-badge" title={t("list.uidMatched")}>🔑</span>

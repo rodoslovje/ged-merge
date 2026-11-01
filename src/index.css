@@ -6834,6 +6834,14 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   cursor: help;
   opacity: 0.85;
 }
+/* ⧉ an incoming record merged from several copies: the incoming colour, and
+   large enough to catch the eye — it changes what the right side is. */
+.consolidated-badge {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: var(--state-incoming);
+  opacity: 1;
+}
 .tree-import-btn:hover { color: var(--text); border-color: var(--node-incoming); }
 .tree-import-btn.active {
   border-style: solid;
