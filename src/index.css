@@ -2180,6 +2180,9 @@ button:focus-visible {
 .candidate.selected .badge { font-weight: 600; }
 .badge.strong   { background: color-mix(in oklch, var(--state-match) 14%, transparent); color: var(--state-match); }
 .badge.probable { background: color-mix(in oklch, var(--state-minor) 14%, transparent); color: var(--state-minor); }
+/* The same badge beside a name (compare header, tree person panel): as wide
+   as its number, in the name's line. */
+.badge.score-inline { flex: none; width: auto; font-size: 0.85rem; }
 
 .person-label {
   flex: 1;

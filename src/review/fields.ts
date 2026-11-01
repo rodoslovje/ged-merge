@@ -5,7 +5,7 @@ import { decomposePlace } from "../gedcom/place";
 import { eventAddressFullText } from "../gedcom/address";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
+import { ALIAS_GIVEN_CEILING, PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, knownGivenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateText, dateToSortKey, parseDate } from "../gedcom/date";
@@ -170,6 +170,10 @@ export function individualFieldRows(
   /** Append the age at each event date (person / parents / couple), matching the
    *  Edit view's "Show ages" setting. Off by default so other callers are unchanged. */
   showAge = false,
+  /** The people already confirmed as one, incoming id → main id
+   *  ({@link confirmedPeople}): a confirmed child shares its line however
+   *  differently the two records name it. */
+  confirmed?: ReadonlyMap<string, string>,
 ): FieldRow[] {
   const rows: FieldRow[] = [];
   const mn = main?.names[0];
@@ -223,8 +227,8 @@ export function individualFieldRows(
   // Marriage and children live on the FAM record but are reconciled here on the
   // spouse so every decision about a person is made in one place.
   if (mainDs && compareDs) {
-    buildParentRows(rows, t, main, compare, mainDs, compareDs, showAge);
-    buildFamilyRows(rows, t, main, compare, mainDs, compareDs, showAge);
+    buildParentRows(rows, t, main, compare, mainDs, compareDs, showAge, confirmed);
+    buildFamilyRows(rows, t, main, compare, mainDs, compareDs, showAge, confirmed);
   }
   return rows;
 }
@@ -412,6 +416,7 @@ function buildParentRows(
   mainDs: Dataset,
   compareDs: Dataset,
   showAge: boolean,
+  confirmed: ReadonlyMap<string, string> | undefined,
 ): void {
   const parentRows: FieldRow[] = [];
   const mFather = parentRelative(main, mainDs, "husband", showAge);
@@ -423,9 +428,9 @@ function buildParentRows(
   // naming a couple, an export with the spouses swapped). When the two parents
   // line up better crossed than straight, read them crossed — otherwise both
   // parents show as one-sided, as if neither file knew them.
-  if (parentsAreCrossed(mFather, mMother, cFather, cMother)) [cFather, cMother] = [cMother, cFather];
-  pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), mFather, cFather);
-  pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), mMother, cMother);
+  if (parentsAreCrossed(mFather, mMother, cFather, cMother, confirmed)) [cFather, cMother] = [cMother, cFather];
+  pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), mFather, cFather, { confirmed });
+  pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), mMother, cMother, { confirmed });
   if (parentRows.length > 0) {
     rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
     rows.push(...parentRows);
@@ -436,16 +441,20 @@ function buildParentRows(
  * Do the incoming parents belong in the other slots? Scores the two readings —
  * father↔father + mother↔mother against father↔mother + mother↔father — and
  * says so when crossing them wins and at least one crossed pair is a real match.
- * Each list holds 0 or 1 parent, as {@link parentRelative} returns.
+ * Each list holds 0 or 1 parent, as {@link parentRelative} returns. A pair the
+ * user confirmed outweighs any name.
  */
 function parentsAreCrossed(
   mFather: Relative[],
   mMother: Relative[],
   cFather: Relative[],
   cMother: Relative[],
+  confirmed: ReadonlyMap<string, string> | undefined,
 ): boolean {
   const sim = (a: Relative[], b: Relative[]) =>
-    a[0] && b[0] ? relativeSimilarity(a[0], b[0]) : 0;
+    !a[0] || !b[0] ? 0
+    : isConfirmedPair(confirmed, a[0].id, b[0].id) ? CONFIRMED_PAIR_SCORE
+    : relativeSimilarity(a[0], b[0]);
   const crossed = sim(mFather, cMother) + sim(mMother, cFather);
   return crossed > sim(mFather, cFather) + sim(mMother, cMother) && crossed >= RELATIVE_PAIR_THRESHOLD;
 }
@@ -461,8 +470,9 @@ function buildFamilyRows(
   mainDs: Dataset,
   compareDs: Dataset,
   showAge: boolean,
+  confirmed: ReadonlyMap<string, string> | undefined,
 ): void {
-  const famPairs = pairFamilies(main, compare, mainDs, compareDs);
+  const famPairs = pairFamilies(main, compare, mainDs, compareDs, (m, i) => isConfirmedPair(confirmed, m, i));
   famPairs.forEach((pair) => {
     const mFam = pair.mainFam;
     const cFam = pair.compareFam;
@@ -494,7 +504,7 @@ function buildFamilyRows(
     });
 
     if (mSpouseRel.length > 0 || cSpouseRel.length > 0) {
-      pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel);
+      pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel, { confirmed });
     }
 
     const mFamPool = recordCitations(mFam);
@@ -583,7 +593,7 @@ function buildFamilyRows(
     if (mChildRels.length > 0 || cChildRels.length > 0) {
       rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
       pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels,
-        { displayLabel: "", perChildChoice: true, kind: "child" });
+        { displayLabel: "", perChildChoice: true, kind: "child", confirmed });
     }
   });
 }
@@ -603,6 +613,7 @@ function partnerToRelative(partner: Individual, showAge = false): Relative {
   return {
     id: partner.id,
     name: partner.names[0],
+    names: partner.names,
     text: lifespanLabel(partner),
     full: fullDatesLabel(partner),
     birthYear: birth?.year,
@@ -642,11 +653,29 @@ function familyKeyBase(pair: FamPair): string {
   return pair.compareFam ? `fam.${pair.compareFam.id}` : `fam.main:${pair.mainFam!.id}`;
 }
 
+/** Has the user confirmed this main and this incoming person as one? Same
+ *  question as the merge's `MergeContext.confirmedPair`. */
+export type ConfirmedPair = (mainId: string, incomingId: string) => boolean;
+
+/** {@link ConfirmedPair} over a {@link confirmedPeople}-style map. */
+function isConfirmedPair(confirmed: ReadonlyMap<string, string> | undefined, mainId?: string, incomingId?: string): boolean {
+  return !!mainId && !!incomingId && confirmed?.get(incomingId) === mainId;
+}
+
+/** What a confirmed pair scores wherever pairs are ranked: above any name. */
+const CONFIRMED_PAIR_SCORE = 10;
+
+/**
+ * Pair the person's unions across the two files. A partner the user confirmed
+ * (`confirmed`) pairs the unions outright, ahead of every name; confirmed
+ * children count toward the shared-children evidence as matching children do.
+ */
 function pairFamilies(
   main: Individual | undefined,
   compare: Individual | undefined,
   mainDs: Dataset,
-  compareDs: Dataset
+  compareDs: Dataset,
+  confirmed?: ConfirmedPair,
 ): FamPair[] {
   const mFams = main ? main.spouseOf.map(id => mainDs.families.get(id)).filter((f): f is Family => !!f) : [];
   const cFams = compare ? compare.spouseOf.map(id => compareDs.families.get(id)).filter((f): f is Family => !!f) : [];
@@ -668,7 +697,7 @@ function pairFamilies(
         const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
         let matches = 0;
         mKids.forEach(mk => {
-          if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck), "child") >= RELATIVE_PAIR_THRESHOLD)) {
+          if (cKids.some(ck => confirmed?.(mk.id, ck.id) || relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck), "child") >= RELATIVE_PAIR_THRESHOLD)) {
             matches++;
           }
         });
@@ -676,7 +705,9 @@ function pairFamilies(
       };
 
       let sim = 0;
-      if (mSpouse && cSpouse) {
+      if (mSpouse && cSpouse && confirmed?.(mSpouse.id, cSpouse.id)) {
+         sim = CONFIRMED_PAIR_SCORE;
+      } else if (mSpouse && cSpouse) {
          // Both unions name a partner, so the partners decide: two people are
          // the same one only at the bar the table uses everywhere else
          // (RELATIVE_PAIR_THRESHOLD). Below it they are different people, and
@@ -748,9 +779,11 @@ export function pairedMainFamilies(
   compare: Individual | undefined,
   mainDs: Dataset,
   compareDs: Dataset,
+  /** The confirmed pairs the review paired with — see `pairFamilies`. */
+  confirmed?: ConfirmedPair,
 ): Map<string, string> {
   const map = new Map<string, string>();
-  for (const pair of pairFamilies(main, compare, mainDs, compareDs)) {
+  for (const pair of pairFamilies(main, compare, mainDs, compareDs, confirmed)) {
     if (pair.mainFam && pair.compareFam) map.set(pair.compareFam.id, pair.mainFam.id);
   }
   return map;
@@ -761,9 +794,11 @@ export function familyMergeKeyBases(
   compare: Individual | undefined,
   mainDs: Dataset,
   compareDs: Dataset,
+  /** The confirmed pairs the review paired with — see `pairFamilies`. */
+  confirmed?: ConfirmedPair,
 ): Map<string, string> {
   const map = new Map<string, string>();
-  for (const pair of pairFamilies(main, compare, mainDs, compareDs)) {
+  for (const pair of pairFamilies(main, compare, mainDs, compareDs, confirmed)) {
     if (pair.mainFam) map.set(pair.mainFam.id, familyKeyBase(pair));
   }
   return map;
@@ -792,6 +827,9 @@ interface Relative {
   /** The relative's individual id, used to link/navigate to them. */
   id?: string;
   name: PersonName | undefined;
+  /** Every name the relative carries, primary first — an aka "Helena" on a
+   *  Milena lets her pair with an incoming Helena. */
+  names?: readonly PersonName[];
   text: string;
   /** Full-date variant for the hover tooltip; falls back to text when absent. */
   full?: string;
@@ -973,11 +1011,11 @@ function pushRelativesRow(
   label: string,
   main: Relative[],
   incoming: Relative[],
-  opts: { displayLabel?: string; perChildChoice?: boolean; kind?: RelativeKind } = {},
+  opts: { displayLabel?: string; perChildChoice?: boolean; kind?: RelativeKind; confirmed?: ReadonlyMap<string, string> } = {},
 ): void {
   if (main.length === 0 && incoming.length === 0) return;
-  const { displayLabel, perChildChoice, kind = "partner" } = opts;
-  const pairs = alignRelatives(main, incoming, kind);
+  const { displayLabel, perChildChoice, kind = "partner", confirmed } = opts;
+  const pairs = alignRelatives(main, incoming, kind, confirmed);
   // Joined text is still kept so comparison/state and the merge's default choice
   // (main-if-present) work; rendering uses the structured `relatives` pairs.
   const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
@@ -1082,7 +1120,44 @@ function samePartner(a: Relative, b: Relative): boolean {
   const aGiven = a.name?.given?.trim();
   const bGiven = b.name?.given?.trim();
   if (!aGiven || !bGiven) return false;
-  return givenSimilarity(aGiven, bGiven) >= RELATIVE_PAIR_THRESHOLD;
+  return (knownGivenSimilarity(a.names ?? [a.name!], b.names ?? [b.name!]) ?? 0) >= RELATIVE_PAIR_THRESHOLD;
+}
+
+/**
+ * Every name a relative goes by, comparable and whole: an additional name
+ * missing a part takes it from the primary name. A married name is often only
+ * a surname (`1 NAME /Tiringer/`), and on its own it would match every
+ * Tiringer in sight, the husband included; as "Marija Tiringer" it is her.
+ */
+function knownNames(r: Relative, primary: PersonName): PersonName[] {
+  const out = [primary];
+  for (const n of r.names?.slice(1) ?? []) {
+    const c = comparableName(n);
+    if (!c?.given && !c?.surname) continue;
+    out.push({ ...c, given: c.given || primary.given, surname: c.surname || primary.surname });
+  }
+  return out;
+}
+
+/**
+ * {@link nameSimilarity} of two partners or parents, or — when either carries
+ * additional names (maiden/married, aka) — of the closest pair across all of
+ * them. As in the matcher (`knownGivenSimilarity`), an alias counts only once
+ * it names the same person, and at most `ALIAS_GIVEN_CEILING`.
+ */
+function knownNameSimilarity(a: Relative, b: Relative, an: PersonName, bn: PersonName): number {
+  let best = nameSimilarity(an, bn) ?? 0;
+  if (best >= ALIAS_GIVEN_CEILING || ((a.names?.length ?? 0) < 2 && (b.names?.length ?? 0) < 2)) return best;
+  const aNames = knownNames(a, an);
+  const bNames = knownNames(b, bn);
+  for (const x of aNames) {
+    for (const y of bNames) {
+      if (x === an && y === bn) continue;
+      const sim = nameSimilarity(x, y) ?? 0;
+      if (sim >= RELATIVE_PAIR_THRESHOLD) best = Math.max(best, Math.min(ALIAS_GIVEN_CEILING, sim));
+    }
+  }
+  return best;
 }
 
 /**
@@ -1098,11 +1173,25 @@ function samePartner(a: Relative, b: Relative): boolean {
  * considered, and a Marija only reaches a sibling's year once her own record
  * has no counterpart left. What best-first cannot settle is a genuine tie —
  * see the ambiguity guard below.
+ *
+ * A pair the user has confirmed (`confirmed`, incoming id → main id) outranks
+ * every name: it is taken first, and an incoming relative confirmed as someone
+ * *else* pairs with nobody here by name.
  */
-function alignRelatives(main: Relative[], incoming: Relative[], kind: RelativeKind): RelativePair[] {
+function alignRelatives(
+  main: Relative[],
+  incoming: Relative[],
+  kind: RelativeKind,
+  confirmed?: ReadonlyMap<string, string>,
+): RelativePair[] {
   const cand: { mi: number; ii: number; sim: number }[] = [];
   main.forEach((m, mi) =>
     incoming.forEach((c, ii) => {
+      const confirmedAs = c.id ? confirmed?.get(c.id) : undefined;
+      if (confirmedAs !== undefined) {
+        if (confirmedAs === m.id) cand.push({ mi, ii, sim: Infinity });
+        return;
+      }
       const sim = relativeSimilarity(m, c, kind);
       if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ mi, ii, sim });
     }),
@@ -1206,10 +1295,11 @@ function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "part
   // discriminates, so between children only the given name is compared, and
   // the bar becomes a given-name bar. The matcher drops the surname for the
   // same reason — see `givenNameSetSimilarity`. Partners keep the whole name:
-  // there the surname is real evidence, not a shared inheritance.
+  // there the surname is real evidence, not a shared inheritance. A child's
+  // additional names count as the matcher counts them (`knownGivenSimilarity`).
   const nameSim = kind === "child"
-    ? givenSimilarity(an.given, bn.given)
-    : nameSimilarity(an, bn) ?? 0;
+    ? knownGivenSimilarity(a.names ?? [an], b.names ?? [bn]) ?? 0
+    : knownNameSimilarity(a, b, an, bn);
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;
   const gap = Math.abs(a.birthYear - b.birthYear);
@@ -1227,7 +1317,7 @@ function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "part
   // pairing on its own; for partners it need only not conflict outright.
   const eligible = kind === "child"
     ? nameSim >= RELATIVE_PAIR_THRESHOLD
-    : givenSimilarity(an.given, bn.given) >= PARENT_GIVEN_CONFLICT;
+    : (knownGivenSimilarity(a.names ?? [an], b.names ?? [bn]) ?? 0) >= PARENT_GIVEN_CONFLICT;
   if (!eligible) return nameSim;
 
   // Inside a shared year, the day is what tells a reused name apart: a child

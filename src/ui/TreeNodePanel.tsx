@@ -38,6 +38,8 @@ interface Props {
   kinship?: string;
   /** CSS modifier class colouring the kinship by blood lineage (e.g. "lineage-paternal"). */
   kinshipLineage?: string;
+  /** Shown after the title (Compare Tree: the pair's match score). */
+  score?: ReactNode;
   /** Chips shown on the actions row, left of the Set-as-root button. */
   badges?: ReactNode;
   /** Extra action buttons after Set-as-root (Compare Tree: open the Charts hub). */
@@ -69,6 +71,7 @@ export function TreeNodePanel({
   titleHint,
   kinship,
   kinshipLineage,
+  score,
   badges,
   extraActions,
   controls,
@@ -94,6 +97,7 @@ export function TreeNodePanel({
         ) : (
           <span className="tree-compare-title">{title}</span>
         )}
+        {score}
         <button className="tree-compare-close" onClick={onClose} title={t("tree.close")}>
           ×
         </button>

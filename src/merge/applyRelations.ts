@@ -719,7 +719,7 @@ export function applyIndividualFamilies(
   // that family: its own spouse-matching heuristics below are only a fallback
   // for families the review left unpaired, so a marriage date reviewed against
   // one family can never land in another.
-  const reviewPairs = pairedMainFamilies(mainIndi, incomingIndi, main, compare);
+  const reviewPairs = pairedMainFamilies(mainIndi, incomingIndi, main, compare, ctx.confirmedPair);
   for (const incFamId of incomingIndi.spouseOf) {
     // A family with both spouses confirmed as matches is visited once per
     // spouse; only stitch it in on the first visit, or append-style fields

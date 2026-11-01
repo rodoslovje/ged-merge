@@ -15,6 +15,7 @@ import {
   defaultChoice,
   pendingJoins,
   pinnedAdds,
+  confirmedPeople,
   type CandidateDecision,
   type FieldChoice,
   type FieldRow,
@@ -128,10 +129,13 @@ export function ComparePanel({
     () => mergePlaceFormat(mainDs, formatOverrides),
     [mainDs, formatOverrides],
   );
+  // A child confirmed as one person shares its line in the children rows,
+  // however differently the two files name it.
+  const confirmed = useMemo(() => confirmedPeople(decisions), [decisions]);
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
-    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, placeFmt, rejectedEvents, settings.showAge);
-  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision, settings.showAge, placeFmt]);
+    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, placeFmt, rejectedEvents, settings.showAge, confirmed);
+  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision, settings.showAge, placeFmt, confirmed]);
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};

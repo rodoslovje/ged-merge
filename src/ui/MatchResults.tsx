@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { consolidatedTitle } from "./ConsolidatedBadge";
 import { tipProps } from "./IconTip";
@@ -18,14 +18,13 @@ import {
 import { renderKeyToken } from "../keyboard/shortcuts";
 import { useListFocusKeeper } from "../keyboard/useListKeyboard";
 import { SelectMenu } from "./DropdownMenu";
-import { formatFieldLabel } from "../review/fields";
 import type { Dataset } from "../gedcom/types";
-import { candidateLifespan, formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
+import { candidateLifespan, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
 import { useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { useVirtualList } from "./useVirtualList";
-import { useScoreDetail } from "./scoreDetail";
+import { ScoreBadge } from "./ScoreBadge";
 
 interface Props {
   result: MatchResult;
@@ -388,25 +387,6 @@ const CandidateRow = memo(function CandidateRow({
   const { t } = useTranslation();
   const lifespan = candidateLifespan(candidate, mainDataset, showAge, t);
 
-  // The breakdown is fetched from the worker once the badge is hovered (the
-  // list arrives without it), and the tooltip built from it then.
-  const [scoreHovered, setScoreHovered] = useState(false);
-  const components = useScoreDetail(candidate.mainId, candidate.compareId, scoreHovered);
-  const scoreTooltip = useMemo(
-    () =>
-      candidate.score === 1 || !components
-        ? undefined
-        : components
-            .map((c) => {
-              const label = formatFieldLabel(t, c.key);
-              const detail = c.score === 1 ? "" : c.detail ? ` (${c.detail})` : "";
-              const missing = c.missing ? " missing" : "";
-              return `${label}: ${Math.round(c.score * 100)}%${missing}${detail}`;
-            })
-            .join("\n"),
-    [candidate.score, components, t],
-  );
-
   return (
     <li className={`candidate ${candidate.category}${selected ? " selected" : ""}`} aria-current={selected ? "true" : undefined}>
       <div className="candidate-head">
@@ -441,9 +421,7 @@ const CandidateRow = memo(function CandidateRow({
             <span className="status-chip status-empty" aria-hidden />
           )}
           <span className="candidate-metrics">
-            <span className={`badge ${candidate.category}`} title={scoreTooltip} onMouseEnter={() => setScoreHovered(true)}>
-              {formatScore(candidate.score)}
-            </span>
+            <ScoreBadge candidate={candidate} />
             {showRelation && (
               <span className="dist" title={t("list.distanceTooltip")}>
                 {candidate.distance === undefined ? "" : candidate.distance}

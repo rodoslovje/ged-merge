@@ -64,14 +64,22 @@ describe("clusterDuplicates", () => {
     expect(clusters[0].pairs).toHaveLength(3);
   });
 
-  it("orders clusters by pair count, then top score", () => {
-    const clusters = clusterDuplicates([
-      pair("X", "Y", 99), // lone high-score pair
-      pair("A", "B", 80),
-      pair("B", "C", 81), // 2-pair blob, lower scores
-    ]);
+  const mixed = [
+    pair("X", "Y", 99), // lone high-score pair
+    pair("A", "B", 80),
+    pair("B", "C", 81), // 2-pair blob, lower scores
+    pair("P", "Q", 81), // lone pair tying the blob's top score
+  ];
+
+  it("orders clusters by top score, then pair count, by default", () => {
+    const clusters = clusterDuplicates(mixed);
+    expect(clusters.map((c) => c.memberIds[0])).toEqual(["X", "A", "P"]);
+  });
+
+  it("orders clusters by pair count, then top score, when asked by size", () => {
+    const clusters = clusterDuplicates(mixed, "size");
     expect(clusters[0].pairs).toHaveLength(2); // blob first despite lower score
-    expect(clusters[1].memberIds).toEqual(["X", "Y"]);
+    expect(clusters.map((c) => c.memberIds[0])).toEqual(["A", "X", "P"]);
   });
 
   it("returns nothing for an empty input", () => {
