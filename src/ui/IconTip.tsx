@@ -11,9 +11,11 @@ import { useTranslation } from "react-i18next";
  * instead of setting `title`; one `IconTipLayer`, mounted once, then shows the
  * text quickly on hover and on keyboard focus. On touch the first tap shows the
  * tip with the chip's actions (Edit, Open link) and the second tap acts as a
- * click always did.
+ * click always did. An element whose tap is its whole point (a chart bar that
+ * lists its people) opts out with `acts`: the tap acts at once, and the tip
+ * shows beside it without actions.
  */
-export function tipProps(text: string, opts?: { href?: string; edit?: boolean; heading?: string; kind?: string }) {
+export function tipProps(text: string, opts?: { href?: string; edit?: boolean; heading?: string; kind?: string; acts?: boolean }) {
   const head = [opts?.heading, opts?.kind].filter(Boolean).join(" — ");
   return {
     "data-tip": text,
@@ -25,6 +27,7 @@ export function tipProps(text: string, opts?: { href?: string; edit?: boolean; h
     ...(opts?.kind ? { "data-tip-kind": opts.kind } : {}),
     ...(opts?.href ? { "data-tip-href": opts.href } : {}),
     ...(opts?.edit ? { "data-tip-edit": "" } : {}),
+    ...(opts?.acts ? { "data-tip-acts": "" } : {}),
   };
 }
 
@@ -35,6 +38,8 @@ interface Shown {
   el: HTMLElement;
   /** Opened by a tap: the tip takes taps and offers the chip's actions. */
   touch: boolean;
+  /** Opened by the tap that also acted (`acts`): that tap's click keeps it up. */
+  tapped?: boolean;
 }
 
 function tipTarget(node: EventTarget | null): HTMLElement | null {
@@ -86,6 +91,10 @@ export function IconTipLayer() {
       if (e.pointerType === "mouse") return;
       const el = tipTarget(e.target);
       if (!el || el === shownRef.current?.el) return;
+      if ("tipActs" in el.dataset) {
+        setShown({ el, touch: false, tapped: true });
+        return;
+      }
       swallowClick = el;
       setShown({ el, touch: true });
     };
@@ -99,7 +108,7 @@ export function IconTipLayer() {
       swallowClick = null;
       // The second tap (or a mouse click) acts — the tip has done its job.
       const cur = shownRef.current;
-      if (cur && cur.el.contains(e.target as Node)) hide();
+      if (cur && cur.el.contains(e.target as Node) && !cur.tapped) hide();
     };
     const onFocusIn = (e: FocusEvent) => {
       const el = tipTarget(e.target);

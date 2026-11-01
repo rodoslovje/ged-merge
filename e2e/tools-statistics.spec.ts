@@ -53,7 +53,9 @@ test("statistics count the file, list who is behind a bar and narrow the scope",
   await expect(pick.locator(".tools-issue")).toHaveCount(1);
   await expect(pick).toContainText("Ivana");
 
-  // A country chip narrows every number.
+  // A country chip narrows every number. The filters start folded.
+  await expect(panel.locator(".stats-scope")).toHaveCount(0);
+  await panel.locator(".tools-chip", { hasText: "Filters" }).click();
   await panel.locator(".tools-chip", { hasText: "Croatia" }).click();
   await expect(people.locator(".stats-tile-value")).toHaveText("1");
   await panel.locator(".tools-chip", { hasText: "All" }).click();
@@ -160,4 +162,21 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   const png = await pagePng;
   expect(png.suggestedFilename()).toMatch(/\.png$/);
   expect(readFileSync((await png.path())!).subarray(1, 4).toString()).toBe("PNG");
+});
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("one tap on a bar lists its people and shows its tip", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("input.file-input").first().setInputFiles(FILE);
+    await page.locator(".edit-person").first().waitFor();
+    await page.getByRole("button", { name: "Tools", exact: true }).tap();
+    await page.getByText("Statistics", { exact: true }).first().tap();
+    const panel = page.locator(".tools-stats-panel");
+
+    await panel.locator(".stats-bar", { hasText: "Birth place" }).tap();
+    await expect(panel.locator(".stats-pick")).toContainText("Ivana");
+    await expect(page.locator(".icon-tip")).toBeVisible();
+  });
 });
