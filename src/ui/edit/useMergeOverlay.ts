@@ -7,6 +7,8 @@ import { materializeEventSources, materializeRecordField } from "../../merge/mer
 import { isRecordField } from "../../merge/applyFields";
 import { familyMergePreview, personMergePreview, type PersonMergePreview, type RecordMergePreview } from "../../merge/recordPreview";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER } from "../../gedcom/edit/shared";
+import { previewRelativeLinks, type PendingRelativeLink } from "../../merge/materialize";
+import type { MatchResult } from "../../match/types";
 import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacement";
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
@@ -63,6 +65,8 @@ interface Options {
   dataset: Dataset;
   compareDataset: Dataset | undefined;
   decisions: Map<string, CandidateDecision> | undefined;
+  /** The matcher's pairs, by which the save joins relatives to existing people. */
+  matches?: MatchResult;
   /** Settings › GEDCOM, so the preview places a citation where the save would
    *  — the reader's own citation/baptism choices, not only the file's habit. */
   formatOverrides?: FormatOverrides;
@@ -84,7 +88,7 @@ interface Options {
  * records (the bug fixed in a238d34).
  */
 export function useMergeOverlay({
-  person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides, tick, t,
+  person, selectedId, dataset, compareDataset, decisions, matches, onUpdateDecision, formatOverrides, tick, t,
 }: Options) {
   /**
    * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
@@ -281,6 +285,15 @@ export function useMergeOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, compareDataset, person, dataset, formatOverrides, pageMediaStyle, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
+  /** Existing people the save will link this person to — parents, partners,
+   *  children — which only a dry run of the save can name. */
+  const pendingRelativeLinks = useMemo((): PendingRelativeLink[] => {
+    if (!decisions || !compareDataset || !matches || !person) return [];
+    const found = findConfirmedDecision(decisions, person.id, (id) => compareDataset.individuals.get(id));
+    return found ? previewRelativeLinks(dataset, compareDataset, matches, decisions, found.key, t, formatOverrides) : [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisions, compareDataset, matches, person, dataset, formatOverrides, t, tick]); // tick: relations edited in place
+
   // Only the pieces the handlers below read; the rest is spread to the caller.
   const { mergeHighlight, mergeIncomingSources, mergePending, hasMergeDecision } = mergeData;
 
@@ -467,6 +480,7 @@ export function useMergeOverlay({
   });
   return {
     ...mergeData,
+    pendingRelativeLinks,
     /** Bumped only when `decisions` itself changes - see the ref's comment. */
     mergeGen: mergeGenRef.current,
     resolvedSessionFields,

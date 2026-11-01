@@ -6,7 +6,7 @@ import { removeIndividual } from "../gedcom/edit";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { applyRecordPatches } from "../ui/historyTypes";
 import { mergeDecisions } from "./merge";
-import { materializeAdds, previewBranchJoins, refreshJoins } from "./materialize";
+import { materializeAdds, previewBranchJoins, previewRelativeLinks, refreshJoins } from "./materialize";
 
 const dataset = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
@@ -212,6 +212,27 @@ describe("materializeAdds", () => {
     // The confirmed anchor is yours, not the matcher's.
     expect(joins.some((j) => j.compareId === "@P1@")).toBe(false);
     expect(serializeGedcom(main.records)).toBe(original);
+  });
+
+  it("previews the existing people the save links a person to, dry", () => {
+    // The wife the save joins becomes his partner in a family the save makes.
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n",
+    ));
+    const compare = dataset(COMPARE);
+    const original = serializeGedcom(main.records);
+    const { decisions } = step(main, compare, new Map(), FATHER, { status: "confirmed", fields: { father: "main" } });
+    const links = previewRelativeLinks(main, compare, MATCHES, decisions, FATHER, tr);
+    expect(links).toEqual([expect.objectContaining({ role: "partner", id: "@I2@", newFamily: true, unconfirmed: true })]);
+    expect(serializeGedcom(main.records)).toBe(original);
+
+    // A ticked child matched to a lone main record joins the existing family.
+    const withMarko = dataset(MAIN.replace("0 TRLR", `${LONE_MARKO}0 TRLR`));
+    const tick = new Map([[FATHER, { status: "confirmed", fields: { father: "main" }, takenChildren: ["@P4@"] } as CandidateDecision]]);
+    const first = materializeAdds(withMarko, compare, MARKO_MATCHED, new Map(), tick, tr);
+    expect(previewRelativeLinks(withMarko, compare, MARKO_MATCHED, first.decisions, FATHER, tr))
+      .toEqual([{ role: "child", id: "@I9@", famId: "@F1@", newFamily: false, unconfirmed: true }]);
   });
 
   it("adds a ticked child whose match already has other parents, as the save would", () => {

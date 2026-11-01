@@ -4070,6 +4070,11 @@ button:focus-visible {
   width: 240px;
   min-width: 200px;
 }
+/* A relative a confirmed merge links on save: dashed, in the incoming color. */
+.person-card-wrap--pending .person-card {
+  border-style: dashed;
+  border-color: var(--state-incoming);
+}
 /* And one height: when any relative card on the page carries a kinship row,
    every card without one reserves an equally tall blank row, so parents,
    partner and children boxes line up instead of varying two/three rows. */

@@ -48,6 +48,7 @@ import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData, offersEventTag } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 import type { RecordMergePreview } from "../../merge/recordPreview";
+import type { PendingRelativeLink } from "../../merge/materialize";
 import type { RecordPatch } from "../historyTypes";
 
 /**
@@ -183,6 +184,26 @@ interface SharedSectionProps {
   noteGen?: number;
 }
 
+/** A relative a confirmed merge links on save, previewed where they will be. */
+function PendingCard({ link, roleLabel, dataset, navigate, cardRefCtx }: {
+  link: PendingRelativeLink;
+  roleLabel?: string;
+  dataset: Dataset;
+  navigate: (id: string) => void;
+  cardRefCtx?: MediaRefContext;
+}) {
+  return (
+    <PersonCard
+      individual={dataset.individuals.get(link.id)}
+      roleLabel={roleLabel}
+      onSelect={navigate}
+      pending={{ unconfirmed: link.unconfirmed }}
+      records={dataset.records}
+      refCtx={cardRefCtx}
+    />
+  );
+}
+
 // ── Parents band ─────────────────────────────────────────────────────────────
 
 interface ParentFamilyGroupProps extends SharedSectionProps {
@@ -192,6 +213,9 @@ interface ParentFamilyGroupProps extends SharedSectionProps {
    *  siblings row shows their name and dates. Unused directly — it exists for
    *  the memo's prop comparison. */
   self: Individual;
+  /** Parents a confirmed merge links into this family on save (see
+   *  `previewRelativeLinks`), shown in their empty slots. */
+  pending?: PendingRelativeLink[];
 }
 
 export const ParentFamilyGroup = memo(function ParentFamilyGroup({
@@ -211,6 +235,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   changedPersonIds,
   startId,
   startPersonName,
+  pending,
 }: ParentFamilyGroupProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   // Only for the language — `t` arrives as a prop. Subscribing here also keeps
@@ -237,6 +262,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   const motherLabel = sameSexParents ? t("field.parent") : t("field.mother");
   const fatherPickerOpen = pickingSlot?.kind === "father" && pickingSlot.fam === fam;
   const motherPickerOpen = pickingSlot?.kind === "mother" && pickingSlot.fam === fam;
+  const pendingFather = !fam?.husband ? pending?.find((l) => l.role === "father") : undefined;
+  const pendingMother = !fam?.wife ? pending?.find((l) => l.role === "mother") : undefined;
   // Read-only glimpse of what binds the parents, shown between the two cards —
   // editable on either parent's own page. Just the one event: the marriage, or
   // failing that whatever stands in for it (a civil partnership, an
@@ -277,6 +304,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
+      ) : pendingFather ? (
+        <PendingCard link={pendingFather} roleLabel={fatherLabel} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
       ) : (
         <PersonCard
           individual={fam?.husband ? dataset.individuals.get(fam.husband) : undefined}
@@ -329,6 +358,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
+      ) : pendingMother ? (
+        <PendingCard link={pendingMother} roleLabel={motherLabel} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
       ) : (
         <PersonCard
           individual={fam?.wife ? dataset.individuals.get(fam.wife) : undefined}
@@ -474,6 +505,9 @@ interface FamilySectionProps extends SharedSectionProps {
   takeMergeField: (raw: GedNode, key: string) => RecordPatch[];
   /** Leave a previewed row out of the save. */
   skipMergeField: (key: string) => void;
+  /** The partner and children a confirmed merge links into this family on
+   *  save (see `previewRelativeLinks`). */
+  pending?: PendingRelativeLink[];
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
   /** Plain links a confirmed merge will add, keyed by row — the family's own
@@ -563,6 +597,7 @@ export const FamilySection = memo(function FamilySection({
   mergePreview,
   takeMergeField,
   skipMergeField,
+  pending,
   mergeHighlight,
   mergeIncomingSources,
   mergeIncomingLinks,
@@ -628,6 +663,7 @@ export const FamilySection = memo(function FamilySection({
     (tag) => !shownFamilyTags.includes(tag) && offersEventTag(tag, "FAM", eventOffer),
   );
   const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
+  const pendingPartner = !partnerId ? pending?.find((l) => l.role === "partner") : undefined;
   const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;
 
   return (
@@ -647,6 +683,8 @@ export const FamilySection = memo(function FamilySection({
               onCancel={() => setPickingSlot(null)}
               t={t}
             />
+          ) : pendingPartner ? (
+            <PendingCard link={pendingPartner} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
           ) : (
             <PersonCard
               individual={partnerId ? dataset.individuals.get(partnerId) : undefined}
@@ -785,6 +823,9 @@ export const FamilySection = memo(function FamilySection({
               />
             );
           })}
+          {pending?.filter((l) => l.role === "child").map((l) => (
+            <PendingCard key={`pending-${l.id}`} link={l} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
+          ))}
           {childPickerOpen ? (
             <RelativePickerCard
               individuals={dataset.individuals}
@@ -844,3 +885,39 @@ export const FamilySection = memo(function FamilySection({
     </div>
   );
 });
+
+/**
+ * A family a confirmed merge makes on save — a partner the main file already
+ * holds, with any children it links there — previewed read-only below the
+ * person's own families.
+ */
+export function PendingFamilyGroup({ links, dataset, t, navigate, cardRefCtx }: {
+  links: PendingRelativeLink[];
+  dataset: Dataset;
+  t: Translate;
+  navigate: (id: string) => void;
+  cardRefCtx?: MediaRefContext;
+}) {
+  const partner = links.find((l) => l.role === "partner");
+  const children = links.filter((l) => l.role === "child");
+  return (
+    <div className="edit-family edit-family--pending">
+      <div className="edit-family-header">
+        <div className="person-card-role">{t("edit.pendingFamily")}</div>
+        <div className="edit-family-card-row">
+          {partner && <PendingCard link={partner} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />}
+        </div>
+      </div>
+      {children.length > 0 && (
+        <div className="edit-children-wrap">
+          <div className="person-card-role">{t("field.children")}</div>
+          <div className="edit-children">
+            {children.map((l) => (
+              <PendingCard key={l.id} link={l} dataset={dataset} navigate={navigate} cardRefCtx={cardRefCtx} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

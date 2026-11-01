@@ -47,6 +47,9 @@ interface Props {
   /** When set, the enlarged photo's info panel lists the records citing each
    *  shared photo and links into Edit (see {@link MediaRefContext}). */
   refCtx?: MediaRefContext;
+  /** A relative the save will link from a confirmed match — shown in the
+   *  incoming color, ⚠ when the matcher, not you, paired them. */
+  pending?: { unconfirmed: boolean };
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -54,7 +57,7 @@ interface Props {
 const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, addTitle, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
+export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, addTitle, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx, pending }: Props) {
   const nameOf = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const { t } = useTranslation();
@@ -77,12 +80,15 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
 
   const lifespan = lifespanWithAge(individual, settings.showAge);
   return (
-    <div className="person-card-wrap">
+    <div className={`person-card-wrap${pending ? " person-card-wrap--pending" : ""}`}>
       {roleLabel && <div className="person-card-role">{roleLabel}</div>}
       <div className="person-card-row">
         <button
           className={`person-card ${sexClass(individual.sex)}`}
-          title={lifespanTooltipOf(individual, settings.showAge, t)}
+          title={[
+            pending && t(pending.unconfirmed ? "edit.pendingJoinTooltip" : "edit.pendingLinkTooltip"),
+            lifespanTooltipOf(individual, settings.showAge, t),
+          ].filter(Boolean).join("\n")}
           onClick={() => onSelect?.(individual.id)}
         >
           {records && <CardPhoto raw={individual.raw} records={records} refCtx={refCtx} />}
@@ -94,6 +100,7 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
                 still reserve the year/kinship rows its neighbours have. */}
             <div className="person-card-meta">
               {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(individual)} /></span>}
+              {pending?.unconfirmed && <span className="gm-join-mark" aria-hidden="true">⚠</span>}
               {decisionStatus && (
                 <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
                   {decisionLetter}
