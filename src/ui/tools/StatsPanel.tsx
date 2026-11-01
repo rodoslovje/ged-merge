@@ -1044,6 +1044,43 @@ export function StatsPanel({
                 }}
               />,
             ))}
+            {lineage.descendants.length > 0 && card("descendantsGen", t("stats.descendantsByGen"), null, (() => {
+              // Men below, women above, the generation's whole count on top
+              // (people of unknown sex are in that count only).
+              const names: [string, string] = [t("stats.men"), t("stats.women")];
+              const gens = lineage.descendants.map((g) => ({
+                gen: g.gen,
+                all: g.ids,
+                men: g.ids.filter((id) => dataset.individuals.get(id)?.sex === "M"),
+                women: g.ids.filter((id) => dataset.individuals.get(id)?.sex === "F"),
+              }));
+              const part = (gen: number, name: string, ids: string[]) => ({
+                value: ids.length,
+                tip: `${t("stats.genLabel", { n: gen })} — ${name}: ${num(ids.length)}`,
+                count: ids.length,
+              });
+              return (
+                <StackedColumnChart
+                  names={names}
+                  tones={["male", "female"]}
+                  picked={pickedIn("descendantsGen")}
+                  columns={gens.map<StackedColumn>((g) => ({
+                    key: String(g.gen),
+                    label: String(g.gen),
+                    lower: part(g.gen, names[0], g.men),
+                    upper: part(g.gen, names[1], g.women),
+                    top: num(g.all.length),
+                  }))}
+                  onPick={(key, which) => {
+                    const g = gens.find((x) => String(x.gen) === key)!;
+                    choose("descendantsGen", `${key}:${which}`, `${t("stats.descendantsByGen")} — ${t("stats.genLabel", { n: g.gen })} — ${names[which === "lower" ? 0 : 1]}`, which === "lower" ? g.men : g.women);
+                  }}
+                />
+              );
+            })())}
+            {!lineage.ancestors.length && !lineage.descendants.length && (
+              <p className="tools-clean">{t("stats.noLineage")}</p>
+            )}
             {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
               <BarList
                 limit={listLimit("repeatedAncestors", lineage.repeated.length, 12)}
@@ -1054,20 +1091,6 @@ export function StatsPanel({
                 onPick={onNavigate}
               />
             ))}
-            {lineage.descendants.length > 0 && card("descendantsGen", t("stats.descendantsByGen"), null, (
-              <ColumnChart
-                columns={lineage.descendants.map((g) => ({ key: String(g.gen), label: String(g.gen), value: g.ids.length, count: g.ids.length, tip: `${t("stats.genLabel", { n: g.gen })}: ${num(g.ids.length)}` }))}
-                format={num}
-                picked={pickedIn("descendantsGen")}
-                onPick={(key) => {
-                  const g = lineage.descendants.find((x) => String(x.gen) === key)!;
-                  choose("descendantsGen", key, `${t("stats.descendantsByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
-                }}
-              />
-            ))}
-            {!lineage.ancestors.length && !lineage.descendants.length && (
-              <p className="tools-clean">{t("stats.noLineage")}</p>
-            )}
           </>
         )}
 

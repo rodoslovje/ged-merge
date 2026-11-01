@@ -120,7 +120,7 @@ export const en = {
   "stats.about.childrenByGen": "The average number of children the person's ancestors had, generation by generation: generation 1 are the parents, 2 the grandparents, and so on. All of an ancestor's children count, from every marriage; each ancestor counts once, however many places they fill.",
   "stats.about.ancestorsGen": "How many of the places in each generation of the person's ancestors are filled: generation 1 has two places (the parents), generation 2 four, and so on. An ancestor who appears twice fills two places.",
   "stats.about.repeatedAncestors": "Ancestors who hold more than one place in the tree, because their descendants married each other (pedigree collapse). The number says how many places they hold.",
-  "stats.about.descendantsGen": "The person's descendants by generation: 1 is the children, 2 the grandchildren. A descendant reached through two lines counts once.",
+  "stats.about.descendantsGen": "The person's descendants by generation: 1 is the children, 2 the grandchildren. A descendant reached through two lines counts once. Men are drawn below, women above; the number over the column counts the whole generation, people of unknown sex too.",
   "stats.about.sourcedByTag": "For each kind of event, the share of events that cite a source. The most common kinds are shown; a family event (a marriage) counts once per family.",
   "stats.about.citations": "How many source citations each person carries, on the person and on their events together.",
   "stats.click.bar": "Click a bar to list the people in that group; each one opens in Edit.",

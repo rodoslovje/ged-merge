@@ -122,7 +122,7 @@ export const sl = {
   "stats.about.childrenByGen": "Povprečno število otrok, ki so jih imeli predniki osebe, po rodovih: 1. rod so starši, 2. rod stari starši in tako naprej. Štejejo vsi otroci prednika iz vseh zakonov; vsak prednik se šteje enkrat, ne glede na to, koliko mest zapolni.",
   "stats.about.ancestorsGen": "Koliko mest je zapolnjenih v posameznem rodu prednikov osebe: 1. rod ima dve mesti (starša), 2. rod štiri in tako naprej. Prednik, ki se pojavi dvakrat, zapolni dve mesti.",
   "stats.about.repeatedAncestors": "Predniki, ki so v drevesu na več mestih, ker so se njihovi potomci poročili med seboj (implex). Število pove, na koliko mestih so.",
-  "stats.about.descendantsGen": "Potomci osebe po rodovih: 1. rod so otroci, 2. rod vnuki. Potomec, do katerega vodita dve liniji, šteje enkrat.",
+  "stats.about.descendantsGen": "Potomci osebe po rodovih: 1. rod so otroci, 2. rod vnuki. Potomec, do katerega vodita dve liniji, šteje enkrat. Moški so v spodnjem delu stolpca, ženske v zgornjem; število nad stolpcem zajema ves rod, tudi osebe neznanega spola.",
   "stats.about.sourcedByTag": "Za vsako vrsto dogodka delež dogodkov z navedbo vira. Prikazane so najpogostejše vrste; družinski dogodek (poroka) šteje enkrat na družino.",
   "stats.about.citations": "Koliko navedb virov ima posamezna oseba, pri sebi in pri svojih dogodkih skupaj.",
   "stats.click.bar": "Ko kliknete stolpec ali vrstico, se prikaže seznam oseb v tej skupini; vsako lahko odprete v Urejanju.",
