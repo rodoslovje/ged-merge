@@ -62,6 +62,15 @@ async function expectSaved(page: Page, names: string[]) {
   }
 }
 
+test("deciding a match on a tree node keeps its panel open", async ({ page }) => {
+  await openTree(page, false);
+  await page.locator("svg.tree-svg g.tree-node", { hasText: "Janez" }).first().click();
+  const confirm = page.locator(".tree-compare-decisions button.decision").first();
+  await confirm.click();
+  await expect(confirm).toHaveClass(/active/);
+  await expect(page.locator(".tree-compare-decisions")).toBeVisible();
+});
+
 for (const confirm of [false, true]) {
   const label = confirm ? "a confirmed match" : "an undecided match";
 
