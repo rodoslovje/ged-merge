@@ -171,6 +171,8 @@ button:focus-visible {
   padding: 2.5px 10.5px 2.5px 8.5px;
   background: var(--bg);
 }
+/* The Merge tab takes an incoming file the same way. */
+.seg-btn.dragover { outline: 1.5px dashed var(--state-incoming); outline-offset: -3px; }
 /* Main-header pills open the file-info panel — a chevron (▾/▴ with the panel
    state, like the section headers) makes them read as clickable. The
    tree-shell header's pills just navigate back, so they render no chevron. */
