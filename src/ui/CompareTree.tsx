@@ -9,6 +9,7 @@ import { previewBranchJoins } from "../merge/materialize";
 import type { ImportBranchRequest } from "../merge/applyRelations";
 import { lifespanOf } from "../gedcom/lifespan";
 import { TreeNodePanel } from "./TreeNodePanel";
+import { ConsolidatedBadge } from "./ConsolidatedBadge";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import type { Lineage } from "../match/relationshipPath";
 import { sexClass } from "./sex";
@@ -890,7 +891,12 @@ function NodeCompare({
       mainPerson={mainPerson}
       incomingPerson={incomingPerson}
       mainLabel={t("tree.main")}
-      incomingLabel={t("tree.incoming")}
+      incomingLabel={
+        <>
+          {t("tree.incoming")}
+          <ConsolidatedBadge compareDs={compareDs} id={node.incoming?.id} />
+        </>
+      }
       onClose={onClose}
       onSetRoot={() => onReroot(node.main?.id, node.incoming?.id)}
       onTitleClick={matchLink}

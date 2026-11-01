@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { isEditableTarget } from "../keyboard/shortcuts";
 import { handleListKey } from "../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
+import { ConsolidatedBadge } from "./ConsolidatedBadge";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { MatchCandidate } from "../match/types";
@@ -88,8 +89,6 @@ export function ComparePanel({
   // would miss edits made while this panel stays mounted in the background.
   const mainIndi = mainDs.individuals.get(candidate.mainId);
   const compareIndi = compareDs.individuals.get(candidate.compareId);
-  // The incoming record is one the matcher assembled from several copies.
-  const consolidatedFrom = compareDs.consolidatedFrom?.get(candidate.compareId);
   // Only show the photos tray (and its divider line) when a media folder is
   // loaded and at least one side actually references a photo — otherwise the
   // empty tray leaves a stray separator under the header.
@@ -405,14 +404,7 @@ export function ComparePanel({
             <th className="compare-col compare-col-main">{t("tree.main")}</th>
             <th className="compare-col compare-col-incoming">
               {t("tree.incoming")}
-              {consolidatedFrom && (
-                <span
-                  className="compare-consolidated"
-                  data-tip={t("compare.consolidated.title", { ids: consolidatedFrom.map((id) => id.replace(/@/g, "")).join(", ") })}
-                >
-                  {t("compare.consolidated", { count: consolidatedFrom.length })}
-                </span>
-              )}
+              <ConsolidatedBadge compareDs={compareDs} id={candidate.compareId} />
             </th>
             <th />
           </tr>
