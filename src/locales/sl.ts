@@ -2787,7 +2787,7 @@ export const sl = {
   "field.sources": "Vir",
   "field.fsid": "FamilySearch ID",
   "field.nameTranslations": "Prevodi imena",
-  "field.exid": "Zunanji identifikator",
+  "field.exid": "Identifikator",
   "field.noEvents": "Se ni zgodilo",
   "field.media": "Mediji",
   "field.otherLines": "Druge vrstice",
