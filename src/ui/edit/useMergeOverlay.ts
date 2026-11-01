@@ -13,7 +13,7 @@ import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacemen
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { orderingDate } from "../../gedcom/sortDate";
-import { defaultChoice, EVENT_TEXT_SUBS, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
+import { confirmedPeople, defaultChoice, EVENT_TEXT_SUBS, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
 import { type RecordPatch } from "../historyTypes";
 import { useStableHandler } from "./useStableHandler";
 
@@ -162,7 +162,9 @@ export function useMergeOverlay({
       const rejectedEvents = dec.rejectedEvents?.length ? new Set(dec.rejectedEvents) : undefined;
 
       // Field key → incoming value for all fields the merge will add/change.
-      const rows = individualFieldRows(t, person, incoming, dataset, compareDataset, undefined, rejectedEvents);
+      // Built as the review builds them: confirmed people pair there.
+      const confirmed = confirmedPeople(decisions);
+      const rows = individualFieldRows(t, person, incoming, dataset, compareDataset, undefined, rejectedEvents, false, confirmed);
       const mergeHighlight = new Map<string, string>();
       const mergeIncomingLinks = new Map<string, string[]>();
       const mergeIncomingSources = new Map<string, SourceCitation[]>();
@@ -267,7 +269,7 @@ export function useMergeOverlay({
         }
       }
 
-      const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
+      const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset, (m, i) => confirmed.get(i) === m);
       const mergeAdditionalNames = namesChoice && incoming.names.length > 1
         ? { names: incoming.names.slice(1), choice: namesChoice }
         : undefined;

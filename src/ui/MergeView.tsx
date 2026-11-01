@@ -15,6 +15,7 @@ import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
+import { ScoreBadge } from "./ScoreBadge";
 import {
   candidateLifespan,
   type Candidate,
@@ -279,6 +280,7 @@ export function MergeView({
               <YearsText text={currentLifespan.span} approx={currentLifespan.approx} />
             </span>
           )}
+          <ScoreBadge candidate={current} className="score-inline" />
           {status !== "undecided" && (
             <span className={`status-chip ${status}`} title={t(`status.${status}`)}>
               {t(`status.${status}`).charAt(0)}

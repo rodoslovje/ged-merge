@@ -188,7 +188,7 @@ A weighted average over comparable components (0..1, shown as 0–100):
 | Component | Weight | Notes |
 |---|---|---|
 | surname | 3 | identity key |
-| given | 2 | identity key |
+| given | 2 | identity key; best pair across both people's names (`knownGivenSimilarity`) — an additional `NAME` counts only when it reaches `SAME_PERSON_GIVEN` (nickname Roza merely resembling Jožefa does not), and an agreement only it makes (Milena aka Helena ~ Helena) counts at most `ALIAS_GIVEN_CEILING` (0.95), so it clears the same-person bar but never makes the key exact |
 | birthDate | 3 | identity key |
 | birthPlace / birthAddress | 1.5 / 1.5 | locality compared without the house number; same house number is decisive |
 | deathDate / deathPlace | 1.5 / 0.75 | corroboration only — absence is skipped, not penalized |
@@ -518,7 +518,26 @@ name adjusted by the birth year, paired greedily above
   real child. `givenNameSetSimilarity` drops the surname in the matcher for
   exactly this reason. The bar is then a given-name bar, and deliberately the
   same 0.85 as `SAME_PERSON_GIVEN`; it is the equivalence table, not a lower
-  bar, that carries `Rudi`/`Rudolf` and `Neža`/`Agnes` over it.
+  bar, that carries `Rudi`/`Rudolf` and `Neža`/`Agnes` over it. A child's
+  additional names count as in the matcher (`knownGivenSimilarity`), so a
+  Milena recorded also as Helena pairs with an incoming Helena.
+
+Partners and parents are compared across all their names too
+(`knownNameSimilarity`): a mother under her maiden name in one file and her
+married name in the other pairs. An additional name missing a part takes it
+from the primary name — a married name is often a bare `/Kos/`, which alone
+would match every Kos, the father included. As for children, an alias counts
+only at the bar and at most `ALIAS_GIVEN_CEILING`.
+
+A pair the user has **confirmed** (passed in as incoming id → main id) outranks
+every name, for children, parents and partners alike: it is taken first,
+whatever the two files call the person, and an incoming relative confirmed as
+someone else pairs with nobody by name. A confirmed partner also pairs the two
+unions in `pairFamilies` (confirmed children count as shared children there),
+and since the merge writes family rows into the union the review paired
+(`pairedMainFamilies`), every row builder the merge reads — the merge itself,
+`materializeAdds`, the confirm-time snapshot and Edit's merge overlay — passes
+the same confirmed pairs.
 
 Two further rules keep the year in its place — it corroborates a name, it
 never replaces one:

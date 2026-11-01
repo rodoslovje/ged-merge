@@ -6,7 +6,7 @@ import type { MatchResult } from "../match/types";
 import type { Translate } from "../locales/i18n";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
-import { parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
+import { confirmedPeople, parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
 import { applyRecordPatches, coalescePatches, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords, remapSealingFamilies } from "./applyFields";
 import {
@@ -475,7 +475,7 @@ function addFor(
   const { ctx, individuals, families, records, liveIds, sourXrefMap, report } =
     liveContext(main, compare, matches, decisions, pinned, t, overrides, true);
   const rejectedEvents = d.rejectedEvents?.length ? new Set(d.rejectedEvents) : undefined;
-  const rows = individualFieldRows(t, mainIndi, incoming, main, compare, mergePlaceFormat(main, overrides), rejectedEvents);
+  const rows = individualFieldRows(t, mainIndi, incoming, main, compare, mergePlaceFormat(main, overrides), rejectedEvents, false, confirmedPeople(decisions));
   applyIndividualRelations(parsed.mainId, mainIndi, incoming, rows, d.fields, main, compare, ctx);
   // A child somebody else's decision already added is that decision's.
   const taken = new Set((d.takenChildren ?? []).filter((id) => !pinned.has(id)));

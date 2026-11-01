@@ -38,7 +38,7 @@ import type { MatchResult } from "./match/types";
 import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui/scoreDetail";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { confirmedPeople, decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -272,7 +272,7 @@ function AppContent() {
     if (!mainDs || !compareDs || !mainIndi || !incoming) return next;
     const rejected = next.rejectedEvents?.length ? new Set(next.rejectedEvents) : undefined;
     const placeFmt = mergePlaceFormat(mainDs, formatOverridesRef.current);
-    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, placeFmt, rejected);
+    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, placeFmt, rejected, false, confirmedPeople(decisionsRef.current));
     const prev = decisionsRef.current.get(decisionKey("individual", mainId, compareId));
     return stampConfirmedDecision(next, prev, rows, INDI_HANDLED);
   }

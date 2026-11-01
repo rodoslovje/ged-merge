@@ -64,6 +64,7 @@ const VARIANT_GROUPS: readonly (readonly string[])[] = [
   ["rok", "rochus", "roch"],
   ["rudolf", "rudolphus", "rudolph", "rudi"],
   ["simon", "simeon"],
+  ["stanislav", "stanislaus", "stane", "stanko"],
   ["stefan", "stephanus", "stephan", "stjepan"],
   ["tomaz", "thomas", "toma", "tomo"],
   ["urban", "urbanus"],

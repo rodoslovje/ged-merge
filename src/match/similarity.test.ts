@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
 import type { Individual } from "../gedcom/types";
-import { SAME_PERSON_GIVEN, comparableName, dateSimilarity, dateCompareKey, givenNameSetSimilarity, givenSimilarity, noGivenNameInCommon, placeSimilarity } from "./similarity";
+import { ALIAS_GIVEN_CEILING, SAME_PERSON_GIVEN, comparableName, knownGivenSimilarity, dateSimilarity, dateCompareKey, givenNameSetSimilarity, givenSimilarity, noGivenNameInCommon, placeSimilarity } from "./similarity";
 import { compareKey, isPlaceholderName } from "./text";
 import { givenVariantKey } from "./givenVariants";
 import { placeCompareKey } from "./place";
@@ -73,6 +73,8 @@ describe("cross-language given names", () => {
       ["Terezija", "Reza"],
       ["Rudolf", "Rudi"],
       ["Anton", "Tone"],
+      ["Stanislav", "Stane"],
+      ["Stanislav", "Stanko"],
       ["Alojz", "Lojze"],
       ["Ignacij", "Nace"],
       ["Frančišek", "Franci"],
@@ -153,6 +155,31 @@ describe("givenNameSetSimilarity", () => {
   it("is undefined when a side has no given names to compare", () => {
     expect(givenNameSetSimilarity([n(undefined, "Novak")], [n("Janez", "Novak")])).toBeUndefined();
     expect(givenNameSetSimilarity([], [n("Janez")])).toBeUndefined();
+  });
+});
+
+describe("knownGivenSimilarity", () => {
+  const n = (given?: string, surname = "Tiringer") => ({ given, surname, full: `${given ?? ""} ${surname}` });
+
+  it("finds the person under a name she is also known by, short of an exact key", () => {
+    expect(givenSimilarity("Milena", "Helena")).toBeLessThan(SAME_PERSON_GIVEN);
+    const sim = knownGivenSimilarity([n("Milena"), n("Helena")], [n("Helena")])!;
+    expect(sim).toBeGreaterThanOrEqual(SAME_PERSON_GIVEN);
+    expect(sim).toBe(ALIAS_GIVEN_CEILING);
+  });
+
+  it("ignores an alias that only resembles the other name", () => {
+    expect(knownGivenSimilarity([n("Rozalija"), n("Roza")], [n("Jožefa")]))
+      .toBe(givenSimilarity("Rozalija", "Jožefa"));
+  });
+
+  it("is the primary names' similarity when nobody carries another name", () => {
+    expect(knownGivenSimilarity([n("Milena")], [n("Helena")])).toBe(givenSimilarity("Milena", "Helena"));
+    expect(knownGivenSimilarity([n("Helena")], [n("Helena")])).toBe(1);
+  });
+
+  it("is undefined without a primary given name on both sides", () => {
+    expect(knownGivenSimilarity([n(undefined), n("Helena")], [n("Helena")])).toBeUndefined();
   });
 });
 
