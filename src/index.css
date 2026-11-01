@@ -6842,6 +6842,8 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   color: var(--state-incoming);
   opacity: 1;
 }
+/* The column headers set small caps-size type; the mark keeps its weight there. */
+.compare-col .consolidated-badge { font-size: 1.6em; vertical-align: -0.1em; }
 .tree-import-btn:hover { color: var(--text); border-color: var(--node-incoming); }
 .tree-import-btn.active {
   border-style: solid;
