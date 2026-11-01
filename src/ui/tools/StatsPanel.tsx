@@ -842,6 +842,7 @@ export function StatsPanel({
                 <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={pick.key === "related" ? onOpenRelationship : undefined} />
               )}
             </section>
+            {card("marriageDecade", t("stats.marriagesOverTime"), t("stats.nFamilies", { count: total(fams.marriagesPerPeriod) }), buckets("marriageDecade", t("stats.marriagesOverTime"), fams.marriagesPerPeriod, { families: true, label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(fams.marriagesPerPeriod) }), true)}
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
             {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}

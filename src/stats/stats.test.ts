@@ -231,6 +231,7 @@ describe("aggregates", () => {
     expect(f.firstMarriageFemale.flatMap((b) => b.ids).sort()).toEqual(["@I4@", "@I7@"]);
     expect(f.unionsPerPerson.map((b) => b.count)).toEqual([4, 1, 0]);
     expect(f.marriageMonth[4].ids).toEqual(["@F2@"]);
+    expect(f.marriagesPerPeriod.flatMap((b) => b.ids)).toEqual(["@F1@", "@F2@", "@F3@"]);
     expect(f.firstChild.find((b) => b.key === "0")?.ids).toEqual(["@F2@"]);
     expect(f.children[0].ids).toEqual(["@F3@"]);
     expect(f.mostUnions).toEqual({ id: "@I3@", count: 2 });

@@ -192,6 +192,38 @@ function meanByCentury<T>(
     .map(([century, g]) => ({ century, value: g.sum / g.ids.length, n: g.ids.length, ids: g.ids }));
 }
 
+/** The periods a span of years is cut into, finest first. */
+const PERIODS = [10, 25, 50, 100];
+/** At most this many columns: a file reaching back a thousand years counts by century. */
+const MAX_PERIODS = 40;
+
+/**
+ * Rows per period, from the first period with any to the last, empty ones kept.
+ * The period is the finest of decade, quarter-century, half-century and
+ * century that fits the span in {@link MAX_PERIODS} columns.
+ */
+export function byPeriod<T>(rows: T[], yearOf: (r: T) => number | undefined, idOf: (r: T) => string): Bucket[] {
+  const dated: [number, string][] = [];
+  for (const r of rows) {
+    const y = yearOf(r);
+    if (y !== undefined) dated.push([y, idOf(r)]);
+  }
+  if (!dated.length) return [];
+  let min = Infinity;
+  let max = -Infinity;
+  for (const [y] of dated) { min = Math.min(min, y); max = Math.max(max, y); }
+  const width = PERIODS.find((w) => Math.floor(max / w) - Math.floor(min / w) < MAX_PERIODS) ?? PERIODS[PERIODS.length - 1];
+  const first = Math.floor(min / width) * width;
+  const out: Bucket[] = [];
+  for (let lo = first; lo <= max; lo += width) out.push({ key: String(lo), lo, hi: lo + width - 1, count: 0, ids: [] });
+  for (const [y, id] of dated) {
+    const b = out[Math.floor((y - first) / width)];
+    b.count++;
+    b.ids.push(id);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Per-row readings that honour the scope's "approximate dates" switch.
 
@@ -559,6 +591,8 @@ export interface FamilyStats {
   /** The person in scope with the most unions; ties go to the first found. */
   mostUnions?: { id: string; count: number };
   childrenMean?: Mean;
+  /** Marriages per period of years (see {@link byPeriod}); ids are families. */
+  marriagesPerPeriod: Bucket[];
   /** Marriages per calendar month (1–12); ids are families. */
   marriageMonth: Bucket[];
   /** Marriage places, most frequent first; ids are families. */
@@ -602,6 +636,7 @@ export function familyStats(s: ScopedFacts): FamilyStats {
     mostUnions: [...unions].reduce<{ id: string; count: number } | undefined>((best, [id, count]) => (!best || count > best.count ? { id, count } : best), undefined),
     childrenMean: mean(s.families.map((f) => f.children.length)),
     marriageMonth: month,
+    marriagesPerPeriod: byPeriod(s.families, (f) => (s.approx || !f.marriageApprox ? f.marriageYear : undefined), famId),
     marriagePlaces: rankText(s.families, (f) => [f.marriagePlace], famId),
     firstChild: firstChildBuckets(s.families.filter((f) => f.firstChildMonths !== undefined && (s.approx || !(f.marriageApprox || f.firstChildApprox)))),
     motherFirst: histogram(s.families.filter(parentsOk), (f) => f.motherAgeFirst, famId, marriageBins),
