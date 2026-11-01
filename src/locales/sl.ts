@@ -2730,7 +2730,6 @@ export const sl = {
   "compare.childTaken.title": "Bo dodan — kliknite, če ga ne želite dodati",
   "compare.childAdded.title": "Otrok je že v vaši datoteki in ga lahko uredite v Urejanju — kliknite, da ga odstranite",
   "compare.join.title": "Ob shranjevanju se ta oseba poveže z zapisom {{name}}, ki je že v vaši datoteki. To ujemanje je predlagal program, vi ga niste potrdili — kliknite, da ga odprete ter potrdite ali zavrnete.",
-  "compare.consolidated": "združeno iz {{count}} zapisov",
   "compare.consolidated.title": "Vhodna datoteka ima to osebo v več zapisih ({{ids}}). Pred primerjavo so bili združeni v enega.",
   "compare.added.title": "Oseba je že v vaši datoteki, dodana s tem ujemanjem, zato jo lahko uredite v Urejanju. Ko ujemanje ni več potrjeno, se oseba znova odstrani.",
   "compare.addedElsewhere.title": "Oseba je že v vaši datoteki, dodana z drugim ujemanjem, zato jo lahko uredite v Urejanju.",

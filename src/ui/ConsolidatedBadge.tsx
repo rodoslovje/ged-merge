@@ -8,7 +8,7 @@ export function consolidatedTitle(t: Translate, ids: string[]): string {
 }
 
 /**
- * "Merged from N records" beside an Incoming column header, when the incoming
+ * ⧉ beside an Incoming column header — the Matches list's mark — when the incoming
  * record is one the matcher assembled from several copies of the person
  * (`Dataset.consolidatedFrom`); the tooltip names them. Nothing otherwise.
  */
@@ -17,11 +17,8 @@ export function ConsolidatedBadge({ compareDs, id }: { compareDs: Dataset; id: s
   const from = id ? compareDs.consolidatedFrom?.get(id) : undefined;
   if (!from) return null;
   return (
-    <span
-      className="compare-consolidated"
-      data-tip={consolidatedTitle(t, from)}
-    >
-      {t("compare.consolidated", { count: from.length })}
+    <span className="rel-tree-badge" data-tip={consolidatedTitle(t, from)} aria-label={consolidatedTitle(t, from)}>
+      ⧉
     </span>
   );
 }
