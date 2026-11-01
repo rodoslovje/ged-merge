@@ -1001,27 +1001,6 @@ export function StatsPanel({
                 }}
               />
             ))}
-            {lineage.ancestors.length > 0 && card("childrenByGen", t("stats.childrenByGen"), null, withCsv(
-              "childrenByGen",
-              () => [[t("stats.csv.generation"), t("stats.childrenByGen"), t("stats.csv.counted")], ...lineage.ancestors.map((g) => [g.gen, Math.round(g.childrenMean * 10) / 10, g.ids.length])],
-              <BarList
-                limit={listLimit("childrenByGen", lineage.ancestors.length, 12)}
-                labelWidth="2.5em"
-                picked={pickedIn("childrenByGen")}
-                rows={lineage.ancestors.map((g) => ({
-                  key: String(g.gen),
-                  label: String(g.gen),
-                  value: g.childrenMean,
-                  display: dec(g.childrenMean),
-                  tip: t("stats.nPeople", { count: g.ids.length }),
-                  count: g.ids.length,
-                }))}
-                onPick={(key) => {
-                  const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
-                  choose("childrenByGen", key, `${t("stats.childrenByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
-                }}
-              />,
-            ))}
             {lineage.ancestors.length > 1 && card("ancestorsSide", t("stats.ancestorsBySide"), null, (
               <PairBarList
                 names={[t("stats.side.paternal"), t("stats.side.maternal")]}
@@ -1043,6 +1022,27 @@ export function StatsPanel({
                   choose("ancestorsSide", `${key}:${side}`, `${t(side === "a" ? "stats.side.paternal" : "stats.side.maternal")} — ${t("stats.genLabel", { n: g.gen })}`, (side === "a" ? g.paternal : g.maternal).ids);
                 }}
               />
+            ))}
+            {lineage.ancestors.length > 0 && card("childrenByGen", t("stats.childrenByGen"), null, withCsv(
+              "childrenByGen",
+              () => [[t("stats.csv.generation"), t("stats.childrenByGen"), t("stats.csv.counted")], ...lineage.ancestors.map((g) => [g.gen, Math.round(g.childrenMean * 10) / 10, g.ids.length])],
+              <BarList
+                limit={listLimit("childrenByGen", lineage.ancestors.length, 12)}
+                labelWidth="2.5em"
+                picked={pickedIn("childrenByGen")}
+                rows={lineage.ancestors.map((g) => ({
+                  key: String(g.gen),
+                  label: String(g.gen),
+                  value: g.childrenMean,
+                  display: dec(g.childrenMean),
+                  tip: t("stats.nPeople", { count: g.ids.length }),
+                  count: g.ids.length,
+                }))}
+                onPick={(key) => {
+                  const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
+                  choose("childrenByGen", key, `${t("stats.childrenByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
+                }}
+              />,
             ))}
             {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
               <BarList
