@@ -514,7 +514,7 @@ export function DuplicatesPanel({
             {startId && (
               <label className="tools-dup-score" title={t("filter.kinTooltip")}>
                 <SelectMenu
-                  className="score-select"
+                  className="score-select kin-select"
                   value={kin}
                   onChange={(v) => setKin(v as StatsWho)}
                   options={STATS_WHO.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}

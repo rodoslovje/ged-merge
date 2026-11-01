@@ -192,7 +192,7 @@ export function MatchResults({
             {kinAvailable && (
               <label className="filter-score" title={t("filter.kinTooltip")}>
                 <SelectMenu
-                  className="score-select"
+                  className="score-select kin-select"
                   value={filters.kin ?? "all"}
                   onChange={(v) => onFilters({ ...filters, kin: v as StatsWho })}
                   options={STATS_WHO.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
