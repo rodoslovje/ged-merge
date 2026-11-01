@@ -1755,10 +1755,15 @@ button:focus-visible {
   left: 0;
   z-index: 5;
 }
+/* As wide as the longest name needs, like Edit's relative picker, so a name
+   stays on one line; never narrower than the field, never wider than the screen. */
 .start-options {
   margin: 4px 0 0;
-  right: 0;
-  min-width: 230px;
+  min-width: max(100%, 230px);
+  width: max-content;
+  max-width: min(560px, 80vw);
+  box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 .start-option,
 .relative-picker-option {
@@ -2287,14 +2292,6 @@ button:focus-visible {
    do, since picking the wrong person is the cost. */
 .relative-picker-option .person-name,
 .start-option .person-name { white-space: normal; overflow-wrap: anywhere; }
-/* The start-person list reads like the global search: one line per person,
-   the name in medium weight and kept whole while the place gives way. */
-.start-options { min-width: min(400px, calc(100vw - 32px)); }
-.start-option { padding: 4px 8px; }
-.start-option .person-label { flex-wrap: wrap; gap: 0 10px; align-items: baseline; }
-.start-option .person-name { font-weight: 500; flex: 0 1 auto; }
-.start-option .person-xref { color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
-.start-option .person-years { font-variant-numeric: tabular-nums; }
 /* Where the person lived, in every person search, gives way before the name
    does: it shrinks first and is cut short, and the tooltip writes it out in full. */
 .relative-picker-option .person-place,
