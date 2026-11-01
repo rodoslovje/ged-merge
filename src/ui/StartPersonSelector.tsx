@@ -247,8 +247,8 @@ export function StartPersonSelector({
                   >
                     <span className={`person-label ${sexClass(o.sex)}`}>
                       <span className="person-name">{o.name}</span>
-                      {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
-                      {o.span && <span className="person-years gm-data"><YearsText text={o.span} approx={lifespanApproxOf(individuals.get(o.id))} /></span>}
+                      {settings.showXref && <span className="person-xref">{o.xref}</span>}
+                      {o.span && <span className="person-years"><YearsText text={o.span} approx={lifespanApproxOf(individuals.get(o.id))} /></span>}
                       {home && <span className="person-place">{home.label}</span>}
                     </span>
                   </button>
