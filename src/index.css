@@ -1767,6 +1767,7 @@ button:focus-visible {
   /* The size Edit's relative picker reads at. */
   font-size: 0.88rem;
 }
+.start-options.align-right { left: auto; right: 0; }
 .start-option,
 .relative-picker-option {
   display: block;

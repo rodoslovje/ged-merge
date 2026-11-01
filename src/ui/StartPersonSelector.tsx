@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { KEY, keyHint } from "../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
@@ -149,6 +149,22 @@ export function StartPersonSelector({
   }, [query]);
 
   // Keep the highlighted option scrolled into view as it moves.
+  // The list is as wide as its names, so beside a right edge that clips it
+  // (the window, a panel that hides its overflow) it would be cut off: there
+  // it opens leftward from the field's right edge instead.
+  const [alignRight, setAlignRight] = useState(false);
+  const showList = open && query.trim() !== "";
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const field = list?.parentElement;
+    if (!showList || !list || !field) return;
+    let right = document.documentElement.clientWidth;
+    for (let p = field.parentElement; p; p = p.parentElement) {
+      if (getComputedStyle(p).overflowX !== "visible") right = Math.min(right, p.getBoundingClientRect().right);
+    }
+    setAlignRight(field.getBoundingClientRect().left + list.offsetWidth > right);
+  }, [showList, filtered]);
+
   useEffect(() => {
     if (!open) return;
     const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
@@ -222,8 +238,8 @@ export function StartPersonSelector({
             ×
           </button>
         )}
-        {open && query.trim() !== "" && (
-          <ul className="start-options" ref={listRef}>
+        {showList && (
+          <ul className={alignRight ? "start-options align-right" : "start-options"} ref={listRef}>
             {filtered.map((o, i) => {
               const cls = [
                 "start-option",
