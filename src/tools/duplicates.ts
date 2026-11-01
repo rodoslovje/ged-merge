@@ -74,13 +74,17 @@ export interface DuplicateCluster {
   maxScore: number;
 }
 
+/** How the duplicate clusters are listed (see {@link clusterDuplicates}). */
+export type DuplicateOrder = "score" | "size";
+
 /**
  * Group duplicate pairs into connected clusters via union-find. Two pairs join
- * the same cluster when they share a record. Clusters are returned sorted so
- * the messiest blobs surface first: by pair count descending, then by top
- * score — a 20-pair same-name tangle outranks a lone high-confidence pair.
+ * the same cluster when they share a record. Clusters are returned sorted by
+ * `order`: `"score"` (the default) puts the surest duplicates first — top
+ * score, then pair count; `"size"` the messiest blobs — pair count, then top
+ * score, so a 20-pair same-name tangle outranks a lone high-confidence pair.
  */
-export function clusterDuplicates(pairs: DuplicatePair[]): DuplicateCluster[] {
+export function clusterDuplicates(pairs: DuplicatePair[], order: DuplicateOrder = "score"): DuplicateCluster[] {
   const parent = new Map<string, string>();
   const find = (x: string): string => {
     let root = x;
@@ -124,7 +128,9 @@ export function clusterDuplicates(pairs: DuplicatePair[]): DuplicateCluster[] {
       maxScore: pairsSorted[0]?.score ?? 0,
     });
   }
-  clusters.sort((a, b) => b.pairs.length - a.pairs.length || b.maxScore - a.maxScore);
+  clusters.sort(order === "size"
+    ? (a, b) => b.pairs.length - a.pairs.length || b.maxScore - a.maxScore
+    : (a, b) => b.maxScore - a.maxScore || b.pairs.length - a.pairs.length);
   return clusters;
 }
 

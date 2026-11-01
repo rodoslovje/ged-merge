@@ -5,6 +5,7 @@ import {
   makeDuplicatePair,
   duplicatePairKey,
   clusterDuplicates,
+  type DuplicateOrder,
   type DuplicatePair,
   type DuplicateCluster,
 } from "../../tools/duplicates";
@@ -113,6 +114,8 @@ export function DuplicatesPanel({
   const [minScore, setMinScore] = useState(DEFAULT_MIN_SCORE);
   // Only pairs touching the start person's line of this kind show.
   const [kin, setKin] = useState<StatsWho>("all");
+  // Surest duplicates first, or the biggest tangles first.
+  const [order, setOrder] = useState<DuplicateOrder>("score");
   // Multi-pair clusters whose member pairs are currently unfolded. Empty by
   // default → blobs start collapsed to one header row each.
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
@@ -192,8 +195,8 @@ export function DuplicatesPanel({
   // rejected list). A multi-pair cluster is a same-name blob the user can fold
   // away or dismiss wholesale; a lone pair stays a plain row.
   const clusters = useMemo(
-    () => (showRejected ? [] : clusterDuplicates(shown)),
-    [shown, showRejected],
+    () => (showRejected ? [] : clusterDuplicates(shown, order)),
+    [shown, showRejected, order],
   );
 
   // Flatten clusters → display rows. A collapsed multi-pair cluster still shows
@@ -373,7 +376,7 @@ export function DuplicatesPanel({
   useEffect(() => {
     if (pendingOpenKey.current) return;
     setSelected(0);
-  }, [q, minScore, showRejected, kin]);
+  }, [q, minScore, showRejected, kin, order]);
   useEffect(() => {
     setSelected((i) => (rows.length === 0 ? 0 : Math.min(i, rows.length - 1)));
   }, [rows.length]);
@@ -515,6 +518,16 @@ export function DuplicatesPanel({
                   value={kin}
                   onChange={(v) => setKin(v as StatsWho)}
                   options={STATS_WHO.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
+                />
+              </label>
+            )}
+            {!showRejected && (
+              <label className="tools-dup-score" title={t("tools.duplicates.orderTooltip")}>
+                <SelectMenu
+                  className="score-select"
+                  value={order}
+                  onChange={(v) => setOrder(v as DuplicateOrder)}
+                  options={(["score", "size"] as const).map((o) => ({ value: o, label: t(`tools.duplicates.order.${o}`) }))}
                 />
               </label>
             )}
