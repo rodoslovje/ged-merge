@@ -1139,11 +1139,12 @@ export function StatsPanel({
               <p className="tools-clean">{t("stats.noLineage")}</p>
             )}
             {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
-              <ul className="stats-walls stats-walls-plain">
+              <ul className="stats-walls">
                 {lineage.repeated.slice(0, listLimit("repeatedAncestors", lineage.repeated.length, 12)).map((r) => (
                   <li key={r.id}>
+                    <span className="muted stats-walls-gen">{r.gens[0]}</span>
                     <NameLink dataset={dataset} id={r.id} onNavigate={onNavigate} />
-                    <span className="muted stats-walls-missing" {...tipProps(t("stats.repeatedTip", { count: r.count }))}>{gensLabel(r.gens)}</span>
+                    <span className="muted stats-walls-missing" {...tipProps(`${t("stats.repeatedTip", { count: r.count })}: ${gensLabel(r.gens)}`)}>×{num(r.count)}</span>
                   </li>
                 ))}
               </ul>
