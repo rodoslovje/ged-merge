@@ -97,6 +97,8 @@ export interface FamilyFacts {
   marriageYear?: number;
   marriageMonth?: number;
   marriageApprox: boolean;
+  /** The first marriage event's place as written, `""` for none. */
+  marriagePlace: string;
   /** The year the family is dated by: its marriage, else its first child's birth. */
   year?: number;
   /** That year rests on an approximate date. */
@@ -341,6 +343,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       marriageYear: marr?.year,
       marriageMonth: marr?.month,
       marriageApprox: marrApprox,
+      marriagePlace: fam.events.find((e) => e.tag === "MARR" && e.place?.raw.trim())?.place?.raw.trim() ?? "",
       year: marr?.year ?? first?.year,
       yearApprox: marr ? marrApprox : isApproximate(first),
       husbandAge: marr ? ageBetween(hb, marr) : undefined,

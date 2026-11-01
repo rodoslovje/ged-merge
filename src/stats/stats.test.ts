@@ -237,6 +237,16 @@ describe("aggregates", () => {
     expect(f.childrenMean).toEqual({ value: 1, n: 3 });
   });
 
+  it("ranks marriage places by family, folding accents and case", () => {
+    const fams: [string, string][] = [["@F1@", "2 PLAC Šmartin"], ["@F2@", "2 PLAC smartin"], ["@F3@", "2 PLAC Kranj"], ["@F4@", "2 DATE 1900"]];
+    const ds = dataset(["0 HEAD", ...fams.flatMap(([id, line], i) => [
+      `0 @I${i}@ INDI`, `1 FAMS ${id}`, `0 ${id} FAM`, `1 HUSB @I${i}@`, "1 MARR", line,
+    ]), "0 TRLR"].join("\n"));
+    const facts = buildStatsFacts(ds);
+    const f = familyStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
+    expect(f.marriagePlaces.map((b) => [b.label, b.ids])).toEqual([["Šmartin", ["@F1@", "@F2@"]], ["Kranj", ["@F3@"]]]);
+  });
+
   it("leaves a family dated only by an approximate child out of the century means by default", () => {
     const ds = dataset(`0 HEAD
 0 @I1@ INDI

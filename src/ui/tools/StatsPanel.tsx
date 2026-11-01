@@ -299,7 +299,7 @@ export function StatsPanel({
     if (!next.delete(card)) next.add(card);
     return next;
   });
-  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false) => withCsv(
+  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false, families = false) => withCsv(
     card,
     () => [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
     <BarList
@@ -320,7 +320,7 @@ export function StatsPanel({
       }))}
       onPick={(key) => {
         const b = list.find((x) => x.key === key)!;
-        choose(card, key, `${title} — ${b.label}`, b.ids);
+        choose(card, key, `${title} — ${b.label}`, b.ids, families);
       }}
     />
   );
@@ -791,6 +791,7 @@ export function StatsPanel({
             {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}
             {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
+            {card("marriagePlaces", t("stats.marriagePlaces"), t("stats.nFamilies", { count: total(fams.marriagePlaces) }), ranked("marriagePlaces", t("stats.marriagePlaces"), fams.marriagePlaces, 15, undefined, true, true))}
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
             {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
             {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}

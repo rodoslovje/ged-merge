@@ -511,6 +511,8 @@ export interface FamilyStats {
   childrenMean?: Mean;
   /** Marriages per calendar month (1–12); ids are families. */
   marriageMonth: Bucket[];
+  /** Marriage places, most frequent first; ids are families. */
+  marriagePlaces: Bucket[];
   /** Months from marriage to the first child; ids are families. */
   firstChild: Bucket[];
   /** Mother's age at her first and last child in the family; ids are families. */
@@ -550,6 +552,7 @@ export function familyStats(s: ScopedFacts): FamilyStats {
     mostUnions: [...unions].reduce<{ id: string; count: number } | undefined>((best, [id, count]) => (!best || count > best.count ? { id, count } : best), undefined),
     childrenMean: mean(s.families.map((f) => f.children.length)),
     marriageMonth: month,
+    marriagePlaces: rankText(s.families, (f) => [f.marriagePlace], famId),
     firstChild: firstChildBuckets(s.families.filter((f) => f.firstChildMonths !== undefined && (s.approx || !(f.marriageApprox || f.firstChildApprox)))),
     motherFirst: histogram(s.families.filter(parentsOk), (f) => f.motherAgeFirst, famId, marriageBins),
     motherLast: histogram(s.families.filter(parentsOk), (f) => f.motherAgeLast, famId, marriageBins),
