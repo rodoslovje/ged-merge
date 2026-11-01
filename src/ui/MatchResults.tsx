@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { consolidatedTitle } from "./ConsolidatedBadge";
+import type { StatsWho } from "../stats/scope";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -46,6 +47,8 @@ interface Props {
   mainDataset: Dataset | undefined;
   /** The incoming dataset, read for the records the matcher consolidated. */
   compareDataset?: Dataset;
+  /** A start person is set, so the list can be narrowed to their relatives. */
+  kinAvailable?: boolean;
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -66,6 +69,8 @@ const ICON_PROPS = {
   "aria-hidden": true,
 } as const;
 
+const KIN_FILTERS: StatsWho[] = ["all", "blood", "ancestors", "descendants"];
+
 export function MatchResults({
   result,
   sort,
@@ -81,6 +86,7 @@ export function MatchResults({
   kinshipByMain,
   mainDataset,
   compareDataset,
+  kinAvailable,
 }: Props) {
   const { t } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -185,6 +191,16 @@ export function MatchResults({
                 }))}
               />
             </label>
+            {kinAvailable && (
+              <label className="filter-score" title={t("filter.kinTooltip")}>
+                <SelectMenu
+                  className="score-select"
+                  value={filters.kin ?? "all"}
+                  onChange={(v) => onFilters({ ...filters, kin: v as StatsWho })}
+                  options={KIN_FILTERS.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
+                />
+              </label>
+            )}
             <label className="filter-check" title={t("filter.newPeopleTooltip")}>
               <input
                 type="checkbox"

@@ -32,8 +32,9 @@ export interface ScopedFacts {
   approx: boolean;
 }
 
-/** The kinship set a scope reads, the start person included. */
-function lineOf(who: StatsWho, kinship: KinshipSets | null, startId: string | undefined): Set<string> | null {
+/** The kinship set a scope reads, the start person included. Also the Matches
+ *  list's kin filter, so both count the start person's lines alike. */
+export function lineOf(who: StatsWho, kinship: KinshipSets | null, startId: string | undefined): Set<string> | null {
   if (who === "all") return null;
   if (!kinship || !startId) return new Set();
   const set = who === "blood" ? kinship.blood : who === "ancestors" ? kinship.ancestors : kinship.descendants;

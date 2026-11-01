@@ -100,6 +100,8 @@ import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { homePlaceOf } from "./chart/nodeDisplay";
+import { computeKinship } from "./tools/batch";
+import { lineOf } from "./stats/scope";
 import { personOptionTitle } from "./ui/edit/RelativePickerCard";
 import { fullTextLookup, type FilterContext } from "./ui/globalSearch";
 import { useSearchIndex } from "./ui/useSearchIndex";
@@ -962,8 +964,20 @@ function AppContent() {
   // The merge "match list" view-model (ranked/filtered lists, selection, index
   // maps) — pure derivation, extracted to a hook. The stateful setters
   // (sort/filters) and navigation callbacks stay here.
+  // The main ids the kin filter keeps — the start person's line, walked only
+  // while the filter asks for one.
+  const kinLineOf = (f: Filters): Set<string> | undefined => {
+    const who = f.kin ?? "all";
+    if (who === "all" || !startId || !mainDataset) return undefined;
+    return lineOf(who, computeKinship(mainDataset, startId), startId) ?? undefined;
+  };
+  const kinLine = useMemo(
+    () => kinLineOf(filters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filters.kin, startId, mainDataset],
+  );
   const { allSorted, visible, visibleMainOrder, current, visibleIndex, indexByMain, indexByCompare } =
-    useMatchList({ matches, sort, filters, decisions, selectedId });
+    useMatchList({ matches, sort, filters, decisions, selectedId, kinLine });
 
   // Refs used by the stable callbacks and the arrow-key effect so they don't
   // need to re-register whenever visible changes.
@@ -1126,7 +1140,8 @@ function AppContent() {
   // When filters change: keep current person if they survive the new filter;
   // otherwise jump to the first person in the new filtered list.
   function handleFilters(f: Filters) {
-    const newVisible = visibleCandidates(allSorted, f, decisions);
+    const newKinLine = f.kin === filters.kin ? kinLine : kinLineOf(f);
+    const newVisible = visibleCandidates(allSorted, f, decisions, newKinLine);
     const currentStillVisible = current
       ? newVisible.some(c => c.mainId === current.mainId && c.compareId === current.compareId)
       : false;

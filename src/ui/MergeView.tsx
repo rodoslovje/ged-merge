@@ -375,6 +375,7 @@ export function MergeView({
                   kinshipByMain={kinshipByMain}
                   mainDataset={mainDataset}
                   compareDataset={compareDataset}
+                  kinAvailable={!!startId}
                 />
               </Section>
             </div>
