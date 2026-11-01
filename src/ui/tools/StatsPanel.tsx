@@ -732,6 +732,12 @@ export function StatsPanel({
               [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
+            {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
+              { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
+              { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
+              { key: "daughterMother", label: t("stats.namesake.daughterMother"), share: names.namesakes.daughterMother, tone: "female" },
+              { key: "daughterGrandmother", label: t("stats.namesake.daughterGrandmother"), share: names.namesakes.daughterGrandmother, tone: "female" },
+            ], false))}
             {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
             {card("nameKinds", t("stats.nameKinds"), t("stats.nPeople", { count: scoped.people.length }), (() => {
               // The kinds of additional name the people carry, then the primary
@@ -757,12 +763,6 @@ export function StatsPanel({
                 />,
               );
             })())}
-            {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
-              { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
-              { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
-              { key: "daughterMother", label: t("stats.namesake.daughterMother"), share: names.namesakes.daughterMother, tone: "female" },
-              { key: "daughterGrandmother", label: t("stats.namesake.daughterGrandmother"), share: names.namesakes.daughterGrandmother, tone: "female" },
-            ], false))}
           </>
         )}
 
