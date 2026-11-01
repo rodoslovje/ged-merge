@@ -127,9 +127,12 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
 }) {
   const { t } = useTranslation();
   const formatName = useNameOf();
-  const male = kinshipLabelFor(group.up, group.down, "M", t);
-  const female = kinshipLabelFor(group.up, group.down, "F", t);
-  const heading = male === female ? male : `${male} · ${female}`;
+  // Every word the group's relatives go by — a mother's brother is named apart
+  // from a father's in Slovenian (ujec / stric).
+  const lines = [...new Set(group.members.filter((r) => !r.partnerOf).map((r) => r.side))];
+  const heading = [...new Set((["M", "F"] as const).flatMap((sex) =>
+    (lines.length ? lines : [undefined]).map((side) => kinshipLabelFor(group.up, group.down, sex, t, side)),
+  ))].filter(Boolean).join(" · ");
 
   const chip = (r: WiderRelative) => {
     const indi = dataset.individuals.get(r.id);
@@ -145,7 +148,7 @@ function WiderGroupBlock({ group, dataset, navigate, showAge }: {
           t("edit.wider.partnerOf", { name: formatName(partnerOf) }),
           union?.ended && t(union.ended === "divorced" ? "event.DIV" : "event.SEPA"),
         ].filter(Boolean).join(" · ")
-      : kinshipLabelFor(r.up, r.down, indi.sex, t);
+      : kinshipLabelFor(r.up, r.down, indi.sex, t, r.side);
     return (
       <button
         key={r.id}
