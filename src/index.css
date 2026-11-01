@@ -9384,6 +9384,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-scope .tools-search-input { padding-right: 10px; }
 .stats-scope .stats-year { width: 6.5em; }
 .stats-scope .stats-scope-place { width: 16em; max-width: 100%; }
+/* A filter beside the others, not a heading: worded like "Born". */
+.stats-scope .tools-norm-check { color: var(--muted); font-size: 0.9rem; }
 /* Every bar fills with --stats-bar: the accent, or a sex's colour wherever a
    card, list, row or the whole scope is about one sex only — the nearest wins. */
 .stats-grid { --stats-bar: var(--accent); --stats-track: var(--panel-2); }
