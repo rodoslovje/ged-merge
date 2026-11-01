@@ -166,6 +166,11 @@ describe("knownGivenSimilarity", () => {
     expect(sim).toBe(ALIAS_GIVEN_CEILING);
   });
 
+  it("ignores an alias that only resembles the other name", () => {
+    expect(knownGivenSimilarity([n("Rozalija"), n("Roza")], [n("Jožefa")]))
+      .toBe(givenSimilarity("Rozalija", "Jožefa"));
+  });
+
   it("is the primary names' similarity when nobody carries another name", () => {
     expect(knownGivenSimilarity([n("Milena")], [n("Helena")])).toBe(givenSimilarity("Milena", "Helena"));
     expect(knownGivenSimilarity([n("Helena")], [n("Helena")])).toBe(1);

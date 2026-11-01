@@ -188,7 +188,7 @@ A weighted average over comparable components (0..1, shown as 0–100):
 | Component | Weight | Notes |
 |---|---|---|
 | surname | 3 | identity key |
-| given | 2 | identity key; best pair across both people's names (`knownGivenSimilarity`) — an agreement only an additional `NAME` makes (Milena aka Helena ~ Helena) counts at most `ALIAS_GIVEN_CEILING` (0.95), so it clears the same-person bar but never makes the key exact |
+| given | 2 | identity key; best pair across both people's names (`knownGivenSimilarity`) — an additional `NAME` counts only when it reaches `SAME_PERSON_GIVEN` (nickname Roza merely resembling Jožefa does not), and an agreement only it makes (Milena aka Helena ~ Helena) counts at most `ALIAS_GIVEN_CEILING` (0.95), so it clears the same-person bar but never makes the key exact |
 | birthDate | 3 | identity key |
 | birthPlace / birthAddress | 1.5 / 1.5 | locality compared without the house number; same house number is decisive |
 | deathDate / deathPlace | 1.5 / 0.75 | corroboration only — absence is skipped, not penalized |

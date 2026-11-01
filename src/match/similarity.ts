@@ -305,6 +305,9 @@ export const ALIAS_GIVEN_CEILING = 0.95;
  * person carries other given names in additional `NAME` records (aka, birth,
  * religious name…) — of the closest pair across all of them, an agreement
  * that only an alias makes counting at most {@link ALIAS_GIVEN_CEILING}.
+ * An alias counts only once it names the same person ({@link SAME_PERSON_GIVEN}):
+ * a nickname Roza merely resembling Jožefa lifted Rozalija Pirnat's pair with
+ * her sister out of the given-name conflict penalty.
  * `aNames`/`bNames` are the people's names, primary first.
  */
 export function knownGivenSimilarity(aNames: readonly PersonName[], bNames: readonly PersonName[]): number | undefined {
@@ -319,7 +322,8 @@ export function knownGivenSimilarity(aNames: readonly PersonName[], bNames: read
     for (const bn of bNames) {
       if (an === aNames[0] && bn === bNames[0]) continue;
       const bg = comparableName(bn)?.given;
-      if (bg) best = Math.max(best, Math.min(ALIAS_GIVEN_CEILING, givenSimilarity(ag, bg)));
+      const sim = bg ? givenSimilarity(ag, bg) : 0;
+      if (sim >= SAME_PERSON_GIVEN) best = Math.max(best, Math.min(ALIAS_GIVEN_CEILING, sim));
     }
   }
   return best;
