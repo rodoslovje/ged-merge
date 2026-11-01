@@ -73,6 +73,8 @@ describe("cross-language given names", () => {
       ["Terezija", "Reza"],
       ["Rudolf", "Rudi"],
       ["Anton", "Tone"],
+      ["Stanislav", "Stane"],
+      ["Stanislav", "Stanko"],
       ["Alojz", "Lojze"],
       ["Ignacij", "Nace"],
       ["Frančišek", "Franci"],

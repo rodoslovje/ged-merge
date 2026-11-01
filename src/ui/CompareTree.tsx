@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { STATUS_KEY } from "../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import type { MatchResult } from "../match/types";
+import type { MatchCandidate, MatchResult } from "../match/types";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, importKey, parseImportKey, pendingJoins, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "../review/types";
 import { previewBranchJoins } from "../merge/materialize";
@@ -54,6 +54,7 @@ import { marriedNameOverride, pedigreeVariant, useChartSettings, type PedigreeTy
 import { ChartKindTabs, PEDIGREE_KINDS, PedigreeVariantTabs } from "./ChartKindTabs";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
+import { ScoreBadge } from "./ScoreBadge";
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
@@ -512,6 +513,16 @@ export function CompareTree({
     : selectedKey
       ? nodesByKey.get(selectedKey)
       : undefined;
+  // The selected pair's own row in the match list, for its score — looked up
+  // once per selection, not per node.
+  const selectedMainId = selected?.main?.id;
+  const selectedCompareId = selected?.incoming?.id;
+  const selectedCandidate = useMemo(
+    () => selectedMainId && selectedCompareId
+      ? matches.individuals.find((c) => c.mainId === selectedMainId && c.compareId === selectedCompareId)
+      : undefined,
+    [matches, selectedMainId, selectedCompareId],
+  );
 
   return (
     <ChartPage
@@ -650,6 +661,7 @@ export function CompareTree({
         {selected && (
           <NodeCompare
             node={selected}
+            candidate={selectedCandidate}
             mainDs={mainDs}
             compareDs={compareDs}
             maps={maps}
@@ -786,6 +798,7 @@ function TreeLegend({
 /** Floating Main↔Incoming field table for the selected person (top-right). */
 function NodeCompare({
   node,
+  candidate,
   mainDs,
   compareDs,
   maps,
@@ -803,6 +816,8 @@ function NodeCompare({
 }: {
   /** The selected node — a laid tree node or a fan segment's person node. */
   node: TreeNode;
+  /** The pair's match-list row, when it has one — its score heads the panel. */
+  candidate: MatchCandidate | undefined;
   mainDs: Dataset;
   compareDs: Dataset;
   maps: MatchMaps;
@@ -903,6 +918,7 @@ function NodeCompare({
       titleHint={matchLink ? t("tree.openInMatches") : undefined}
       kinship={kinship}
       kinshipLineage={kinshipLineage}
+      score={candidate && <ScoreBadge candidate={candidate} className="score-inline" />}
       badges={decisionBar}
       extraActions={
         node.main ? (
