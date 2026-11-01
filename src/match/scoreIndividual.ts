@@ -20,6 +20,7 @@ import {
   fatherGivenVerdict,
   givenNameSetSimilarity,
   givenSimilarity,
+  knownGivenSimilarity,
   motherVerdict,
   nameSetSimilarity,
   nameSimilarity,
@@ -124,7 +125,9 @@ function scorePair(
       : undefined;
   addKey(components, "surname", w.surname, surnameSim, config.missingKeyScore, dt ? `${mn?.surname ?? "—"} ~ ${cn?.surname ?? "—"}` : undefined, nameWeight);
 
-  const givenSim = mn?.given && cn?.given ? givenSimilarity(mn.given, cn.given) : undefined;
+  // Additional names count too: a Milena also known as Helena is an incoming
+  // Helena's match, not a given-name conflict (see `knownGivenSimilarity`).
+  const givenSim = mn?.given && cn?.given ? knownGivenSimilarity(main.names, compare.names) : undefined;
   addKey(components, "given", w.given, givenSim, config.missingKeyScore, dt ? `${mn?.given ?? "—"} ~ ${cn?.given ?? "—"}` : undefined, nameWeight);
 
   const mb = keyEvent(main, BIRTH_TAGS);

@@ -188,7 +188,7 @@ A weighted average over comparable components (0..1, shown as 0–100):
 | Component | Weight | Notes |
 |---|---|---|
 | surname | 3 | identity key |
-| given | 2 | identity key |
+| given | 2 | identity key; best pair across both people's names (`knownGivenSimilarity`) — an agreement only an additional `NAME` makes (Milena aka Helena ~ Helena) counts at most `ALIAS_GIVEN_CEILING` (0.95), so it clears the same-person bar but never makes the key exact |
 | birthDate | 3 | identity key |
 | birthPlace / birthAddress | 1.5 / 1.5 | locality compared without the house number; same house number is decisive |
 | deathDate / deathPlace | 1.5 / 0.75 | corroboration only — absence is skipped, not penalized |
@@ -518,7 +518,13 @@ name adjusted by the birth year, paired greedily above
   real child. `givenNameSetSimilarity` drops the surname in the matcher for
   exactly this reason. The bar is then a given-name bar, and deliberately the
   same 0.85 as `SAME_PERSON_GIVEN`; it is the equivalence table, not a lower
-  bar, that carries `Rudi`/`Rudolf` and `Neža`/`Agnes` over it.
+  bar, that carries `Rudi`/`Rudolf` and `Neža`/`Agnes` over it. A child's
+  additional names count as in the matcher (`knownGivenSimilarity`), so a
+  Milena recorded also as Helena pairs with an incoming Helena.
+
+A pair the user has **confirmed** (passed in as incoming id → main id) outranks
+every name: it is taken first, whatever the two files call the child, and an
+incoming relative confirmed as someone else pairs with nobody by name.
 
 Two further rules keep the year in its place — it corroborates a name, it
 never replaces one:

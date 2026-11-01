@@ -1831,6 +1831,43 @@ describe("aligned relative lists (children/partners)", () => {
     });
   });
 
+  // Milena, known also as Helena, against an incoming Helena born the same day.
+  describe("a child's additional names and confirmed pairs", () => {
+    const famN = (kids: string[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Anton /Tiringer/\n1 SEX M\n1 FAMS @F@\n` +
+      kids.map((k, i) => `0 @K${i}@ INDI\n${k}1 FAMC @F@\n`).join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+    const childrenOf = (md: ReturnType<typeof dataset>, cd: ReturnType<typeof dataset>, confirmed?: Map<string, string>) =>
+      byKey(
+        individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd, undefined, undefined, false, confirmed),
+        "fam.@F@.children",
+      )!;
+    const milena = "1 NAME Milena /Tiringer/\n1 NAME Helena /Tiringer/\n2 TYPE aka\n1 BIRT\n2 DATE 21 MAR 1949\n";
+    const helena = "1 NAME Helena /Tiringer/\n1 BIRT\n2 DATE 21 MAR 1949\n";
+
+    it("pairs a child through a name she is also known by", () => {
+      const children = childrenOf(dataset(famN([milena])), dataset(famN([helena])));
+      expect(children.relatives).toHaveLength(1);
+      expect(children.relatives![0].incoming?.name).toContain("Helena");
+    });
+
+    it("pairs a confirmed child whatever the two files call her", () => {
+      const md = dataset(famN(["1 NAME Milena /Tiringer/\n1 BIRT\n2 DATE 1949\n"]));
+      const cd = dataset(famN([helena]));
+      expect(childrenOf(md, cd).relatives).toHaveLength(2);
+      const children = childrenOf(md, cd, new Map([["@K0@", "@K0@"]]));
+      expect(children.relatives).toHaveLength(1);
+      expect(children.relatives![0]).toMatchObject({ main: { id: "@K0@" }, incoming: { id: "@K0@" } });
+    });
+
+    it("never pairs by name an incoming child confirmed as someone else", () => {
+      const children = childrenOf(dataset(famN([milena])), dataset(famN([helena])), new Map([["@K0@", "@X@"]]));
+      expect(children.relatives).toHaveLength(2);
+    });
+  });
+
   // Children listed in non-chronological order in the file are shown sorted by birth.
   it("lists children sorted by birth date", () => {
     const text =

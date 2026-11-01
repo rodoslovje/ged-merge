@@ -5,7 +5,7 @@ import { decomposePlace } from "../gedcom/place";
 import { eventAddressFullText } from "../gedcom/address";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
+import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, knownGivenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateText, dateToSortKey, parseDate } from "../gedcom/date";
@@ -170,6 +170,10 @@ export function individualFieldRows(
   /** Append the age at each event date (person / parents / couple), matching the
    *  Edit view's "Show ages" setting. Off by default so other callers are unchanged. */
   showAge = false,
+  /** The people already confirmed as one, incoming id → main id
+   *  ({@link confirmedPeople}): a confirmed child shares its line however
+   *  differently the two records name it. */
+  confirmed?: ReadonlyMap<string, string>,
 ): FieldRow[] {
   const rows: FieldRow[] = [];
   const mn = main?.names[0];
@@ -224,7 +228,7 @@ export function individualFieldRows(
   // spouse so every decision about a person is made in one place.
   if (mainDs && compareDs) {
     buildParentRows(rows, t, main, compare, mainDs, compareDs, showAge);
-    buildFamilyRows(rows, t, main, compare, mainDs, compareDs, showAge);
+    buildFamilyRows(rows, t, main, compare, mainDs, compareDs, showAge, confirmed);
   }
   return rows;
 }
@@ -461,6 +465,7 @@ function buildFamilyRows(
   mainDs: Dataset,
   compareDs: Dataset,
   showAge: boolean,
+  confirmed: ReadonlyMap<string, string> | undefined,
 ): void {
   const famPairs = pairFamilies(main, compare, mainDs, compareDs);
   famPairs.forEach((pair) => {
@@ -583,7 +588,7 @@ function buildFamilyRows(
     if (mChildRels.length > 0 || cChildRels.length > 0) {
       rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
       pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels,
-        { displayLabel: "", perChildChoice: true, kind: "child" });
+        { displayLabel: "", perChildChoice: true, kind: "child", confirmed });
     }
   });
 }
@@ -603,6 +608,7 @@ function partnerToRelative(partner: Individual, showAge = false): Relative {
   return {
     id: partner.id,
     name: partner.names[0],
+    names: partner.names,
     text: lifespanLabel(partner),
     full: fullDatesLabel(partner),
     birthYear: birth?.year,
@@ -792,6 +798,9 @@ interface Relative {
   /** The relative's individual id, used to link/navigate to them. */
   id?: string;
   name: PersonName | undefined;
+  /** Every name the relative carries, primary first — an aka "Helena" on a
+   *  Milena lets her pair with an incoming Helena. */
+  names?: readonly PersonName[];
   text: string;
   /** Full-date variant for the hover tooltip; falls back to text when absent. */
   full?: string;
@@ -973,11 +982,11 @@ function pushRelativesRow(
   label: string,
   main: Relative[],
   incoming: Relative[],
-  opts: { displayLabel?: string; perChildChoice?: boolean; kind?: RelativeKind } = {},
+  opts: { displayLabel?: string; perChildChoice?: boolean; kind?: RelativeKind; confirmed?: ReadonlyMap<string, string> } = {},
 ): void {
   if (main.length === 0 && incoming.length === 0) return;
-  const { displayLabel, perChildChoice, kind = "partner" } = opts;
-  const pairs = alignRelatives(main, incoming, kind);
+  const { displayLabel, perChildChoice, kind = "partner", confirmed } = opts;
+  const pairs = alignRelatives(main, incoming, kind, confirmed);
   // Joined text is still kept so comparison/state and the merge's default choice
   // (main-if-present) work; rendering uses the structured `relatives` pairs.
   const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
@@ -1098,11 +1107,25 @@ function samePartner(a: Relative, b: Relative): boolean {
  * considered, and a Marija only reaches a sibling's year once her own record
  * has no counterpart left. What best-first cannot settle is a genuine tie —
  * see the ambiguity guard below.
+ *
+ * A pair the user has confirmed (`confirmed`, incoming id → main id) outranks
+ * every name: it is taken first, and an incoming relative confirmed as someone
+ * *else* pairs with nobody here by name.
  */
-function alignRelatives(main: Relative[], incoming: Relative[], kind: RelativeKind): RelativePair[] {
+function alignRelatives(
+  main: Relative[],
+  incoming: Relative[],
+  kind: RelativeKind,
+  confirmed?: ReadonlyMap<string, string>,
+): RelativePair[] {
   const cand: { mi: number; ii: number; sim: number }[] = [];
   main.forEach((m, mi) =>
     incoming.forEach((c, ii) => {
+      const confirmedAs = c.id ? confirmed?.get(c.id) : undefined;
+      if (confirmedAs !== undefined) {
+        if (confirmedAs === m.id) cand.push({ mi, ii, sim: Infinity });
+        return;
+      }
       const sim = relativeSimilarity(m, c, kind);
       if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ mi, ii, sim });
     }),
@@ -1206,9 +1229,10 @@ function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "part
   // discriminates, so between children only the given name is compared, and
   // the bar becomes a given-name bar. The matcher drops the surname for the
   // same reason — see `givenNameSetSimilarity`. Partners keep the whole name:
-  // there the surname is real evidence, not a shared inheritance.
+  // there the surname is real evidence, not a shared inheritance. A child's
+  // additional names count as the matcher counts them (`knownGivenSimilarity`).
   const nameSim = kind === "child"
-    ? givenSimilarity(an.given, bn.given)
+    ? knownGivenSimilarity(a.names ?? [an], b.names ?? [bn]) ?? 0
     : nameSimilarity(an, bn) ?? 0;
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;

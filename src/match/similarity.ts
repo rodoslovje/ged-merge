@@ -291,6 +291,40 @@ export function nameSimilarity(a: PersonName, b: PersonName): number | undefined
   return parts.reduce((s, [w, v]) => s + w * v, 0) / wsum;
 }
 
+/**
+ * The most an agreement through an *additional* name can score. Milena known
+ * also as Helena is the same woman as an incoming Helena — well over the 0.85
+ * same-person bar — but two primary names that differ are not an exact key,
+ * so an alias never lifts a pair to the flat 100 the identity key reserves for
+ * one.
+ */
+export const ALIAS_GIVEN_CEILING = 0.95;
+
+/**
+ * {@link givenSimilarity} of the two primary given names, or — when either
+ * person carries other given names in additional `NAME` records (aka, birth,
+ * religious name…) — of the closest pair across all of them, an agreement
+ * that only an alias makes counting at most {@link ALIAS_GIVEN_CEILING}.
+ * `aNames`/`bNames` are the people's names, primary first.
+ */
+export function knownGivenSimilarity(aNames: readonly PersonName[], bNames: readonly PersonName[]): number | undefined {
+  const aGiven = comparableName(aNames[0])?.given;
+  const bGiven = comparableName(bNames[0])?.given;
+  if (!aGiven || !bGiven) return undefined;
+  let best = givenSimilarity(aGiven, bGiven);
+  if (best >= ALIAS_GIVEN_CEILING || (aNames.length < 2 && bNames.length < 2)) return best;
+  for (const an of aNames) {
+    const ag = comparableName(an)?.given;
+    if (!ag) continue;
+    for (const bn of bNames) {
+      if (an === aNames[0] && bn === bNames[0]) continue;
+      const bg = comparableName(bn)?.given;
+      if (bg) best = Math.max(best, Math.min(ALIAS_GIVEN_CEILING, givenSimilarity(ag, bg)));
+    }
+  }
+  return best;
+}
+
 /** Compare given names token-wise so middle names / ordering matter less.
  *  Tokens are compared with {@link givenTokenSimilarity}, so a name written in
  *  Latin on one side and Slovenian on the other ("Bartholomeus"/"Jernej")

@@ -236,6 +236,18 @@ export function pinnedAdds(decisions: ReadonlyMap<string, CandidateDecision>): M
   return pinned;
 }
 
+/** Every person pair the user has confirmed, incoming id → main id — at most
+ *  one main per incoming person (see {@link withFreshDecision}). */
+export function confirmedPeople(decisions: ReadonlyMap<string, CandidateDecision>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, d] of decisions) {
+    if (d.status !== "confirmed") continue;
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind === "individual") out.set(parsed.compareId, parsed.mainId);
+  }
+  return out;
+}
+
 /** Every join the confirmed decisions leave to the save, incoming id → the
  *  existing main id (see `CandidateDecision.joins`). */
 export function pendingJoins(decisions: ReadonlyMap<string, CandidateDecision>): Map<string, string> {
