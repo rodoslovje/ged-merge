@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { consolidatedTitle } from "./ConsolidatedBadge";
-import type { StatsWho } from "../stats/scope";
+import { STATS_WHO, type StatsWho } from "../stats/scope";
 import {
   categorize,
   DEFAULT_CONFIG,
@@ -68,8 +68,6 @@ const ICON_PROPS = {
   strokeLinejoin: "round",
   "aria-hidden": true,
 } as const;
-
-const KIN_FILTERS: StatsWho[] = ["all", "blood", "ancestors", "descendants"];
 
 export function MatchResults({
   result,
@@ -197,7 +195,7 @@ export function MatchResults({
                   className="score-select"
                   value={filters.kin ?? "all"}
                   onChange={(v) => onFilters({ ...filters, kin: v as StatsWho })}
-                  options={KIN_FILTERS.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
+                  options={STATS_WHO.map((k) => ({ value: k, label: t(`filter.kin.${k}`) }))}
                 />
               </label>
             )}

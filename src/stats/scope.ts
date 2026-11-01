@@ -5,6 +5,9 @@ import type { FamilyFacts, PersonFacts, StatsFacts } from "./facts";
 /** Whose statistics: the whole file, or one of the start person's lines. */
 export type StatsWho = "all" | "blood" | "ancestors" | "descendants";
 
+/** Every {@link StatsWho}, in the order the pickers offer them. */
+export const STATS_WHO: StatsWho[] = ["all", "blood", "ancestors", "descendants"];
+
 /** The people the statistics are taken over, and how strictly they are read. */
 export interface StatsScope {
   who: StatsWho;
