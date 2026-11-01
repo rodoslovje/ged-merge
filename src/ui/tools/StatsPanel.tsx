@@ -5,6 +5,7 @@ import { computeKinship, computeLineSides } from "../../tools/batch";
 import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, STATS_WHO, type StatsScope } from "../../stats/scope";
 import {
+  ADULT_AGE,
   CHILD_AGE,
   OVERVIEW_TOP,
   familyStats,
@@ -30,6 +31,7 @@ import { DownloadIcon } from "../icons/DownloadIcon";
 import { downloadText, savedName } from "../download";
 import { csvStyleFor, percentOf, toCsv } from "../../stats/csv";
 import { lifespanOf } from "../../gedcom/lifespan";
+import { nameTypeLabel } from "../../match/relatives";
 import { useHomeCountry } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -42,7 +44,7 @@ import { countryFacetLabel, countryFacetName, flagEmoji } from "../../geo/placeC
 import { countryOf } from "../../tools/geocode";
 import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
-import { BarList, ColumnChart, PairBarList, StatTile, toneClass, type BarRow, type Column, type PairRow, type Tone } from "./StatsCharts";
+import { BarList, ColumnChart, PairBarList, StackedColumnChart, StatTile, toneClass, type BarRow, type Column, type PairRow, type StackedColumn, type StackTone, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
 
 /** The statistics pages; the overview is the tool's front page. */
@@ -75,6 +77,18 @@ const ABOUT_ALIAS: Record<string, string> = {
   topSurnames: "surnames", topMale: "givenMale", topFemale: "givenFemale", topBirthPlaces: "birthPlaces",
   ageAtDeathMale: "ageAtDeath", ageAtDeathFemale: "ageAtDeath", lifeByCenturyMale: "lifeByCentury", lifeByCenturyFemale: "lifeByCentury",
 };
+
+/** A repeated ancestor's generations, each once, with how often they hold it: "7, 8", "8 ×2". */
+function gensLabel(gens: number[]): string {
+  const counts = new Map<number, number>();
+  for (const g of gens) counts.set(g, (counts.get(g) ?? 0) + 1);
+  return [...counts].map(([g, n]) => (n > 1 ? `${g} ×${n}` : String(g))).join(", ");
+}
+
+/** A value column as wide as the longest of these values, in the figures' own width. */
+function widest(values: string[]): string {
+  return `${values.reduce((n, v) => Math.max(n, v.length), 0)}ch`;
+}
 
 /** Whether the filters are unfolded — the reader's own layout, kept per browser. */
 const FILTERS_KEY = "gedmerge.statsFiltersOpen";
@@ -299,9 +313,11 @@ export function StatsPanel({
     if (!next.delete(card)) next.add(card);
     return next;
   });
-  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false) => withCsv(
+  const ranked = (card: string, title: string, list: Bucket[], limit: number, tone?: Tone, places = false, families = false, sexes = false) => withCsv(
     card,
-    () => [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
+    () => sexes
+      ? [[title, t("stats.men"), t("stats.women"), t("stats.csv.count")], ...list.map((b) => { const [m, f] = bySex(b.ids); return [b.label!, m.length, f.length, b.count]; })]
+      : [[title, t("stats.csv.count")], ...list.map((b) => [b.label!, b.count])],
     <BarList
       tone={tone}
       picked={pickedIn(card)}
@@ -309,18 +325,23 @@ export function StatsPanel({
       // thousands, and a place's short label costs a lookup each.
       max={list.reduce((m, b) => Math.max(m, b.count), 1)}
       itemsKey={list}
-      rows={list.slice(0, listLimit(card, list.length, limit)).map((b) => ({
-        key: b.key,
-        // A place reads by its own name and its country's flag; the whole value is the tip.
-        label: places ? shortPlace(b.label!, home) : b.label,
-        tip: places ? b.label : undefined,
-        value: b.count,
-        display: num(b.count),
-        count: b.count,
-      }))}
+      rows={list.slice(0, listLimit(card, list.length, limit)).map((b) => {
+        // Men and women apart, in their colours, the counts in the tip.
+        const split = sexes ? bySex(b.ids) : undefined;
+        return {
+          key: b.key,
+          // A place reads by its own name and its country's flag; the whole value is the tip.
+          label: places ? shortPlace(b.label!, home) : b.label,
+          tip: places ? b.label : split ? `${b.label} — ${t("stats.men")}: ${num(split[0].length)} · ${t("stats.women")}: ${num(split[1].length)}` : undefined,
+          value: b.count,
+          display: num(b.count),
+          count: b.count,
+          sexes: split && { male: split[0].length, female: split[1].length },
+        };
+      })}
       onPick={(key) => {
         const b = list.find((x) => x.key === key)!;
-        choose(card, key, `${title} — ${b.label}`, b.ids);
+        choose(card, key, `${title} — ${b.label}`, b.ids, families);
       }}
     />
   );
@@ -449,8 +470,45 @@ export function StatsPanel({
     return `${countryName(from)} → ${countryName(to)}`;
   };
   const periodLabel = (b: Bucket) => String(b.lo);
+  /** Places filled of a generation's places, "47 / 64"; from 1 024 on a
+   *  number is cut to thousands ("16k") or millions ("2M"), as the deep
+   *  generations' places run to millions. */
+  const short = (n: number) => (n >= 1_000_000 ? `${num(Math.round(n / 1_000_000))}M` : n >= 1024 ? `${num(Math.round(n / 1000))}k` : num(n));
+  const filledOf = (filled: number, of: number) => `${short(filled)} / ${short(of)}`;
   /** Label about a dozen periods however many there are. */
   const periodStep = (list: Bucket[]) => Math.max(1, Math.ceil(list.length / 12));
+  /** Rows per period, each column split in two (men and women, first and later
+   *  marriages), the whole count on top; a part lists its own rows. */
+  const stackedPeriods = (card: string, title: string, list: Bucket[], names: [string, string], split: (ids: string[]) => [string[], string[]], opts: { tones?: [StackTone, StackTone]; families?: boolean; label?: (b: Bucket) => string } = {}) => {
+    const parts = list.map((b) => split(b.ids));
+    csvOf.set(card, () => [[title, ...names, t("stats.csv.count")], ...list.map((b, i) => [rangeLabel(b), parts[i][0].length, parts[i][1].length, b.count])]);
+    const part = (b: Bucket, name: string, ids: string[]) => ({ value: ids.length, tip: `${rangeLabel(b)} — ${name}: ${num(ids.length)} / ${num(b.count)}`, count: ids.length });
+    return (
+      <StackedColumnChart
+        names={names}
+        tones={opts.tones}
+        labelEvery={periodStep(list)}
+        picked={pickedIn(card)}
+        columns={list.map<StackedColumn>((b, i) => ({
+          key: b.key,
+          label: (opts.label ?? periodLabel)(b),
+          lower: part(b, names[0], parts[i][0]),
+          upper: part(b, names[1], parts[i][1]),
+          top: b.count ? num(b.count) : undefined,
+        }))}
+        onPick={(key, which) => {
+          const i = list.findIndex((b) => b.key === key);
+          const w = which === "lower" ? 0 : 1;
+          choose(card, `${key}:${which}`, `${title} — ${rangeLabel(list[i])} — ${names[w]}`, parts[i][w], opts.families);
+        }}
+      />
+    );
+  };
+  /** Split people into men and women; anyone else is in the column's total only. */
+  const bySex = (ids: string[]): [string[], string[]] => [
+    ids.filter((id) => scoped?.byId.get(id)?.sex === "M"),
+    ids.filter((id) => scoped?.byId.get(id)?.sex === "F"),
+  ];
 
   /** Top names or occupations per century, as chips that list their people. */
   const centuryTable = (id: string, itemHead: string, columns: { head: string; tone?: Tone }[], rows: { century: number; cells: Bucket[][] }[]) => withCsv(
@@ -524,7 +582,8 @@ export function StatsPanel({
       [t("stats.csv.generation"), t("stats.side.paternal"), t("stats.side.maternal"), t("stats.csv.of")],
       ...lineage.ancestors.map((g) => [g.gen, g.paternal.filled, g.maternal.filled, g.slots / 2]),
     ]);
-    csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places")], ...lineage.repeated.map((r) => [personName(r.id), r.count])]);
+    csvOf.set("walls", () => [[t("stats.csv.generation"), t("stats.csv.person"), t("stats.walls")], ...lineage.walls.map((w) => [w.gen, personName(w.id), t(w.father && w.mother ? "stats.wall.both" : w.father ? "stats.wall.father" : "stats.wall.mother")])]);
+    csvOf.set("repeatedAncestors", () => [[t("stats.csv.person"), t("stats.csv.places"), t("stats.csv.generation")], ...lineage.repeated.map((r) => [personName(r.id), r.count, gensLabel(r.gens)])]);
     csvOf.set("descendantsGen", () => [[t("stats.csv.generation"), t("stats.csv.count")], ...lineage.descendants.map((g) => [g.gen, g.ids.length])]);
   }
   /** A research row's event, named as a family's where it stands on families. */
@@ -693,16 +752,6 @@ export function StatsPanel({
                 <PickList key={`tiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("complete", t("stats.completeness"), null, shares("complete", [
-              { key: "name", label: t("stats.has.name"), share: ov.completeness.name },
-              { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
-              { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
-              { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
-              { key: "place", label: t("stats.has.place"), share: ov.completeness.place },
-              { key: "mapped", label: t("stats.has.mapped"), share: ov.completeness.mapped },
-              { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
-              { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
-            ], true, true))}
             {card("topSurnames", t("stats.topSurnames"), null, ranked("topSurnames", t("stats.surname"), ov.topSurnames, OVERVIEW_TOP))}
             {scope.sex !== "F" && card("topMale", t("stats.topGivenMale"), null, ranked("topMale", t("stats.givenName"), ov.topGivenMale, OVERVIEW_TOP, "male"))}
             {scope.sex !== "M" && card("topFemale", t("stats.topGivenFemale"), null, ranked("topFemale", t("stats.givenName"), ov.topGivenFemale, OVERVIEW_TOP, "female"))}
@@ -717,6 +766,16 @@ export function StatsPanel({
               />
             ))}
             {card("topBirthPlaces", t("stats.topBirthPlaces"), null, ranked("topBirthPlaces", t("stats.birthPlaces"), ov.topBirthPlaces, OVERVIEW_TOP, undefined, true))}
+            {card("complete", t("stats.completeness"), null, shares("complete", [
+              { key: "name", label: t("stats.has.name"), share: ov.completeness.name },
+              { key: "birthDate", label: t("stats.has.birthDate"), share: ov.completeness.birthDate },
+              { key: "birthPlace", label: t("stats.has.birthPlace"), share: ov.completeness.birthPlace },
+              { key: "deathDate", label: t("stats.has.deathDate"), share: ov.completeness.deathDate },
+              { key: "place", label: t("stats.has.place"), share: ov.completeness.place },
+              { key: "mapped", label: t("stats.has.mapped"), share: ov.completeness.mapped },
+              { key: "parents", label: t("stats.has.parents"), share: ov.completeness.parents },
+              { key: "source", label: t("stats.has.source"), share: ov.completeness.source },
+            ], true, true))}
           </>
         )}
 
@@ -731,13 +790,37 @@ export function StatsPanel({
               [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
-            {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
             {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
               { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
               { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
               { key: "daughterMother", label: t("stats.namesake.daughterMother"), share: names.namesakes.daughterMother, tone: "female" },
               { key: "daughterGrandmother", label: t("stats.namesake.daughterGrandmother"), share: names.namesakes.daughterGrandmother, tone: "female" },
             ], false))}
+            {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
+            {card("nameKinds", t("stats.nameKinds"), t("stats.nPeople", { count: scoped.people.length }), (() => {
+              // The kinds of additional name the people carry, then the primary
+              // name's gaps in the warning colour.
+              const rows: { key: string; label: string; ids: string[]; status?: BarRow["status"] }[] = [
+                ...names.nameKinds.types.map((b) => {
+                  const label = nameTypeLabel(b.label!, t);
+                  return { key: `type:${b.key}`, label: label.charAt(0).toUpperCase() + label.slice(1), ids: b.ids };
+                }),
+                { key: "noGiven", label: t("stats.name.noGiven"), ids: names.nameKinds.noGiven, status: "fair" },
+                { key: "noSurname", label: t("stats.name.noSurname"), ids: names.nameKinds.noSurname, status: "fair" },
+              ];
+              return withCsv(
+                "nameKinds",
+                () => [[t("stats.nameKinds"), t("stats.csv.count")], ...rows.map((r) => [r.label, r.ids.length])],
+                <BarList
+                  picked={pickedIn("nameKinds")}
+                  rows={rows.map((r) => ({ key: r.key, label: r.label, value: r.ids.length, display: num(r.ids.length), count: r.ids.length, status: r.status }))}
+                  onPick={(key) => {
+                    const r = rows.find((x) => x.key === key)!;
+                    choose("nameKinds", key, `${t("stats.nameKinds")} — ${r.label}`, r.ids);
+                  }}
+                />,
+              );
+            })())}
           </>
         )}
 
@@ -754,8 +837,6 @@ export function StatsPanel({
             {card("lifeByCentury", t("stats.lifeByCentury"), null, centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
             {scope.sex !== "F" && card("lifeByCenturyMale", t("stats.lifeByCenturyMale"), null, centuries("lifeByCenturyMale", t("stats.lifeByCenturyMale"), life.byCenturyMale, dec, { tone: "male" }))}
             {scope.sex !== "M" && card("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), null, centuries("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), life.byCenturyFemale, dec, { tone: "female" }))}
-            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
-            {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
             {card("oldest", t("stats.oldestList"), null, (
               <ol className="stats-oldest">
                 {life.oldest.map((o) => (
@@ -766,6 +847,37 @@ export function StatsPanel({
                 ))}
               </ol>
             ))}
+            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
+            {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
+            {card("childSurvival", t("stats.childSurvival"), null, (() => {
+              const names: [string, string] = [t("stats.childGrown", { age: ADULT_AGE }), t("stats.childDiedYoung", { age: ADULT_AGE })];
+              return withCsv(
+                "childSurvival",
+                () => [[t("stats.centuryCol"), ...names, t("stats.childSurvived", { age: ADULT_AGE }), t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), p.n])],
+                <StackedColumnChart
+                  names={names}
+                  picked={pickedIn("childSurvival")}
+                  columns={life.childSurvival.map<StackedColumn>((p) => {
+                    const part = (name: string, v: number, ids: string[]) => ({
+                      value: v,
+                      tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: `${name} ${dec(v)}`, n: num(p.n) }),
+                      count: ids.length,
+                    });
+                    return {
+                      key: String(p.century),
+                      label: centuryLabel(p.century),
+                      lower: part(names[0], p.grown, p.grownIds),
+                      upper: part(names[1], p.died, p.diedIds),
+                      top: p.grownIds.length + p.diedIds.length ? pct(p.grownIds.length, p.grownIds.length + p.diedIds.length) : undefined,
+                    };
+                  })}
+                  onPick={(key, which) => {
+                    const p = life.childSurvival.find((x) => String(x.century) === key)!;
+                    choose("childSurvival", `${key}:${which}`, `${names[which === "lower" ? 0 : 1]} — ${centuryLabel(p.century)}`, which === "lower" ? p.grownIds : p.diedIds);
+                  }}
+                />,
+              );
+            })())}
           </>
         )}
 
@@ -787,14 +899,25 @@ export function StatsPanel({
                 <PickList key={`famTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} onRelate={pick.key === "related" ? onOpenRelationship : undefined} />
               )}
             </section>
+            {card("marriageDecade", t("stats.marriagesOverTime"), t("stats.nFamilies", { count: total(fams.marriagesPerPeriod) }), (() => {
+              // A remarriage: a spouse married before, by an earlier dated union.
+              const byId = new Map(scoped.families.map((f) => [f.id, f]));
+              const again = (id: string) => {
+                const f = byId.get(id);
+                return !!f && ((!!f.husband && !f.husbandFirst) || (!!f.wife && !f.wifeFirst));
+              };
+              return stackedPeriods("marriageDecade", t("stats.marriagesOverTime"), fams.marriagesPerPeriod, [t("stats.firstMarriages"), t("stats.remarriages")],
+                (ids) => [ids.filter((id) => !again(id)), ids.filter(again)], { tones: ["accent", "minor"], families: true });
+            })(), true)}
             {scope.sex !== "F" && card("marriageMen", t("stats.firstMarriageMen"), t("stats.nPeople", { count: total(fams.firstMarriageMale) }), buckets("marriageMen", t("stats.firstMarriageMen"), fams.firstMarriageMale, { tone: "male" }))}
             {scope.sex !== "M" && card("marriageWomen", t("stats.firstMarriageWomen"), t("stats.nPeople", { count: total(fams.firstMarriageFemale) }), buckets("marriageWomen", t("stats.firstMarriageWomen"), fams.firstMarriageFemale, { tone: "female" }))}
             {card("ageGap", t("stats.ageGap"), t("stats.ageGapNote", { count: total(fams.ageGap) }), buckets("ageGap", t("stats.ageGap"), fams.ageGap, { families: true, label: lowerBound, tipLabel: rangeLabel }))}
+            {card("marriagePlaces", t("stats.marriagePlaces"), t("stats.nFamilies", { count: total(fams.marriagePlaces) }), ranked("marriagePlaces", t("stats.marriagePlaces"), fams.marriagePlaces, 15, undefined, true, true))}
             {card("marriageMonth", t("stats.marriageMonth"), t("stats.nFamilies", { count: total(fams.marriageMonth) }), buckets("marriageMonth", t("stats.marriageMonth"), fams.marriageMonth, { families: true, label: monthLabel }))}
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
-            {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
-            {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
             {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
+            {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
+            {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
             {related && card("relatedCouples", t("stats.relatedCouples"), t("stats.nFamilies", { count: related.of }), (
               <BarList
                 picked={pickedIn("relatedCouples")}
@@ -819,15 +942,17 @@ export function StatsPanel({
                 <PickList key={`birthTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("birthDecade", t("stats.birthsOverTime"), null, buckets("birthDecade", t("stats.birthsOverTime"), births.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(births.perPeriod) }), true)}
+            {card("birthDecade", t("stats.birthsOverTime"), null, stackedPeriods("birthDecade", t("stats.birthsOverTime"), births.perPeriod, [t("stats.men"), t("stats.women")], bySex, { tones: ["male", "female"] }), true)}
+            {card("birthPlaces", t("stats.birthPlaces"), null, ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
             {card("birthMonth", t("stats.birthsByMonth"), null, buckets("birthMonth", t("stats.birthsByMonth"), births.byMonth, { label: monthLabel }))}
             {card("baptism", t("stats.baptism"), t("stats.nPeople", { count: total(births.baptism) }), buckets("baptism", t("stats.baptism"), births.baptism, { label: (b) => t(`stats.baptism.${b.key}`) }))}
-            {card("birthPlaces", t("stats.birthPlaces"), null, ranked("birthPlaces", t("stats.birthPlaces"), births.places, 15, undefined, true))}
           </>
         )}
 
         {deaths && (
           <>
+            {card("deathDecade", t("stats.deathsOverTime"), null, stackedPeriods("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, [t("stats.men"), t("stats.women")], bySex, { tones: ["male", "female"] }), true)}
+            {card("deathPlaces", t("stats.deathPlaces"), null, ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
             {card("causes", t("stats.causes"), null, ranked("causes", t("stats.causes"), deaths.causes, 15))}
             {card("causeAge", t("stats.causeAge"), null, (
               <BarList
@@ -840,8 +965,6 @@ export function StatsPanel({
                 }}
               />
             ))}
-            {card("deathPlaces", t("stats.deathPlaces"), null, ranked("deathPlaces", t("stats.deathPlaces"), deaths.places, 15, undefined, true))}
-            {card("deathDecade", t("stats.deathsOverTime"), null, buckets("deathDecade", t("stats.deathsOverTime"), deaths.perPeriod, { label: periodLabel, tipLabel: rangeLabel, labelEvery: periodStep(deaths.perPeriod) }), true)}
             {card("deathMonth", t("stats.deathsByMonth"), null, buckets("deathMonth", t("stats.deathsByMonth"), deaths.byMonth, { label: monthLabel }))}
           </>
         )}
@@ -858,14 +981,15 @@ export function StatsPanel({
                 <PickList key={`jobTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
-            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 20))}
-            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 20))}
             {card("jobsByCentury", t("stats.occupationsByCentury"), null, centuryTable(
               "jobsByCentury",
               t("stats.occupation"),
               [{ head: t("stats.occupations") }],
               jobs.byCentury.map((row) => ({ century: row.century, cells: [row.top] })),
             ), true)}
+            {card("occupations", t("stats.occupations"), null, ranked("occupations", t("stats.occupation"), jobs.occupations, 15, undefined, false, false, true))}
+            {card("occupationsPerPerson", t("stats.occupationsPerPerson"), t("stats.nPeople", { count: total(jobs.perPerson) }), stackedPeriods("occupationsPerPerson", t("stats.occupationsPerPerson"), jobs.perPerson, [t("stats.men"), t("stats.women")], bySex, { tones: ["male", "female"], label: rangeLabel }))}
+            {jobs.education.length > 0 && card("education", t("stats.education"), null, ranked("education", t("stats.education"), jobs.education, 15, undefined, false, false, true))}
           </>
         )}
 
@@ -928,13 +1052,14 @@ export function StatsPanel({
                 max={100}
                 limit={listLimit("ancestorsGen", lineage.ancestors.length, 12)}
                 labelWidth="2.5em"
+                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsGen") ? undefined : 12).map((g) => filledOf(g.filled, g.slots)))}
                 picked={pickedIn("ancestorsGen")}
                 rows={lineage.ancestors.map((g) => ({
                   key: String(g.gen),
                   label: String(g.gen),
                   value: (100 * g.filled) / g.slots,
-                  display: pct(g.filled, g.slots),
-                  tip: t("stats.shareTip", { n: num(g.filled), of: num(g.slots) }),
+                  display: filledOf(g.filled, g.slots),
+                  tip: `${t("stats.shareTip", { n: num(g.filled), of: num(g.slots) })} (${pct(g.filled, g.slots)})`,
                   count: g.ids.length,
                   status: gradeOf(g.filled / g.slots),
                 }))}
@@ -950,12 +1075,13 @@ export function StatsPanel({
                 picked={pickedIn("ancestorsSide")}
                 limit={listLimit("ancestorsSide", lineage.ancestors.length, 12)}
                 labelWidth="2.5em"
+                valueWidth={widest(lineage.ancestors.slice(0, expanded.has("ancestorsSide") ? undefined : 12).flatMap((g) => [filledOf(g.paternal.filled, g.slots / 2), filledOf(g.maternal.filled, g.slots / 2)]))}
                 rows={lineage.ancestors.map<PairRow>((g) => {
                   const half = g.slots / 2;
                   const of = (side: { filled: number; ids: string[] }) => ({
                     value: (100 * side.filled) / half,
-                    display: pct(side.filled, half),
-                    tip: t("stats.shareTip", { n: num(side.filled), of: num(half) }),
+                    display: filledOf(side.filled, half),
+                    tip: `${t("stats.shareTip", { n: num(side.filled), of: num(half) })} (${pct(side.filled, half)})`,
                     count: side.ids.length,
                   });
                   return { key: String(g.gen), label: String(g.gen), a: of(g.paternal), b: of(g.maternal) };
@@ -966,30 +1092,86 @@ export function StatsPanel({
                 }}
               />
             ))}
-            {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
+            {lineage.ancestors.length > 0 && card("childrenByGen", t("stats.childrenByGen"), null, withCsv(
+              "childrenByGen",
+              () => [[t("stats.csv.generation"), t("stats.childrenByGen"), t("stats.csv.counted")], ...lineage.ancestors.map((g) => [g.gen, Math.round(g.childrenMean * 10) / 10, g.ids.length])],
               <BarList
-                limit={listLimit("repeatedAncestors", lineage.repeated.length, 12)}
-                rows={lineage.repeated.map((r) => {
-                  const indi = dataset.individuals.get(r.id);
-                  return { key: r.id, label: indi ? nameOf(indi) : r.id, value: r.count, display: `×${num(r.count)}`, count: 1, tone: indi?.sex === "M" ? "male" as const : indi?.sex === "F" ? "female" as const : undefined };
-                })}
-                onPick={onNavigate}
-              />
-            ))}
-            {lineage.descendants.length > 0 && card("descendantsGen", t("stats.descendantsByGen"), null, (
-              <ColumnChart
-                columns={lineage.descendants.map((g) => ({ key: String(g.gen), label: String(g.gen), value: g.ids.length, count: g.ids.length, tip: `${t("stats.genLabel", { n: g.gen })}: ${num(g.ids.length)}` }))}
-                format={num}
-                picked={pickedIn("descendantsGen")}
+                limit={listLimit("childrenByGen", lineage.ancestors.length, 12)}
+                labelWidth="2.5em"
+                picked={pickedIn("childrenByGen")}
+                rows={lineage.ancestors.map((g) => ({
+                  key: String(g.gen),
+                  label: String(g.gen),
+                  value: g.childrenMean,
+                  display: dec(g.childrenMean),
+                  tip: t("stats.nPeople", { count: g.ids.length }),
+                  count: g.ids.length,
+                }))}
                 onPick={(key) => {
-                  const g = lineage.descendants.find((x) => String(x.gen) === key)!;
-                  choose("descendantsGen", key, `${t("stats.descendantsByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
+                  const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
+                  choose("childrenByGen", key, `${t("stats.childrenByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
                 }}
-              />
+              />,
             ))}
+            {lineage.descendants.length > 0 && card("descendantsGen", t("stats.descendantsByGen"), null, (() => {
+              // Men below, women above, the generation's whole count on top
+              // (people of unknown sex are in that count only).
+              const names: [string, string] = [t("stats.men"), t("stats.women")];
+              const gens = lineage.descendants.map((g) => ({
+                gen: g.gen,
+                all: g.ids,
+                men: g.ids.filter((id) => dataset.individuals.get(id)?.sex === "M"),
+                women: g.ids.filter((id) => dataset.individuals.get(id)?.sex === "F"),
+              }));
+              const part = (gen: number, name: string, ids: string[]) => ({
+                value: ids.length,
+                tip: `${t("stats.genLabel", { n: gen })} — ${name}: ${num(ids.length)}`,
+                count: ids.length,
+              });
+              return (
+                <StackedColumnChart
+                  names={names}
+                  tones={["male", "female"]}
+                  picked={pickedIn("descendantsGen")}
+                  columns={gens.map<StackedColumn>((g) => ({
+                    key: String(g.gen),
+                    label: String(g.gen),
+                    lower: part(g.gen, names[0], g.men),
+                    upper: part(g.gen, names[1], g.women),
+                    top: num(g.all.length),
+                  }))}
+                  onPick={(key, which) => {
+                    const g = gens.find((x) => String(x.gen) === key)!;
+                    choose("descendantsGen", `${key}:${which}`, `${t("stats.descendantsByGen")} — ${t("stats.genLabel", { n: g.gen })} — ${names[which === "lower" ? 0 : 1]}`, which === "lower" ? g.men : g.women);
+                  }}
+                />
+              );
+            })())}
             {!lineage.ancestors.length && !lineage.descendants.length && (
               <p className="tools-clean">{t("stats.noLineage")}</p>
             )}
+            {lineage.repeated.length > 0 && card("repeatedAncestors", t("stats.repeatedAncestors"), null, (
+              <ul className="stats-walls">
+                {lineage.repeated.slice(0, listLimit("repeatedAncestors", lineage.repeated.length, 12)).map((r) => (
+                  <li key={r.id}>
+                    <span className="muted stats-walls-gen">{r.gens[0]}</span>
+                    <NameLink dataset={dataset} id={r.id} onNavigate={onNavigate} />
+                    <span className="muted stats-walls-missing" {...tipProps(`${t("stats.repeatedTip", { count: r.count })}: ${gensLabel(r.gens)}`)}>×{num(r.count)}</span>
+                  </li>
+                ))}
+              </ul>
+            ))}
+            {lineage.walls.length > 0 && card("walls", t("stats.walls"), t("stats.nPeople", { count: lineage.walls.length }), (
+              <ul className="stats-walls">
+                {lineage.walls.slice(0, listLimit("walls", lineage.walls.length, 12)).map((w) => (
+                  <li key={w.id}>
+                    <span className="muted stats-walls-gen">{w.gen}</span>
+                    <NameLink dataset={dataset} id={w.id} onNavigate={onNavigate} />
+                    <span className="muted stats-walls-missing">{t(w.father && w.mother ? "stats.wall.both" : w.father ? "stats.wall.father" : "stats.wall.mother")}</span>
+                  </li>
+                ))}
+              </ul>
+            ))}
           </>
         )}
 

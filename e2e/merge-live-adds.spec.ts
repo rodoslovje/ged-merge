@@ -83,11 +83,27 @@ test("confirming a match adds the incoming father, who opens in Edit", async ({ 
   await page.locator("input.file-input").last().setInputFiles(WITH_FATHER);
   await page.locator(".candidate", { hasText: "Janez" }).first().locator(".candidate-main").click();
   await page.locator(".decision-bar button").first().click();
-  await expect(page.locator('.compare-panel tr[data-row-key="father"] .gm-added-tag')).toBeVisible();
+  await expect(page.locator('.compare-panel tr[data-row-key="father"] button.choice.take.active')).toBeVisible();
 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-parents .person-card-wrap", { hasText: "Jakob" }).locator("button.person-card").click();
   await expect(page.locator(".edit-name-input").first()).toHaveValue(/Jakob/);
+});
+
+test("an added father can be taken back and added again", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Merge", exact: true }).click();
+  await page.locator("input.file-input").last().setInputFiles(WITH_FATHER);
+  await page.locator(".candidate", { hasText: "Janez" }).first().locator(".candidate-main").click();
+  await page.locator(".decision-bar button").first().click();
+  const father = page.locator('.compare-panel tr[data-row-key="father"]');
+  await father.locator("button.choice.take.active").click();
+  await expect(father.locator("button.choice.main.active")).toBeVisible();
+
+  await father.locator("button.choice.incoming").click();
+  await expect(father.locator("button.choice.take.active")).toBeVisible();
 });
 
 test("undo and an untick each take the added child back out of the file", async ({ page }) => {

@@ -14,6 +14,11 @@ export type Tone = "male" | "female";
 
 export const toneClass = (tone: Tone | undefined) => (tone ? ` stats-${tone}` : "");
 
+/** A part of a {@link StackedColumnChart}: a sex's colour, or the accent or a state's. */
+export type StackTone = Tone | "accent" | "minor" | "major";
+const stackToneClass = (tone: StackTone | undefined) =>
+  !tone ? "" : tone === "male" || tone === "female" ? toneClass(tone) : ` stats-tone-${tone}`;
+
 export interface Column {
   key: string;
   /** The axis label under the column. */
@@ -29,6 +34,12 @@ export interface Column {
 
 /** Show values over the columns only where they still fit side by side. */
 const VALUE_LABELS_UP_TO = 13;
+
+/** The label and value column widths a list was given, as its CSS variables. */
+function columnWidths(label: string | undefined, value: string | undefined): React.CSSProperties | undefined {
+  if (!label && !value) return undefined;
+  return { ...(label ? { "--stats-label": label } : {}), ...(value ? { "--stats-value": value } : {}) } as React.CSSProperties;
+}
 
 /** A bar list longer than this is windowed (see {@link BarList}). */
 const WINDOWED_FROM = 150;
@@ -83,6 +94,79 @@ export function ColumnChart({
   );
 }
 
+/** One column of a {@link StackedColumnChart}: two parts, the lower drawn first. */
+export interface StackedColumn {
+  key: string;
+  label: string;
+  lower: { value: number; tip: string; count: number };
+  upper: { value: number; tip: string; count: number };
+  /** Written over the column. */
+  top?: string;
+}
+
+/**
+ * Columns of two parts stacked one on the other — what grew up below, what
+ * died young above — each part listing its own rows, with a legend naming
+ * the two below.
+ */
+export function StackedColumnChart({
+  columns,
+  names,
+  onPick,
+  picked,
+  tones,
+  labelEvery = 1,
+}: {
+  columns: StackedColumn[];
+  /** What the lower and the upper part stand for, in the legend. */
+  names: [string, string];
+  /** The parts' colours; the accent below and the alarm above by default. */
+  tones?: [StackTone, StackTone];
+  /** Write every n-th axis label only (see {@link ColumnChart}). */
+  labelEvery?: number;
+  onPick: (key: string, part: "lower" | "upper") => void;
+  /** `key:lower` or `key:upper`. */
+  picked?: string;
+}) {
+  const { t } = useTranslation();
+  if (!columns.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
+  const max = largestValue(columns.map((c) => ({ value: c.lower.value + c.upper.value })));
+  const labelled = columns.length <= VALUE_LABELS_UP_TO;
+  const part = (c: StackedColumn, which: "lower" | "upper") => {
+    const p = c[which];
+    return (
+      <button
+        type="button"
+        className={`stats-col-bar stats-stack-${which}${stackToneClass(tones?.[which === "lower" ? 0 : 1])}${picked === `${c.key}:${which}` ? " picked" : ""}${which === "lower" && !c.upper.value ? " alone" : ""}`}
+        style={{ height: `${(100 * p.value) / max}%` }}
+        disabled={p.count === 0}
+        onClick={() => onPick(c.key, which)}
+        {...tipProps(p.tip)}
+      />
+    );
+  };
+  return (
+    <div className="stats-stacked">
+      <div className={`stats-columns${labelEvery > 1 ? " spread" : ""}`}>
+        {columns.map((c, i) => (
+          <div key={c.key} className="stats-col">
+            <span className="stats-col-plot">
+              {c.top && labelled && <span className="stats-col-value">{c.top}</span>}
+              {part(c, "upper")}
+              {part(c, "lower")}
+            </span>
+            <span className="stats-col-label">{i % labelEvery === 0 ? c.label : " "}</span>
+          </div>
+        ))}
+      </div>
+      <div className="stats-pair-legend">
+        <span className={`stats-stack-lower${stackToneClass(tones?.[0])}`}>{names[0]}</span>
+        <span className={`stats-stack-upper${stackToneClass(tones?.[1])}`}>{names[1]}</span>
+      </div>
+    </div>
+  );
+}
+
 export interface BarRow {
   key: string;
   label: ReactNode;
@@ -95,6 +179,9 @@ export interface BarRow {
   tone?: Tone;
   /** How good a share is, where the row measures the data's own quality — the bar wears the status colour. */
   status?: "good" | "fair" | "poor";
+  /** The men and the women among the row's people: the bar is drawn in their
+   *  two colours, anyone else in the plain one after them. */
+  sexes?: { male: number; female: number };
 }
 
 /** A ranked list of horizontal bars, the first `limit` of them — the card that holds the list offers the rest. */
@@ -106,6 +193,7 @@ export function BarList({
   max: fixedMax,
   tone,
   labelWidth,
+  valueWidth,
   itemsKey,
 }: {
   rows: BarRow[];
@@ -117,6 +205,8 @@ export function BarList({
   tone?: Tone;
   /** The label column's width where the labels are short (numbers); 11em otherwise. */
   labelWidth?: string;
+  /** The value column's width where the values run longer than a percentage. */
+  valueWidth?: string;
   /** What the rows were made from, when that is steadier than `rows` itself —
    *  an unfolded list is windowed, and its row measurements last as long as this. */
   itemsKey?: unknown;
@@ -130,7 +220,7 @@ export function BarList({
   const windowed = shown.length > WINDOWED_FROM;
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   return (
-    <div className={`stats-bars${toneClass(tone)}`} style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
+    <div className={`stats-bars${toneClass(tone)}`} style={columnWidths(labelWidth, valueWidth)}>
       {windowed && <div className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />}
       {shown.slice(virtual.start, virtual.end).map((r) => (
         <button
@@ -144,7 +234,15 @@ export function BarList({
         >
           <span className="stats-bar-label">{r.label}</span>
           <span className="stats-bar-track">
-            <span className="stats-bar-fill" style={{ width: `${(100 * r.value) / max}%` }} />
+            {r.sexes ? (
+              <>
+                <span className="stats-bar-fill stats-bar-part stats-male" style={{ width: `${(100 * r.sexes.male) / max}%` }} />
+                <span className="stats-bar-fill stats-bar-part stats-female" style={{ width: `${(100 * r.sexes.female) / max}%` }} />
+                <span className="stats-bar-fill stats-bar-part" style={{ width: `${(100 * (r.value - r.sexes.male - r.sexes.female)) / max}%` }} />
+              </>
+            ) : (
+              <span className="stats-bar-fill" style={{ width: `${(100 * r.value) / max}%` }} />
+            )}
           </span>
           <span className="stats-bar-value">{r.display}</span>
         </button>
@@ -184,6 +282,7 @@ export function PairBarList({
   picked,
   limit,
   labelWidth,
+  valueWidth,
 }: {
   rows: PairRow[];
   /** What the two bars stand for, in the legend. */
@@ -194,6 +293,8 @@ export function PairBarList({
   /** Show the first rows only — the card that holds the list offers the rest. */
   limit?: number;
   labelWidth?: string;
+  /** The value column's width where the values run longer than a percentage. */
+  valueWidth?: string;
 }) {
   const { t } = useTranslation();
   if (!rows.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
@@ -214,7 +315,7 @@ export function PairBarList({
     );
   };
   return (
-    <div className="stats-pairs" style={labelWidth ? ({ "--stats-label": labelWidth } as React.CSSProperties) : undefined}>
+    <div className="stats-pairs" style={columnWidths(labelWidth, valueWidth)}>
       {(limit ? rows.slice(0, limit) : rows).map((r) => (
         <div key={r.key} className="stats-pair-row">
           <span className="stats-bar-label">{r.label}</span>
