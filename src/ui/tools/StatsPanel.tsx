@@ -734,15 +734,15 @@ export function StatsPanel({
             ), true)}
             {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
             {card("nameKinds", t("stats.nameKinds"), t("stats.nPeople", { count: scoped.people.length }), (() => {
-              // The primary name's gaps first, in the warning colour, then the
-              // kinds of additional name the people carry.
+              // The kinds of additional name the people carry, then the primary
+              // name's gaps in the warning colour.
               const rows: { key: string; label: string; ids: string[]; status?: BarRow["status"] }[] = [
-                { key: "noGiven", label: t("stats.name.noGiven"), ids: names.nameKinds.noGiven, status: "fair" },
-                { key: "noSurname", label: t("stats.name.noSurname"), ids: names.nameKinds.noSurname, status: "fair" },
                 ...names.nameKinds.types.map((b) => {
                   const label = nameTypeLabel(b.label!, t);
                   return { key: `type:${b.key}`, label: label.charAt(0).toUpperCase() + label.slice(1), ids: b.ids };
                 }),
+                { key: "noGiven", label: t("stats.name.noGiven"), ids: names.nameKinds.noGiven, status: "fair" },
+                { key: "noSurname", label: t("stats.name.noSurname"), ids: names.nameKinds.noSurname, status: "fair" },
               ];
               return withCsv(
                 "nameKinds",
