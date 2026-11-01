@@ -100,7 +100,7 @@ import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { homePlaceOf } from "./chart/nodeDisplay";
-import { computeKinship } from "./tools/batch";
+import { applyBatchAction, computeKinship } from "./tools/batch";
 import { lineOf } from "./stats/scope";
 import { personOptionTitle } from "./ui/edit/RelativePickerCard";
 import { fullTextLookup, type FilterContext } from "./ui/globalSearch";
@@ -2965,6 +2965,7 @@ function AppContent() {
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only), true)}
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
+              onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }).patches, true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
               onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}

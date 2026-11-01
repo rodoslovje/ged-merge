@@ -20,6 +20,7 @@ import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 import { serializeGedcom } from "../gedcom/serialize";
 import { applyRecordPatches } from "../ui/historyTypes";
+import { applyBatchAction } from "./batch";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -210,6 +211,9 @@ describe("validateDataset", () => {
     expect(report.issues.every((i) => i.scope !== "family" || i.sexContext === undefined)).toBe(true);
     // I5 is just as old but carries an undated DEAT Y — deceased, not flagged.
     expect(tooOld.map((i) => i.id)).not.toContain("@I5@");
+    // The finding's own repair (the batch "mark deceased" action) settles it.
+    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }).changed).toBe(tooOld.length);
+    expect(validateDataset(ds, 2026).issues.some((i) => i.category === "livingTooOld")).toBe(false);
     // The father-age finding is reported on the child record.
     expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");
   });

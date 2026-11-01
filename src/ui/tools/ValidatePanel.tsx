@@ -37,8 +37,8 @@ import { keptHabits } from "../../tools/normalizeRepairs";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
-type FixKind = "links" | "sex" | "roles" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+type FixKind = "links" | "sex" | "roles" | "deceased" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -144,6 +144,7 @@ export function ValidatePanel({
   onFixBrokenLinks,
   onFixSexFromRole,
   onFixSwappedRoles,
+  onMarkDeceased,
   onFixDates,
   onFixNonStandardDates,
   onFixDuplicatePointers,
@@ -164,6 +165,9 @@ export function ValidatePanel({
   onFixBrokenLinks: (only?: BrokenLinkRef) => number;
   onFixSexFromRole: (only?: string) => number;
   onFixSwappedRoles: (only?: string) => number;
+  /** Add an undated death (`1 DEAT Y`) to these people — the "living over 99"
+   *  findings, which are almost always a missing death record. */
+  onMarkDeceased: (ids: string[]) => number;
   onFixDates: (only?: BadDateRef) => number;
   onFixNonStandardDates: (only?: BadDateRef) => number;
   onFixDuplicatePointers: (only?: string) => number;
@@ -295,6 +299,7 @@ export function ValidatePanel({
     return kind === "links" ? onFixBrokenLinks()
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
+      : kind === "deceased" ? onMarkDeceased(livingTooOldIds())
       : kind === "dates" ? onFixDates()
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
@@ -302,6 +307,10 @@ export function ValidatePanel({
       : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
+
+  /** Everyone the "living over 99" findings name — what the whole-file fix marks deceased. */
+  const livingTooOldIds = () =>
+    (report?.issues ?? []).filter((i) => i.category === "livingTooOld").map((i) => i.id);
 
   useEffect(() => { setFilter("all"); }, [group]);
   // The last translation given its language takes its chip away: back to All.
@@ -609,6 +618,13 @@ export function ValidatePanel({
         run: () => onFixSwappedRoles(issue.id),
         };
       }
+      case "livingTooOld":
+        return {
+          label: t("tools.validate.fixOneDeceased"),
+          hint: t("tools.validate.fixOneDeceasedHint"),
+          kind: "deceased",
+        run: () => onMarkDeceased([issue.id]),
+        };
       default:
         return null;
     }
@@ -905,6 +921,7 @@ export function ValidatePanel({
   if (fixableDangling > 0) fixActions.push({ kind: "dangling", count: fixableDangling });
   if (swappedRoleFams > 0) fixActions.push({ kind: "roles", count: swappedRoleFams });
   if (inferableSex.size > 0) fixActions.push({ kind: "sex", count: inferableSex.size });
+  if (report.counts.livingTooOld > 0) fixActions.push({ kind: "deceased", count: report.counts.livingTooOld });
   if (fixableDates > 0) fixActions.push({ kind: "dates", count: fixableDates });
   // Every non-standard date the check reports with a fix is one the fix restyles.
   const fixableNonStandard = structure?.issues.filter((i) => i.category === "nonStandardDate" && i.fix).length ?? 0;
