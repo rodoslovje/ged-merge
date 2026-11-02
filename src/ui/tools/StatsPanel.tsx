@@ -270,7 +270,7 @@ export function StatsPanel({
         picked={pickedIn(card)}
         onPick={(key) => {
           const b = list.find((x) => x.key === key)!;
-          choose(card, key, `${title} — ${full(b)}`, b.ids, opts.families);
+          choose(card, key, full(b), b.ids, opts.families);
         }}
       />
     );
@@ -295,7 +295,7 @@ export function StatsPanel({
       picked={pickedIn(card)}
       onPick={(key) => {
         const p = points.find((x) => String(x.century) === key)!;
-        choose(card, key, `${title} — ${centuryLabel(p.century)}`, p.ids, opts.families);
+        choose(card, key, centuryLabel(p.century), p.ids, opts.families);
       }}
     />
   );
@@ -341,7 +341,7 @@ export function StatsPanel({
       })}
       onPick={(key) => {
         const b = list.find((x) => x.key === key)!;
-        choose(card, key, `${title} — ${b.label}`, b.ids, families);
+        choose(card, key, b.label!, b.ids, families);
       }}
     />
   );
@@ -499,7 +499,7 @@ export function StatsPanel({
         onPick={(key, which) => {
           const i = list.findIndex((b) => b.key === key);
           const w = which === "lower" ? 0 : 1;
-          choose(card, `${key}:${which}`, `${title} — ${rangeLabel(list[i])} — ${names[w]}`, parts[i][w], opts.families);
+          choose(card, `${key}:${which}`, `${rangeLabel(list[i])} — ${names[w]}`, parts[i][w], opts.families);
         }}
       />
     );
@@ -761,7 +761,7 @@ export function StatsPanel({
                 rows={ov.topBirthCountries.map((b) => ({ key: b.key, label: countryName(b.key), value: b.count, display: num(b.count), count: b.count }))}
                 onPick={(key) => {
                   const b = ov.topBirthCountries.find((x) => x.key === key)!;
-                  choose("topBirthCountries", key, `${t("stats.topBirthCountries")} — ${countryName(key)}`, b.ids);
+                  choose("topBirthCountries", key, countryName(key), b.ids);
                 }}
               />
             ))}
@@ -816,7 +816,7 @@ export function StatsPanel({
                   rows={rows.map((r) => ({ key: r.key, label: r.label, value: r.ids.length, display: num(r.ids.length), count: r.ids.length, status: r.status }))}
                   onPick={(key) => {
                     const r = rows.find((x) => x.key === key)!;
-                    choose("nameKinds", key, `${t("stats.nameKinds")} — ${r.label}`, r.ids);
+                    choose("nameKinds", key, r.label, r.ids);
                   }}
                 />,
               );
@@ -922,7 +922,7 @@ export function StatsPanel({
               <BarList
                 picked={pickedIn("relatedCouples")}
                 rows={COUPLE_KINSHIP.map((k) => ({ key: k, label: t(`stats.kin.${k}`), value: related.byKind[k].length, display: num(related.byKind[k].length), count: related.byKind[k].length }))}
-                onPick={(key) => choose("relatedCouples", key, `${t("stats.relatedCouples")} — ${t(`stats.kin.${key}`)}`, related.byKind[key as CoupleKinship], true)}
+                onPick={(key) => choose("relatedCouples", key, t(`stats.kin.${key}`), related.byKind[key as CoupleKinship], true)}
               />
             ))}
             {card("motherFirst", t("stats.motherFirst"), t("stats.nFamilies", { count: total(fams.motherFirst) }), buckets("motherFirst", t("stats.motherFirst"), fams.motherFirst, { families: true, tone: "female" }))}
@@ -961,7 +961,7 @@ export function StatsPanel({
                 rows={deaths.ageByCause.map((c) => ({ key: c.key, label: c.label, value: c.value, display: dec(c.value), count: c.ids.length, tip: t("stats.nPeople", { count: c.ids.length }) }))}
                 onPick={(key) => {
                   const c = deaths.ageByCause.find((x) => x.key === key)!;
-                  choose("causeAge", key, `${t("stats.causeAge")} — ${c.label}`, c.ids);
+                  choose("causeAge", key, c.label, c.ids);
                 }}
               />
             ))}
@@ -1024,7 +1024,7 @@ export function StatsPanel({
                 })}
                 onPick={(key) => {
                   const b = moves.countryMoves.find((x) => x.key === key)!;
-                  choose("countryMoves", key, `${t("stats.countryMoves")} — ${countryMove(key)}`, b.ids);
+                  choose("countryMoves", key, countryMove(key), b.ids);
                 }}
               />
             ))}
@@ -1065,7 +1065,7 @@ export function StatsPanel({
                 }))}
                 onPick={(key) => {
                   const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
-                  choose("ancestorsGen", key, `${t("stats.ancestorsByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
+                  choose("ancestorsGen", key, t("stats.genLabel", { n: g.gen }), g.ids);
                 }}
               />
             ))}
@@ -1109,7 +1109,7 @@ export function StatsPanel({
                 }))}
                 onPick={(key) => {
                   const g = lineage.ancestors.find((x) => String(x.gen) === key)!;
-                  choose("childrenByGen", key, `${t("stats.childrenByGen")} — ${t("stats.genLabel", { n: g.gen })}`, g.ids);
+                  choose("childrenByGen", key, t("stats.genLabel", { n: g.gen }), g.ids);
                 }}
               />,
             ))}
@@ -1142,7 +1142,7 @@ export function StatsPanel({
                   }))}
                   onPick={(key, which) => {
                     const g = gens.find((x) => String(x.gen) === key)!;
-                    choose("descendantsGen", `${key}:${which}`, `${t("stats.descendantsByGen")} — ${t("stats.genLabel", { n: g.gen })} — ${names[which === "lower" ? 0 : 1]}`, which === "lower" ? g.men : g.women);
+                    choose("descendantsGen", `${key}:${which}`, `${t("stats.genLabel", { n: g.gen })} — ${names[which === "lower" ? 0 : 1]}`, which === "lower" ? g.men : g.women);
                   }}
                 />
               );
