@@ -198,9 +198,11 @@ export function paletteColor(i: number): string {
 }
 
 /** The colour of the category every other one is read against — the home
- *  country, the family's own surname: the paper tone of the root's generation,
- *  so the bulk of the chart reads calm and what differs from it stands out. */
-const CALM_COLOR = "var(--kin-gen-0)";
+ *  country, the family's own surname: the plain chart's own pine, thinned so
+ *  that under {@link AXIS_TINT} it comes out at the plain chart's 16 %. The
+ *  bulk of the chart reads as it does uncoloured, and what differs from it
+ *  stands out. */
+const CALM_COLOR = `color-mix(in srgb, var(--node-main) ${((16 / AXIS_TINT) * 100).toFixed(1)}%, var(--panel))`;
 
 /** A base hue per part of the world, so that neighbours look related: the
  *  Balkans and central Europe sit in neighbouring greens, the Americas in blues

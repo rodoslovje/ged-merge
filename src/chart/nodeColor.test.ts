@@ -154,7 +154,7 @@ describe("createNodeColorer", () => {
     const people = ["Graz, Austria", "Wien, Austria", "Zagreb, Croatia", "Chicago, USA", "Kranj", "Bled", "Ptuj"].map((p) => ({ indi: bornAt(p) }));
     const c = createNodeColorer("country", ctx, people);
     expect(c.legend.map((e) => e.key)).toEqual(["si", "at", "hr", "us"]);
-    expect(c.colorOf("si")).toBe("var(--kin-gen-0)");
+    expect(c.colorOf("si")).toContain("--node-main");
     const hue = (k: string) => Number(/ (\d+)\)$/.exec(c.colorOf(k)!)![1]);
     // Croatia sits next to Austria, the United States far from both.
     expect(Math.abs(hue("hr") - hue("at"))).toBeLessThan(40);
@@ -164,7 +164,7 @@ describe("createNodeColorer", () => {
   it("calms the commonest country when the home country is not on the chart", () => {
     const people = ["Graz, Austria", "Wien, Austria", "Zagreb, Croatia"].map((p) => ({ indi: bornAt(p) }));
     const c = createNodeColorer("country", ctx, people);
-    expect(c.colorOf("at")).toBe("var(--kin-gen-0)");
+    expect(c.colorOf("at")).toContain("--node-main");
     expect(c.colorOf("hr")).toContain("oklch(");
   });
 
@@ -172,7 +172,8 @@ describe("createNodeColorer", () => {
     const people = ["Kranj", "Kranj", "Graz, Austria", "Bled", "Wien, Austria", "Ptuj"].map((p) => ({ indi: bornAt(p) }));
     const c = createNodeColorer("birthPlace", ctx, people);
     // Kranj first and calm, then the rest of Slovenia, then Austria.
-    expect(c.legend[0]).toMatchObject({ key: "Kranj", color: "var(--kin-gen-0)" });
+    expect(c.legend[0].key).toBe("Kranj");
+    expect(c.legend[0].color).toContain("--node-main");
     expect(c.legend.slice(1).map((e) => e.key)).toEqual(["Bled", "Ptuj", "Graz", "Wien"]);
     expect(new Set(c.legend.map((e) => e.color)).size).toBe(5);
   });
