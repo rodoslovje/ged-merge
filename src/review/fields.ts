@@ -1800,6 +1800,23 @@ export interface LifespanAnchors {
   minBirthKey: number | undefined;
   maxBirthKey: number | undefined;
   minDeathKey: number | undefined;
+  /** Latest known DEAT date key — what the body's fate (burial, cremation, …) follows. */
+  deathKey?: number;
+}
+
+/** What becomes of the body: never before the death, whatever the dates' precision. */
+const AFTER_DEATH_TAGS = ["CREM", "BURI", "_INTE", "_FNRL"];
+
+/**
+ * Keeps a burial, cremation or funeral after the death. A death known only to
+ * the month (`OCT 2024`, `__.10.2024`) sorts mid-month and a year-only one at
+ * the year's end, so a burial dated within that span — `16 OCT 2024` — would
+ * otherwise list ahead of the death it follows. Clamps to just after the death
+ * key, in the order the undated ones take.
+ */
+export function clampAfterDeath(tag: string, key: number, deathKey: number | undefined): number {
+  const pos = AFTER_DEATH_TAGS.indexOf(tag);
+  return pos >= 0 && deathKey != null && key < deathKey ? deathKey + pos + 1 : key;
 }
 
 /** Derive `LifespanAnchors` from a person's (and optionally a compare's) events. */
@@ -1814,12 +1831,14 @@ export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): Life
   const maxBirthKey = birthKeys.length > 0 ? Math.max(...birthKeys) : undefined;
   const maxDeathKey = deathKeys.length > 0 ? Math.max(...deathKeys) : undefined;
   const minDeathKey = deathKeys.length > 0 ? Math.min(...deathKeys) : undefined;
+  const deatKeys = events.filter((e) => e.tag === "DEAT" && e.date?.year != null).map((e) => dateToSortKey(e.date));
+  const deathKey = deatKeys.length > 0 ? Math.max(...deatKeys) : undefined;
   const midLifeKey =
     minBirthKey != null && maxDeathKey != null ? (minBirthKey + maxDeathKey) / 2
     : minBirthKey != null ? minBirthKey + 30 * 10_000
     : maxDeathKey != null ? maxDeathKey - 30 * 10_000
     : 15_000_000; // ~year 1500 fallback
-  return { midLifeKey, minBirthKey, maxBirthKey, minDeathKey };
+  return { midLifeKey, minBirthKey, maxBirthKey, minDeathKey, deathKey };
 }
 
 /**
@@ -1845,7 +1864,7 @@ export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnch
     // The birth itself is never pushed after the latest birth: a vaguer `1899`
     // on the other side would otherwise sort it past a `3 NOV 1899` death.
     if (tag === "BIRT") return a.minBirthKey != null ? Math.min(key, a.minBirthKey) : key;
-    return clampAfterBirthZone(tag, key, a.maxBirthKey);
+    return clampAfterDeath(tag, clampAfterBirthZone(tag, key, a.maxBirthKey), a.deathKey);
   }
   const pos = EVENT_ORDER.indexOf(tag);
   if (BIRTH_ZONE_TAGS.has(tag)) {
