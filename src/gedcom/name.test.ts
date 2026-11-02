@@ -19,6 +19,12 @@ describe("parseName — the slash form", () => {
     expect(parseName("Juan /Garcia/ /Lopez/ Jr", none)).toMatchObject({ surname: "Garcia Lopez", suffix: "Jr" });
   });
 
+  it("keeps a space between surnames written back to back", () => {
+    expect(parseName("Martin /Čeh//Tschech/", none)).toMatchObject({
+      full: "Martin Čeh Tschech", given: "Martin", surname: "Čeh Tschech",
+    });
+  });
+
   it("still reads the ordinary forms as before", () => {
     expect(parseName("John /Smith/ Jr", none)).toMatchObject({ given: "John", surname: "Smith", suffix: "Jr" });
     expect(parseName("/Novak/ Janez", none)).toMatchObject({ given: "Janez", surname: "Novak" });
