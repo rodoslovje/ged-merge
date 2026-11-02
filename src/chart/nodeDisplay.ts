@@ -72,7 +72,7 @@ export function formatMarriage(
 
 /**
  * The localized "Living" placeholder for a redacted person, gendered when the
- * sex is known (sl "Živ"/"Živa" via the `_M`/`_F` context keys). Unknown sex —
+ * sex is known (sl "živ"/"živa" via the `_M`/`_F` context keys). Unknown sex —
  * and English, which defines only the base key — fall back to the neutral form,
  * the same context convention as the narrative.* templates.
  */

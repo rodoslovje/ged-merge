@@ -2750,11 +2750,12 @@ export const sl = {
   "narrative.cause": "(vzrok: {{cause}})",
   // Navedena stran v viru: "§ Krstna knjiga, stran 23".
   "report.source.page": "stran {{page}}",
-  // Živ(a) is the unknown-sex fallback; _M/_F gender it (context convention,
-  // same as the narrative.* templates).
-  "tree.node.living": "Živ(a)",
-  "tree.node.living_M": "Živ",
-  "tree.node.living_F": "Živa",
+  // živ(a) is the unknown-sex fallback; _M/_F gender it (context convention,
+  // same as the narrative.* templates). Lower case, so "živa" never reads as
+  // the given name Živa.
+  "tree.node.living": "živ(a)",
+  "tree.node.living_M": "živ",
+  "tree.node.living_F": "živa",
   "tree.node.agePhrase": "star(a) {{age}} let",
   "tree.node.agePhrase_M": "star {{age}} let",
   "tree.node.agePhrase_F": "stara {{age}} let",
