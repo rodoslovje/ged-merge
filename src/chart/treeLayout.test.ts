@@ -14,6 +14,7 @@ import {
   layoutBowtie,
   layoutGrid,
   minimapFit,
+  wrapLabel,
 } from "./treeLayout";
 
 /** Minimal TreeNode for geometry tests — only the layout-relevant fields matter. */
@@ -132,6 +133,20 @@ describe("layout alignment", () => {
     // No callback → no label.
     const plain = flatten(layout(couple(), "lr").root, "lr").edges.find((e) => e.partner)!;
     expect(plain.label).toBeUndefined();
+  });
+
+  it("wraps a marriage label to the gap between side-by-side spouses", () => {
+    // 80px between the boxes fits ~10 characters a line, 56px four lines.
+    expect(wrapLabel("⚭ 1850 Lozice pri Podnanosu (Dolenje)", 72, NODE_H)).toEqual(["⚭ 1850", "Lozice pri", "Podnanosu", "(Dolenje)"]);
+    // A word too long for the line is cut; text past the last line ends in "…".
+    expect(wrapLabel("Podnanosu", 40, NODE_H)).toEqual(["Podn…"]);
+    expect(wrapLabel("⚭ 1850 Lozice pri Podnanosu (Dolenje)", 72, 26)).toEqual(["⚭ 1850", "Lozice pr…"]);
+    // Top-to-bottom spouses get the gap's room; stacked ones a box-wide line.
+    const couple = () => node("person", [], [node("spouse")]);
+    const tb = flatten(layout(couple(), "tb").root, "tb", "curve", NODE_H, () => "⚭ 1850 Lozice pri Podnanosu").edges.find((e) => e.partner)!;
+    expect(tb.label!.lines.length).toBeGreaterThan(1);
+    const lr = flatten(layout(couple(), "lr").root, "lr", "curve", NODE_H, () => "⚭ 1850 Lozice pri Podnanosu").edges.find((e) => e.partner)!;
+    expect(lr.label!.lines).toEqual(["⚭ 1850 Lozice pri Podnanosu"]);
   });
 
   it("brackets the two parents with the marriage label in ancestor mode", () => {

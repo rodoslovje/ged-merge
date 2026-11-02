@@ -90,8 +90,9 @@ export interface Flat {
     id: string;
     d: string;
     partner?: boolean;
-    /** Marriage label centred on a partner connector (when enabled + recorded). */
-    label?: { x: number; y: number; text: string };
+    /** Marriage label centred on a partner connector (when enabled + recorded),
+     *  wrapped into `lines` that fit between the two boxes. */
+    label?: { x: number; y: number; text: string; lines: string[] };
   }[];
 }
 
@@ -225,11 +226,12 @@ export function flatten(
     for (const p of n.partners) {
       nodes.push(p);
       const text = marriageLabel?.(p);
+      const couple = coupleLink(prev, p, alignment, nodeH);
       edges.push({
         id: `${prev.key}~${p.key}`,
-        d: partnerPath(prev, p, alignment, nodeH),
+        d: couple.d,
         partner: true,
-        label: text ? { ...partnerMidpoint(prev, p, alignment, nodeH), text } : undefined,
+        label: text ? coupleLabel(couple, text) : undefined,
       });
       prev = p;
       for (const c of p.children) {
@@ -248,7 +250,7 @@ export function flatten(
       const text = marriageLabel?.(n);
       if (text) {
         const b = parentBracket(n.children, alignment, nodeH);
-        edges.push({ id: `${n.key}=m`, d: b.d, partner: true, label: { x: b.x, y: b.y, text } });
+        edges.push({ id: `${n.key}=m`, d: b.d, partner: true, label: coupleLabel(b, text) });
       }
     }
     // Children of a spouseless family connect to the person directly.
@@ -423,15 +425,16 @@ function coupleLink(
   b: Placed,
   alignment: ChartAlignment,
   nodeH: number = NODE_H,
-): { d: string; x: number; y: number } {
+): { d: string; x: number; y: number; room: { w: number; h: number } } {
   if (alignment === "tb") {
     // Side by side: link the inner (facing) edges at each box's vertical centre.
+    // A label there has the gap's width and the boxes' height.
     const [l, r] = a.x <= b.x ? [a, b] : [b, a];
     const x1 = l.x + NODE_W;
     const x2 = r.x;
     const y1 = l.y + nodeH / 2;
     const y2 = r.y + nodeH / 2;
-    return { d: `M${x1},${y1} L${x2},${y2}`, x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+    return { d: `M${x1},${y1} L${x2},${y2}`, x: (x1 + x2) / 2, y: (y1 + y2) / 2, room: { w: x2 - x1 - 8, h: nodeH } };
   }
   // Stacked: link the inner edges at each box's horizontal centre.
   const [hi, lo] = a.y <= b.y ? [a, b] : [b, a];
@@ -439,23 +442,13 @@ function coupleLink(
   const x2 = lo.x + NODE_W / 2;
   const y1 = hi.y + nodeH;
   const y2 = lo.y;
-  return { d: `M${x1},${y1} L${x2},${y2}`, x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  // Stacked boxes leave one line of room, as wide as a box.
+  return { d: `M${x1},${y1} L${x2},${y2}`, x: (x1 + x2) / 2, y: (y1 + y2) / 2, room: { w: NODE_W, h: LABEL_LINE_H } };
 }
 
-/** Partner connector between a person and their spouse (descendant mode). */
-function partnerPath(person: Placed, partner: Placed, alignment: ChartAlignment, nodeH: number = NODE_H): string {
-  return coupleLink(person, partner, alignment, nodeH).d;
-}
-
-/** Midpoint of the {@link partnerPath} connector — where the marriage label rides. */
-function partnerMidpoint(
-  person: Placed,
-  partner: Placed,
-  alignment: ChartAlignment,
-  nodeH: number = NODE_H,
-): { x: number; y: number } {
-  const { x, y } = coupleLink(person, partner, alignment, nodeH);
-  return { x, y };
+/** The marriage label on a couple's connector: at its midpoint, wrapped to the room there. */
+function coupleLabel(link: ReturnType<typeof coupleLink>, text: string): NonNullable<Flat["edges"][number]["label"]> {
+  return { x: link.x, y: link.y, text, lines: wrapLabel(text, link.room.w, link.room.h) };
 }
 
 /** Marriage line between a node's two parents (ancestor mode): joins their boxes
@@ -465,7 +458,7 @@ function parentBracket(
   parents: Placed[],
   alignment: ChartAlignment,
   nodeH: number = NODE_H,
-): { d: string; x: number; y: number } {
+): ReturnType<typeof coupleLink> {
   return coupleLink(parents[0], parents[parents.length - 1], alignment, nodeH);
 }
 
@@ -699,6 +692,32 @@ function maxDepth(node: TreeNode): number {
 
 export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/** Average glyph width and line height of the 11px marriage-label font. */
+const LABEL_CHAR_W = 6.7;
+export const LABEL_LINE_H = 13;
+
+/**
+ * A marriage label broken at spaces into lines no wider than `width`, at most
+ * as many as fit in `height` — a word too long for a line, or text past the
+ * last line, ends in "…". Side-by-side spouses leave only the column gap
+ * between them, and a label wider than that ran under both boxes.
+ */
+export function wrapLabel(text: string, width: number, height: number): string[] {
+  const max = Math.max(4, Math.floor(width / LABEL_CHAR_W));
+  const maxLines = Math.max(1, Math.floor(height / LABEL_LINE_H));
+  const lines: string[] = [];
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const last = lines.length ? lines[lines.length - 1] : undefined;
+    if (last !== undefined && last.length + 1 + word.length <= max) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(truncate(word, max));
+  }
+  if (lines.length <= maxLines) return lines;
+  const kept = lines.slice(0, maxLines);
+  const last = kept[maxLines - 1].replace(/…$/, "");
+  kept[maxLines - 1] = `${last.slice(0, max - 1)}…`;
+  return kept;
 }
 
 /** Average glyph width of the 12px/600 node-name font, for overflow detection. */

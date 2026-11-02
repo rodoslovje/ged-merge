@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
-import { NODE_W, PAD, type Flat, type Placed } from "../chart/treeLayout";
+import { LABEL_LINE_H, NODE_W, PAD, type Flat, type Placed } from "../chart/treeLayout";
 import { ageStandalone, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import type { Lineage } from "../match/kinship";
 import type { MediaRefContext } from "./MediaViewer";
@@ -105,7 +105,13 @@ export const TreeSvg = memo(function TreeSvg({
                 textAnchor="middle"
                 dominantBaseline="central"
               >
-                {e.label.text}
+                {/* Wrapped to the gap between the boxes, centred on the line; the full text on hover. */}
+                {e.label.lines.join(" ") !== e.label.text && <title>{e.label.text}</title>}
+                {e.label.lines.map((line, i) => (
+                  <tspan key={i} x={e.label!.x} dy={i ? LABEL_LINE_H : (-(e.label!.lines.length - 1) / 2) * LABEL_LINE_H}>
+                    {line}
+                  </tspan>
+                ))}
               </text>
             ),
         )}
