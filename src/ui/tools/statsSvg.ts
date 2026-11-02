@@ -102,12 +102,31 @@ function paint(root: HTMLElement, skip: (node: Element) => boolean): { svg: SVGS
       g.appendChild(el("rect", { x: box.x, y: box.y, width: parseFloat(stripe[2]), height: box.height, fill: stripe[1] }));
       into.appendChild(g);
     }
-    const border = parseFloat(cs.borderTopWidth);
-    if (border > 0 && cs.borderTopStyle !== "none" && visible(cs.borderTopColor)) {
+    // A border all round is a rectangle; a single side — the axis line over a
+    // column's label — is drawn as just that line, not boxed in.
+    const sides = (["Top", "Right", "Bottom", "Left"] as const).map((side) => {
+      const w = parseFloat(cs.getPropertyValue(`border-${side.toLowerCase()}-width`));
+      const color = cs.getPropertyValue(`border-${side.toLowerCase()}-color`);
+      return w > 0 && cs.getPropertyValue(`border-${side.toLowerCase()}-style`) !== "none" && visible(color) ? { w, color } : undefined;
+    });
+    const [top] = sides;
+    if (top && sides.every((s) => s && s.w === top.w && s.color === top.color)) {
+      const border = top.w;
       into.appendChild(el("rect", {
         x: box.x + border / 2, y: box.y + border / 2, width: box.width - border, height: box.height - border,
-        rx: radius, fill: "none", stroke: cs.borderTopColor, "stroke-width": border,
+        rx: radius, fill: "none", stroke: top.color, "stroke-width": border,
       }));
+    } else {
+      const { x: l, y: t, width: w, height: h } = box;
+      const ends = [[l, t, l + w, t], [l + w, t, l + w, t + h], [l, t + h, l + w, t + h], [l, t, l, t + h]];
+      // Each line sits half its width inside the box, where the page paints it.
+      const inset = [[0, 1], [-1, 0], [0, -1], [1, 0]];
+      sides.forEach((s, i) => {
+        if (!s) return;
+        const [dx, dy] = inset[i].map((d) => (d * s.w) / 2);
+        const [x1, y1, x2, y2] = ends[i];
+        into.appendChild(el("line", { x1: x1 + dx, y1: y1 + dy, x2: x2 + dx, y2: y2 + dy, stroke: s.color, "stroke-width": s.w }));
+      });
     }
     // What the page cuts off (a label's ellipsis, a bar's rounded track), the
     // export cuts off too.
