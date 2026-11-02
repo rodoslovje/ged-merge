@@ -229,6 +229,7 @@ function Segment({
 }) {
   const { node } = seg;
   const nameFill = sexColorVar(node.sex) ?? "var(--text)";
+  const fill = `color-mix(in srgb, ${color} ${tint ?? seg.tint ?? 16}%, var(--panel))`;
   const lineProps = (l: FanSegment["lines"][number]) =>
     l.kind === "years"
       ? { className: "fan-label-year gm-data", fontSize: seg.fontPx * 0.85 }
@@ -257,8 +258,8 @@ function Segment({
       <path
         className="fan-sector"
         d={seg.d}
-        fill={`color-mix(in srgb, ${color} ${tint ?? seg.tint ?? 16}%, var(--panel))`}
-        stroke={selected ? color : `color-mix(in srgb, ${color} 50%, var(--panel))`}
+        fill={fill}
+        stroke={selected ? color : `color-mix(in srgb, ${fill} 78%, var(--text))`}
         strokeWidth={selected ? 2.5 : 0.75}
       />
       {seg.photo && (
