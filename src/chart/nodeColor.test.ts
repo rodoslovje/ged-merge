@@ -4,7 +4,7 @@ import { buildDataset } from "../gedcom/builder";
 import type { Individual } from "../gedcom/types";
 import type { TreeNode } from "./personTree";
 import { OWN_BRANCH } from "./kinshipWheel";
-import { axisWithin, colorAxesFor, COLOR_AXES, createNodeColorer, indexPositions, lineColor, sanitizeColorAxis, type ColorContext } from "./nodeColor";
+import { axisWithin, categoryColor, colorAxesFor, COLOR_AXES, createNodeColorer, indexPositions, lineColor, sanitizeColorAxis, type ColorContext } from "./nodeColor";
 
 const GED = `0 HEAD
 1 GEDC
@@ -141,6 +141,49 @@ describe("createNodeColorer", () => {
     const c = createNodeColorer("country", ctx, subjects);
     const buried = { ...indi("I4"), events: [{ ...indi("I2").events[0], tag: "BURI" }] } as Individual;
     expect(c.categoryOf(buried)).toBe("at");
+  });
+
+  /** Janez, born at `plac` instead. */
+  const bornAt = (plac: string) => {
+    const base = indi("I1");
+    const birth = base.events.find((e) => e.tag === "BIRT")!;
+    return { ...base, events: [{ ...birth, place: { ...birth.place!, raw: plac, parts: plac.split(", ") } }] } as Individual;
+  };
+
+  it("keeps the home country calm and colours neighbouring countries alike", () => {
+    const people = ["Graz, Austria", "Wien, Austria", "Zagreb, Croatia", "Chicago, USA", "Kranj", "Bled", "Ptuj"].map((p) => ({ indi: bornAt(p) }));
+    const c = createNodeColorer("country", ctx, people);
+    expect(c.legend.map((e) => e.key)).toEqual(["si", "at", "hr", "us"]);
+    expect(c.colorOf("si")).toBe("var(--kin-gen-0)");
+    const hue = (k: string) => Number(/ (\d+)\)$/.exec(c.colorOf(k)!)![1]);
+    // Croatia sits next to Austria, the United States far from both.
+    expect(Math.abs(hue("hr") - hue("at"))).toBeLessThan(40);
+    expect(Math.abs(hue("us") - hue("hr"))).toBeGreaterThan(60);
+  });
+
+  it("calms the commonest country when the home country is not on the chart", () => {
+    const people = ["Graz, Austria", "Wien, Austria", "Zagreb, Croatia"].map((p) => ({ indi: bornAt(p) }));
+    const c = createNodeColorer("country", ctx, people);
+    expect(c.colorOf("at")).toBe("var(--kin-gen-0)");
+    expect(c.colorOf("hr")).toContain("oklch(");
+  });
+
+  it("groups birth places by country, the commonest place calm", () => {
+    const people = ["Kranj", "Kranj", "Graz, Austria", "Bled", "Wien, Austria", "Ptuj"].map((p) => ({ indi: bornAt(p) }));
+    const c = createNodeColorer("birthPlace", ctx, people);
+    // Kranj first and calm, then the rest of Slovenia, then Austria.
+    expect(c.legend[0]).toMatchObject({ key: "Kranj", color: "var(--kin-gen-0)" });
+    expect(c.legend.slice(1).map((e) => e.key)).toEqual(["Bled", "Ptuj", "Graz", "Wien"]);
+    expect(new Set(c.legend.map((e) => e.color)).size).toBe(5);
+  });
+
+  it("never paints a category in the muddy band", () => {
+    for (let n = 1; n <= 12; n++) {
+      for (let i = 0; i < n; i++) {
+        const h = Number(/ (\d+)\)$/.exec(categoryColor(i, n))![1]);
+        expect(h >= 90 && h < 125).toBe(false);
+      }
+    }
   });
 
   it("folds a long tail of surnames into other", () => {

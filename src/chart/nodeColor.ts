@@ -4,9 +4,11 @@
 // the Contemporaries dots. A "colorer" is built once per chart from the people
 // on it: it sorts each person into a category (a generation, a country, an age
 // band, …), hands every category a colour, and lists the categories as the
-// legend. Categorical axes spread evenly spaced hues over the most frequent
-// values (the rest fold into "other"); numeric axes bucket the value and run a
-// ramp over the buckets.
+// legend. The open-ended categorical axes (country, birth place, surname) keep
+// their commonest value calm and colour the rest — countries by region, places
+// grouped by country, surnames from a hand-picked palette — and fold the long
+// tail into "other"; numeric axes bucket the value and sweep hues over the
+// buckets.
 //
 // Pure: the hosts pass the people, the dataset and the translator in.
 
@@ -162,12 +164,114 @@ export interface ColorSubject {
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
-/** Hue `i` of `n` evenly spaced around the colour wheel — the sweep stops
- *  short of a full turn so the last never matches the first; lightness and
- *  chroma come from the theme. */
+/** A hue at the theme's branch lightness and chroma. */
+function hueColor(hue: number): string {
+  return `oklch(var(--fan-branch-l) var(--fan-branch-c) ${Math.round(((hue % 360) + 360) % 360)})`;
+}
+
+// At the branch lightness the hues from 90° to 125° come out mustard and olive —
+// they read as dirt, not as a colour — so no palette lands there.
+const MUDDY_FROM = 90;
+const MUDDY_WIDTH = 35;
+
+/** The hue at `t` ∈ [0, 1) of a sweep round the wheel that skips the muddy
+ *  band and stops short of a full turn, so the last never matches the first. */
+function sweepHue(t: number): number {
+  const h = 25 + t * (320 - MUDDY_WIDTH);
+  return h >= MUDDY_FROM ? h + MUDDY_WIDTH : h;
+}
+
+/** Hue `i` of `n` evenly spaced along the sweep — for categories that come in
+ *  an order (the numeric buckets), where neighbours should look like neighbours. */
 export function categoryColor(i: number, n: number): string {
-  const hue = Math.round(25 + (i * 320) / Math.max(n, 1));
-  return `oklch(var(--fan-branch-l) var(--fan-branch-c) ${hue})`;
+  return hueColor(sweepHue(i / Math.max(n, 1)));
+}
+
+/** Hand-picked hues for categories with no order of their own (surnames, a
+ *  single country's places): the first few, which nearly every chart shows,
+ *  sit as far apart as the wheel allows, and none is muddy. */
+const PALETTE_HUES = [250, 35, 160, 305, 70, 200, 350, 140, 275, 15, 225, 55];
+
+/** Entry `i` of the hand-picked palette. */
+export function paletteColor(i: number): string {
+  return hueColor(PALETTE_HUES[i % PALETTE_HUES.length]);
+}
+
+/** The colour of the category every other one is read against — the home
+ *  country, the family's own surname: the paper tone of the root's generation,
+ *  so the bulk of the chart reads calm and what differs from it stands out. */
+const CALM_COLOR = "var(--kin-gen-0)";
+
+/** A base hue per part of the world, so that neighbours look related: the
+ *  Balkans and central Europe sit in neighbouring greens, the Americas in blues
+ *  and violets, Asia in ochre. A country outside the table takes the palette. */
+const REGION_HUES: [hue: number, codes: string][] = [
+  [175, "si hr ba rs me mk al xk bg ro gr"],
+  [145, "at de ch li cz sk hu pl lu"],
+  [210, "gb ie nl be dk se no fi is"],
+  [60, "it sm va mt fr mc es pt ad"],
+  [290, "ua by ru lt lv ee md"],
+  [250, "us ca"],
+  [330, "mx gt hn sv ni cr pa cu do ht pr jm co ve ec pe bo br py uy ar cl"],
+  [30, "tr cy il ps lb sy jo iq ir kw sa ae qa bh om ye eg ly tn dz ma sd za ng ke et gh tz ug cd ao zw zm na bw mz"],
+  [75, "cn jp kr kp tw hk mo mn vn la kh th mm my sg id ph bn tl in pk bd lk np bt af kz uz kg tj tm"],
+  [0, "au nz pg fj"],
+];
+const REGION_OF = new Map<string, number>(REGION_HUES.flatMap(([, codes], r) => codes.split(" ").map((c) => [c, r] as [string, number])));
+
+/** Countries in the same region step away from its base hue by this much,
+ *  alternating sides: 0, +12, −12, +24, … */
+const REGION_STEP = 12;
+
+/** A colour per country, in the given order (commonest first): related
+ *  colours for neighbouring countries, the palette for the rest. */
+function countryColors(keys: string[]): Map<string, string> {
+  const colors = new Map<string, string>();
+  const perRegion = new Map<number, number>();
+  let spare = 0;
+  for (const k of keys) {
+    const r = REGION_OF.get(k);
+    if (r === undefined) {
+      colors.set(k, paletteColor(spare++));
+      continue;
+    }
+    const n = perRegion.get(r) ?? 0;
+    perRegion.set(r, n + 1);
+    const offset = Math.ceil(n / 2) * REGION_STEP * (n % 2 ? 1 : -1);
+    colors.set(k, hueColor(REGION_HUES[r][0] + offset));
+  }
+  return colors;
+}
+
+/** Places in the order the legend lists them and a colour each. Places in one
+ *  country take the palette. Across several countries, the places are grouped
+ *  by country (the commonest country first — counting the calm place, which
+ *  takes no colour of its own) and the sweep runs along the groups with a gap
+ *  between them, so a country's places come out as one family of neighbouring
+ *  hues. */
+function placeColors(
+  keys: string[],
+  calm: string | undefined,
+  countryOfKey: Map<string, string>,
+  counts: Map<string, number>,
+): { order: string[]; colors: Map<string, string> } {
+  const groups = new Map<string, string[]>();
+  const totals = new Map<string, number>();
+  for (const k of calm === undefined ? keys : [calm, ...keys]) {
+    const c = countryOfKey.get(k) ?? "";
+    totals.set(c, (totals.get(c) ?? 0) + counts.get(k)!);
+    if (k !== calm) groups.set(c, [...(groups.get(c) ?? []), k]);
+  }
+  if (groups.size <= 1) return { order: keys, colors: new Map(keys.map((k, i) => [k, paletteColor(i)])) };
+  const sorted = [...groups].sort((a, b) => totals.get(b[0])! - totals.get(a[0])!).map(([, g]) => g);
+  const slots = keys.length + sorted.length - 1;
+  const colors = new Map<string, string>();
+  let slot = 0;
+  for (const g of sorted) {
+    for (const k of g) colors.set(k, hueColor(sweepHue(slot++ / slots)));
+    slot++;
+  }
+  return { order: sorted.flat(), colors };
 }
 
 /** Line `i` of `n` on one side of the root, spread evenly along that side's
@@ -228,9 +332,14 @@ function countryOf(indi: Individual, home: string): string {
   return "";
 }
 
-function birthPlaceOf(indi: Individual): string {
+/** The birth place's locality and the country it lies in (the home country
+ *  for a place that names none). */
+function birthPlaceOf(indi: Individual, home: string): { place: string; country: string } {
   const place = findEvent(indi, "BIRT")?.place;
-  return place ? (localityParts(place)[0] ?? "") : "";
+  return {
+    place: place ? (localityParts(place)[0] ?? "") : "",
+    country: place ? placeCountryFacet(place.raw) || home : "",
+  };
 }
 
 function surnameOf(indi: Individual): string {
@@ -293,6 +402,8 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   const { ds, t, lang } = ctx;
   const now = ctx.now ?? new Date().getFullYear();
   const numeric = NUMERIC[axis];
+  // The country each birth place lies in, as the places are read.
+  const placeCountry = new Map<string, string>();
 
   const readCategory = (indi: Individual | undefined, pos?: NodePosition): string => {
     // A spouse riding beside the line is of no generation and of no line.
@@ -304,7 +415,12 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
       case "sex": return indi?.sex ?? "";
       case "living": return indi ? (isPresumedLiving(indi, ds, now) ? "living" : "deceased") : "";
       case "country": return indi ? countryOf(indi, ctx.home) : "";
-      case "birthPlace": return indi ? birthPlaceOf(indi) : "";
+      case "birthPlace": {
+        if (!indi) return "";
+        const { place, country } = birthPlaceOf(indi, ctx.home);
+        if (place && !placeCountry.has(place)) placeCountry.set(place, country);
+        return place;
+      }
       case "surname": return indi ? surnameOf(indi) : "";
       case "sources": {
         const share = indi ? sourcedShareOf(indi, ds) : undefined;
@@ -372,13 +488,30 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
 
   // The open-ended categorical axes fold their long tail into "other".
   const folds = axis === "country" || axis === "birthPlace" || axis === "surname";
-  const kept = folds && keys.length > MAX_CATEGORIES ? keys.slice(0, MAX_CATEGORIES - 1) : keys;
+  let kept = folds && keys.length > MAX_CATEGORIES ? keys.slice(0, MAX_CATEGORIES - 1) : keys;
   const foldedKeys = folds ? keys.slice(kept.length) : [];
   const folded = new Set(foldedKeys);
   const otherCount = foldedKeys.reduce((s, k) => s + counts.get(k)!, 0);
 
+  // On those axes the commonest value — or the home country, when the chart
+  // has it — is the calm one, and only the rest take colours.
+  const calm = !folds ? undefined : axis === "country" && kept.includes(ctx.home) ? ctx.home : kept[0];
+  const rest = kept.filter((k) => k !== calm);
+  let open: Map<string, string> | undefined;
+  if (axis === "country") open = countryColors(rest);
+  else if (axis === "surname") open = new Map(rest.map((k, i) => [k, paletteColor(i)]));
+  else if (axis === "birthPlace") {
+    const placed = placeColors(rest, calm, placeCountry, counts);
+    open = placed.colors;
+    kept = calm === undefined ? placed.order : [calm, ...placed.order];
+  }
+
   const colors = new Map<string, string>();
   kept.forEach((k, i) => {
+    if (open) {
+      colors.set(k, k === calm ? CALM_COLOR : open.get(k)!);
+      return;
+    }
     let c: string;
     switch (axis) {
       case "generation": c = generationColor(Number(k), up, down); break;
