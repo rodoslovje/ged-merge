@@ -100,9 +100,10 @@ export function splitSlashName(value: string): { before: string; surname: string
 }
 
 /** A `NAME` value as it reads — the surname slashes dropped, the spacing
- *  collapsed ("John /Smith/ Jr" → "John Smith Jr"). */
+ *  collapsed ("John /Smith/ Jr" → "John Smith Jr"). Two slashes back to back
+ *  part two surnames ("/Čeh//Tschech/" → "Čeh Tschech"). */
 export function nameValueText(value: string): string {
-  return value.replace(/\//g, "").replace(/\s+/g, " ").trim();
+  return value.replace(/\/\//g, " ").replace(/\//g, "").replace(/\s+/g, " ").trim();
 }
 
 /**
