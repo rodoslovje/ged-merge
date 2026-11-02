@@ -6,6 +6,7 @@ import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu, type ExportItem } from "./ExportMenu";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { SheetPrintDialog } from "./SheetPrintDialog";
+import { useChartSettings } from "./ChartSettingsContext";
 import { useSettingsSlice } from "./SettingsContext";
 import type { SheetChartSource } from "./sheetExport";
 
@@ -49,6 +50,7 @@ interface Props {
 export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, canvasRef, sheets, extraItems }: Props) {
   const { t } = useTranslation();
   const { authorName } = useSettingsSlice(AUTHOR_KEYS);
+  const { privacyLiving } = useChartSettings().settings;
   const [sheetDialog, setSheetDialog] = useState(false);
   const items: ExportItem[] = [];
   if (gedcom) {
@@ -57,7 +59,8 @@ export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, ca
       icon: <GedIcon />,
       label: t("export.gedcom", { count: gedcom.personIds.length }),
       title: t("tree.exportGedcom.tooltip"),
-      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, authorName),
+      // Living people the chart keeps private stay private in the file too.
+      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, authorName, privacyLiving),
     });
   }
   if (canvasRef) {

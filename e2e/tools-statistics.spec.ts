@@ -155,6 +155,18 @@ test("a card and the people behind a bar download as CSV", async ({ page }) => {
   expect(svg).toContain(">Birth place<");
   expect(svg).toContain("Ancestors: Petra Zorman");
 
+  // A column chart's axis is one line over its labels, not a box round each.
+  await panel.getByRole("tab", { name: "Birth", exact: true }).click();
+  const months = panel.locator(".stats-card", { has: page.getByRole("heading", { name: "Births by month", exact: true }) });
+  const monthsSvg = page.waitForEvent("download");
+  await months.getByRole("button", { name: "Export" }).click();
+  await months.getByRole("menuitem", { name: "SVG image" }).click();
+  const axis = readFileSync((await (await monthsSvg).path())!, "utf-8");
+  expect(axis.match(/<line/g)?.length ?? 0).toBeGreaterThanOrEqual(12);
+  // Outlines left are the card's own, never a label-high box.
+  const outlines = [...axis.matchAll(/<rect[^>]*height="([\d.]+)"[^>]*fill="none"/g)].map((m) => +m[1]);
+  expect(outlines.filter((h) => h < 30)).toEqual([]);
+
   // The whole page as a PNG.
   const pagePng = page.waitForEvent("download");
   await panel.locator(".stats-head").getByRole("button", { name: "Export" }).click();

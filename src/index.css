@@ -1892,6 +1892,8 @@ button:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
+/* A text-label filter (kin) reads as plain text; only the score stays bold. */
+.score-select.kin-select { font-weight: normal; }
 .score-select:focus {
   outline: none;
   border-color: var(--accent);
@@ -9598,7 +9600,8 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 
 /* The people behind a picked bar, inside the card that was clicked. */
 .stats-pick { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
-.stats-pick-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; }
+/* Smaller than the card title it sits under: the title names the chart, this the picked part. */
+.stats-pick-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 6px; font-size: 0.85rem; }
 .stats-pick-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .stats-pick .tools-issues { max-height: 360px; overflow-y: auto; }
 /* The listed people sit as compact as the search and dropdown rows. */

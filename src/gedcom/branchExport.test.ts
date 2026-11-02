@@ -4,6 +4,8 @@ import { buildDataset } from "./builder";
 import { serializeGedcom } from "./serialize";
 import { extractBranch } from "./branchExport";
 import { findDanglingXrefs } from "../tools/structure";
+import { validateConformance } from "../tools/conformance/conformance";
+import { isPlaceholderName } from "../match/text";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -158,6 +160,40 @@ describe("extractBranch", () => {
     };
     out.records.forEach(walk);
     expect(pointers.filter((p) => !defined.has(p))).toEqual([]);
+  });
+
+  describe("with living people private", () => {
+    // @I1@ born 1990 is living; his parents, dated only through him, count as
+    // living too, so @F1@ is a living couple's family.
+    const LIVING = BASE.replace("1 NAME Janez /Novak/", "1 NAME Janez /Novak/\n1 SEX M\n1 NOTE Lives in Kranj")
+      .replace("2 DATE 1 JAN 1900", "2 DATE 1 JAN 1990");
+    const tags = (rec: GedNode | undefined) => rec?.children.map((c) => c.tag);
+
+    it("keeps only sex and family links of a living person, only the members of a living couple's family", () => {
+      const out = extractBranch(buildFromText(LIVING), ["@I1@", "@I2@", "@I3@"], { redactLiving: true });
+      const i1 = out.records.find((r) => r.xref === "@I1@");
+      expect(tags(i1)).toEqual(["NAME", "SEX", "FAMC"]);
+      expect(i1!.children[0].value).toBe("<living>");
+      // Matching reads it as no name, so two hidden people never pair on it.
+      expect(isPlaceholderName("<living>")).toBe(true);
+      expect(tags(out.records.find((r) => r.xref === "@F1@"))).toEqual(["HUSB", "WIFE", "CHIL"]);
+      // The source cited only by the hidden birth and marriage stays behind.
+      expect(xrefs(out.records)).not.toContain("@S1@");
+      for (const version of ["5.5.1", "7.0"]) {
+        const text = version === "5.5.1"
+          ? LIVING.replace("2 VERS 5.5.1", "2 VERS 5.5.1\n2 FORM LINEAGE-LINKED")
+          : LIVING.replace("2 VERS 5.5.1", "2 VERS 7.0").replace("1 CHAR UTF-8\n", "");
+        const { records } = extractBranch(buildFromText(text), ["@I1@", "@I2@", "@I3@"], { redactLiving: true });
+        expect(validateConformance({ records })).toEqual([]);
+      }
+    });
+
+    it("leaves the dead whole and exports everyone in full without the option", () => {
+      const out = extractBranch(buildFromText(BASE), ["@I1@", "@I2@", "@I3@"], { redactLiving: true });
+      expect(tags(out.records.find((r) => r.xref === "@I1@"))).toEqual(["NAME", "FAMC", "BIRT"]);
+      const full = extractBranch(buildFromText(LIVING), ["@I1@"]);
+      expect(tags(full.records.find((r) => r.xref === "@I1@"))).toContain("NOTE");
+    });
   });
 
   it("does not touch the source dataset", () => {

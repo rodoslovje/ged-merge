@@ -16,6 +16,7 @@
 // it came from, so the set reads as one chart.
 
 import {
+  LABEL_LINE_H,
   PAD,
   NODE_W,
   flatten,
@@ -189,10 +190,17 @@ function drawSheet(prepared: PreparedDiagram, flat: Flat, src: SheetChartSource)
   }
   for (const e of flat.edges) {
     if (!e.label) continue;
-    const text = templates.label.cloneNode(true) as SVGTextElement;
+    // The template's attributes only; its lines are this label's, as TreeSvg wraps them.
+    const text = templates.label.cloneNode(false) as SVGTextElement;
     text.setAttribute("x", String(e.label.x));
     text.setAttribute("y", String(e.label.y));
-    text.textContent = e.label.text;
+    e.label.lines.forEach((line, i) => {
+      const span = document.createElementNS(SVG_NS, "tspan");
+      span.setAttribute("x", String(e.label!.x));
+      span.setAttribute("dy", String(i ? LABEL_LINE_H : (-(e.label!.lines.length - 1) / 2) * LABEL_LINE_H));
+      span.textContent = line;
+      text.appendChild(span);
+    });
     g.appendChild(text);
   }
   for (const n of flat.nodes) {

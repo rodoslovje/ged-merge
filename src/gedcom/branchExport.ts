@@ -1,5 +1,6 @@
+import { isPresumedLiving } from "./lifespan";
 import { cloneNode } from "./node";
-import type { Dataset, GedNode } from "./types";
+import type { Dataset, GedNode, Individual } from "./types";
 
 /**
  * Branch export: cut a shareable GEDCOM out of the main file containing
@@ -26,6 +27,10 @@ import type { Dataset, GedNode } from "./types";
  * Other vendor-extension (`_`) pointers are left untouched (their vocabulary
  * is not ours to edit), but their targets still count as reachable and are
  * carried along when they are supporting records.
+ *
+ * With `redactLiving` (the charts' "living people private" setting), a living
+ * or private-flagged person is written as `NAME <living>` with only SEX, FAMC and FAMS, and the
+ * family of a couple with such a spouse with only HUSB, WIFE and CHIL.
  */
 
 export interface BranchExport {
@@ -45,7 +50,17 @@ function pointerValue(node: GedNode): string | undefined {
   return v && /^@[^@]+@$/.test(v) && !v.startsWith("@#") ? v : undefined;
 }
 
-export function extractBranch(ds: Dataset, personIds: Iterable<string>): BranchExport {
+/** What a redacted record keeps: who it is related to and, for a person, the sex. */
+const REDACTED_INDI_KEEPS = new Set(["SEX", "FAMC", "FAMS"]);
+const REDACTED_FAM_KEEPS = new Set(["HUSB", "WIFE", "CHIL"]);
+/** The name a redacted person is written with. */
+export const REDACTED_NAME = "<living>";
+
+/** A person the charts hide when living people are kept private. */
+const hiddenLiving = (indi: Individual | undefined, ds: Dataset): boolean =>
+  !!indi && (isPresumedLiving(indi, ds) || !!indi.private);
+
+export function extractBranch(ds: Dataset, personIds: Iterable<string>, opts: { redactLiving?: boolean } = {}): BranchExport {
   const keepIndi = new Set<string>();
   for (const id of personIds) if (ds.individuals.has(id)) keepIndi.add(id);
 
@@ -77,11 +92,27 @@ export function extractBranch(ds: Dataset, personIds: Iterable<string>): BranchE
       return true;
     });
   };
+  // With living people private, as the charts show them, a living person keeps
+  // only sex and family links, and a living couple's family only its members —
+  // cut before the supporting records are chased, so no source or note cited
+  // only by the hidden data comes along.
+  const redactedKeeps = (rec: GedNode): Set<string> | undefined => {
+    if (!opts.redactLiving || !rec.xref) return undefined;
+    if (rec.tag === "INDI") return hiddenLiving(ds.individuals.get(rec.xref), ds) ? REDACTED_INDI_KEEPS : undefined;
+    const fam = rec.tag === "FAM" ? ds.families.get(rec.xref) : undefined;
+    return fam && [fam.husband, fam.wife].some((id) => id && hiddenLiving(ds.individuals.get(id), ds)) ? REDACTED_FAM_KEEPS : undefined;
+  };
   const clones = new Map<GedNode, GedNode>();
   const cloneOf = (rec: GedNode): GedNode => {
     let clone = clones.get(rec);
     if (!clone) {
       clone = cloneNode(rec);
+      const keeps = redactedKeeps(rec);
+      if (keeps) {
+        clone.children = clone.children.filter((c) => keeps.has(c.tag));
+        // The name says why the rest is missing; matching reads it as a placeholder.
+        if (rec.tag === "INDI") clone.children.unshift({ level: 1, tag: "NAME", value: REDACTED_NAME, children: [] });
+      }
       scrubOutsiders(clone);
       clones.set(rec, clone);
     }

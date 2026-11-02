@@ -71,6 +71,16 @@ describe("eventOrderSignature", () => {
     expect(eventOrderSignature(after)).not.toBe(eventOrderSignature(before));
   });
 
+  it("puts a burial after a death known only to its month or year", () => {
+    // Prelec.ged, Marija (Jana) Prelec: died "__.10.2024", buried 16.10.2024 —
+    // the month-only death sorted mid-month, after the burial.
+    for (const death of ["__.10.2024", "OCT 2024", "2024"]) {
+      const record = indi(`${NAME_AND_SEX}1 BIRT\n2 DATE 21 MAY 1930\n1 BURI\n2 DATE 16 OCT 2024\n1 DEAT\n2 DATE ${death}\n`);
+      sortEventsByDate(record);
+      expect(record.children.map((c) => c.tag).filter((t) => t !== "NAME" && t !== "SEX")).toEqual(["BIRT", "DEAT", "BURI"]);
+    }
+  });
+
   it("reads the same on a record already in the order the sort would give it", () => {
     const record = indi(`${NAME_AND_SEX}1 DEAT\n2 DATE 1957\n1 BIRT\n2 DATE 1896\n`);
     const signature = eventOrderSignature(record);

@@ -11,10 +11,10 @@ import { afterPendingAdds } from "./source/pendingAdds";
  * {@link extractBranch}) and download it as `{slug}.ged`. The recipient loads
  * it in GED Merge as a compare file and merges it into their own tree.
  */
-export function exportChartGedcom(ds: Dataset, personIds: Iterable<string>, slug: string, authorName?: string): void {
+export function exportChartGedcom(ds: Dataset, personIds: Iterable<string>, slug: string, authorName?: string, redactLiving = false): void {
   const ids = [...personIds];
   afterPendingAdds(() => {
-    const { records } = extractBranch(ds, ids);
+    const { records } = extractBranch(ds, ids, { redactLiving });
     // Records are clones; downloads are UTF-8 bytes, stamped, complete — a 5.5.1
     // branch without a submitter gets one named after the reader (Settings).
     prepareDownload(records, ds, undefined, undefined, authorName);
