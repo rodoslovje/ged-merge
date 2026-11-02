@@ -6134,6 +6134,10 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   gap: 6px;
   margin: 0 0 10px;
 }
+/* The calm category's pale pine would fade into the chip without a rim. */
+.chart-legend .map-kind-dot {
+  box-shadow: inset 0 0 0 1px var(--border-2);
+}
 /* A band along the bottom of the canvas wrap (see ChartLegend): laid over
    the wrap so its size never changes, while the scrolling canvas above ends
    at the band's top edge, so no part of the chart is ever under it. One line
