@@ -5,6 +5,7 @@ import { serializeGedcom } from "./serialize";
 import { extractBranch } from "./branchExport";
 import { findDanglingXrefs } from "../tools/structure";
 import { validateConformance } from "../tools/conformance/conformance";
+import { isPlaceholderName } from "../match/text";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -170,7 +171,11 @@ describe("extractBranch", () => {
 
     it("keeps only sex and family links of a living person, only the members of a living couple's family", () => {
       const out = extractBranch(buildFromText(LIVING), ["@I1@", "@I2@", "@I3@"], { redactLiving: true });
-      expect(tags(out.records.find((r) => r.xref === "@I1@"))).toEqual(["SEX", "FAMC"]);
+      const i1 = out.records.find((r) => r.xref === "@I1@");
+      expect(tags(i1)).toEqual(["NAME", "SEX", "FAMC"]);
+      expect(i1!.children[0].value).toBe("<living>");
+      // Matching reads it as no name, so two hidden people never pair on it.
+      expect(isPlaceholderName("<living>")).toBe(true);
       expect(tags(out.records.find((r) => r.xref === "@F1@"))).toEqual(["HUSB", "WIFE", "CHIL"]);
       // The source cited only by the hidden birth and marriage stays behind.
       expect(xrefs(out.records)).not.toContain("@S1@");
