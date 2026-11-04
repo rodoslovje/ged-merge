@@ -3348,7 +3348,7 @@ export const sl = {
   "settings.display.kinship": "Prikaži sorodstvo",
   "settings.display.kinship.hint": "Ko je nastavljena izhodiščna oseba, pri vsaki osebi prikaži sorodstveno razmerje do nje (npr. sin, bratranec) po vsej aplikaciji.",
   "settings.display.emphasizeDirect": "Poudari prednike in potomce",
-  "settings.display.emphasizeDirect.hint": "Prednike in potomce izhodiščne osebe izpiši krepko, tako ime kot sorodstvo, da izstopajo med drugimi sorodniki. Diagrami imajo svoje stikalo v nastavitvah diagrama.",
+  "settings.display.emphasizeDirect.hint": "Prednike in potomce izhodiščne osebe izpiši krepko, tako ime kot sorodstvo, da izstopajo med drugimi sorodniki.",
   "settings.editing.title": "Urejanje",
   "settings.editing.authorName": "Vaše ime (avtor datoteke)",
   "settings.editing.authorName.hint": "Ime se zapiše kot avtor datoteke (SUBM) v novo datoteko in v datoteko GEDCOM 5.5.1, ki ob shranjevanju nima avtorja. Avtor, ki je v datoteki že naveden, ostane nespremenjen. Če je polje prazno, se namesto imena zapiše »GED Merge«.",

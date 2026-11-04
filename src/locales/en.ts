@@ -2942,7 +2942,7 @@ export const en = {
   "settings.display.kinship": "Show kinship",
   "settings.display.kinship.hint": "When a start person is set, show each person's relationship to them (e.g. Son, 2nd cousin) across the app.",
   "settings.display.emphasizeDirect": "Highlight ancestors and descendants",
-  "settings.display.emphasizeDirect.hint": "Set the start person's ancestors and descendants in bold, both the name and the kinship, so they stand out from other relatives. Charts have their own switch in the chart settings.",
+  "settings.display.emphasizeDirect.hint": "Set the start person's ancestors and descendants in bold, both the name and the kinship, so they stand out from other relatives.",
   "settings.editing.title": "Editing",
   "settings.editing.authorName": "Your name (file author)",
   "settings.editing.authorName.hint": "Written as the file's author (SUBM) into a new file, and into a GEDCOM 5.5.1 file that has no author when it is saved. An author the file already names is never changed. Left empty, \"GED Merge\" is written instead.",
