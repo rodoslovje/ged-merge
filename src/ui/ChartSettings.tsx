@@ -23,8 +23,8 @@ const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKin
   { key: "showPlace", label: "place" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
-  { key: "emphasizeDirect", label: "emphasizeDirect" },
   { key: "showMarriedName", label: "marriedName" },
+  { key: "emphasizeDirect", label: "emphasizeDirect" },
 ];
 
 /** Per-couple marriage fields (the "Marriage" group — both default off). */
