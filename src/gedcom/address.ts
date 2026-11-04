@@ -26,6 +26,29 @@ export type AddressPartTag = (typeof ADDRESS_PART_TAGS)[number];
 export const ADDRESS_CONTACT_TAGS = ["PHON", "EMAIL", "FAX"] as const;
 export type AddressContactTag = (typeof ADDRESS_CONTACT_TAGS)[number];
 
+/**
+ * An address line cut at its commas — but only the commas outside brackets.
+ * "Bitnje 6 (pd Urbanov Jaka, Popar), Kranj" is a house and a town: the comma
+ * inside the house name's parentheses is the writer's prose, not a separator.
+ * The raw parts, untrimmed, so joining them with "," gives the line back.
+ */
+export function splitAddressParts(addr: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < addr.length; i++) {
+    const ch = addr[i];
+    if (ch === "(" || ch === "[") depth++;
+    else if ((ch === ")" || ch === "]") && depth > 0) depth--;
+    else if (ch === "," && depth === 0) {
+      parts.push(addr.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(addr.slice(start));
+  return parts;
+}
+
 /** An ADDR's labelled lines, by tag — only the ones it carries. */
 export type AddressParts = Partial<Record<AddressPartTag, string>>;
 

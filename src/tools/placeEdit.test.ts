@@ -43,6 +43,35 @@ describe("renaming a comma segment", () => {
   });
 });
 
+describe("a comma inside an address's brackets", () => {
+  const house = "Zgornje Bitnje 6 / 52 (pd Urbanov Jaka)";
+  const withAddr = (addr: string) =>
+    dataset(wrap(`0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC Zgornje Bitnje, Slovenija\n2 ADDR ${addr}\n`));
+  const addrOf = (d: ReturnType<typeof dataset>) =>
+    d.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "BIRT")!.children.find((c) => c.tag === "ADDR")!.value;
+  const houseRow = (d: ReturnType<typeof dataset>) => {
+    const tree = buildPlaceTree(d);
+    const village = tree.roots.find((r) => r.name === "Slovenija")!.children.find((c) => c.name === "Zgornje Bitnje")!;
+    return village.children.map((c) => c.name);
+  };
+
+  it("is written into the ADDR whole, and the tree keeps it in the house's name", () => {
+    const d = withAddr(house);
+    const to = "Zgornje Bitnje 6 / 52 (pd Urbanov Jaka, Popar)";
+    applyPlaceRename(d, house, to);
+    expect(addrOf(d)).toBe(to);
+    expect(houseRow(d)).toEqual([to]);
+  });
+
+  it("renames the house again later, and leaves the town after it alone", () => {
+    const named = "Bitnje 6 (pd Urbanov Jaka, Popar)";
+    const d = withAddr(`${named}, Kranj`);
+    expect(houseRow(d)).toEqual([named]);
+    applyPlaceRename(d, named, "Bitnje 6 (pd Popar)");
+    expect(addrOf(d)).toBe("Bitnje 6 (pd Popar), Kranj");
+  });
+});
+
 describe("renaming a parenthetical country", () => {
   it("replaces the country inside parentheses", () => {
     expect(renamed("Skopje (Macedonia)", "Macedonia", "North Macedonia")).toBe("Skopje (North Macedonia)");

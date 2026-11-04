@@ -587,6 +587,8 @@ function PlaceTreeRow({
   /** The two together, as the row reads: what the pin standing on this position
    *  is called. */
   const pinValue = addrValue ? `${placeValue} — ${addrValue}` : placeValue;
+  /** A house row no `PLAC` value reaches — read only off the events' `ADDR`. */
+  const addrOnlyRow = !!node.isAddress && !node.placValues;
 
   /**
    * The one whole `PLAC` value this row stands for, where it stands for one.
@@ -704,8 +706,13 @@ function PlaceTreeRow({
    * own name is taken from it, since one place cannot be what several different
    * values all become. A single-level target is what it always was: this level,
    * renamed wherever it appears under the row.
+   *
+   * A house the row reads only off the events' `ADDR` lines is the deepest
+   * level there is, so a comma typed into it is part of its name — "Bitnje 6
+   * (pd Urbanov Jaka, Popar)" — and never a place chain to take a level from.
    */
   const planFor = (target: string, addrTarget: string): RenamePlan => {
+    if (addrOnlyRow) return { kind: "segment", from: node.name, to: target };
     const parts = target.split(",").map((part) => part.trim()).filter(Boolean);
     if (splitValue && (addrTarget || parts.length > 1)) {
       return { kind: "value", from: splitValue, to: target, ...(addrTarget ? { addr: addrTarget } : {}) };
@@ -734,7 +741,7 @@ function PlaceTreeRow({
     return previewPlaceRename(dataset, plan.from, plan.to, nodeScope);
     // planFor is derived from the drafts and the node, all of which are deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, debouncedRename, renameAddrDraft, splitValue, node.name, dataset, nodeScope]);
+  }, [editing, debouncedRename, renameAddrDraft, splitValue, addrOnlyRow, node.name, dataset, nodeScope]);
 
   /**
    * What the box completes from: the names beside this one first — renaming to
@@ -800,11 +807,12 @@ function PlaceTreeRow({
     } else {
       let renamed: Map<string, GeoCoord> | undefined;
       if (picked) {
-        const renamedValue = (text: string) => (text ? (renameInValue(text, plan.from, plan.to) ?? text) : text);
+        const renamedValue = (text: string, address: boolean) =>
+          text ? (renameInValue(text, plan.from, plan.to, address) ?? text) : text;
         renamed = new Map();
         for (const key of coordKeys()) {
           const [place, addr] = key.split("\0");
-          renamed.set(placeAddrKey(renamedValue(place), renamedValue(addr)), picked.coord);
+          renamed.set(placeAddrKey(renamedValue(place, false), renamedValue(addr, true)), picked.coord);
         }
       }
       onRename(plan.from, plan.to, nodeScope, renamed);
