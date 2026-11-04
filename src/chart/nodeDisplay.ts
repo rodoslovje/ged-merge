@@ -174,7 +174,7 @@ export interface NodeDisplayInput {
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
   kinshipLineage?: Lineage;
-  /** The start person's direct line (ancestor or descendant): the kinship row is bold. */
+  /** The start person's direct line (ancestor or descendant): name and kinship are bold. */
   kinshipDirect?: boolean;
   /** True when the person is inferred to be living (privacy candidate). */
   living?: boolean;
@@ -241,7 +241,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     place: opts.showPlace ? input.place : undefined,
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
-    kinshipDirect: opts.showKinship ? input.kinshipDirect : undefined,
+    kinshipDirect: input.kinshipDirect,
     showPhoto: opts.showPhoto,
   };
 }

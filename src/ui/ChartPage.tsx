@@ -5,6 +5,7 @@ import { BackButton } from "./BackButton";
 import { ChartTrailNav } from "./ChartTrail";
 import { MenuIcon } from "./icons/MenuIcon";
 import { usePhone } from "./usePhone";
+import { useChartSettings } from "./ChartSettingsContext";
 
 // The shared full-page chart/report scaffold: Back button + title toolbar with
 // the settings/export actions on the right, then the controls row (kind
@@ -36,9 +37,10 @@ interface Props {
 
 export function ChartPage({ backLabel, onBack, title, actions, controlsLeft, controlsRight, children }: Props) {
   const phone = usePhone();
+  const { settings } = useChartSettings();
   const hasControls = !!(controlsLeft || controlsRight);
   return (
-    <div className="tree-page">
+    <div className={`tree-page${settings.emphasizeDirect ? " chart-direct" : ""}`}>
       <div className="tree-toolbar">
         <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
         <ChartTrailNav />

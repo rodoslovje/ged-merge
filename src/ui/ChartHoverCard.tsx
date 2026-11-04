@@ -37,7 +37,7 @@ export function ChartHoverCard({
       }}
     >
       <div className="chart-hover-head">
-        <span className={`person-name ${sexClass(info.sex)}`}>{info.name}</span>
+        <span className={`person-name ${sexClass(info.sex)}${info.kinshipDirect ? " kinship-direct" : ""}`}>{info.name}</span>
         {info.years && <span className="person-years gm-data"><YearsText text={info.years} approx={info.yearsApprox} /></span>}
       </div>
       {info.subtitle && <div className="chart-hover-line">{info.subtitle}</div>}

@@ -153,7 +153,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -166,6 +166,11 @@ function AppContent() {
   // so subscribing to every preference meant any one of them changing
   // re-rendered everything.
   const settings = useSettingsSlice(APP_SETTINGS_KEYS);
+  // The direct line's bold is pure CSS (`.kinship-direct`), switched on here
+  // for the whole app; a chart page switches its own (`.tree-page.chart-direct`).
+  useEffect(() => {
+    document.documentElement.classList.toggle("emphasize-direct", settings.emphasizeDirect);
+  }, [settings.emphasizeDirect]);
   // Chart kind (tree / fan / … / relationship) — read to route chart deep-links,
   // set when an entry point asks for a specific diagram.
   const { settings: chartSettings, setKind: setChartKind } = useChartSettings();

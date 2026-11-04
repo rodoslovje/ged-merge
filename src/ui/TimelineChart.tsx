@@ -563,7 +563,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                       {/* With photos on, the name drops to the photo's bottom
                           edge — just above the bar — so both read as one block. */}
                       <text className="timeline-row-name" x={nameX} y={photosOn ? PHOTO_Y + PHOTO_SIZE : 16} style={{ fill: sexColorVar(row.sex) }}>
-                        {rowName(row)}
+                        <tspan className={kinship?.direct(row.id) ? "kinship-direct" : undefined}>{rowName(row)}</tspan>
                         {meta && (
                           <tspan className="timeline-row-meta" dx={8}>
                             <YearsText text={meta} approx={settings.showLifespan ? lifespanApproxOf(indi) : undefined} svg />
@@ -574,7 +574,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                             no lineage and stay muted. */}
                         {role && (
                           <tspan
-                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(rootKinship.lineage(row.id), rootKinship.direct(row.id))}`}
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(rootKinship.lineage(row.id))}`}
                             dx={8}
                           >
                             {meta ? `· ${role}` : role}

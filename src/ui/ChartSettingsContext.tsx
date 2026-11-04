@@ -82,6 +82,9 @@ export interface ChartSettings {
   alignment: ChartAlignment;
   /** Show the kinship-to-start label on each node. */
   showKinship: boolean;
+  /** Set the start person's direct line — ancestors and descendants — in bold,
+   *  name and kinship alike. */
+  emphasizeDirect: boolean;
   /** Show the person's photo (when a media folder is loaded). */
   showPhoto: boolean;
   /** Show the birth–death lifespan years. */
@@ -141,6 +144,7 @@ const DEFAULTS: ChartSettings = {
   kind: "tree",
   alignment: "lr",
   showKinship: true,
+  emphasizeDirect: true,
   showPhoto: true,
   showLifespan: true,
   showAge: false,
@@ -231,6 +235,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       kind: (NON_PEDIGREE_KINDS as readonly string[]).includes(parsed.kind as string) ? parsed.kind! : type,
       alignment: parsed.alignment === "tb" ? "tb" : DEFAULTS.alignment,
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
+      emphasizeDirect: bool(parsed.emphasizeDirect, DEFAULTS.emphasizeDirect),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
       showAge: bool(parsed.showAge, defaults.showAge),

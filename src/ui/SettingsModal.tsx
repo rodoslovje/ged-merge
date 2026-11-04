@@ -559,6 +559,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
+                checked={settings.emphasizeDirect}
+                onChange={(e) => set({ emphasizeDirect: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.display.emphasizeDirect")}</span>
+                <span className="settings-hint">{t("settings.display.emphasizeDirect.hint")}</span>
+              </span>
+            </label>
+
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
                 checked={settings.showXref}
                 onChange={(e) => set({ showXref: e.target.checked })}
               />

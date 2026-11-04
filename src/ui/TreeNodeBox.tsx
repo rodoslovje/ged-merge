@@ -121,7 +121,7 @@ interface Props {
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
   kinshipLineage?: Lineage;
-  /** The start person's direct line (ancestor or descendant): the kinship row is bold. */
+  /** The start person's direct line (ancestor or descendant): name and kinship are bold. */
   kinshipDirect?: boolean;
   /** Photo source; the thumbnail shows only when a file is actually present —
    *  a person without a photo leaves no reserved gap (text goes hard left). */
@@ -196,7 +196,7 @@ export function TreeNodeBox({
         stroke={color}
         strokeWidth={strokeWidth}
       />
-      <text className="tree-node-name" x={textX} y={23} style={{ fill: sexColorVar(sex) ?? "#fff" }} {...nameFit(disp.name, textX)}>
+      <text className={`tree-node-name${disp.kinshipDirect ? " kinship-direct" : ""}`} x={textX} y={23} style={{ fill: sexColorVar(sex) ?? "#fff" }} {...nameFit(disp.name, textX)}>
         {disp.name}
       </text>
       {rows.map((r, i) => (
