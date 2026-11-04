@@ -2,7 +2,7 @@ import type { Dataset, GedNode, GeoCoord, Translation } from "../gedcom/types";
 import { translationsOf } from "../gedcom/translation";
 import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
 import { ALL_EVENT_TAGS } from "../gedcom/eventTags";
-import { addressText, eventAddressNode } from "../gedcom/address";
+import { addressText, eventAddressNode, splitAddressParts } from "../gedcom/address";
 import { distinctSpots } from "./placeCoords";
 import { label } from "../match/relatives";
 import { placeAddrKey, walkPlaceAddr } from "./geocode";
@@ -152,7 +152,7 @@ function collectPlaces(node: GedNode, into: PlaceMention[]): void {
 
 /** The street + number a usage sits at: the address's leading segment. */
 function addressLevel(addr: string): string | undefined {
-  const lead = addr.split(",")[0].trim();
+  const lead = splitAddressParts(addr)[0].trim();
   return lead.length ? lead : undefined;
 }
 

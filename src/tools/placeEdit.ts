@@ -3,7 +3,7 @@ import { placeCollator } from "../gedcom/place";
 import { patchRecords } from "./geocode";
 import { reconcilePlaceForm } from "../gedcom/edit/geo";
 import type { RecordPatch } from "../ui/historyTypes";
-import { ADDRESS_PART_TAGS } from "../gedcom/address";
+import { ADDRESS_PART_TAGS, splitAddressParts } from "../gedcom/address";
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -18,17 +18,22 @@ function escapeRegex(s: string): string {
  *     Where the country was extracted from a parenthetical in another segment.
  * Returns null if nothing changed.
  *
+ * An `address` text is cut only at the commas outside brackets
+ * ({@link splitAddressParts}): a comma has its separating meaning in a place,
+ * while in a house name — "Bitnje 6 (pd Urbanov Jaka, Popar)" — it is prose.
+ *
  * Exported because a caller sometimes has to know what a value *becomes*: the
  * places tree writes the coordinate a register offer brought along onto the
  * value its rename has just made, and cannot read that off records it has not
  * rebuilt yet.
  */
-export function renameInValue(raw: string, from: string, to: string): string | null {
+export function renameInValue(raw: string, from: string, to: string, address = false): string | null {
   let result = raw;
   let changed = false;
+  const split = (s: string) => (address ? splitAddressParts(s) : s.split(","));
 
   // 1. Comma-separated segments — exact match on trimmed value.
-  const parts = result.split(",");
+  const parts = split(result);
   if (to === "") {
     // Deletion: remove the matching segment(s) entirely rather than leaving an empty slot.
     const filtered = parts.filter((p) => {
@@ -41,7 +46,7 @@ export function renameInValue(raw: string, from: string, to: string): string | n
     // When `to` appends extra jurisdiction levels (e.g. "England" → "England,United Kingdom"),
     // skip a segment whose immediately-following neighbours already carry those extra levels,
     // so places already correctly placed don't get a duplicate parent injected.
-    const appendedSegs = to.split(",").slice(from.split(",").length).map((s) => s.trim());
+    const appendedSegs = split(to).slice(split(from).length).map((s) => s.trim());
     const newParts = parts.map((p, i) => {
       if (p.trim() !== from) return p;
       // Skip empty segments when looking ahead so "England,,United Kingdom" is treated
@@ -89,7 +94,7 @@ function renameInNode(node: GedNode, from: string, to: string): boolean {
   let changed = false;
   for (const child of node.children) {
     if (isPlaceText(child, node) && child.value) {
-      const next = renameInValue(child.value, from, to);
+      const next = renameInValue(child.value, from, to, child.tag !== "PLAC");
       if (next !== null) {
         const prev = child.value;
         child.value = next;
@@ -120,7 +125,7 @@ export function previewPlaceRename(dataset: Dataset, from: string, to: string, s
     let hit = false;
     for (const child of node.children) {
       if (isPlaceText(child, node) && child.value) {
-        const next = renameInValue(child.value, from, to);
+        const next = renameInValue(child.value, from, to, child.tag !== "PLAC");
         if (next !== null) {
           if (examples.length < 5) examples.push({ before: child.value, after: next });
           hit = true;
