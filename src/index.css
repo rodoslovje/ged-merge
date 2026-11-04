@@ -2267,6 +2267,23 @@ button:focus-visible {
 .tree-node-kinship.lineage-paternal { fill: var(--lineage-paternal); }
 .tree-node-kinship.lineage-maternal { fill: var(--lineage-maternal); }
 .tree-node-kinship.lineage-both { fill: var(--accent); }
+/* The start person's direct line — ancestors and descendants — stands out
+   from the other blood relatives in bold, name and kinship alike, whatever the
+   lineage colour. Settings switches it for the app (`.emphasize-direct` on the
+   root), each chart page by its own chart setting (`.tree-page.chart-direct`).
+   The kinship label carries `.kinship-direct`; a name follows the label in
+   its row. */
+:root.emphasize-direct :is(.kinship-direct,
+  .person-label:has(.kinship-direct) .person-name,
+  .candidate-head:has(.kinship-direct) .person-name,
+  .edit-name-row:has(> .kinship-direct) .edit-name-input,
+  .global-search-open:has(.kinship-direct) .global-search-name,
+  li:has(> .kinship-direct) > .person-ref .person-name):not(.tree-page *),
+.tree-page.chart-direct :is(.kinship-direct,
+  .tree-title:has(> .kinship-direct) > .tree-title-name,
+  .tree-compare-title:has(.kinship-direct) .tree-compare-name,
+  li:has(> .kinship-direct) > .person-ref .person-name,
+  .map-panel-person:has(> .kinship-direct) .person-name) { font-weight: 700; }
 .person-xref {
   color: var(--muted);
   font-size: 0.78em;

@@ -24,6 +24,7 @@ export interface HoverInfo {
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
+  kinshipDirect?: boolean;
   /** A mark that stands for several people — a surname band on the
    *  Contemporaries rings — carries them instead of one name and lifespan: the
    *  head names the group, and these are its rows. */

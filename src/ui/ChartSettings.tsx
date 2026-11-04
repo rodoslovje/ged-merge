@@ -17,13 +17,14 @@ const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
 /** The boolean display toggles, in popover order — the per-person fields (the
  *  "Person" group). */
-const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "showPlace" | "showMarriedName"; label: string }[] = [
+const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "emphasizeDirect" | "showPlace" | "showMarriedName"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
   { key: "showAge", label: "age" },
   { key: "showPlace", label: "place" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
   { key: "showMarriedName", label: "marriedName" },
+  { key: "emphasizeDirect", label: "emphasizeDirect" },
 ];
 
 /** Per-couple marriage fields (the "Marriage" group — both default off). */
@@ -158,8 +159,9 @@ export function ChartSettings({
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">
               {DISPLAY_FIELDS.filter(({ key }) => key !== "showPhoto" || folderName).map(({ key, label }) => {
-                // The radial fan / circle charts don't draw a kinship line.
-                const disabled = key === "showKinship" && effectiveType === "fan";
+                // The radial fan / circle charts don't draw a kinship line, nor
+                // set a wedge's name in bold.
+                const disabled = (key === "showKinship" || key === "emphasizeDirect") && effectiveType === "fan";
                 return (
                   <button
                     key={key}

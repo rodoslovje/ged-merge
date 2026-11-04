@@ -121,6 +121,8 @@ interface Props {
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
   kinshipLineage?: Lineage;
+  /** The start person's direct line (ancestor or descendant): name and kinship are bold. */
+  kinshipDirect?: boolean;
   /** Photo source; the thumbnail shows only when a file is actually present —
    *  a person without a photo leaves no reserved gap (text goes hard left). */
   photo?: NodePhotoSource;
@@ -158,6 +160,7 @@ export function TreeNodeBox({
   tint = 16,
   kinship,
   kinshipLineage,
+  kinshipDirect,
   photo,
   badges,
   display = ALL_DISPLAY,
@@ -166,7 +169,7 @@ export function TreeNodeBox({
 }: Props) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, living, livingLabel: livingLabelFor(t, sex) });
+  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex) });
   // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName
@@ -181,7 +184,7 @@ export function TreeNodeBox({
   const rows: { text: string; cls: string; approx?: YearsApprox }[] = [];
   if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year", approx: disp.yearsApprox });
   if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
-  if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage)}` });
+  if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage, disp.kinshipDirect)}` });
   return (
     <>
       <rect
@@ -193,7 +196,7 @@ export function TreeNodeBox({
         stroke={color}
         strokeWidth={strokeWidth}
       />
-      <text className="tree-node-name" x={textX} y={23} style={{ fill: sexColorVar(sex) ?? "#fff" }} {...nameFit(disp.name, textX)}>
+      <text className={`tree-node-name${disp.kinshipDirect ? " kinship-direct" : ""}`} x={textX} y={23} style={{ fill: sexColorVar(sex) ?? "#fff" }} {...nameFit(disp.name, textX)}>
         {disp.name}
       </text>
       {rows.map((r, i) => (

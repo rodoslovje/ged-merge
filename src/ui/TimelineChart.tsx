@@ -347,6 +347,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             yearsTitle={lifespanTooltipOf(mainDs.individuals.get(rootRow.id), settings.showAge, t)}
             kinship={showKinship ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
+            direct={kinship?.direct(currentRootId)}
             kind={pageKind}
           />
         ) : (
@@ -562,7 +563,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                       {/* With photos on, the name drops to the photo's bottom
                           edge — just above the bar — so both read as one block. */}
                       <text className="timeline-row-name" x={nameX} y={photosOn ? PHOTO_Y + PHOTO_SIZE : 16} style={{ fill: sexColorVar(row.sex) }}>
-                        {rowName(row)}
+                        <tspan className={kinship?.direct(row.id) ? "kinship-direct" : undefined}>{rowName(row)}</tspan>
                         {meta && (
                           <tspan className="timeline-row-meta" dx={8}>
                             <YearsText text={meta} approx={settings.showLifespan ? lifespanApproxOf(indi) : undefined} svg />
@@ -584,7 +585,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                             tree charts, so it reads apart from the role chip. */}
                         {showKinship && !hidden && (
                           <tspan
-                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(kinship?.lineage(row.id))}`}
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(kinship?.lineage(row.id), kinship?.direct(row.id))}`}
                             dx={8}
                           >
                             {kinship?.label(row.id)}

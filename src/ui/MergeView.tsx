@@ -166,7 +166,7 @@ export function MergeView({
     ? formatName(mainDataset.individuals.get(startId)!)
     : undefined;
   const kinship = startInfo?.label;
-  const kinshipLineage = lineageClass(startInfo?.lineage);
+  const kinshipLineage = lineageClass(startInfo?.lineage, startInfo?.direct);
   const kinshipTooltip = startInfo && startPersonName
     ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;
@@ -184,7 +184,7 @@ export function MergeView({
       if (info) {
         map.set(c.mainId, {
           label: info.label,
-          lineageClass: lineageClass(info.lineage),
+          lineageClass: lineageClass(info.lineage, info.direct),
           tooltip: startPersonName ? kinshipTooltipText(info, startPersonName, t) : undefined,
         });
       }

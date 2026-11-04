@@ -197,6 +197,10 @@ export function CompareTree({
     (n: TreeNode): Lineage | undefined => (n.main ? kinship?.lineage(n.main.id) : undefined),
     [kinship],
   );
+  const directOf = useCallback(
+    (n: TreeNode) => (n.main ? kinship?.direct(n.main.id) ?? false : false),
+    [kinship],
+  );
 
   // A photo's "referenced by" link re-roots the tree on that person, on the
   // side (main/compare) the photo came from.
@@ -429,6 +433,7 @@ export function CompareTree({
   // Root person's kinship to the start person, shown in the title.
   const rootKinship = rootMainId ? kinship?.label(rootMainId) : undefined;
   const rootLineage = rootMainId ? kinship?.lineage(rootMainId) : undefined;
+  const rootDirect = rootMainId ? kinship?.direct(rootMainId) : undefined;
   // Shared title for the SVG / PDF export header.
   const compareTreeTitle = [rootName, rootYears, "—", t("tree.title"), genNote && `· ${genNote}`]
     .filter(Boolean)
@@ -538,7 +543,7 @@ export function CompareTree({
               </span>
             )}
             <span className="tree-title-break" aria-hidden="true" />
-            {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage)}`}>{rootKinship}</span>}
+            {rootKinship && <span className={`tree-title-kinship ${lineageClass(rootLineage, rootDirect)}`}>{rootKinship}</span>}
             {rootStatus && rootStatus !== "undecided" && (
               <span className={`status-chip ${rootStatus}`} title={t(`status.${rootStatus}`)}>
                 {t(`status.${rootStatus}`).charAt(0)}
@@ -630,6 +635,7 @@ export function CompareTree({
                 onHiddenJump={hiddenJump}
                 kinshipOf={kinshipOf}
                 lineageOf={lineageOf}
+                directOf={directOf}
                 mainRecords={mainDs.records}
                 compareRecords={compareDs.records}
                 mainRefCtx={mainRefCtx}
@@ -672,7 +678,7 @@ export function CompareTree({
             onClose={() => setSelectedKey(null)}
             onShowInMatches={onShowInMatches}
             kinship={kinshipOf(selected)}
-            kinshipLineage={lineageClass(lineageOf(selected))}
+            kinshipLineage={lineageClass(lineageOf(selected), directOf(selected))}
             decision={
               selected.main && selected.incoming
                 ? decisions.get(decisionKey("individual", selected.main.id, selected.incoming.id))

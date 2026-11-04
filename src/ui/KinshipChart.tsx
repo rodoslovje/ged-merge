@@ -573,6 +573,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             yearsTitle={lifespanTooltipOf(root, settings.showAge, t)}
             kinship={settings.showKinship && startId && startId !== currentRootId ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
+            direct={kinship?.direct(currentRootId)}
             kind={pageKind}
           />
         ) : (
@@ -992,7 +993,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             mainLabel={t("tree.main")}
             singleColumn
             kinship={settings.showKinship && startId && startId !== selected.id ? kinship?.label(selected.id) : undefined}
-            kinshipLineage={lineageClass(kinship?.lineage(selected.id))}
+            kinshipLineage={lineageClass(kinship?.lineage(selected.id), kinship?.direct(selected.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => { changeRoot(selected.id); setSelectedKey(null); }}
             extraActions={

@@ -119,6 +119,9 @@ export interface AppSettings extends NameDisplayOptions {
    *  headers, relative cards, match candidates, tree nodes). When off, no
    *  kinship is shown anywhere even if a start person is set. */
   showKinship: boolean;
+  /** Set the start person's direct line — ancestors and descendants — in bold,
+   *  name and kinship alike (charts keep their own switch). */
+  emphasizeDirect: boolean;
   /** Show ages: at death after the lifespan (current age for the living), the
    *  person's age next to each event date, and the parents'/spouses' ages on
    *  birth and family events. */
@@ -197,6 +200,7 @@ const DEFAULTS: AppSettings = {
   ...DEFAULT_NAME_DISPLAY,
   showXref: false,
   showKinship: true,
+  emphasizeDirect: true,
   showAge: false,
   dateDisplay: "",
   allowLinkFetch: false,
@@ -426,6 +430,7 @@ function load(): AppSettings {
       marriedSurname: bool(parsed.marriedSurname, DEFAULTS.marriedSurname),
       showXref: bool(parsed.showXref, DEFAULTS.showXref),
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
+      emphasizeDirect: bool(parsed.emphasizeDirect, DEFAULTS.emphasizeDirect),
       showAge: bool(parsed.showAge, DEFAULTS.showAge),
       dateDisplay: typeof parsed.dateDisplay === "string" && DATE_DISPLAY_CHOICES.includes(parsed.dateDisplay)
         ? parsed.dateDisplay

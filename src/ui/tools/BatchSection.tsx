@@ -472,7 +472,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                   </span>
                 )}
                 {kin && (
-                  <span className={`global-search-kin ${lineageClass(kinshipResolver!.lineage(r.id))}`}>{kin}</span>
+                  <span className={`global-search-kin ${lineageClass(kinshipResolver!.lineage(r.id), kinshipResolver!.direct(r.id))}`}>{kin}</span>
                 )}
               </li>
             );
