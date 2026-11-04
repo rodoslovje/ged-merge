@@ -22,11 +22,13 @@ interface Props {
   /** Kinship-to-start label; omitted when kinship display is off. */
   kinship?: string;
   lineage?: Lineage;
+  /** The root is on the start person's direct line: the kinship is bold. */
+  direct?: boolean;
   /** Page-kind label ("Ancestors — Fan Chart", "Timeline", …). */
   kind: string;
 }
 
-export function ChartRootTitle({ name, sexCls = "", years, yearsApprox, yearsTitle, kinship, lineage, kind }: Props) {
+export function ChartRootTitle({ name, sexCls = "", years, yearsApprox, yearsTitle, kinship, lineage, direct, kind }: Props) {
   return (
     <>
       <span className={`tree-title-name ${sexCls}`}>{name}</span>
@@ -36,7 +38,7 @@ export function ChartRootTitle({ name, sexCls = "", years, yearsApprox, yearsTit
         </span>
       )}
       <span className="tree-title-break" aria-hidden="true" />
-      {kinship && <span className={`tree-title-kinship ${lineageClass(lineage)}`}>{kinship}</span>}
+      {kinship && <span className={`tree-title-kinship ${lineageClass(lineage, direct)}`}>{kinship}</span>}
       <span className="tree-title-kind">{kind}</span>
     </>
   );

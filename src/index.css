@@ -2267,6 +2267,16 @@ button:focus-visible {
 .tree-node-kinship.lineage-paternal { fill: var(--lineage-paternal); }
 .tree-node-kinship.lineage-maternal { fill: var(--lineage-maternal); }
 .tree-node-kinship.lineage-both { fill: var(--accent); }
+/* The start person's direct line — ancestors and descendants — stands out
+   from the other blood relatives in bold, whatever the lineage colour. */
+.person-kinship.kinship-direct,
+.candidate-kinship.kinship-direct,
+.tree-title-kinship.kinship-direct,
+.tree-compare-kinship.kinship-direct,
+.tree-node-kinship.kinship-direct,
+.timeline-row-kinship.kinship-direct,
+.chart-hover-kin.kinship-direct,
+.global-search-kin.kinship-direct { font-weight: 700; }
 .person-xref {
   color: var(--muted);
   font-size: 0.78em;

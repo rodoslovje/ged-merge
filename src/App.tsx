@@ -1750,7 +1750,7 @@ function AppContent() {
         let cached = kinshipCacheRef.current.get(id);
         if (cached === undefined) {
           const info = kinshipInfo(mainDataset, startId, id, t);
-          cached = info ? { label: info.label, lineageClass: lineageClass(info.lineage) } : null;
+          cached = info ? { label: info.label, lineageClass: lineageClass(info.lineage, info.direct) } : null;
           kinshipCacheRef.current.set(id, cached);
         }
         if (cached) {

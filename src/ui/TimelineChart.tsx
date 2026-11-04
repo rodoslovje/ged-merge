@@ -347,6 +347,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             yearsTitle={lifespanTooltipOf(mainDs.individuals.get(rootRow.id), settings.showAge, t)}
             kinship={showKinship ? kinship?.label(currentRootId) : undefined}
             lineage={kinship?.lineage(currentRootId)}
+            direct={kinship?.direct(currentRootId)}
             kind={pageKind}
           />
         ) : (
@@ -573,7 +574,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                             no lineage and stay muted. */}
                         {role && (
                           <tspan
-                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(rootKinship.lineage(row.id))}`}
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(rootKinship.lineage(row.id), rootKinship.direct(row.id))}`}
                             dx={8}
                           >
                             {meta ? `· ${role}` : role}
@@ -584,7 +585,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                             tree charts, so it reads apart from the role chip. */}
                         {showKinship && !hidden && (
                           <tspan
-                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(kinship?.lineage(row.id))}`}
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(kinship?.lineage(row.id), kinship?.direct(row.id))}`}
                             dx={8}
                           >
                             {kinship?.label(row.id)}

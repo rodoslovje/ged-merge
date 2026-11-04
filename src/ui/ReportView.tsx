@@ -349,6 +349,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
             yearsTitle={lifespanTooltipOf(mainDs.individuals.get(currentRootId), settings.showAge, t)}
             kinship={showStartKinship ? startKinship?.label(currentRootId) : undefined}
             lineage={startKinship?.lineage(currentRootId)}
+            direct={startKinship?.direct(currentRootId)}
             kind={pageKind}
           />
         ) : (

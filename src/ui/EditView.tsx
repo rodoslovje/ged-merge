@@ -1888,7 +1888,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     ? formatName(dataset.individuals.get(startId)!)
     : undefined;
   const kinship = startInfo?.label;
-  const kinshipLineage = lineageClass(startInfo?.lineage);
+  const kinshipLineage = lineageClass(startInfo?.lineage, startInfo?.direct);
   const kinshipTooltip = startInfo && startPersonName
     ? kinshipTooltipText(startInfo, startPersonName, t)
     : undefined;

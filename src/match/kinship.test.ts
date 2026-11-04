@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Translate } from "../locales/i18n";
-import { createKinshipResolver, kinshipLabel } from "./kinship";
+import { createKinshipResolver, kinshipInfo, kinshipLabel, lineageClass } from "./kinship";
 import { bloodLineage } from "./relationshipPath";
 
 function dataset(text: string) {
@@ -610,5 +610,33 @@ describe("createKinshipResolver", () => {
     const resolver = createKinshipResolver(ds, "@NOPE@", t);
     expect(resolver.label("@I1@")).toBeUndefined();
     expect(resolver.lineage("@I1@")).toBeUndefined();
+  });
+});
+
+describe("direct line (ancestors and descendants)", () => {
+  const ds = dataset(TREE);
+
+  it("flags ancestors and descendants, not collateral kin or self", () => {
+    const fromEgo = createKinshipResolver(ds, "@I1@", t);
+    for (const id of ["@I2@", "@I5@", "@I20@"]) expect(fromEgo.direct(id)).toBe(true);
+    for (const id of ["@I1@", "@I8@", "@I6@", "@I9@"]) expect(fromEgo.direct(id)).toBe(false);
+    const fromApex = createKinshipResolver(ds, "@I5@", t);
+    for (const id of ["@I1@", "@I6@", "@I11@", "@I20@"]) expect(fromApex.direct(id)).toBe(true);
+  });
+
+  it("agrees between kinshipInfo and the resolver", () => {
+    for (const startId of ds.individuals.keys()) {
+      const resolver = createKinshipResolver(ds, startId, t);
+      for (const targetId of ds.individuals.keys()) {
+        const info = kinshipInfo(ds, startId, targetId, t);
+        if (info) expect(info.direct).toBe(resolver.direct(targetId));
+      }
+    }
+  });
+
+  it("adds the bold class beside the lineage colour", () => {
+    expect(lineageClass("paternal", true)).toBe("lineage-paternal kinship-direct");
+    expect(lineageClass(undefined, true)).toBe("kinship-direct");
+    expect(lineageClass("maternal")).toBe("lineage-maternal");
   });
 });

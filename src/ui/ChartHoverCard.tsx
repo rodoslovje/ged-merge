@@ -42,7 +42,7 @@ export function ChartHoverCard({
       </div>
       {info.subtitle && <div className="chart-hover-line">{info.subtitle}</div>}
       {info.place && <div className="chart-hover-line">{info.place}</div>}
-      {info.kinship && <div className={`chart-hover-kin ${lineageClass(info.kinshipLineage)}`}>{info.kinship}</div>}
+      {info.kinship && <div className={`chart-hover-kin ${lineageClass(info.kinshipLineage, info.kinshipDirect)}`}>{info.kinship}</div>}
       {/* A card for several people: each row written the way the head is, so a
           band of a dozen reads like a dozen person cards rather than a list. */}
       {info.people && (

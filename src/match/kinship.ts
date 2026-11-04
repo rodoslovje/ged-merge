@@ -28,6 +28,8 @@ export function kinshipLabel(
 export interface KinshipResolver {
   label: (targetId: string) => string | undefined;
   lineage: (targetId: string) => Lineage | undefined;
+  /** True for the start person's direct line: an ancestor or a descendant. */
+  direct: (targetId: string) => boolean;
 }
 
 export function createKinshipResolver(ds: Dataset, startId: string, t: Translate): KinshipResolver {
@@ -48,6 +50,7 @@ export function createKinshipResolver(ds: Dataset, startId: string, t: Translate
   return {
     label: (targetId) => resolve(targetId).label,
     lineage: (targetId) => resolve(targetId).lineage,
+    direct: (targetId) => isDirect(start, targetId),
   };
 }
 
@@ -57,15 +60,23 @@ interface StartContext {
   id: string;
   ancs: Map<string, number>;
   spouseAncs: () => [string, Map<string, number>][];
+  descs: () => Set<string>;
 }
 
 function startContext(ds: Dataset, startId: string): StartContext {
   let spouses: [string, Map<string, number>][] | undefined;
+  let descs: Set<string> | undefined;
   return {
     id: startId,
     ancs: ancestorGens(ds, startId),
     spouseAncs: () => (spouses ??= spouseIds(ds, startId).map((id) => [id, ancestorGens(ds, id)])),
+    descs: () => (descs ??= descendantIds(ds, startId)),
   };
+}
+
+/** An ancestor or a descendant of the start person (never the start person). */
+function isDirect(start: StartContext, targetId: string): boolean {
+  return targetId !== start.id && (start.ancs.has(targetId) || start.descs().has(targetId));
 }
 
 function kinshipLabelFrom(
@@ -269,6 +280,8 @@ export interface KinshipInfo {
   label: string;
   lineage?: Lineage;
   bloodOnly: boolean;
+  /** The start person's direct line: an ancestor or a descendant. */
+  direct: boolean;
 }
 
 export function kinshipInfo(
@@ -277,18 +290,22 @@ export function kinshipInfo(
   targetId: string,
   t: Translate,
 ): KinshipInfo | undefined {
-  const label = kinshipLabel(ds, startId, targetId, t);
+  const start = startContext(ds, startId);
+  const label = kinshipLabelFrom(ds, start, targetId, (id) => bloodLineage(ds, startId, id), t);
   const lineage = bloodLineage(ds, startId, targetId);
-  if (label) return { label, lineage, bloodOnly: false };
+  const direct = isDirect(start, targetId);
+  if (label) return { label, lineage, bloodOnly: false, direct };
   // No nameable kinship, but a blood line still connects them — surface that.
-  if (lineage) return { label: t("kinship.bloodline"), lineage, bloodOnly: true };
+  if (lineage) return { label: t("kinship.bloodline"), lineage, bloodOnly: true, direct };
   return undefined;
 }
 
-/** CSS modifier class colouring a kinship label by lineage: paternal blue,
- *  maternal purple, both-lines green (none when unrelated by blood). */
-export function lineageClass(lineage?: Lineage): string {
-  return lineage ? `lineage-${lineage}` : "";
+/** CSS modifier classes for a kinship label: its colour by lineage (paternal
+ *  blue, maternal purple, both-lines green; none when unrelated by blood), and
+ *  bold for the start person's direct line (ancestors and descendants). */
+export function lineageClass(lineage?: Lineage, direct?: boolean): string {
+  const cls = lineage ? `lineage-${lineage}` : "";
+  return direct ? `${cls} kinship-direct`.trimStart() : cls;
 }
 
 /** Full kinship tooltip: the base "<rel> of <start>" plus a lineage line when known. */
@@ -297,6 +314,23 @@ export function kinshipTooltip(info: KinshipInfo, startName: string, t: Translat
     ? t("kinship.bloodlineTooltip", { name: startName })
     : t("kinship.tooltip", { kinship: info.label, name: startName });
   return info.lineage ? `${base} — ${t(`kinship.lineage.${info.lineage}`)}` : base;
+}
+
+/** Everyone descending from `startId` (not `startId` itself), walked down through children. */
+function descendantIds(ds: Dataset, startId: string): Set<string> {
+  const out = new Set<string>();
+  const queue = [startId];
+  for (let i = 0; i < queue.length; i++) {
+    for (const famId of ds.individuals.get(queue[i])?.spouseOf ?? []) {
+      for (const c of ds.families.get(famId)?.children ?? []) {
+        if (c !== startId && !out.has(c)) {
+          out.add(c);
+          queue.push(c);
+        }
+      }
+    }
+  }
+  return out;
 }
 
 /** BFS upward through parents, returns Map<personId, generationsAbove>. */

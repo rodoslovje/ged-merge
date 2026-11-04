@@ -134,7 +134,7 @@ function kinshipChips(
   if (!info) return {};
   return {
     kinship: info.label,
-    kinshipLineage: lineageClass(info.lineage),
+    kinshipLineage: lineageClass(info.lineage, info.direct),
     kinshipTooltip: startPersonName ? kinshipTooltipText(info, startPersonName, t) : undefined,
   };
 }

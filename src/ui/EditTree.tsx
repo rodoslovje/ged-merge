@@ -291,6 +291,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode) => (n.main ? kinship?.lineage(n.main.id) : undefined),
     [kinship],
   );
+  const directOf = useCallback(
+    (n: TreeNode) => (n.main ? kinship?.direct(n.main.id) ?? false : false),
+    [kinship],
+  );
   // Identity-stable across renders — the chart bodies are memoized, and an
   // inline arrow here would void that on every zoom/scroll tick.
   const hiddenJump = useCallback(
@@ -391,6 +395,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           place: n.place,
           kinship: fanKinshipOf(n),
           kinshipLineage: lineageOf(n),
+          kinshipDirect: directOf(n),
           living: n.living,
           livingLabel: livingLabelFor(t, n.sex),
         },
@@ -398,7 +403,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
         t("tree.node.clickHint"),
       );
     },
-    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf],
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf, directOf],
   );
 
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,
@@ -470,6 +475,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // Root person's kinship to the start person, shown in the title.
   const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
   const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
+  const rootDirect = rootPerson ? kinship?.direct(rootPerson.id) : undefined;
 
   // Chart "kind" label = direction — diagram type, e.g. "Ancestors — Fan Chart"
   // or "Bowtie — Tree", plus "4 of 9 generations" while the limit is cutting —
@@ -532,6 +538,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             yearsTitle={lifespanTooltipOf(rootPerson, display.showAge, t)}
             kinship={rootKinship}
             lineage={rootLineage}
+            direct={rootDirect}
             kind={chartKind}
           />
         ) : (
@@ -612,6 +619,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 onHiddenJump={hiddenJump}
                 kinshipOf={fanKinshipOf}
                 lineageOf={lineageOf}
+                directOf={directOf}
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
                 display={display}

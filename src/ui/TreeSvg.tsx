@@ -39,6 +39,7 @@ interface Props {
   onHiddenJump?: (n: Placed) => void;
   kinshipOf?: (n: Placed) => string | undefined;
   lineageOf?: (n: Placed) => Lineage | undefined;
+  directOf?: (n: Placed) => boolean;
   /** Photo sources; the compare side is optional (single-file views). */
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
@@ -73,6 +74,7 @@ export const TreeSvg = memo(function TreeSvg({
   onHiddenJump,
   kinshipOf,
   lineageOf,
+  directOf,
   mainRecords,
   compareRecords,
   mainRefCtx,
@@ -167,6 +169,7 @@ export const TreeSvg = memo(function TreeSvg({
                 color={colorOf(n)}
                 kinship={kinshipOf?.(n)}
                 kinshipLineage={lineageOf?.(n)}
+                kinshipDirect={directOf?.(n)}
                 photo={{ node: n, mainRecords, compareRecords, mainRefCtx, compareRefCtx }}
                 display={display}
                 living={n.living}

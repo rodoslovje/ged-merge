@@ -174,6 +174,8 @@ export interface NodeDisplayInput {
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
   kinshipLineage?: Lineage;
+  /** The start person's direct line (ancestor or descendant): the kinship row is bold. */
+  kinshipDirect?: boolean;
   /** True when the person is inferred to be living (privacy candidate). */
   living?: boolean;
   /** Localized "Living" placeholder for a redacted person with no kinship. */
@@ -194,6 +196,7 @@ export interface NodeDisplay {
   kinship?: string;
   /** Blood lineage of the shown kinship line, for colour-coding. */
   kinshipLineage?: Lineage;
+  kinshipDirect?: boolean;
   /** Whether to draw the photo. */
   showPhoto: boolean;
 }
@@ -238,6 +241,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     place: opts.showPlace ? input.place : undefined,
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
+    kinshipDirect: opts.showKinship ? input.kinshipDirect : undefined,
     showPhoto: opts.showPhoto,
   };
 }
@@ -265,6 +269,7 @@ export interface NodeHover {
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
+  kinshipDirect?: boolean;
   /** A redacted living person: the name is the placeholder and nothing else shows. */
   redacted: boolean;
 }
@@ -279,6 +284,7 @@ export function nodeHover(opts: NodeDisplayOptions, input: NodeDisplayInput): No
     place: disp.place,
     kinship: disp.kinship,
     kinshipLineage: disp.kinshipLineage,
+    kinshipDirect: disp.kinshipDirect,
     redacted: false,
   };
 }

@@ -226,6 +226,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           place: placeLabel(indi),
           kinship: kinshipOf.label(b.id),
           kinshipLineage: kinshipOf.lineage(b.id),
+          kinshipDirect: kinshipOf.direct(b.id),
           living: isPresumedLiving(indi, mainDs) || !!indi?.private,
           livingLabel: livingLabelFor(t, b.sex),
         },
@@ -271,7 +272,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           {renderEndpoint("start", startSel)}
           <span className="tree-title-arrow" aria-hidden="true"><ArrowIcon dir="right" /></span>
           {renderEndpoint("target", targetSel)}
-          {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage)}`}>{kinship}</span>}
+          {kinship && <span className={`tree-title-kinship ${lineageClass(kinshipLineage, kinshipOf.direct(targetSel))}`}>{kinship}</span>}
           <span className="tree-title-kind">{t("relpath.pageTitle")}</span>
         </>
       }
@@ -389,6 +390,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
                         kinship={kinshipOf.label(b.id)}
                         kinshipLineage={kinshipOf.lineage(b.id)}
+                        kinshipDirect={kinshipOf.direct(b.id)}
                         photo={indi ? { node: { main: { raw: indi.raw } }, mainRecords: mainDs.records, mainRefCtx: { dataset: mainDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi, mainDs) || !!indi?.private}
@@ -432,7 +434,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
             mainLabel={t("tree.main")}
             singleColumn
             kinship={kinshipOf.label(selectedBox.id)}
-            kinshipLineage={lineageClass(kinshipOf.lineage(selectedBox.id))}
+            kinshipLineage={lineageClass(kinshipOf.lineage(selectedBox.id), kinshipOf.direct(selectedBox.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => onNavigate(selectedBox.id)}
             rootLabel={t("relpath.openInEdit")}

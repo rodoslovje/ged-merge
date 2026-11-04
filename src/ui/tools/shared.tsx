@@ -197,7 +197,7 @@ export function GeoPeopleList({
           return (
             <li key={id}>
               <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
-              {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+              {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id), kinship?.direct(id))}`}>{kin}</span>}
               {indi && placeEvents.length > 0 && (
                 <span className="tools-chip-count" title={placeEventsTitle}>
                   {placeEvents.length}
