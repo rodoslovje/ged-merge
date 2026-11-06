@@ -97,8 +97,11 @@ export function modeSummary(t: Translate, people: number, generations: number): 
   return `${t("tree.mode.people", { count: people })} · ${t("tree.gen.count", { count: generations })}`;
 }
 
-/** Place events tried in order — show the first one that records a place. */
-const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
+/** Place events tried in order — show the first one that records a place.
+ *  The Birth place colour axis reads the same, so a wedge's colour always
+ *  answers the place written on it. */
+export const LABEL_PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
+const PLACE_TAGS = LABEL_PLACE_TAGS;
 
 /**
  * The place label for a person: the most-specific locality of the first available

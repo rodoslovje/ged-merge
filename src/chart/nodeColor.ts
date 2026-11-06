@@ -22,6 +22,7 @@ import type { Translate } from "../locales/i18n";
 import type { TreeMode, TreeNode } from "./personTree";
 import { splitParents, type FanSegment } from "./fanLayout";
 import { OWN_BRANCH } from "./kinshipWheel";
+import { LABEL_PLACE_TAGS } from "./nodeDisplay";
 
 export type ColorAxis =
   | "plain"
@@ -245,35 +246,104 @@ function countryColors(keys: string[]): Map<string, string> {
   return colors;
 }
 
-/** Places in the order the legend lists them and a colour each. Places in one
- *  country take the palette. Across several countries, the places are grouped
- *  by country (the commonest country first — counting the calm place, which
- *  takes no colour of its own) and the sweep runs along the groups with a gap
- *  between them, so a country's places come out as one family of neighbouring
- *  hues. */
-function placeColors(
+/** The length of the hue sweep, in degrees (see {@link sweepHue}). */
+const SWEEP = 320 - MUDDY_WIDTH;
+/** How far apart, along the sweep, neighbouring places of one area sit —
+ *  close enough that an area reads as one family of hues. */
+const PLACE_STEP = 12;
+/** The gap between two areas (a place's second level — its municipality,
+ *  county) within one country: wider than a step, so the areas read apart
+ *  while the country still reads as one. */
+const AREA_GAP = 26;
+/** The least gap between two countries' families along the sweep. */
+const COUNTRY_GAP = 40;
+/** Lightness nudges an area's places take in turn, so neighbours in the
+ *  family still tell apart where their hues are close. */
+const PLACE_SHADES = [0, 0.07, -0.07];
+
+/** A hue at the branch chroma, its lightness nudged by `dl`. */
+function shadedHueColor(hue: number, dl: number): string {
+  if (!dl) return hueColor(hue);
+  return `oklch(calc(var(--fan-branch-l) + ${dl}) var(--fan-branch-c) ${Math.round(((hue % 360) + 360) % 360)})`;
+}
+
+/** Where a place lies: its country, and its area — the level above the
+ *  locality, for a place of three levels or more ("Krasinec, Metlika,
+ *  Slovenia" lies in Metlika); `""` for a shorter one. */
+export interface PlaceWhere {
+  country: string;
+  area: string;
+}
+
+/** Keys bucketed by `by`, the buckets ordered by their total head-count
+ *  (counting `calm`, which joins no bucket — it takes no colour of its own). */
+function bucketed(
   keys: string[],
   calm: string | undefined,
-  countryOfKey: Map<string, string>,
+  by: (k: string) => string,
   counts: Map<string, number>,
-): { order: string[]; colors: Map<string, string> } {
+): string[][] {
   const groups = new Map<string, string[]>();
   const totals = new Map<string, number>();
   for (const k of calm === undefined ? keys : [calm, ...keys]) {
-    const c = countryOfKey.get(k) ?? "";
-    totals.set(c, (totals.get(c) ?? 0) + counts.get(k)!);
-    if (k !== calm) groups.set(c, [...(groups.get(c) ?? []), k]);
+    const b = by(k);
+    totals.set(b, (totals.get(b) ?? 0) + counts.get(k)!);
+    if (k !== calm) groups.set(b, [...(groups.get(b) ?? []), k]);
   }
-  if (groups.size <= 1) return { order: keys, colors: new Map(keys.map((k, i) => [k, paletteColor(i)])) };
-  const sorted = [...groups].sort((a, b) => totals.get(b[0])! - totals.get(a[0])!).map(([, g]) => g);
-  const slots = keys.length + sorted.length - 1;
+  return [...groups].sort((a, b) => totals.get(b[0])! - totals.get(a[0])!).map(([, g]) => g);
+}
+
+/** Places in the order the legend lists them and a colour each. The places
+ *  are grouped by country (the commonest first) and, within a country, by
+ *  area; each country takes its own stretch of the sweep with wide gaps
+ *  between the countries, and within it each area a tighter stretch with
+ *  narrower gaps, its places a few degrees apart and alternately lighter and
+ *  darker — so a country reads as one family of hues and its areas as
+ *  clusters inside it. On a chart of one country the areas take the
+ *  countries' place; with one area too, the places take the palette. */
+function placeColors(
+  keys: string[],
+  calm: string | undefined,
+  where: Map<string, PlaceWhere>,
+  counts: Map<string, number>,
+): { order: string[]; colors: Map<string, string> } {
+  const countryOf = (k: string) => where.get(k)?.country ?? "";
+  const areaOf = (k: string) => where.get(k)?.area ?? "";
+  let tree = bucketed(keys, calm, countryOf, counts).map((g) => bucketed(g, calm, areaOf, counts));
+  if (tree.length === 1) tree = tree[0].map((area) => [area]);
+  if (tree.length <= 1) return { order: keys, colors: new Map(keys.map((k, i) => [k, paletteColor(i)])) };
+
+  // Each family's span — its areas' steps plus the gaps between its areas —
+  // shrunk alike when they would crowd out the countries' gaps; the room left
+  // over is shared as those gaps, half a gap at either end of the sweep,
+  // whose two ends lie close on the wheel. One area's span is held back as
+  // slack for sliding an area off the muddy seam (below).
+  const areaSpan = (a: string[]) => (a.length - 1) * PLACE_STEP;
+  const spans = tree.map((c) => c.reduce((s, a) => s + areaSpan(a), 0) + (c.length - 1) * AREA_GAP);
+  const total = spans.reduce((a, b) => a + b, 0);
+  const slackRaw = Math.max(...tree.flat().map(areaSpan));
+  const room = Math.max(0, SWEEP - tree.length * COUNTRY_GAP);
+  const scale = total + slackRaw > room ? room / (total + slackRaw) : 1;
+  const gap = (SWEEP - (total + slackRaw) * scale) / tree.length;
+  // Where the sweep jumps the muddy band: an area straddling it would come
+  // out two families, so it slides forward past it, into the slack.
+  const seam = MUDDY_FROM - 25;
   const colors = new Map<string, string>();
-  let slot = 0;
-  for (const g of sorted) {
-    for (const k of g) colors.set(k, hueColor(sweepHue(slot++ / slots)));
-    slot++;
+  let at = gap / 2;
+  for (const country of tree) {
+    country.forEach((area, ai) => {
+      if (ai > 0) at += AREA_GAP * scale;
+      const span = areaSpan(area) * scale;
+      if (at < seam && at + span > seam) at = seam;
+      area.forEach((k, j) => {
+        const d = area.length > 1 ? at + (j * span) / (area.length - 1) : at;
+        colors.set(k, shadedHueColor(sweepHue(d / SWEEP), PLACE_SHADES[j % PLACE_SHADES.length]));
+      });
+      at += span;
+    });
+    at += gap;
   }
-  return { order: sorted.flat(), colors };
+  return { order: tree.flat(2), colors };
 }
 
 /** Line `i` of `n` on one side of the root, spread evenly along that side's
@@ -335,13 +405,18 @@ function countryOf(indi: Individual, home: string): string {
 }
 
 /** The birth place's locality and the country it lies in (the home country
- *  for a place that names none). */
-function birthPlaceOf(indi: Individual, home: string): { place: string; country: string } {
-  const place = findEvent(indi, "BIRT")?.place;
-  return {
-    place: place ? (localityParts(place)[0] ?? "") : "",
-    country: place ? placeCountryFacet(place.raw) || home : "",
-  };
+ *  for a place that names none). With no birth place, the residence or death
+ *  place stands in — the place the chart writes on the person (see
+ *  `placeLabel` in nodeDisplay), so the colour never disagrees with the label. */
+function birthPlaceOf(indi: Individual, home: string): { place: string } & PlaceWhere {
+  for (const tag of LABEL_PLACE_TAGS) {
+    const place = findEvent(indi, tag)?.place;
+    const parts = place ? localityParts(place) : [];
+    if (place && parts[0]) {
+      return { place: parts[0], country: placeCountryFacet(place.raw) || home, area: parts.length >= 3 ? parts[1] : "" };
+    }
+  }
+  return { place: "", country: "", area: "" };
 }
 
 function surnameOf(indi: Individual): string {
@@ -404,8 +479,8 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   const { ds, t, lang } = ctx;
   const now = ctx.now ?? new Date().getFullYear();
   const numeric = NUMERIC[axis];
-  // The country each birth place lies in, as the places are read.
-  const placeCountry = new Map<string, string>();
+  // The country and area each birth place lies in, as the places are read.
+  const placeWhere = new Map<string, PlaceWhere>();
 
   const readCategory = (indi: Individual | undefined, pos?: NodePosition): string => {
     // A spouse riding beside the line is of no generation and of no line.
@@ -419,8 +494,8 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
       case "country": return indi ? countryOf(indi, ctx.home) : "";
       case "birthPlace": {
         if (!indi) return "";
-        const { place, country } = birthPlaceOf(indi, ctx.home);
-        if (place && !placeCountry.has(place)) placeCountry.set(place, country);
+        const { place, ...at } = birthPlaceOf(indi, ctx.home);
+        if (place && !placeWhere.has(place)) placeWhere.set(place, at);
         return place;
       }
       case "surname": return indi ? surnameOf(indi) : "";
@@ -496,14 +571,19 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   const otherCount = foldedKeys.reduce((s, k) => s + counts.get(k)!, 0);
 
   // On those axes the commonest value — or the home country, when the chart
-  // has it — is the calm one, and only the rest take colours.
-  const calm = !folds ? undefined : axis === "country" && kept.includes(ctx.home) ? ctx.home : kept[0];
+  // has it, and on the place axis the home country's commonest place — is the
+  // calm one, and only the rest take colours. (A foreign place calm would part
+  // it from its own country's family of hues.)
+  const homePlace = axis === "birthPlace" ? kept.find((k) => placeWhere.get(k)?.country === ctx.home) : undefined;
+  const calm = !folds ? undefined
+    : axis === "country" && kept.includes(ctx.home) ? ctx.home
+      : homePlace ?? kept[0];
   const rest = kept.filter((k) => k !== calm);
   let open: Map<string, string> | undefined;
   if (axis === "country") open = countryColors(rest);
   else if (axis === "surname") open = new Map(rest.map((k, i) => [k, paletteColor(i)]));
   else if (axis === "birthPlace") {
-    const placed = placeColors(rest, calm, placeCountry, counts);
+    const placed = placeColors(rest, calm, placeWhere, counts);
     open = placed.colors;
     kept = calm === undefined ? placed.order : [calm, ...placed.order];
   }
