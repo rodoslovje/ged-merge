@@ -178,6 +178,14 @@ describe("createNodeColorer", () => {
     expect(new Set(c.legend.map((e) => e.color)).size).toBe(5);
   });
 
+  it("calms the home country's commonest place, though a foreign one is commoner", () => {
+    const people = ["Zagreb, Croatia", "Zagreb, Croatia", "Zagreb, Croatia", "Split, Croatia", "Kranj", "Kranj", "Bled"];
+    const c = createNodeColorer("birthPlace", ctx, people.map((p) => ({ indi: bornAt(p) })));
+    expect(c.legend[0].key).toBe("Kranj");
+    expect(c.colorOf("Kranj")).toContain("--node-main");
+    expect(c.colorOf("Zagreb")).toContain("oklch(");
+  });
+
   it("colours a person with no birth place by the place their label shows", () => {
     const born = bornAt("Stara Sušica, Croatia");
     const resident = { ...born, events: [{ ...born.events[0], tag: "RESI" }] } as Individual;

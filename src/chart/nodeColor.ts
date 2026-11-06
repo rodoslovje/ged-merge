@@ -534,8 +534,13 @@ export function createNodeColorer(axis: ColorAxis, ctx: ColorContext, subjects: 
   const otherCount = foldedKeys.reduce((s, k) => s + counts.get(k)!, 0);
 
   // On those axes the commonest value — or the home country, when the chart
-  // has it — is the calm one, and only the rest take colours.
-  const calm = !folds ? undefined : axis === "country" && kept.includes(ctx.home) ? ctx.home : kept[0];
+  // has it, and on the place axis the home country's commonest place — is the
+  // calm one, and only the rest take colours. (A foreign place calm would part
+  // it from its own country's family of hues.)
+  const homePlace = axis === "birthPlace" ? kept.find((k) => placeCountry.get(k) === ctx.home) : undefined;
+  const calm = !folds ? undefined
+    : axis === "country" && kept.includes(ctx.home) ? ctx.home
+      : homePlace ?? kept[0];
   const rest = kept.filter((k) => k !== calm);
   let open: Map<string, string> | undefined;
   if (axis === "country") open = countryColors(rest);
