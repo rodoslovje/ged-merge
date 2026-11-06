@@ -1830,6 +1830,8 @@ function AppContent() {
   // (what the merge engine will apply, and so what the Save badge reports),
   // `mainIds` the distinct people they touch. These differ only when a main id
   // carries more than one confirmed entry — see `findConfirmedDecision`.
+  // `mainIds` also holds the people those decisions added (a ticked child, a
+  // taken parent or partner), so each new person counts once on the badge.
   const { count: confirmedCount, mainIds: confirmedMainIds } = useMemo(() => {
     let count = 0;
     const mainIds = new Set<string>();
@@ -1839,6 +1841,9 @@ function AppContent() {
       if (!parsed || !mainDataset?.individuals.has(parsed.mainId)) continue;
       count++;
       mainIds.add(parsed.mainId);
+      for (const addedId of Object.values(d.added ?? {})) {
+        if (mainDataset.individuals.has(addedId)) mainIds.add(addedId);
+      }
     }
     return { count, mainIds };
     // eslint-disable-next-line react-hooks/exhaustive-deps
