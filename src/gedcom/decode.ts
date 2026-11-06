@@ -56,6 +56,11 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
       return { text: decodeUtf16(bytes, true), charset: "UNICODE", warnings };
     case "ANSEL":
       if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "ANSEL");
+      // Brother's Keeper writes `CHAR ANSEL` over Windows-1250 bytes: š/ž
+      // (0x9A/0x9E) are no ANSEL character at all, and č (0xE8) would read as
+      // a combining diaeresis. A byte ANSEL leaves undefined means the label
+      // is wrong, so the bytes are read as the Windows codepage they are.
+      if (hasNonAnselBytes(bytes)) return decodeWindowsAnsi(bytes, warnings, "CHAR ANSEL with bytes ANSEL does not define");
       return { text: decodeAnsel(bytes, warnings), charset: "ANSEL", warnings };
     case "WINDOWS-1250":
       if (isMislabelledUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "WINDOWS-1250");
@@ -160,7 +165,12 @@ function decodeAsUtf8(
  * otherwise untouched (its own remaining content still follows the marker).
  */
 function healSplitUtf8AcrossConc(bytes: Uint8Array): { bytes: Uint8Array; count: number } {
-  const out: number[] = [];
+  // Moving bytes never grows the buffer, so the output fits the input's size.
+  // A plain number[] did not: past ~134M elements (a 136 MB MyHeritage
+  // export) `push` threw "Invalid array length" and the file would not open.
+  const out = new Uint8Array(bytes.length);
+  let o = 0;
+  const push = (x: number) => { out[o++] = x; };
   let count = 0;
   let i = 0;
   const n = bytes.length;
@@ -184,10 +194,10 @@ function healSplitUtf8AcrossConc(bytes: Uint8Array): { bytes: Uint8Array; count:
             }
           }
           if (complete) {
-            out.push(b);
-            for (let k = 0; k < have; k++) out.push(bytes[i + 1 + k]);
-            for (let k = 0; k < need; k++) out.push(bytes[contStart + k]);
-            for (let k = 0; k < markerLen; k++) out.push(bytes[breakStart + k]);
+            push(b);
+            for (let k = 0; k < have; k++) push(bytes[i + 1 + k]);
+            for (let k = 0; k < need; k++) push(bytes[contStart + k]);
+            for (let k = 0; k < markerLen; k++) push(bytes[breakStart + k]);
             count++;
             i = contStart + need;
             continue;
@@ -195,10 +205,10 @@ function healSplitUtf8AcrossConc(bytes: Uint8Array): { bytes: Uint8Array; count:
         }
       }
     }
-    out.push(b);
+    push(b);
     i++;
   }
-  return count > 0 ? { bytes: Uint8Array.from(out), count } : { bytes, count: 0 };
+  return count > 0 ? { bytes: out.subarray(0, o), count } : { bytes, count: 0 };
 }
 
 /** UTF-8 sequence length for a lead byte (1 for ASCII/continuation/invalid). */
@@ -255,6 +265,16 @@ function recoverInvalidUtf8(bytes: Uint8Array, warnings: ParseWarning[]): Decode
  */
 function utf8Result(bytes: Uint8Array, warnings: ParseWarning[]): DecodeResult {
   let text = decodeUtf8(bytes);
+  if (text.includes("�")) {
+    const stray = decodeStrayBytes(bytes);
+    if (stray.count > 0) {
+      text = stray.text;
+      warnings.push({
+        kind: "encoding",
+        message: `${stray.count} byte(s) were not valid UTF-8 and were read as ${stray.charset}.`,
+      });
+    }
+  }
   const { text: repaired, count } = repairMojibake(text);
   if (count > 0) {
     text = repaired;
@@ -272,6 +292,52 @@ function utf8Result(bytes: Uint8Array, warnings: ParseWarning[]): DecodeResult {
     });
   }
   return { text, charset: "UTF-8", warnings };
+}
+
+/**
+ * Decode UTF-8 that carries a few stray single-byte characters — a name typed
+ * or pasted in Windows-1250 into an otherwise UTF-8 file (`_MARNM Žulinac`
+ * with a bare 0x8E, an en dash as 0x96). Each byte that is not part of a valid
+ * UTF-8 sequence is read in the Windows codepage its bytes point to, instead of
+ * becoming U+FFFD and losing the letter. `count` is 0 when every byte is valid.
+ */
+function decodeStrayBytes(bytes: Uint8Array): { text: string; count: number; charset: "Windows-1250" | "Windows-1252" } {
+  const strays: number[] = [];
+  const n = bytes.length;
+  for (let i = 0; i < n; ) {
+    const len = validUtf8SeqLen(bytes, i);
+    if (len === 0) strays.push(i++);
+    else i += len;
+  }
+  const cp1250 = looksLikeWindows1250(Uint8Array.from(strays, (at) => bytes[at]));
+  if (strays.length === 0) return { text: decodeUtf8(bytes), count: 0, charset: "Windows-1250" };
+  const single = new TextDecoder(cp1250 ? "windows-1250" : "windows-1252");
+  let text = "";
+  let from = 0;
+  for (const at of strays) {
+    text += decodeUtf8(bytes.subarray(from, at)) + single.decode(bytes.subarray(at, at + 1));
+    from = at + 1;
+  }
+  text += decodeUtf8(bytes.subarray(from));
+  return { text, count: strays.length, charset: cp1250 ? "Windows-1250" : "Windows-1252" };
+}
+
+/** The length of the well-formed UTF-8 sequence at `i` (Unicode Table 3-7),
+ *  or 0 when the byte there starts none. */
+function validUtf8SeqLen(b: Uint8Array, i: number): number {
+  const x = b[i];
+  if (x < 0x80) return 1;
+  const cont = (k: number, lo = 0x80, hi = 0xbf) => i + k < b.length && b[i + k] >= lo && b[i + k] <= hi;
+  if (x >= 0xc2 && x <= 0xdf) return cont(1) ? 2 : 0;
+  if (x >= 0xe0 && x <= 0xef) {
+    const ok1 = x === 0xe0 ? cont(1, 0xa0) : x === 0xed ? cont(1, 0x80, 0x9f) : cont(1);
+    return ok1 && cont(2) ? 3 : 0;
+  }
+  if (x >= 0xf0 && x <= 0xf4) {
+    const ok1 = x === 0xf0 ? cont(1, 0x90) : x === 0xf4 ? cont(1, 0x80, 0x8f) : cont(1);
+    return ok1 && cont(2) && cont(3) ? 4 : 0;
+  }
+  return 0;
 }
 
 function countChar(text: string, ch: string): number {
@@ -581,6 +647,19 @@ function decodeAnsel(bytes: Uint8Array, warnings: ParseWarning[]): string {
     });
   }
   return out.normalize("NFC");
+}
+
+/** Whether the bytes ANSEL leaves undefined are too many to be stray damage
+ *  in a genuine ANSEL file: at least one in ten of the high bytes. */
+function hasNonAnselBytes(bytes: Uint8Array): boolean {
+  let high = 0;
+  let undefinedBytes = 0;
+  for (const b of bytes) {
+    if (b < 0x80) continue;
+    high++;
+    if (!ANSEL_COMBINING[b] && !ANSEL_SPECIAL[b]) undefinedBytes++;
+  }
+  return undefinedBytes > 0 && undefinedBytes * 10 >= high;
 }
 
 function applyCombiners(base: string, combiners: string[]): string {

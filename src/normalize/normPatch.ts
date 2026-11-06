@@ -7,9 +7,11 @@ import type { GedNode } from "../gedcom/types";
  *
  * Diffed, not recorded: normalization is a dozen passes over a cloned record
  * forest, and comparing that forest with the one it was cloned from catches
- * every change any pass makes, including passes written later. The forest
- * keeps its length (no pass adds or drops a top-level record), so each edit
- * names a record by index and a node below it by a child-index path.
+ * every change any pass makes, including passes written later. No pass drops
+ * a top-level record, and the one that adds them (a 7.0 conversion moving
+ * inline media into records of their own) adds one block at one place, which
+ * travels whole as `added`; so each edit names a record by its index in the
+ * forest as parsed, and a node below it by a child-index path.
  *
  * Compact on purpose: against a main with another place style, nearly every
  * event of a large file changes, and a patch of a million small objects costs
@@ -39,6 +41,8 @@ export interface NormPatch {
   text: string;
   /** Whole nodes (and CONC tables) that travel as objects. */
   objs: unknown[];
+  /** Records the normalization added, inserted at `at` once the edits ran. */
+  added?: { at: number; records: GedNode[] };
 }
 
 const OP_SCALARS = 1;
@@ -69,20 +73,40 @@ class Writer {
 }
 
 /** The edits that turn `before` into `after` (see {@link NormPatch}).
- *  Undefined when the two forests differ in length — not expected of
- *  normalization; the caller then has no patch to offer. */
+ *  Undefined when `after` is not `before` plus at most one block of new
+ *  records — not expected of normalization; the caller then has no patch to
+ *  offer. */
 export function diffNormalized(before: GedNode[], after: GedNode[]): NormPatch | undefined {
-  if (before.length !== after.length) return undefined;
+  const added = addedBlock(before, after);
+  if (!added) return undefined;
+  const kept = added.records.length ? [...after.slice(0, added.at), ...after.slice(added.at + added.records.length)] : after;
   const w = new Writer();
   const path: number[] = [];
-  for (let r = 0; r < before.length; r++) diffNode(before[r], after[r], r, path, w);
+  for (let r = 0; r < before.length; r++) diffNode(before[r], kept[r], r, path, w);
   return {
     count: before.length,
     ops: Int32Array.from(w.ops),
     lens: Int32Array.from(w.lens),
     text: w.parts.join(""),
     objs: w.objs,
+    ...(added.records.length ? { added } : {}),
   };
+}
+
+/** Where `after` holds records `before` has none of — one block of new xrefs
+ *  — or undefined when the two do not line up that way. */
+function addedBlock(before: GedNode[], after: GedNode[]): { at: number; records: GedNode[] } | undefined {
+  const k = after.length - before.length;
+  if (k < 0) return undefined;
+  if (k === 0) return { at: after.length, records: [] };
+  const same = (a: GedNode, b: GedNode) => a.tag === b.tag && a.xref === b.xref;
+  let at = 0;
+  while (at < before.length && same(before[at], after[at])) at++;
+  const old = new Set(before.map((r) => r.xref).filter(Boolean));
+  const records = after.slice(at, at + k);
+  if (records.some((r) => !r.xref || old.has(r.xref))) return undefined;
+  for (let i = at; i < before.length; i++) if (!same(before[i], after[i + k])) return undefined;
+  return { at, records };
 }
 
 /** Whether `b` can be reached from `a` by field and child edits. */
@@ -218,5 +242,6 @@ export function applyNormPatch(records: GedNode[], patch: NormPatch): boolean {
       else records[r] = next;
     } else return false;
   }
+  if (patch.added) records.splice(patch.added.at, 0, ...patch.added.records);
   return true;
 }

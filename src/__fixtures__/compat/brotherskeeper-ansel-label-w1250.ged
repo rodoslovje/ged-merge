@@ -1,0 +1,20 @@
+0 HEAD
+1 SOUR BROSKEEP
+2 VERS 6.6.10 WINDOWS
+1 CHAR ANSEL
+1 GEDC
+2 VERS 5.5
+2 FORM LINEAGE-LINKED
+0 @I1@ INDI
+1 NAME Jožef /Ambrožiè/
+1 SEX M
+1 BIRT
+2 DATE 4 APR 1901
+2 PLAC Šentvid, Ljubljana
+1 OCCU uèitelj
+0 @I2@ INDI
+1 NAME Uršula /Èebuljnik/
+1 SEX F
+1 RESI
+2 PLAC Nemški Rovt 7, Bohinjska Bistrica
+0 TRLR

@@ -60,8 +60,9 @@ import { walkNodes } from "./walk";
  * rather than the `_FSFTID` it writes for a FamilySearch EXID the file had of
  * its own, and the `_MARNM` rather than the married `NAME` (valid 5.5.1 too).
  *
- * Not attempted (would create new records rather than rewrite in place):
- * extracting inline `OBJE`/text `SOUR` substructures into pointed records.
+ * A text `SOUR` citation becomes `SOUR @VOID@` with its text as `PAGE` (and
+ * back). An inline `OBJE` becomes a media record of its own, pointed to from
+ * where it was (and, while the forest remembers it, back inline).
  */
 
 /** The two spec families migration distinguishes. An `unknown` declared
@@ -88,9 +89,13 @@ export function migrateVersion(
 ): number {
   if (from === to) return 0;
   const ctx: MigrateCtx = { changed: 0, onChange };
+  if (to === "5.5.1") inlineExtractedMedia(records, ctx);
   const migratable = records.filter((r) => !SKIP_ROOTS.has(r.tag));
-  if (to === "7.0") upgrade(migratable, ctx);
-  else downgrade(migratable, ctx);
+  if (to === "7.0") {
+    upgrade(migratable, ctx);
+    extractInlineMedia(records, ctx);
+    upgradeFamilyAssociations(migratable, ctx);
+  } else downgrade(migratable, ctx);
   return ctx.changed;
 }
 
@@ -261,6 +266,8 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, node, before);
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       upgradeObje(node, ctx);
+    } else if (node.tag === "SOUR" && node.level > 0 && !isPointer(node.value?.trim())) {
+      upgradeTextCitation(node, ctx);
     } else if (node.tag === "SEX" && node.value !== undefined) {
       const letter = { MALE: "M", FEMALE: "F", UNKNOWN: "U" }[node.value.trim().toUpperCase()];
       if (letter && node.value !== letter) {
@@ -355,7 +362,10 @@ function upgradeMarriedNames(indi: GedNode, ctx: MigrateCtx): void {
     name.children = name.children.filter((child, index) => {
       if (child.tag !== "_MARNM") return true;
       const raw = child.value?.trim() ?? "";
-      const surname = (raw.match(/\/([^/]*)\//)?.[1] ?? raw).trim();
+      // `/Kovač/` is a surname written in slashes; `Tomc/Tomec/Tometz` is a
+      // list of spellings, and taking what lay between its first two slashes
+      // kept "Tomec" alone.
+      const surname = (raw.match(/^\/(.*)\/$/)?.[1] ?? raw).trim();
       if (!surname) return true;
       const given = (splitSlashName(name.value ?? "")?.before ?? name.value ?? "").trim();
       const before = `NAME.${describe(child)}`;
@@ -390,7 +400,8 @@ function downgradeMarriedNames(indi: GedNode, ctx: MigrateCtx): void {
     const surname = splitSlashName(node.value ?? "")?.surname ?? node.value?.trim() ?? "";
     // The surname as the file wrote it (`/Kovač/`, say), while it still is one.
     const written = from.value;
-    node.value = written !== undefined && (written.match(/\/([^/]*)\//)?.[1] ?? written).trim() === surname ? written : surname;
+    const writtenSurname = written === undefined ? undefined : splitSlashName(written.trim().startsWith("/") ? written : `/${written}/`)?.surname;
+    node.value = written !== undefined && writtenSurname === surname ? written : surname;
     node.tag = "_MARNM";
     if (from.spelling) node.spelling = from.spelling;
     delete node.upgradedFrom;
@@ -526,12 +537,37 @@ function titleCase(word: string): string {
   return word.charAt(0) + word.slice(1).toLowerCase();
 }
 
+/**
+ * 5.5 let a person's `ASSO` point at a family (`TYPE FAM`): Brother's Keeper
+ * and Geneanet write a wedding witness that way. 7.0's pointer names a
+ * person, but a family record may carry an association of its own — so the
+ * line moves to the family and points back at the person, `TYPE FAM` gone.
+ * It remembers the family it named (`upgradedFrom`), which is how the
+ * downgrade puts it back on the person rather than on a spouse.
+ */
+function upgradeFamilyAssociations(records: GedNode[], ctx: MigrateCtx): void {
+  const families = new Map(records.filter((r) => r.tag === "FAM" && r.xref).map((r) => [r.xref!, r]));
+  for (const indi of records) {
+    if (indi.tag !== "INDI" || !indi.xref) continue;
+    indi.children = indi.children.filter((assoc) => {
+      const fam = assoc.tag === "ASSO" ? families.get(assoc.value?.trim() ?? "") : undefined;
+      if (!fam) return true;
+      const before = `INDI.${describe(assoc)}`;
+      assoc.upgradedFrom = { tag: "ASSO", value: assoc.value };
+      assoc.value = indi.xref;
+      assoc.children = assoc.children.filter((c) => !(c.tag === "TYPE" && c.value?.trim().toUpperCase() === "FAM"));
+      fam.children.push(assoc);
+      report(ctx, assoc, before);
+      return false;
+    });
+  }
+}
+
 function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
   // `TYPE` has no place under 7.0's `ASSO`. 5.5 carried it because its pointer
   // could name any record; once 5.5.1 restricted the pointer to a person, `TYPE
-  // INDI` said nothing, and 7.0 dropped the tag. `TYPE FAM` is left where it is:
-  // its pointer is one 7.0 cannot express either, and the tag is the only line
-  // saying the association does not name a person.
+  // INDI` said nothing, and 7.0 dropped the tag. `TYPE FAM` stays until
+  // upgradeFamilyAssociations moves the line to the family it names.
   const type = firstChild(node, "TYPE");
   if (type && type.value?.trim().toUpperCase() === "INDI") {
     node.children = node.children.filter((c) => c !== type);
@@ -561,6 +597,59 @@ function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
  * (5.5-family files often keep them at the record level), `FORM` payloads are
  * IANA media types, and the source-media kind is `MEDI` rather than `TYPE`.
  */
+/**
+ * 7.0 links media only by pointer, so each inline `OBJE` that holds a file
+ * (5.5.1's `1 OBJE` / `2 FILE …`) moves into a media record of its own, added
+ * before the trailer, and the line points to it. The record remembers it
+ * (`upgradedFrom`), so converting back puts it inline again. Runs
+ * after the walk, which has already hung the inline media's FORM and TITL
+ * under its FILE.
+ */
+function extractInlineMedia(records: GedNode[], ctx: MigrateCtx): void {
+  const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
+  let n = 0;
+  const nextXref = () => {
+    let x: string;
+    do x = `@M${++n}@`;
+    while (taken.has(x));
+    taken.add(x);
+    return x;
+  };
+  const made: GedNode[] = [];
+  walkNodes(records.filter((r) => !SKIP_ROOTS.has(r.tag)), (node) => {
+    if (node.tag !== "OBJE" || node.level === 0 || isPointer(node.value?.trim()) || !firstChild(node, "FILE")) return;
+    const rec: GedNode = { level: 0, tag: "OBJE", xref: nextXref(), children: node.children, upgradedFrom: { tag: "OBJE" } };
+    reindent(rec.children, 1);
+    node.value = rec.xref;
+    node.children = [];
+    made.push(rec);
+    report(ctx, node, "OBJE (inline)");
+  });
+  const trlr = records.findIndex((r) => r.tag === "TRLR");
+  records.splice(trlr >= 0 ? trlr : records.length, 0, ...made);
+}
+
+/** The way back for {@link extractInlineMedia}: a media record it made goes
+ *  back inline where its link is — when it still has just the one. */
+function inlineExtractedMedia(records: GedNode[], ctx: MigrateCtx): void {
+  const made = new Map(records.filter((r) => r.tag === "OBJE" && r.xref && r.upgradedFrom?.tag === "OBJE").map((r) => [r.xref!, r]));
+  if (made.size === 0) return;
+  const links = new Map<string, GedNode[]>();
+  walkNodes(records, (node) => {
+    const target = node.tag === "OBJE" && node.level > 0 ? node.value?.trim() : undefined;
+    if (target && made.has(target)) links.set(target, [...(links.get(target) ?? []), node]);
+  });
+  for (const [xref, [link, ...more]] of links) {
+    if (more.length) continue;
+    const rec = made.get(xref)!;
+    link.children = [...rec.children, ...link.children];
+    reindent(link.children, link.level + 1);
+    delete link.value;
+    records.splice(records.indexOf(rec), 1);
+    report(ctx, link, `OBJE ${xref}`);
+  }
+}
+
 function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
   // Record-level FORM applies to every FILE; TITL goes to the first.
   for (const moved of hangMediaLinesUnderFile(node)) {
@@ -653,6 +742,29 @@ function voidAsNote(node: GedNode): GedNode | undefined {
   return note;
 }
 
+/**
+ * 5.5.1's text citation — `SOUR <description>` with no source record — is
+ * 7.0's citation of a source the file does not record: `SOUR @VOID@`, the
+ * description as its `PAGE` and the transcript as `DATA.TEXT`. The inverse of
+ * {@link voidCitation}, so a file converted and converted back reads the same.
+ */
+function upgradeTextCitation(node: GedNode, ctx: MigrateCtx): void {
+  const before = `SOUR ${node.value ?? ""}`.trim();
+  const page = node.value?.trim() ? node.value : undefined;
+  const texts = node.children.filter((c) => c.tag === "TEXT");
+  const rest = node.children.filter((c) => c.tag !== "TEXT");
+  node.value = VOID_XREF;
+  node.children = [
+    ...(page !== undefined ? [plain("PAGE", page)] : []),
+    ...(texts.length ? [plain("DATA")] : []),
+    ...rest,
+  ];
+  const data = firstChild(node, "DATA");
+  if (data) data.children = texts;
+  delete node.conc;
+  report(ctx, node, before);
+}
+
 function voidCitation(node: GedNode): GedNode | undefined {
   const page = firstChild(node, "PAGE")?.value?.trim();
   const texts = firstChild(node, "DATA")?.children.filter((c) => c.tag === "TEXT") ?? [];
@@ -694,6 +806,24 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
     }
     return undefined;
   };
+
+  // A person's association with the family, which the upgrade moved there
+  // (see upgradeFamilyAssociations), goes back to that person as it was.
+  for (const fam of records) {
+    if (fam.tag !== "FAM") continue;
+    for (const assoc of childrenByTag(fam, "ASSO")) {
+      const person = byXref.get(assoc.value?.trim() ?? "");
+      if (assoc.upgradedFrom?.tag !== "ASSO" || person?.tag !== "INDI") continue;
+      const before = `FAM.${describe(assoc)}`;
+      fam.children = fam.children.filter((c) => c !== assoc);
+      assoc.value = assoc.upgradedFrom.value;
+      delete assoc.upgradedFrom;
+      assoc.children.unshift({ level: assoc.level + 1, tag: "TYPE", value: "FAM", children: [] });
+      person.children.push(assoc);
+      ctx.changed++;
+      ctx.onChange(before, `INDI.${describe(assoc)}`);
+    }
+  }
 
   for (const rec of records) {
     if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;

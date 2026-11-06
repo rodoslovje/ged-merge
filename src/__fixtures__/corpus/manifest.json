@@ -211,5 +211,22 @@
       "other": 0
     },
     "note": "HEAD without a SOUR line"
+  },
+  {
+    "file": "brotherskeeper-ansel-w1250.ged",
+    "exporter": "Brother's Keeper",
+    "version": "5.5",
+    "charset": "windows-1250",
+    "eol": "CRLF",
+    "finalNewline": true,
+    "bom": false,
+    "bytes": 81112,
+    "records": {
+      "INDI": 347,
+      "FAM": 274,
+      "other": 1
+    },
+    "note": "`CHAR ANSEL` over Windows-1250 bytes; places scrubbed",
+    "placesScrubbed": true
   }
 ]

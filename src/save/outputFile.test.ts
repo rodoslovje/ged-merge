@@ -91,6 +91,25 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
     expect(to551).toContain("1 NOTE a@@@@b\n");
   });
 
+  it("5.5.1 → 7.0: record ids 7.0 does not accept get ones it does, pointers with them", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8", "1 SUBM @f1_SUB1@",
+      "0 @f1_SUB1@ SUBM", "1 NAME Ana",
+      "0 @f1_I1@ INDI", "1 NAME Ana /Novak/", "1 FAMS @F-1@",
+      "0 @F_1@ FAM", "0 @F-1@ FAM", "1 WIFE @f1_I1@",
+      "0 @void@ INDI",
+      "0 TRLR", "",
+    ].join("\n"), "7.0");
+    expect(lines).toContain("1 SUBM @F1_SUB1@");
+    expect(lines).toContain("0 @F1_SUB1@ SUBM");
+    expect(lines).toContain("0 @F1_I1@ INDI");
+    // @F-1@ would become @F_1@, which another family already holds.
+    expect(lines).toContain("1 FAMS @F_1_2@");
+    expect(lines).toContain("0 @F_1_2@ FAM");
+    expect(lines).toContain("1 WIFE @F1_I1@");
+    expect(lines).toContain("0 @VOID_2@ INDI");
+  });
+
   it("converts nothing when saved in the file's own version", () => {
     expect(download(v551).conversion).toBeNull();
     expect(convertVersion(parse(v551).records, "5.5.1", "5.5.1")).toEqual([]);

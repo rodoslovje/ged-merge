@@ -1,11 +1,13 @@
 import { test, expect } from "@playwright/test";
 
 // Two unparsable lines, so the file loads with warnings and the chip is titled.
+// They follow the INDI line, which holds no text they could continue.
 const GED = [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
-  "0 @I1@ INDI", "1 NAME Janez /Novak/",
+  "0 @I1@ INDI",
   "this line is not gedcom at all",
   "nor is this one",
+  "1 NAME Janez /Novak/",
   "0 TRLR", "",
 ].join("\n");
 

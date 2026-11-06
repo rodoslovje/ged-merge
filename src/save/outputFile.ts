@@ -1,3 +1,4 @@
+import { VOID_XREF } from "../gedcom/assoc";
 import { submitterName } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
@@ -172,11 +173,42 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
  * media), and the header, which migration leaves alone, here. Returns one
  * readable line per rewritten structure, for the preview and the report.
  */
+/** A record id 7.0 accepts: capital letters, digits and `_`, and not `@VOID@`. */
+const XREF_70 = /^@[A-Z0-9_]+@$/;
+
+/**
+ * Give every record whose id 7.0 does not accept (`@f1_I1@`, `@I-12@`) one
+ * it does — upper case, any other character as `_`, a suffix when that is
+ * taken — and point every line at the new id. Only a download does this:
+ * the open file keeps its ids, which the app's state is keyed by.
+ */
+function renameXrefsFor70(records: GedNode[], note: (before: string, after: string) => void): void {
+  const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
+  const renamed = new Map<string, string>();
+  for (const rec of records) {
+    const xref = rec.xref;
+    if (!xref || (XREF_70.test(xref) && xref !== VOID_XREF)) continue;
+    const base = xref.slice(1, -1).toUpperCase().replace(/[^A-Z0-9_]/g, "_") || "X";
+    let next = `@${base}@`;
+    for (let n = 2; taken.has(next) || next === VOID_XREF; n++) next = `@${base}_${n}@`;
+    taken.add(next);
+    renamed.set(xref, next);
+    rec.xref = next;
+    note(`${rec.tag} ${xref}`, `${rec.tag} ${next}`);
+  }
+  if (renamed.size === 0) return;
+  walkNodes(records, (node) => {
+    const target = node.value !== undefined ? renamed.get(node.value.trim()) : undefined;
+    if (target) node.value = target;
+  });
+}
+
 export function convertVersion(records: GedNode[], from: OutputVersion, to: OutputVersion): string[] {
   const changes: string[] = [];
   if (from === to) return changes;
   const note = (before: string, after: string) => changes.push(`${before} → ${after}`);
   migrateVersion(records, from, to, note);
+  if (to === "7.0") renameXrefsFor70(records, note);
   // A converted file is written by its new version's at-sign rule throughout.
   walkNodes(records, (node) => { delete node.atBare; });
 

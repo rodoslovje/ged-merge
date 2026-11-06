@@ -183,7 +183,7 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     ]);
   });
 
-  it("drops an ASSO's TYPE INDI, which 7.0 does not define, and keeps TYPE FAM", () => {
+  it("drops an ASSO's TYPE INDI, which 7.0 does not define, and moves a TYPE FAM one to the family", () => {
     const { records } = migrated(
       "5.5.1",
       "0 @I1@ INDI\n1 ASSO @I2@\n2 TYPE INDI\n2 RELA boter\n1 ASSO @F1@\n2 TYPE FAM\n2 RELA witness\n0 @I2@ INDI\n0 @F1@ FAM\n",
@@ -193,9 +193,10 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     // A pointer at a person is all 7.0 has, so the tag saying so is noise.
     expect(firstChild(assos[0], "TYPE")).toBeUndefined();
     expect(childValue(assos[0], "ROLE")).toBe("GODP");
-    // A pointer at a family is one 7.0 cannot express either — the line saying
-    // the association names no person is left for the reader to see.
-    expect(childValue(assos[1], "TYPE")).toBe("FAM");
+    // A pointer at a family is one 7.0 cannot express: the family carries the
+    // association instead, pointing at the person.
+    expect(assos).toHaveLength(1);
+    expect(firstChild(record(records, "@F1@"), "ASSO")!.value).toBe("@I1@");
   });
 
   it("folds AFN/RFN/RIN into EXID with a type URI", () => {
@@ -445,6 +446,43 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(childValue(fam, "NOTE")).toBe("unknown soldier");
   });
 
+  it("writes a 5.5.1 text citation as a citation of an unrecorded source", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 SOUR Status animarum, p. 12\n3 TEXT rojen 1850\n3 QUAY 2\n1 SOUR Rodovnik\n",
+      "7.0",
+    );
+    const sour = firstChild(firstChild(record(records, "@I1@"), "BIRT")!, "SOUR")!;
+    expect(sour.value).toBe("@VOID@");
+    expect(childValue(sour, "PAGE")).toBe("Status animarum, p. 12");
+    expect(childValue(firstChild(sour, "DATA")!, "TEXT")).toBe("rojen 1850");
+    expect(childValue(sour, "QUAY")).toBe("2");
+    expect(firstChild(record(records, "@I1@"), "SOUR")!.value).toBe("@VOID@");
+  });
+
+  it("moves inline media into a media record the line points to", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n0 @I1@ INDI\n1 OBJE\n2 FORM jpg\n2 TITL Poroka\n2 FILE b.jpg\n" +
+        "1 BIRT\n2 OBJE\n3 FILE c.png\n4 FORM png\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    const link = firstChild(indi, "OBJE")!;
+    expect(link.value).toMatch(/^@M\d+@$/);
+    expect(link.value).not.toBe("@M1@");
+    expect(link.children).toEqual([]);
+    const file = firstChild(record(records, link.value!), "FILE")!;
+    expect(file.level).toBe(1);
+    expect(file.value).toBe("b.jpg");
+    expect(childValue(file, "FORM")).toBe("image/jpeg");
+    expect(childValue(file, "TITL")).toBe("Poroka");
+    const birtObje = firstChild(firstChild(indi, "BIRT")!, "OBJE")!;
+    expect(birtObje.value).toMatch(/^@M\d+@$/);
+    expect(childValue(firstChild(record(records, birtObje.value!), "FILE")!, "FORM")).toBe("image/png");
+    expect(records[records.length - 1].tag).toBe("TRLR");
+  });
+
   it("downgrades every FILE of a multi-FILE OBJE, none dropped", () => {
     const { records } = migrated(
       "7.0",
@@ -458,12 +496,32 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
   });
 });
 
+describe("migrateVersion: a person's association with a family (5.5 TYPE FAM)", () => {
+  const body = "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 ASSO @F1@\n2 TYPE FAM\n2 RELA Witness\n0 @F1@ FAM\n1 HUSB @I2@\n0 @I2@ INDI\n";
+
+  it("moves to the family on the way to 7.0, pointing at the person", () => {
+    const { records } = migrated("5.5.1", body, "7.0");
+    expect(firstChild(record(records, "@I1@"), "ASSO")).toBeUndefined();
+    const assoc = firstChild(record(records, "@F1@"), "ASSO")!;
+    expect(assoc.value).toBe("@I1@");
+    expect(firstChild(assoc, "TYPE")).toBeUndefined();
+    expect(childValue(assoc, "ROLE")).toBe("WITN");
+  });
+
+  it("comes back to the person on the way down", () => {
+    const { records } = migrated("5.5.1", body, "7.0");
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
+  });
+});
+
 describe("migrateVersion 5.5.1 → 7.0 → 5.5.1", () => {
   it("brings a 5.5.1 file back as it was", () => {
     const body =
       "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710\n" +
       "1 DEAT\n2 DATE ABT @#DJULIAN@ 1750\n1 BURI\n2 DATE BET 300 B.C. AND 100 B.C.\n" +
       "1 ASSO @I2@\n2 RELA Godmother\n1 NOTE @N1@\n1 OBJE\n2 FILE scan.djvu\n3 FORM djvu\n" +
+      "1 SOUR Status animarum, p. 12\n2 TEXT rojen 1850\n2 QUAY 2\n" +
       "0 @I2@ INDI\n1 NAME Eva /Kos/\n0 @N1@ NOTE Shared\n";
     const { records } = migrated("5.5.1", body, "7.0");
     migrateVersion(records, "7.0", "5.5.1", () => {});

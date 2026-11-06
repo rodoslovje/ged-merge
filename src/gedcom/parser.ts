@@ -6,7 +6,16 @@ import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types"
 // Leading whitespace is tolerated: 5.5.1 asks readers to accept an indented
 // line, and some exporters indent by level. Without it every line of such a
 // file was kept verbatim and the file read as empty.
-const LINE_RE = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/;
+// `s`: a value may hold U+2028/U+2029 (MyHeritage pastes them from web
+// pages), which `.` would not match — the line read as unparsable, and each
+// save wrapped the text in one more `CONT`.
+const LINE_RE = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/s;
+
+/** A broken GEDCOM line rather than text that wrapped — a level with its
+ *  tag lost (`1 `) or its spacing lost (`1SEX M`): kept as it is, never read
+ *  into a value. Free text starting with a number ("6th Bt") goes on with a
+ *  lowercase letter. */
+const MANGLED_LINE_RE = /^\s*\d+(?:\s|$|@?[A-Z_][A-Z0-9_]*(?:@|\s|$))/;
 
 /** The message of the error `parseGedcom` throws for bytes that are not a
  *  GEDCOM file at all. Only the message crosses the worker boundary, so the
@@ -91,8 +100,26 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   // value it clearly belongs to instead of being flagged and detached.
   // Cleared on any well-formed non-CONT/CONC line.
   let textBlob: GedNode | undefined;
+  // The line just read when it carries text (not a pointer): where a stray
+  // line goes when no NOTE/TEXT is in progress. MyHeritage leaves a raw line
+  // break inside a DSCR value, Brother's Keeper inside a NAME; kept as a
+  // verbatim line, it was written back out as a line no reader can parse.
+  let lastText: GedNode | undefined;
   // Values with a line that doubles its at-signs: never written back bare.
   const atMixed = new WeakSet<GedNode>();
+  /** Fold a line with no level or tag into the value it continues, decoding
+   *  its at-signs the way a CONT line's are. */
+  const fold = (target: GedNode, raw: string) => {
+    const style = legacyAt ? atStyleOf(raw) : undefined;
+    const text = legacyAt && raw.includes("@@") ? raw.replace(/@@/g, "@") : raw;
+    target.value = (target.value ?? "") + "\n" + text;
+    if (style === "doubled" || atMixed.has(target)) {
+      atMixed.add(target);
+      delete target.atBare;
+    } else if (style === "bare" || target.atBare !== undefined) {
+      target.atBare = target.value;
+    }
+  };
 
   for (let i = 0; ; i++) {
     if (i - first >= lines.length) {
@@ -108,7 +135,16 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     const m = LINE_RE.exec(line);
     if (!m) {
       if (textBlob) {
-        textBlob.value = (textBlob.value ?? "") + "\n" + line;
+        fold(textBlob, line);
+        continue;
+      }
+      if (lastText && !MANGLED_LINE_RE.test(line)) {
+        fold(lastText, line);
+        warnings.push({
+          kind: "structure",
+          message: `Line without a level or tag joined to the ${lastText.tag} line above it: ${truncate(line)}`,
+          line: i + 1,
+        });
         continue;
       }
       warnings.push({ kind: "syntax", message: `Unparsable line (kept verbatim): ${truncate(line)}`, line: i + 1 });
@@ -116,6 +152,19 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
       // in the stream (the deepest open node's children, or the root list), so
       // depth-first serialization re-emits it at exactly its original position.
       const raw: GedNode = { level: 0, tag: "", children: [], verbatim: line };
+      // A bare level (`1 `: MyHeritage writes an event whose tag it lost) still
+      // opens its level: the `2 _UID` / `2 RIN` below it are its own lines, and
+      // hung on the event before it they gave that event two ids.
+      const bare = /^\s*(\d+)\s*$/.exec(line);
+      const bareLevel = bare ? Number(bare[1]) : -1;
+      if (bareLevel > 0 && stack[bareLevel - 1]) {
+        raw.level = bareLevel;
+        stack[bareLevel - 1].children.push(raw);
+        stack[bareLevel] = raw;
+        stack.length = bareLevel + 1;
+        textBlob = lastText = undefined;
+        continue;
+      }
       let parent: GedNode | undefined;
       for (let l = stack.length - 1; l >= 0 && !parent; l--) parent = stack[l];
       if (parent) parent.children.push(raw);
@@ -193,6 +242,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
         parent.atBare = parent.value;
       }
       textBlob = parent;
+      lastText = parent;
       continue;
     }
 
@@ -214,7 +264,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
         // unescaped free text, just coincidentally starting with a number —
         // fold it too, same as the no-match case above.
         if (textBlob) {
-          textBlob.value = (textBlob.value ?? "") + "\n" + line;
+          fold(textBlob, line);
           continue;
         }
         // Clamp the level jump: attach to the deepest open node, so the line
@@ -242,6 +292,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     // A pointer (`1 NOTE @N1@`) holds no text to continue: folding the next
     // stray line into it would turn `3 DATE 1900` into note text.
     textBlob = (tag === "TEXT" || tag === "NOTE") && !(value && isPointer(value.trim())) ? node : undefined;
+    lastText = value && !isPointer(value.trim()) ? node : undefined;
   }
 
   // A photo, a zip, a .docx, an empty file: none of it is GEDCOM, yet every
