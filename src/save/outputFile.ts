@@ -128,7 +128,8 @@ function declareVersion(head: GedNode, version: OutputVersion): void {
 /**
  * Point `HEAD.SUBM` at a submitter record that exists, making one when the
  * file has none (5.5.1 requires both). A header pointing at a record the file
- * lacks gets that record, under the xref it already names. Returns whether
+ * lacks gets that record, under the xref it already names unless another
+ * record already holds that xref. Returns whether
  * anything was (or, without `apply`, would be) added.
  */
 function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, authorName?: string): boolean {
@@ -137,9 +138,13 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
   const target = pointer?.value?.trim();
   if (target && submitters.some((r) => r.xref === target)) return false;
   if (!apply) return true;
-  let xref = target && /^@[^@]+@$/.test(target) ? target : submitters[0]?.xref;
+  const taken = new Set(records.map((r) => r.xref));
+  // Some programs point HEAD.SUBM at a person (`1 SUBM @I1@`); that id is the
+  // person's, so the new submitter never takes it — two records under one id
+  // would hand it to the submitter on the next import.
+  const usable = target && /^@[^@]+@$/.test(target) && !taken.has(target) ? target : undefined;
+  let xref = usable ?? submitters[0]?.xref;
   if (!xref) {
-    const taken = new Set(records.map((r) => r.xref));
     let n = 1;
     while (taken.has(`@U${n}@`)) n++;
     xref = `@U${n}@`;

@@ -86,22 +86,35 @@ export function* buildDatasetSteps(parsed: ParseResult): Steps<Dataset> {
   // names it. Deterministic, so the worker's parse and the main thread's agree.
   // (Indexing ~700k xrefs takes a few hundred milliseconds, so these passes
   // yield too.)
+  // A submitter never wins an id over another record: only the header points
+  // at it, while a person's id is what every FAMC/FAMS/CHIL means (older saves
+  // wrote `0 @I1@ SUBM` beside the person @I1@ when HEAD.SUBM named a person).
+  const isSubmitter = (r: GedNode) => r.tag === "SUBM" || r.tag === "SUBN";
   const lastIndex = new Map<string, number>();
   for (let i = 0; i < records.length; i++) {
     if (i % XREFS_PER_STEP === XREFS_PER_STEP - 1) yield;
     const xref = records[i].xref;
-    if (xref) lastIndex.set(xref, i);
+    if (!xref) continue;
+    const kept = lastIndex.get(xref);
+    if (kept === undefined || !isSubmitter(records[i]) || isSubmitter(records[kept])) lastIndex.set(xref, i);
   }
+  const head = records.find((r) => r.tag === "HEAD");
   for (let i = 0; i < records.length; i++) {
     if (i % XREFS_PER_STEP === XREFS_PER_STEP - 1) yield;
     const record = records[i];
     if (!record.xref || lastIndex.get(record.xref) === i) continue;
-    const prefix = record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
+    const prefix = isSubmitter(record) ? "U" : record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
     const fresh = nextXref(records, prefix);
     parsed.warnings.push({
       kind: "structure",
-      message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
+      message: isSubmitter(record)
+        ? `Duplicate xref ${record.xref}: a ${record.tag} record shares its id with another record; the ${record.tag} record is kept as ${fresh}.`
+        : `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
     });
+    if (isSubmitter(record)) {
+      const pointer = head?.children.find((c) => c.tag === record.tag && c.value?.trim() === record.xref);
+      if (pointer) pointer.value = fresh;
+    }
     record.xref = fresh;
   }
   yield;
