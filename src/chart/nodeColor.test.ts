@@ -178,6 +178,28 @@ describe("createNodeColorer", () => {
     expect(new Set(c.legend.map((e) => e.color)).size).toBe(5);
   });
 
+  it("clusters a country's places by their second level", () => {
+    const people = [
+      "Kranj, Kranj, Slovenia", "Kranj, Kranj, Slovenia",
+      "Krasinec, Metlika, Slovenia", "Gradac, Metlika, Slovenia", "Klošter, Metlika, Slovenia",
+      "Žabnica, Kranj, Slovenia", "Jama, Kranj, Slovenia", "Bitnje, Kranj, Slovenia",
+      "Ravna Gora, Primorje-Gorski Kotar, Croatia", "Stara Sušica, Primorje-Gorski Kotar, Croatia",
+    ];
+    const c = createNodeColorer("birthPlace", ctx, people.map((p) => ({ indi: bornAt(p) })));
+    // Kranj calm; then Slovenia by area (Kranj's counting the calm Kranj,
+    // so ahead of Metlika), then Croatia.
+    expect(c.legend.map((e) => e.key)).toEqual([
+      "Kranj", "Žabnica", "Jama", "Bitnje", "Krasinec", "Gradac", "Klošter", "Ravna Gora", "Stara Sušica",
+    ]);
+    const hue = (k: string) => Number(/ (\d+)\)$/.exec(c.colorOf(k)!)![1]);
+    const kranj = ["Žabnica", "Jama", "Bitnje"].map(hue);
+    const metlika = ["Krasinec", "Gradac", "Klošter"].map(hue);
+    // Inside an area the steps are smaller than the gap between the areas.
+    const step = Math.max(kranj[1] - kranj[0], kranj[2] - kranj[1]);
+    expect(metlika[0] - kranj[2]).toBeGreaterThan(step);
+    expect(new Set(c.legend.map((e) => e.color)).size).toBe(9);
+  });
+
   it("calms the home country's commonest place, though a foreign one is commoner", () => {
     const people = ["Zagreb, Croatia", "Zagreb, Croatia", "Zagreb, Croatia", "Split, Croatia", "Kranj", "Kranj", "Bled"];
     const c = createNodeColorer("birthPlace", ctx, people.map((p) => ({ indi: bornAt(p) })));
