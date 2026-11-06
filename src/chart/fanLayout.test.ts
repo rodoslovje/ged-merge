@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { buildFanChart } from "./fanLayout";
+import { buildFanChart, rootLabel, ROOT_R } from "./fanLayout";
 import { ALL_DISPLAY } from "./nodeDisplay";
+
+describe("rootLabel", () => {
+  const disp = (name: string) => ({ name, years: "1940 (86)", place: "Kranj" }) as Parameters<typeof rootLabel>[0];
+  // Every line inside the centre disk, by the same width estimate the fitter uses.
+  const inside = ({ lines, fontPx }: ReturnType<typeof rootLabel>, base: number) =>
+    lines.every((l) => {
+      const y = base + l.dy;
+      const far = Math.max(Math.abs(y - fontPx * 0.75), Math.abs(y + fontPx * 0.25));
+      const w = l.text.length * fontPx * (l.kind === "name" ? 0.56 : 0.51);
+      return far < ROOT_R && w <= 2 * Math.sqrt(ROOT_R ** 2 - far ** 2);
+    });
+
+  it("keeps a short name at full size, given name over surname", () => {
+    const label = rootLabel(disp("Edvard Renko"), 13, false);
+    expect(label.fontPx).toBe(13);
+    expect(label.lines.map((l) => l.text)).toEqual(["Edvard", "Renko", "1940 (86)", "Kranj"]);
+  });
+
+  it("wraps a long name inside the disk instead of running past it", () => {
+    const label = rootLabel(disp("Cvetka Florjana Jekovec (Renko)"), 13, false);
+    expect(label.lines.filter((l) => l.kind === "name").length).toBeGreaterThan(2);
+    expect(inside(label, 0)).toBe(true);
+  });
+
+  it("fits under a photo too", () => {
+    const label = rootLabel(disp("Cvetka Florjana Jekovec (Renko)"), 13, true);
+    expect(inside(label, 4)).toBe(true);
+  });
+});
 import type { TreeNode } from "./personTree";
 import type { Sex } from "../gedcom/types";
 
