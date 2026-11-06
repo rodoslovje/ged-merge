@@ -592,10 +592,6 @@ export function wrapWithBands(
   // The colour key: a dot and a label per entry, in rows, under the diagram.
   if (legendH) {
     const keyY = HEADER_H + bandH;
-    const keyLine = headLine.cloneNode() as SVGLineElement;
-    keyLine.setAttribute("y1", String(keyY));
-    keyLine.setAttribute("y2", String(keyY));
-    frame.appendChild(keyLine);
     for (const chip of legend) {
       const cy = keyY + LEGEND_PAD_Y + chip.row * LEGEND_ROW_H + LEGEND_ROW_H / 2;
       const dot = document.createElementNS(SVG_NS, "circle");
@@ -663,7 +659,42 @@ export function wrapWithBands(
  *  the one-page print both start here. */
 async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const { clone, foreground, width, height } = await prepareDiagram(live);
-  return wrapWithBands(clone, width, height, opts, foreground);
+  const box = drawnBox(live, width, height);
+  if (!box) return wrapWithBands(clone, width, height, opts, foreground);
+  // Shift the drawing so the cropped box starts at the origin.
+  const shifted = document.createElementNS(SVG_NS, "g");
+  shifted.setAttribute("transform", `translate(${-box.x},${-box.y})`);
+  while (clone.firstChild) shifted.appendChild(clone.firstChild);
+  clone.appendChild(shifted);
+  return wrapWithBands(clone, box.w, box.h, opts, foreground);
+}
+
+/** Breathing room kept around the drawing when an export is cropped to it. */
+const CROP_PAD = 12;
+
+/**
+ * The part of the canvas the diagram actually draws on, padded a little — or
+ * null when that is (nearly) the whole canvas, or can't be measured.
+ *
+ * A canvas can be far bigger than its drawing: the circle charts are a square
+ * around the full ancestor radius, while the descendant rings below the root
+ * are a few short ones, so a third of the square is blank. Fitted to paper,
+ * that blank still claims its share of the page and the chart prints small.
+ */
+function drawnBox(live: SVGSVGElement, width: number, height: number): { x: number; y: number; w: number; h: number } | null {
+  let b: DOMRect;
+  try {
+    b = live.getBBox();
+  } catch {
+    return null; // not rendered (or no layout engine, as in unit tests)
+  }
+  if (!(b.width > 0 && b.height > 0)) return null;
+  const x = Math.max(0, b.x - CROP_PAD);
+  const y = Math.max(0, b.y - CROP_PAD);
+  const w = Math.min(width, b.x + b.width + CROP_PAD) - x;
+  const h = Math.min(height, b.y + b.height + CROP_PAD) - y;
+  if (w >= width - 1 && h >= height - 1) return null;
+  return { x, y, w, h };
 }
 
 export function serialize(svg: SVGSVGElement): string {
@@ -782,6 +813,14 @@ export function printSheetSet(
  * document is dropped when the next print starts, so at most one lingers.
  */
 let printFrame: HTMLIFrameElement | null = null;
+/** The tab's own title while a print has lent it the document's. */
+let tabTitle: string | null = null;
+
+function restoreTabTitle(): void {
+  if (tabTitle === null) return;
+  document.title = tabTitle;
+  tabTitle = null;
+}
 
 export function printDocument(doc: string): void {
   printFrame?.remove();
@@ -794,10 +833,18 @@ export function printDocument(doc: string): void {
   const cleanup = () => {
     if (printFrame === iframe) printFrame = null;
     iframe.remove();
+    restoreTabTitle();
   };
   iframe.onload = () => {
     const win = iframe.contentWindow;
     if (!win) { cleanup(); return; }
+    // Browsers name a "Save as PDF" file after the tab's title, not the print
+    // frame's, so the tab carries the frame's title until the dialog closes.
+    const title = iframe.contentDocument?.title;
+    if (title) {
+      tabTitle ??= document.title;
+      document.title = title;
+    }
     // Give the data-URI images a frame to decode before printing.
     requestAnimationFrame(() => {
       win.focus();
@@ -842,13 +889,15 @@ export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOption
 /**
  * The diagram's own size in a `.tree-canvas`, ignoring the on-screen zoom — what
  * the print dialog needs to say how far a chart will be scaled, without building
- * the export first. `null` when the canvas holds no diagram.
+ * the export first. Cropped to what the diagram draws, as the print is.
+ * `null` when the canvas holds no diagram.
  */
 export function canvasDiagramSize(canvas: HTMLElement | null): { w: number; h: number } | null {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   const box = (svg?.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
-  if (box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
-  return { w: box[2], h: box[3] };
+  if (!svg || box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
+  const drawn = drawnBox(svg, box[2], box[3]);
+  return drawn ? { w: drawn.w, h: drawn.h } : { w: box[2], h: box[3] };
 }
 
 /**

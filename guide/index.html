@@ -2556,7 +2556,10 @@
               sheets often prints on one A1. <strong>Custom</strong> takes any size in millimetres, so a plotter roll —
               say 1100 × 2000 mm — prints as a single enormous sheet; a custom size is used exactly as you type it
               (width × height), so the orientation switch doesn't apply to it. Whatever the paper, the set is scaled to
-              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Print size is
+              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Only the part
+              of the canvas the chart draws on is printed, so a <strong>Circle Chart</strong> with a few rings of descendants
+              no longer leaves an empty band of paper under them. The saved PDF is named after the chart, as the SVG
+              is. Print size is
               the setting that matters most: an ancestors chart doubles in width with every
               generation, so <em>Large</em> (readable at arm's length) can want several times the sheets of
               <em>Small</em> (a wall chart in fine print), and <em>One sheet</em> refuses to cut at all — the whole
