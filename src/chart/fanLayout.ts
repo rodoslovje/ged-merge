@@ -347,9 +347,8 @@ export function buildFanChart(
     if (gen === 0) {
       // With a photo it sits in the upper half of the centre disk and the name
       // goes beneath; without one the name is centred in the disk.
-      const texts = labelTexts(dispOf(node), true);
       const showPhoto = hasPhoto(node);
-      const m = texts.length;
+      const label = rootLabel(dispOf(node), fontPx, showPhoto);
       return {
         key: "0:0",
         node,
@@ -359,11 +358,8 @@ export function buildFanChart(
         d: circlePath(cx, cy, ROOT_R),
         x: cx,
         y: cy,
-        lines: texts.map((l, i) => ({
-          ...l,
-          dy: showPhoto ? round(i * lineGap) : round((i - (m - 1) / 2) * lineGap),
-        })),
-        fontPx,
+        lines: label.lines,
+        fontPx: label.fontPx,
         curved: false,
         labelTransform: `translate(${round(cx)},${round(showPhoto ? cy + 4 : cy)})`,
         photo: showPhoto ? { size: 42, cx, cy: round(cy - 32), rot: 0 } : undefined,
@@ -579,6 +575,69 @@ export function labelTexts(disp: NodeDisplay, split: boolean): FanText[] {
     ...(disp.years ? [{ text: disp.years, kind: "years" as const, approx: disp.yearsApprox }] : []),
     ...(disp.place ? [{ text: disp.place, kind: "years" as const }] : []),
   ];
+}
+
+/** Smallest share of its ring font the centre disk's label may shrink to. */
+const ROOT_MIN_SCALE = 0.7;
+
+/**
+ * The centre disk's label, fitted inside the circle: the given names
+ * word-wrapped above the surname, then lifespan and place — every line checked
+ * against the disk's width at the height it sits (a line near the rim has less
+ * room than one through the middle). Wraps tighter first, and only shrinks the
+ * type when wrapping alone can't make it fit. With a photo the lines run
+ * downward from just below the centre; without, they are centred on it.
+ */
+export function rootLabel(
+  disp: NodeDisplay,
+  fontPx: number,
+  photo: boolean,
+): { lines: (FanText & { dy: number })[]; fontPx: number } {
+  const parts = disp.name.trim().split(/\s+/).filter(Boolean);
+  const surname = parts.length > 1 ? parts[parts.length - 1] : undefined;
+  const given = surname ? parts.slice(0, -1) : parts;
+  const rText = ROOT_R - 5; // keep clear of the disk's outline
+  // Width estimates: the bold name, and the monospace lifespan/place set at
+  // 0.85 of the name size.
+  const nameChar = 0.56;
+  const yearChar = 0.6 * 0.85;
+
+  const place = (f: number, wrapW: number) => {
+    const gap = round(f * 1.22);
+    const texts: FanText[] = [
+      ...[...wrapWords(given, wrapW, f * nameChar), ...(surname ? [surname] : [])].map((text) => ({
+        text,
+        kind: "name" as const,
+      })),
+      ...(disp.years ? [{ text: disp.years, kind: "years" as const, approx: disp.yearsApprox }] : []),
+      ...(disp.place ? [{ text: disp.place, kind: "years" as const }] : []),
+    ];
+    const m = texts.length;
+    const lines = texts.map((l, i) => ({
+      ...l,
+      dy: photo ? round(i * gap) : round((i - (m - 1) / 2) * gap),
+    }));
+    // The label's own offset from the centre (see labelTransform: +4 with a photo).
+    const base = photo ? 4 : 0;
+    const fits = lines.every((l) => {
+      // Baseline at dy; the glyphs reach ~0.75 f above it and ~0.25 f below.
+      const y = base + l.dy;
+      const far = Math.max(Math.abs(y - f * 0.75), Math.abs(y + f * 0.25));
+      if (far >= rText) return false;
+      const room = 2 * Math.sqrt(rText * rText - far * far);
+      return l.text.length * f * (l.kind === "name" ? nameChar : yearChar) <= room;
+    });
+    return { lines, fits };
+  };
+
+  for (let s = 1; s > ROOT_MIN_SCALE + 1e-9; s -= 0.05) {
+    for (const share of [1.6, 1.3, 1.0]) {
+      const tried = place(fontPx * s, rText * share);
+      if (tried.fits) return { lines: tried.lines, fontPx: round(fontPx * s) };
+    }
+  }
+  // Nothing fits (a very long single word): the smallest, tightest try.
+  return { lines: place(fontPx * ROOT_MIN_SCALE, rText).lines, fontPx: round(fontPx * ROOT_MIN_SCALE) };
 }
 
 /** Curved-ring label lines: by default the surname on its own line with the given

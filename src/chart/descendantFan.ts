@@ -46,7 +46,7 @@ import {
   donutPath,
   fanResolvers,
   labelBand,
-  labelTexts,
+  rootLabel,
   photoBox,
   round,
   sectorPath,
@@ -302,9 +302,8 @@ export function buildDescendantFanChart(
     const lineGap = round(fontPx * 1.22);
 
     if (gen === 0) {
-      const texts = labelTexts(dispOf(node), true);
       const showPhoto = hasPhoto(node);
-      const m = texts.length;
+      const label = rootLabel(dispOf(node), fontPx, showPhoto);
       segments.push({
         key: "0:0",
         node,
@@ -314,11 +313,8 @@ export function buildDescendantFanChart(
         d: circlePath(cx, cy, ROOT_R),
         x: cx,
         y: cy,
-        lines: texts.map((l, i) => ({
-          ...l,
-          dy: showPhoto ? round(i * lineGap) : round((i - (m - 1) / 2) * lineGap),
-        })),
-        fontPx,
+        lines: label.lines,
+        fontPx: label.fontPx,
         curved: false,
         labelTransform: `translate(${round(cx)},${round(showPhoto ? cy + 4 : cy)})`,
         photo: showPhoto ? { size: 42, cx, cy: round(cy - 32), rot: 0 } : undefined,
