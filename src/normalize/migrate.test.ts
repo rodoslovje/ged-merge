@@ -445,6 +445,20 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(childValue(fam, "NOTE")).toBe("unknown soldier");
   });
 
+  it("writes a 5.5.1 text citation as a citation of an unrecorded source", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 SOUR Status animarum, p. 12\n3 TEXT rojen 1850\n3 QUAY 2\n1 SOUR Rodovnik\n",
+      "7.0",
+    );
+    const sour = firstChild(firstChild(record(records, "@I1@"), "BIRT")!, "SOUR")!;
+    expect(sour.value).toBe("@VOID@");
+    expect(childValue(sour, "PAGE")).toBe("Status animarum, p. 12");
+    expect(childValue(firstChild(sour, "DATA")!, "TEXT")).toBe("rojen 1850");
+    expect(childValue(sour, "QUAY")).toBe("2");
+    expect(firstChild(record(records, "@I1@"), "SOUR")!.value).toBe("@VOID@");
+  });
+
   it("downgrades every FILE of a multi-FILE OBJE, none dropped", () => {
     const { records } = migrated(
       "7.0",
@@ -464,6 +478,7 @@ describe("migrateVersion 5.5.1 → 7.0 → 5.5.1", () => {
       "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE BET @#DJULIAN@ 1700 AND @#DJULIAN@ 1710\n" +
       "1 DEAT\n2 DATE ABT @#DJULIAN@ 1750\n1 BURI\n2 DATE BET 300 B.C. AND 100 B.C.\n" +
       "1 ASSO @I2@\n2 RELA Godmother\n1 NOTE @N1@\n1 OBJE\n2 FILE scan.djvu\n3 FORM djvu\n" +
+      "1 SOUR Status animarum, p. 12\n2 TEXT rojen 1850\n2 QUAY 2\n" +
       "0 @I2@ INDI\n1 NAME Eva /Kos/\n0 @N1@ NOTE Shared\n";
     const { records } = migrated("5.5.1", body, "7.0");
     migrateVersion(records, "7.0", "5.5.1", () => {});

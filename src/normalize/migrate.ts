@@ -60,8 +60,9 @@ import { walkNodes } from "./walk";
  * rather than the `_FSFTID` it writes for a FamilySearch EXID the file had of
  * its own, and the `_MARNM` rather than the married `NAME` (valid 5.5.1 too).
  *
- * Not attempted (would create new records rather than rewrite in place):
- * extracting inline `OBJE`/text `SOUR` substructures into pointed records.
+ * A text `SOUR` citation becomes `SOUR @VOID@` with its text as `PAGE` (and
+ * back). Not attempted (would create new records rather than rewrite in
+ * place): extracting inline `OBJE` substructures into pointed records.
  */
 
 /** The two spec families migration distinguishes. An `unknown` declared
@@ -261,6 +262,8 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, node, before);
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       upgradeObje(node, ctx);
+    } else if (node.tag === "SOUR" && node.level > 0 && !isPointer(node.value?.trim())) {
+      upgradeTextCitation(node, ctx);
     } else if (node.tag === "SEX" && node.value !== undefined) {
       const letter = { MALE: "M", FEMALE: "F", UNKNOWN: "U" }[node.value.trim().toUpperCase()];
       if (letter && node.value !== letter) {
@@ -655,6 +658,29 @@ function voidAsNote(node: GedNode): GedNode | undefined {
   note.level = node.level;
   note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE");
   return note;
+}
+
+/**
+ * 5.5.1's text citation — `SOUR <description>` with no source record — is
+ * 7.0's citation of a source the file does not record: `SOUR @VOID@`, the
+ * description as its `PAGE` and the transcript as `DATA.TEXT`. The inverse of
+ * {@link voidCitation}, so a file converted and converted back reads the same.
+ */
+function upgradeTextCitation(node: GedNode, ctx: MigrateCtx): void {
+  const before = `SOUR ${node.value ?? ""}`.trim();
+  const page = node.value?.trim() ? node.value : undefined;
+  const texts = node.children.filter((c) => c.tag === "TEXT");
+  const rest = node.children.filter((c) => c.tag !== "TEXT");
+  node.value = VOID_XREF;
+  node.children = [
+    ...(page !== undefined ? [plain("PAGE", page)] : []),
+    ...(texts.length ? [plain("DATA")] : []),
+    ...rest,
+  ];
+  const data = firstChild(node, "DATA");
+  if (data) data.children = texts;
+  delete node.conc;
+  report(ctx, node, before);
 }
 
 function voidCitation(node: GedNode): GedNode | undefined {
