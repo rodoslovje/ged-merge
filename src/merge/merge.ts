@@ -7,7 +7,7 @@ import { remapMergedAssociations } from "../gedcom/assoc";
 import { sharedRecordTitle } from "../gedcom/editReport";
 import { setPlaceCoord } from "../gedcom/edit/geo";
 import { coordOf, placeAddrKey, walkPlaceAddr, walkPlacNodes } from "../tools/geocode";
-import { agreedPairCoords } from "../tools/placeCoords";
+import { agreedCoords } from "../tools/placeCoords";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
@@ -640,10 +640,12 @@ function reportAddedSourcePages(records: GedNode[], main: Dataset, report: Chang
  *
  *  - **Only places this merge wrote** (`inherited` holds the rest). A gap the
  *    main file already had is the health check's business, not this save's.
- *  - **Only the exact place+address pair**, the unit a coordinate belongs to —
+ *  - **The exact place+address pair**, the unit a coordinate belongs to —
  *    a settlement's pin must never land on a house event, nor one house's on
- *    another.
- *  - **Only where the file agrees with itself** ({@link agreedPairCoords} drops
+ *    another. The one exception is a file that pins houses at their village's
+ *    spot: there a house the file has not seen yet takes that spot too, as
+ *    every house of the village already does (`places` in {@link agreedCoords}).
+ *  - **Only where the file agrees with itself** ({@link agreedCoords} drops
  *    pairs holding two different positions). A PLAC that came with its own MAP
  *    keeps it; the incoming file's coordinate is never second-guessed.
  *
@@ -678,9 +680,9 @@ function fillPlaceCoords(
   const events = records.filter(isPersonOrFamily);
   // Read after the merge, so a place the incoming file coordinated for one of
   // its own events completes that person's other events too.
-  const known = agreedPairCoords(events);
+  const known = agreedCoords(events);
   for (const gap of gaps) {
-    const coord = known.get(gap.key);
+    const coord = known.pairs.get(gap.key) ?? known.places.get(gap.plac.value!.trim());
     if (coord) setPlaceCoord(gap.plac, coord);
   }
 }
