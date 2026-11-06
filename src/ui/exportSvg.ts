@@ -663,7 +663,42 @@ export function wrapWithBands(
  *  the one-page print both start here. */
 async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const { clone, foreground, width, height } = await prepareDiagram(live);
-  return wrapWithBands(clone, width, height, opts, foreground);
+  const box = drawnBox(live, width, height);
+  if (!box) return wrapWithBands(clone, width, height, opts, foreground);
+  // Shift the drawing so the cropped box starts at the origin.
+  const shifted = document.createElementNS(SVG_NS, "g");
+  shifted.setAttribute("transform", `translate(${-box.x},${-box.y})`);
+  while (clone.firstChild) shifted.appendChild(clone.firstChild);
+  clone.appendChild(shifted);
+  return wrapWithBands(clone, box.w, box.h, opts, foreground);
+}
+
+/** Breathing room kept around the drawing when an export is cropped to it. */
+const CROP_PAD = 12;
+
+/**
+ * The part of the canvas the diagram actually draws on, padded a little — or
+ * null when that is (nearly) the whole canvas, or can't be measured.
+ *
+ * A canvas can be far bigger than its drawing: the circle charts are a square
+ * around the full ancestor radius, while the descendant rings below the root
+ * are a few short ones, so a third of the square is blank. Fitted to paper,
+ * that blank still claims its share of the page and the chart prints small.
+ */
+function drawnBox(live: SVGSVGElement, width: number, height: number): { x: number; y: number; w: number; h: number } | null {
+  let b: DOMRect;
+  try {
+    b = live.getBBox();
+  } catch {
+    return null; // not rendered (or no layout engine, as in unit tests)
+  }
+  if (!(b.width > 0 && b.height > 0)) return null;
+  const x = Math.max(0, b.x - CROP_PAD);
+  const y = Math.max(0, b.y - CROP_PAD);
+  const w = Math.min(width, b.x + b.width + CROP_PAD) - x;
+  const h = Math.min(height, b.y + b.height + CROP_PAD) - y;
+  if (w >= width - 1 && h >= height - 1) return null;
+  return { x, y, w, h };
 }
 
 export function serialize(svg: SVGSVGElement): string {
