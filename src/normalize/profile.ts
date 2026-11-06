@@ -617,9 +617,16 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
   });
 
   const parentOf = new Map<string, string[]>();
+  const singleChain = new Map<string, string[]>();
   for (const [key, forms] of parentTally) {
     const best = mostFrequentStr(forms);
-    if (best) parentOf.set(key, best.split(CHAIN_SEP));
+    if (!best) continue;
+    parentOf.set(key, best.split(CHAIN_SEP));
+    // One chain when the fullest form holds every level of all the others.
+    const chains = [...forms.keys()].map((f) => f.split(CHAIN_SEP));
+    const full = chains.reduce((a, b) => (b.length > a.length ? b : a));
+    const levels = new Set(full.map(canonicalPlaceToken));
+    if (chains.every((c) => c.every((l) => levels.has(canonicalPlaceToken(l))))) singleChain.set(key, full);
   }
   const localityOfStreet = new Map<string, string>();
   for (const [key, forms] of streetTally) {
@@ -631,7 +638,7 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     const [locality] = [...forms.keys()];
     localityOfStreet.set(key, locality);
   }
-  return { parentOf, localityOfStreet, knownNames };
+  return { parentOf, localityOfStreet, knownNames, singleChain };
 }
 
 function getForms(map: Map<string, Map<string, number>>, key: string): Map<string, number> {
