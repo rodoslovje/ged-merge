@@ -6,7 +6,16 @@ import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types"
 // Leading whitespace is tolerated: 5.5.1 asks readers to accept an indented
 // line, and some exporters indent by level. Without it every line of such a
 // file was kept verbatim and the file read as empty.
-const LINE_RE = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/;
+// `s`: a value may hold U+2028/U+2029 (MyHeritage pastes them from web
+// pages), which `.` would not match — the line read as unparsable, and each
+// save wrapped the text in one more `CONT`.
+const LINE_RE = /^\s*(\d+)\s+(?:(@[^@]+@)\s+)?([A-Za-z0-9_.]+)(?:\s(.*))?$/s;
+
+/** A broken GEDCOM line rather than text that wrapped — a level with its
+ *  tag lost (`1 `) or its spacing lost (`1SEX M`): kept as it is, never read
+ *  into a value. Free text starting with a number ("6th Bt") goes on with a
+ *  lowercase letter. */
+const MANGLED_LINE_RE = /^\s*\d+(?:\s|$|@?[A-Z_][A-Z0-9_]*(?:@|\s|$))/;
 
 /** The message of the error `parseGedcom` throws for bytes that are not a
  *  GEDCOM file at all. Only the message crosses the worker boundary, so the
@@ -91,6 +100,11 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   // value it clearly belongs to instead of being flagged and detached.
   // Cleared on any well-formed non-CONT/CONC line.
   let textBlob: GedNode | undefined;
+  // The line just read when it carries text (not a pointer): where a stray
+  // line goes when no NOTE/TEXT is in progress. MyHeritage leaves a raw line
+  // break inside a DSCR value, Brother's Keeper inside a NAME; kept as a
+  // verbatim line, it was written back out as a line no reader can parse.
+  let lastText: GedNode | undefined;
   // Values with a line that doubles its at-signs: never written back bare.
   const atMixed = new WeakSet<GedNode>();
 
@@ -109,6 +123,15 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     if (!m) {
       if (textBlob) {
         textBlob.value = (textBlob.value ?? "") + "\n" + line;
+        continue;
+      }
+      if (lastText && !MANGLED_LINE_RE.test(line)) {
+        lastText.value = (lastText.value ?? "") + "\n" + line;
+        warnings.push({
+          kind: "structure",
+          message: `Line without a level or tag joined to the ${lastText.tag} line above it: ${truncate(line)}`,
+          line: i + 1,
+        });
         continue;
       }
       warnings.push({ kind: "syntax", message: `Unparsable line (kept verbatim): ${truncate(line)}`, line: i + 1 });
@@ -193,6 +216,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
         parent.atBare = parent.value;
       }
       textBlob = parent;
+      lastText = parent;
       continue;
     }
 
@@ -242,6 +266,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     // A pointer (`1 NOTE @N1@`) holds no text to continue: folding the next
     // stray line into it would turn `3 DATE 1900` into note text.
     textBlob = (tag === "TEXT" || tag === "NOTE") && !(value && isPointer(value.trim())) ? node : undefined;
+    lastText = value && !isPointer(value.trim()) ? node : undefined;
   }
 
   // A photo, a zip, a .docx, an empty file: none of it is GEDCOM, yet every

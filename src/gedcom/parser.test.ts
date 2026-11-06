@@ -452,8 +452,10 @@ describe("parseGedcom on a file split in pieces", () => {
   const big = (eol: string, finalNewline: boolean) => {
     const lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
     for (let i = 1; i <= 60000; i++) {
-      lines.push(`0 @I${i}@ INDI`, `1 NAME Oseba${i} /Novak/`);
+      // After the INDI line, which holds no text to continue: kept verbatim.
+      lines.push(`0 @I${i}@ INDI`);
       if (i % 9999 === 0) lines.push("prosta vrstica brez oznake");
+      lines.push(`1 NAME Oseba${i} /Novak/`);
       lines.push(`1 NOTE Prva vrstica ${i}`, "2 CONT druga vrstica", "2 CONC  in konec");
     }
     lines.push("0 TRLR");

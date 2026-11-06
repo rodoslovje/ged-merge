@@ -355,7 +355,10 @@ function upgradeMarriedNames(indi: GedNode, ctx: MigrateCtx): void {
     name.children = name.children.filter((child, index) => {
       if (child.tag !== "_MARNM") return true;
       const raw = child.value?.trim() ?? "";
-      const surname = (raw.match(/\/([^/]*)\//)?.[1] ?? raw).trim();
+      // `/Kovač/` is a surname written in slashes; `Tomc/Tomec/Tometz` is a
+      // list of spellings, and taking what lay between its first two slashes
+      // kept "Tomec" alone.
+      const surname = (raw.match(/^\/(.*)\/$/)?.[1] ?? raw).trim();
       if (!surname) return true;
       const given = (splitSlashName(name.value ?? "")?.before ?? name.value ?? "").trim();
       const before = `NAME.${describe(child)}`;
@@ -390,7 +393,8 @@ function downgradeMarriedNames(indi: GedNode, ctx: MigrateCtx): void {
     const surname = splitSlashName(node.value ?? "")?.surname ?? node.value?.trim() ?? "";
     // The surname as the file wrote it (`/Kovač/`, say), while it still is one.
     const written = from.value;
-    node.value = written !== undefined && (written.match(/\/([^/]*)\//)?.[1] ?? written).trim() === surname ? written : surname;
+    const writtenSurname = written === undefined ? undefined : splitSlashName(written.trim().startsWith("/") ? written : `/${written}/`)?.surname;
+    node.value = written !== undefined && writtenSurname === surname ? written : surname;
     node.tag = "_MARNM";
     if (from.spelling) node.spelling = from.spelling;
     delete node.upgradedFrom;
