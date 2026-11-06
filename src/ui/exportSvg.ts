@@ -813,6 +813,14 @@ export function printSheetSet(
  * document is dropped when the next print starts, so at most one lingers.
  */
 let printFrame: HTMLIFrameElement | null = null;
+/** The tab's own title while a print has lent it the document's. */
+let tabTitle: string | null = null;
+
+function restoreTabTitle(): void {
+  if (tabTitle === null) return;
+  document.title = tabTitle;
+  tabTitle = null;
+}
 
 export function printDocument(doc: string): void {
   printFrame?.remove();
@@ -825,10 +833,18 @@ export function printDocument(doc: string): void {
   const cleanup = () => {
     if (printFrame === iframe) printFrame = null;
     iframe.remove();
+    restoreTabTitle();
   };
   iframe.onload = () => {
     const win = iframe.contentWindow;
     if (!win) { cleanup(); return; }
+    // Browsers name a "Save as PDF" file after the tab's title, not the print
+    // frame's, so the tab carries the frame's title until the dialog closes.
+    const title = iframe.contentDocument?.title;
+    if (title) {
+      tabTitle ??= document.title;
+      document.title = title;
+    }
     // Give the data-URI images a frame to decode before printing.
     requestAnimationFrame(() => {
       win.focus();
