@@ -22,6 +22,7 @@ import type { Translate } from "../locales/i18n";
 import type { TreeMode, TreeNode } from "./personTree";
 import { splitParents, type FanSegment } from "./fanLayout";
 import { OWN_BRANCH } from "./kinshipWheel";
+import { LABEL_PLACE_TAGS } from "./nodeDisplay";
 
 export type ColorAxis =
   | "plain"
@@ -369,13 +370,16 @@ function countryOf(indi: Individual, home: string): string {
 }
 
 /** The birth place's locality and the country it lies in (the home country
- *  for a place that names none). */
+ *  for a place that names none). With no birth place, the residence or death
+ *  place stands in — the place the chart writes on the person (see
+ *  `placeLabel` in nodeDisplay), so the colour never disagrees with the label. */
 function birthPlaceOf(indi: Individual, home: string): { place: string; country: string } {
-  const place = findEvent(indi, "BIRT")?.place;
-  return {
-    place: place ? (localityParts(place)[0] ?? "") : "",
-    country: place ? placeCountryFacet(place.raw) || home : "",
-  };
+  for (const tag of LABEL_PLACE_TAGS) {
+    const place = findEvent(indi, tag)?.place;
+    const locality = place ? localityParts(place)[0] : undefined;
+    if (place && locality) return { place: locality, country: placeCountryFacet(place.raw) || home };
+  }
+  return { place: "", country: "" };
 }
 
 function surnameOf(indi: Individual): string {

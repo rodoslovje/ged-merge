@@ -178,6 +178,14 @@ describe("createNodeColorer", () => {
     expect(new Set(c.legend.map((e) => e.color)).size).toBe(5);
   });
 
+  it("colours a person with no birth place by the place their label shows", () => {
+    const born = bornAt("Stara Sušica, Croatia");
+    const resident = { ...born, events: [{ ...born.events[0], tag: "RESI" }] } as Individual;
+    const c = createNodeColorer("birthPlace", ctx, [{ indi: born }, { indi: resident }]);
+    expect(c.categoryOf(resident)).toBe("Stara Sušica");
+    expect(c.colorFor(resident)).toBe(c.colorFor(born));
+  });
+
   it("gives each country's places one family of hues, the countries far apart", () => {
     const si = ["Bled", "Ptuj", "Celje", "Koper", "Kranj", "Kranj"];
     const hr = ["Zagreb, Croatia", "Split, Croatia", "Rijeka, Croatia"];
