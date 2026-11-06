@@ -172,6 +172,14 @@ export interface PlaceTargetFormat {
    */
   hierarchy?: PlaceHierarchy;
   /**
+   * Upper levels an incoming file writes where the main writes others — a
+   * historical crown land and empire ("Vojvodina Kranjska, Avstrijsko
+   * cesarstvo") for today's municipality and country. Keyed by the incoming
+   * levels' key (see `foreignTail`), valued by the canonical country of the main
+   * chains they stand for. Learned per incoming file, see `learnForeignTails`.
+   */
+  foreignTails?: Map<string, string>;
+  /**
    * The `FORM` labels the main writes on its own places, so a place newly
    * completed from a register can declare its levels the same way. See
    * {@link PlaceFormVocabulary}.
@@ -216,6 +224,14 @@ export interface PlaceHierarchy {
    * the file that the parish is a place after all.
    */
   knownNames: Set<string>;
+  /**
+   * Locality (lowercased) → its full chain, for the localities the main writes
+   * under one chain only — every attested chain is the fullest one or a
+   * shortening of it. A name the main writes under two different
+   * municipalities is two villages, and an incoming place naming it says
+   * nothing about which one it is.
+   */
+  singleChain?: Map<string, string[]>;
 }
 
 /** A place reshaped into the main's layout: the parts to write back. */

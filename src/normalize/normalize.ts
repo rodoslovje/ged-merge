@@ -5,7 +5,7 @@ import { readAddressParts } from "../gedcom/address";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { dropPlaceholderPlaces, normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
-import { reformatPlace, reshapesLayout, respellSeparator } from "./placeReformat";
+import { learnForeignTails, reformatPlace, reshapesLayout, respellSeparator } from "./placeReformat";
 import { inferDateProfile } from "./profile";
 import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
 import { migrateVersion, versionFamily } from "./migrate";
@@ -244,8 +244,13 @@ export function normalizeDataset(
   // A pass-through layout still runs the pass when the reader has chosen a
   // comma form: respelling it is then the one edit that pass makes.
   if (options.places && (reshapesLayout(profile.placeFmt.layout) || profile.placeFmt.separatorEnforced)) {
+    // Learned from this file as a whole before any place is rewritten: which
+    // of its upper levels are only its own names for the main's country.
+    const placeFmt = profile.placeFmt.hierarchy
+      ? { ...profile.placeFmt, foreignTails: learnForeignTails(editable, profile.placeFmt.hierarchy) }
+      : profile.placeFmt;
     walkNodes(editable, (node) => {
-      reshapePlaceNode(node, profile.placeFmt, report, seenPlace);
+      reshapePlaceNode(node, placeFmt, report, seenPlace);
     });
   }
 

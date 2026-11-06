@@ -626,6 +626,87 @@ describe("normalizeDataset (place reshaping)", () => {
     expect(report.placeExamples).toHaveLength(1);
   });
 
+  describe("historical upper levels take the main's chain", () => {
+    const people = (places: string[]) =>
+      places.map((p, i) => `0 @I${i + 1}@ INDI\n1 BIRT\n2 PLAC ${p}\n2 ADDR x ${i + 1}\n`).join("");
+    const main = dataset(`0 HEAD\n1 CHAR UTF-8\n${people([
+      "Griblje,Črnomelj,Slovenia",
+      "Griblje,Slovenia",
+      "Podzemelj,Metlika,Slovenia",
+      "Dragatuš,Črnomelj,Slovenia",
+      "Vinica,Črnomelj,Slovenia",
+      "Gorenja vas,Škofja Loka,Slovenia",
+      "Gorenja vas,Trebnje,Slovenia",
+      "Trst,Trst,Italija",
+    ])}0 TRLR\n`);
+    const OLD = "Vojvodina Kranjska,Avstrijsko cesarstvo";
+    const normalizedPlaces = (places: string[]) => {
+      const compare = dataset(`0 HEAD\n1 CHAR UTF-8\n${people(places)}0 TRLR\n`);
+      const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
+      return places.map((_, i) => out.individuals.get(`@I${i + 1}@`)!.events[0].place?.raw);
+    };
+
+    it("rewrites a village's crown land and empire to the main's municipality and country", () => {
+      const out = normalizedPlaces([`Griblje,${OLD}`, `Podzemelj,${OLD}`, `Dragatuš,${OLD}`, `Vinica,${OLD}`]);
+      expect(out).toEqual([
+        "Griblje,Črnomelj,Slovenia",
+        "Podzemelj,Metlika,Slovenia",
+        "Dragatuš,Črnomelj,Slovenia",
+        "Vinica,Črnomelj,Slovenia",
+      ]);
+    });
+
+    it("keeps a level the main already writes and renames only the foreign ones", () => {
+      const out = normalizedPlaces([
+        "Griblje,Črnomelj,Vojvodina Kranjska",
+        "Dragatuš,Črnomelj,Vojvodina Kranjska",
+        "Vinica,Vojvodina Kranjska",
+      ]);
+      expect(out).toEqual(["Griblje,Črnomelj,Slovenia", "Dragatuš,Črnomelj,Slovenia", "Vinica,Črnomelj,Slovenia"]);
+    });
+
+    it("trusts an old name only once enough villages show it", () => {
+      expect(normalizedPlaces([`Griblje,${OLD}`, `Vinica,${OLD}`])).toEqual([`Griblje,${OLD}`, `Vinica,${OLD}`]);
+    });
+
+    it("leaves a village the main writes under two municipalities as written", () => {
+      const out = normalizedPlaces([`Griblje,${OLD}`, `Dragatuš,${OLD}`, `Vinica,${OLD}`, `Gorenja vas,${OLD}`]);
+      expect(out[3]).toBe(`Gorenja vas,${OLD}`);
+      expect(out[0]).toBe("Griblje,Črnomelj,Slovenia");
+    });
+
+    it("leaves a level naming another place of the main's as written — a real disagreement", () => {
+      const out = normalizedPlaces([`Griblje,${OLD}`, `Dragatuš,${OLD}`, `Vinica,${OLD}`, "Podzemelj,Trebnje,Vojvodina Kranjska"]);
+      expect(out[3]).toBe("Podzemelj,Trebnje,Vojvodina Kranjska");
+    });
+
+    it("does not carry an old name across to a village in another country of the main's", () => {
+      const out = normalizedPlaces([`Griblje,${OLD}`, `Dragatuš,${OLD}`, `Vinica,${OLD}`, `Trst,${OLD}`]);
+      expect(out[3]).toBe(`Trst,${OLD}`);
+    });
+
+    it("learns nothing from an old name spread across the main's countries", () => {
+      const mixed = "Avstrijsko primorje,Avstrijsko cesarstvo";
+      const twoCountries = dataset(`0 HEAD\n1 CHAR UTF-8\n${people([
+        "Griblje,Črnomelj,Slovenia",
+        "Dragatuš,Črnomelj,Slovenia",
+        "Vinica,Črnomelj,Slovenia",
+        "Trst,Trst,Italija",
+        "Milje,Milje,Italija",
+      ])}0 TRLR\n`);
+      const places = ["Griblje", "Dragatuš", "Vinica", "Trst", "Milje"].map((v) => `${v},${mixed}`);
+      const compare = dataset(`0 HEAD\n1 CHAR UTF-8\n${people(places)}0 TRLR\n`);
+      const { dataset: out } = normalizeDataset(compare, inferMainProfile(twoCountries));
+      expect(places.map((_, i) => out.individuals.get(`@I${i + 1}@`)!.events[0].place?.raw)).toEqual(places);
+    });
+
+    it("leaves the main's own places alone when it is the file being normalized", () => {
+      const own = dataset(`0 HEAD\n1 CHAR UTF-8\n${people(["Griblje,Črnomelj,Slovenia", "Gorenja vas,Trebnje,Slovenia"])}0 TRLR\n`);
+      const { dataset: out } = normalizeDataset(own, inferMainProfile(main));
+      expect(out.individuals.get("@I2@")!.events[0].place?.raw).toBe("Gorenja vas,Trebnje,Slovenia");
+    });
+  });
+
   it("folds a structured incoming PLAC + ADDR into the main's packed PLAC on load", () => {
     const main = dataset(`0 HEAD
 1 CHAR UTF-8

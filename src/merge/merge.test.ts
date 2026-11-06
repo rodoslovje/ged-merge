@@ -3196,6 +3196,37 @@ describe("coordinates for the places a merge writes", () => {
     expect(out).toContain("2 DATE 1850\n2 PLAC Kranj\n2 ADDR Kranj 7\n0 @I2@");
   });
 
+  describe("a file that pins its houses at the village's spot", () => {
+    const pin = (lat: string, lon: string) => `3 MAP\n4 LATI ${lat}\n4 LONG ${lon}\n`;
+    const villageMain = (h28: string, h29: string) =>
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+          `0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n2 PLAC Prilozje,Metlika,Slovenia\n${h28}2 ADDR Prilozje 28\n` +
+          `0 @I3@ INDI\n1 NAME Jera /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1860\n2 PLAC Prilozje,Metlika,Slovenia\n${h29}2 ADDR Prilozje 29\n`,
+      );
+    const newHouse = () =>
+      dataset(
+        wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Prilozje,Metlika,Slovenia\n2 ADDR Prilozje 14\n"),
+      );
+    const merged = (main: string) =>
+      serializeGedcom(mergeDecisions(dataset(main), newHouse(), confirmed({ "BIRT.addr": "incoming" }), NO_MATCHES, tr).records);
+
+    it("gives a house it has not seen the village's pin", () => {
+      const out = merged(villageMain(pin("N45.59268", "E15.26858"), pin("N45.59268", "E15.26858")));
+      expect(out).toContain("2 PLAC Prilozje,Metlika,Slovenia\n3 MAP\n4 LATI N45.59268\n4 LONG E15.26858\n2 ADDR Prilozje 14\n0 @I2@");
+    });
+
+    it("gives nothing where the file pins its houses apart", () => {
+      const out = merged(villageMain(pin("N45.59268", "E15.26858"), pin("N45.59400", "E15.27100")));
+      expect(out).toContain("2 ADDR Prilozje 14\n0 @I2@");
+    });
+
+    it("gives nothing where only one house is pinned", () => {
+      const out = merged(villageMain(pin("N45.59268", "E15.26858"), ""));
+      expect(out).toContain("2 ADDR Prilozje 14\n0 @I2@");
+    });
+  });
+
   it("takes the house's own pin when the incoming event names that exact house", () => {
     const main = dataset(geocodedMain);
     const compare = dataset(
