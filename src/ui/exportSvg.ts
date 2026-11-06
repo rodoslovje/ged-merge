@@ -889,13 +889,15 @@ export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOption
 /**
  * The diagram's own size in a `.tree-canvas`, ignoring the on-screen zoom — what
  * the print dialog needs to say how far a chart will be scaled, without building
- * the export first. `null` when the canvas holds no diagram.
+ * the export first. Cropped to what the diagram draws, as the print is.
+ * `null` when the canvas holds no diagram.
  */
 export function canvasDiagramSize(canvas: HTMLElement | null): { w: number; h: number } | null {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   const box = (svg?.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
-  if (box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
-  return { w: box[2], h: box[3] };
+  if (!svg || box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
+  const drawn = drawnBox(svg, box[2], box[3]);
+  return drawn ? { w: drawn.w, h: drawn.h } : { w: box[2], h: box[3] };
 }
 
 /**
