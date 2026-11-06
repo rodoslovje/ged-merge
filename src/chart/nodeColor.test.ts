@@ -178,6 +178,22 @@ describe("createNodeColorer", () => {
     expect(new Set(c.legend.map((e) => e.color)).size).toBe(5);
   });
 
+  it("gives each country's places one family of hues, the countries far apart", () => {
+    const si = ["Bled", "Ptuj", "Celje", "Koper", "Kranj", "Kranj"];
+    const hr = ["Zagreb, Croatia", "Split, Croatia", "Rijeka, Croatia"];
+    const c = createNodeColorer("birthPlace", ctx, [...si, ...hr].map((p) => ({ indi: bornAt(p) })));
+    const hue = (k: string) => Number(/ (\d+)\)$/.exec(c.colorOf(k)!)![1]);
+    const spread = (ks: string[]) => Math.max(...ks.map(hue)) - Math.min(...ks.map(hue));
+    const siKeys = ["Bled", "Ptuj", "Celje", "Koper"];
+    const hrKeys = ["Zagreb", "Split", "Rijeka"];
+    expect(spread(siKeys)).toBeLessThan(60);
+    expect(spread(hrKeys)).toBeLessThan(60);
+    const between = Math.min(...siKeys.flatMap((a) => hrKeys.map((b) => Math.abs(hue(a) - hue(b)))));
+    expect(between).toBeGreaterThan(60);
+    expect(new Set(c.legend.map((e) => e.color)).size).toBe(8);
+    for (const k of [...siKeys, ...hrKeys]) expect(hue(k) >= 90 && hue(k) < 125).toBe(false);
+  });
+
   it("never paints a category in the muddy band", () => {
     for (let n = 1; n <= 12; n++) {
       for (let i = 0; i < n; i++) {

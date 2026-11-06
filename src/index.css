@@ -6157,9 +6157,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 /* A band along the bottom of the canvas wrap (see ChartLegend): laid over
    the wrap so its size never changes, while the scrolling canvas above ends
-   at the band's top edge, so no part of the chart is ever under it. One line
-   that scrolls sideways when long; the zoom controls keep the corner to its
-   right. */
+   at the band's top edge, so no part of the chart is ever under it. It wraps
+   onto as many lines as its chips need, every key on view; the zoom controls
+   keep the corner to its right. */
 .tree-canvas-wrap > .chart-legend {
   position: absolute;
   left: 10px;
@@ -6167,15 +6167,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   bottom: 8px;
   z-index: 3;
   margin: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  padding-bottom: 2px;
 }
 .tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
-/* While a key shows, the canvas ends above the band; the frame is the wrap's
+/* While a key shows, the canvas ends above the band — at its measured height
+   (ChartLegend sets --chart-legend-h on the wrap); the frame is the wrap's
    (see .tree-canvas-wrap), so the band sits inside it. */
-.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: 44px; }
+.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: calc(var(--chart-legend-h, 28px) + 16px); }
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;

@@ -245,12 +245,30 @@ function countryColors(keys: string[]): Map<string, string> {
   return colors;
 }
 
+/** The length of the hue sweep, in degrees (see {@link sweepHue}). */
+const SWEEP = 320 - MUDDY_WIDTH;
+/** How far apart, along the sweep, neighbouring places of one country sit —
+ *  close enough that a country reads as one family of hues. */
+const PLACE_STEP = 14;
+/** The least gap between two countries' families along the sweep. */
+const COUNTRY_GAP = 30;
+/** Lightness nudges a country's places take in turn, so neighbours in the
+ *  family still tell apart where their hues are close. */
+const PLACE_SHADES = [0, 0.07, -0.07];
+
+/** A hue at the branch chroma, its lightness nudged by `dl`. */
+function shadedHueColor(hue: number, dl: number): string {
+  if (!dl) return hueColor(hue);
+  return `oklch(calc(var(--fan-branch-l) + ${dl}) var(--fan-branch-c) ${Math.round(((hue % 360) + 360) % 360)})`;
+}
+
 /** Places in the order the legend lists them and a colour each. Places in one
  *  country take the palette. Across several countries, the places are grouped
  *  by country (the commonest country first — counting the calm place, which
- *  takes no colour of its own) and the sweep runs along the groups with a gap
- *  between them, so a country's places come out as one family of neighbouring
- *  hues. */
+ *  takes no colour of its own) and each country takes its own stretch of the
+ *  sweep, its places a few degrees apart and alternately lighter and darker,
+ *  with wide gaps between the countries — so a country's places come out as
+ *  one family of hues and the countries read apart. */
 function placeColors(
   keys: string[],
   calm: string | undefined,
@@ -266,13 +284,29 @@ function placeColors(
   }
   if (groups.size <= 1) return { order: keys, colors: new Map(keys.map((k, i) => [k, paletteColor(i)])) };
   const sorted = [...groups].sort((a, b) => totals.get(b[0])! - totals.get(a[0])!).map(([, g]) => g);
-  const slots = keys.length + sorted.length - 1;
+  // Each family's span, shrunk alike when they would crowd out the gaps; the
+  // room left over is shared as the gaps, half a gap at either end of the
+  // sweep, whose two ends lie close on the wheel.
+  const spans = sorted.map((g) => (g.length - 1) * PLACE_STEP);
+  const total = spans.reduce((a, b) => a + b, 0);
+  const room = Math.max(0, SWEEP - sorted.length * COUNTRY_GAP);
+  const scale = total > room ? room / total : 1;
+  const gap = (SWEEP - total * scale) / sorted.length;
   const colors = new Map<string, string>();
-  let slot = 0;
-  for (const g of sorted) {
-    for (const k of g) colors.set(k, hueColor(sweepHue(slot++ / slots)));
-    slot++;
-  }
+  let at = gap / 2;
+  // Where the sweep jumps the muddy band: a family straddling it would come
+  // out two families, so it slides to whichever side is nearer, into a gap.
+  const seam = MUDDY_FROM - 25;
+  sorted.forEach((g, gi) => {
+    const span = spans[gi] * scale;
+    let from = at;
+    if (from < seam && from + span > seam) from = seam - from < from + span - seam ? seam : seam - span;
+    g.forEach((k, j) => {
+      const d = g.length > 1 ? from + (j * span) / (g.length - 1) : from;
+      colors.set(k, shadedHueColor(sweepHue(d / SWEEP), PLACE_SHADES[j % PLACE_SHADES.length]));
+    });
+    at += span + gap;
+  });
   return { order: sorted.flat(), colors };
 }
 
