@@ -843,6 +843,8 @@ describe("corpus", () => {
     // Windows code pages declared as CHAR ANSI, which no 5.5.x lists.
     "brotherskeeper-5.5-w1250.ged": ["enumValue CHAR@HEAD.CHAR"],
     "brotherskeeper-5.5.1-w1250.ged": ["enumValue CHAR@HEAD.CHAR"],
+    // CHAR ANSEL over Windows-1250 bytes: the label is valid, only wrong.
+    "brotherskeeper-ansel-w1250.ged": [],
     // Address parts straight under RESI instead of under its ADDR.
     "familyhistorian-5.5.1-utf8.ged": ["misplaced ADR1@INDI.RESI", "misplaced CITY@INDI.RESI", "misplaced NAME@INDI.RESI"],
     "familyhistorian-5.5.1-w1250.ged": ["enumValue CHAR@HEAD.CHAR"],

@@ -48,6 +48,8 @@ const SUR_STEMS = [
   "Peternel", "Rihar", "Skubic", "Trošt", "Vidmar", "Zorko", "Blatnik",
   "Čebulj", "Drnovšek", "Furlan", "Grebenc", "Kavčič", "Lesjak", "Merela",
   "Notar", "Pavlin", "Resnik", "Šraj", "Vrečko",
+  // Appended (never inserted): earlier fixtures keep their stem blocks.
+  "Arih", "Ilc", "Ulaga", "Šinkovec", "Žerjal",
 ];
 const SUR_ENDINGS = [
   "ič", "ek", "ar", "nik", "šek", "nc", "man", "ovec", "in", "el", "nič",
@@ -66,3 +68,27 @@ export const SURNAMES: string[] = SUR_STEMS.flatMap((s) => SUR_ENDINGS.map((e) =
 export const ALLOWED_NAME_WORDS = new Set(
   [...GIVEN_NAMES, ...SURNAMES].map((w) => w.toLowerCase()),
 );
+
+/**
+ * Invented place words, stem × ending, for fixtures whose places are scrubbed
+ * too (`scrubPlaces` in `scripts/anonymize-corpus.ts`): every word of a PLAC
+ * or address maps to one of these, consistently within the file, so a place
+ * hierarchy keeps its shape ("Gorazdova 5, Ljubljana" → "Lipnica 8, Borovje")
+ * without naming where anyone lived.
+ */
+const PLACE_STEMS = [
+  "Borov", "Lipn", "Javor", "Bregov", "Dolin", "Hrastov", "Kamnik", "Logat", "Poljan", "Ravnik",
+  "Selc", "Trnov", "Vrhov", "Zagor", "Brezov", "Gabrov", "Jelš", "Kozjak", "Leskov", "Mlakar",
+];
+const PLACE_ENDINGS = ["ica", "je", "ik", "o", "ec", "ina", "ovo", "ani", "nica", "iše"];
+export const PLACE_WORDS: string[] = PLACE_STEMS.flatMap((s) => PLACE_ENDINGS.map((e) => s + e));
+
+/** Country names a scrubbed place keeps as they are: a country alone names no one. */
+export const KEPT_COUNTRIES = [
+  "Slovenija", "Slovenia", "Hrvaška", "Hrvatska", "Croatia", "Italija", "Italia", "Italy", "Avstrija",
+  "Austria", "Österreich", "Nemčija", "Germany", "Deutschland", "Madžarska", "Hungary", "Srbija",
+  "Serbia", "Jugoslavija", "Yugoslavia", "Argentina", "Kanada", "Canada", "USA", "ZDA", "Francija", "France",
+] as const;
+
+/** Lowercased set of every word a scrubbed place may contain. */
+export const ALLOWED_PLACE_WORDS = new Set([...PLACE_WORDS, ...KEPT_COUNTRIES].map((w) => w.toLowerCase()));
