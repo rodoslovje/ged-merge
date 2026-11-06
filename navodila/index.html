@@ -3267,7 +3267,10 @@
             <p>
               Prenos je vedno zapisan v kodiranju <strong>UTF-8</strong> in tako piše tudi v njegovi glavi. Datoteka, ki
               je prišla v starejšem kodiranju (ANSEL, ANSI, Windows-1250, UTF-16), se torej pretvori, predogled — tako
-              kot <a href="#tools">Pregled</a> — pa pove, iz katerega kodiranja izvira. Prav pretvorba ohrani
+              kot <a href="#tools">Pregled</a> — pa pove, iz katerega kodiranja izvira. Če glava navaja napačno
+              kodiranje, se besedilo prebere v kodiranju, v katerem je dejansko zapisano. Brother's Keeper na primer v
+              glavo zapiše ANSEL, čeprav je besedilo v kodiranju Windows-1250, nekatere datoteke MyHeritage pa imajo med
+              besedilom v UTF-8 posamezne črke v kodiranju Windows-1250. Prav pretvorba ohrani
               pravilne šumnike in naglašene črke, spremeni pa vrstico, ki jo drugi programi berejo, zato po prvem
               shranjevanju take datoteke preverite, ali se še vedno uvozi v programe in storitve, ki jih uporabljate.
               Znaki, ki jih iz izvirnika sploh ni bilo mogoče prebrati, so prikazani kot »�«; shranjevanje jih ne more
@@ -3285,7 +3288,8 @@
               velja v njegovi različici: v GEDCOM 5.5.1 se podvoji vsaka dobesedna afna <code>@</code>
               (<code>ana@@example.si</code>), v GEDCOM 7.0 pa samo afna na začetku vrednosti. Vrstica, ki je niste
               spremenili, obdrži afne takšne, kot so bile prebrane, pretvorjena datoteka pa sledi pravilu svoje nove
-              različice.
+              različice. Izjema je vrednost v datoteki 5.5.1, v kateri se katera od vrstic začne z afno <code>@</code>:
+              ta vrednost se zapiše z vsemi afnami podvojenimi, zato jo naslednje shranjevanje zapiše enako.
             </p>
             <p>
               Z izbiro <strong>Različica GEDCOM</strong> pod seznamom datotek določite, v kateri različici se datoteka
@@ -3294,7 +3298,11 @@
               (<a href="#target-format">§4</a>). Če izberete drugo različico, se datoteka 5.5.1
               pretvori v GEDCOM 7.0, datoteka 7.0 pa v GEDCOM 5.5.1. Pretvorba poteka enako kot pri vhodni datoteki
               (<a href="#house-style">§4</a>): skupne opombe, datumi, starosti in druge strukture, značilne za
-              različico, se prepišejo v obliko ciljne različice, glava prav tako. V predogledu je navedena vsaka
+              različico, se prepišejo v obliko ciljne različice, glava prav tako. V GEDCOM 7.0 postane besedilna
+              navedba vira navedba vira, ki ga datoteka ne vsebuje (<code>@VOID@</code>), besedilo pa se zapiše kot
+              njena stran. Mediji, zapisani znotraj osebe ali dogodka, dobijo vsak svoj medijski zapis. Priča, ki je
+              povezana z družino, se prenese k tej družini. ID-ji zapisov, ki jih GEDCOM 7.0 ne sprejme
+              (<code>@f1_I1@</code>), se zamenjajo z veljavnimi. V predogledu je navedena vsaka
               prepisana vrstica, poročilo o spremembah pa vsebuje celoten seznam. Kot pri vsakem shranjevanju postane pretvorjena
               datoteka vaše novo izhodišče v aplikaciji, zato odtlej delate v novi različici. Tudi datoteko, ki je niste
               spremenili, lahko shranite, kadar njena oblika zapisa zahteva drugo različico

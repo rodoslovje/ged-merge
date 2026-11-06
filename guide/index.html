@@ -3147,7 +3147,9 @@
             <p>
               The download is always written as <strong>UTF-8</strong>, and its header is set to say so. A file that
               arrived in an older encoding (ANSEL, ANSI, Windows-1250, UTF-16) is therefore converted, and the preview —
-              like <a href="#tools">Health check</a> — says which encoding it came from. The conversion is what keeps
+              like <a href="#tools">Health check</a> — says which encoding it came from. A header that names the wrong
+              encoding is read in the one the text is really in: Brother's Keeper, for one, writes ANSEL over
+              Windows-1250 text, and some MyHeritage files hold a few Windows-1250 letters among UTF-8. The conversion is what keeps
               accented letters correct, but it does change a line other software reads, so after your first save of such
               a file, check that it still imports into the programs and services you use. Characters that could not be
               read from the original at all show as “�”; saving cannot bring those back, so correct them in
@@ -3164,6 +3166,8 @@
               Text you write or edit follows the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal
               <code>@</code> (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A line you have not
               touched keeps the at-signs it was read with, and a converted file follows the rule of its new version.
+              The exception is a 5.5.1 value with a line that starts with <code>@</code>: it is written with every
+              at-sign doubled, so the next save writes it the same.
             </p>
             <p>
               <strong>GEDCOM version</strong>, under the file list, chooses the version the download is written in. It
@@ -3171,7 +3175,10 @@
               (<a href="#target-format">§4</a>). Choose the other one — GEDCOM 7.0 for a 5.5.1 file, 5.5.1 for a 7.0 file —
               and the file is converted the way an incoming file is (<a href="#house-style">§4</a>): shared notes, dates,
               ages and the other version-specific structures are rewritten into that version's form, the header
-              included. The preview lists every rewritten line, and the change report
+              included. In GEDCOM 7.0 a text citation becomes a citation of a source the file does not record
+              (<code>@VOID@</code>, with the text as its page), media held inside a person or an event move into a
+              media record of their own, a witness linked to a family moves onto that family, and record ids GEDCOM
+              7.0 does not accept (<code>@f1_I1@</code>) get ones it does. The preview lists every rewritten line, and the change report
               carries the whole list. Like any save, the converted file becomes your working baseline, so from then on
               you work in the new version. A file you have not changed can be saved too when its target format holds
               it to the other version (<a href="#target-format">§4</a>): the preview then opens on that version.
