@@ -122,6 +122,17 @@ describe("parseGedcom", () => {
       expect(parsed.records[0].verbatim).toBe("garbage before header");
     });
 
+    it("keeps a bare level line's own lines beneath it (MyHeritage event without a tag)", () => {
+      const text = "0 HEAD\n0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n1 \n2 _UID 57AE\n2 RIN MH:IF2\n1 FAMS @F1@\n0 TRLR\n";
+      const parsed = parseGedcom(toBuffer(text));
+      const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+      expect(indi.children.find((c) => c.tag === "BIRT")!.children.map((c) => c.tag)).toEqual(["PLAC"]);
+      const bare = indi.children.find((c) => c.verbatim !== undefined)!;
+      expect(bare.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["_UID 57AE", "RIN MH:IF2"]);
+      expect(indi.children.at(-1)!.tag).toBe("FAMS");
+      expect(serializeGedcom(parsed.records)).toBe(text);
+    });
+
     it("does not disturb the surrounding structure", () => {
       const ds = buildDataset(parseGedcom(toBuffer(BAD)));
       const indi = ds.individuals.get("@I1@")!;

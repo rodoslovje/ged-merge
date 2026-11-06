@@ -213,9 +213,11 @@ interface EmitCtx {
 function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
   const { lines, maxLen } = ctx;
   // A line the parser couldn't interpret re-emits exactly as it came in —
-  // never reformatted, never CONC-wrapped (its structure is unknown).
+  // never reformatted, never CONC-wrapped (its structure is unknown). Only a
+  // bare level line has lines of its own beneath it (see the parser).
   if (node.verbatim !== undefined) {
     lines.push(node.verbatim);
+    for (const child of node.children) emitNode(child, depth + 1, ctx);
     return;
   }
 

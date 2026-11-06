@@ -139,6 +139,19 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
       // in the stream (the deepest open node's children, or the root list), so
       // depth-first serialization re-emits it at exactly its original position.
       const raw: GedNode = { level: 0, tag: "", children: [], verbatim: line };
+      // A bare level (`1 `: MyHeritage writes an event whose tag it lost) still
+      // opens its level: the `2 _UID` / `2 RIN` below it are its own lines, and
+      // hung on the event before it they gave that event two ids.
+      const bare = /^\s*(\d+)\s*$/.exec(line);
+      const bareLevel = bare ? Number(bare[1]) : -1;
+      if (bareLevel > 0 && stack[bareLevel - 1]) {
+        raw.level = bareLevel;
+        stack[bareLevel - 1].children.push(raw);
+        stack[bareLevel] = raw;
+        stack.length = bareLevel + 1;
+        textBlob = lastText = undefined;
+        continue;
+      }
       let parent: GedNode | undefined;
       for (let l = stack.length - 1; l >= 0 && !parent; l--) parent = stack[l];
       if (parent) parent.children.push(raw);
