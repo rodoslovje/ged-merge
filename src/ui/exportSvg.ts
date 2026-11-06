@@ -592,10 +592,6 @@ export function wrapWithBands(
   // The colour key: a dot and a label per entry, in rows, under the diagram.
   if (legendH) {
     const keyY = HEADER_H + bandH;
-    const keyLine = headLine.cloneNode() as SVGLineElement;
-    keyLine.setAttribute("y1", String(keyY));
-    keyLine.setAttribute("y2", String(keyY));
-    frame.appendChild(keyLine);
     for (const chip of legend) {
       const cy = keyY + LEGEND_PAD_Y + chip.row * LEGEND_ROW_H + LEGEND_ROW_H / 2;
       const dot = document.createElementNS(SVG_NS, "circle");
