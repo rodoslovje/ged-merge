@@ -252,6 +252,35 @@ describe("parseGedcom", () => {
     expect(out).toContain("0 @I3@ INDI\n1 NAME Ana /Novak/\n0 @I1@ INDI\n1 NAME Bo /Kos/");
   });
 
+  it("a later submitter sharing a person's xref never takes the id from the person", () => {
+    const text = [
+      "0 HEAD",
+      "1 SUBM @I1@",
+      "0 @I1@ INDI",
+      "1 NAME Ana /Novak/",
+      "1 FAMC @F1@",
+      "0 @I2@ INDI",
+      "1 NAME Bo /Novak/",
+      "1 FAMS @F1@",
+      "0 @F1@ FAM",
+      "1 HUSB @I2@",
+      "1 CHIL @I1@",
+      "0 @I1@ SUBM",
+      "1 NAME GED Merge",
+      "0 TRLR",
+      "",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(toBuffer(text)));
+    expect(ds.individuals.get("@I1@")?.names[0].full).toContain("Ana");
+    expect(ds.families.get("@F1@")?.children).toEqual(["@I1@"]);
+    const subm = ds.records.find((r) => r.tag === "SUBM");
+    expect(subm?.xref).toBe("@U1@");
+    // The header follows its submitter to the new id.
+    const head = ds.records.find((r) => r.tag === "HEAD");
+    expect(head?.children.find((c) => c.tag === "SUBM")?.value).toBe("@U1@");
+    expect(ds.warnings.some((w) => w.message.startsWith("Duplicate xref @I1@") && w.message.includes("@U1@"))).toBe(true);
+  });
+
   it("folds a doubled leading at-sign (@@) back to a literal @", () => {
     const text = ["0 HEAD", "0 @I1@ INDI", "1 NOTE @@home with Mother", "0 TRLR", ""].join("\n");
     const parsed = parseGedcom(toBuffer(text));

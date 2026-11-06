@@ -264,6 +264,15 @@ describe("completeStructure — header and trailer", () => {
     expect(dangling.lines).toContain("0 @X1@ SUBM");
   });
 
+  it("never makes the submitter under a person's id the header points at", () => {
+    const { fixes, lines } = download("0 HEAD\n1 SUBM @I1@\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME Ana /Novak/\n0 TRLR\n");
+    expect(fixes).toContain("subm");
+    expect(lines).not.toContain("0 @I1@ SUBM");
+    expect(lines).toContain("1 SUBM @U1@");
+    expect(lines).toContain("0 @U1@ SUBM");
+    expect(lines.filter((l) => l.startsWith("0 @I1@ "))).toEqual(["0 @I1@ INDI"]);
+  });
+
   it("names a submitter it has to make after the reader, when Settings give a name", () => {
     const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR\n";
     const ds = parse(text);
