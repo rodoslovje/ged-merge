@@ -61,8 +61,8 @@ import { walkNodes } from "./walk";
  * its own, and the `_MARNM` rather than the married `NAME` (valid 5.5.1 too).
  *
  * A text `SOUR` citation becomes `SOUR @VOID@` with its text as `PAGE` (and
- * back). Not attempted (would create new records rather than rewrite in
- * place): extracting inline `OBJE` substructures into pointed records.
+ * back). An inline `OBJE` becomes a media record of its own, pointed to from
+ * where it was (and, while the forest remembers it, back inline).
  */
 
 /** The two spec families migration distinguishes. An `unknown` declared
@@ -89,9 +89,12 @@ export function migrateVersion(
 ): number {
   if (from === to) return 0;
   const ctx: MigrateCtx = { changed: 0, onChange };
+  if (to === "5.5.1") inlineExtractedMedia(records, ctx);
   const migratable = records.filter((r) => !SKIP_ROOTS.has(r.tag));
-  if (to === "7.0") upgrade(migratable, ctx);
-  else downgrade(migratable, ctx);
+  if (to === "7.0") {
+    upgrade(migratable, ctx);
+    extractInlineMedia(records, ctx);
+  } else downgrade(migratable, ctx);
   return ctx.changed;
 }
 
@@ -568,6 +571,59 @@ function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
  * (5.5-family files often keep them at the record level), `FORM` payloads are
  * IANA media types, and the source-media kind is `MEDI` rather than `TYPE`.
  */
+/**
+ * 7.0 links media only by pointer, so each inline `OBJE` that holds a file
+ * (5.5.1's `1 OBJE` / `2 FILE …`) moves into a media record of its own, added
+ * before the trailer, and the line points to it. The record remembers it
+ * (`upgradedFrom`), so converting back puts it inline again. Runs
+ * after the walk, which has already hung the inline media's FORM and TITL
+ * under its FILE.
+ */
+function extractInlineMedia(records: GedNode[], ctx: MigrateCtx): void {
+  const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
+  let n = 0;
+  const nextXref = () => {
+    let x: string;
+    do x = `@M${++n}@`;
+    while (taken.has(x));
+    taken.add(x);
+    return x;
+  };
+  const made: GedNode[] = [];
+  walkNodes(records.filter((r) => !SKIP_ROOTS.has(r.tag)), (node) => {
+    if (node.tag !== "OBJE" || node.level === 0 || isPointer(node.value?.trim()) || !firstChild(node, "FILE")) return;
+    const rec: GedNode = { level: 0, tag: "OBJE", xref: nextXref(), children: node.children, upgradedFrom: { tag: "OBJE" } };
+    reindent(rec.children, 1);
+    node.value = rec.xref;
+    node.children = [];
+    made.push(rec);
+    report(ctx, node, "OBJE (inline)");
+  });
+  const trlr = records.findIndex((r) => r.tag === "TRLR");
+  records.splice(trlr >= 0 ? trlr : records.length, 0, ...made);
+}
+
+/** The way back for {@link extractInlineMedia}: a media record it made goes
+ *  back inline where its link is — when it still has just the one. */
+function inlineExtractedMedia(records: GedNode[], ctx: MigrateCtx): void {
+  const made = new Map(records.filter((r) => r.tag === "OBJE" && r.xref && r.upgradedFrom?.tag === "OBJE").map((r) => [r.xref!, r]));
+  if (made.size === 0) return;
+  const links = new Map<string, GedNode[]>();
+  walkNodes(records, (node) => {
+    const target = node.tag === "OBJE" && node.level > 0 ? node.value?.trim() : undefined;
+    if (target && made.has(target)) links.set(target, [...(links.get(target) ?? []), node]);
+  });
+  for (const [xref, [link, ...more]] of links) {
+    if (more.length) continue;
+    const rec = made.get(xref)!;
+    link.children = [...rec.children, ...link.children];
+    reindent(link.children, link.level + 1);
+    delete link.value;
+    records.splice(records.indexOf(rec), 1);
+    report(ctx, link, `OBJE ${xref}`);
+  }
+}
+
 function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
   // Record-level FORM applies to every FILE; TITL goes to the first.
   for (const moved of hangMediaLinesUnderFile(node)) {

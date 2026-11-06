@@ -459,6 +459,29 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(firstChild(record(records, "@I1@"), "SOUR")!.value).toBe("@VOID@");
   });
 
+  it("moves inline media into a media record the line points to", () => {
+    const { records } = migrated(
+      "5.5.1",
+      "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n0 @I1@ INDI\n1 OBJE\n2 FORM jpg\n2 TITL Poroka\n2 FILE b.jpg\n" +
+        "1 BIRT\n2 OBJE\n3 FILE c.png\n4 FORM png\n",
+      "7.0",
+    );
+    const indi = record(records, "@I1@");
+    const link = firstChild(indi, "OBJE")!;
+    expect(link.value).toMatch(/^@M\d+@$/);
+    expect(link.value).not.toBe("@M1@");
+    expect(link.children).toEqual([]);
+    const file = firstChild(record(records, link.value!), "FILE")!;
+    expect(file.level).toBe(1);
+    expect(file.value).toBe("b.jpg");
+    expect(childValue(file, "FORM")).toBe("image/jpeg");
+    expect(childValue(file, "TITL")).toBe("Poroka");
+    const birtObje = firstChild(firstChild(indi, "BIRT")!, "OBJE")!;
+    expect(birtObje.value).toMatch(/^@M\d+@$/);
+    expect(childValue(firstChild(record(records, birtObje.value!), "FILE")!, "FORM")).toBe("image/png");
+    expect(records[records.length - 1].tag).toBe("TRLR");
+  });
+
   it("downgrades every FILE of a multi-FILE OBJE, none dropped", () => {
     const { records } = migrated(
       "7.0",
