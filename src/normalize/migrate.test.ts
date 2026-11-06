@@ -183,7 +183,7 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     ]);
   });
 
-  it("drops an ASSO's TYPE INDI, which 7.0 does not define, and keeps TYPE FAM", () => {
+  it("drops an ASSO's TYPE INDI, which 7.0 does not define, and moves a TYPE FAM one to the family", () => {
     const { records } = migrated(
       "5.5.1",
       "0 @I1@ INDI\n1 ASSO @I2@\n2 TYPE INDI\n2 RELA boter\n1 ASSO @F1@\n2 TYPE FAM\n2 RELA witness\n0 @I2@ INDI\n0 @F1@ FAM\n",
@@ -193,9 +193,10 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     // A pointer at a person is all 7.0 has, so the tag saying so is noise.
     expect(firstChild(assos[0], "TYPE")).toBeUndefined();
     expect(childValue(assos[0], "ROLE")).toBe("GODP");
-    // A pointer at a family is one 7.0 cannot express either — the line saying
-    // the association names no person is left for the reader to see.
-    expect(childValue(assos[1], "TYPE")).toBe("FAM");
+    // A pointer at a family is one 7.0 cannot express: the family carries the
+    // association instead, pointing at the person.
+    expect(assos).toHaveLength(1);
+    expect(firstChild(record(records, "@F1@"), "ASSO")!.value).toBe("@I1@");
   });
 
   it("folds AFN/RFN/RIN into EXID with a type URI", () => {
@@ -492,6 +493,25 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(files.map((f) => f.value)).toEqual(["a.jpg", "b.png"]);
     expect(files.map((f) => childValue(f, "FORM"))).toEqual(["jpg", "png"]);
     expect(childValue(files[0], "TITL")).toBe("Poroka");
+  });
+});
+
+describe("migrateVersion: a person's association with a family (5.5 TYPE FAM)", () => {
+  const body = "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 ASSO @F1@\n2 TYPE FAM\n2 RELA Witness\n0 @F1@ FAM\n1 HUSB @I2@\n0 @I2@ INDI\n";
+
+  it("moves to the family on the way to 7.0, pointing at the person", () => {
+    const { records } = migrated("5.5.1", body, "7.0");
+    expect(firstChild(record(records, "@I1@"), "ASSO")).toBeUndefined();
+    const assoc = firstChild(record(records, "@F1@"), "ASSO")!;
+    expect(assoc.value).toBe("@I1@");
+    expect(firstChild(assoc, "TYPE")).toBeUndefined();
+    expect(childValue(assoc, "ROLE")).toBe("WITN");
+  });
+
+  it("comes back to the person on the way down", () => {
+    const { records } = migrated("5.5.1", body, "7.0");
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
   });
 });
 

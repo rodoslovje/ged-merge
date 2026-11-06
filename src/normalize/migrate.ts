@@ -94,6 +94,7 @@ export function migrateVersion(
   if (to === "7.0") {
     upgrade(migratable, ctx);
     extractInlineMedia(records, ctx);
+    upgradeFamilyAssociations(migratable, ctx);
   } else downgrade(migratable, ctx);
   return ctx.changed;
 }
@@ -536,12 +537,37 @@ function titleCase(word: string): string {
   return word.charAt(0) + word.slice(1).toLowerCase();
 }
 
+/**
+ * 5.5 let a person's `ASSO` point at a family (`TYPE FAM`): Brother's Keeper
+ * and Geneanet write a wedding witness that way. 7.0's pointer names a
+ * person, but a family record may carry an association of its own — so the
+ * line moves to the family and points back at the person, `TYPE FAM` gone.
+ * It remembers the family it named (`upgradedFrom`), which is how the
+ * downgrade puts it back on the person rather than on a spouse.
+ */
+function upgradeFamilyAssociations(records: GedNode[], ctx: MigrateCtx): void {
+  const families = new Map(records.filter((r) => r.tag === "FAM" && r.xref).map((r) => [r.xref!, r]));
+  for (const indi of records) {
+    if (indi.tag !== "INDI" || !indi.xref) continue;
+    indi.children = indi.children.filter((assoc) => {
+      const fam = assoc.tag === "ASSO" ? families.get(assoc.value?.trim() ?? "") : undefined;
+      if (!fam) return true;
+      const before = `INDI.${describe(assoc)}`;
+      assoc.upgradedFrom = { tag: "ASSO", value: assoc.value };
+      assoc.value = indi.xref;
+      assoc.children = assoc.children.filter((c) => !(c.tag === "TYPE" && c.value?.trim().toUpperCase() === "FAM"));
+      fam.children.push(assoc);
+      report(ctx, assoc, before);
+      return false;
+    });
+  }
+}
+
 function upgradeAsso(node: GedNode, ctx: MigrateCtx): void {
   // `TYPE` has no place under 7.0's `ASSO`. 5.5 carried it because its pointer
   // could name any record; once 5.5.1 restricted the pointer to a person, `TYPE
-  // INDI` said nothing, and 7.0 dropped the tag. `TYPE FAM` is left where it is:
-  // its pointer is one 7.0 cannot express either, and the tag is the only line
-  // saying the association does not name a person.
+  // INDI` said nothing, and 7.0 dropped the tag. `TYPE FAM` stays until
+  // upgradeFamilyAssociations moves the line to the family it names.
   const type = firstChild(node, "TYPE");
   if (type && type.value?.trim().toUpperCase() === "INDI") {
     node.children = node.children.filter((c) => c !== type);
@@ -780,6 +806,24 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
     }
     return undefined;
   };
+
+  // A person's association with the family, which the upgrade moved there
+  // (see upgradeFamilyAssociations), goes back to that person as it was.
+  for (const fam of records) {
+    if (fam.tag !== "FAM") continue;
+    for (const assoc of childrenByTag(fam, "ASSO")) {
+      const person = byXref.get(assoc.value?.trim() ?? "");
+      if (assoc.upgradedFrom?.tag !== "ASSO" || person?.tag !== "INDI") continue;
+      const before = `FAM.${describe(assoc)}`;
+      fam.children = fam.children.filter((c) => c !== assoc);
+      assoc.value = assoc.upgradedFrom.value;
+      delete assoc.upgradedFrom;
+      assoc.children.unshift({ level: assoc.level + 1, tag: "TYPE", value: "FAM", children: [] });
+      person.children.push(assoc);
+      ctx.changed++;
+      ctx.onChange(before, `INDI.${describe(assoc)}`);
+    }
+  }
 
   for (const rec of records) {
     if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
