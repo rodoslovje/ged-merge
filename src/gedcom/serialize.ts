@@ -236,8 +236,11 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
     // head line gets no trailing space.
     const segments = node.value.split("\n");
     // An untouched 5.5.x value the file wrote with bare at-signs keeps them
-    // (see `GedNode.atBare`); anything new or edited follows the version.
-    const all = ctx.all && node.atBare !== node.value;
+    // (see `GedNode.atBare`); anything new or edited follows the version. So
+    // does one with a line that starts with `@`: that one is doubled anyway,
+    // and a line with one `@` doubled and another bare re-reads as doubled
+    // throughout — the next save would write it differently.
+    const all = ctx.all && (node.atBare !== node.value || segments.some((seg) => escapeLeadingAt(seg) !== seg));
     // The file's own CONC positions, while they still describe this value.
     const breaks = node.conc?.of === node.value ? node.conc.at : undefined;
     let pos = 0;

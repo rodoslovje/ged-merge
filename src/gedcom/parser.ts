@@ -107,6 +107,19 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   let lastText: GedNode | undefined;
   // Values with a line that doubles its at-signs: never written back bare.
   const atMixed = new WeakSet<GedNode>();
+  /** Fold a line with no level or tag into the value it continues, decoding
+   *  its at-signs the way a CONT line's are. */
+  const fold = (target: GedNode, raw: string) => {
+    const style = legacyAt ? atStyleOf(raw) : undefined;
+    const text = legacyAt && raw.includes("@@") ? raw.replace(/@@/g, "@") : raw;
+    target.value = (target.value ?? "") + "\n" + text;
+    if (style === "doubled" || atMixed.has(target)) {
+      atMixed.add(target);
+      delete target.atBare;
+    } else if (style === "bare" || target.atBare !== undefined) {
+      target.atBare = target.value;
+    }
+  };
 
   for (let i = 0; ; i++) {
     if (i - first >= lines.length) {
@@ -122,11 +135,11 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     const m = LINE_RE.exec(line);
     if (!m) {
       if (textBlob) {
-        textBlob.value = (textBlob.value ?? "") + "\n" + line;
+        fold(textBlob, line);
         continue;
       }
       if (lastText && !MANGLED_LINE_RE.test(line)) {
-        lastText.value = (lastText.value ?? "") + "\n" + line;
+        fold(lastText, line);
         warnings.push({
           kind: "structure",
           message: `Line without a level or tag joined to the ${lastText.tag} line above it: ${truncate(line)}`,
@@ -251,7 +264,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
         // unescaped free text, just coincidentally starting with a number —
         // fold it too, same as the no-match case above.
         if (textBlob) {
-          textBlob.value = (textBlob.value ?? "") + "\n" + line;
+          fold(textBlob, line);
           continue;
         }
         // Clamp the level jump: attach to the deepest open node, so the line

@@ -122,6 +122,12 @@ describe("parseGedcom", () => {
       expect(parsed.records[0].verbatim).toBe("garbage before header");
     });
 
+    it("decodes the at-signs of a line folded into a note, as a CONT line's", () => {
+      const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NOTE Naslov:\nana@@example.si\n0 TRLR\n";
+      const indi = parseGedcom(toBuffer(text)).records.find((r) => r.xref === "@I1@")!;
+      expect(indi.children[0].value).toBe("Naslov:\nana@example.si");
+    });
+
     it("keeps a bare level line's own lines beneath it (MyHeritage event without a tag)", () => {
       const text = "0 HEAD\n0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n1 \n2 _UID 57AE\n2 RIN MH:IF2\n1 FAMS @F1@\n0 TRLR\n";
       const parsed = parseGedcom(toBuffer(text));

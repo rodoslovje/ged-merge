@@ -70,6 +70,16 @@ describe("serializeGedcom", () => {
     expect(roundTrip(text)).toBe(text);
   });
 
+  it("a 5.5.1 download of a bare-@ value that starts with @ doubles every @, so it saves the same again", () => {
+    // Brother's Keeper wrote Ž as @: the leading @ must be doubled, and a line
+    // with one @ doubled and one bare re-reads as doubled throughout.
+    const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NOTE @andar, pozneje @elezničar\n2 CONT @N2@.com\n0 TRLR\n";
+    const first = serializeGedcom(parseGedcom(new TextEncoder().encode(text).buffer).records, { atEscape: "all" });
+    expect(first).toContain("1 NOTE @@andar, pozneje @@elezničar\n2 CONT @@N2@@.com\n");
+    const second = serializeGedcom(parseGedcom(new TextEncoder().encode(first).buffer).records, { atEscape: "all" });
+    expect(second).toBe(first);
+  });
+
   it("does not add a trailing space when the value starts on a CONT line", () => {
     // A NOTE record with no inline value, text beginning on the next CONT line.
     const text = ["0 @N1@ NOTE", "1 CONT vzgojiteljica v vrtcu", "0 TRLR", ""].join("\n");
@@ -467,11 +477,16 @@ describe("serializeGedcom", () => {
     const BARE = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 EMAIL ana@example.si", "1 NOTE see a@b", "2 CONC  and c@d", "2 CONT @home", "0 TRLR", ""].join("\n");
 
     it("an untouched 5.5.1 line written with bare at-signs saves as it was read", () => {
-      // Only the leading @ of the CONT line is doubled: unescaped, it would
-      // read as a pointer.
-      expect(download(BARE)).toBe(BARE.replace("2 CONT @home", "2 CONT @@home"));
+      expect(download(BARE)).toContain("1 EMAIL ana@example.si\n");
+    });
+
+    it("a bare-@ 5.5.1 value with a line starting with @ is doubled throughout, and saves the same again", () => {
+      // The leading @ must be doubled (bare, it reads as a pointer); a value
+      // with one @ doubled and others bare re-reads as doubled throughout.
+      expect(download(BARE)).toContain("1 NOTE see a@@b\n2 CONC  and c@@d\n2 CONT @@home\n");
       const back = parseGedcom(new TextEncoder().encode(download(BARE)).buffer);
       expect(back.records[1].children[1].value).toBe("see a@b and c@d\n@home");
+      expect(download(download(BARE))).toBe(download(BARE));
     });
 
     it("an edited 5.5.1 value is escaped by the version's rule, and a clone stays untouched", () => {
