@@ -539,7 +539,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         const el = editBodyRef.current;
         if (!el || el.scrollHeight <= el.clientHeight) return;
         e.preventDefault();
-        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+        // A held key repeats faster than a smooth scroll runs, and each new one
+        // restarts the animation from its slow start — so repeats jump.
+        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: e.repeat ? "auto" : "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);

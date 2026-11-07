@@ -446,7 +446,7 @@ export function DuplicatesPanel({
         const el = listRef.current?.closest(".tools-view") as HTMLElement | null;
         if (!el || el.scrollHeight <= el.clientHeight) return;
         e.preventDefault();
-        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: "smooth" });
+        el.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * el.clientHeight * 0.9, behavior: e.repeat ? "auto" : "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);

@@ -47,6 +47,9 @@ export default defineConfig({
         // not-found page are for visitors following a URI, not for the
         // offline app: keep them out of the precache.
         globIgnores: ["terms/*/**/*.html", "404.html"],
+        // The main chunk has outgrown Workbox's 2 MiB default; past the limit it
+        // is silently left out of the precache, and the build fails on that.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // Root navigations fall back to the app shell; the standalone guide
         // and changelog pages are precached, so keep them off the fallback.
         navigateFallback: "index.html",
