@@ -118,6 +118,22 @@ describe("cross-language given names", () => {
     expect(givenVariantKey("matej")).not.toBe(givenVariantKey("matija"));
   });
 
+  it("keeps names from different rows apart however alike they are spelled", () => {
+    // Spelling alone scores each of these at or above the same-person line, so
+    // twins christened with them were offered as one person entered twice.
+    for (const [a, b] of [
+      ["Marija", "Marijana"],
+      ["Marija", "Marjana"],
+      ["Marija", "Mariana"],
+      ["Marija", "Marjeta"],
+      ["Matej", "Matija"],
+      ["Karolina", "Katarina"],
+    ] as const) {
+      expect(givenSimilarity(a, b), `${a}/${b}`).toBeLessThan(SAME_PERSON_GIVEN);
+    }
+    expect(givenSimilarity("Marijana", "Marjana")).toBe(1);
+  });
+
   it("still compares token-wise, so a second given name doesn't hide the match", () => {
     expect(givenSimilarity("Joannes Baptista", "Janez")).toBe(1);
     expect(givenSimilarity("Neža", "Agnes Maria")).toBe(1);
