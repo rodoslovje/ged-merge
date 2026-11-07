@@ -25,7 +25,7 @@ interface Handlers {
   onHome?: () => void;
   /** Arrows scroll the chart: a step in pixels, or a share of the viewport
    *  (`unit: "page"`). Omitted where the page has no canvas of its own. */
-  scrollBy?: (dx: number, dy: number, unit?: "px" | "page") => void;
+  scrollBy?: (dx: number, dy: number, unit?: "px" | "page", instant?: boolean) => void;
   /** E opens the selected person in Edit. Omitted while nobody is selected,
    *  or where the page has no Edit to open into. */
   onEdit?: () => void;
@@ -67,12 +67,13 @@ export function useChartShortcuts(handlers: Handlers) {
         e.preventDefault();
         const [dx, dy] = ARROW[key];
         const step = e.shiftKey ? 400 : 80;
-        h.scrollBy(dx * step, dy * step);
+        // A held key's repeats jump: each would restart a smooth scroll from its slow start.
+        h.scrollBy(dx * step, dy * step, "px", e.repeat);
         return;
       }
       if (h.scrollBy && (key === "PageUp" || key === "PageDown")) {
         e.preventDefault();
-        h.scrollBy(0, key === "PageDown" ? 1 : -1, "page");
+        h.scrollBy(0, key === "PageDown" ? 1 : -1, "page", e.repeat);
         return;
       }
       if (key === "Escape") {

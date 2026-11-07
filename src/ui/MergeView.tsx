@@ -240,7 +240,9 @@ export function MergeView({
         e.preventDefault();
         const step = e.key.startsWith("Page") ? el.clientHeight * 0.9 : 96;
         const down = e.key === "ArrowDown" || e.key === "PageDown";
-        el.scrollBy({ top: down ? step : -step, behavior: "smooth" });
+        // A held key repeats faster than a smooth scroll runs, and each new one
+        // restarts the animation from its slow start — so repeats jump.
+        el.scrollBy({ top: down ? step : -step, behavior: e.repeat ? "auto" : "smooth" });
         return;
       }
       if (handleListKey(e, {

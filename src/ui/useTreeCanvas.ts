@@ -77,7 +77,7 @@ export interface TreeCanvas {
   scrollTo: (left: number, top: number) => void;
   /** Scroll the canvas by a distance — pixels, or a share of the viewport
    *  (`"page"`: the arrow keys' step, and PageUp/PageDown's leap). */
-  scrollBy: (dx: number, dy: number, unit?: "px" | "page") => void;
+  scrollBy: (dx: number, dy: number, unit?: "px" | "page", instant?: boolean) => void;
   canvasProps: TreeCanvasProps;
   /** Key of the currently selected node, or null. */
   selectedKey: string | null;
@@ -530,12 +530,12 @@ export function useTreeCanvas(
     el.scrollTop = top;
   }, []);
 
-  const scrollBy = useCallback((dx: number, dy: number, unit: "px" | "page" = "px") => {
+  const scrollBy = useCallback((dx: number, dy: number, unit: "px" | "page" = "px", instant = false) => {
     const el = canvasRef.current;
     if (!el) return;
     const kx = unit === "page" ? el.clientWidth * 0.85 : 1;
     const ky = unit === "page" ? el.clientHeight * 0.85 : 1;
-    el.scrollBy({ left: dx * kx, top: dy * ky, behavior: "smooth" });
+    el.scrollBy({ left: dx * kx, top: dy * ky, behavior: instant ? "auto" : "smooth" });
   }, []);
 
   // A new tree (mode switch / different root) invalidates the old selection.
