@@ -1329,6 +1329,23 @@ describe("attached links", () => {
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
   });
 
+  it("tallies a new citation's page URL as a new link too", () => {
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1861\n0 TRLR\n`);
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1861\n2 SOUR @S1@\n3 PAGE 175\n` +
+        `0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/x/?pg=175\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 0, linkCount: 1 });
+
+    // The same page already cited on the main side brings no new link.
+    const m2 = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1861\n2 WWW https://data.matricula-online.eu/sl/x/?pg=175\n0 TRLR\n`,
+    );
+    const rows2 = individualFieldRows(tr, m2.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(fieldDiffCounts(rows2).linkCount).toBe(0);
+  });
+
   it("drops the link icon when a citation on the same side already links to it", () => {
     const ds = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n2 WWW https://example.com/birth\n` +

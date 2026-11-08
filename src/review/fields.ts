@@ -858,7 +858,8 @@ interface Relative {
  * Summary counts over a set of field rows:
  *  - `newCount`  = fields the compare record has but the main lacks (to add)
  *  - `diffCount` = fields both have but that differ (to reconcile)
- *  - `linkCount` = attached links the compare has that the main lacks
+ *  - `linkCount` = links the compare has that the main lacks — bare, or the
+ *    page URL a citation carries (such a row counts as new/diff and link)
  *
  * Links are tallied separately (not folded into new/diff) so the matches list
  * can surface and filter on them as their own dimension.
@@ -888,9 +889,16 @@ export function fieldDiffCounts(
       else if (mKeys.size && iKeys.size && !(mKeys.size === iKeys.size && [...mKeys].every((k) => iKeys.has(k)))) diffCount++;
     } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
-    if (row.mainLinkIcons || row.incomingLinkIcons) {
-      const mainIconKeys = new Set((row.mainLinkIcons ?? []).map(linkKey));
-      if ((row.incomingLinkIcons ?? []).some((url) => !mainIconKeys.has(linkKey(url)))) linkCount++;
+    // A URL the row brings is a new link whether it sits bare beside the
+    // sources or inside a citation (its exact page, not a repository fallback
+    // every citation of that archive shares). One per row.
+    if (isSources) {
+      const urlsOf = (icons: string[] | undefined, sources: SourceCitation[] | undefined, exactOnly: boolean) => [
+        ...(icons ?? []),
+        ...(sources ?? []).flatMap((c) => (c.url && (c.exact || !exactOnly) ? [c.url] : [])),
+      ];
+      const mainUrlKeys = new Set(urlsOf(row.mainLinkIcons, row.mainSources, false).map(linkKey));
+      if (urlsOf(row.incomingLinkIcons, row.incomingSources, true).some((url) => !mainUrlKeys.has(linkKey(url)))) linkCount++;
     }
   }
   return { newCount, diffCount, linkCount };
