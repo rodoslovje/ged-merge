@@ -1845,14 +1845,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const famsOf = person.childOf.map((famId) => dataset.families.get(famId));
     const fatherId = famsOf.find((f) => f?.husband)?.husband;
     const motherId = famsOf.find((f) => f?.wife)?.wife;
-    const father = fatherId ? dataset.individuals.get(fatherId) : undefined;
-    const mother = motherId ? dataset.individuals.get(motherId) : undefined;
+    // As the save will leave them: a confirmed parent's merged birth.
+    const shown = (id: string | undefined) => {
+      const indi = id ? dataset.individuals.get(id) : undefined;
+      return indi && cardMergePreview ? cardMergePreview.person(indi) : indi;
+    };
+    const father = shown(fatherId);
+    const mother = shown(motherId);
     const labels = isSameSexCouple(father, mother)
       ? { husband: t("event.age.parent"), wife: t("event.age.parent") }
       : { husband: t("event.age.father"), wife: t("event.age.mother") };
     return (birthDate: GedDate) => coupleAgesDisplay(father, mother, birthDate, labels, t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.showAge, person, dataset, t, tick]); // tick: parents' own dates can change without replacing `person`
+  }, [settings.showAge, person, dataset, cardMergePreview, t, tick]); // tick: parents' own dates can change without replacing `person`
 
   // Shared card context for relative PersonCards — one stable object, not a
   // per-card literal (which would defeat the memoized sections' prop equality).

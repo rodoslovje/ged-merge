@@ -2,6 +2,7 @@ import type { ExternalId, Family, GedEvent, Individual, NameTranslation, Negativ
 import type { FieldChoice } from "../review/types";
 import { orderedEventTags } from "../review/fields";
 import { BIRTH_TAGS, DEATH_TAGS } from "../gedcom/lifespan";
+import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 
 const LIFESPAN_TAGS: readonly string[] = [...BIRTH_TAGS, ...DEATH_TAGS];
 
@@ -20,6 +21,28 @@ export function personCardPreview(main: Individual, incoming: Individual, choice
   if (names) out = { ...out, names };
   if (choiceOf("sex") && incoming.sex !== main.sex) out = { ...out, sex: incoming.sex };
   return out;
+}
+
+/**
+ * The family as Edit's summaries show it once the save has merged it: each
+ * event's date and place the save writes (`choiceOf` reads the family's own
+ * rows — `MARR.date`, `MARR.place` — without the `fam.<id>.` prefix), and an
+ * event only the incoming family records. Returns `main` itself when nothing
+ * changes.
+ */
+export function familyEventsPreview(main: Family, incoming: Family, choiceOf: ChoiceOf): Family {
+  let events: GedEvent[] | undefined;
+  for (const incEv of incoming.events) {
+    if (!(EDITABLE_FAM_EVENT_TAGS as readonly string[]).includes(incEv.tag)) continue;
+    const date = choiceOf(`${incEv.tag}.date`) ? incEv.date : undefined;
+    const place = choiceOf(`${incEv.tag}.place`) ? incEv.place : undefined;
+    if (!date && !place) continue;
+    events ??= [...main.events];
+    const at = events.findIndex((e) => e.tag === incEv.tag);
+    if (at >= 0) events[at] = { ...events[at], ...(date ? { date } : null), ...(place ? { place } : null) };
+    else events.push({ ...incEv, date, place });
+  }
+  return events ? { ...main, events } : main;
 }
 
 function lifespanEventsPreview(main: Individual, incoming: Individual, choiceOf: ChoiceOf): GedEvent[] | undefined {

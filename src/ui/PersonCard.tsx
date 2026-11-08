@@ -64,7 +64,7 @@ export function PersonCard({ individual: recorded, roleLabel, placeholder, onSel
   const { t } = useTranslation();
   // A confirmed match shows the dates the save will write, as the person's page does.
   const mergePreviewOf = useCardMergePreviewOf();
-  const individual = recorded && mergePreviewOf ? mergePreviewOf(recorded) : recorded;
+  const individual = recorded && mergePreviewOf ? mergePreviewOf.person(recorded) : recorded;
   if (!individual) {
     return (
       <div className="person-card-wrap">

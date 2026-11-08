@@ -30,6 +30,7 @@ import {
   impossibleRelatives,
 } from "../../gedcom/edit";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
+import { useCardMergePreviewOf } from "./cardMergePreview";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { PersonCard } from "../PersonCard";
 import type { MediaRefContext } from "../MediaViewer";
@@ -268,7 +269,15 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   // editable on either parent's own page. Just the one event: the marriage, or
   // failing that whatever stands in for it (a civil partnership, an
   // engagement…). An untyped generic `EVEN` only says "Event", so it is skipped.
-  const datedCoupleEvents = fam?.events.filter(
+  // As the save will leave them: a confirmed match's marriage date, and the
+  // parents' merged birth dates behind the ages.
+  const mergePreview = useCardMergePreviewOf();
+  const shownFam = fam && mergePreview ? mergePreview.family(fam) : fam;
+  const parentShown = (id: string | undefined) => {
+    const indi = id ? dataset.individuals.get(id) : undefined;
+    return indi && mergePreview ? mergePreview.person(indi) : indi;
+  };
+  const datedCoupleEvents = shownFam?.events.filter(
     (ev) => FAMILY_EVENT_TAGS.includes(ev.tag) && !FAM_HOUSEHOLD_TAGS.has(ev.tag) && (ev.date || ev.place),
   ) ?? [];
   const coupleEvent =
@@ -281,8 +290,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   const couplePlace = coupleEvent?.place ? coupleEvent.place.parts[0] || coupleEvent.place.raw : undefined;
   const coupleAges = settings.showAge && coupleEvent?.date && fam
     ? coupleAgesDisplay(
-        fam.husband ? dataset.individuals.get(fam.husband) : undefined,
-        fam.wife ? dataset.individuals.get(fam.wife) : undefined,
+        parentShown(fam.husband),
+        parentShown(fam.wife),
         coupleEvent.date,
         sameSexParents
           ? { husband: t("event.age.partner"), wife: t("event.age.partner") }

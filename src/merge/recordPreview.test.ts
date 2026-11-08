@@ -5,7 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { INDI_CHILD_ORDER } from "../gedcom/edit/shared";
 import type { FieldChoice } from "../review/types";
 import { materializeRecordField, type RecordField } from "./applyFields";
-import { familyMergePreview, personCardPreview, personMergePreview } from "./recordPreview";
+import { familyEventsPreview, familyMergePreview, personCardPreview, personMergePreview } from "./recordPreview";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 
 function dataset(text: string) {
@@ -136,5 +136,24 @@ describe("personCardPreview names and sex", () => {
   it("adds the incoming name beside the own one under \"both\", and replaces extras", () => {
     const p = personCardPreview(person, incoming, pick({ given: "both", additionalNames: "incoming" }));
     expect(p.names.map((n) => n.full)).toEqual(["Dorotea Lukanich", "Doroteja Lukanič", "Doroteja Filak"]);
+  });
+});
+
+describe("familyEventsPreview", () => {
+  const main = dataset(wrap("0 @F1@ FAM\n1 MARR\n2 DATE BEF 1773\n"));
+  const compare = dataset(wrap("0 @G1@ FAM\n1 MARR\n2 DATE 7 FEB 1771\n2 PLAC Podzemelj\n1 DIV\n2 DATE 1790\n"));
+  const fam = main.families.get("@F1@")!;
+  const incoming = compare.families.get("@G1@")!;
+
+  it("is the family itself when no event row is written", () => {
+    expect(familyEventsPreview(fam, incoming, () => undefined)).toBe(fam);
+  });
+
+  it("carries the date and place the save writes, and an incoming-only event", () => {
+    const f = familyEventsPreview(fam, incoming, pick({ "MARR.date": "incoming", "DIV.date": "incoming" }));
+    const marr = f.events.find((e) => e.tag === "MARR")!;
+    expect(marr.date?.raw).toBe("7 FEB 1771");
+    expect(marr.place).toBeUndefined();
+    expect(f.events.find((e) => e.tag === "DIV")?.date?.year).toBe(1790);
   });
 });

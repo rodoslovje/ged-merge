@@ -1,3 +1,4 @@
+import { useCardMergePreviewOf } from "./cardMergePreview";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { Family, GedDate, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -72,8 +73,14 @@ export function FamilyEventRow({
   const { eventOffer } = useTargetFormat();
   const tagChoices = familyTagChoices(fam, tag).filter((tg) => tg === tag || offersEventTag(tg, "FAM", eventOffer));
 
-  const husbandIndi = fam.husband ? individuals?.get(fam.husband) : undefined;
-  const wifeIndi = fam.wife ? individuals?.get(fam.wife) : undefined;
+  // The spouses as the save will leave them — their ages read merged births.
+  const mergePreview = useCardMergePreviewOf();
+  const spouseShown = (id: string | undefined) => {
+    const indi = id ? individuals?.get(id) : undefined;
+    return indi && mergePreview ? mergePreview.person(indi) : indi;
+  };
+  const husbandIndi = spouseShown(fam.husband);
+  const wifeIndi = spouseShown(fam.wife);
   const sameSex = isSameSexCouple(husbandIndi, wifeIndi);
   // Each spouse's age at the date the row shows (its own, or a merged one).
   const coupleAgesAt = settings.showAge && individuals
