@@ -105,15 +105,21 @@ export function parentGivenVerdict(
  *  is tuned to let nickname/cross-language variants through across two files. */
 export const SAME_PERSON_GIVEN = 0.85;
 
+/** {@link SAME_PERSON_GIVEN} for two children of one family. A child entered
+ *  twice there keeps their name (a table variant, or a spelling slip like
+ *  Jože/Jožef ≈ 0.96), while siblings carry different names that spelling
+ *  alone can put above 0.85 — Anka/Alenka ≈ 0.90. */
+export const SAME_FAMILY_GIVEN = 0.95;
+
 /** True when both records have a given name and they're too dissimilar to be
  *  one person (distinct sibling names rather than spelling variants of one) —
  *  a separate hard veto, because the weighted-average pair score lets
  *  surname/birth/place drown out a clear given-name conflict. */
-export function differentGiven(a: Individual, b: Individual): boolean {
+export function differentGiven(a: Individual, b: Individual, threshold = SAME_PERSON_GIVEN): boolean {
   const ga = ownComparableName(a)?.given;
   const gb = ownComparableName(b)?.given;
   if (!ga || !gb) return false;
-  return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
+  return givenSimilarity(ga, gb) < threshold;
 }
 
 /** A given-name token this short is a particle ("ap", "de", "of"), not a name:
