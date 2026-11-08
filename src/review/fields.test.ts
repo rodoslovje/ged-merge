@@ -614,6 +614,20 @@ ${extra}0 TRLR
     expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).size).toBe(0);
   });
 
+  it("does not pair two wives through the husband's surname they both married into", () => {
+    // Both files carry each wife's married name as well: "Katarina /Bratuša/"
+    // and "Ana /Bratuša/" share a surname only because they married one man.
+    const m = dataset(union("@F1@", "Katarina /Gregorič/\n1 NAME Katarina /Bratuša/\n2 TYPE married", "@W1@",
+      "1 MARR\n2 DATE 24 FEB 1868\n"));
+    const c = dataset(union("@F2@", "Ana /Skala/\n1 NAME Ana /Bratuša/\n2 TYPE married", "@W2@",
+      "1 MARR\n2 DATE 10 FEB 1858\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+
+    expect(byKey(rows, "fam.main:@F1@.partner")).toMatchObject({ main: "Katarina Gregorič", state: "main-only" });
+    expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ incoming: "Ana Skala", state: "incoming-only" });
+    expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).size).toBe(0);
+  });
+
   it("pairs a partner recorded under her maiden name in one file and her married name in the other", () => {
     const m = dataset(union("@F1@", "Ana /Novak/", "@W1@"));
     const c = dataset(union("@F2@", "Ana /Bratuša/", "@W2@", "1 MARR\n2 PLAC Križe\n"));
