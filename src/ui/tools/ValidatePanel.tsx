@@ -9,7 +9,7 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
-import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
+import { type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
@@ -37,8 +37,8 @@ import { keptHabits } from "../../tools/normalizeRepairs";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
-type FixKind = "links" | "sex" | "roles" | "deceased" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+type FixKind = "links" | "sex" | "roles" | "deceased" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -58,6 +58,7 @@ const CATEGORIES: IssueCategory[] = [
   "ageAtMarriage",
   "parentAge",
   "bornAfterParentDeath",
+  "bornBeforeMarriage",
   "parallelFamilies",
   "spouseAgeGap",
   "futureDate",
@@ -145,6 +146,7 @@ export function ValidatePanel({
   onFixSexFromRole,
   onFixSwappedRoles,
   onMarkDeceased,
+  onFixMarriageDates,
   onFixDates,
   onFixNonStandardDates,
   onFixDuplicatePointers,
@@ -168,6 +170,7 @@ export function ValidatePanel({
   /** Add an undated death (`1 DEAT Y`) to these people — the "living over 99"
    *  findings, which are almost always a missing death record. */
   onMarkDeceased: (ids: string[]) => number;
+  onFixMarriageDates: (fixes: MarriageDateFix[]) => number;
   onFixDates: (only?: BadDateRef) => number;
   onFixNonStandardDates: (only?: BadDateRef) => number;
   onFixDuplicatePointers: (only?: string) => number;
@@ -300,6 +303,7 @@ export function ValidatePanel({
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
       : kind === "deceased" ? onMarkDeceased(livingTooOldIds())
+      : kind === "marriageDates" ? onFixMarriageDates(marriageFixes())
       : kind === "dates" ? onFixDates()
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
@@ -307,6 +311,10 @@ export function ValidatePanel({
       : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
+
+  /** Every marriage date the "Born before the marriage" findings prove. */
+  const marriageFixes = () =>
+    (report?.issues ?? []).flatMap((i) => (i.marriageFix ? [i.marriageFix] : []));
 
   /** Everyone the "living over 99" findings name — what the whole-file fix marks deceased. */
   const livingTooOldIds = () =>
@@ -616,6 +624,16 @@ export function ValidatePanel({
           hint: t("tools.validate.fixOneRoleHint"),
           kind: "roles",
         run: () => onFixSwappedRoles(issue.id),
+        };
+      }
+      case "bornBeforeMarriage": {
+        const fix = issue.marriageFix;
+        if (!fix) return null;
+        return {
+          label: t("tools.validate.fixOneValue", { value: fix.value }),
+          hint: t("tools.validate.fixOneMarriageDateHint"),
+          kind: "marriageDates",
+          run: () => onFixMarriageDates([fix]),
         };
       }
       case "livingTooOld":

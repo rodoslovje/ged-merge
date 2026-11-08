@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { validateConformance } from "./conformance/conformance";
+import { fixMarriageDates } from "./fixMarriageDate";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { validateDataset } from "./validate";
@@ -320,6 +322,64 @@ describe("validateDataset", () => {
     ]);
     expect(found[0].messageVars).toEqual({ birth: 1921, death: 1897 });
     expect(report.counts.bornAfterParentDeath).toBe(2);
+  });
+
+  it("lists a child born before the parents' dated marriage, only when the dates are certain", () => {
+    const child = (id: string, birth: string, tag = "BIRT") => `0 @${id}@ INDI\n1 NAME Otrok /${id}/\n1 SEX F\n1 ${tag}\n2 DATE ${birth}\n1 FAMC @F1@\n`;
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      child("C1", "3 MAY 1763") + // before
+      child("C2", "1764") + // same year as a dated marriage — undecided
+      child("C3", "ABT 1760") + // an estimate — listed as a possibility
+      child("C4", "2 FEB 1764", "CHR") + // baptized before the wedding
+      child("C5", "1 JUL 1764") + // after
+      `0 @F1@ FAM\n1 MARR\n2 DATE 12 FEB 1764\n1 CHIL @C1@\n1 CHIL @C2@\n1 CHIL @C3@\n1 CHIL @C4@\n1 CHIL @C5@\n` +
+      `0 @F2@ FAM\n1 MARR\n2 PLAC Kranj\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage");
+    expect(found.map((i) => [i.id, i.messageKey.split(".").pop()])).toEqual([
+      ["@C1@", "bornBeforeMarriage"],
+      ["@C3@", "bornBeforeMarriageEstimatedBirth"],
+      ["@C4@", "bornBeforeMarriage"],
+    ]);
+    expect(found[0].messageVars).toEqual({ birth: "3 MAY 1763", marriage: "12 FEB 1764" });
+    expect(found.every((i) => !i.marriageFix)).toBe(true);
+  });
+
+  it("offers an estimated or bounded marriage the date its eldest child proves", () => {
+    const child = (id: string, fam: string, birth: string) => `0 @${id}@ INDI\n1 NAME Otrok /${id}/\n1 SEX M\n1 BIRT\n2 DATE ${birth}\n1 FAMC @${fam}@\n`;
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      child("A1", "F1", "3 MAY 1770") + child("A2", "F1", "1772") + child("A3", "F1", "1776") +
+      child("B1", "F2", "11 JAN 1773") + child("B2", "F2", "5 JUN 1768") +
+      child("D1", "F3", "1774") +
+      `0 @F1@ FAM\n1 MARR\n2 DATE ABT 1775\n1 CHIL @A1@\n1 CHIL @A2@\n1 CHIL @A3@\n` +
+      `0 @F2@ FAM\n1 MARR\n2 DATE BEF 1773\n1 CHIL @B1@\n1 CHIL @B2@\n` +
+      `0 @F3@ FAM\n1 MARR\n2 DATE BEF 1773\n1 CHIL @D1@\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage");
+    // ABT 1775: both children born before it; the 1776 one is not. BEF 1773:
+    // only the child born before the bound (11 JAN 1773 is not); a child after
+    // the bound is no finding at all.
+    expect(found.map((i) => [i.id, i.messageKey.split(".").pop(), i.marriageFix?.value])).toEqual([
+      ["@A1@", "bornBeforeEstimatedMarriage", "BEF 3 MAY 1770"],
+      ["@A2@", "bornBeforeEstimatedMarriage", "BEF 3 MAY 1770"],
+      ["@B2@", "bornBeforeEstimatedMarriage", "BEF 5 JUN 1768"],
+    ]);
+
+    // The fix writes one date per family; the findings it settles go away.
+    const patches = fixMarriageDates(ds, found.map((i) => i.marriageFix!));
+    expect(patches.map((p) => p.id)).toEqual(["@F1@", "@F2@"]);
+    expect(ds.families.get("@F1@")!.events.find((e) => e.tag === "MARR")?.date?.raw).toBe("BEF 3 MAY 1770");
+    expect(validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage")).toEqual([]);
+  });
+
+  it("writes a marriage date that strict 5.5.1 and 7.0 accept", () => {
+    for (const vers of ["5.5.1", "7.0"]) {
+      const ds = dataset(`0 HEAD\n1 GEDC\n2 VERS ${vers}\n${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}` +
+        "0 @C1@ INDI\n1 NAME Otrok /Novak/\n1 BIRT\n2 DATE 3 MAY 1770\n1 FAMC @F1@\n" +
+        "0 @F1@ FAM\n1 MARR\n2 DATE ABT 1775\n1 CHIL @C1@\n0 TRLR\n");
+      const before = validateConformance(ds).length;
+      const fixes = validateDataset(ds, 2026).issues.flatMap((i) => (i.marriageFix ? [i.marriageFix] : []));
+      expect(fixMarriageDates(ds, fixes)).toHaveLength(1);
+      expect(validateConformance(ds)).toHaveLength(before);
+    }
   });
 
   it("flags a mother with children by two fathers in the same years", () => {
