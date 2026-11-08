@@ -2135,6 +2135,47 @@ describe("findDuplicates", () => {
     expect(findDuplicates(ds)).toHaveLength(0);
   });
 
+  // Anka/Alenka spell ≈ 0.90 alike — above the general 0.85 line — and an ABT
+  // date dodges the exact-year veto; within one family that is two sisters.
+  const sisters = (given2: string, date2: string) => dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Alenka /Pavlin/
+1 SEX F
+1 BIRT
+2 DATE ABT 1 AUG 1962
+2 PLAC Naklo
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME ${given2} /Pavlin/
+1 SEX F
+1 BIRT
+2 DATE ${date2}
+2 PLAC Naklo
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Metod /Pavlin/
+1 SEX M
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Ivana /Ravnik/
+1 SEX F
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+
+  it("does not flag siblings whose different given names merely spell alike", () => {
+    expect(findDuplicates(sisters("Anka", "3 SEP 1963"))).toHaveLength(0);
+  });
+
+  it("still flags a child entered twice in one family under the same name", () => {
+    expect(findDuplicates(sisters("Alenka", "1 AUG 1962"))).toHaveLength(1);
+  });
+
   it("does not flag twins (shared parents, same birth year, different given names)", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
