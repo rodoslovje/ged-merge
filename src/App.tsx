@@ -57,6 +57,7 @@ import { applyGeocode, clearPlaceCoords, movePlaceForAddresses, renamePlaceValue
 import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
+import { fixMarriageDates } from "./tools/fixMarriageDate";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
 import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
@@ -2975,6 +2976,7 @@ function AppContent() {
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only), true)}
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
+              onFixMarriageDates={(fixes) => applyToolPatches(fixMarriageDates(mainDataset, fixes), true)}
               onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }).patches, true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
               onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, formatOverrides, only), true)}
