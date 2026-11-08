@@ -5,7 +5,7 @@ import { decomposePlace } from "../gedcom/place";
 import { eventAddressFullText } from "../gedcom/address";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { ALIAS_GIVEN_CEILING, PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, knownGivenSimilarity, nameSimilarity } from "../match/similarity";
+import { ALIAS_GIVEN_CEILING, PARENT_GIVEN_CONFLICT, SAME_PERSON_GIVEN, comparableName, dateCompareKey, givenSimilarity, knownGivenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateText, dateToSortKey, parseDate } from "../gedcom/date";
@@ -1161,6 +1161,11 @@ function knownNameSimilarity(a: Relative, b: Relative, an: PersonName, bn: Perso
   for (const x of aNames) {
     for (const y of bNames) {
       if (x === an && y === bn) continue;
+      // Two wives of one man share his surname as their married name, so a
+      // surname met through an alias identifies nobody — "Katarina /Jakša/"
+      // and "Ana /Jakša/" are two women. The given names must agree on their
+      // own, as the matcher requires of an alias (`knownGivenSimilarity`).
+      if (!x.given || !y.given || givenSimilarity(x.given, y.given) < SAME_PERSON_GIVEN) continue;
       const sim = nameSimilarity(x, y) ?? 0;
       if (sim >= RELATIVE_PAIR_THRESHOLD) best = Math.max(best, Math.min(ALIAS_GIVEN_CEILING, sim));
     }
