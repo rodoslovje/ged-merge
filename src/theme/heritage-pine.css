@@ -27,6 +27,9 @@
   --accent-ink:#071a13;   /* NEW — text/icon on accent fills   */
   /* Tinted accent fill (hover rows, soft highlights); adapts to light via --accent. */
   --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
+  /* Compare-table group headers (Parents, Family with …): a neutral fill set
+     apart by lightness from the warm difference tints; adapts via --text/--panel. */
+  --group-head-bg: color-mix(in oklch, var(--text) 11%, var(--panel));
 
   /* ---- diff status — the 5-state language ---- */
   --state-match:    #5ed99e;  /* records agree            */

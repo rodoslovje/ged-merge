@@ -5039,7 +5039,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .choice:disabled { opacity: 0.45; cursor: default; }
 
 .group-header-row {
-  background: var(--panel-2);
+  background: var(--group-head-bg);
 }
 .group-header-cell {
   font-weight: 600;
@@ -6828,7 +6828,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .tree-compare-table .field.conflict.major td { background: color-mix(in oklch, var(--state-major) 10%, transparent); }
 .tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
 /* Group headers paint on the cell too (same reason as the field highlights). */
-.tree-compare-table .group-header-cell { background: var(--panel-2); }
+.tree-compare-table .group-header-cell { background: var(--group-head-bg); }
 .tree-compare-table .event-header-cell { background: transparent; }
 /* Main | Incoming headers: source-coloured uppercase mono, like the compare
    panel. Scoped to beat the muted `.tree-compare-table th` base colour. */
