@@ -15,6 +15,7 @@ import {
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
+import { isApproximate } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
 import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
@@ -109,6 +110,9 @@ export interface MarriageInfo {
    *  the living partner's data as their own birth, and printing "⚭ 1962
    *  Ljubljana" between two blanked-out boxes gives away both. */
   living?: boolean;
+  /** The year stands on a date that is not stated exactly (ABT/CAL/BEF…) —
+   *  drawn in italics, as a lifespan's approximate years are. */
+  approx?: boolean;
 }
 
 export interface MatchMaps {
@@ -269,14 +273,19 @@ function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
 
 /** The marriage display fields (year + most-specific locality) of a family's MARR
  *  event, or undefined when the family has neither recorded. */
-function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
+export function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
   if (!fam) return undefined;
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr) return undefined;
   const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
   const place = marr.place ? localityParts(marr.place)[0] : undefined;
   if (!year && !place) return undefined;
-  return { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) };
+  return {
+    year,
+    place,
+    ...(coupleLiving(fam, ds) ? { living: true } : null),
+    ...(year && isApproximate(marr.date) ? { approx: true } : null),
+  };
 }
 
 /** Is either spouse presumed living (or declared private)? See

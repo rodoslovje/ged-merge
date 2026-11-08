@@ -19,7 +19,7 @@
 
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
-import { ALL_DISPLAY, formatMarriage, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, marriageApprox, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 import type { YearsApprox } from "../gedcom/lifespan";
 
 export type FanShape = "fan" | "circle";
@@ -140,7 +140,7 @@ export interface FanMarriage {
   d: string;
   /** One or two curved label lines (deep rings stack the year over the place), each
    *  a `<textPath>` baseline + its text. */
-  lines: { text: string; arc: string }[];
+  lines: { text: string; arc: string; approx?: YearsApprox }[];
   fontPx: number;
 }
 
@@ -508,9 +508,10 @@ export function buildFanChart(
       const lineAt = (text: string, r: number) => ({
         text,
         arc: full ? circleBaseline(cx, cy, r) : arcPath(cx, cy, r, a0, a1, flip),
+        approx: marriageApprox(node.marriage, text),
       });
 
-      let lines: { text: string; arc: string }[] = [];
+      let lines: { text: string; arc: string; approx?: YearsApprox }[] = [];
       let fontPx = round(Math.min(baseFont * 0.82, collarW * 0.55));
 
       // Redacting the living hides a couple's own label when one of them is

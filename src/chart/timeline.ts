@@ -19,7 +19,7 @@ import { EVENT_GLYPHS, LDS_ORDINANCE_TAGS, eventDisplayLabel } from "../gedcom/e
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
-import { coupleLiving } from "./personTree";
+import { marriageOf } from "./personTree";
 
 /** The person's relation to the timeline's root, in row-group order. A parent's
  *  other partner is a step-parent and that union's children are half-siblings;
@@ -495,7 +495,7 @@ function marriageMarks(t: Translate, ds: Dataset, fams: Family[]): TimelineMark[
       year: marr.date.year,
       kind: "marriage",
       label: `${MARRIAGE_SYMBOL} ${t("event.MARR")}: ${displayDate(marr.date)}${place ? `, ${place}` : ""}`,
-      marriage: { year: String(marr.date.year), place, ...(coupleLiving(fam, ds) ? { living: true } : null) },
+      marriage: marriageOf(fam, ds),
     });
   }
   return out;

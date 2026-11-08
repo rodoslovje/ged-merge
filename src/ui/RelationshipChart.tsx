@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -354,7 +354,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         textAnchor="middle"
                         dominantBaseline="central"
                       >
-                        {text}
+                        <YearsText text={text} approx={marriageApprox(e.marriage, text)} svg />
                       </text>
                     ) : null;
                   })}

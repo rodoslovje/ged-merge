@@ -70,6 +70,20 @@ export function formatMarriage(
   return `${MARRIAGE_SYMBOL} ${parts.join(" ")}`;
 }
 
+/** The italics mark for a line whose one year is approximate: the
+ *  `yearsSegments` rule "first number of a dashless line" picks it. */
+export const APPROX_YEAR: YearsApprox = { birth: true };
+
+/** Which part of a marriage label to set in italics: its year, when the label
+ *  carries one and the date is not exact (see `MarriageInfo.approx`). The
+ *  label leads with that year, so {@link APPROX_YEAR} marks it. */
+export function marriageApprox(
+  marriage: { year?: string; approx?: boolean } | undefined,
+  text: string | undefined,
+): YearsApprox | undefined {
+  return marriage?.approx && marriage.year && text?.includes(marriage.year) ? APPROX_YEAR : undefined;
+}
+
 /**
  * The localized "Living" placeholder for a redacted person, gendered when the
  * sex is known (sl "živ"/"živa" via the `_M`/`_F` context keys). Unknown sex —

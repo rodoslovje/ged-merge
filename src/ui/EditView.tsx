@@ -84,6 +84,7 @@ import { nodeId } from "./edit/nodeId";
 import { editFieldKeys } from "./edit/fieldKeys";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
+import { CardMergePreviewContext, useCardMergePreview } from "./edit/cardMergePreview";
 import { buildFieldSuggestions } from "./edit/fieldSuggestions";
 import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
@@ -1736,6 +1737,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // never written, in the layout this file writes places in.
   const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
+  const cardMergePreview = useCardMergePreview(dataset, compareDataset, decisions, decisionStatusById, t);
 
   // What the file writes at each place+address pair: how many events carry it —
   // what the coordinate picker needs to offer "copy this pick to the file's
@@ -1843,14 +1845,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const famsOf = person.childOf.map((famId) => dataset.families.get(famId));
     const fatherId = famsOf.find((f) => f?.husband)?.husband;
     const motherId = famsOf.find((f) => f?.wife)?.wife;
-    const father = fatherId ? dataset.individuals.get(fatherId) : undefined;
-    const mother = motherId ? dataset.individuals.get(motherId) : undefined;
+    // As the save will leave them: a confirmed parent's merged birth.
+    const shown = (id: string | undefined) => {
+      const indi = id ? dataset.individuals.get(id) : undefined;
+      return indi && cardMergePreview ? cardMergePreview.person(indi) : indi;
+    };
+    const father = shown(fatherId);
+    const mother = shown(motherId);
     const labels = isSameSexCouple(father, mother)
       ? { husband: t("event.age.parent"), wife: t("event.age.parent") }
       : { husband: t("event.age.father"), wife: t("event.age.mother") };
     return (birthDate: GedDate) => coupleAgesDisplay(father, mother, birthDate, labels, t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.showAge, person, dataset, t, tick]); // tick: parents' own dates can change without replacing `person`
+  }, [settings.showAge, person, dataset, cardMergePreview, t, tick]); // tick: parents' own dates can change without replacing `person`
 
   // Shared card context for relative PersonCards — one stable object, not a
   // per-card literal (which would defeat the memoized sections' prop equality).
@@ -1901,6 +1908,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
+    <CardMergePreviewContext.Provider value={cardMergePreview}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
         {/* The person's page beside the Wider family rail (under it when narrow).
@@ -2424,6 +2432,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         />
       )}
     </div>
+    </CardMergePreviewContext.Provider>
     </AssocProvider>
     </PlaceLookupProvider>
     </PlacePeopleProvider>

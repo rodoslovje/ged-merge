@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox } from "../chart/nodeDisplay";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -15,7 +15,7 @@ import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
 import { YearsText } from "./YearsText";
-import { lifespanApproxOf } from "../gedcom/lifespan";
+import { lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
 import { useStableHandler } from "./edit/useStableHandler";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -413,7 +413,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   // the events' compact labels, greedily skipping any label that
                   // would overlap its left neighbour — the dots and tooltips
                   // still carry everything a skipped label would have said.
-                  const lane: { x: number; text: string; title: string; marriage: boolean }[] = [];
+                  const lane: { x: number; text: string; title: string; marriage: boolean; approx?: YearsApprox }[] = [];
                   if (!hidden) {
                     for (const m of row.marks) {
                       if (m.kind === "marriage") {
@@ -422,11 +422,13 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                         // chart entirely, since the mark's place on the year
                         // axis would give the date away with no label at all.
                         if (settings.privacyLiving && m.marriage?.living) continue;
+                        const text = (marriageFields && m.marriage && formatMarriage(m.marriage, marriageFields)) || "⚭";
                         lane.push({
                           x: geom.xOf(m.year),
-                          text: (marriageFields && m.marriage && formatMarriage(m.marriage, marriageFields)) || "⚭",
+                          text,
                           title: m.label,
                           marriage: true,
+                          approx: marriageApprox(m.marriage, text),
                         });
                       } else if (labelsOn && showEvents && m.short) {
                         lane.push({ x: geom.xOf(m.year), text: m.short, title: m.label, marriage: false });
@@ -546,7 +548,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                           y={laneY}
                           textAnchor="middle"
                         >
-                          {l.text}
+                          <YearsText text={l.text} approx={l.approx} svg />
                           <title>{l.title}</title>
                         </text>
                       ))}

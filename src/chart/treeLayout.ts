@@ -4,6 +4,7 @@
 // identical skeleton, so the geometry lives here once.
 
 import type { TreeMode, TreeNode } from "./personTree";
+import { marriageApprox } from "./nodeDisplay";
 
 /** Which way a layered diagram grows: left→right (default) or top→bottom. The
  *  canonical home for the type — the UI's ChartSettings re-exports it. */
@@ -91,8 +92,9 @@ export interface Flat {
     d: string;
     partner?: boolean;
     /** Marriage label centred on a partner connector (when enabled + recorded),
-     *  wrapped into `lines` that fit between the two boxes. */
-    label?: { x: number; y: number; text: string; lines: string[] };
+     *  wrapped into `lines` that fit between the two boxes. `approxLine` — the
+     *  line whose year is not exact, set in italics (see `marriageApprox`). */
+    label?: { x: number; y: number; text: string; lines: string[]; approxLine?: number };
   }[];
 }
 
@@ -231,7 +233,7 @@ export function flatten(
         id: `${prev.key}~${p.key}`,
         d: couple.d,
         partner: true,
-        label: text ? coupleLabel(couple, text) : undefined,
+        label: text ? coupleLabel(couple, text, !!marriageApprox(p.marriage, text)) : undefined,
       });
       prev = p;
       for (const c of p.children) {
@@ -250,7 +252,7 @@ export function flatten(
       const text = marriageLabel?.(n);
       if (text) {
         const b = parentBracket(n.children, alignment, nodeH);
-        edges.push({ id: `${n.key}=m`, d: b.d, partner: true, label: coupleLabel(b, text) });
+        edges.push({ id: `${n.key}=m`, d: b.d, partner: true, label: coupleLabel(b, text, !!marriageApprox(n.marriage, text)) });
       }
     }
     // Children of a spouseless family connect to the person directly.
@@ -447,8 +449,10 @@ function coupleLink(
 }
 
 /** The marriage label on a couple's connector: at its midpoint, wrapped to the room there. */
-function coupleLabel(link: ReturnType<typeof coupleLink>, text: string): NonNullable<Flat["edges"][number]["label"]> {
-  return { x: link.x, y: link.y, text, lines: wrapLabel(text, link.room.w, link.room.h) };
+function coupleLabel(link: ReturnType<typeof coupleLink>, text: string, approx: boolean): NonNullable<Flat["edges"][number]["label"]> {
+  const lines = wrapLabel(text, link.room.w, link.room.h);
+  const approxLine = approx ? lines.findIndex((l) => /\d/.test(l)) : -1;
+  return { x: link.x, y: link.y, text, lines, ...(approxLine >= 0 ? { approxLine } : null) };
 }
 
 /** Marriage line between a node's two parents (ancestor mode): joins their boxes

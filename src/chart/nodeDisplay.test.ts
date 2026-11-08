@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, formatMarriage, homePlaceOf, lifespanLine, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { marriageOf } from "./personTree";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { yearsSegments } from "../gedcom/lifespan";
 
 /** Minimal Individual carrying only the events `placeLabel` and `homePlaceOf` read. */
 function person(events: { tag: string; place?: string; address?: string; year?: number }[]): Individual {
@@ -152,5 +156,28 @@ describe("formatMarriage", () => {
     expect(formatMarriage(living, both)).toBe("⚭ 1962 Ljubljana");
     // …and a couple both long dead keeps its label under the switch.
     expect(formatMarriage(couple, both, true)).toBe("⚭ 1962 Ljubljana");
+  });
+});
+
+describe("marriageApprox", () => {
+  const ds = buildDataset(parseGedcom(new TextEncoder().encode(
+    "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+      "0 @F1@ FAM\n1 MARR\n2 DATE ABT 1764\n2 PLAC Kranj\n0 @F2@ FAM\n1 MARR\n2 DATE 3 MAY 1764\n0 TRLR\n",
+  ).buffer));
+
+  it("sets an ABT/BEF/… marriage year in italics, and only the year", () => {
+    const m = marriageOf(ds.families.get("@F1@"), ds);
+    expect(m?.approx).toBe(true);
+    const text = formatMarriage(m, { date: true, place: true })!;
+    expect(yearsSegments(text, marriageApprox(m, text))).toEqual([
+      { text: "⚭ ", approx: false }, { text: "1764", approx: true }, { text: " Kranj", approx: false },
+    ]);
+    // Place only — no year on the label, nothing to italicize.
+    expect(marriageApprox(m, formatMarriage(m, { date: false, place: true }))).toBeUndefined();
+  });
+
+  it("leaves an exact date upright", () => {
+    const m = marriageOf(ds.families.get("@F2@"), ds);
+    expect(marriageApprox(m, formatMarriage(m, { date: true, place: false }))).toBeUndefined();
   });
 });

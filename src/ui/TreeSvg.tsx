@@ -2,7 +2,8 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { LABEL_LINE_H, NODE_W, PAD, type Flat, type Placed } from "../chart/treeLayout";
-import { ageStandalone, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { ageStandalone, APPROX_YEAR, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { YearsText } from "./YearsText";
 import type { Lineage } from "../match/kinship";
 import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge, nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
@@ -111,7 +112,7 @@ export const TreeSvg = memo(function TreeSvg({
                 {e.label.lines.join(" ") !== e.label.text && <title>{e.label.text}</title>}
                 {e.label.lines.map((line, i) => (
                   <tspan key={i} x={e.label!.x} dy={i ? LABEL_LINE_H : (-(e.label!.lines.length - 1) / 2) * LABEL_LINE_H}>
-                    {line}
+                    <YearsText text={line} approx={i === e.label!.approxLine ? APPROX_YEAR : undefined} svg />
                   </tspan>
                 ))}
               </text>
