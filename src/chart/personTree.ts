@@ -178,7 +178,10 @@ export function buildPersonTree(
   const expandedFams = new Map<string, string | undefined>();
   const placeFmt = inferPlaceExportFormat(mainDs);
 
-  const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
+  /** A node for this person; when they were already expanded elsewhere it is
+   *  a repeat that stops there and points at that position, else it claims
+   *  the expansion. Undefined when neither side records anyone. */
+  const place = (main?: Individual, incoming?: Individual): { node: TreeNode; main?: Individual; incoming?: Individual } | undefined => {
     if (!main && !incoming) return undefined;
     // A rejected pairing means the two records are different people: keep the
     // main and drop the incoming side here, so neither it nor its relatives
@@ -191,23 +194,47 @@ export function buildPersonTree(
     const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt, nameOf);
     const expandedAt = expanded.get(base);
     if (expandedAt !== undefined) {
-      // Already expanded elsewhere: stop here and point at that position.
       node.repeat = true;
       node.repeatOf = expandedAt;
-      return node;
+    } else {
+      expanded.set(base, key);
     }
-    expanded.set(base, key);
-    if (mode === "ancestors") {
-      node.children = parents(main, incoming, mainDs, compareDs, build);
+    return { node, main, incoming };
+  };
+
+  if (mode === "ancestors") {
+    // Generation by generation, so a person reached twice (pedigree collapse)
+    // is drawn in full where they stand nearest the root — a parent's parents
+    // carry the line, and the deeper copy up the other side is the repeat.
+    // Walking depth-first instead let the father's whole line claim every
+    // shared ancestor first, however far out it reached them.
+    const root = place(rootMain, rootIncoming);
+    const queue = root ? [root] : [];
+    for (let i = 0; i < queue.length; i++) {
+      const { node, main, incoming } = queue[i];
+      if (node.repeat) continue;
+      for (const role of ["husband", "wife"] as const) {
+        const mp = main ? firstParent(main, mainDs, role) : undefined;
+        const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
+        const parent = place(mp, ip);
+        if (!parent) continue;
+        node.children.push(parent.node);
+        queue.push(parent);
+      }
       // The marriage of this person's parents — drawn as the fan collar between
       // their two segments. Prefer the main side, else the incoming side.
-      node.marriage =
-        parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
-    } else {
-      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
-      node.partners = partners;
-      node.children = directChildren;
+      node.marriage = parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
     }
+    return root?.node;
+  }
+
+  const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
+    const placed = place(main, incoming);
+    if (!placed || placed.node.repeat) return placed?.node;
+    const { node } = placed;
+    const { partners, directChildren } = descend(t, placed.main, placed.incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
+    node.partners = partners;
+    node.children = directChildren;
     return node;
   };
 
@@ -217,22 +244,6 @@ export function buildPersonTree(
 type Build = (main?: Individual, incoming?: Individual) => TreeNode | undefined;
 type ClaimKey = (baseKey: string) => string;
 
-function parents(
-  main: Individual | undefined,
-  incoming: Individual | undefined,
-  mainDs: Dataset,
-  compareDs: Dataset,
-  build: Build,
-): TreeNode[] {
-  const out: TreeNode[] = [];
-  for (const role of ["husband", "wife"] as const) {
-    const mp = main ? firstParent(main, mainDs, role) : undefined;
-    const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
-    const node = build(mp, ip);
-    if (node) out.push(node);
-  }
-  return out;
-}
 
 /** One marriage/family of a person: the spouse (if any), that union's children,
  *  and the family record (carrying the MARR event). */

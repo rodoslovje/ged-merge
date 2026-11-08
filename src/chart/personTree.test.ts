@@ -393,6 +393,31 @@ describe("buildPersonTree (pedigree collapse)", () => {
     }
   });
 
+  it("draws a shared ancestor in full where they stand nearest the root", () => {
+    // Root @R1@: father @A1@ is a grandson of the couple @C1@+@C2@ (through
+    // @B1@); mother @A2@ is their daughter. Depth-first, the father's line
+    // reached them first — three generations out — and the mother's own
+    // parents were cut to repeats.
+    const uneven = dataset(wrap(
+      "0 @R1@ INDI\n1 NAME Root /X/\n1 SEX M\n1 FAMC @F1@\n" +
+        "0 @A1@ INDI\n1 NAME Oče /X/\n1 SEX M\n1 FAMS @F1@\n1 FAMC @F2@\n" +
+        "0 @A2@ INDI\n1 NAME Mati /Y/\n1 SEX F\n1 FAMS @F1@\n1 FAMC @F3@\n" +
+        "0 @B1@ INDI\n1 NAME Ded /X/\n1 SEX M\n1 FAMS @F2@\n1 FAMC @F3@\n" +
+        "0 @C1@ INDI\n1 NAME Praded /Y/\n1 SEX M\n1 FAMS @F3@\n" +
+        "0 @C2@ INDI\n1 NAME Prababica /Y/\n1 SEX F\n1 FAMS @F3@\n" +
+        "0 @F1@ FAM\n1 HUSB @A1@\n1 WIFE @A2@\n1 CHIL @R1@\n" +
+        "0 @F2@ FAM\n1 HUSB @B1@\n1 CHIL @A1@\n" +
+        "0 @F3@ FAM\n1 HUSB @C1@\n1 WIFE @C2@\n1 CHIL @B1@\n1 CHIL @A2@\n",
+    ));
+    const root = buildPersonTree(tr, uneven.individuals.get("@R1@"), undefined, uneven, uneven, emptyMaps, "ancestors")!;
+    const mother = root.children[1];
+    expect(mother.children.map((n) => [n.main?.id, !!n.repeat])).toEqual([["@C1@", false], ["@C2@", false]]);
+    const grandfather = root.children[0].children[0];
+    const far = grandfather.children;
+    expect(far.map((n) => [n.main?.id, !!n.repeat])).toEqual([["@C1@", true], ["@C2@", true]]);
+    expect(far.map((n) => n.repeatOf)).toEqual(mother.children.map((n) => n.key));
+  });
+
   it("keeps keys unique when a person is both spouse and child (descendants)", () => {
     // From the grandparents' view, Ana appears as a child of @F2@ and as
     // Anton's partner; the partner occurrence must not block the child's
