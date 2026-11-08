@@ -2107,6 +2107,32 @@ describe("findDuplicates", () => {
     expect(findDuplicates(ds)).toHaveLength(0);
   });
 
+  it("does not flag twins whose names are spelled alike (Marija / Marijana)", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Vončina/
+1 SEX F
+1 BIRT
+2 DATE 3 FEB 1832
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Marijana /Vončina/
+1 SEX F
+1 BIRT
+2 DATE 3 FEB 1832
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Jakob /Vončina/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @I3@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds)).toHaveLength(0);
+  });
+
   it("does not flag same-named cousins whose fathers differ, even with both mothers named Marija", () => {
     // The classic dense-cluster false positive: same name, same birth year
     // (different months), fathers Anton vs Jakob (similarity 0.600 — the old
