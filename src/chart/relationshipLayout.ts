@@ -12,9 +12,8 @@
 import type { Dataset, Individual, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
-import { localityParts } from "../gedcom/place";
 import { displayName, primaryName } from "../match/relatives";
-import { coupleLiving, type MarriageInfo } from "./personTree";
+import { marriageOf, type MarriageInfo } from "./personTree";
 import type { RelationshipPath } from "../match/relationshipPath";
 
 export const ROW_GAP_TD = 72;
@@ -283,11 +282,7 @@ function coupleMarriage(ds: Dataset, a: string, b: string): MarriageInfo | undef
   for (const famId of indi.spouseOf) {
     const fam = ds.families.get(famId);
     if (!fam || (fam.husband !== b && fam.wife !== b)) continue;
-    const marr = fam.events.find((e) => e.tag === "MARR");
-    if (!marr) return undefined;
-    const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
-    const place = marr.place ? localityParts(marr.place)[0] : undefined;
-    return year || place ? { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) } : undefined;
+    return marriageOf(fam, ds);
   }
   return undefined;
 }
