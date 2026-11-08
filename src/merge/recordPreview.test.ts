@@ -5,7 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { INDI_CHILD_ORDER } from "../gedcom/edit/shared";
 import type { FieldChoice } from "../review/types";
 import { materializeRecordField, type RecordField } from "./applyFields";
-import { familyMergePreview, lifespanMergePreview, personMergePreview } from "./recordPreview";
+import { familyMergePreview, personCardPreview, personMergePreview } from "./recordPreview";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 
 function dataset(text: string) {
@@ -102,20 +102,39 @@ describe("familyMergePreview", () => {
   });
 });
 
-describe("lifespanMergePreview", () => {
+describe("personCardPreview", () => {
   const main = dataset(wrap("0 @I1@ INDI\n1 NAME Doroteja /Lukanič/\n1 BIRT\n2 DATE ABT 1772\n"));
   const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Doroteja /Lukanič/\n1 BIRT\n2 DATE 11 JAN 1773\n1 DEAT\n2 DATE 1840\n"));
   const person = main.individuals.get("@I1@")!;
   const incoming = compare.individuals.get("@P1@")!;
 
   it("is the person itself when no life-span date is written", () => {
-    expect(lifespanMergePreview(person, incoming, () => undefined)).toBe(person);
+    expect(personCardPreview(person, incoming, () => undefined)).toBe(person);
   });
 
   it("carries the dates the save writes, replacing and adding events", () => {
-    const p = lifespanMergePreview(person, incoming, pick({ "BIRT.date": "incoming", "DEAT.date": "incoming" }));
+    const p = personCardPreview(person, incoming, pick({ "BIRT.date": "incoming", "DEAT.date": "incoming" }));
     expect(lifespanOf(p)).toBe("1773–1840");
     expect(lifespanApproxOf(p)).toBeUndefined();
     expect(lifespanOf(person)).toBe("1772");
+  });
+});
+
+describe("personCardPreview names and sex", () => {
+  const main = dataset(wrap("0 @I1@ INDI\n1 NAME Dorotea /Lukanich/\n1 SEX U\n1 NAME Dora /Filak/\n2 TYPE MARRIED\n"));
+  const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Doroteja /Lukanič/\n1 SEX F\n1 NAME Doroteja /Filak/\n2 TYPE MARRIED\n"));
+  const person = main.individuals.get("@I1@")!;
+  const incoming = compare.individuals.get("@P1@")!;
+
+  it("takes the name parts and sex the save writes", () => {
+    const p = personCardPreview(person, incoming, pick({ given: "incoming", surname: "incoming", sex: "incoming" }));
+    expect(p.names[0]).toMatchObject({ given: "Doroteja", surname: "Lukanič", full: "Doroteja Lukanič" });
+    expect(p.names.slice(1).map((n) => n.full)).toEqual(["Dora Filak"]);
+    expect(p.sex).toBe("F");
+  });
+
+  it("adds the incoming name beside the own one under \"both\", and replaces extras", () => {
+    const p = personCardPreview(person, incoming, pick({ given: "both", additionalNames: "incoming" }));
+    expect(p.names.map((n) => n.full)).toEqual(["Dorotea Lukanich", "Doroteja Lukanič", "Doroteja Filak"]);
   });
 });

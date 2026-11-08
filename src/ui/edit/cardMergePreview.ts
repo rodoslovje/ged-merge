@@ -1,12 +1,12 @@
 import { createContext, useContext, useMemo } from "react";
 import type { Dataset, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { lifespanMergePreview } from "../../merge/recordPreview";
+import { personCardPreview } from "../../merge/recordPreview";
 import { individualFieldRows } from "../../review/fields";
 import { confirmedPeople, findConfirmedDecision, pendingFieldChoices, type CandidateDecision } from "../../review/types";
 
 /** A relative as their card shows them after the save merges their confirmed
- *  match — see {@link lifespanMergePreview}. */
+ *  match — see {@link personCardPreview}. */
 export type CardMergePreview = (individual: Individual) => Individual;
 
 /** Provided by Edit; undefined (no incoming file) leaves cards as recorded. */
@@ -45,7 +45,7 @@ export function useCardMergePreview(
         const rejected = found.decision.rejectedEvents?.length ? new Set(found.decision.rejectedEvents) : undefined;
         const rows = individualFieldRows(t, individual, incoming, dataset, compareDataset, undefined, rejected, false, confirmed);
         const pending = pendingFieldChoices(rows, found.decision);
-        out = lifespanMergePreview(individual, incoming, (key) => pending.get(key));
+        out = personCardPreview(individual, incoming, (key) => pending.get(key));
       }
       cache.set(individual, out);
       return out;
