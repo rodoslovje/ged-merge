@@ -1,5 +1,33 @@
-import type { ExternalId, Family, Individual, NameTranslation, NegativeAssertion, NoteRef, Sex } from "../gedcom/types";
+import type { ExternalId, Family, GedEvent, Individual, NameTranslation, NegativeAssertion, NoteRef, Sex } from "../gedcom/types";
 import type { FieldChoice } from "../review/types";
+import { orderedEventTags } from "../review/fields";
+import { BIRTH_TAGS, DEATH_TAGS } from "../gedcom/lifespan";
+
+const LIFESPAN_TAGS: readonly string[] = [...BIRTH_TAGS, ...DEATH_TAGS];
+
+/**
+ * The person as a relative's card shows them once the save has merged a
+ * confirmed match: the birth/death events (and their christening/burial
+ * fallbacks) carry the dates the save will write, so the card's years agree
+ * with the person's own page. Returns `main` itself when nothing changes.
+ */
+export function lifespanMergePreview(main: Individual, incoming: Individual, choiceOf: ChoiceOf): Individual {
+  let events: GedEvent[] | undefined;
+  const byTag = (ind: Individual, tag: string) => ind.events.filter((e) => e.tag === tag);
+  for (const inst of orderedEventTags(main, incoming)) {
+    if (!LIFESPAN_TAGS.includes(inst.tag) || inst.compareIdx < 0) continue;
+    const keyBase = inst.multi ? `${inst.tag}.${inst.keyIdx}` : inst.tag;
+    if (!choiceOf(`${keyBase}.date`)) continue;
+    const incEv = byTag(incoming, inst.tag)[inst.compareIdx];
+    if (!incEv?.date) continue;
+    events ??= [...main.events];
+    const mainEv = inst.mainIdx >= 0 ? byTag(main, inst.tag)[inst.mainIdx] : undefined;
+    const at = mainEv ? events.indexOf(mainEv) : -1;
+    if (at >= 0) events[at] = { ...events[at], date: incEv.date };
+    else events.push(incEv);
+  }
+  return events ? { ...main, events } : main;
+}
 
 /**
  * What a confirmed match's record-level rows will write into a record (a

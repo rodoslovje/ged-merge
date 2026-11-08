@@ -84,6 +84,7 @@ import { nodeId } from "./edit/nodeId";
 import { editFieldKeys } from "./edit/fieldKeys";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
+import { CardMergePreviewContext, useCardMergePreview } from "./edit/cardMergePreview";
 import { buildFieldSuggestions } from "./edit/fieldSuggestions";
 import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
@@ -1736,6 +1737,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // never written, in the layout this file writes places in.
   const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
+  const cardMergePreview = useCardMergePreview(dataset, compareDataset, decisions, decisionStatusById, t);
 
   // What the file writes at each place+address pair: how many events carry it —
   // what the coordinate picker needs to offer "copy this pick to the file's
@@ -1901,6 +1903,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
+    <CardMergePreviewContext.Provider value={cardMergePreview}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
         {/* The person's page beside the Wider family rail (under it when narrow).
@@ -2424,6 +2427,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         />
       )}
     </div>
+    </CardMergePreviewContext.Provider>
     </AssocProvider>
     </PlaceLookupProvider>
     </PlacePeopleProvider>

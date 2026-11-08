@@ -8,6 +8,7 @@ import { YearsText } from "./YearsText";
 import { lifespanApproxOf } from "../gedcom/lifespan";
 import { CardPhoto } from "./PersonMedia";
 import type { MediaRefContext } from "./MediaViewer";
+import { useCardMergePreviewOf } from "./edit/cardMergePreview";
 
 interface Props {
   individual?: Individual;
@@ -57,10 +58,13 @@ interface Props {
 const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
-export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, addTitle, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx, pending }: Props) {
+export function PersonCard({ individual: recorded, roleLabel, placeholder, onSelect, onAdd, addTitle, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx, pending }: Props) {
   const nameOf = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const { t } = useTranslation();
+  // A confirmed match shows the dates the save will write, as the person's page does.
+  const mergePreviewOf = useCardMergePreviewOf();
+  const individual = recorded && mergePreviewOf ? mergePreviewOf(recorded) : recorded;
   if (!individual) {
     return (
       <div className="person-card-wrap">
