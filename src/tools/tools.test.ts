@@ -322,6 +322,21 @@ describe("validateDataset", () => {
     expect(report.counts.bornAfterParentDeath).toBe(2);
   });
 
+  it("lists a child born before the parents' dated marriage, only when the dates are certain", () => {
+    const child = (id: string, birth: string, tag = "BIRT") => `0 @${id}@ INDI\n1 NAME Otrok /${id}/\n1 SEX F\n1 ${tag}\n2 DATE ${birth}\n1 FAMC @F1@\n`;
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      child("C1", "3 MAY 1763") + // before
+      child("C2", "1764") + // same year as a dated marriage — undecided
+      child("C3", "ABT 1760") + // an estimate — nothing certain
+      child("C4", "2 FEB 1764", "CHR") + // baptized before the wedding
+      child("C5", "1 JUL 1764") + // after
+      `0 @F1@ FAM\n1 MARR\n2 DATE 12 FEB 1764\n1 CHIL @C1@\n1 CHIL @C2@\n1 CHIL @C3@\n1 CHIL @C4@\n1 CHIL @C5@\n` +
+      `0 @F2@ FAM\n1 MARR\n2 PLAC Kranj\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage");
+    expect(found.map((i) => i.id)).toEqual(["@C1@", "@C4@"]);
+    expect(found[0].messageVars).toEqual({ birth: "3 MAY 1763", marriage: "12 FEB 1764" });
+  });
+
   it("flags a mother with children by two fathers in the same years", () => {
     // Marija has Kotnik children 1862–1872 and, in the middle of that run, a
     // Žnidar child in 1866 — impossible for one mother.

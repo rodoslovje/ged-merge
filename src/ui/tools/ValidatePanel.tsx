@@ -58,6 +58,7 @@ const CATEGORIES: IssueCategory[] = [
   "ageAtMarriage",
   "parentAge",
   "bornAfterParentDeath",
+  "bornBeforeMarriage",
   "parallelFamilies",
   "spouseAgeGap",
   "futureDate",

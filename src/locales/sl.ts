@@ -592,6 +592,7 @@ export const sl = {
   "tools.validate.cat.ageAtMarriage": "Starost ob poroki",
   "tools.validate.cat.parentAge": "Starost starša",
   "tools.validate.cat.bornAfterParentDeath": "Rojstvo po smrti starša",
+  "tools.validate.cat.bornBeforeMarriage": "Rojstvo pred poroko",
   "tools.validate.cat.parallelFamilies": "Otroci z dvema očetoma hkrati",
   "tools.validate.cat.spouseAgeGap": "Starostna razlika zakoncev",
   "tools.validate.cat.futureDate": "Datumi v prihodnosti",
@@ -666,6 +667,7 @@ export const sl = {
   "tools.validate.issue.motherAge": "Mati je bila ob rojstvu tega otroka stara {{age}} (pričakovano {{min}}–{{max}})",
   "tools.validate.issue.bornAfterFatherDeath": "Rojstvo {{birth}}, po očetovi smrti ({{death}}) — napačen je otrok, povezava z družino ali eden od datumov",
   "tools.validate.issue.bornAfterMotherDeath": "Rojstvo {{birth}}, po materini smrti ({{death}}) — napačen je otrok, povezava z družino ali eden od datumov",
+  "tools.validate.issue.bornBeforeMarriage": "Rojstvo {{birth}}, pred poroko staršev ({{marriage}})",
   // Tu se oblika ujema z otrokom, ki ga poved imenuje, ne z materjo.
   "tools.validate.issue.parallelFamilies": "Ima otroke z dvema očetoma hkrati — {{child}}, otrok z osebo {{partnerB}}, je rojen(a) sredi otrok iz let {{spanA}} z osebo {{partnerA}}. Eden od otrok je najbrž v napačni družini.",
   "tools.validate.issue.parallelFamilies_M": "Ima otroke z dvema očetoma hkrati — {{child}}, otrok z osebo {{partnerB}}, je rojen sredi otrok iz let {{spanA}} z osebo {{partnerA}}. Eden od otrok je najbrž v napačni družini.",
