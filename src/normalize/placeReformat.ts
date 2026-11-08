@@ -11,7 +11,9 @@ import {
 } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceComponents } from "../gedcom/place";
+import type { GedNode } from "../gedcom/types";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
+import { walkNodes } from "./walk";
 
 /** Whether a main layout triggers reshaping (others are copied verbatim). */
 export function reshapesLayout(layout: PlaceTargetFormat["layout"]): boolean {
@@ -169,7 +171,14 @@ export function reformatPlace(
     // two chains are the same length. Only when the main knows no chain for the
     // new locality does the old tail stand, for want of anything better.
     const parents = locality ? parentOf.get(locality.toLowerCase()) : undefined;
-    if (parents && (relocated || parents.length > jurisdiction.length - 1)) {
+    // Upper levels this file names differently from the main — a crown land
+    // and an empire for a municipality and a country — are replaced by the
+    // main's own chain once the file has shown, on enough other villages, that
+    // they stand for the main's country (see learnForeignTails).
+    const tail = !relocated && p?.locality ? foreignTail(p, fmt.hierarchy) : undefined;
+    const renamed = !!tail && fmt.foreignTails?.get(tail.key) === tail.country;
+    if (renamed) jurisdiction = [jurisdiction[0] ?? locality!, ...tail.chain];
+    else if (parents && (relocated || parents.length > jurisdiction.length - 1)) {
       const next = [jurisdiction[0] ?? locality, ...parents];
       // The fill must only *add* levels, never delete information: a tail
       // token the learned chain doesn't contain ("Kranj, Primskovo" — a town
@@ -258,6 +267,71 @@ export function reformatPlace(
   }
   out.addr = addrOut;
   if (parish) out.agency = `župnija ${parish}`;
+  return out;
+}
+
+/** Villages a foreign tail must be seen on before it is trusted. */
+const FOREIGN_TAIL_MIN_PLACES = 3;
+/** Share of those villages that must lie in the one main country. */
+const FOREIGN_TAIL_MIN_SHARE = 0.9;
+
+/**
+ * The upper levels of a place the main writes no differently but for names it
+ * has never used: "Vojvodina Kranjska, Avstrijsko cesarstvo" above a Griblje
+ * the main writes only as "Griblje, Črnomelj, Slovenia". Returns the foreign
+ * levels' key and the canonical country of the main's chain.
+ *
+ * Nothing is returned where the place could be somewhere else: a village the
+ * main writes under two chains, or a level that names a place the main knows
+ * but not in this village's chain — that is a real disagreement ("Gorenja vas,
+ * Trebnje" against the main's "Gorenja vas, Škofja Loka"), not an old name.
+ */
+export function foreignTail(
+  p: PlaceComponents,
+  hierarchy: PlaceTargetFormat["hierarchy"],
+): { key: string; country: string; chain: string[] } | undefined {
+  const chain = p.locality ? hierarchy?.singleChain?.get(p.locality.toLowerCase()) : undefined;
+  if (!chain?.length) return undefined;
+  const own = new Set(chain.map(canonicalPlaceToken));
+  const foreign = p.jurisdiction.slice(1).filter((level) => !own.has(canonicalPlaceToken(level)));
+  if (!foreign.length || foreign.some((level) => hierarchy!.knownNames.has(level.toLowerCase()))) return undefined;
+  return { key: foreign.map(canonicalPlaceToken).join(","), country: canonicalPlaceToken(chain[chain.length - 1]), chain };
+}
+
+/**
+ * Learn which foreign upper levels an incoming file writes for the main's
+ * countries: a tail counts once per village, and is trusted only when at least
+ * {@link FOREIGN_TAIL_MIN_PLACES} villages carry it and nearly all of them lie
+ * in one main country. A tail spread over several countries (a crown land
+ * that is now split by a border) teaches nothing, and a village sharing a name
+ * with one abroad is outvoted by the file's real ones.
+ */
+export function learnForeignTails(
+  records: GedNode[],
+  hierarchy: PlaceTargetFormat["hierarchy"],
+): Map<string, string> {
+  const villages = new Map<string, Map<string, Set<string>>>();
+  walkNodes(records, (node) => {
+    if (node.tag !== "PLAC" || !node.value) return;
+    const p = decomposePlace(node.value);
+    const tail = foreignTail(p, hierarchy);
+    if (!tail) return;
+    let byCountry = villages.get(tail.key);
+    if (!byCountry) villages.set(tail.key, (byCountry = new Map()));
+    let names = byCountry.get(tail.country);
+    if (!names) byCountry.set(tail.country, (names = new Set()));
+    names.add(p.locality!.toLowerCase());
+  });
+  const out = new Map<string, string>();
+  for (const [key, byCountry] of villages) {
+    let total = 0;
+    let best: [string, number] | undefined;
+    for (const [country, names] of byCountry) {
+      total += names.size;
+      if (!best || names.size > best[1]) best = [country, names.size];
+    }
+    if (best && best[1] >= FOREIGN_TAIL_MIN_PLACES && best[1] / total >= FOREIGN_TAIL_MIN_SHARE) out.set(key, best[0]);
+  }
   return out;
 }
 

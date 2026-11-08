@@ -166,14 +166,33 @@ export function scanPlaceCoords(dataset: Dataset): PlaceCoordReport {
  * need it while the file is being built rather than after — the merge fills the
  * places it writes from here, so a merge stops handing the reader a list of
  * coordinate gaps it created itself.
+ *
+ * `places` holds, by place value, the one spot a file pins its houses at when
+ * it pins a village rather than each house: every coordinate the place carries,
+ * at any address, is that spot, and at least two of them are houses (two
+ * addresses, or one beside the bare place). Such a file gives a house it has
+ * not seen before the same pin. A file that pins houses apart, or has pinned
+ * only the settlement or a single house, says nothing about a new house there.
  */
-export function agreedPairCoords(records: Iterable<GedNode>): Map<string, GeoCoord> {
-  const known = new Map<string, GeoCoord>();
+export function agreedCoords(records: Iterable<GedNode>): { pairs: Map<string, GeoCoord>; places: Map<string, GeoCoord> } {
+  const pairs = new Map<string, GeoCoord>();
+  const byPlace = new Map<string, { coords: { coord: GeoCoord; n: number }[]; houses: number; bare: boolean }>();
   for (const g of groupByPair(records).values()) {
     if (!g.coords.size) continue;
-    const clusters = clusterCoords([...g.coords.values()]);
-    if (clusters.length > 1) continue;
-    known.set(placeAddrKey(g.value, g.address), clusters[0][0].coord);
+    const coords = [...g.coords.values()];
+    const clusters = clusterCoords(coords);
+    if (clusters.length === 1) pairs.set(placeAddrKey(g.value, g.address), clusters[0][0].coord);
+    let place = byPlace.get(g.value);
+    if (!place) byPlace.set(g.value, (place = { coords: [], houses: 0, bare: false }));
+    place.coords.push(...coords);
+    if (g.address) place.houses++;
+    else place.bare = true;
   }
-  return known;
+  const places = new Map<string, GeoCoord>();
+  for (const [value, place] of byPlace) {
+    if (place.houses + (place.bare ? 1 : 0) < 2 || !place.houses) continue;
+    const clusters = clusterCoords(place.coords);
+    if (clusters.length === 1) places.set(value, clusters[0][0].coord);
+  }
+  return { pairs, places };
 }
