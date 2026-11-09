@@ -637,6 +637,40 @@ ${extra}0 TRLR
     expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).get("@F2@")).toBe("@F1@");
   });
 
+  const pairedOf = (mainGed: string, incomingGed: string) => {
+    const m = dataset(mainGed);
+    const c = dataset(incomingGed);
+    return pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+  };
+
+  it("does not take an estimated birth year nine years off as evidence two wives are one", () => {
+    // "Marija Kambič"/"Marija Jaklič" score 0.82 on the name; the estimate's
+    // wide tolerance spares them the year penalty but must not add a bonus.
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/\n1 BIRT\n2 DATE 1848", "@W1@"),
+      union("@F2@", "Marija /Jaklič/\n1 BIRT\n2 DATE ABT 1839", "@W2@"),
+    ).size).toBe(0);
+  });
+
+  it("keeps a widower's second marriage apart from a first wife dead before it", () => {
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/", "@W1@", "1 MARR\n2 DATE 7 FEB 1872\n"),
+      union("@F2@", "Marija /Kambič/\n1 DEAT\n2 DATE 13 MAR 1871", "@W2@"),
+    ).size).toBe(0);
+  });
+
+  it("keeps two exactly dated marriages years apart as two families", () => {
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/", "@W1@", "1 MARR\n2 DATE 7 FEB 1872\n"),
+      union("@F2@", "Marija /Kambič/", "@W2@", "1 MARR\n2 DATE 3 FEB 1864\n"),
+    ).size).toBe(0);
+    // An approximate marriage date contradicts nothing.
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/", "@W1@", "1 MARR\n2 DATE 7 FEB 1872\n"),
+      union("@F2@", "Marija /Kambič/", "@W2@", "1 MARR\n2 DATE ABT 1864\n"),
+    ).get("@F2@")).toBe("@F1@");
+  });
+
   it("pairs unions whose partners differ but whose children match", () => {
     const withChild = (famId: string, wifeName: string, wifeId: string, childId: string) =>
       union(famId, wifeName, wifeId, `1 CHIL ${childId}\n`) .replace(
