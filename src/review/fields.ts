@@ -707,6 +707,11 @@ function pairFamilies(
       let sim = 0;
       if (mSpouse && cSpouse && confirmed?.(mSpouse.id, cSpouse.id)) {
          sim = CONFIRMED_PAIR_SCORE;
+      } else if (mSpouse && cSpouse && unionsContradict(mf, cf, mSpouse, cSpouse)) {
+         // The dates say two marriages — a wife dead before the other wedding,
+         // or two exactly dated weddings years apart — however alike the two
+         // partners' names. Only shared children can still tie them together.
+         sim = childOverlap();
       } else if (mSpouse && cSpouse) {
          // Both unions name a partner, so the partners decide: two people are
          // the same one only at the bar the table uses everywhere else
@@ -1107,6 +1112,24 @@ export function relativePersonSimilarity(
 }
 
 /**
+ * Do the two unions' own dates make them two marriages? Either partner dead
+ * (on an exact date) in a year before the other union's exactly dated
+ * marriage — a widower's first wife cannot be his second — or two exactly
+ * dated marriages further apart than a transcription slip
+ * ({@link EXACT_YEAR_TOLERANCE}). Approximate dates never contradict.
+ */
+function unionsContradict(mf: Family, cf: Family, mSpouse: Individual, cSpouse: Individual): boolean {
+  const exactYear = (d: GedDate | undefined) => (d?.qualifier === "exact" ? d.year : undefined);
+  const mMarr = exactYear(mf.events.find(e => e.tag === "MARR")?.date);
+  const cMarr = exactYear(cf.events.find(e => e.tag === "MARR")?.date);
+  const mDeath = exactYear(findEvent(mSpouse, "DEAT")?.date);
+  const cDeath = exactYear(findEvent(cSpouse, "DEAT")?.date);
+  if (mMarr != null && cDeath != null && cDeath < mMarr) return true;
+  if (cMarr != null && mDeath != null && mDeath < cMarr) return true;
+  return mMarr != null && cMarr != null && Math.abs(mMarr - cMarr) > EXACT_YEAR_TOLERANCE;
+}
+
+/**
  * Score given to a union pair joined on the partner's given name alone (see
  * {@link samePartner}) — above the 0.5 bar `pairFamilies` admits candidates at,
  * but below any full-name agreement, so a partner who matches outright still
@@ -1322,6 +1345,11 @@ function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "part
   // approximate dates.
   const tolerance = a.birthApprox || b.birthApprox ? 10 : EXACT_YEAR_TOLERANCE;
   if (gap > tolerance) return Math.max(0, nameSim - 0.25);
+  // An estimate's wider tolerance only spares the pair the penalty: a year
+  // nine off an estimate corroborates nothing, and crediting it lifted
+  // "Marija Kambič" 1848 over the bar against a "Marija Jaklič" ~1839 — a
+  // widower's two wives shown as one.
+  if (gap > EXACT_YEAR_TOLERANCE) return nameSim;
   // Within tolerance the year *corroborates* the name and ranks the candidates
   // — it never stands in for a name. Siblings share the year they were born as
   // readily as the surname, so without this guard a shared 1803 lifted
