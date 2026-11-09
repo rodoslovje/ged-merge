@@ -2657,6 +2657,18 @@ export const sl = {
   "narrative.marriedAgainLiving": "Znova se je poročil/-a {{tail}}; zakonec: {{spouse}}.",
   "narrative.marriedAgainLiving_Mp": "Znova se je poročil {{tail}}; njegova žena je {{spouse}}.",
   "narrative.marriedAgainLiving_Fp": "Znova se je poročila {{tail}}; njen mož je {{spouse}}.",
+  // Zveza, ki jo datoteka zapiše kot zunajzakonsko (_MSTAT Partners ipd.):
+  // namesto poroke imenuje partnerja; imena ostanejo v imenovalniku.
+  "narrative.partner": "{{subject}} je živel/-a v zunajzakonski zvezi; partner/-ka: {{spouse}}.",
+  "narrative.partner_M": "{{subject}} je živel v zunajzakonski zvezi; njegova partnerka je bila {{spouse}}.",
+  "narrative.partner_F": "{{subject}} je živela v zunajzakonski zvezi; njen partner je bil {{spouse}}.",
+  "narrative.partner_Mp": "Njegova partnerka je bila {{spouse}}.",
+  "narrative.partner_Fp": "Njen partner je bil {{spouse}}.",
+  "narrative.partnerLiving": "{{subject}} živi v zunajzakonski zvezi; partner/-ka: {{spouse}}.",
+  "narrative.partnerLiving_M": "{{subject}} živi v zunajzakonski zvezi; njegova partnerka je {{spouse}}.",
+  "narrative.partnerLiving_F": "{{subject}} živi v zunajzakonski zvezi; njen partner je {{spouse}}.",
+  "narrative.partnerLiving_Mp": "Njegova partnerka je {{spouse}}.",
+  "narrative.partnerLiving_Fp": "Njen partner je {{spouse}}.",
   "narrative.marriedNoSpouse": "{{subject}} se je poročil/-a {{tail}}.",
   "narrative.marriedNoSpouse_M": "{{subject}} se je poročil {{tail}}.",
   "narrative.marriedNoSpouse_F": "{{subject}} se je poročila {{tail}}.",

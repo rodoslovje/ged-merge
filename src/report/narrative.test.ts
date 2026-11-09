@@ -200,6 +200,27 @@ describe("narrativeParagraph", () => {
     );
   });
 
+  it("names an unmarried partner instead of a wedding, children right after", () => {
+    // The file records the couple as partners: no MARR, `_MSTAT Partners`.
+    const unmarried = FAMILY.replace(
+      "1 MARR\n2 DATE 4 FEB 1866\n2 PLAC Škofja Loka\n",
+      "1 _MSTAT Partners\n",
+    );
+    const d = reportOf(unmarried, "@I1@");
+    const g = childGroups(d);
+    const r = rootEntry(d);
+    const en = narrativeParagraph(tEn, narrativeLangFor("en"), r, planEntry(r, g.get(r.num)));
+    expect(en).toContain(
+      "He lived in an unmarried union with Marija Oblak (1846–1900). They had 2 children: Ana Novak and Janez Novak.",
+    );
+    expect(en).not.toContain("married Marija");
+    const sl = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num)));
+    expect(sl).toContain(
+      "Njegova partnerka je bila Marija Oblak (1846–1900). Imela sta 2 otroka: Ana Novak in Janez Novak.",
+    );
+    expect(sl).not.toContain("poroč");
+  });
+
   it("tells the partner's parents right after the marriage, keyed to the partner's sex", () => {
     const withParents = FAMILY
       .replace("1 DEAT\n2 DATE 1900\n1 FAMS @F1@\n", "1 DEAT\n2 DATE 1900\n1 FAMS @F1@\n1 FAMC @F2@\n")

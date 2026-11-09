@@ -2355,6 +2355,10 @@ export const en = {
   // wife/husband clause does, so the keys exist in both languages.
   "narrative.marriedLiving": "{{subject}} married {{spouse}} {{tail}}.",
   "narrative.marriedAgainLiving": "{{subject}} then married {{spouse}} {{tail}}.",
+  // A union the file records as unmarried (_MSTAT Partners and the like):
+  // the partner is named, no wedding is claimed.
+  "narrative.partner": "{{subject}} lived in an unmarried union with {{spouse}}.",
+  "narrative.partnerLiving": "{{subject}} lives in an unmarried union with {{spouse}}.",
   "narrative.marriedNoSpouse": "{{subject}} married {{tail}}.",
   "narrative.marriedAgainNoSpouse": "{{subject}} married again {{tail}}.",
   // The partner's parents, right after the marriage that names them. The
