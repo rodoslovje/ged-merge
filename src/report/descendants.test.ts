@@ -117,6 +117,18 @@ describe("buildDescendants", () => {
     });
   });
 
+  it("marks a union the file records as unmarried with ⚯, a divorced one with ⚮", () => {
+    const d = dataset(
+      DESCENDANTS
+        .replace("1 CHIL @I6@\n1 MARR\n2 DATE 1920\n", "1 CHIL @I6@\n1 _MSTAT Partners\n")
+        .replace("1 CHIL @I11@\n1 MARR\n2 DATE 1930\n", "1 CHIL @I11@\n1 MARR\n2 DATE 1930\n1 DIV\n"),
+    );
+    const text = reportToText(tr, buildDescendants(d, "@I1@", nameOf, NOW)!, "descendants", "Register");
+    expect(text).toContain("⚭ 1895, Kranj — Marija Oblak");
+    expect(text).toContain("⚯ — Neza Kovac");
+    expect(text).toContain("⚮ 1930 — Franc Kos");
+  });
+
   it("emits the ⚭ line for an undated union when the partner is known", () => {
     // Strip the second union's MARR entirely: the partner alone earns the line.
     const noMarr = dataset(DESCENDANTS.replace("1 MARR\n2 DATE 1920\n", ""));

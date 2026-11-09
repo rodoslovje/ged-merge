@@ -39,6 +39,9 @@ export interface Statement {
   spouse?: string;
   /** Married: a repeat marriage (2nd or later union with a ⚭ fact). */
   again?: boolean;
+  /** Married: the file records the couple as never married — the sentence
+   *  names the partner instead of a wedding ("His partner was …"). */
+  unmarried?: boolean;
   /** SpouseOrigin: the partner's sex — it picks the possessive/kin word
    *  ("Her parents…" / "Njegova starša…"), which follows the partner. */
   spouseSex?: Sex;
@@ -148,7 +151,7 @@ export function planEntry(
     // a living partner keeps the name but loses the years under privacy.
     const years = m.spouseYears && !(priv && m.spouseLiving) ? ` (${m.spouseYears})` : "";
     const stmts: Omit<Statement, "subject">[] = [
-      { kind: "married", fact: m, spouse: m.spouse && `${m.spouse}${years}`, again: i > 0, living: bothLiving },
+      { kind: "married", fact: m, spouse: m.spouse && `${m.spouse}${years}`, again: i > 0, unmarried: m.unmarried, living: bothLiving },
     ];
     // The partner's parents, told right after the marriage that names them; a
     // living parent's name stays out under privacy. `living` carries the named

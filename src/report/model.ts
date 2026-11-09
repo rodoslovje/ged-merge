@@ -12,7 +12,7 @@ import { ageAtDate } from "../gedcom/age";
 import { ageWholeYears, parseAge } from "../gedcom/ageValue";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS } from "../gedcom/eventTags";
-import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
+import { unionMark, unionMarriage } from "../gedcom/union";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */
 export type { NameOf } from "../chart/timeline";
@@ -62,6 +62,9 @@ export interface FactLine {
   /** Marriage lines carry the union's family xref, so the narrative can pair
    *  each marriage sentence with that union's children. */
   fam?: string;
+  /** The union line of a couple the file records as never married (see
+   *  {@link unionMarriage}) — ⚯ in the list, partner wording in the narrative. */
+  unmarried?: boolean;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
   /** The event's formatted source citations, when enabled. */
@@ -358,7 +361,10 @@ export function marriageFact(
   if (!(marr && dated(marr)) && !spouse) return undefined;
   const base: FactLine = {
     tag: "MARR",
-    glyph: MARRIAGE_SYMBOL,
+    // The couple's mark as the file records it: ⚭, ⚯ unmarried, ⚮ divorced,
+    // ⚬⚬ separated — the same mark Edit shows for the union.
+    glyph: unionMark(fam).glyph,
+    ...(unionMarriage(fam) === "unmarried" ? { unmarried: true } : null),
     date: marr?.date && dateText(marr.date),
     parsed: marr?.date,
     place: marr ? factPlace(marr) : undefined,

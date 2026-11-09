@@ -151,6 +151,9 @@ function keyOf(stmt: Statement): string {
   const tensed = (base: string) => (stmt.living ? `${base}Living` : base);
   switch (stmt.kind) {
     case "married":
+      // An unmarried union always names its partner (its line exists only
+      // because the partner is known) and has no wedding to date.
+      if (stmt.unmarried && stmt.spouse) return tensed("partner");
       if (stmt.spouse) return tensed(stmt.again ? "marriedAgain" : "married");
       return stmt.again ? "marriedAgainNoSpouse" : "marriedNoSpouse";
     case "spouseOrigin":
