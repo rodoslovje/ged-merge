@@ -2086,6 +2086,8 @@ export const sl = {
   "filter.scoreTooltip": "Najnižja stopnja ujemanja, pri kateri je kandidat še prikazan",
   "filter.noAboveThreshold": "Ni ujemanj nad določenim pragom.",
   "filter.noPassFilter": "Nobeno ujemanje ne ustreza trenutnim filtrom.",
+  "matches.recompute": "Znova izračunaj ujemanja",
+  "matches.recompute.title": "Znova izračunaj ujemanja — ujemanja z vhodno datoteko se izračunajo po vaših popravkih glavne datoteke. Potrjeni, zavrnjeni in preloženi pari se ohranijo.",
   "filter.title": "Filtri",
   "preview.stat.records": "Spremenjenih zapisov",
   "preview.stat.newRecords_one": "{{count}} nov zapis",

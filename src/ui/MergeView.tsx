@@ -60,6 +60,9 @@ interface Props {
   compareDataset: Dataset | undefined;
   onUpdateDecision: (next: CandidateDecision) => void;
   onOpenTree: (mainId: string, compareId: string) => void;
+  /** Match the files again after editing the main, keeping every decision.
+   *  Omitted while a match is running. */
+  onRecompute?: () => void;
   /** Opens the Charts hub on a main-file person — S, the relationship diagram. */
   onShowCharts: (id: string, kind?: ChartKind) => void;
   canNavigatePerson: (side: "main" | "incoming", id: string) => boolean;
@@ -106,6 +109,7 @@ export function MergeView({
   compareDataset,
   onUpdateDecision,
   onOpenTree,
+  onRecompute,
   onShowCharts,
   canNavigatePerson,
   onNavigatePerson,
@@ -155,6 +159,15 @@ export function MergeView({
         title={keyHint(t("filter.title"), KEY.filter.toUpperCase())}
       >
         <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+      </button>
+      <button
+        className="nav-btn icon-only"
+        onClick={onRecompute}
+        disabled={!onRecompute}
+        title={t("matches.recompute.title")}
+        aria-label={t("matches.recompute")}
+      >
+        <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><polyline points="21 3 21 9 15 9"></polyline></svg>
       </button>
     </div>
   ) : undefined;

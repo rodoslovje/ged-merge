@@ -34,7 +34,8 @@ import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { savedBaseline } from "./save/savedBaseline";
 import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edit/removeFromSave";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
-import type { MatchResult } from "./match/types";
+import type { MatchCandidate, MatchResult } from "./match/types";
+import { rematchedCandidates } from "./state/rematch";
 import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui/scoreDetail";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
@@ -186,6 +187,9 @@ function AppContent() {
   // The match list as the worker last sent it, in score order: a start-person
   // change arrives as a ranking of this list (see MatchSuccess).
   const matchListRef = useRef<MatchResult | null>(null);
+  /** Set by "Recompute matches": the list it replaces, whose decided pairs
+   *  stay listed, and whether its own result has yet to arrive. */
+  const rematchRef = useRef<{ carried: readonly MatchCandidate[]; pending: boolean } | null>(null);
   // The shared workspace store (reducer) — the whole data pipeline: file slots,
   // match result, merge decisions, import branches, rejected duplicates, start
   // person. Purely-UI-local state (selection, modals, sort/filters, navigation)
@@ -433,11 +437,32 @@ function AppContent() {
         }
         const list = matchListRef.current;
         if (!list) return;
-        const result: MatchResult = msg.ranking ? { individuals: rankedCandidates(list.individuals, msg.ranking) } : list;
+        let result: MatchResult = msg.ranking ? { individuals: rankedCandidates(list.individuals, msg.ranking) } : list;
+        // After a re-match the decided pairs stay listed (see rematchedCandidates)
+        // — on every later re-rank too, which ranks the worker's own list.
+        const rematch = rematchRef.current;
+        if (rematch && mainDatasetRef.current && compareDatasetRef.current) {
+          result = { individuals: rematchedCandidates(result.individuals, rematch.carried, decisionsRef.current, mainDatasetRef.current, compareDatasetRef.current) };
+        }
         const applyMatched = () => {
           matchingStartRef.current = null;
           matchedTimerRef.current = null;
           dispatch({ type: "matched", result });
+          if (rematch?.pending) {
+            // The reader asked for this list while working through it: their
+            // place in it and their decisions stay. Joins left to the save
+            // follow the new matches.
+            rematch.pending = false;
+            const mainDs = mainDatasetRef.current;
+            const compareDs = compareDatasetRef.current;
+            if (mainDs && compareDs && decisionsRef.current.size) {
+              dispatch({
+                type: "decisionsSet",
+                decisions: refreshJoins(mainDs, compareDs, result, new Map(decisionsRef.current), tRef.current, formatOverridesRef.current),
+              });
+            }
+            return;
+          }
           setSelectedId(null);
           setOpenMatches(true);
           setShowInfoPanel(false);
@@ -806,6 +831,21 @@ function AppContent() {
     workerMainVersionRef.current = changeJournal.mark(version);
   }
 
+  /**
+   * Match the loaded files again, after you have edited the main file: the
+   * worker's copy is brought up to date and scored against the incoming file
+   * exactly as loaded, so its ids — and every decision keyed by them — stay.
+   */
+  async function recomputeMatches(): Promise<void> {
+    if (matching || compare.status !== "loaded" || !lastMainFile || !matches) return;
+    rematchRef.current = { carried: matches.individuals, pending: true };
+    const workerMain = workerMainVersionRef.current;
+    if (workerMain?.version !== editVersionRef.current || !changeJournal.since(workerMain)) {
+      await syncWorkerMain(lastMainFile.dataset, lastMainFile.fileName);
+    }
+    post({ type: "rematch" });
+  }
+
   /** Silently rebuild the worker's main from `text` (the main thread's current
    *  main file, serialized) without touching this side's main file or the edit
    *  tracking bound to it, and restore the kinship ranking's start person.
@@ -865,6 +905,7 @@ function AppContent() {
    * can forget a step the other remembered.
    */
   function clearMatchState() {
+    rematchRef.current = null;
     if (matchedTimerRef.current != null) {
       window.clearTimeout(matchedTimerRef.current);
       matchedTimerRef.current = null;
@@ -2805,6 +2846,7 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecision}
               onOpenTree={openTree}
+              onRecompute={matching ? undefined : () => void recomputeMatches()}
               onShowCharts={openCharts}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}

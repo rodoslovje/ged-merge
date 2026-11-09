@@ -1844,6 +1844,8 @@ export const en = {
   "filter.scoreTooltip": "Minimum match score required to show a candidate",
   "filter.noAboveThreshold": "No candidate matches above threshold.",
   "filter.noPassFilter": "No matches pass the current filters.",
+  "matches.recompute": "Recompute matches",
+  "matches.recompute.title": "Recompute matches — score your edited main file against the incoming file again. Your confirmed, rejected and deferred pairs stay as they are.",
   "filter.title": "Filters",
   "preview.stat.records": "Records changed",
   "preview.stat.newRecords_one": "{{count}} new record added",

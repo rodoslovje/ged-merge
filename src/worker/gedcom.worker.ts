@@ -99,12 +99,21 @@ function handle(req: WorkerRequest): void {
       return;
     }
     // As a silent re-feed would, minus re-announcing and re-matching the
-    // compare: the app sends this only on its way to loading a new one, and
-    // the old result, matched against the old main, is not kept to re-rank.
+    // compare: the app sends this on its way to loading a new one or ahead of
+    // a `rematch`, and the old result, matched against the old main, is not
+    // kept to re-rank.
     mainDataset = next;
     lastResult = undefined;
     mainOverrides = req.formatOverrides;
     profile = applyFormatOverrides(inferMainProfile(next), req.formatOverrides);
+    return;
+  }
+  if (req.type === "rematch") {
+    try {
+      maybeMatch(false);
+    } catch (err) {
+      post({ type: "matchFailed", message: errorMessage(err) });
+    }
     return;
   }
   if (req.type === "setStart") {
@@ -334,8 +343,10 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   );
 }
 
-/** Run matching once both sides are available, ranked if a start person is set. */
-function maybeMatch(): void {
+/** Run matching once both sides are available, ranked if a start person is set.
+ *  `consolidate: false` (a re-match) leaves the incoming records as they are:
+ *  merging newly found duplicates would retire ids the decisions are keyed by. */
+function maybeMatch(consolidate = true): void {
   if (!mainDataset || !compareNormalized) return;
   post({ type: "matching" });
   let result: ScoredMatchResult;
@@ -348,7 +359,9 @@ function maybeMatch(): void {
   // Consolidate incoming records that are the same person split across duplicates
   // (detected by matching the same main) into one, then re-emit the cleaned
   // compare so the merge and tree see a single record carrying all the data.
-  if (result.incomingDuplicates?.length) {
+  if (!consolidate) {
+    result = { individuals: result.individuals };
+  } else if (result.incomingDuplicates?.length) {
     const clusters = result.incomingDuplicates;
     consolidateDuplicates(compareNormalized, clusters);
     const consolidated = clusters.reduce((n, c) => n + c.mergeIds.length, 0);
