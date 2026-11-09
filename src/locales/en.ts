@@ -3174,6 +3174,7 @@ export const en = {
   "shortcuts.item.chartZoomReset": "Reset zoom to 100%",
   "shortcuts.item.chartFit": "Fit the whole chart on screen",
   "shortcuts.item.chartHome": "Draw the chart for the start person",
+  "shortcuts.item.chartDecide": "Compare tree: confirm, reject or defer the selected pair — while a pair is selected, D defers it instead of showing descendants",
   "shortcuts.item.chartEdit": "Open the selected person in Edit, or the chart's own person when nobody is selected",
   "shortcuts.item.chartTrail": "The previous / next person this chart was drawn for",
   "shortcuts.item.chartNode": "Reach a person on the chart, or a timeline row · select them; ⌥ + arrows then walk their family",

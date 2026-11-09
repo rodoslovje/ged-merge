@@ -2751,6 +2751,49 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     ]);
   });
 
+  it("a graft lists only the joins your file does not back up with a relationship", () => {
+    // Your file already has Tomaž + Marina with their daughter Lucija; a fourth
+    // match, Jernej, is in your file but as nobody's child. Bringing Tomaž's
+    // descendants joins all four. Tomaž is the walk's anchor — nothing vouches
+    // for him — and Jernej sits elsewhere in your file; Marina and Lucija hold
+    // the very places your file gives them, so they go unlisted.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Tomaz /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1633\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Marina /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1633\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Lucija /Tepina/\n1 SEX F\n1 BIRT\n2 DATE 1655\n1 FAMC @F1@\n" +
+          "0 @I4@ INDI\n1 NAME Jernej /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1658\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Tomaz /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1633\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Marina /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1633\n1 FAMS @G1@\n" +
+          "0 @P3@ INDI\n1 NAME Lucija /Tepina/\n1 SEX F\n1 BIRT\n2 DATE 1655\n1 FAMC @G1@\n" +
+          "0 @P4@ INDI\n1 NAME Jernej /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1658\n1 FAMC @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n1 CHIL @P4@\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I2@", compareId: "@P2@" },
+        { mainId: "@I3@", compareId: "@P3@" },
+        { mainId: "@I4@", compareId: "@P4@" },
+      ],
+    } as never;
+    const { records, report } = mergeDecisions(main, compare, NO_PICKS, matches, tr, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    // Every join is still made — nobody comes in twice, Jernej joins the family.
+    expect(report.newPersons).toBe(0);
+    expect(block(serializeGedcom(records), "0 @F1@ FAM")).toBe(
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n1 CHIL @I4@\n",
+    );
+    expect(report.graftJoins.map((j) => j.compareId)).toEqual(["@P1@", "@P4@"]);
+  });
+
   it("a person with several incoming marriages gets a family per marriage", () => {
     // The lone-family fallback needs a single marriage on each side — three
     // incoming unions must not collapse into the first one created.

@@ -3581,6 +3581,7 @@ export const sl = {
   "shortcuts.item.chartZoomReset": "Ponastavi povečavo na 100 %",
   "shortcuts.item.chartFit": "Prilagodi cel diagram zaslonu",
   "shortcuts.item.chartHome": "Nariši diagram za izhodiščno osebo",
+  "shortcuts.item.chartDecide": "Primerjalno drevo: potrdi, zavrni ali preloži izbrani par — dokler je par izbran, tipka D ujemanje preloži in ne prikaže potomcev",
   "shortcuts.item.chartEdit": "Odpri izbrano osebo v Urejanju; če ni izbrana nobena, odpri osebo, za katero je narisan diagram",
   "shortcuts.item.chartTrail": "Prejšnja ali naslednja oseba, za katero je bil narisan diagram",
   "shortcuts.item.chartNode": "Pridi do osebe na diagramu ali vrstice na časovnici · izberi jo; ⌥ in puščice nato vodijo po njeni družini",

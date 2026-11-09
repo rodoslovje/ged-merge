@@ -482,19 +482,6 @@ export function CompareTree({
   );
   const find = useChartFind(findSources, mainDs.individuals, revealNode, rerootMain);
 
-  // +/− zoom, 0 reset, F fit, A/D direction, digits 1–4 for the chart kind.
-  useChartShortcuts({
-    scrollBy,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    fitToScreen,
-    onMode: onModeChange,
-    kinds: PEDIGREE_KINDS,
-    onKind: (k) => setType(k as PedigreeType),
-    onLeave: onBack,
-  });
-
   // The direction row: each side's head-count, and how many of those people
   // the incoming file brings.
   const directions: SegmentedItem<TreeMode>[] = (["ancestors", "descendants"] as const).map((dir) => ({
@@ -522,6 +509,24 @@ export function CompareTree({
   // once per selection, not per node.
   const selectedMainId = selected?.main?.id;
   const selectedCompareId = selected?.incoming?.id;
+
+  // +/− zoom, 0 reset, F fit, A/D direction, digits 1–4 for the chart kind;
+  // C/R/D decide the selected pair as the panel's buttons do — while one is
+  // selected, D defers it rather than switching to descendants.
+  useChartShortcuts({
+    scrollBy,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    fitToScreen,
+    onMode: onModeChange,
+    kinds: PEDIGREE_KINDS,
+    onKind: (k) => setType(k as PedigreeType),
+    onLeave: onBack,
+    onDecide: selectedMainId && selectedCompareId
+      ? (status) => onDecide(selectedMainId, selectedCompareId, status)
+      : undefined,
+  });
   const selectedCandidate = useMemo(
     () => selectedMainId && selectedCompareId
       ? matches.individuals.find((c) => c.mainId === selectedMainId && c.compareId === selectedCompareId)

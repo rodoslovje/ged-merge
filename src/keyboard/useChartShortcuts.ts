@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { CHART_KEY, isEditableTarget, isModalOpen } from "./shortcuts";
+import { CHART_KEY, KEY_STATUS, isEditableTarget, isModalOpen, type ActiveStatus } from "./shortcuts";
 import type { ChartKind } from "../ui/ChartSettingsContext";
 import type { TreeMode } from "../chart/personTree";
 
@@ -8,7 +8,8 @@ import type { TreeMode } from "../chart/personTree";
 // digits 1–n for the kind switcher, and the arrows to scroll the canvas
 // (Shift for a bigger step, PageUp/PageDown for most of a screen). Each chart page passes only the handlers it supports; the hidden
 // Edit/Merge views gate their own key handlers while an overlay is open, so
-// these keys never collide with the decision shortcuts (C/R/D) underneath.
+// these keys never collide with the decision shortcuts (C/R/D) underneath; the
+// Compare tree takes C/R/D itself while a match pair is selected.
 
 interface Handlers {
   zoomIn?: () => void;
@@ -36,6 +37,10 @@ interface Handlers {
   onLeave?: () => void;
   /** , / . step back / forward through the hub's trail of people. */
   onTrail?: (step: -1 | 1) => void;
+  /** C / R / D decide the selected match pair, as they do in Merge — given
+   *  only while a pair is selected (Compare tree), so D otherwise stays the
+   *  descendants key. */
+  onDecide?: (status: ActiveStatus) => void;
 }
 
 const ARROW: Record<string, [number, number]> = {
@@ -93,6 +98,12 @@ export function useChartShortcuts(handlers: Handlers) {
         return;
       }
       const lower = key.toLowerCase();
+      const status = h.onDecide && !e.shiftKey ? KEY_STATUS[lower] : undefined;
+      if (status) {
+        e.preventDefault();
+        h.onDecide!(status);
+        return;
+      }
       if (lower === CHART_KEY.fit) {
         if (h.fitToScreen) { e.preventDefault(); h.fitToScreen(); }
         return;
