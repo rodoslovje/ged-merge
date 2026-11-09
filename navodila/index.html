@@ -1125,6 +1125,13 @@
               <li><strong>Razlike</strong> — samo ujemanja z razlikami v poljih</li>
               <li><strong>Iskanje imena</strong> — zoži seznam po imenu ali priimku (<span class="gm-key">Ctrl</span><span class="gm-key">F</span> odpre gumbe za filtriranje in postavi kazalec sem)</li>
             </ul>
+            <p>
+              Ob gumbu za filtre je gumb <strong>↻ Znova izračunaj ujemanja</strong>, ki obe datoteki primerja še enkrat.
+              Uporabite ga, ko ste urejali glavno datoteko, saj popravljen datum ali na novo dodana oseba lahko da boljša
+              ujemanja. Vsak potrjen, zavrnjen in preložen par ohrani svojo odločitev in ostane na seznamu, tudi kadar bi
+              ga nova stopnja ujemanja izločila; par, ki ga gledate, ostane na zaslonu. Vhodno datoteko, ki ste jo
+              spremenili v drugem programu, morate naložiti znova, pri tem pa se vse odločitve zanjo izbrišejo.
+            </p>
             <h3>Stolpci in razvrščanje</h3>
             <p>
               Vsaka vrstica prikaže ime in življenjsko dobo kandidata, nato niz stolpcev s števci. Vsaka glava stolpca
@@ -1247,7 +1254,10 @@
               označena: <span class="gm-swatch match"></span> ujemanje, <span class="gm-swatch minor"></span> manjše
               razlike, <span class="gm-swatch major"></span> večje razlike, <span class="gm-swatch main"></span> samo
               glavni, <span class="gm-swatch incoming"></span> samo vhodni. Od tu lahko za koren postavite katero koli
-              osebo, dodelite stanje ali z <strong>+ Prinesi prednike</strong> / <strong>+ Prinesi potomce</strong> ob
+              osebo, dodelite stanje — z gumbi na plošči ali, dokler je izbran par, s tipkami
+              <span class="gm-key">C</span>, <span class="gm-key">R</span> in <span class="gm-key">D</span> kot v
+              Združevanju (tipka <span class="gm-key">D</span> tedaj par preloži in ne preklopi na potomce) — ali z
+              <strong>+ Prinesi prednike</strong> / <strong>+ Prinesi potomce</strong> ob
               shranjevanju v glavno datoteko vključite celotno vhodno vejo. Osebe, ki jih veja prinese, so nato v
               primerjavi v Združevanju označene z »✓ dodano«. Po osebah, na katere ste drevo postavili,
               se premikate s puščicama ‹ › ob gumbu Nazaj, tako kot pri diagramih (<a href="#charts">§11</a>);
@@ -1268,7 +1278,9 @@
               prinese partnerja in otroke, namesto da bi jih pripisala komu drugemu. Vsaka oseba, ki bi jo uvoz zgolj
               po predlogu programa povezal z osebo iz vaše datoteke, ima na vozlišču namesto črke uvoza znak
               <strong>⚠</strong>. Namig na njem pove, s katerim vašim zapisom se bo povezala, da to ujemanje preverite
-              pred shranjevanjem.
+              pred shranjevanjem. Oseba, ki ji vaša datoteka daje isto mesto — žena moža, ki je bil povezan pred njo, ali
+              otrok para, ki je bil povezan pred njim — se poveže enako, vendar brez znaka ⚠, saj se obe datoteki o tem
+              sorodstvu ujemata.
             </p>
             <p>
               Povezava, ki ste jo potrdili sami, je izvzeta — kdo je kdo, določi vaša beseda: tak otrok ostane zunaj,
@@ -3217,7 +3229,10 @@
             <p>
               <strong>⚠ Povezano z osebami, ki jih že imate — ujemanja niste potrdili</strong> poimenuje vsa ujemanja,
               ki jih je program upošteval, ne da bi jih potrdili sami — zakonca ali starša, ki ju je pripel ob potrjenem
-              ujemanju, pa tudi osebe, do katerih je prišel ob prevzemu cele veje (<a href="#merge">§9</a>). Enak znak ⚠
+              ujemanju, pa tudi osebe, do katerih je prišel ob prevzemu cele veje (<a href="#merge">§9</a>). Povezava, ki
+              jo vaša datoteka že podkrepi, se izvede, vendar ni navedena: to je zakonec, starš ali otrok, ki ima ob osebi,
+              povezani pred njim, prav tisto mesto kot v vaši datoteki. Na seznamu tako ostanejo povezave, ki jih je vredno
+              preveriti — oseba, s katere se veja začne, in vsakdo, ki ga vaša datoteka vodi drugje. Enak znak ⚠
               te osebe označi že pred shranjevanjem: ob izbiri sorodnika v primerjavi in na njegovem vozlišču v
               primerjalnem drevesu. Kadar se je vhodna oseba ujemala z
               osebo, ki jo vaša datoteka že ima, je program njene sorodnike povezal z vašim zapisom, namesto da bi isto
@@ -3600,6 +3615,7 @@
               <tbody>
                 <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Preklopi vrsto diagrama (drevo … poročilo)</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Predniki / potomci</td></tr>
+                <tr><td><span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span></td><td>Primerjalno drevo: potrdi / zavrni / preloži izbrani par (dokler je par izbran, tipka D ujemanje preloži in ne prikaže potomcev)</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Povečaj / pomanjšaj</td></tr>
                 <tr><td><span class="gm-key">0</span></td><td>Ponastavi povečavo na 100 %</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Prilagodi cel diagram zaslonu</td></tr>

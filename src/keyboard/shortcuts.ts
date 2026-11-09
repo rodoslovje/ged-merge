@@ -70,7 +70,7 @@ export function familyStepFor(key: string, shift: boolean): FamilyStep | undefin
   }
 }
 
-type ActiveStatus = Exclude<MatchDecisionStatus, "undecided">;
+export type ActiveStatus = Exclude<MatchDecisionStatus, "undecided">;
 
 /** Match-decision status → its bare shortcut key. */
 export const STATUS_KEY: Record<ActiveStatus, string> = {
@@ -259,6 +259,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[CHART_KEY.home.toUpperCase()]], descKey: "shortcuts.item.chartHome" },
       { keys: [[CHART_KEY.trailBack], [CHART_KEY.trailForward]], descKey: "shortcuts.item.chartTrail" },
       { keys: [[CHART_KEY.edit.toUpperCase()]], descKey: "shortcuts.item.chartEdit" },
+      { keys: [[KEY.confirm.toUpperCase()], [KEY.reject.toUpperCase()], [KEY.defer.toUpperCase()]], descKey: "shortcuts.item.chartDecide" },
       { keys: [["Tab"], ["Enter"]], descKey: "shortcuts.item.chartNode" },
       { keys: [["←"], ["→"], ["↑"], ["↓"]], descKey: "shortcuts.item.chartScroll" },
       { keys: [[CHART_KEY.minimap.toUpperCase()]], descKey: "shortcuts.item.chartMinimap" },

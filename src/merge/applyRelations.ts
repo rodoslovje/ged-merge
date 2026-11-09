@@ -274,19 +274,47 @@ export function makeContext(
     return undefined;
   };
 
-  /** Incoming ids already named in `report.graftJoins` — the walk resolves the
-   *  same person once per family they belong to. */
-  const notedJoins = new Set<string>();
+  /** Incoming id → main id of every unconfirmed join the merge acted on so
+   *  far, listed or not — the walk resolves the same person once per family
+   *  they belong to, and later joins lean on earlier ones. */
+  const notedJoins = new Map<string, string>();
+
+  /** Is this pair one the merge already stands on — confirmed by the user, or
+   *  a join it acted on earlier in the walk? */
+  const established = (mainId: string, incomingId: string): boolean =>
+    confirmed.has(`${mainId}|${incomingId}`) || notedJoins.get(incomingId) === mainId;
+
+  /**
+   * Does the main file itself back this join up? It does when a relative of
+   * the incoming person is already established as the very person who is the
+   * same kind of relative of the main person in the main file: Marina joined
+   * as the wife of a Tomaž who already joined, and your file has Marina as
+   * that Tomaž's wife. Both files then agree on a relationship, not only on a
+   * name and a year, and listing the join would bury the ones nobody backs.
+   *
+   * Only earlier joins count, so the first person a walk reaches — the
+   * anchor — is never backed by the relatives it vouches for in turn.
+   */
+  const corroborated = (mainId: string, incomingId: string): boolean => {
+    const rm = relativesOf(main, mainId);
+    const rc = relativesOf(compare, incomingId);
+    return (["parents", "spouses", "children"] as const).some((kind) =>
+      rc[kind].some((c) => rm[kind].some((m) => established(m, c))),
+    );
+  };
 
   /**
    * Name an identity the merge is acting on that the user never confirmed.
    * Recorded where the merge *uses* the join (`resolve`, which is called to
    * link something) rather than where it merely peeks at it, so the preview
-   * lists the people relatives really were hung on.
+   * lists the people relatives really were hung on. A join the main file
+   * backs up ({@link corroborated}) is acted on just the same, only not listed.
    */
   const noteGraftJoin = (mainId: string, incomingId: string): void => {
     if (confirmed.has(`${mainId}|${incomingId}`) || notedJoins.has(incomingId)) return;
-    notedJoins.add(incomingId);
+    const backed = corroborated(mainId, incomingId);
+    notedJoins.set(incomingId, mainId);
+    if (backed) return;
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
     if (!m || !c) return;
@@ -611,6 +639,24 @@ function coupleOf(famId: string, ctx: MergeContext): GraftJoinPerson[] {
 /** A person as the preview writes one: name, years, sex colour. */
 function personOf(indi: import("../gedcom/types").Individual): GraftJoinPerson {
   return { name: displayName(indi.names[0]), years: lifespanOf(indi), dates: datesTooltipOf(indi), sex: indi.sex };
+}
+
+/** A person's parents, spouses and children as one file records them. */
+function relativesOf(ds: Dataset, id: string): { parents: string[]; spouses: string[]; children: string[] } {
+  const out = { parents: [] as string[], spouses: [] as string[], children: [] as string[] };
+  const indi = ds.individuals.get(id);
+  if (!indi) return out;
+  for (const famId of indi.childOf) {
+    const fam = ds.families.get(famId);
+    for (const p of [fam?.husband, fam?.wife]) if (p) out.parents.push(p);
+  }
+  for (const famId of indi.spouseOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    for (const p of [fam.husband, fam.wife]) if (p && p !== id) out.spouses.push(p);
+    out.children.push(...fam.children);
+  }
+  return out;
 }
 
 /**

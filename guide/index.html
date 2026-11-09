@@ -1106,6 +1106,13 @@
               <li><strong>Differences</strong> — only matches with conflicting fields</li>
               <li><strong>Search name</strong> — filter by given name or surname (<span class="gm-key">Ctrl</span><span class="gm-key">F</span> reveals the controls and puts the cursor here)</li>
             </ul>
+            <p>
+              Beside the filter button, <strong>↻ Recompute matches</strong> scores the two files again — worth doing
+              after you have edited your main file, when a corrected date or a newly added person can pair better. Every
+              confirmed, rejected and deferred pair keeps its decision and stays in the list even where the new scores
+              would drop it, and the pair you are looking at stays on screen. An incoming file you changed in another
+              program still has to be loaded again, and loading it starts its decisions afresh.
+            </p>
             <h3>Columns &amp; sorting</h3>
             <p>
               Each row shows the candidate's name and life span, then a set of count columns. Every column header is
@@ -1231,7 +1238,9 @@
               <span class="gm-swatch main"></span> main file only, <span class="gm-swatch incoming"></span> incoming only.
               From here you can re-root on any person (the ‹ › arrows beside Back step through the people you rooted
               on, as in the charts — <a href="#charts">§11</a> — and <strong>Back</strong> returns to Merge in one
-              step), mark a status, or use
+              step), mark a status — with the panel's buttons or, while a matched pair is selected,
+              <span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span> as in Merge
+              (<span class="gm-key">D</span> then defers the pair instead of switching to descendants) — or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
               into your main file on save; back in Merge, the comparison marks the people the branch brings with
               <strong>✓ added</strong>. An ancestor import stops wherever the two files disagree about a parent: if
@@ -1249,7 +1258,9 @@
               children with them, rather than filing them under someone else. A pairing you confirmed is exempt: your
               word settles who is who. Every person the import would join to someone in your file on the app's
               suggestion alone carries a <strong>⚠</strong> on their node instead of the import's letter: its tooltip
-              names your record, so you can check that match before you save. The <strong>Chart</strong>
+              names your record, so you can check that match before you save. A person your file already places in the
+              same spot — the wife of a husband joined before her, a child of a couple joined before them — is joined
+              just the same but carries no ⚠, since your file and the incoming one agree on that relationship. The <strong>Chart</strong>
               settings, zoom controls, overview minimap and
               <strong>Export</strong> menu all work here just like the other diagrams (see <a href="#charts">§11</a>) —
               except there's no GEDCOM export, since a compare tree can include incoming-only people not yet in your
@@ -3098,7 +3109,10 @@
             <p>
               <strong>⚠ Linked to people already in your file — matches you did not confirm</strong> names every identity
               the app acted on that you never confirmed yourself — a partner or parent stitched in alongside a match you
-              confirmed, or anyone reached by bringing in a whole branch (<a href="#merge">§9</a>). The same ⚠ marks
+              confirmed, or anyone reached by bringing in a whole branch (<a href="#merge">§9</a>). A join your file
+              already backs up is made but not listed: a spouse, parent or child who holds the very place your file gives
+              them beside someone joined before them. So the list keeps the ones worth checking — the person a branch
+              starts from, and anyone your file records somewhere else. The same ⚠ marks
               these people before you save: beside the relative's choice in the comparison, and on their node in the
               Compare Tree. Where an incoming person matched someone your file
               already holds, their relatives were attached to your record instead of arriving as a second copy of them.
@@ -3466,6 +3480,7 @@
               <tbody>
                 <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Switch chart kind (Tree … Report)</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Ancestors / Descendants</td></tr>
+                <tr><td><span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span></td><td>Compare Tree: confirm / reject / defer the selected pair (while a pair is selected, D defers it instead of showing descendants)</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>
                 <tr><td><span class="gm-key">0</span></td><td>Reset zoom to 100%</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Fit the whole chart on screen</td></tr>

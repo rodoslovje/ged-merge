@@ -71,6 +71,21 @@ test("deciding a match on a tree node keeps its panel open", async ({ page }) =>
   await expect(page.locator(".tree-compare-decisions")).toBeVisible();
 });
 
+test("C / R / D decide the selected pair on the compare tree", async ({ page }) => {
+  await openTree(page, false);
+  await page.locator("svg.tree-svg g.tree-node", { hasText: "Janez" }).first().click();
+  const decisions = page.locator(".tree-compare-decisions button.decision");
+  await page.keyboard.press("c");
+  await expect(decisions.nth(0)).toHaveClass(/active/);
+  // With a pair selected, D defers it rather than switching the direction.
+  await page.keyboard.press("d");
+  await expect(decisions.nth(2)).toHaveClass(/active/);
+  await expect(page.getByRole("tab", { name: /Ancestors/ })).toHaveAttribute("aria-selected", "true");
+  // A rejected pair is no pair: the tree draws the two people apart.
+  await page.keyboard.press("r");
+  await expect(decisions).toHaveCount(0);
+});
+
 test("a marked branch shows its people as added in the match panel", async ({ page }) => {
   await openTree(page, true);
   await page.getByRole("tab", { name: /Descendants/ }).click();
