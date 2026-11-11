@@ -36,7 +36,7 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     // English pronunciation, spelled the way a Slovenian voice reads it.
     [/gedmerge\.com/g, "Džed Merdž pika kom"],
     [/GED Merge/g, "Džed Merdž"],
-    [/GEDCOM/g, "džed-kom"],
+    [/GEDCOM/g, "gedkom"],
     [/\.ged\b/g, " pika ged"],
   ],
   en: [

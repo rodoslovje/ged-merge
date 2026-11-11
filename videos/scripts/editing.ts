@@ -46,8 +46,14 @@ async function birth(d: Director, date: string, place: string): Promise<void> {
   await d.page.keyboard.press("Enter");
   await type(d, place);
   await d.wait(1200);
-  await d.page.keyboard.press("Enter");
+  await pickPlace(d, place);
   await blur(d);
+}
+
+/** Click the suggested place whose text is exactly `place`. */
+async function pickPlace(d: Director, place: string): Promise<void> {
+  const item = d.page.locator(".suggest-item").filter({ hasText: new RegExp(`^${place}$`) }).first();
+  await d.click(item);
 }
 
 const scenario: Scenario = {
@@ -68,7 +74,7 @@ const scenario: Scenario = {
   steps: [
     {
       say: {
-        sl: "V tem videu dopolnimo drevo Franceta Prešerna: dodamo poklic, sestri in njuni rojstvi ter Minino poroko.",
+        sl: "V tem videu dopolnimo drevo pesnika Franceta Prešerna: dodamo poklic, sestri in njuni rojstvi ter Minino poroko.",
         en: "In this video we add to France Prešeren's tree: an occupation, his two sisters with their births, and Mina's marriage.",
       },
       run: async (d) => {
@@ -81,7 +87,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Odprimo rodovnik Franceta Prešerna in pojdimo k njegovemu očetu Šimnu.",
+        sl: "Odprimo njegov rodovnik in pojdimo k Prešernovemu očetu Šimnu.",
         en: "Let's open France Prešeren's pedigree and go to his father, Šimen.",
       },
       run: async (d) => {
@@ -156,9 +162,9 @@ const scenario: Scenario = {
         await d.page.keyboard.press("Enter");
         await type(d, "Vrb");
         await d.highlight(d.page.locator(".suggest-item").first().locator(".."), 3);
-        await d.wait(3000);
+        await d.wait(2500);
         await d.highlight(null);
-        await d.page.keyboard.press("Enter");
+        await pickPlace(d, "Vrba");
         await blur(d);
       },
     },

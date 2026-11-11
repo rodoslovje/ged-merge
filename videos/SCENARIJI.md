@@ -41,7 +41,7 @@ posnetek urejanja osebe s sorodniki.
 | 4 | Spust datoteke, odpre se France Prešeren v Urejanju | Odprimo rodovnik Franceta Prešerna. Program pokaže osebo z vsemi sorodniki: starše zgoraj, partnerje in otroke spodaj. |
 | 5 | Obroč na zavihke »Urejanje / Združevanje / Orodja« | GED Merge ima tri načine dela. V Urejanju urejate svoje drevo, v Združevanju ga dopolnjujete iz druge datoteke, v Orodjih pa skrbite za datoteko kot celoto. |
 | 6 | Klik na starša, nato »Nazaj« | Po drevesu se premikate s klikom na sorodnika, z gumbom »Nazaj« pa se vrnete. |
-| 7 | Tipka `/`, vpis »šimen«, Enter | Osebo najhitreje najdete z iskanjem. Pritisnite poševnico in vpišite začetek imena — šumniki niso potrebni. |
+| 7 | Tipka `/`, vpis »šimen«, Enter | Osebo najhitreje najdete z iskanjem. Pritisnite poševnico in vpišite začetek imena — črk s strešico ni treba vpisovati. |
 | 8 | Sprememba polja, nato gumb ↩ in ↪ | Vsako spremembo lahko razveljavite in ponovite, z gumboma zgoraj ali s Ctrl+Z in Ctrl+Shift+Z. |
 | 9 | Gumb »Shrani GEDCOM«, predogled, »Prekliči« | Ko shranite, GED Merge pokaže predogled sprememb in prenese novo datoteko. Izvirnika nikoli ne prepiše. |
 | 10 | Tipka `?` — seznam bližnjic | Tipka vprašaj odpre seznam bližnjic na tipkovnici. Večino dela lahko opravite brez miške. |

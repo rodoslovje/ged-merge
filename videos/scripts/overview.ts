@@ -80,7 +80,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Odprimo rodovnik Franceta Prešerna. Program pokaže osebo z vsemi sorodniki: starše zgoraj, partnerje in otroke spodaj.",
+        sl: "Odprimo rodovnik pesnika Franceta Prešerna. Program pokaže osebo z vsemi sorodniki: starše zgoraj, partnerje in otroke spodaj.",
         en: "Let's open France Prešeren's pedigree. The program shows a person with all their relatives: parents above, partners and children below.",
       },
       run: async (d) => {
@@ -126,7 +126,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Iskanje", en: "Search" },
       say: {
-        sl: "Osebo najhitreje najdete z iskanjem. Pritisnite poševnico in vpišite začetek imena. Šumniki pri tem niso potrebni.",
+        sl: "Osebo najhitreje najdete z iskanjem. Pritisnite poševnico in vpišite začetek imena. Črk s strešico vam pri tem ni treba vpisovati.",
         en: "The quickest way to find someone is search. Press the slash key and type the start of a name; accents are optional.",
       },
       run: async (d) => {

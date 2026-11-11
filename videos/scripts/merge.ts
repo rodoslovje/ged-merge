@@ -41,7 +41,7 @@ const scenario: Scenario = {
   steps: [
     {
       say: {
-        sl: "Dva raziskovalca sta raziskovala isto rodbino, rodbino Franceta Prešerna. Pokažimo, kako njune podatke združite v eno drevo.",
+        sl: "Dva raziskovalca sta raziskovala isto rodbino, rodbino pesnika Franceta Prešerna. Pokažimo, kako njune podatke združite v eno drevo.",
         en: "Two researchers have studied the same family: the family of the poet France Prešeren. Let's combine their work into one tree.",
       },
       run: async (d) => {
