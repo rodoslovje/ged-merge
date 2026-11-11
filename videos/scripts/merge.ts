@@ -25,7 +25,7 @@ const candidate = (d: Director, name: string) => d.page.locator(".candidate", { 
 
 const scenario: Scenario = {
   id: "merge",
-  episode: 7,
+  episode: 8,
   title: {
     sl: "GED Merge: dopolnite svoje drevo s podatki iz druge datoteke GEDCOM",
     en: "GED Merge: complete your family tree with data from another GEDCOM file",

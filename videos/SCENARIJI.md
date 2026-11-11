@@ -1,7 +1,53 @@
 # Video navodila GED Merge — scenariji
 
-Osnutek za pregled, preden se scenariji prepišejo v `videos/scripts/*.ts`. Govor je
-tu v slovenščini; angleški govor nastane po potrditvi, z enako vsebino.
+Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezikih je v
+`videos/scripts/<id>.ts`, ki je recept za gradnjo (glej `videos/README.md`).
+
+## Stanje epizod
+
+| # | Epizoda | Recept | Stanje |
+|---|---------|--------|--------|
+| 1 | GED Merge — prvi koraki | `scripts/overview.ts` | SL z glasom ✓ |
+| 2 | Osnovno urejanje | `scripts/editing.ts` | SL z glasom ✓ |
+| 3 | Nastavitve prikaza | `scripts/settings.ts` | SL z glasom ✓ |
+| 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ |
+| 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
+| 6 | Kraji in geokodiranje | — | scenarij |
+| 7 | Zemljevidi | — | scenarij |
+| 8 | Združevanje | `scripts/merge.ts` | SL in EN z glasom (pred epizodami 3–5; znova zgraditi) |
+| 9 | Statistika | — | scenarij |
+| 10 | Pregled | — | scenarij |
+| 11 | Dvojniki | — | scenarij |
+| 12 | Možnosti diagramov, izvoz, zasebnost | — | scenarij |
+
+Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
+
+## Napotki za agente (vzporedno delo)
+
+- **Ena epizoda = en recept** v `videos/scripts/<id>.ts` z `episode: N`; izhod gre v
+  `videos/out/NN-<id>/` (ni v gitu). Vsak agent dela v svojem worktreeju in odda PR.
+- **Nastavitve serije:** epizode od 4 naprej imajo `settings: seriesSettings` (France
+  izhodiščna oseba, sorodstvo, starosti, slovenski zapis datumov) — kot v epizodi 3.
+- **Podatki:** `demo/preseren-hawlina.ged` (glavna), `demo/preseren-odar.ged` (vhodna),
+  `demo/preseren-hawlina-porocni.ged` (s poročnimi priimki). Samo resnični, preverljivi
+  podatki in nikoli žive osebe; nov podatek preverite v Slovenskem rodoslovnem indeksu
+  ali Slovenski biografiji in vir zapišite v glavo recepta.
+- **Postopek:** najprej `--silent` (brez stroškov govora) in pregled kadrov, nato gradnja
+  z glasom. Spremenjeni stavki se sintetizirajo znova, ostali pridejo iz predpomnilnika.
+- **Čakanje** na spletna iskanja ali dolge preglede ovijte v `d.skippable(...)` — v
+  videu se skrajša.
+- **Selektorji** naj bodo razredi CSS ali `data-*`, ne besedila; kjer je besedilo nujno,
+  uporabite `d.t({ sl, en })`. Gumbi, ki se pokažejo šele pod miško, zahtevajo `hover`.
+- **Izgovorjava** (glas Soniox »Nina«): »GED Merge« → »Džed Merdž«, »GEDCOM« → »gedkom«,
+  »gedmerge.com« po delih (`lib/tts.ts`, `PRONOUNCE`). Ime »Franceta« beri kot
+  »pesnika Franceta Prešerna«; izogibaj se besedam, ki jih glas naglasi narobe
+  (»materi«, »Šumniki«, »Drevo« na začetku stavka).
+- **Slovenščina** v govoru sledi `docs/agents/slovenian-copy.md`; oznake gumbov
+  dobesedno iz `src/locales/sl.ts`, v »…«.
+- **Naslovna slika:** vse besedilo vodoravno; `d.snapshot()` v koraku, ki najbolje
+  pokaže funkcijo.
+- **Napake v aplikaciji**, ki jih najdete med snemanjem, popravite v ločenem PR-ju (kot
+  #124 za ime hrambe pri Matriculi).
 
 ## Skupno vsem videom
 
@@ -83,7 +129,18 @@ posnetek osebe z dodanim dogodkom.
 
 ---
 
-## 3. Viri: Matricula, Geneanet in Slovenska biografija
+## 3. Nastavitve prikaza
+
+**Cilj:** prilagoditi prikaz, da je še bolj uporaben: izhodiščna oseba (France),
+sorodstvo in poudarjeni predniki in potomci, starosti, datumi z besedami in nato
+slovenski zapis, poročni priimek (prikaz in samodejni zapis ob partnerju), avtor
+datoteke, jezik in temna tema. Izvedba in govor: `scripts/settings.ts`.
+**Podatki:** `preseren-hawlina-porocni.ged`; druga žena Janeza Prešerna, Marija Triplat,
+iz drevesa Odar.
+
+---
+
+## 4. Viri: Matricula, Geneanet in Slovenska biografija
 
 **Cilj:** dodati vir k dogodku s prilepljeno povezavo (Matricula krst, smrt, poroka),
 grob z Geneaneta, in vir na osebi (geslo v Slovenski biografiji).
@@ -114,7 +171,7 @@ Franceta Prešerna v Slovenski biografiji (https://www.slovenska-biografija.si/o
 
 ---
 
-## 4. Diagrami
+## 5. Diagrami
 
 **Cilj:** pokazati vseh sedem vrst diagramov in kdaj kateri pride prav.
 **Podatki:** `preseren-hawlina.ged` za drevo in pahljačo; za sodobnike in časovnico
@@ -139,7 +196,7 @@ pahljače z barvami po kraju rojstva.
 
 ---
 
-## 5. Kraji in geokodiranje
+## 6. Kraji in geokodiranje
 
 **Cilj:** urediti kraje (poenotiti zapis, združiti dva zapisa istega kraja), dodati
 kraju koordinate, poiskati nov kraj v imeniku pri vnosu.
@@ -165,7 +222,7 @@ geokodiranja z zelenimi vrsticami.
 
 ---
 
-## 6. Zemljevidi: nastavitve, zgodovinski sloji in izvoz
+## 7. Zemljevidi: nastavitve, zgodovinski sloji in izvoz
 
 **Cilj:** zemljevid dogodkov, poti, meje v izbranem letu, zgodovinske karte (franciscejski
 kataster, Spezialkarte), vzporedni pogled in izvoz.
@@ -189,7 +246,7 @@ vzporednega pogleda (franciscejski kataster | današnji zemljevid).
 
 ---
 
-## 7. Združevanje: dopolnite drevo iz druge datoteke
+## 8. Združevanje: dopolnite drevo iz druge datoteke
 
 **Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke.
 **Podatki:** glavna `preseren-hawlina.ged` (rodovnik Petra Hawline), vhodna
@@ -217,7 +274,7 @@ posnetek primerjave z izbiro G/V/O.
 
 ---
 
-## 8. Statistika: vaše drevo v številkah
+## 9. Statistika: vaše drevo v številkah
 
 **Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov in
 virov, rodovi, ponovljeni predniki (implex), najbližje slepe ulice.
@@ -244,7 +301,7 @@ posnetek strani »Rodovi« z grafom prednikov po rodovih.
 
 ---
 
-## 9. Pregled: čiščenje podatkov
+## 10. Pregled: čiščenje podatkov
 
 **Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
 popravilo.
@@ -268,7 +325,7 @@ seznama težav s številkami.
 
 ---
 
-## 10. Dvojniki: združevanje podvojenih oseb
+## 11. Dvojniki: združevanje podvojenih oseb
 
 **Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, vključno s
 podvojenimi starši; zavrniti napačen par.
@@ -292,7 +349,7 @@ dvojnikov drug ob drugem.
 
 ---
 
-## 11. Možnosti diagramov, izvoz in zasebnost
+## 12. Možnosti diagramov, izvoz in zasebnost
 
 **Cilj:** prilagoditi diagram (rodovi, podatki na osebi, barve), ga izvoziti (SVG, PDF
 na več listov, GEDCOM samo z narisanimi osebami) in pripraviti datoteko za deljenje brez
@@ -319,12 +376,7 @@ barvami in menija Izvoz.
 
 ## Odprta vprašanja
 
-1. **Videi 8, 9, 10 (in 4, 6, 11):** vaše anonimizirano drevo bi bilo veliko boljše od
-   25 oseb rodbine Prešeren. Ko ga pripravite, ga položite kot `/home/lure/*.ged`.
-   Ima tudi resnične napake in dvojnike za videa 9 in 10?
-2. **Če vašega drevesa za videa 9 in 10 ne bo:** smem v kopijo Prešernovega drevesa
-   namerno vnesti napake in dvojnika? V videu bi to povedali.
-3. **Video 2:** Prešernove sorojence in Vovke vzamem iz Slovenske biografije (rodbina
-   Prešeren). V redu?
-4. **Vrstni red objave:** predlagam 1 → 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10 → 11
-   (Združevanje je glavna posebnost programa, zato zgodaj).
+1. **Epizode 9, 10, 11 (in 7, 12):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
+   rodbine Prešeren, zlasti za statistiko, pregled in dvojnike.
+2. **Brez takega drevesa za epizodi 10 in 11:** v kopijo Prešernovega drevesa smemo
+   namerno vnesti napake in dvojnika le z dovoljenjem, in v videu to povemo.
