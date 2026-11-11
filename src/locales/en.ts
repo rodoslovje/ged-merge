@@ -88,6 +88,7 @@ export const en = {
   "stats.samePlace": "Same place",
   "stats.countryMoves": "Moves between countries",
   "stats.noDistances": "Distances need birth and death places with coordinates; geocode the places in Tools → Places.",
+  "stats.lineageOf": "Ancestors and descendants of",
   "stats.lineagePick": "Choose the person whose generations to count.",
   "stats.distinctAncestors": "Ancestors",
   "stats.generationsDeep": "Generations of ancestors",

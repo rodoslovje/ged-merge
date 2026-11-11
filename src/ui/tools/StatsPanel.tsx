@@ -389,7 +389,7 @@ export function StatsPanel({
     const name = person ? nameOf(person) : "";
     const parts: string[] = [];
     if (page === "generations") {
-      if (name) parts.push(name);
+      if (name) parts.push(`${t("stats.lineageOf")} ${name}`);
     } else {
       if (lined) parts.push(name ? `${t(`stats.who.${scope.who}`)}: ${name}` : t(`stats.who.${scope.who}`));
       if (scope.sex !== "all") parts.push(t(`stats.sex.${scope.sex}`));
@@ -616,6 +616,8 @@ export function StatsPanel({
         {/* The line and whose line it is stay side by side; the count and the
             filter toggle wrap away first. */}
         <div className="stats-line">
+          {/* In place of the line's choice, the page says whose people it counts. */}
+          {personal && <span className="stats-line-fixed">{t("stats.lineageOf")}</span>}
           {!personal && (
           <Segmented
             label={t("stats.who")}
