@@ -1105,6 +1105,19 @@ describe("detectPlaceLayout", () => {
     );
   });
 
+  it("detects structured PLAC + ADDR when only a few places have a house", () => {
+    // Geocoded place by place: forty places, three house numbers — all in ADDR.
+    const placs = [
+      ...Array.from({ length: 30 }, () => "Vrba, Žirovnica, Slovenija"),
+      ...Array.from({ length: 10 }, () => "Kranj, Kranj, Slovenija"),
+    ];
+    expect(detectPlaceLayout(placs, 3)).toBe("structured-addr");
+    // A house number written into the places themselves is another convention.
+    expect(detectPlaceLayout([...placs, "Vrba 1", "Vrba 7"], 3)).toBe("plain-structured");
+    // One ADDR line is no convention yet.
+    expect(detectPlaceLayout(placs, 1)).toBe("plain-structured");
+  });
+
   it("detects a plain comma hierarchy with no embedded addresses", () => {
     expect(detectPlaceLayout(["Kranj, Slovenia", "Bled, Slovenia"], 0)).toBe(
       "plain-structured",
