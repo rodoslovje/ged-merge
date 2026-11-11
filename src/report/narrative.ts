@@ -178,11 +178,13 @@ export function planEntry(
     // union with no marriage record) before the first wedding doesn't make
     // that wedding a remarriage. A previous spouse who died
     // before this (dated) wedding makes it a widower's/widow's remarriage,
-    // unless that marriage had already ended in a divorce.
+    // unless that marriage had already ended in a divorce or annulment (a
+    // separation leaves the marriage standing until the death).
     const again = prevMarriage !== undefined;
     const late = !m.unmarried && !!m.parsed && !!m.firstChildBorn && isBefore(m.firstChildBorn, m.parsed);
+    const dissolved = !!prevMarriage?.ended && prevMarriage.ended.tag !== "SEPA";
     const widowed =
-      again && !m.unmarried && !!m.parsed && !prevMarriage!.ended &&
+      again && !m.unmarried && !!m.parsed && !dissolved &&
       !!prevMarriage!.spouseDied && isBefore(prevMarriage!.spouseDied, m.parsed);
     const stmts: Omit<Statement, "subject">[] = [
       {

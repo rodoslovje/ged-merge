@@ -528,6 +528,19 @@ describe("union wording rules", () => {
     expect(sl).not.toContain("Znova");
   });
 
+  it("tells a separation after the union's children, the marriage standing until the death", () => {
+    const f1 = "1 MARR\n2 DATE 1866\n1 SEPA\n2 DATE 1880\n";
+    const sl = story(f1, "1 MARR\n2 DATE 1894\n", "sl");
+    expect(sl).toContain(
+      "Imela sta enega otroka: Ana Novak. Razšla sta se leta 1880. Ovdovel je leta 1890 in se znova poročil leta 1894;",
+    );
+    expect(story(f1, "", "en")).toContain("They had one child: Ana Novak. They separated in 1880.");
+    // Partners with no marriage record separate too.
+    expect(story("1 SEPA\n", "", "sl")).toContain(
+      "Njegova partnerka je bila Marija Oblak (1846–1890). Imela sta enega otroka: Ana Novak. Razšla sta se.",
+    );
+  });
+
   it("tells a divorce after the union's children, and no widowhood after it", () => {
     const f1 = "1 MARR\n2 DATE 1866\n1 DIV\n2 DATE 1880\n";
     const f2 = "1 MARR\n2 DATE 1894\n";

@@ -75,8 +75,9 @@ export interface FactLine {
   /** Union lines: the partner's death date — a later marriage after it is a
    *  widower's / widow's remarriage. */
   spouseDied?: GedDate;
-  /** Union lines: the divorce (`DIV`) or annulment (`ANUL`) that ended the
-   *  marriage, as its own fact (date and place when recorded). */
+  /** Union lines: the divorce (`DIV`), annulment (`ANUL`) or separation
+   *  (`SEPA`) that ended the couple's life together, as its own fact (date
+   *  and place when recorded). */
   ended?: FactLine;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
@@ -393,7 +394,9 @@ export function marriageFact(
   };
   const fact = marr ? withNote(base, marr, opts) : base;
   if (opts.age && ds && marr) fact.ages = coupleAges(fam, ds, marr.date, marr);
-  const end = fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL");
+  // A divorce or annulment wins over a separation recorded beside it.
+  const end =
+    fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL") ?? fam.events.find((e) => e.tag === "SEPA");
   if (end) {
     fact.ended = {
       tag: end.tag,

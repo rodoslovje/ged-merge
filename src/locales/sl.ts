@@ -2732,6 +2732,8 @@ export const sl = {
   // Konec zakona, za otroki te zveze.
   "narrative.divorced": "Ločila sta se {{tail}}.",
   "narrative.annulled": "Zakon je bil razveljavljen {{tail}}.",
+  // Ločeno življenje (SEPA): velja za zakonca in za partnerja.
+  "narrative.separated": "Razšla sta se {{tail}}.",
   "narrative.marriedNoSpouse": "{{subject}} se je poročil/-a {{tail}}.",
   "narrative.marriedNoSpouse_M": "{{subject}} se je poročil {{tail}}.",
   "narrative.marriedNoSpouse_F": "{{subject}} se je poročila {{tail}}.",

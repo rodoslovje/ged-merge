@@ -2380,6 +2380,8 @@ export const en = {
   // The end of the marriage, after the union's children.
   "narrative.divorced": "They divorced {{tail}}.",
   "narrative.annulled": "The marriage was annulled {{tail}}.",
+  // A separation (SEPA) — married couple or partners alike.
+  "narrative.separated": "They separated {{tail}}.",
   "narrative.marriedNoSpouse": "{{subject}} married {{tail}}.",
   "narrative.marriedAgainNoSpouse": "{{subject}} married again {{tail}}.",
   // The partner's parents, right after the marriage that names them. The

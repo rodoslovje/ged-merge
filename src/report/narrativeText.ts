@@ -169,7 +169,7 @@ function keyOf(stmt: Statement): string {
       return tensed(stmt.again ? "marriedAgain" : "married");
     }
     case "divorced":
-      return stmt.fact?.tag === "ANUL" ? "annulled" : "divorced";
+      return stmt.fact?.tag === "ANUL" ? "annulled" : stmt.fact?.tag === "SEPA" ? "separated" : "divorced";
     case "spouseOrigin":
       // Which parents are named picks the sentence; `living` is the named
       // parents' tense here (the planner set it), not the couple's.
