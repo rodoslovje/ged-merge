@@ -1,24 +1,26 @@
 /**
  * Narration audio, one clip per step.
  *
- * With `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` set, each line is spoken by
- * an Azure neural voice. Without them every clip is silence of the length the
- * line would take to read aloud, so a draft video can be built and timed before
- * a key exists (`make.ts` then burns the narration in as subtitles).
+ * The voice comes from the first provider with a key (read from the
+ * environment or from videos/.env — see make.ts):
  *
- * Clips are cached by a hash of voice + text, so a rebuild after an unrelated
- * edit costs no new synthesis.
+ * - ElevenLabs: `ELEVENLABS_API_KEY`; voices `ELEVENLABS_VOICE_SL` /
+ *   `ELEVENLABS_VOICE_EN` (`node videos/make.ts --voices` lists yours), model
+ *   `ELEVENLABS_MODEL` (default `eleven_v3`, which speaks Slovenian;
+ *   `eleven_multilingual_v2` does not).
+ * - Azure: `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION`; voices `VIDEO_VOICE_SL` /
+ *   `VIDEO_VOICE_EN` (default `sl-SI-PetraNeural`, `en-US-AvaNeural`).
+ * - Neither: every clip is silence as long as the line takes to read aloud, so
+ *   a draft can be timed before a key exists (make.ts then burns in subtitles).
+ *
+ * Clips are cached by a hash of provider + voice + text, so a rebuild after an
+ * unrelated edit synthesises nothing new.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import type { Lang } from "./types.ts";
-
-const VOICES: Record<Lang, string> = {
-  sl: process.env.VIDEO_VOICE_SL ?? "sl-SI-PetraNeural",
-  en: process.env.VIDEO_VOICE_EN ?? "en-US-AvaNeural",
-};
 
 /**
  * How the voice should say words it would otherwise read letter by letter or in
@@ -46,12 +48,78 @@ export interface Clip {
   placeholder: boolean;
 }
 
-export function ttsAvailable(): boolean {
-  return Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION);
+interface Provider {
+  /** Identifies the voice in the cache key. */
+  id: string;
+  synthesize(text: string): Promise<Buffer>;
 }
 
-function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function elevenLabs(lang: Lang): Provider | null {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) return null;
+  const voice = lang === "sl" ? process.env.ELEVENLABS_VOICE_SL : process.env.ELEVENLABS_VOICE_EN;
+  if (!voice) throw new Error(`Set ELEVENLABS_VOICE_${lang.toUpperCase()} (node videos/make.ts --voices lists your voices).`);
+  const model = process.env.ELEVENLABS_MODEL ?? "eleven_v3";
+  return {
+    id: `elevenlabs:${model}:${voice}`,
+    async synthesize(text) {
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
+        method: "POST",
+        headers: { "xi-api-key": key, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          model_id: model,
+          voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+        }),
+      });
+      if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
+      return Buffer.from(await res.arrayBuffer());
+    },
+  };
+}
+
+function azure(lang: Lang): Provider | null {
+  const key = process.env.AZURE_SPEECH_KEY;
+  const region = process.env.AZURE_SPEECH_REGION;
+  if (!key || !region) return null;
+  const voice = lang === "sl" ? (process.env.VIDEO_VOICE_SL ?? "sl-SI-PetraNeural") : (process.env.VIDEO_VOICE_EN ?? "en-US-AvaNeural");
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return {
+    id: `azure:${voice}`,
+    async synthesize(text) {
+      const ssml = `<speak version="1.0" xml:lang="${voice.slice(0, 5)}"><voice name="${voice}"><prosody rate="-4%">${esc(text)}</prosody></voice></speak>`;
+      const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+        method: "POST",
+        headers: {
+          "Ocp-Apim-Subscription-Key": key,
+          "Content-Type": "application/ssml+xml",
+          "X-Microsoft-OutputFormat": "audio-48khz-192kbitrate-mono-mp3",
+          "User-Agent": "ged-merge-videos",
+        },
+        body: ssml,
+      });
+      if (!res.ok) throw new Error(`Azure TTS ${res.status}: ${await res.text()}`);
+      return Buffer.from(await res.arrayBuffer());
+    },
+  };
+}
+
+function provider(lang: Lang): Provider | null {
+  return elevenLabs(lang) ?? azure(lang);
+}
+
+export function ttsAvailable(): boolean {
+  return Boolean(process.env.ELEVENLABS_API_KEY || (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION));
+}
+
+/** Print the ElevenLabs voices on this account (for ELEVENLABS_VOICE_*). */
+export async function listVoices(): Promise<void> {
+  const key = process.env.ELEVENLABS_API_KEY;
+  if (!key) throw new Error("ELEVENLABS_API_KEY is not set.");
+  const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
+  if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
+  const { voices } = (await res.json()) as { voices: { voice_id: string; name: string; labels?: Record<string, string> }[] };
+  for (const v of voices) console.log(`${v.voice_id}  ${v.name}  ${Object.values(v.labels ?? {}).join(", ")}`);
 }
 
 export function probeDuration(file: string): number {
@@ -67,36 +135,20 @@ function estimateSeconds(text: string): number {
 
 export async function narrate(text: string, lang: Lang, cacheDir: string): Promise<Clip> {
   mkdirSync(cacheDir, { recursive: true });
-  const live = ttsAvailable();
-  const voice = VOICES[lang];
+  const p = provider(lang);
   let spoken = text;
   for (const [re, to] of PRONOUNCE[lang]) spoken = spoken.replace(re, to);
-  const key = createHash("sha1").update(`${live ? voice : "silence"}\n${spoken}`).digest("hex").slice(0, 16);
+  const key = createHash("sha1").update(`${p?.id ?? "silence"}\n${spoken}`).digest("hex").slice(0, 16);
   const file = path.join(cacheDir, `${lang}-${key}.mp3`);
 
   if (!existsSync(file)) {
-    if (live) {
-      const ssml =
-        `<speak version="1.0" xml:lang="${voice.slice(0, 5)}"><voice name="${voice}">` +
-        `<prosody rate="-4%">${escapeXml(spoken)}</prosody></voice></speak>`;
-      const res = await fetch(`https://${process.env.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`, {
-        method: "POST",
-        headers: {
-          "Ocp-Apim-Subscription-Key": process.env.AZURE_SPEECH_KEY!,
-          "Content-Type": "application/ssml+xml",
-          "X-Microsoft-OutputFormat": "audio-48khz-192kbitrate-mono-mp3",
-          "User-Agent": "ged-merge-videos",
-        },
-        body: ssml,
-      });
-      if (!res.ok) throw new Error(`Azure TTS ${res.status}: ${await res.text()}`);
-      writeFileSync(file, Buffer.from(await res.arrayBuffer()));
-    } else {
+    if (p) writeFileSync(file, await p.synthesize(spoken));
+    else {
       execFileSync("ffmpeg", [
         "-v", "error", "-y", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono",
         "-t", estimateSeconds(text).toFixed(2), "-c:a", "libmp3lame", "-b:a", "64k", file,
       ]);
     }
   }
-  return { file, duration: probeDuration(file), placeholder: !live };
+  return { file, duration: probeDuration(file), placeholder: !p };
 }

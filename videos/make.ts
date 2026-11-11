@@ -13,7 +13,7 @@
  * and stopped again at the end.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -21,7 +21,7 @@ import { assemble, type Cue } from "./lib/assemble.ts";
 import { Director, Recorder, sleep } from "./lib/director.ts";
 import { installOverlay } from "./lib/overlay.ts";
 import { renderThumbnail } from "./lib/thumbnail.ts";
-import { narrate, ttsAvailable } from "./lib/tts.ts";
+import { listVoices, narrate, ttsAvailable } from "./lib/tts.ts";
 import type { Lang, Scenario } from "./lib/types.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -122,15 +122,24 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
   return output;
 }
 
+// API keys and voice choices live in videos/.env (git-ignored), so they need
+// not be exported in every shell. Variables already set in the environment win.
+const ENV_FILE = path.join(HERE, ".env");
+if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+
 const args = process.argv.slice(2);
+if (args.includes("--voices")) {
+  await listVoices();
+  process.exit(0);
+}
 const id = args.find((a) => !a.startsWith("--") && a !== "sl" && a !== "en");
 if (!id) {
-  console.error("Usage: node videos/make.ts <scenario> [sl|en ...] [--subs]");
+  console.error("Usage: node videos/make.ts <scenario> [sl|en ...] [--subs]   |   node videos/make.ts --voices");
   process.exit(1);
 }
 const langs = args.filter((a): a is Lang => a === "sl" || a === "en");
 const scenario = ((await import(`./scripts/${id}.ts`)) as { default: Scenario }).default;
-if (!ttsAvailable()) console.warn("AZURE_SPEECH_KEY / AZURE_SPEECH_REGION not set: narration is silent, subtitles are burned in.");
+if (!ttsAvailable()) console.warn("No TTS key (ELEVENLABS_API_KEY or AZURE_SPEECH_KEY): narration is silent, subtitles are burned in.");
 const burn = args.includes("--subs") || !ttsAvailable();
 
 const server = await devServer();

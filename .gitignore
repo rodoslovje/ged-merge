@@ -19,3 +19,4 @@ dev.log
 # Tutorial video builds (videos/make.ts) and their narration cache
 /videos/out/
 /videos/.cache/
+/videos/.env
