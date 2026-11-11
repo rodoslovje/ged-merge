@@ -28,6 +28,8 @@ import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
 import { lineageClass } from "../match/kinship";
+import { tipProps } from "./IconTip";
+import { InfoIcon } from "./icons/InfoIcon";
 import { anyMediaDialogSuppressed, resetMediaDialogs } from "./mediaPrefs";
 import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
@@ -590,12 +592,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           <section className="settings-section">
             <h3>{t("settings.editing.title")}</h3>
-            <label className="settings-row settings-format-row">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.editing.authorName")}</span>
-                <span className="settings-hint">{t("settings.editing.authorName.hint")}</span>
+            {/* `htmlFor`: the info button inside the label would otherwise be
+                the control the label names. */}
+            <label className="settings-row settings-format-row" htmlFor="settings-author-name">
+              <span className="settings-row-label">
+                {t("settings.editing.authorName")}
+                <button type="button" className="stats-info settings-info" {...tipProps(t("settings.editing.authorName.hint"), { heading: t("settings.editing.authorName") })}>
+                  <InfoIcon size={14} />
+                </button>
               </span>
               <input
+                id="settings-author-name"
+                aria-label={t("settings.editing.authorName")}
                 type="text"
                 className="settings-text-input"
                 value={settings.authorName}

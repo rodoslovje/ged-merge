@@ -9399,6 +9399,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-info[aria-pressed="true"] { color: var(--accent); }
 .stats-info { display: inline-flex; padding: 2px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
 .stats-info:hover, .stats-info:focus-visible { color: var(--accent); }
+/* Beside a Settings row's label, holding the long explanation. */
+.settings-info { vertical-align: -2px; margin-left: 6px; }
 .stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
 .stats-start { flex: 0 1 280px; min-width: 180px; }
 /* A person of the statistics' own, not the app's start person: the house is the way back. */
