@@ -56,15 +56,25 @@ export function targetFileKey(fileName: string): string {
 /** At most this many files' choices are remembered; the oldest go first. */
 export const MAX_REMEMBERED_TARGETS = 200;
 
-/** `map` with `key` set to `mode`, moved to the end (newest) and capped. */
-export function rememberTarget(
-  map: Readonly<Record<string, TargetMode>>,
+/** `map` with `key` set to `value`, moved to the end (newest) and capped —
+ *  `undefined` forgets the key. Any per-file choice remembered by
+ *  `targetFileKey` (target format, start person) is kept this way. */
+export function rememberTarget<V>(
+  map: Readonly<Record<string, V>>,
   key: string,
-  mode: TargetMode,
-): Record<string, TargetMode> {
+  value: V | undefined,
+): Record<string, V> {
   const entries = Object.entries(map).filter(([k]) => k !== key);
-  entries.push([key, mode]);
+  if (value !== undefined) entries.push([key, value]);
   return Object.fromEntries(entries.slice(-MAX_REMEMBERED_TARGETS));
+}
+
+/** A stored per-file start-person map, keeping only string → string entries. */
+export function sanitizeStartPersons(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) if (k && typeof v === "string" && v) out[k] = v;
+  return Object.fromEntries(Object.entries(out).slice(-MAX_REMEMBERED_TARGETS));
 }
 
 export function sanitizeTargetFormats(raw: unknown): Record<string, TargetMode> {
