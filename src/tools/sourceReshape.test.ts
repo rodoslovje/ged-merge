@@ -22,6 +22,7 @@ import {
   resetBookQueue,
   narrowFsRegister,
   proposedSiteRepo,
+  fetchedSiteRepo,
   splitFsRegisters,
   parseFamilySearchArkJson,
   parsePastedFsCitation,
@@ -3750,5 +3751,37 @@ describe("siteQuay — the quality a recognized link proposes for its citation",
     // Sites that publish no evidence of their own leave the reader to judge.
     expect(siteQuay("wikipedia", "https://sl.wikipedia.org/wiki/Ljubljana")).toBeUndefined();
     expect(siteQuay("other", "https://example.com/page")).toBeUndefined();
+  });
+});
+
+describe("fetchedSiteRepo — the repository once the page lookup has answered", () => {
+  const URL = "https://data.matricula-online.eu/sl/slovenia/ljubljana/breznica/00164/?pg=86";
+  const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
+
+  it("names a new Matricula repository after the archive the lookup read, not the link's path segment", () => {
+    expect(proposedSiteRepo(empty.records, "matricula", URL, "Ljubljana")).toEqual({ createName: "Ljubljana" });
+    expect(fetchedSiteRepo(empty.records, "matricula", URL, { agency: "Ljubljana" }, { agency: "Nadškofijski arhiv Ljubljana" }))
+      .toEqual({ createName: "Nadškofijski arhiv Ljubljana" });
+  });
+
+  it("proposes nothing until the lookup has answered, and keeps the link's agency when it names none", () => {
+    expect(fetchedSiteRepo(empty.records, "matricula", URL, { agency: "Ljubljana" }, undefined)).toBeUndefined();
+    expect(fetchedSiteRepo(empty.records, "matricula", URL, { agency: "Ljubljana" }, {})).toBeUndefined();
+    expect(fetchedSiteRepo(empty.records, "matricula", URL, { agency: "Ljubljana" }, { place: "Breznica" }))
+      .toEqual({ createName: "Ljubljana" });
+  });
+
+  it("reuses the archive's repository the file already keeps", () => {
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME Nadškofijski arhiv Ljubljana",
+      "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/",
+      "0 TRLR",
+    ].join("\n"));
+    expect(fetchedSiteRepo(ds.records, "matricula", URL, { agency: "Ljubljana" }, { agency: "Nadškofijski arhiv Ljubljana" }))
+      .toEqual({ xref: "@R1@" });
   });
 });
