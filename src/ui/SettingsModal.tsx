@@ -611,11 +611,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             </label>
             <label className="settings-row settings-format-row">
               <span className="settings-row-label">{t("settings.editing.authorEmail")}</span>
+              {/* Not `type="email"` / `autocomplete="email"`: password
+                  managers read those as a login's username field and offer
+                  stored accounts. A plain field, e-mail keyboard on phones. */}
               <input
-                type="email"
+                type="text"
+                inputMode="email"
                 className="settings-text-input"
                 value={settings.authorEmail}
-                autoComplete="email"
+                autoComplete="off"
+                data-1p-ignore=""
+                data-lpignore="true"
+                data-bwignore=""
+                data-form-type="other"
                 maxLength={MAX_AUTHOR_NAME}
                 onChange={(e) => set({ authorEmail: e.target.value })}
               />
