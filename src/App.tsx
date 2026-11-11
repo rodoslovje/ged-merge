@@ -155,7 +155,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "startPersons", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -922,7 +922,27 @@ function AppContent() {
   function changeStart(id: string | undefined) {
     dispatch({ type: "setStart", id });
     post({ type: "setStart", id: id ?? "" });
+    // Cleared by the reader: the file forgets its start person, so the next
+    // opening offers the default again. (A set one is remembered below.)
+    if (!id && targetKey && startPersonsRef.current[targetKey]) {
+      setSettings({ startPersons: rememberTarget<string>(startPersonsRef.current, targetKey, undefined) });
+    }
   }
+
+  // The start person this file was last opened with, while it still exists.
+  const startPersonsRef = useRef(settings.startPersons);
+  startPersonsRef.current = settings.startPersons;
+  function rememberedStart(ds: Dataset, fileName: string): string | undefined {
+    const id = startPersonsRef.current[targetFileKey(fileName)];
+    return id && ds.individuals.has(id) ? id : undefined;
+  }
+
+  // Each start person the file gets is remembered for it, by file name.
+  useEffect(() => {
+    if (main.status !== "loaded" || !targetKey || !startId) return;
+    if (startPersonsRef.current[targetKey] === startId) return;
+    setSettings({ startPersons: rememberTarget(startPersonsRef.current, targetKey, startId) });
+  }, [main.status, targetKey, startId, setSettings]);
 
   // Capture the set of IDs that exist at load time so we can later distinguish
   // "modified existing" from "newly added" when reverting via Remove from save.
@@ -986,7 +1006,7 @@ function AppContent() {
     autoStartRef.current = true;
     if (startId) return;
     // A file of one is that one person — no point asking.
-    const start = defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
+    const start = rememberedStart(ds, main.file.fileName) ?? defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
     // With no evident root the start person stays unset: Edit's kinship chip
     // offers "Set start person" on every person until one is chosen.
     if (start) changeStart(start);
@@ -999,8 +1019,9 @@ function AppContent() {
     if (!matches || autoStartRef.current) return;
     autoStartRef.current = true;
     if (startId) return;
-    const ds = main.status === "loaded" ? main.file.dataset : undefined;
-    const start = ds ? defaultStartId(ds) : undefined;
+    const start = main.status === "loaded"
+      ? rememberedStart(main.file.dataset, main.file.fileName) ?? defaultStartId(main.file.dataset)
+      : undefined;
     if (start) changeStart(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
