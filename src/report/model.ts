@@ -11,7 +11,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import { ageWholeYears, parseAge } from "../gedcom/ageValue";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS } from "../gedcom/eventTags";
+import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
 import { unionMark, unionMarriage } from "../gedcom/union";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */
@@ -372,13 +372,17 @@ export function marriageFact(
 ): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!(marr && dated(marr)) && !spouse) return undefined;
+  const status = unionMarriage(fam);
+  const mark = unionMark(fam);
   const base: FactLine = {
     tag: "MARR",
     // The couple's mark as the file records it: ⚭, ⚯ unmarried, ⚮ divorced,
-    // ⚬⚬ separated — the same mark Edit shows for the union.
-    glyph: unionMark(fam).glyph,
-    ...(unionMarriage(fam) === "unmarried" ? { unmarried: true } : null),
-    ...(unionMarriage(fam) === "unknown" ? { unrecorded: true } : null),
+    // ⚬⚬ separated. Unlike Edit, the report gives ⚭ only to a recorded
+    // marriage: a union with no record either way is a partnership here too,
+    // as its narrative sentence names a partner, not a spouse.
+    glyph: status === "unknown" && !mark.ended ? UNMARRIED_UNION_GLYPH : mark.glyph,
+    ...(status === "unmarried" ? { unmarried: true } : null),
+    ...(status === "unknown" ? { unrecorded: true } : null),
     date: marr?.date && dateText(marr.date),
     parsed: marr?.date,
     place: marr ? factPlace(marr) : undefined,
