@@ -492,10 +492,33 @@ describe("union wording rules", () => {
       "Njegova partnerka in pozneje žena je bila Marija Oblak (1846–1890); poročila sta se šele 12. maja 1868.",
     );
     expect(story(f1, "", "en")).toContain(
-      "He and Marija Oblak (1846–1890) had their first child before they married on 12 May 1868.",
+      "He married Marija Oblak (1846–1890) on 12 May 1868; their first child was born before the wedding.",
     );
     // Same year, month unknown on one side: not certainly before.
     expect(story("1 MARR\n2 DATE 4 FEB 1867\n", "", "sl")).not.toContain("šele");
+    // A bounded wedding counts by its edge; an approximate one never does.
+    expect(story("1 MARR\n2 DATE AFT 1867\n", "", "sl")).toContain("poročila sta se šele po letu 1867.");
+    expect(story("1 MARR\n2 DATE ABT 1870\n", "", "sl")).toContain(
+      "Njegova žena je bila Marija Oblak (1846–1890); poročila sta se okoli leta 1870.",
+    );
+  });
+
+  it("calls the partner of a union with no marriage record a partner, never a wife", () => {
+    const sl = story("", "", "sl");
+    expect(sl).toContain("Njegova partnerka je bila Marija Oblak (1846–1890). Imela sta enega otroka: Ana Novak.");
+    // The second partner opens with "later", and neither union is a marriage.
+    expect(sl).toContain("Pozneje je bila njegova partnerka Neza Kos (1860–1930).");
+    expect(sl).not.toMatch(/žena|poroč|Znova/);
+    expect(story("", "", "en")).toContain("He had a partner, Marija Oblak (1846–1890).");
+    // A marriage recorded without a date (MARR Y) still has a wife.
+    expect(story("1 MARR Y\n", "", "sl")).toContain("Njegova žena je bila Marija Oblak");
+  });
+
+  it("tells a remarriage after a bounded wedding date by its edge", () => {
+    // Marija died in 1890: AFT 1891 is certainly later, BEF 1894 is not.
+    const f1 = "1 MARR\n2 DATE 1866\n";
+    expect(story(f1, "1 MARR\n2 DATE AFT 1891\n", "sl")).toContain("Ovdovel je leta 1890 in se znova poročil po letu 1891;");
+    expect(story(f1, "1 MARR\n2 DATE BEF 1894\n", "sl")).toContain("Znova se je poročil pred letom 1894;");
   });
 
   it("does not call the first wedding after a partnership a remarriage", () => {
@@ -525,8 +548,17 @@ describe("isBefore", () => {
     expect(before("3 FEB 1866", "4 FEB 1866")).toBe(true);
     expect(before("1866", "1866")).toBe(false);
   });
-  it("never counts an approximate or bounded date", () => {
+  it("reads a bound by its one known edge", () => {
+    expect(before("BEF 1866", "1866")).toBe(true); // ends before 1866 starts
+    expect(before("BEF 1866", "1865")).toBe(false);
+    expect(before("1867", "AFT 1867")).toBe(true); // starts after 1867 ends
+    expect(before("AFT 1860", "1866")).toBe(false); // open-ended
+    expect(before("BET 1860 AND 1865", "1866")).toBe(true);
+    expect(before("BET 1860 AND 1866", "1866")).toBe(false);
+  });
+  it("never counts an approximate date", () => {
     expect(before("ABT 1860", "1866")).toBe(false);
-    expect(before("BEF 1860", "1866")).toBe(false);
+    expect(before("1850", "ABT 1866")).toBe(false);
+    expect(before("EST 1860", "1866")).toBe(false);
   });
 });

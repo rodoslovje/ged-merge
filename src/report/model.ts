@@ -65,6 +65,9 @@ export interface FactLine {
   /** The union line of a couple the file records as never married (see
    *  {@link unionMarriage}) — ⚯ in the list, partner wording in the narrative. */
   unmarried?: boolean;
+  /** The union line of a couple the file says nothing about — no MARR, no
+   *  divorce, no status: the narrative names a partner, never a spouse. */
+  unrecorded?: boolean;
   /** Union lines: the earliest birth (or baptism) among the union's children —
    *  it places an undated union in the story and tells a couple who had
    *  children before their wedding. */
@@ -375,6 +378,7 @@ export function marriageFact(
     // ⚬⚬ separated — the same mark Edit shows for the union.
     glyph: unionMark(fam).glyph,
     ...(unionMarriage(fam) === "unmarried" ? { unmarried: true } : null),
+    ...(unionMarriage(fam) === "unknown" ? { unrecorded: true } : null),
     date: marr?.date && dateText(marr.date),
     parsed: marr?.date,
     place: marr ? factPlace(marr) : undefined,

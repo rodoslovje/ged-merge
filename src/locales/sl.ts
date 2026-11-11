@@ -2669,8 +2669,34 @@ export const sl = {
   "narrative.partnerLiving_F": "{{subject}} živi v zunajzakonski zvezi; njen partner je {{spouse}}.",
   "narrative.partnerLiving_Mp": "Njegova partnerka je {{spouse}}.",
   "narrative.partnerLiving_Fp": "Njen partner je {{spouse}}.",
-  // Poroka brez datuma in kraja (MARR Y) ali zveza brez zapisa: zakonec je
-  // imenovan, prazne povedi »poročila sta se« ni.
+  // Zveza brez zapisane poroke in brez statusa: le partner/-ka, ne trdi ne
+  // poroke ne zunajzakonske zveze. Ime za dvopičjem ostane v imenovalniku.
+  "narrative.partnerUnrecorded": "{{subject}} je imel/-a partnerja/-ko: {{spouse}}.",
+  "narrative.partnerUnrecorded_M": "{{subject}} je imel partnerko: {{spouse}}.",
+  "narrative.partnerUnrecorded_F": "{{subject}} je imela partnerja: {{spouse}}.",
+  "narrative.partnerUnrecorded_Mp": "Njegova partnerka je bila {{spouse}}.",
+  "narrative.partnerUnrecorded_Fp": "Njen partner je bil {{spouse}}.",
+  "narrative.partnerUnrecordedLiving": "{{subject}} ima partnerja/-ko: {{spouse}}.",
+  "narrative.partnerUnrecordedLiving_M": "{{subject}} ima partnerko: {{spouse}}.",
+  "narrative.partnerUnrecordedLiving_F": "{{subject}} ima partnerja: {{spouse}}.",
+  "narrative.partnerUnrecordedLiving_Mp": "Njegova partnerka je {{spouse}}.",
+  "narrative.partnerUnrecordedLiving_Fp": "Njen partner je {{spouse}}.",
+  // Partner/-ka po kateri koli prejšnji zvezi: »Pozneje …«, da se zaporedni
+  // povedi ne bereta enako.
+  "narrative.partnerUnrecordedAgain": "{{subject}} je pozneje imel/-a partnerja/-ko: {{spouse}}.",
+  "narrative.partnerUnrecordedAgain_Mp": "Pozneje je bila njegova partnerka {{spouse}}.",
+  "narrative.partnerUnrecordedAgain_Fp": "Pozneje je bil njen partner {{spouse}}.",
+  "narrative.partnerUnrecordedAgainLiving": "{{subject}} ima zdaj partnerja/-ko: {{spouse}}.",
+  "narrative.partnerUnrecordedAgainLiving_Mp": "Zdaj je njegova partnerka {{spouse}}.",
+  "narrative.partnerUnrecordedAgainLiving_Fp": "Zdaj je njen partner {{spouse}}.",
+  "narrative.partnerAgain": "{{subject}} je pozneje živel/-a v zunajzakonski zvezi; partner/-ka: {{spouse}}.",
+  "narrative.partnerAgain_Mp": "Pozneje je živel v zunajzakonski zvezi; njegova partnerka je bila {{spouse}}.",
+  "narrative.partnerAgain_Fp": "Pozneje je živela v zunajzakonski zvezi; njen partner je bil {{spouse}}.",
+  "narrative.partnerAgainLiving": "{{subject}} zdaj živi v zunajzakonski zvezi; partner/-ka: {{spouse}}.",
+  "narrative.partnerAgainLiving_Mp": "Zdaj živi v zunajzakonski zvezi; njegova partnerka je {{spouse}}.",
+  "narrative.partnerAgainLiving_Fp": "Zdaj živi v zunajzakonski zvezi; njen partner je {{spouse}}.",
+  // Poroka brez datuma in kraja (MARR Y): zakonec je imenovan, prazne
+  // povedi »poročila sta se« ni.
   "narrative.spouse": "{{subject}} je bil/-a poročen/-a; zakonec: {{spouse}}.",
   "narrative.spouse_M": "{{subject}} je bil poročen; njegova žena je bila {{spouse}}.",
   "narrative.spouse_F": "{{subject}} je bila poročena; njen mož je bil {{spouse}}.",

@@ -153,7 +153,11 @@ function keyOf(stmt: Statement): string {
     case "married": {
       // An unmarried union always names its partner (its line exists only
       // because the partner is known) and has no wedding to date.
-      if (stmt.unmarried && stmt.spouse) return tensed("partner");
+      // A partner after an earlier union opens with "later" ("…Again").
+      const later = (base: string) => tensed(stmt.later ? `${base}Again` : base);
+      if (stmt.unmarried && stmt.spouse) return later("partner");
+      // No marriage record at all: a partner, neither wife nor husband.
+      if (stmt.unrecorded && stmt.spouse) return later("partnerUnrecorded");
       if (!stmt.spouse) return stmt.again ? "marriedAgainNoSpouse" : "marriedNoSpouse";
       // A first marriage with neither date nor place (a bare `MARR Y`, or no
       // record either way) names the spouse without an empty "they married".

@@ -2359,12 +2359,21 @@ export const en = {
   // the partner is named, no wedding is claimed.
   "narrative.partner": "{{subject}} lived in an unmarried union with {{spouse}}.",
   "narrative.partnerLiving": "{{subject}} lives in an unmarried union with {{spouse}}.",
-  // A marriage with neither date nor place (or no record either way).
+  // A union with no marriage record and no status: a partner, no claim either way.
+  "narrative.partnerUnrecorded": "{{subject}} had a partner, {{spouse}}.",
+  "narrative.partnerUnrecordedLiving": "{{subject}} has a partner, {{spouse}}.",
+  // A partner after an earlier union opens with "later", so two in a row
+  // don't read alike.
+  "narrative.partnerUnrecordedAgain": "{{subject}} later had a partner, {{spouse}}.",
+  "narrative.partnerUnrecordedAgainLiving": "{{subject}} later had a partner, {{spouse}}.",
+  "narrative.partnerAgain": "{{subject}} later lived in an unmarried union with {{spouse}}.",
+  "narrative.partnerAgainLiving": "{{subject}} now lives in an unmarried union with {{spouse}}.",
+  // A marriage recorded with neither date nor place (a bare MARR Y).
   "narrative.spouse": "{{subject}} was married to {{spouse}}.",
   "narrative.spouseLiving": "{{subject}} is married to {{spouse}}.",
   // The couple's first child was born before the wedding.
-  "narrative.marriedLate": "{{subject}} and {{spouse}} had their first child before they married {{tail}}.",
-  "narrative.marriedLateLiving": "{{subject}} and {{spouse}} had their first child before they married {{tail}}.",
+  "narrative.marriedLate": "{{subject}} married {{spouse}} {{tail}}; their first child was born before the wedding.",
+  "narrative.marriedLateLiving": "{{subject}} married {{spouse}} {{tail}}; their first child was born before the wedding.",
   // A remarriage after the previous spouse's death ({{tail2}} is the death).
   "narrative.marriedWidowed": "{{subject}} was widowed {{tail2}} and married {{spouse}} {{tail}}.",
   "narrative.marriedWidowedLiving": "{{subject}} was widowed {{tail2}} and married {{spouse}} {{tail}}.",

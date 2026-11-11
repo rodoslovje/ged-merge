@@ -43,6 +43,12 @@ export interface Statement {
   /** Married: the file records the couple as never married — the sentence
    *  names the partner instead of a wedding ("His partner was …"). */
   unmarried?: boolean;
+  /** Married: the file records no marriage and no status for the couple —
+   *  the sentence names a partner without saying whether they married. */
+  unrecorded?: boolean;
+  /** Married: any earlier union was told before this one (married or not) —
+   *  a partner sentence then opens with "later". */
+  later?: boolean;
   /** Married: the couple's first child was born before the dated wedding
    *  ("his partner and later wife …; they married only in …"). */
   late?: boolean;
@@ -163,13 +169,14 @@ export function planEntry(
     })
     .sort((a, b) => (a.key ?? Infinity) - (b.key ?? Infinity));
   let prevMarriage: FactLine | undefined;
-  for (const { m, key } of unions) {
+  unions.forEach(({ m, key }, index) => {
     const bothLiving = entry.living && m.spouseLiving === true;
     // The partner's lifespan joins their name (like the register's ⚭ line);
     // a living partner keeps the name but loses the years under privacy.
     const years = m.spouseYears && !(priv && m.spouseLiving) ? ` (${m.spouseYears})` : "";
-    // "Again" counts marriages only — a partnership before the first wedding
-    // doesn't make that wedding a remarriage. A previous spouse who died
+    // "Again" counts marriages only — a partnership (recorded as such, or a
+    // union with no marriage record) before the first wedding doesn't make
+    // that wedding a remarriage. A previous spouse who died
     // before this (dated) wedding makes it a widower's/widow's remarriage,
     // unless that marriage had already ended in a divorce.
     const again = prevMarriage !== undefined;
@@ -185,12 +192,14 @@ export function planEntry(
         spouse: m.spouse && `${m.spouse}${years}`,
         again,
         unmarried: m.unmarried,
+        unrecorded: m.unrecorded,
+        later: index > 0,
         late,
         widowed,
         living: bothLiving,
       },
     ];
-    if (!m.unmarried) prevMarriage = m;
+    if (!m.unmarried && !m.unrecorded) prevMarriage = m;
     // The partner's parents, told right after the marriage that names them; a
     // living parent's name stays out under privacy. `living` carries the named
     // parents' tense (present only when all of them are presumed living).
@@ -207,7 +216,7 @@ export function planEntry(
     }
     if (m.ended) stmts.push({ kind: "divorced", fact: m.ended });
     blocks.push({ key, stmts });
-  }
+  });
   // Children of unions without a ⚭ fact (no partner and no dated marriage):
   // single-parent wording, undated — they follow the dated run.
   for (const group of groups) {
@@ -239,19 +248,39 @@ function gedDateKey(d: GedDate): number | undefined {
 }
 
 /**
- * Whether `a` is certainly earlier than `b`, compared only as precisely as both
- * dates are known: "1866" is not before "4 FEB 1866" (same year, month
- * unknown), "MAR 1865" is. Approximate or bounded dates (ABT, BEF, BET…) never
- * count — the sentence they would trigger states a fact, not a guess.
+ * Whether `a` is certainly earlier than `b`: each date is read as the span of
+ * days it can mean, and `a`'s latest day must fall before `b`'s earliest.
+ * "1866" is not before "4 FEB 1866" (same year, month unknown), "MAR 1865" is;
+ * a bound narrows only one side — "BEF 1866" ends before 1866 starts, "AFT
+ * 1891" starts after 1891 ends, "BET 1860 AND 1865" spans both years. An
+ * approximate date (ABT, EST, CAL) has no edge at all and never counts — the
+ * sentence it would trigger states a fact, not a guess.
  */
 export function isBefore(a: GedDate, b: GedDate): boolean {
-  const firm = (d: GedDate) => (d.qualifier === "exact" || d.qualifier === "interpreted") && !d.placeholder;
-  if (!firm(a) || !firm(b) || a.year === undefined || b.year === undefined) return false;
-  if (a.year !== b.year) return a.year < b.year;
-  if (!a.month || !b.month) return false;
-  if (a.month !== b.month) return a.month < b.month;
-  if (!a.day || !b.day) return false;
-  return a.day < b.day;
+  const ra = dateSpan(a);
+  const rb = dateSpan(b);
+  return !!ra && !!rb && ra[1] < rb[0];
+}
+
+/** The earliest and latest day keys a date can mean, or undefined when it has
+ *  no firm edges (approximate, placeholder, unparsed, open periods). */
+function dateSpan(d: GedDate): [number, number] | undefined {
+  if (d.placeholder || d.year === undefined) return undefined;
+  const lo = (y: number, m?: number, day?: number) => y * 10000 + (m ?? 1) * 100 + (day ?? 1);
+  const hi = (y: number, m?: number, day?: number) => y * 10000 + (m ?? 12) * 100 + (day ?? 31);
+  switch (d.qualifier) {
+    case "exact":
+    case "interpreted":
+      return [lo(d.year, d.month, d.day), hi(d.year, d.month, d.day)];
+    case "before":
+      return [-Infinity, lo(d.year, d.month, d.day) - 1];
+    case "after":
+      return [hi(d.year, d.month, d.day) + 1, Infinity];
+    case "between":
+      return d.year2 === undefined ? undefined : [lo(d.year, d.month, d.day), hi(d.year2, d.month2, d.day2)];
+    default:
+      return undefined;
+  }
 }
 
 /** The opening variant for the i-th of n same-kind statements: the first is
