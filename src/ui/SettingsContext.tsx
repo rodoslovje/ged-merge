@@ -19,7 +19,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
-import { MAX_REMEMBERED_TARGETS, sanitizeTargetFormats, type TargetMode } from "../normalize/target";
+import { MAX_REMEMBERED_TARGETS, sanitizeStartPersons, sanitizeTargetFormats, type TargetMode } from "../normalize/target";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { setDateDisplay } from "../gedcom/dateDisplay";
@@ -164,6 +164,10 @@ export interface AppSettings extends NameDisplayOptions {
   /** The files (by `targetFileKey`) whose "keeps its own format" notice the
    *  reader silenced with Don't show again. */
   targetNoticeHidden: string[];
+  /** Each main file's start person (an INDI xref), by `targetFileKey` of its
+   *  name — so opening the file again brings back the person last chosen.
+   *  Used only while that person still exists in the file. */
+  startPersons: Record<string, string>;
   /** Cache the loaded files + progress to IndexedDB so a reload restores the
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
@@ -213,6 +217,7 @@ const DEFAULTS: AppSettings = {
   formatOverrides: {},
   targetFormats: {},
   targetNoticeHidden: [],
+  startPersons: {},
   persistWorkspace: false,
   saveReport: false,
   saveDiffView: false,
@@ -463,6 +468,7 @@ function load(): AppSettings {
       targetNoticeHidden: Array.isArray(parsed.targetNoticeHidden)
         ? parsed.targetNoticeHidden.filter((k): k is string => typeof k === "string" && !!k).slice(-MAX_REMEMBERED_TARGETS)
         : [],
+      startPersons: sanitizeStartPersons(parsed.startPersons),
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       saveReport: bool(parsed.saveReport, DEFAULTS.saveReport),
       saveDiffView: bool(parsed.saveDiffView, DEFAULTS.saveDiffView),
