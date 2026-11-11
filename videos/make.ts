@@ -13,7 +13,7 @@
  * and stopped again at the end.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -132,6 +132,24 @@ if (args.includes("--voices")) {
   await listVoices();
   process.exit(0);
 }
+// `--sample <voice>`: speak a test passage (names, dates, house numbers) in both
+// languages with one voice, to choose a voice before building a whole video.
+if (args.includes("--sample")) {
+  const voice = args[args.indexOf("--sample") + 1];
+  if (voice) process.env.SONIOX_VOICE_SL = process.env.SONIOX_VOICE_EN = voice;
+  const SAMPLE: Record<Lang, string> = {
+    sl: "Dva raziskovalca sta raziskovala isto rodbino. Pokažimo, kako njune podatke združite v eno drevo. Najprej odprite svojo datoteko GEDCOM. Drugo drevo pozna Prešernov krst v Breznici in pokop v Kranju, desetega februarja 1849. Kraj rojstva je natančnejši: Vrba 2, stara hišna številka 1. Pri očetu se drevesi razlikujeta v imenu: Šimen in Simon. Ana Jelovšek ima v drugem drevesu starša, ki ju pri vas ni. Kliknite gumb »Potrdi«. GED Merge je vaš rodoslovni program v brskalniku.",
+    en: "Two researchers studied the same family. Let's combine their work into one tree. First, open your own GEDCOM file. The other tree knows Prešeren's baptism in Breznica and his burial in Kranj on the tenth of February 1849. For the father, the trees differ in the name: Šimen and Simon. Click Confirm. GED Merge is your genealogy program in the browser.",
+  };
+  mkdirSync(OUT, { recursive: true });
+  for (const lang of ["sl", "en"] as Lang[]) {
+    const clip = await narrate(SAMPLE[lang], lang, path.join(CACHE, "tts"));
+    const out = path.join(OUT, `sample.${voice ?? "default"}.${lang}.mp3`);
+    copyFileSync(clip.file, out);
+    console.log(`${out}  (${clip.duration.toFixed(1)} s)`);
+  }
+  process.exit(0);
+}
 const id = args.find((a) => !a.startsWith("--") && a !== "sl" && a !== "en");
 if (!id) {
   console.error("Usage: node videos/make.ts <scenario> [sl|en ...] [--subs]   |   node videos/make.ts --voices");
@@ -139,7 +157,7 @@ if (!id) {
 }
 const langs = args.filter((a): a is Lang => a === "sl" || a === "en");
 const scenario = ((await import(`./scripts/${id}.ts`)) as { default: Scenario }).default;
-if (!ttsAvailable()) console.warn("No TTS key (ELEVENLABS_API_KEY or AZURE_SPEECH_KEY): narration is silent, subtitles are burned in.");
+if (!ttsAvailable()) console.warn("No TTS key (SONIOX_API_KEY, ELEVENLABS_API_KEY or AZURE_SPEECH_KEY): narration is silent, subtitles are burned in.");
 const burn = args.includes("--subs") || !ttsAvailable();
 
 const server = await devServer();

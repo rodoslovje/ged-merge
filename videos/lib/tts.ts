@@ -4,6 +4,10 @@
  * The voice comes from the first provider with a key (read from the
  * environment or from videos/.env — see make.ts):
  *
+ * - Soniox: `SONIOX_API_KEY`; voices `SONIOX_VOICE_SL` / `SONIOX_VOICE_EN`
+ *   (default `Adrian`; every voice speaks every language — `node
+ *   videos/make.ts --voices` lists them), model `SONIOX_MODEL` (default
+ *   `tts-rt-v2`).
  * - ElevenLabs: `ELEVENLABS_API_KEY`; voices `ELEVENLABS_VOICE_SL` /
  *   `ELEVENLABS_VOICE_EN` (`node videos/make.ts --voices` lists yours), model
  *   `ELEVENLABS_MODEL` (default `eleven_v3`, which speaks Slovenian;
@@ -52,6 +56,25 @@ interface Provider {
   /** Identifies the voice in the cache key. */
   id: string;
   synthesize(text: string): Promise<Buffer>;
+}
+
+function soniox(lang: Lang): Provider | null {
+  const key = process.env.SONIOX_API_KEY;
+  if (!key) return null;
+  const voice = (lang === "sl" ? process.env.SONIOX_VOICE_SL : process.env.SONIOX_VOICE_EN) ?? "Adrian";
+  const model = process.env.SONIOX_MODEL ?? "tts-rt-v2";
+  return {
+    id: `soniox:${model}:${voice}`,
+    async synthesize(text) {
+      const res = await fetch("https://tts-rt.soniox.com/tts", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, language: lang, voice, audio_format: "mp3", sample_rate: 44100, bitrate: 192000, text }),
+      });
+      if (!res.ok) throw new Error(`Soniox ${res.status}: ${await res.text()}`);
+      return Buffer.from(await res.arrayBuffer());
+    },
+  };
 }
 
 function elevenLabs(lang: Lang): Provider | null {
@@ -105,17 +128,28 @@ function azure(lang: Lang): Provider | null {
 }
 
 function provider(lang: Lang): Provider | null {
-  return elevenLabs(lang) ?? azure(lang);
+  return soniox(lang) ?? elevenLabs(lang) ?? azure(lang);
 }
 
 export function ttsAvailable(): boolean {
-  return Boolean(process.env.ELEVENLABS_API_KEY || (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION));
+  return Boolean(process.env.SONIOX_API_KEY || process.env.ELEVENLABS_API_KEY || (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION));
 }
 
-/** Print the ElevenLabs voices on this account (for ELEVENLABS_VOICE_*). */
+/** Print the voices of the configured provider (for SONIOX_VOICE_* / ELEVENLABS_VOICE_*). */
 export async function listVoices(): Promise<void> {
+  const sonioxKey = process.env.SONIOX_API_KEY;
+  if (sonioxKey) {
+    const res = await fetch("https://api.soniox.com/v1/tts-models", { headers: { Authorization: `Bearer ${sonioxKey}` } });
+    if (!res.ok) throw new Error(`Soniox ${res.status}: ${await res.text()}`);
+    const { models } = (await res.json()) as { models: { id: string; voices: { id: string; gender: string; description: string }[] }[] };
+    for (const m of models) {
+      console.log(`model ${m.id}`);
+      for (const v of m.voices) console.log(`  ${v.id}  ${v.gender}  ${v.description}`);
+    }
+    return;
+  }
   const key = process.env.ELEVENLABS_API_KEY;
-  if (!key) throw new Error("ELEVENLABS_API_KEY is not set.");
+  if (!key) throw new Error("Neither SONIOX_API_KEY nor ELEVENLABS_API_KEY is set.");
   const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
   if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
   const { voices } = (await res.json()) as { voices: { voice_id: string; name: string; labels?: Record<string, string> }[] };
