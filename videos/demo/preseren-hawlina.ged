@@ -6,6 +6,17 @@
 1 CHAR UTF-8
 1 SUBM @U1@
 1 NOTE Predniki in potomci Franceta Prešerna iz rodovnika Petra Hawline. / France Prešeren's ancestors and descendants from Peter Hawlina's pedigree.
+0 @I113441@ INDI
+1 NAME France /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 03 DEC 1800
+2 PLAC Vrba
+1 DEAT
+2 DATE 08 FEB 1849
+2 PLAC Kranj
+1 FAMS @F36128@
+1 FAMC @F36126@
 0 @I113424@ INDI
 1 NAME Jožef /Prešeren/
 1 SEX M
@@ -79,17 +90,6 @@
 2 PLAC Osoje na Koroškem
 1 FAMS @F36126@
 1 FAMC @F36369@
-0 @I113441@ INDI
-1 NAME France /Prešeren/
-1 SEX M
-1 BIRT
-2 DATE 03 DEC 1800
-2 PLAC Vrba
-1 DEAT
-2 DATE 08 FEB 1849
-2 PLAC Kranj
-1 FAMS @F36128@
-1 FAMC @F36126@
 0 @I113448@ INDI
 1 NAME Ana /Jelovšek/
 1 SEX F

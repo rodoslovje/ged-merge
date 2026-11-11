@@ -3,9 +3,9 @@
  *
  *   node videos/make.ts <scenario> [sl|en ...] [--subs]
  *
- * Output in videos/out/: <scenario>.<lang>.mp4, a .thumb.jpg thumbnail, the .srt for
- * YouTube's captions, and <scenario>.<lang>.txt with the title, description
- * and chapter timestamps to paste into YouTube.
+ * Output in videos/out/<NN>-<scenario>/, one folder per episode with only what
+ * goes to YouTube: <scenario>.<lang>.mp4, .thumb.jpg (thumbnail), .srt
+ * (captions) and .txt (title, description and chapter timestamps).
  *
  * `--subs` burns the subtitles into the picture; it is on by default while no
  * TTS key is set, since the draft then has no voice. Set VIDEO_BASE_URL to use
@@ -45,6 +45,46 @@ async function devServer(): Promise<{ url: string; proc?: ChildProcess }> {
   throw new Error("The dev server did not start.");
 }
 
+/**
+ * The text to paste into YouTube's upload form: title, description (with
+ * chapters, links and hashtags) and tags, each under a heading naming the field.
+ */
+function youtubeText(scenario: Scenario, lang: Lang, chapters: string[]): string {
+  const sl = lang === "sl";
+  // YouTube needs the first chapter at 0:00, which is the title card.
+  const toc = [`0:00 ${sl ? "Uvod" : "Introduction"}`, ...chapters.filter((c) => !c.startsWith("0:00"))];
+  const description = [
+    scenario.description[lang],
+    "",
+    sl ? "Poglavja:" : "Chapters:",
+    ...toc,
+    "",
+    sl
+      ? "GED Merge je brezplačen rodoslovni program v brskalniku: urejanje drevesa, združevanje datotek GEDCOM, diagrami, zemljevidi in orodja za čiščenje podatkov. Brez računa in brez nalaganja — vaša datoteka ostane na vašem računalniku."
+      : "GED Merge is a free genealogy program in your browser: edit your tree, merge GEDCOM files, draw charts and maps, and clean up your data. No account and no upload — your file stays on your computer.",
+    "",
+    `▶ GED Merge: https://gedmerge.com`,
+    sl ? "▶ Navodila za uporabo: https://gedmerge.com/navodila/" : "▶ User's Guide: https://gedmerge.com/guide/",
+    "",
+    sl ? "#rodoslovje #GEDCOM #družinskodrevo #GEDMerge" : "#genealogy #GEDCOM #familytree #GEDMerge",
+  ].join("\n");
+  const tags = sl
+    ? "GED Merge, rodoslovje, GEDCOM, družinsko drevo, rodovnik, genealogija, slovensko rodoslovje"
+    : "GED Merge, genealogy, GEDCOM, family tree, family history, pedigree, genealogy software";
+  const title = scenario.title[lang];
+  return [
+    `=== ${sl ? "NASLOV" : "TITLE"} (${title.length}/100) ===`,
+    title,
+    "",
+    `=== ${sl ? "OPIS" : "DESCRIPTION"} ===`,
+    description,
+    "",
+    `=== ${sl ? "OZNAKE" : "TAGS"} ===`,
+    tags,
+    "",
+  ].join("\n");
+}
+
 function clock(s: number): string {
   const t = Math.floor(s);
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
@@ -73,7 +113,7 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
   await page.evaluate(() => document.fonts.ready);
 
   const d = new Director(page, lang);
-  const rec = await Recorder.start(page, path.join(OUT, `${scenario.id}.${lang}.frames`));
+  const rec = await Recorder.start(page, path.join(CACHE, "frames", `${scenario.id}.${lang}`));
   const cues: Cue[] = [];
   const chapters: string[] = [];
   let n = 0;
@@ -89,8 +129,10 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
     await sleep(GAP_MS);
   }
   const end = await rec.stop();
-  mkdirSync(OUT, { recursive: true });
-  const output = path.join(OUT, `${scenario.id}.${lang}.mp4`);
+  // One folder per episode, holding only what goes to YouTube.
+  const dir = path.join(OUT, `${String(scenario.episode).padStart(2, "0")}-${scenario.id}`);
+  mkdirSync(dir, { recursive: true });
+  const output = path.join(dir, `${scenario.id}.${lang}.mp4`);
 
   if (!d.shot) console.warn(`  no d.snapshot() in ${scenario.id}: the thumbnail is skipped`);
   else {
@@ -106,19 +148,7 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
 
   assemble({ frames: rec.frames, end, cues, workDir: rec.directory, output, burnSubtitles });
 
-  // YouTube needs the first chapter at 0:00, which is the title card.
-  const intro = lang === "sl" ? "Uvod" : "Introduction";
-  const meta = [
-    scenario.title[lang],
-    "",
-    scenario.description[lang],
-    "",
-    `0:00 ${intro}`,
-    ...chapters.filter((c) => !c.startsWith("0:00")),
-    "",
-    "https://gedmerge.com",
-  ].join("\n");
-  writeFileSync(output.replace(/\.mp4$/, ".txt"), meta + "\n");
+  writeFileSync(output.replace(/\.mp4$/, ".txt"), youtubeText(scenario, lang, chapters));
   return output;
 }
 
@@ -128,6 +158,11 @@ const ENV_FILE = path.join(HERE, ".env");
 if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 
 const args = process.argv.slice(2);
+// `--silent`: a draft without narration (timed silence, burned-in subtitles),
+// for checking content before paying for speech.
+if (args.includes("--silent")) {
+  for (const k of ["SONIOX_API_KEY", "ELEVENLABS_API_KEY", "AZURE_SPEECH_KEY"]) delete process.env[k];
+}
 if (args.includes("--voices")) {
   await listVoices();
   process.exit(0);
@@ -141,10 +176,10 @@ if (args.includes("--sample")) {
     sl: "Dva raziskovalca sta raziskovala isto rodbino. Pokažimo, kako njune podatke združite v eno drevo. Najprej odprite svojo datoteko GEDCOM. Drugo drevo pozna Prešernov krst v Breznici in pokop v Kranju, desetega februarja 1849. Kraj rojstva je natančnejši: Vrba 2, stara hišna številka 1. Pri očetu se drevesi razlikujeta v imenu: Šimen in Simon. Ana Jelovšek ima v drugem drevesu starša, ki ju pri vas ni. Kliknite gumb »Potrdi«. GED Merge je vaš rodoslovni program v brskalniku.",
     en: "Two researchers studied the same family. Let's combine their work into one tree. First, open your own GEDCOM file. The other tree knows Prešeren's baptism in Breznica and his burial in Kranj on the tenth of February 1849. For the father, the trees differ in the name: Šimen and Simon. Click Confirm. GED Merge is your genealogy program in the browser.",
   };
-  mkdirSync(OUT, { recursive: true });
+  mkdirSync(path.join(OUT, "samples"), { recursive: true });
   for (const lang of ["sl", "en"] as Lang[]) {
     const clip = await narrate(SAMPLE[lang], lang, path.join(CACHE, "tts"));
-    const out = path.join(OUT, `sample.${voice ?? "default"}.${lang}.mp3`);
+    const out = path.join(OUT, "samples", `${voice ?? "default"}.${lang}.mp3`);
     copyFileSync(clip.file, out);
     console.log(`${out}  (${clip.duration.toFixed(1)} s)`);
   }
@@ -152,7 +187,7 @@ if (args.includes("--sample")) {
 }
 const id = args.find((a) => !a.startsWith("--") && a !== "sl" && a !== "en");
 if (!id) {
-  console.error("Usage: node videos/make.ts <scenario> [sl|en ...] [--subs]   |   node videos/make.ts --voices");
+  console.error("Usage: node videos/make.ts <scenario> [sl|en ...] [--subs] [--silent]   |   node videos/make.ts --voices");
   process.exit(1);
 }
 const langs = args.filter((a): a is Lang => a === "sl" || a === "en");

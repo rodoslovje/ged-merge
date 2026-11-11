@@ -33,11 +33,14 @@ import type { Lang } from "./types.ts";
  */
 const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
   sl: [
-    [/GED Merge/g, "Ged Merdž"],
-    [/GEDCOM/g, "ged-kom"],
+    // English pronunciation, spelled the way a Slovenian voice reads it.
+    [/gedmerge\.com/g, "Džed Merdž pika kom"],
+    [/GED Merge/g, "Džed Merdž"],
+    [/GEDCOM/g, "džed-kom"],
     [/\.ged\b/g, " pika ged"],
   ],
   en: [
+    [/gedmerge\.com/g, "GED Merge dot com"],
     [/GED Merge/g, "Ged Merge"],
     [/GEDCOM/g, "ged-com"],
     [/\.ged\b/g, " dot ged"],

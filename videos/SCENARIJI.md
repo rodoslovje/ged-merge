@@ -42,7 +42,7 @@ posnetek urejanja osebe s sorodniki.
 | 5 | Obroč na zavihke »Urejanje / Združevanje / Orodja« | GED Merge ima tri načine dela. V Urejanju urejate svoje drevo, v Združevanju ga dopolnjujete iz druge datoteke, v Orodjih pa skrbite za datoteko kot celoto. |
 | 6 | Klik na starša, nato »Nazaj« | Po drevesu se premikate s klikom na sorodnika, z gumbom »Nazaj« pa se vrnete. |
 | 7 | Tipka `/`, vpis »šimen«, Enter | Osebo najhitreje najdete z iskanjem. Pritisnite poševnico in vpišite začetek imena — šumniki niso potrebni. |
-| 8 | Sprememba polja, nato gumb ↩ in ↪ | Vsako spremembo lahko razveljavite in ponovite, z gumboma zgoraj ali s Ctrl+Z. Program si zapomni zadnjih sto korakov. |
+| 8 | Sprememba polja, nato gumb ↩ in ↪ | Vsako spremembo lahko razveljavite in ponovite, z gumboma zgoraj ali s Ctrl+Z in Ctrl+Shift+Z. |
 | 9 | Gumb »Shrani GEDCOM«, predogled, »Prekliči« | Ko shranite, GED Merge pokaže predogled sprememb in prenese novo datoteko. Izvirnika nikoli ne prepiše. |
 | 10 | Tipka `?` — seznam bližnjic | Tipka vprašaj odpre seznam bližnjic na tipkovnici. Večino dela lahko opravite brez miške. |
 | 11 | Alt+puščica gor/dol v Urejanju | Z Alt in puščicami se premikate k očetu, otrokom in sorojencem. |
@@ -81,14 +81,15 @@ posnetek osebe z dodanim dogodkom.
 
 ---
 
-## 3. Viri: navedba iz Matricule in SIstory
+## 3. Viri: Matricula, Geneanet in Slovenska biografija
 
-**Cilj:** dodati vir k dogodku s prilepljeno povezavo (Matricula krst, smrt, poroka)
-in navedbo iz zbirke SIstory za žrtev druge svetovne vojne.
+**Cilj:** dodati vir k dogodku s prilepljeno povezavo (Matricula krst, smrt, poroka),
+grob z Geneaneta, in vir na osebi (geslo v Slovenski biografiji).
 **Podatki:** `preseren-hawlina.ged` · povezave iz drevesa Odar (Slovenski rodoslovni
 indeks): krst Franceta Prešerna (Breznica 00164, str. 86), smrt (Kranj 00932, str. 40),
-krst Ane Jelovšek (Ljubljana – Sv. Jakob 01156, str. 177). **Za SIstory potrebujemo
-osebo** — glej odprta vprašanja.
+krst Ane Jelovšek (Ljubljana – Sv. Jakob 01156, str. 177); grob Ernestine Jelovšek v
+Prešernovem gaju v Kranju (Geneanet, https://en.geneanet.org/cemetery/view/13262440). Vir na osebi: geslo
+Franceta Prešerna v Slovenski biografiji (https://www.slovenska-biografija.si/oseba/sbi463215/).
 **Trajanje:** ~5 min
 **Naslovna slika:** oznaka »Viri« · »Matricula v *eni* potezi« · posnetek obrazca
 »Dodaj vir« z zelenim okvirjem »Prepoznana povezava«.
@@ -102,9 +103,10 @@ osebo** — glej odprta vprašanja.
 | 5 | Obroč na »Stran« in »Kakovost citata« (3 — primarni vir) | Stran se zapiše v navedbo, sken iz matične knjige pa dobi oceno primarnega vira. |
 | 6 | Ctrl+Enter | Potrdite s Ctrl+Enter. |
 | 7 | Smrt → isto s povezavo kranjske mrliške knjige | Enako dodate vir smrti. |
-| 8 | Ana Jelovšek, krst → povezava Sv. Jakob | Če knjiga v datoteki že obstaja, se doda samo nova stran. Isti vir se tako ne podvoji. |
+| 8 | Ana Jelovšek, krst → povezava Sv. Jakob | Enako deluje za vsako župnijo na Matriculi, tu za krst Ane Jelovšek pri Sv. Jakobu v Ljubljani. |
+| 8a | Ernestina Jelovšek → hitri gumb »Pokop« → kraj Kranj → »Dodaj« → vir → prilepi povezavo Geneanet | Program prepozna tudi druge zbirke, na primer grobove na Geneanetu. Prešernova hči Ernestina je pokopana v Prešernovem gaju v Kranju. Pokopu dodamo povezavo na njen grob. |
 | 9 | Klik na ikono vira → »Uredi vir«; ↗ odpre Matriculo | Vir kadar koli odprete in uredite, puščica pa odpre stran v matični knjigi. |
-| 10 | Oseba iz druge svetovne vojne → Smrt → prilepi citat SIstory | Pri žrtvah druge svetovne vojne prilepite navedbo iz zbirke SIstory. Program prepozna tudi to zbirko. |
+| 10 | France Prešeren → »Dodaj vir« pod osebo (ne pri dogodku) → prilepi povezavo Slovenske biografije | Vir lahko dodate tudi osebi kot celoti, kadar govori o več dogodkih hkrati. Za Prešerna je to njegovo geslo v Slovenski biografiji. |
 | 11 | Shrani GEDCOM → »Vrstice GEDCOM« | V predogledu shranjevanja vidite, kako se vir zapiše v datoteko GEDCOM. |
 | 12 | Zaključna kartica | |
 
@@ -315,15 +317,12 @@ barvami in menija Izvoz.
 
 ## Odprta vprašanja
 
-1. **Video 3 — SIstory:** za navedbo žrtve druge svetovne vojne potrebujemo resnično
-   osebo z zapisom v SIstory. Imate primer iz svojega drevesa (oseba, ki je umrla med
-   1941 in 1945, in povezava na njen zapis)?
-2. **Videi 8, 9, 10 (in 4, 6, 11):** vaše anonimizirano drevo bi bilo veliko boljše od
+1. **Videi 8, 9, 10 (in 4, 6, 11):** vaše anonimizirano drevo bi bilo veliko boljše od
    25 oseb rodbine Prešeren. Ko ga pripravite, ga položite kot `/home/lure/*.ged`.
    Ima tudi resnične napake in dvojnike za videa 9 in 10?
-3. **Če vašega drevesa za videa 9 in 10 ne bo:** smem v kopijo Prešernovega drevesa
+2. **Če vašega drevesa za videa 9 in 10 ne bo:** smem v kopijo Prešernovega drevesa
    namerno vnesti napake in dvojnika? V videu bi to povedali.
-4. **Video 2:** Prešernove sorojence in Vovke vzamem iz Slovenske biografije (rodbina
+3. **Video 2:** Prešernove sorojence in Vovke vzamem iz Slovenske biografije (rodbina
    Prešeren). V redu?
-5. **Vrstni red objave:** predlagam 1 → 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10 → 11
+4. **Vrstni red objave:** predlagam 1 → 2 → 7 → 3 → 4 → 5 → 6 → 8 → 9 → 10 → 11
    (Združevanje je glavna posebnost programa, zato zgodaj).

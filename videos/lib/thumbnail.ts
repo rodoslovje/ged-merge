@@ -44,12 +44,12 @@ export async function renderThumbnail(opts: {
   .t::before { content: ""; position: absolute; inset: 0;
     background: repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 28px); }
   .shot { position: absolute; left: 640px; top: 104px; width: 820px; border-radius: 18px; border: 6px solid #fff;
-    box-shadow: 0 30px 70px rgba(0,0,0,.55); transform: rotate(-2.5deg); transform-origin: left top; }
+    box-shadow: 0 30px 70px rgba(0,0,0,.55); }
   .left { position: absolute; left: 56px; top: 48px; bottom: 48px; width: 560px; z-index: 1; display: flex; flex-direction: column; }
   .brand { display: flex; align-items: center; gap: 16px; font-size: 34px; font-weight: 700; letter-spacing: .01em; }
   .brand svg { width: 58px; height: 58px; border-radius: 14px; box-shadow: 0 0 0 3px rgba(255,255,255,.85); }
   .tag { align-self: flex-start; margin-top: 44px; background: #e8a33d; color: #1d2b25; font-size: 27px; font-weight: 700;
-    letter-spacing: .06em; text-transform: uppercase; padding: 8px 18px; border-radius: 10px; transform: rotate(-2deg);
+    letter-spacing: .06em; text-transform: uppercase; padding: 8px 18px; border-radius: 10px;
     box-shadow: 0 6px 18px rgba(0,0,0,.35); }
   h1 { margin-top: 26px; font-size: 66px; line-height: 1.04; font-weight: 700; text-shadow: 0 4px 18px rgba(0,0,0,.4); }
   h1 em { font-style: normal; color: #f2b85a; }

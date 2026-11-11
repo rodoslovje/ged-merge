@@ -18,6 +18,8 @@ export interface Step {
 export interface Scenario {
   /** File name stem of the output. */
   id: string;
+  /** Episode number in the series (SCENARIJI.md); names the output folder. */
+  episode: number;
   /** YouTube title and title card. */
   title: Text;
   /** YouTube description (first lines). */
