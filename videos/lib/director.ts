@@ -65,6 +65,8 @@ export class Recorder {
 export class Director {
   readonly page: Page;
   readonly lang: Lang;
+  /** The screen grabbed for the YouTube thumbnail (see `snapshot`). */
+  shot?: Buffer;
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
@@ -132,6 +134,17 @@ export class Director {
 
   async card(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {
     await this.overlay("card", kicker && this.t(kicker), title && this.t(title), line && this.t(line));
+  }
+
+  /**
+   * Grab the current screen for the thumbnail, without the pointer and the
+   * step callout (a ring, if one is shown, stays: it marks the feature).
+   */
+  async snapshot(): Promise<void> {
+    await this.overlay("chrome", false);
+    await sleep(100);
+    this.shot = await this.page.screenshot({ type: "png" });
+    await this.overlay("chrome", true);
   }
 
   wait(ms: number): Promise<void> {

@@ -3,7 +3,7 @@
  *
  *   node videos/make.ts <scenario> [sl|en ...] [--subs]
  *
- * Output in videos/out/: <scenario>.<lang>.mp4, the matching .srt for
+ * Output in videos/out/: <scenario>.<lang>.mp4, a .thumb.jpg thumbnail, the .srt for
  * YouTube's captions, and <scenario>.<lang>.txt with the title, description
  * and chapter timestamps to paste into YouTube.
  *
@@ -20,6 +20,7 @@ import { chromium } from "@playwright/test";
 import { assemble, type Cue } from "./lib/assemble.ts";
 import { Director, Recorder, sleep } from "./lib/director.ts";
 import { installOverlay } from "./lib/overlay.ts";
+import { renderThumbnail } from "./lib/thumbnail.ts";
 import { narrate, ttsAvailable } from "./lib/tts.ts";
 import type { Lang, Scenario } from "./lib/types.ts";
 
@@ -88,10 +89,21 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
     await sleep(GAP_MS);
   }
   const end = await rec.stop();
-  await browser.close();
-
   mkdirSync(OUT, { recursive: true });
   const output = path.join(OUT, `${scenario.id}.${lang}.mp4`);
+
+  if (!d.shot) console.warn(`  no d.snapshot() in ${scenario.id}: the thumbnail is skipped`);
+  else {
+    await renderThumbnail({
+      browser, baseUrl, shot: d.shot, lang,
+      tag: scenario.thumbnail.tag[lang],
+      title: scenario.thumbnail.title[lang],
+      minutes: Math.max(1, Math.round((end - (rec.frames[0]?.t ?? 0)) / 60)),
+      output: output.replace(/\.mp4$/, ".thumb.jpg"),
+    });
+  }
+  await browser.close();
+
   assemble({ frames: rec.frames, end, cues, workDir: rec.directory, output, burnSubtitles });
 
   // YouTube needs the first chapter at 0:00, which is the title card.

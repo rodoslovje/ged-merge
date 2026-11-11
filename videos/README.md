@@ -49,8 +49,14 @@ The `Director` passed to `run` offers `click`, `point`, `upload`,
 `highlight`, `scrollTo`, `card` and `wait`. Select elements by CSS class
 rather than by label, so one scenario works in both languages.
 
-Demo data lives in `demo/`. It is fictional — never record a real person's
-data for a public video.
+Demo data lives in `demo/`: a fictional family (`moje-drevo`, `bratranec`) and
+the historical Prešeren family (`preseren-hawlina` from Peter Hawlina's pedigree,
+`preseren-odar` from contributor Odar's tree in the Slovenian genealogical
+index). Never record a living person's data for a public video.
+
+Each run also renders `<scenario>.<lang>.thumb.jpg`, the YouTube thumbnail, from
+the scenario's `thumbnail` tag and title and the screen a step grabbed with
+`d.snapshot()`. Scenario drafts for the whole series are in `SCENARIJI.md`.
 
 ## Files
 

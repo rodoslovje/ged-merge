@@ -69,6 +69,10 @@ export function installOverlay(): void {
         cursor.style.transform = `translate(${x - 5}px, ${y - 2.5}px)`;
       },
       hideCursor() { cursor.style.opacity = "0"; },
+      chrome(visible: boolean) {
+        // Pointer and callout off while a thumbnail screenshot is taken; the ring stays.
+        cursor.style.visibility = callout.style.visibility = visible ? "" : "hidden";
+      },
       click(x: number, y: number) {
         ripple.style.left = `${x}px`;
         ripple.style.top = `${y}px`;
@@ -109,6 +113,7 @@ export function installOverlay(): void {
 export interface OverlayApi {
   cursor(x: number, y: number, ms: number): void;
   hideCursor(): void;
+  chrome(visible: boolean): void;
   click(x: number, y: number): void;
   ring(r: { x: number; y: number; width: number; height: number } | null, pad: number): void;
   callout(n: string | null, text: string | null): void;

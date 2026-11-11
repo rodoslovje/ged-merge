@@ -22,5 +22,11 @@ export interface Scenario {
   title: Text;
   /** YouTube description (first lines). */
   description: Text;
+  /**
+   * The YouTube thumbnail: a short category tag and a title of a few words.
+   * Wrap words in *asterisks* to set them in the accent colour. The picture is
+   * whatever a step grabbed with `d.snapshot()`.
+   */
+  thumbnail: { tag: Text; title: Text };
   steps: Step[];
 }
