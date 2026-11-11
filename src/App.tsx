@@ -94,7 +94,7 @@ import { ChangeJournal, recordsPatch, type SyncMark } from "./state/mainSync";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
-import { DatasetProvider, SettingsProvider, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
+import { AUTHOR_KEYS, DatasetProvider, SettingsProvider, submitterOf, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
 import { TargetFormatContext, type TargetFormatValue } from "./ui/TargetFormatContext";
 import { noticeSnoozed, snoozeNotice } from "./ui/noticeSnooze";
 import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
@@ -155,7 +155,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", ...AUTHOR_KEYS] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -666,7 +666,7 @@ function AppContent() {
    *  ordinary load path, so nothing downstream has to know it wasn't imported.
    *  Edit mode then offers its empty-state "add the first person" button. */
   function startNewFile() {
-    const file = new File([newGedcomText(new Date(), settings.authorName)], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
+    const file = new File([newGedcomText(new Date(), submitterOf(settings))], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
     void loadFile("main", file);
     setMode("edit");
   }
@@ -2156,8 +2156,9 @@ function AppContent() {
     // Saved in the other GEDCOM version, the records are converted first (see
     // convertVersion) and the report lists what the conversion rewrote.
     const from = ownVersion(mainDataset);
-    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, settings.authorName);
-    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(settings.authorName) }));
+    const author = submitterOf(settings);
+    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author);
+    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(author) }));
     if (conversion) {
       fileNotes.push(t("changeReport.note.converted", { from, to: version, count: conversion.length }));
       for (const change of conversion) fileNotes.push(`  ${change}`);

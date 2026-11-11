@@ -40,10 +40,16 @@ describe("newGedcomText", () => {
   });
 
   it("names the reader as the author when Settings give a name, the program when they don't", () => {
-    const named = newGedcomText(new Date(2026, 6, 27), " Ana  Novak ");
-    expect(named).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n");
-    expect(newGedcomText(new Date(2026, 6, 27), "")).toContain(`0 @U1@ SUBM\n1 NAME ${SUBMITTER_NAME}\n`);
-    expect(newGedcomText(new Date(2026, 6, 27), "  ")).toContain(`1 NAME ${SUBMITTER_NAME}\n`);
+    const named = newGedcomText(new Date(2026, 6, 27), { name: " Ana  Novak " });
+    expect(named).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n0 TRLR");
+    expect(newGedcomText(new Date(2026, 6, 27), { name: "" })).toContain(`0 @U1@ SUBM\n1 NAME ${SUBMITTER_NAME}\n`);
+    expect(newGedcomText(new Date(2026, 6, 27), { name: "  " })).toContain(`1 NAME ${SUBMITTER_NAME}\n`);
+  });
+
+  it("writes the reader's e-mail and website under the name, when set", () => {
+    const text = newGedcomText(new Date(2026, 6, 27), { name: "Ana Novak", email: " ana@example.si ", www: "https://example.si" });
+    expect(text).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n1 EMAIL ana@example.si\n1 WWW https://example.si\n0 TRLR");
+    expect(newGedcomText(new Date(2026, 6, 27), { name: "", email: "  ", www: "" })).toContain(`1 NAME ${SUBMITTER_NAME}\n0 TRLR`);
   });
 
   it("takes a first person, who survives a save round-trip", () => {

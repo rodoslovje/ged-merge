@@ -23,14 +23,14 @@ const MAX_CONVERSION_LINES = 200;
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
-import { useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+import { AUTHOR_KEYS, submitterOf, useNameOf, useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
 import { submitterName } from "../gedcom/newFile";
 import { recordLabeller } from "./recordLabel";
 import { LinkedTags } from "./TagLinks";
 
 /** The preferences this dialog reads (and writes): whether the save also
  *  downloads the change report, and which reading of the changes it opens on. */
-const SAVE_REPORT_KEYS = ["saveReport", "saveDiffView", "authorName"] as const satisfies readonly (keyof AppSettings)[];
+const SAVE_REPORT_KEYS = ["saveReport", "saveDiffView", ...AUTHOR_KEYS] as const satisfies readonly (keyof AppSettings)[];
 
 /** A change with no text value — it carries only source/link icons to render inline. */
 function isIconChange(c: FieldChange): boolean {
@@ -134,7 +134,8 @@ export function SaveDialog({
     onConfirm: () => { if (canDownload) handleConfirm(); },
     initialFocus: downloadBtn,
   });
-  const { saveReport, saveDiffView, authorName } = useSettingsSlice(SAVE_REPORT_KEYS);
+  const { saveReport, saveDiffView, authorName, authorEmail, authorWww } = useSettingsSlice(SAVE_REPORT_KEYS);
+  const author = useMemo(() => submitterOf({ authorName, authorEmail, authorWww }), [authorName, authorEmail, authorWww]);
   const setSettings = useSetSettings();
   // The two readings of the same pending save: the field rows, which say what
   // the changes mean, and the GEDCOM lines, which say what the file receives.
@@ -187,17 +188,17 @@ export function SaveDialog({
   // header, a trailer, a declaration — listed, not yet made (see
   // completeStructure); the confirmed save makes the same repairs.
   const fixes = useMemo(
-    () => (dataset ? completeStructure(records, version, false, authorName) : []),
-    [records, dataset, version, authorName],
+    () => (dataset ? completeStructure(records, version, false, author) : []),
+    [records, dataset, version, author],
   );
   // What the conversion would rewrite, worked out on a copy — the download
   // converts the very records it writes, once the reader confirms.
   const conversion = useMemo(() => {
     if (!converting || !fileVersion) return null;
     const copy = records.map(cloneNode);
-    completeStructure(copy, version, true, authorName);
+    completeStructure(copy, version, true, author);
     return convertVersion(copy, fileVersion, version);
-  }, [converting, records, fileVersion, version, authorName]);
+  }, [converting, records, fileVersion, version, author]);
   const canDownload = groups.length > 0 || fixes.length > 0 || converting;
 
   // Maps each event's translated group label (e.g. "Baptism") to its
@@ -292,7 +293,7 @@ export function SaveDialog({
               while the user can still decide not to download. */}
           {charsetNotes.map((note, i) => <p className="preview-note" key={i}>{note}</p>)}
           {fixes.map((fix) => (
-            <p className="preview-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
+            <p className="preview-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(author) })}</p>
           ))}
 
           {integrityWarnings && integrityWarnings.length > 0 && (

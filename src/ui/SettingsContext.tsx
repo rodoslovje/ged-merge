@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import type { Submitter } from "../gedcom/newFile";
 import { marriedSurnamesOf, primaryName } from "../match/relatives";
 import {
   DEFAULT_NAME_DISPLAY,
@@ -194,6 +195,10 @@ export interface AppSettings extends NameDisplayOptions {
    *  5.5.1 save without a submitter. Empty = the program's name. Stored as
    *  typed; trimmed where it is written. */
   authorName: string;
+  /** The reader's e-mail and website, written beside the name into such a
+   *  submitter record (EMAIL, WWW); empty = left out. */
+  authorEmail: string;
+  authorWww: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -220,10 +225,26 @@ const DEFAULTS: AppSettings = {
   marriedNameFromPartner: false,
   homeCountry: HOME_COUNTRY_AUTO,
   authorName: "",
+  authorEmail: "",
+  authorWww: "",
 };
 
-/** A GEDCOM NAME line is short; a longer stored value is cut, not rejected. */
+/** GEDCOM's NAME, EMAIL and WWW lines are short (5.5.1 caps each at 120); a
+ *  longer stored value is cut, not rejected. */
 export const MAX_AUTHOR_NAME = 120;
+
+/** The settings that make up the file's author — for `useSettingsSlice`. */
+export const AUTHOR_KEYS = ["authorName", "authorEmail", "authorWww"] as const;
+
+/** The reader as a file's author, for the writers (`completeStructure`,
+ *  `newGedcomText`). */
+export function submitterOf(s: Pick<AppSettings, (typeof AUTHOR_KEYS)[number]>): Submitter {
+  return { name: s.authorName, email: s.authorEmail, www: s.authorWww };
+}
+
+/** One line of text, cut to {@link MAX_AUTHOR_NAME}; anything else = "". */
+const authorField = (value: unknown): string =>
+  typeof value === "string" ? value.replace(/[\r\n]+/g, " ").slice(0, MAX_AUTHOR_NAME) : "";
 
 /** Digits 1–9 trigger the quick-add buttons, so the list is capped at nine. */
 export const MAX_QUICK_EVENTS = 9;
@@ -469,9 +490,9 @@ function load(): AppSettings {
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
       homeCountry: sanitizeHomeCountry(parsed.homeCountry),
-      authorName: typeof parsed.authorName === "string"
-        ? parsed.authorName.replace(/[\r\n]+/g, " ").slice(0, MAX_AUTHOR_NAME)
-        : DEFAULTS.authorName,
+      authorName: authorField(parsed.authorName),
+      authorEmail: authorField(parsed.authorEmail),
+      authorWww: authorField(parsed.authorWww),
     };
   } catch {
     return DEFAULTS;

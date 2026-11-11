@@ -65,4 +65,12 @@ describe("settings store: the file author's name", () => {
     storage.set("gedmerge.settings", JSON.stringify({ authorName: "Ana\nNovak" }));
     expect(createSettingsStore().get().authorName).toBe("Ana Novak");
   });
+
+  it("keeps the e-mail and website the same way", () => {
+    expect(createSettingsStore().get().authorEmail).toBe("");
+    createSettingsStore().set({ authorEmail: "ana@example.si", authorWww: "https://example.si" });
+    expect(createSettingsStore().get()).toMatchObject({ authorEmail: "ana@example.si", authorWww: "https://example.si" });
+    storage.set("gedmerge.settings", JSON.stringify({ authorEmail: ["x"], authorWww: "a\r\nb" }));
+    expect(createSettingsStore().get()).toMatchObject({ authorEmail: "", authorWww: "a b" });
+  });
 });

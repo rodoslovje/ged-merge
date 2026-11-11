@@ -612,6 +612,31 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 onChange={(e) => set({ authorName: e.target.value })}
               />
             </label>
+            {/* Written beside the name (EMAIL, WWW), under the same rule — the
+                name's info tip explains it for all three. */}
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorEmail")}</span>
+              <input
+                type="email"
+                className="settings-text-input"
+                value={settings.authorEmail}
+                autoComplete="email"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorEmail: e.target.value })}
+              />
+            </label>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorWww")}</span>
+              <input
+                type="url"
+                className="settings-text-input"
+                value={settings.authorWww}
+                autoComplete="url"
+                placeholder="https://"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorWww: e.target.value })}
+              />
+            </label>
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
