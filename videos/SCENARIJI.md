@@ -56,8 +56,10 @@ posnetek urejanja osebe s sorodniki.
 
 **Cilj:** dodati dogodek z datumom in krajem, dodati starša, partnerja, družinski
 dogodek in otroka; pokazati razliko med odklopom in brisanjem.
-**Podatki:** `preseren-hawlina.ged` — dodamo Prešernove sorojence (Jera 1798, Katra
-1799, Jurij 1805, Mina 1808 — podatki iz Slovenske biografije, rodbina Prešeren).
+**Podatki:** `preseren-hawlina.ged` — dodamo Šimnov poklic (kmet), Prešernovi sestri
+Jero (3. 11. 1798, Vrba) in Mino (22. 1. 1808, Vrba 1) ter Minina moža Jožefa Vovka
+(4. 1. 1806) in poroko 28. 5. 1827 — iz Hawlinovega drevesa v Slovenskem rodoslovnem
+indeksu in Slovenske biografije (rodbina Prešeren). Izvedba: `scripts/editing.ts`.
 **Trajanje:** ~5 min
 **Naslovna slika:** oznaka »Urejanje« · »Dopolnite *drevo* korak za korakom« ·
 posnetek osebe z dodanim dogodkom.
