@@ -15,3 +15,7 @@ node_modules/.tmp
 # Locally served tile pyramids for overlay testing (built by the maptiles repo)
 public/tiles-local/
 dev.log
+
+# Tutorial video builds (videos/make.ts) and their narration cache
+/videos/out/
+/videos/.cache/

@@ -1,0 +1,95 @@
+0 HEAD
+1 SOUR GED_MERGE_DEMO
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SUBM @U1@
+1 NOTE Izmišljeno rodoslovje za video navodila GED Merge (bratrančeva datoteka). / A fictional family tree for the GED Merge video tutorials (a cousin's file).
+0 @P1@ INDI
+1 NAME Janez /Kovač/
+1 SEX M
+1 BIRT
+2 DATE 14 FEB 1872
+2 PLAC Škofja Loka, Slovenija
+1 DEAT
+2 DATE 3 MAR 1941
+2 PLAC Škofja Loka, Slovenija
+1 FAMC @G0@
+1 FAMS @G1@
+0 @P2@ INDI
+1 NAME Marija /Zupan/
+1 SEX F
+1 BIRT
+2 DATE 8 SEP 1876
+2 PLAC Žabnica, Slovenija
+1 DEAT
+2 DATE 1950
+1 FAMS @G1@
+0 @P3@ INDI
+1 NAME Franc /Kovač/
+1 SEX M
+1 BIRT
+2 DATE 2 APR 1899
+2 PLAC Škofja Loka, Slovenija
+1 FAMC @G1@
+0 @P4@ INDI
+1 NAME Ana /Kovac/
+1 SEX F
+1 BIRT
+2 DATE 1902
+1 FAMC @G1@
+1 FAMS @G2@
+0 @P5@ INDI
+1 NAME Jože /Kovač/
+1 SEX M
+1 BIRT
+2 DATE 19 MAR 1905
+1 FAMC @G1@
+0 @P6@ INDI
+1 NAME Katarina /Kovač/
+1 SEX F
+1 BIRT
+2 DATE 25 NOV 1908
+2 PLAC Škofja Loka, Slovenija
+1 DEAT
+2 DATE 1990
+1 FAMC @G1@
+0 @P7@ INDI
+1 NAME Anton /Kovač/
+1 SEX M
+1 BIRT
+2 DATE 1841
+2 PLAC Stara Loka, Slovenija
+1 FAMS @G0@
+0 @P8@ INDI
+1 NAME Matevž /Hafner/
+1 SEX M
+1 BIRT
+2 DATE 1898
+2 PLAC Zminec, Slovenija
+1 DEAT
+2 DATE 1975
+1 FAMS @G2@
+0 @G0@ FAM
+1 HUSB @P7@
+1 CHIL @P1@
+0 @G1@ FAM
+1 HUSB @P1@
+1 WIFE @P2@
+1 MARR
+2 DATE 12 FEB 1898
+2 PLAC Škofja Loka, Slovenija
+1 CHIL @P3@
+1 CHIL @P4@
+1 CHIL @P5@
+1 CHIL @P6@
+0 @G2@ FAM
+1 HUSB @P8@
+1 WIFE @P4@
+1 MARR
+2 DATE 1924
+2 PLAC Škofja Loka, Slovenija
+0 @U1@ SUBM
+1 NAME GED Merge demo
+0 TRLR
