@@ -67,9 +67,27 @@ export class Director {
   readonly lang: Lang;
   /** The screen grabbed for the YouTube thumbnail (see `snapshot`). */
   shot?: Buffer;
+  /** Recording time (seconds), set by make.ts once recording starts. */
+  clock: () => number = () => 0;
+  /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
+  readonly skips: [number, number][] = [];
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
+  }
+
+  /**
+   * Run a wait that shows nothing worth watching — an online lookup, a slow
+   * scan — and mark it, so assemble.ts shortens the part of it no narration
+   * plays over.
+   */
+  async skippable<T>(wait: () => Promise<T>): Promise<T> {
+    const start = this.clock();
+    try {
+      return await wait();
+    } finally {
+      this.skips.push([start, this.clock()]);
+    }
   }
 
   t(text: Text): string {

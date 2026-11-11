@@ -17,7 +17,7 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
-import { assemble, type Cue } from "./lib/assemble.ts";
+import { assemble, timeWarp, type Cue } from "./lib/assemble.ts";
 import { Director, Recorder, sleep } from "./lib/director.ts";
 import { installOverlay } from "./lib/overlay.ts";
 import { renderThumbnail } from "./lib/thumbnail.ts";
@@ -125,14 +125,15 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
 
   const d = new Director(page, lang);
   const rec = await Recorder.start(page, path.join(CACHE, "frames", `${scenario.id}.${lang}`));
+  d.clock = () => rec.now();
   const cues: Cue[] = [];
-  const chapters: string[] = [];
+  const marks: { t: number; label: string }[] = [];
   let n = 0;
   for (const [i, step] of scenario.steps.entries()) {
     if (step.callout !== undefined) {
       if (step.callout) n++;
       await d.overlay("callout", step.callout ? String(n) : null, step.callout ? step.callout[lang] : null);
-      if (step.callout) chapters.push(`${clock(rec.now())} ${step.callout[lang]}`);
+      if (step.callout) marks.push({ t: rec.now(), label: step.callout[lang] });
     }
     const clip = clips[i];
     cues.push({ start: rec.now(), duration: clip.duration, text: step.say[lang], audio: clip.file });
@@ -151,13 +152,14 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
       browser, baseUrl, shot: d.shot, lang,
       tag: scenario.thumbnail.tag[lang],
       title: scenario.thumbnail.title[lang],
-      minutes: Math.max(1, Math.round((end - (rec.frames[0]?.t ?? 0)) / 60)),
+      minutes: Math.max(1, Math.round((timeWarp(d.skips, cues)(end) - timeWarp(d.skips, cues)(rec.frames[0]?.t ?? 0)) / 60)),
       output: output.replace(/\.mp4$/, ".thumb.jpg"),
     });
   }
   await browser.close();
 
-  assemble({ frames: rec.frames, end, cues, workDir: rec.directory, output, burnSubtitles });
+  const videoTime = assemble({ frames: rec.frames, end, cues, skips: d.skips, workDir: rec.directory, output, burnSubtitles });
+  const chapters = marks.map((c) => `${clock(videoTime(c.t))} ${c.label}`);
 
   writeFileSync(output.replace(/\.mp4$/, ".txt"), youtubeText(scenario, lang, chapters));
   return output;

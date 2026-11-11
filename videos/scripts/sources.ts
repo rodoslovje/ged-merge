@@ -49,7 +49,7 @@ async function paste(d: Director, url: string): Promise<void> {
   await d.page.keyboard.insertText(url);
   await d.wait(900);
   const fetching = dialog(d).getByText(d.t({ sl: "Pridobivanje podatkov", en: "Fetching details" }));
-  await fetching.first().waitFor({ state: "detached", timeout: 60_000 });
+  await d.skippable(() => fetching.first().waitFor({ state: "detached", timeout: 60_000 }));
   await d.wait(500);
 }
 
@@ -237,7 +237,7 @@ const scenario: Scenario = {
         await d.wait(600);
         await d.highlight(field(d, { sl: "Naslov", en: "Title" }), 4);
         const fetching = dialog(d).getByText(d.t({ sl: "Pridobivanje podatkov", en: "Fetching details" }));
-        await fetching.first().waitFor({ state: "detached", timeout: 60_000 });
+        await d.skippable(() => fetching.first().waitFor({ state: "detached", timeout: 60_000 }));
         await d.wait(1200);
         await d.highlight(field(d, { sl: "Kraj", en: "Place" }), 4);
         await d.wait(2500);
