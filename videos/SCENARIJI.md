@@ -12,7 +12,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 3 | Nastavitve prikaza | `scripts/settings.ts` | SL z glasom ✓ |
 | 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ |
 | 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
-| 6 | Kraji in geokodiranje | — | scenarij |
+| 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | osnutek brez glasu |
 | 7 | Zemljevidi | — | scenarij |
 | 8 | Združevanje | `scripts/merge.ts` | SL in EN z glasom (pred epizodami 3–5; znova zgraditi) |
 | 9 | Statistika | — | scenarij |
@@ -198,27 +198,36 @@ pahljače z barvami po kraju rojstva.
 
 ## 6. Kraji in geokodiranje
 
-**Cilj:** urediti kraje (poenotiti zapis, združiti dva zapisa istega kraja), dodati
-kraju koordinate, poiskati nov kraj v imeniku pri vnosu.
-**Podatki:** `preseren-hawlina.ged` (Vrba, Vrba 1, Žirovnica 7, Osoje na Koroškem …).
-**Trajanje:** ~5 min
+**Cilj:** prenesti imenik krajev (GURS za Slovenijo, OpenStreetMap za preostali svet),
+poiskati kraj pri urejanju in ga zapisati v obliki naselje, občina, država, hišno
+številko prestaviti iz kraja v naslov, stare zapise pretvoriti v Orodjih in krajem z
+geokodiranjem dodati koordinate. Naslovi (prenos GURS naslovov, geokodiranje hišnih
+številk) dobijo svoj video, ko bo storitev INSPIRE pri GURS spet delovala.
+**Podatki:** `preseren-hawlina-kraji.ged` — večina krajev v polni obliki, golih ostane
+nekaj: Kranj, Radovljica, Žirovnica, Osoje na Koroškem ter hišne številke v kraju
+(Žirovnica 7, Vrba 1, Vrba 7). Izvedba in govor: `scripts/geocoding.ts`.
+**Trajanje:** ~4 min
 **Naslovna slika:** oznaka »Kraji« · »Vsak kraj na *pravem* mestu« · posnetek
-geokodiranja z zelenimi vrsticami.
+predlogov iz imenika GURS ob kraju »Kranj«.
 
 | # | Kader | Govor |
 |---|-------|-------|
-| 1 | Naslovna kartica | Kraji so hrbtenica rodoslovja. Pokažimo, kako jih uredite in postavite na zemljevid. |
-| 2 | Urejanje: polje kraja → »Poišči ta kraj v imenikih« | Ko vpisujete kraj, ki ga v datoteki še ni, ga poiščite v imenikih. Program vpiše kraj, naslov in koordinate v slogu vaše datoteke. |
-| 3 | ⚙ → Zemljevid → Imeniki krajev: GURS (Slovenija) | Imenike krajev prenesete v Nastavitvah. Ostanejo v brskalniku in služijo vsem datotekam. |
-| 4 | Orodja → Kraji: drevo država → kraj → hišna številka | Orodje Kraji pokaže vse kraje v datoteki, po državah, s številom zapisov. |
-| 5 | Klik na število ob kraju | Klik na število pokaže, kateri dogodki se nanašajo na ta kraj. |
-| 6 | ✎ »Preimenuj ta del kraja«: »Vrba 1« → »Vrba« (Združi) | Dva zapisa istega kraja združite s preimenovanjem — sprememba velja za vse zapise naenkrat. |
-| 7 | »Geokodiranje krajev« → filter »Zanesljivi« | Geokodiranje primerja kraje z imeniki in predlaga koordinate. |
-| 8 | »Izberi zanesljive« → vrstice pozelenijo | Zanesljive predloge izberete z enim klikom, dvoumne pregledate sami. |
-| 9 | »Prevzemi uradna imena« (kratko) | Po želji prevzamete tudi uradno ime naselja. |
-| 10 | »Zapiši koordinate« | Koordinate se zapišejo šele, ko kliknete »Zapiši koordinate«. |
-| 11 | Urejanje: zemljevid krajev pod dogodki | Kraji s koordinatami se pokažejo na zemljevidu ob osebi, povezani v življenjsko pot. |
-| 12 | Zaključna kartica | |
+| 1 | Naslovna kartica | Kraj brez koordinate ne pride na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid. |
+| 2 | Odpre se France; obroč na kraj rojstva (polna oblika) in smrti (»Kranj«) | Večina krajev je zapisana kot naselje, občina in država, nekaj pa jih je še v stari obliki: samo ime naselja, včasih skupaj s hišno številko. |
+| 3 | ⚙ → Napredno → »Poišči podatke na spletu« | Tako lahko program kraj poišče tudi na OpenStreetMap. Poslano je le ime kraja. |
+| 4 | ⚙ → Zemljevid → »Nalagaj ploščice zemljevida« | Da zemljevidi dobijo pravo podlago. |
+| 5 | Imeniki krajev → GURS »Kraji«, prenos | Za Slovenijo GURS, uradni register vseh naselij z občinami; imenik ostane v brskalniku. |
+| 6 | Obroč na »Naslovi« in OpenStreetMap | Naslovi v posebnem videu; OpenStreetMap za kraje zunaj Slovenije. |
+| 7 | Smrt »Kranj« → »Poišči ta kraj v imenikih« | Predlogi v obliki datoteke, z oznako imenika; izberemo »Kranj, Kranj, Slovenija«. |
+| 8 | Zelen in siv žebljiček, zemljevid pod dogodki | Zelen žebljiček: kraj ima koordinato; siv: je še nima. |
+| 9 | Mina Svetina, rojstvo »Žirovnica 7« → GURS, Žirovnica v občini Žirovnica | Več Žirovnic — odloči občina. |
+| 10 | »Dodaj« → Naslov → »Žirovnica 7« | Standardni zapis v GEDCOM: kraj pove naselje, občino in državo, naslov ulico in hišno številko. |
+| 11 | Smrt → »Ossiach« → OSM »Osoje, Koroška, Avstrija« | GURS kraja ne pozna, OpenStreetMap ga najde pod nemškim imenom. |
+| 12 | Orodja → Kraji → »Neznana država«; ✎ Radovljica → imenik → »Preimenuj« | Sprememba velja za vse zapise kraja naenkrat. |
+| 13 | ✎ Žirovnica → »Združi« | Kraj že obstaja, zapisa se združita. |
+| 14 | »Geokodiranje« → »Izberi zanesljive« → »Zapiši koordinate« | Zanesljive izberete z enim klikom, koordinate se zapišejo šele ob potrditvi. |
+| 15 | Urejanje: France, oba žebljička zelena, zemljevid Vrba → Kranj | |
+| 16 | Zaključna kartica | |
 
 ---
 
