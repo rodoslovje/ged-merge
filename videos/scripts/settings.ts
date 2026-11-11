@@ -92,7 +92,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Izhodiščna oseba", en: "Start person" },
       say: {
-        sl: "Najprej izberite izhodiščno osebo, okoli katere je vaše drevo. Kliknite gumb ob imenu in izberite »Nastavi to osebo kot izhodiščno«. Pri nas je to France Prešeren.",
+        sl: "Najprej izberite izhodiščno osebo, okoli katere je vaše drevo. Kliknite gumb ob imenu in izberite »Nastavi to osebo kot izhodiščno«. Pri nas je to pesnik France Prešeren.",
         en: "First choose the start person your tree centres on. Click the button next to the name and choose to make this person the start person. Here, that is France Prešeren.",
       },
       run: async (d) => {
@@ -107,7 +107,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Zdaj je ob vsaki osebi zapisano, v kakšnem sorodstvu je s Francetom: oče, mati, dedek, babica. Predniki in potomci so izpisani krepko, da izstopajo.",
+        sl: "Zdaj je ob vsaki osebi zapisano, v kakšnem sorodstvu je s Prešernom: oče, mati, dedek, babica. Predniki in potomci so izpisani krepko, da izstopajo.",
         en: "Now every person shows how they are related to France: father, mother, grandfather, grandmother. Ancestors and descendants are in bold, so they stand out.",
       },
       run: async (d) => {
@@ -137,14 +137,19 @@ const scenario: Scenario = {
     {
       callout: { sl: "Starosti", en: "Ages" },
       say: {
-        sl: "Vklopite še »Prikaži starosti«. Ob letnicah se izpiše starost ob smrti, ob dogodkih pa starost osebe, ob rojstvu tudi starost staršev.",
-        en: "Switch on Show ages as well. The age at death appears next to the years, each event shows the person's age, and a birth also shows the parents' ages.",
+        sl: "Vklopite še »Prikaži starosti«. Ob dogodkih se izpiše starost osebe: Prešeren je umrl star 48 let. Ob rojstvu se izpiše še starost staršev: oče je bil takrat star 38 let, mati pa 26.",
+        en: "Switch on Show ages as well. Each event shows the person's age: Prešeren died aged 48. A birth also shows the parents' ages: his father was 38 at the time, and his mother 26.",
       },
       run: async (d) => {
         await flip(d, { sl: "Prikaži starosti", en: "Show ages" });
         await closeSettings(d);
-        await d.overlay("hideCursor");
-        await d.highlight(d.page.locator(".edit-person").first(), 4);
+        const ages = d.page.locator(".edit-person .edit-event-age");
+        // Death (the person's own age) first, then birth (the parents' ages).
+        await d.highlight(ages.nth(1), 6);
+        await d.point(ages.nth(1));
+        await d.wait(3200);
+        await d.highlight(ages.first(), 6);
+        await d.point(ages.first());
       },
     },
     {
@@ -173,8 +178,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poročni priimek", en: "Married surname" },
       say: {
-        sl: "Na zavihku »Splošno« vklopite »Prikaži poročni priimek«, na zavihku »Urejanje« pa »Poročni priimek po partnerju«. Pri poročenih ženah se zdaj ob dekliškem priimku izpiše še poročni, na primer pri Francetovi materi: Mina Svetina, poročena Prešeren.",
-        en: "On the General tab, switch on Show married surname, and on the Editing tab, Married surname from partner. Married women now show their married surname next to the maiden name, for example France's mother: Mina Svetina, married name Prešeren.",
+        sl: "Na zavihku »Splošno« vklopite »Prikaži poročni priimek«, na zavihku »Urejanje« pa »Poročni priimek po partnerju«. Pri poročenih ženah se zdaj ob dekliškem priimku izpiše še poročni. Prešernova mati Mina Svetina je tako zapisana tudi s poročnim priimkom Prešeren.",
+        en: "On the General tab, switch on Show married surname, and on the Editing tab, Married surname from partner. Married women now show their married surname next to the maiden name: Prešeren's mother Mina Svetina, for example, also carries her married name, Prešeren.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -189,10 +194,11 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Janez Prešeren je imel drugo ženo, Marijo Triplat. Ko jo dodamo kot partnerko, program sam zapiše njen poročni priimek, Prešeren, in ga pokaže v oklepaju.",
-        en: "Janez Prešeren had a second wife, Marija Triplat. When we add her as his partner, the program records her married surname, Prešeren, and shows it in brackets.",
+        sl: "Janez Prešeren je imel drugo ženo, Marijo Triplat. Ko jo dodamo kot partnerko, program sam zapiše njen poročni priimek, Prešeren. Vidite ga pod glavnim imenom, med dodatnimi imeni.",
+        en: "Janez Prešeren had a second wife, Marija Triplat. When we add her as his partner, the program records her married surname, Prešeren. You see it below the main name, among the other names.",
       },
       run: async (d) => {
+        await d.highlight(null);
         await d.page.keyboard.press("/");
         await d.wait(400);
         await type(d, "janez");
@@ -207,7 +213,9 @@ const scenario: Scenario = {
         await d.page.keyboard.press("Escape");
         await d.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
         await d.wait(600);
-        await d.highlight(d.page.locator(".edit-person .edit-name-input").first().locator("../.."), 6);
+        const married = d.page.locator(".edit-person .edit-name-chip-wrap").first();
+        await d.highlight(married, 6);
+        await d.point(married);
       },
     },
     {
@@ -226,6 +234,24 @@ const scenario: Scenario = {
         await d.click(inputs.nth(2));
         await type(d, "https://luka.renko.fyi");
         await d.wait(800);
+      },
+    },
+    {
+      say: {
+        sl: "Za nadaljnje videe izberimo slovenski zapis datumov: dan, mesec in leto s pikami.",
+        en: "For the rest of this series we keep dates the way GEDCOM writes them.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await d.click(tab(d, GENERAL));
+        const menu = modal(d).locator(".settings-format-row .select-menu").first();
+        await menu.scrollIntoViewIfNeeded();
+        await d.highlight(menu.locator(".."), 4);
+        await d.click(menu);
+        await d.wait(900);
+        // Slovenian: 3. 12. 1800; English: back to the file's own GEDCOM form.
+        await d.click(d.page.getByText(d.t({ sl: "D. M. YYYY", en: "As in the file" }), { exact: true }).first());
+        await d.wait(1500);
       },
     },
     {
