@@ -2278,7 +2278,6 @@ button:focus-visible {
   .candidate-head:has(.kinship-direct) .person-name,
   .edit-name-row:has(> .kinship-direct) .edit-name-input,
   .global-search-open:has(.kinship-direct) .global-search-name,
-  .settings-preview-person:has(> .kinship-direct) .person-name,
   li:has(> .kinship-direct) > .person-ref .person-name):not(.tree-page *),
 .tree-page.chart-direct :is(.kinship-direct,
   .tree-title:has(> .kinship-direct) > .tree-title-name,

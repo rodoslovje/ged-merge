@@ -461,11 +461,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <div className="settings-preview">
               <span className="settings-preview-label">{t("settings.name.preview")}</span>
               <span className="settings-preview-person">
-                <span className={`person-name ${sexClass("F")}`}>{nameOf(SAMPLE_NAME)}</span>
+                {/* The sample is a direct ancestor (Great-grandmother), so the
+                    app-wide `.emphasize-direct` rule bolds the name and label
+                    alike — the name even with kinship hidden. */}
+                <span className={`person-name ${sexClass("F")} kinship-direct`}>{nameOf(SAMPLE_NAME)}</span>
                 {settings.showXref && <span className="person-xref gm-data">{xrefLabel(SAMPLE_XREF)}</span>}
                 <span className="person-years gm-data">{settings.showAge ? `${SAMPLE_LIFESPAN} (${SAMPLE_AGE})` : SAMPLE_LIFESPAN}</span>
-                {/* A direct ancestor, so "Highlight ancestors and descendants"
-                    shows too: the app-wide `.emphasize-direct` rule bolds it. */}
                 {settings.showKinship && (
                   <span className={`person-kinship ${lineageClass("maternal", true)}`}>{t("kinship.greatGrandmother")}</span>
                 )}
