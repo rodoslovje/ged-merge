@@ -21,7 +21,7 @@ export interface Submitter {
 const clean = (value?: string) => value?.replace(/\s+/g, " ").trim() ?? "";
 
 /** The name a submitter record GED Merge writes carries: the reader's own
- *  (Settings → "Your name (file author)"), trimmed, or {@link SUBMITTER_NAME}
+ *  (Settings → Editing → "Your name"), trimmed, or {@link SUBMITTER_NAME}
  *  when none is set. */
 export function submitterName(author?: Submitter): string {
   return clean(author?.name) || SUBMITTER_NAME;

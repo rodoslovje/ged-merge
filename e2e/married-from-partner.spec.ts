@@ -18,6 +18,7 @@ test("a wife added to a husband takes his surname as her married name", async ({
 
   // Turn the opt-in on.
   await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "Editing" }).click();
   const toggle = page.locator(".settings-row-toggle", { hasText: "Married surname from partner" }).locator("input");
   await toggle.check();
   await page.keyboard.press("Escape");

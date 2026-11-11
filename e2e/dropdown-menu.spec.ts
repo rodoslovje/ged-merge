@@ -93,9 +93,14 @@ test("Escape closes a menu without closing its host editor", async ({ page }) =>
 // a browser makes to anchor content, a scroll-into-view landing a frame after
 // the click it belongs to — may shut a menu it never moved out of sight.
 test("a menu follows its anchor, and goes when the anchor leaves", async ({ page }) => {
+  // A short window, so the Editing tab scrolls and its picker sits below the
+  // dialog's first screen.
+  await page.setViewportSize({ width: 1280, height: 520 });
   await openEdit(page);
   await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "Editing" }).click();
   await page.locator(".settings-quick-events").waitFor();
+  await page.locator(".modal-body").evaluate((el) => { el.scrollTop = el.scrollHeight; });
 
   const trigger = page.locator(".settings-quick-add");
   await openMenu(trigger, () => trigger.click());
@@ -114,7 +119,10 @@ test("a menu follows its anchor, and goes when the anchor leaves", async ({ page
   const menuAfter = (await menu.boundingBox())!;
   const trigMoved = trigAfter.y - trigBefore.y;
   expect(Math.abs(trigMoved), "the scroll must actually move the trigger").toBeGreaterThan(5);
-  expect(Math.abs(menuAfter.y - menuBefore.y - trigMoved), "the menu must travel with it").toBeLessThan(2);
+  // The edge the menu hangs from: its top when it opens below the trigger,
+  // its bottom when it opens above (the far edge may be clamped to the window).
+  const anchoredEdge = (m: { y: number; height: number }, t: { y: number }) => (m.y >= t.y ? m.y : m.y + m.height);
+  expect(Math.abs(anchoredEdge(menuAfter, trigAfter) - anchoredEdge(menuBefore, trigBefore) - trigMoved), "the menu must travel with it").toBeLessThan(2);
 
   // Out of the dialog's view entirely — the picker sits low in the settings, so
   // scrolling the dialog back to its top clips the trigger away — and the menu

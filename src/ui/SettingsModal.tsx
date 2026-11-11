@@ -28,8 +28,6 @@ import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
 import { lineageClass } from "../match/kinship";
-import { tipProps } from "./IconTip";
-import { InfoIcon } from "./icons/InfoIcon";
 import { anyMediaDialogSuppressed, resetMediaDialogs } from "./mediaPrefs";
 import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
@@ -58,7 +56,7 @@ interface Props {
   initialTab?: SettingsTab;
 }
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "format", "map", "advanced"];
+const SETTINGS_TABS: SettingsTab[] = ["general", "editing", "format", "map", "advanced"];
 
 /** One format dimension: a select whose first option is "Detected" (= no
  *  override) and whose value patches a single {@link FormatOverrides} key. */
@@ -590,20 +588,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             </label>
           </section>
 
+          </>
+          )}
+
+          {tab === "editing" && (
+          <>
+          {/* The reader as the author of the files GED Merge writes: name,
+              e-mail and website (SUBM NAME / EMAIL / WWW), one rule for all. */}
           <section className="settings-section">
-            <h3>{t("settings.editing.title")}</h3>
-            {/* `htmlFor`: the info button inside the label would otherwise be
-                the control the label names. */}
-            <label className="settings-row settings-format-row" htmlFor="settings-author-name">
-              <span className="settings-row-label">
-                {t("settings.editing.authorName")}
-                <button type="button" className="stats-info settings-info" {...tipProps(t("settings.editing.authorName.hint"), { heading: t("settings.editing.authorName") })}>
-                  <InfoIcon size={14} />
-                </button>
-              </span>
+            <h3>{t("settings.author.title")}</h3>
+            <p className="settings-hint">{t("settings.author.hint")}</p>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorName")}</span>
               <input
-                id="settings-author-name"
-                aria-label={t("settings.editing.authorName")}
                 type="text"
                 className="settings-text-input"
                 value={settings.authorName}
@@ -612,8 +609,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 onChange={(e) => set({ authorName: e.target.value })}
               />
             </label>
-            {/* Written beside the name (EMAIL, WWW), under the same rule — the
-                name's info tip explains it for all three. */}
             <label className="settings-row settings-format-row">
               <span className="settings-row-label">{t("settings.editing.authorEmail")}</span>
               <input
@@ -637,6 +632,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 onChange={(e) => set({ authorWww: e.target.value })}
               />
             </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.addPeople.title")}</h3>
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
@@ -648,12 +647,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.editing.marriedFromPartner.hint")}</span>
               </span>
             </label>
-            <div className="settings-row settings-quick-head">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.quickEvents.title")}</span>
-                <span className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</span>
-              </span>
-            </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.quickEvents.title")}</h3>
+            <p className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</p>
             <div className="settings-quick-events">
               {settings.quickEventTags.map((tag, i) => (
                 <span key={tag} className="edit-name-chip-wrap">

@@ -15,7 +15,7 @@
  */
 
 /** The Settings modal's tabs, in the order it shows them. */
-export type SettingsTab = "general" | "format" | "map" | "advanced";
+export type SettingsTab = "general" | "editing" | "format" | "map" | "advanced";
 
 type Listener = (tab: SettingsTab) => void;
 
