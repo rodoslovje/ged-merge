@@ -90,6 +90,7 @@ export const sl = {
   "stats.samePlace": "Isti kraj",
   "stats.countryMoves": "Selitve med državami",
   "stats.noDistances": "Za razdalje potrebujeta kraj rojstva in kraj smrti koordinate; kraje geokodirate v Orodjih → Kraji.",
+  "stats.lineageOf": "Predniki in potomci osebe",
   "stats.lineagePick": "Izberite osebo, katere rodove želite šteti.",
   "stats.distinctAncestors": "Predniki",
   "stats.generationsDeep": "Rodovi prednikov",

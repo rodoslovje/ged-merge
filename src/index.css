@@ -9400,6 +9400,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-info { display: inline-flex; padding: 2px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
 .stats-info:hover, .stats-info:focus-visible { color: var(--accent); }.stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
 .stats-start { flex: 0 1 280px; min-width: 180px; }
+/* Generations: the fixed line, said in words where the line's choice would stand. */
+.stats-line-fixed { color: var(--muted); white-space: nowrap; }
 /* A person of the statistics' own, not the app's start person: the house is the way back. */
 .stats-start.own .start-icon-btn { color: var(--accent); }
 .stats-head-end { margin-left: auto; display: flex; gap: 12px; align-items: center; }

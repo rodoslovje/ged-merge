@@ -62,3 +62,34 @@ test("the kinship chip sets, changes, follows and clears the start person", asyn
   await item("clear").click();
   await expect(chip).toHaveText("Set start person");
 });
+
+// The start person is remembered per file name: opening the same file again
+// brings it back, until the reader clears it.
+test("a file opened again keeps the start person last chosen for it", async ({ page }) => {
+  const file = writeFixture();
+  const chip = page.locator(".edit-name-row .start-chip");
+  const item = (v: string) => page.locator(`.dd-menu .dd-item[data-value="${v}"]`);
+  const open = async () => {
+    await page.goto("/");
+    await page.locator("input.file-input").first().setInputFiles(file);
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.locator(".edit-person").waitFor();
+  };
+
+  await open();
+  await expect(chip).toHaveText("Set start person");
+  await chip.click();
+  await item("make").click();
+  await expect(chip).toHaveText("Start Person");
+
+  // Opened again: the start person is back without being chosen.
+  await open();
+  await expect(chip).not.toHaveText("Set start person");
+
+  // Cleared, it stays cleared the next time too.
+  await chip.click();
+  await item("clear").click();
+  await expect(chip).toHaveText("Set start person");
+  await open();
+  await expect(chip).toHaveText("Set start person");
+});
