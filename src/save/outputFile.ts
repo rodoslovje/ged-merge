@@ -1,5 +1,5 @@
 import { VOID_XREF } from "../gedcom/assoc";
-import { submitterName } from "../gedcom/newFile";
+import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
@@ -58,14 +58,14 @@ function gedcBlock(version: OutputVersion): GedNode {
  * them — the character set and a submitter. With `apply`, they are made
  * (the forest is mutated); without, they are only listed, which is what the
  * preview shows before anything is written. A submitter record made here is
- * named `authorName` (the reader's name from Settings), or the program's name
- * when it is empty; one the file already has is never touched.
+ * carries `author` (the reader's name, e-mail and website from Settings), or
+ * the program's name when the name is empty; one the file already has is never touched.
  */
 export function completeStructure(
   records: GedNode[],
   version: OutputVersion,
   apply = true,
-  authorName?: string,
+  author?: Submitter,
 ): StructuralFix[] {
   const fixes: StructuralFix[] = [];
   let head = records.find((r) => r.tag === "HEAD");
@@ -100,7 +100,7 @@ export function completeStructure(
       }
     }
   }
-  if (version !== "7.0" && ensureSubmitter(records, head, apply, authorName)) fixes.push("subm");
+  if (version !== "7.0" && ensureSubmitter(records, head, apply, author)) fixes.push("subm");
   if (!records.some((r) => r.tag === "TRLR")) {
     fixes.push("trlr");
     if (apply) records.push(line("TRLR"));
@@ -133,7 +133,7 @@ function declareVersion(head: GedNode, version: OutputVersion): void {
  * record already holds that xref. Returns whether
  * anything was (or, without `apply`, would be) added.
  */
-function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, authorName?: string): boolean {
+function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, author?: Submitter): boolean {
   const submitters = records.filter((r) => r.tag === "SUBM" && r.xref);
   const pointer = firstChild(head, "SUBM");
   const target = pointer?.value?.trim();
@@ -151,7 +151,7 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
     xref = `@U${n}@`;
   }
   if (!submitters.some((r) => r.xref === xref)) {
-    const record = line("SUBM", undefined, [line("NAME", submitterName(authorName))]);
+    const record = line("SUBM", undefined, submitterFields(author).map(([tag, value]) => line(tag, value)));
     record.xref = xref;
     const trlr = records.findIndex((r) => r.tag === "TRLR");
     records.splice(trlr >= 0 ? trlr : records.length, 0, record);
@@ -317,7 +317,7 @@ export interface PreparedDownload {
  * Make `records` (a clone about to be serialized) a valid file in `version`:
  * repair its structure, convert it when `version` is not the file's own,
  * declare UTF-8, stamp GED Merge as the writing system and, for 7.0, declare
- * its extension tags. `authorName` names a submitter record the file needs
+ * its extension tags. `author` fills a submitter record the file needs
  * and lacks (see {@link completeStructure}).
  */
 export function prepareDownload(
@@ -325,12 +325,12 @@ export function prepareDownload(
   ds: Pick<Dataset, "version" | "charset">,
   version: OutputVersion = ownVersion(ds),
   date: Date = new Date(),
-  authorName?: string,
+  author?: Submitter,
 ): PreparedDownload {
   const from = ownVersion(ds);
   // The program that wrote the file, before the stamp below names GED Merge.
   const headSour = firstChild(records.find((r) => r.tag === "HEAD") ?? line("HEAD"), "SOUR")?.value;
-  const fixes = completeStructure(records, version, true, authorName);
+  const fixes = completeStructure(records, version, true, author);
   const conversion = from === version ? null : convertVersion(records, from, version);
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);

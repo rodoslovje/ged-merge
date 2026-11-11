@@ -27,6 +27,7 @@ import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
+import { lineageClass } from "../match/kinship";
 import { anyMediaDialogSuppressed, resetMediaDialogs } from "./mediaPrefs";
 import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
@@ -55,7 +56,7 @@ interface Props {
   initialTab?: SettingsTab;
 }
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "format", "map", "advanced"];
+const SETTINGS_TABS: SettingsTab[] = ["general", "editing", "format", "map", "advanced"];
 
 /** One format dimension: a select whose first option is "Detected" (= no
  *  override) and whose value patches a single {@link FormatOverrides} key. */
@@ -460,9 +461,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <div className="settings-preview">
               <span className="settings-preview-label">{t("settings.name.preview")}</span>
               <span className="settings-preview-person">
-                <span className={`person-name ${sexClass("F")}`}>{nameOf(SAMPLE_NAME)}</span>
+                {/* The sample is a direct ancestor (Great-grandmother), so the
+                    app-wide `.emphasize-direct` rule bolds the name and label
+                    alike — the name even with kinship hidden. */}
+                <span className={`person-name ${sexClass("F")} kinship-direct`}>{nameOf(SAMPLE_NAME)}</span>
                 {settings.showXref && <span className="person-xref gm-data">{xrefLabel(SAMPLE_XREF)}</span>}
                 <span className="person-years gm-data">{settings.showAge ? `${SAMPLE_LIFESPAN} (${SAMPLE_AGE})` : SAMPLE_LIFESPAN}</span>
+                {settings.showKinship && (
+                  <span className={`person-kinship ${lineageClass("maternal", true)}`}>{t("kinship.greatGrandmother")}</span>
+                )}
               </span>
             </div>
 
@@ -581,13 +588,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             </label>
           </section>
 
+          </>
+          )}
+
+          {tab === "editing" && (
+          <>
+          {/* The reader as the author of the files GED Merge writes: name,
+              e-mail and website (SUBM NAME / EMAIL / WWW), one rule for all. */}
           <section className="settings-section">
-            <h3>{t("settings.editing.title")}</h3>
+            <h3>{t("settings.author.title")}</h3>
+            <p className="settings-hint">{t("settings.author.hint")}</p>
             <label className="settings-row settings-format-row">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.editing.authorName")}</span>
-                <span className="settings-hint">{t("settings.editing.authorName.hint")}</span>
-              </span>
+              <span className="settings-row-label">{t("settings.editing.authorName")}</span>
               <input
                 type="text"
                 className="settings-text-input"
@@ -597,6 +609,41 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 onChange={(e) => set({ authorName: e.target.value })}
               />
             </label>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorEmail")}</span>
+              {/* Not `type="email"` / `autocomplete="email"`: password
+                  managers read those as a login's username field and offer
+                  stored accounts. A plain field, e-mail keyboard on phones. */}
+              <input
+                type="text"
+                inputMode="email"
+                className="settings-text-input"
+                value={settings.authorEmail}
+                autoComplete="off"
+                data-1p-ignore=""
+                data-lpignore="true"
+                data-bwignore=""
+                data-form-type="other"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorEmail: e.target.value })}
+              />
+            </label>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorWww")}</span>
+              <input
+                type="url"
+                className="settings-text-input"
+                value={settings.authorWww}
+                autoComplete="url"
+                placeholder="https://"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorWww: e.target.value })}
+              />
+            </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.addPeople.title")}</h3>
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
@@ -608,12 +655,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.editing.marriedFromPartner.hint")}</span>
               </span>
             </label>
-            <div className="settings-row settings-quick-head">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.quickEvents.title")}</span>
-                <span className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</span>
-              </span>
-            </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.quickEvents.title")}</h3>
+            <p className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</p>
             <div className="settings-quick-events">
               {settings.quickEventTags.map((tag, i) => (
                 <span key={tag} className="edit-name-chip-wrap">

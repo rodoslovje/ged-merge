@@ -288,19 +288,25 @@
 
             <h3>Settings</h3>
             <p>
-              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has four tabs. <strong>General</strong>
-              covers everyday preferences; <strong>GEDCOM</strong> lets you pin the file conventions GED Merge otherwise
+              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has five tabs. <strong>General</strong>
+              covers everyday preferences; <strong>Editing</strong> holds you as the file's author and the helpers for
+              adding people and events; <strong>GEDCOM</strong> lets you pin the file conventions GED Merge otherwise
               detects automatically; <strong>Map</strong> controls the map background and the additional map layers; and
               <strong>Advanced</strong> holds the online lookups and the locally stored data. Every choice is remembered
               in this browser.
             </p>
-            <p><strong>General</strong> — five groups, in this order:</p>
+            <p><strong>General</strong> — four groups, in this order:</p>
             <ul>
               <li><strong>Language</strong> — English or Slovenščina.</li>
               <li><strong>Appearance</strong> — <em>Theme</em>: Automatic, Light or Dark (Automatic follows your operating system).</li>
-              <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač) — someone married more than once shows all married surnames, comma-separated in marriage order — and <em>Uppercase surnames</em> (e.g. Ana NOVAK). A live sample above the options shows the result. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
+              <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač) — someone married more than once shows all married surnames, comma-separated in marriage order — and <em>Uppercase surnames</em> (e.g. Ana NOVAK). A live sample above the options shows the result, together with the display settings below it — age, kinship, the bold direct line and the record id. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
               <li><strong>Display</strong> — <em>Date display</em> shows dates as the file writes them, in words (<em>about 5 March 1850</em>) or in a format of your choice, with signs in place of the GEDCOM words (<em>~05.03.1850</em>, <em>&lt;1850</em>, <em>&gt;1850</em>, <em>1850–1860</em> for a range, <em>1850 → 1860</em> for a period) while the file keeps its own format, and a date field turns back into the file's text when you click into it; <em>Show ages</em> adds ages after lifespans and beside event dates; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>) throughout the app; <em>Highlight ancestors and descendants</em> sets the start person's direct line in bold; and <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name.</li>
-              <li><strong>Editing</strong> — <em>Your name (file author)</em> is written as the file's author (<em>SUBM</em>) wherever GED Merge has to supply one: in a new tree, and in a GEDCOM 5.5.1 file saved without one (<a href="#saving">§14</a>). Left empty, the author is “GED Merge”. <em>Married surname from partner</em> records a husband's known surname as the married name of a wife you add to him, and <em>Quick add events</em> sets the buttons under the event list (<a href="#edit">§8</a>).</li>
+            </ul>
+            <p><strong>Editing</strong> — three groups:</p>
+            <ul>
+              <li><strong>File author</strong> — <em>Your name</em>, <em>Your e-mail</em> and <em>Your website</em> are written as the file's author (<em>SUBM</em>) wherever GED Merge has to supply one: in a new tree, and in a GEDCOM 5.5.1 file saved without one (<a href="#saving">§14</a>). With no name, the author is “GED Merge”; an empty e-mail or website is left out.</li>
+              <li><strong>Adding people</strong> — <em>Married surname from partner</em> records a husband's known surname as the married name of a wife you add to him.</li>
+              <li><strong>Quick add events</strong> — the buttons under the event list (<a href="#edit">§8</a>).</li>
             </ul>
             <p>The other three tabs:</p>
             <ul>
@@ -652,7 +658,7 @@
               <span class="gm-key">⌥</span><span class="gm-key">⇧</span> with <span class="gm-key">1</span>–<span class="gm-key">9</span>
               does the same, in the buttons' order, and <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span>
               opens the full menu. Which events appear here is set under
-              <strong>Settings → General → Editing</strong>, where a button can be removed or another
+              <strong>Settings → Editing → Quick add events</strong>, where a button can be removed or another
               event added. Each button is its event's mark and name (<a href="#legend">§15</a>), and its border says what
               it does: dashed adds the event, solid leads to the row already holding it — which is what a button becomes
               for an event a person can have only one of, their birth, death or burial, once they have it.
@@ -3198,8 +3204,8 @@
               The download is also a <strong>complete GEDCOM file</strong>. A file that arrived without its header
               (<em>HEAD</em>) or its closing line (<em>TRLR</em>), or whose header does not declare the GEDCOM version or
               the encoding, gets what is missing. GEDCOM 5.5.1 also requires a submitter record (<em>SUBM</em>), which says
-              who compiled the file. A 5.5.1 file without one gets a submitter with your name when you have entered it in
-              <strong>Settings › General › Your name (file author)</strong>, and one named “GED Merge” otherwise; a
+              who compiled the file. A 5.5.1 file without one gets a submitter with your name, e-mail and website when you have entered them in
+              <strong>Settings › Editing › File author</strong>, and one named “GED Merge” otherwise; a
               submitter the file already has is never changed. A new tree is given the same name when you start it. The preview
               lists each of these repairs before you download, and so does the <a href="#validate">Health check</a>.
               Text you write or edit follows the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal

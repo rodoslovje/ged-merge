@@ -3,6 +3,7 @@ import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
+import { validateConformance } from "../tools/conformance/conformance";
 import { completeStructure, convertVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
 
 const TERMS = "https://gedmerge.com/terms/";
@@ -295,26 +296,42 @@ describe("completeStructure — header and trailer", () => {
   it("names a submitter it has to make after the reader, when Settings give a name", () => {
     const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR\n";
     const ds = parse(text);
-    const { fixes } = prepareDownload(ds.records, ds, "5.5.1", when, "  Ana   Novak ");
+    const { fixes } = prepareDownload(ds.records, ds, "5.5.1", when, { name: "  Ana   Novak " });
     expect(fixes).toEqual(["subm"]);
     const lines = serializeGedcom(ds.records, outputOptions(ds, "5.5.1")).trimEnd().split("\n");
     expect(lines.slice(-3)).toEqual(["0 @U1@ SUBM", "1 NAME Ana Novak", "0 TRLR"]);
     // An empty or blank setting falls back to the program's name.
     const blank = parse(text);
-    prepareDownload(blank.records, blank, "5.5.1", when, "   ");
+    prepareDownload(blank.records, blank, "5.5.1", when, { name: "   " });
     expect(blank.records.find((r) => r.tag === "SUBM")?.children[0].value).toBe(SUBMITTER_NAME);
+  });
+
+  it("gives a submitter it makes the reader's e-mail and website, valid in both versions", () => {
+    const author = { name: "Ana Novak", email: "ana@example.si", www: "https://example.si" };
+    const ds = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR\n");
+    prepareDownload(ds.records, ds, "5.5.1", when, author);
+    const subm = ds.records.find((r) => r.tag === "SUBM")!;
+    expect(subm.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["NAME Ana Novak", "EMAIL ana@example.si", "WWW https://example.si"]);
+    const onSubmitter = (records: GedNode[]) => validateConformance({ records }).filter((f) => f.recordTag === "SUBM");
+    expect(onSubmitter(ds.records)).toEqual([]);
+    // 7.0 adds no submitter of its own; one written into a new file and then
+    // saved as 7.0 is still valid there.
+    const v7 = parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n");
+    v7.records.splice(1, 0, subm);
+    expect(onSubmitter(v7.records)).toEqual([]);
   });
 
   it("never renames the file's own submitter, whatever the setting says", () => {
     const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @S9@ SUBM\n1 NAME Ana\n0 TRLR\n";
     const ds = parse(text);
-    prepareDownload(ds.records, ds, "5.5.1", when, "Janez Kranjec");
+    prepareDownload(ds.records, ds, "5.5.1", when, { name: "Janez Kranjec", email: "janez@example.si" });
     const subms = ds.records.filter((r) => r.tag === "SUBM");
     expect(subms).toHaveLength(1);
+    expect(subms[0].children.map((c) => c.tag)).toEqual(["NAME"]);
     expect(subms[0].children.find((c) => c.tag === "NAME")?.value).toBe("Ana");
     // A 7.0 save adds none, named or not.
     const v7 = parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n");
-    prepareDownload(v7.records, v7, "7.0", when, "Janez Kranjec");
+    prepareDownload(v7.records, v7, "7.0", when, { name: "Janez Kranjec" });
     expect(v7.records.some((r) => r.tag === "SUBM")).toBe(false);
   });
 

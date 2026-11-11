@@ -1170,7 +1170,7 @@ export function ValidatePanel({
               uniform height. */}
           {group === "gedcom" && charsetNotes.map((note, i) => <p className="tools-note" key={i}>{note}</p>)}
           {group === "gedcom" && fileFixes.map((fix) => (
-            <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName(authorName) })}</p>
+            <p className="tools-file-note" key={fix}>{t(`preview.fix.${fix}`, { name: submitterName({ name: authorName }) })}</p>
           ))}
           {/* The per-name language worklist, with its two buttons, above the
               findings it answers. */}

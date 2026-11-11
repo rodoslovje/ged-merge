@@ -10,11 +10,33 @@ import type { Dataset } from "./types";
  *  person. */
 export const SUBMITTER_NAME = "GED Merge";
 
+/** The reader as a file's author, from Settings: what a submitter record
+ *  GED Merge writes carries. Values are stored as typed; trimmed here. */
+export interface Submitter {
+  name: string;
+  email?: string;
+  www?: string;
+}
+
+const clean = (value?: string) => value?.replace(/\s+/g, " ").trim() ?? "";
+
 /** The name a submitter record GED Merge writes carries: the reader's own
- *  (Settings → "Your name (file author)"), trimmed, or {@link SUBMITTER_NAME}
+ *  (Settings → Editing → "Your name"), trimmed, or {@link SUBMITTER_NAME}
  *  when none is set. */
-export function submitterName(authorName?: string): string {
-  return authorName?.replace(/\s+/g, " ").trim() || SUBMITTER_NAME;
+export function submitterName(author?: Submitter): string {
+  return clean(author?.name) || SUBMITTER_NAME;
+}
+
+/** The level-1 lines of a submitter record GED Merge writes: the name, then
+ *  the reader's e-mail and website when set. EMAIL and WWW sit directly under
+ *  SUBM in both 5.5.1 (its address structure) and 7.0. */
+export function submitterFields(author?: Submitter): [tag: string, value: string][] {
+  const fields: [string, string][] = [["NAME", submitterName(author)]];
+  const email = clean(author?.email);
+  const www = clean(author?.www);
+  if (email) fields.push(["EMAIL", email]);
+  if (www) fields.push(["WWW", www]);
+  return fields;
 }
 
 /** Base name (without extension) of the file "Start a new file" creates. */
@@ -52,12 +74,12 @@ export function newFileBase(dataset: Dataset, homeId?: string): string | null {
  * Deliberately minimal: a header naming GED Merge as the writing system,
  * 5.5.1 / UTF-8 (the pair most other genealogy programs read without
  * complaint), the submitter record 5.5.1 requires, and the trailer. The
- * submitter carries the reader's name from Settings, or the program's name
- * when none is set ({@link submitterName}) — the same record a save gives a
+ * submitter carries the reader's name, e-mail and website from Settings, or
+ * the program's name when none is set ({@link submitterFields}) — the same record a save gives a
  * 5.5.1 file that has none. Saved later as 7.0, where a submitter is
  * optional, the record stays.
  */
-export function newGedcomText(date: Date = new Date(), authorName?: string): string {
+export function newGedcomText(date: Date = new Date(), author?: Submitter): string {
   return [
     "0 HEAD",
     "1 SOUR GEDMERGE",
@@ -70,7 +92,7 @@ export function newGedcomText(date: Date = new Date(), authorName?: string): str
     "2 FORM LINEAGE-LINKED",
     "1 CHAR UTF-8",
     "0 @U1@ SUBM",
-    `1 NAME ${submitterName(authorName)}`,
+    ...submitterFields(author).map(([tag, value]) => `1 ${tag} ${value}`),
     "0 TRLR",
     "",
   ].join("\n");

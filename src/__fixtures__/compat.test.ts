@@ -49,7 +49,7 @@ const shape = (n: GedNode): unknown => ({ tag: n.tag, xref: n.xref, value: n.val
 function save(parsed: ParseResult, version: OutputVersion): string {
   const ds = buildDataset(parsed);
   const records = parsed.records.map(cloneNode);
-  prepareDownload(records, ds, version, new Date("2026-11-06T12:00:00Z"), "Tester");
+  prepareDownload(records, ds, version, new Date("2026-11-06T12:00:00Z"), { name: "Tester" });
   return serializeGedcom(records, outputOptions(ds, version));
 }
 
