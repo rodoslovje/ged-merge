@@ -80,6 +80,7 @@ export {
   repoNameTail,
   repoCountryFacet,
   proposedSiteRepo,
+  fetchedSiteRepo,
   fsRepoCountry,
   createSiteRepo,
   applySiteSourceExtras,

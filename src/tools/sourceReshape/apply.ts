@@ -789,6 +789,29 @@ export function proposedSiteRepo(
   return { createName: siteRepoName(site, repoDef.name, agency, country?.name) };
 }
 
+/**
+ * The site repository proposal once the page lookup has answered. The lookup
+ * names the collection and the place the records cover — what picks a
+ * FamilySearch country's repository — and the holding archive: for Matricula
+ * the repository's own name ("Nadškofijski arhiv Ljubljana"), where the link
+ * alone gives only its path segment ("Ljubljana"). `link` is what the link
+ * alone proposed; the lookup's answer wins wherever it has one.
+ */
+export function fetchedSiteRepo(
+  records: GedNode[],
+  site: ReshapeSite,
+  url: string,
+  link: { agency?: string; place?: string },
+  meta: { agency?: string; collection?: string; collectionId?: string; place?: string } | undefined,
+): { xref?: string; createName?: string } | undefined {
+  if (!meta || !(meta.agency || meta.collection || meta.collectionId || meta.place)) return undefined;
+  return proposedSiteRepo(records, site, url, meta.agency ?? link.agency, {
+    title: meta.collection,
+    id: meta.collectionId,
+    place: meta.place ?? link.place,
+  });
+}
+
 /** What a FamilySearch link covers, as the repository logic needs it: the
  *  collection it belongs to (title and id) and the place its records are
  *  from. Any of them may be missing. */
