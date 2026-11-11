@@ -76,5 +76,6 @@ export const narrativeEn: NarrativeLang = {
   pronoun: (sex) => PRONOUNS[sex],
   nameList: (names) =>
     names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`,
-  childCount: (n) => (n === 1 ? "one child" : `${n} children`),
+  // One to four read as words, book-style.
+  childCount: (n) => (n === 1 ? "one child" : n <= 4 ? `${["two", "three", "four"][n - 2]} children` : `${n} children`),
 };

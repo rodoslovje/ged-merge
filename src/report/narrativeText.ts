@@ -150,12 +150,26 @@ function keyOf(stmt: Statement): string {
   // "je bila", "imata" vs "imela sta").
   const tensed = (base: string) => (stmt.living ? `${base}Living` : base);
   switch (stmt.kind) {
-    case "married":
+    case "married": {
       // An unmarried union always names its partner (its line exists only
       // because the partner is known) and has no wedding to date.
-      if (stmt.unmarried && stmt.spouse) return tensed("partner");
-      if (stmt.spouse) return tensed(stmt.again ? "marriedAgain" : "married");
-      return stmt.again ? "marriedAgainNoSpouse" : "marriedNoSpouse";
+      // A partner after an earlier union opens with "later" ("…Again").
+      const later = (base: string) => tensed(stmt.later ? `${base}Again` : base);
+      if (stmt.unmarried && stmt.spouse) return later("partner");
+      // No marriage record at all: a partner, neither wife nor husband.
+      if (stmt.unrecorded && stmt.spouse) return later("partnerUnrecorded");
+      if (!stmt.spouse) return stmt.again ? "marriedAgainNoSpouse" : "marriedNoSpouse";
+      // A first marriage with neither date nor place (a bare `MARR Y`, or no
+      // record either way) names the spouse without an empty "they married".
+      const f = stmt.fact;
+      const when = !!(f?.date || f?.place || f?.addr);
+      if (!when) return tensed(stmt.again ? "marriedAgain" : "spouse");
+      if (stmt.late) return tensed("marriedLate");
+      if (stmt.widowed) return tensed("marriedWidowed");
+      return tensed(stmt.again ? "marriedAgain" : "married");
+    }
+    case "divorced":
+      return stmt.fact?.tag === "ANUL" ? "annulled" : stmt.fact?.tag === "SEPA" ? "separated" : "divorced";
     case "spouseOrigin":
       // Which parents are named picks the sentence; `living` is the named
       // parents' tense here (the planner set it), not the couple's.

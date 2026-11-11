@@ -129,15 +129,20 @@ describe("buildDescendants", () => {
     expect(text).toContain("⚮ 1930 — Franc Kos");
   });
 
-  it("emits the ⚭ line for an undated union when the partner is known", () => {
-    // Strip the second union's MARR entirely: the partner alone earns the line.
+  it("emits a union line for an unrecorded union when the partner is known, marked ⚯", () => {
+    // Strip the second union's MARR entirely: the partner alone earns the line,
+    // and with no marriage on record it is a partnership, not a ⚭.
     const noMarr = dataset(DESCENDANTS.replace("1 MARR\n2 DATE 1920\n", ""));
     const d = buildDescendants(noMarr, "@I1@", nameOf, NOW)!;
     const root = d.generations[0].entries[0];
     const marrs = root.facts.filter((f) => f.tag === "MARR");
-    expect(marrs.map((f) => `${f.spouse}:${f.date ?? "-"}`)).toEqual([
-      "Marija Oblak:1895", "Neza Kovac:-",
+    expect(marrs.map((f) => `${f.glyph} ${f.spouse}:${f.date ?? "-"}`)).toEqual([
+      "⚭ Marija Oblak:1895", "⚯ Neza Kovac:-",
     ]);
+    // A marriage recorded without a date (MARR Y) keeps its ⚭.
+    const bare = dataset(DESCENDANTS.replace("1 MARR\n2 DATE 1920\n", "1 MARR Y\n"));
+    const bareRoot = buildDescendants(bare, "@I1@", nameOf, NOW)!.generations[0].entries[0];
+    expect(bareRoot.facts.filter((f) => f.tag === "MARR").map((f) => f.glyph)).toEqual(["⚭", "⚭"]);
   });
 
   it("keeps the original number for a child reached through both parents", () => {
