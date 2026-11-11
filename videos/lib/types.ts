@@ -30,5 +30,11 @@ export interface Scenario {
    * whatever a step grabbed with `d.snapshot()`.
    */
   thumbnail: { tag: Text; title: Text };
+  /**
+   * App settings (the `gedmerge.settings` object) in place before the page
+   * loads — usually `seriesSettings` from lib/series.ts. Omit to start from the
+   * app's defaults, as episodes 1–3 do.
+   */
+  settings?: (lang: Lang) => Record<string, unknown>;
   steps: Step[];
 }

@@ -106,6 +106,17 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
   await context.addInitScript((l) => {
     try { localStorage.setItem("gedmerge.lang", l); } catch { /* private mode */ }
   }, lang);
+  const preset = scenario.settings?.(lang);
+  if (preset) {
+    // Once per tab: a reload later in the video must keep what the video changed.
+    await context.addInitScript((json) => {
+      try {
+        if (sessionStorage.getItem("gmv-preset")) return;
+        localStorage.setItem("gedmerge.settings", json);
+        sessionStorage.setItem("gmv-preset", "1");
+      } catch { /* private mode */ }
+    }, JSON.stringify(preset));
+  }
   await context.addInitScript(installOverlay);
   const page = await context.newPage();
   await page.goto(baseUrl);
