@@ -27,6 +27,7 @@ import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
+import { lineageClass } from "../match/kinship";
 import { anyMediaDialogSuppressed, resetMediaDialogs } from "./mediaPrefs";
 import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
@@ -463,6 +464,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className={`person-name ${sexClass("F")}`}>{nameOf(SAMPLE_NAME)}</span>
                 {settings.showXref && <span className="person-xref gm-data">{xrefLabel(SAMPLE_XREF)}</span>}
                 <span className="person-years gm-data">{settings.showAge ? `${SAMPLE_LIFESPAN} (${SAMPLE_AGE})` : SAMPLE_LIFESPAN}</span>
+                {/* A direct ancestor, so "Highlight ancestors and descendants"
+                    shows too: the app-wide `.emphasize-direct` rule bolds it. */}
+                {settings.showKinship && (
+                  <span className={`person-kinship ${lineageClass("maternal", true)}`}>{t("kinship.greatGrandmother")}</span>
+                )}
               </span>
             </div>
 
