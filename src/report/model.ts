@@ -4,7 +4,7 @@
 // glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
 
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
-import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
+import { BIRTH_TAGS, birthSortKey, birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
 import { dateText } from "../gedcom/date";
 import { orderingDate } from "../gedcom/sortDate";
 import { familiesByMarriage } from "../gedcom/familySort";
@@ -65,6 +65,16 @@ export interface FactLine {
   /** The union line of a couple the file records as never married (see
    *  {@link unionMarriage}) — ⚯ in the list, partner wording in the narrative. */
   unmarried?: boolean;
+  /** Union lines: the earliest birth (or baptism) among the union's children —
+   *  it places an undated union in the story and tells a couple who had
+   *  children before their wedding. */
+  firstChildBorn?: GedDate;
+  /** Union lines: the partner's death date — a later marriage after it is a
+   *  widower's / widow's remarriage. */
+  spouseDied?: GedDate;
+  /** Union lines: the divorce (`DIV`) or annulment (`ANUL`) that ended the
+   *  marriage, as its own fact (date and place when recorded). */
+  ended?: FactLine;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
   /** The event's formatted source citations, when enabled. */
@@ -375,7 +385,43 @@ export function marriageFact(
   };
   const fact = marr ? withNote(base, marr, opts) : base;
   if (opts.age && ds && marr) fact.ages = coupleAges(fam, ds, marr.date, marr);
+  const end = fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL");
+  if (end) {
+    fact.ended = {
+      tag: end.tag,
+      glyph: EVENT_GLYPHS[end.tag],
+      date: end.date && dateText(end.date),
+      parsed: end.date,
+      place: factPlace(end),
+      ...factWhere(end),
+    };
+  }
+  if (ds) {
+    const born = firstChildBirth(fam, ds);
+    if (born) fact.firstChildBorn = born;
+  }
   return fact;
+}
+
+/** The earliest dated birth (else baptism/christening) among a union's
+ *  children — the same pick {@link birthSortKey} sorts siblings by. */
+function firstChildBirth(fam: Family, ds: Dataset): GedDate | undefined {
+  let best: GedDate | undefined;
+  let bestKey = Infinity;
+  for (const cid of fam.children) {
+    const child = ds.individuals.get(cid);
+    const key = birthSortKey(child);
+    if (key >= bestKey) continue;
+    for (const tag of BIRTH_TAGS) {
+      const d = child?.events.find((e) => e.tag === tag)?.date;
+      if (d?.year !== undefined) {
+        best = d;
+        bestKey = key;
+        break;
+      }
+    }
+  }
+  return best;
 }
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
@@ -515,6 +561,8 @@ function enrichSpouse(fact: FactLine, partner: Individual, ds: Dataset, nameOf: 
   const years = formatLifespan(birthYear(partner), deathYear(partner), isDeceased(partner));
   if (years) fact.spouseYears = years;
   fact.spouseSex = partner.sex;
+  const died = partner.events.find((e) => e.tag === "DEAT")?.date;
+  if (died?.year !== undefined) fact.spouseDied = died;
   // First family with a recorded parent = the partner's birth family.
   for (const famId of partner.childOf) {
     const fam = ds.families.get(famId);

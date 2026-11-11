@@ -6,7 +6,7 @@
 // rules (birth+baptism fused, children right after their union's marriage)
 // live here once for every language.
 
-import type { Sex } from "../gedcom/types";
+import type { GedDate, Sex } from "../gedcom/types";
 import { factDateKey, type ReportData, type ReportEntry } from "./model";
 import type { FactLine } from "./model";
 
@@ -24,6 +24,7 @@ export interface Statement {
     | "married" // one per union, in record order; `again` from the 2nd on
     | "spouseOrigin" // the partner's parents, right after their marriage
     | "children" // a union's children (register only)
+    | "divorced" // the union's divorce or annulment, after its children
     | "occupation"
     | "education"
     | "residence"
@@ -42,6 +43,12 @@ export interface Statement {
   /** Married: the file records the couple as never married — the sentence
    *  names the partner instead of a wedding ("His partner was …"). */
   unmarried?: boolean;
+  /** Married: the couple's first child was born before the dated wedding
+   *  ("his partner and later wife …; they married only in …"). */
+  late?: boolean;
+  /** Married: a remarriage after the previous spouse's death — `fact2` then
+   *  carries that death ("Widowed in 1890, …"). */
+  widowed?: boolean;
   /** SpouseOrigin: the partner's sex — it picks the possessive/kin word
    *  ("Her parents…" / "Njegova starša…"), which follows the partner. */
   spouseSex?: Sex;
@@ -145,14 +152,45 @@ export function planEntry(
   const dateKey = factDateKey;
 
   const told = new Set<string>();
-  marriages.forEach((m, i) => {
+  // Each union sits in the story at its wedding, or — undated, or with
+  // children born before it — at its first child's birth; the unions are then
+  // walked in that order, so "again" and "widowed" read the life as told.
+  const unions = marriages
+    .map((m) => {
+      const wed = dateKey(m);
+      const child = m.firstChildBorn ? gedDateKey(m.firstChildBorn) : undefined;
+      return { m, key: wed === undefined ? child : child === undefined ? wed : Math.min(wed, child) };
+    })
+    .sort((a, b) => (a.key ?? Infinity) - (b.key ?? Infinity));
+  let prevMarriage: FactLine | undefined;
+  for (const { m, key } of unions) {
     const bothLiving = entry.living && m.spouseLiving === true;
     // The partner's lifespan joins their name (like the register's ⚭ line);
     // a living partner keeps the name but loses the years under privacy.
     const years = m.spouseYears && !(priv && m.spouseLiving) ? ` (${m.spouseYears})` : "";
+    // "Again" counts marriages only — a partnership before the first wedding
+    // doesn't make that wedding a remarriage. A previous spouse who died
+    // before this (dated) wedding makes it a widower's/widow's remarriage,
+    // unless that marriage had already ended in a divorce.
+    const again = prevMarriage !== undefined;
+    const late = !m.unmarried && !!m.parsed && !!m.firstChildBorn && isBefore(m.firstChildBorn, m.parsed);
+    const widowed =
+      again && !m.unmarried && !!m.parsed && !prevMarriage!.ended &&
+      !!prevMarriage!.spouseDied && isBefore(prevMarriage!.spouseDied, m.parsed);
     const stmts: Omit<Statement, "subject">[] = [
-      { kind: "married", fact: m, spouse: m.spouse && `${m.spouse}${years}`, again: i > 0, unmarried: m.unmarried, living: bothLiving },
+      {
+        kind: "married",
+        fact: m,
+        ...(widowed ? { fact2: { tag: "DEAT", glyph: "", parsed: prevMarriage!.spouseDied, date: undefined } } : null),
+        spouse: m.spouse && `${m.spouse}${years}`,
+        again,
+        unmarried: m.unmarried,
+        late,
+        widowed,
+        living: bothLiving,
+      },
     ];
+    if (!m.unmarried) prevMarriage = m;
     // The partner's parents, told right after the marriage that names them; a
     // living parent's name stays out under privacy. `living` carries the named
     // parents' tense (present only when all of them are presumed living).
@@ -167,8 +205,9 @@ export function planEntry(
       told.add(group.fam);
       stmts.push({ kind: "children", childNames: group.names, couple: true, living: bothLiving });
     }
-    blocks.push({ key: dateKey(m), stmts });
-  });
+    if (m.ended) stmts.push({ kind: "divorced", fact: m.ended });
+    blocks.push({ key, stmts });
+  }
   // Children of unions without a ⚭ fact (no partner and no dated marriage):
   // single-parent wording, undated — they follow the dated run.
   for (const group of groups) {
@@ -192,6 +231,27 @@ export function planEntry(
   else if (burial) add({ kind: "buried", fact: burial });
 
   return out;
+}
+
+/** A date's sort key on the scale {@link factDateKey} uses. */
+function gedDateKey(d: GedDate): number | undefined {
+  return d.year === undefined ? undefined : d.year * 10000 + (d.month ?? 0) * 100 + (d.day ?? 0);
+}
+
+/**
+ * Whether `a` is certainly earlier than `b`, compared only as precisely as both
+ * dates are known: "1866" is not before "4 FEB 1866" (same year, month
+ * unknown), "MAR 1865" is. Approximate or bounded dates (ABT, BEF, BET…) never
+ * count — the sentence they would trigger states a fact, not a guess.
+ */
+export function isBefore(a: GedDate, b: GedDate): boolean {
+  const firm = (d: GedDate) => (d.qualifier === "exact" || d.qualifier === "interpreted") && !d.placeholder;
+  if (!firm(a) || !firm(b) || a.year === undefined || b.year === undefined) return false;
+  if (a.year !== b.year) return a.year < b.year;
+  if (!a.month || !b.month) return false;
+  if (a.month !== b.month) return a.month < b.month;
+  if (!a.day || !b.day) return false;
+  return a.day < b.day;
 }
 
 /** The opening variant for the i-th of n same-kind statements: the first is

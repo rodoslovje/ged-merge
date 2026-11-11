@@ -12,7 +12,7 @@ import { buildDescendants } from "./descendants";
 import { buildAhnentafel } from "./ahnentafel";
 import type { ReportData, ReportEntry } from "./model";
 import { sourceLabel } from "./model";
-import { childGroups, planEntry } from "./narrative";
+import { childGroups, isBefore, planEntry } from "./narrative";
 import { narrativeEntry, narrativeLangFor, narrativeParagraph } from "./narrativeText";
 import { narrativeEn } from "./lang/en";
 import { narrativeSl } from "./lang/sl";
@@ -106,10 +106,10 @@ describe("sl date phrases", () => {
 
   it("counts children in the accusative after 'imeti'", () => {
     expect([1, 2, 3, 4, 5, 101].map((n) => narrativeSl.childCount(n))).toEqual([
-      "1 otroka",
-      "2 otroka",
-      "3 otroke",
-      "4 otroke",
+      "enega otroka", // one to four read as words
+      "dva otroka",
+      "tri otroke",
+      "štiri otroke",
       "5 otrok",
       "101 otroka",
     ]);
@@ -147,12 +147,13 @@ describe("planEntry", () => {
     const d = reportOf(noMarr, "@I1@");
     const r = rootEntry(d);
     const kinds = planEntry(r, childGroups(d).get(r.num));
-    // The undated union sorts after the dated occupation (1880), children in tow.
+    // The undated union sits at its first child's birth (1867), so it comes
+    // before the dated occupation (1880), children in tow.
     expect(kinds.map((s) => `${s.kind}${s.kind === "children" ? `:${s.couple ? "couple" : "solo"}` : ""}`)).toEqual([
       "bornBaptized",
-      "occupation",
       "married",
       "children:couple",
+      "occupation",
       "diedBuried",
     ]);
   });
@@ -184,7 +185,7 @@ describe("narrativeParagraph", () => {
     expect(paragraph(tEn, "en", rootEntry(data))).toBe(
       "Franc Novak was born on 5 May 1848 in Škofja Loka and baptized on 7 May 1848. " +
         "He married Marija Oblak (1846–1900) on 4 February 1866 in Škofja Loka. " +
-        "They had 2 children: Ana Novak and Janez Novak. " +
+        "They had two children: Ana Novak and Janez Novak. " +
         "He worked as kmet in 1880. " +
         "He died on 3 January 1912 in Ljubljana and was buried on 5 January 1912.",
     );
@@ -194,7 +195,7 @@ describe("narrativeParagraph", () => {
     expect(paragraph(tSl, "sl", rootEntry(data))).toBe(
       "Franc Novak se je rodil 5. maja 1848 v kraju Škofja Loka, krščen je bil 7. maja 1848. " +
         "Njegova žena je bila Marija Oblak (1846–1900); poročila sta se 4. februarja 1866 v kraju Škofja Loka. " +
-        "Imela sta 2 otroka: Ana Novak in Janez Novak. " +
+        "Imela sta dva otroka: Ana Novak in Janez Novak. " +
         "Bil je kmet leta 1880. " +
         "Umrl je 3. januarja 1912 v kraju Ljubljana, pokopan je bil 5. januarja 1912.",
     );
@@ -211,12 +212,12 @@ describe("narrativeParagraph", () => {
     const r = rootEntry(d);
     const en = narrativeParagraph(tEn, narrativeLangFor("en"), r, planEntry(r, g.get(r.num)));
     expect(en).toContain(
-      "He lived in an unmarried union with Marija Oblak (1846–1900). They had 2 children: Ana Novak and Janez Novak.",
+      "He lived in an unmarried union with Marija Oblak (1846–1900). They had two children: Ana Novak and Janez Novak.",
     );
     expect(en).not.toContain("married Marija");
     const sl = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num)));
     expect(sl).toContain(
-      "Njegova partnerka je bila Marija Oblak (1846–1900). Imela sta 2 otroka: Ana Novak in Janez Novak.",
+      "Njegova partnerka je bila Marija Oblak (1846–1900). Imela sta dva otroka: Ana Novak in Janez Novak.",
     );
     expect(sl).not.toContain("poroč");
   });
@@ -237,13 +238,13 @@ describe("narrativeParagraph", () => {
     expect(en).toContain(
       "He married Marija Oblak (1846–1900) on 4 February 1866 in Škofja Loka. " +
         "Her parents were Alojz Oblak and Roza Kalan. " +
-        "They had 2 children:",
+        "They had two children:",
     );
     const slText = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num)));
     expect(slText).toContain(
       "Njegova žena je bila Marija Oblak (1846–1900); poročila sta se 4. februarja 1866 v kraju Škofja Loka. " +
         "Njena starša sta bila Alojz Oblak in Roza Kalan. " +
-        "Imela sta 2 otroka:",
+        "Imela sta dva otroka:",
     );
   });
 
@@ -322,7 +323,7 @@ describe("living people, addresses and repeated residences", () => {
         "Živel je leta 1974 na naslovu Hafnarjeva pot 21a, Stražišče, Kranj, Slovenia. " +
         "Pozneje je živel oktobra 1997 na naslovu Cesta v Pečale 50, Ljubljana, Slovenia. " +
         "Njegova žena je Silvija Sekušak (1976); poročila sta se 18. aprila 1998 v kraju Stražišče, Kranj, Slovenia. " +
-        "Imata 2 otroka: Živa Renko in Hana Renko. " +
+        "Imata dva otroka: Živa Renko in Hana Renko. " +
         "Nazadnje je živel junija 2014 na naslovu Ulica bratov Martinec 12, Ljubljana, Slovenia.",
     );
   });
@@ -333,7 +334,7 @@ describe("living people, addresses and repeated residences", () => {
         "He lived in 1974 at Hafnarjeva pot 21a, Stražišče, Kranj, Slovenia. " +
         "He later lived in October 1997 at Cesta v Pečale 50, Ljubljana, Slovenia. " +
         "He married Silvija Sekušak (1976) on 18 April 1998 in Stražišče, Kranj, Slovenia. " +
-        "They have 2 children: Živa Renko and Hana Renko. " +
+        "They have two children: Živa Renko and Hana Renko. " +
         "He last lived in June 2014 at Ulica bratov Martinec 12, Ljubljana, Slovenia.",
     );
   });
@@ -370,7 +371,7 @@ describe("living people, addresses and repeated residences", () => {
     const r = rootEntry(d);
     const text = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, childGroups(d).get(r.num)));
     expect(text).toContain("Njegova žena je bila Silvija Sekušak");
-    expect(text).toContain("Imela sta 2 otroka");
+    expect(text).toContain("Imela sta dva otroka");
   });
 });
 
@@ -446,5 +447,86 @@ describe("reportToText narrative style", () => {
     expect(text).toContain("² § Krstna knjiga, page 23");
     expect(text).toContain("⁴ Selil se je večkrat.");
     expect(text).not.toContain("⚭");
+  });
+});
+
+describe("union wording rules", () => {
+  // Franc (M, 1848–1912) with two unions: Marija (1846–1890, daughter Ana
+  // 1867) and Neža (1860–1930, son Tone 1895). Each case varies the two
+  // family bodies.
+  const twoUnions = (f1: string, f2: string) =>
+    wrap(
+      "0 @I1@ INDI\n1 NAME Franc /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1848\n1 DEAT\n2 DATE 1912\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Oblak/\n1 SEX F\n1 BIRT\n2 DATE 1846\n1 DEAT\n2 DATE 1890\n1 FAMS @F1@\n" +
+        "0 @I3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1867\n1 DEAT\n2 DATE 1940\n1 FAMC @F1@\n" +
+        "0 @I4@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1860\n1 DEAT\n2 DATE 1930\n1 FAMS @F2@\n" +
+        "0 @I5@ INDI\n1 NAME Tone /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1895\n1 DEAT\n2 DATE 1960\n1 FAMC @F2@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n" + f1 +
+        "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I4@\n1 CHIL @I5@\n" + f2,
+    );
+  const story = (f1: string, f2: string, lng: "en" | "sl") => {
+    const d = reportOf(twoUnions(f1, f2), "@I1@");
+    const r = rootEntry(d);
+    return narrativeParagraph(lng === "en" ? tEn : tSl, narrativeLangFor(lng), r, planEntry(r, childGroups(d).get(r.num)));
+  };
+
+  it("names the spouse of an undated marriage without an empty 'they married'", () => {
+    const sl = story("1 MARR Y\n", "", "sl");
+    expect(sl).toContain("Njegova žena je bila Marija Oblak (1846–1890). Imela sta enega otroka: Ana Novak.");
+    expect(sl).not.toContain("poročila sta se.");
+    expect(story("1 MARR Y\n", "", "en")).toContain("He was married to Marija Oblak (1846–1890).");
+  });
+
+  it("tells a widower's remarriage after the first wife's death", () => {
+    const f1 = "1 MARR\n2 DATE 1866\n";
+    const f2 = "1 MARR\n2 DATE 1894\n";
+    expect(story(f1, f2, "sl")).toContain(
+      "Ovdovel je leta 1890 in se znova poročil leta 1894; njegova žena je bila Neza Kos (1860–1930).",
+    );
+    expect(story(f1, f2, "en")).toContain("He was widowed in 1890 and married Neza Kos (1860–1930) in 1894.");
+  });
+
+  it("says when a couple married only after their first child", () => {
+    const f1 = "1 MARR\n2 DATE 12 MAY 1868\n";
+    expect(story(f1, "", "sl")).toContain(
+      "Njegova partnerka in pozneje žena je bila Marija Oblak (1846–1890); poročila sta se šele 12. maja 1868.",
+    );
+    expect(story(f1, "", "en")).toContain(
+      "He and Marija Oblak (1846–1890) had their first child before they married on 12 May 1868.",
+    );
+    // Same year, month unknown on one side: not certainly before.
+    expect(story("1 MARR\n2 DATE 4 FEB 1867\n", "", "sl")).not.toContain("šele");
+  });
+
+  it("does not call the first wedding after a partnership a remarriage", () => {
+    const sl = story("1 _MSTAT Partners\n", "1 MARR\n2 DATE 1894\n", "sl");
+    expect(sl).toContain("Njegova partnerka je bila Marija Oblak (1846–1890).");
+    expect(sl).toContain("Njegova žena je bila Neza Kos (1860–1930); poročila sta se leta 1894.");
+    expect(sl).not.toContain("Znova");
+  });
+
+  it("tells a divorce after the union's children, and no widowhood after it", () => {
+    const f1 = "1 MARR\n2 DATE 1866\n1 DIV\n2 DATE 1880\n";
+    const f2 = "1 MARR\n2 DATE 1894\n";
+    const sl = story(f1, f2, "sl");
+    expect(sl).toContain("Imela sta enega otroka: Ana Novak. Ločila sta se leta 1880. Znova se je poročil leta 1894;");
+    expect(sl).not.toContain("Ovdovel");
+    expect(story(f1, f2, "en")).toContain("They divorced in 1880. He then married Neza Kos");
+  });
+});
+
+describe("isBefore", () => {
+  const before = (a: string, b: string) => isBefore(parseDate(a), parseDate(b));
+  it("compares only as precisely as both dates are known", () => {
+    expect(before("1865", "1866")).toBe(true);
+    expect(before("1866", "4 FEB 1866")).toBe(false);
+    expect(before("JAN 1866", "4 FEB 1866")).toBe(true);
+    expect(before("FEB 1866", "4 FEB 1866")).toBe(false);
+    expect(before("3 FEB 1866", "4 FEB 1866")).toBe(true);
+    expect(before("1866", "1866")).toBe(false);
+  });
+  it("never counts an approximate or bounded date", () => {
+    expect(before("ABT 1860", "1866")).toBe(false);
+    expect(before("BEF 1860", "1866")).toBe(false);
   });
 });

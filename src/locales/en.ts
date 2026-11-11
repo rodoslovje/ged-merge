@@ -2359,6 +2359,18 @@ export const en = {
   // the partner is named, no wedding is claimed.
   "narrative.partner": "{{subject}} lived in an unmarried union with {{spouse}}.",
   "narrative.partnerLiving": "{{subject}} lives in an unmarried union with {{spouse}}.",
+  // A marriage with neither date nor place (or no record either way).
+  "narrative.spouse": "{{subject}} was married to {{spouse}}.",
+  "narrative.spouseLiving": "{{subject}} is married to {{spouse}}.",
+  // The couple's first child was born before the wedding.
+  "narrative.marriedLate": "{{subject}} and {{spouse}} had their first child before they married {{tail}}.",
+  "narrative.marriedLateLiving": "{{subject}} and {{spouse}} had their first child before they married {{tail}}.",
+  // A remarriage after the previous spouse's death ({{tail2}} is the death).
+  "narrative.marriedWidowed": "{{subject}} was widowed {{tail2}} and married {{spouse}} {{tail}}.",
+  "narrative.marriedWidowedLiving": "{{subject}} was widowed {{tail2}} and married {{spouse}} {{tail}}.",
+  // The end of the marriage, after the union's children.
+  "narrative.divorced": "They divorced {{tail}}.",
+  "narrative.annulled": "The marriage was annulled {{tail}}.",
   "narrative.marriedNoSpouse": "{{subject}} married {{tail}}.",
   "narrative.marriedAgainNoSpouse": "{{subject}} married again {{tail}}.",
   // The partner's parents, right after the marriage that names them. The
