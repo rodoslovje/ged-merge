@@ -7,7 +7,7 @@
  *
  * Data: `rodbina-renko.ged` — an anonymised excerpt of the author's tree (living
  * people other than the author and his parents have made-up names, dates and
- * sex), every place already geocoded: Gorenjska around Kranj and Bitnje, Bela
+ * sex), its places geocoded: Gorenjska around Kranj and Bitnje, Bela
  * krajina, Gorski kotar. The Bitnje cadastre is one of the bundled presets.
  */
 import path from "node:path";
@@ -51,7 +51,7 @@ async function findOnMap(d: Director, text: string): Promise<void> {
 }
 
 /** Click into the biggest cluster until a single place opens its list of events
- *  on the right — Srednje Bitnje, two dozen births since 1679. */
+ *  on the right — Srednje Bitnje, some thirty events since 1679. */
 async function openCrowdedPlace(d: Director): Promise<void> {
   for (let k = 0; k < 6 && !(await d.page.locator(".map-panel").first().isVisible()); k++) {
     const idx = await d.page.evaluate(() => {
@@ -193,8 +193,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Tokrat odpremo večje drevo, rodbino Renko. Vsi kraji v njem že imajo koordinate, kot smo jih dodali v prejšnjem videu.",
-        en: "This time we open a larger tree, the Renko family. Every place in it already has its coordinates, added as in the previous video.",
+        sl: "Tokrat odpremo večje drevo, rodbino Renko. Kraji v njem že imajo koordinate, kot smo jih dodali v prejšnjem videu.",
+        en: "This time we open a larger tree, the Renko family. Its places already have their coordinates, added as in the previous video.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -262,8 +262,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Iskalno polje desno zgoraj zemljevid premakne na kraj ali osebo. Poiščimo Zgornje Bitnje pri Kranju. Klik na gručo jo približa. Ko pridete do posameznega kraja, se na desni odpre seznam vseh dogodkov na njem: v Srednjih Bitnjah je to štiriindvajset rojstev, od leta 1679 naprej.",
-        en: "The find field at the top right moves the map to a place or a person. Let's find Zgornje Bitnje near Kranj. Clicking a cluster zooms into it. Once you reach a single place, the list of all its events opens on the right: in Srednje Bitnje, twenty-four births from 1679 on.",
+        sl: "Iskalno polje desno zgoraj zemljevid premakne na kraj ali osebo. Poiščimo Zgornje Bitnje pri Kranju. Klik na gručo jo približa. Ko pridete do posameznega kraja, se na desni odpre seznam vseh dogodkov na njem: v Srednjih Bitnjah je to več kot trideset dogodkov, od leta 1679 naprej.",
+        en: "The find field at the top right moves the map to a place or a person. Let's find Zgornje Bitnje near Kranj. Clicking a cluster zooms into it. Once you reach a single place, the list of all its events opens on the right: in Srednje Bitnje, more than thirty events from 1679 on.",
       },
       run: async (d) => {
         await findOnMap(d, "Zgornje Bitnje");

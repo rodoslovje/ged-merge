@@ -238,7 +238,7 @@ predlogov iz imenika GURS ob kraju »Kranj«.
 **Cilj:** zemljevid krajev z gručami, iskanje kraja, izbira vrst dogodkov in obdobja,
 poti, meje v izbranem letu, zgodovinske karte iz Nastavitev (specialka, franciscejski
 kataster Bitenj 1826), prosojnost sloja, vzporedni pogled in izvoz slike PNG.
-**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa, vsi kraji
+**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa, kraji
 geokodirani (Gorenjska, Bela krajina, Gorski kotar). Izvedba in govor: `scripts/maps.ts`.
 **Trajanje:** ~3 min
 **Naslovna slika:** oznaka »Zemljevid« · »Prednik na *zgodovinski* karti« · posnetek
