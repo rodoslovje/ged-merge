@@ -138,29 +138,13 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Zemljevidi", en: "Maps" },
+      callout: { sl: "Imenik GURS", en: "The GURS register" },
       say: {
-        sl: "Na zavihku »Zemljevid« vklopite še »Nalagaj ploščice zemljevida«, da zemljevidi dobijo pravo podlago.",
-        en: "On the Map tab, also switch on Load base-map tiles, so the maps get a real background.",
+        sl: "Nato na zavihku »Zemljevid« prenesite imenik krajev. Za Slovenijo izberite GURS, uradni register vseh šest tisoč slovenskih naselij skupaj z občinami. Prenos traja nekaj sekund, imenik pa ostane v brskalniku in služi vsem vašim datotekam.",
+        en: "Then, on the Map tab, download a place directory. For Slovenia choose GURS, the official register of all six thousand Slovenian settlements with their municipalities. It downloads in seconds and stays in your browser for every file you open.",
       },
       run: async (d) => {
         await d.click(tab(d, { sl: "Zemljevid", en: "Map" }));
-        const row = modal(d).locator("label", { hasText: d.t({ sl: "Nalagaj ploščice zemljevida", en: "Load base-map tiles" }) }).first();
-        await d.scrollTo(row);
-        await d.highlight(row, 4);
-        await d.wait(1000);
-        await d.click(row.locator("input"));
-        await d.wait(1200);
-        await d.highlight(null);
-      },
-    },
-    {
-      callout: { sl: "Imenik GURS", en: "The GURS register" },
-      say: {
-        sl: "Nato zgoraj, pri imenikih krajev, prenesite imenik. Za Slovenijo izberite GURS, uradni register vseh šest tisoč slovenskih naselij skupaj z občinami. Prenos traja nekaj sekund, imenik pa ostane v brskalniku in služi vsem vašim datotekam.",
-        en: "Then, up under the place directories, download a directory. For Slovenia choose GURS, the official register of all six thousand Slovenian settlements with their municipalities. It downloads in seconds and stays in your browser for every file you open.",
-      },
-      run: async (d) => {
         const sources = modal(d).locator(".tools-geo-sources").first();
         await d.scrollTo(sources);
         const gurs = sources.locator("button", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first();
@@ -174,6 +158,7 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
         sl: "Gumb »Naslovi« prenese še vse hišne številke; te si ogledamo v posebnem videu. OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije.",
         en: "The Addresses button also downloads every house number; those get a video of their own. OpenStreetMap is most useful for places outside Slovenia.",
@@ -184,6 +169,22 @@ const scenario: Scenario = {
         await d.wait(3000);
         await d.highlight(sources.locator(".tools-geo-osm").first(), 6);
         await d.wait(2500);
+        await d.highlight(null);
+      },
+    },
+    {
+      callout: { sl: "Zemljevidi", en: "Maps" },
+      say: {
+        sl: "Na koncu na istem zavihku vklopite še »Nalagaj ploščice zemljevida«, da zemljevidi dobijo pravo podlago.",
+        en: "Finally, on the same tab, also switch on Load base-map tiles, so the maps get a real background.",
+      },
+      run: async (d) => {
+        const row = modal(d).locator("label", { hasText: d.t({ sl: "Nalagaj ploščice zemljevida", en: "Load base-map tiles" }) }).first();
+        await d.scrollTo(row);
+        await d.highlight(row, 4);
+        await d.wait(1000);
+        await d.click(row.locator("input"));
+        await d.wait(1200);
         await d.highlight(null);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
@@ -239,8 +240,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Naslov", en: "Address" },
       say: {
-        sl: "Prešernova mati Mina se je rodila na hišni številki Žirovnica 7, ki je zapisana kar v kraju. Poiščimo kraj v imeniku. Žirovnic je v Sloveniji več, zato se odločimo po občini: Mina je doma iz občine Žirovnica.",
-        en: "Prešeren's mother Mina was born at house number Žirovnica 7, written straight into the place. Let's look the place up. Slovenia has several Žirovnicas, so the municipality decides: Mina came from the municipality of Žirovnica.",
+        sl: "Prešernova mati Mina se je rodila na hišni številki Žirovnica 7, ki je zapisana kar v kraju. Program pri iskanju hišno številko prepozna in jo pokaže ob vsakem predlogu. Žirovnic je v Sloveniji več, zato se odločimo po občini: Mina je doma iz občine Žirovnica.",
+        en: "Prešeren's mother Mina was born at house number Žirovnica 7, written straight into the place. The search recognises the house number and shows it beside every offer. Slovenia has several Žirovnicas, so the municipality decides: Mina came from the municipality of Žirovnica.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".person-card").filter({ hasText: "Mina Svetina" }).filter({ visible: true }).first());
@@ -252,7 +253,9 @@ const scenario: Scenario = {
         await d.wait(600);
         await lookUp(d, "SI-GURS");
         await d.highlight(d.page.locator(".suggest-list").filter({ visible: true }).first(), 4);
-        await d.wait(2500);
+        await d.wait(3000);
+        await d.highlight(proposal(d, "SI-GURS", "Žirovnica, Žirovnica,"), 4);
+        await d.wait(1500);
         await d.highlight(null);
         await d.click(proposal(d, "SI-GURS", "Žirovnica, Žirovnica,"));
         await blur(d);
@@ -261,22 +264,16 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Hišno številko vpišemo v polje »Naslov«, ki ga dodate z gumbom »Dodaj«. To je standardni zapis v GEDCOM: kraj pove naselje, občino in državo, naslov pa ulico in hišno številko.",
-        en: "The house number goes into the Address field, which you add with the Add button. That is the standard way GEDCOM writes it: the place names the settlement, municipality and country, the address the street and house number.",
+        sl: "Ob izbiri se kraj zapiše v celoti, hišna številka pa se sama prestavi v polje »Naslov«. To je standardni zapis v GEDCOM: kraj pove naselje, občino in državo, naslov pa ulico in hišno številko.",
+        en: "On picking it, the place is written out in full and the house number moves to the Address field by itself. That is the standard way GEDCOM writes it: the place names the settlement, municipality and country, the address the street and house number.",
       },
       run: async (d) => {
-        const add = d.page.locator(".edit-person .edit-event-addfield").first();
-        await add.hover({ force: true });
-        await d.click(add);
-        await d.click(d.page.locator(".dd-item", { hasText: d.t({ sl: "Naslov", en: "Address" }) }).first());
+        await d.highlight(eventPlace(d, 0), 4);
+        await d.wait(2500);
         const addr = d.page.locator(".edit-person .edit-event-addr").first();
         await addr.waitFor();
-        await d.click(addr);
-        await d.page.keyboard.type("Žirovnica 7", { delay: 120 });
-        await blur(d);
-        await d.wait(900);
         await d.highlight(addr, 4);
-        await d.wait(2000);
+        await d.wait(3000);
         await d.highlight(null);
       },
     },
