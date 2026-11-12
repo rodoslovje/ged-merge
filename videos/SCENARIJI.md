@@ -15,7 +15,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
 | 7 | Zemljevidi | — | scenarij |
 | 8 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 9 | Statistika | — | scenarij |
+| 9 | Statistika | `scripts/stats.ts` | SL osnutek brez glasu |
 | 10 | Pregled | — | scenarij |
 | 11 | Dvojniki | — | scenarij |
 | 12 | Možnosti diagramov, izvoz, zasebnost | — | scenarij |
@@ -295,28 +295,39 @@ posnetek primerjave z izbiro G/V/O.
 
 ## 9. Statistika: vaše drevo v številkah
 
-**Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov in
-virov, rodovi, ponovljeni predniki (implex), najbližje slepe ulice.
-**Podatki:** vaše anonimizirano drevo (večje in bolj zanimivo kot Prešernovo).
-**Trajanje:** ~5 min
+**Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov, izbor
+oseb in filtri, imena po stoletjih, življenjska doba, poroke po mesecih, poroke med
+sorodniki, selitve, rodovi, ponovljeni predniki, najbližje slepe ulice, izvoz.
+**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa (588 oseb,
+rojstva 1605–2012). Izsek nima virov in poklicev, zato strani »Poklic« in »Raziskava«
+izpustimo. Izvedba in govor: `scripts/stats.ts`. **Trajanje:** ~4 min
 **Naslovna slika:** oznaka »Statistika« · »Kaj vam *drevo* pove v številkah« ·
-posnetek strani »Rodovi« z grafom prednikov po rodovih.
+posnetek strani »Rodovi« s kartico »Predniki po rodovih«.
+
+Zgodba, ki jo povedo številke te datoteke: poroke februarja (predpust) in novembra, skoraj
+nobene marca in decembra (post, advent); pred 20. stoletjem noben otrok ne umre pred
+petim letom, ker so v drevesu skoraj sami predniki; edina poroka med bratrancem in
+sestrično (Jožef ⚭ Marija Simonič, vnuka Matije Simoniča in Marije Plut) je vzrok, da sta
+ta dva in Matijeva starša v rodovniku dvakrat (ponovljeni predniki).
 
 | # | Kader | Govor |
 |---|-------|-------|
-| 1 | Naslovna kartica | Koliko prednikov ste že našli? Kje so vrzeli? Statistika odgovori v nekaj sekundah. |
-| 2 | Orodja → Statistika → Povzetek | Statistika je prvo orodje v Orodjih. Povzetek pokaže osebe, družine, letnice in najpogostejše priimke. |
-| 3 | Klik na stolpec ali število → seznam oseb | Za vsakim številom so osebe. Kliknite število in odpre se seznam; ime vas pripelje v Urejanje. |
-| 4 | Kartica »Popolnost podatkov« → vrstica »Navedbe virov« | Popolnost podatkov pove, koliko oseb ima datum rojstva, kraj, starše in vire. Klik na vrstico pokaže, komu kaj manjka — to je vaš seznam opravil. |
-| 5 | »Izbor oseb« → Predniki | Statistiko omejite na prednike, potomce ali krvne sorodnike izhodiščne osebe. |
-| 6 | Stran »Imena« — imena po stoletjih | Imena pokažejo, kako so se priljubljena imena spreminjala skozi stoletja. |
-| 7 | Stran »Družine« — starost ob poroki, poroke po mesecih | Pri družinah vidite starost ob poroki in kdaj so se ljudje najraje poročali. |
-| 8 | Stran »Rodovi« — predniki po rodovih | Rodovi pokažejo, koliko prednikov ste našli v vsakem rodu. |
-| 9 | Ploščica »Ponovljeni predniki« + kartica »Predniki na več mestih« | Če se isti prednik v rodovniku pojavi večkrat — na primer pri poroki med sorodniki —, to pokaže odstotek ponovljenih prednikov. |
-| 10 | »Najbližje slepe ulice« | Najbližje slepe ulice so predniki, pri katerih se vaše raziskovanje ustavi. Tam je naslednji korak. |
-| 11 | Stran »Raziskava« — dogodki z navedbo vira | Stran Raziskava pokaže, koliko dogodkov ima vir, po vrstah dogodkov. |
-| 12 | »Izvoz« → Slika PNG | Vsako kartico izvozite kot sliko ali tabelo CSV. |
-| 13 | Zaključna kartica | |
+| 1 | Naslovna kartica | Koliko prednikov ste že našli? Kje se vaša raziskava ustavi? … Statistika odgovori v nekaj sekundah. |
+| 2 | Spust datoteke → Orodja → Statistika | Anonimiziran izsek iz avtorjevega rodovnika; Statistika vedno zajame celotno datoteko. |
+| 3 | Povzetek: ploščice, »Letnice rojstev«, »Najvišja starost« | Oseb, družin, priimkov, leta, najvišja starost; najpogostejši priimki in imena. |
+| 4 | Klik na »Jekovec« → seznam → ime → Urejanje → nazaj | Za vsakim številom so osebe. |
+| 5 | »Popolnost podatkov« → »Datum smrti« → seznam | Datum smrti ima le slaba polovica umrlih; seznam opravil. |
+| 6 | »Predniki«, nato »Filtri« → Hrvaška | Izbor oseb in filtri; del rodbine izvira s Hrvaške. |
+| 7 | Imena: imena po stoletjih, »Ime po sorodniku« | Janez in Marija dve stoletji na vrhu; petina hčera po babici. |
+| 8 | Življenjska doba: starost ob smrti, po stoletjih, »Umrli pred 5. letom« | Povprečje s 37 na več kot 60 let; v starejših stoletjih sami predniki, ki so vsi dočakali odraslost. |
+| 9 | Družine: »Poroke po mesecih« | Februar in november; marec in december skoraj brez porok. |
+| 10 | »Sorodstvo med zakoncema« → bratranec in sestrična → diagram sorodstva | Jožef in Marija Simonič; skupna prednika Matija Simonič in Marija Plut. |
+| 11 | Selitve: povprečna razdalja po stoletjih | 5 km v 18. stoletju, skoraj 200 km v 20. |
+| 12 | Rodovi: ploščice, predniki po rodovih, očetova in materina stran | 399 prednikov v 12 rodovih; do 6. rodu vsi znani. |
+| 13 | »Ponovljeni predniki«, »Predniki na več mestih« | Zaradi poroke bratranca in sestrične dvakrat v rodovniku. |
+| 14 | »Najbližje slepe ulice« | Naslednji korak raziskave. |
+| 15 | Ikona »i«, izvoz kartice in strani | Slika ali tabela CSV. |
+| 16 | Zaključna kartica | |
 
 ---
 
