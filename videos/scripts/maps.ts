@@ -39,9 +39,11 @@ async function findOnMap(d: Director, text: string): Promise<void> {
   await d.page.keyboard.press("ControlOrMeta+a");
   await d.page.keyboard.type(text, { delay: 90 });
   await d.page.keyboard.press("Enter");
-  await d.wait(2500);
-  // The find opens the first match's events; the map is the point here.
+  // The find opens the first match's events once the map has flown there;
+  // the map is the point here, so the panel is closed as soon as it shows.
   const close = d.page.locator(".map-panel .modal-close").first();
+  await close.waitFor({ timeout: 5000 }).catch(() => {});
+  await d.wait(600);
   if (await close.isVisible()) {
     await d.click(close);
     await d.wait(500);
