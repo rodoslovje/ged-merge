@@ -339,7 +339,6 @@ const scenario: Scenario = {
         await zoom(d, 5);
         await d.skippable(() => d.wait(2500));
         await d.wait(3500);
-        await zoom(d, -5);
         await d.wait(1000);
       },
     },
@@ -350,6 +349,8 @@ const scenario: Scenario = {
         en: "At the top you choose which events the map draws: births, marriages, deaths, burials or residences. The year slider, or typing the years, limits the period. Let's show only events up to 1870.",
       },
       run: async (d) => {
+        // Back out from the houses while the event kinds are being spoken of.
+        await zoom(d, -5);
         await closePanel(d);
         const marriage = kindChip(d, { sl: "Poroka", en: "Marriage" });
         await d.click(marriage);
