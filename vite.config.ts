@@ -21,6 +21,13 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(getAppVersion()),
   },
+  // The dev server is tested from other machines over Tailscale, so it listens
+  // on every interface and accepts the tailnet's MagicDNS names
+  // (<machine>.<tailnet>.ts.net) besides localhost and bare addresses.
+  server: {
+    host: true,
+    allowedHosts: [".ts.net"],
+  },
   plugins: [
     react(),
     // The extension-tag pages the GEDCOM 7 schema URIs point to
