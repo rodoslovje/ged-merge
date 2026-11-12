@@ -165,7 +165,19 @@ async function addPreset(d: Director, label: Text): Promise<void> {
   await d.click(picker);
   await d.wait(900);
   await d.click(d.page.locator(".dd-item", { hasText: d.t(label) }).first());
-  await d.wait(900);
+  await d.wait(500);
+  // Each added layer lengthens the list below, so the picker can climb
+  // further up the window: keep it as high as it goes, the list in view.
+  await pickerToTop(d);
+  await d.wait(700);
+}
+
+async function pickerToTop(d: Director): Promise<void> {
+  await modal(d)
+    .locator(".settings-overlay-preset")
+    .first()
+    .evaluate((e) => e.scrollIntoView({ behavior: "smooth", block: "start" }));
+  await d.wait(500);
 }
 
 const settings = (lang: Lang) => ({ ...seriesSettings(lang), allowMapTiles: true, allowLinkFetch: true });
@@ -389,8 +401,8 @@ const scenario: Scenario = {
         await d.click(modal(d).locator("button", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
         // The picker at the top of the window, so the layers it adds can be
         // seen joining the list below it.
-        await modal(d).locator(".settings-overlay-preset").first().evaluate((e) => e.scrollIntoView({ behavior: "smooth", block: "start" }));
-        await d.wait(900);
+        await pickerToTop(d);
+        await d.wait(400);
         // The GURS layers first: the list's order is the drawing order, top
         // first, so the thin vector layers stay above the full-sheet maps.
         for (const layer of GURS_LAYERS) await addPreset(d, { sl: `${d.t(layer)} (GURS)`, en: `${d.t(layer)} (GURS)` });
