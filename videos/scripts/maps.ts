@@ -75,13 +75,18 @@ async function openCrowdedPlace(d: Director): Promise<void> {
   }
 }
 
-/** Zoom the map in or out by clicking its own +/− control. */
+/** Zoom the map in or out by clicking its own +/− control: the pointer moves
+ *  there once, then clicks in quick succession. */
 async function zoom(d: Director, by: number): Promise<void> {
   const btn = d.page.locator(by > 0 ? ".leaflet-control-zoom-in" : ".leaflet-control-zoom-out").first();
+  await d.point(btn, 500);
+  const box = await btn.boundingBox();
   for (let i = 0; i < Math.abs(by); i++) {
-    await d.click(btn);
-    await d.wait(700);
+    if (box) await d.overlay("click", box.x + box.width / 2, box.y + box.height / 2);
+    await btn.click();
+    await d.wait(350);
   }
+  await d.wait(500);
 }
 
 /** Move a range input to a fraction of its span, as a drag would. */
@@ -305,11 +310,6 @@ const scenario: Scenario = {
         await d.highlight(d.page.locator(".tree-title").first(), 6);
         await d.wait(1800);
         await d.highlight(null);
-        await findOnMap(d, "Zgornje Bitnje");
-        await openCrowdedPlace(d);
-        const close = d.page.locator(".map-panel .modal-close").first();
-        if (await close.isVisible()) await d.click(close);
-        await d.wait(600);
       },
     },
     {
@@ -318,7 +318,8 @@ const scenario: Scenario = {
         en: "Let's zoom in on the village. At this zoom OpenStreetMap shows the house numbers on the houses. These are today's house numbers, not historical ones.",
       },
       run: async (d) => {
-        await zoom(d, 3);
+        await findOnMap(d, "Srednje Bitnje");
+        await zoom(d, 5);
         await d.skippable(() => d.wait(2500));
         await d.wait(3500);
         await zoom(d, -5);
@@ -328,7 +329,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Dogodki in obdobje", en: "Events and period" },
       say: {
-        sl: "Zgoraj izberete, katere dogodke zemljevid riše: rojstva, poroke, smrti, pokope ali bivališča. Z drsnikom let ali z vpisom letnic omejite obdobje. Prikažimo samo dogodke do leta 1870.",
+        sl: "Zgoraj izberete, katere vrste dogodkov zemljevid riše, na primer rojstva, poroke, smrti ali bivališča. Z drsnikom let ali z vpisom letnic omejite obdobje. Prikažimo samo dogodke do leta 1870.",
         en: "At the top you choose which events the map draws: births, marriages, deaths, burials or residences. The year slider, or typing the years, limits the period. Let's show only events up to 1870.",
       },
       run: async (d) => {
