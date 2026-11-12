@@ -61,7 +61,7 @@ const toStatsTop = async (d: Director, smooth = true) => {
     const top = document.querySelector(".app-head")?.getBoundingClientRect().bottom ?? 0;
     const by = head.getBoundingClientRect().top - top - 12;
     (box ?? window).scrollBy({ top: by, behavior });
-  }, smooth ? "smooth" : "instant");
+  }, (smooth ? "smooth" : "instant") as ScrollBehavior);
   await d.wait(smooth ? 800 : 100);
 };
 /** Open a statistics page, its top right under the header. */
