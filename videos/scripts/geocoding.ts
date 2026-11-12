@@ -300,10 +300,10 @@ const scenario: Scenario = {
         await d.page.keyboard.type(d.t({ sl: "Osoje, Avstrija", en: "Osoje, Austria" }), { delay: 120 });
         await d.wait(700);
         await lookUp(d, "OpenStreetMap");
-        await d.highlight(proposal(d, "OpenStreetMap", "Avstrija"), 4);
+        await d.highlight(proposal(d, "OpenStreetMap", "Osoje"), 4);
         await d.wait(1800);
         await d.highlight(null);
-        await d.click(proposal(d, "OpenStreetMap", "Avstrija"));
+        await d.click(proposal(d, "OpenStreetMap", "Osoje"));
         await blur(d);
         await d.wait(1200);
         await d.highlight(eventPin(d, 1), 8);
