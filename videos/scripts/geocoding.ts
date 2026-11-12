@@ -178,7 +178,8 @@ const scenario: Scenario = {
       run: async (d) => {
         const sources = modal(d).locator(".tools-geo-sources").first();
         await d.highlight(sources.locator(".tools-geo-osm").first(), 6);
-        await d.wait(1500);
+        await d.point(sources.locator(".tools-geo-osm").first());
+        await d.wait(9000);
         await d.highlight(null);
       },
     },
