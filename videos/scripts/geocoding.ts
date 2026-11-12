@@ -197,8 +197,19 @@ const scenario: Scenario = {
         await d.click(row.locator("input"));
         await d.wait(1200);
         await d.highlight(null);
+        // With tiles on, the tab draws a sample of the base map: let it load
+        // and stay a moment before Settings closes, so the switch back to the
+        // person is not abrupt.
+        const preview = modal(d).locator(".settings-map-preview").first();
+        await preview.waitFor();
+        await d.scrollTo(preview);
+        await d.highlight(preview, 6);
+        await d.wait(4000);
+        await d.highlight(null);
+        await d.wait(800);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
+        await d.wait(1000);
       },
     },
     {
@@ -300,11 +311,11 @@ const scenario: Scenario = {
         await d.page.keyboard.press("ControlOrMeta+a");
         await d.page.keyboard.type(d.t({ sl: "Osoje, Avstrija", en: "Osoje, Austria" }), { delay: 120 });
         await d.wait(700);
-        await lookUp(d, "OpenStreetMap");
-        await d.highlight(proposal(d, "OpenStreetMap", "Osoje"), 4);
+        await lookUp(d, "OSM");
+        await d.highlight(proposal(d, "OSM", "Osoje"), 4);
         await d.wait(1800);
         await d.highlight(null);
-        await d.click(proposal(d, "OpenStreetMap", "Osoje"));
+        await d.click(proposal(d, "OSM", "Osoje"));
         await blur(d);
         await d.wait(1200);
         await d.highlight(eventPin(d, 1), 8);
