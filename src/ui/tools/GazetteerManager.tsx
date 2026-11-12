@@ -26,7 +26,7 @@ import {
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoFailure, GeoStage } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
-import { ToolsError, ToolsLoading } from "./shared";
+import { ToolsLoading } from "./shared";
 import { SelectMenu } from "../DropdownMenu";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
@@ -178,7 +178,10 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
    */
   const failureText = (failure: GeoFailure): string => {
     switch (failure.code) {
+      // A failed request is any source's — the national registers' included —
+      // so it names none; only Overpass answers "busy", and that one says so.
       case "download":
+        return t("tools.geocode.serviceFailed");
       case "busy":
         return t("tools.geocode.downloadFailed");
       // A country too large is normally the region offer rather than an error;
@@ -444,7 +447,9 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
   }
   return (
     <>
-      {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
+      {/* Said as it is: the shared wrapper prefixes "Scan failed", and a
+          download is not a scan. */}
+      {gaz.importState?.phase === "error" && <p className="tools-clean">{gaz.importState.message}</p>}
       {gaz.regions && <RegionPicker gaz={gaz} regions={gaz.regions} />}
       {/* Each way in is its button and the sentence that explains it, side by
           side: what the source gives you and what it asks in return is the whole

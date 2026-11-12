@@ -1421,6 +1421,7 @@ export const sl = {
   "tools.geocode.fromFile": "iz te datoteke",
   "tools.geocode.fromFileTooltip": "Druge navedbe točno tega imena kraja v datoteki že nosijo to koordinato",
   "tools.geocode.countryTooltip": "Država, katere kraje prenesemo iz OpenStreetMap (Overpass API, © sodelavci OpenStreetMap)",
+  "tools.geocode.serviceFailed": "Prenos ni uspel, ker se strežnik vira ni odzval ali je vrnil napako. Poskusite znova malo pozneje.",
   "tools.geocode.downloadFailed": "Prenos ni uspel — poskusite čez minuto (strežniki Overpass omejujejo zahteve) ali pa datoteko GeoNames prenesite s spodnje strani in jo uvozite tu.",
   "tools.geocode.emptyResult":
     "Prenos je uspel, med prenesenim pa ni bilo ničesar za uvoz. Morda je pri viru trenutno kaj narobe — poskusite pozneje ali pa to državo vzemite pri katerem drugem viru spodaj.",
