@@ -3,18 +3,17 @@
  * that works on the whole file — what a family tree tells in numbers, and how
  * every number leads to its people.
  *
- * Data: `rodbina-renko.ged`, an anonymised excerpt of the author's tree (588
- * people, births 1605–2012): the author and his parents under their real
+ * Data: `rodbina-renko.ged`, an anonymised excerpt of the author's tree (1726
+ * people: ancestors with their brothers and sisters, births 1605–2010): the author and his parents under their real
  * names, every other living relative under a made-up name, sex and birth date
- * (see videos/README.md). The excerpt carries no sources and no occupations,
- * so the Occupation and Research pages are left out.
+ * (see videos/README.md). The deceased keep their sources, scans and occupations.
  *
  * The story the numbers tell, all read off the app on this file:
  *  - marriages peak in February (the carnival before Lent) and November (after
  *    the harvest); hardly any in March (Lent) or December (Advent);
- *  - no child under five died in the 17th–19th centuries — there the tree holds
- *    almost only ancestors, and every ancestor grew up; in the 20th century,
- *    with brothers and sisters in the tree, it is 15 %;
+ *  - more than one child in three died before the age of five in the 18th
+ *    century, one in seven in the 20th — visible because the ancestors'
+ *    brothers and sisters are in the tree (every ancestor grew up);
  *  - the one first-cousin marriage, Jožef Simonič ⚭ Marija Simonič, both
  *    grandchildren of Matija Simonič and Marija Plut, is why that couple (and
  *    Matija's parents) stand twice in the author's pedigree: the repeated
@@ -48,11 +47,29 @@ const bar = (d: Director, id: string, label: RegExp) => card(d, id).locator(".st
 const tile = (d: Director, label: RegExp) => d.page.locator(".stats-tile").filter({ has: d.page.locator(".stats-tile-label", { hasText: label }) }).first();
 const pickList = (d: Director) => d.page.locator(".stats-pick").first();
 
-/** Open a statistics page and bring its top into view. */
+/**
+ * Scroll the statistics so their page row sits right under the app's header:
+ * the tool buttons above it scroll away and leave the room to the charts.
+ */
+const toStatsTop = async (d: Director, smooth = true) => {
+  await d.page.evaluate((behavior) => {
+    const head = document.querySelector<HTMLElement>(".stats-head");
+    if (!head) return;
+    // The nearest ancestor that scrolls, else the page.
+    let box: HTMLElement | null = head.parentElement;
+    while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+    const top = document.querySelector(".app-head")?.getBoundingClientRect().bottom ?? 0;
+    const by = head.getBoundingClientRect().top - top - 12;
+    (box ?? window).scrollBy({ top: by, behavior });
+  }, smooth ? "smooth" : "instant");
+  await d.wait(smooth ? 800 : 100);
+};
+/** Open a statistics page, its top right under the header. */
 const openPage = async (d: Director, i: number) => {
+  await toStatsTop(d, false);
   await d.click(statsPage(d, i));
-  await d.wait(900);
-  await d.scrollTo(d.page.locator(".stats-head"));
+  await d.wait(700);
+  await toStatsTop(d, false);
 };
 /**
  * Scroll something into the middle of the screen and ring it once the smooth
@@ -89,8 +106,8 @@ const scenario: Scenario = {
     en: "GED Merge: statistics — what your family tree tells in numbers",
   },
   description: {
-    sl: "Statistika je prvo orodje v Orodjih in zajame celotno datoteko: povzetek, popolnost podatkov, imena po stoletjih, življenjska doba, poroke po mesecih, selitve, rodovi prednikov, ponovljeni predniki in najbližje slepe ulice. Za vsakim številom so osebe — klik odpre njihov seznam. Podatki: anonimiziran izsek iz avtorjevega rodovnika.",
-    en: "Statistics is the first of the Tools and covers the whole file: the summary, data completeness, names by century, lifespan, marriages by month, migration, ancestors by generation, repeated ancestors and the nearest brick walls. Behind every number are people — a click lists them. Data: an anonymised excerpt of the author's family tree.",
+    sl: "Statistika je prvo orodje v Orodjih in zajame celotno datoteko: povzetek, popolnost podatkov, imena po stoletjih, življenjska doba in umrljivost otrok, poroke po mesecih, poklici, selitve, rodovi prednikov, ponovljeni predniki, najbližje slepe ulice in dogodki z viri. Za vsakim številom so osebe — klik odpre njihov seznam. Podatki: anonimiziran izsek iz avtorjevega rodovnika.",
+    en: "Statistics is the first of the Tools and covers the whole file: the summary, data completeness, names by century, lifespan and child mortality, marriages by month, occupations, migration, ancestors by generation, pedigree collapse, the nearest brick walls and sourced events. Behind every number are people — a click lists them. Data: an anonymised excerpt of the author's family tree.",
   },
   thumbnail: {
     tag: { sl: "Statistika", en: "Statistics" },
@@ -112,8 +129,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Tokrat odpremo večje drevo: anonimiziran izsek iz avtorjevega rodovnika s skoraj šeststo osebami. Statistika je prvo orodje v Orodjih in vedno zajame celotno datoteko.",
-        en: "This time we open a larger tree: an anonymised excerpt of the author's own family tree, with almost six hundred people. Statistics is the first of the Tools, and it always covers the whole file.",
+        sl: "Tokrat odpremo večje drevo: anonimiziran izsek iz avtorjevega rodovnika: predniki z vsemi brati in sestrami, več kot tisoč sedemsto oseb. Statistika je prvo orodje v Orodjih in vedno zajame celotno datoteko.",
+        en: "This time we open a larger tree: an anonymised excerpt of the author's own family tree: the ancestors with all their brothers and sisters, more than seventeen hundred people. Statistics is the first of the Tools, and it always covers the whole file.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -149,7 +166,7 @@ const scenario: Scenario = {
         en: "Behind every number are people. Click a surname and a list of everyone who bears it opens. A click on a name opens that person in Edit.",
       },
       run: async (d) => {
-        await d.click(bar(d, "topSurnames", /^Jekovec/));
+        await d.click(bar(d, "topSurnames", /^Simonič/));
         await d.wait(800);
         await ring(d, pickList(d));
         await d.wait(1800);
@@ -165,8 +182,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Popolnost podatkov", en: "Completeness" },
       say: {
-        sl: "Kartica »Popolnost podatkov« pove, kolikšen del oseb ima datum in kraj rojstva, starše in vire. Datum smrti ima le slaba polovica umrlih. Klik na vrstico pokaže, komu podatek manjka — to je vaš seznam opravil.",
-        en: "The Completeness card shows what share of people have a birth date and place, parents and sources. Only a little under half of the deceased have a date of death. A click on the row lists who is missing it — that is your to-do list.",
+        sl: "Kartica »Popolnost podatkov« pove, kolikšen del oseb ima datum in kraj rojstva, starše in vire. Datum smrti je znan le pri dveh petinah umrlih. Klik na vrstico pokaže, komu podatek manjka — to je vaš seznam opravil.",
+        en: "The Completeness card shows what share of people have a birth date and place, parents and sources. Only two in five of the deceased have a known date of death. A click on the row lists who is missing it — that is your to-do list.",
       },
       run: async (d) => {
         await showCard(d, "complete", 3500);
@@ -187,7 +204,7 @@ const scenario: Scenario = {
         en: "At the top, narrow the statistics to the start person's blood relatives, ancestors or descendants. Under Filters, narrow them further by sex, birth years, place or country. Part of this family comes from Croatia.",
       },
       run: async (d) => {
-        await d.scrollTo(d.page.locator(".stats-head"));
+        await toStatsTop(d);
         await d.click(who(d, 2));
         await d.wait(600);
         await d.highlight(d.page.locator(".tools-summary").first(), 6);
@@ -209,23 +226,21 @@ const scenario: Scenario = {
     {
       callout: { sl: "Imena", en: "Names" },
       say: {
-        sl: "Stran »Imena« pokaže najpogostejša imena po stoletjih. Janez in Marija sta na vrhu dve stoletji, v dvajsetem pa Janeza prehitita Anton in Franc.",
-        en: "The Names page shows the most common names by century. Janez and Marija lead for two centuries; in the twentieth, Anton and Franc overtake Janez.",
+        sl: "Stran »Imena« pokaže najpogostejša imena po stoletjih. V osemnajstem stoletju vodi Matija, v devetnajstem Janez, v dvajsetem pa ju prehitita Anton in Franc. Pri ženskah je Marija na vrhu od osemnajstega stoletja naprej.",
+        en: "The Names page shows the most common names by century. Matija leads in the eighteenth century and Janez in the nineteenth; in the twentieth, Anton and Franc overtake them both. Among women, Marija leads from the eighteenth century on.",
       },
       run: async (d) => {
-        // Back to the whole file, filters folded.
-        await d.scrollTo(d.page.locator(".stats-head"));
-        await d.click(d.page.locator(".stats-scope .tools-chip").first());
-        await d.click(d.page.locator(".stats-head-end .tools-chip").first());
-        await d.wait(400);
+        // Back to the whole file, filters folded — at once, not worth watching.
+        await d.page.locator(".stats-scope .tools-chip").first().click();
+        await d.page.locator(".stats-head-end .tools-chip").first().click();
         await openPage(d, 1);
         await showCard(d, "byCentury");
       },
     },
     {
       say: {
-        sl: "Skoraj petina hčera je dobila ime po babici, sinovi pa največkrat po očetu.",
-        en: "Almost one daughter in five was named after her grandmother; sons were most often named after their father.",
+        sl: "Skoraj petina hčera je dobila ime po babici, sinovi pa so ime po dedu in po očetu dobili približno enako pogosto.",
+        en: "Almost one daughter in five was named after her grandmother; sons were named after their grandfather about as often as after their father.",
       },
       run: async (d) => {
         await showCard(d, "namesakes");
@@ -234,20 +249,24 @@ const scenario: Scenario = {
     {
       callout: { sl: "Življenjska doba", en: "Lifespan" },
       say: {
-        sl: "Življenjska doba pokaže starost ob smrti. Povprečje se je od sedemnajstega stoletja dvignilo s sedemintrideset na več kot šestdeset let.",
-        en: "Lifespan shows the age at death. Since the seventeenth century, the average has risen from thirty-seven to over sixty years.",
+        sl: "Življenjska doba pokaže starost ob smrti. Graf ima dva vrhova: veliko otrok je umrlo pred petim letom, kdor pa je otroštvo preživel, je pogosto dočakal šestdeset ali sedemdeset let.",
+        en: "Lifespan shows the age at death. The chart has two peaks: many children died before the age of five, but those who survived childhood often lived to sixty or seventy.",
       },
       run: async (d) => {
         await d.highlight(null);
         await openPage(d, 2);
-        await showCard(d, "ageAtDeath", 2500);
-        await showCard(d, "lifeByCentury");
+        await showCard(d, "ageAtDeath", 3500);
+        // The two peaks: early childhood, and sixty to seventy-four.
+        const ages = card(d, "ageAtDeath").locator(".stats-col");
+        await d.highlight(ages.nth(0), 4);
+        await d.wait(2500);
+        await d.highlight(ages.nth(14), 4);
       },
     },
     {
       say: {
-        sl: "Statistika pove tudi, kako je drevo nastalo. Pred dvajsetim stoletjem v njem ni niti enega otroka, ki bi umrl pred petim letom. Tam so namreč skoraj sami predniki — in vsi so dočakali odraslost.",
-        en: "Statistics also tells how the tree was built. Before the twentieth century, not a single child in it died before the age of five. That is because those centuries hold almost only ancestors — and every one of them grew up.",
+        sl: "V osemnajstem stoletju je pred petim letom umrl več kot vsak tretji otrok, v dvajsetem le še vsak sedmi. To vidimo samo zato, ker so v drevesu tudi bratje in sestre prednikov. Predniki so namreč vsi dočakali odraslost.",
+        en: "In the eighteenth century more than one child in three died before the age of five; in the twentieth, one in seven. We only see this because the ancestors' brothers and sisters are in the tree — every ancestor, after all, grew up.",
       },
       run: async (d) => {
         await showCard(d, "childDeaths");
@@ -312,18 +331,31 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Selitve", en: "Migration" },
+      callout: { sl: "Poklic", en: "Occupation" },
       say: {
-        sl: "Selitve primerjajo kraj rojstva in kraj smrti. V osemnajstem stoletju je bil kraj smrti povprečno pet kilometrov od rojstnega, v dvajsetem pa skoraj dvesto.",
-        en: "Migration compares the place of birth with the place of death. In the eighteenth century, people died on average five kilometres from where they were born; in the twentieth, almost two hundred.",
+        sl: "Stran »Poklic« pokaže, s čim so se ljudje preživljali. Do dvajsetega stoletja so bili skoraj vsi kmetje, zapisani tudi kot polovični in četrtinski zemljaki — po delu kmetije, ki so ga imeli. V dvajsetem stoletju jih zamenjajo delavci in delavke.",
+        en: "The Occupation page shows how people made their living. Until the twentieth century almost all were farmers, also recorded as half or quarter landholders — by the share of the farm they held. In the twentieth century, workers take their place.",
       },
       run: async (d) => {
         await d.page.keyboard.press("Escape");
         await d.wait(600);
         if (!(await d.page.locator(".stats-head").isVisible())) await d.click(d.page.locator(".seg-btn").nth(2));
         await d.page.locator(".stats-head").waitFor();
+        await openPage(d, 6);
+        await showCard(d, "jobsByCentury");
+      },
+    },
+    {
+      callout: { sl: "Selitve", en: "Migration" },
+      say: {
+        sl: "Selitve primerjajo kraj rojstva in kraj smrti. V osemnajstem stoletju je bil kraj smrti povprečno dva kilometra od rojstnega. V devetnajstem se začne izseljevanje, največ v Združene države, in povprečje skoči na več sto kilometrov.",
+        en: "Migration compares the place of birth with the place of death. In the eighteenth century, people died on average two kilometres from where they were born. In the nineteenth, emigration begins, mostly to the United States, and the average jumps to several hundred kilometres.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
         await openPage(d, 7);
-        await showCard(d, "distanceByCentury");
+        await showCard(d, "distanceByCentury", 5000);
+        await showCard(d, "countryMoves");
       },
     },
     {
@@ -374,6 +406,21 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "Raziskava", en: "Research" },
+      say: {
+        sl: "Stran »Raziskava« pokaže, koliko dogodkov ima navedbo vira. Krsti in poroke so dobro podprti z matičnimi knjigami, smrt pa ima vir le pri vsakem petem dogodku. Tam je še dela.",
+        en: "The Research page shows how many events cite a source. Baptisms and marriages are well backed by parish registers, but only one death in five has a source. That is where work remains.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await openPage(d, 9);
+        await d.highlight(d.page.locator(".stats-tiles").first(), 4);
+        await d.wait(2500);
+        await showCard(d, "sourcedByTag", 2500);
+        await d.highlight(bar(d, "sourcedByTag", /^(Smrt|Death)/), 4);
+      },
+    },
+    {
       callout: { sl: "Izvoz", en: "Export" },
       say: {
         sl: "Ikona »i« pojasni, kako je število izračunano. Vsako stran izvozite kot sliko, vsako kartico pa tudi kot tabelo CSV za lastne izračune.",
@@ -381,17 +428,17 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await d.highlight(null);
-        const info = card(d, "walls").locator(".stats-card-tools > button.stats-info").last();
+        const info = card(d, "sourcedByTag").locator(".stats-card-tools > button.stats-info").last();
         await d.point(info);
         await info.hover();
         await d.wait(2800);
-        await d.click(card(d, "walls").locator(".export-menu button").first());
+        await d.click(card(d, "sourcedByTag").locator(".export-menu button").first());
         await d.wait(600);
-        await d.highlight(card(d, "walls").locator(".export-menu-popover"), 4);
+        await d.highlight(card(d, "sourcedByTag").locator(".export-menu-popover"), 4);
         await d.wait(2200);
         await d.highlight(null);
         await d.page.keyboard.press("Escape");
-        await d.scrollTo(d.page.locator(".stats-head"));
+        await toStatsTop(d);
         await d.click(d.page.locator(".stats-head .export-menu button").first());
         await d.wait(600);
         await d.highlight(d.page.locator(".stats-head .export-menu-popover"), 4);
