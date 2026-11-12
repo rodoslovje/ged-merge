@@ -370,20 +370,31 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poti", en: "Paths" },
       say: {
-        sl: "Gumb »Poti« poveže kraje v življenju vsake osebe, od rojstva prek bivališč do smrti, s puščicami v smeri poti. Tako hitro vidite, kdo se je priselil od drugod in kam so se odselili potomci. Klik na pot jo izbere: pot se poudari, zgoraj pa piše, čigava je.",
-        en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel. You see at a glance who moved in from elsewhere and where the descendants moved away to. Clicking a path selects it: the path is emphasised, and the top says whose it is.",
+        sl: "Gumb »Poti« poveže kraje v življenju vsake osebe, od rojstva prek bivališč do smrti, s puščicami v smeri poti. Tako hitro vidite, kdo se je priselil od drugod in kam so se odselili potomci.",
+        en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel. You see at a glance who moved in from elsewhere and where the descendants moved away to.",
       },
       run: async (d) => {
         await closePanel(d);
         await d.click(chip(d, "map-paths-chip"));
-        await d.wait(5000);
+        await d.wait(3000);
+      },
+    },
+    {
+      say: {
+        sl: "Klik na pot jo izbere: pot se poudari, ostale zbledijo, zgoraj pa piše, čigava je.",
+        en: "Clicking a path selects it: the path is emphasised, the others fade, and the top says whose it is.",
+      },
+      run: async (d) => {
         await clickLongestPath(d);
-        await d.wait(4000);
+        await d.wait(1200);
         await closePanel(d);
+        await d.highlight(d.page.locator(".map-path-selchip").first(), 4);
+        await d.wait(3000);
+        await d.highlight(null);
         const unselect = d.page.locator(".map-path-selchip button").first();
         if (await unselect.isVisible()) await d.click(unselect);
         await d.click(chip(d, "map-paths-chip"));
-        await d.wait(800);
+        await d.wait(600);
       },
     },
     {
