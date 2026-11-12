@@ -298,8 +298,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Nov koren", en: "A new root" },
       say: {
-        sl: "Ikona z drevesom ob osebi v seznamu to osebo postavi za koren zemljevida. Zemljevid nato pokaže njene prednike in potomce. S tipko H se vrnete k izhodiščni osebi.",
-        en: "The tree icon beside a person in the list makes that person the root of the map. The map then shows their ancestors and descendants. The H key brings you back to the start person.",
+        sl: "Ikona z drevesom ob osebi v seznamu to osebo postavi za koren zemljevida. Njeno ime je zdaj v glavi, zemljevid pa pokaže le njene prednike in potomce, zato je dogodkov precej manj. S tipko H se vrnete k izhodiščni osebi.",
+        en: "The tree icon beside a person in the list makes that person the root of the map. Their name is now in the header, and the map shows only their ancestors and descendants, so there are far fewer events. The H key brings you back to the start person.",
       },
       run: async (d) => {
         const root = d.page.locator(".map-panel .map-panel-rootbtn").first();
@@ -308,10 +308,19 @@ const scenario: Scenario = {
         await d.wait(1800);
         await d.highlight(null);
         await d.click(root);
-        await d.wait(4500);
         await d.wait(1500);
-        await d.page.keyboard.press("h");
+        await d.click(d.page.locator(`[title="${d.t({ sl: "Prilagodi pogled prikazanim krajem", en: "Fit to the plotted places" })}"]`).first());
+        await d.wait(1500);
+        await d.highlight(d.page.locator(".tree-title").first(), 6);
         await d.wait(2500);
+        await d.highlight(d.page.locator(".map-count").first(), 6);
+        await d.wait(2500);
+        await d.highlight(null);
+        await d.page.keyboard.press("h");
+        await d.wait(1500);
+        await d.highlight(d.page.locator(".tree-title").first(), 6);
+        await d.wait(1800);
+        await d.highlight(null);
         await findOnMap(d, "Zgornje Bitnje");
         await openCrowdedPlace(d);
         const close = d.page.locator(".map-panel .modal-close").first();
