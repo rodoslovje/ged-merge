@@ -112,13 +112,11 @@ const baseRow = (d: Director) =>
   modal(d).locator("label.settings-format-row", { hasText: d.t({ sl: "Osnovni zemljevid", en: "Base map" }) }).first();
 async function pickBase(d: Director, label: Text): Promise<void> {
   const row = baseRow(d);
-  await d.highlight(row, 4);
   await d.click(row.locator(".select-menu").first());
-  await d.wait(700);
+  await d.wait(400);
   await d.click(d.page.locator(".dd-item", { hasText: d.t(label) }).first());
-  await d.highlight(modal(d).locator(".settings-map-preview").first(), 4);
-  await d.skippable(() => d.wait(1500));
-  await d.wait(1500);
+  await d.skippable(() => d.wait(1000));
+  await d.wait(900);
 }
 
 /** Drag the (left) map by an offset, as a hand would, with the pointer shown. */
@@ -209,6 +207,7 @@ const scenario: Scenario = {
         await d.scrollTo(row);
         await d.highlight(row, 4);
         await d.wait(800);
+        await d.highlight(null);
         for (const label of [
           { sl: "Relief", en: "Relief" },
           { sl: "Satelitski", en: "Satellite" },
