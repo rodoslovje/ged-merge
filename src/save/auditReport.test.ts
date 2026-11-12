@@ -88,6 +88,11 @@ describe("auditAgainstBaseline", () => {
     auditAgainstBaseline(outgoing(ds), baseline, report);
 
     expect(report.recordLabels["@F1@"]).toBe("Janez Novak + Ana Kos");
+    // Each spouse by id, so the preview heads the card in their own colours.
+    expect(report.familySpouses["@F1@"]).toEqual([
+      { id: "@I1@", name: "Janez Novak" },
+      { id: "@I2@", name: "Ana Kos" },
+    ]);
   });
 
   it("reports a record that leaves changed with nothing said about it", () => {
