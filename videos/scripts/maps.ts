@@ -128,40 +128,6 @@ async function closePanel(d: Director): Promise<void> {
   }
 }
 
-/** Click a long life path, as a hand would, until one is selected (its name
- *  chip shows): the longest paths first, each at a few points along it, since
- *  a marker may sit on the spot. */
-async function clickLongestPath(d: Director): Promise<void> {
-  const spots = await d.page.evaluate(() => {
-    const paths = [...document.querySelectorAll<SVGPathElement>("path.leaflet-interactive")]
-      .filter((p) => {
-        const r = p.getBoundingClientRect();
-        return r.top > 330 && r.bottom < window.innerHeight - 80;
-      })
-      .sort((a, b) => b.getTotalLength() - a.getTotalLength())
-      .slice(0, 5);
-    const out: { x: number; y: number }[] = [];
-    for (const p of paths) {
-      const m = p.getScreenCTM()!;
-      for (const f of [0.5, 0.35, 0.65]) {
-        const q = p.getPointAtLength(p.getTotalLength() * f);
-        out.push({ x: q.x * m.a + m.e, y: q.y * m.d + m.f });
-      }
-    }
-    return out;
-  });
-  const chipShown = () => d.page.locator(".map-path-selchip").first().isVisible();
-  for (const pt of spots) {
-    await d.overlay("cursor", pt.x, pt.y, 600);
-    await d.wait(650);
-    await d.overlay("click", pt.x, pt.y);
-    await d.page.mouse.click(pt.x, pt.y);
-    await d.wait(700);
-    if (await chipShown()) return;
-    await closePanel(d);
-  }
-}
-
 /** Drag the (left) map by an offset, as a hand would, with the pointer shown. */
 async function pan(d: Director, dx: number, dy: number): Promise<void> {
   const box = await d.page.locator(".leaflet-container").first().boundingBox();
@@ -386,26 +352,7 @@ const scenario: Scenario = {
       run: async (d) => {
         await closePanel(d);
         await d.click(chip(d, "map-paths-chip"));
-        await d.wait(3000);
-      },
-    },
-    {
-      say: {
-        sl: "Klik na pot jo izbere: pot se poudari, ostale zbledijo, zgoraj pa piše, čigava je.",
-        en: "Clicking a path selects it: the path is emphasised, the others fade, and the top says whose it is.",
-      },
-      run: async (d) => {
-        await clickLongestPath(d);
-        await d.wait(800);
-        await closePanel(d);
-        const selected = d.page.locator(".map-path-selchip").first();
-        if (await selected.isVisible()) {
-          await d.highlight(selected, 4);
-          await d.wait(3000);
-          await d.highlight(null);
-        }
-        const unselect = d.page.locator(".map-path-selchip button").first();
-        if (await unselect.isVisible()) await d.click(unselect);
+        await d.wait(8000);
         await d.click(chip(d, "map-paths-chip"));
         await d.wait(600);
       },
