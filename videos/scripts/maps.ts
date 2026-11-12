@@ -307,19 +307,22 @@ const scenario: Scenario = {
         await d.wait(1800);
         await d.highlight(null);
         await d.click(root);
-        await d.wait(1200);
+        await d.wait(600);
         await closePanel(d);
+        // The name first, while it is being spoken of; then the map fitted to
+        // the new root's places and the event count that has dropped.
+        const name = d.page.locator(".tree-title-name").filter({ visible: true }).first();
+        await d.highlight(name, 6);
+        await d.wait(2200);
+        await d.highlight(null);
         await d.click(d.page.locator(`[title="${d.t({ sl: "Prilagodi pogled prikazanim krajem", en: "Fit to the plotted places" })}"]`).first());
-        // Let the base map draw at the new zoom before pointing anything out.
-        await d.skippable(() => d.wait(2500));
-        await d.highlight(d.page.locator(".tree-title").first(), 6);
-        await d.wait(2500);
+        await d.skippable(() => d.wait(2000));
         await d.highlight(d.page.locator(".map-count").first(), 6);
         await d.wait(2500);
         await d.highlight(null);
         await d.page.keyboard.press("h");
         await d.wait(1500);
-        await d.highlight(d.page.locator(".tree-title").first(), 6);
+        await d.highlight(d.page.locator(".tree-title-name").filter({ visible: true }).first(), 6);
         await d.wait(1800);
         await d.highlight(null);
       },
