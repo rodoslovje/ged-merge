@@ -74,8 +74,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Glavna in vhodna datoteka", en: "Main and incoming file" },
       say: {
-        sl: "Odprite svojo datoteko. To je glavna datoteka, vanjo se zapišejo prevzeti podatki. Kraji v njej so že urejeni in geokodirani, kot v šestem videu.",
-        en: "Open your own file. This is the main file; the data you take over is written into it. Its places are already tidied and geocoded, as in the sixth video.",
+        sl: "Odprite svojo datoteko. To je glavna datoteka, vanjo se zapišejo prevzeti podatki. Kraji v njej so že urejeni in geokodirani.",
+        en: "Open your own file. This is the main file; the data you take over is written into it. Its places are already tidied and geocoded.",
       },
       run: async (d) => {
         await d.card(null, null);
