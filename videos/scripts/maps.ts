@@ -220,7 +220,29 @@ const scenario: Scenario = {
         await d.highlight(d.page.locator(".map-panel").first(), 4);
         await d.wait(5000);
         await d.highlight(null);
-        await d.click(d.page.locator(".map-panel .modal-close").first());
+      },
+    },
+    {
+      callout: { sl: "Nov koren", en: "A new root" },
+      say: {
+        sl: "Ikona z drevesom ob osebi v seznamu to osebo postavi za koren zemljevida. Zemljevid nato pokaže njene prednike in potomce. S tipko H se vrnete k izhodiščni osebi.",
+        en: "The tree icon beside a person in the list makes that person the root of the map. The map then shows their ancestors and descendants. The H key brings you back to the start person.",
+      },
+      run: async (d) => {
+        const root = d.page.locator(".map-panel .map-panel-rootbtn").first();
+        await d.highlight(root, 6);
+        await d.point(root);
+        await d.wait(1800);
+        await d.highlight(null);
+        await d.click(root);
+        await d.wait(4500);
+        await d.wait(1500);
+        await d.page.keyboard.press("h");
+        await d.wait(2500);
+        await findOnMap(d, "Zgornje Bitnje");
+        await openCrowdedPlace(d);
+        const close = d.page.locator(".map-panel .modal-close").first();
+        if (await close.isVisible()) await d.click(close);
         await d.wait(600);
       },
     },
@@ -280,7 +302,7 @@ const scenario: Scenario = {
         en: "The Borders button draws the administrative borders in the year entered under To year: empires, lands and districts from OpenHistoricalMap. In 1870, Kranj lay in the Duchy of Carniola and Ravna Gora in Croatia.",
       },
       run: async (d) => {
-        await zoom(d, -3);
+        await zoom(d, -6);
         await d.click(chip(d, "map-borders-chip"));
         await d.skippable(() => d.wait(4000));
         await d.wait(3000);
@@ -311,8 +333,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Sloji", en: "Layers" },
       say: {
-        sl: "Na zemljevidu jih vklopite pod »Sloji«. Sloji, katerih obdobje ustreza izbranim letom, so označeni. Vklopimo kataster in se približajmo Bitnjam.",
-        en: "On the map you switch them on under Layers. Layers whose period suits the chosen years are marked. Let's switch on the cadastre and zoom in on Bitnje.",
+        sl: "Na zemljevidu jih vklopite pod »Sloji«. Vklopljenih je lahko več slojev hkrati, sloji, katerih obdobje ustreza izbranim letom, pa so označeni. Vklopimo kataster in se približajmo Bitnjam.",
+        en: "On the map you switch them on under Layers. Several layers can be on at once, and layers whose period suits the chosen years are marked. Let's switch on the cadastre and zoom in on Bitnje.",
       },
       run: async (d) => {
         await findOnMap(d, "Srednje Bitnje");
@@ -329,8 +351,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Drsnik pod slojem nastavi njegovo prosojnost, da pod staro karto vidite današnji zemljevid.",
-        en: "The slider under a layer sets its opacity, so today's map shows through the old one.",
+        sl: "Prosojnost je namenjena slikovnim kartam, kot je kataster, ki osnovni zemljevid v celoti prekrijejo. Z drsnikom pod slojem jo nastavite tako, da pod staro karto vidite današnji zemljevid.",
+        en: "Opacity is meant for image maps, such as the cadastre, that cover the base map entirely. Set it with the slider under the layer so today's map shows through the old one.",
       },
       run: async (d) => {
         await openLayers(d);
