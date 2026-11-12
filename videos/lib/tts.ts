@@ -43,6 +43,7 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\bGURS\b/g, "Gúrs"],
     [/\b([Ss])loj(i|e|ih|ev)\b/g, "$1lój$2"],
     [/\b([Pp])ribližajmo\b/g, "$1ribližájmo"],
+    [/\b([Mm])eje\b/g, "$1éje"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],
