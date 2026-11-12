@@ -119,6 +119,30 @@ async function pickBase(d: Director, label: Text): Promise<void> {
   await d.wait(900);
 }
 
+/** Click the middle of the longest life path on screen, as a hand would. */
+async function clickLongestPath(d: Director): Promise<void> {
+  const pt = await d.page.evaluate(() => {
+    let best: SVGPathElement | null = null;
+    let most = 0;
+    document.querySelectorAll<SVGPathElement>("path.leaflet-interactive").forEach((p) => {
+      const r = p.getBoundingClientRect();
+      if (r.top < 330 || r.bottom > window.innerHeight - 80) return;
+      const len = p.getTotalLength();
+      if (len > most) [best, most] = [p, len];
+    });
+    if (!best) return null;
+    const path = best as SVGPathElement;
+    const q = path.getPointAtLength(most / 2);
+    const m = path.getScreenCTM()!;
+    return { x: q.x * m.a + m.e, y: q.y * m.d + m.f };
+  });
+  if (!pt) return;
+  await d.overlay("cursor", pt.x, pt.y, 800);
+  await d.wait(900);
+  await d.overlay("click", pt.x, pt.y);
+  await d.page.mouse.click(pt.x, pt.y);
+}
+
 /** Drag the (left) map by an offset, as a hand would, with the pointer shown. */
 async function pan(d: Director, dx: number, dy: number): Promise<void> {
   const box = await d.page.locator(".leaflet-container").first().boundingBox();
@@ -230,14 +254,20 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zemljevid krajev", en: "The map of places" },
       say: {
-        sl: "Diagrame odprete s tipko V, med njimi pa izberete »Zemljevid«. Pokaže dogodke prednikov in potomcev izhodiščne osebe. Kraji, kjer je dogodkov več, se združijo v gruče s številom dogodkov.",
-        en: "Open the charts with the V key and pick Map among them. It shows the events of the start person's ancestors and descendants. Where a place holds several events, they gather into a cluster with their count.",
+        sl: "Diagrame odprete s tipko V, zemljevid pa nato s tipko 6 ali z gumbom »Zemljevid«. Pokaže dogodke prednikov in potomcev izhodiščne osebe. Kraji, kjer je dogodkov več, se združijo v gruče s številom dogodkov.",
+        en: "Open the charts with the V key, then the map with the 6 key or the Map button. It shows the events of the start person's ancestors and descendants. Where a place holds several events, they gather into a cluster with their count.",
       },
       run: async (d) => {
-        await d.click(d.page.locator(".charts-open-btn"));
+        await d.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await d.page.keyboard.press("v");
+        await d.wait(1500);
+        const mapTab = d.page.locator(".charts-kind [role=tab]", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first();
+        await d.highlight(mapTab, 4);
         await d.wait(900);
-        await d.click(d.page.locator(".charts-kind [role=tab]", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
-        await d.wait(3500);
+        await d.page.keyboard.press("6");
+        await d.wait(1200);
+        await d.highlight(null);
+        await d.wait(2300);
         await d.highlight(d.page.locator(".leaflet-container").first(), 2);
         await d.wait(2000);
         await d.highlight(null);
@@ -282,8 +312,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Približajmo se še vasi. OpenStreetMap ob taki povečavi na hišah pokaže hišne številke.",
-        en: "Let's zoom in on the village. At this zoom OpenStreetMap shows the house numbers on the houses.",
+        sl: "Približajmo se še vasi. OpenStreetMap ob taki povečavi na hišah pokaže hišne številke. To so današnje hišne številke, ne zgodovinske.",
+        en: "Let's zoom in on the village. At this zoom OpenStreetMap shows the house numbers on the houses. These are today's house numbers, not historical ones.",
       },
       run: async (d) => {
         await zoom(d, 3);
@@ -319,12 +349,16 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poti", en: "Paths" },
       say: {
-        sl: "Gumb »Poti« poveže kraje v življenju vsake osebe, od rojstva prek bivališč do smrti, s puščicami v smeri poti. Tako hitro vidite, kdo se je priselil od drugod in kam so se odselili potomci.",
-        en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel. You see at a glance who moved in from elsewhere and where the descendants moved away to.",
+        sl: "Gumb »Poti« poveže kraje v življenju vsake osebe, od rojstva prek bivališč do smrti, s puščicami v smeri poti. Tako hitro vidite, kdo se je priselil od drugod in kam so se odselili potomci. Klik na pot jo izbere: pot se poudari, zgoraj pa piše, čigava je.",
+        en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel. You see at a glance who moved in from elsewhere and where the descendants moved away to. Clicking a path selects it: the path is emphasised, and the top says whose it is.",
       },
       run: async (d) => {
         await d.click(chip(d, "map-paths-chip"));
-        await d.wait(7000);
+        await d.wait(5000);
+        await clickLongestPath(d);
+        await d.wait(4000);
+        const unselect = d.page.locator(".map-path-selchip button").first();
+        if (await unselect.isVisible()) await d.click(unselect);
         await d.click(chip(d, "map-paths-chip"));
         await d.wait(800);
       },
@@ -442,12 +476,22 @@ const scenario: Scenario = {
     {
       callout: { sl: "Sloji GURS", en: "GURS layers" },
       say: {
-        sl: "Sloji GURS so vektorski izrisi, ki se narišejo čez osnovno karto in tudi čez zgodovinsko: meje katastrskih občin, današnje parcele in hišne številke. Tako ob katastru iz leta 1826 vidite, katera današnja parcela in hiša stojita na mestu nekdanje domačije.",
-        en: "The GURS layers are vector drawings laid over the base map, and over a historical one too: cadastral municipality borders, today's parcels and house numbers. Next to the 1826 cadastre you see which parcel and house of today stand where the old homestead was.",
+        sl: "Sloji GURS so vektorski izrisi, ki se narišejo čez osnovni zemljevid ali čez zgodovinsko karto: meje katastrskih občin, današnje parcele in hišne številke. Da bodo lepo vidni, preklopimo na enostaven osnovni zemljevid in kataster izklopimo.",
+        en: "The GURS layers are vector drawings laid over the base map or over a historical map: cadastral municipality borders, today's parcels and house numbers. To see them clearly, we switch to the plain base map and turn the cadastre off.",
       },
       run: async (d) => {
+        await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
+        await d.click(modal(d).locator("button", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
+        await d.scrollTo(baseRow(d));
+        await d.highlight(baseRow(d), 4);
+        await pickBase(d, { sl: "Enostaven", en: "Plain" });
+        await d.highlight(null);
+        await d.click(modal(d).locator(".modal-close"));
+        await modal(d).waitFor({ state: "detached" });
         await openLayers(d);
         await d.click(d.page.locator("label.map-split-toggle input").first());
+        await d.wait(600);
+        await d.click(layerPick(d, d.t(BITNJE)).locator("input").first());
         await d.wait(800);
         for (const layer of GURS_LAYERS) {
           const pick = layerPick(d, d.t(layer));
