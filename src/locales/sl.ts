@@ -3721,6 +3721,7 @@ export const sl = {
   "charts.trail.list": "Osebe, za katere je bil diagram narisan",
   "edit.tree.modified": "Spremenjeno",
   "edit.tree.reroot": "Koren",
+  "edit.tree.rerootTooltip": "Postavi to osebo za koren diagrama",
   "undo": "Razveljavi",
   "redo": "Ponovi",
   "undo.tooltip": "Razveljavi zadnjo spremembo",

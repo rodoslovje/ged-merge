@@ -8657,10 +8657,28 @@ kbd {
 .map-panel-pathbtn:hover .map-paths-icon {
   opacity: 1;
 }
-.map-panel-rootbtn svg {
+/* The row's buttons (life path, re-root) sit apart from the name: at the
+   row's right edge, one above the other, each framed like the toolbar's
+   icon buttons so it reads as a control rather than part of the text. */
+.map-panel-person-actions {
+  float: right;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 8px;
+}
+.map-panel-person-actions .map-panel-pathbtn {
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.map-panel-person-actions .map-panel-pathbtn:hover {
+  border-color: var(--accent);
+}
+.map-panel-person-actions .map-panel-pathbtn svg {
   opacity: 0.75;
 }
-.map-panel-rootbtn:hover svg {
+.map-panel-person-actions .map-panel-pathbtn:hover svg {
   opacity: 1;
 }
 .map-undated {

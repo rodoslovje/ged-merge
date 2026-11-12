@@ -3262,6 +3262,7 @@ export const en = {
   "charts.trail.list": "People this chart was drawn for",
   "edit.tree.modified": "Modified",
   "edit.tree.reroot": "Root",
+  "edit.tree.rerootTooltip": "Make this person the root of the chart",
   "undo": "Undo",
   "redo": "Redo",
   "undo.tooltip": "Undo last change",
