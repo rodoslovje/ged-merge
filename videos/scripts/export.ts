@@ -124,7 +124,7 @@ const scenario: Scenario = {
   steps: [
     {
       say: {
-        sl: "Diagram lahko prilagodite, natisnete ali delite z drugimi. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe.",
+        sl: "Diagram lahko prilagodite, natisnete ali pošljete drugim. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe.",
         en: "You can adjust a chart, print it, or share it with others. In this video we show how — and how to protect living people while you do.",
       },
       run: async (d) => {
@@ -223,10 +223,15 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await openExport(d);
-        await d.highlight(exportItem(d, "SVG").locator(".."), 4);
-        await d.wait(1500);
+        const svg = exportItem(d, "SVG");
+        await d.highlight(svg.locator(".."), 4);
+        await d.wait(2500);
+        await d.highlight(svg, 4);
+        await d.point(svg);
+        // The pick waits until the SVG image has been talked about.
+        await d.untilSaid();
         await d.highlight(null);
-        await d.click(exportItem(d, "SVG"));
+        await d.click(svg);
       },
     },
     {
@@ -290,7 +295,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zasebnost", en: "Privacy" },
       say: {
-        sl: "Preden drevo delite, pomislite na žive sorodnike. V Prešernovi rodbini živih oseb ni, zato odpremo drugo drevo: izsek iz drevesa avtorja GED Merge. Imena živih sorodnikov so v njem izmišljena.",
+        sl: "Preden drevo pošljete drugim, pomislite na žive sorodnike. V Prešernovi rodbini živih oseb ni, zato odpremo drugo drevo: izsek iz drevesa avtorja GED Merge. Imena živih sorodnikov so v njem izmišljena.",
         en: "Before you share a tree, think of your living relatives. Prešeren's family has no living people, so we open another tree: an excerpt from the GED Merge author's own tree, in which the living relatives have made-up names.",
       },
       run: async (d) => {

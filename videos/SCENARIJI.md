@@ -271,7 +271,7 @@ listov A4.
 
 | # | Kader | Govor |
 |---|-------|-------|
-| 1 | Naslovna kartica | Diagram lahko prilagodite, natisnete ali delite z drugimi. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe. |
+| 1 | Naslovna kartica | Diagram lahko prilagodite, natisnete ali pošljete drugim. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe. |
 | 2 | Prešernovo drevo prednikov | Odprimo rodovnik pesnika Franceta Prešerna in njegovo drevo prednikov. |
 | 3 | »Diagram« → Usmeritev | Vse možnosti so pod gumbom »Diagram«. Drevo lahko teče od leve proti desni ali od zgoraj navzdol. |
 | 4 | Rodovi − / + | Pri velikem drevesu omejite število rodov. |

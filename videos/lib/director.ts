@@ -69,6 +69,8 @@ export class Director {
   shot?: Buffer;
   /** Recording time (seconds), set by make.ts once recording starts. */
   clock: () => number = () => 0;
+  /** Recording time (seconds) at which the current step's narration ends, set by make.ts. */
+  saidAt = 0;
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
   readonly skips: [number, number][] = [];
   constructor(page: Page, lang: Lang) {
@@ -163,6 +165,12 @@ export class Director {
     await sleep(100);
     this.shot = await this.page.screenshot({ type: "png" });
     await this.overlay("chrome", true);
+  }
+
+  /** Wait until the current step's narration has been spoken — for an action
+   *  that should follow what the narrator says about it. */
+  untilSaid(): Promise<void> {
+    return sleep(Math.max(0, (this.saidAt - this.clock()) * 1000));
   }
 
   wait(ms: number): Promise<void> {
