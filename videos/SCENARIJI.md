@@ -13,7 +13,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ |
 | 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
 | 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
-| 7 | Zemljevidi | — | scenarij |
+| 7 | Zemljevidi | `scripts/maps.ts` | SL z glasom ✓ (čaka na `demo/rodbina-renko.ged`) |
 | 8 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 9 | Statistika | — | scenarij |
 | 10 | Pregled | — | scenarij |
@@ -233,27 +233,32 @@ predlogov iz imenika GURS ob kraju »Kranj«.
 
 ---
 
-## 7. Zemljevidi: nastavitve, zgodovinski sloji in izvoz
+## 7. Zemljevidi: poti, meje in zgodovinske karte
 
-**Cilj:** zemljevid dogodkov, poti, meje v izbranem letu, zgodovinske karte (franciscejski
-kataster, Spezialkarte), vzporedni pogled in izvoz.
-**Podatki:** drevo z geokodiranimi kraji (po videu 5) · **Trajanje:** ~4 min
+**Cilj:** zemljevid krajev z gručami, iskanje kraja, izbira vrst dogodkov in obdobja,
+poti, meje v izbranem letu, zgodovinske karte iz Nastavitev (specialka, franciscejski
+kataster Bitenj 1826), prosojnost sloja, vzporedni pogled in izvoz slike PNG.
+**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa, vsi kraji
+geokodirani (Gorenjska, Bela krajina, Gorski kotar). Izvedba in govor: `scripts/maps.ts`.
+**Trajanje:** ~3 min
 **Naslovna slika:** oznaka »Zemljevid« · »Prednik na *zgodovinski* karti« · posnetek
-vzporednega pogleda (franciscejski kataster | današnji zemljevid).
+vzporednega pogleda (današnji zemljevid | kataster Bitenj 1826).
 
 | # | Kader | Govor |
 |---|-------|-------|
-| 1 | Naslovna kartica | Kje so živeli vaši predniki? Postavimo jih na zemljevid — tudi na zgodovinskega. |
-| 2 | Diagrami → Zemljevid → privolitev v ploščice | Zemljevid prenese ploščice podlage šele, ko to dovolite. Strežnik izve le, kateri del zemljevida gledate. |
-| 3 | Filtri: vrste dogodkov, drsnik let | Zgoraj izberete vrste dogodkov in obdobje. |
-| 4 | »Poti« | Poti povežejo kraje v življenju osebe. |
-| 5 | »Meje« in premik drsnika | Meje pokažejo države in dežele v letu, ki ga izberete na drsniku. |
-| 6 | »Sloji« → »Dodaj brezplačen sloj…« → Spezialkarte | Dodate lahko zgodovinske karte, na primer avstrijsko specialko ali franciscejski kataster. |
-| 7 | Prosojnost sloja | Vsakemu sloju nastavite prosojnost. |
-| 8 | »Vzporedni pogled« | Vzporedni pogled pokaže dva zemljevida drug ob drugem, ki se premikata skupaj. |
-| 9 | ⚙ → Zemljevid → »Osnovni zemljevid« | Osnovni zemljevid izberete v Nastavitvah: preprost, topografski ali satelitski. |
-| 10 | »Izvoz« → Slika PNG | Pogled izvozite kot sliko. |
-| 11 | Zaključna kartica | |
+| 1 | Naslovna kartica | Kje so živeli vaši predniki? Postavimo jih na zemljevid, tudi na zgodovinskega. |
+| 2 | Odpre se rodbina Renko | Večje drevo, vsi kraji že imajo koordinate. |
+| 3 | V → »Zemljevid«, gruče po Evropi | Dogodki prednikov in potomcev, kraji z več dogodki v gručah. |
+| 4 | Iskanje »Zgornje Bitnje« | Iskalno polje premakne zemljevid na kraj ali osebo. |
+| 5 | »Poroka« izklop/vklop, »Do leta« 1870 | Izbira vrst dogodkov in obdobja. |
+| 6 | »Poti« | Življenjske poti s puščicami. |
+| 7 | Oddaljitev, »Meje« (1870) | Upravne meje iz OpenHistoricalMap v letu »Do leta«. |
+| 8 | ⚙ → Zemljevid → »Dodaj brezplačen sloj« → specialka, kataster Bitnje | Zgodovinske karte se dodajo v Nastavitvah. |
+| 9 | »Sloji« → kataster, približanje Bitnjam | Sloji z ustreznim obdobjem so označeni. |
+| 10 | Drsnik prosojnosti | Pod staro karto se vidi današnji zemljevid. |
+| 11 | »Vzporedni pogled« | Levo današnji zemljevid, desno kataster 1826, premikata se skupaj. |
+| 12 | »Izvoz« → »Slika PNG, vzporedni pogled« | Slika PNG z navedbo virov. |
+| 13 | Zaključna kartica | |
 
 ---
 
