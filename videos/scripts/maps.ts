@@ -468,6 +468,11 @@ const scenario: Scenario = {
         await d.page.keyboard.press("Enter");
         await d.wait(800);
         await openLayers(d);
+        // The cadastre fully opaque here: beside today's map, the old one alone.
+        const opacity = d.page.locator("input.map-overlay-opacity").first();
+        await d.point(opacity);
+        await setRange(opacity, 1);
+        await d.wait(600);
         const split = d.page.locator("label.map-split-toggle").first();
         await d.highlight(split, 4);
         await d.wait(1000);
