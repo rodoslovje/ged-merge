@@ -1,7 +1,7 @@
 import { displayNameFromRaw, makeXrefLabeler, newSharedRecordRow, sharedRecordLabel, sharedRecordTitle } from "../gedcom/editReport";
 import { recordFingerprint, type SaveBaseline } from "../gedcom/fingerprint";
 import type { GedNode } from "../gedcom/types";
-import type { ChangeReport, FieldChange } from "../merge/merge";
+import type { ChangeReport, FamilySpouseInfo, FieldChange } from "../merge/merge";
 import { firstChild } from "../gedcom/node";
 
 /**
@@ -85,14 +85,24 @@ export function auditAgainstBaseline(
    *  found only here has no label anywhere in the report, and the preview then
    *  headed their card with a bare `@43579567@` — while the record naming them
    *  was in hand the whole time. */
+  /** A family's spouses, husband first — for the preview to head its card
+   *  with each spouse in their own colour, as it does a family the merge or
+   *  an edit reported. */
+  const spousesOf = (record: GedNode): FamilySpouseInfo[] => {
+    const out: FamilySpouseInfo[] = [];
+    for (const role of ["HUSB", "WIFE"] as const) {
+      const id = firstChild(record, role)?.value;
+      const name = id ? personName(indiByXref.get(id)) : "";
+      if (id && name) out.push({ id, name });
+    }
+    return out;
+  };
   const nameOf = (record: GedNode, kind: string) => {
     if (kind === "record") return sharedRecordLabel(record.xref!, record);
     if (kind === "individual") return personName(record) || undefined;
-    const spouses = (["HUSB", "WIFE"] as const)
-      .map((role) => firstChild(record, role)?.value)
-      .map((id) => (id ? personName(indiByXref.get(id)) : ""))
-      .filter(Boolean);
-    return spouses.join(" + ") || undefined;
+    const spouses = spousesOf(record);
+    if (spouses.length) report.familySpouses[record.xref!] ??= spouses;
+    return spouses.map((sp) => sp.name).join(" + ") || undefined;
   };
 
   const written = new Set<string>();

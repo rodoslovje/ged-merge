@@ -11,6 +11,7 @@ import {
 } from "../../geo/gazetteer";
 import { searchGov } from "../../geo/gov";
 import { decomposePlace } from "../../gedcom/place";
+import { canonicalPlaceToken } from "../../match/place";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
@@ -22,6 +23,7 @@ import {
   proposalFromNominatim,
   proposalFromRn,
   proposalKey,
+  splitPlaceQuery,
   type PlaceProposal,
   type PlaceStyle,
 } from "../../geo/placeProposal";
@@ -191,7 +193,15 @@ export function usePlaceLookupValue(
         // Only a register entry has a level to choose between; the online
         // sources below name their own parent and there is nothing to pick.
         const styled = { ...style, parentLevels: parentLevelsFor(index, placeSuggestions, style.fmt) };
-        for (const entry of searchGazetteer(index, text)) add(proposalFromGazEntry(entry, styled));
+        // A directory knows settlements, not houses: "Žirovnica 7" is looked up
+        // as Žirovnica, and the house rides along on that settlement's offers,
+        // so picking one moves it to the address instead of dropping it.
+        const query = splitPlaceQuery(text);
+        const locality = query.locality && canonicalPlaceToken(query.locality);
+        for (const entry of searchGazetteer(index, query.place)) {
+          const own = !!locality && canonicalPlaceToken(entry.name) === locality;
+          add(proposalFromGazEntry(entry, styled, own ? query.address : undefined));
+        }
       }
 
       if (online) {

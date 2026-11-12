@@ -1,4 +1,4 @@
-import { decomposePlace, numbersItsHouses } from "../gedcom/place";
+import { decomposePlace, looksLikeStreet, numbersItsHouses, placeAddressDetail, stripHouseNumber } from "../gedcom/place";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { reformatPlace } from "../normalize/placeReformat";
 import { placeFormFor } from "../normalize/profile";
@@ -272,7 +272,29 @@ function shape(
  *  The parent it names is the one this file's own places name for that country:
  *  its municipality, or the county above it where the file writes counties — a
  *  proposal that named the other level would not look like its neighbours. */
-export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceProposal | undefined {
+/**
+ * A place typed with its house in it — "Žirovnica 7", "Grosova ulica 18, Kranj",
+ * as files without an `ADDR` line write them — split into what a directory can
+ * answer (the settlement and the levels above it) and the address it cannot.
+ * `locality` is the settlement the address belongs to: only a directory entry of
+ * that name may carry the address, since "Žirovnica 7" says nothing about a
+ * house in another village the search also offers. No address: `place` is the
+ * text as typed.
+ */
+export function splitPlaceQuery(text: string): { place: string; address?: string; locality?: string } {
+  const d = decomposePlace(text);
+  const address = placeAddressDetail(d);
+  if (!address || !d.locality) return { place: text };
+  // A street is its own segment of the value and names no jurisdiction —
+  // whether the parser kept it apart ("Kidričeva 38/a" in "Kranj") or read it
+  // as the locality ("Grosova ulica 18, Kranj").
+  const street = canonicalPlaceToken(stripHouseNumber(d.street ?? (looksLikeStreet(d.locality) ? d.locality : "")));
+  const levels = street ? d.jurisdiction.filter((j) => canonicalPlaceToken(j) !== street) : d.jurisdiction;
+  if (!levels.length) return { place: text };
+  return { place: levels.join(", "), address, locality: levels[0] };
+}
+
+export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle, address?: string): PlaceProposal | undefined {
   const admin = style.parentLevels ? style.parentLevels.parentOf(entry) : entry.admin;
   const country = countryNameOf(entry.country, style.language);
   // The division above the parent — a US state — joins as a second parent
@@ -287,7 +309,9 @@ export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceP
     division && canonicalPlaceToken(division) !== (admin ? canonicalPlaceToken(admin) : "")
       ? [admin, division]
       : [admin];
-  const shaped = shape({ locality: entry.name, admins, country }, undefined, style);
+  // The address, when given, goes where this file keeps addresses — its ADDR
+  // line, or the PLAC itself in a packed file — exactly as a register house's.
+  const shaped = shape({ locality: entry.name, admins, country }, address, style);
   if (!shaped) return undefined;
   return {
     ...shaped,
