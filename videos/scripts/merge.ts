@@ -1,5 +1,5 @@
 /**
- * Video 8 (SCENARIJI.md, "Združevanje"): complete your tree from another
+ * Video 10 (SCENARIJI.md, "Združevanje"): complete your tree from another
  * researcher's file — merge the people both trees hold, then choose, field by
  * field, what to take. Shown with the series display (France as the start
  * person, kinship with the direct line in bold, ages), so every pair says how
@@ -43,7 +43,7 @@ const pickKin = async (d: Director, label: { sl: string; en: string }) => {
 
 const scenario: Scenario = {
   id: "merge",
-  episode: 8,
+  episode: 10,
   settings: seriesSettingsWithMaps,
   title: {
     sl: "GED Merge: dopolnite svoje drevo s podatki iz druge datoteke GEDCOM",
