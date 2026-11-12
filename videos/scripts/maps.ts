@@ -48,6 +48,10 @@ async function findOnMap(d: Director, text: string): Promise<void> {
     await d.click(close);
     await d.wait(500);
   }
+  // An answered find stays live and opens its match again whenever the map
+  // redraws (a year changed, a layer toggled); emptied, it leaves the map be.
+  await field.fill("");
+  await d.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 }
 
 /** Click into the biggest cluster until a single place opens its list of events
@@ -440,6 +444,7 @@ const scenario: Scenario = {
         en: "Let's show the events of every year again. Side by side splits the map into two halves. On the left is today's map, on the right the cadastre of 1826. When you zoom or move one half, the other follows, so at the level of houses you see which of them stood in the village already then.",
       },
       run: async (d) => {
+        await closePanel(d);
         // Every year again: the burials in the cemetery are recent ones.
         await d.click(yearTo(d));
         await d.page.keyboard.press("ControlOrMeta+a");
@@ -494,6 +499,7 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
+        await closePanel(d);
         await openLayers(d);
         await d.click(d.page.locator("label.map-split-toggle input").first());
         await d.wait(600);
