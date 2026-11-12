@@ -39,9 +39,9 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/GEDCOM/g, "gedkom"],
     [/\.ged\b/g, " pika ged"],
     // Stresses the voice gets wrong (episode 7): GURS is one word, "Gúrs",
-    // and "sloji" is "slóji", not "slojí".
+    // and "sloji" is "slóji", not "slojí" ("sloje" the voice gets right alone).
     [/\bGURS\b/g, "Gúrs"],
-    [/\b([Ss])loj(i|e|ih|ev)\b/g, "$1lój$2"],
+    [/\b([Ss])loji\b/g, "$1lóji"],
     [/\b([Mm])eje\b/g, "$1éje"],
     // Genitive "potí" ("v smeri potí"), unlike the Paths button's "Póti".
     [/smeri poti\b/g, "smeri potí"],
