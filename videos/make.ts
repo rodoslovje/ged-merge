@@ -137,6 +137,7 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
     }
     const clip = clips[i];
     cues.push({ start: rec.now(), duration: clip.duration, text: step.say[lang], audio: clip.file });
+    d.saidAt = rec.now() + clip.duration;
     await Promise.all([step.run?.(d), sleep(clip.duration * 1000)]);
     await sleep(GAP_MS);
   }
