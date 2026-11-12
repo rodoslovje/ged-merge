@@ -222,7 +222,7 @@ predlogov iz imenika GURS ob kraju »Kranj«.
 | 8 | Zelen in siv žebljiček, zemljevid pod dogodki | Zelen žebljiček: kraj ima koordinato; siv: je še nima. |
 | 9 | Mina Svetina, rojstvo »Žirovnica 7« → GURS, predlogi s »· Žirovnica 7«; Žirovnica v občini Žirovnica | Program hišno številko prepozna; več Žirovnic — odloči občina. |
 | 10 | Obroč na kraj in na polje Naslov (»Žirovnica 7«) | Hišna številka se sama prestavi v Naslov — standardni zapis v GEDCOM: kraj pove naselje, občino in državo, naslov ulico in hišno številko. |
-| 11 | Smrt → »Ossiach« → OSM »Osoje, Koroška, Avstrija« | GURS kraja ne pozna, OpenStreetMap ga najde pod nemškim imenom. |
+| 11 | Smrt → »Osoje, Avstrija« → OpenStreetMap »Osoje, Koroška, Avstrija« | GURS kraja ne pozna; OpenStreetMap pozna slovenska imena, »na Koroškem« ni del imena, državo lahko napišete po slovensko ali angleško. |
 | 12 | Orodja → Kraji → »Neznana država«; ✎ Radovljica → imenik → »Preimenuj« | Sprememba velja za vse zapise kraja naenkrat. |
 | 13 | ✎ Žirovnica → »Združi« | Kraj že obstaja, zapisa se združita. |
 | 14 | »Geokodiranje« → »Izberi zanesljive« → »Zapiši koordinate« | Zanesljive izberete z enim klikom, koordinate se zapišejo šele ob potrditvi. |

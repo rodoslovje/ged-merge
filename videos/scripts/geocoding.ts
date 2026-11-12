@@ -12,7 +12,8 @@
  * the place (Žirovnica 7, Vrba 1), as many older files do; Mina Svetina's is moved
  * to the address on camera. Settlements and
  * municipalities as in the GURS register of spatial units; France Prešeren's
- * mother Mina Svetina died in Osoje (Ossiach) in Carinthia (Slovenska biografija).
+ * mother Mina Svetina died in Osoje (Ossiach) in Carinthia (Slovenska biografija); OpenStreetMap
+ * finds it as »Osoje, Avstrija« — »Osoje na Koroškem« finds nothing, bare »Osoje« a Croatian village.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -289,20 +290,20 @@ const scenario: Scenario = {
     {
       callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
-        sl: "Mina je umrla v Osojah na Koroškem, v Avstriji. Tega kraja GURS ne pozna, OpenStreetMap pa ga najde pod nemškim imenom Ossiach in ga zapiše po slovensko.",
-        en: "Mina died in Ossiach in Carinthia, Austria. GURS does not know it, but OpenStreetMap finds it under its German name and writes it in the language of your file.",
+        sl: "Mina je umrla v Osojah na Koroškem, v Avstriji. Tega kraja GURS ne pozna, OpenStreetMap pa pozna tudi slovenska imena. »Na Koroškem« ni del imena, zato vpišemo »Osoje, Avstrija«. Državo lahko napišete po slovensko ali po angleško.",
+        en: "Mina died in Ossiach in Carinthia, Austria. GURS does not know it, but OpenStreetMap knows Slovenian names too. \"Na Koroškem\" is not part of the name, so we type Osoje, Austria. You can write the country in Slovenian or in English.",
       },
       run: async (d) => {
         const place = eventPlace(d, 1);
         await d.click(place);
         await d.page.keyboard.press("ControlOrMeta+a");
-        await d.page.keyboard.type("Ossiach", { delay: 120 });
+        await d.page.keyboard.type(d.t({ sl: "Osoje, Avstrija", en: "Osoje, Austria" }), { delay: 120 });
         await d.wait(700);
-        await lookUp(d, "OSM");
-        await d.highlight(proposal(d, "OSM"), 4);
+        await lookUp(d, "OpenStreetMap");
+        await d.highlight(proposal(d, "OpenStreetMap", "Avstrija"), 4);
         await d.wait(1800);
         await d.highlight(null);
-        await d.click(proposal(d, "OSM"));
+        await d.click(proposal(d, "OpenStreetMap", "Avstrija"));
         await blur(d);
         await d.wait(1200);
         await d.highlight(eventPin(d, 1), 8);
