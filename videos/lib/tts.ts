@@ -38,6 +38,10 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/GED Merge/g, "Džed Merdž"],
     [/GEDCOM/g, "gedkom"],
     [/\.ged\b/g, " pika ged"],
+    // Stresses the voice gets wrong (episode 7): GURS is one word, "Gúrs",
+    // and "sloji" is "slóji", not "slojí".
+    [/\bGURS\b/g, "Gúrs"],
+    [/\b([Ss])loj(i|e|ih|ev)\b/g, "$1lój$2"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],
