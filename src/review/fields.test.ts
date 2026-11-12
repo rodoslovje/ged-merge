@@ -578,6 +578,12 @@ ${mother}1 SEX F
     expect(byKey(rowsOf(mainGed, incomingGed), "father")?.relatives).toHaveLength(2);
     expect(byKey(rowsOf(mainGed, incomingGed, new Map([["@FA@", "@FA@"]])), "father")?.relatives).toHaveLength(1);
   });
+
+  it("agrees on a confirmed parent the two files name differently", () => {
+    const mainGed = parents("Janez /Kos/", "1 NAME Mina /Novak/\n");
+    const incomingGed = parents("Janez /Kos/", "1 NAME Marija /Novak/\n");
+    expect(byKey(rowsOf(mainGed, incomingGed, new Map([["@MO@", "@MO@"]])), "mother")).toMatchObject({ state: "agree" });
+  });
 });
 
 describe("pairing unions by their partners", () => {

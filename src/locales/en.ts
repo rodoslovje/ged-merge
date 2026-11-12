@@ -1231,6 +1231,7 @@ export const en = {
   "tools.geocode.fromFile": "from this file",
   "tools.geocode.fromFileTooltip": "Other occurrences of exactly this place name already carry this coordinate in the file",
   "tools.geocode.countryTooltip": "The country whose places are fetched from OpenStreetMap (Overpass API, © OpenStreetMap contributors)",
+  "tools.geocode.serviceFailed": "The download did not go through: the source's server did not answer or returned an error. Try again later.",
   "tools.geocode.downloadFailed": "The download did not go through — try again in a minute (the Overpass servers rate-limit), or download a GeoNames file from the site below and import it here.",
   "tools.geocode.emptyResult":
     "The download went through and there was nothing in it to import. Something may be wrong at the source — try again later, or take this country from another of the sources below.",
