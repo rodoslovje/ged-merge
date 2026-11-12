@@ -239,7 +239,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Skoraj petina hčera je dobila ime po babici, sinovi pa so ime po dedu in po očetu dobili približno enako pogosto.",
+        sl: "Skoraj dvajset odstotkov deklic je dobilo ime po babici, dečki pa so ime po dedu in po očetu dobili približno enako pogosto.",
         en: "Almost one daughter in five was named after her grandmother; sons were named after their grandfather about as often as after their father.",
       },
       run: async (d) => {
@@ -265,7 +265,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "V osemnajstem stoletju je pred petim letom umrl več kot vsak tretji otrok, v dvajsetem le še vsak sedmi. To vidimo samo zato, ker so v drevesu tudi bratje in sestre prednikov. Predniki so namreč vsi dočakali odraslost.",
+        sl: "V osemnajstem stoletju je pred petim letom umrlo šestintrideset odstotkov otrok, v dvajsetem le še petnajst. To vidimo samo zato, ker so v drevesu tudi bratje in sestre prednikov. Predniki so namreč vsi dočakali odraslost.",
         en: "In the eighteenth century more than one child in three died before the age of five; in the twentieth, one in seven. We only see this because the ancestors' brothers and sisters are in the tree — every ancestor, after all, grew up.",
       },
       run: async (d) => {
@@ -376,7 +376,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Na materini strani seže drevo precej globlje kot na očetovi.",
+        sl: "Predniki po mami segajo precej globlje kot predniki po očetu.",
         en: "On the mother's side, the tree reaches much further back than on the father's.",
       },
       run: async (d) => {
@@ -423,8 +423,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Izvoz", en: "Export" },
       say: {
-        sl: "Ikona »i« pojasni, kako je število izračunano. Vsako stran izvozite kot sliko, vsako kartico pa tudi kot tabelo CSV za lastne izračune.",
-        en: "The i icon explains how a number is worked out. Export any page as a picture, and any card also as a CSV table for your own calculations.",
+        sl: "Ikona »i« pojasni, kako je število izračunano. Vsako kartico izvozite kot tabelo CSV za lastne izračune ali kot sliko.",
+        en: "The i icon explains how a number is worked out. Export any card as a CSV table for your own calculations, or as a picture.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -438,11 +438,22 @@ const scenario: Scenario = {
         await d.wait(2200);
         await d.highlight(null);
         await d.page.keyboard.press("Escape");
+      },
+    },
+    {
+      say: {
+        sl: "Gumb »Izvoz« zgoraj izvozi celo stran statistike kot eno sliko, z naslovom in izborom oseb. Tako jo lahko natisnete ali pokažete sorodnikom.",
+        en: "The Export button at the top exports the whole statistics page as one picture, with its title and the people it covers — ready to print or to show your relatives.",
+      },
+      run: async (d) => {
         await toStatsTop(d);
-        await d.click(d.page.locator(".stats-head .export-menu button").first());
+        const btn = d.page.locator(".stats-head .export-menu button").first();
+        await d.highlight(btn, 6);
+        await d.wait(1200);
+        await d.click(btn);
         await d.wait(600);
         await d.highlight(d.page.locator(".stats-head .export-menu-popover"), 4);
-        await d.wait(1800);
+        await d.wait(3000);
         await d.highlight(null);
         await d.page.keyboard.press("Escape");
       },
