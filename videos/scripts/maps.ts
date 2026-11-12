@@ -474,10 +474,17 @@ const scenario: Scenario = {
     {
       callout: { sl: "Vzporedni pogled", en: "Side by side" },
       say: {
-        sl: "»Vzporedni pogled« razdeli zemljevid na dve polovici. Levo je današnji zemljevid, desno kataster iz leta 1826. Ko približate ali premaknete eno polovico, ji druga sledi, zato na ravni hiš vidite, katere so v vasi stale že takrat.",
-        en: "Side by side splits the map into two halves. On the left is today's map, on the right the cadastre of 1826. When you zoom or move one half, the other follows, so at the level of houses you see which of them stood in the village already then.",
+        sl: "Prikažimo spet dogodke vseh let. »Vzporedni pogled« razdeli zemljevid na dve polovici. Levo je današnji zemljevid, desno kataster iz leta 1826. Ko približate ali premaknete eno polovico, ji druga sledi, zato na ravni hiš vidite, katere so v vasi stale že takrat.",
+        en: "Let's show the events of every year again. Side by side splits the map into two halves. On the left is today's map, on the right the cadastre of 1826. When you zoom or move one half, the other follows, so at the level of houses you see which of them stood in the village already then.",
       },
       run: async (d) => {
+        // Every year again: the burials in the cemetery are recent ones.
+        await d.click(yearTo(d));
+        await d.page.keyboard.press("ControlOrMeta+a");
+        await d.page.keyboard.type("2025", { delay: 90 });
+        await d.page.keyboard.press("Enter");
+        await d.wait(800);
+        await openLayers(d);
         const split = d.page.locator("label.map-split-toggle").first();
         await d.highlight(split, 4);
         await d.wait(1000);
