@@ -91,8 +91,8 @@ const scenario: Scenario = {
   steps: [
     {
       say: {
-        sl: "Kraj brez koordinate ne pride na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid.",
-        en: "A place without a coordinate never reaches the map. Let's see how GED Merge looks places up in directories, writes them consistently and puts them on the map.",
+        sl: "Kraji brez koordinat ne pridejo na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid.",
+        en: "Places without coordinates never reach the map. Let's see how GED Merge looks places up in directories, writes them consistently and puts them on the map.",
       },
       run: async (d) => {
         await d.card(
