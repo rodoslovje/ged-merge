@@ -119,6 +119,15 @@ async function pickBase(d: Director, label: Text): Promise<void> {
   await d.wait(900);
 }
 
+/** Close the place panel on the right, if one is open. */
+async function closePanel(d: Director): Promise<void> {
+  const close = d.page.locator(".map-panel .modal-close").first();
+  if (await close.isVisible()) {
+    await d.click(close);
+    await d.wait(400);
+  }
+}
+
 /** Click the middle of the longest life path on screen, as a hand would. */
 async function clickLongestPath(d: Director): Promise<void> {
   const pt = await d.page.evaluate(() => {
@@ -330,6 +339,7 @@ const scenario: Scenario = {
         en: "At the top you choose which events the map draws: births, marriages, deaths, burials or residences. The year slider, or typing the years, limits the period. Let's show only events up to 1870.",
       },
       run: async (d) => {
+        await closePanel(d);
         const marriage = kindChip(d, { sl: "Poroka", en: "Marriage" });
         await d.click(marriage);
         await d.wait(1500);
@@ -353,10 +363,12 @@ const scenario: Scenario = {
         en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel. You see at a glance who moved in from elsewhere and where the descendants moved away to. Clicking a path selects it: the path is emphasised, and the top says whose it is.",
       },
       run: async (d) => {
+        await closePanel(d);
         await d.click(chip(d, "map-paths-chip"));
         await d.wait(5000);
         await clickLongestPath(d);
         await d.wait(4000);
+        await closePanel(d);
         const unselect = d.page.locator(".map-path-selchip button").first();
         if (await unselect.isVisible()) await d.click(unselect);
         await d.click(chip(d, "map-paths-chip"));
