@@ -1033,8 +1033,13 @@ function pushRelativesRow(
   // (main-if-present) work; rendering uses the structured `relatives` pairs.
   const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
   const i = incoming.length ? pairs.map((p) => p.incoming?.text ?? "").join("\n") : "";
+  // A pair you confirmed is one person, whatever each file calls them (Mina
+  // and Marija): the row agrees, so a parent is not shown as a disagreement.
+  const samePerson = (p: RelativePair) =>
+    !!p.main && !!p.incoming && (compareKey(p.main.text) === compareKey(p.incoming.text)
+      || (!!p.incoming.id && confirmed?.get(p.incoming.id) === p.main.id));
   const state: FieldState =
-    m && !i ? "main-only" : !m && i ? "incoming-only" : compareKey(m) === compareKey(i) ? "agree" : "conflict";
+    m && !i ? "main-only" : !m && i ? "incoming-only" : pairs.every(samePerson) ? "agree" : "conflict";
   rows.push({
     key,
     label,
