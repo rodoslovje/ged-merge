@@ -216,8 +216,8 @@ predlogov iz imenika GURS ob kraju »Kranj«.
 | 2 | Odpre se France; obroč na kraj rojstva (polna oblika) in smrti (»Kranj«) | Večina krajev je zapisana kot naselje, občina in država, nekaj pa jih je še v stari obliki: samo ime naselja, včasih skupaj s hišno številko. |
 | 3 | ⚙ → Napredno → »Poišči podatke na spletu« | Podatki o krajih pridejo s spleta: prenos imenika GURS in iskanje na OpenStreetMap. Poslano je le ime kraja. |
 | 4 | ⚙ → Zemljevid → imeniki krajev → GURS »Kraji«, prenos | Za Slovenijo GURS, uradni register vseh naselij z občinami; imenik ostane v brskalniku. |
-| 5 | Obroč na »Naslovi« in OpenStreetMap | Naslovi v posebnem videu; OpenStreetMap za kraje zunaj Slovenije. |
-| 6 | »Nalagaj ploščice zemljevida« | Da zemljevidi dobijo pravo podlago. |
+| 5 | Obroč na »Naslovi«, nato na OpenStreetMap (napis se pokaže šele tu) | Naslovi v posebnem videu; OpenStreetMap za kraje zunaj Slovenije, poišče ga program sam iz polja kraja. |
+| 6 | »Nalagaj ploščice zemljevida« | Brez ploščic le obris sveta, z njimi ceste, reke in imena krajev. |
 | 7 | Smrt »Kranj« → »Poišči ta kraj v imenikih« | Predlogi v obliki datoteke, z oznako imenika; izberemo »Kranj, Kranj, Slovenija«. |
 | 8 | Zelen in siv žebljiček, zemljevid pod dogodki | Zelen žebljiček: kraj ima koordinato; siv: je še nima. |
 | 9 | Mina Svetina, rojstvo »Žirovnica 7« → GURS, predlogi s »· Žirovnica 7«; Žirovnica v občini Žirovnica | Program hišno številko prepozna; več Žirovnic — odloči občina. |

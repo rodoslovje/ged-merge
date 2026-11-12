@@ -172,8 +172,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
-        sl: "OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije.",
-        en: "OpenStreetMap is most useful for places outside Slovenia.",
+        sl: "OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije. Njegovega imenika vam ni treba prenesti: ko je spletno iskanje vklopljeno, program kraj na OpenStreetMap poišče sam, kar iz polja kraja.",
+        en: "OpenStreetMap is most useful for places outside Slovenia. You need not download its directory: with online lookups on, the program searches OpenStreetMap itself, straight from the place field.",
       },
       run: async (d) => {
         const sources = modal(d).locator(".tools-geo-sources").first();
@@ -185,8 +185,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zemljevidi", en: "Maps" },
       say: {
-        sl: "Na koncu na istem zavihku vklopite še »Nalagaj ploščice zemljevida«, da zemljevidi dobijo pravo podlago.",
-        en: "Finally, on the same tab, also switch on Load base-map tiles, so the maps get a real background.",
+        sl: "Na koncu na istem zavihku vklopite še »Nalagaj ploščice zemljevida«. Brez ploščic zemljevid pokaže le vgrajeni obris sveta, z njimi pa dobi ceste, reke in imena krajev.",
+        en: "Finally, on the same tab, also switch on Load base-map tiles. Without tiles a map shows only a built-in outline of the world; with them it gets roads, rivers and place names.",
       },
       run: async (d) => {
         const row = modal(d).locator("label", { hasText: d.t({ sl: "Nalagaj ploščice zemljevida", en: "Load base-map tiles" }) }).first();
