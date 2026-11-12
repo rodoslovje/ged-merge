@@ -12,6 +12,8 @@ import type { Lang } from "./types.ts";
 
 /** France Prešeren's record in both main demo files (keyed like `targetFileKey`). */
 const FRANCE = "@I113441@";
+/** The author's own record in `rodbina-renko.ged`, the tree with living people. */
+const AUTHOR = "@I1@";
 
 export function seriesSettings(lang: Lang): Record<string, unknown> {
   return {
@@ -19,7 +21,7 @@ export function seriesSettings(lang: Lang): Record<string, unknown> {
     emphasizeDirect: true,
     showAge: true,
     dateDisplay: lang === "sl" ? "D. M. YYYY" : "",
-    startPersons: { "preseren-hawlina": FRANCE, "preseren-hawlina-porocni": FRANCE, "preseren-hawlina-kraji": FRANCE, "preseren-hawlina-geo": FRANCE },
+    startPersons: { "preseren-hawlina": FRANCE, "preseren-hawlina-porocni": FRANCE, "preseren-hawlina-kraji": FRANCE, "preseren-hawlina-geo": FRANCE, "rodbina-renko": AUTHOR },
   };
 }
 

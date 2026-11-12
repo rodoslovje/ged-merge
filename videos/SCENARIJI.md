@@ -14,11 +14,11 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
 | 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
 | 7 | Zemljevidi | — | scenarij |
-| 8 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 9 | Statistika | `scripts/stats.ts` | SL osnutek brez glasu |
-| 10 | Pregled | — | scenarij |
-| 11 | Dvojniki | — | scenarij |
-| 12 | Možnosti diagramov, izvoz, zasebnost | — | scenarij |
+| 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
+| 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
+| 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
+| 11 | Pregled | — | scenarij |
+| 12 | Dvojniki | — | scenarij |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -257,39 +257,37 @@ vzporednega pogleda (franciscejski kataster | današnji zemljevid).
 
 ---
 
-## 8. Združevanje: dopolnite drevo iz druge datoteke
+## 8. Možnosti diagramov, izvoz in zasebnost
 
-**Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke; sorodstvo do
-izhodiščne osebe na seznamu in v primerjalnem drevesu; kraji vhodne datoteke samodejno v
-obliki glavne.
-**Podatki:** glavna `preseren-hawlina-geo.ged` (rodovnik Petra Hawline, kot ga pusti
-epizoda 6: naselje, občina, država s koordinatami GURS, hišne številke v naslovu), vhodna
-`preseren-odar.ged` (drevo Odar iz Slovenskega rodoslovnega indeksa, hišne številke v kraju).
-Izvedba in govor: `scripts/merge.ts`. **Trajanje:** ~5 min
-**Naslovna slika:** oznaka »Združevanje oseb« · »Dopolnite *drevo* iz druge datoteke« ·
-posnetek primerjave z izbiro G/V/O.
+**Cilj:** prilagoditi diagram (usmeritev, rodovi, podatki ob osebi, barva), ga izvoziti
+(SVG, PDF na več listov, GEDCOM samo z narisanimi osebami) in pred deljenjem prikriti žive
+osebe — na diagramu in v celi datoteki.
+**Podatki:** `preseren-hawlina-geo.ged` za nastavitve in izvoz; za zasebnost
+`rodbina-renko.ged`, anonimiziran izsek iz avtorjevega drevesa (edina vzorčna datoteka z
+živimi osebami: avtor in starša s pravimi imeni, drugi živi sorodniki z izmišljenimi imeni,
+spolom in datumi). Izvedba: `scripts/export.ts`. · **Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* na več listov« · posnetek štirih
+listov A4.
 
 | # | Kader | Govor |
 |---|-------|-------|
-| 1 | Naslovna kartica | Dva raziskovalca sta raziskovala isto rodbino. Pokažimo, kako njune podatke združite v eno drevo. |
-| 2 | Glavna datoteka, obroč na geokodiran kraj | Glavna datoteka; kraji so že urejeni in geokodirani, kot v šestem videu. |
-| 3 | Združevanje → vhodna datoteka | Drugo drevo iz Slovenskega rodoslovnega indeksa je vhodna datoteka. |
-| 4 | Seznam ujemanj, obroč na stopnjo | Pari oseb in stopnja ujemanja. |
-| 5 | Obroč na »Dedek« (poudarjeno) in »Zakonec« | Sorodstvo s Prešernom pod imenom, neposredni predniki poudarjeni. |
-| 6 | Filter »Predniki«, nazaj »Vse osebe« | Seznam zožite na prednike. |
-| 7 | France: krst in pokop (zeleno) | Novi podatki so obarvani zeleno. |
-| 8 | Starosti ob datumih | Starost ob smrti, starost staršev ob rojstvu. |
-| 9 | »Vrba 2, (stara hš 1)« → kraj »Vrba, Žirovnica, Slovenija« + naslov; »Kranj 181« | Kraj se prepiše v obliko vaše datoteke, hišna številka gre v naslov. |
-| 10 | Gumbi zaklenjeni → »Potrdi« | Podatke izbirate šele pri potrjenem paru. |
-| 11 | G/V pri naslovu | G ohrani podatek iz glavne datoteke, V prevzame vhodnega; novi podatki so že izbrani. |
-| 12 | Šimen ↔ Simon: »Potrdi«, O | Obe obliki imena. |
-| 13 | Klik na »Marija Prešeren« v vrstici »Mati« → njen par, »Potrdi«, O | Mina je domača oblika imena Marija; s klikom na ime odprete njen par. |
-| 14 | Nazaj na Šimna: vrstica »Mati« = | Vrstica »Mati« se zdaj ujema. |
-| 15 | Ana Jelovšek: starša »✓ dodano« | Ob potrditvi se starša takoj dodata v drevo. |
-| 16 | Janez Prešeren: Marija Triplat | Nova družina. |
-| 17 | Primerjalno drevo, legenda barv, sorodstvo na vozliščih | Barva pove ujemanje; sorodstvo s Prešernom tudi tu. |
-| 18 | Shrani GEDCOM → predogled → Prenesi | Predogled pokaže vse spremembe. |
-| 19 | Zaključna kartica | |
+| 1 | Naslovna kartica | Diagram lahko prilagodite, natisnete ali pošljete drugim. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe. |
+| 2 | Prešernovo drevo prednikov | Odprimo rodovnik pesnika Franceta Prešerna in njegovo drevo prednikov. |
+| 3 | »Diagram« → Usmeritev | Vse možnosti so pod gumbom »Diagram«. Drevo lahko teče od leve proti desni ali od zgoraj navzdol. |
+| 4 | Rodovi − / + | Pri velikem drevesu omejite število rodov. |
+| 5 | Oseba → Kraj | Pod »Oseba« izberete, kaj se izpiše ob vsaki osebi. |
+| 6 | Barva: Rod → Stoletje → Kraj rojstva, legenda | Barva lahko nekaj pove: rod, stoletje, kraj rojstva. |
+| 7 | »Izvoz« → Slika SVG | Slika SVG ostane ostra pri vsaki velikosti. |
+| 8 | »Izvoz« → PDF: A3, A4 ležeče, »Velika« | Če je drevo za en list preširoko, se razreže na več listov. |
+| 9 | »Natisni« → štirje listi na zaslonu | Številka v krogcu pove, kje se diagram nadaljuje. |
+| 10 | »Izvoz« → GEDCOM (21 oseb) | Sorodniku pošljete le vejo, ki ga zanima. |
+| 11 | Zamenjava glavne datoteke z `rodbina-renko.ged` | V Prešernovi rodbini živih oseb ni, zato odpremo drugo drevo. |
+| 12 | Ded → pahljača potomcev, 2 rodova, barva »Živi« | Na diagramu so zdaj tudi živi. |
+| 13 | »Skrij žive osebe« | Namesto imena ostane samo sorodstvo; zaščiten je tudi izvoz. |
+| 14 | Orodja → Zasebnost: meja 100 let, število živih | Orodje poišče verjetno žive osebe. |
+| 15 | Prikrij / Odstrani; ime → Začetnice; kaj se odstrani | Žive osebe prikrijete ali odstranite. |
+| 16 | »Prenesi prikrito datoteko GEDCOM« | Delovna datoteka ostane nespremenjena. |
+| 17 | Zaključna kartica | |
 
 ---
 
@@ -298,14 +296,14 @@ posnetek primerjave z izbiro G/V/O.
 **Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov, izbor
 oseb in filtri, imena po stoletjih, življenjska doba, poroke po mesecih, poroke med
 sorodniki, selitve, rodovi, ponovljeni predniki, najbližje slepe ulice, izvoz.
-**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa (1726 oseb:
+**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa (1721 oseb:
 predniki z vsemi brati in sestrami, rojstva 1605–2010; umrli z viri, skeni in poklici). Izvedba in govor: `scripts/stats.ts`. **Trajanje:** ~5 min
 **Naslovna slika:** oznaka »Statistika« · »Kaj vam *drevo* pove v številkah« ·
 posnetek strani »Rodovi« s kartico »Predniki po rodovih«.
 
 Zgodba, ki jo povedo številke te datoteke: poroke februarja (predpust) in novembra, skoraj
-nobene marca in decembra (post, advent); pred 20. stoletjem noben otrok ne umre pred
-petim letom umre več kot tretjina otrok v 18. stoletju in sedmina v 20. — vidno le, ker so v
+nobene marca in decembra (post, advent); pred petim letom umre 36 % otrok v 18. stoletju in
+15 % v 20. — vidno le, ker so v
 drevesu tudi bratje in sestre prednikov; edina poroka med bratrancem in
 sestrično (Jožef ⚭ Marija Simonič, vnuka Matije Simoniča in Marije Plut) je vzrok, da sta
 ta dva in Matijeva starša v rodovniku dvakrat (ponovljeni predniki).
@@ -318,8 +316,8 @@ ta dva in Matijeva starša v rodovniku dvakrat (ponovljeni predniki).
 | 4 | Klik na »Simonič« → seznam → ime → Urejanje → nazaj | Za vsakim številom so osebe. |
 | 5 | »Popolnost podatkov« → »Datum smrti« → seznam | Datum smrti je znan le pri dveh petinah umrlih; seznam opravil. |
 | 6 | »Predniki«, nato »Filtri« → Hrvaška | Izbor oseb in filtri; del rodbine izvira s Hrvaške. |
-| 7 | Imena: imena po stoletjih, »Ime po sorodniku« | Matija, Janez, nato Anton in Franc; Marija; petina hčera po babici. |
-| 8 | Življenjska doba: starost ob smrti, »Umrli pred 5. letom starosti« | Dva vrhova; pred petim letom umre več kot tretjina otrok v 18. stoletju, sedmina v 20. |
+| 7 | Imena: imena po stoletjih, »Ime po sorodniku« | Matija, Janez, nato Anton in Franc; Marija; skoraj 20 % deklic po babici. |
+| 8 | Življenjska doba: starost ob smrti, »Umrli pred 5. letom starosti« | Dva vrhova; pred petim letom umre 36 % otrok v 18. stoletju, 15 % v 20. |
 | 9 | Družine: »Poroke po mesecih« | Februar in november; marec in december skoraj brez porok. |
 | 10 | »Sorodstvo med zakoncema« → bratranec in sestrična → diagram sorodstva | Jožef in Marija Simonič; skupna prednika Matija Simonič in Marija Plut. |
 | 11 | Poklic: poklici po stoletjih | Kmetje, polovični in četrtinski zemljaki; v 20. stoletju delavci. |
@@ -328,36 +326,13 @@ ta dva in Matijeva starša v rodovniku dvakrat (ponovljeni predniki).
 | 14 | »Ponovljeni predniki«, »Predniki na več mestih« | Zaradi poroke bratranca in sestrične dvakrat v rodovniku. |
 | 15 | »Najbližje slepe ulice« | Naslednji korak raziskave. |
 | 16 | Raziskava: dogodki z navedbo vira | Krsti in poroke dobro podprti, smrt le vsaka peta. |
-| 17 | Ikona »i«, izvoz kartice in strani | Slika ali tabela CSV. |
-| 18 | Zaključna kartica | |
+| 17 | Ikona »i«, izvoz kartice | Tabela CSV ali slika. |
+| 18 | »Izvoz« zgoraj | Cela stran statistike kot ena slika, z naslovom in izborom oseb. |
+| 19 | Zaključna kartica | |
 
 ---
 
-## 7. Zemljevidi: nastavitve, zgodovinski sloji in izvoz
-
-**Cilj:** zemljevid dogodkov, poti, meje v izbranem letu, zgodovinske karte (franciscejski
-kataster, Spezialkarte), vzporedni pogled in izvoz.
-**Podatki:** drevo z geokodiranimi kraji (po videu 5) · **Trajanje:** ~4 min
-**Naslovna slika:** oznaka »Zemljevid« · »Prednik na *zgodovinski* karti« · posnetek
-vzporednega pogleda (franciscejski kataster | današnji zemljevid).
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Kje so živeli vaši predniki? Postavimo jih na zemljevid — tudi na zgodovinskega. |
-| 2 | Diagrami → Zemljevid → privolitev v ploščice | Zemljevid prenese ploščice podlage šele, ko to dovolite. Strežnik izve le, kateri del zemljevida gledate. |
-| 3 | Filtri: vrste dogodkov, drsnik let | Zgoraj izberete vrste dogodkov in obdobje. |
-| 4 | »Poti« | Poti povežejo kraje v življenju osebe. |
-| 5 | »Meje« in premik drsnika | Meje pokažejo države in dežele v letu, ki ga izberete na drsniku. |
-| 6 | »Sloji« → »Dodaj brezplačen sloj…« → Spezialkarte | Dodate lahko zgodovinske karte, na primer avstrijsko specialko ali franciscejski kataster. |
-| 7 | Prosojnost sloja | Vsakemu sloju nastavite prosojnost. |
-| 8 | »Vzporedni pogled« | Vzporedni pogled pokaže dva zemljevida drug ob drugem, ki se premikata skupaj. |
-| 9 | ⚙ → Zemljevid → »Osnovni zemljevid« | Osnovni zemljevid izberete v Nastavitvah: preprost, topografski ali satelitski. |
-| 10 | »Izvoz« → Slika PNG | Pogled izvozite kot sliko. |
-| 11 | Zaključna kartica | |
-
----
-
-## 8. Združevanje: dopolnite drevo iz druge datoteke
+## 10. Združevanje: dopolnite drevo iz druge datoteke
 
 **Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke; sorodstvo do
 izhodiščne osebe na seznamu in v primerjalnem drevesu; kraji vhodne datoteke samodejno v
@@ -393,45 +368,7 @@ posnetek primerjave z izbiro G/V/O.
 
 ---
 
-## 9. Statistika: vaše drevo v številkah
-
-**Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov, izbor
-oseb in filtri, imena po stoletjih, življenjska doba, poroke po mesecih, poroke med
-sorodniki, selitve, rodovi, ponovljeni predniki, najbližje slepe ulice, izvoz.
-**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa (1726 oseb:
-predniki z vsemi brati in sestrami, rojstva 1605–2010; umrli z viri, skeni in poklici). Izvedba in govor: `scripts/stats.ts`. **Trajanje:** ~5 min
-**Naslovna slika:** oznaka »Statistika« · »Kaj vam *drevo* pove v številkah« ·
-posnetek strani »Rodovi« s kartico »Predniki po rodovih«.
-
-Zgodba, ki jo povedo številke te datoteke: poroke februarja (predpust) in novembra, skoraj
-nobene marca in decembra (post, advent); pred 20. stoletjem noben otrok ne umre pred
-petim letom umre več kot tretjina otrok v 18. stoletju in sedmina v 20. — vidno le, ker so v
-drevesu tudi bratje in sestre prednikov; edina poroka med bratrancem in
-sestrično (Jožef ⚭ Marija Simonič, vnuka Matije Simoniča in Marije Plut) je vzrok, da sta
-ta dva in Matijeva starša v rodovniku dvakrat (ponovljeni predniki).
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Koliko prednikov ste že našli? Kje se vaša raziskava ustavi? … Statistika odgovori v nekaj sekundah. |
-| 2 | Spust datoteke → Orodja → Statistika | Anonimiziran izsek iz avtorjevega rodovnika; Statistika vedno zajame celotno datoteko. |
-| 3 | Povzetek: ploščice, »Letnice rojstev«, »Najvišja starost« | Oseb, družin, priimkov, leta, najvišja starost; najpogostejši priimki in imena. |
-| 4 | Klik na »Jekovec« → seznam → ime → Urejanje → nazaj | Za vsakim številom so osebe. |
-| 5 | »Popolnost podatkov« → »Datum smrti« → seznam | Datum smrti ima le slaba polovica umrlih; seznam opravil. |
-| 6 | »Predniki«, nato »Filtri« → Hrvaška | Izbor oseb in filtri; del rodbine izvira s Hrvaške. |
-| 7 | Imena: imena po stoletjih, »Ime po sorodniku« | Janez in Marija dve stoletji na vrhu; petina hčera po babici. |
-| 8 | Življenjska doba: starost ob smrti, po stoletjih, »Umrli pred 5. letom« | Povprečje s 37 na več kot 60 let; v starejših stoletjih sami predniki, ki so vsi dočakali odraslost. |
-| 9 | Družine: »Poroke po mesecih« | Februar in november; marec in december skoraj brez porok. |
-| 10 | »Sorodstvo med zakoncema« → bratranec in sestrična → diagram sorodstva | Jožef in Marija Simonič; skupna prednika Matija Simonič in Marija Plut. |
-| 11 | Selitve: povprečna razdalja po stoletjih | 5 km v 18. stoletju, skoraj 200 km v 20. |
-| 12 | Rodovi: ploščice, predniki po rodovih, očetova in materina stran | 399 prednikov v 12 rodovih; do 6. rodu vsi znani. |
-| 13 | »Ponovljeni predniki«, »Predniki na več mestih« | Zaradi poroke bratranca in sestrične dvakrat v rodovniku. |
-| 14 | »Najbližje slepe ulice« | Naslednji korak raziskave. |
-| 15 | Ikona »i«, izvoz kartice in strani | Slika ali tabela CSV. |
-| 16 | Zaključna kartica | |
-
----
-
-## 10. Pregled: čiščenje podatkov
+## 11. Pregled: čiščenje podatkov
 
 **Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
 popravilo.
@@ -455,7 +392,7 @@ seznama težav s številkami.
 
 ---
 
-## 11. Dvojniki: združevanje podvojenih oseb
+## 12. Dvojniki: združevanje podvojenih oseb
 
 **Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, vključno s
 podvojenimi starši; zavrniti napačen par.
@@ -479,34 +416,9 @@ dvojnikov drug ob drugem.
 
 ---
 
-## 12. Možnosti diagramov, izvoz in zasebnost
-
-**Cilj:** prilagoditi diagram (rodovi, podatki na osebi, barve), ga izvoziti (SVG, PDF
-na več listov, GEDCOM samo z narisanimi osebami) in pripraviti datoteko za deljenje brez
-živih oseb.
-**Podatki:** večje drevo (vaše anonimizirano ali vzorec) · **Trajanje:** ~5 min
-**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* do A0« · posnetek pahljače z
-barvami in menija Izvoz.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Diagram prilagodite, natisnete ali delite. Pokažimo, kako — in kako pri tem zaščitite žive osebe. |
-| 2 | Diagram → gumb ⚙ »Diagram« → Rodovi | V nastavitvah diagrama izberete število rodov. |
-| 3 | »Oseba«: Življenjska doba, Kraj, Fotografija | Izberete, kaj se izpiše pri osebi: letnice, kraj, fotografija, sorodstvo. |
-| 4 | »Barva«: Rod → Kraj rojstva → Viri | Barva lahko pove rod, kraj rojstva ali kako dobro so osebe podprte z viri. |
-| 5 | »Izvoz« → Slika SVG | Diagram izvozite kot sliko SVG, ki ostane ostra pri vsaki velikosti. |
-| 6 | »Izvoz« → PDF → A3 → »Velikost tiska« → število listov | Za tisk izberete velikost papirja. Širok diagram se razdeli na več listov, z oznakami, kje se veja nadaljuje. |
-| 7 | »Izvoz« → GEDCOM (N oseb) | Iz diagrama izvozite tudi datoteko GEDCOM samo z narisanimi osebami — na primer za sorodnika, ki ga zanima ena veja. |
-| 8 | »Zasebnost« → »Skrij žive osebe« | Preden diagram delite, skrijte žive osebe. |
-| 9 | Orodja → Zasebnost: način imen »Začetnice«, predogled | Za celo datoteko uporabite orodje Zasebnost. Žive osebe prikrijete ali odstranite, njihova imena pa zamenjate z začetnicami. |
-| 10 | »Prenesi prikrito datoteko GEDCOM« | Prikrita datoteka se prenese posebej. Vaša glavna datoteka ostane nespremenjena. |
-| 11 | Zaključna kartica | |
-
----
-
 ## Odprta vprašanja
 
-1. **Epizode 9, 10, 11 (in 7, 12):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
+1. **Epizode 9, 11, 12 (in 7):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
    rodbine Prešeren, zlasti za statistiko, pregled in dvojnike.
-2. **Brez takega drevesa za epizodi 10 in 11:** v kopijo Prešernovega drevesa smemo
+2. **Brez takega drevesa za epizodi 11 in 12:** v kopijo Prešernovega drevesa smemo
    namerno vnesti napake in dvojnika le z dovoljenjem, in v videu to povemo.

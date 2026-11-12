@@ -2530,6 +2530,7 @@ export const sl = {
   "map.pathCountOf": "{{shown}} od {{total}} poti",
   "map.pathOf": "Življenjska pot",
   "map.showPath": "Pokaži življenjsko pot te osebe",
+  "map.setRoot": "Postavi to osebo za koren zemljevida",
   "map.borders": "Meje",
   "map.borders.tooltip":
     "Izriše upravne meje leta iz polja »Do leta« — cesarstva, dežele in okraje iz OpenHistoricalMap",
@@ -3720,6 +3721,7 @@ export const sl = {
   "charts.trail.list": "Osebe, za katere je bil diagram narisan",
   "edit.tree.modified": "Spremenjeno",
   "edit.tree.reroot": "Koren",
+  "edit.tree.rerootTooltip": "Postavi to osebo za koren diagrama",
   "undo": "Razveljavi",
   "redo": "Ponovi",
   "undo.tooltip": "Razveljavi zadnjo spremembo",

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Sex } from "../gedcom/types";
 import type { FieldRow } from "../review/types";
+import { ChartIcon } from "./icons/ChartIcon";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 import { sexClass } from "./sex";
 
@@ -104,9 +105,23 @@ export function TreeNodePanel({
       </div>
       <div className="tree-compare-actions">
         {badges}
-        <button className="nav-btn tree-compare-root" onClick={onSetRoot}>
-          {rootLabel ?? t("edit.tree.reroot")}
-        </button>
+        {/* A chart that names its own action (open in Edit, a kinship) keeps
+            the words; the plain re-root is the tree icon the map's event list
+            uses for the same thing, its meaning on the tooltip. */}
+        {rootLabel ? (
+          <button className="nav-btn tree-compare-root" onClick={onSetRoot}>
+            {rootLabel}
+          </button>
+        ) : (
+          <button
+            className="nav-btn icon-only tree-compare-root"
+            onClick={onSetRoot}
+            title={t("edit.tree.rerootTooltip")}
+            aria-label={t("edit.tree.reroot")}
+          >
+            <ChartIcon size={16} />
+          </button>
+        )}
         {extraActions}
       </div>
       {controls}

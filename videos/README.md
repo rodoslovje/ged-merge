@@ -57,8 +57,9 @@ index). `rodbina-renko` is an anonymised excerpt of the author's own tree
 statistics and the privacy scenes. The deceased keep their events, sources,
 web scans and occupations (no notes). It is the one demo file with living
 people: the author and his parents under their real names, every other living
-relative under a made-up name, sex and birth date, with no other facts. Never
-record a living person's real data for a public video.
+relative under a made-up given name (the family surname stays), sex and birth
+date, with no other facts. Never record a living person's real data for a
+public video.
 
 Each run also renders `<scenario>.<lang>.thumb.jpg`, the YouTube thumbnail, from
 the scenario's `thumbnail` tag and title and the screen a step grabbed with
