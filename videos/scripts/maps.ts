@@ -230,8 +230,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Osnovni zemljevid", en: "Base map" },
       say: {
-        sl: "Najprej si v Nastavitvah na zavihku »Zemljevid« izberite osnovni zemljevid, ki vam je najljubši: enostaven, OpenStreetMap, relief, satelitski ali topografski. Vzorec spodaj takoj pokaže izbiro.",
-        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, relief, satellite or topographic. The sample below shows the choice at once.",
+        sl: "Najprej si v Nastavitvah na zavihku »Zemljevid« izberite osnovni zemljevid, ki vam je najljubši: enostaven, OpenStreetMap, relief, satelitski ali topografski. Vzorec nad izbiro takoj pokaže, kako je videti.",
+        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, relief, satellite or topographic. The sample above the choice shows at once how it looks.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
