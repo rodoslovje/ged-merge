@@ -473,7 +473,7 @@ const scenario: Scenario = {
         await d.snapshot();
         await zoom(d, 2);
         await d.skippable(() => d.wait(2500));
-        await pan(d, -260, -120);
+        await pan(d, -60, 280);
         await d.skippable(() => d.wait(2000));
         await d.wait(2500);
       },
