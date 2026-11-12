@@ -22,3 +22,13 @@ export function seriesSettings(lang: Lang): Record<string, unknown> {
     startPersons: { "preseren-hawlina": FRANCE, "preseren-hawlina-porocni": FRANCE, "preseren-hawlina-kraji": FRANCE, "preseren-hawlina-geo": FRANCE },
   };
 }
+
+/**
+ * The series display once episode 6 has allowed base-map tiles: every map
+ * draws the land under its pins. For episodes after 6 — episode 6 itself (and
+ * episode 7, if it shows the consent) switches the tiles on on camera, so it
+ * starts from {@link seriesSettings}.
+ */
+export function seriesSettingsWithMaps(lang: Lang): Record<string, unknown> {
+  return { ...seriesSettings(lang), allowMapTiles: true };
+}

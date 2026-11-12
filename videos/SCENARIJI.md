@@ -28,6 +28,8 @@ Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški gov
   `videos/out/NN-<id>/` (ni v gitu). Vsak agent dela v svojem worktreeju in odda PR.
 - **Nastavitve serije:** epizode od 4 naprej imajo `settings: seriesSettings` (France
   izhodiščna oseba, sorodstvo, starosti, slovenski zapis datumov) — kot v epizodi 3.
+  Od epizode 6 naprej so vklopljene tudi ploščice zemljevida: epizoda 6 jih vklopi pred
+  kamero, poznejše epizode imajo `settings: seriesSettingsWithMaps`.
 - **Podatki:** `demo/preseren-hawlina.ged` (glavna), `demo/preseren-odar.ged` (vhodna),
   `demo/preseren-hawlina-porocni.ged` (s poročnimi priimki). Samo resnični, preverljivi
   podatki in nikoli žive osebe; nov podatek preverite v Slovenskem rodoslovnem indeksu

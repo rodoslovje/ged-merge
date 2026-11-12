@@ -20,7 +20,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Director } from "../lib/director.ts";
-import { seriesSettings } from "../lib/series.ts";
+import { seriesSettingsWithMaps } from "../lib/series.ts";
 import type { Scenario } from "../lib/types.ts";
 
 const DEMO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo");
@@ -44,7 +44,7 @@ const pickKin = async (d: Director, label: { sl: string; en: string }) => {
 const scenario: Scenario = {
   id: "merge",
   episode: 8,
-  settings: seriesSettings,
+  settings: seriesSettingsWithMaps,
   title: {
     sl: "GED Merge: dopolnite svoje drevo s podatki iz druge datoteke GEDCOM",
     en: "GED Merge: complete your family tree with data from another GEDCOM file",
@@ -84,6 +84,8 @@ const scenario: Scenario = {
         await d.page.locator(".edit-person").first().waitFor();
         await d.wait(800);
         await d.highlight(d.page.locator(".edit-person .edit-event-place").first(), 4);
+        await d.wait(2500);
+        await d.highlight(d.page.locator(".edit-person-map").first(), 6);
       },
     },
     {
