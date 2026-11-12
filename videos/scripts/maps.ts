@@ -403,9 +403,14 @@ const scenario: Scenario = {
         }
         await d.highlight(null);
         await closeLayers(d);
-        await zoom(d, 2);
+        // Cadastral municipalities read best from a little further out; the
+        // parcels and house numbers only draw close in.
+        await zoom(d, -2);
+        await d.skippable(() => d.wait(3000));
+        await d.wait(4000);
+        await zoom(d, 4);
         await d.skippable(() => d.wait(3500));
-        await d.wait(6000);
+        await d.wait(5000);
       },
     },
     {
