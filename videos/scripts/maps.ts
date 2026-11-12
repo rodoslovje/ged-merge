@@ -420,7 +420,10 @@ const scenario: Scenario = {
         await d.click(chip(d, "map-borders-chip"));
         await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
         await d.click(modal(d).locator("button", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
-        await d.scrollTo(modal(d).locator(".settings-overlay-preset").first());
+        // The picker at the top of the window, so the layers it adds can be
+        // seen joining the list below it.
+        await modal(d).locator(".settings-overlay-preset").first().evaluate((e) => e.scrollIntoView({ behavior: "smooth", block: "start" }));
+        await d.wait(900);
         // The GURS layers first: the list's order is the drawing order, top
         // first, so the thin vector layers stay above the full-sheet maps.
         for (const layer of GURS_LAYERS) await addPreset(d, { sl: `${d.t(layer)} (GURS)`, en: `${d.t(layer)} (GURS)` });
