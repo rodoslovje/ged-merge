@@ -460,7 +460,7 @@ const scenario: Scenario = {
         await closeLayers(d);
         // Cadastral municipalities read best from a little further out; the
         // parcels and house numbers only draw close in.
-        await zoom(d, -2);
+        await zoom(d, -4);
         await d.skippable(() => d.wait(3000));
         await d.wait(4000);
         await zoom(d, 4);
