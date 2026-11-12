@@ -529,8 +529,8 @@ const scenario: Scenario = {
         // From the houses out to the cadastral municipalities: parcels and
         // house numbers first, then the borders they sit in.
         await zoom(d, -4);
-        await d.skippable(() => d.wait(3000));
-        await d.wait(5000);
+        await d.skippable(() => d.wait(1500));
+        await d.wait(1200);
       },
     },
     {
