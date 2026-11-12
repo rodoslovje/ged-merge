@@ -54,8 +54,8 @@ the historical Prešeren family (`preseren-hawlina` from Peter Hawlina's pedigre
 `preseren-odar` from contributor Odar's tree in the Slovenian genealogical
 index). `rodbina-renko` is an anonymised excerpt of the author's own tree for
 the privacy scenes, the one demo file with living people: the author and his
-parents under their real names, every other living relative under a made-up
-name, sex and birth date, no other facts. Never record a living person's real
+parents under their real names, every other living relative under a made-up given
+name (the family surname stays), sex and birth date, no other facts. Never record a living person's real
 data for a public video.
 
 Each run also renders `<scenario>.<lang>.thumb.jpg`, the YouTube thumbnail, from
