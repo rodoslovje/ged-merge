@@ -14,11 +14,11 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
 | 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
 | 7 | Zemljevidi | — | scenarij |
-| 8 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 9 | Statistika | — | scenarij |
-| 10 | Pregled | — | scenarij |
-| 11 | Dvojniki | — | scenarij |
-| 12 | Možnosti diagramov, izvoz, zasebnost | — | scenarij |
+| 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
+| 9 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
+| 10 | Statistika | — | scenarij |
+| 11 | Pregled | — | scenarij |
+| 12 | Dvojniki | — | scenarij |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -257,7 +257,41 @@ vzporednega pogleda (franciscejski kataster | današnji zemljevid).
 
 ---
 
-## 8. Združevanje: dopolnite drevo iz druge datoteke
+## 8. Možnosti diagramov, izvoz in zasebnost
+
+**Cilj:** prilagoditi diagram (usmeritev, rodovi, podatki ob osebi, barva), ga izvoziti
+(SVG, PDF na več listov, GEDCOM samo z narisanimi osebami) in pred deljenjem prikriti žive
+osebe — na diagramu in v celi datoteki.
+**Podatki:** `preseren-hawlina-geo.ged` za nastavitve in izvoz; za zasebnost
+`rodbina-renko.ged`, anonimiziran izsek iz avtorjevega drevesa (edina vzorčna datoteka z
+živimi osebami: avtor in starša s pravimi imeni, drugi živi sorodniki z izmišljenimi imeni,
+spolom in datumi). Izvedba: `scripts/export.ts`. · **Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* na več listov« · posnetek šestih
+listov A4.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Diagram lahko prilagodite, natisnete ali delite z drugimi. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe. |
+| 2 | Prešernovo drevo prednikov | Odprimo rodovnik pesnika Franceta Prešerna in njegovo drevo prednikov. |
+| 3 | »Diagram« → Usmeritev | Vse možnosti so pod gumbom »Diagram«. Drevo lahko teče od leve proti desni ali od zgoraj navzdol. |
+| 4 | Rodovi − / + | Pri velikem drevesu omejite število rodov. |
+| 5 | Oseba → Kraj | Pod »Oseba« izberete, kaj se izpiše ob vsaki osebi. |
+| 6 | Barva: Rod → Stoletje → Kraj rojstva, legenda | Barva lahko nekaj pove: rod, stoletje, kraj rojstva. |
+| 7 | »Izvoz« → Slika SVG | Slika SVG ostane ostra pri vsaki velikosti. |
+| 8 | »Izvoz« → PDF: A3, A4 pokončno, »Velika« | Če je drevo za en list preširoko, se razreže na več listov. |
+| 9 | »Natisni« → šest listov na zaslonu | Številka v krogcu pove, kje se diagram nadaljuje. |
+| 10 | »Izvoz« → GEDCOM (21 oseb) | Sorodniku pošljete le vejo, ki ga zanima. |
+| 11 | Zamenjava glavne datoteke z `rodbina-renko.ged` | V Prešernovi rodbini živih oseb ni, zato odpremo drugo drevo. |
+| 12 | Ded → pahljača potomcev, 2 rodova, barva »Živi« | Na diagramu so zdaj tudi živi. |
+| 13 | »Skrij žive osebe« | Namesto imena ostane samo sorodstvo; zaščiten je tudi izvoz. |
+| 14 | Orodja → Zasebnost: meja 100 let, število živih | Orodje poišče verjetno žive osebe. |
+| 15 | Prikrij / Odstrani; ime → Začetnice; kaj se odstrani | Žive osebe prikrijete ali odstranite. |
+| 16 | »Prenesi prikrito datoteko GEDCOM« | Delovna datoteka ostane nespremenjena. |
+| 17 | Zaključna kartica | |
+
+---
+
+## 9. Združevanje: dopolnite drevo iz druge datoteke
 
 **Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke; sorodstvo do
 izhodiščne osebe na seznamu in v primerjalnem drevesu; kraji vhodne datoteke samodejno v
@@ -293,7 +327,7 @@ posnetek primerjave z izbiro G/V/O.
 
 ---
 
-## 9. Statistika: vaše drevo v številkah
+## 10. Statistika: vaše drevo v številkah
 
 **Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov in
 virov, rodovi, ponovljeni predniki (implex), najbližje slepe ulice.
@@ -320,7 +354,7 @@ posnetek strani »Rodovi« z grafom prednikov po rodovih.
 
 ---
 
-## 10. Pregled: čiščenje podatkov
+## 11. Pregled: čiščenje podatkov
 
 **Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
 popravilo.
@@ -344,7 +378,7 @@ seznama težav s številkami.
 
 ---
 
-## 11. Dvojniki: združevanje podvojenih oseb
+## 12. Dvojniki: združevanje podvojenih oseb
 
 **Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, vključno s
 podvojenimi starši; zavrniti napačen par.
@@ -368,34 +402,9 @@ dvojnikov drug ob drugem.
 
 ---
 
-## 12. Možnosti diagramov, izvoz in zasebnost
-
-**Cilj:** prilagoditi diagram (rodovi, podatki na osebi, barve), ga izvoziti (SVG, PDF
-na več listov, GEDCOM samo z narisanimi osebami) in pripraviti datoteko za deljenje brez
-živih oseb.
-**Podatki:** večje drevo (vaše anonimizirano ali vzorec) · **Trajanje:** ~5 min
-**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* do A0« · posnetek pahljače z
-barvami in menija Izvoz.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Diagram prilagodite, natisnete ali delite. Pokažimo, kako — in kako pri tem zaščitite žive osebe. |
-| 2 | Diagram → gumb ⚙ »Diagram« → Rodovi | V nastavitvah diagrama izberete število rodov. |
-| 3 | »Oseba«: Življenjska doba, Kraj, Fotografija | Izberete, kaj se izpiše pri osebi: letnice, kraj, fotografija, sorodstvo. |
-| 4 | »Barva«: Rod → Kraj rojstva → Viri | Barva lahko pove rod, kraj rojstva ali kako dobro so osebe podprte z viri. |
-| 5 | »Izvoz« → Slika SVG | Diagram izvozite kot sliko SVG, ki ostane ostra pri vsaki velikosti. |
-| 6 | »Izvoz« → PDF → A3 → »Velikost tiska« → število listov | Za tisk izberete velikost papirja. Širok diagram se razdeli na več listov, z oznakami, kje se veja nadaljuje. |
-| 7 | »Izvoz« → GEDCOM (N oseb) | Iz diagrama izvozite tudi datoteko GEDCOM samo z narisanimi osebami — na primer za sorodnika, ki ga zanima ena veja. |
-| 8 | »Zasebnost« → »Skrij žive osebe« | Preden diagram delite, skrijte žive osebe. |
-| 9 | Orodja → Zasebnost: način imen »Začetnice«, predogled | Za celo datoteko uporabite orodje Zasebnost. Žive osebe prikrijete ali odstranite, njihova imena pa zamenjate z začetnicami. |
-| 10 | »Prenesi prikrito datoteko GEDCOM« | Prikrita datoteka se prenese posebej. Vaša glavna datoteka ostane nespremenjena. |
-| 11 | Zaključna kartica | |
-
----
-
 ## Odprta vprašanja
 
-1. **Epizode 9, 10, 11 (in 7, 12):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
+1. **Epizode 10, 11, 12 (in 7):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
    rodbine Prešeren, zlasti za statistiko, pregled in dvojnike.
-2. **Brez takega drevesa za epizodi 10 in 11:** v kopijo Prešernovega drevesa smemo
+2. **Brez takega drevesa za epizodi 11 in 12:** v kopijo Prešernovega drevesa smemo
    namerno vnesti napake in dvojnika le z dovoljenjem, in v videu to povemo.
