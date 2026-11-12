@@ -12,6 +12,7 @@ import {
   proposalFromNominatim,
   proposalFromRn,
   proposalKey,
+  splitPlaceQuery,
   type PlaceStyle,
 } from "./placeProposal";
 
@@ -232,6 +233,39 @@ describe("a gazetteer entry as a place", () => {
     );
     expect(proposalFromGazEntry(sinac, style({ parentLevels: levels }))!.plac).toBe("Sinac,Lika-Senj,Hrvaška");
     expect(proposalFromGazEntry(sinac, style())!.plac).toBe("Sinac,Otočac,Hrvaška");
+  });
+});
+
+describe("a place typed with its house in it", () => {
+  it("splits the house off what a directory can answer", () => {
+    expect(splitPlaceQuery("Žirovnica 7")).toEqual({ place: "Žirovnica", address: "Žirovnica 7", locality: "Žirovnica" });
+    expect(splitPlaceQuery("Vrba 1, Žirovnica, Slovenija")).toEqual({
+      place: "Vrba, Žirovnica, Slovenija",
+      address: "Vrba 1",
+      locality: "Vrba",
+    });
+    expect(splitPlaceQuery("Grosova ulica 18, Kranj")).toEqual({ place: "Kranj", address: "Grosova ulica 18", locality: "Kranj" });
+  });
+
+  it("leaves a place without a house as typed", () => {
+    expect(splitPlaceQuery("Kranj")).toEqual({ place: "Kranj" });
+    expect(splitPlaceQuery("Vrba, Žirovnica")).toEqual({ place: "Vrba, Žirovnica" });
+    expect(splitPlaceQuery("Sveti Jošt nad Kranjem")).toEqual({ place: "Sveti Jošt nad Kranjem" });
+  });
+
+  const ZIROVNICA: GazEntry = { ...ZABUKOVJE, name: "Žirovnica", admin: "Žirovnica", lat: 46.4, lon: 14.14 };
+
+  it("moves the house to ADDR when the settlement comes from a directory", () => {
+    const p = proposalFromGazEntry(ZIROVNICA, style(), "Žirovnica 7")!;
+    expect(p.plac).toBe("Žirovnica,Žirovnica,Slovenija");
+    expect(p.addr).toBe("Žirovnica 7");
+    expect(p.coord).toEqual({ lat: 46.4, lon: 14.14 });
+  });
+
+  it("keeps it in PLAC for a file that packs addresses there", () => {
+    const p = proposalFromGazEntry(ZIROVNICA, style({}, { layout: "packed-plac" }), "Žirovnica 7")!;
+    expect(p.addr).toBeUndefined();
+    expect(p.plac).toContain("Žirovnica 7");
   });
 });
 
