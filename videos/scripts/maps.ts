@@ -106,6 +106,21 @@ async function closeLayers(d: Director): Promise<void> {
   await d.wait(400);
 }
 
+/** Settings → Map: the base-map row, and one base map picked in it while
+ *  the sample below redraws. */
+const baseRow = (d: Director) =>
+  modal(d).locator("label.settings-format-row", { hasText: d.t({ sl: "Osnovni zemljevid", en: "Base map" }) }).first();
+async function pickBase(d: Director, label: Text): Promise<void> {
+  const row = baseRow(d);
+  await d.highlight(row, 4);
+  await d.click(row.locator(".select-menu").first());
+  await d.wait(700);
+  await d.click(d.page.locator(".dd-item", { hasText: d.t(label) }).first());
+  await d.highlight(modal(d).locator(".settings-map-preview").first(), 4);
+  await d.skippable(() => d.wait(1500));
+  await d.wait(1500);
+}
+
 /** One overlay preset picked in Settings → Map. */
 async function addPreset(d: Director, label: Text): Promise<void> {
   const picker = modal(d).locator(".settings-overlay-preset").first();
@@ -164,29 +179,29 @@ const scenario: Scenario = {
     {
       callout: { sl: "Osnovni zemljevid", en: "Base map" },
       say: {
-        sl: "Najprej si v Nastavitvah na zavihku »Zemljevid« izberite osnovni zemljevid, ki vam je najljubši: enostaven, OpenStreetMap, relief, satelitski ali topografski. Vzorec spodaj takoj pokaže izbiro. Mi izberemo OpenStreetMap, ki ob veliki povečavi pokaže celo hišne številke.",
-        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, relief, satellite or topographic. The sample below shows the choice at once. We pick OpenStreetMap, which at a close zoom even shows house numbers.",
+        sl: "Najprej si v Nastavitvah na zavihku »Zemljevid« izberite osnovni zemljevid, ki vam je najljubši: enostaven, OpenStreetMap, relief, satelitski ali topografski. Vzorec spodaj takoj pokaže izbiro.",
+        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, relief, satellite or topographic. The sample below shows the choice at once.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
         await d.click(modal(d).locator("button", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
-        const row = modal(d).locator("label.settings-format-row", { hasText: d.t({ sl: "Osnovni zemljevid", en: "Base map" }) }).first();
+        const row = baseRow(d);
         await d.scrollTo(row);
         await d.highlight(row, 4);
         await d.wait(800);
         for (const label of [
           { sl: "Relief", en: "Relief" },
           { sl: "Satelitski", en: "Satellite" },
-          { sl: "OpenStreetMap", en: "OpenStreetMap" },
-        ]) {
-          await d.click(row.locator(".select-menu").first());
-          await d.wait(700);
-          await d.click(d.page.locator(".dd-item", { hasText: d.t(label) }).first());
-          await d.highlight(modal(d).locator(".settings-map-preview").first(), 4);
-          await d.skippable(() => d.wait(1500));
-          await d.wait(1500);
-          await d.highlight(row, 4);
-        }
+        ]) await pickBase(d, label);
+      },
+    },
+    {
+      say: {
+        sl: "Mi izberemo OpenStreetMap, ki ob veliki povečavi pokaže celo hišne številke.",
+        en: "We pick OpenStreetMap, which at a close zoom even shows house numbers.",
+      },
+      run: async (d) => {
+        await pickBase(d, { sl: "OpenStreetMap", en: "OpenStreetMap" });
         await d.highlight(null);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
