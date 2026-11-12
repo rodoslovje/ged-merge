@@ -157,6 +157,8 @@ async function pan(d: Director, dx: number, dy: number): Promise<void> {
     await d.wait(50);
   }
   await d.page.mouse.up();
+  // The real mouse off the map, so no cluster under it shows its tooltip.
+  await d.page.mouse.move(2, 2);
 }
 
 /** One overlay preset picked in Settings → Map. */
