@@ -331,7 +331,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Približajmo se še vasi. OpenStreetMap ob taki povečavi na hišah pokaže hišne številke. To so današnje hišne številke, ne zgodovinske.",
+        sl: "Poglejmo še vas od blizu. OpenStreetMap ob taki povečavi na hišah pokaže hišne številke. To so današnje hišne številke, ne zgodovinske.",
         en: "Let's zoom in on the village. At this zoom OpenStreetMap shows the house numbers on the houses. These are today's house numbers, not historical ones.",
       },
       run: async (d) => {
@@ -422,7 +422,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Sloji", en: "Layers" },
       say: {
-        sl: "Na zemljevidu jih vklopite pod »Sloji«. Vklopljenih je lahko več slojev hkrati, sloji, katerih obdobje ustreza izbranim letom, pa so označeni. Vklopimo kataster in se približajmo Bitnjam.",
+        sl: "Na zemljevidu jih vklopite pod »Sloji«. Vklopljenih je lahko več slojev hkrati, sloji, katerih obdobje ustreza izbranim letom, pa so označeni. Vklopimo kataster in poglejmo Bitnje od blizu.",
         en: "On the map you switch them on under Layers. Several layers can be on at once, and layers whose period suits the chosen years are marked. Let's switch on the cadastre and zoom in on Bitnje.",
       },
       run: async (d) => {
