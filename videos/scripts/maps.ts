@@ -545,13 +545,10 @@ const scenario: Scenario = {
         }
         await d.highlight(null);
         await closeLayers(d);
-        // Cadastral municipalities read best from a little further out; the
-        // parcels and house numbers only draw close in.
+        // From the houses out to the cadastral municipalities: parcels and
+        // house numbers first, then the borders they sit in.
         await zoom(d, -4);
         await d.skippable(() => d.wait(3000));
-        await d.wait(4000);
-        await zoom(d, 4);
-        await d.skippable(() => d.wait(3500));
         await d.wait(5000);
       },
     },
