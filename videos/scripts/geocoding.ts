@@ -158,17 +158,26 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
-        sl: "Gumb »Naslovi« prenese še vse hišne številke; te si ogledamo v posebnem videu. OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije.",
-        en: "The Addresses button also downloads every house number; those get a video of their own. OpenStreetMap is most useful for places outside Slovenia.",
+        sl: "Gumb »Naslovi« prenese še vse hišne številke; te si ogledamo v posebnem videu.",
+        en: "The Addresses button also downloads every house number; those get a video of their own.",
       },
       run: async (d) => {
         const sources = modal(d).locator(".tools-geo-sources").first();
         await d.highlight(sources.locator("button", { hasText: d.t({ sl: "Naslovi", en: "Addresses" }) }).first(), 6);
-        await d.wait(3000);
+        await d.wait(1500);
+      },
+    },
+    {
+      callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
+      say: {
+        sl: "OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije.",
+        en: "OpenStreetMap is most useful for places outside Slovenia.",
+      },
+      run: async (d) => {
+        const sources = modal(d).locator(".tools-geo-sources").first();
         await d.highlight(sources.locator(".tools-geo-osm").first(), 6);
-        await d.wait(2500);
+        await d.wait(1500);
         await d.highlight(null);
       },
     },
