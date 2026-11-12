@@ -242,7 +242,7 @@ const scenario: Scenario = {
         await d.click(dialogBtn(d, { sl: "A3", en: "A3" }));
         await d.wait(1200);
         await d.click(dialogBtn(d, { sl: "A4", en: "A4" }));
-        await d.click(dialogBtn(d, { sl: "Pokončno", en: "Portrait" }));
+        await d.click(dialogBtn(d, { sl: "Ležeče", en: "Landscape" }));
         await d.click(dialogBtn(d, { sl: "Velika", en: "Large" }));
         await d.highlight(dialog(d).locator(".sheet-dialog-count"), 6);
         await d.wait(1500);
@@ -250,8 +250,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Tako dobimo šest listov formata A4. Veja, ki ne gre na list, se nadaljuje na svojem listu, številka v krogcu pa pove, kje se diagram nadaljuje.",
-        en: "That gives six A4 sheets. A branch that does not fit on a sheet continues on a sheet of its own, and a number in a circle shows where the chart carries on.",
+        sl: "Tako dobimo štiri liste formata A4. Veja, ki ne gre na list, se nadaljuje na svojem listu, številka v krogcu pa pove, kje se diagram nadaljuje.",
+        en: "That gives four A4 sheets. A branch that does not fit on a sheet continues on a sheet of its own, and a number in a circle shows where the chart carries on.",
       },
       run: async (d) => {
         await d.highlight(null);

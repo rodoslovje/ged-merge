@@ -266,7 +266,7 @@ osebe — na diagramu in v celi datoteki.
 `rodbina-renko.ged`, anonimiziran izsek iz avtorjevega drevesa (edina vzorčna datoteka z
 živimi osebami: avtor in starša s pravimi imeni, drugi živi sorodniki z izmišljenimi imeni,
 spolom in datumi). Izvedba: `scripts/export.ts`. · **Trajanje:** ~4 min
-**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* na več listov« · posnetek šestih
+**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* na več listov« · posnetek štirih
 listov A4.
 
 | # | Kader | Govor |
@@ -278,8 +278,8 @@ listov A4.
 | 5 | Oseba → Kraj | Pod »Oseba« izberete, kaj se izpiše ob vsaki osebi. |
 | 6 | Barva: Rod → Stoletje → Kraj rojstva, legenda | Barva lahko nekaj pove: rod, stoletje, kraj rojstva. |
 | 7 | »Izvoz« → Slika SVG | Slika SVG ostane ostra pri vsaki velikosti. |
-| 8 | »Izvoz« → PDF: A3, A4 pokončno, »Velika« | Če je drevo za en list preširoko, se razreže na več listov. |
-| 9 | »Natisni« → šest listov na zaslonu | Številka v krogcu pove, kje se diagram nadaljuje. |
+| 8 | »Izvoz« → PDF: A3, A4 ležeče, »Velika« | Če je drevo za en list preširoko, se razreže na več listov. |
+| 9 | »Natisni« → štirje listi na zaslonu | Številka v krogcu pove, kje se diagram nadaljuje. |
 | 10 | »Izvoz« → GEDCOM (21 oseb) | Sorodniku pošljete le vejo, ki ga zanima. |
 | 11 | Zamenjava glavne datoteke z `rodbina-renko.ged` | V Prešernovi rodbini živih oseb ni, zato odpremo drugo drevo. |
 | 12 | Ded → pahljača potomcev, 2 rodova, barva »Živi« | Na diagramu so zdaj tudi živi. |
