@@ -248,7 +248,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Mi izberemo OpenStreetMap, ki ob veliki povečavi pokaže celo hišne številke.",
+        sl: "Mi izberemo OpenStreetMap, ki ob veliki povečavi pokaže tudi hišne številke.",
         en: "We pick OpenStreetMap, which at a close zoom even shows house numbers.",
       },
       run: async (d) => {
