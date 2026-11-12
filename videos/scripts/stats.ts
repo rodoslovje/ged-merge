@@ -59,6 +59,8 @@ const openPage = async (d: Director, i: number) => {
  * scroll has come to rest — a ring drawn mid-scroll lands beside its target.
  */
 const ring = async (d: Director, target: Locator, pad = 4) => {
+  // The old ring would stay where its target was while the page scrolls away.
+  await d.highlight(null);
   await target.evaluate((e) => e.scrollIntoView({ behavior: "smooth", block: "center" }));
   // At rest: the same box three readings running (a smooth scroll may start
   // a beat after it is asked for, so one repeat is not enough).
