@@ -12,7 +12,8 @@
  * the place (Žirovnica 7, Vrba 1), as many older files do; Mina Svetina's is moved
  * to the address on camera. Settlements and
  * municipalities as in the GURS register of spatial units; France Prešeren's
- * mother Mina Svetina died in Osoje (Ossiach) in Carinthia (Slovenska biografija).
+ * mother Mina Svetina died in Osoje (Ossiach) in Carinthia (Slovenska biografija); OpenStreetMap
+ * finds it as »Osoje, Avstrija« — »Osoje na Koroškem« finds nothing, bare »Osoje« a Croatian village.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,8 +91,8 @@ const scenario: Scenario = {
   steps: [
     {
       say: {
-        sl: "Kraj brez koordinate ne pride na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid.",
-        en: "A place without a coordinate never reaches the map. Let's see how GED Merge looks places up in directories, writes them consistently and puts them on the map.",
+        sl: "Kraji brez koordinat ne pridejo na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid.",
+        en: "Places without coordinates never reach the map. Let's see how GED Merge looks places up in directories, writes them consistently and puts them on the map.",
       },
       run: async (d) => {
         await d.card(
@@ -171,21 +172,22 @@ const scenario: Scenario = {
     {
       callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
-        sl: "OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije.",
-        en: "OpenStreetMap is most useful for places outside Slovenia.",
+        sl: "OpenStreetMap pa je najbolj uporaben za kraje zunaj Slovenije. Njegovega imenika vam ni treba prenesti: ko je spletno iskanje vklopljeno, program kraj na OpenStreetMap poišče sam, kar iz polja kraja.",
+        en: "OpenStreetMap is most useful for places outside Slovenia. You need not download its directory: with online lookups on, the program searches OpenStreetMap itself, straight from the place field.",
       },
       run: async (d) => {
         const sources = modal(d).locator(".tools-geo-sources").first();
         await d.highlight(sources.locator(".tools-geo-osm").first(), 6);
-        await d.wait(1500);
+        await d.point(sources.locator(".tools-geo-osm").first());
+        await d.wait(9000);
         await d.highlight(null);
       },
     },
     {
       callout: { sl: "Zemljevidi", en: "Maps" },
       say: {
-        sl: "Na koncu na istem zavihku vklopite še »Nalagaj ploščice zemljevida«, da zemljevidi dobijo pravo podlago.",
-        en: "Finally, on the same tab, also switch on Load base-map tiles, so the maps get a real background.",
+        sl: "Na koncu na istem zavihku vklopite še »Nalagaj ploščice zemljevida«. Brez ploščic zemljevid pokaže le vgrajeni obris sveta, z njimi pa dobi ceste, reke in imena krajev.",
+        en: "Finally, on the same tab, also switch on Load base-map tiles. Without tiles a map shows only a built-in outline of the world; with them it gets roads, rivers and place names.",
       },
       run: async (d) => {
         const row = modal(d).locator("label", { hasText: d.t({ sl: "Nalagaj ploščice zemljevida", en: "Load base-map tiles" }) }).first();
@@ -195,8 +197,19 @@ const scenario: Scenario = {
         await d.click(row.locator("input"));
         await d.wait(1200);
         await d.highlight(null);
+        // With tiles on, the tab draws a sample of the base map: let it load
+        // and stay a moment before Settings closes, so the switch back to the
+        // person is not abrupt.
+        const preview = modal(d).locator(".settings-map-preview").first();
+        await preview.waitFor();
+        await d.scrollTo(preview);
+        await d.highlight(preview, 6);
+        await d.wait(4000);
+        await d.highlight(null);
+        await d.wait(800);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
+        await d.wait(1000);
       },
     },
     {
@@ -289,20 +302,20 @@ const scenario: Scenario = {
     {
       callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
-        sl: "Mina je umrla v Osojah na Koroškem, v Avstriji. Tega kraja GURS ne pozna, OpenStreetMap pa ga najde pod nemškim imenom Ossiach in ga zapiše po slovensko.",
-        en: "Mina died in Ossiach in Carinthia, Austria. GURS does not know it, but OpenStreetMap finds it under its German name and writes it in the language of your file.",
+        sl: "Mina je umrla v Osojah na Koroškem, v Avstriji. Tega kraja GURS ne pozna, OpenStreetMap pa pozna tudi slovenska imena. »Na Koroškem« ni del imena, zato vpišemo »Osoje, Avstrija«. Državo lahko napišete po slovensko ali po angleško.",
+        en: "Mina died in Ossiach in Carinthia, Austria. GURS does not know it, but OpenStreetMap knows Slovenian names too. \"Na Koroškem\" is not part of the name, so we type Osoje, Austria. You can write the country in Slovenian or in English.",
       },
       run: async (d) => {
         const place = eventPlace(d, 1);
         await d.click(place);
         await d.page.keyboard.press("ControlOrMeta+a");
-        await d.page.keyboard.type("Ossiach", { delay: 120 });
+        await d.page.keyboard.type(d.t({ sl: "Osoje, Avstrija", en: "Osoje, Austria" }), { delay: 120 });
         await d.wait(700);
         await lookUp(d, "OSM");
-        await d.highlight(proposal(d, "OSM"), 4);
+        await d.highlight(proposal(d, "OSM", "Osoje"), 4);
         await d.wait(1800);
         await d.highlight(null);
-        await d.click(proposal(d, "OSM"));
+        await d.click(proposal(d, "OSM", "Osoje"));
         await blur(d);
         await d.wait(1200);
         await d.highlight(eventPin(d, 1), 8);
