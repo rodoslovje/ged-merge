@@ -1,10 +1,17 @@
 /**
- * Video 7 (SCENARIJI.md): complete your tree from another researcher's file —
- * merge the people both trees hold, then choose, field by field, what to take.
+ * Video 8 (SCENARIJI.md, "Združevanje"): complete your tree from another
+ * researcher's file — merge the people both trees hold, then choose, field by
+ * field, what to take. Shown with the series display (France as the start
+ * person, kinship with the direct line in bold, ages), so every pair says how
+ * it is related to France.
  *
  * Real, historical data: the main file is France Prešeren's pedigree from Peter
- * Hawlina's tree, the incoming file the same family from contributor Odar's
- * tree in the Slovenian genealogical index (videos/demo/).
+ * Hawlina's tree as episode 6 leaves it — places as settlement, municipality,
+ * country with GURS coordinates, house numbers in the address
+ * (`preseren-hawlina-geo.ged`); the incoming file is the same family from
+ * contributor Odar's tree in the Slovenian genealogical index, with house
+ * numbers inside the place ("Vrba 2, (stara hš 1)", "Kranj 181"), which the
+ * merge reshapes to the main file's form.
  *
  * Comparison rows are selected by `data-row-key` (stable, language-neutral).
  * The field choice buttons (`.choice.main` / `.incoming` / `.both`) are locked
@@ -13,19 +20,31 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Director } from "../lib/director.ts";
+import { seriesSettings } from "../lib/series.ts";
 import type { Scenario } from "../lib/types.ts";
 
 const DEMO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo");
-const MAIN = path.join(DEMO, "preseren-hawlina.ged");
+const MAIN = path.join(DEMO, "preseren-hawlina-geo.ged");
 const INCOMING = path.join(DEMO, "preseren-odar.ged");
 
 const row = (d: Director, key: string) => d.page.locator(`.compare-panel tr[data-row-key${key}]`);
 const confirm = (d: Director) => d.page.locator(".compare-name-decisions button").first();
 const candidate = (d: Director, name: string) => d.page.locator(".candidate", { hasText: name });
+/** The kinship filter (»Vse osebe ▾«) above the match list, and one of its options. */
+const kinFilter = (d: Director) => d.page.locator(".kin-select").filter({ visible: true }).first();
+const menuItem = (d: Director, text: string) =>
+  d.page.locator("[role=menuitem], [role=option], .dd-item").filter({ visible: true }).filter({ hasText: new RegExp(`^\\W*${text}\\W*$`) }).first();
+const pickKin = async (d: Director, label: { sl: string; en: string }) => {
+  await d.click(kinFilter(d));
+  await d.wait(700);
+  await d.click(menuItem(d, d.t(label)));
+  await d.wait(900);
+};
 
 const scenario: Scenario = {
   id: "merge",
   episode: 8,
+  settings: seriesSettings,
   title: {
     sl: "GED Merge: dopolnite svoje drevo s podatki iz druge datoteke GEDCOM",
     en: "GED Merge: complete your family tree with data from another GEDCOM file",
@@ -53,37 +72,24 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Odprite svojo datoteko", en: "Open your own file" },
+      callout: { sl: "Glavna in vhodna datoteka", en: "Main and incoming file" },
       say: {
-        sl: "Najprej odprite svojo datoteko GEDCOM: povlecite jo v okvir ali kliknite nanj. Datoteka ostane na vašem računalniku in se nikamor ne pošlje.",
-        en: "First, open your own GEDCOM file: drag it onto the box, or click the box. The file stays on your computer; nothing is uploaded.",
+        sl: "Odprite svojo datoteko. To je glavna datoteka, vanjo se zapišejo prevzeti podatki. Kraji v njej so že urejeni in geokodirani, kot v šestem videu.",
+        en: "Open your own file. This is the main file; the data you take over is written into it. Its places are already tidied and geocoded, as in the sixth video.",
       },
       run: async (d) => {
         await d.card(null, null);
-        await d.wait(900);
-        const zone = d.page.locator(".lb-drop");
-        await d.highlight(zone);
-        await d.point(zone);
-        await d.wait(3000);
-        await d.highlight(null);
-        await d.upload(zone, MAIN);
+        await d.wait(600);
+        await d.upload(d.page.locator(".lb-drop"), MAIN);
         await d.page.locator(".edit-person").first().waitFor();
+        await d.wait(800);
+        await d.highlight(d.page.locator(".edit-person .edit-event-place").first(), 4);
       },
     },
     {
       say: {
-        sl: "To je vaša glavna datoteka, rodovnik Petra Hawline. Vanjo se zapišejo podatki, ki jih boste prevzeli iz druge datoteke.",
-        en: "This is your main file, Peter Hawlina's pedigree. The data you take over from the other file is written into it.",
-      },
-      run: async (d) => {
-        await d.highlight(d.page.locator(".edit-person").first());
-      },
-    },
-    {
-      callout: { sl: "Odprite vhodno datoteko", en: "Open the incoming file" },
-      say: {
-        sl: "Na zavihku »Združevanje« odprite drugo drevo, tokrat iz Slovenskega rodoslovnega indeksa. Tej pravimo vhodna datoteka. Iz nje samo prevzemate podatke, zato ostane nespremenjena.",
-        en: "On the Merge tab, open the other tree, this one from the Slovenian genealogical index. We call it the incoming file. You only take data from it, so it stays unchanged.",
+        sl: "Na zavihku »Združevanje« odprite drugo drevo, tokrat iz Slovenskega rodoslovnega indeksa. To je vhodna datoteka: iz nje samo prevzemate podatke.",
+        en: "On the Merge tab, open the other tree, this one from the Slovenian genealogical index. This is the incoming file: you only take data from it.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -106,6 +112,33 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "Sorodstvo do izhodiščne osebe", en: "Kinship to the start person" },
+      say: {
+        sl: "Pod imenom piše, v kakšnem sorodu je oseba s Prešernom. Njegovi neposredni predniki, oče, dedek in praded, so poudarjeni, zato takoj vidite, kje v drevesu ste.",
+        en: "Under each name you see how the person is related to Prešeren. His direct ancestors, his father, grandfather and great-grandfather, are in bold, so you always know where in the tree you are.",
+      },
+      run: async (d) => {
+        await d.highlight(candidate(d, "Jernej").locator(".candidate-kinship"), 4);
+        await d.wait(3500);
+        await d.highlight(candidate(d, "Jelovšek").locator(".candidate-kinship"), 4);
+      },
+    },
+    {
+      say: {
+        sl: "Seznam lahko zožite, na primer samo na Prešernove prednike. Mi bomo pregledali vse pare, zato filter vrnemo na »Vse osebe«.",
+        en: "You can narrow the list down, for example to Prešeren's ancestors only. We'll go through all the pairs, so we set the filter back to All people.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await pickKin(d, { sl: "Predniki", en: "Ancestors" });
+        await d.highlight(d.page.locator(".candidate-list"));
+        await d.wait(2500);
+        await d.highlight(null);
+        await pickKin(d, { sl: "Vse osebe", en: "All people" });
+        await d.click(candidate(d, "France"));
+      },
+    },
+    {
       callout: { sl: "Primerjava para", en: "Comparing a pair" },
       say: {
         sl: "Desno je primerjava para: levo so vaši podatki, desno podatki iz vhodne datoteke. Drugo drevo pozna Prešernov krst v Breznici in pokop v Kranju. Novi podatki so obarvani zeleno.",
@@ -123,13 +156,32 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Kraj rojstva je v drugem drevesu natančnejši, s hišno številko: Vrba 2, stara hišna številka 1.",
-        en: "The birthplace is more precise in the other tree, down to the house number: Vrba 2, old house number 1.",
+        sl: "Ob datumih so izpisane starosti: ob smrti 48 let, ob rojstvu pa starost očeta in matere. Tako hitro opazite datum, ki ne more biti pravilen.",
+        en: "Next to the dates you see ages: 48 at his death, and at his birth the ages of his father and mother. A date that cannot be right stands out at once.",
+      },
+      run: async (d) => {
+        const birth = row(d, '="BIRT.date"');
+        await d.scrollTo(birth);
+        await d.highlight(birth);
+        await d.wait(3500);
+        await d.highlight(row(d, '="DEAT.date"'));
+      },
+    },
+    {
+      say: {
+        sl: "Drugo drevo zapiše hišno številko kar v kraj: Vrba 2, stara hišna številka 1. GED Merge kraj samodejno prepiše v obliko vaše datoteke: naselje, občina in država, hišna številka pa gre v naslov. Zato se kraj ujema, nov je samo naslov.",
+        en: "The other tree writes the house number into the place itself: Vrba 2, old house number 1. GED Merge rewrites it in your file's form on its own: settlement, municipality and country, with the house number moved to the address. So the place agrees, and only the address is new.",
       },
       run: async (d) => {
         const place = row(d, '="BIRT.place"');
         await d.scrollTo(place);
         await d.highlight(place);
+        await d.wait(5500);
+        await d.highlight(row(d, '="BIRT.addr"'));
+        await d.wait(3500);
+        const death = row(d, '="DEAT.addr"');
+        await d.scrollTo(death);
+        await d.highlight(death);
       },
     },
     {
@@ -139,7 +191,7 @@ const scenario: Scenario = {
         en: "You can choose data only once a pair is confirmed; until then, the choice buttons are locked. Since this is the same person, click Confirm.",
       },
       run: async (d) => {
-        await d.point(row(d, '="BIRT.place"').locator(".choice.incoming"));
+        await d.point(row(d, '="BIRT.addr"').locator(".choice.incoming"));
         await d.wait(2500);
         await d.highlight(null);
         await d.click(confirm(d));
@@ -148,11 +200,11 @@ const scenario: Scenario = {
     {
       callout: { sl: "Izberite podatke", en: "Choose the data" },
       say: {
-        sl: "Zdaj pri vsakem podatku izberete, od kod se vzame. Z gumbom G obdržite svoj podatek, z gumbom V prevzamete vhodnega. Pri kraju rojstva izberimo natančnejši, vhodni zapis.",
-        en: "Now, for each value, you choose where it comes from. The M button keeps your own value, and I takes the incoming one. For the birthplace, let's take the more precise incoming value.",
+        sl: "Zdaj pri vsakem podatku izberete, od kod se vzame. Z gumbom G ohranite podatek iz glavne datoteke, z gumbom V prevzamete podatek iz vhodne. Novi podatki, kot je naslov rojstne hiše, so že izbrani.",
+        en: "Now, for each value, you choose where it comes from. The M button keeps the value from the main file, and I takes the one from the incoming file. New data, such as the address of the house he was born in, is already selected.",
       },
       run: async (d) => {
-        const place = row(d, '="BIRT.place"');
+        const place = row(d, '="BIRT.addr"');
         await d.highlight(place);
         await d.wait(2000);
         await d.point(place.locator(".choice.main"));
@@ -177,10 +229,53 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "Sorodnik v primerjavi", en: "A relative in the comparison" },
+      say: {
+        sl: "Tudi Šimnova mati ima v drevesih dve imeni: pri vas je Mina, v drugem drevesu Marija. Mina je domača oblika imena Marija. S klikom na ime odprete njen par.",
+        en: "Šimen's mother, too, goes by two names: Mina in your tree, Marija in the other. Mina is a familiar form of Marija. Click her name to open her pair.",
+      },
+      run: async (d) => {
+        const mother = row(d, '="mother"');
+        await d.scrollTo(mother);
+        await d.highlight(mother);
+        await d.wait(4500);
+        await d.highlight(null);
+        await d.click(mother.locator(".rel-incoming .person-link"));
+      },
+    },
+    {
+      say: {
+        sl: "To je Prešernova babica. Datum rojstva in smrti se ujemata, zato gre za isto osebo. Potrdite par in obdržite obe obliki imena.",
+        en: "This is Prešeren's grandmother. Her birth and death dates agree, so this is the same person. Confirm the pair and keep both forms of her name.",
+      },
+      run: async (d) => {
+        await d.highlight(d.page.locator(".person-kinship").first(), 4);
+        await d.wait(2500);
+        const birth = row(d, '="BIRT.date"');
+        await d.highlight(birth);
+        await d.wait(2500);
+        await d.highlight(null);
+        await d.click(confirm(d));
+        await d.click(row(d, '="given"').locator(".choice.both"));
+      },
+    },
+    {
+      say: {
+        sl: "Ko se vrnete k Šimnu, se zdaj ujema tudi vrstica »Mati«, saj gre v obeh drevesih za isto osebo.",
+        en: "Back at Šimen, the Mother row now agrees too: both trees name the same person.",
+      },
+      run: async (d) => {
+        await d.click(candidate(d, "Šimen"));
+        const mother = row(d, '="mother"');
+        await d.scrollTo(mother);
+        await d.highlight(mother);
+      },
+    },
+    {
       callout: { sl: "Nove osebe", en: "New people" },
       say: {
-        sl: "Ana Jelovšek ima v drugem drevesu starša, ki ju pri vas ni: Martina Jelovška in Marijo Bobek. Ko par potrdite, se oba dodata v vaše drevo.",
-        en: "In the other tree, Ana Jelovšek has parents your tree lacks: Martin Jelovšek and Marija Bobek. When you confirm the pair, both are added to your tree.",
+        sl: "Ana Jelovšek ima v drugem drevesu starša, ki ju pri vas ni: Martina Jelovška in Marijo Bobek. Ko par potrdite, se oba takoj dodata v vaše drevo, kar pove oznaka »dodano«.",
+        en: "In the other tree, Ana Jelovšek has parents your tree lacks: Martin Jelovšek and Marija Bobek. When you confirm the pair, both are added to your tree at once, marked Added.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -214,13 +309,17 @@ const scenario: Scenario = {
     {
       callout: { sl: "Primerjalno drevo", en: "Compare Tree" },
       say: {
-        sl: "Primerjalno drevo pokaže obe drevesi skupaj. Barva vsake osebe pove, ali se drevesi ujemata, se razlikujeta ali je oseba samo v enem od njiju.",
-        en: "The Compare Tree shows both trees together. Each person's colour tells you whether the trees agree, differ, or have the person in only one of them.",
+        sl: "Primerjalno drevo pokaže obe drevesi skupaj. Barva vsake osebe pove, ali se drevesi ujemata, se razlikujeta ali je oseba samo v enem od njiju. Pod imenom je tudi tu sorodstvo s Prešernom.",
+        en: "The Compare Tree shows both trees together. Each person's colour tells you whether the trees agree, differ, or have the person in only one of them. Here too, each name shows the kinship to Prešeren.",
       },
       run: async (d) => {
         await d.click(candidate(d, "France"));
         await d.click(d.page.locator(".tree-open-btn").filter({ visible: true }).first());
-        await d.wait(6500);
+        await d.wait(2000);
+        await d.highlight(d.page.locator(".tree-legend").filter({ visible: true }).first(), 4);
+        await d.wait(5000);
+        await d.highlight(null);
+        await d.wait(3500);
         await d.page.keyboard.press("Escape");
       },
     },

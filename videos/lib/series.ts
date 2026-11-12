@@ -19,6 +19,6 @@ export function seriesSettings(lang: Lang): Record<string, unknown> {
     emphasizeDirect: true,
     showAge: true,
     dateDisplay: lang === "sl" ? "D. M. YYYY" : "",
-    startPersons: { "preseren-hawlina": FRANCE, "preseren-hawlina-porocni": FRANCE },
+    startPersons: { "preseren-hawlina": FRANCE, "preseren-hawlina-porocni": FRANCE, "preseren-hawlina-kraji": FRANCE, "preseren-hawlina-geo": FRANCE },
   };
 }
