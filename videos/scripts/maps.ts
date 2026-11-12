@@ -308,9 +308,11 @@ const scenario: Scenario = {
         await d.wait(1800);
         await d.highlight(null);
         await d.click(root);
-        await d.wait(1500);
+        await d.wait(1200);
+        await closePanel(d);
         await d.click(d.page.locator(`[title="${d.t({ sl: "Prilagodi pogled prikazanim krajem", en: "Fit to the plotted places" })}"]`).first());
-        await d.wait(1500);
+        // Let the base map draw at the new zoom before pointing anything out.
+        await d.skippable(() => d.wait(2500));
         await d.highlight(d.page.locator(".tree-title").first(), 6);
         await d.wait(2500);
         await d.highlight(d.page.locator(".map-count").first(), 6);
