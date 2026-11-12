@@ -8657,6 +8657,38 @@ kbd {
 .map-panel-pathbtn:hover .map-paths-icon {
   opacity: 1;
 }
+/* The row's buttons (life path, re-root) sit apart from the name, at the
+   row's right edge, side by side and no taller than the name's line, so the
+   row keeps its height. Each is framed like the toolbar's icon buttons so it
+   reads as a control rather than part of the text. */
+.map-panel-person-actions {
+  float: right;
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.map-panel-person-actions .map-panel-pathbtn {
+  justify-content: center;
+  /* Square and the same size, whichever icon it holds. */
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.map-panel-person-actions .map-panel-pathbtn .map-paths-icon {
+  width: 14px;
+  height: 11px;
+}
+.map-panel-person-actions .map-panel-pathbtn svg {
+  opacity: 0.75;
+}
+.map-panel-person-actions .map-panel-pathbtn:hover {
+  border-color: var(--accent);
+}
+.map-panel-person-actions .map-panel-pathbtn:hover svg {
+  opacity: 1;
+}
 .map-undated {
   display: inline-flex;
   align-items: center;
