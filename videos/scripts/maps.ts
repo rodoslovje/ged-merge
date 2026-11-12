@@ -26,6 +26,11 @@ const findField = (d: Director) =>
   d.page.locator(`input[placeholder*="${d.t({ sl: "Poišči osebo ali kraj", en: "Find a person or place" })}"]`).first();
 const layerPick = (d: Director, name: string) => d.page.locator("label.map-overlay-pick", { hasText: name }).first();
 const BITNJE = { sl: "Bitnje, vsa tri", en: "Bitnje" };
+const GURS_LAYERS: Text[] = [
+  { sl: "Katastrske občine", en: "Cadastral municipalities" },
+  { sl: "Katastrske parcele", en: "Cadastral parcels" },
+  { sl: "Hišne številke", en: "House numbers" },
+];
 
 /** Type into the map's find field and let the map fly to the first match. */
 async function findOnMap(d: Director, text: string): Promise<void> {
@@ -40,6 +45,27 @@ async function findOnMap(d: Director, text: string): Promise<void> {
   if (await close.isVisible()) {
     await d.click(close);
     await d.wait(500);
+  }
+}
+
+/** Click into the biggest cluster until a single place opens its list of events
+ *  on the right — Srednje Bitnje, two dozen births since 1679. */
+async function openCrowdedPlace(d: Director): Promise<void> {
+  for (let k = 0; k < 6 && !(await d.page.locator(".map-panel").first().isVisible()); k++) {
+    const idx = await d.page.evaluate(() => {
+      let best = -1;
+      let most = 0;
+      document.querySelectorAll(".leaflet-marker-icon").forEach((e, i) => {
+        const r = e.getBoundingClientRect();
+        if (r.top < 330 || r.left < 120 || r.right > window.innerWidth - 120 || r.bottom > window.innerHeight - 60) return;
+        const n = Number((e.textContent ?? "").trim());
+        if (n > most) [best, most] = [i, n];
+      });
+      return best;
+    });
+    if (idx < 0) break;
+    await d.click(d.page.locator(".leaflet-marker-icon").nth(idx));
+    await d.wait(1800);
   }
 }
 
@@ -136,6 +162,38 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "Osnovni zemljevid", en: "Base map" },
+      say: {
+        sl: "Najprej si v Nastavitvah na zavihku »Zemljevid« izberite osnovni zemljevid, ki vam je najljubši: enostaven, OpenStreetMap, relief, satelitski ali topografski. Vzorec spodaj takoj pokaže izbiro. Mi izberemo OpenStreetMap, ki ob veliki povečavi pokaže celo hišne številke.",
+        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, relief, satellite or topographic. The sample below shows the choice at once. We pick OpenStreetMap, which at a close zoom even shows house numbers.",
+      },
+      run: async (d) => {
+        await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
+        await d.click(modal(d).locator("button", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
+        const row = modal(d).locator("label.settings-format-row", { hasText: d.t({ sl: "Osnovni zemljevid", en: "Base map" }) }).first();
+        await d.scrollTo(row);
+        await d.highlight(row, 4);
+        await d.wait(800);
+        for (const label of [
+          { sl: "Relief", en: "Relief" },
+          { sl: "Satelitski", en: "Satellite" },
+          { sl: "OpenStreetMap", en: "OpenStreetMap" },
+        ]) {
+          await d.click(row.locator(".select-menu").first());
+          await d.wait(700);
+          await d.click(d.page.locator(".dd-item", { hasText: d.t(label) }).first());
+          await d.highlight(modal(d).locator(".settings-map-preview").first(), 4);
+          await d.skippable(() => d.wait(1500));
+          await d.wait(1500);
+          await d.highlight(row, 4);
+        }
+        await d.highlight(null);
+        await d.click(modal(d).locator(".modal-close"));
+        await modal(d).waitFor({ state: "detached" });
+        await d.wait(600);
+      },
+    },
+    {
       callout: { sl: "Zemljevid krajev", en: "The map of places" },
       say: {
         sl: "Diagrame odprete s tipko V, med njimi pa izberete »Zemljevid«. Pokaže dogodke prednikov in potomcev izhodiščne osebe. Kraji, kjer je dogodkov več, se združijo v gruče s številom dogodkov.",
@@ -153,12 +211,30 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Iskalno polje desno zgoraj zemljevid premakne na kraj ali osebo. Poiščimo Zgornje Bitnje pri Kranju. Klik na gručo jo približa, klik na posamezen kraj pa našteje dogodke na njem.",
-        en: "The find field at the top right moves the map to a place or a person. Let's find Zgornje Bitnje near Kranj. Clicking a cluster zooms into it; clicking a single place lists its events.",
+        sl: "Iskalno polje desno zgoraj zemljevid premakne na kraj ali osebo. Poiščimo Zgornje Bitnje pri Kranju. Klik na gručo jo približa. Ko pridete do posameznega kraja, se na desni odpre seznam vseh dogodkov na njem: v Srednjih Bitnjah je to štiriindvajset rojstev, od leta 1679 naprej.",
+        en: "The find field at the top right moves the map to a place or a person. Let's find Zgornje Bitnje near Kranj. Clicking a cluster zooms into it. Once you reach a single place, the list of all its events opens on the right: in Srednje Bitnje, twenty-four births from 1679 on.",
       },
       run: async (d) => {
         await findOnMap(d, "Zgornje Bitnje");
-        await d.wait(1500);
+        await openCrowdedPlace(d);
+        await d.highlight(d.page.locator(".map-panel").first(), 4);
+        await d.wait(5000);
+        await d.highlight(null);
+        await d.click(d.page.locator(".map-panel .modal-close").first());
+        await d.wait(600);
+      },
+    },
+    {
+      say: {
+        sl: "Približajmo se še vasi. OpenStreetMap ob taki povečavi na hišah pokaže hišne številke.",
+        en: "Let's zoom in on the village. At this zoom OpenStreetMap shows the house numbers on the houses.",
+      },
+      run: async (d) => {
+        await zoom(d, 3);
+        await d.skippable(() => d.wait(2500));
+        await d.wait(3500);
+        await zoom(d, -5);
+        await d.wait(1000);
       },
     },
     {
@@ -187,12 +263,12 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poti", en: "Paths" },
       say: {
-        sl: "Gumb »Poti« poveže kraje v življenju vsake osebe, od rojstva prek bivališč do smrti, s puščicami v smeri poti.",
-        en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel.",
+        sl: "Gumb »Poti« poveže kraje v življenju vsake osebe, od rojstva prek bivališč do smrti, s puščicami v smeri poti. Tako hitro vidite, kdo se je priselil od drugod in kam so se odselili potomci.",
+        en: "The Paths button joins the places of each person's life, from birth through residences to death, with arrows in the direction of travel. You see at a glance who moved in from elsewhere and where the descendants moved away to.",
       },
       run: async (d) => {
         await d.click(chip(d, "map-paths-chip"));
-        await d.wait(3500);
+        await d.wait(7000);
         await d.click(chip(d, "map-paths-chip"));
         await d.wait(800);
       },
@@ -213,14 +289,17 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zgodovinske karte", en: "Historical maps" },
       say: {
-        sl: "Zgodovinske karte dodate v Nastavitvah na zavihku »Zemljevid«. Pri »Dodaj brezplačen sloj« izberite na primer avstro-ogrsko specialko in franciscejski kataster za Bitnje iz leta 1826.",
-        en: "Historical maps are added in Settings, on the Map tab. Under Add a free layer, pick for example the Austro-Hungarian Spezialkarte and the Franciscan cadastre of Bitnje from 1826.",
+        sl: "Dodatne sloje dodate v Nastavitvah na zavihku »Zemljevid«, pri »Dodaj brezplačen sloj«. Izberimo tri sloje GURS, katastrske občine, parcele in hišne številke, ter dve zgodovinski karti: avstro-ogrsko specialko in franciscejski kataster za Bitnje iz leta 1826. Sloj, ki je na seznamu višje, se izriše na vrhu.",
+        en: "Extra layers are added in Settings, on the Map tab, under Add a free layer. Let's pick three GURS layers, cadastral municipalities, parcels and house numbers, and two historical maps: the Austro-Hungarian Spezialkarte and the Franciscan cadastre of Bitnje from 1826. A layer higher in the list is drawn on top.",
       },
       run: async (d) => {
         await d.click(chip(d, "map-borders-chip"));
         await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
         await d.click(modal(d).locator("button", { hasText: d.t({ sl: "Zemljevid", en: "Map" }) }).first());
         await d.scrollTo(modal(d).locator(".settings-overlay-preset").first());
+        // The GURS layers first: the list's order is the drawing order, top
+        // first, so the thin vector layers stay above the full-sheet maps.
+        for (const layer of GURS_LAYERS) await addPreset(d, { sl: `${d.t(layer)} (GURS)`, en: `${d.t(layer)} (GURS)` });
         await addPreset(d, { sl: "Spezialkarte", en: "Spezialkarte" });
         await addPreset(d, BITNJE);
         await d.wait(1000);
@@ -285,17 +364,40 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "Sloji GURS", en: "GURS layers" },
+      say: {
+        sl: "Sloji GURS so vektorski izrisi, ki se narišejo čez osnovno karto in tudi čez zgodovinsko: meje katastrskih občin, današnje parcele in hišne številke. Tako ob katastru iz leta 1826 vidite, katera današnja parcela in hiša stojita na mestu nekdanje domačije.",
+        en: "The GURS layers are vector drawings laid over the base map, and over a historical one too: cadastral municipality borders, today's parcels and house numbers. Next to the 1826 cadastre you see which parcel and house of today stand where the old homestead was.",
+      },
+      run: async (d) => {
+        await openLayers(d);
+        await d.click(d.page.locator("label.map-split-toggle input").first());
+        await d.wait(800);
+        for (const layer of GURS_LAYERS) {
+          const pick = layerPick(d, d.t(layer));
+          await d.highlight(pick, 4);
+          await d.click(pick.locator("input").first());
+          await d.wait(700);
+        }
+        await d.highlight(null);
+        await closeLayers(d);
+        await zoom(d, 2);
+        await d.skippable(() => d.wait(3500));
+        await d.wait(6000);
+      },
+    },
+    {
       callout: { sl: "Izvoz", en: "Export" },
       say: {
-        sl: "Pod »Izvoz« pogled shranite kot sliko PNG, obe polovici skupaj ali vsako posebej, z navedbo virov kart.",
-        en: "Under Export you save the view as a PNG image, both halves together or each on its own, with the maps' credits.",
+        sl: "Pod »Izvoz« trenutni pogled shranite kot sliko PNG, z navedbo virov kart. V vzporednem pogledu izvozite obe polovici skupaj ali vsako posebej.",
+        en: "Under Export you save the current view as a PNG image, with the maps' credits. Side by side, you export both halves together or each on its own.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".tree-export-btn").first());
         await d.wait(1200);
         await d.highlight(d.page.locator(".export-menu-popover").first(), 4);
         await d.wait(1500);
-        await d.click(d.page.locator(".export-menu-item", { hasText: d.t({ sl: "vzporedni pogled", en: "side by side" }) }).first());
+        await d.click(d.page.locator(".export-menu-item", { hasText: d.t({ sl: "Slika PNG", en: "PNG image" }) }).first());
         await d.highlight(null);
         await d.wait(1500);
       },
