@@ -15,8 +15,8 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
 | 7 | Zemljevidi | — | scenarij |
 | 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
-| 9 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 10 | Statistika | — | scenarij |
+| 9 | Statistika | — | v delu |
+| 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Pregled | — | scenarij |
 | 12 | Dvojniki | — | scenarij |
 
@@ -291,7 +291,34 @@ listov A4.
 
 ---
 
-## 9. Združevanje: dopolnite drevo iz druge datoteke
+## 9. Statistika: vaše drevo v številkah
+
+**Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov in
+virov, rodovi, ponovljeni predniki (implex), najbližje slepe ulice.
+**Podatki:** vaše anonimizirano drevo (večje in bolj zanimivo kot Prešernovo).
+**Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Statistika« · »Kaj vam *drevo* pove v številkah« ·
+posnetek strani »Rodovi« z grafom prednikov po rodovih.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Koliko prednikov ste že našli? Kje so vrzeli? Statistika odgovori v nekaj sekundah. |
+| 2 | Orodja → Statistika → Povzetek | Statistika je prvo orodje v Orodjih. Povzetek pokaže osebe, družine, letnice in najpogostejše priimke. |
+| 3 | Klik na stolpec ali število → seznam oseb | Za vsakim številom so osebe. Kliknite število in odpre se seznam; ime vas pripelje v Urejanje. |
+| 4 | Kartica »Popolnost podatkov« → vrstica »Navedbe virov« | Popolnost podatkov pove, koliko oseb ima datum rojstva, kraj, starše in vire. Klik na vrstico pokaže, komu kaj manjka — to je vaš seznam opravil. |
+| 5 | »Izbor oseb« → Predniki | Statistiko omejite na prednike, potomce ali krvne sorodnike izhodiščne osebe. |
+| 6 | Stran »Imena« — imena po stoletjih | Imena pokažejo, kako so se priljubljena imena spreminjala skozi stoletja. |
+| 7 | Stran »Družine« — starost ob poroki, poroke po mesecih | Pri družinah vidite starost ob poroki in kdaj so se ljudje najraje poročali. |
+| 8 | Stran »Rodovi« — predniki po rodovih | Rodovi pokažejo, koliko prednikov ste našli v vsakem rodu. |
+| 9 | Ploščica »Ponovljeni predniki« + kartica »Predniki na več mestih« | Če se isti prednik v rodovniku pojavi večkrat — na primer pri poroki med sorodniki —, to pokaže odstotek ponovljenih prednikov. |
+| 10 | »Najbližje slepe ulice« | Najbližje slepe ulice so predniki, pri katerih se vaše raziskovanje ustavi. Tam je naslednji korak. |
+| 11 | Stran »Raziskava« — dogodki z navedbo vira | Stran Raziskava pokaže, koliko dogodkov ima vir, po vrstah dogodkov. |
+| 12 | »Izvoz« → Slika PNG | Vsako kartico izvozite kot sliko ali tabelo CSV. |
+| 13 | Zaključna kartica | |
+
+---
+
+## 10. Združevanje: dopolnite drevo iz druge datoteke
 
 **Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke; sorodstvo do
 izhodiščne osebe na seznamu in v primerjalnem drevesu; kraji vhodne datoteke samodejno v
@@ -324,33 +351,6 @@ posnetek primerjave z izbiro G/V/O.
 | 17 | Primerjalno drevo, legenda barv, sorodstvo na vozliščih | Barva pove ujemanje; sorodstvo s Prešernom tudi tu. |
 | 18 | Shrani GEDCOM → predogled → Prenesi | Predogled pokaže vse spremembe. |
 | 19 | Zaključna kartica | |
-
----
-
-## 10. Statistika: vaše drevo v številkah
-
-**Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov in
-virov, rodovi, ponovljeni predniki (implex), najbližje slepe ulice.
-**Podatki:** vaše anonimizirano drevo (večje in bolj zanimivo kot Prešernovo).
-**Trajanje:** ~5 min
-**Naslovna slika:** oznaka »Statistika« · »Kaj vam *drevo* pove v številkah« ·
-posnetek strani »Rodovi« z grafom prednikov po rodovih.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Koliko prednikov ste že našli? Kje so vrzeli? Statistika odgovori v nekaj sekundah. |
-| 2 | Orodja → Statistika → Povzetek | Statistika je prvo orodje v Orodjih. Povzetek pokaže osebe, družine, letnice in najpogostejše priimke. |
-| 3 | Klik na stolpec ali število → seznam oseb | Za vsakim številom so osebe. Kliknite število in odpre se seznam; ime vas pripelje v Urejanje. |
-| 4 | Kartica »Popolnost podatkov« → vrstica »Navedbe virov« | Popolnost podatkov pove, koliko oseb ima datum rojstva, kraj, starše in vire. Klik na vrstico pokaže, komu kaj manjka — to je vaš seznam opravil. |
-| 5 | »Izbor oseb« → Predniki | Statistiko omejite na prednike, potomce ali krvne sorodnike izhodiščne osebe. |
-| 6 | Stran »Imena« — imena po stoletjih | Imena pokažejo, kako so se priljubljena imena spreminjala skozi stoletja. |
-| 7 | Stran »Družine« — starost ob poroki, poroke po mesecih | Pri družinah vidite starost ob poroki in kdaj so se ljudje najraje poročali. |
-| 8 | Stran »Rodovi« — predniki po rodovih | Rodovi pokažejo, koliko prednikov ste našli v vsakem rodu. |
-| 9 | Ploščica »Ponovljeni predniki« + kartica »Predniki na več mestih« | Če se isti prednik v rodovniku pojavi večkrat — na primer pri poroki med sorodniki —, to pokaže odstotek ponovljenih prednikov. |
-| 10 | »Najbližje slepe ulice« | Najbližje slepe ulice so predniki, pri katerih se vaše raziskovanje ustavi. Tam je naslednji korak. |
-| 11 | Stran »Raziskava« — dogodki z navedbo vira | Stran Raziskava pokaže, koliko dogodkov ima vir, po vrstah dogodkov. |
-| 12 | »Izvoz« → Slika PNG | Vsako kartico izvozite kot sliko ali tabelo CSV. |
-| 13 | Zaključna kartica | |
 
 ---
 
@@ -404,7 +404,7 @@ dvojnikov drug ob drugem.
 
 ## Odprta vprašanja
 
-1. **Epizode 10, 11, 12 (in 7):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
+1. **Epizode 9, 11, 12 (in 7):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
    rodbine Prešeren, zlasti za statistiko, pregled in dvojnike.
 2. **Brez takega drevesa za epizodi 11 in 12:** v kopijo Prešernovega drevesa smemo
    namerno vnesti napake in dvojnika le z dovoljenjem, in v videu to povemo.
