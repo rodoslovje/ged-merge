@@ -123,8 +123,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Spletna iskanja", en: "Online lookups" },
       say: {
-        sl: "Najprej v Nastavitvah na zavihku »Napredno« vklopite »Poišči podatke na spletu«. Tako lahko program kraj poišče tudi na OpenStreetMap. Poslano je le ime kraja, nikoli vaše drevo.",
-        en: "First, in Settings on the Advanced tab, switch on Look up details online. That lets the program search OpenStreetMap too. Only the place's name is sent, never your tree.",
+        sl: "Program bo podatke o krajih dobil s spleta: prenesel bo imenik GURS in kraje iskal na OpenStreetMap. Zato najprej v Nastavitvah na zavihku »Napredno« vklopite »Poišči podatke na spletu«. Poslano je le ime kraja, nikoli vaše drevo.",
+        en: "The program gets its place data from the web: it downloads the GURS directory and searches OpenStreetMap. So first, in Settings on the Advanced tab, switch on Look up details online. Only the place's name is sent, never your tree.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));

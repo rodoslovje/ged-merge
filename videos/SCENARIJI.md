@@ -214,7 +214,7 @@ predlogov iz imenika GURS ob kraju »Kranj«.
 |---|-------|-------|
 | 1 | Naslovna kartica | Kraj brez koordinate ne pride na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid. |
 | 2 | Odpre se France; obroč na kraj rojstva (polna oblika) in smrti (»Kranj«) | Večina krajev je zapisana kot naselje, občina in država, nekaj pa jih je še v stari obliki: samo ime naselja, včasih skupaj s hišno številko. |
-| 3 | ⚙ → Napredno → »Poišči podatke na spletu« | Tako lahko program kraj poišče tudi na OpenStreetMap. Poslano je le ime kraja. |
+| 3 | ⚙ → Napredno → »Poišči podatke na spletu« | Podatki o krajih pridejo s spleta: prenos imenika GURS in iskanje na OpenStreetMap. Poslano je le ime kraja. |
 | 4 | ⚙ → Zemljevid → »Nalagaj ploščice zemljevida« | Da zemljevidi dobijo pravo podlago. |
 | 5 | Imeniki krajev → GURS »Kraji«, prenos | Za Slovenijo GURS, uradni register vseh naselij z občinami; imenik ostane v brskalniku. |
 | 6 | Obroč na »Naslovi« in OpenStreetMap | Naslovi v posebnem videu; OpenStreetMap za kraje zunaj Slovenije. |
