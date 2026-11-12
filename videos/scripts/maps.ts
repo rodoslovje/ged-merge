@@ -121,6 +121,26 @@ async function pickBase(d: Director, label: Text): Promise<void> {
   await d.wait(1500);
 }
 
+/** Drag the (left) map by an offset, as a hand would, with the pointer shown. */
+async function pan(d: Director, dx: number, dy: number): Promise<void> {
+  const box = await d.page.locator(".leaflet-container").first().boundingBox();
+  if (!box) return;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await d.overlay("cursor", x, y, 600);
+  await d.wait(700);
+  await d.page.mouse.move(x, y);
+  await d.page.mouse.down();
+  for (let i = 1; i <= 20; i++) {
+    const px = x + (dx * i) / 20;
+    const py = y + (dy * i) / 20;
+    await d.page.mouse.move(px, py);
+    await d.overlay("cursor", px, py, 40);
+    await d.wait(50);
+  }
+  await d.page.mouse.up();
+}
+
 /** One overlay preset picked in Settings → Map. */
 async function addPreset(d: Director, label: Text): Promise<void> {
   const picker = modal(d).locator(".settings-overlay-preset").first();
@@ -384,8 +404,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Vzporedni pogled", en: "Side by side" },
       say: {
-        sl: "»Vzporedni pogled« razdeli zemljevid na dve polovici, ki se premikata skupaj. Levo je današnji zemljevid, desno kataster iz leta 1826: vidite, katere hiše so v vasi stale že takrat.",
-        en: "Side by side splits the map into two halves that move together. On the left is today's map, on the right the cadastre of 1826: you see which houses of the village stood already then.",
+        sl: "»Vzporedni pogled« razdeli zemljevid na dve polovici. Levo je današnji zemljevid, desno kataster iz leta 1826. Ko približate ali premaknete eno polovico, ji druga sledi, zato na ravni hiš vidite, katere so v vasi stale že takrat.",
+        en: "Side by side splits the map into two halves. On the left is today's map, on the right the cadastre of 1826. When you zoom or move one half, the other follows, so at the level of houses you see which of them stood in the village already then.",
       },
       run: async (d) => {
         const split = d.page.locator("label.map-split-toggle").first();
@@ -394,10 +414,30 @@ const scenario: Scenario = {
         await d.click(split.locator("input"));
         await d.highlight(null);
         await closeLayers(d);
-        await d.skippable(() => d.wait(3500));
+        await d.skippable(() => d.wait(3000));
         await d.overlay("hideCursor");
         await d.snapshot();
+        await zoom(d, 2);
+        await d.skippable(() => d.wait(2500));
+        await pan(d, -260, -120);
+        await d.skippable(() => d.wait(2000));
         await d.wait(2500);
+      },
+    },
+    {
+      callout: { sl: "Izvoz", en: "Export" },
+      say: {
+        sl: "Pod »Izvoz« pogled shranite kot sliko PNG, z navedbo virov kart. V vzporednem pogledu izvozite obe polovici skupaj ali vsako posebej.",
+        en: "Under Export you save the view as a PNG image, with the maps' credits. Side by side, you export both halves together or each on its own.",
+      },
+      run: async (d) => {
+        await d.click(d.page.locator(".tree-export-btn").first());
+        await d.wait(1200);
+        await d.highlight(d.page.locator(".export-menu-popover").first(), 4);
+        await d.wait(1500);
+        await d.click(d.page.locator(".export-menu-item", { hasText: d.t({ sl: "vzporedni pogled", en: "side by side" }) }).first());
+        await d.highlight(null);
+        await d.wait(1500);
       },
     },
     {
@@ -426,22 +466,6 @@ const scenario: Scenario = {
         await zoom(d, 4);
         await d.skippable(() => d.wait(3500));
         await d.wait(5000);
-      },
-    },
-    {
-      callout: { sl: "Izvoz", en: "Export" },
-      say: {
-        sl: "Pod »Izvoz« trenutni pogled shranite kot sliko PNG, z navedbo virov kart. V vzporednem pogledu izvozite obe polovici skupaj ali vsako posebej.",
-        en: "Under Export you save the current view as a PNG image, with the maps' credits. Side by side, you export both halves together or each on its own.",
-      },
-      run: async (d) => {
-        await d.click(d.page.locator(".tree-export-btn").first());
-        await d.wait(1200);
-        await d.highlight(d.page.locator(".export-menu-popover").first(), 4);
-        await d.wait(1500);
-        await d.click(d.page.locator(".export-menu-item", { hasText: d.t({ sl: "Slika PNG", en: "PNG image" }) }).first());
-        await d.highlight(null);
-        await d.wait(1500);
       },
     },
     {
