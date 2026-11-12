@@ -12,7 +12,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 3 | Nastavitve prikaza | `scripts/settings.ts` | SL z glasom ✓ |
 | 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ |
 | 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
-| 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | osnutek brez glasu |
+| 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
 | 7 | Zemljevidi | — | scenarij |
 | 8 | Združevanje | `scripts/merge.ts` | SL in EN z glasom (pred epizodami 3–5; znova zgraditi) |
 | 9 | Statistika | — | scenarij |
