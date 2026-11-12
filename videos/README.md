@@ -52,7 +52,11 @@ rather than by label, so one scenario works in both languages.
 Demo data lives in `demo/`: a fictional family (`moje-drevo`, `bratranec`) and
 the historical Prešeren family (`preseren-hawlina` from Peter Hawlina's pedigree,
 `preseren-odar` from contributor Odar's tree in the Slovenian genealogical
-index). Never record a living person's data for a public video.
+index). `rodbina-renko` is an anonymised excerpt of the author's own tree for
+the privacy scenes, the one demo file with living people: the author and his
+parents under their real names, every other living relative under a made-up
+name, sex and birth date, no other facts. Never record a living person's real
+data for a public video.
 
 Each run also renders `<scenario>.<lang>.thumb.jpg`, the YouTube thumbnail, from
 the scenario's `thumbnail` tag and title and the screen a step grabbed with
