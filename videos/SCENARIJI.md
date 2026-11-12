@@ -14,7 +14,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
 | 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
 | 7 | Zemljevidi | — | scenarij |
-| 8 | Združevanje | `scripts/merge.ts` | SL in EN z glasom (pred epizodami 3–5; znova zgraditi) |
+| 8 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 9 | Statistika | — | scenarij |
 | 10 | Pregled | — | scenarij |
 | 11 | Dvojniki | — | scenarij |
@@ -28,6 +28,8 @@ Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški gov
   `videos/out/NN-<id>/` (ni v gitu). Vsak agent dela v svojem worktreeju in odda PR.
 - **Nastavitve serije:** epizode od 4 naprej imajo `settings: seriesSettings` (France
   izhodiščna oseba, sorodstvo, starosti, slovenski zapis datumov) — kot v epizodi 3.
+  Od epizode 6 naprej so vklopljene tudi ploščice zemljevida: epizoda 6 jih vklopi pred
+  kamero, poznejše epizode imajo `settings: seriesSettingsWithMaps`.
 - **Podatki:** `demo/preseren-hawlina.ged` (glavna), `demo/preseren-odar.ged` (vhodna),
   `demo/preseren-hawlina-porocni.ged` (s poročnimi priimki). Samo resnični, preverljivi
   podatki in nikoli žive osebe; nov podatek preverite v Slovenskem rodoslovnem indeksu
@@ -257,29 +259,37 @@ vzporednega pogleda (franciscejski kataster | današnji zemljevid).
 
 ## 8. Združevanje: dopolnite drevo iz druge datoteke
 
-**Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke.
-**Podatki:** glavna `preseren-hawlina.ged` (rodovnik Petra Hawline), vhodna
-`preseren-odar.ged` (drevo Odar iz Slovenskega rodoslovnega indeksa).
-**Trajanje:** ~5 min
+**Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke; sorodstvo do
+izhodiščne osebe na seznamu in v primerjalnem drevesu; kraji vhodne datoteke samodejno v
+obliki glavne.
+**Podatki:** glavna `preseren-hawlina-geo.ged` (rodovnik Petra Hawline, kot ga pusti
+epizoda 6: naselje, občina, država s koordinatami GURS, hišne številke v naslovu), vhodna
+`preseren-odar.ged` (drevo Odar iz Slovenskega rodoslovnega indeksa, hišne številke v kraju).
+Izvedba in govor: `scripts/merge.ts`. **Trajanje:** ~5 min
 **Naslovna slika:** oznaka »Združevanje oseb« · »Dopolnite *drevo* iz druge datoteke« ·
 posnetek primerjave z izbiro G/V/O.
 
 | # | Kader | Govor |
 |---|-------|-------|
 | 1 | Naslovna kartica | Dva raziskovalca sta raziskovala isto rodbino. Pokažimo, kako njune podatke združite v eno drevo. |
-| 2 | Glavna datoteka | Najprej odprite svojo datoteko. To je glavna datoteka; vanjo se zapišejo prevzeti podatki. |
-| 3 | Združevanje → vhodna datoteka | Na zavihku »Združevanje« odprite drugo drevo. Tej pravimo vhodna datoteka in ostane nespremenjena. |
-| 4 | Seznam ujemanj, obroč na stopnjo; lebdenje nad njo | GED Merge poišče osebe, ki so v obeh drevesih, in vsakemu paru določi stopnjo ujemanja. Ko se ustavite nad njo, vidite, iz česa je sestavljena. |
-| 5 | France: obroč na krst in pokop (zeleno) | Drugo drevo pozna Prešernov krst v Breznici in pokop v Kranju. Novi podatki so obarvani zeleno. |
-| 6 | Obroč na »Vrba« ↔ »Vrba 2, (stara hš 1)« | Kraj rojstva je v drugem drevesu natančnejši — s hišno številko. |
-| 7 | Gumbi G/V zatemnjeni → »Potrdi« | Podatke izbirate šele pri potrjenem paru; dokler ga ne potrdite, so gumbi zaklenjeni. Kliknite »Potrdi«. |
-| 8 | Klik V pri kraju rojstva | Pri kraju rojstva izberite vhodni, natančnejši zapis. |
-| 9 | Šimen ↔ Simon: obroč, klik O | Pri očetu se drevesi razlikujeta v imenu: Šimen in Simon. Z gumbom O obdržite obe obliki. |
-| 10 | Ana Jelovšek: starša »✓ dodano« po potrditvi | Ana ima v drugem drevesu starša, ki ju pri vas ni. Ko par potrdite, se dodata v vaše drevo. |
-| 11 | Janez Prešeren: nova partnerka Marija Triplat | Drugo drevo pozna tudi drugo ženo Janeza Prešerna. Ob potrditvi se doda kot nova družina. |
-| 12 | »Primerjalno drevo« (V) — barve vozlišč | Primerjalno drevo pokaže obe drevesi skupaj; barva pove, kje se ujemata in kje razlikujeta. |
-| 13 | Shrani GEDCOM → predogled → Prenesi | Predogled pokaže vse spremembe. Dopolnjeno drevo se shrani kot nova datoteka. |
-| 14 | Zaključna kartica | |
+| 2 | Glavna datoteka, obroč na geokodiran kraj | Glavna datoteka; kraji so že urejeni in geokodirani, kot v šestem videu. |
+| 3 | Združevanje → vhodna datoteka | Drugo drevo iz Slovenskega rodoslovnega indeksa je vhodna datoteka. |
+| 4 | Seznam ujemanj, obroč na stopnjo | Pari oseb in stopnja ujemanja. |
+| 5 | Obroč na »Dedek« (poudarjeno) in »Zakonec« | Sorodstvo s Prešernom pod imenom, neposredni predniki poudarjeni. |
+| 6 | Filter »Predniki«, nazaj »Vse osebe« | Seznam zožite na prednike. |
+| 7 | France: krst in pokop (zeleno) | Novi podatki so obarvani zeleno. |
+| 8 | Starosti ob datumih | Starost ob smrti, starost staršev ob rojstvu. |
+| 9 | »Vrba 2, (stara hš 1)« → kraj »Vrba, Žirovnica, Slovenija« + naslov; »Kranj 181« | Kraj se prepiše v obliko vaše datoteke, hišna številka gre v naslov. |
+| 10 | Gumbi zaklenjeni → »Potrdi« | Podatke izbirate šele pri potrjenem paru. |
+| 11 | G/V pri naslovu | G ohrani podatek iz glavne datoteke, V prevzame vhodnega; novi podatki so že izbrani. |
+| 12 | Šimen ↔ Simon: »Potrdi«, O | Obe obliki imena. |
+| 13 | Klik na »Marija Prešeren« v vrstici »Mati« → njen par, »Potrdi«, O | Mina je domača oblika imena Marija; s klikom na ime odprete njen par. |
+| 14 | Nazaj na Šimna: vrstica »Mati« = | Vrstica »Mati« se zdaj ujema. |
+| 15 | Ana Jelovšek: starša »✓ dodano« | Ob potrditvi se starša takoj dodata v drevo. |
+| 16 | Janez Prešeren: Marija Triplat | Nova družina. |
+| 17 | Primerjalno drevo, legenda barv, sorodstvo na vozliščih | Barva pove ujemanje; sorodstvo s Prešernom tudi tu. |
+| 18 | Shrani GEDCOM → predogled → Prenesi | Predogled pokaže vse spremembe. |
+| 19 | Zaključna kartica | |
 
 ---
 
