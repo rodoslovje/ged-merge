@@ -133,6 +133,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
           backLabel={backLabel}
           onBack={onBack}
           onNavigate={onNavigate}
+          onRootChange={onRootChange}
           kindSwitcher={kindSwitcher}
           mode={direction}
           onModeChange={setDirection}

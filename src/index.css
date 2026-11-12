@@ -8657,6 +8657,12 @@ kbd {
 .map-panel-pathbtn:hover .map-paths-icon {
   opacity: 1;
 }
+.map-panel-rootbtn svg {
+  opacity: 0.75;
+}
+.map-panel-rootbtn:hover svg {
+  opacity: 1;
+}
 .map-undated {
   display: inline-flex;
   align-items: center;

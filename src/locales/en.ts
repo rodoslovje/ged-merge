@@ -2256,6 +2256,7 @@ export const en = {
   "map.pathCountOf": "{{shown}} of {{total}} paths",
   "map.pathOf": "Life path",
   "map.showPath": "Show this person's life path",
+  "map.setRoot": "Make this person the root of the map",
   "map.borders": "Borders",
   "map.borders.tooltip":
     "Draw the administrative borders of the year in the To year field — the empires, provinces and districts of OpenHistoricalMap",
