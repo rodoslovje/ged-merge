@@ -43,6 +43,8 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\bGURS\b/g, "Gúrs"],
     [/\b([Ss])loj(i|e|ih|ev)\b/g, "$1lój$2"],
     [/\b([Mm])eje\b/g, "$1éje"],
+    // Genitive "potí" ("v smeri potí"), unlike the Paths button's "Póti".
+    [/smeri poti\b/g, "smeri potí"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],
