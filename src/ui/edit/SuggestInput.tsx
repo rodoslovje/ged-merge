@@ -351,9 +351,7 @@ export function SuggestInput({
               {s.addr && <span className="addr-muted"> · {s.addr}</span>}
               {s.proposal && (
                 <span className={`tools-reshape-badge ${s.proposal.official ? "official" : "reuse"}`}>
-                  {/* "OSM" is the source's id; read in a list of places, it is
-                      a word nobody outside the project knows, so it is spelt out. */}
-                  {s.proposal.source === "OSM" ? "OpenStreetMap" : s.proposal.source}
+                  {s.proposal.source}
                 </span>
               )}
             </li>
