@@ -78,13 +78,20 @@ async function filterTo(d: Director, text: string): Promise<void> {
 }
 
 /** Open a rename box (✎ beside `target`) and replace its text. */
-async function rename(d: Director, pencil: ReturnType<Director["page"]["locator"]>, text: string): Promise<void> {
+async function rename(
+  d: Director,
+  pencil: ReturnType<Director["page"]["locator"]>,
+  text: string,
+  how: "replace" | "append" = "replace",
+): Promise<void> {
   await d.click(pencil);
   await d.wait(600);
   const input = visible(d, ".tools-place-rename-input").first();
   await input.waitFor();
   await d.click(input);
-  await d.page.keyboard.press("ControlOrMeta+a");
+  // The box opens holding the address as written: append types after it,
+  // replace writes over it.
+  await d.page.keyboard.press(how === "append" ? "End" : "ControlOrMeta+a");
   await d.page.keyboard.type(text, { delay: 70 });
   await d.wait(700);
 }
@@ -169,7 +176,13 @@ const scenario: Scenario = {
         await d.wait(6000);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
+        // Each step's way to its screen runs once the narration before it is
+        // done, so the next sentence starts on the screen it talks about.
+        await d.untilSaid();
+        await d.click(d.page.locator(".seg-btn").nth(2));
         await d.wait(800);
+        await d.click(d.page.locator(".tools-tab", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first());
+        await d.wait(1000);
       },
     },
     {
@@ -179,10 +192,6 @@ const scenario: Scenario = {
         en: "In Tools, under Places, the places form a tree: country, municipality, settlement and house. Each shows how many records use it, and its coordinate.",
       },
       run: async (d) => {
-        await d.click(d.page.locator(".seg-btn").nth(2));
-        await d.wait(800);
-        await d.click(d.page.locator(".tools-tab", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first());
-        await d.wait(1200);
         await d.click(treeRow(d, "Slovenia").locator(".tools-tree-label"));
         await d.wait(1200);
         await d.click(treeRow(d, "Kranj").locator(".tools-tree-label"));
@@ -195,8 +204,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Druga imena", en: "Other names" },
       say: {
-        sl: "Kraj ima lahko tudi stara ali tuja imena. Kliknite svinčnik, dodajte ime, na primer nemško Krainburg, in kliknite »Zapiši imena«. Iskanje kraj odslej najde tudi po tem imenu.",
-        en: "A place can also carry old or foreign names. Click the pencil, add a name — the German Krainburg, say — and click Write names. From then on the search finds the place by that name too.",
+        sl: "Kraj ima lahko tudi stara ali tuja imena — to omogoča le zapis GEDCOM 7, v katerem je ta datoteka. Kliknite svinčnik, dodajte ime, na primer nemško Krainburg, in kliknite »Zapiši imena«. Iskanje kraj odslej najde tudi po tem imenu.",
+        en: "A place can also carry old or foreign names — only GEDCOM 7 can record them, and this file is GEDCOM 7. Click the pencil, add a name — the German Krainburg, say — and click Write names. From then on the search finds the place by that name too.",
       },
       run: async (d) => {
         await d.click(kranjTown(d).locator(".tools-place-edit-btn").first());
@@ -221,6 +230,7 @@ const scenario: Scenario = {
         // address register still downloading behind it: the Addresses tab
         // appears only once the register is stored. The wait is cut to two
         // seconds, so the next step's narration starts on a page that is ready.
+        await d.untilSaid();
         await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
         await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), 2);
       },
@@ -261,6 +271,13 @@ const scenario: Scenario = {
         await d.highlight(noSuchAddress(d), 6);
         await d.wait(3500);
         await d.highlight(null);
+        await d.untilSaid();
+        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
+        await d.wait(800);
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
+        await d.wait(1000);
+        await d.click(link(d, /^(Naslovi|Addresses) \d/));
+        await d.wait(1000);
       },
     },
     {
@@ -270,15 +287,16 @@ const scenario: Scenario = {
         en: "Under Geocoding, the Addresses tab lists every house, grouped by place. We have only the Slovenian register loaded, so we pick Slovenia. A house without a position of its own inherits the settlement's coordinate.",
       },
       run: async (d) => {
-        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
-        await d.wait(800);
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
-        await d.wait(1200);
-        await d.click(link(d, /^(Naslovi|Addresses) \d/));
-        await d.wait(1200);
+        await d.wait(2500);
         // Only Slovenia's register is loaded, so the list is narrowed to it.
         await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
         await d.wait(1500);
+        await d.untilSaid();
+        // Both houses of the next steps already carry a position.
+        await d.click(showPlaced(d).locator("input"));
+        await filterTo(d, "klinični");
+        await expandAll(d);
+        await d.wait(800);
       },
     },
     {
@@ -288,11 +306,6 @@ const scenario: Scenario = {
         en: "Thirteen events have the address »hospital / medical centre«. Let's write the real address, Zaloška cesta 2, and add the description in parentheses. The register finds the house at once. We confirm the answer, so its coordinate is written too.",
       },
       run: async (d) => {
-        // Both houses of these two steps already carry a position.
-        await d.click(showPlaced(d).locator("input"));
-        await filterTo(d, "klinični");
-        await expandAll(d);
-        await d.wait(800);
         const row = addrRow(d, "bolnišnica / klinični center");
         await d.highlight(row, 4);
         await d.wait(1200);
@@ -306,6 +319,10 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.click(answer);
         await d.wait(1500);
+        await d.untilSaid();
+        await filterTo(d, "Hafnarjeva pot 55");
+        await expandAll(d);
+        await d.wait(800);
       },
     },
     {
@@ -315,11 +332,8 @@ const scenario: Scenario = {
         en: "This house has had three numbers. We write the present address first, then the older ones, separated by slashes: Hafnarjeva pot 55, before that 21, and earlier still Stražišče 66.",
       },
       run: async (d) => {
-        await filterTo(d, "Hafnarjeva pot 55");
-        await expandAll(d);
-        await d.wait(800);
         const row = addrRow(d, "Hafnarjeva pot 55 / 21");
-        await rename(d, row.locator("xpath=following-sibling::button[contains(@class,'tools-place-edit-btn')][1]"), "Hafnarjeva pot 55 / 21 / Stražišče 66");
+        await rename(d, row.locator("xpath=following-sibling::button[contains(@class,'tools-place-edit-btn')][1]"), " / Stražišče 66", "append");
         await d.click(applyRename(d));
         await d.wait(1500);
       },
@@ -338,6 +352,7 @@ const scenario: Scenario = {
         await d.click(hit(d, "Hafnarjeva pot 55, Kranj, 4000 Kranj"));
         await d.wait(1500);
         await d.snapshot();
+        await d.untilSaid();
         await filterTo(d, "");
         await d.click(showPlaced(d).locator("input"));
         await d.wait(800);
@@ -362,6 +377,14 @@ const scenario: Scenario = {
         await d.wait(800);
         await expandAll(d);
         await d.wait(6000);
+        await d.untilSaid();
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
+        await d.wait(800);
+        // Krasinec 26 and Krasinec 26 (pd Jelin): neither has a position of its
+        // own yet, so joining them raises no disagreement about where it is.
+        await filterTo(d, "Krasinec 26");
+        await expandAll(d);
+        await d.wait(1000);
       },
     },
     {
@@ -371,13 +394,6 @@ const scenario: Scenario = {
         en: "The same house is sometimes written twice: once with its farm name in parentheses, once without. The Merge button makes the two one.",
       },
       run: async (d) => {
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
-        await d.wait(800);
-        // Krasinec 26 and Krasinec 26 (pd Jelin): neither has a position of its
-        // own yet, so joining them raises no disagreement about where it is.
-        await filterTo(d, "Krasinec 26");
-        await expandAll(d);
-        await d.wait(1000);
         const join = visible(d, ".tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Združi", en: "Join" })}$`) }).first();
         await d.highlight(join.locator(".."), 4);
         await d.wait(1800);
