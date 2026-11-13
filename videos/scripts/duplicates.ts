@@ -184,15 +184,12 @@ const scenario: Scenario = {
         await d.page.evaluate(() => document.querySelector(".tools-view")?.scrollTo({ top: 0, behavior: "smooth" }));
         await d.wait(800);
         await d.highlight(d.page.locator(".tools-pairs").first(), 4);
-        await d.wait(5000);
+        await d.wait(3500);
         await d.highlight(null);
         await d.click(d.page.locator(".tools-fix-item .tools-run").first());
         await d.skippable(() => d.page.locator(".tools-pairs").first().waitFor({ timeout: 60_000 }));
-        await d.wait(600);
-        await closeOpenPair(d);
-        await d.highlight(d.page.locator(".tools-pairs").first(), 4);
-        await d.wait(3000);
-        await d.highlight(null);
+        // The fresh list opens its first pair, Luka Mubi, which the next step looks at.
+        await d.page.locator(".tools-pair-toggle.open").first().waitFor({ timeout: 3000 }).catch(() => {});
       },
     },
     {
@@ -203,9 +200,11 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await d.highlight(null);
-        await d.click(pair(d, MUBI).locator(".tools-pair-toggle"));
+        if (!(await pair(d, MUBI).locator(".tools-pair-toggle.open").count())) {
+          await d.click(pair(d, MUBI).locator(".tools-pair-toggle"));
+          await d.wait(1000);
+        }
         await compare(d).waitFor();
-        await d.wait(1000);
         await d.highlight(compare(d).locator("tr.field", { hasText: "ABT 1665" }).first(), 4);
         await d.wait(4500);
         await d.highlight(compare(d).locator("tr", { hasText: "Gregor Mubi" }).first(), 4);
@@ -226,9 +225,6 @@ const scenario: Scenario = {
         await compare(d).waitFor();
         await d.wait(1000);
         await d.highlight(compare(d).locator("tr.field", { hasText: "6 NOV 1730" }).first(), 4);
-        await d.wait(5000);
-        await d.highlight(null);
-        await d.click(pair(d, SIMONIC).locator(".tools-pair-toggle"));
       },
     },
     {
@@ -238,6 +234,9 @@ const scenario: Scenario = {
         en: "By default, only pairs scoring at least 85 are shown. Lower the threshold and weaker pairs appear too, among them groups of three or more records.",
       },
       run: async (d) => {
+        // Matija Simonič stays open while he is spoken of; close him now.
+        await d.highlight(null);
+        await closeOpenPair(d);
         // The menu can miss a click while the list is still settling; try until the group shows.
         for (let i = 0; i < 3 && !(await cluster(d, PEZDIRC).count()); i++) {
           await d.click(scoreSelect(d));
