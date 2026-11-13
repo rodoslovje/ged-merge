@@ -554,6 +554,6 @@ seznama težav s številkami.
    `preseren-hawlina-viri.ged` z umetno razporejenimi resničnimi povezavami. Pred
    snemanjem preverite: ali vsaka povezava odgovori (Find a Grave posrednik včasih
    zavrne), ali ima `rodbina-renko` vrstice v
-   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, in Geneanet Trees v
+   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com in Geneanet Trees v
    Prešernovem drevesu nimajo preverjenega primera, zato jih le
    naštejemo; BillionGraves in Newspapers.com sta v `rodbina-renko`.
