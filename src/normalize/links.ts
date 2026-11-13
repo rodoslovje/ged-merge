@@ -97,7 +97,7 @@ export function canonicalFamilySearchUrl(url: string): string {
  *  Books volume. Case-folding these would make two different resources
  *  compare equal, so the key carries the id as written. */
 const CASE_SENSITIVE_ID_RE =
-  /(?:youtube\.com\/watch\?(?:[^#]*&)?v=|youtu\.be\/|books\.google\.[a-z.]+\/books\?(?:[^#]*&)?id=|google\.[a-z.]+\/books\/edition\/[^/?#]+\/)([A-Za-z0-9_-]+)/;
+  /(?:youtube\.com\/watch\?(?:[^#]*&)?v=|youtu\.be\/|books\.google\.[a-z.]+\/books[^?#]*\?(?:[^#]*&)?id=|play\.google\.com\/store\/books\/details\?(?:[^#]*&)?id=|google\.[a-z.]+\/books\/edition\/[^/?#]+\/)([A-Za-z0-9_-]+)/;
 
 /**
  * Normalize a URL for set comparison: case-fold, fold `http://` to `https://`
