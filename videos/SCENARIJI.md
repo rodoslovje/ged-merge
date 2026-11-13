@@ -17,8 +17,8 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 11 | Pregled | — | scenarij |
-| 12 | Dvojniki | — | scenarij |
+| 11 | Dvojniki | `scripts/duplicates.ts` | tihi osnutek |
+| 12 | Pregled | — | scenarij |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -373,7 +373,39 @@ posnetek primerjave z izbiro G/V/O.
 
 ---
 
-## 11. Pregled: čiščenje podatkov
+## 11. Dvojniki: združevanje podvojenih oseb
+
+**Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, skupaj s podvojenim
+staršem; zavrniti skupino, ki ni dvojnik. Neposredno nadaljuje epizodo 10: ista primerjava,
+tokrat znotraj ene datoteke.
+**Podatki:** `rodbina-renko.ged` (anonimiziran izsek avtorjevega rodovnika, kot v epizodi 9),
+v katerem so resnični dvojniki — nič ni vneseno namenoma:
+- Janez Starašinič, r. 1752 v Krasincu (`@77637144@` in `@I412665969695@`, ~100 točk): isti
+  mož dvakrat pod istim očetom, vsak zapis s svojo kopijo matere Lucije Klepec (~96);
+- Pezdirci, Krasinec 2, 1892 (skupina treh zapisov, 84 in 78 točk): trije bratje — NN, rojen
+  in umrl 10. 1. 1892, ter dvojčka Jožef in Peter, rojena 8. 12. 1892.
+
+Izvedba in govor: `scripts/duplicates.ts`. **Trajanje:** ~2,5 min
+**Naslovna slika:** oznaka »Dvojniki« · »Ena *oseba*, en zapis« · posnetek primerjave
+dvojnikov drug ob drugem.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Ko drevo raste, se ista oseba hitro znajde v njem dvakrat. Pokažimo, kako dvojnike najdete in združite. |
+| 2 | Odpri `rodbina-renko.ged` → Orodja → Dvojniki | Orodje primerja vsako osebo z vsako drugo, z istim algoritmom kot Združevanje. |
+| 3 | Seznam parov, obroč na stopnjo in oznako zapisa | Pari so razvrščeni po stopnji ujemanja; ob imenu je oznaka zapisa. |
+| 4 | Janez Starašinič: primerjava, Ohranjeni/Kandidat | Primerjava drug ob drugem; levi zapis se ohrani. |
+| 5 | Vrstica »Mati« (dve Luciji) → namig, obkljukaj | Tudi mati je v drevesu dvakrat; program jo ponudi za združitev pred tem parom. |
+| 6 | »Združi« → potrditev z obema oznakama | Pred združitvijo pokaže oba zapisa in mater, ki se združi najprej. |
+| 7 | Seznam brez obeh parov → »Zaženi znova« | Iz seznama sta izginila oba para; iskanje zaženete znova. |
+| 8 | Prag »≥ 85« → »≥ 75«, obroč na skupino Pezdirc | Nižji prag pokaže šibkejše pare in skupine s tremi ali več zapisi. |
+| 9 | Razpri skupino → »Zavrni vse« | Trije bratje, med njimi dvojčka: skupino zavrnete. |
+| 10 | »Zavrnjeni« → nazaj na dvojnike | Zavrnjeni pari se ne vrnejo; zavrnitev lahko prekličete. |
+| 11 | Zaključna kartica | |
+
+---
+
+## 12. Pregled: čiščenje podatkov
 
 **Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
 popravilo.
@@ -397,33 +429,9 @@ seznama težav s številkami.
 
 ---
 
-## 12. Dvojniki: združevanje podvojenih oseb
-
-**Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, vključno s
-podvojenimi starši; zavrniti napačen par.
-**Podatki:** vaše anonimizirano drevo ali kopija Prešernovega drevesa z vnesenim dvojnikom
-(npr. France Prešeren drugič, z drugačnim zapisom kraja in s krstom) — glej odprta
-vprašanja. · **Trajanje:** ~4 min
-**Naslovna slika:** oznaka »Dvojniki« · »Ena *oseba*, en zapis« · posnetek primerjave
-dvojnikov drug ob drugem.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Ko drevo raste, se ista oseba hitro znajde v njem dvakrat. Pokažimo, kako dvojnike najdete in združite. |
-| 2 | Orodja → Dvojniki | Orodje primerja vsako osebo z vsako in uporabi isti algoritem kot Združevanje. |
-| 3 | Skupine, razvrščene po stopnji ujemanja | Možni dvojniki so združeni v skupine, najzanesljivejši so na vrhu. |
-| 4 | »Pokaži primerjavo drug ob drugem« | Par primerjate drug ob drugem, enako kot pri združevanju datotek. |
-| 5 | Izbira polj G/V/O | Pri vsakem podatku izberete, katerega obdržite. Ohrani se levi zapis. |
-| 6 | Namig o podvojenih starših → obkljukaj | Če sta podvojena tudi starša, ju program ponudi za združitev pred tem parom. |
-| 7 | »Združi« → potrditev z obema ID | Združitev pred izvedbo pokaže oba zapisa z njunima oznakama. |
-| 8 | Drug par → »Zavrni« | Če par ni ista oseba, ga zavrnite. Zavrnjeni pari so v posebnem pogledu. |
-| 9 | Zaključna kartica | |
-
----
-
 ## Odprta vprašanja
 
-1. **Epizode 9, 11, 12 (in 7):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
-   rodbine Prešeren, zlasti za statistiko, pregled in dvojnike.
-2. **Brez takega drevesa za epizodi 11 in 12:** v kopijo Prešernovega drevesa smemo
-   namerno vnesti napake in dvojnika le z dovoljenjem, in v videu to povemo.
+1. **Epizoda 12 (in 7):** anonimizirano drevo avtorja bi bilo boljše od 25 oseb
+   rodbine Prešeren, zlasti za pregled (epizodi 9 in 11 ga že uporabljata).
+2. **Brez takega drevesa za epizodo 12:** v kopijo Prešernovega drevesa smemo
+   namerno vnesti napake le z dovoljenjem, in v videu to povemo.
