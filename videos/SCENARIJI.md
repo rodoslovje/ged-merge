@@ -467,7 +467,7 @@ in drugo obliko zapisa:
 | France Prešeren | Wikipedija | `https://sl.wikipedia.org/wiki/France_Prešeren` | povezava v opombi |
 | France Prešeren | dLib.si — *Poezije Dóktorja Francéta Prešérna*, 1847 | `https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI` | `WWW` na osebi |
 | Ernestina Jelovšek | dLib.si — njeni *Spomini na Prešerna*, 1903 | `https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7` | naslov vira (`SOUR` › `TITL` je kar URL) |
-| ena od oseb | mrtva povezava za »Odstrani sklice« | zastarel naslov, ki ga orodje prepozna kot zbirko (izbrati pred snemanjem) | povezava v opombi |
+| Ernestina Jelovšek | stara povezava SIstory (žrtve vojn), ki ne deluje več (404) — SIstory je spremenil naslove | `https://www.sistory.si/zrtve/zrtev/?id=7757` | povezava v opombi |
 
 Za zavihek **Dvojniki** dodamo dva zapisa vira za isto knjigo: krstno knjigo Breznica
 z arhivsko številko 00164 in hrambo NŠAL, ter »Breznica, krstna knjiga« brez številke
@@ -498,7 +498,7 @@ zato preverite v tihi gradnji (`--silent`).
 | 10 | »Citate pripni na ustrezne dogodke« | Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari. |
 | 11 | »Kakovost citata« → »primarni vir« | Vsem navedbam lahko nastavite tudi kakovost citata. |
 | 12 | ✎ ob skupini → urejevalnik vira (naslov, arhiv, kraj, številka, leta, hramba) | Vsak predlog pred pretvorbo lahko popravite: naslov, arhivsko številko ali hrambo, ki ji vir pripada. |
-| 13 | Mrtva povezava → 🗑 → oznaka »ODSTRANI« | Mrtvo ali zastarelo povezavo označite za odstranitev. Odstrani se z vseh mest v datoteki, vir pa ne nastane. |
+| 13 | Skupina »Druge povezave«: stari naslov SIstory → 🗑 → oznaka »ODSTRANI« | Povezave, ki jih program ne pozna, so med »Drugimi povezavami«. Ta vodi na staro stran žrtev vojn na SIstory, ki je ni več. Označite jo za odstranitev: izgine z vseh mest v datoteki, besedilo opombe ostane, vir pa ne nastane. |
 | 14 | »Izberi vse« → »Pretvori v vire (N)« → obvestilo »… zapisov posodobljenih« | Izberete skupine in jih pretvorite v enem koraku. Spremembe se zapišejo, ko datoteko shranite. |
 | 15 | Zavihek Dvojniki: knjiga Breznica dvakrat, ena brez arhivske številke | Dvojniki so viri, ki opisujejo isto knjigo pod različnima oznakama. Zapis, ki pove manj, se pridruži popolnejšemu. |
 | 16 | »Obdrži ta zapis« → »Združi dvojnike« | Program obdrži zapis z več sklici, prenese vanj, kar povedo samo drugi, in vse navedbe preusmeri nanj. |
@@ -551,7 +551,7 @@ seznama težav s številkami.
 3. **Epizoda 13 (Uredi vire):** potrebna je nova demo datoteka
    `preseren-hawlina-viri.ged` z umetno razporejenimi resničnimi povezavami. Pred
    snemanjem preverite: ali vsaka povezava odgovori (Find a Grave posrednik včasih
-   zavrne), katera zastarela povezava naj bo »mrtva«, ali ima `rodbina-renko` vrstice v
+   zavrne), ali ima `rodbina-renko` vrstice v
    zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, Geneanet Trees, Google
    Knjige in YouTube v Prešernovem drevesu nimajo preverjenega primera, zato jih le
    naštejemo; BillionGraves in Newspapers.com sta v `rodbina-renko`.
