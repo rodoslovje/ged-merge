@@ -17,8 +17,8 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 11 | Kraji in naslovi | — | scenarij |
-| 12 | Dvojniki | — | scenarij |
+| 11 | Dvojniki | — | scenarij |
+| 12 | Kraji in naslovi | — | scenarij |
 | 13 | Pregled | — | odloženo |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
@@ -205,7 +205,7 @@ pahljače z barvami po kraju rojstva.
 poiskati kraj pri urejanju in ga zapisati v obliki naselje, občina, država, hišno
 številko prestaviti iz kraja v naslov, stare zapise pretvoriti v Orodjih in krajem z
 geokodiranjem dodati koordinate. Naslovi (prenos GURS naslovov, geokodiranje hišnih
-številk) dobijo svoj video, epizodo 11.
+številk) dobijo svoj video, epizodo 12.
 **Podatki:** `preseren-hawlina-kraji.ged` — večina krajev v polni obliki, golih ostane
 nekaj: Kranj, Radovljica, Žirovnica, Osoje na Koroškem ter hišne številke v kraju
 (Žirovnica 7, Vrba 1, Vrba 7). Izvedba in govor: `scripts/geocoding.ts`.
@@ -374,7 +374,32 @@ posnetek primerjave z izbiro G/V/O.
 
 ---
 
-## 11. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
+## 11. Dvojniki: združevanje podvojenih oseb
+
+**Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, vključno s
+podvojenimi starši; zavrniti napačen par.
+**Podatki:** `rodbina-renko.ged` — 22 parov v 19 skupinah, brez vnesenih napak: Janez
+Starašinič (r. 1752, Krasinec, 99,9 %) je otrok v dveh družinah, dvojnica je tudi
+njegova mati Lucija Klepec (95,9 %) — kader 6; Luka Mubi (87 %) je razcep na zapis z
+rojstvom in zapis s krstom — kader 5; NN Pezdirc ↔ Jožef Pezdirc za »Zavrni«. · **Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Dvojniki« · »Ena *oseba*, en zapis« · posnetek primerjave
+dvojnikov drug ob drugem.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Ko drevo raste, se ista oseba hitro znajde v njem dvakrat. Pokažimo, kako dvojnike najdete in združite. |
+| 2 | Orodja → Dvojniki | Orodje primerja vsako osebo z vsako in uporabi isti algoritem kot Združevanje. |
+| 3 | Skupine, razvrščene po stopnji ujemanja | Možni dvojniki so združeni v skupine, najzanesljivejši so na vrhu. |
+| 4 | »Pokaži primerjavo drug ob drugem« | Par primerjate drug ob drugem, enako kot pri združevanju datotek. |
+| 5 | Izbira polj G/V/O | Pri vsakem podatku izberete, katerega obdržite. Ohrani se levi zapis. |
+| 6 | Namig o podvojenih starših → obkljukaj | Če sta podvojena tudi starša, ju program ponudi za združitev pred tem parom. |
+| 7 | »Združi« → potrditev z obema ID | Združitev pred izvedbo pokaže oba zapisa z njunima oznakama. |
+| 8 | Drug par → »Zavrni« | Če par ni ista oseba, ga zavrnite. Zavrnjeni pari so v posebnem pogledu. |
+| 9 | Zaključna kartica | |
+
+---
+
+## 12. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
 
 **Cilj:** drevo krajev (država → naselje → hiša → naslov), druga imena kraja,
 primerjava krajev in naslovov z uradnim registrom, prenos registra naslovov GURS,
@@ -410,31 +435,6 @@ treh zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66 na zemljevidu.
 
 ---
 
-## 12. Dvojniki: združevanje podvojenih oseb
-
-**Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, vključno s
-podvojenimi starši; zavrniti napačen par.
-**Podatki:** `rodbina-renko.ged` — 22 parov v 19 skupinah, brez vnesenih napak: Janez
-Starašinič (r. 1752, Krasinec, 99,9 %) je otrok v dveh družinah, dvojnica je tudi
-njegova mati Lucija Klepec (95,9 %) — kader 6; Luka Mubi (87 %) je razcep na zapis z
-rojstvom in zapis s krstom — kader 5; NN Pezdirc ↔ Jožef Pezdirc za »Zavrni«. · **Trajanje:** ~4 min
-**Naslovna slika:** oznaka »Dvojniki« · »Ena *oseba*, en zapis« · posnetek primerjave
-dvojnikov drug ob drugem.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Ko drevo raste, se ista oseba hitro znajde v njem dvakrat. Pokažimo, kako dvojnike najdete in združite. |
-| 2 | Orodja → Dvojniki | Orodje primerja vsako osebo z vsako in uporabi isti algoritem kot Združevanje. |
-| 3 | Skupine, razvrščene po stopnji ujemanja | Možni dvojniki so združeni v skupine, najzanesljivejši so na vrhu. |
-| 4 | »Pokaži primerjavo drug ob drugem« | Par primerjate drug ob drugem, enako kot pri združevanju datotek. |
-| 5 | Izbira polj G/V/O | Pri vsakem podatku izberete, katerega obdržite. Ohrani se levi zapis. |
-| 6 | Namig o podvojenih starših → obkljukaj | Če sta podvojena tudi starša, ju program ponudi za združitev pred tem parom. |
-| 7 | »Združi« → potrditev z obema ID | Združitev pred izvedbo pokaže oba zapisa z njunima oznakama. |
-| 8 | Drug par → »Zavrni« | Če par ni ista oseba, ga zavrnite. Zavrnjeni pari so v posebnem pogledu. |
-| 9 | Zaključna kartica | |
-
----
-
 ## 13. Pregled: čiščenje podatkov
 
 **Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
@@ -467,4 +467,4 @@ seznama težav s številkami.
 1. **Epizoda 13 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
    rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
    dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.
-2. **Epizoda 11:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
+2. **Epizoda 12:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
