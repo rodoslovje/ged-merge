@@ -17,7 +17,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 11 | Dvojniki | `scripts/duplicates.ts` | tihi osnutek |
+| 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
 | 12 | Kraji in naslovi | — | scenarij |
 | 13 | Pregled | — | odloženo |
 
