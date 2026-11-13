@@ -399,6 +399,7 @@ const scenario: Scenario = {
         await d.wait(900);
         await d.highlight(d.page.locator(".edit-person .edit-event").filter({ hasText: d.t({ sl: "Rojstvo", en: "Birth" }) }).first(), 6);
         await d.wait(2500);
+        await d.highlight(null);
         await d.click(d.page.locator(".person-card").filter({ hasText: "Ernestina" }).filter({ visible: true }).first());
         await d.wait(1200);
         await d.highlight(d.page.locator(".edit-person .edit-event").filter({ hasText: d.t({ sl: "Pokop", en: "Burial" }) }).first(), 6);
