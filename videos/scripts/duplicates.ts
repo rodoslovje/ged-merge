@@ -173,8 +173,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Iz seznama sta izginila oba para, Janez in njegova mati. V drevesu je zdaj en Janez z obema staršema in vsemi brati in sestrami. Ker se je datoteka spremenila, iskanje zaženite znova.",
-        en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters. Since the file has changed, run the search again.",
+        sl: "Iz seznama sta izginila oba para, Janez in njegova mati. V drevesu je zdaj en Janez z obema staršema in vsemi brati in sestrami. Ker so se osebe združile, lahko znova zaženemo izračun dvojnikov.",
+        en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters. Now that people have been merged, we can run the duplicate search again.",
       },
       run: async (d) => {
         // The merge is done once the list says it is stale; it then opens the next pair.

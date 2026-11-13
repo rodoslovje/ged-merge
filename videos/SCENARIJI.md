@@ -399,7 +399,7 @@ dvojnikov drug ob drugem.
 | 4 | Janez Starašinič: primerjava, Ohranjeni/Kandidat | Primerjava drug ob drugem; levi zapis se ohrani. |
 | 5 | Vrstica »Mati« (dve Luciji) → namig, obkljukaj | Tudi mati je v drevesu dvakrat; program jo ponudi za združitev pred tem parom. |
 | 6 | »Združi« → potrditev z obema oznakama | Pred združitvijo pokaže oba zapisa in mater, ki se združi najprej. |
-| 7 | Seznam brez obeh parov → »Zaženi znova« | Iz seznama sta izginila oba para; iskanje zaženete znova. |
+| 7 | Seznam brez obeh parov → »Zaženi znova« | Iz seznama sta izginila oba para; ker so se osebe združile, izračun dvojnikov zaženemo znova. |
 | 8 | Luka Mubi (87): obroč na datum rojstva, starša, kraj | Odločitev ni očitna: ocenjeno rojstvo okoli 1665 v Tupaličah ali krst 1668 v Olševku. Najprej preverite vire, par ostane na seznamu. |
 | 9 | Matija Simonič (86): obroč na datum rojstva | Krst 1730 ali ocena okoli 1735, v isti vasi še en Matija iz leta 1726. Tudi ta par zaenkrat pustimo. |
 | 10 | Prag »≥ 85« → »≥ 75«, obroč na skupino Pezdirc | Nižji prag pokaže šibkejše pare in skupine s tremi ali več zapisi. |
