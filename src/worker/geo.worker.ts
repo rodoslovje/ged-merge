@@ -22,7 +22,7 @@ import {
   type RpeObcineJson,
   type Subdivision,
 } from "../geo/gazetteer";
-import { AddressCollector } from "../geo/addressRegister";
+import { AddressCollector, type AddressRow } from "../geo/addressRegister";
 import {
   parseAddressMember,
   parseAdminUnitNames,
@@ -30,7 +30,15 @@ import {
   parseThoroughfareNames,
   type HrSideTables,
 } from "../geo/hrAd";
-import { parseSiAddressPage, parseSiPostCodes, siAddressPageUrl, siPostalUrl, SI_AD_PAGE, type SiFeatureCollection } from "../geo/siAd";
+import { parseSiAddressPage, siAddressPageUrl, SI_AD_PAGE, type SiFeatureCollection } from "../geo/siAd";
+import {
+  inspireAddressPageUrl,
+  inspirePostalUrl,
+  parseInspireAddressPage,
+  parseInspirePostCodes,
+  SI_INSPIRE_AD_PAGE,
+  type InspireFeatureCollection,
+} from "../geo/siAdInspire";
 import {
   annotatedCountryQuery,
   countryQuery,
@@ -427,49 +435,91 @@ async function importHrAddresses(): Promise<number> {
   return collector.count;
 }
 
-/**
- * Fetch and store the Slovenian address register, page by page.
- *
- * The fetching happens here rather than on the main thread because there is a
- * lot of it: 575 773 addresses come to something over a gigabyte of JSON, which
- * only stays manageable because each page is parsed into rows and then dropped.
- * (On the wire it is far less — the service gzips about 27-fold and the browser
- * asks for that itself — but decompressed is what a parser sees.)
- *
- * Progress counts addresses against the total the first page declares, which is
- * a true percentage from the second page onwards.
- */
-async function importSiAddresses(): Promise<number> {
-  // The post codes first: 466 rows in one request, and what turns a register
-  // answer's "Adlešiči" into "8341 Adlešiči". Failing to get them costs the
-  // code on the label and nothing else.
-  const postsBuffer = await fetchSide(siPostalUrl());
-  const posts = postsBuffer ? parseSiPostCodes(parseJson<SiFeatureCollection>(postsBuffer)) : undefined;
+/** Where one source of the Slovenian address register pages from, and how its
+ *  pages read. */
+interface SiAddressSource {
+  pageSize: number;
+  pageUrl: (startIndex: number) => string;
+  parse: (json: unknown) => AddressRow[];
+}
 
+/** Every house of one source, page by page, into a fresh collector. */
+async function collectSiAddresses(source: SiAddressSource): Promise<AddressCollector> {
   const collector = new AddressCollector("SI");
   let total = 0;
   // A backstop, not a plan: the loop ends on a short page. But `startIndex` is
   // exactly the parameter the *other* GURS endpoint silently ignores — which
   // would make every page the first one and this loop run for ever — so the
   // country's own size, doubled, is the point at which something is wrong.
-  const maxPages = 2 * Math.ceil(700_000 / SI_AD_PAGE);
+  const maxPages = 2 * Math.ceil(700_000 / source.pageSize);
   for (let page = 0; page < maxPages; page++) {
     let res: Response;
     try {
-      res = await fetch(siAddressPageUrl(page * SI_AD_PAGE));
+      res = await fetch(source.pageUrl(page * source.pageSize));
     } catch {
       throw new GeoImportError({ code: "download" });
     }
     if (!res.ok) throw new GeoImportError({ code: "download" });
-    const body = (await res.json()) as SiFeatureCollection;
-    const rows = parseSiAddressPage(body, posts);
-    for (const row of rows) collector.add(row);
+    const body = (await res.json()) as { numberMatched?: number; numberReturned?: number };
+    for (const row of source.parse(body)) collector.add(row);
     total = body.numberMatched ?? total;
     progress("downloading", collector.count, total);
     // The service stops answering with features once the collection runs out;
     // a short page is the last one. Counting against numberMatched instead
     // would trust a total that can change between pages.
-    if (!body.numberReturned || body.numberReturned < SI_AD_PAGE) break;
+    if (!body.numberReturned || body.numberReturned < source.pageSize) break;
+  }
+  return collector;
+}
+
+/** The cadastre's address layer — the source the download reads. */
+const SI_CADASTRE: SiAddressSource = {
+  pageSize: SI_AD_PAGE,
+  pageUrl: (start) => siAddressPageUrl(start),
+  parse: (json) => parseSiAddressPage(json as SiFeatureCollection),
+};
+
+/** The INSPIRE address service — the fallback for when the cadastre does not
+ *  answer. GURS took it down in 2026; it is kept in case it comes back. Its
+ *  post codes come from a table of their own, fetched once; failing to get
+ *  them costs the code on the label and nothing else. */
+async function inspireSource(): Promise<SiAddressSource> {
+  const postsBuffer = await fetchSide(inspirePostalUrl());
+  const posts = postsBuffer ? parseInspirePostCodes(parseJson<InspireFeatureCollection>(postsBuffer)) : undefined;
+  return {
+    pageSize: SI_INSPIRE_AD_PAGE,
+    pageUrl: (start) => inspireAddressPageUrl(start),
+    parse: (json) => parseInspireAddressPage(json as InspireFeatureCollection, posts),
+  };
+}
+
+/**
+ * Fetch and store the Slovenian address register, page by page.
+ *
+ * The fetching happens here rather than on the main thread because there is a
+ * lot of it: some 580 000 addresses come to a quarter of a gigabyte of JSON,
+ * which only stays manageable because each page is parsed into rows and then
+ * dropped. (On the wire it is far less — the service gzips about 15-fold and the
+ * browser asks for that itself — but decompressed is what a parser sees.)
+ *
+ * The cadastre is read first; a download it fails, at any page, starts over
+ * from the INSPIRE service, and only when that fails too is the failure the
+ * cadastre's own.
+ *
+ * Progress counts addresses against the total the first page declares, which is
+ * a true percentage from the second page onwards.
+ */
+async function importSiAddresses(): Promise<number> {
+  let collector: AddressCollector;
+  try {
+    collector = await collectSiAddresses(SI_CADASTRE);
+  } catch (e) {
+    if (!(e instanceof GeoImportError) || e.failure.code !== "download") throw e;
+    try {
+      collector = await collectSiAddresses(await inspireSource());
+    } catch {
+      throw e;
+    }
   }
   if (!collector.count) throw new GeoImportError({ code: "empty" });
 
