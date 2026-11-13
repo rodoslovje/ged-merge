@@ -168,8 +168,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Iz seznama sta izginila oba para, Janez in njegova mati. V drevesu je zdaj en Janez z obema staršema in vsemi brati in sestrami. Ker so se osebe združile, lahko znova zaženemo izračun dvojnikov.",
-        en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters. Now that people have been merged, we can run the duplicate search again.",
+        sl: "Iz seznama sta izginila oba para, Janez in njegova mati. V drevesu je zdaj en Janez z obema staršema in vsemi brati in sestrami.",
+        en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters.",
       },
       run: async (d) => {
         // The merge opens the next pair, its row at the top of the list; close it to show the list.
@@ -181,12 +181,21 @@ const scenario: Scenario = {
         await d.page.evaluate(() => document.querySelector(".tools-view")?.scrollTo({ top: 0, behavior: "smooth" }));
         await d.wait(800);
         await d.highlight(d.page.locator(".tools-pairs").first(), 4);
-        await d.wait(3500);
+      },
+    },
+    {
+      say: {
+        sl: "Ker so se osebe združile, lahko znova zaženemo izračun dvojnikov.",
+        en: "Now that people have been merged, we can run the duplicate search again.",
+      },
+      run: async (d) => {
+        // Ring the button while it is named; click it as the sentence ends.
+        const rerun = d.page.locator(".tools-fix-item .tools-run").first();
+        await d.highlight(rerun, 4);
+        await d.wait(2600);
         await d.highlight(null);
-        await d.click(d.page.locator(".tools-fix-item .tools-run").first());
+        await d.click(rerun);
         await d.skippable(() => d.page.locator(".tools-pairs").first().waitFor({ timeout: 60_000 }));
-        // The fresh list opens its first pair, Luka Mubi, which the next step looks at.
-        await d.page.locator(".tools-pair-toggle.open").first().waitFor({ timeout: 3000 }).catch(() => {});
       },
     },
     {
