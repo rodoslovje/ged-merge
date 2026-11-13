@@ -125,8 +125,7 @@ const scenario: Scenario = {
         await d.wait(800);
         await d.highlight(compare(d).locator(".compare-head").first(), 4);
         await d.wait(2500);
-        await d.highlight(compare(d).locator("tr.field", { hasText: "1752" }).first(), 4);
-        await d.snapshot();
+        await d.highlight(null);
         await d.wait(3000);
         await d.highlight(compare(d).locator(".compare-col-main").first(), 4);
       },
@@ -142,7 +141,9 @@ const scenario: Scenario = {
         const mother = compare(d).locator("tr", { hasText: "Klepec" }).first();
         await d.scrollTo(mother);
         await d.highlight(mother, 4);
-        await d.wait(4000);
+        await d.wait(900);
+        await d.snapshot();
+        await d.wait(3100);
         const hint = d.page.locator(".tools-related-hint").first();
         await d.scrollTo(hint);
         await d.highlight(hint, 4);
