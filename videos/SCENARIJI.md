@@ -467,6 +467,7 @@ in drugo obliko zapisa:
 | France Prešeren | Wikipedija | `https://sl.wikipedia.org/wiki/France_Prešeren` | povezava v opombi |
 | France Prešeren | dLib.si — *Poezije Dóktorja Francéta Prešérna*, 1847 | `https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI` | `WWW` na osebi |
 | Ernestina Jelovšek | dLib.si — njeni *Spomini na Prešerna*, 1903 | `https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7` | naslov vira (`SOUR` › `TITL` je kar URL) |
+| France Prešeren | YouTube — »Dr. France Prešeren - življenje in delo« (Robert Lang) | `https://www.youtube.com/watch?v=0e4cZNi9nTs` | `_URL` na osebi |
 | Ernestina Jelovšek | stara povezava SIstory (žrtve vojn), ki ne deluje več (404) — SIstory je spremenil naslove | `https://www.sistory.si/zrtve/zrtev/?id=7757` | povezava v opombi |
 
 Za zavihek **Dvojniki** dodamo dva zapisa vira za isto knjigo: krstno knjigo Breznica
@@ -494,7 +495,7 @@ zato preverite v tihi gradnji (`--silent`).
 | 6 | Odpri skupino Matricula Breznica: vrstica »str. 86«, oznaka oblike »povezava v opombi«, »nov« | Povezave so razvrščene po knjigi ali grobu. Vsaka vrstica je ena stran in pove, kje v datoteki je povezava zdaj. |
 | 7 | Obroč na predlagan naslov, izpeljan iz povezave | Že iz same povezave program razbere župnijo, knjigo in stran. |
 | 8 | »Pridobi podatke o virih« → »Pridobivam 3/9…« → naslovi se zamenjajo | S »Pridobi podatke o virih« prebere še pravi naslov knjige, arhiv, župnijo in leta, ki jih knjiga pokriva. Za vsako knjigo pošlje le njeno povezavo, nikoli vašega drevesa. |
-| 9 | Skupine dLib in Slovenska biografija: naslov dela, avtor, leto | Enako opremi tudi druge zbirke: pri dLib naslov dela in leto, pri Slovenski biografiji ime osebe. |
+| 9 | Skupine dLib, Slovenska biografija in YouTube: naslov dela, avtor, leto | Enako opremi tudi druge zbirke: pri dLib naslov dela in leto, pri Slovenski biografiji ime osebe, pri YouTubu naslov videa in avtorja. |
 | 10 | »Citate pripni na ustrezne dogodke« | Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari. |
 | 11 | »Kakovost citata« → »primarni vir« | Vsem navedbam lahko nastavite tudi kakovost citata. |
 | 12 | ✎ ob skupini → urejevalnik vira (naslov, arhiv, kraj, številka, leta, hramba) | Vsak predlog pred pretvorbo lahko popravite: naslov, arhivsko številko ali hrambo, ki ji vir pripada. |
@@ -552,6 +553,6 @@ seznama težav s številkami.
    `preseren-hawlina-viri.ged` z umetno razporejenimi resničnimi povezavami. Pred
    snemanjem preverite: ali vsaka povezava odgovori (Find a Grave posrednik včasih
    zavrne), ali ima `rodbina-renko` vrstice v
-   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, Geneanet Trees, Google
-   Knjige in YouTube v Prešernovem drevesu nimajo preverjenega primera, zato jih le
+   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, Geneanet Trees in Google
+   Knjige v Prešernovem drevesu nimajo preverjenega primera, zato jih le
    naštejemo; BillionGraves in Newspapers.com sta v `rodbina-renko`.
