@@ -196,7 +196,7 @@ const scenario: Scenario = {
         // appears only once the register is stored. The wait is cut to two
         // seconds, so the next step's narration starts on a page that is ready.
         await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
-        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 1_200_000 }), 2);
+        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), 2);
       },
     },
     {
