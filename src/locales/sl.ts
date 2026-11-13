@@ -1109,6 +1109,7 @@ export const sl = {
   "tools.geocode.dir.gurs": "GURS Register prostorskih enot — uradni slovenski register naselij",
   "tools.geocode.dir.dgu": "DGU Registar geografskih imena — uradni hrvaški register zemljepisnih imen",
   "tools.geocode.dir.dguAddresses": "DGU Registar adresa — vsaka hrvaška hišna številka s svojo koordinato, shranjena v tem brskalniku",
+  "tools.geocode.dir.gursAddresses": "Register naslovov GURS — vsaka slovenska hišna številka s svojo koordinato, shranjena v tem brskalniku",
   "tools.geocode.dir.osm": "Kraji iz OpenStreetMap: {{country}}",
   "tools.geocode.dir.geonames": "Datoteka GeoNames: {{country}}",
   "tools.geocode.manageInSettings": "Uredi v Nastavitvah → Zemljevid",

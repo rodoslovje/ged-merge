@@ -7,6 +7,7 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { addressRegisterId } from "../../geo/addressRegister";
 import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
@@ -295,7 +296,7 @@ export function GeocodePlaceRow({
     addOption({
       coord: r.coord,
       label: r.label,
-      source: "GURS",
+      source: addressRegisterId(rnQueries[0]?.country ?? "SI"),
       badgeClass: "official",
       take: () => onPickCoord(row, r.coord, r.address),
     });
