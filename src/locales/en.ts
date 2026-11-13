@@ -939,6 +939,7 @@ export const en = {
   "tools.geocode.dir.gurs": "GURS Register of Spatial Units — Slovenia's official register of settlements",
   "tools.geocode.dir.dgu": "DGU Register of Geographical Names — Croatia's official register of place names",
   "tools.geocode.dir.dguAddresses": "DGU Address Register — every Croatian house number with its own coordinate, stored in this browser",
+  "tools.geocode.dir.gursAddresses": "GURS Address Register — every Slovenian house number with its own coordinate, stored in this browser",
   "tools.geocode.dir.osm": "Places from OpenStreetMap: {{country}}",
   "tools.geocode.dir.geonames": "GeoNames file: {{country}}",
   "tools.geocode.manageInSettings": "Manage in Settings → Map",

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import {
   buildGazetteerIndex,
@@ -12,6 +13,7 @@ import {
 } from "../../geo/gazetteer";
 import { countryNameOf } from "../../geo/placeProposal";
 import { addressRegisterInfo } from "../../geo/addressLookup";
+import { addressRegisterId, type RegisterCountry } from "../../geo/addressRegister";
 import {
   cancelGeoImport,
   dismissRegions,
@@ -92,9 +94,14 @@ function useElapsed(active: boolean): number {
  *  place directories beside it: houses, not settlements, and read straight out
  *  of IndexedDB instead of an index built in memory. */
 export interface AddressRegisterMeta {
-  country: string;
+  country: RegisterCountry;
   count: number;
   importedAt: number;
+}
+
+/** The tooltip on a stored address register's code — each country's own. */
+function addressRegisterTitle(t: TFunction, country: RegisterCountry): string {
+  return t(country === "HR" ? "tools.geocode.dir.dguAddresses" : "tools.geocode.dir.gursAddresses");
 }
 
 /** What {@link useGazetteer} hands its controls — and, in the Geocode tool, the
@@ -297,8 +304,8 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
         <li key={`addr-${a.country}`}>
           {/* "HR-ADR", in the same shape as the "HR-DGU" of the places above:
               the code names the source, and this source is the addresses. */}
-          <span className="tools-geo-country gm-data" title={t("tools.geocode.dir.dguAddresses")}>
-            {`${a.country}-ADR`}
+          <span className="tools-geo-country gm-data" title={addressRegisterTitle(t, a.country)}>
+            {addressRegisterId(a.country)}
           </span>
           <span className="tools-geo-count">
             {t("tools.geocode.addressMeta", { count: a.count, date: dateFmt.format(a.importedAt) })}
@@ -628,8 +635,8 @@ export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
           </span>
         ))}
         {gaz.addressRegisters?.map((a) => (
-          <span key={`addr-${a.country}`} className="tools-geo-summary-entry" title={t("tools.geocode.dir.dguAddresses")}>
-            <span className="tools-geo-country gm-data">{`${a.country}-ADR`}</span>
+          <span key={`addr-${a.country}`} className="tools-geo-summary-entry" title={addressRegisterTitle(t, a.country)}>
+            <span className="tools-geo-country gm-data">{addressRegisterId(a.country)}</span>
             <span className="tools-geo-count">{a.count.toLocaleString(i18n.language)}</span>
           </span>
         ))}

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
+import { addressRegisterId } from "../../geo/addressRegister";
 import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type BatchPool, type RnQuery } from "../../geo/rn";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
@@ -89,19 +90,19 @@ interface AddrCandidate {
    *  kept as the option's tooltip. */
   title?: string;
   /** Which register or service answered — the badge beside the option. The
-   *  address registers are national, so the badge is the country's own:
-   *  GURS for Slovenia, DGU for Croatia. */
-  source: "GURS" | "DGU" | "OSM";
+   *  address registers are national, so the badge is the country's register
+   *  under the name the directory list gives it: SI-ADR, HR-ADR. */
+  source: RegisterName | "OSM";
   badgeClass: "official" | "reuse";
 }
 
 /** The address register that answers a row, by the name it is known under. */
-type RegisterName = "GURS" | "DGU";
+type RegisterName = ReturnType<typeof addressRegisterId>;
 
 /** Which of the two a row's queries go to — the country decides, and a row with
  *  no query to run never shows a register badge either way. */
 function registerOf(row: { queries: readonly RnQuery[] }): RegisterName {
-  return row.queries[0]?.country === "HR" ? "DGU" : "GURS";
+  return addressRegisterId(row.queries[0]?.country ?? "SI");
 }
 
 /** A row's answers as one list: the register's first — it is the official
