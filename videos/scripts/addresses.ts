@@ -40,6 +40,18 @@ const kranjTown = (d: Director) =>
 const addrRow = (d: Director, address: string) =>
   d.page.locator(".tools-geo-addr-name", { hasText: address }).first();
 
+/** A finding of the naming check, by its address: the innermost element that
+ *  holds both the text and the verdict with its buttons. */
+const finding = (d: Director, address: string) =>
+  visible(d, "*").filter({ hasText: address, has: d.page.locator(".tools-register-end") }).last();
+
+/** The chip counting the house numbers the register no longer has. */
+const noSuchAddress = (d: Director) =>
+  visible(d, ".tools-chip").filter({ hasText: d.t({ sl: "Ni takega naslova", en: "No such address" }) }).first();
+
+/** A register answer under an address row, by its full line. */
+const hit = (d: Director, line: string) => visible(d, "*").getByText(line, { exact: true }).first();
+
 /** »Prikaži že umeščene« over the address list. */
 const showPlaced = (d: Director) =>
   visible(d, "label.tools-reshape-site").filter({ hasText: d.t({ sl: "Prikaži že umeščene", en: "Show already placed" }) }).first();
@@ -202,8 +214,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poimenovanje", en: "Naming" },
       say: {
-        sl: "Poimenovanje primerja kraje in naslove z uradnim registrom. Ko je register naslovov naložen, se pokaže zavihek »Naslovi«. V tem drevesu se ujemajo vsi. Hišnih številk, ki jih register nima več, ne našteje, ampak jih le prešteje — vasi so hiše v dvajsetem stoletju na novo oštevilčile, zato je stara številka praviloma pravilna.",
-        en: "Naming compares places and addresses with the official register. Once the address register has loaded, the Addresses tab appears. In this tree they all agree. House numbers the register no longer has are counted, not listed — villages renumbered their houses in the twentieth century, so an old number is usually right.",
+        sl: "Poimenovanje primerja kraje in naslove z uradnim registrom. Ko je register naslovov naložen, se pokaže zavihek »Naslovi«. Tu so trije rojstni dogodki v kranjski porodnišnici zapisani kot »Kidričeva 38a«, register pa ulico piše »Kidričeva cesta«.",
+        en: "Naming compares places and addresses with the official register. Once the address register has loaded, the Addresses tab appears. Here three births at the Kranj maternity hospital are written as »Kidričeva 38a«, while the register spells the street »Kidričeva cesta«.",
       },
       run: async (d) => {
         await d.wait(1500);
@@ -211,9 +223,28 @@ const scenario: Scenario = {
         await d.wait(1500);
         await d.highlight(null);
         await d.click(link(d, /^(Naslovi|Addresses)/));
-        await d.skippable(() => visible(d, ".tools-chip").filter({ hasText: d.t({ sl: "Ni takega naslova", en: "No such address" }) }).first().waitFor({ timeout: 120_000 }));
+        await d.skippable(() => noSuchAddress(d).waitFor({ timeout: 120_000 }));
         await d.wait(800);
-        await d.highlight(visible(d, ".tools-chip").filter({ hasText: d.t({ sl: "Ni takega naslova", en: "No such address" }) }).first(), 6);
+        await expandAll(d);
+        await d.wait(800);
+        await d.highlight(finding(d, "Kidričeva 38a"), 4);
+        await d.wait(3500);
+        await d.highlight(null);
+      },
+    },
+    {
+      say: {
+        sl: "Gumb »Prevzemi« naslov prepiše v uradni zapis, pripis v oklepaju pa ostane. Hišnih številk, ki jih register nima več, seznam ne našteje, ampak jih le prešteje — vasi so hiše v dvajsetem stoletju na novo oštevilčile, zato je stara številka praviloma pravilna.",
+        en: "The Use official name button rewrites the address in the official spelling, and the note in parentheses stays. House numbers the register no longer has are counted, not listed — villages renumbered their houses in the twentieth century, so an old number is usually right.",
+      },
+      run: async (d) => {
+        const take = finding(d, "Kidričeva 38a").locator(".tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Prevzemi", en: "Use official name" })}$`) }).first();
+        await d.highlight(take, 4);
+        await d.wait(1200);
+        await d.highlight(null);
+        await d.click(take);
+        await d.wait(2000);
+        await d.highlight(noSuchAddress(d), 6);
         await d.wait(3500);
         await d.highlight(null);
       },
@@ -221,8 +252,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Geokodiranje naslovov", en: "Geocoding addresses" },
       say: {
-        sl: "Pod »Geokodiranje« so na zavihku »Naslovi« vse hiše, razvrščene po krajih. Hiša brez svoje lege podeduje koordinato naselja.",
-        en: "Under Geocoding, the Addresses tab lists every house, grouped by place. A house without a position of its own inherits the settlement's coordinate.",
+        sl: "Pod »Geokodiranje« so na zavihku »Naslovi« vse hiše, razvrščene po krajih. Naložen imamo le slovenski register, zato izberemo Slovenijo. Hiša brez svoje lege podeduje koordinato naselja.",
+        en: "Under Geocoding, the Addresses tab lists every house, grouped by place. We have only the Slovenian register loaded, so we pick Slovenia. A house without a position of its own inherits the settlement's coordinate.",
       },
       run: async (d) => {
         await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
@@ -230,14 +261,17 @@ const scenario: Scenario = {
         await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
         await d.wait(1200);
         await d.click(link(d, /^(Naslovi|Addresses) \d/));
+        await d.wait(1200);
+        // Only Slovenia's register is loaded, so the list is narrowed to it.
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
         await d.wait(1500);
       },
     },
     {
       callout: { sl: "Pripis v oklepaju", en: "A note in parentheses" },
       say: {
-        sl: "Trinajst dogodkov ima naslov »bolnišnica / klinični center«. Napišimo pravi naslov, Zaloška cesta 2, opis pa dodajmo v oklepaju. Register hišo takoj najde.",
-        en: "Thirteen events have the address »hospital / medical centre«. Let's write the real address, Zaloška cesta 2, and add the description in parentheses. The register finds the house at once.",
+        sl: "Trinajst dogodkov ima naslov »bolnišnica / klinični center«. Napišimo pravi naslov, Zaloška cesta 2, opis pa dodajmo v oklepaju. Register hišo takoj najde. Zadetek potrdimo, da se zapiše tudi njegova koordinata.",
+        en: "Thirteen events have the address »hospital / medical centre«. Let's write the real address, Zaloška cesta 2, and add the description in parentheses. The register finds the house at once. We confirm the answer, so its coordinate is written too.",
       },
       run: async (d) => {
         // Both houses of these two steps already carry a position.
@@ -252,9 +286,12 @@ const scenario: Scenario = {
         await rename(d, row.locator("xpath=following-sibling::button[contains(@class,'tools-place-edit-btn')][1]"), "Zaloška cesta 2 (klinični center)");
         await d.click(applyRename(d));
         await d.wait(1500);
-        await d.highlight(addrRow(d, "Zaloška cesta 2").locator(".."), 4);
-        await d.wait(3000);
+        const answer = hit(d, "Zaloška cesta 2, Ljubljana, 1000 Ljubljana");
+        await d.highlight(answer.locator(".."), 4);
+        await d.wait(2500);
         await d.highlight(null);
+        await d.click(answer);
+        await d.wait(1500);
       },
     },
     {
@@ -279,13 +316,12 @@ const scenario: Scenario = {
         en: "The program looks each number up on its own and numbers the answers. Number 21 belongs to another house today, so you pick the right position yourself: today's number 55. The register no longer has the old village number, so it stays on record only as history.",
       },
       run: async (d) => {
-        const hit = (text: string) => visible(d, "*").getByText(text, { exact: true }).first();
-        await d.highlight(hit("Hafnarjeva pot 55, Kranj, 4000 Kranj").locator(".."), 4);
+        await d.highlight(hit(d, "Hafnarjeva pot 55, Kranj, 4000 Kranj").locator(".."), 4);
         await d.wait(2200);
-        await d.highlight(hit("Hafnarjeva pot 21, Kranj, 4000 Kranj").locator(".."), 4);
+        await d.highlight(hit(d, "Hafnarjeva pot 21, Kranj, 4000 Kranj").locator(".."), 4);
         await d.wait(2500);
         await d.highlight(null);
-        await d.click(hit("Hafnarjeva pot 55, Kranj, 4000 Kranj"));
+        await d.click(hit(d, "Hafnarjeva pot 55, Kranj, 4000 Kranj"));
         await d.wait(1500);
         await d.snapshot();
         await filterTo(d, "");
@@ -296,8 +332,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zanesljivi zadetki", en: "Confident matches" },
       say: {
-        sl: "Register je že odgovoril za vse hiše v Sloveniji. Nedvoumne zadetke izberete z enim klikom, »Izberi zanesljive«.",
-        en: "The register has already answered for every house in Slovenia. Select the unambiguous matches in one click, Select confident.",
+        sl: "Register je že odgovoril za vse hiše v Sloveniji. Nedvoumne zadetke izberete z enim klikom, »Izberi zanesljive«. A pozor: zadetek je zanesljiv le zato, ker se zapis ujema z današnjim registrom, ne pa zato, ker bi bila to zagotovo prava hiša. Če je hiša zapisana s staro številko, je register ne pozna ali pa pod isto številko najde drugo hišo. Izbrane zadetke zato pred zapisom preglejte.",
+        en: "The register has already answered for every house in Slovenia. Select the unambiguous matches in one click, Select confident. But beware: a match is confident only because the spelling agrees with today's register, not because it is surely the right house. If a house is written with an old number, the register does not know it, or finds another house under the same number. So review the selected matches before writing them.",
       },
       run: async (d) => {
         const pick = visible(d, ".tools-issue-link").filter({ hasText: d.t({ sl: "Izberi zanesljive", en: "Select confident" }) }).first();
@@ -306,6 +342,12 @@ const scenario: Scenario = {
         await d.click(pick);
         await d.wait(1500);
         await d.highlight(null);
+        // The picks, for review: the »Izbrani« chip lists exactly them.
+        const chosen = visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Izbrani", en: "Picked" }) }).first();
+        await d.click(chosen);
+        await d.wait(800);
+        await expandAll(d);
+        await d.wait(6000);
       },
     },
     {

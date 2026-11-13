@@ -421,8 +421,10 @@ je lahko pripis v oklepaju — `Hafnarjeva pot 55 / 21 / Stražišče 66`,
 `Zaloška cesta 2 (klinični center)`. Program vsako številko poišče posebej
 (`rnQueriesFrom`), pripis ostane.
 **Podatki:** `rodbina-renko.ged` — kraji imajo koordinate naselja, 255 hiš je že
-umeščenih, 227 še ne (90 z zadetkom v registru). Poimenovanje naslovov ne najde
-odstopanj: 272 od 361 se ujema, 89 starih številk je le preštetih. »bolnišnica /
+umeščenih, 227 še ne (90 z zadetkom v registru). Poimenovanje naslovov najde eno
+odstopanje: rojstva v kranjski porodnišnici so v datoteki zapisana kot »Kidričeva 38a
+(porodnišnica)« (trije dogodki, umrli), register piše »Kidričeva cesta 38a«; 89 starih
+številk je le preštetih. »bolnišnica /
 klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. Hafnarjeva pot 21
 je danes druga hiša, Stražišče 66 registra ni. »Zapisano dvakrat«: Krasinec 26 in
 Krasinec 26 (pd Jelin), oba brez lastne lege. GEDCOM 7.0, zato druga imena (TRAN).
@@ -437,12 +439,13 @@ zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66.
 | 3 | ⚙ → Zemljevid → GURS »Kraji«, nato »Naslovi«; Nastavitve se zaprejo | Register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
 | 4 | Orodja → Kraji, drevo: Slovenia → Kranj → Kranj | Država, občina, naselje in hiša; ob vsakem število zapisov in koordinata. |
 | 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
-| 6 | »Poimenovanje« → »Naslovi« (počaka na register) → »Ni takega naslova 89« | Vsi se ujemajo; starih številk ne našteje, ampak jih prešteje. |
-| 7 | »Geokodiranje« → »Naslovi« | Hiše po krajih; hiša brez svoje lege podeduje koordinato naselja. |
-| 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« | Pravi naslov, opis v oklepaju; register hišo takoj najde. |
+| 6 | »Poimenovanje« → »Naslovi« (počaka na register) → ugotovitev »Zapis« pri Kidričevi 38a | Register ulico piše »Kidričeva cesta«. |
+| 6a | »Prevzemi« → »Ni takega naslova 89« | Uradni zapis, pripis v oklepaju ostane; starih številk ne našteje, ampak jih prešteje. |
+| 7 | »Geokodiranje« → »Naslovi« → država »Slovenija« | Hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
+| 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
 | 9 | Filter »Hafnarjeva pot 55« → ✎ dopiši » / Stražišče 66« | Tri številke: najprej današnja, nato starejše, ločene s poševnico. |
 | 10 | Zadetka 1 in 2 → izbira 55 | Vsaka številka posebej; 21 je danes druga hiša, izberete 55; vaške številke register nima več. |
-| 11 | »Izberi zanesljive« | Register je že odgovoril za vse hiše v Sloveniji; nedvoumne z enim klikom. |
+| 11 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
 | 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
 | 13 | »Zapiši koordinate« | Šele ob potrditvi, kot standardni zapis v GEDCOM. |
 | 14 | Zaključna kartica | |
