@@ -123,7 +123,7 @@ export function AddressCheckSection({
   onCount: (count: number | null) => void;
 }) {
   const { t } = useTranslation();
-  useLocalRegisters();
+  const registers = useLocalRegisters();
   // See GeocodePanel: the country a place naming none is taken to stand in.
   const home = useHomeCountry();
   const [report, setReport] = useState<AddressCheckReport | null>(null);
@@ -168,7 +168,10 @@ export function AddressCheckSection({
   /** The rows a stored register could answer — what the button offers, and all
    *  it will ask about. Everything else is another country's, or has no house
    *  number to look up. */
-  const askable = useMemo(() => rows.filter((r) => r.queries.length > 0 && isOfflineQuery(r.queries)), [rows]);
+  const askable = useMemo(
+    () => rows.filter((r) => r.queries.length > 0 && isOfflineQuery(r.queries, registers)),
+    [rows, registers],
+  );
 
   const run = async () => {
     setReport(null);
