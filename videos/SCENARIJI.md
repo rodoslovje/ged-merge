@@ -467,6 +467,7 @@ in drugo obliko zapisa:
 | France Prešeren | Wikipedija | `https://sl.wikipedia.org/wiki/France_Prešeren` | povezava v opombi |
 | France Prešeren | dLib.si — *Poezije Dóktorja Francéta Prešérna*, 1847 | `https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI` | `WWW` na osebi |
 | Ernestina Jelovšek | dLib.si — njeni *Spomini na Prešerna*, 1903 | `https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7` | naslov vira (`SOUR` › `TITL` je kar URL) |
+| France Prešeren | Google Knjige — *Poezije*, Mladinska knjiga, 1958 | `https://books.google.si/books?id=0F9EAAAAIAAJ` (ne oblika `/books/about/…?id=`, ki je program ne prepozna) | povezava v strani navedbe (`PAGE`) |
 | France Prešeren | YouTube — »Dr. France Prešeren - življenje in delo« (Robert Lang) | `https://www.youtube.com/watch?v=0e4cZNi9nTs` | `_URL` na osebi |
 | Ernestina Jelovšek | stara povezava SIstory (žrtve vojn), ki ne deluje več (404) — SIstory je spremenil naslove | `https://www.sistory.si/zrtve/zrtev/?id=7757` | povezava v opombi |
 
@@ -553,6 +554,6 @@ seznama težav s številkami.
    `preseren-hawlina-viri.ged` z umetno razporejenimi resničnimi povezavami. Pred
    snemanjem preverite: ali vsaka povezava odgovori (Find a Grave posrednik včasih
    zavrne), ali ima `rodbina-renko` vrstice v
-   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, Geneanet Trees in Google
-   Knjige v Prešernovem drevesu nimajo preverjenega primera, zato jih le
+   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, in Geneanet Trees v
+   Prešernovem drevesu nimajo preverjenega primera, zato jih le
    naštejemo; BillionGraves in Newspapers.com sta v `rodbina-renko`.
