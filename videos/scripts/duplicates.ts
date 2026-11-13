@@ -48,6 +48,8 @@ const closeOpenPair = async (d: Director) => {
 };
 
 const JANEZ = "I412665969695";
+const MUBI = "89900395";
+const SIMONIC = "93285824";
 const PEZDIRC = "Pezdirc";
 
 const scenario: Scenario = {
@@ -194,34 +196,94 @@ const scenario: Scenario = {
       },
     },
     {
+      callout: { sl: "Ko odločitev ni očitna", en: "When it isn't clear" },
+      say: {
+        sl: "Pri Luki Mubiju odločitev ni očitna. Levi zapis ima ocenjeno rojstvo okoli leta 1665 v Tupaličah, desni pa krst 2. oktobra 1668 v Olševku, z virom in s staršema. Kraja sta blizu, a nista enaka. Takega para ne združujte na slepo: najprej preverite vire, do takrat pa par ostane na seznamu.",
+        en: "With Luka Mubi, the answer isn't obvious. The left record has an estimated birth around 1665 in Tupaliče, the right one a baptism on 2 October 1668 in Olševek, with a source and both parents. The villages are close, but not the same. Don't merge a pair like this blindly: check the sources first, and until then the pair stays on the list.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await d.click(pair(d, MUBI).locator(".tools-pair-toggle"));
+        await compare(d).waitFor();
+        await d.wait(1000);
+        await d.highlight(compare(d).locator("tr.field", { hasText: "ABT 1665" }).first(), 4);
+        await d.wait(4500);
+        await d.highlight(compare(d).locator("tr", { hasText: "Gregor Mubi" }).first(), 4);
+        await d.wait(3000);
+        await d.highlight(compare(d).locator("tr.field", { hasText: "Olševek" }).first(), 4);
+      },
+    },
+    {
+      say: {
+        sl: "Podobno je pri Matiji Simoniču. Levi Matija je bil krščen leta 1730, desni ima le ocenjeno rojstvo okoli leta 1735 in je poročen. Na Vinjem Vrhu pa je bil leta 1726 krščen še en Matija. Kateri od njiju se je poročil, povedo šele viri, zato tudi ta par zaenkrat pustimo.",
+        en: "Matija Simonič is a similar case. The left Matija was baptised in 1730; the right one has only an estimated birth around 1735, and he married. But another Matija was baptised in Vinji Vrh in 1726. Only the sources can tell which of them married, so we leave this pair for now too.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await d.click(pair(d, MUBI).locator(".tools-pair-toggle"));
+        await d.wait(600);
+        await d.click(pair(d, SIMONIC).locator(".tools-pair-toggle"));
+        await compare(d).waitFor();
+        await d.wait(1000);
+        await d.highlight(compare(d).locator("tr.field", { hasText: "6 NOV 1730" }).first(), 4);
+        await d.wait(5000);
+        await d.highlight(null);
+        await d.click(pair(d, SIMONIC).locator(".tools-pair-toggle"));
+      },
+    },
+    {
       callout: { sl: "Prag ujemanja", en: "Score threshold" },
       say: {
         sl: "Privzeto so prikazani samo pari s stopnjo ujemanja vsaj 85. Ko prag znižate, se pokažejo tudi šibkejši pari, med njimi skupine s tremi ali več zapisi.",
         en: "By default, only pairs scoring at least 85 are shown. Lower the threshold and weaker pairs appear too, among them groups of three or more records.",
       },
       run: async (d) => {
-        await d.click(scoreSelect(d));
-        await d.wait(600);
-        await d.click(menuItem(d, "≥ 75"));
-        await d.wait(900);
+        // The menu can miss a click while the list is still settling; try until the group shows.
+        for (let i = 0; i < 3 && !(await cluster(d, PEZDIRC).count()); i++) {
+          await d.click(scoreSelect(d));
+          await menuItem(d, "≥ 75").waitFor();
+          await d.wait(500);
+          await d.click(menuItem(d, "≥ 75"));
+          await d.wait(900);
+        }
         await d.scrollTo(cluster(d, PEZDIRC));
         await d.highlight(cluster(d, PEZDIRC), 4);
       },
     },
     {
-      callout: { sl: "Zavrnite par", en: "Reject a pair" },
+      callout: { sl: "Različni osebi", en: "Two different people" },
       say: {
-        sl: "Trije Pezdirci iz Krasinca, rojeni leta 1892, niso ena oseba, ampak trije bratje: prvi je umrl na dan rojstva, Jožef in Peter pa sta dvojčka. Ker v skupini ni dvojnikov, kliknite »Zavrni vse«.",
-        en: "The three Pezdircs of Krasinec, born in 1892, are not one person but three brothers: the first died the day he was born, and Jožef and Peter were twins. Since none of them is a duplicate, click Reject all.",
+        sl: "Tu so trije Pezdirci iz iste hiše v Krasincu, vsi rojeni leta 1892. Odprimo prvi par. Imeni se razlikujeta, rojena sta enajst mesecev narazen, prvi je umrl na dan rojstva, Jožef pa naslednje poletje za jetiko. To nista ena oseba, ampak brata.",
+        en: "Here are three Pezdircs from the same house in Krasinec, all born in 1892. Let's open the first pair. The names differ, they were born eleven months apart, and the first died the day he was born, while Jožef died of tuberculosis the following summer. These are not one person but two brothers.",
       },
       run: async (d) => {
         const head = cluster(d, PEZDIRC);
         await d.click(head.locator(".tools-pair-toggle"));
-        await d.wait(1500);
-        await d.highlight(d.page.locator(".tools-pair-clustered").nth(0), 4);
+        await d.wait(1200);
+        await d.click(d.page.locator(".tools-pair-clustered").nth(0).locator(".tools-pair-toggle"));
+        await compare(d).waitFor();
+        await d.wait(800);
+        await d.highlight(compare(d).locator("tr.field", { hasText: "Jožef" }).first(), 4);
         await d.wait(3500);
+        await d.highlight(compare(d).locator("tr.field", { hasText: "8 DEC 1892" }).first(), 4);
+        await d.wait(3500);
+        await d.highlight(compare(d).locator("tr.field", { hasText: "10 AUG 1893" }).first(), 4);
+      },
+    },
+    {
+      callout: { sl: "Zavrnite par", en: "Reject a pair" },
+      say: {
+        sl: "Tretji, Peter, je rojen istega dne kot Jožef: bila sta dvojčka. Ker v skupini ni dvojnikov, kliknite »Zavrni vse«.",
+        en: "The third, Peter, was born the same day as Jožef: they were twins. Since none of them is a duplicate, click Reject all.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        const head = cluster(d, PEZDIRC);
+        await d.click(d.page.locator(".tools-pair-clustered").nth(0).locator(".tools-pair-toggle"));
+        await d.wait(800);
+        await d.scrollTo(head);
         await d.highlight(d.page.locator(".tools-pair-clustered").nth(1), 4);
-        await d.wait(3000);
+        await d.wait(3500);
         await d.highlight(null);
         await d.click(head.locator(".tools-dup-cluster-dismiss"));
       },

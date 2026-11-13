@@ -376,16 +376,18 @@ posnetek primerjave z izbiro G/V/O.
 ## 11. Dvojniki: združevanje podvojenih oseb
 
 **Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, skupaj s podvojenim
-staršem; zavrniti skupino, ki ni dvojnik. Neposredno nadaljuje epizodo 10: ista primerjava,
+staršem; pokazati para, pri katerih je potrebna presoja; zavrniti skupino, ki ni dvojnik. Neposredno nadaljuje epizodo 10: ista primerjava,
 tokrat znotraj ene datoteke.
 **Podatki:** `rodbina-renko.ged` (anonimiziran izsek avtorjevega rodovnika, kot v epizodi 9),
 v katerem so resnični dvojniki — nič ni vneseno namenoma:
 - Janez Starašinič, r. 1752 v Krasincu (`@77637144@` in `@I412665969695@`, stopnja ujemanja ~100): isti
   mož dvakrat pod istim očetom, vsak zapis s svojo kopijo matere Lucije Klepec (~96);
+- Luka Mubi (87) in Matija Simonič (86): para, pri katerih avtor sam ne ve, ali gre za isto
+  osebo — prikazana kot primer presoje, ostaneta na seznamu;
 - Pezdirci, Krasinec 2, 1892 (skupina treh zapisov, stopnji ujemanja 84 in 78): trije bratje — NN, rojen
   in umrl 10. 1. 1892, ter dvojčka Jožef in Peter, rojena 8. 12. 1892.
 
-Izvedba in govor: `scripts/duplicates.ts`. **Trajanje:** ~2,5 min
+Izvedba in govor: `scripts/duplicates.ts`. **Trajanje:** ~3,5 min
 **Naslovna slika:** oznaka »Dvojniki« · »Ena *oseba*, en zapis« · posnetek primerjave
 dvojnikov drug ob drugem.
 
@@ -398,10 +400,13 @@ dvojnikov drug ob drugem.
 | 5 | Vrstica »Mati« (dve Luciji) → namig, obkljukaj | Tudi mati je v drevesu dvakrat; program jo ponudi za združitev pred tem parom. |
 | 6 | »Združi« → potrditev z obema oznakama | Pred združitvijo pokaže oba zapisa in mater, ki se združi najprej. |
 | 7 | Seznam brez obeh parov → »Zaženi znova« | Iz seznama sta izginila oba para; iskanje zaženete znova. |
-| 8 | Prag »≥ 85« → »≥ 75«, obroč na skupino Pezdirc | Nižji prag pokaže šibkejše pare in skupine s tremi ali več zapisi. |
-| 9 | Razpri skupino → »Zavrni vse« | Trije bratje, med njimi dvojčka: skupino zavrnete. |
-| 10 | »Zavrnjeni« → nazaj na dvojnike | Zavrnjeni pari se ne vrnejo; zavrnitev lahko prekličete. |
-| 11 | Zaključna kartica | |
+| 8 | Luka Mubi (87): obroč na datum rojstva, starša, kraj | Odločitev ni očitna: ocenjeno rojstvo okoli 1665 v Tupaličah ali krst 1668 v Olševku. Najprej preverite vire, par ostane na seznamu. |
+| 9 | Matija Simonič (86): obroč na datum rojstva | Krst 1730 ali ocena okoli 1735, v isti vasi še en Matija iz leta 1726. Tudi ta par zaenkrat pustimo. |
+| 10 | Prag »≥ 85« → »≥ 75«, obroč na skupino Pezdirc | Nižji prag pokaže šibkejše pare in skupine s tremi ali več zapisi. |
+| 11 | Razpri skupino, odpri par NN ↔ Jožef: ime, rojstvo, smrt | Različni imeni, rojstvo 11 mesecev narazen, smrt na dan rojstva ali leto pozneje: dva brata. |
+| 12 | Peter (dvojček Jožefa) → »Zavrni vse« | V skupini ni dvojnikov, zato jo zavrnete. |
+| 13 | »Zavrnjeni« → nazaj na dvojnike | Zavrnjeni pari se ne vrnejo; zavrnitev lahko prekličete. |
+| 14 | Zaključna kartica | |
 
 ---
 
