@@ -134,7 +134,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Podvojeni starši", en: "Duplicated parents" },
       say: {
-        sl: "Zapisa imata istega očeta, mater Lucijo Klepec pa vsak svojo: tudi ona je v drevesu dvakrat. Program jo ponudi za združitev pred tem parom. Označite jo, in obe družini staršev se zlijeta v eno.",
+        sl: "Zapisa imata istega očeta, mater Lucijo Klepec pa vsak svojo: tudi ona je v drevesu dvakrat. Program jo ponudi za združitev pred tem parom. Označite jo in obe družini staršev se zlijeta v eno.",
         en: "Both records have the same father, but each has its own copy of the mother, Lucija Klepec: she too is in the tree twice. The program offers to merge her before this pair. Tick her, and the two parent families fold into one.",
       },
       run: async (d) => {
@@ -195,7 +195,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Prag ujemanja", en: "Score threshold" },
       say: {
-        sl: "Privzeto so prikazani samo pari z vsaj 85 točkami. Ko prag znižate, se pokažejo tudi šibkejši pari, med njimi skupine s tremi ali več zapisi.",
+        sl: "Privzeto so prikazani samo pari s stopnjo ujemanja vsaj 85. Ko prag znižate, se pokažejo tudi šibkejši pari, med njimi skupine s tremi ali več zapisi.",
         en: "By default, only pairs scoring at least 85 are shown. Lower the threshold and weaker pairs appear too, among them groups of three or more records.",
       },
       run: async (d) => {
@@ -210,8 +210,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zavrnite par", en: "Reject a pair" },
       say: {
-        sl: "Trije Pezdirci iz Krasinca, rojeni leta 1892, niso ena oseba, ampak trije bratje: prvi je umrl na dan rojstva, Jožef in Peter pa sta dvojčka. Ker skupina ni dvojnik, kliknite »Zavrni vse«.",
-        en: "The three Pezdircs of Krasinec, born in 1892, are not one person but three brothers: the first died the day he was born, and Jožef and Peter were twins. Since the group is no duplicate, click Reject all.",
+        sl: "Trije Pezdirci iz Krasinca, rojeni leta 1892, niso ena oseba, ampak trije bratje: prvi je umrl na dan rojstva, Jožef in Peter pa sta dvojčka. Ker v skupini ni dvojnikov, kliknite »Zavrni vse«.",
+        en: "The three Pezdircs of Krasinec, born in 1892, are not one person but three brothers: the first died the day he was born, and Jožef and Peter were twins. Since none of them is a duplicate, click Reject all.",
       },
       run: async (d) => {
         const head = cluster(d, PEZDIRC);

@@ -380,9 +380,9 @@ staršem; zavrniti skupino, ki ni dvojnik. Neposredno nadaljuje epizodo 10: ista
 tokrat znotraj ene datoteke.
 **Podatki:** `rodbina-renko.ged` (anonimiziran izsek avtorjevega rodovnika, kot v epizodi 9),
 v katerem so resnični dvojniki — nič ni vneseno namenoma:
-- Janez Starašinič, r. 1752 v Krasincu (`@77637144@` in `@I412665969695@`, ~100 točk): isti
+- Janez Starašinič, r. 1752 v Krasincu (`@77637144@` in `@I412665969695@`, stopnja ujemanja ~100): isti
   mož dvakrat pod istim očetom, vsak zapis s svojo kopijo matere Lucije Klepec (~96);
-- Pezdirci, Krasinec 2, 1892 (skupina treh zapisov, 84 in 78 točk): trije bratje — NN, rojen
+- Pezdirci, Krasinec 2, 1892 (skupina treh zapisov, stopnji ujemanja 84 in 78): trije bratje — NN, rojen
   in umrl 10. 1. 1892, ter dvojčka Jožef in Peter, rojena 8. 12. 1892.
 
 Izvedba in govor: `scripts/duplicates.ts`. **Trajanje:** ~2,5 min
