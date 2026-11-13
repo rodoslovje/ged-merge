@@ -1,0 +1,369 @@
+0 HEAD
+1 SOUR GED_MERGE_DEMO
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SUBM @U1@
+1 NOTE Predniki in potomci Franceta Prešerna iz rodovnika Petra Hawline. Povezave na vire so resnične, a za video navodila (epizoda 13, Uredi vire) namerno zapisane v različnih neurejenih oblikah; stara povezava SIstory pri Ernestini je zgolj primer mrtve povezave. / France Prešeren's ancestors and descendants from Peter Hawlina's pedigree. The source links are real but written in assorted untidy forms on purpose for the video tutorials (episode 13, Organize sources); the old SIstory link on Ernestina is only an example of a dead link.
+0 @I113441@ INDI
+1 NAME France /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 03 DEC 1800
+2 PLAC Vrba
+2 NOTE Krstna knjiga Breznica: https://data.matricula-online.eu/sl/slovenia/ljubljana/breznica/00164/?pg=86
+1 DEAT
+2 DATE 08 FEB 1849
+2 PLAC Kranj
+2 SOUR @S1@
+3 PAGE 40
+1 BURI
+2 PLAC Kranj
+2 OBJE
+3 FILE https://www.findagrave.com/memorial/7609860/france-preseren
+4 FORM URL
+1 _WEBTAG
+2 NAME Slovenska biografija
+2 URL https://www.slovenska-biografija.si/oseba/sbi463215/
+1 WWW https://www.obrazislovenskihpokrajin.si/oseba/preseren-france/
+1 WWW https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI
+1 _URL https://www.youtube.com/watch?v=0e4cZNi9nTs
+1 NOTE Življenjepis na Wikipediji: https://sl.wikipedia.org/wiki/France_Prešeren
+1 OBJE
+2 FILE https://books.google.com/books/about/Poezije.html?id=0F9EAAAAIAAJ&redir_esc=y
+3 FORM URL
+3 TITL Poezije, Mladinska knjiga 1958
+1 FAMS @F36128@
+1 FAMC @F36126@
+0 @I113424@ INDI
+1 NAME Jožef /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 01 MAR 1698
+2 PLAC Vrba 1
+1 DEAT
+2 DATE 16 MAY 1754
+2 PLAC Vrba
+1 REFN Ribič
+1 OCCU kmet
+1 FAMS @F36124@
+1 FAMC @F46729@
+0 @I113425@ INDI
+1 NAME Marjeta //
+1 SEX F
+1 BIRT
+2 DATE ~1707
+1 DEAT
+2 DATE 05 APR 1745
+2 PLAC Vrba 7
+1 FAMS @F36124@
+0 @I113427@ INDI
+1 NAME Jernej /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 21 AUG 1742
+2 PLAC Vrba
+1 BAPM
+2 DATE 22 AUG 1742
+1 DEAT
+2 DATE 23 APR 1800
+2 PLAC Vrba
+1 REFN Ribič
+1 FAMS @F36125@
+1 FAMC @F36124@
+0 @I113428@ INDI
+1 NAME Mina /Prešeren/
+1 SEX F
+1 BIRT
+2 DATE 22 DEC 1737
+2 PLAC Vrba
+1 DEAT
+2 DATE 09 OCT 1823
+2 PLAC Vrba
+1 REFN Boštjan
+1 FAMS @F36125@
+1 FAMC @F36312@
+0 @I113429@ INDI
+1 NAME Šimen /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 23 OCT 1762
+2 PLAC Vrba
+1 DEAT
+2 DATE 22 SEP 1837
+2 PLAC Skaručna
+1 BURI
+2 PLAC Vodice
+1 REFN Ribič
+1 FAMS @F36126@
+1 FAMC @F36125@
+0 @I113438@ INDI
+1 NAME Mina /Svetina/
+1 SEX F
+1 BIRT
+2 DATE 05 MAY 1774
+2 PLAC Žirovnica 7
+1 DEAT
+2 DATE 25 APR 1842
+2 PLAC Osoje na Koroškem
+1 FAMS @F36126@
+1 FAMC @F36369@
+0 @I113448@ INDI
+1 NAME Ana /Jelovšek/
+1 SEX F
+1 BIRT
+2 DATE 06 JUL 1823
+2 SOUR Krstna knjiga Ljubljana – Sv. Jakob, str. 177, https://data.matricula-online.eu/sl/slovenia/ljubljana/ljubljana-sv-jakob/01156/?pg=177
+1 DEAT
+2 DATE 18 NOV 1875
+1 FAMS @F36128@
+0 @I113449@ INDI
+1 NAME Terezija /Jelovšek/
+1 SEX F
+1 BIRT
+2 DATE 15 OCT 1839
+1 DEAT
+2 DATE 14 MAY 1840
+1 FAMC @F36128@
+0 @I113450@ INDI
+1 NAME Ernestina /Jelovšek/
+1 SEX F
+1 BIRT
+2 DATE 18 DEC 1842
+1 DEAT
+2 DATE 03 DEC 1917
+1 NOTE Grob v Prešernovem gaju: https://en.geneanet.org/cemetery/view/13262440
+1 NOTE Stara povezava na SIstory: https://www.sistory.si/zrtve/zrtev/?id=7757
+1 SOUR @S4@
+1 FAMC @F36128@
+0 @I113451@ INDI
+1 NAME Franc /Jelovšek/
+1 SEX M
+1 BIRT
+2 DATE 18 SEP 1845
+1 DEAT
+2 DATE 17 AUG 1855
+1 FAMC @F36128@
+0 @I114100@ INDI
+1 NAME Matija /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE ~1665
+2 PLAC Vrba
+1 REFN Boštjan
+1 FAMS @F36310@
+0 @I114101@ INDI
+1 NAME Marija //
+1 SEX F
+1 BIRT
+2 DATE ~1670
+1 FAMS @F36310@
+0 @I114102@ INDI
+1 NAME Janez /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 03 MAY 1696
+2 PLAC Vrba
+1 DEAT
+2 DATE 19 MAY 1770
+1 REFN Boštjan
+1 FAMS @F36312@
+1 FAMC @F36310@
+0 @I114105@ INDI
+1 NAME Jera /Mulej/
+1 SEX F
+1 BIRT
+2 DATE 10 FEB 1712
+2 PLAC Smokuč
+1 FAMS @F36312@
+0 @I114343@ INDI
+1 NAME Matej /Muhovec/
+1 SEX M
+1 BIRT
+2 DATE ~1675
+1 DEAT
+2 PLAC Žirovnica
+1 REFN Muhovec
+1 FAMS @F36365@
+0 @I114344@ INDI
+1 NAME Marija /Prešeren/
+1 SEX F
+1 BIRT
+2 DATE 04 SEP 1677
+2 PLAC Vrba
+1 FAMS @F36365@
+1 FAMC @F46727@
+0 @I114345@ INDI
+1 NAME Simon /Muhovec/
+1 SEX M
+1 BIRT
+2 DATE 20 OCT 1702
+2 PLAC Žirovnica
+1 REFN Muhovec
+1 FAMS @F36367@
+1 FAMC @F36365@
+0 @I114349@ INDI
+1 NAME Marija /Legat/
+1 SEX F
+1 BIRT
+2 DATE ~1720
+1 DEAT
+2 DATE 02 DEC 1789
+1 FAMS @F36367@
+0 @I114355@ INDI
+1 NAME Jera /Muhovec/
+1 SEX F
+1 BIRT
+2 DATE 27 FEB 1750
+2 PLAC Žirovnica
+1 DEAT
+2 DATE 26 MAR 1820
+2 PLAC Žirovnica
+1 REFN Muhovec
+1 FAMS @F36369@
+1 FAMC @F36367@
+0 @I114369@ INDI
+1 NAME Jakob /Svetina/
+1 SEX M
+1 BIRT
+2 DATE ~1745
+2 PLAC Bodešče pri Bledu
+1 DEAT
+2 DATE >1835
+2 PLAC Štebenj, Koroška
+1 REFN Štefk
+1 OCCU kmet
+1 FAMS @F36369@
+0 @I145283@ INDI
+1 NAME Jakob /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE ~1630
+2 PLAC Vrba
+1 DEAT
+2 DATE <1687
+2 PLAC Vrba
+1 REFN Ribič
+1 FAMS @F46727@
+0 @I145284@ INDI
+1 NAME Magdalena /Arhar/
+1 SEX F
+1 BIRT
+2 DATE ~1640
+1 DEAT
+2 PLAC Vrba
+1 FAMS @F46727@
+0 @I145285@ INDI
+1 NAME Blaž /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 05 JUN 1667
+2 PLAC Vrba
+1 DEAT
+2 DATE 22 MAY 1736
+1 FAMS @F46729@
+1 FAMC @F46727@
+0 @I145289@ INDI
+1 NAME Marina //
+1 SEX F
+1 BIRT
+2 DATE ~1670
+1 DEAT
+2 DATE 23 NOV 1737
+1 FAMS @F46729@
+0 @F36124@ FAM
+1 HUSB @I113424@
+1 WIFE @I113425@
+1 CHIL @I113427@
+1 MARR
+2 DATE ~1730
+0 @F36125@ FAM
+1 HUSB @I113427@
+1 WIFE @I113428@
+1 CHIL @I113429@
+1 MARR
+2 DATE ~1761
+2 PLAC Radovljica
+0 @F36126@ FAM
+1 HUSB @I113429@
+1 WIFE @I113438@
+1 CHIL @I113441@
+1 MARR
+2 DATE 07 FEB 1797
+2 PLAC Rodine
+0 @F36128@ FAM
+1 HUSB @I113441@
+1 WIFE @I113448@
+1 CHIL @I113449@
+1 CHIL @I113450@
+1 CHIL @I113451@
+0 @F36310@ FAM
+1 HUSB @I114100@
+1 WIFE @I114101@
+1 CHIL @I114102@
+1 MARR
+2 DATE ~1695
+0 @F36312@ FAM
+1 HUSB @I114102@
+1 WIFE @I114105@
+1 CHIL @I113428@
+1 MARR
+2 DATE 09 JUL 1736
+0 @F36365@ FAM
+1 HUSB @I114343@
+1 WIFE @I114344@
+1 CHIL @I114345@
+1 MARR
+2 DATE 27 OCT 1697
+2 PLAC Radovljica
+0 @F36367@ FAM
+1 HUSB @I114345@
+1 WIFE @I114349@
+1 CHIL @I114355@
+1 MARR
+2 DATE 28 JUN 1739
+0 @F36369@ FAM
+1 HUSB @I114369@
+1 WIFE @I114355@
+1 CHIL @I113438@
+1 MARR
+2 DATE 07 JUL 1773
+2 PLAC Radovljica, Žirovnica
+0 @F46727@ FAM
+1 HUSB @I145283@
+1 WIFE @I145284@
+1 CHIL @I145285@
+1 CHIL @I114344@
+1 MARR
+2 DATE ~1665
+0 @F46729@ FAM
+1 HUSB @I145285@
+1 WIFE @I145289@
+1 CHIL @I113424@
+1 MARR
+2 DATE ~1690
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+1 ADDR Krekov trg 1
+2 CITY Ljubljana
+0 @R2@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 @S1@ SOUR
+1 TITL Kranj, mrliška knjiga
+1 REPO @R1@
+2 CALN 00932
+1 OBJE @O1@
+0 @S2@ SOUR
+1 TITL Breznica, krstna knjiga
+1 REPO @R2@
+2 CALN 00164
+0 @S4@ SOUR
+1 TITL https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/00932/?pg=40
+2 FORM URL
+2 TITL Kranj, mrliška knjiga, str. 40
+0 @U1@ SUBM
+1 NAME Peter Hawlina
+0 TRLR
