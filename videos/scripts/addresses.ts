@@ -287,7 +287,7 @@ const scenario: Scenario = {
         await d.click(applyRename(d));
         await d.wait(1500);
         const answer = hit(d, "Zaloška cesta 2, Ljubljana, 1000 Ljubljana");
-        await d.highlight(answer.locator(".."), 4);
+        await d.highlight(answer, 4);
         await d.wait(2500);
         await d.highlight(null);
         await d.click(answer);
