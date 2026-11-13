@@ -206,7 +206,7 @@ const scenario: Scenario = {
         const hide = await d.page.addStyleTag({ content: ".tools-pair:not([data-video-keep]) .tools-pair-compare { display: none; }" });
         await d.click(d.page.locator(".confirm-dialog-confirm"));
         await closeAdvancedPair(d);
-        await hide.evaluate((el) => el.remove());
+        await hide.evaluate((el) => (el as Element).remove());
       },
     },
     {
