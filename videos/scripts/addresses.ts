@@ -52,9 +52,14 @@ const noSuchAddress = (d: Director) =>
 /** A register answer under an address row, by its full line. */
 const hit = (d: Director, line: string) => visible(d, "*").getByText(line, { exact: true }).first();
 
+/** The header's Settings button, by its label — the icons beside it differ
+ *  before and after a file is open. */
+const settingsButton = (d: Director) =>
+  d.page.locator(`button.nav-btn.icon-only[aria-label="${d.t({ sl: "Nastavitve", en: "Settings" })}"]`).first();
+
 /** Settings › Map, on camera. */
 async function openMapSettings(d: Director): Promise<void> {
-  await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
+  await d.click(settingsButton(d));
   await d.click(tab(d, { sl: "Zemljevid", en: "Map" }));
 }
 
@@ -118,7 +123,7 @@ const scenario: Scenario = {
   // The GURS settlements, downloaded on camera in episode 6, are already in
   // this browser when the episode opens; only the addresses are new.
   prepare: async (d) => {
-    await d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2).click();
+    await settingsButton(d).click();
     await tab(d, { sl: "Zemljevid", en: "Map" }).click();
     await modal(d).locator(".tools-geo-sources button", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first().click();
     await modal(d).getByText("SI-GURS").first().waitFor({ timeout: 120_000 });
