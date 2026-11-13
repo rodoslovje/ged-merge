@@ -1930,6 +1930,26 @@ describe("reshapeSources — citation placement", () => {
     expect(gb.proposed.title).toBe("90Q_AAAAIBAJ - Google Books");
     expect(gb.proposed.filingNumber).toBe("90Q_AAAAIBAJ");
 
+    // Every Google Books URL that names a volume by its id is the same book.
+    for (const url of [
+      "https://books.google.com/books/about/Poezije.html?id=0F9EAAAAIAAJ&redir_esc=y",
+      "https://books.google.si/books?hl=sl&id=0F9EAAAAIAAJ",
+      "https://books.google.com/books/reader?id=0F9EAAAAIAAJ&pg=GBS.PA1",
+      "https://books.google.com/books/download/Poezije.pdf?id=0F9EAAAAIAAJ&output=pdf",
+      "https://books.google.com/books/content?id=0F9EAAAAIAAJ&printsec=frontcover",
+      "https://play.google.com/store/books/details?id=0F9EAAAAIAAJ",
+      "https://www.google.si/books/edition/Poezije/0F9EAAAAIAAJ?hl=sl",
+      "https://books.google.com/books/edition/_/0F9EAAAAIAAJ",
+    ]) {
+      const r = recognizeSourceUrl(url);
+      expect(r?.site, url).toBe("googlebooks");
+      expect(r?.bookUrl, url).toBe("https://books.google.com/books?id=0F9EAAAAIAAJ");
+    }
+    expect(recognizeSourceUrl("https://books.google.com/books/reader?id=0F9EAAAAIAAJ&pg=GBS.PA18")?.page).toBe("18");
+    // A Google Books URL without a volume id is no book.
+    expect(recognizeSourceUrl("https://books.google.com/books/about/Poezije.html")?.site).not.toBe("googlebooks");
+    expect(recognizeSourceUrl("https://books.google.com/booksearch?id=0F9EAAAAIAAJ")?.site).not.toBe("googlebooks");
+
     const yt = recognizeSourceUrl("https://www.youtube.com/watch?v=lD5eGiGwlZs")!;
     expect(yt.site).toBe("youtube");
     expect(yt.bookUrl).toBe("https://www.youtube.com/watch?v=lD5eGiGwlZs");

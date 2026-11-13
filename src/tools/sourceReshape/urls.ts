@@ -115,10 +115,16 @@ const FINDAGRAVE_MEMORIAL_RE = /^https?:\/\/(?:\w+\.)?findagrave\.com\/memorial\
 /** A BillionGraves grave page: /grave/{name-slug}/{id}. */
 const BILLIONGRAVES_RE = /^https?:\/\/(?:\w+\.)?billiongraves\.com\/grave\/([^/?#]+)\/(\d+)/i;
 
-/** A Google Books volume — the classic reader URL on any locale domain
- *  (books.google.si/books?id=…&pg=PA18…) or the newer edition URL. */
-const GOOGLE_BOOKS_RE = /^https?:\/\/books\.google\.[a-z.]+\/books\?/i;
-const GOOGLE_BOOKS_EDITION_RE = /^https?:\/\/(?:www\.)?google\.[a-z.]+\/books\/edition\/[^/?#]+\/([A-Za-z0-9_-]+)/i;
+/** A Google Books volume, named by its `id` parameter on any locale domain and
+ *  under any /books path — the reader (books.google.si/books?id=…&pg=PA18…),
+ *  the "about this book" page (/books/about/Poezije.html?id=…), /books/reader,
+ *  /books/download, /books/content — or on Google Play Books
+ *  (play.google.com/store/books/details?id=…), which shares the volume ids. */
+const GOOGLE_BOOKS_RE =
+  /^https?:\/\/(?:books\.google\.[a-z.]+\/books(?:[/?#]|$)|play\.google\.com\/store\/books\/details\b)/i;
+/** The newer edition page: google.com/books/edition/{title or _}/{id}, on www. or books. */
+const GOOGLE_BOOKS_EDITION_RE =
+  /^https?:\/\/(?:www\.|books\.)?google\.[a-z.]+\/books\/edition\/[^/?#]+\/([A-Za-z0-9_-]+)/i;
 
 /** A YouTube video: watch?v={id} on any subdomain, or the youtu.be short link. */
 const YOUTUBE_RE = /^https?:\/\/(?:\w+\.)?youtube\.com\/watch\?(?:[^#]*&)?v=([A-Za-z0-9_-]{6,})/i;
@@ -278,20 +284,20 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
     };
   }
 
-  const gbId = GOOGLE_BOOKS_RE.test(url.trim())
-    ? /[?&]id=([A-Za-z0-9_-]+)/.exec(url)?.[1]
-    : GOOGLE_BOOKS_EDITION_RE.exec(url.trim())?.[1];
+  const gbId =
+    GOOGLE_BOOKS_EDITION_RE.exec(url.trim())?.[1] ??
+    (GOOGLE_BOOKS_RE.test(url.trim()) ? /[?&]id=([A-Za-z0-9_-]+)/.exec(url)?.[1] : undefined);
   if (gbId) {
     if (!sites.has("googlebooks")) return undefined;
     // Offline the volume id distinguishes books; enrichment replaces it with
-    // the real book/newspaper title from the reader page. `pg=PA18` is the
-    // cited page.
+    // the real book/newspaper title from the reader page. `pg=PA18` (the
+    // /books/reader form: `pg=GBS.PA18`) is the cited page.
     const pg = /[?&]pg=([^&#]+)/i.exec(url)?.[1];
     return {
       site: "googlebooks",
       groupKey: `gb:${gbId}`,
       bookUrl: `https://books.google.com/books?id=${gbId}`,
-      page: pg ? decodeSegment(pg).replace(/^PA(\d+)$/, "$1") : undefined,
+      page: pg ? decodeSegment(pg).replace(/^(?:GBS\.)?PA(\d+)$/, "$1") : undefined,
       proposed: { title: siteTitle(gbId, undefined, "Google Books"), filingNumber: gbId },
     };
   }

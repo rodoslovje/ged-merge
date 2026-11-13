@@ -3,6 +3,7 @@ import {
   batchAnswered,
   buildRnFilter,
   hostAsSettlement,
+  isOfflineQuery,
   parseHouseNumbers,
   requireParentMunicipality,
   searchAddress,
@@ -159,6 +160,21 @@ describe("rnQueriesFrom and an abbreviated settlement", () => {
     expect(rnQueriesFrom("Zgornje Bitnje, Kranj, Slovenija", "Zgornje 4")[0]).toMatchObject({
       street: "Zgornje",
     });
+  });
+});
+
+describe("isOfflineQuery", () => {
+  const si = { settlement: "Kranj", street: "Hafnarjeva pot", number: 55 };
+  const hr = { country: "HR" as const, settlement: "Ravna Gora", number: 186 };
+
+  it("answers against the set it is given, so a memo can depend on that set", () => {
+    // The set a component got from useLocalRegisters: before the Slovenian
+    // register lands, and after.
+    expect(isOfflineQuery([si], new Set())).toBe(false);
+    expect(isOfflineQuery([si], new Set(["SI"]))).toBe(true);
+    // Every query must be answerable here; one abroad keeps it online.
+    expect(isOfflineQuery([si, hr], new Set(["SI"]))).toBe(false);
+    expect(isOfflineQuery([], new Set(["SI"]))).toBe(false);
   });
 });
 
