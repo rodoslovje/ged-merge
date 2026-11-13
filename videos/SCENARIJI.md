@@ -436,7 +436,7 @@ zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66.
 |---|-------|-------|
 | 1 | Naslovna kartica | Kraj pove vas, naslov pove hišo. Pokažimo, kako v GED Merge uredite oboje — tudi hišne številke, ki so se skozi zgodovino spreminjale. |
 | 2 | Odpre se rodbina Renko | Kraji imajo že koordinate, mnoge hiše pa še ne. |
-| 3 | ⚙ → Zemljevid → GURS »Kraji«, nato »Naslovi«; Nastavitve se zaprejo | Register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
+| 3 | ⚙ → Zemljevid: SI-GURS je že naložen (pred snemanjem, `prepare`), klik »Naslovi«; Nastavitve se zaprejo | Imenik krajev iz videa o geokodiranju; register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
 | 4 | Orodja → Kraji, drevo: Slovenia → Kranj → Kranj | Država, občina, naselje in hiša; ob vsakem število zapisov in koordinata. |
 | 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
 | 6 | »Poimenovanje« → »Naslovi« (počaka na register) → ugotovitev »Zapis« pri Kidričevi 38a | Register ulico piše »Kidričeva cesta«. |

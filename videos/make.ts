@@ -124,6 +124,13 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
   await page.evaluate(() => document.fonts.ready);
 
   const d = new Director(page, lang);
+  if (scenario.prepare) {
+    await scenario.prepare(d);
+    // The recording opens on a fresh page, as every other episode's does.
+    await page.reload();
+    await page.locator("input.file-input").first().waitFor({ state: "attached" });
+    await page.evaluate(() => document.fonts.ready);
+  }
   const rec = await Recorder.start(page, path.join(CACHE, "frames", `${scenario.id}.${lang}`));
   d.clock = () => rec.now();
   const cues: Cue[] = [];

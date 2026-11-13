@@ -52,6 +52,12 @@ const noSuchAddress = (d: Director) =>
 /** A register answer under an address row, by its full line. */
 const hit = (d: Director, line: string) => visible(d, "*").getByText(line, { exact: true }).first();
 
+/** Settings › Map, on camera. */
+async function openMapSettings(d: Director): Promise<void> {
+  await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
+  await d.click(tab(d, { sl: "Zemljevid", en: "Map" }));
+}
+
 /** »Prikaži že umeščene« over the address list. */
 const showPlaced = (d: Director) =>
   visible(d, "label.tools-reshape-site").filter({ hasText: d.t({ sl: "Prikaži že umeščene", en: "Show already placed" }) }).first();
@@ -102,6 +108,16 @@ const scenario: Scenario = {
     tag: { sl: "Naslovi", en: "Addresses" },
     title: { sl: "Vsaka *hiša* na svojem mestu", en: "Every *house* in its place" },
   },
+  // The GURS settlements, downloaded on camera in episode 6, are already in
+  // this browser when the episode opens; only the addresses are new.
+  prepare: async (d) => {
+    await d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2).click();
+    await tab(d, { sl: "Zemljevid", en: "Map" }).click();
+    await modal(d).locator(".tools-geo-sources button", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first().click();
+    await modal(d).getByText("SI-GURS").first().waitFor({ timeout: 120_000 });
+    await modal(d).locator(".modal-close").click();
+    await modal(d).waitFor({ state: "detached" });
+  },
   steps: [
     {
       say: {
@@ -133,17 +149,15 @@ const scenario: Scenario = {
     {
       callout: { sl: "Register naslovov", en: "The address register" },
       say: {
-        sl: "Za hišne številke najprej prenesite register naslovov. V Nastavitvah na zavihku »Zemljevid« ob imeniku krajev GURS kliknite »Naslovi«. To je vseh petsto osemdeset tisoč hiš v Sloveniji, vsaka s svojo koordinato. Prenos traja nekaj minut, register pa ostane v brskalniku. Nastavitve lahko medtem zaprete in delate naprej, saj se register nalaga v ozadju.",
-        en: "For house numbers, first download the address register. In Settings, on the Map tab, click Addresses beside the GURS place directory. That is all five hundred and eighty thousand houses in Slovenia, each with its own coordinate. The download takes a few minutes, and the register stays in your browser. Meanwhile you can close Settings and carry on working: the register loads in the background.",
+        sl: "Imenik krajev GURS smo naložili že v videu o geokodiranju. Za hišne številke zdaj v Nastavitvah na zavihku »Zemljevid« ob njem kliknite še »Naslovi«. To je vseh petsto osemdeset tisoč hiš v Sloveniji, vsaka s svojo koordinato. Prenos traja nekaj minut, register pa ostane v brskalniku. Nastavitve lahko medtem zaprete in delate naprej, saj se register nalaga v ozadju.",
+        en: "We loaded the GURS place directory in the geocoding video. For house numbers, now click Addresses beside it, in Settings on the Map tab. That is all five hundred and eighty thousand houses in Slovenia, each with its own coordinate. The download takes a few minutes, and the register stays in your browser. Meanwhile you can close Settings and carry on working: the register loads in the background.",
       },
       run: async (d) => {
-        await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
-        await d.click(tab(d, { sl: "Zemljevid", en: "Map" }));
+        await openMapSettings(d);
         const sources = modal(d).locator(".tools-geo-sources").first();
         await d.scrollTo(sources);
-        // The settlements first, quietly: the geocoding lists need them too.
-        await sources.locator("button", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first().click();
-        await d.skippable(() => modal(d).getByText("SI-GURS").first().waitFor({ timeout: 120_000 }));
+        await d.highlight(modal(d).getByText("SI-GURS").first().locator(".."), 6);
+        await d.wait(2000);
         const addresses = sources.locator("button", { hasText: d.t({ sl: "Naslovi", en: "Addresses" }) }).first();
         await d.highlight(addresses, 6);
         await d.wait(1200);
