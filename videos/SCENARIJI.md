@@ -19,7 +19,8 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | — | scenarij |
 | 12 | Kraji in naslovi | — | scenarij |
-| 13 | Pregled | — | odloženo |
+| 13 | Uredi vire | — | scenarij |
+| 14 | Pregled | — | odloženo |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -435,7 +436,86 @@ treh zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66 na zemljevidu.
 
 ---
 
-## 13. Pregled: čiščenje podatkov
+## 13. Uredi vire: od raztresenih povezav do pravih virov
+
+**Cilj:** pokazati, katere spletne zbirke GED Merge prepozna in opremi s podatki, in kaj
+naredi vsak od štirih zavihkov orodja »Uredi vire« (Viri, Dvojniki, Hrambe, Strani).
+Epizoda 4 pokaže, kako vir dodate na novo; ta pokaže, kako pospravite vire, ki jih
+datoteka že ima — kakor jih zapišejo drugi programi.
+**Podatki:** `demo/preseren-hawlina-viri.ged` (nova, glej spodaj) za zavihke Viri,
+Dvojniki in Strani; `demo/rodbina-renko.ged` za zavihek Hrambe (599 povezav
+FamilySearch). · **Trajanje:** ~6 min
+**Naslovna slika:** oznaka »Viri« · »Iz povezav *pravi* viri« · posnetek zavihka Viri
+s skupinami Matricula, Geneanet, Slovenska biografija in dLib.si.
+
+### Demo datoteka `preseren-hawlina-viri.ged`
+
+Kopija `preseren-hawlina.ged`, v kateri so viri namerno zapisani »neurejeno«, vsak v
+drugi obliki, ki jo orodje prepozna. Povezave so resnične; v glavi datoteke (NOTE) in
+receptu napišemo, da je razporeditev povezav umetna. Vsaka vrstica pokaže drugo zbirko
+in drugo obliko zapisa:
+
+| Oseba, dogodek | Zbirka | Povezava | Oblika v datoteki |
+|---|---|---|---|
+| France Prešeren, rojstvo | Matricula (krstna knjiga Breznica) | `https://data.matricula-online.eu/sl/slovenia/ljubljana/breznica/00164/?pg=86` | povezava v opombi (`NOTE`) |
+| France Prešeren, smrt | Matricula (mrliška knjiga Kranj) | `https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/00932/?pg=40` | polje povezave na osebi (`_LINK`) |
+| Ana Jelovšek, rojstvo | Matricula (krstna knjiga Ljubljana – Sv. Jakob) | `https://data.matricula-online.eu/sl/slovenia/ljubljana/ljubljana-sv-jakob/01156/?pg=177` | navedba v vrstici (`SOUR` z besedilom in naslovom URL) |
+| Ernestina Jelovšek, pokop | Geneanet Cemeteries (grob v Prešernovem gaju) | `https://en.geneanet.org/cemetery/view/13262440` | povezava v opombi |
+| France Prešeren, pokop | Find a Grave (memorial 7609860, Prešernov gaj, Kranj) | `https://www.findagrave.com/memorial/7609860/france-preseren` | medijska povezava (`OBJE` › `FILE`) |
+| France Prešeren | Slovenska biografija | `https://www.slovenska-biografija.si/oseba/sbi463215/` | `_WEBTAG` z `URL` |
+| France Prešeren | Obrazi slovenskih pokrajin | `https://www.obrazislovenskihpokrajin.si/oseba/preseren-france/` | `WWW` na osebi |
+| France Prešeren | Wikipedija | `https://sl.wikipedia.org/wiki/France_Prešeren` | povezava v opombi |
+| France Prešeren | dLib.si — *Poezije Dóktorja Francéta Prešérna*, 1847 | `https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI` | `WWW` na osebi |
+| Ernestina Jelovšek | dLib.si — njeni *Spomini na Prešerna*, 1903 | `https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7` | naslov vira (`SOUR` › `TITL` je kar URL) |
+| ena od oseb | mrtva povezava za »Odstrani sklice« | zastarel naslov, ki ga orodje prepozna kot zbirko (izbrati pred snemanjem) | povezava v opombi |
+
+Za zavihek **Dvojniki** dodamo dva zapisa vira za isto knjigo: krstno knjigo Breznica
+z arhivsko številko 00164 in hrambo NŠAL, ter »Breznica, krstna knjiga« brez številke
+in brez hrambe; na vsakega kaže vsaj ena navedba (npr. krsta sester Franceta
+Prešerna, če sta v Matriculi na isti knjigi — preverite strani).
+
+Za zavihek **Strani** dodamo na vir mrliške knjige Kranj medijski zapis s sliko strani
+40 (povezava Matricula s `?pg=40`), navedba smrti Franceta Prešerna pa ima `PAGE 40`
+brez te slike. Nastavitve → GEDCOM → Viri → »Povezave strani« mora biti vklopljeno
+(preverite ime možnosti v `sl.ts`).
+
+Po pretvorbi zavihka Viri se dvojniki in strani lahko spremenijo — vrstni red kadrov
+zato preverite v tihi gradnji (`--silent`).
+
+### Kadri
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Mnogi programi povezavo na matično knjigo shranijo kar v opombo. Pokažimo, kako take povezave GED Merge spremeni v prave vire. |
+| 2 | Urejanje: France Prešeren, opomba s povezavo Matricula | Povezava v opombi ni vir. Nima naslova knjige, ne arhiva ne strani, in ni pripeta dogodku, ki ga dokazuje. |
+| 3 | Orodja → Viri: drevo hramb, virov in medijev; »Nepripete povezave« | Orodje Viri pokaže vse hrambe, vire in medije v datoteki. Povezave, ki niso pripete nobenemu viru, so zbrane posebej. |
+| 4 | »Uredi vire« → zavihki Viri, Dvojniki, Strani | Gumb »Uredi vire« pregleda datoteko in pripravi popravke. Zavihek se pokaže le, kadar ima kaj za urediti. |
+| 5 | Zavihek Viri: skupine po zbirkah (obroč na imena zbirk) | Program prepozna matične knjige na Matriculi in FamilySearchu, grobove na Geneanetu, Find a Grave in BillionGraves, Slovensko biografijo, Obraze slovenskih pokrajin, žrtve vojn na SIstory, dLib, Google Knjige, Wikipedijo in YouTube. |
+| 6 | Odpri skupino Matricula Breznica: vrstica »str. 86«, oznaka oblike »povezava v opombi«, »nov« | Povezave so razvrščene po knjigi ali grobu. Vsaka vrstica je ena stran in pove, kje v datoteki je povezava zdaj. |
+| 7 | Obroč na predlagan naslov, izpeljan iz povezave | Že iz same povezave program razbere župnijo, knjigo in stran. |
+| 8 | »Pridobi podatke o virih« → »Pridobivam 3/9…« → naslovi se zamenjajo | S »Pridobi podatke o virih« prebere še pravi naslov knjige, arhiv, župnijo in leta, ki jih knjiga pokriva. Za vsako knjigo pošlje le njeno povezavo, nikoli vašega drevesa. |
+| 9 | Skupine dLib in Slovenska biografija: naslov dela, avtor, leto | Enako opremi tudi druge zbirke: pri dLib naslov dela in leto, pri Slovenski biografiji ime osebe. |
+| 10 | »Citate pripni na ustrezne dogodke« | Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari. |
+| 11 | »Kakovost citata« → »primarni vir« | Vsem navedbam lahko nastavite tudi kakovost citata. |
+| 12 | ✎ ob skupini → urejevalnik vira (naslov, arhiv, kraj, številka, leta, hramba) | Vsak predlog pred pretvorbo lahko popravite: naslov, arhivsko številko ali hrambo, ki ji vir pripada. |
+| 13 | Mrtva povezava → 🗑 → oznaka »ODSTRANI« | Mrtvo ali zastarelo povezavo označite za odstranitev. Odstrani se z vseh mest v datoteki, vir pa ne nastane. |
+| 14 | »Izberi vse« → »Pretvori v vire (N)« → obvestilo »… zapisov posodobljenih« | Izberete skupine in jih pretvorite v enem koraku. Spremembe se zapišejo, ko datoteko shranite. |
+| 15 | Zavihek Dvojniki: knjiga Breznica dvakrat, ena brez arhivske številke | Dvojniki so viri, ki opisujejo isto knjigo pod različnima oznakama. Zapis, ki pove manj, se pridruži popolnejšemu. |
+| 16 | »Obdrži ta zapis« → »Združi dvojnike« | Program obdrži zapis z več sklici, prenese vanj, kar povedo samo drugi, in vse navedbe preusmeri nanj. |
+| 17 | Zavihek Strani: »str. 40« brez slike → »Pripni slike strani« | Zavihek Strani najde navedbe brez slike strani, ki jih dokazuje, in jim sliko pripne. |
+| 18 | Zamenjava glavne datoteke z `rodbina-renko.ged` → Uredi vire → zavihek Hrambe | FamilySearch objavlja po zbirkah. Hramba pa je kraj, kjer se knjige hranijo. |
+| 19 | Odpri vrstico države → »Uredi hrambe po krajih« | Zavihek Hrambe vire s FamilySearcha zbere pod hrambo njihove države, prazne hrambe pa odstrani. |
+| 20 | Nazaj na Prešernovo drevo: Urejanje → France Prešeren, rojstvo z virom; ↗ odpre Matriculo | Opomba je zdaj pravi vir: s knjigo, stranjo in povezavo, ki odpre sken. |
+| 21 | Shrani GEDCOM → »Vrstice GEDCOM« | V predogledu shranjevanja vidite, kako so viri zapisani v datoteki GEDCOM. |
+| 22 | Zaključna kartica | |
+
+Kadra 18–19 sta neobvezna: če `rodbina-renko` v zavihku Hrambe nima vrstic, ju
+izpustimo in Hrambe omenimo le v govoru kadra 4. Če je video predolg, skrajšamo kadre
+9, 11 in 12.
+
+---
+
+## 14. Pregled: čiščenje podatkov
 
 **Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
 z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
@@ -464,7 +544,14 @@ seznama težav s številkami.
 
 ## Odprta vprašanja
 
-1. **Epizoda 13 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
+1. **Epizoda 14 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
    rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
    dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.
 2. **Epizoda 12:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
+3. **Epizoda 13 (Uredi vire):** potrebna je nova demo datoteka
+   `preseren-hawlina-viri.ged` z umetno razporejenimi resničnimi povezavami. Pred
+   snemanjem preverite: ali vsaka povezava odgovori (Find a Grave posrednik včasih
+   zavrne), katera zastarela povezava naj bo »mrtva«, ali ima `rodbina-renko` vrstice v
+   zavihku Hrambe. BillionGraves, Legacy.com, Newspapers.com, Geneanet Trees, Google
+   Knjige in YouTube v Prešernovem drevesu nimajo preverjenega primera, zato jih le
+   naštejemo; BillionGraves in Newspapers.com sta v `rodbina-renko`.
