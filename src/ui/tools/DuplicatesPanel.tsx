@@ -234,6 +234,10 @@ export function DuplicatesPanel({
   // After a pair leaves the active list (merged away or rejected), open and
   // highlight whatever takes its place, so the panel keeps flowing rather than
   // going blank. Content-keyed (by pair), so it survives the rows recomputing.
+  // Its row is pinned to the top once the rows have recomputed (the same jump
+  // as a pair opened from a related-records hint): left where the long
+  // comparison above it ended, the next pair opened mid-screen, and it was
+  // unclear what had just happened.
   const advancePast = (isRemoved: (p: DuplicatePair) => boolean) => {
     const list = orderedPairsRef.current;
     const removedAt = list.findIndex(isRemoved);
@@ -243,9 +247,9 @@ export function DuplicatesPanel({
       return;
     }
     const next = remaining[Math.min(removedAt < 0 ? 0 : removedAt, remaining.length - 1)];
-    setExpanded(`${next.aId}-${next.bId}`);
-    const rowIdx = rowsRef.current.findIndex((r) => r.kind === "pair" && r.key === `${next.aId}-${next.bId}`);
-    if (rowIdx >= 0) setSelected(rowIdx);
+    const key = `${next.aId}-${next.bId}`;
+    setExpanded(key);
+    pendingOpenKey.current = key;
   };
 
   // Apply a merge, drop the merged pair and any other pair referencing the
