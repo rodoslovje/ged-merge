@@ -191,20 +191,25 @@ const scenario: Scenario = {
         await filterTo(d, "Krainburg");
         await d.wait(1800);
         await filterTo(d, "");
+        // Naming opens here, after this step's narration, and waits for the
+        // address register still downloading behind it: the Addresses tab
+        // appears only once the register is stored. The wait is cut to two
+        // seconds, so the next step's narration starts on a page that is ready.
+        await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
+        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 1_200_000 }), 2);
       },
     },
     {
       callout: { sl: "Poimenovanje", en: "Naming" },
       say: {
-        sl: "Poimenovanje primerja kraje in naslove z uradnim registrom. V tem drevesu se ujemajo vsi. Hišnih številk, ki jih register nima več, ne našteje, ampak jih le prešteje — vasi so hiše v dvajsetem stoletju na novo oštevilčile, zato je stara številka praviloma pravilna.",
-        en: "Naming compares places and addresses with the official register. In this tree they all agree. House numbers the register no longer has are counted, not listed — villages renumbered their houses in the twentieth century, so an old number is usually right.",
+        sl: "Poimenovanje primerja kraje in naslove z uradnim registrom. Ko je register naslovov naložen, se pokaže zavihek »Naslovi«. V tem drevesu se ujemajo vsi. Hišnih številk, ki jih register nima več, ne našteje, ampak jih le prešteje — vasi so hiše v dvajsetem stoletju na novo oštevilčile, zato je stara številka praviloma pravilna.",
+        en: "Naming compares places and addresses with the official register. Once the address register has loaded, the Addresses tab appears. In this tree they all agree. House numbers the register no longer has are counted, not listed — villages renumbered their houses in the twentieth century, so an old number is usually right.",
       },
       run: async (d) => {
-        await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
-        // The address register downloads behind the previous steps; the
-        // Addresses tab appears only once it is stored.
-        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 1_200_000 }));
         await d.wait(1500);
+        await d.highlight(link(d, /^(Naslovi|Addresses)/), 4);
+        await d.wait(1500);
+        await d.highlight(null);
         await d.click(link(d, /^(Naslovi|Addresses)/));
         await d.skippable(() => visible(d, ".tools-chip").filter({ hasText: d.t({ sl: "Ni takega naslova", en: "No such address" }) }).first().waitFor({ timeout: 120_000 }));
         await d.wait(800);

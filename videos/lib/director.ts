@@ -62,6 +62,10 @@ export class Recorder {
   }
 }
 
+/** A stretch of dead waiting, recording time from–to, and at most how many
+ *  seconds of it stay in the video. */
+export type Skip = [number, number, number?];
+
 export class Director {
   readonly page: Page;
   readonly lang: Lang;
@@ -72,7 +76,7 @@ export class Director {
   /** Recording time (seconds) at which the current step's narration ends, set by make.ts. */
   saidAt = 0;
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
-  readonly skips: [number, number][] = [];
+  readonly skips: Skip[] = [];
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
@@ -81,14 +85,15 @@ export class Director {
   /**
    * Run a wait that shows nothing worth watching — an online lookup, a slow
    * scan — and mark it, so assemble.ts shortens the part of it no narration
-   * plays over.
+   * plays over. `keepSeconds` caps what is left of it, for a wait of minutes
+   * (a register download) that a third of would still drag.
    */
-  async skippable<T>(wait: () => Promise<T>): Promise<T> {
+  async skippable<T>(wait: () => Promise<T>, keepSeconds?: number): Promise<T> {
     const start = this.clock();
     try {
       return await wait();
     } finally {
-      this.skips.push([start, this.clock()]);
+      this.skips.push(keepSeconds === undefined ? [start, this.clock()] : [start, this.clock(), keepSeconds]);
     }
   }
 
