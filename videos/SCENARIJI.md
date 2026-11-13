@@ -18,7 +18,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | — | scenarij |
-| 12 | Kraji in naslovi | — | scenarij |
+| 12 | Kraji in naslovi | `scripts/addresses.ts` | osnutek brez glasu |
 | 13 | Pregled | — | odloženo |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
@@ -401,36 +401,38 @@ dvojnikov drug ob drugem.
 
 ## 12. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
 
-**Cilj:** drevo krajev (država → naselje → hiša → naslov), druga imena kraja,
-primerjava krajev in naslovov z uradnim registrom, prenos registra naslovov GURS,
-geokodiranje naslovov in zapis hiše, ki je v zgodovini dobila več številk.
+**Cilj:** prenos registra naslovov GURS (v ozadju), drevo krajev, druga imena kraja,
+primerjava naslovov z uradnim registrom, geokodiranje naslovov in zapis hiše, ki je v
+zgodovini dobila več številk. Izvedba in govor: `scripts/addresses.ts`.
 **Zapis naslova:** najprej današnji naslov, nato starejši, ločeni s poševnico; na koncu
 je lahko pripis v oklepaju — `Hafnarjeva pot 55 / 21 / Stražišče 66`,
-`Škofjeloška cesta 4 / Labore 4 (porodnišnica)`. Program vsako številko poišče posebej
+`Zaloška cesta 2 (klinični center)`. Program vsako številko poišče posebej
 (`rnQueriesFrom`), pripis ostane.
-**Podatki:** `rodbina-renko.ged` — 478 različnih naslovov, okoli 60 z več številkami
-(`Sušica 23 / Ravna Gora 186`, `Klošter 82 / 63 / 11`); kraji imajo koordinate
-naselja, hiše še ne. GEDCOM 7.0, zato tudi druga imena (TRAN). Na zaslonu samo
-umrli — pri Hafnarjevi poti preverite, kdo je naštet.
-**Trajanje:** ~5 min
+**Podatki:** `rodbina-renko.ged` — kraji imajo koordinate naselja, 255 hiš je že
+umeščenih, 227 še ne (90 z zadetkom v registru). Poimenovanje naslovov ne najde
+odstopanj: 272 od 361 se ujema, 89 starih številk je le preštetih. »bolnišnica /
+klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. Hafnarjeva pot 21
+je danes druga hiša, Stražišče 66 registra ni. »Zapisano dvakrat«: Krasinec 26 in
+Krasinec 26 (pd Jelin), oba brez lastne lege. GEDCOM 7.0, zato druga imena (TRAN).
+**Trajanje:** ~5 min (prenos naslovov ~10 min, v videu skrajšan)
 **Naslovna slika:** oznaka »Naslovi« · »Vsaka *hiša* na svojem mestu« · posnetek
-treh zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66 na zemljevidu.
+zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66.
 
 | # | Kader | Govor |
 |---|-------|-------|
 | 1 | Naslovna kartica | Kraj pove vas, naslov pove hišo. Pokažimo, kako v GED Merge uredite oboje — tudi hišne številke, ki so se skozi zgodovino spreminjale. |
-| 2 | Orodja → Kraji, drevo: Slovenija → Kranj → hiše | Drevo krajev ima ravni država, naselje, hiša in naslov. Ob vsakem kraju sta število zapisov in koordinata. |
-| 3 | ✎ na Kranju → »+ Dodaj ime« Krainburg → »Zapiši imena« | Kraj ima lahko tudi stara imena. Iskanje ga najde tudi po njih. |
-| 4 | »Poimenovanje« → Kraji, ena ugotovitev | Poimenovanje primerja vsak kraj z uradnim registrom: kako je ime zapisano, pod katero občino spada in kje leži. |
-| 5 | ⚙ → Zemljevid → GURS »Naslovi«, prenos (skrajšano) | Za hišne številke prenesite še register naslovov: vseh 575 773 hiš v Sloveniji. Register ostane v brskalniku. |
-| 6 | »Poimenovanje« → »Naslovi«: Škofjeloška cesta 4 / Labore 4 | Program z registrom primerja tudi naslove. Kadar se je ulica preimenovala, register pozna le današnje ime, zgodovinsko pa ostane zapisano. |
-| 7 | »Geokodiranje« → »Naslovi«, skupine po krajih | Naslovi so razvrščeni po krajih. Hiša brez svoje lege podeduje koordinato naselja. |
-| 8 | ✎ Hafnarjeva pot 55 / 21 → dopiši » / Stražišče 66« | Ta hiša je v zgodovini dobila tri številke. Najprej zapišemo današnji naslov, nato starejše, ločene s poševnico. Na konec lahko dodate pripis v oklepaju, na primer porodnišnica. |
-| 9 | Poizvedba → zadetki, oštevilčeni na zemljevidu | Program vsako številko poišče posebej. Register pozna današnjo, katera lega velja, izberete sami. |
-| 10 | Skupina Krasinec: poizvedba za vse → »Izberi zanesljive« | Celo vas poiščete naenkrat. Nedvoumne zadetke izberete z enim klikom. |
-| 11 | »Zapisano dvakrat« → »Združi« | Isto hišo, zapisano enkrat s hišnim imenom in enkrat brez njega, združite v en naslov. |
-| 12 | »Več naslovov na eno koordinato…« → Stražišče | Starih številk register nima več. Take hiše postavite na eno točko, na primer na sredino vasi. |
-| 13 | »Zapiši koordinate« → Urejanje, zelena bucika ob naslovu | Koordinate se zapišejo šele ob potrditvi, kot standardni zapis v GEDCOM. |
+| 2 | Odpre se rodbina Renko | Kraji imajo že koordinate, mnoge hiše pa še ne. |
+| 3 | ⚙ → Zemljevid → GURS »Kraji«, nato »Naslovi«; Nastavitve se zaprejo | Register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
+| 4 | Orodja → Kraji, drevo: Slovenia → Kranj → Kranj | Država, občina, naselje in hiša; ob vsakem število zapisov in koordinata. |
+| 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
+| 6 | »Poimenovanje« → »Naslovi« (počaka na register) → »Ni takega naslova 89« | Vsi se ujemajo; starih številk ne našteje, ampak jih prešteje. |
+| 7 | »Geokodiranje« → »Naslovi« | Hiše po krajih; hiša brez svoje lege podeduje koordinato naselja. |
+| 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« | Pravi naslov, opis v oklepaju; register hišo takoj najde. |
+| 9 | Filter »Hafnarjeva pot 55« → ✎ dopiši » / Stražišče 66« | Tri številke: najprej današnja, nato starejše, ločene s poševnico. |
+| 10 | Zadetka 1 in 2 → izbira 55 | Vsaka številka posebej; 21 je danes druga hiša, izberete 55; vaške številke register nima več. |
+| 11 | »Izberi zanesljive« | Register je že odgovoril za vse hiše v Sloveniji; nedvoumne z enim klikom. |
+| 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
+| 13 | »Zapiši koordinate« | Šele ob potrditvi, kot standardni zapis v GEDCOM. |
 | 14 | Zaključna kartica | |
 
 ---
@@ -467,4 +469,3 @@ seznama težav s številkami.
 1. **Epizoda 13 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
    rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
    dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.
-2. **Epizoda 12:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
