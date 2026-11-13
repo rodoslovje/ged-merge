@@ -12,7 +12,8 @@ import {
   subdivisionsQuery,
 } from "../geo/sources";
 import { DGU_REGISTER, GURS_REGISTER, osmRegister } from "../geo/gazetteer";
-import { siPostalUrl } from "../geo/siAd";
+import { SI_AD_WFS } from "../geo/siAd";
+import { inspirePostalUrl, SI_INSPIRE_AD_WFS } from "../geo/siAdInspire";
 import type { GeoJob, GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 /**
@@ -243,11 +244,26 @@ describe("geo worker: a GeoNames file", () => {
 });
 
 describe("geo worker: the Slovenian address register", () => {
+  /** One house as the cadastre's address layer writes it. */
+  const ADDRESS = {
+    geometry: { coordinates: [14.85300719, 45.64991045] },
+    properties: {
+      EID_NASELJE: "110300000100999436",
+      NASELJE_NAZIV: "Kočevje",
+      OBCINA_NAZIV: "Kočevje",
+      ULICA_NAZIV: "Ljubljanska cesta",
+      POSTNI_OKOLIS_SIFRA: 1330,
+      POSTNI_OKOLIS_NAZIV: "Kočevje",
+      HS_STEVILKA: 69,
+      HS_DODATEK: "b",
+    },
+  };
+  /** The same house as the INSPIRE fallback writes it. */
   const component = (kind: string, id: string, title?: string) => ({
     "@href": `https://example/ows?typeNames=ad:${kind}&featureid=SI.GURS.RPE.${id}`,
     ...(title === undefined ? {} : { "@title": title }),
   });
-  const ADDRESS = {
+  const INSPIRE_ADDRESS = {
     properties: {
       component: [
         component("AdminUnitName", "705", "Slovenija"),
@@ -264,7 +280,6 @@ describe("geo worker: the Slovenian address register", () => {
   it("pages through the register, stores it and checks it is there", async () => {
     const pages: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (url === siPostalUrl()) return json({ features: [{ properties: { postCode: "1330", postName: { spelling: { text: "Kočevje" } } } }] });
       pages.push(url);
       return json({ features: [ADDRESS], numberMatched: 1, numberReturned: 1 });
     }));
@@ -272,19 +287,31 @@ describe("geo worker: the Slovenian address register", () => {
     await run({ kind: "addresses", country: "SI" }, 4);
     expect(last()).toEqual({ type: "addressRegister", requestId: 4, country: "SI", count: 1 });
     expect(pages).toHaveLength(1); // a short page is the last one
+    expect(pages[0].startsWith(SI_AD_WFS)).toBe(true); // the cadastre, not the fallback
     expect(stages()).toEqual(expect.arrayContaining(["downloading", "storing"]));
     const { getAddressIndex } = await import("../persist/geoDb");
     expect(await getAddressIndex("SI")).toBeDefined();
   });
 
+  it("falls back to the INSPIRE service when the cadastre does not answer", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      asked.push(url);
+      if (url.startsWith(SI_AD_WFS)) return new Response("down", { status: 503 });
+      if (url === inspirePostalUrl()) return json({ features: [{ properties: { postCode: "1330", postName: { spelling: { text: "Kočevje" } } } }] });
+      return json({ features: [INSPIRE_ADDRESS], numberMatched: 1, numberReturned: 1 });
+    }));
+    const run = await freshWorker();
+    await run({ kind: "addresses", country: "SI" }, 5);
+    expect(last()).toEqual({ type: "addressRegister", requestId: 5, country: "SI", count: 1 });
+    expect(asked.some((u) => u.startsWith(SI_INSPIRE_AD_WFS))).toBe(true);
+  });
+
   it("a page that fails is a download failure; a register with no addresses is empty", async () => {
     const run = await freshWorker();
-    await run({ kind: "addresses", country: "SI" }); // every URL 404s
+    await run({ kind: "addresses", country: "SI" }); // every URL 404s, the fallback's too
     expect(last()).toMatchObject({ type: "error", failure: { code: "download" } });
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (url === siPostalUrl()) throw new TypeError("Failed to fetch"); // the post codes are optional
-      return json({ features: [], numberMatched: 0, numberReturned: 0 });
-    }));
+    vi.stubGlobal("fetch", vi.fn(async () => json({ features: [], numberMatched: 0, numberReturned: 0 })));
     await run({ kind: "addresses", country: "SI" });
     expect(last()).toMatchObject({ type: "error", failure: { code: "empty" } });
     vi.stubGlobal("fetch", vi.fn(async () => {
