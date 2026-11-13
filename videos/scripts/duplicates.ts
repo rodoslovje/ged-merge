@@ -36,15 +36,10 @@ const scoreSelect = (d: Director) => d.page.locator(".tools-filter-row .score-se
 const menuItem = (d: Director, text: string) =>
   d.page.locator("[role=menuitem], [role=option], .dd-item").filter({ visible: true }).filter({ hasText: text }).first();
 
-/** Merging, and a fresh scan, open the next pair's comparison; close it to show the list. */
+/** Close the open comparison, if one is open (Matija Simonič, before the threshold step). */
 const closeOpenPair = async (d: Director) => {
   const open = d.page.locator(".tools-pair-toggle.open").first();
-  // It opens a beat after the list settles, and a chained merge may open it again.
-  if (!(await open.waitFor({ timeout: 3000 }).then(() => true, () => false))) return;
-  for (let i = 0; i < 4 && (await open.count()); i++) {
-    await d.click(open);
-    await d.wait(1000);
-  }
+  if (await open.count()) await d.click(open);
 };
 
 const JANEZ = "I412665969695";
@@ -177,10 +172,12 @@ const scenario: Scenario = {
         en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters. Now that people have been merged, we can run the duplicate search again.",
       },
       run: async (d) => {
-        // The merge is done once the list says it is stale; it then opens the next pair.
+        // The merge opens the next pair, its row at the top of the list; close it to show the list.
         await d.page.locator(".tools-fix-item .tools-run").first().waitFor();
-        await d.wait(1500);
-        await closeOpenPair(d);
+        const next = d.page.locator(".tools-pair-toggle.open").first();
+        await next.waitFor();
+        await d.wait(1200);
+        await d.click(next);
         await d.page.evaluate(() => document.querySelector(".tools-view")?.scrollTo({ top: 0, behavior: "smooth" }));
         await d.wait(800);
         await d.highlight(d.page.locator(".tools-pairs").first(), 4);
