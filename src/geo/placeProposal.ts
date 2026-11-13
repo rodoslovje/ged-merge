@@ -9,6 +9,7 @@ import { namesUnitKind, stripUnitWords, type PlaceParentLevels } from "./placeLe
 import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
 import type { RnResult } from "./rn";
+import { addressRegisterId } from "./addressRegister";
 
 // Turning a register hit into a place the *file* would have written.
 //
@@ -37,7 +38,7 @@ export interface PlaceProposal {
   form?: string;
   /** Where the register puts it — picked along with the text. */
   coord: GeoCoord;
-  /** Badge text naming the answering register ("GURS", "GOV", "OSM", "SI"). */
+  /** Badge text naming the answering register ("SI-GURS", "SI-ADR", "GOV", "OSM", "SI"). */
   source: string;
   /** Whether that register is an official one (badge styling). */
   official?: boolean;
@@ -336,7 +337,7 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
     style,
   );
   if (!shaped) return undefined;
-  return { ...shaped, coord: result.coord, source: "GURS", official: true, detail: result.label };
+  return { ...shaped, coord: result.coord, source: addressRegisterId("SI"), official: true, detail: result.label };
 }
 
 /** A GOV object. GOV names no country, so the chain stops at the parent — for

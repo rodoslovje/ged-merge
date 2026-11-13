@@ -285,7 +285,7 @@ describe("an address-register house as a place", () => {
     expect(p.plac).toBe("Kranj,Kranj,Slovenija");
     expect(p.addr).toBe("Hafnarjeva pot 21");
     expect(p.coord).toEqual(house.coord);
-    expect(p.source).toBe("GURS");
+    expect(p.source).toBe("SI-ADR");
     expect(p.detail).toBe(house.label);
   });
 
