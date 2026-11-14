@@ -48,17 +48,17 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     // Episode 14, each checked by ear against variants: "Matricula" is read
     // the Slovenian way, "dLib" like the English "the lib"; "vir" is always
     // stressed on the i ("víre", "vírov"); the Organize sources button keeps its
-    // quotes, »Urédi víre«; "hrámbo", "prípete", "pókop", "gròb", and "strani"
-    // (the Pages tab too, lower case and without quotes) is "straní". "Urejanje" is read right as written.
+    // quotes, »Urédi víre«; "hrámbo", "prípete", "pri pókopu" (but "k pokopu" as written), "gròb", the Pages tab
+    // is "straní" (lower case, no quotes) and so is "slike straní" beside it. "Urejanje" is read right as written.
     [/Matricul/g, "Matrikul"],
     [/\bdLib\b/g, "de lib"],
     [/\b([Vv])ir(e|i|ov|om|ih|a|u)\b/g, "$1ír$2"],
     [/\b([Uu])redi\b/g, "$1rédi"],
     [/\b([Hh])rambo\b/g, "$1rámbo"],
     [/\b([Pp])ripet(e|a|i|o)\b/g, "$1rípet$2"],
-    [/\b([Pp])okop(a|u|om)?\b/g, "$1ókop$2"],
+    [/\bpri pokopu\b/g, "pri pókopu"],
     [/»Strani«/g, "straní"],
-    [/\b[Ss]trani\b/g, "straní"],
+    [/slike strani\b/g, "slike straní"],
     [/\b([Gg])rob\b/g, "$1ròb"],
   ],
   en: [

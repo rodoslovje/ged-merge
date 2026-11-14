@@ -339,7 +339,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Grobovi", en: "Graves" },
       say: {
-        sl: "Nato grobovi na Geneanetu. Grob ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Grob pristane pri pokopu. Ernestina tega dogodka še nima, zato ga program ustvari.",
+        sl: "Nato grobovi na Geneanetu. Grob ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Grob se zapiše k pokopu. Ernestina tega dogodka še nima, zato ga program ustvari.",
         en: "Then the graves on Geneanet. A grave is not primary evidence of a death, so we set the citation quality to secondary evidence. The grave lands on the burial. Ernestina has no burial yet, so the program creates it.",
       },
       run: async (d) => {
@@ -494,8 +494,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Rezultat", en: "The result" },
       say: {
-        sl: "V Urejanju so opombe zdaj pravi viri: s knjigo, stranjo in povezavo, ki odpre sken. Ernestina ima zdaj vpisan tudi grob v Prešernovem gaju.",
-        en: "In Edit, the notes are now proper sources: with a book, a page and a link that opens the scan. Ernestina now has her grave in Prešernov gaj recorded too.",
+        sl: "Pri osebi so opombe zdaj pravi viri: s knjigo, stranjo in povezavo, ki odpre sliko strani. Ernestina ima zdaj vpisan tudi grob v Prešernovem gaju.",
+        en: "On the person, the notes are now proper sources: with a book, a page and a link that opens the page image. Ernestina now has her grave in Prešernov gaj recorded too.",
       },
       run: async (d) => {
         await d.highlight(null);
