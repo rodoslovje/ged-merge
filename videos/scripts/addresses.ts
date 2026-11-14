@@ -19,6 +19,9 @@ import type { Scenario, Text } from "../lib/types.ts";
 
 const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "rodbina-renko.ged");
 
+/** The places-tree chapter, shown a moment early (see the step before it). */
+const PLACES_TREE: Text = { sl: "Drevo krajev", en: "The places tree" };
+
 const modal = (d: Director) => d.page.locator(".settings-modal");
 const tab = (d: Director, label: Text) => modal(d).locator("button", { hasText: d.t(label) }).first();
 const visible = (d: Director, selector: string) => d.page.locator(selector).filter({ visible: true });
@@ -185,6 +188,11 @@ const scenario: Scenario = {
         // Each step's way to its screen runs once the narration before it is
         // done, so the next sentence starts on the screen it talks about.
         await d.untilSaid();
+        // The next chapter's callout goes up before the way there, so the
+        // viewer is told where we are going before the screen changes; the
+        // step itself then sets the same one (chapter 2 of the video).
+        await d.overlay("callout", "2", d.t(PLACES_TREE));
+        await d.wait(1200);
         await d.click(d.page.locator(".seg-btn").nth(2));
         await d.wait(800);
         await d.click(d.page.locator(".tools-tab", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first());
@@ -192,7 +200,7 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Drevo krajev", en: "The places tree" },
+      callout: PLACES_TREE,
       say: {
         sl: "V Orodjih, pod »Kraji«, so kraji zbrani v drevo: država, občina, naselje in hiša. Ob vsakem je število zapisov in koordinata.",
         en: "In Tools, under Places, the places form a tree: country, municipality, settlement and house. Each shows how many records use it, and its coordinate.",
