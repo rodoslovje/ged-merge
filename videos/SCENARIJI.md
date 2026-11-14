@@ -442,18 +442,20 @@ zemljevida z zadetkoma za Krasinec 11 / 2 (pd Hren).
 | 3 | ⚙ → Zemljevid: SI-GURS je že naložen (pred snemanjem, `prepare`), klik »Naslovi«; Nastavitve se zaprejo | Imenik krajev iz videa o geokodiranju; register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
 | 4 | Orodja → Kraji, drevo: Slovenia → Kranj → Kranj | Država, občina, naselje in hiša; ob vsakem število zapisov in koordinata. |
 | 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
-| 6 | »Poimenovanje« (SI-ADR, register se je medtem naložil) → »Naslovi« → »Drugo naselje« (Krasinec 1 pod Gradcem) in »Zapis« (Kidričeva 38a) | Register hišo vodi v Krasincu; ulico piše »Kidričeva cesta«. |
-| 6a | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
-| 7 | (med govorom) »Nazaj na kraje« → »Geokodiranje« → »Naslovi« → država »Slovenija« | Hišam dodamo koordinate; hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
+| 6 | »Poimenovanje« (takoj po prehodu) → kraji se ujemajo | Poimenovanje primerja kraje in naslove z uradnim registrom; kraji se ujemajo vsi. |
+| 6a | Počaka na register (skrajšano) → SI-ADR → »Naslovi« → »Drugo naselje« (Krasinec 1 pod Gradcem) in »Zapis« (Kidričeva 38a) | Register se je medtem naložil; register hišo vodi v Krasincu; ulico piše »Kidričeva cesta«. |
+| 6b | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
+| 7 | (tiho pred govorom) »Nazaj na kraje« → »Geokodiranje« → »Naslovi« → država »Slovenija« | Hišam dodamo koordinate; hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
 | 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
 | 9 | Filter »Krasinec 11 /« → vrstica »Krasinec 11 / 2 (pd Hren)« | Priporočeni zapis: najprej današnja številka 11, nato stara 2 za poševnico, hišno ime v oklepaju. |
 | 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 11 | Vsaka številka posebej; hiša je bila doslej na sredini vasi; danes je to Krasinec 11, številka 2 je druga hiša. |
-| 11 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
-| 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
-| 12a | Filter »Klošter 52« → ✎ spredaj »Klošter 11 / « → zadetek SI-ADR | Stara številka; današnji naslov spredaj, stara za poševnico; register hišo najde. |
-| 12b | Klik na koordinato → zemljevid, kolesce nad žebljičkom do hiš → klik nižje in desno → »Nastavi« | Stara hiša je stala nekoliko nižje in desno od današnje številke 11; tako najdete tudi hišo, ki je register ne pozna. |
-| 13 | »Zapiši koordinate« | Šele ob potrditvi, kot standardni zapis v GEDCOM. |
-| 14 | Zaključna kartica | |
+| 11 | Filter »Klošter 52« → ✎ spredaj »Klošter 11 / « → zadetek SI-ADR | Stara številka; današnji naslov spredaj, stara za poševnico; register hišo najde. |
+| 11a | Klik na koordinato → zemljevid, kolesce nad žebljičkom do hiš → klik nižje in desno → »Nastavi« | Stara hiša je stala nekoliko nižje in desno od današnje številke 11; tako najdete tudi hišo, ki je register ne pozna. |
+| 12 | »Zapiši koordinate« | Te lege smo preverili sami, zato jih zapišemo takoj; standardni zapis v GEDCOM. |
+| 13 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
+| 14 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
+| 14a | »Počisti izbor« → »Vsi« | Nepregledanih zadetkov ne zapišemo, da se nobena hiša ne postavi na napačno mesto. |
+| 15 | Zaključna kartica | |
 
 ---
 

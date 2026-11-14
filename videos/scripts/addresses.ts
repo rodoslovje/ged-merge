@@ -272,34 +272,48 @@ const scenario: Scenario = {
         await filterTo(d, "Krainburg");
         await d.wait(1800);
         await filterTo(d, "");
-        // Naming opens here, after this step's narration, and waits for the
-        // address register still downloading behind it: the Addresses tab
-        // appears only once the register is stored. The wait is cut to two
-        // seconds, so the next step's narration starts on a page that is ready.
+        // Naming opens once this step's narration is done; its own narration
+        // starts on it while the address register may still be downloading.
         await d.untilSaid();
         await d.calloutAhead();
         await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
-        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), 2);
         await frameTools(d);
       },
     },
     {
       callout: { sl: "Poimenovanje", en: "Naming" },
       say: {
-        sl: "Register naslovov se je medtem naložil. Poimenovanje primerja naslove z uradnim registrom. »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v Krasincu. »Zapis«: register Kidričevo 38a piše »Kidričeva cesta«.",
-        en: "The address register has loaded meanwhile. Naming compares addresses with the official register. »Other settlement«: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under Krasinec. »Spelling«: the register spells Kidričeva 38a as »Kidričeva cesta«.",
+        sl: "Poimenovanje primerja kraje in naslove z uradnim registrom: kako je ime zapisano, kam kraj spada in kje leži. Kraji se v tem drevesu ujemajo vsi.",
+        en: "Naming compares places and addresses with the official register: how a name is spelt, where a place belongs and where it lies. In this tree the places all agree.",
       },
       run: async (d) => {
-        await d.wait(600);
+        await d.wait(1500);
+        await d.highlight(visible(d, ".tools-clean").first(), 4);
+        await d.wait(3000);
+        await d.highlight(null);
+        // The address register downloads behind all this; the Addresses tab
+        // appears once it is stored. The wait is cut to two seconds.
+        await d.untilSaid();
+        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), 2);
+        await frameTools(d);
+      },
+    },
+    {
+      say: {
+        sl: "Register naslovov se je medtem naložil, zato je tu še zavihek »Naslovi«. »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v Krasincu. »Zapis«: register Kidričevo 38a piše »Kidričeva cesta«.",
+        en: "The address register has loaded meanwhile, so there is now an Addresses tab too. »Other settlement«: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under Krasinec. »Spelling«: the register spells Kidričeva 38a as »Kidričeva cesta«.",
+      },
+      run: async (d) => {
+        await d.wait(400);
         await d.highlight(visible(d, "*").getByText("SI-ADR", { exact: true }).first().locator(".."), 4);
         await d.wait(2000);
         await d.highlight(null);
         await d.click(link(d, /^(Naslovi|Addresses)/));
         await frameTools(d);
         await d.skippable(() => noSuchAddress(d).waitFor({ timeout: 120_000 }));
-        await d.wait(800);
+        await d.wait(600);
         await expandAll(d);
-        await d.wait(1500);
+        await d.wait(1200);
         await d.highlight(finding(d, "Krasinec 1"), 4);
         await d.wait(4500);
         await d.highlight(finding(d, "Kidričeva 38a"), 4);
@@ -328,27 +342,28 @@ const scenario: Scenario = {
         await d.highlight(noSuchAddress(d), 6);
         await d.wait(3500);
         await d.highlight(null);
+        // To Geocoding › Addresses, narrowed to Slovenia, quickly and before
+        // the next narration, which starts on that screen.
         await d.untilSaid();
         await d.calloutAhead();
+        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
+        await d.click(link(d, /^(Naslovi|Addresses) \d/));
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
+        await frameTools(d);
       },
     },
     {
       callout: { sl: "Geokodiranje naslovov", en: "Geocoding addresses" },
       say: {
-        sl: "Zdaj hišam dodamo koordinate. Vrnemo se na kraje in odpremo »Geokodiranje«, zavihek »Naslovi«. Tu so vse hiše, razvrščene po krajih. Naložen imamo le slovenski register, zato izberemo Slovenijo. Hiša brez svoje lege podeduje koordinato naselja.",
-        en: "Now the houses get their coordinates. We go back to places and open Geocoding, the Addresses tab. Here every house is listed, grouped by place. We have only the Slovenian register loaded, so we pick Slovenia. A house without a position of its own inherits the settlement's coordinate.",
+        sl: "Zdaj hišam dodamo koordinate. V Geokodiranju so na zavihku »Naslovi« vse hiše, razvrščene po krajih. Naložen imamo le slovenski register, zato je izbrana Slovenija. Hiša brez svoje lege podeduje koordinato naselja.",
+        en: "Now the houses get their coordinates. In Geocoding, the Addresses tab lists every house, grouped by place. We have only the Slovenian register loaded, so Slovenia is picked. A house without a position of its own inherits the settlement's coordinate.",
       },
       run: async (d) => {
-        // The way there runs with the narration that names it.
-        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
-        await d.click(link(d, /^(Naslovi|Addresses) \d/));
-        await frameTools(d);
-        await d.wait(1500);
-        // Only Slovenia's register is loaded, so the list is narrowed to it.
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
-        await frameTools(d);
-        await d.wait(1500);
+        await d.wait(3000);
+        await d.highlight(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first(), 4);
+        await d.wait(2500);
+        await d.highlight(null);
         await d.untilSaid();
         await d.calloutAhead();
         // Both houses of the next steps already carry a position.
@@ -425,57 +440,11 @@ const scenario: Scenario = {
         await closeCoordPanel(d);
         await d.untilSaid();
         await d.calloutAhead();
+        // Klošter 52 has no position of its own: the default list shows it.
+        // The switch is there only while the list holds placed houses, so the
+        // filter is cleared first.
         await filterTo(d, "");
         await d.click(showPlaced(d).locator("input"));
-        await d.wait(800);
-      },
-    },
-    {
-      callout: { sl: "Zanesljivi zadetki", en: "Confident matches" },
-      say: {
-        sl: "Register je že odgovoril za vse hiše v Sloveniji. Nedvoumne zadetke izberete z enim klikom, »Izberi zanesljive«. A pozor: zadetek je zanesljiv le zato, ker se zapis ujema z današnjim registrom, ne pa zato, ker bi bila to zagotovo prava hiša. Če je hiša zapisana s staro številko, je register ne pozna ali pa pod isto številko najde drugo hišo. Izbrane zadetke zato pred zapisom preglejte.",
-        en: "The register has already answered for every house in Slovenia. Select the unambiguous matches in one click, Select confident. But beware: a match is confident only because the spelling agrees with today's register, not because it is surely the right house. If a house is written with an old number, the register does not know it, or finds another house under the same number. So review the selected matches before writing them.",
-      },
-      run: async (d) => {
-        const pick = visible(d, ".tools-issue-link").filter({ hasText: d.t({ sl: "Izberi zanesljive", en: "Select confident" }) }).first();
-        await d.highlight(pick, 4);
-        await d.wait(1200);
-        await d.click(pick);
-        await d.wait(1500);
-        await d.highlight(null);
-        // The picks, for review: the »Izbrani« chip lists exactly them.
-        const chosen = visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Izbrani", en: "Picked" }) }).first();
-        await d.click(chosen);
-        await d.wait(800);
-        await expandAll(d);
-        await d.wait(6000);
-        await d.untilSaid();
-        await d.calloutAhead();
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
-        await d.wait(800);
-        // Krasinec 26 and Krasinec 26 (pd Jelin): neither has a position of its
-        // own yet, so joining them raises no disagreement about where it is.
-        await filterTo(d, "Krasinec 26");
-        await expandAll(d);
-        await d.wait(1000);
-      },
-    },
-    {
-      callout: { sl: "Zapisano dvakrat", en: "Written twice" },
-      say: {
-        sl: "Ista hiša je včasih zapisana dvakrat: enkrat s hišnim imenom v oklepaju, enkrat brez njega. Gumb »Združi« oba zapisa poenoti.",
-        en: "The same house is sometimes written twice: once with its farm name in parentheses, once without. The Merge button makes the two one.",
-      },
-      run: async (d) => {
-        const join = visible(d, ".tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Združi", en: "Join" })}$`) }).first();
-        await d.highlight(join.locator(".."), 4);
-        await d.wait(1800);
-        await d.highlight(null);
-        await d.click(join);
-        await d.wait(1500);
-        await d.untilSaid();
-        await d.calloutAhead();
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
         await filterTo(d, "Klošter 52");
         await expandAll(d);
         await d.wait(800);
@@ -552,16 +521,82 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zapiši koordinate", en: "Write coordinates" },
       say: {
-        sl: "Koordinate se zapišejo šele, ko kliknete »Zapiši koordinate«, in sicer kot standardni zapis v GEDCOM, ki ga berejo tudi drugi programi.",
-        en: "The coordinates are written only when you click Write coordinates — as standard GEDCOM, which other programs read too.",
+        sl: "Te lege smo preverili sami, zato jih zapišemo takoj, z gumbom »Zapiši koordinate«. Koordinate se zapišejo kot standardni zapis v GEDCOM, ki ga berejo tudi drugi programi.",
+        en: "We checked these positions ourselves, so we write them now, with Write coordinates. They are written as standard GEDCOM, which other programs read too.",
       },
       run: async (d) => {
         const apply = visible(d, ".tools-run.primary").filter({ hasText: d.t({ sl: "Zapiši koordinate", en: "Write coordinates" }) }).first();
+        await d.wait(1500);
         await d.highlight(apply, 4);
-        await d.wait(1200);
+        await d.wait(1500);
         await d.highlight(null);
         await d.click(apply);
         await d.wait(2500);
+        await d.untilSaid();
+        await d.calloutAhead();
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
+        // Krasinec 26 and Krasinec 26 (pd Jelin): neither has a position of its
+        // own yet, so joining them raises no disagreement about where it is.
+        await filterTo(d, "Krasinec 26");
+        await expandAll(d);
+        await d.wait(800);
+      },
+    },
+    {
+      callout: { sl: "Zapisano dvakrat", en: "Written twice" },
+      say: {
+        sl: "Ista hiša je včasih zapisana dvakrat: enkrat s hišnim imenom v oklepaju, enkrat brez njega. Gumb »Združi« oba zapisa poenoti.",
+        en: "The same house is sometimes written twice: once with its farm name in parentheses, once without. The Merge button makes the two one.",
+      },
+      run: async (d) => {
+        const join = visible(d, ".tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Združi", en: "Join" })}$`) }).first();
+        await d.highlight(join.locator(".."), 4);
+        await d.wait(1800);
+        await d.highlight(null);
+        await d.click(join);
+        await d.wait(1500);
+        await d.untilSaid();
+        await d.calloutAhead();
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
+        await filterTo(d, "");
+      },
+    },
+    {
+      callout: { sl: "Zanesljivi zadetki", en: "Confident matches" },
+      say: {
+        sl: "Register je že odgovoril za vse hiše v Sloveniji. Nedvoumne zadetke izberete z enim klikom, »Izberi zanesljive«. A pozor: zadetek je zanesljiv le zato, ker se zapis ujema z današnjim registrom, ne pa zato, ker bi bila to zagotovo prava hiša. Če je hiša zapisana s staro številko, je register ne pozna ali pa pod isto številko najde drugo hišo. Izbrane zadetke zato pred zapisom preglejte.",
+        en: "The register has already answered for every house in Slovenia. Select the unambiguous matches in one click, Select confident. But beware: a match is confident only because the spelling agrees with today's register, not because it is surely the right house. If a house is written with an old number, the register does not know it, or finds another house under the same number. So review the selected matches before writing them.",
+      },
+      run: async (d) => {
+        const pick = visible(d, ".tools-issue-link").filter({ hasText: d.t({ sl: "Izberi zanesljive", en: "Select confident" }) }).first();
+        await d.highlight(pick, 4);
+        await d.wait(1200);
+        await d.click(pick);
+        await d.wait(1500);
+        await d.highlight(null);
+        // The picks, for review: the »Izbrani« chip lists exactly them.
+        const chosen = visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Izbrani", en: "Picked" }) }).first();
+        await d.click(chosen);
+        await d.wait(800);
+        await expandAll(d);
+        await d.wait(6000);
+      },
+    },
+    {
+      say: {
+        sl: "Ker teh zadetkov še nismo pregledali, izbor počistimo z gumbom »Počisti izbor«. Tako se nobena hiša ne postavi na napačno mesto.",
+        en: "Since we have not reviewed these matches yet, we clear the selection with Select none. That way no house is placed in the wrong spot.",
+      },
+      run: async (d) => {
+        const clear = visible(d, ".tools-issue-link").filter({ hasText: d.t({ sl: "Počisti izbor", en: "Select none" }) }).first();
+        await d.highlight(clear, 4);
+        await d.wait(1500);
+        await d.highlight(null);
+        await d.click(clear);
+        await d.wait(1200);
+        // Back from the picks (none now) to the whole list.
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
+        await d.wait(2000);
       },
     },
     {
