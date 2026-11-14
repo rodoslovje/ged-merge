@@ -61,6 +61,11 @@ relative under a made-up given name (the family surname stays), sex and birth
 date, with no other facts. Never record a living person's real data for a
 public video.
 
+The photos episode (`photos`) also needs the author's media folder, which is
+not in this repository: `~/Work/rod/renko-ged/media`, or set `VIDEO_MEDIA_DIR`.
+It copies a few named files into the browser's private file system and stubs the
+folder picker, which a headless browser cannot show.
+
 Each run also renders `<scenario>.<lang>.thumb.jpg`, the YouTube thumbnail, from
 the scenario's `thumbnail` tag and title and the screen a step grabbed with
 `d.snapshot()`. Scenario drafts for the whole series are in `SCENARIJI.md`.

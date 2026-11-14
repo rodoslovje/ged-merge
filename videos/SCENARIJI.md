@@ -18,7 +18,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
-| 12 | Fotografije | `scripts/photos.ts` (PR #156) | osnutek brez glasu |
+| 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
 | 13 | Kraji in naslovi | — (PR #152) | scenarij |
 | 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
 | 15 | Pregled | — | odloženo |
@@ -207,7 +207,7 @@ pahljače z barvami po kraju rojstva.
 poiskati kraj pri urejanju in ga zapisati v obliki naselje, občina, država, hišno
 številko prestaviti iz kraja v naslov, stare zapise pretvoriti v Orodjih in krajem z
 geokodiranjem dodati koordinate. Naslovi (prenos GURS naslovov, geokodiranje hišnih
-številk) dobijo svoj video, epizodo 12.
+številk) dobijo svoj video, epizodo 13.
 **Podatki:** `preseren-hawlina-kraji.ged` — večina krajev v polni obliki, golih ostane
 nekaj: Kranj, Radovljica, Žirovnica, Osoje na Koroškem ter hišne številke v kraju
 (Žirovnica 7, Vrba 1, Vrba 7). Izvedba in govor: `scripts/geocoding.ts`.
@@ -410,6 +410,43 @@ dvojnikov drug ob drugem.
 | 12 | Peter (dvojček Jožefa) → »Zavrni vse« | V skupini ni dvojnikov, zato jo zavrnete. |
 | 13 | »Zavrnjeni« → nazaj na dvojnike | Zavrnjeni pari se ne vrnejo; zavrnitev lahko prekličete. |
 | 14 | Zaključna kartica | |
+
+---
+
+## 12. Fotografije: portreti, skupinske fotografije in označevanje oseb
+
+**Cilj:** podpora brskalnikov (preglednica v navodilih, najboljša v Chromu in Edgu), mapa z
+mediji in podmape (»portraits«, »family«, »weddings«), portret, pregledovalnik z opisom,
+označevanje oseb na skupinski fotografiji in fotografije na diagramih.
+**Podatki:** `rodbina-renko.ged` in avtorjeve družinske fotografije iz mape
+`~/Work/rod/renko-ged/media` (ni v gitu; drugo mesto z `VIDEO_MEDIA_DIR`). Recept prepiše
+izbrane fotografije v zasebni datotečni sistem brskalnika (OPFS) in nadomesti izbirnik mape,
+ker brezglavi brskalnik izbirnika ne more pokazati. Na zaslonu so samo umrli in avtorjeva
+starša, ki sta snemanje dovolila: portret deda Franca Renka (1901–1964) in poročna fotografija
+Edvarda in Cvetke s pričama, Edvardovim bratom Jožetom Renkom (1938–1975) in Cvetkinim bratom
+Petrom Jekovcem (1935–2023). Območja oseb so tista, ki jih ima avtorjeva datoteka.
+Izvedba in govor: `scripts/photos.ts`. **Trajanje:** ~4,5 min
+**Naslovna slika:** oznaka »Fotografije« · »Kdo je *kdo* na fotografiji« · posnetek poročne
+fotografije z imeni vseh štirih oseb.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Fotografije prednikov oživijo drevo. Pokažimo portret in skupinsko fotografijo, na kateri označite, kdo je kdo. |
+| 2 | Navodila → Fotografije in mediji → preglednica »Podpora brskalnikov« | GEDCOM se na fotografije le sklicuje, zato program potrebuje mapo; najboljša podpora v Chromu in Edgu. |
+| 3 | Spust datoteke, Luka → Edvard → Franc Renko | Avtorjev ded Franc Renko. |
+| 4 | »Dodaj medij« → »Izberi mapo« | Mapo izberete enkrat, Chrome si jo zapomni; bere se samo na računalniku. |
+| 5 | Izbirnik, obroč na podmape family, portraits, weddings | Podmape imajo v izbirniku vsaka svoj razdelek. |
+| 6 | Iskanje »franc« → portret → »Dodaj« | Iskalno polje najde fotografijo po imenu datoteke. |
+| 7 | Pregledovalnik se odpre sam → naslov; zapri, obroč na sličico | Opis takoj ob dodajanju; nato je fotografija ob osebi. |
+| 8 | Edvard → poročna fotografija | Skupinska fotografija s pričama, dodamo jo Edvardu. |
+| 9 | Miška nad fotografijo: najdeni obrazi z »?« | GED Merge sam najde obraze, kar na računalniku. |
+| 10 | Klik na Edvardov obraz → »Kdo je to?« → Edvard | Najprej oseba in bližnji sorodniki. |
+| 11 | Cvetka; Jože z vpisom »joze«; Peter z vpisom »peter« | Kogar ni med predlogi, poiščete z vpisom imena. |
+| 12 | Miška nad fotografijo, imena vseh štirih | Vsak je dobil fotografijo; kdo je kdo. |
+| 13 | Ročaj v vogalu: Jožetovo in Petrovo območje povečamo na celo glavo | Z vlečenjem vogala povečate območje katere koli osebe. |
+| 14 | Sličica Edvarda, Cvetkina kartica s fotografijo | Sličica pokaže obraz. |
+| 15 | Edvard → Drevo, predniki, 3 rodovi; »Diagram« → »Fotografija« | Fotografije in obrazi tudi na diagramih. |
+| 16 | Zaključna kartica | |
 
 ---
 

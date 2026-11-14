@@ -74,6 +74,8 @@ export class Director {
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
   /** [start, end, share kept] — the share defaults to assemble.ts's. */
   readonly skips: [number, number, number?][] = [];
+  /** Stretches whose frames are left out (see `frozen`). */
+  readonly freezes: [number, number][] = [];
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
@@ -90,6 +92,20 @@ export class Director {
       return await wait();
     } finally {
       this.skips.push(keep === undefined ? [start, this.clock()] : [start, this.clock(), keep]);
+    }
+  }
+
+  /**
+   * Run something whose painting must not be seen — a page navigation, which
+   * shows the new page for a frame or two before anything can cover it. The
+   * picture holds on the last frame before it until the first frame after.
+   */
+  async frozen<T>(work: () => Promise<T>): Promise<T> {
+    const start = this.clock();
+    try {
+      return await work();
+    } finally {
+      this.freezes.push([start, this.clock()]);
     }
   }
 
@@ -155,6 +171,20 @@ export class Director {
 
   async card(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {
     await this.overlay("card", kicker && this.t(kicker), title && this.t(title), line && this.t(line));
+  }
+
+  /**
+   * Keep a title card on screen through a page navigation: the next page
+   * shows it from its first paint, so its loading (an unstyled flash, the
+   * page behind) is never seen. `null` lets go; follow with `card(null, null)`
+   * to fade it out.
+   */
+  async holdCard(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {
+    const value = title ? JSON.stringify([kicker && this.t(kicker), this.t(title), line && this.t(line)]) : null;
+    await this.page.evaluate((v) => {
+      if (v) sessionStorage.setItem("gmv-card", v);
+      else sessionStorage.removeItem("gmv-card");
+    }, value);
   }
 
   /**
