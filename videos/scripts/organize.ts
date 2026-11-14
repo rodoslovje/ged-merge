@@ -124,6 +124,8 @@ async function apply(d: Director): Promise<void> {
   await d.highlight(applyButton(d), 4);
   await d.wait(900);
   await d.click(applyButton(d));
+  // The button may leave with the list it emptied: the ring must not stay behind.
+  await d.highlight(null);
   await d.page.locator(".tools-cleanup-status").first().waitFor();
   await d.skippable(() =>
     d.page.locator(".tools-cleanup-status .spinner").first().waitFor({ state: "detached", timeout: 60_000 }),
@@ -190,10 +192,10 @@ const scenario: Scenario = {
       run: async (d) => {
         await d.highlight(null);
         await d.click(d.page.locator(".seg-btn").nth(2));
-        await d.wait(800);
+        await d.wait(250);
         await d.click(d.page.locator(".tools-tab").nth(2));
         await d.page.locator(".tools-tree").first().waitFor();
-        await d.wait(800);
+        await d.wait(300);
         // Open the archive to show what it holds: its book, and that book's page.
         const archive = d.page.locator(".tools-tree > .tools-tree-node").filter({ hasText: "Nadškofijski arhiv" }).first();
         await d.click(archive.locator(".tools-pair-toggle").first());
@@ -260,7 +262,8 @@ const scenario: Scenario = {
         en: "Let's start with Matricula. The links are grouped by book. Each row tells where the link sits in the file now, for example in a note on the birth.",
       },
       run: async (d) => {
-        await d.highlight(null);
+        await d.highlight(chip(d, "Matricula", "Matricula"), 4);
+        await d.wait(1800);
         await expandAll(d);
         await d.highlight(group(d, "00164"), 6);
       },
@@ -273,13 +276,14 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await d.highlight(selectAll(d), 4);
-        await d.wait(1500);
+        await d.wait(500);
         await d.click(selectAll(d));
-        await d.wait(900);
+        await d.wait(300);
         await d.highlight(fetchButton(d), 4);
-        await d.wait(1200);
+        await d.wait(300);
         await fetchDetails(d);
-        await d.highlight(group(d, "00164"), 6);
+        // The fetched titles stay ringed for the rest of the narration.
+        await d.highlight(d.page.locator(".tools-tree").first(), 6);
       },
     },
     {
@@ -337,8 +341,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Grobovi", en: "Graves" },
       say: {
-        sl: "Nato grobovi na Geneanetu. Grob ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Grob pristane pri pokopu. Ernestina pokopa še nima, zato ga program ustvari.",
-        en: "Then the graves on Geneanet. A grave is not primary evidence of a death, so we set the citation quality to secondary evidence. The grave lands on the burial. Ernestina has no burial yet, so the program creates it.",
+        sl: "Nato grobovi na Geneanetu. Nagrobnik ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Navedba se zapiše k pokopu. Ernestina tega dogodka še nima, zato ga program ustvari.",
+        en: "Then the graves on Geneanet. A gravestone is not primary evidence of a death, so we set the citation quality to secondary evidence. The citation goes to the burial. Ernestina has no burial yet, so the program creates it.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -362,9 +366,10 @@ const scenario: Scenario = {
         en: "The remaining collections can be done together, under All. The citation quality stays secondary evidence: a biography or a book is not primary evidence of a birth or a death.",
       },
       run: async (d) => {
-        await d.highlight(null);
+        await d.highlight(chip(d, "Vsi", "All"), 4);
+        await d.wait(500);
         await d.click(chip(d, "Vsi", "All"));
-        await d.wait(700);
+        await d.wait(400);
         await expandAll(d);
         await listToTop(d);
         // Ring only rows already on screen: ringing the whole (tall) list
@@ -491,8 +496,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Rezultat", en: "The result" },
       say: {
-        sl: "V Urejanju so opombe zdaj pravi viri: s knjigo, stranjo in povezavo, ki odpre sken. Ernestina je dobila še pokop z grobom v Prešernovem gaju.",
-        en: "In Edit, the notes are now proper sources: with a book, a page and a link that opens the scan. Ernestina has also gained a burial, with her grave in Prešernov gaj.",
+        sl: "Pri osebi so opombe zdaj pravi viri: s knjigo, stranjo in povezavo, ki odpre sliko strani. Ernestina ima zdaj vpisan tudi nagrobnik v Prešernovem gaju.",
+        en: "On the person, the notes are now proper sources: with a book, a page and a link that opens the page image. Ernestina now has her gravestone in Prešernov gaj recorded too.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -518,8 +523,8 @@ const scenario: Scenario = {
         await d.click(d.page.locator(".app-head-actions .export-btn"));
         await d.wait(1500);
         await d.click(d.page.getByText(d.t({ sl: "Vrstice GEDCOM", en: "GEDCOM lines" }), { exact: true }).first());
-        await d.wait(6000);
-        await d.page.keyboard.press("Escape");
+        // Straight on to the closing card, which covers the open preview.
+        await d.wait(2500);
       },
     },
     {
