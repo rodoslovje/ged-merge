@@ -598,7 +598,7 @@ zadetkov s predogledom ocen.
 | 12 | Ukrep »Dodaj ocenjen datum poroke (BEF, ABT)« → predogled »→ BEF 1885«, »→ ABT 1880« | Kjer ima otrok natančen datum rojstva, je poroka pred njim: BEF. Sicer je ocena ABT, iz ocenjenega rojstva otroka ali iz let rojstva zakoncev. |
 | 13 | Izvedi → shrani »Poroke brez datuma« | |
 | 14 | »Zveza: ima ocenjen datum — Poroka«, brez ukrepa → shrani »Ocenjene poroke« | Filter brez ukrepa je shranjeno iskanje. Ocene je dobro preveriti v matičnih knjigah — in če pozneje dodate starejšega otroka, ukrep oceno BEF popravi. |
-| 15 | »Sorodstvo: neposredni prednik«, »Viri: nima virov« → 198 → shrani »Predniki brez virov« → klik na ime odpre osebo v Urejanju | Še en seznam nalog: od 399 prednikov jih 198 nima nobenega vira. |
+| 15 | »Sorodstvo: neposredni prednik«, »Viri: nima virov« → 198 → shrani »Predniki brez virov« | Še en seznam nalog: od 399 prednikov jih 198 nima nobenega vira. |
 | 16 | Seznam shranjenih filtrov s številkami → »Naloži ta filter« | Shranjeni filtri ostanejo v brskalniku, ne v datoteki GEDCOM — na drugem računalniku jih ni. |
 | 17 | Zaključna kartica | |
 
