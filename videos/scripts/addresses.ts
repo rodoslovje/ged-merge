@@ -134,6 +134,9 @@ async function expandAll(d: Director): Promise<void> {
 /** Type into the list's filter, the way a viewer would. */
 async function filterTo(d: Director, text: string): Promise<void> {
   const box = filterBox(d);
+  // The filter sits just under the tool cards: framing first brings it to the
+  // top, so the click needs no scroll that would show the cards again.
+  await frameTools(d);
   await quickClick(d, box);
   await box.fill("");
   if (text) await d.page.keyboard.type(text, { delay: 35 });
@@ -212,6 +215,20 @@ const scenario: Scenario = {
         // Room below every page, so a short Tools list can still be scrolled
         // past the tool cards (frameTools) — the recording's, not the app's.
         await d.page.addStyleTag({ content: ".tools-view { padding-bottom: 100vh; }" });
+        // Only the Tools view scrolls: a click's scroll-into-view would also
+        // move the containers around it and take the app's header out of the
+        // picture, so any of them that moves is put straight back.
+        await d.page.evaluate(() =>
+          document.addEventListener(
+            "scroll",
+            (e) => {
+              const el = e.target === document ? document.scrollingElement : (e.target as Element);
+              const view = document.querySelector(".tools-view");
+              if (el && view && el !== view && el.contains(view) && el.scrollTop) el.scrollTop = 0;
+            },
+            true,
+          ),
+        );
         await d.card(null, null);
         await d.wait(700);
         await d.upload(d.page.locator(".lb-drop"), MAIN);
