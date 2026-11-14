@@ -10136,6 +10136,21 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
 }
 .batch-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+/* Filters, action and save in the left column; the matches beside them, kept
+   in view while the left column scrolls. One column, matches last, below 880px. */
+.batch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.batch-grid .batch-results { position: sticky; top: 8px; }
+.batch-grid .batch-list { max-height: max(320px, calc(100vh - 240px)); }
+.batch-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* "+ Add filter": the Edit view's dashed add chip, always shown — it is how
+   this panel is used, not an extra revealed on hover. */
+.batch-add-filter { border-style: dashed; border-color: var(--border-2); color: var(--accent); font-size: 0.88rem; }
+.batch-grid .batch-save { margin-bottom: 16px; }
+@media (max-width: 880px) {
+  .batch-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .batch-grid .batch-results { position: static; }
+  .batch-grid .batch-list { max-height: 320px; }
+}
 .batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .batch-row input { cursor: pointer; flex: none; }
 .batch-row .tools-issue-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

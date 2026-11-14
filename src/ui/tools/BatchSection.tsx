@@ -35,8 +35,7 @@ import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
-import { PickerMenu } from "../PickerMenu";
-import { SelectMenu } from "../DropdownMenu";
+import { DropdownMenu, SelectMenu, type DropdownGroup } from "../DropdownMenu";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -46,6 +45,20 @@ import { SelectMenu } from "../DropdownMenu";
  * match each one, so a recurring chore ("new people still missing the
  * placeholder image?") is answered at a glance.
  */
+
+/** The "Add filter" menu's sections. Keyed by kind, so a new filter kind
+ *  fails to compile until it is given a group. */
+const CRITERION_GROUP: Record<BatchCriterion["kind"], "person" | "events" | "family" | "text" | "records"> = {
+  name: "person", nameField: "person", sex: "person", birthYear: "person", age: "person", living: "person",
+  event: "events", familyEvent: "events", place: "events",
+  relation: "family", kinship: "family", line: "family",
+  note: "text", anyField: "text",
+  media: "records", sources: "records", private: "records", privateNote: "records",
+};
+const CRITERION_GROUPS = (["person", "events", "family", "text", "records"] as const).map((id) => ({
+  id,
+  kinds: BATCH_CRITERION_KINDS.filter((k) => CRITERION_GROUP[k] === id),
+}));
 
 interface Props {
   dataset: Dataset;
@@ -214,18 +227,26 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   }, [action?.kind, dataset, results, t, ver]);
 
   /** Per-row preview of the marriage estimate: the date each of the person's
-   *  unions would get. A family shared by two checked partners shows on both. */
+   *  unions would get — one per marriage, so a person married twice shows two,
+   *  each named by the partner. A family shared by two checked partners shows
+   *  on both. */
   const marriagePreview = useMemo(() => {
     if (action?.kind !== "estimateMarriage") return null;
     const byFamily = previewMarriageEstimates(dataset, targets.map((r) => r.id));
     const out = new Map<string, { text: string }>();
     for (const r of targets) {
-      const dates = (dataset.individuals.get(r.id)?.spouseOf ?? []).flatMap((f) => byFamily.get(f) ?? []);
+      const fams = (dataset.individuals.get(r.id)?.spouseOf ?? []).filter((f) => byFamily.has(f));
+      const dates = fams.map((f) => {
+        if (fams.length === 1) return byFamily.get(f)!;
+        const fam = dataset.families.get(f)!;
+        const partner = dataset.individuals.get((fam.husband === r.id ? fam.wife : fam.husband) ?? "");
+        return partner ? `${byFamily.get(f)!} (${nameOf(partner)})` : byFamily.get(f)!;
+      });
       if (dates.length) out.set(r.id, { text: `→ ${dates.join(", ")}` });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [action?.kind, dataset, targets, ver]);
+  }, [action?.kind, dataset, targets, nameOf, ver]);
 
   const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview ?? marriagePreview;
   /** The married-name preview speaks for unchecked rows too (see above). */
@@ -269,6 +290,23 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     setDone(null);
     setConfirming(false);
   }
+
+  /** Start over: no filters, no action, no saved filter selected. */
+  function clearAll() {
+    setCriteria([]);
+    setAction(null);
+    setSelectedSavedId(null);
+    resetReview([], null);
+  }
+
+  const filterGroups = useMemo<DropdownGroup[]>(
+    () =>
+      CRITERION_GROUPS.map((g) => ({
+        label: t(`tools.batch.group.${g.id}`),
+        items: g.kinds.map((k) => ({ value: k, label: t(`tools.batch.crit.${k}`) })),
+      })),
+    [t],
+  );
 
   function addCriterion(kind: BatchCriterion["kind"]) {
     const fresh: Record<BatchCriterion["kind"], BatchCriterion> = {
@@ -403,8 +441,19 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
         </div>
       )}
 
+      {/* Filters, action and save in the left column, the matches beside them
+          on the right (below them on a narrow screen). */}
+      <div className="batch-grid">
+      <div className="batch-controls">
       <div className="batch-builder">
-        <div className="batch-block-title">{t("tools.batch.filters")}</div>
+        <div className="batch-block-title batch-title-row">
+          {t("tools.batch.filters")}
+          {(criteria.length > 0 || action) && (
+            <button className="batch-bar-btn" onClick={clearAll}>
+              {t("tools.batch.clearAll")}
+            </button>
+          )}
+        </div>
         {criteria.length === 0 && <p className="batch-hint">{t("tools.batch.noFilters")}</p>}
         <ul className="batch-crit-list">
           {criteria.map((c, i) => (
@@ -419,19 +468,60 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
             />
           ))}
         </ul>
-        <PickerMenu
-          className="batch-add-filter"
-          label={t("tools.batch.addFilter")}
-          value={"" as string}
-          onChange={(k) => {
-            if (k) addCriterion(k as BatchCriterion["kind"]);
-          }}
-          items={[
-            { key: "", label: `＋ ${t("tools.batch.addFilter")}` },
-            ...BATCH_CRITERION_KINDS.map((k) => ({ key: k as string, label: t(`tools.batch.crit.${k}`) })),
-          ]}
+        <DropdownMenu
+          className="edit-name-chip batch-add-filter"
+          groups={filterGroups}
+          onSelect={(k) => addCriterion(k as BatchCriterion["kind"])}
+          trigger={<>+ {t("tools.batch.addFilter")}</>}
         />
         {needsStart && <p className="batch-hint batch-warn">{t("tools.batch.needStart")}</p>}
+      </div>
+
+      <div className="batch-action">
+        <div className="batch-block-title">{t("tools.batch.actionTitle")}</div>
+        <ActionEditor
+          action={action}
+          mediaOptions={mediaOptions}
+          sourceOptions={sourceOptions}
+          vendorEventOptions={vendorEventOptions}
+          onChange={changeAction}
+        />
+        {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
+        {confirming ? (
+          <div className="batch-confirm">
+            <span>{t("tools.batch.confirm", { count: targets.length })}</span>
+            <button data-busy-cursor className="nav-btn primary" onClick={apply}>
+              {t("confirm.continue")}
+            </button>
+            <button className="nav-btn" onClick={() => setConfirming(false)}>
+              {t("confirm.cancel")}
+            </button>
+          </div>
+        ) : (
+          <button
+            className="nav-btn primary tools-run"
+            disabled={!actionReady || targets.length === 0}
+            onClick={() => setConfirming(true)}
+          >
+            {t("tools.batch.apply", { count: targets.length })}
+          </button>
+        )}
+      </div>
+
+      <div className="batch-save">
+        <input
+          className="batch-save-name"
+          placeholder={t("tools.batch.savePlaceholder")}
+          value={saveName}
+          onChange={(e) => setSaveName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") saveCurrent();
+          }}
+        />
+        <button className="nav-btn" disabled={!saveName.trim() || criteria.length === 0} onClick={saveCurrent}>
+          {t("tools.batch.save")}
+        </button>
+      </div>
       </div>
 
       <div className="batch-results">
@@ -498,51 +588,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
         </ul>
       </div>
-
-      <div className="batch-action">
-        <div className="batch-block-title">{t("tools.batch.actionTitle")}</div>
-        <ActionEditor
-          action={action}
-          mediaOptions={mediaOptions}
-          sourceOptions={sourceOptions}
-          vendorEventOptions={vendorEventOptions}
-          onChange={changeAction}
-        />
-        {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
-        {confirming ? (
-          <div className="batch-confirm">
-            <span>{t("tools.batch.confirm", { count: targets.length })}</span>
-            <button data-busy-cursor className="nav-btn primary" onClick={apply}>
-              {t("confirm.continue")}
-            </button>
-            <button className="nav-btn" onClick={() => setConfirming(false)}>
-              {t("confirm.cancel")}
-            </button>
-          </div>
-        ) : (
-          <button
-            className="nav-btn primary tools-run"
-            disabled={!actionReady || targets.length === 0}
-            onClick={() => setConfirming(true)}
-          >
-            {t("tools.batch.apply", { count: targets.length })}
-          </button>
-        )}
-      </div>
-
-      <div className="batch-save">
-        <input
-          className="batch-save-name"
-          placeholder={t("tools.batch.savePlaceholder")}
-          value={saveName}
-          onChange={(e) => setSaveName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") saveCurrent();
-          }}
-        />
-        <button className="nav-btn" disabled={!saveName.trim() || criteria.length === 0} onClick={saveCurrent}>
-          {t("tools.batch.save")}
-        </button>
       </div>
     </div>
   );
