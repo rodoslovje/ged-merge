@@ -914,14 +914,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     });
   }
 
-  /** Name a face on a shared photo as another person: their own link to the
-   *  photo gets the region — added first, in the same commit, when they have no
-   *  link to it yet. */
+  /** Name a face on a shared photo as a person, or resize their region: their
+   *  link to the photo gets the region — added first, in the same commit, when
+   *  they have no link to it yet. */
   function tagPersonOnMedia(personId: string, file: string, mediaXref: string, crop: CropRegion) {
     const indi = dataset.individuals.get(personId);
     if (!indi) return;
     const own = { kind: "individual" } as const;
-    const existing = collectMediaRefs(indi.raw, dataset.records).find((r) => !r.eventTag && r.xref === mediaXref);
+    // The link that already carries a region for this photo (it is the one
+    // shown, even on an event), else the person's own link to it.
+    const links = collectMediaRefs(indi.raw, dataset.records).filter((r) => r.xref === mediaXref);
+    const existing = links.find((r) => r.crop) ?? links.find((r) => !r.eventTag);
     if (existing) {
       ownerCommit(own, (raw) => {
         const child = mediaNodeAt(raw, existing);

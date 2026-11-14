@@ -1,14 +1,15 @@
-import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
 import { birthParentFamilies } from "../gedcom/couple";
 import {
-  DEATH_TAGS, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf, estimateBirthYear, isDeceased,
+  DEATH_TAGS, FATHER_AGE, MOTHER_AGE, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf,
+  estimateBirthYear, isDeceased,
 } from "../gedcom/lifespan";
-import { addEventNode, setEventField } from "../gedcom/edit/events";
+import { addEventNode, setEventField, setFamilyEventField } from "../gedcom/edit/events";
 import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { inferNameVariants } from "../normalize/nameVariants";
-import { rebuildIndividual } from "../gedcom/edit/cache";
+import { rebuildFamily, rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
@@ -71,8 +72,11 @@ export type BatchCriterion =
    *  never married. The sentinel {@link ANY_EVENT} tag matches a union carrying
    *  any event at all, so `lacks` finds the unions nothing is recorded about.
    *  `has` means one union carries it, `lacks` that none does; people with no
-   *  union at all count as lacking everything. */
-  | { kind: "familyEvent"; tag: string; mode: "has" | "lacks" }
+   *  union at all count as lacking everything. `undated` finds a union whose
+   *  event is missing or carries no date, `estimated` one whose event is dated
+   *  only by an estimate (ABT, CAL, EST, BEF, AFT, BET) — both look at each
+   *  union on its own, and people with no union match neither. */
+  | { kind: "familyEvent"; tag: string; mode: FamilyEventMode }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   /** Presence of a close relative in the file: a partner in some union (a
@@ -98,6 +102,9 @@ export type BatchCriterion =
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
   | { kind: "sources"; mode: "none" | "any" }
   | { kind: "line"; side: LineSide };
+
+/** How the family-event criterion tests a union's event. */
+export type FamilyEventMode = "has" | "lacks" | "undated" | "estimated";
 
 /** Sentinel `tag` for the event criterion: any non-standard (`_`) event. */
 export const ANY_VENDOR_EVENT = "_*";
@@ -125,6 +132,9 @@ export interface BatchRow extends SearchRow {
   eventTags: string[];
   /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
   familyEventTags: string[];
+  /** Per union, its events with how they are dated — for the `undated` and
+   *  `estimated` family-event tests, which judge each union on its own. */
+  unionEvents: { tag: string; dated: boolean; estimated: boolean }[][];
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
@@ -202,6 +212,9 @@ export function buildBatchRows(
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
       familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
+      unionEvents: unions.map((f) =>
+        f.events.map((e) => ({ tag: e.tag, dated: e.date?.year !== undefined, estimated: isEstimatedDate(e.date) })),
+      ),
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
       hasGiven: !!indi.names[0]?.given?.trim(),
@@ -291,6 +304,14 @@ export function computeKinship(ds: Dataset, startId: string): KinshipSets | null
   };
 }
 
+/** A date that only estimates the moment: about/calculated/estimated, before,
+ *  after or between — the qualifiers a researcher writes when the record is
+ *  missing. Periods (FROM/TO) and phrases are not estimates. */
+export function isEstimatedDate(d: GedDate | undefined): boolean {
+  if (d?.year === undefined) return false;
+  return d.qualifier === "about" || d.qualifier === "before" || d.qualifier === "after" || d.qualifier === "between";
+}
+
 /** Whether one specific image (by shared xref and/or file) is in the row's tray. */
 function hasMedia(row: BatchRow, xref?: string, file?: string): boolean {
   if (xref && row.mediaXrefs.includes(xref)) return true;
@@ -339,6 +360,15 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         break;
       }
       case "familyEvent": {
+        if (c.mode === "undated" || c.mode === "estimated") {
+          const of = (events: BatchRow["unionEvents"][number]) =>
+            events.filter((e) => c.tag === ANY_EVENT || e.tag === c.tag);
+          const ok = c.mode === "undated"
+            ? row.unionEvents.some((u) => !of(u).some((e) => e.dated))
+            : row.unionEvents.some((u) => of(u).some((e) => e.estimated));
+          if (!ok) return false;
+          break;
+        }
         const has = c.tag === ANY_EVENT
           ? row.familyEventTags.length > 0
           : row.familyEventTags.includes(c.tag);
@@ -487,10 +517,10 @@ export type BatchActionSpec =
   /** Write an estimated birth year as `BIRT` → `DATE ABT <year>` (rounded to
    *  the nearest 5, so estimates read as the rough guesses they are), derived
    *  from dated immediate relatives (see {@link estimateBirthYear} — the same
-   *  estimate the privacy check explains). Undated siblings are kept at least
-   *  `SIBLING_STEP` apart: anchored on the nearest dated sibling, or spread in
-   *  the family's child order (see the sibling pass in `estimateBirthBatch`).
-   *  People with any dated birth/baptism event, and people with no dated
+   *  estimate the privacy check explains). Undated siblings anchor on the
+   *  nearest dated sibling in the family's child order, `SIBLING_STEP` per
+   *  position, rounded the same way (see the sibling pass in
+   *  `previewBirthEstimates`). People with any dated birth/baptism event, and people with no dated
    *  close relative, are skipped. Estimates are computed before anything is
    *  written, so one run never chains an estimate off another — re-running
    *  reaches one relative-hop further. */
@@ -505,6 +535,12 @@ export type BatchActionSpec =
    *  whether a union looks like a marriage ({@link unionMarriage}) decides only
    *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
+  /** Date each undated marriage of the selected people with the strongest
+   *  estimate the family supports — `BEF` the oldest exactly dated child, else
+   *  `ABT` from an estimated child or from the spouses' births (see
+   *  {@link previewMarriageEstimates}). A family is written once even when
+   *  both partners are selected. */
+  | { kind: "estimateMarriage" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources). The line value stays where the target holds
    *  one (`carriesLineValue`) and becomes a note where it does not. When the
@@ -513,7 +549,7 @@ export type BatchActionSpec =
   | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
-  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "addMarriedName", "convertEvent",
+  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "estimateMarriage", "addMarriedName", "convertEvent",
 ];
 
 export interface BatchApplyResult {
@@ -543,6 +579,8 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return markDeceasedBatch(ds, ids);
     case "estimateBirth":
       return estimateBirthBatch(ds, ids);
+    case "estimateMarriage":
+      return estimateMarriageBatch(ds, ids);
     case "addMarriedName":
       return addMarriedNameBatch(ds, ids);
     case "convertEvent":
@@ -622,7 +660,7 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
 /** Rounding grain for batch birth estimates — a guess on a multiple of 5
  *  (ABT 1880, not ABT 1878) reads as the approximation it is. */
 const ESTIMATE_ROUND = 5;
-/** Minimum spacing between same-family sibling estimates. */
+/** Years per child-order position when anchoring on a dated sibling. */
 const SIBLING_STEP = 1;
 
 const roundEstimate = (y: number) => Math.round(y / ESTIMATE_ROUND) * ESTIMATE_ROUND;
@@ -631,13 +669,12 @@ const roundEstimate = (y: number) => Math.round(y / ESTIMATE_ROUND) * ESTIMATE_R
  * The years the estimate action would write, keyed by person id — people it
  * would skip (already dated, or nothing to estimate from) get no entry. Pure
  * dry-run of {@link estimateBirthBatch}'s computation, shared with the panel's
- * per-row preview. Note the result depends on the whole `ids` selection, not
- * just the person: sibling spreading spaces the selected siblings out.
+ * per-row preview.
  */
 export function previewBirthEstimates(ds: Dataset, ids: string[]): Map<string, number> {
-  // Rounded to the nearest 5 years: a 28-year generation offset would land
-  // on oddly specific years (ABT 1878) that read like computed-from-a-record
-  // precision; ABT 1880 looks like the rough guess it is.
+  // Every ABT guess is rounded to the nearest 5 years: a generation offset
+  // would land on oddly specific years (ABT 1878) that read like
+  // computed-from-a-record precision; ABT 1880 looks like the rough guess it is.
   const estimates = new Map<string, number>();
   /** Parent-derived estimates, grouped by the family the person is a child of —
    *  these all share one number, so they take the sibling pass below. */
@@ -672,39 +709,24 @@ export function previewBirthEstimates(ds: Dataset, ids: string[]): Map<string, n
         );
     if (famId) parentDerived.set(famId, [...(parentDerived.get(famId) ?? []), id]);
   }
-  // Sibling pass: undated children of one couple would otherwise all get the
-  // identical parent+generation guess. Children are taken in the order the
-  // family lists them (usually birth order): a dated sibling is the closest
-  // evidence there is, so each estimate re-anchors on the nearest one, one
-  // SIBLING_STEP per list position away (unrounded — it follows real data);
-  // with no dated sibling the shared rounded guess stays the center and the
-  // group spreads a step apart around it. Estimates driven by the person's
-  // own spouse/children keep their number.
+  // Sibling pass: a dated sibling is closer evidence than a parent's
+  // generation. Children are taken in the order the family lists them
+  // (usually birth order), and each estimate re-anchors on the nearest dated
+  // one, SIBLING_STEP per list position away — then rounded like every other
+  // guess, so close siblings may share an ABT year. With no dated sibling the
+  // shared parent guess stands. Estimates driven by the person's own
+  // spouse/children keep their number.
   for (const [famId, group] of parentDerived) {
     const order = ds.families.get(famId)?.children ?? [];
-    const members = order.filter((cid) => group.includes(cid));
     const anchors = order
       .map((cid, i) => ({ i, y: birthYear(ds.individuals.get(cid)) }))
       .filter((a): a is { i: number; y: number } => a.y !== undefined);
-    if (anchors.length > 0) {
-      for (const cid of members) {
-        const i = order.indexOf(cid);
-        let best = anchors[0];
-        for (const a of anchors) if (Math.abs(a.i - i) < Math.abs(best.i - i)) best = a;
-        estimates.set(cid, best.y + SIBLING_STEP * (i - best.i));
-      }
-    } else if (members.length > 1) {
-      const start = estimates.get(members[0])! - SIBLING_STEP * Math.floor((members.length - 1) / 2);
-      members.forEach((cid, k) => estimates.set(cid, start + SIBLING_STEP * k));
-    }
-    // Anchoring can still collide (two children equidistant from different
-    // dated siblings) — keep the group strictly increasing in list order.
-    let prev: number | undefined;
-    for (const cid of members) {
-      let y = estimates.get(cid)!;
-      if (prev !== undefined && y <= prev) y = prev + SIBLING_STEP;
-      estimates.set(cid, y);
-      prev = y;
+    if (anchors.length === 0) continue;
+    for (const cid of order.filter((c) => group.includes(c))) {
+      const i = order.indexOf(cid);
+      let best = anchors[0];
+      for (const a of anchors) if (Math.abs(a.i - i) < Math.abs(best.i - i)) best = a;
+      estimates.set(cid, roundEstimate(best.y + SIBLING_STEP * (i - best.i)));
     }
   }
   return estimates;
@@ -741,6 +763,78 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
     patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
     changed: estimates.size,
     skipped,
+  };
+}
+
+/** Years before an estimated first birth that an `ABT` marriage is placed. */
+const MARRIAGE_BEFORE_CHILD = 2;
+
+/**
+ * The marriage dates the estimate action would write, keyed by family id —
+ * the strongest estimate the family supports:
+ *  1. `BEF <year>` of the oldest child with an exact birth date — a couple
+ *     marries before their first child is born;
+ *  2. otherwise `ABT`, {@link MARRIAGE_BEFORE_CHILD} years before the oldest
+ *     child with an estimated birth (a `BEF` on an `ABT` would pass a guess off
+ *     as a bound);
+ *  3. otherwise `ABT` from the spouses' births — the wife's plus a mother's
+ *     age at a first child, else the husband's plus a father's.
+ * `ABT` years are rounded to a year ending in 0 or 5, like birth estimates. A
+ * union qualifies when its marriage has no date (or no marriage is recorded),
+ * or when its date is a `BEF` later than rule 1's year — an estimate written
+ * before an older child was added. Other dates, estimates included, are the
+ * researcher's and stay.
+ */
+export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const id of ids) {
+    for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
+      if (out.has(famId)) continue;
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      let exact: number | undefined;
+      let estimated: number | undefined;
+      for (const cid of fam.children) {
+        const d = birthDateOf(ds.individuals.get(cid));
+        if (d?.year === undefined) continue;
+        if (d.qualifier === "exact") exact = Math.min(exact ?? d.year, d.year);
+        else estimated = Math.min(estimated ?? d.year, d.year);
+      }
+      const date = fam.events.find((e) => e.tag === "MARR")?.date;
+      if (!date?.raw.trim()) {
+        const wife = birthYear(fam.wife ? ds.individuals.get(fam.wife) : undefined);
+        const husband = birthYear(fam.husband ? ds.individuals.get(fam.husband) : undefined);
+        const guess =
+          estimated !== undefined ? estimated - MARRIAGE_BEFORE_CHILD
+          : wife !== undefined ? wife + MOTHER_AGE
+          : husband !== undefined ? husband + FATHER_AGE
+          : undefined;
+        if (exact !== undefined) out.set(famId, `BEF ${exact}`);
+        else if (guess !== undefined) out.set(famId, `ABT ${roundEstimate(guess)}`);
+      } else if (exact !== undefined && date.qualifier === "before" && date.year !== undefined && date.year > exact) {
+        out.set(famId, `BEF ${exact}`);
+      }
+    }
+  }
+  return out;
+}
+
+/** Write the marriage estimates (see {@link previewMarriageEstimates}). A
+ *  person counts as changed when any of their unions was written. */
+function estimateMarriageBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const estimates = previewMarriageEstimates(ds, ids);
+  const snap = snapshotRecords(ds, [], estimates.keys());
+  for (const [famId, date] of estimates) {
+    const fam = ds.families.get(famId)!;
+    setFamilyEventField(fam, "MARR", { date });
+    rebuildFamily(ds, fam);
+  }
+  const present = ids.filter((id) => ds.individuals.has(id));
+  const changed = present.filter((id) => ds.individuals.get(id)!.spouseOf.some((f) => estimates.has(f))).length;
+  return {
+    patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
+    changed,
+    skipped: present.length - changed,
   };
 }
 

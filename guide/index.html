@@ -1636,7 +1636,8 @@
               person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
               person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
               <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
-              file says nothing about), place, note text (matched against the note as written, so a note that is
+              file says nothing about; <em>has no date for</em> finds a union whose event is missing or undated, and
+              <em>has an estimated date for</em> one dated only by an estimate such as ABT, BEF or AFT), place, note text (matched against the note as written, so a note that is
               nothing but a link is found by any part of it — <em>Note contains facebook.com</em>), text in any
               field of the person's record (<em>Any field contains</em>: every word you type must appear somewhere
               in it or in the events of the person's unions — names, dates, places, occupations, citations or
@@ -1651,20 +1652,25 @@
               filtering for living people with an impossible age), give people without any birth or baptism date an
               <strong>estimated birth year</strong> — calculated, where a dated event states the person's age (a
               death at 62), from that age and written as a <em>CAL</em> date, and otherwise
-              written as an <em>ABT</em> date and rounded to the nearest five
-              years, so the file itself says it is approximate, derived from the birth years of dated parents, spouse
-              or children (the same estimate the Privacy tool explains), with undated siblings kept at least a year
-              apart in the family's child order, anchored on a dated sibling where one exists; people with no dated
+              written as an <em>ABT</em> date, always on a year ending in 0 or 5, so the file itself says it is
+              approximate, derived from the birth years of dated parents, spouse or children — a father about 30 and
+              a mother about 25 at a child's birth, a husband about 5 years older than his wife (the same estimate the
+              Privacy tool explains) — or from a dated sibling in the family's child order; people with no dated
               close relative are skipped, and running the action again
               reaches them through the estimates just written — record <strong>married names from the partners</strong>,
               taking each partner's surname and writing it the way the file itself writes married names (an inline
               tag, comma-joined when there are several, or one name record per union); every union contributes, in
               marriage order, so a second marriage adds a second name, and surnames the person already carries are
-              left untouched — or convert a non-standard event to a standard
+              left untouched — give undated marriages of the selected people an <strong>estimated marriage
+              date</strong>: <em>BEF</em> the birth year of the oldest child with an exact birth date, otherwise
+              <em>ABT</em> two years before the oldest child's estimated birth or from the spouses' births (a wife
+              marrying at about 25, a husband at about 30), on a year ending in 0 or 5; a <em>BEF</em> estimate
+              written before an older child was added is corrected, and exact and other estimated dates stay
+              — or convert a non-standard event to a standard
               type or to a named custom event, keeping its dates, places and sources; the target is proposed per tag
               (an interment becomes a burial, a state such as an illness a fact, anything else a custom event), and
               text the new type cannot carry on its own line moves into the event's note. Each match has a checkbox so you can drop individuals before
-              applying — with the estimate action, each row also previews the year that person would get, and with the
+              applying — with the estimate actions, each row also previews the date that person or their marriage would get, and with the
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
               its children carry the mother's surname rather than the father's — the classic sign of a birth outside
@@ -2977,8 +2983,9 @@
               with a <strong>?</strong>. Click one and pick who it is: the person whose photo it is and their close family
               (partners, children, parents, brothers and sisters, the partner's parents and siblings) are offered first,
               and typing a name searches the whole file. Anyone else you pick gets the photo too, with that region as
-              their thumbnail; people already marked on the photo are not offered again. A region found this way can be
-              adjusted with <strong>⛶ Change person's region</strong> like a drawn one. The face finder loads the first
+              their thumbnail; people already marked on the photo are not offered again. Every marked person's region —
+              found or drawn, whoever's photo you opened — has a handle at each corner while the mouse is over the
+              photo: drag one to make the region larger or smaller, for example to take in the whole head. The face finder loads the first
               time you open a photo and needs a network connection that once.
             </p>
             <h3>Browser support</h3>

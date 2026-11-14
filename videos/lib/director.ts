@@ -62,9 +62,9 @@ export class Recorder {
   }
 }
 
-/** A stretch of dead waiting, recording time from–to, and at most how many
- *  seconds of it stay in the video. */
-export type Skip = [number, number, number?];
+/** A stretch of dead waiting: recording time from–to, the share of it kept
+ *  (default assemble.ts's), and at most how many seconds of it stay. */
+export type Skip = [number, number, number?, number?];
 
 export class Director {
   readonly page: Page;
@@ -77,6 +77,8 @@ export class Director {
   saidAt = 0;
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
   readonly skips: Skip[] = [];
+  /** Stretches whose frames are left out (see `frozen`). */
+  readonly freezes: [number, number][] = [];
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
@@ -85,15 +87,31 @@ export class Director {
   /**
    * Run a wait that shows nothing worth watching — an online lookup, a slow
    * scan — and mark it, so assemble.ts shortens the part of it no narration
-   * plays over. `keepSeconds` caps what is left of it, for a wait of minutes
+   * plays over. `keep` is the share of it left in the video (default: a
+   * third), or `{ seconds }` the most of it that stays, for a wait of minutes
    * (a register download) that a third of would still drag.
    */
-  async skippable<T>(wait: () => Promise<T>, keepSeconds?: number): Promise<T> {
+  async skippable<T>(wait: () => Promise<T>, keep?: number | { seconds: number }): Promise<T> {
     const start = this.clock();
     try {
       return await wait();
     } finally {
-      this.skips.push(keepSeconds === undefined ? [start, this.clock()] : [start, this.clock(), keepSeconds]);
+      const end = this.clock();
+      this.skips.push(keep === undefined ? [start, end] : typeof keep === "number" ? [start, end, keep] : [start, end, undefined, keep.seconds]);
+    }
+  }
+
+  /**
+   * Run something whose painting must not be seen — a page navigation, which
+   * shows the new page for a frame or two before anything can cover it. The
+   * picture holds on the last frame before it until the first frame after.
+   */
+  async frozen<T>(work: () => Promise<T>): Promise<T> {
+    const start = this.clock();
+    try {
+      return await work();
+    } finally {
+      this.freezes.push([start, this.clock()]);
     }
   }
 
@@ -159,6 +177,20 @@ export class Director {
 
   async card(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {
     await this.overlay("card", kicker && this.t(kicker), title && this.t(title), line && this.t(line));
+  }
+
+  /**
+   * Keep a title card on screen through a page navigation: the next page
+   * shows it from its first paint, so its loading (an unstyled flash, the
+   * page behind) is never seen. `null` lets go; follow with `card(null, null)`
+   * to fade it out.
+   */
+  async holdCard(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {
+    const value = title ? JSON.stringify([kicker && this.t(kicker), this.t(title), line && this.t(line)]) : null;
+    await this.page.evaluate((v) => {
+      if (v) sessionStorage.setItem("gmv-card", v);
+      else sessionStorage.removeItem("gmv-card");
+    }, value);
   }
 
   /**

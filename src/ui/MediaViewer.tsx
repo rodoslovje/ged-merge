@@ -79,6 +79,9 @@ export interface MediaEdit {
 export interface CropMark {
   crop: CropRegion;
   label: string;
+  /** The person whose region this is, when it is one person's — lets the
+   *  viewer resize it for them. Absent for a family's region. */
+  personId?: string;
 }
 
 /** One photo plus the metadata shown beside it in the info panel. */
@@ -207,7 +210,11 @@ function mediaCropMarks(
 ): CropMark[] {
   return mediaUsedBy(dataset, mediaXref)
     .filter((u) => u.crop)
-    .map((u) => ({ crop: u.crop!, label: personsLabel(dataset, u.persons, at, showAge) }));
+    .map((u) => ({
+      crop: u.crop!,
+      label: personsLabel(dataset, u.persons, at, showAge),
+      personId: u.record && dataset.individuals.has(u.record) ? u.record : undefined,
+    }));
 }
 
 /** Combined "Name lifespan" label for a usage row's person(s) — name + lifespan
@@ -396,7 +403,11 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                       r.objeIndex === ref.objeIndex,
                   );
                   return fresh?.crop
-                    ? [{ crop: fresh.crop, label: recordCropLabel(refCtx.dataset, raw, photoDate, showAge) }]
+                    ? [{
+                        crop: fresh.crop,
+                        label: recordCropLabel(refCtx.dataset, raw, photoDate, showAge),
+                        personId: raw.tag === "INDI" ? raw.xref : undefined,
+                      }]
                     : [];
                 }
             : undefined,
@@ -555,6 +566,15 @@ function MediaInfoEditor({
   );
 }
 
+/** The corner handles of a marked region, by compass point. */
+const CORNERS = ["nw", "ne", "sw", "se"] as const;
+const roundCrop = (c: CropRegion): CropRegion => ({
+  left: Math.round(c.left),
+  top: Math.round(c.top),
+  width: Math.round(c.width),
+  height: Math.round(c.height),
+});
+
 /** Head regions per photo URL, found once per page session. */
 const headCache = new Map<string, Promise<CropRegion[]>>();
 function headsOf(url: string, img: HTMLImageElement): Promise<CropRegion[]> {
@@ -602,21 +622,31 @@ function FaceNamer({
     <div className="photo-face-namer" ref={ref} onClick={(e) => e.stopPropagation()}>
       <div className="photo-face-title">{t("media.face.who")}</div>
       {naming.others && (
-        <input
-          className="edit-input"
-          autoFocus
-          placeholder={t("media.face.search")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && people[0]) onPick(people[0].id);
-          }}
-        />
+        // The app's search box, as in the Add-media picker.
+        <div className="name-search-wrap photo-face-search">
+          <input
+            type="text"
+            className="name-search"
+            autoFocus
+            placeholder={t("media.face.search")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && people[0]) onPick(people[0].id);
+            }}
+          />
+          {query && (
+            <button className="name-search-clear" onClick={() => setQuery("")} tabIndex={-1} aria-label={t("filter.clearSearch")}>
+              ✕
+            </button>
+          )}
+        </div>
       )}
       <ul className="photo-face-list">
         {people.map((p) => (
           <li key={p.id}>
-            <button type="button" onClick={() => onPick(p.id)}>{lifespanLabel(p)}</button>
+            {/* Named the way people are named everywhere: sex colour, lifespan, age. */}
+            <PersonLink dataset={naming.dataset} id={p.id} fallback={lifespanLabel(p)} onNavigate={onPick} />
           </li>
         ))}
         {people.length === 0 && <li className="photo-face-none">{t("media.face.none")}</li>}
@@ -656,7 +686,13 @@ function MediaStage({
   /** Face finding: the faces nobody is marked on are revealed on hover with a
    *  »?«, and clicking one hands its region to `onFace`. While one is being
    *  named, `naming` keeps its box drawn with the name panel under it. */
-  faces?: { onFace: (crop: CropRegion) => void; onFound: (count: number) => void; naming: { crop: CropRegion; panel: ReactNode } | null };
+  faces?: {
+    onFace: (crop: CropRegion) => void;
+    onFound: (count: number) => void;
+    naming: { crop: CropRegion; panel: ReactNode } | null;
+    /** A marked person's region resized by its corner handles. */
+    onAdjust: (mark: CropMark, crop: CropRegion) => void;
+  };
 }) {
   const { t } = useTranslation();
   // Natural pixel size, captured on load; cleared while a new image loads so a
@@ -693,7 +729,13 @@ function MediaStage({
 
   const canReveal = !cropEdit && (allCrops.length > 0 || (!!faces && unnamed.length > 0));
   // A hovered name shows just that person; otherwise an image hover reveals all.
-  const marks = cropEdit ? [] : hoverMark ? [hoverMark] : revealing ? allCrops : [];
+  // A marked region being resized by a corner handle: which one, the corner
+  // held still (natural pixels), and the region as dragged so far.
+  const [resizing, setResizing] = useState<{ i: number; crop: CropRegion } | null>(null);
+  const resizeAnchor = useRef<{ x: number; y: number } | null>(null);
+  const marks = cropEdit ? [] : hoverMark ? [hoverMark] : revealing || resizing ? allCrops : [];
+  // Whose regions get corner handles: one person's, on an editable photo.
+  const resizable = (m: CropMark) => !!faces && !!m.personId && !hoverMark;
 
   // A PDF renders in the browser's built-in viewer; crop regions don't apply.
   if (kind === "pdf") {
@@ -702,12 +744,13 @@ function MediaStage({
 
   // The wrapper shrink-wraps the image, so its client rect maps 1:1 onto the
   // natural pixel space the CROP tags use.
-  const toNatural = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * natural!.w;
-    const y = ((e.clientY - rect.top) / rect.height) * natural!.h;
+  const naturalAt = (clientX: number, clientY: number, rect: DOMRect) => {
+    const x = ((clientX - rect.left) / rect.width) * natural!.w;
+    const y = ((clientY - rect.top) / rect.height) * natural!.h;
     return { x: Math.max(0, Math.min(natural!.w, x)), y: Math.max(0, Math.min(natural!.h, y)) };
   };
+  const toNatural = (e: React.PointerEvent<HTMLDivElement>) =>
+    naturalAt(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
   const draftFrom = (anchor: { x: number; y: number }, p: { x: number; y: number }): CropRegion => ({
     left: Math.min(anchor.x, p.x),
     top: Math.min(anchor.y, p.y),
@@ -718,8 +761,10 @@ function MediaStage({
   return (
     <div
       className={`person-media-cropwrap ${cropEdit ? "crop-editing" : ""}`}
-      onMouseEnter={canReveal ? () => setRevealing(true) : undefined}
-      onMouseLeave={canReveal ? () => setRevealing(false) : undefined}
+      // Tracked even before there is anything to reveal: faces found while the
+      // mouse already rests on the photo must show without leaving and coming back.
+      onMouseEnter={cropEdit ? undefined : () => setRevealing(true)}
+      onMouseLeave={cropEdit ? undefined : () => setRevealing(false)}
       onTouchStart={canReveal ? () => setRevealing((v) => !v) : undefined}
       onPointerDown={cropEdit && natural ? (e) => {
         e.preventDefault();
@@ -750,8 +795,40 @@ function MediaStage({
         }}
       />
       {natural && marks.map((m, i) => (
-        <div key={i} className="photo-crop-box" style={box(m.crop)}>
+        <div key={i} className={`photo-crop-box${resizing?.i === i ? " photo-crop-resizing" : ""}`} style={box(resizing?.i === i ? resizing.crop : m.crop)}>
           <span className="photo-crop-name" title={m.label}>{m.label}</span>
+          {resizable(m) && CORNERS.map((corner) => (
+            <span
+              key={corner}
+              className={`photo-crop-handle photo-crop-handle-${corner}`}
+              title={t("media.crop.resize")}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                // Hold the opposite corner still; the dragged one follows the pointer.
+                const c = m.crop;
+                resizeAnchor.current = {
+                  x: corner.endsWith("w") ? c.left + c.width : c.left,
+                  y: corner.startsWith("n") ? c.top + c.height : c.top,
+                };
+                setResizing({ i, crop: c });
+              }}
+              onPointerMove={(e) => {
+                if (!resizeAnchor.current) return;
+                const wrap = e.currentTarget.closest(".person-media-cropwrap")!.getBoundingClientRect();
+                setResizing({ i, crop: draftFrom(resizeAnchor.current, naturalAt(e.clientX, e.clientY, wrap)) });
+              }}
+              onPointerUp={(e) => {
+                if (!resizeAnchor.current) return;
+                const wrap = e.currentTarget.closest(".person-media-cropwrap")!.getBoundingClientRect();
+                const crop = draftFrom(resizeAnchor.current, naturalAt(e.clientX, e.clientY, wrap));
+                resizeAnchor.current = null;
+                setResizing(null);
+                if (crop.width >= 8 && crop.height >= 8) faces!.onAdjust(m, roundCrop(crop));
+              }}
+            />
+          ))}
         </div>
       ))}
       {natural && faces && !cropEdit && !hoverMark && revealing && unnamed.map((f, i) => (
@@ -903,6 +980,12 @@ function MediaViewerOverlay({
                 ? {
                     onFace: setNamingFace,
                     onFound: (count) => setFacesFound((p) => ({ ...p, [index]: count })),
+                    onAdjust: (mark, crop) => {
+                      if (!mark.personId) return;
+                      current.naming!.onName(mark.personId, crop);
+                      if (mark.personId === current.naming!.openerId) setCropSaved((p) => ({ ...p, [index]: crop }));
+                      setCropRefresh((v) => v + 1);
+                    },
                     naming: namingFace
                       ? {
                           crop: namingFace,

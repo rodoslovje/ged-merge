@@ -49,6 +49,9 @@ export interface SourceUse {
    *  the citing `OBJE` link marks a subregion (e.g. this person in a group photo).
    *  Populated by {@link mediaUsedBy}; lets the viewer move the highlight on hover. */
   crop?: CropRegion;
+  /** The citing record's xref (`INDI` or `FAM`) — set by {@link mediaUsedBy},
+   *  so the viewer can write that record's region back. */
+  record?: string;
 }
 
 export interface MediaEntry {
@@ -189,6 +192,17 @@ function buildUsageIndex(dataset: Dataset): {
 }
 
 /**
+ * The records citing a source that none of its own media rows already lists:
+ * under a book the tree shows each page with the people citing it, so a person
+ * named there again beneath the book reads as a duplicate.
+ */
+export function usesBeyondMedia(src: SourceEntry): SourceUse[] {
+  const shown = new Set(src.media.flatMap((m) => m.usedBy.flatMap((u) => u.persons.map((p) => p.id))));
+  if (shown.size === 0) return src.usedBy;
+  return src.usedBy.filter((u) => u.persons.some((p) => !shown.has(p.id)));
+}
+
+/**
  * The `INDI`/`FAM` records that cite a single media object directly. Same shape
  * as one entry of {@link buildUsageIndex}'s `byMedia`, but scoped to one xref so
  * the photo viewer can show a media object's "referenced by" list without
@@ -211,6 +225,7 @@ export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
       uses.push({
         persons,
         crop: objeLinkCrop(rec, mediaXref),
+        record: rec.xref,
         ...(eventTags.length > 0 ? { eventTags } : {}),
       });
     }

@@ -10,7 +10,7 @@ import { formatGedDate } from "../normalize/date";
 import { parseDate } from "../gedcom/date";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { findDuplicates } from "./duplicates";
-import { buildSourceTree, mediaUsedBy } from "./sources";
+import { buildSourceTree, mediaUsedBy, usesBeyondMedia } from "./sources";
 import { collectLocalMediaFiles } from "./mediaFiles";
 import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
@@ -2472,6 +2472,8 @@ describe("mediaUsedBy", () => {
     expect(byId.get("@I2@")).toEqual({ top: 200, left: 300, height: 120, width: 90 });
     // A reference without a CROP carries no region.
     expect(byId.get("@I3@")).toBeUndefined();
+    // Each use names its record, so the viewer can write that region back.
+    expect(uses.map((u) => u.record).sort()).toEqual(["@I1@", "@I2@", "@I3@"]);
   });
 
   it("says which events a page image is cited on, and nothing for a record-level link", () => {
@@ -2501,6 +2503,31 @@ describe("mediaUsedBy", () => {
 });
 
 describe("buildSourceTree", () => {
+  it("lists a book's citer once when a page under it already names them", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 42
+2 OBJE @O1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://example.org/scan.jpg?pg=42
+1 TITL Stran 42
+0 TRLR`);
+    const src = buildSourceTree(ds).repos.flatMap((r) => r.sources).find((s) => s.xref === "@S1@")!;
+    expect(src.usedBy.map((u) => u.persons[0].id).sort()).toEqual(["@I1@", "@I2@"]);
+    // Janez is under page 42 already; only Ana, who cites the book alone, stays beneath it.
+    expect(usesBeyondMedia(src).map((u) => u.persons[0].id)).toEqual(["@I2@"]);
+  });
+
   it("nests REPO → SOUR → OBJE and tracks the records that cite them", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

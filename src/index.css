@@ -58,7 +58,11 @@ button:focus-visible {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* sections manage their own scrolling */
+  /* Sections manage their own scrolling. »clip« rather than »hidden«: a hidden
+     box can still be scrolled by script, and focusing a field or a click's
+     scroll-into-view did exactly that, sliding the whole app — header and all —
+     up out of the window. */
+  overflow: clip;
 }
 .app-head {
   flex: 0 0 auto;
@@ -3077,6 +3081,23 @@ button:focus-visible {
   pointer-events: auto;
 }
 .photo-crop-box.photo-face-box:hover { background: var(--accent-soft); }
+/* Corner handles on a marked person's region: drag one to resize it. */
+.photo-crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  border-radius: var(--radius-sm);
+  pointer-events: auto;
+  touch-action: none;
+}
+.photo-crop-handle-nw { left: -7px; top: -7px; cursor: nwse-resize; }
+.photo-crop-handle-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.photo-crop-handle-ne { right: -7px; top: -7px; cursor: nesw-resize; }
+.photo-crop-handle-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+/* The region being resized tracks the pointer exactly, in the accent colour. */
+.photo-crop-box.photo-crop-resizing { border: 2px solid var(--accent); transition: none; }
 /* The name panel, under the face being named. */
 .photo-face-panel {
   position: absolute;
@@ -3098,7 +3119,7 @@ button:focus-visible {
   align-items: flex-start;
 }
 .photo-face-title { font-weight: 600; font-size: 0.85rem; }
-.photo-face-namer .edit-input { width: 100%; }
+.photo-face-search { width: 100%; flex: none; }
 .photo-face-list { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 220px; overflow-y: auto; flex-shrink: 0; }
 .photo-face-list button {
   width: 100%;
@@ -3106,12 +3127,13 @@ button:focus-visible {
   padding: 4px 6px;
   border: 0;
   background: none;
-  color: var(--text);
   font: inherit;
   font-size: 0.82rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+/* The person rows are PersonLinks: their own name colours, no link underline. */
+.photo-face-list .person-ref:hover { text-decoration: none; }
 .photo-face-list button:hover { background: var(--accent-soft); }
 .photo-face-none { color: var(--muted); font-size: 0.8rem; padding: 4px 6px; }
 .photo-crop-name {

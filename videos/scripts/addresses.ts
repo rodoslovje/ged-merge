@@ -338,7 +338,7 @@ const scenario: Scenario = {
         // The address register downloads behind all this; the Addresses tab
         // appears once it is stored. The wait is cut to two seconds.
         await d.untilSaid();
-        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), 2);
+        await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), { seconds: 2 });
         await frameTools(d);
       },
     },

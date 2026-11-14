@@ -71,20 +71,20 @@ const SKIP_MIN_SECONDS = 0.8;
  */
 export function timeWarp(skips: Skip[], cues: Cue[]): (t: number) => number {
   const spoken = cues.map((c) => [c.start, c.start + c.duration] as const);
-  const silent: { x: number; y: number; cap?: number }[] = [];
-  for (const [from, to, cap] of skips) {
+  const silent: [number, number, number, number?][] = [];
+  for (const [from, to, keep = SKIP_KEEP, cap] of skips) {
     let parts: [number, number][] = [[from, to]];
     for (const [s, e] of spoken) {
       parts = parts.flatMap(([x, y]): [number, number][] =>
         e <= x || s >= y ? [[x, y]] : ([[x, Math.min(y, s)], [Math.max(x, e), y]] as [number, number][]).filter(([p, q]) => q - p > 0.05),
       );
     }
-    silent.push(...parts.map(([x, y]) => ({ x, y, cap })));
+    silent.push(...parts.map(([x, y]): [number, number, number, number?] => [x, y, keep, cap]));
   }
   const cuts = silent
-    .map(({ x, y, cap }) => {
+    .map(([x, y, share, cap]) => {
       const len = y - x;
-      const keep = cap === undefined ? Math.max(Math.min(len, SKIP_MIN_SECONDS), len * SKIP_KEEP) : Math.min(len, cap);
+      const keep = cap === undefined ? Math.max(Math.min(len, SKIP_MIN_SECONDS), len * share) : Math.min(len, cap);
       return { x, y, ratio: keep / len };
     })
     .filter((c) => c.ratio < 1);
