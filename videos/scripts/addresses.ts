@@ -340,11 +340,8 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         // The way there runs with the narration that names it.
-        await d.wait(600);
         await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
-        await d.wait(600);
         await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
-        await d.wait(900);
         await d.click(link(d, /^(Naslovi|Addresses) \d/));
         await frameTools(d);
         await d.wait(1500);
