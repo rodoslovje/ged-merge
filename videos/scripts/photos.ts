@@ -122,53 +122,10 @@ async function setTitle(d: Director, title: string): Promise<void> {
   await d.wait(500);
 }
 
-/** »Označi območje osebe«, drag the region with the visible pointer, »Shrani območje«. */
-async function markRegion(d: Director, crop: Crop): Promise<void> {
-  await d.click(d.page.locator(".media-crop-controls button").first());
-  await d.wait(600);
-  const img = viewerImage(d);
-  const box = (await img.boundingBox())!;
-  const nat = await img.evaluate((e: HTMLImageElement) => ({ w: e.naturalWidth, h: e.naturalHeight }));
-  const sx = box.width / nat.w;
-  const sy = box.height / nat.h;
-  const x1 = box.x + crop.left * sx;
-  const y1 = box.y + crop.top * sy;
-  const x2 = x1 + crop.width * sx;
-  const y2 = y1 + crop.height * sy;
-  await d.overlay("cursor", x1, y1, 700);
-  await d.wait(800);
-  await d.page.mouse.move(x1, y1);
-  await d.page.mouse.down();
-  const steps = 24;
-  for (let i = 1; i <= steps; i++) {
-    const x = x1 + ((x2 - x1) * i) / steps;
-    const y = y1 + ((y2 - y1) * i) / steps;
-    await d.overlay("cursor", x, y, 40);
-    await d.page.mouse.move(x, y);
-    await d.wait(45);
-  }
-  await d.page.mouse.up();
-  await d.wait(700);
-  await d.click(d.page.locator(".media-crop-buttons button").first());
-  await d.wait(800);
-}
-
 async function closeViewer(d: Director): Promise<void> {
   await d.click(d.page.locator(".person-media-close").first());
   await d.page.locator(".person-media-overlay").waitFor({ state: "detached" });
   await d.wait(500);
-}
-
-/** Find a person with the header search: type, then pick the row that shows `year`. */
-async function find(d: Director, query: string, year: string): Promise<void> {
-  await d.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await d.page.keyboard.press("/");
-  await d.wait(500);
-  await d.page.keyboard.type(query, { delay: 120 });
-  await d.wait(900);
-  await d.click(d.page.locator(".global-search-row").filter({ hasText: year }).first().locator(".global-search-open"));
-  await d.page.locator(".global-search-modal").waitFor({ state: "detached" });
-  await d.wait(900);
 }
 
 /** Move the mouse onto the photo, below the faces, so the viewer reveals the marks. */
