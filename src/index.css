@@ -3067,6 +3067,53 @@ button:focus-visible {
 }
 .media-crop-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
 .media-crop-hint { color: var(--muted); font-size: 0.78rem; }
+/* A face found on the photo that nobody is marked on yet: an accent dashed box
+   with a »?« under it; a click opens the name panel. */
+.photo-crop-box.photo-face-box {
+  border: 2px dashed var(--accent);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.photo-crop-box.photo-face-box:hover { background: var(--accent-soft); }
+/* The name panel, under the face being named. */
+.photo-face-panel {
+  position: absolute;
+  margin-top: 6px;
+  z-index: 2;
+}
+.photo-face-namer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 240px;
+  padding: 10px;
+  /* The image wrapper sets line-height 0 against the inline-image gap. */
+  line-height: 1.35;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  align-items: flex-start;
+}
+.photo-face-title { font-weight: 600; font-size: 0.85rem; }
+.photo-face-namer .edit-input { width: 100%; }
+.photo-face-list { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 220px; overflow-y: auto; flex-shrink: 0; }
+.photo-face-list button {
+  width: 100%;
+  text-align: left;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.photo-face-list button:hover { background: var(--accent-soft); }
+.photo-face-none { color: var(--muted); font-size: 0.8rem; padding: 4px 6px; }
 .photo-crop-name {
   position: absolute;
   top: 100%;
