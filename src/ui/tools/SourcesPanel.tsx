@@ -2,7 +2,7 @@ import { useFormatOverrides } from "../TargetFormatContext";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import { buildSourceTree, recordCitedBy, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
+import { buildSourceTree, recordCitedBy, usesBeyondMedia, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
 import { isPrivateNode } from "../../gedcom/private";
@@ -839,9 +839,9 @@ export function SourcesPanel({
                           rowKey={(m) => `m:${m.xref}`}
                           iconFor={(m) => (m.url ? "🔗" : "🖼")}
                         />
-                        {src.usedBy.length > 0 && (
+                        {usesBeyondMedia(src).length > 0 && (
                           <div className="tools-usage-block">
-                            <UsageList dataset={dataset} uses={src.usedBy} onNavigate={onNavigate} />
+                            <UsageList dataset={dataset} uses={usesBeyondMedia(src)} onNavigate={onNavigate} />
                           </div>
                         )}
                       </TreeRow>
