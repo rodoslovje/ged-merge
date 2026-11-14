@@ -100,7 +100,11 @@ export type BatchCriterion =
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
-  | { kind: "sources"; mode: "none" | "any" }
+  /** `none`/`any` look at every citation the person carries; `eventHas` /
+   *  `eventLacks` ask whether one event — the person's own or one of their
+   *  unions' (a marriage) — cites a source: `eventLacks BIRT` finds the
+   *  births still to document, whether or not the birth is recorded at all. */
+  | { kind: "sources"; mode: "none" | "any" | "eventHas" | "eventLacks"; tag?: string }
   | { kind: "line"; side: LineSide };
 
 /** How the family-event criterion tests a union's event. */
@@ -113,8 +117,8 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "private",
-  "privateNote", "media", "sources", "relation", "kinship", "line",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "media",
+  "sources", "relation", "kinship", "line", "private", "privateNote",
 ];
 
 /**
@@ -132,6 +136,8 @@ export interface BatchRow extends SearchRow {
   eventTags: string[];
   /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
   familyEventTags: string[];
+  /** Tags of the person's events, and their unions' events, that cite a source. */
+  sourcedEventTags: string[];
   /** Per union, its events with how they are dated — for the `undated` and
    *  `estimated` family-event tests, which judge each union on its own. */
   unionEvents: { tag: string; dated: boolean; estimated: boolean }[][];
@@ -212,6 +218,7 @@ export function buildBatchRows(
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
       familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
+      sourcedEventTags: [...new Set([indi.raw, ...unions.map((f) => f.raw)].flatMap(citingEventTags))],
       unionEvents: unions.map((f) =>
         f.events.map((e) => ({ tag: e.tag, dated: e.date?.year !== undefined, estimated: isEstimatedDate(e.date) })),
       ),
@@ -302,6 +309,11 @@ export function computeKinship(ds: Dataset, startId: string): KinshipSets | null
     descendants: sweep(childrenOf(startId), childrenOf),
     blood: sweep([startId, ...ancestors], childrenOf),
   };
+}
+
+/** Tags of a record's events that carry a source citation of their own. */
+function citingEventTags(record: GedNode): string[] {
+  return record.children.filter((ev) => ev.children.some((c) => c.tag === "SOUR")).map((ev) => ev.tag);
 }
 
 /** A date that only estimates the moment: about/calculated/estimated, before,
@@ -414,7 +426,10 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         if (c.mode === "lacks" && hasMedia(row, c.xref, c.file)) return false;
         break;
       case "sources":
-        if (c.mode === "none" ? row.hasSources : !row.hasSources) return false;
+        if (c.mode === "eventHas" || c.mode === "eventLacks") {
+          const has = !!c.tag && row.sourcedEventTags.includes(c.tag);
+          if (c.mode === "eventHas" ? !has : has) return false;
+        } else if (c.mode === "none" ? row.hasSources : !row.hasSources) return false;
         break;
       case "line":
         if (ctx.lineSides?.get(row.id) !== c.side) return false;
@@ -791,7 +806,9 @@ export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string
     for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
       if (out.has(famId)) continue;
       const fam = ds.families.get(famId);
-      if (!fam) continue;
+      // A family naming one parent only is no couple — most often a child born
+      // out of wedlock — so it gets no marriage, estimated or otherwise.
+      if (!fam?.husband || !fam.wife) continue;
       let exact: number | undefined;
       let estimated: number | undefined;
       for (const cid of fam.children) {

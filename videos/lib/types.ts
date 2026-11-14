@@ -36,5 +36,11 @@ export interface Scenario {
    * app's defaults, as episodes 1–3 do.
    */
   settings?: (lang: Lang) => Record<string, unknown>;
+  /**
+   * Off-camera setup, run once the page has loaded and before recording
+   * starts — what an earlier episode already did on camera, such as a place
+   * directory a viewer has downloaded by now.
+   */
+  prepare?: (d: Director) => Promise<void>;
   steps: Step[];
 }

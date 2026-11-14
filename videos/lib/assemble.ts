@@ -6,7 +6,7 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Frame } from "./director.ts";
+import type { Frame, Skip } from "./director.ts";
 
 export interface Cue {
   /** Seconds since recording started. */
@@ -64,26 +64,27 @@ const SKIP_MIN_SECONDS = 0.8;
 
 /**
  * The recording's clock mapped onto the video's: every skippable wait
- * (`Director.skippable`) is played faster, down to a third of its length,
- * except where narration runs over it — speech is never sped up, so audio,
- * subtitles and chapters stay in step with the picture.
+ * (`Director.skippable`) is played faster, down to a third of its length —
+ * or to the seconds the skip itself asks to keep — except where narration
+ * runs over it: speech is never sped up, so audio, subtitles and chapters stay
+ * in step with the picture.
  */
-export function timeWarp(skips: [number, number, number?][], cues: Cue[]): (t: number) => number {
+export function timeWarp(skips: Skip[], cues: Cue[]): (t: number) => number {
   const spoken = cues.map((c) => [c.start, c.start + c.duration] as const);
-  const silent: [number, number, number][] = [];
-  for (const [from, to, keep = SKIP_KEEP] of skips) {
+  const silent: [number, number, number, number?][] = [];
+  for (const [from, to, keep = SKIP_KEEP, cap] of skips) {
     let parts: [number, number][] = [[from, to]];
     for (const [s, e] of spoken) {
       parts = parts.flatMap(([x, y]): [number, number][] =>
         e <= x || s >= y ? [[x, y]] : ([[x, Math.min(y, s)], [Math.max(x, e), y]] as [number, number][]).filter(([p, q]) => q - p > 0.05),
       );
     }
-    silent.push(...parts.map(([x, y]): [number, number, number] => [x, y, keep]));
+    silent.push(...parts.map(([x, y]): [number, number, number, number?] => [x, y, keep, cap]));
   }
   const cuts = silent
-    .map(([x, y, share]) => {
+    .map(([x, y, share, cap]) => {
       const len = y - x;
-      const keep = Math.max(Math.min(len, SKIP_MIN_SECONDS), len * share);
+      const keep = cap === undefined ? Math.max(Math.min(len, SKIP_MIN_SECONDS), len * share) : Math.min(len, cap);
       return { x, y, ratio: keep / len };
     })
     .filter((c) => c.ratio < 1);
@@ -99,7 +100,7 @@ export function assemble(opts: {
   frames: Frame[];
   end: number;
   cues: Cue[];
-  skips?: [number, number, number?][];
+  skips?: Skip[];
   workDir: string;
   output: string;
   burnSubtitles: boolean;

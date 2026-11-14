@@ -35,8 +35,9 @@ import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
-import { PickerMenu } from "../PickerMenu";
-import { SelectMenu } from "../DropdownMenu";
+import { DropdownMenu, SelectMenu, type DropdownGroup } from "../DropdownMenu";
+import { useConfirmDialog } from "../useConfirmDialog";
+import { SearchSelect } from "../SearchSelect";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -46,6 +47,20 @@ import { SelectMenu } from "../DropdownMenu";
  * match each one, so a recurring chore ("new people still missing the
  * placeholder image?") is answered at a glance.
  */
+
+/** The "Add filter" menu's sections. Keyed by kind, so a new filter kind
+ *  fails to compile until it is given a group. */
+const CRITERION_GROUP: Record<BatchCriterion["kind"], "person" | "family" | "text" | "records"> = {
+  name: "person", nameField: "person", sex: "person", birthYear: "person", age: "person", living: "person",
+  event: "person",
+  familyEvent: "family", relation: "family", kinship: "family", line: "family",
+  place: "text", note: "text", anyField: "text",
+  media: "records", sources: "records", private: "records", privateNote: "records",
+};
+const CRITERION_GROUPS = (["person", "family", "text", "records"] as const).map((id) => ({
+  id,
+  kinds: BATCH_CRITERION_KINDS.filter((k) => CRITERION_GROUP[k] === id),
+}));
 
 interface Props {
   dataset: Dataset;
@@ -146,7 +161,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const [action, setAction] = useState<BatchActionSpec | null>(null);
   /** Unchecked match ids — everyone matching is selected by default. */
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [confirming, setConfirming] = useState(false);
+  const { confirmDialog, confirmDialogElement } = useConfirmDialog();
   const [done, setDone] = useState<{ changed: number; skipped: number } | null>(null);
   const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
   const [saveName, setSaveName] = useState("");
@@ -214,18 +229,26 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   }, [action?.kind, dataset, results, t, ver]);
 
   /** Per-row preview of the marriage estimate: the date each of the person's
-   *  unions would get. A family shared by two checked partners shows on both. */
+   *  unions would get — one per marriage, so a person married twice shows two,
+   *  each named by the partner. A family shared by two checked partners shows
+   *  on both. */
   const marriagePreview = useMemo(() => {
     if (action?.kind !== "estimateMarriage") return null;
     const byFamily = previewMarriageEstimates(dataset, targets.map((r) => r.id));
     const out = new Map<string, { text: string }>();
     for (const r of targets) {
-      const dates = (dataset.individuals.get(r.id)?.spouseOf ?? []).flatMap((f) => byFamily.get(f) ?? []);
+      const fams = (dataset.individuals.get(r.id)?.spouseOf ?? []).filter((f) => byFamily.has(f));
+      const dates = fams.map((f) => {
+        if (fams.length === 1) return byFamily.get(f)!;
+        const fam = dataset.families.get(f)!;
+        const partner = dataset.individuals.get((fam.husband === r.id ? fam.wife : fam.husband) ?? "");
+        return partner ? `${byFamily.get(f)!} (${nameOf(partner)})` : byFamily.get(f)!;
+      });
       if (dates.length) out.set(r.id, { text: `→ ${dates.join(", ")}` });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [action?.kind, dataset, targets, ver]);
+  }, [action?.kind, dataset, targets, nameOf, ver]);
 
   const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview ?? marriagePreview;
   /** The married-name preview speaks for unchecked rows too (see above). */
@@ -253,7 +276,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   function resetReview(nextCriteria = criteria, nextAction = action) {
     setExcluded(seedExclusions(nextCriteria, nextAction));
     setDone(null);
-    setConfirming(false);
   }
   function changeCriteria(next: BatchCriterion[]) {
     setCriteria(next);
@@ -267,8 +289,24 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // this one's, and a hand-picked selection belongs to the action it was made for.
     setExcluded(seedExclusions(criteria, next));
     setDone(null);
-    setConfirming(false);
   }
+
+  /** Start over: no filters, no action, no saved filter selected. */
+  function clearAll() {
+    setCriteria([]);
+    setAction(null);
+    setSelectedSavedId(null);
+    resetReview([], null);
+  }
+
+  const filterGroups = useMemo<DropdownGroup[]>(
+    () =>
+      CRITERION_GROUPS.map((g) => ({
+        label: t(`tools.batch.group.${g.id}`),
+        items: g.kinds.map((k) => ({ value: k, label: t(`tools.batch.crit.${k}`) })),
+      })),
+    [t],
+  );
 
   function addCriterion(kind: BatchCriterion["kind"]) {
     const fresh: Record<BatchCriterion["kind"], BatchCriterion> = {
@@ -317,7 +355,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     });
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });
-    setConfirming(false);
     // Re-seeded, not cleared: whoever the action still doubts stays unchecked.
     setExcluded(seedExclusions(criteria, action));
     setVer(editVersionRef.current);
@@ -370,8 +407,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 
   return (
     <div className="batch-section">
+      {confirmDialogElement}
       <p className="tools-intro">{t("tools.batch.intro")}</p>
 
+      {/* Saved filters, filters, action and save in the left column, the
+          matches beside them on the right (below them on a narrow screen). */}
+      <div className="batch-grid">
+      <div className="batch-controls">
       {saved.length > 0 && (
         <div className="batch-saved">
           <div className="batch-block-title">{t("tools.batch.saved")}</div>
@@ -404,7 +446,14 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       )}
 
       <div className="batch-builder">
-        <div className="batch-block-title">{t("tools.batch.filters")}</div>
+        <div className="batch-block-title batch-title-row">
+          {t("tools.batch.filters")}
+          {(criteria.length > 0 || action) && (
+            <button className="batch-bar-btn" onClick={clearAll}>
+              {t("tools.batch.clearAll")}
+            </button>
+          )}
+        </div>
         {criteria.length === 0 && <p className="batch-hint">{t("tools.batch.noFilters")}</p>}
         <ul className="batch-crit-list">
           {criteria.map((c, i) => (
@@ -419,19 +468,50 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
             />
           ))}
         </ul>
-        <PickerMenu
-          className="batch-add-filter"
-          label={t("tools.batch.addFilter")}
-          value={"" as string}
-          onChange={(k) => {
-            if (k) addCriterion(k as BatchCriterion["kind"]);
-          }}
-          items={[
-            { key: "", label: `＋ ${t("tools.batch.addFilter")}` },
-            ...BATCH_CRITERION_KINDS.map((k) => ({ key: k as string, label: t(`tools.batch.crit.${k}`) })),
-          ]}
+        <DropdownMenu
+          className="edit-name-chip batch-add-filter"
+          groups={filterGroups}
+          onSelect={(k) => addCriterion(k as BatchCriterion["kind"])}
+          trigger={<>+ {t("tools.batch.addFilter")}</>}
         />
         {needsStart && <p className="batch-hint batch-warn">{t("tools.batch.needStart")}</p>}
+      </div>
+
+      <div className="batch-action">
+        <div className="batch-block-title">{t("tools.batch.actionTitle")}</div>
+        <ActionEditor
+          action={action}
+          mediaOptions={mediaOptions}
+          sourceOptions={sourceOptions}
+          vendorEventOptions={vendorEventOptions}
+          onChange={changeAction}
+        />
+        {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
+        <button
+          className="nav-btn primary tools-run"
+          disabled={!actionReady || targets.length === 0}
+          onClick={async () => {
+            if (await confirmDialog(t("tools.batch.confirm", { count: targets.length }), t("confirm.continue"))) apply();
+          }}
+        >
+          {t("tools.batch.apply", { count: targets.length })}
+        </button>
+      </div>
+
+      <div className="batch-save">
+        <input
+          className="batch-save-name"
+          placeholder={t("tools.batch.savePlaceholder")}
+          value={saveName}
+          onChange={(e) => setSaveName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") saveCurrent();
+          }}
+        />
+        <button className="nav-btn" disabled={!saveName.trim() || criteria.length === 0} onClick={saveCurrent}>
+          {t("tools.batch.save")}
+        </button>
+      </div>
       </div>
 
       <div className="batch-results">
@@ -498,51 +578,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
         </ul>
       </div>
-
-      <div className="batch-action">
-        <div className="batch-block-title">{t("tools.batch.actionTitle")}</div>
-        <ActionEditor
-          action={action}
-          mediaOptions={mediaOptions}
-          sourceOptions={sourceOptions}
-          vendorEventOptions={vendorEventOptions}
-          onChange={changeAction}
-        />
-        {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
-        {confirming ? (
-          <div className="batch-confirm">
-            <span>{t("tools.batch.confirm", { count: targets.length })}</span>
-            <button data-busy-cursor className="nav-btn primary" onClick={apply}>
-              {t("confirm.continue")}
-            </button>
-            <button className="nav-btn" onClick={() => setConfirming(false)}>
-              {t("confirm.cancel")}
-            </button>
-          </div>
-        ) : (
-          <button
-            className="nav-btn primary tools-run"
-            disabled={!actionReady || targets.length === 0}
-            onClick={() => setConfirming(true)}
-          >
-            {t("tools.batch.apply", { count: targets.length })}
-          </button>
-        )}
-      </div>
-
-      <div className="batch-save">
-        <input
-          className="batch-save-name"
-          placeholder={t("tools.batch.savePlaceholder")}
-          value={saveName}
-          onChange={(e) => setSaveName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") saveCurrent();
-          }}
-        />
-        <button className="nav-btn" disabled={!saveName.trim() || criteria.length === 0} onClick={saveCurrent}>
-          {t("tools.batch.save")}
-        </button>
       </div>
     </div>
   );
@@ -773,15 +808,31 @@ function CriterionRow({
         </>
       )}
       {c.kind === "sources" && (
-        <SelectMenu
-          className="batch-select"
-          value={c.mode}
-          onChange={(v) => onChange({ ...c, mode: v as "none" | "any" })}
-          options={[
-            { value: "none", label: t("tools.batch.sourcesFilter.none") },
-            { value: "any", label: t("tools.batch.sourcesFilter.any") },
-          ]}
-        />
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={c.mode}
+            onChange={(v) => {
+              const mode = v as typeof c.mode;
+              const onEvent = mode === "eventHas" || mode === "eventLacks";
+              onChange({ ...c, mode, tag: onEvent ? (c.tag ?? "BIRT") : undefined });
+            }}
+            options={(["none", "any", "eventHas", "eventLacks"] as const).map((m) => ({
+              value: m,
+              label: t(`tools.batch.sourcesFilter.${m}`),
+            }))}
+          />
+          {(c.mode === "eventHas" || c.mode === "eventLacks") && (
+            <SelectMenu
+              className="batch-select"
+              value={c.tag ?? "BIRT"}
+              onChange={(v) => onChange({ ...c, tag: v })}
+              options={[...eventOptions, ...familyEventOptions.filter((tag) => !eventOptions.includes(tag))].map(
+                (tag) => ({ value: tag, label: eventMenuLabel(tag, t) }),
+              )}
+            />
+          )}
+        </>
       )}
       {c.kind === "line" && (
         <SelectMenu
@@ -853,19 +904,18 @@ function MediaSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <SelectMenu
-      className="batch-select batch-media-select"
+    <SearchSelect
+      className="batch-media-select"
       value={value}
       placeholder={t("tools.batch.pickMedia")}
+      emptyLabel={t("start.noMatches")}
       onChange={(key) => {
         if (key === NEW_KEY) onPick({ file: "" });
         const opt = options.find((o) => o.key === key);
         if (opt) onPick({ xref: opt.xref, file: opt.file });
       }}
-      options={[
-        ...options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file })),
-        ...(allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []),
-      ]}
+      options={options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file }))}
+      pinned={allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []}
     />
   );
 }
@@ -968,18 +1018,17 @@ function ActionEditor({
 
       {action?.kind === "addSource" && (
         <>
-          <SelectMenu
-            className="batch-select batch-media-select"
+          <SearchSelect
+            className="batch-media-select"
             value={sourcePick}
             placeholder={t("tools.batch.pickSource")}
+            emptyLabel={t("start.noMatches")}
             onChange={(v) => {
               if (v === NEW_KEY) onChange({ kind: "addSource", title: "", page: action.page });
               else onChange({ kind: "addSource", xref: v, page: action.page });
             }}
-            options={[
-              ...sourceOptions.map((s) => ({ value: s.xref, label: s.title })),
-              { value: NEW_KEY, label: t("tools.batch.newSource") },
-            ]}
+            options={sourceOptions.map((s) => ({ value: s.xref, label: s.title }))}
+            pinned={[{ value: NEW_KEY, label: t("tools.batch.newSource") }]}
           />
           {sourcePick === NEW_KEY && (
             <input
