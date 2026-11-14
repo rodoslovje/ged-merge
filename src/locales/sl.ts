@@ -1071,7 +1071,6 @@ export const sl = {
   "tools.batch.doubt.noMarriage": "poroka ni zapisana",
   "tools.batch.action.convertEvent": "Pretvori vrsto dogodka",
   "tools.batch.pickMedia": "Izberite sliko…",
-  "tools.batch.typeToSearch": "Vtipkajte za iskanje…",
   "tools.batch.newMedia": "Nova slika…",
   "tools.batch.filePlaceholder": "Ime datoteke ali URL",
   "tools.batch.titlePlaceholder": "Naslov (neobvezno)",

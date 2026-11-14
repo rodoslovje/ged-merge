@@ -39,7 +39,6 @@ export function SelectMenu({
   ariaLabel,
   style,
   disabled,
-  filterPlaceholder,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -53,8 +52,6 @@ export function SelectMenu({
   ariaLabel?: string;
   style?: CSSProperties;
   disabled?: boolean;
-  /** Makes the list searchable by typing — see {@link DropdownMenu}. */
-  filterPlaceholder?: string;
 }) {
   const menuGroups = groups ?? [{ items: options ?? [] }];
   const current = menuGroups.flatMap((g) => g.items).find((o) => o.value === value);
@@ -68,7 +65,6 @@ export function SelectMenu({
       ariaLabel={ariaLabel}
       style={style}
       disabled={disabled}
-      filterPlaceholder={filterPlaceholder}
       trigger={
         <>
           <span className="select-menu-value">{current ? current.label : placeholder ?? value}</span>
@@ -116,7 +112,6 @@ export function DropdownMenu({
   style,
   disabled,
   openNonce,
-  filterPlaceholder,
 }: {
   groups: DropdownGroup[];
   /** Value marked as the active choice (✓); omit for action menus. */
@@ -135,17 +130,8 @@ export function DropdownMenu({
   /** Increment to open the menu programmatically (a keyboard shortcut). The
    *  first value seen at mount never opens — only a later change does. */
   openNonce?: number;
-  /**
-   * Makes a long list searchable: while it is open, typing narrows it to the
-   * options whose text contains what was typed (case and accents ignored), and
-   * a row at the top shows the query — or this hint while nothing is typed.
-   * Focus stays on the trigger as always; the keys are read there.
-   */
-  filterPlaceholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const filterable = filterPlaceholder !== undefined;
   const [menuPos, setMenuPos] = useState<CSSProperties>();
   const [active, setActive] = useState(-1);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -169,15 +155,7 @@ export function DropdownMenu({
     setActive(next);
   }, []);
 
-  // The groups as shown: narrowed to the typed query, emptied groups dropped.
-  const shown = useMemo(() => {
-    const q = fold(query.trim());
-    if (!q) return groups;
-    return groups
-      .map((g) => ({ ...g, items: g.items.filter((i) => fold(itemText(i)).includes(q)) }))
-      .filter((g) => g.items.length > 0);
-  }, [groups, query]);
-  const flat = useMemo(() => shown.flatMap((g) => g.items), [shown]);
+  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   // Place the list against the trigger as it stands right now. Called when the
   // menu opens, once more after it has rendered (its width is only knowable
@@ -209,7 +187,6 @@ export function DropdownMenu({
     place();
     const cur = current !== undefined ? flat.findIndex((i) => i.value === current) : -1;
     setActiveIndex(cur >= 0 ? cur : 0);
-    setQuery("");
     setOpenState(true);
   }, [flat, current, place, setOpenState, setActiveIndex]);
 
@@ -312,27 +289,7 @@ export function DropdownMenu({
     else if (rowBox.bottom > listBox.bottom) list.scrollTop += rowBox.bottom - listBox.bottom;
   }, [open, active]);
 
-  /** Narrow the list to `next` and highlight its first row. */
-  function search(next: string) {
-    setQuery(next);
-    setActiveIndex(0);
-    if (menuRef.current) menuRef.current.scrollTop = 0;
-  }
-
   function onMenuKeyDown(e: React.KeyboardEvent) {
-    if (filterable) {
-      // Typed text narrows the list; Space types a space here, Enter picks.
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        search(query + e.key);
-        return;
-      }
-      if (e.key === "Backspace") {
-        e.preventDefault();
-        search(query.slice(0, -1));
-        return;
-      }
-    }
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
@@ -425,13 +382,7 @@ export function DropdownMenu({
       {open &&
         createPortal(
           <div ref={menuRef} id={listId} className="dd-menu" style={menuPos} role="listbox">
-            {filterable && (
-              <div className={`dd-search${query ? "" : " dd-search--empty"}`} aria-live="polite">
-                {query || filterPlaceholder}
-              </div>
-            )}
-            {filterable && flat.length === 0 && <div className="dd-search-none">∅</div>}
-            {shown.map((g, gi) => {
+            {groups.map((g, gi) => {
               const start = base;
               base += g.items.length;
               return (
@@ -471,14 +422,4 @@ export function DropdownMenu({
         )}
     </>
   );
-}
-
-/** Lower-cased, accent-free text for the type-to-search match. */
-function fold(text: string): string {
-  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
-
-/** An option's searchable text: its label when that is plain text, else its value. */
-function itemText(item: DropdownItem): string {
-  return typeof item.label === "string" ? item.label : item.value;
 }

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Batch actions panel: the source picker narrows to what is typed, applying
+ * Batch actions panel: the source picker is a search field, applying
  * asks in a dialog first, and Clear all starts over.
  */
 const GED = `0 HEAD
@@ -38,17 +38,21 @@ test("batch panel: searchable source picker, confirm dialog, Clear all", async (
   await page.locator(".dd-menu [role=option]", { hasText: /^Sex$/ }).click();
   await expect(page.locator(".batch-row")).toHaveCount(1);
 
-  // The source picker narrows as you type — accents ignored.
+  // The source picker is a search field: typing lists the matches — accents
+  // ignored — under the "+ New source" row, and Enter picks the first match.
   await page.locator(".batch-action .batch-select").first().click();
   await page.locator(".dd-menu [role=option]", { hasText: "Add source citation" }).click();
-  await page.locator(".batch-action .batch-media-select").click();
-  await expect(page.locator(".dd-menu .dd-search")).toHaveText("Type to search…");
+  const field = page.locator(".batch-action .search-select-input");
+  await expect(field).toHaveAttribute("placeholder", "Choose a source…");
+  await field.click();
   await page.keyboard.type("smartin");
-  await expect(page.locator(".dd-menu [role=option]")).toHaveCount(1);
-  await expect(page.locator(".dd-menu [role=option]")).toHaveText("Poročna knjiga Šmartin");
-  await page.keyboard.press("Backspace");
+  const options = page.locator(".search-select .relative-picker-option");
+  await expect(options).toHaveCount(2);
+  await expect(options.nth(0)).toHaveClass(/relative-picker-new/);
+  await expect(options.nth(1)).toHaveText("Poročna knjiga Šmartin");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".batch-action .batch-media-select")).toHaveText(/Poročna knjiga Šmartin/);
+  await expect(options).toHaveCount(0);
+  await expect(field).toHaveValue("Poročna knjiga Šmartin");
 
   // Applying asks in a dialog; Cancel changes nothing.
   await page.locator(".batch-action .tools-run").click();

@@ -37,6 +37,7 @@ import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
 import { DropdownMenu, SelectMenu, type DropdownGroup } from "../DropdownMenu";
 import { useConfirmDialog } from "../useConfirmDialog";
+import { SearchSelect } from "../SearchSelect";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -887,20 +888,18 @@ function MediaSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <SelectMenu
-      className="batch-select batch-media-select"
+    <SearchSelect
+      className="batch-media-select"
       value={value}
       placeholder={t("tools.batch.pickMedia")}
-      filterPlaceholder={t("tools.batch.typeToSearch")}
+      emptyLabel={t("start.noMatches")}
       onChange={(key) => {
         if (key === NEW_KEY) onPick({ file: "" });
         const opt = options.find((o) => o.key === key);
         if (opt) onPick({ xref: opt.xref, file: opt.file });
       }}
-      options={[
-        ...options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file })),
-        ...(allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []),
-      ]}
+      options={options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file }))}
+      pinned={allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []}
     />
   );
 }
@@ -1003,19 +1002,17 @@ function ActionEditor({
 
       {action?.kind === "addSource" && (
         <>
-          <SelectMenu
-            className="batch-select batch-media-select"
+          <SearchSelect
+            className="batch-media-select"
             value={sourcePick}
             placeholder={t("tools.batch.pickSource")}
-            filterPlaceholder={t("tools.batch.typeToSearch")}
+            emptyLabel={t("start.noMatches")}
             onChange={(v) => {
               if (v === NEW_KEY) onChange({ kind: "addSource", title: "", page: action.page });
               else onChange({ kind: "addSource", xref: v, page: action.page });
             }}
-            options={[
-              ...sourceOptions.map((s) => ({ value: s.xref, label: s.title })),
-              { value: NEW_KEY, label: t("tools.batch.newSource") },
-            ]}
+            options={sourceOptions.map((s) => ({ value: s.xref, label: s.title }))}
+            pinned={[{ value: NEW_KEY, label: t("tools.batch.newSource") }]}
           />
           {sourcePick === NEW_KEY && (
             <input
