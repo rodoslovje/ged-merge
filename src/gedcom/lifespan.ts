@@ -85,8 +85,8 @@ export const LIVING_WINDOW_YEARS = 100;
 /** Typical age of a father / a mother at a child's birth — the generational
  *  gaps an undated birth is estimated across. Keyed by the parent's role in the
  *  family, which the file states, rather than by a sex field it may lack. */
-const FATHER_AGE = 30;
-const MOTHER_AGE = 25;
+export const FATHER_AGE = 30;
+export const MOTHER_AGE = 25;
 /** How many years a husband is typically older than his wife. */
 const HUSBAND_OLDER = 5;
 

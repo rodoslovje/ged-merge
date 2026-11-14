@@ -482,7 +482,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                     }
                     title={rowPreview.get(r.id)?.note}
                   >
-                    {rowPreview.get(r.id)?.text ?? t("tools.batch.previewSkip")}
+                    {rowPreview.get(r.id)?.text ??
+                      t(action?.kind === "addMarriedName" ? "tools.batch.previewSkip" : "tools.batch.previewSkipEstimate")}
                     {rowPreview.get(r.id)?.note && (
                       <span className="batch-preview-note">{rowPreview.get(r.id)!.note}</span>
                     )}

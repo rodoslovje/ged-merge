@@ -2,7 +2,8 @@ import type { Dataset, Family, GedDate, GedNode, Individual, Sex } from "../gedc
 import { todayDate } from "../gedcom/age";
 import { birthParentFamilies } from "../gedcom/couple";
 import {
-  DEATH_TAGS, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf, estimateBirthYear, isDeceased,
+  DEATH_TAGS, FATHER_AGE, MOTHER_AGE, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf,
+  estimateBirthYear, isDeceased,
 } from "../gedcom/lifespan";
 import { addEventNode, setEventField, setFamilyEventField } from "../gedcom/edit/events";
 import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
@@ -534,11 +535,11 @@ export type BatchActionSpec =
    *  whether a union looks like a marriage ({@link unionMarriage}) decides only
    *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
-  /** Date each union of the selected people's marriage as `BEF <year>`, the
-   *  year its oldest child was born (see {@link previewMarriageEstimates}).
-   *  Unions with an exactly dated marriage, and unions with no child born in a
-   *  known year, are skipped. A family is written once even when both
-   *  partners are selected. */
+  /** Date each undated marriage of the selected people with the strongest
+   *  estimate the family supports — `BEF` the oldest exactly dated child, else
+   *  `ABT` from an estimated child or from the spouses' births (see
+   *  {@link previewMarriageEstimates}). A family is written once even when
+   *  both partners are selected. */
   | { kind: "estimateMarriage" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources). The line value stays where the target holds
@@ -765,15 +766,24 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
   };
 }
 
+/** Years before an estimated first birth that an `ABT` marriage is placed. */
+const MARRIAGE_BEFORE_CHILD = 2;
+
 /**
- * The marriage dates the estimate action would write, keyed by family id: `BEF
- * <year>`, the birth year of the union's oldest child — a couple marries
- * before their first child is born. A union qualifies when its marriage has no
- * date (or no marriage is recorded), or when its date is a `BEF` year later
- * than that child's — an estimate written before an older child was added.
- * Other dates, estimates included, are the researcher's and stay. Children's
- * births count only when exactly dated: a `BEF` built on an `ABT` would pass
- * a guess off as a bound.
+ * The marriage dates the estimate action would write, keyed by family id —
+ * the strongest estimate the family supports:
+ *  1. `BEF <year>` of the oldest child with an exact birth date — a couple
+ *     marries before their first child is born;
+ *  2. otherwise `ABT`, {@link MARRIAGE_BEFORE_CHILD} years before the oldest
+ *     child with an estimated birth (a `BEF` on an `ABT` would pass a guess off
+ *     as a bound);
+ *  3. otherwise `ABT` from the spouses' births — the wife's plus a mother's
+ *     age at a first child, else the husband's plus a father's.
+ * `ABT` years are rounded to a year ending in 0 or 5, like birth estimates. A
+ * union qualifies when its marriage has no date (or no marriage is recorded),
+ * or when its date is a `BEF` later than rule 1's year — an estimate written
+ * before an older child was added. Other dates, estimates included, are the
+ * researcher's and stay.
  */
 export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string, string> {
   const out = new Map<string, string>();
@@ -782,16 +792,28 @@ export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string
       if (out.has(famId)) continue;
       const fam = ds.families.get(famId);
       if (!fam) continue;
-      let oldest: number | undefined;
+      let exact: number | undefined;
+      let estimated: number | undefined;
       for (const cid of fam.children) {
         const d = birthDateOf(ds.individuals.get(cid));
-        if (d?.year === undefined || d.qualifier !== "exact") continue;
-        if (oldest === undefined || d.year < oldest) oldest = d.year;
+        if (d?.year === undefined) continue;
+        if (d.qualifier === "exact") exact = Math.min(exact ?? d.year, d.year);
+        else estimated = Math.min(estimated ?? d.year, d.year);
       }
-      if (oldest === undefined) continue;
       const date = fam.events.find((e) => e.tag === "MARR")?.date;
-      const open = !date?.raw.trim() || (date.qualifier === "before" && date.year !== undefined && date.year > oldest);
-      if (open) out.set(famId, `BEF ${oldest}`);
+      if (!date?.raw.trim()) {
+        const wife = birthYear(fam.wife ? ds.individuals.get(fam.wife) : undefined);
+        const husband = birthYear(fam.husband ? ds.individuals.get(fam.husband) : undefined);
+        const guess =
+          estimated !== undefined ? estimated - MARRIAGE_BEFORE_CHILD
+          : wife !== undefined ? wife + MOTHER_AGE
+          : husband !== undefined ? husband + FATHER_AGE
+          : undefined;
+        if (exact !== undefined) out.set(famId, `BEF ${exact}`);
+        else if (guess !== undefined) out.set(famId, `ABT ${roundEstimate(guess)}`);
+      } else if (exact !== undefined && date.qualifier === "before" && date.year !== undefined && date.year > exact) {
+        out.set(famId, `BEF ${exact}`);
+      }
     }
   }
   return out;
