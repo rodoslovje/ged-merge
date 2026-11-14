@@ -175,10 +175,11 @@ const scenario: Scenario = {
         await d.wait(1200);
         await d.click(addresses);
         await d.highlight(null);
-        // The progress bar, for a moment — then Settings closes and the episode
-        // carries on while the register downloads (geoImport.ts runs it
-        // outside the dialog); the naming step waits for it.
-        await d.wait(6000);
+        // The progress bar stays up while the narration explains it; Settings
+        // closes on its last sentence — »Nastavitve lahko medtem zaprete« —
+        // and the episode carries on while the register downloads
+        // (geoImport.ts runs it outside the dialog); the naming step waits for it.
+        await d.untilSaid(4.5);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
         // Each step's way to its screen runs once the narration before it is

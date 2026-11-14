@@ -173,9 +173,10 @@ export class Director {
   }
 
   /** Wait until the current step's narration has been spoken — for an action
-   *  that should follow what the narrator says about it. */
-  untilSaid(): Promise<void> {
-    return sleep(Math.max(0, (this.saidAt - this.clock()) * 1000));
+   *  that should follow what the narrator says about it. `secondsBefore` stops
+   *  that much short of the end, for an action its last sentence names. */
+  untilSaid(secondsBefore = 0): Promise<void> {
+    return sleep(Math.max(0, (this.saidAt - secondsBefore - this.clock()) * 1000));
   }
 
   wait(ms: number): Promise<void> {
