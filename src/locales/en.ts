@@ -818,7 +818,6 @@ export const en = {
   "tools.batch.addFilter": "Add filter",
   "tools.batch.clearAll": "Clear all",
   "tools.batch.group.person": "Person",
-  "tools.batch.group.events": "Events",
   "tools.batch.group.family": "Family",
   "tools.batch.group.text": "Text",
   "tools.batch.group.records": "Media, sources and privacy",
