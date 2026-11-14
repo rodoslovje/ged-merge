@@ -3811,6 +3811,7 @@ export const sl = {
   "media.crop.save": "Shrani območje",
   "media.crop.remove": "Odstrani območje",
   "media.crop.cancel": "Prekliči",
+  "media.crop.resize": "Povlecite, da območje povečate ali pomanjšate",
   "media.face.name": "Kliknite in povejte, kdo je to",
   "media.face.who": "Kdo je to?",
   "media.face.search": "Poišči osebo…",

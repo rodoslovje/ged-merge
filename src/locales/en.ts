@@ -3350,6 +3350,7 @@ export const en = {
   "media.crop.save": "Save region",
   "media.crop.remove": "Remove region",
   "media.crop.cancel": "Cancel",
+  "media.crop.resize": "Drag to make the region larger or smaller",
   "media.face.name": "Click to say who this is",
   "media.face.who": "Who is this?",
   "media.face.search": "Find a person…",
