@@ -19,6 +19,7 @@
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Locator } from "@playwright/test";
 import type { Director } from "../lib/director.ts";
 import { seriesSettingsWithMaps } from "../lib/series.ts";
 import type { Scenario } from "../lib/types.ts";
@@ -40,6 +41,41 @@ const menuItem = (d: Director, text: string) =>
 const closeOpenPair = async (d: Director) => {
   const open = d.page.locator(".tools-pair-toggle.open").first();
   if (await open.count()) await d.click(open);
+};
+
+/**
+ * A merge opens the next pair (Luka Mubi) with its row pinned to the top. The
+ * video speaks of the list first, so close that pair as soon as the merge has
+ * settled — directly, without a pointer move — and show the list from the top.
+ */
+const closeAdvancedPair = async (d: Director) => {
+  await d.page.locator(".tools-fix-item .tools-run").first().waitFor();
+  const next = d.page.locator(".tools-pair-toggle.open").first();
+  if (!(await next.waitFor({ timeout: 5000 }).then(() => true, () => false))) return;
+  // Close it once its row has come to rest (the same box three readings
+  // running), and again if a late re-render opened it anew.
+  for (let tries = 0; tries < 4 && (await next.count()); tries++) {
+    let last = "";
+    for (let i = 0, same = 0; i < 40 && same < 3; i++) {
+      await d.wait(100);
+      const box = JSON.stringify(await next.boundingBox());
+      same = box === last ? same + 1 : 0;
+      last = box;
+    }
+    await next.click();
+    await d.wait(400);
+  }
+  await d.page.evaluate(() => document.querySelector(".tools-view")?.scrollTo({ top: 0 }));
+};
+
+/** Scroll a pair's row to the top of the list, the tool buttons out of view, for more of its comparison. */
+const rowToTop = async (d: Director, row: Locator) => {
+  await row.evaluate((el) => {
+    const view = document.querySelector<HTMLElement>(".tools-view");
+    if (!view) return;
+    view.scrollBy({ top: el.getBoundingClientRect().top - view.getBoundingClientRect().top - 8, behavior: "smooth" });
+  });
+  await d.wait(900);
 };
 
 const JANEZ = "I412665969695";
@@ -163,30 +199,38 @@ const scenario: Scenario = {
         await d.highlight(d.page.locator(".confirm-dialog-body").first(), 6);
         await d.wait(4000);
         await d.highlight(null);
+        // Recording only: the pair the merge opens next is closed again at once
+        // (closeAdvancedPair), so don't draw its comparison meanwhile. Janez's
+        // own comparison, open behind the dialog, stays drawn.
+        await pair(d, JANEZ).evaluate((el) => el.setAttribute("data-video-keep", ""));
+        const hide = await d.page.addStyleTag({ content: ".tools-pair:not([data-video-keep]) .tools-pair-compare { display: none; }" });
         await d.click(d.page.locator(".confirm-dialog-confirm"));
+        await closeAdvancedPair(d);
+        await hide.evaluate((el) => (el as Element).remove());
       },
     },
     {
       say: {
-        sl: "Iz seznama sta izginila oba para, Janez in njegova mati. V drevesu je zdaj en Janez z obema staršema in vsemi brati in sestrami. Ker so se osebe združile, lahko znova zaženemo izračun dvojnikov.",
-        en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters. Now that people have been merged, we can run the duplicate search again.",
+        sl: "Iz seznama sta izginila oba para, Janez in njegova mati. V drevesu je zdaj en Janez z obema staršema in vsemi brati in sestrami.",
+        en: "Both pairs are gone from the list, Janez and his mother. The tree now holds one Janez, with both parents and all his brothers and sisters.",
       },
       run: async (d) => {
-        // The merge opens the next pair, its row at the top of the list; close it to show the list.
-        await d.page.locator(".tools-fix-item .tools-run").first().waitFor();
-        const next = d.page.locator(".tools-pair-toggle.open").first();
-        await next.waitFor();
-        await d.wait(1200);
-        await d.click(next);
-        await d.page.evaluate(() => document.querySelector(".tools-view")?.scrollTo({ top: 0, behavior: "smooth" }));
-        await d.wait(800);
         await d.highlight(d.page.locator(".tools-pairs").first(), 4);
-        await d.wait(3500);
+      },
+    },
+    {
+      say: {
+        sl: "Ker so se osebe združile, lahko znova zaženemo izračun dvojnikov.",
+        en: "Now that people have been merged, we can run the duplicate search again.",
+      },
+      run: async (d) => {
+        // Ring the button while it is named; click it as the sentence ends.
+        const rerun = d.page.locator(".tools-fix-item .tools-run").first();
+        await d.highlight(rerun, 4);
+        await d.wait(2600);
         await d.highlight(null);
-        await d.click(d.page.locator(".tools-fix-item .tools-run").first());
+        await d.click(rerun);
         await d.skippable(() => d.page.locator(".tools-pairs").first().waitFor({ timeout: 60_000 }));
-        // The fresh list opens its first pair, Luka Mubi, which the next step looks at.
-        await d.page.locator(".tools-pair-toggle.open").first().waitFor({ timeout: 3000 }).catch(() => {});
       },
     },
     {
@@ -197,11 +241,9 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await d.highlight(null);
-        if (!(await pair(d, MUBI).locator(".tools-pair-toggle.open").count())) {
-          await d.click(pair(d, MUBI).locator(".tools-pair-toggle"));
-          await d.wait(1000);
-        }
+        await d.click(pair(d, MUBI).locator(".tools-pair-toggle"));
         await compare(d).waitFor();
+        await rowToTop(d, pair(d, MUBI));
         await d.highlight(compare(d).locator("tr.field", { hasText: "ABT 1665" }).first(), 4);
         await d.wait(4500);
         await d.highlight(compare(d).locator("tr", { hasText: "Gregor Mubi" }).first(), 4);
@@ -220,7 +262,7 @@ const scenario: Scenario = {
         await d.wait(600);
         await d.click(pair(d, SIMONIC).locator(".tools-pair-toggle"));
         await compare(d).waitFor();
-        await d.wait(1000);
+        await rowToTop(d, pair(d, SIMONIC));
         await d.highlight(compare(d).locator("tr.field", { hasText: "6 NOV 1730" }).first(), 4);
       },
     },

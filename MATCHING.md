@@ -626,5 +626,5 @@ run stores every scenario's pair set as a baseline beside the data
 (`test-data/match-bench.baseline.json`); later runs list each pair gained, lost
 or re-categorized, with names, so a change is judged pair by pair
 (`MATCH_BENCH_BASELINE=write` adopts the current run as the new baseline once
-it is). The genealogical-index corpus (`~/rodoslovje/srd-data/index/input`,
+it is). The genealogical-index corpus (`~/Work/srd/srd-indeks/input`,
 271 files up to 500k individuals) is the wider scale/robustness benchmark.
