@@ -122,6 +122,16 @@ async function setTitle(d: Director, title: string): Promise<void> {
   await d.wait(500);
 }
 
+/** Type the photo's description (»Opis«); it is written as the field is left. */
+async function setDescription(d: Director, text: string): Promise<void> {
+  const area = d.page.locator(".media-lightbox-edit textarea").first();
+  await d.click(area);
+  await area.fill("");
+  await d.page.keyboard.type(text, { delay: 70 });
+  await area.evaluate((e: HTMLTextAreaElement) => e.blur());
+  await d.wait(500);
+}
+
 /** »Označi območje osebe«, drag the region with the visible pointer, »Shrani območje«. */
 async function markRegion(d: Director, crop: Crop): Promise<void> {
   await d.click(d.page.locator(".media-crop-controls button").first());
@@ -368,7 +378,7 @@ const scenario: Scenario = {
         await openPicker(d);
         await pick(d, WEDDING);
         await openLast(d);
-        await setTitle(d, d.t({ sl: "Poroka Edvarda in Cvetke", en: "Wedding of Edvard and Cvetka" }));
+        await setDescription(d, d.t({ sl: "Poroka Edvarda in Cvetke Renko", en: "Wedding of Edvard and Cvetka Renko" }));
       },
     },
     {
@@ -436,27 +446,45 @@ const scenario: Scenario = {
     {
       callout: { sl: "Prilagodite območje", en: "Adjust a region" },
       say: {
-        sl: "Najdeno območje lahko tudi prilagodite. Kliknite »Spremeni območje osebe«, povlecite nov pravokotnik in kliknite »Shrani območje«. Obraz, ki ga program ne najde, označite enako.",
-        en: "You can adjust a region that was found. Click Change person's region, drag a new rectangle and click Save region. A face the program misses is marked the same way.",
+        sl: "Pri Jožetu najdeno območje ne zajame cele glave. Kliknite njegovo ime v seznamu »Navedeno v« in pri njem odprite fotografijo. Kliknite »Spremeni območje osebe«, povlecite nov pravokotnik in kliknite »Shrani območje«.",
+        en: "For Jože, the region found misses part of his head. Click his name in the Referenced by list and open the photo on his page. Click Change person's region, drag a new rectangle and click Save region.",
       },
       run: async (d) => {
-        await markRegion(d, CROP.edvard);
+        await d.click(d.page.locator(".tools-usage .person-ref").filter({ hasText: "Jože" }).first());
+        await d.page.locator(".person-media-overlay").waitFor({ state: "detached" });
+        await d.wait(900);
+        await openLast(d);
+        await markRegion(d, CROP.joze);
+      },
+    },
+    {
+      say: {
+        sl: "Enako popravimo območje pri Petru. Obraz, ki ga program ne najde, označite na enak način.",
+        en: "We fix Peter's region the same way. A face the program misses is marked like this too.",
+      },
+      run: async (d) => {
+        await d.click(d.page.locator(".tools-usage .person-ref").filter({ hasText: "Peter" }).first());
+        await d.page.locator(".person-media-overlay").waitFor({ state: "detached" });
+        await d.wait(900);
+        await openLast(d);
+        await markRegion(d, CROP.peter);
         await closeViewer(d);
       },
     },
     {
       say: {
-        sl: "Sličica osebe zdaj pokaže samo njen obraz. Enako velja za Cvetko in obe priči.",
-        en: "The person's thumbnail now shows just their face. The same goes for Cvetka and both witnesses.",
+        sl: "Sličica osebe pokaže samo njen obraz. Tudi Edvard in Cvetka imata zdaj to fotografijo, vsak s svojim obrazom.",
+        en: "The person's thumbnail shows just their face. Edvard and Cvetka have the photo now too, each with their own face.",
       },
       run: async (d) => {
         await d.highlight(thumb(d).last(), 8);
-        await d.wait(2200);
+        await d.wait(2000);
         await d.highlight(null);
-        await d.click(card(d, "Cvetka"));
-        await d.wait(900);
+        await find(d, "edvard renko", "1942");
         await d.highlight(thumb(d).last(), 8);
-        await d.wait(2200);
+        await d.wait(1800);
+        await d.highlight(card(d, "Cvetka"), 6);
+        await d.wait(2000);
         await d.highlight(null);
       },
     },
@@ -467,7 +495,7 @@ const scenario: Scenario = {
         en: "Photos show on the charts too. Each person carries their portrait, or the face marked on a group photo.",
       },
       run: async (d) => {
-        await find(d, "luka renko", "1971");
+        // Edvard is on screen: his own ancestors, his face from the wedding photo and Franc's portrait.
         await d.click(d.page.locator(".charts-open-btn"));
         await d.page.locator(".charts-kind").waitFor();
         await d.click(d.page.locator(".charts-kind button").nth(0));
