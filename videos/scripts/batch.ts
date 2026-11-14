@@ -7,7 +7,7 @@
  * Data: `rodbina-renko.ged` (the anonymised excerpt of the author's tree, as in
  * episodes 9, 11 and 12), the author as the start person. Counts checked on
  * 14 Nov 2026: 497 married women without a married name (57 left unchecked,
- * no marriage recorded), 183 people who died before 18, 147 partners in a
+ * no marriage recorded), 185 people who died before 20, 147 partners in a
  * union with an undated marriage (77 families), 399 ancestors of whom 198
  * cite no source.
  *
@@ -280,8 +280,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Umrli mladi", en: "Died young" },
       say: {
-        sl: "Drugi primer: otroci, ki so umrli mladi. Filter »Živi« nastavimo na umrle, »Starost« pa na manj kot 18 let. Starost se pri umrlih šteje ob smrti. Najdemo 183 oseb.",
-        en: "A second example: children who died young. We set Living to deceased and Age to less than 18 years. For the deceased, age counts at death. We find 183 people.",
+        sl: "Drugi primer: otroci, ki so umrli mladi. Filter »Živi« nastavimo na umrle, »Starost« pa na manj kot 20 let. Starost se pri umrlih šteje ob smrti. Najdemo 185 oseb.",
+        en: "A second example: children who died young. We set Living to deceased and Age to less than 20 years. For the deceased, age counts at death. We find 185 people.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -290,8 +290,9 @@ const scenario: Scenario = {
         const living = await addFilter(d, "tools.batch.crit.living");
         await choose(d, living.locator(".batch-select").first(), L(d, "tools.batch.living.no"));
         const age = await addFilter(d, "tools.batch.crit.age");
-        await type(d, age.locator("input.batch-input"), "18");
-        await d.wait(600);
+        // 20 years is the filter's own default: ring it rather than retype it.
+        await d.highlight(age, 4);
+        await d.wait(1500);
         await d.highlight(count(d), 4);
       },
     },

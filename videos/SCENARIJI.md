@@ -574,7 +574,7 @@ ukrep; filtre shraniti, da jih pozneje zaženemo znova. Tudi filter brez ukrepa 
 kot shranjeno iskanje za nadaljnje raziskovanje.
 **Podatki:** `rodbina-renko.ged` (izhodiščna oseba avtor, kot v epizodah 9 in 11). Številke
 (preverjeno 14. 11. 2026): poročene ženske brez poročnega priimka 497 (57 jih ostane neoznačenih,
-ker poroka ni zapisana); umrli pred 18. letom 183; osebe s partnerjem v zvezi brez datuma poroke
+ker poroka ni zapisana); umrli pred 20. letom 185; osebe s partnerjem v zvezi brez datuma poroke
 147 (77 družin, 36 dobi BEF, ostale ABT); ocenjeni datumi poroke po ukrepu 256 oseb; avtorjevi
 predniki 399, od tega 198 brez virov.
 **Slika died-young:** `icons/died-young.jpg` iz avtorjeve mape medijev (kot v epizodi 12). ·
@@ -590,7 +590,7 @@ zadetkov s predogledom ocen.
 | 4 | Ukrep »Dodaj poročni priimek po partnerju« → predogled »→ Renko«, neoznačene vrstice »poroka ni zapisana« | Vsaka vrstica vnaprej pokaže priimek, ki se bo zapisal. Kjer poroka ni zapisana, je vrstica neoznačena — ta par morda ni bil poročen. |
 | 5 | »Izvedi« → potrditev → »Spremenjenih: 435« | En klik, in priimke dobi več kot štiristo žensk. |
 | 6 | Ime »Poročni priimki« → »Shrani filter« | Filter shranimo skupaj z ukrepom. Seznam shranjenih vedno pokaže, koliko oseb trenutno ustreza. |
-| 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 18 let« → 183 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
+| 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 20 let« → 185 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
 | 8 | Ukrep »Pripni medij« → »Nova slika…« `icons/died-young.jpg` → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
 | 9 | Filter »Mediji: nima tega medija → died-young« → 0 → shrani »Umrli mladi« | Dodamo še pogoj, da slike nimajo. Zdaj filter ne najde nikogar, ko pa vnesete novega otroka, ga bo našel. |
 | 10 | Urejanje ali diagram družine z otroki, ki so umrli mladi | Sličica je pri vsakem otroku. |
