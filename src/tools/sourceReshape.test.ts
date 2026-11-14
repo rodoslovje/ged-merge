@@ -3348,6 +3348,25 @@ describe("FamilySearch image links", () => {
     expect(text).toContain("3 PAGE 557");
   });
 
+  it("reuses a Matricula archive's repository by its name, without a WWW", () => {
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME Nadškofijski arhiv Ljubljana",
+      "1 ADDR Krekov trg 1",
+      "0 TRLR",
+    ].join("\n"));
+    const url = "https://data.matricula-online.eu/sl/slovenia/ljubljana/breznica/00164/?pg=86";
+    expect(proposedSiteRepo(ds.records, "matricula", url, "Nadškofijski arhiv Ljubljana")).toEqual({ xref: "@R1@" });
+    expect(proposedSiteRepo(ds.records, "matricula", url, "NADŠKOFIJSKI  arhiv  Ljubljana")).toEqual({ xref: "@R1@" });
+    // Another archive is still a repository of its own.
+    expect(proposedSiteRepo(ds.records, "matricula", url, "Nadškofijski arhiv Maribor")).toEqual({
+      createName: "Nadškofijski arhiv Maribor",
+    });
+  });
+
   it("attaches to the file's own repository for that country", () => {
     const ds = dataset([
       "0 HEAD",
