@@ -244,11 +244,13 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poimenovanje", en: "Naming" },
       say: {
-        sl: "Poimenovanje primerja kraje in naslove z uradnim registrom. Ko je register naslovov naložen, se pokaže zavihek »Naslovi«. Tu so trije rojstni dogodki v kranjski porodnišnici zapisani kot »Kidričeva 38a«, register pa ulico piše »Kidričeva cesta«.",
-        en: "Naming compares places and addresses with the official register. Once the address register has loaded, the Addresses tab appears. Here three births at the Kranj maternity hospital are written as »Kidričeva 38a«, while the register spells the street »Kidričeva cesta«.",
+        sl: "Medtem se je register naslovov že naložil: ob imeniku krajev je zdaj tudi SI-ADR. Poimenovanje primerja kraje in naslove z uradnim registrom, naslove na zavihku »Naslovi«. Ugotovitev »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v naselju Krasinec. Ugotovitev »Zapis«: rojstva v kranjski porodnišnici so zapisana kot »Kidričeva 38a«, register pa ulico piše »Kidričeva cesta«.",
+        en: "Meanwhile the address register has finished loading: SI-ADR now stands beside the place directory. Naming compares places and addresses with the official register, the addresses on the Addresses tab. An »Other settlement« finding: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under the village of Krasinec. A »Spelling« finding: births at the Kranj maternity hospital are written as »Kidričeva 38a«, while the register spells the street »Kidričeva cesta«.",
       },
       run: async (d) => {
-        await d.wait(1500);
+        await d.wait(800);
+        await d.highlight(visible(d, "*").getByText("SI-ADR", { exact: true }).first().locator(".."), 4);
+        await d.wait(3000);
         await d.highlight(link(d, /^(Naslovi|Addresses)/), 4);
         await d.wait(1500);
         await d.highlight(null);
@@ -256,21 +258,29 @@ const scenario: Scenario = {
         await d.skippable(() => noSuchAddress(d).waitFor({ timeout: 120_000 }));
         await d.wait(800);
         await expandAll(d);
-        await d.wait(800);
+        await d.wait(1500);
+        await d.highlight(finding(d, "Krasinec 1"), 4);
+        await d.wait(5000);
         await d.highlight(finding(d, "Kidričeva 38a"), 4);
-        await d.wait(3500);
+        await d.wait(5000);
         await d.highlight(null);
       },
     },
     {
       say: {
-        sl: "Gumb »Prevzemi« naslov prepiše v uradni zapis, pripis v oklepaju pa ostane. Hišnih številk, ki jih register nima več, seznam ne našteje, ampak jih le prešteje — vasi so hiše v dvajsetem stoletju na novo oštevilčile, zato je stara številka praviloma pravilna.",
-        en: "The Use official name button rewrites the address in the official spelling, and the note in parentheses stays. House numbers the register no longer has are counted, not listed — villages renumbered their houses in the twentieth century, so an old number is usually right.",
+        sl: "»Premakni dogodke« prestavi dogodke v pravo naselje, naslov pa ostane. »Prevzemi« naslov prepiše v uradni zapis, pripis v oklepaju pa ostane. Hišnih številk, ki jih register nima več, seznam ne našteje, ampak jih le prešteje: vasi so hiše v dvajsetem stoletju na novo oštevilčile. Za tako staro številko je treba najti današnji naslov hiše in koordinato vzeti od tam.",
+        en: "Move events puts the events in the right settlement, and the address stays. Use official name rewrites the address in the official spelling, and the note in parentheses stays. House numbers the register no longer has are counted, not listed: villages renumbered their houses in the twentieth century. For such an old number, find the house's present address and take the coordinate from there.",
       },
       run: async (d) => {
+        const move = finding(d, "Krasinec 1").locator(".tools-issue-link").filter({ hasText: d.t({ sl: "Premakni dogodke", en: "Move events" }) }).first();
+        await d.highlight(move, 4);
+        await d.wait(1500);
+        await d.highlight(null);
+        await d.click(move);
+        await d.wait(2500);
         const take = finding(d, "Kidričeva 38a").locator(".tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Prevzemi", en: "Use official name" })}$`) }).first();
         await d.highlight(take, 4);
-        await d.wait(1200);
+        await d.wait(1500);
         await d.highlight(null);
         await d.click(take);
         await d.wait(2000);
