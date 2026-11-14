@@ -17,6 +17,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimateDates,
+  previewMarriageEstimates,
   previewMarriedNames,
   readMarriedNames,
   BATCH_ACTION_KINDS,
@@ -24,6 +25,7 @@ import {
   type BatchActionSpec,
   type BatchContext,
   type BatchCriterion,
+  type FamilyEventMode,
   type SavedBatchFilter,
 } from "../../tools/batch";
 import { fullTextLookup } from "../globalSearch";
@@ -211,7 +213,21 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [action?.kind, dataset, results, t, ver]);
 
-  const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview;
+  /** Per-row preview of the marriage estimate: the date each of the person's
+   *  unions would get. A family shared by two checked partners shows on both. */
+  const marriagePreview = useMemo(() => {
+    if (action?.kind !== "estimateMarriage") return null;
+    const byFamily = previewMarriageEstimates(dataset, targets.map((r) => r.id));
+    const out = new Map<string, { text: string }>();
+    for (const r of targets) {
+      const dates = (dataset.individuals.get(r.id)?.spouseOf ?? []).flatMap((f) => byFamily.get(f) ?? []);
+      if (dates.length) out.set(r.id, { text: `→ ${dates.join(", ")}` });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+  }, [action?.kind, dataset, targets, ver]);
+
+  const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview ?? marriagePreview;
   /** The married-name preview speaks for unchecked rows too (see above). */
   const previewUnchecked = action?.kind === "addMarriedName";
 
@@ -284,7 +300,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       ? !!(action.xref || action.file.trim())
       : action.kind === "addSource"
         ? !!(action.xref || action.title?.trim())
-        : action.kind === "markDeceased" || action.kind === "estimateBirth" || action.kind === "addMarriedName"
+        : action.kind === "markDeceased" || action.kind === "estimateBirth" || action.kind === "estimateMarriage" ||
+            action.kind === "addMarriedName"
           ? true
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
@@ -647,10 +664,12 @@ function CriterionRow({
           <SelectMenu
             className="batch-select"
             value={c.mode}
-            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            onChange={(v) => onChange({ ...c, mode: v as FamilyEventMode })}
             options={[
               { value: "lacks", label: t("tools.batch.event.lacks") },
               { value: "has", label: t("tools.batch.event.has") },
+              { value: "undated", label: t("tools.batch.event.undated") },
+              { value: "estimated", label: t("tools.batch.event.estimated") },
             ]}
           />
           <SelectMenu
@@ -884,6 +903,7 @@ function ActionEditor({
     removeMedia: { kind: "removeMedia" },
     markDeceased: { kind: "markDeceased" },
     estimateBirth: { kind: "estimateBirth" },
+    estimateMarriage: { kind: "estimateMarriage" },
     addMarriedName: { kind: "addMarriedName" },
     convertEvent: { kind: "convertEvent", ...conversionFor(firstVendor) },
   };
@@ -979,6 +999,10 @@ function ActionEditor({
 
       {action?.kind === "estimateBirth" && (
         <span className="batch-hint">{t("tools.batch.estimateBirthHint")}</span>
+      )}
+
+      {action?.kind === "estimateMarriage" && (
+        <span className="batch-hint">{t("tools.batch.estimateMarriageHint")}</span>
       )}
 
       {action?.kind === "addMarriedName" && (

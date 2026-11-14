@@ -1,14 +1,14 @@
-import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
 import { birthParentFamilies } from "../gedcom/couple";
 import {
   DEATH_TAGS, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf, estimateBirthYear, isDeceased,
 } from "../gedcom/lifespan";
-import { addEventNode, setEventField } from "../gedcom/edit/events";
+import { addEventNode, setEventField, setFamilyEventField } from "../gedcom/edit/events";
 import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { inferNameVariants } from "../normalize/nameVariants";
-import { rebuildIndividual } from "../gedcom/edit/cache";
+import { rebuildFamily, rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
@@ -71,8 +71,11 @@ export type BatchCriterion =
    *  never married. The sentinel {@link ANY_EVENT} tag matches a union carrying
    *  any event at all, so `lacks` finds the unions nothing is recorded about.
    *  `has` means one union carries it, `lacks` that none does; people with no
-   *  union at all count as lacking everything. */
-  | { kind: "familyEvent"; tag: string; mode: "has" | "lacks" }
+   *  union at all count as lacking everything. `undated` finds a union whose
+   *  event is missing or carries no date, `estimated` one whose event is dated
+   *  only by an estimate (ABT, CAL, EST, BEF, AFT, BET) — both look at each
+   *  union on its own, and people with no union match neither. */
+  | { kind: "familyEvent"; tag: string; mode: FamilyEventMode }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   /** Presence of a close relative in the file: a partner in some union (a
@@ -98,6 +101,9 @@ export type BatchCriterion =
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
   | { kind: "sources"; mode: "none" | "any" }
   | { kind: "line"; side: LineSide };
+
+/** How the family-event criterion tests a union's event. */
+export type FamilyEventMode = "has" | "lacks" | "undated" | "estimated";
 
 /** Sentinel `tag` for the event criterion: any non-standard (`_`) event. */
 export const ANY_VENDOR_EVENT = "_*";
@@ -125,6 +131,9 @@ export interface BatchRow extends SearchRow {
   eventTags: string[];
   /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
   familyEventTags: string[];
+  /** Per union, its events with how they are dated — for the `undated` and
+   *  `estimated` family-event tests, which judge each union on its own. */
+  unionEvents: { tag: string; dated: boolean; estimated: boolean }[][];
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
@@ -202,6 +211,9 @@ export function buildBatchRows(
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
       familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
+      unionEvents: unions.map((f) =>
+        f.events.map((e) => ({ tag: e.tag, dated: e.date?.year !== undefined, estimated: isEstimatedDate(e.date) })),
+      ),
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
       hasGiven: !!indi.names[0]?.given?.trim(),
@@ -291,6 +303,14 @@ export function computeKinship(ds: Dataset, startId: string): KinshipSets | null
   };
 }
 
+/** A date that only estimates the moment: about/calculated/estimated, before,
+ *  after or between — the qualifiers a researcher writes when the record is
+ *  missing. Periods (FROM/TO) and phrases are not estimates. */
+export function isEstimatedDate(d: GedDate | undefined): boolean {
+  if (d?.year === undefined) return false;
+  return d.qualifier === "about" || d.qualifier === "before" || d.qualifier === "after" || d.qualifier === "between";
+}
+
 /** Whether one specific image (by shared xref and/or file) is in the row's tray. */
 function hasMedia(row: BatchRow, xref?: string, file?: string): boolean {
   if (xref && row.mediaXrefs.includes(xref)) return true;
@@ -339,6 +359,15 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         break;
       }
       case "familyEvent": {
+        if (c.mode === "undated" || c.mode === "estimated") {
+          const of = (events: BatchRow["unionEvents"][number]) =>
+            events.filter((e) => c.tag === ANY_EVENT || e.tag === c.tag);
+          const ok = c.mode === "undated"
+            ? row.unionEvents.some((u) => !of(u).some((e) => e.dated))
+            : row.unionEvents.some((u) => of(u).some((e) => e.estimated));
+          if (!ok) return false;
+          break;
+        }
         const has = c.tag === ANY_EVENT
           ? row.familyEventTags.length > 0
           : row.familyEventTags.includes(c.tag);
@@ -505,6 +534,12 @@ export type BatchActionSpec =
    *  whether a union looks like a marriage ({@link unionMarriage}) decides only
    *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
+  /** Date each union of the selected people's marriage as `BEF <year>`, the
+   *  year its oldest child was born (see {@link previewMarriageEstimates}).
+   *  Unions with an exactly dated marriage, and unions with no child born in a
+   *  known year, are skipped. A family is written once even when both
+   *  partners are selected. */
+  | { kind: "estimateMarriage" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources). The line value stays where the target holds
    *  one (`carriesLineValue`) and becomes a note where it does not. When the
@@ -513,7 +548,7 @@ export type BatchActionSpec =
   | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
-  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "addMarriedName", "convertEvent",
+  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "estimateMarriage", "addMarriedName", "convertEvent",
 ];
 
 export interface BatchApplyResult {
@@ -543,6 +578,8 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return markDeceasedBatch(ds, ids);
     case "estimateBirth":
       return estimateBirthBatch(ds, ids);
+    case "estimateMarriage":
+      return estimateMarriageBatch(ds, ids);
     case "addMarriedName":
       return addMarriedNameBatch(ds, ids);
     case "convertEvent":
@@ -741,6 +778,57 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
     patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
     changed: estimates.size,
     skipped,
+  };
+}
+
+/**
+ * The marriage dates the estimate action would write, keyed by family id: `BEF
+ * <year>`, the birth year of the union's oldest child — a couple marries
+ * before their first child is born. A union qualifies when its marriage has no
+ * date (or no marriage is recorded), or when its date is a `BEF` year later
+ * than that child's — an estimate written before an older child was added.
+ * Other dates, estimates included, are the researcher's and stay. Children's
+ * births count only when exactly dated: a `BEF` built on an `ABT` would pass
+ * a guess off as a bound.
+ */
+export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const id of ids) {
+    for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
+      if (out.has(famId)) continue;
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      let oldest: number | undefined;
+      for (const cid of fam.children) {
+        const d = birthDateOf(ds.individuals.get(cid));
+        if (d?.year === undefined || d.qualifier !== "exact") continue;
+        if (oldest === undefined || d.year < oldest) oldest = d.year;
+      }
+      if (oldest === undefined) continue;
+      const date = fam.events.find((e) => e.tag === "MARR")?.date;
+      const open = !date?.raw.trim() || (date.qualifier === "before" && date.year !== undefined && date.year > oldest);
+      if (open) out.set(famId, `BEF ${oldest}`);
+    }
+  }
+  return out;
+}
+
+/** Write the marriage estimates (see {@link previewMarriageEstimates}). A
+ *  person counts as changed when any of their unions was written. */
+function estimateMarriageBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const estimates = previewMarriageEstimates(ds, ids);
+  const snap = snapshotRecords(ds, [], estimates.keys());
+  for (const [famId, date] of estimates) {
+    const fam = ds.families.get(famId)!;
+    setFamilyEventField(fam, "MARR", { date });
+    rebuildFamily(ds, fam);
+  }
+  const present = ids.filter((id) => ds.individuals.has(id));
+  const changed = present.filter((id) => ds.individuals.get(id)!.spouseOf.some((f) => estimates.has(f))).length;
+  return {
+    patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
+    changed,
+    skipped: present.length - changed,
   };
 }
 

@@ -5,6 +5,7 @@ import type { Dataset } from "../gedcom/types";
 import { isDeceased } from "../gedcom/lifespan";
 import { marriedSurnamesOf } from "../match/relatives";
 import { fullTextLookup } from "../ui/globalSearch";
+import { validateConformance } from "./conformance/conformance";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -14,6 +15,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimates,
+  previewMarriageEstimates,
   previewMarriedNames,
   readMarriedNames,
   unionMarriage,
@@ -1071,5 +1073,125 @@ describe("anyField criterion", () => {
   it("does not match pointers or the cited source's own record", () => {
     expect(match("@S1@")).toEqual([]);
     expect(match("matricula")).toEqual([]);
+  });
+});
+
+describe("marriage dates: undated/estimated filter and the BEF estimate", () => {
+  /** @FA@ no marriage, children born 1885 and ABT 1880; @FB@ married BEF
+   *  1900 though a child came in 1890; @FC@ married exactly; @FD@ MARR
+   *  without a date and no dated child; @FE@ married ABT 1870 with a child. */
+  const file = (vers: string) => `0 HEAD
+1 SOUR TEST
+1 GEDC
+2 VERS ${vers}
+${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
+1 NAME Ana /A/
+1 SEX F
+1 FAMS @FA@
+0 @A2@ INDI
+1 NAME Jože /A/
+1 SEX M
+1 FAMS @FA@
+0 @A3@ INDI
+1 NAME Mici /A/
+1 BIRT
+2 DATE 12 MAR 1885
+1 FAMC @FA@
+0 @A4@ INDI
+1 NAME Tone /A/
+1 BIRT
+2 DATE ABT 1880
+1 FAMC @FA@
+0 @B1@ INDI
+1 NAME Neža /B/
+1 SEX F
+1 FAMS @FB@
+0 @B2@ INDI
+1 NAME Jaka /B/
+1 BIRT
+2 DATE 1890
+1 FAMC @FB@
+0 @C1@ INDI
+1 NAME Rozi /C/
+1 SEX F
+1 FAMS @FC@
+0 @C2@ INDI
+1 NAME Lojze /C/
+1 BIRT
+2 DATE 1881
+1 FAMC @FC@
+0 @D1@ INDI
+1 NAME Pepca /D/
+1 SEX F
+1 FAMS @FD@
+0 @E1@ INDI
+1 NAME Mina /E/
+1 SEX F
+1 FAMS @FE@
+0 @E2@ INDI
+1 NAME Franc /E/
+1 BIRT
+2 DATE 1875
+1 FAMC @FE@
+0 @S1@ INDI
+1 NAME Samec /S/
+0 @FA@ FAM
+1 HUSB @A2@
+1 WIFE @A1@
+1 CHIL @A4@
+1 CHIL @A3@
+0 @FB@ FAM
+1 WIFE @B1@
+1 CHIL @B2@
+1 MARR
+2 DATE BEF 1900
+0 @FC@ FAM
+1 WIFE @C1@
+1 CHIL @C2@
+1 MARR
+2 DATE 4 FEB 1880
+0 @FD@ FAM
+1 WIFE @D1@
+1 MARR Y
+0 @FE@ FAM
+1 WIFE @E1@
+1 CHIL @E2@
+1 MARR
+2 DATE ABT 1870
+0 TRLR
+`;
+  const ctx = { lineSides: null, kinship: null, fullText: () => "" };
+  const match = (ds: Dataset, c: BatchCriterion[]) =>
+    buildBatchRows(ds, nameOf).filter((r) => matchesBatch(r, c, ctx)).map((r) => r.id).sort();
+
+  it("finds unions whose marriage is missing, undated, or only estimated", () => {
+    const ds = dataset(file("5.5.1"));
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@A1@", "@A2@", "@D1@"]);
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "estimated" }])).toEqual(["@B1@", "@E1@"]);
+  });
+
+  it("previews BEF the oldest exactly dated child's year, once per family", () => {
+    const ds = dataset(file("5.5.1"));
+    const all = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@E1@", "@S1@"];
+    expect([...previewMarriageEstimates(ds, all)]).toEqual([
+      // ABT 1880 is a guess, so 1885 bounds the marriage; the late BEF is corrected.
+      ["@FA@", "BEF 1885"],
+      ["@FB@", "BEF 1890"],
+    ]);
+  });
+
+  it.each(["5.5.1", "7.0"])("writes the estimates as conformant %s", (vers) => {
+    const ds = dataset(file(vers));
+    const res = applyBatchAction(ds, ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@S1@"], { kind: "estimateMarriage" });
+    expect(res).toMatchObject({ changed: 3, skipped: 3 });
+    expect(res.patches).toHaveLength(2);
+    const marr = (id: string) => ds.families.get(id)!.events.find((e) => e.tag === "MARR")?.date?.raw;
+    expect(marr("@FA@")).toBe("BEF 1885");
+    expect(marr("@FB@")).toBe("BEF 1890");
+    expect(marr("@FC@")).toBe("4 FEB 1880");
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@D1@"]);
+    expect(validateConformance(ds)).toEqual([]);
+    // Running again finds nothing left to do.
+    expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }).changed).toBe(0);
   });
 });

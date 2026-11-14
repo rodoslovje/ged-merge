@@ -1636,7 +1636,8 @@
               person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
               person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
               <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
-              file says nothing about), place, note text (matched against the note as written, so a note that is
+              file says nothing about; <em>has no date for</em> finds a union whose event is missing or undated, and
+              <em>has an estimated date for</em> one dated only by an estimate such as ABT, BEF or AFT), place, note text (matched against the note as written, so a note that is
               nothing but a link is found by any part of it — <em>Note contains facebook.com</em>), text in any
               field of the person's record (<em>Any field contains</em>: every word you type must appear somewhere
               in it or in the events of the person's unions — names, dates, places, occupations, citations or
@@ -1660,11 +1661,14 @@
               taking each partner's surname and writing it the way the file itself writes married names (an inline
               tag, comma-joined when there are several, or one name record per union); every union contributes, in
               marriage order, so a second marriage adds a second name, and surnames the person already carries are
-              left untouched — or convert a non-standard event to a standard
+              left untouched — give the unions of the selected people an <strong>estimated marriage date</strong>,
+              <em>BEF</em> the birth year of the oldest child with an exact birth date, which also corrects a
+              <em>BEF</em> estimate written before an older child was added (exact and other estimated dates stay)
+              — or convert a non-standard event to a standard
               type or to a named custom event, keeping its dates, places and sources; the target is proposed per tag
               (an interment becomes a burial, a state such as an illness a fact, anything else a custom event), and
               text the new type cannot carry on its own line moves into the event's note. Each match has a checkbox so you can drop individuals before
-              applying — with the estimate action, each row also previews the year that person would get, and with the
+              applying — with the estimate actions, each row also previews the date that person or their marriage would get, and with the
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
               its children carry the mother's surname rather than the father's — the classic sign of a birth outside
