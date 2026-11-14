@@ -159,7 +159,10 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
   }
   await browser.close();
 
-  const videoTime = assemble({ frames: rec.frames, end, cues, skips: d.skips, workDir: rec.directory, output, burnSubtitles });
+  // Frames painted inside a `d.frozen(...)` stretch are dropped: the frame
+  // before it stays on screen until the first one after it.
+  const frames = rec.frames.filter((f) => !d.freezes.some(([a, b]) => f.t > a && f.t <= b));
+  const videoTime = assemble({ frames, end, cues, skips: d.skips, workDir: rec.directory, output, burnSubtitles });
   const chapters = marks.map((c) => `${clock(videoTime(c.t))} ${c.label}`);
 
   writeFileSync(output.replace(/\.mp4$/, ".txt"), youtubeText(scenario, lang, chapters));

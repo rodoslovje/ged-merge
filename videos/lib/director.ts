@@ -74,6 +74,8 @@ export class Director {
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
   /** [start, end, share kept] — the share defaults to assemble.ts's. */
   readonly skips: [number, number, number?][] = [];
+  /** Stretches whose frames are left out (see `frozen`). */
+  readonly freezes: [number, number][] = [];
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
@@ -90,6 +92,20 @@ export class Director {
       return await wait();
     } finally {
       this.skips.push(keep === undefined ? [start, this.clock()] : [start, this.clock(), keep]);
+    }
+  }
+
+  /**
+   * Run something whose painting must not be seen — a page navigation, which
+   * shows the new page for a frame or two before anything can cover it. The
+   * picture holds on the last frame before it until the first frame after.
+   */
+  async frozen<T>(work: () => Promise<T>): Promise<T> {
+    const start = this.clock();
+    try {
+      return await work();
+    } finally {
+      this.freezes.push([start, this.clock()]);
     }
   }
 

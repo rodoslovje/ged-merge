@@ -300,11 +300,14 @@ const scenario: Scenario = {
         };
         await d.holdCard(intro.kicker, intro.title, intro.line);
         const home = d.page.url();
-        await d.page.goto(new URL(d.lang === "sl" ? "navodila/#photos" : "guide/#photos", home).href);
-        await d.page.evaluate(() => document.fonts.ready);
         const table = d.page.locator("#photos table.gm-table").first();
-        await table.evaluate((e) => e.scrollIntoView({ block: "center" }));
-        await d.wait(500);
+        // The new page paints a frame before the held card is up: not shown.
+        await d.frozen(async () => {
+          await d.page.goto(new URL(d.lang === "sl" ? "navodila/#photos" : "guide/#photos", home).href);
+          await d.page.evaluate(() => document.fonts.ready);
+          await table.evaluate((e) => e.scrollIntoView({ block: "center" }));
+          await d.wait(500);
+        });
         await d.holdCard(null, null);
         // The navigation dropped the step callout with the old page: put it back.
         await d.overlay("callout", "1", d.t({ sl: "Podpora brskalnikov", en: "Browser support" }));
