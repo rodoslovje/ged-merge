@@ -602,21 +602,31 @@ function FaceNamer({
     <div className="photo-face-namer" ref={ref} onClick={(e) => e.stopPropagation()}>
       <div className="photo-face-title">{t("media.face.who")}</div>
       {naming.others && (
-        <input
-          className="edit-input"
-          autoFocus
-          placeholder={t("media.face.search")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && people[0]) onPick(people[0].id);
-          }}
-        />
+        // The app's search box, as in the Add-media picker.
+        <div className="name-search-wrap photo-face-search">
+          <input
+            type="text"
+            className="name-search"
+            autoFocus
+            placeholder={t("media.face.search")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && people[0]) onPick(people[0].id);
+            }}
+          />
+          {query && (
+            <button className="name-search-clear" onClick={() => setQuery("")} tabIndex={-1} aria-label={t("filter.clearSearch")}>
+              ✕
+            </button>
+          )}
+        </div>
       )}
       <ul className="photo-face-list">
         {people.map((p) => (
           <li key={p.id}>
-            <button type="button" onClick={() => onPick(p.id)}>{lifespanLabel(p)}</button>
+            {/* Named the way people are named everywhere: sex colour, lifespan, age. */}
+            <PersonLink dataset={naming.dataset} id={p.id} fallback={lifespanLabel(p)} onNavigate={onPick} />
           </li>
         ))}
         {people.length === 0 && <li className="photo-face-none">{t("media.face.none")}</li>}
@@ -718,8 +728,10 @@ function MediaStage({
   return (
     <div
       className={`person-media-cropwrap ${cropEdit ? "crop-editing" : ""}`}
-      onMouseEnter={canReveal ? () => setRevealing(true) : undefined}
-      onMouseLeave={canReveal ? () => setRevealing(false) : undefined}
+      // Tracked even before there is anything to reveal: faces found while the
+      // mouse already rests on the photo must show without leaving and coming back.
+      onMouseEnter={cropEdit ? undefined : () => setRevealing(true)}
+      onMouseLeave={cropEdit ? undefined : () => setRevealing(false)}
       onTouchStart={canReveal ? () => setRevealing((v) => !v) : undefined}
       onPointerDown={cropEdit && natural ? (e) => {
         e.preventDefault();
