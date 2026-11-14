@@ -3077,6 +3077,23 @@ button:focus-visible {
   pointer-events: auto;
 }
 .photo-crop-box.photo-face-box:hover { background: var(--accent-soft); }
+/* Corner handles on a marked person's region: drag one to resize it. */
+.photo-crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  border-radius: var(--radius-sm);
+  pointer-events: auto;
+  touch-action: none;
+}
+.photo-crop-handle-nw { left: -7px; top: -7px; cursor: nwse-resize; }
+.photo-crop-handle-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.photo-crop-handle-ne { right: -7px; top: -7px; cursor: nesw-resize; }
+.photo-crop-handle-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+/* The region being resized tracks the pointer exactly, in the accent colour. */
+.photo-crop-box.photo-crop-resizing { border: 2px solid var(--accent); transition: none; }
 /* The name panel, under the face being named. */
 .photo-face-panel {
   position: absolute;

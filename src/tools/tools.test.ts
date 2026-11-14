@@ -2472,6 +2472,8 @@ describe("mediaUsedBy", () => {
     expect(byId.get("@I2@")).toEqual({ top: 200, left: 300, height: 120, width: 90 });
     // A reference without a CROP carries no region.
     expect(byId.get("@I3@")).toBeUndefined();
+    // Each use names its record, so the viewer can write that region back.
+    expect(uses.map((u) => u.record).sort()).toEqual(["@I1@", "@I2@", "@I3@"]);
   });
 
   it("says which events a page image is cited on, and nothing for a record-level link", () => {

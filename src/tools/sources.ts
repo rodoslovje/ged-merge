@@ -49,6 +49,9 @@ export interface SourceUse {
    *  the citing `OBJE` link marks a subregion (e.g. this person in a group photo).
    *  Populated by {@link mediaUsedBy}; lets the viewer move the highlight on hover. */
   crop?: CropRegion;
+  /** The citing record's xref (`INDI` or `FAM`) — set by {@link mediaUsedBy},
+   *  so the viewer can write that record's region back. */
+  record?: string;
 }
 
 export interface MediaEntry {
@@ -211,6 +214,7 @@ export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
       uses.push({
         persons,
         crop: objeLinkCrop(rec, mediaXref),
+        record: rec.xref,
         ...(eventTags.length > 0 ? { eventTags } : {}),
       });
     }
