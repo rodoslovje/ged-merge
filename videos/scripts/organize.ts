@@ -31,7 +31,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Director } from "../lib/director.ts";
 import { seriesSettings } from "../lib/series.ts";
-import type { Scenario } from "../lib/types.ts";
+import type { Scenario, Text } from "../lib/types.ts";
 
 const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "preseren-hawlina-viri.ged");
 
@@ -45,6 +45,44 @@ const applyButton = (d: Director) => d.page.locator(".tools-geo-tabs-row .tools-
 const selectAll = (d: Director) => d.page.locator(".tools-geo-tabs-row .tools-dup-bulk .tools-issue-link").first();
 const fetchButton = (d: Director) => d.page.locator(".tools-reshape-options .tools-run").first();
 
+/** »Razširi vse« on the open list, so every row shows what it holds. */
+async function expandAll(d: Director): Promise<void> {
+  const btn = d.page.locator("button.tools-issue-link").filter({ hasText: d.t({ sl: "Razširi vse", en: "Expand all" }) }).first();
+  if ((await btn.count()) === 0) return;
+  await d.click(btn);
+  await d.wait(700);
+}
+
+/** Pick the citation quality every written citation gets. */
+async function setQuay(d: Director, value: Text): Promise<void> {
+  const quay = d.page.locator(".tools-reshape-options .tools-reshape-site").nth(2);
+  await d.highlight(quay, 4);
+  await d.click(quay.locator(".select-menu").first());
+  await d.wait(900);
+  await d.click(d.page.locator(".dd-item", { hasText: d.t(value) }).first());
+  await d.wait(600);
+}
+
+/** The collections the program recognises, grouped by kind, for the on-screen list. */
+const COLLECTIONS: { name: Text; items: [string, string | Text][] }[] = [
+  { name: { sl: "Matične knjige", en: "Parish registers" }, items: [["⛪", "Matricula Online"], ["🌳", "FamilySearch"]] },
+  { name: { sl: "Grobovi", en: "Graves" }, items: [["🪦", "Geneanet"], ["🪦", "Find a Grave"], ["🪦", "BillionGraves"]] },
+  {
+    name: { sl: "Osebe", en: "People" },
+    items: [
+      ["🪶", "Slovenska biografija"],
+      ["👤", "Obrazi slovenskih pokrajin"],
+      ["🎖️", { sl: "SIstory — žrtve vojn", en: "SIstory — war victims" }],
+      ["🌲", { sl: "Geneanet — rodovniki", en: "Geneanet — trees" }],
+    ],
+  },
+  {
+    name: { sl: "Knjige in časopisi", en: "Books and newspapers" },
+    items: [["📚", "dLib.si"], ["📖", { sl: "Google Knjige", en: "Google Books" }], ["🗞️", "Newspapers.com"], ["📰", "Legacy.com"]],
+  },
+  { name: { sl: "Splet", en: "The web" }, items: [["🌐", { sl: "Wikipedija", en: "Wikipedia" }], ["🎬", "YouTube"]] },
+];
+
 /** Fetch the ticked groups' details, if any can be fetched, and wait for the lookups. */
 async function fetchDetails(d: Director): Promise<void> {
   if ((await fetchButton(d).count()) === 0) return;
@@ -57,29 +95,6 @@ async function fetchDetails(d: Director): Promise<void> {
       .waitFor({ state: "detached", timeout: 120_000 }),
   );
   await d.wait(600);
-}
-
-/**
- * One collection, start to finish: its filter chip (by name, or the first one
- * left), select all, fetch the details, a look at the result, convert.
- */
-async function convertSite(d: Director, name: string | null, look: number): Promise<void> {
-  const target = name
-    ? d.page.locator(".tools-chips .tools-chip").filter({ hasText: name }).first()
-    : d.page
-        .locator(".tools-chips .tools-chip")
-        .filter({ hasNotText: d.t({ sl: "Vsi", en: "All" }) })
-        .filter({ hasNotText: d.t({ sl: "Druge povezave", en: "Other links" }) })
-        .first();
-  await d.click(target);
-  await d.wait(700);
-  await d.click(selectAll(d));
-  await d.wait(500);
-  await fetchDetails(d);
-  await d.highlight(d.page.locator(".tools-tree").first(), 6);
-  await d.wait(look);
-  await d.highlight(null);
-  await apply(d);
 }
 
 /** Apply the open tab's ticked rows and wait for the file to be read again. */
@@ -131,8 +146,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Odprimo rodovnik pesnika Franceta Prešerna. Povezave na vire so v njem raztresene po opombah in poljih povezav. Taka povezava ni vir: nima naslova knjige, arhiva ne strani.",
-        en: "Let's open the pedigree of the poet France Prešeren. Its source links are scattered over notes and link fields. A link like that is not a source: it has no book title, no archive and no page.",
+        sl: "Odprimo rodovnik pesnika Franceta Prešerna. Povezave na vire so v njem raztresene po opombah in poljih povezav. Taka povezava ni vir: nima naslova knjige, arhiva ne strani. Če stran nekoč izgine s spleta, ne veste več niti, za kateri vir je šlo.",
+        en: "Let's open the pedigree of the poet France Prešeren. Its source links are scattered over notes and link fields. A link like that is not a source: it has no book title, no archive and no page. If the page ever disappears from the web, you no longer even know which source it was.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -183,14 +198,29 @@ const scenario: Scenario = {
     {
       callout: { sl: "Prepoznane zbirke", en: "Recognised collections" },
       say: {
-        sl: "Program prepozna matične knjige na Matriculi in FamilySearchu, grobove na Geneanetu, Find a Grave in BillionGraves, Slovensko biografijo, Obraze slovenskih pokrajin, žrtve vojn na SIstory, dLib, Google Knjige, Wikipedijo in YouTube. Vsaka zbirka ima svoj filter. Obdelujte jih eno za drugo, tako ostane seznam pregleden, tudi ko je povezav na stotine.",
-        en: "The program recognises parish registers on Matricula and FamilySearch, graves on Geneanet, Find a Grave and BillionGraves, the Slovenska biografija, Obrazi slovenskih pokrajin, war victims on SIstory, dLib, Google Books, Wikipedia and YouTube. Each collection has its own filter. Work through them one at a time, so the list stays clear even with hundreds of links.",
+        sl: "Program prepozna povezave na matične knjige, grobove, življenjepise, knjige in časopise ter nekatere spletne strani. Vsaka zbirka ima svoj filter. Obdelujte jih eno za drugo, tako ostane seznam pregleden, tudi ko je povezav na stotine.",
+        en: "The program recognises links to parish registers, graves, biographies, books and newspapers, and some websites. Each collection has its own filter. Work through them one at a time, so the list stays clear even with hundreds of links.",
       },
       run: async (d) => {
-        await d.highlight(d.page.locator(".tools-chips").first(), 6);
-        await d.wait(4000);
+        await d.overlay(
+          "list",
+          d.t({ sl: "Prepoznane zbirke", en: "Recognised collections" }),
+          COLLECTIONS.map((g) => ({
+            name: d.t(g.name),
+            items: g.items.map(([icon, label]) => [icon, typeof label === "string" ? label : d.t(label)] as [string, string]),
+          })),
+        );
+        // The ring walks the file's own collections, filter by filter.
+        const chips = d.page.locator(".tools-chips .tools-chip").filter({ hasNotText: d.t({ sl: "Vsi", en: "All" }) });
+        const n = await chips.count();
+        for (let i = 0; i < n; i++) {
+          await d.highlight(chips.nth(i), 4);
+          await d.wait(1100);
+        }
         await d.highlight(d.page.locator(".tools-chips .tools-chip.active").first(), 4);
         await d.snapshot();
+        await d.untilSaid();
+        await d.overlay("list", null, []);
       },
     },
     {
@@ -199,10 +229,9 @@ const scenario: Scenario = {
         en: "Let's start with Matricula. The links are grouped by book. Each row tells where the link sits in the file now, for example in a note on the birth.",
       },
       run: async (d) => {
-        const breznica = group(d, "00164");
-        await d.click(breznica.locator(".tools-pair-toggle"));
-        await d.wait(900);
-        await d.highlight(breznica, 6);
+        await d.highlight(null);
+        await expandAll(d);
+        await d.highlight(group(d, "00164"), 6);
       },
     },
     {
@@ -225,20 +254,17 @@ const scenario: Scenario = {
     {
       callout: { sl: "Navedbe na dogodkih", en: "Citations on events" },
       say: {
-        sl: "Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari. Vsem navedbam lahko nastavite tudi kakovost citata.",
-        en: "A citation from a baptism register lands on the birth, one from a death register on the death, and a grave on the burial. If the event is missing, the program creates it. You can also set the citation quality for all of them.",
+        sl: "Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari. Kakovost citata nastavite za vse navedbe hkrati, vidi se v vsaki vrstici.",
+        en: "A citation from a baptism register lands on the birth, one from a death register on the death, and a grave on the burial. If the event is missing, the program creates it. You set the citation quality for all citations at once; every row shows it.",
       },
       run: async (d) => {
-        await d.click(group(d, "00164").locator(".tools-pair-toggle"));
         const options = d.page.locator(".tools-reshape-options").first();
         await d.highlight(options.locator(".tools-reshape-site").first(), 4);
         await d.wait(3500);
-        const quay = options.locator(".tools-reshape-site").nth(2);
-        await d.highlight(quay, 4);
-        await d.click(quay.locator(".select-menu"));
-        await d.wait(900);
-        await d.click(d.page.locator(".dd-item", { hasText: d.t({ sl: "primarni vir", en: "primary evidence" }) }).first());
-        await d.wait(800);
+        await setQuay(d, { sl: "primarni vir", en: "primary evidence" });
+        // Every citation row below takes the value at once.
+        await d.highlight(d.page.locator(".tools-tree").first(), 6);
+        await d.wait(2000);
       },
     },
     {
@@ -272,46 +298,37 @@ const scenario: Scenario = {
     {
       callout: { sl: "Grobovi", en: "Graves" },
       say: {
-        sl: "Nato naslednja zbirka, grobovi. Grob na Geneanetu pristane pri pokopu. Ernestina pokopa še nima, zato ga program ustvari. Enako obdelate Find a Grave.",
-        en: "Then the next collection, graves. A grave on Geneanet lands on the burial. Ernestina has no burial yet, so the program creates it. Find a Grave is done the same way.",
+        sl: "Nato grobovi na Geneanetu. Grob ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Grob pristane pri pokopu. Ernestina pokopa še nima, zato ga program ustvari.",
+        en: "Then the graves on Geneanet. A grave is not primary evidence of a death, so we set the citation quality to secondary evidence. The grave lands on the burial. Ernestina has no burial yet, so the program creates it.",
       },
       run: async (d) => {
         await d.highlight(null);
-        await convertSite(d, "Geneanet", 2500);
-        await convertSite(d, "Find a Grave", 1500);
+        await d.click(chip(d, "Geneanet", "Geneanet"));
+        await d.wait(700);
+        await expandAll(d);
+        await setQuay(d, { sl: "sekundarni vir", en: "secondary evidence" });
+        await d.click(selectAll(d));
+        await d.wait(500);
+        await fetchDetails(d);
+        await d.highlight(d.page.locator(".tools-tree").first(), 6);
+        await d.untilSaid();
+        await apply(d);
       },
     },
     {
-      callout: { sl: "Druge zbirke", en: "Other collections" },
+      callout: { sl: "Vse ostale", en: "All the rest" },
       say: {
-        sl: "Enako, zbirko za zbirko, obdelate še ostale. Pri Google Knjigah in dLib program prebere naslov dela, pri dLib tudi leto izida.",
-        en: "In the same way, collection by collection, you work through the rest. On Google Books and dLib the program reads the work's title, and on dLib the year of publication too.",
+        sl: "Ostale zbirke lahko obdelate skupaj, pod »Vsi«. Kakovost citata ostane sekundarni vir: življenjepis ali knjiga nista primarni vir za rojstvo ali smrt.",
+        en: "The remaining collections can be done together, under All. The citation quality stays secondary evidence: a biography or a book is not primary evidence of a birth or a death.",
       },
       run: async (d) => {
-        // Google Books first: converting dLib's "Poezije" (1847) first moves the
-        // Google Books "Poezije" (1958) link into Other links.
-        await convertSite(d, "Google", 1200);
-        await convertSite(d, "dLib", 1500);
-      },
-    },
-    {
-      say: {
-        sl: "Pri Slovenski biografiji in Obrazih slovenskih pokrajin prebere ime osebe, pri Wikipediji naslov članka.",
-        en: "In the Slovenska biografija and Obrazi slovenskih pokrajin it reads the person's name, on Wikipedia the article's title.",
-      },
-      run: async (d) => {
-        await convertSite(d, "biografija", 1000);
-        await convertSite(d, "Obrazi", 1000);
-        await convertSite(d, "Wiki", 1000);
-      },
-    },
-    {
-      say: {
-        sl: "Pri YouTubu pa naslov videa in avtorja. Tako je za vsak vir zapisano, kaj točno je in kdo ga je objavil.",
-        en: "And on YouTube, the video's title and its author. So every source says exactly what it is and who published it.",
-      },
-      run: async (d) => {
-        await convertSite(d, "YouTube", 1500);
+        await d.highlight(null);
+        await d.click(chip(d, "Vsi", "All"));
+        await d.wait(700);
+        await expandAll(d);
+        await d.highlight(d.page.locator(".tools-tree").first(), 6);
+        await d.wait(1500);
+        await d.highlight(d.page.locator(".tools-reshape-options .tools-reshape-site").nth(2), 4);
       },
     },
     {
@@ -321,34 +338,44 @@ const scenario: Scenario = {
         en: "Links the program does not know are under Other links. This one leads to an old page of war victims on SIstory that no longer exists. Mark it for removal: it disappears from every place in the file, the note's text stays, and no source is created.",
       },
       run: async (d) => {
-        await d.click(chip(d, "Druge povezave", "Other links"));
-        await d.wait(900);
         const dead = group(d, "SIstory");
+        await dead.scrollIntoViewIfNeeded();
         await d.highlight(dead, 4);
         await d.wait(2500);
         await d.click(dead.locator("button.tools-issue-link", { hasText: "🗑" }));
         await d.wait(600);
         await d.highlight(dead.locator(".tools-reshape-badge.remove"), 6);
         await d.wait(1500);
+      },
+    },
+    {
+      say: {
+        sl: "Izberite vse in pridobite podatke: pri dLib in Google Knjigah naslov dela, pri življenjepisih ime osebe, pri YouTubu naslov videa in avtorja. Nato vse pretvorite v enem koraku.",
+        en: "Select all and fetch the details: a work's title on dLib and Google Books, the person's name for the biographies, a video's title and author on YouTube. Then convert everything in one step.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
         await d.click(selectAll(d));
         await d.wait(600);
+        await fetchDetails(d);
+        await d.highlight(d.page.locator(".tools-tree").first(), 6);
+        await d.wait(2500);
+        await d.highlight(null);
         await apply(d);
       },
     },
     {
       callout: { sl: "Dvojniki", en: "Duplicates" },
       say: {
-        sl: "Na zavihku »Dvojniki« so zapisi, ki opisujejo isto stvar pod različnima oznakama. Tu je Nadškofijski arhiv Ljubljana zapisan večkrat, enkrat celo brez poštnega naslova. Zapisi, ki povedo manj, se pridružijo popolnejšemu.",
-        en: "The Duplicates tab lists records that describe the same thing under different ids. Here the Archdiocesan Archive of Ljubljana is written several times, once even without its address. The records that say less join the fuller one.",
+        sl: "Na zavihku »Dvojniki« so zapisi, ki opisujejo isto stvar pod različnima oznakama. Tu je isti vir, rodovnik Petra Hawline, zapisan dvakrat: pri Prešernu z avtorjem, pri Ani Jelovšek brez njega. Zapis, ki pove manj, se pridruži popolnejšemu.",
+        en: "The Duplicates tab lists records that describe the same thing under different ids. Here one source, Peter Hawlina's pedigree, is written twice: with its author for Prešeren, without one for Ana Jelovšek. The record that says less joins the fuller one.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.click(tab(d, "Dvojniki", "Duplicates"));
         await d.wait(900);
-        const nal = group(d, "Nadškofijski arhiv");
-        await d.click(nal.locator(".tools-pair-toggle"));
-        await d.wait(900);
-        await d.highlight(nal, 6);
+        await expandAll(d);
+        await d.highlight(group(d, "Hawline"), 6);
       },
     },
     {
@@ -357,10 +384,10 @@ const scenario: Scenario = {
         en: "The program keeps the record with more references, copies into it what only the others say, and points every citation at it.",
       },
       run: async (d) => {
-        const nal = group(d, "Nadškofijski arhiv");
-        await d.highlight(nal.locator(".tools-dup-member.survivor").first(), 4);
+        const kranj = group(d, "Hawline");
+        await d.highlight(kranj.locator(".tools-dup-member.survivor").first(), 4);
         await d.wait(2000);
-        await d.click(nal.locator(".tools-dup-check").first());
+        await d.click(kranj.locator(".tools-dup-check").first());
         await d.wait(600);
         await apply(d);
       },
@@ -375,15 +402,38 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.click(tab(d, "Strani", "Pages"));
         await d.wait(900);
+        await expandAll(d);
         const kranj = d.page.locator(".tools-tree > .tools-tree-node").first();
-        await d.click(kranj.locator(".tools-pair-toggle"));
-        await d.wait(900);
         await d.highlight(kranj, 6);
         await d.wait(1500);
         await d.highlight(null);
         await d.click(selectAll(d));
         await d.wait(600);
         await apply(d);
+      },
+    },
+    {
+      callout: { sl: "Hrambe in viri", en: "Repositories and sources" },
+      say: {
+        sl: "Nazaj v pregledu virov je zdaj vse urejeno: hramba Nadškofijski arhiv Ljubljana, v njej matične knjige, pod vsako knjigo navedene strani, ob vsaki strani pa osebe, ki se nanjo sklicujejo.",
+        en: "Back in the sources overview, everything is in order now: the Archdiocesan Archive of Ljubljana as a repository, its parish registers, under each book the pages cited, and beside each page the people who cite it.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await d.click(d.page.getByText(d.t({ sl: "Nazaj na vire", en: "Back to Sources" }), { exact: true }).first());
+        await d.page.locator(".tools-tree").first().waitFor();
+        await d.wait(700);
+        const repo = d.page.locator(".tools-tree > .tools-tree-node").filter({ hasText: "Nadškofijski arhiv" }).first();
+        await repo.scrollIntoViewIfNeeded();
+        // Open the repository, then every book, page and list of people inside it.
+        for (let i = 0; i < 16; i++) {
+          const closed = repo.locator(".tools-pair-toggle:not(.open)").first();
+          if ((await closed.count()) === 0) break;
+          await closed.click();
+          await d.wait(400);
+        }
+        await d.highlight(repo, 6);
+        await d.wait(1500);
       },
     },
     {

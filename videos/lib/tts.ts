@@ -45,6 +45,15 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Mm])eje\b/g, "$1éje"],
     // Genitive "potí" ("v smeri potí"), unlike the Paths button's "Póti".
     [/smeri poti\b/g, "smeri potí"],
+    // Episode 13: "Matricula" is read the Slovenian way, "vire" (the
+    // Organize sources button, »Uredi vire«) is stressed on the e,
+    // "hrambo" on the a, "Urejanje" on the first u, and the Pages tab is »Stráni«.
+    [/Matricul/g, "Matrikul"],
+    [/\b([Vv])ire\b/g, "$1iré"],
+    [/\b([Hh])rambo\b/g, "$1rámbo"],
+    [/\bUrejanj/g, "Úrejanj"],
+    [/\burejanj/g, "úrejanj"],
+    [/»Strani«/g, "»Stráni«"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],

@@ -30,6 +30,7 @@
 1 WWW https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI
 1 _URL https://www.youtube.com/watch?v=0e4cZNi9nTs
 1 NOTE Življenjepis na Wikipediji: https://sl.wikipedia.org/wiki/France_Prešeren
+1 SOUR @S5@
 1 OBJE
 2 FILE https://books.google.com/books/about/Poezije.html?id=0F9EAAAAIAAJ&redir_esc=y
 3 FORM URL
@@ -112,6 +113,7 @@
 0 @I113448@ INDI
 1 NAME Ana /Jelovšek/
 1 SEX F
+1 SOUR @S6@
 1 BIRT
 2 DATE 06 JUL 1823
 2 SOUR Krstna knjiga Ljubljana – Sv. Jakob, str. 177, https://data.matricula-online.eu/sl/slovenia/ljubljana/ljubljana-sv-jakob/01156/?pg=177
@@ -347,17 +349,16 @@
 1 NAME Nadškofijski arhiv Ljubljana
 1 ADDR Krekov trg 1
 2 CITY Ljubljana
-0 @R2@ REPO
-1 NAME Nadškofijski arhiv Ljubljana
 0 @S1@ SOUR
 1 TITL Kranj, mrliška knjiga
 1 REPO @R1@
 2 CALN 00932
 1 OBJE @O1@
-0 @S2@ SOUR
-1 TITL Breznica, krstna knjiga
-1 REPO @R2@
-2 CALN 00164
+0 @S5@ SOUR
+1 TITL Rodovnik Petra Hawline
+1 AUTH Peter Hawlina
+0 @S6@ SOUR
+1 TITL Rodovnik Petra Hawline
 0 @S4@ SOUR
 1 TITL https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7
 0 @O1@ OBJE
