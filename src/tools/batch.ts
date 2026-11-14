@@ -791,7 +791,9 @@ export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string
     for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
       if (out.has(famId)) continue;
       const fam = ds.families.get(famId);
-      if (!fam) continue;
+      // A family naming one parent only is no couple — most often a child born
+      // out of wedlock — so it gets no marriage, estimated or otherwise.
+      if (!fam?.husband || !fam.wife) continue;
       let exact: number | undefined;
       let estimated: number | undefined;
       for (const cid of fam.children) {

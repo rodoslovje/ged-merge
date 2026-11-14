@@ -1081,7 +1081,8 @@ describe("marriage dates: undated/estimated filter and the marriage estimate", (
   /** @FA@ no marriage, children born 1885 and ABT 1880; @FB@ married BEF
    *  1900 though a child came in 1890; @FC@ married exactly; @FD@ MARR
    *  without a date and nothing dated; @FE@ married ABT 1870 with a child;
-   *  @FG@ childless, wife born 1852; @FH@ one child born ABT 1883. */
+   *  @FG@ childless, wife born 1852; @FH@ one child born ABT 1883; @FS@ a
+   *  mother alone with a child born 1890. Each @Fx@ but @FS@ names a partner @x0@. */
   const file = (vers: string) => `0 HEAD
 1 SOUR TEST
 1 GEDC
@@ -1150,12 +1151,50 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
 1 BIRT
 2 DATE ABT 1883
 1 FAMC @FH@
+0 @B0@ INDI
+1 NAME Partner /B/
+1 SEX M
+1 FAMS @FB@
+0 @C0@ INDI
+1 NAME Partner /C/
+1 SEX M
+1 FAMS @FC@
+0 @D0@ INDI
+1 NAME Partner /D/
+1 SEX M
+1 FAMS @FD@
+0 @E0@ INDI
+1 NAME Partner /E/
+1 SEX M
+1 FAMS @FE@
+0 @G0@ INDI
+1 NAME Partner /G/
+1 SEX M
+1 FAMS @FG@
+0 @H0@ INDI
+1 NAME Partner /H/
+1 SEX F
+1 FAMS @FH@
 0 @S1@ INDI
 1 NAME Samec /S/
+0 @S2@ INDI
+1 NAME Marjeta /S/
+1 SEX F
+1 FAMS @FS@
+0 @S3@ INDI
+1 NAME Janez /S/
+1 BIRT
+2 DATE 1 JAN 1890
+1 FAMC @FS@
+0 @FS@ FAM
+1 WIFE @S2@
+1 CHIL @S3@
 0 @FG@ FAM
+1 HUSB @G0@
 1 WIFE @G1@
 0 @FH@ FAM
 1 HUSB @H1@
+1 WIFE @H0@
 1 CHIL @H2@
 0 @FA@ FAM
 1 HUSB @A2@
@@ -1163,19 +1202,23 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
 1 CHIL @A4@
 1 CHIL @A3@
 0 @FB@ FAM
+1 HUSB @B0@
 1 WIFE @B1@
 1 CHIL @B2@
 1 MARR
 2 DATE BEF 1900
 0 @FC@ FAM
+1 HUSB @C0@
 1 WIFE @C1@
 1 CHIL @C2@
 1 MARR
 2 DATE 4 FEB 1880
 0 @FD@ FAM
+1 HUSB @D0@
 1 WIFE @D1@
 1 MARR Y
 0 @FE@ FAM
+1 HUSB @E0@
 1 WIFE @E1@
 1 CHIL @E2@
 1 MARR
@@ -1189,14 +1232,16 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
   it("finds unions whose marriage is missing, undated, or only estimated", () => {
     const ds = dataset(file("5.5.1"));
     expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual([
-      "@A1@", "@A2@", "@D1@", "@G1@", "@H1@",
+      "@A1@", "@A2@", "@D0@", "@D1@", "@G0@", "@G1@", "@H0@", "@H1@", "@S2@",
     ]);
-    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "estimated" }])).toEqual(["@B1@", "@E1@"]);
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "estimated" }])).toEqual([
+      "@B0@", "@B1@", "@E0@", "@E1@",
+    ]);
   });
 
   it("previews the strongest estimate per family, once per family", () => {
     const ds = dataset(file("5.5.1"));
-    const all = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@E1@", "@G1@", "@H1@", "@S1@"];
+    const all = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@E1@", "@G1@", "@H1@", "@S1@", "@S2@"];
     expect([...previewMarriageEstimates(ds, all)]).toEqual([
       // ABT 1880 is a guess, so the exact 1885 bounds the marriage; the late BEF is corrected.
       ["@FA@", "BEF 1885"],
@@ -1204,20 +1249,21 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
       // Wife 1852 + 25 = 1877; child ABT 1883 − 2 = 1881 — both rounded to 0 or 5.
       ["@FG@", "ABT 1875"],
       ["@FH@", "ABT 1880"],
+      // @FS@ names one parent: no couple, so no marriage.
     ]);
   });
 
   it.each(["5.5.1", "7.0"])("writes the estimates as conformant %s", (vers) => {
     const ds = dataset(file(vers));
-    const ids = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@G1@", "@H1@", "@S1@"];
+    const ids = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@G1@", "@H1@", "@S1@", "@S2@"];
     const res = applyBatchAction(ds, ids, { kind: "estimateMarriage" });
-    expect(res).toMatchObject({ changed: 5, skipped: 3 });
+    expect(res).toMatchObject({ changed: 5, skipped: 4 });
     expect(res.patches).toHaveLength(4);
     const marr = (id: string) => ds.families.get(id)!.events.find((e) => e.tag === "MARR")?.date?.raw;
     expect(marr("@FA@")).toBe("BEF 1885");
     expect(marr("@FB@")).toBe("BEF 1890");
     expect(marr("@FC@")).toBe("4 FEB 1880");
-    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@D1@"]);
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@D0@", "@D1@", "@S2@"]);
     expect(validateConformance(ds)).toEqual([]);
     // Running again finds nothing left to do.
     expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }).changed).toBe(0);
