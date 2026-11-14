@@ -734,7 +734,7 @@ describe("applyBatchAction", () => {
     expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1910"]]);
   });
 
-  it("keeps sibling estimates distinct: spread around the parent guess, or anchored on a dated sibling", () => {
+  it("rounds every ABT estimate, anchoring siblings on a dated sibling where one exists", () => {
     // Family A: dated mother, three undated children — all would share
     // 1850+25=1875; instead they spread a step apart in listed order.
     // Family B: parents undated, first child dated 1882 — the other two anchor
@@ -787,7 +787,7 @@ describe("applyBatchAction", () => {
     // then writes, and dated @D1@ (queried too) gets no entry.
     const preview = previewBirthEstimates(ds, [...ids, "@D1@"]);
     expect(Object.fromEntries(preview)).toEqual({
-      "@C1@": 1874, "@C2@": 1875, "@C3@": 1876, "@C4@": 1883, "@C5@": 1884, "@P1@": 1850,
+      "@C1@": 1875, "@C2@": 1875, "@C3@": 1875, "@C4@": 1885, "@C5@": 1885, "@P1@": 1850,
     });
     expect(ds.individuals.get("@C1@")!.raw.children.some((c) => c.tag === "BIRT")).toBe(false);
     const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
@@ -795,11 +795,11 @@ describe("applyBatchAction", () => {
     expect(res.skipped).toBe(0);
     const abtOf = (id: string) =>
       ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!.children[0].value;
-    // Spread a year apart around the shared 1875 guess, in the family's child order.
-    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1874", "ABT 1875", "ABT 1876"]);
-    // Anchored one and two years after the dated 1882 sibling (unrounded) —
+    // Every ABT estimate lands on a year ending in 0 or 5, so siblings share the 1875 guess.
+    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1875", "ABT 1875", "ABT 1875"]);
+    // Anchored after the dated 1882 sibling (1883, 1884), then rounded —
     // even though no parent is dated and estimateBirthYear finds nothing.
-    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1883", "ABT 1884"]);
+    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1885", "ABT 1885"]);
     // The father's estimate comes from his own child (1882 − 30) — no sibling adjustment.
     expect(abtOf("@P1@")).toBe("ABT 1850");
   });
