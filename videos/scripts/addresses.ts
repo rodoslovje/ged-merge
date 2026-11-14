@@ -300,7 +300,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Register naslovov se je medtem naložil, zato je tu še zavihek »Naslovi«. »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v Krasincu. »Zapis«: register Kidričevo 38a piše »Kidričeva cesta«.",
+        sl: "Register naslovov se je medtem naložil, zato je tu še zavihek »Naslovi«. »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v Krasincu. »Zapis«: naslov Kidričeva 38a register piše kot »Kidričeva cesta 38a«.",
         en: "The address register has loaded meanwhile, so there is now an Addresses tab too. »Other settlement«: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under Krasinec. »Spelling«: the register spells Kidričeva 38a as »Kidričeva cesta«.",
       },
       run: async (d) => {
