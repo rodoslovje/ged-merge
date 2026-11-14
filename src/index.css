@@ -10099,11 +10099,12 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   color: var(--text); font-size: 0.88rem;
 }
 .batch-saved-load:hover .batch-saved-name { color: var(--accent); }
-.batch-saved-row.active .batch-saved-name { color: var(--accent); }
-.batch-saved-name { font-weight: 600; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-saved-row.active .batch-saved-name { color: var(--accent); font-weight: 600; }
+.batch-saved-name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .batch-saved-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .batch-saved-warn { cursor: help; }
-.batch-count-live { color: var(--accent); font-weight: 600; }
+.batch-count-live { color: var(--accent); }
+.batch-saved-row.active .batch-count-live { font-weight: 600; }
 .batch-crit-list { list-style: none; margin: 0 0 10px; padding: 0; }
 .batch-crit { display: flex; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
 .batch-crit-label { font-size: 0.88rem; color: var(--text); min-width: 7rem; }
