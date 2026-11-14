@@ -914,6 +914,7 @@ export const en = {
   "tools.batch.doubt.noMarriage": "no marriage recorded",
   "tools.batch.action.convertEvent": "Convert event type",
   "tools.batch.pickMedia": "Choose an image…",
+  "tools.batch.typeToSearch": "Type to search…",
   "tools.batch.newMedia": "New image…",
   "tools.batch.filePlaceholder": "File name or URL",
   "tools.batch.titlePlaceholder": "Title (optional)",

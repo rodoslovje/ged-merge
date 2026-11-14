@@ -4525,6 +4525,20 @@ button:focus-visible {
   border-top: 1px solid var(--border);
   padding-top: 2px;
 }
+/* Type-to-search row of a searchable list (DropdownMenu filterPlaceholder):
+   shows what was typed — the keys are read on the trigger, which keeps focus. */
+.dd-search {
+  position: sticky; top: 0; z-index: 1;
+  margin: 0 0 4px; padding: 5px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.dd-search::before { content: "⌕ "; color: var(--muted); }
+.dd-search::after { content: ""; display: inline-block; width: 1px; height: 1em; margin-left: 1px; vertical-align: text-bottom; background: var(--accent); }
+.dd-search--empty { color: var(--faint); }
+.dd-search--empty::after { display: none; }
+.dd-search-none { padding: 6px 10px; color: var(--faint); }
 .dd-group-label {
   padding: 6px 10px 2px;
   font-family: var(--font-mono);
@@ -10082,7 +10096,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 .batch-section-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
 .batch-block-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: var(--text); }
-.batch-saved, .batch-builder, .batch-results, .batch-action {
+.batch-saved, .batch-builder, .batch-results, .batch-action, .batch-save {
   margin: 0 0 16px; padding: 12px 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
 }
@@ -10136,20 +10150,22 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
 }
 .batch-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
-/* Filters, action and save in the left column; the matches beside them, kept
-   in view while the left column scrolls. One column, matches last, below 880px. */
-.batch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.batch-grid .batch-results { position: sticky; top: 8px; }
-.batch-grid .batch-list { max-height: max(320px, calc(100vh - 240px)); }
+/* Saved filters, filters, action and save in the left column; the matches
+   beside them, their box as tall as the left column (never under 360px) with
+   the list scrolling inside it. `contain: size` keeps the list's own length
+   out of the row height, so the left column sets it. One column, matches
+   last, below 880px. */
+.batch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.batch-grid .batch-results { display: flex; flex-direction: column; min-height: 360px; }
+.batch-grid .batch-list { flex: 1 1 0; max-height: none; contain: size; }
 .batch-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 /* "+ Add filter": the Edit view's dashed add chip, always shown — it is how
    this panel is used, not an extra revealed on hover. */
 .batch-add-filter { border-style: dashed; border-color: var(--border-2); color: var(--accent); font-size: 0.88rem; }
-.batch-grid .batch-save { margin-bottom: 16px; }
 @media (max-width: 880px) {
   .batch-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .batch-grid .batch-results { position: static; }
-  .batch-grid .batch-list { max-height: 320px; }
+  .batch-grid .batch-results { display: block; min-height: 0; }
+  .batch-grid .batch-list { max-height: 320px; contain: none; }
 }
 .batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .batch-row input { cursor: pointer; flex: none; }
@@ -10159,7 +10175,6 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .batch-preview-note { color: var(--muted); margin-left: 6px; }
 .batch-action-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .batch-done { margin: 0 0 10px; color: var(--accent); font-size: 0.88rem; }
-.batch-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text); }
 .batch-save { display: flex; align-items: center; gap: 8px; }
 .batch-save-name {
   flex: 0 1 16rem; padding: 4px 8px; font-size: 0.88rem;

@@ -36,6 +36,7 @@ import { useDatasetDerivations } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
 import { DropdownMenu, SelectMenu, type DropdownGroup } from "../DropdownMenu";
+import { useConfirmDialog } from "../useConfirmDialog";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -159,7 +160,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const [action, setAction] = useState<BatchActionSpec | null>(null);
   /** Unchecked match ids — everyone matching is selected by default. */
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [confirming, setConfirming] = useState(false);
+  const { confirmDialog, confirmDialogElement } = useConfirmDialog();
   const [done, setDone] = useState<{ changed: number; skipped: number } | null>(null);
   const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
   const [saveName, setSaveName] = useState("");
@@ -274,7 +275,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   function resetReview(nextCriteria = criteria, nextAction = action) {
     setExcluded(seedExclusions(nextCriteria, nextAction));
     setDone(null);
-    setConfirming(false);
   }
   function changeCriteria(next: BatchCriterion[]) {
     setCriteria(next);
@@ -288,7 +288,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // this one's, and a hand-picked selection belongs to the action it was made for.
     setExcluded(seedExclusions(criteria, next));
     setDone(null);
-    setConfirming(false);
   }
 
   /** Start over: no filters, no action, no saved filter selected. */
@@ -355,7 +354,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     });
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });
-    setConfirming(false);
     // Re-seeded, not cleared: whoever the action still doubts stays unchecked.
     setExcluded(seedExclusions(criteria, action));
     setVer(editVersionRef.current);
@@ -408,8 +406,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 
   return (
     <div className="batch-section">
+      {confirmDialogElement}
       <p className="tools-intro">{t("tools.batch.intro")}</p>
 
+      {/* Saved filters, filters, action and save in the left column, the
+          matches beside them on the right (below them on a narrow screen). */}
+      <div className="batch-grid">
+      <div className="batch-controls">
       {saved.length > 0 && (
         <div className="batch-saved">
           <div className="batch-block-title">{t("tools.batch.saved")}</div>
@@ -441,10 +444,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
         </div>
       )}
 
-      {/* Filters, action and save in the left column, the matches beside them
-          on the right (below them on a narrow screen). */}
-      <div className="batch-grid">
-      <div className="batch-controls">
       <div className="batch-builder">
         <div className="batch-block-title batch-title-row">
           {t("tools.batch.filters")}
@@ -487,25 +486,15 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           onChange={changeAction}
         />
         {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
-        {confirming ? (
-          <div className="batch-confirm">
-            <span>{t("tools.batch.confirm", { count: targets.length })}</span>
-            <button data-busy-cursor className="nav-btn primary" onClick={apply}>
-              {t("confirm.continue")}
-            </button>
-            <button className="nav-btn" onClick={() => setConfirming(false)}>
-              {t("confirm.cancel")}
-            </button>
-          </div>
-        ) : (
-          <button
-            className="nav-btn primary tools-run"
-            disabled={!actionReady || targets.length === 0}
-            onClick={() => setConfirming(true)}
-          >
-            {t("tools.batch.apply", { count: targets.length })}
-          </button>
-        )}
+        <button
+          className="nav-btn primary tools-run"
+          disabled={!actionReady || targets.length === 0}
+          onClick={async () => {
+            if (await confirmDialog(t("tools.batch.confirm", { count: targets.length }), t("confirm.continue"))) apply();
+          }}
+        >
+          {t("tools.batch.apply", { count: targets.length })}
+        </button>
       </div>
 
       <div className="batch-save">
@@ -902,6 +891,7 @@ function MediaSelect({
       className="batch-select batch-media-select"
       value={value}
       placeholder={t("tools.batch.pickMedia")}
+      filterPlaceholder={t("tools.batch.typeToSearch")}
       onChange={(key) => {
         if (key === NEW_KEY) onPick({ file: "" });
         const opt = options.find((o) => o.key === key);
@@ -1017,6 +1007,7 @@ function ActionEditor({
             className="batch-select batch-media-select"
             value={sourcePick}
             placeholder={t("tools.batch.pickSource")}
+            filterPlaceholder={t("tools.batch.typeToSearch")}
             onChange={(v) => {
               if (v === NEW_KEY) onChange({ kind: "addSource", title: "", page: action.page });
               else onChange({ kind: "addSource", xref: v, page: action.page });
