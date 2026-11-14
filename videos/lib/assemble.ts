@@ -68,22 +68,22 @@ const SKIP_MIN_SECONDS = 0.8;
  * except where narration runs over it — speech is never sped up, so audio,
  * subtitles and chapters stay in step with the picture.
  */
-export function timeWarp(skips: [number, number][], cues: Cue[]): (t: number) => number {
+export function timeWarp(skips: [number, number, number?][], cues: Cue[]): (t: number) => number {
   const spoken = cues.map((c) => [c.start, c.start + c.duration] as const);
-  const silent: [number, number][] = [];
-  for (const skip of skips) {
-    let parts: [number, number][] = [skip];
+  const silent: [number, number, number][] = [];
+  for (const [from, to, keep = SKIP_KEEP] of skips) {
+    let parts: [number, number][] = [[from, to]];
     for (const [s, e] of spoken) {
       parts = parts.flatMap(([x, y]): [number, number][] =>
         e <= x || s >= y ? [[x, y]] : ([[x, Math.min(y, s)], [Math.max(x, e), y]] as [number, number][]).filter(([p, q]) => q - p > 0.05),
       );
     }
-    silent.push(...parts);
+    silent.push(...parts.map(([x, y]): [number, number, number] => [x, y, keep]));
   }
   const cuts = silent
-    .map(([x, y]) => {
+    .map(([x, y, share]) => {
       const len = y - x;
-      const keep = Math.max(Math.min(len, SKIP_MIN_SECONDS), len * SKIP_KEEP);
+      const keep = Math.max(Math.min(len, SKIP_MIN_SECONDS), len * share);
       return { x, y, ratio: keep / len };
     })
     .filter((c) => c.ratio < 1);
@@ -99,7 +99,7 @@ export function assemble(opts: {
   frames: Frame[];
   end: number;
   cues: Cue[];
-  skips?: [number, number][];
+  skips?: [number, number, number?][];
   workDir: string;
   output: string;
   burnSubtitles: boolean;

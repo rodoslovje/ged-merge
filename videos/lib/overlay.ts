@@ -45,6 +45,16 @@ export function installOverlay(): void {
   .card .k { font-size: 22px; letter-spacing: .2em; text-transform: uppercase; color: #e8c38a; margin-bottom: 18px; font-weight: 600; }
   .card h1 { font-size: 58px; margin: 0 0 18px; font-weight: 700; max-width: 80vw; }
   .card p { font-size: 26px; margin: 0; color: #d7e6de; }
+  .list { position: absolute; right: 28px; bottom: 28px; width: 940px; padding: 16px 22px 6px;
+    background: rgba(24,44,36,.94); color: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.3);
+    opacity: 0; transform: translateY(12px); transition: opacity 300ms, transform 300ms; }
+  .list.on { opacity: 1; transform: none; }
+  .list h2 { margin: 0 0 10px; font-size: 20px; font-weight: 700; color: #e8c38a; }
+  .list .groups { columns: 3; column-gap: 24px; }
+  .list .g { break-inside: avoid; margin: 0 0 10px; }
+  .list .g h3 { margin: 0 0 3px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #a9c7b8; }
+  .list .g div { font-size: 17px; line-height: 1.4; white-space: nowrap; }
+  .list .g div span { display: inline-block; width: 28px; }
 </style>
 <div class="layer">
   <div class="ring"></div>
@@ -52,6 +62,7 @@ export function installOverlay(): void {
   <svg class="cursor" viewBox="0 0 24 24"><path d="M4 2 L4 19 L8.5 15 L11.5 22 L14.5 20.7 L11.6 14 L18 14 Z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
   <div class="callout"><span class="n"></span><span class="t"></span></div>
   <div class="card"><div><div class="k"></div><h1></h1><p></p></div></div>
+  <div class="list"><h2></h2><div class="groups"></div></div>
 </div>`;
     document.documentElement.appendChild(host);
     const $ = <T extends Element>(s: string) => root.querySelector(s) as T;
@@ -60,6 +71,7 @@ export function installOverlay(): void {
     const ring = $<HTMLElement>(".ring");
     const callout = $<HTMLElement>(".callout");
     const card = $<HTMLElement>(".card");
+    const list = $<HTMLElement>(".list");
 
     w.__gmv = {
       cursor(x: number, y: number, ms: number) {
@@ -95,6 +107,28 @@ export function installOverlay(): void {
         $<HTMLElement>(".callout .t").textContent = text;
         callout.classList.add("on");
       },
+      list(title: string | null, groups: { name: string; items: [string, string][] }[]) {
+        if (!title) { list.classList.remove("on"); return; }
+        $<HTMLElement>(".list h2").textContent = title;
+        const box = $<HTMLElement>(".list .groups");
+        box.textContent = "";
+        for (const g of groups) {
+          const el = document.createElement("div");
+          el.className = "g";
+          const h = document.createElement("h3");
+          h.textContent = g.name;
+          el.appendChild(h);
+          for (const [icon, label] of g.items) {
+            const row = document.createElement("div");
+            const i = document.createElement("span");
+            i.textContent = icon;
+            row.append(i, label);
+            el.appendChild(row);
+          }
+          box.appendChild(el);
+        }
+        list.classList.add("on");
+      },
       card(kicker: string | null, title: string | null, line: string | null) {
         if (!title) { card.classList.remove("on"); return; }
         $<HTMLElement>(".card .k").textContent = kicker ?? "";
@@ -118,4 +152,6 @@ export interface OverlayApi {
   ring(r: { x: number; y: number; width: number; height: number } | null, pad: number): void;
   callout(n: string | null, text: string | null): void;
   card(kicker: string | null, title: string | null, line: string | null): void;
+  /** A panel listing named groups of [icon, label] rows; a null title hides it. */
+  list(title: string | null, groups: { name: string; items: [string, string][] }[]): void;
 }
