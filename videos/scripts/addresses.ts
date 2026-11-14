@@ -97,23 +97,47 @@ async function frameTools(d: Director): Promise<void> {
     const top = view.getBoundingClientRect().top;
     view.scrollTo({ top: view.scrollTop + bottom - top + 8, behavior: "smooth" });
   });
-  await d.wait(700);
+  await d.wait(350);
+}
+
+/** A click for passing through — the pointer travels there quickly — used on
+ *  the way between screens, where the default glide would leave a silence. */
+async function quickClick(d: Director, target: ReturnType<Director["page"]["locator"]>): Promise<void> {
+  await d.point(target, 250);
+  const box = await target.boundingBox();
+  if (box) await d.overlay("click", box.x + box.width / 2, box.y + box.height / 2);
+  await target.click();
+  await d.wait(150);
+}
+
+/** Scroll the Tools view so `target` sits a little below its top — the view
+ *  alone, with the containers around it put back, so the app's header and
+ *  footer stay where they belong. */
+async function frameAt(d: Director, target: ReturnType<Director["page"]["locator"]>): Promise<void> {
+  await target.evaluate((el) => {
+    const view = el.closest<HTMLElement>(".tools-view");
+    if (!view) return;
+    for (let p = view.parentElement; p; p = p.parentElement) if (p.scrollTop) p.scrollTop = 0;
+    const offset = el.getBoundingClientRect().top - view.getBoundingClientRect().top;
+    view.scrollTo({ top: view.scrollTop + offset - 24, behavior: "smooth" });
+  });
+  await d.wait(350);
 }
 
 /** »Razširi vse«, unless the list is open already (it then offers »Strni vse«). */
 async function expandAll(d: Director): Promise<void> {
   const expand = link(d, { sl: "Razširi vse", en: "Expand all" });
-  if (await expand.isVisible()) await d.click(expand);
+  if (await expand.isVisible()) await quickClick(d, expand);
   await frameTools(d);
 }
 
 /** Type into the list's filter, the way a viewer would. */
 async function filterTo(d: Director, text: string): Promise<void> {
   const box = filterBox(d);
-  await d.click(box);
+  await quickClick(d, box);
   await box.fill("");
-  if (text) await d.page.keyboard.type(text, { delay: 90 });
-  await d.wait(900);
+  if (text) await d.page.keyboard.type(text, { delay: 35 });
+  await d.wait(400);
   await frameTools(d);
 }
 
@@ -241,7 +265,10 @@ const scenario: Scenario = {
         await d.click(treeRow(d, "Slovenia").locator(".tools-tree-label"));
         await d.wait(1200);
         await d.click(treeRow(d, "Kranj").locator(".tools-tree-label"));
-        await d.wait(1200);
+        await d.wait(800);
+        // Kranj near the top, so the names editor of the next step opens
+        // below it without scrolling anything else.
+        await frameAt(d, kranjTown(d));
         await d.highlight(kranjTown(d), 4);
         await d.wait(2500);
         await d.highlight(null);
@@ -260,7 +287,7 @@ const scenario: Scenario = {
         await blur(d);
         await d.wait(500);
         const add = link(d, { sl: "+ Dodaj ime", en: "+ Add a name" });
-        await d.scrollTo(add);
+        await frameAt(d, kranjTown(d));
         await d.click(add);
         await d.wait(500);
         const name = visible(d, ".tools-place-tran-input").last();
@@ -276,7 +303,7 @@ const scenario: Scenario = {
         // starts on it while the address register may still be downloading.
         await d.untilSaid();
         await d.calloutAhead();
-        await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
+        await quickClick(d, link(d, { sl: "Poimenovanje", en: "Naming" }));
         await frameTools(d);
       },
     },
@@ -342,15 +369,8 @@ const scenario: Scenario = {
         await d.highlight(noSuchAddress(d), 6);
         await d.wait(3500);
         await d.highlight(null);
-        // To Geocoding › Addresses, narrowed to Slovenia, quickly and before
-        // the next narration, which starts on that screen.
         await d.untilSaid();
         await d.calloutAhead();
-        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
-        await d.click(link(d, /^(Naslovi|Addresses) \d/));
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
-        await frameTools(d);
       },
     },
     {
@@ -360,17 +380,24 @@ const scenario: Scenario = {
         en: "Now the houses get their coordinates. In Geocoding, the Addresses tab lists every house, grouped by place. We have only the Slovenian register loaded, so Slovenia is picked. A house without a position of its own inherits the settlement's coordinate.",
       },
       run: async (d) => {
-        await d.wait(3000);
+        // The way to Geocoding › Addresses, narrowed to Slovenia, runs under
+        // the first sentence; the rest is said on that screen.
+        await quickClick(d, link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
+        await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
+        await quickClick(d, link(d, /^(Naslovi|Addresses) \d/));
+        await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
+        await frameTools(d);
+        await d.wait(1500);
         await d.highlight(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first(), 4);
         await d.wait(2500);
         await d.highlight(null);
         await d.untilSaid();
         await d.calloutAhead();
-        // Both houses of the next steps already carry a position.
-        await d.click(showPlaced(d).locator("input"));
+        // The hospital's house already carries a position: the list shows it
+        // only with »Prikaži že umeščene«, switched without the pointer.
+        await showPlaced(d).locator("input").check();
         await filterTo(d, "klinični");
         await expandAll(d);
-        await d.wait(800);
       },
     },
     {
@@ -397,7 +424,6 @@ const scenario: Scenario = {
         await d.calloutAhead();
         await filterTo(d, "Krasinec 11 /");
         await expandAll(d);
-        await d.wait(800);
       },
     },
     {
@@ -440,14 +466,8 @@ const scenario: Scenario = {
         await closeCoordPanel(d);
         await d.untilSaid();
         await d.calloutAhead();
-        // Klošter 52 has no position of its own: the default list shows it.
-        // The switch is there only while the list holds placed houses, so the
-        // filter is cleared first.
-        await filterTo(d, "");
-        await d.click(showPlaced(d).locator("input"));
         await filterTo(d, "Klošter 52");
         await expandAll(d);
-        await d.wait(800);
       },
     },
     {
@@ -516,6 +536,11 @@ const scenario: Scenario = {
         await d.calloutAhead();
         await closeCoordPanel(d);
         await filterTo(d, "");
+        // The hospital's placed house was listed with »Prikaži že umeščene«;
+        // the switch goes off again here, where the whole list shows it, and
+        // without the pointer.
+        const placedSwitch = showPlaced(d).locator("input");
+        if (await placedSwitch.isVisible()) await placedSwitch.uncheck();
       },
     },
     {
@@ -534,12 +559,11 @@ const scenario: Scenario = {
         await d.wait(2500);
         await d.untilSaid();
         await d.calloutAhead();
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
+        await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
         // Krasinec 26 and Krasinec 26 (pd Jelin): neither has a position of its
         // own yet, so joining them raises no disagreement about where it is.
         await filterTo(d, "Krasinec 26");
         await expandAll(d);
-        await d.wait(800);
       },
     },
     {
@@ -557,7 +581,7 @@ const scenario: Scenario = {
         await d.wait(1500);
         await d.untilSaid();
         await d.calloutAhead();
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
+        await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
         await filterTo(d, "");
       },
     },
@@ -595,7 +619,7 @@ const scenario: Scenario = {
         await d.click(clear);
         await d.wait(1200);
         // Back from the picks (none now) to the whole list.
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
+        await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
         await d.wait(2000);
       },
     },

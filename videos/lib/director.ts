@@ -183,7 +183,7 @@ export class Director {
   async calloutAhead(): Promise<void> {
     if (!this.upcoming) return;
     await this.overlay("callout", this.upcoming.n, this.upcoming.text);
-    await this.wait(1200);
+    await this.wait(400);
   }
 
   /** Wait until the current step's narration has been spoken — for an action
