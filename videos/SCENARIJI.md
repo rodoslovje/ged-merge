@@ -439,14 +439,16 @@ zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66.
 | 3 | ⚙ → Zemljevid: SI-GURS je že naložen (pred snemanjem, `prepare`), klik »Naslovi«; Nastavitve se zaprejo | Imenik krajev iz videa o geokodiranju; register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
 | 4 | Orodja → Kraji, drevo: Slovenia → Kranj → Kranj | Država, občina, naselje in hiša; ob vsakem število zapisov in koordinata. |
 | 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
-| 6 | »Poimenovanje« → »Naslovi« (počaka na register) → ugotovitev »Zapis« pri Kidričevi 38a | Register ulico piše »Kidričeva cesta«. |
-| 6a | »Prevzemi« → »Ni takega naslova 89« | Uradni zapis, pripis v oklepaju ostane; starih številk ne našteje, ampak jih prešteje. |
+| 6 | »Poimenovanje« (SI-ADR, register se je medtem naložil) → »Naslovi« → »Drugo naselje« (Krasinec 1 pod Gradcem) in »Zapis« (Kidričeva 38a) | Register hišo vodi v Krasincu; ulico piše »Kidričeva cesta«. |
+| 6a | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
 | 7 | »Geokodiranje« → »Naslovi« → država »Slovenija« | Hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
 | 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
 | 9 | Filter »Hafnarjeva pot 55« → ✎ dopiši » / Stražišče 66« | Tri številke: najprej današnja, nato starejše, ločene s poševnico. |
 | 10 | Zadetka 1 in 2 → izbira 55 | Vsaka številka posebej; 21 je danes druga hiša, izberete 55; vaške številke register nima več. |
 | 11 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
 | 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
+| 12a | Filter »Klošter 52« → ✎ spredaj »Klošter 11 / « → zadetek SI-ADR | Stara številka; današnji naslov spredaj, stara za poševnico; register hišo najde. |
+| 12b | Klik na koordinato → zemljevid, kolesce nad žebljičkom do hiš | Preverite, da zadetek stoji na pravi hiši; hišo, ki je register ne pozna, poiščete in kliknete sami. |
 | 13 | »Zapiši koordinate« | Šele ob potrditvi, kot standardni zapis v GEDCOM. |
 | 14 | Zaključna kartica | |
 

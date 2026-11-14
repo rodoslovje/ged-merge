@@ -87,7 +87,7 @@ async function rename(
   d: Director,
   pencil: ReturnType<Director["page"]["locator"]>,
   text: string,
-  how: "replace" | "append" = "replace",
+  how: "replace" | "append" | "prepend" = "replace",
 ): Promise<void> {
   await d.click(pencil);
   await d.wait(600);
@@ -95,8 +95,8 @@ async function rename(
   await input.waitFor();
   await d.click(input);
   // The box opens holding the address as written: append types after it,
-  // replace writes over it.
-  await d.page.keyboard.press(how === "append" ? "End" : "ControlOrMeta+a");
+  // prepend before it, replace writes over it.
+  await d.page.keyboard.press(how === "append" ? "End" : how === "prepend" ? "Home" : "ControlOrMeta+a");
   await d.page.keyboard.type(text, { delay: 70 });
   await d.wait(700);
 }
@@ -416,9 +416,62 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.click(join);
         await d.wait(1500);
-        await filterTo(d, "");
+        await d.untilSaid();
         await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
+        await filterTo(d, "Klošter 52");
+        await expandAll(d);
         await d.wait(800);
+      },
+    },
+    {
+      callout: { sl: "Stara hišna številka", en: "An old house number" },
+      say: {
+        sl: "Hiša Klošter 52 ima staro številko, ki je register ne pozna. Danes je to Klošter 11. Današnji naslov zapišemo spredaj, staro številko za poševnico, in register hišo najde.",
+        en: "The house Klošter 52 has an old number the register does not know. Today it is Klošter 11. We write the present address first and the old number after the slash, and the register finds the house.",
+      },
+      run: async (d) => {
+        const row = addrRow(d, "Klošter 52");
+        await d.highlight(row, 4);
+        await d.wait(1500);
+        await d.highlight(null);
+        await rename(d, row.locator("xpath=following-sibling::button[contains(@class,'tools-place-edit-btn')][1]"), "Klošter 11 / ", "prepend");
+        await d.click(applyRename(d));
+        await d.wait(1500);
+        const answer = hit(d, "Klošter 11, 8332 Gradac");
+        await d.highlight(answer, 4);
+        await d.wait(2000);
+        await d.highlight(null);
+        await d.click(answer);
+        await d.wait(1200);
+      },
+    },
+    {
+      say: {
+        sl: "Klik na koordinato odpre zemljevid. Povečajmo ga do posameznih hiš in preverimo, da zadetek stoji na pravi hiši. Če register hiše sploh ne pozna, jo na takem zemljevidu poiščete in kliknete sami.",
+        en: "Clicking the coordinate opens a map. Let's zoom in to single houses and check that the answer stands on the right one. If the register does not know a house at all, find it on such a map and click it yourself.",
+      },
+      run: async (d) => {
+        const coord = visible(d, ".tools-geo-coord-btn").first();
+        await d.click(coord);
+        const pin = visible(d, ".leaflet-marker-icon").filter({ hasText: /^1$/ }).last();
+        await pin.waitFor();
+        await d.wait(2000);
+        // Zoomed with the wheel over pin 1: Leaflet zooms around the pointer,
+        // so the house stays in view (the + control zooms around the centre
+        // and pushes it out; a double click would also pick a point).
+        await d.point(pin, 700);
+        for (let i = 0; i < 2; i++) {
+          const box = await pin.boundingBox();
+          if (!box) break;
+          await d.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+          await d.page.mouse.wheel(0, -240);
+          await d.wait(1800);
+        }
+        await d.wait(3500);
+        await d.untilSaid();
+        await d.page.keyboard.press("Escape");
+        await d.wait(800);
+        await filterTo(d, "");
       },
     },
     {
