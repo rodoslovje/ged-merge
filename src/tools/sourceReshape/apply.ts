@@ -720,6 +720,15 @@ function findSiteRepo(
   return strictFallback ? genericMatch : anyMatch;
 }
 
+/** The REPO record named `name` (compared loosely: case, punctuation, spacing). */
+function repoNamed(records: GedNode[], name: string): string | undefined {
+  const key = looseKey(name);
+  for (const rec of records) {
+    if (rec.tag === "REPO" && rec.xref && looseKey(childText(rec, "NAME") ?? "") === key) return rec.xref;
+  }
+  return undefined;
+}
+
 /** The site's REPO for a new source: an existing one matched by WWW host
  *  (preferring the Matricula archive's), else — only when the file's
  *  convention hangs sources off repositories — a newly created record. */
@@ -784,6 +793,13 @@ export function proposedSiteRepo(
     country?.facet,
   );
   if (existing) return { xref: existing };
+  // A Matricula repository is the holding archive: a record the file already
+  // keeps under that archive's name is the one, WWW or not — creating a second
+  // "Nadškofijski arhiv Ljubljana" beside it would only make a duplicate.
+  if (site === "matricula" && agency) {
+    const named = repoNamed(records, agency);
+    if (named) return { xref: named };
+  }
   // Matricula repositories are the holding archive; FamilySearch keeps one per
   // country of records; the other sites are their own repository.
   return { createName: siteRepoName(site, repoDef.name, agency, country?.name) };

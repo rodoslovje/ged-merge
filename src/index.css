@@ -9324,6 +9324,11 @@ kbd {
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+/* ⓘ How it works — the list's explanation, closed until asked for. */
+.tools-intro-wrap { margin: 0 0 10px; }
+.tools-intro-wrap .tools-intro { margin: 6px 0 14px; }
+.tools-intro-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: none; background: none; color: var(--muted); font: inherit; font-size: 0.85rem; cursor: pointer; }
+.tools-intro-toggle:hover, .tools-intro-toggle:focus-visible, .tools-intro-toggle[aria-expanded="true"] { color: var(--accent); }
 /* What the last run did, and whether the re-scan behind it is still going —
    sits above the lists, which empty out while it runs. */
 .tools-cleanup-status { margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
