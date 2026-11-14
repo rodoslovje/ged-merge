@@ -124,6 +124,8 @@ async function apply(d: Director): Promise<void> {
   await d.highlight(applyButton(d), 4);
   await d.wait(900);
   await d.click(applyButton(d));
+  // The button may leave with the list it emptied: the ring must not stay behind.
+  await d.highlight(null);
   await d.page.locator(".tools-cleanup-status").first().waitFor();
   await d.skippable(() =>
     d.page.locator(".tools-cleanup-status .spinner").first().waitFor({ state: "detached", timeout: 60_000 }),
@@ -339,8 +341,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Grobovi", en: "Graves" },
       say: {
-        sl: "Nato grobovi na Geneanetu. Grob ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Grob se zapiše k pokopu. Ernestina tega dogodka še nima, zato ga program ustvari.",
-        en: "Then the graves on Geneanet. A grave is not primary evidence of a death, so we set the citation quality to secondary evidence. The grave lands on the burial. Ernestina has no burial yet, so the program creates it.",
+        sl: "Nato grobovi na Geneanetu. Nagrobnik ni primarni vir za smrt, zato kakovost citata nastavimo na sekundarni vir. Navedba se zapiše k pokopu. Ernestina tega dogodka še nima, zato ga program ustvari.",
+        en: "Then the graves on Geneanet. A gravestone is not primary evidence of a death, so we set the citation quality to secondary evidence. The citation goes to the burial. Ernestina has no burial yet, so the program creates it.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -494,8 +496,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Rezultat", en: "The result" },
       say: {
-        sl: "Pri osebi so opombe zdaj pravi viri: s knjigo, stranjo in povezavo, ki odpre sliko strani. Ernestina ima zdaj vpisan tudi grob v Prešernovem gaju.",
-        en: "On the person, the notes are now proper sources: with a book, a page and a link that opens the page image. Ernestina now has her grave in Prešernov gaj recorded too.",
+        sl: "Pri osebi so opombe zdaj pravi viri: s knjigo, stranjo in povezavo, ki odpre sliko strani. Ernestina ima zdaj vpisan tudi nagrobnik v Prešernovem gaju.",
+        en: "On the person, the notes are now proper sources: with a book, a page and a link that opens the page image. Ernestina now has her gravestone in Prešernov gaj recorded too.",
       },
       run: async (d) => {
         await d.highlight(null);
