@@ -464,6 +464,9 @@ zemljevida z zadetkoma za Krasinec 11 / 2 (pd Hren).
 **Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
 z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
 namerno vnesene napake.
+**Ideja:** »Domnevno živi« — osebe, starejše od 100 let, brez zapisane smrti; v
+`rodbina-renko` jih je malo, zato jih poiščemo in označimo kot umrle (dogodek smrti).
+To sodi sem, ne v epizodo 13.
 **Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
 popravilo.
 **Podatki:** vaše anonimizirano drevo (resnične napake) ali kopija Prešernovega drevesa
