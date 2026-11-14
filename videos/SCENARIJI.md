@@ -20,6 +20,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
 | 12 | Kraji in naslovi | — | scenarij |
 | 13 | Pregled | — | odloženo |
+| 14 | Fotografije | `scripts/photos.ts` | osnutek brez glasu |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -471,6 +472,42 @@ seznama težav s številkami.
 | 7 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat. Pred tem vidite seznam popravkov s številom. |
 | 8 | »Zaženi znova« | Ko datoteko spremenite, pregled zaženete znova. |
 | 9 | Zaključna kartica | |
+
+---
+
+## 14. Fotografije: portreti, skupinske fotografije in označevanje oseb
+
+**Cilj:** podpora brskalnikov (preglednica v navodilih, najboljša v Chromu in Edgu), mapa z
+mediji in podmape (»portraits«, »family«, »weddings«), portret, pregledovalnik z opisom,
+označevanje oseb na skupinski fotografiji in fotografije na diagramih.
+**Podatki:** `rodbina-renko.ged` in avtorjeve družinske fotografije iz mape
+`~/Work/rod/renko-ged/media` (ni v gitu; drugo mesto z `VIDEO_MEDIA_DIR`). Recept prepiše
+izbrane fotografije v zasebni datotečni sistem brskalnika (OPFS) in nadomesti izbirnik mape,
+ker brezglavi brskalnik izbirnika ne more pokazati. Na zaslonu so samo umrli in avtorjeva
+starša, ki sta snemanje dovolila: portret deda Franca Renka (1901–1964) in poročna fotografija
+Edvarda in Cvetke s pričama, Edvardovim bratom Jožetom Renkom (1938–1975) in Cvetkinim bratom
+Petrom Jekovcem (1935–2023). Območja oseb so tista, ki jih ima avtorjeva datoteka.
+Izvedba in govor: `scripts/photos.ts`. **Trajanje:** ~4,5 min
+**Naslovna slika:** oznaka »Fotografije« · »Kdo je *kdo* na fotografiji« · posnetek poročne
+fotografije z imeni vseh štirih oseb.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Fotografije prednikov oživijo drevo. Pokažimo portret in skupinsko fotografijo, na kateri označite, kdo je kdo. |
+| 2 | Navodila → Fotografije in mediji → preglednica »Podpora brskalnikov« | GEDCOM se na fotografije le sklicuje, zato program potrebuje mapo; najboljša podpora v Chromu in Edgu. |
+| 3 | Spust datoteke, Luka → Edvard → Franc Renko | Avtorjev ded Franc Renko. |
+| 4 | »Dodaj medij« → »Izberi mapo« | Mapo izberete enkrat, Chrome si jo zapomni; bere se samo na računalniku. |
+| 5 | Izbirnik, obroč na podmape family, portraits, weddings | Podmape imajo v izbirniku vsaka svoj razdelek. |
+| 6 | Iskanje »franc« → portret → »Dodaj« | Iskalno polje najde fotografijo po imenu datoteke. |
+| 7 | Sličica, pregledovalnik, naslov | Naslov, datum, kraj in opis fotografije. |
+| 8 | Edvard → poročna fotografija | Skupinska fotografija s pričama, dodamo jo Edvardu. |
+| 9 | »Označi območje osebe« → pravokotnik → »Shrani območje« | Označite, kje je oseba. |
+| 10 | Obroč na sličico z obrazom | Skupinska fotografija služi tudi kot portret. |
+| 11 | Cvetka → »Že v datoteki« → označi | Zapis se ne podvoji; Edvard je že označen. |
+| 12–13 | Iskanje Jože Renko, Peter Jekovec → označi | Priči: Edvardov brat in Cvetkin brat. |
+| 14 | Miška nad fotografijo, imena vseh štirih | Kdo je kdo. |
+| 15 | Luka → Drevo, predniki, 3 rodovi; »Diagram« → »Fotografija« | Fotografije in obrazi tudi na diagramih. |
+| 16 | Zaključna kartica | |
 
 ---
 
