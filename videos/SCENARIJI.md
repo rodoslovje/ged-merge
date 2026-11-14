@@ -499,7 +499,7 @@ fotografije z imeni vseh štirih oseb.
 | 4 | »Dodaj medij« → »Izberi mapo« | Mapo izberete enkrat, Chrome si jo zapomni; bere se samo na računalniku. |
 | 5 | Izbirnik, obroč na podmape family, portraits, weddings | Podmape imajo v izbirniku vsaka svoj razdelek. |
 | 6 | Iskanje »franc« → portret → »Dodaj« | Iskalno polje najde fotografijo po imenu datoteke. |
-| 7 | Sličica, pregledovalnik, naslov | Naslov, datum, kraj in opis fotografije. |
+| 7 | Pregledovalnik se odpre sam → naslov; zapri, obroč na sličico | Opis takoj ob dodajanju; nato je fotografija ob osebi. |
 | 8 | Edvard → poročna fotografija | Skupinska fotografija s pričama, dodamo jo Edvardu. |
 | 9 | »Označi območje osebe« → pravokotnik → »Shrani območje« | Označite, kje je oseba. |
 | 10 | Obroč na sličico z obrazom | Skupinska fotografija služi tudi kot portret. |

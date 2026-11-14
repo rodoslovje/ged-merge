@@ -302,21 +302,20 @@ const scenario: Scenario = {
     {
       callout: { sl: "Pregledovalnik", en: "The viewer" },
       say: {
-        sl: "Fotografija se pokaže ob osebi, s klikom pa jo povečate. V pregledovalniku ji dodate naslov, datum, kraj in opis.",
-        en: "The photo appears by the person, and a click enlarges it. In the viewer you give it a title, date, place and description.",
+        sl: "Dodana fotografija se odpre v pregledovalniku, kjer ji takoj dodate naslov, datum, kraj in opis. Ko pregledovalnik zaprete, je fotografija ob osebi. S klikom nanjo jo znova povečate.",
+        en: "The new photo opens in the viewer, where you give it a title, date, place and description right away. Close the viewer and the photo sits by the person; click it to enlarge it again.",
       },
       run: async (d) => {
-        // Adding opens the photo in the viewer; close it to show where it landed.
-        if (await d.page.locator(".person-media-overlay").count()) await closeViewer(d);
-        await d.highlight(thumb(d).first(), 6);
-        await d.wait(1500);
-        await d.highlight(null);
+        // Adding has already opened the photo in the viewer: describe it there.
         await openLast(d);
-        await setTitle(d, "Franc Renko");
+        await setTitle(d, d.t({ sl: "Franc Renko, r. 1901", en: "Franc Renko, b. 1901" }));
         await d.highlight(d.page.locator(".media-lightbox-edit").first(), 6);
         await d.wait(2000);
         await d.highlight(null);
         await closeViewer(d);
+        await d.highlight(thumb(d).first(), 6);
+        await d.wait(2000);
+        await d.highlight(null);
       },
     },
     {
