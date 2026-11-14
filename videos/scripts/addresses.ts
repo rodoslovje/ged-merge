@@ -220,15 +220,14 @@ const scenario: Scenario = {
         await d.untilSaid(4.5);
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
-        // Each step's way to its screen runs once the narration before it is
-        // done, so the next sentence starts on the screen it talks about —
-        // and the next chapter's callout goes up just before the way there.
-        await d.untilSaid();
+        // The next chapter is named as soon as Settings has closed; the way to
+        // its screen runs once the narration is done, so the next sentence
+        // starts on the screen it talks about.
         await d.calloutAhead();
+        await d.untilSaid();
         await d.click(d.page.locator(".seg-btn").nth(2));
-        await d.wait(800);
+        await d.wait(400);
         await d.click(d.page.locator(".tools-tab", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first());
-        await d.wait(1000);
         await frameTools(d);
       },
     },
@@ -287,15 +286,13 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poimenovanje", en: "Naming" },
       say: {
-        sl: "Medtem se je register naslovov že naložil: ob imeniku krajev je zdaj tudi SI-ADR. Poimenovanje primerja kraje in naslove z uradnim registrom, naslove na zavihku »Naslovi«. Ugotovitev »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v naselju Krasinec. Ugotovitev »Zapis«: rojstva v kranjski porodnišnici so zapisana kot »Kidričeva 38a«, register pa ulico piše »Kidričeva cesta«.",
-        en: "Meanwhile the address register has finished loading: SI-ADR now stands beside the place directory. Naming compares places and addresses with the official register, the addresses on the Addresses tab. An »Other settlement« finding: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under the village of Krasinec. A »Spelling« finding: births at the Kranj maternity hospital are written as »Kidričeva 38a«, while the register spells the street »Kidričeva cesta«.",
+        sl: "Register naslovov se je medtem naložil. Poimenovanje primerja naslove z uradnim registrom. »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v Krasincu. »Zapis«: register Kidričevo 38a piše »Kidričeva cesta«.",
+        en: "The address register has loaded meanwhile. Naming compares addresses with the official register. »Other settlement«: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under Krasinec. »Spelling«: the register spells Kidričeva 38a as »Kidričeva cesta«.",
       },
       run: async (d) => {
-        await d.wait(800);
+        await d.wait(600);
         await d.highlight(visible(d, "*").getByText("SI-ADR", { exact: true }).first().locator(".."), 4);
-        await d.wait(3000);
-        await d.highlight(link(d, /^(Naslovi|Addresses)/), 4);
-        await d.wait(1500);
+        await d.wait(2000);
         await d.highlight(null);
         await d.click(link(d, /^(Naslovi|Addresses)/));
         await frameTools(d);
@@ -304,9 +301,9 @@ const scenario: Scenario = {
         await expandAll(d);
         await d.wait(1500);
         await d.highlight(finding(d, "Krasinec 1"), 4);
-        await d.wait(5000);
+        await d.wait(4500);
         await d.highlight(finding(d, "Kidričeva 38a"), 4);
-        await d.wait(5000);
+        await d.wait(3500);
         await d.highlight(null);
       },
     },
@@ -333,23 +330,24 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.untilSaid();
         await d.calloutAhead();
-        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
-        await d.wait(800);
-        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
-        await d.wait(1000);
-        await d.click(link(d, /^(Naslovi|Addresses) \d/));
-        await frameTools(d);
-        await d.wait(1000);
       },
     },
     {
       callout: { sl: "Geokodiranje naslovov", en: "Geocoding addresses" },
       say: {
-        sl: "Pod »Geokodiranje« so na zavihku »Naslovi« vse hiše, razvrščene po krajih. Naložen imamo le slovenski register, zato izberemo Slovenijo. Hiša brez svoje lege podeduje koordinato naselja.",
-        en: "Under Geocoding, the Addresses tab lists every house, grouped by place. We have only the Slovenian register loaded, so we pick Slovenia. A house without a position of its own inherits the settlement's coordinate.",
+        sl: "Zdaj hišam dodamo koordinate. Vrnemo se na kraje in odpremo »Geokodiranje«, zavihek »Naslovi«. Tu so vse hiše, razvrščene po krajih. Naložen imamo le slovenski register, zato izberemo Slovenijo. Hiša brez svoje lege podeduje koordinato naselja.",
+        en: "Now the houses get their coordinates. We go back to places and open Geocoding, the Addresses tab. Here every house is listed, grouped by place. We have only the Slovenian register loaded, so we pick Slovenia. A house without a position of its own inherits the settlement's coordinate.",
       },
       run: async (d) => {
-        await d.wait(2500);
+        // The way there runs with the narration that names it.
+        await d.wait(600);
+        await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
+        await d.wait(600);
+        await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
+        await d.wait(900);
+        await d.click(link(d, /^(Naslovi|Addresses) \d/));
+        await frameTools(d);
+        await d.wait(1500);
         // Only Slovenia's register is loaded, so the list is narrowed to it.
         await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
         await frameTools(d);

@@ -444,7 +444,7 @@ zemljevida z zadetkoma za Krasinec 11 / 2 (pd Hren).
 | 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
 | 6 | »Poimenovanje« (SI-ADR, register se je medtem naložil) → »Naslovi« → »Drugo naselje« (Krasinec 1 pod Gradcem) in »Zapis« (Kidričeva 38a) | Register hišo vodi v Krasincu; ulico piše »Kidričeva cesta«. |
 | 6a | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
-| 7 | »Geokodiranje« → »Naslovi« → država »Slovenija« | Hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
+| 7 | (med govorom) »Nazaj na kraje« → »Geokodiranje« → »Naslovi« → država »Slovenija« | Hišam dodamo koordinate; hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
 | 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
 | 9 | Filter »Krasinec 11 /« → vrstica »Krasinec 11 / 2 (pd Hren)« | Priporočeni zapis: najprej današnja številka 11, nato stara 2 za poševnico, hišno ime v oklepaju. |
 | 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 11 | Vsaka številka posebej; hiša je bila doslej na sredini vasi; danes je to Krasinec 11, številka 2 je druga hiša. |
