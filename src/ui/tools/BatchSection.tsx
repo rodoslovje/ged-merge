@@ -808,15 +808,31 @@ function CriterionRow({
         </>
       )}
       {c.kind === "sources" && (
-        <SelectMenu
-          className="batch-select"
-          value={c.mode}
-          onChange={(v) => onChange({ ...c, mode: v as "none" | "any" })}
-          options={[
-            { value: "none", label: t("tools.batch.sourcesFilter.none") },
-            { value: "any", label: t("tools.batch.sourcesFilter.any") },
-          ]}
-        />
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={c.mode}
+            onChange={(v) => {
+              const mode = v as typeof c.mode;
+              const onEvent = mode === "eventHas" || mode === "eventLacks";
+              onChange({ ...c, mode, tag: onEvent ? (c.tag ?? "BIRT") : undefined });
+            }}
+            options={(["none", "any", "eventHas", "eventLacks"] as const).map((m) => ({
+              value: m,
+              label: t(`tools.batch.sourcesFilter.${m}`),
+            }))}
+          />
+          {(c.mode === "eventHas" || c.mode === "eventLacks") && (
+            <SelectMenu
+              className="batch-select"
+              value={c.tag ?? "BIRT"}
+              onChange={(v) => onChange({ ...c, tag: v })}
+              options={[...eventOptions, ...familyEventOptions.filter((tag) => !eventOptions.includes(tag))].map(
+                (tag) => ({ value: tag, label: eventMenuLabel(tag, t) }),
+              )}
+            />
+          )}
+        </>
       )}
       {c.kind === "line" && (
         <SelectMenu

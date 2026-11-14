@@ -886,6 +886,8 @@ export const en = {
   "tools.batch.media.lacks": "lacks this media",
   "tools.batch.sourcesFilter.none": "has no sources",
   "tools.batch.sourcesFilter.any": "has a source",
+  "tools.batch.sourcesFilter.eventHas": "has a source on the event",
+  "tools.batch.sourcesFilter.eventLacks": "has no source on the event",
   "tools.batch.line.maternal": "maternal (mother's side)",
   "tools.batch.line.paternal": "paternal (father's side)",
   "tools.batch.removeFilter": "Remove filter",

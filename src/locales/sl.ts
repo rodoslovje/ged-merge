@@ -1039,6 +1039,8 @@ export const sl = {
   "tools.batch.media.lacks": "nima tega medija",
   "tools.batch.sourcesFilter.none": "nima virov",
   "tools.batch.sourcesFilter.any": "ima vir",
+  "tools.batch.sourcesFilter.eventHas": "ima vir na dogodku",
+  "tools.batch.sourcesFilter.eventLacks": "nima vira na dogodku",
   "tools.batch.line.maternal": "po materini strani",
   "tools.batch.line.paternal": "po očetovi strani",
   "tools.batch.removeFilter": "Odstrani filter",

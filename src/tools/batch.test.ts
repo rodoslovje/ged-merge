@@ -1269,3 +1269,49 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
     expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }).changed).toBe(0);
   });
 });
+
+describe("sources on one event", () => {
+  /** @I1@ birth with a source; @I2@ birth without; @I3@ no birth, married
+   *  with a cited marriage to @I4@; @I5@ a source on the record only. */
+  const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /A/
+1 BIRT
+2 DATE 1850
+2 SOUR @S1@
+0 @I2@ INDI
+1 NAME Jože /B/
+1 BIRT
+2 DATE 1851
+0 @I3@ INDI
+1 NAME Mici /C/
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Tone /C/
+1 FAMS @F1@
+0 @I5@ INDI
+1 NAME Lojze /D/
+1 SOUR @S1@
+0 @F1@ FAM
+1 HUSB @I4@
+1 WIFE @I3@
+1 MARR
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+0 TRLR`);
+  const rows = buildBatchRows(ds, nameOf);
+  const match = (c: BatchCriterion[]) =>
+    rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
+
+  it("finds the births with and without a cited source", () => {
+    expect(match([{ kind: "sources", mode: "eventHas", tag: "BIRT" }])).toEqual(["@I1@"]);
+    // Without a source on the birth — an undocumented birth or none recorded at all.
+    expect(match([{ kind: "sources", mode: "eventLacks", tag: "BIRT" }])).toEqual(["@I2@", "@I3@", "@I4@", "@I5@"]);
+  });
+
+  it("reads a union's events for the partners", () => {
+    expect(match([{ kind: "sources", mode: "eventHas", tag: "MARR" }])).toEqual(["@I3@", "@I4@"]);
+  });
+});
