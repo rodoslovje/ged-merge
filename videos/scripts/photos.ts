@@ -212,6 +212,46 @@ async function faceIn(d: Director, crop: Crop) {
 }
 
 /** Click the face in `crop` and pick `who` in the name panel, typing `query` first if given. */
+/** Drag the pointer from (x1,y1) to (x2,y2) with the button held, the visible pointer following. */
+async function drag(d: Director, x1: number, y1: number, x2: number, y2: number): Promise<void> {
+  await d.overlay("cursor", x1, y1, 600);
+  await d.wait(650);
+  await d.page.mouse.move(x1, y1);
+  await d.page.mouse.down();
+  const steps = 20;
+  for (let i = 1; i <= steps; i++) {
+    const x = x1 + ((x2 - x1) * i) / steps;
+    const y = y1 + ((y2 - y1) * i) / steps;
+    await d.overlay("cursor", x, y, 40);
+    await d.page.mouse.move(x, y);
+    await d.wait(45);
+  }
+  await d.page.mouse.up();
+  await d.wait(600);
+}
+
+/** Resize `who`'s marked region by its corner handles to `crop`: top-left corner, then bottom-right. */
+async function resizeTo(d: Director, who: string, crop: Crop): Promise<void> {
+  await hoverPhoto(d);
+  const img = viewerImage(d);
+  const box = (await img.boundingBox())!;
+  const nat = await img.evaluate((e: HTMLImageElement) => ({ w: e.naturalWidth, h: e.naturalHeight }));
+  const sx = (x: number) => box.x + (x / nat.w) * box.width;
+  const sy = (y: number) => box.y + (y / nat.h) * box.height;
+  const region = () => d.page.locator(".photo-crop-box").filter({ hasText: who }).first();
+  const centre = async (corner: "nw" | "se") => {
+    const h = (await region().locator(`.photo-crop-handle-${corner}`).boundingBox())!;
+    return { x: h.x + h.width / 2, y: h.y + h.height / 2 };
+  };
+  await d.highlight(region(), 4);
+  await d.wait(900);
+  await d.highlight(null);
+  const nw = await centre("nw");
+  await drag(d, nw.x, nw.y, sx(crop.left), sy(crop.top));
+  const se = await centre("se");
+  await drag(d, se.x, se.y, sx(crop.left + crop.width), sy(crop.top + crop.height));
+}
+
 async function nameFace(d: Director, crop: Crop, who: string, query?: string): Promise<void> {
   await hoverPhoto(d);
   await d.click(await faceIn(d, crop));
@@ -446,45 +486,34 @@ const scenario: Scenario = {
     {
       callout: { sl: "Prilagodite območje", en: "Adjust a region" },
       say: {
-        sl: "Pri Jožetu najdeno območje ne zajame cele glave. Kliknite njegovo ime v seznamu »Navedeno v« in pri njem odprite fotografijo. Kliknite »Spremeni območje osebe«, povlecite nov pravokotnik in kliknite »Shrani območje«.",
-        en: "For Jože, the region found misses part of his head. Click his name in the Referenced by list and open the photo on his page. Click Change person's region, drag a new rectangle and click Save region.",
+        sl: "Pri Jožetu najdeno območje ne zajame cele glave. Ko je miška nad fotografijo, ima vsako označeno območje v vogalih ročaje. Povlecite vogal in območje povečate ali pomanjšate, za katero koli osebo na fotografiji.",
+        en: "For Jože, the region found misses part of his head. While the mouse is over the photo, every marked region has handles at its corners. Drag a corner to make the region larger or smaller, for anyone in the photo.",
       },
       run: async (d) => {
-        await d.click(d.page.locator(".tools-usage .person-ref").filter({ hasText: "Jože" }).first());
-        await d.page.locator(".person-media-overlay").waitFor({ state: "detached" });
-        await d.wait(900);
-        await openLast(d);
-        await markRegion(d, CROP.joze);
+        await resizeTo(d, "Jože", CROP.joze);
       },
     },
     {
       say: {
-        sl: "Enako popravimo območje pri Petru. Obraz, ki ga program ne najde, označite na enak način.",
-        en: "We fix Peter's region the same way. A face the program misses is marked like this too.",
+        sl: "Enako popravimo območje pri Petru. Obraz, ki ga program ne najde, označite pri osebi z gumbom »Označi območje osebe«.",
+        en: "We fix Peter's region the same way. A face the program misses is marked on the person's photo with Mark person's region.",
       },
       run: async (d) => {
-        await d.click(d.page.locator(".tools-usage .person-ref").filter({ hasText: "Peter" }).first());
-        await d.page.locator(".person-media-overlay").waitFor({ state: "detached" });
-        await d.wait(900);
-        await openLast(d);
-        await markRegion(d, CROP.peter);
+        await resizeTo(d, "Peter", CROP.peter);
+        await d.wait(800);
         await closeViewer(d);
       },
     },
     {
       say: {
-        sl: "Sličica osebe pokaže samo njen obraz. Tudi Edvard in Cvetka imata zdaj to fotografijo, vsak s svojim obrazom.",
-        en: "The person's thumbnail shows just their face. Edvard and Cvetka have the photo now too, each with their own face.",
+        sl: "Sličica osebe pokaže samo njen obraz. Tudi Cvetka ima zdaj to fotografijo, z obrazom na svoji kartici.",
+        en: "The person's thumbnail shows just their face. Cvetka has the photo now too, with her face on her card.",
       },
       run: async (d) => {
         await d.highlight(thumb(d).last(), 8);
         await d.wait(2000);
-        await d.highlight(null);
-        await find(d, "edvard renko", "1942");
-        await d.highlight(thumb(d).last(), 8);
-        await d.wait(1800);
         await d.highlight(card(d, "Cvetka"), 6);
-        await d.wait(2000);
+        await d.wait(2200);
         await d.highlight(null);
       },
     },
