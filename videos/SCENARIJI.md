@@ -419,7 +419,7 @@ dvojnikov drug ob drugem.
 primerjava naslovov z uradnim registrom, geokodiranje naslovov in zapis hiše, ki je v
 zgodovini dobila več številk. Izvedba in govor: `scripts/addresses.ts`.
 **Zapis naslova:** najprej današnji naslov, nato starejši, ločeni s poševnico; na koncu
-je lahko pripis v oklepaju — `Krasinec 2 / 11 (pd Hren)`,
+je lahko pripis v oklepaju — `Krasinec 11 / 2 (pd Hren)`,
 `Zaloška cesta 2 (klinični center)`. Program vsako številko poišče posebej
 (`rnQueriesFrom`), pripis ostane.
 **Podatki:** `rodbina-renko.ged` — kraji imajo koordinate naselja, 255 hiš je že
@@ -427,13 +427,13 @@ umeščenih, 227 še ne (90 z zadetkom v registru). Poimenovanje naslovov najde 
 odstopanje: rojstva v kranjski porodnišnici so v datoteki zapisana kot »Kidričeva 38a
 (porodnišnica)« (trije dogodki, umrli), register piše »Kidričeva cesta 38a«; 89 starih
 številk je le preštetih. »bolnišnica /
-klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. »Krasinec 2 / 11
+klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. »Krasinec 11 / 2
 (pd Hren)« je danes Krasinec 11, v datoteki postavljen na sredino vasi. Klošter 52
 je danes Klošter 11, stara hiša je stala nekoliko nižje in desno. »Zapisano dvakrat«: Krasinec 26 in
 Krasinec 26 (pd Jelin), oba brez lastne lege. GEDCOM 7.0, zato druga imena (TRAN).
 **Trajanje:** ~5 min (prenos naslovov ~10 min, v videu skrajšan)
 **Naslovna slika:** oznaka »Naslovi« · »Vsaka *hiša* na svojem mestu« · posnetek
-zemljevida z zadetkoma za Krasinec 2 / 11 (pd Hren).
+zemljevida z zadetkoma za Krasinec 11 / 2 (pd Hren).
 
 | # | Kader | Govor |
 |---|-------|-------|
@@ -446,7 +446,7 @@ zemljevida z zadetkoma za Krasinec 2 / 11 (pd Hren).
 | 6a | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
 | 7 | »Geokodiranje« → »Naslovi« → država »Slovenija« | Hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
 | 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
-| 9 | Filter »Krasinec 2 /« → vrstica »Krasinec 2 / 11 (pd Hren)« | Dve številki, 2 in 11, ločeni s poševnico; hišno ime v oklepaju. |
+| 9 | Filter »Krasinec 11 /« → vrstica »Krasinec 11 / 2 (pd Hren)« | Priporočeni zapis: najprej današnja številka 11, nato stara 2 za poševnico, hišno ime v oklepaju. |
 | 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 11 | Vsaka številka posebej; hiša je bila doslej na sredini vasi; danes je to Krasinec 11, številka 2 je druga hiša. |
 | 11 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
 | 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |

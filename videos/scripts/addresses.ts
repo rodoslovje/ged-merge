@@ -8,7 +8,7 @@
  * Data: `rodbina-renko.ged` — an anonymised excerpt of the author's tree
  * (GEDCOM 7.0), its places geocoded to the settlement, 255 of its houses placed
  * and 227 not yet. »bolnišnica / klinični center« (13 events in Ljubljana) is
- * the University Medical Centre, Zaloška cesta 2; »Krasinec 2 / 11 (pd Hren)«
+ * the University Medical Centre, Zaloška cesta 2; »Krasinec 11 / 2 (pd Hren)«
  * is today's Krasinec 11, placed so far at the village centre; Klošter 52 is
  * today's Klošter 11.
  */
@@ -385,7 +385,7 @@ const scenario: Scenario = {
         await d.wait(1500);
         await d.untilSaid();
         await d.calloutAhead();
-        await filterTo(d, "Krasinec 2 /");
+        await filterTo(d, "Krasinec 11 /");
         await expandAll(d);
         await d.wait(800);
       },
@@ -393,12 +393,12 @@ const scenario: Scenario = {
     {
       callout: { sl: "Več hišnih številk", en: "Several house numbers" },
       say: {
-        sl: "Ta hiša je v zgodovini dobila dve številki, 2 in 11. V naslovu sta zapisani obe, ločeni s poševnico, na koncu pa je v oklepaju še hišno ime.",
-        en: "This house has had two numbers, 2 and 11. The address records both, separated by a slash, with the farm name in parentheses at the end.",
+        sl: "Ta hiša je v zgodovini dobila dve številki. Zapisana je tako, kot priporočamo: najprej današnji naslov, Krasinec 11, nato za poševnico stara številka 2, na koncu pa v oklepaju še hišno ime.",
+        en: "This house has had two numbers. It is written the way we recommend: the present address first, Krasinec 11, then the old number 2 after a slash, and the farm name in parentheses at the end.",
       },
       run: async (d) => {
         await d.wait(1500);
-        await d.highlight(addrRow(d, "Krasinec 2 / 11 (pd Hren)"), 4);
+        await d.highlight(addrRow(d, "Krasinec 11 / 2 (pd Hren)"), 4);
         await d.wait(5000);
         await d.highlight(null);
       },
@@ -417,10 +417,11 @@ const scenario: Scenario = {
         await visible(d, ".leaflet-marker-icon").filter({ hasText: /^2$/ }).last().waitFor();
         await d.wait(1500);
         // In the order the narration names them: the village centre the house
-        // stood at so far (3), then today's Krasinec 11 (2).
+        // stood at so far (3), then today's Krasinec 11 (1, the first number
+        // written).
         await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^3$/ }).last(), 10);
         await d.wait(3000);
-        await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^2$/ }).last(), 10);
+        await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^1$/ }).last(), 10);
         await d.wait(3000);
         await d.highlight(null);
         await d.snapshot();
