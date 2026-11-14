@@ -217,7 +217,14 @@ export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: Ged
   const { openPerson } = useMediaViewer();
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
-  const first = useMemo(() => collectFirstImage(raw, records), [raw, records]);
+  // Read on every render: the record is edited in place (a photo named in the
+  // viewer reaches a relative's card with the same `raw`), so a memo on `raw`
+  // would keep showing the old photo. Kept stable by what it shows, so the
+  // file is only resolved again when the photo or its region changes.
+  const now = collectFirstImage(raw, records);
+  const shows = now ? `${now.file}|${JSON.stringify(now.crop ?? null)}` : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `shows` is the identity of `now`
+  const first = useMemo(() => now, [shows]);
 
   useEffect(() => {
     if (!folderName || !first) { setUrl(null); return; }
