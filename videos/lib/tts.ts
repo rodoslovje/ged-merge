@@ -45,19 +45,19 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Mm])eje\b/g, "$1éje"],
     // Genitive "potí" ("v smeri potí"), unlike the Paths button's "Póti".
     [/smeri poti\b/g, "smeri potí"],
-    // Episode 14: "Matricula" is read the Slovenian way, "dLib" like the
-    // English "the lib"; "vir" is always
-    // stressed on the i ("víre", "vírov"), the Organize sources button is
-    // »Urédi víre«, "hrambo" is "hrámbo", "Urejanje" is stressed on the first u,
-    // and the Pages tab is »Stráni«.
+    // Episode 14, each checked by ear against variants: "Matricula" is read
+    // the Slovenian way, "dLib" like the English "the lib"; "vir" is always
+    // stressed on the i ("víre", "vírov"); the Organize sources button keeps its
+    // quotes, »Urédi víre«; "hrámbo", "prípete", "pókop", and the Pages tab is
+    // "Straní" (without quotes). "Urejanje" is read right as written.
     [/Matricul/g, "Matrikul"],
     [/\bdLib\b/g, "de lib"],
     [/\b([Vv])ir(e|i|ov|om|ih|a|u)\b/g, "$1ír$2"],
     [/\b([Uu])redi\b/g, "$1rédi"],
     [/\b([Hh])rambo\b/g, "$1rámbo"],
-    [/\bUrejanj/g, "Úrejanj"],
-    [/\burejanj/g, "úrejanj"],
-    [/»Strani«/g, "»Stráni«"],
+    [/\b([Pp])ripet(e|a|i|o)\b/g, "$1rípet$2"],
+    [/\b([Pp])okop(a|u|om)?\b/g, "$1ókop$2"],
+    [/»Strani«/g, "Straní"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],

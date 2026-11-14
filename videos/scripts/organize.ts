@@ -190,10 +190,10 @@ const scenario: Scenario = {
       run: async (d) => {
         await d.highlight(null);
         await d.click(d.page.locator(".seg-btn").nth(2));
-        await d.wait(800);
+        await d.wait(250);
         await d.click(d.page.locator(".tools-tab").nth(2));
         await d.page.locator(".tools-tree").first().waitFor();
-        await d.wait(800);
+        await d.wait(300);
         // Open the archive to show what it holds: its book, and that book's page.
         const archive = d.page.locator(".tools-tree > .tools-tree-node").filter({ hasText: "Nadškofijski arhiv" }).first();
         await d.click(archive.locator(".tools-pair-toggle").first());
@@ -260,7 +260,8 @@ const scenario: Scenario = {
         en: "Let's start with Matricula. The links are grouped by book. Each row tells where the link sits in the file now, for example in a note on the birth.",
       },
       run: async (d) => {
-        await d.highlight(null);
+        await d.highlight(chip(d, "Matricula", "Matricula"), 4);
+        await d.wait(1800);
         await expandAll(d);
         await d.highlight(group(d, "00164"), 6);
       },
@@ -273,13 +274,14 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await d.highlight(selectAll(d), 4);
-        await d.wait(1500);
+        await d.wait(500);
         await d.click(selectAll(d));
-        await d.wait(900);
+        await d.wait(300);
         await d.highlight(fetchButton(d), 4);
-        await d.wait(1200);
+        await d.wait(300);
         await fetchDetails(d);
-        await d.highlight(group(d, "00164"), 6);
+        // The fetched titles stay ringed for the rest of the narration.
+        await d.highlight(d.page.locator(".tools-tree").first(), 6);
       },
     },
     {
@@ -362,9 +364,10 @@ const scenario: Scenario = {
         en: "The remaining collections can be done together, under All. The citation quality stays secondary evidence: a biography or a book is not primary evidence of a birth or a death.",
       },
       run: async (d) => {
-        await d.highlight(null);
+        await d.highlight(chip(d, "Vsi", "All"), 4);
+        await d.wait(500);
         await d.click(chip(d, "Vsi", "All"));
-        await d.wait(700);
+        await d.wait(400);
         await expandAll(d);
         await listToTop(d);
         // Ring only rows already on screen: ringing the whole (tall) list
@@ -518,8 +521,8 @@ const scenario: Scenario = {
         await d.click(d.page.locator(".app-head-actions .export-btn"));
         await d.wait(1500);
         await d.click(d.page.getByText(d.t({ sl: "Vrstice GEDCOM", en: "GEDCOM lines" }), { exact: true }).first());
-        await d.wait(6000);
-        await d.page.keyboard.press("Escape");
+        // Straight on to the closing card, which covers the open preview.
+        await d.wait(2500);
       },
     },
     {
