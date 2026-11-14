@@ -971,7 +971,7 @@ export const sl = {
   "tools.batch.addFilter": "Dodaj filter",
   "tools.batch.clearAll": "Počisti vse",
   "tools.batch.group.person": "Oseba",
-  "tools.batch.group.events": "Dogodki in kraji",
+  "tools.batch.group.events": "Dogodki",
   "tools.batch.group.family": "Družina",
   "tools.batch.group.text": "Besedilo",
   "tools.batch.group.records": "Mediji, viri in zasebnost",

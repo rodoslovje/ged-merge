@@ -52,9 +52,9 @@ import { SearchSelect } from "../SearchSelect";
  *  fails to compile until it is given a group. */
 const CRITERION_GROUP: Record<BatchCriterion["kind"], "person" | "events" | "family" | "text" | "records"> = {
   name: "person", nameField: "person", sex: "person", birthYear: "person", age: "person", living: "person",
-  event: "events", familyEvent: "events", place: "events",
+  event: "events", familyEvent: "events",
   relation: "family", kinship: "family", line: "family",
-  note: "text", anyField: "text",
+  place: "text", note: "text", anyField: "text",
   media: "records", sources: "records", private: "records", privateNote: "records",
 };
 const CRITERION_GROUPS = (["person", "events", "family", "text", "records"] as const).map((id) => ({
