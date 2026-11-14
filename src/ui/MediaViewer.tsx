@@ -29,6 +29,8 @@ import { usePhone } from "./usePhone";
 import { basename } from "./mediaPath";
 import { DateInput } from "./edit/DateInput";
 import { eventDisplayLabel } from "../gedcom/eventTags";
+import { detectHeads, overlap } from "./faceDetect";
+import { nameCandidates } from "./faceNaming";
 
 /**
  * One full-screen photo viewer shared by every part of the app (Edit, Merge,
@@ -103,6 +105,18 @@ export interface MediaItem {
   /** Live variant of {@link allCrops}: re-reads the records so a region saved
    *  while the viewer is open shows up immediately. Takes precedence. */
   getAllCrops?: () => CropMark[];
+  /** When set (a person's photo in Edit), faces found on the photo are offered
+   *  on hover, and clicking one names it: the person whose photo it is, or —
+   *  with `others` — anyone in the file, who then gets the photo with that
+   *  region. */
+  naming?: {
+    dataset: Dataset;
+    openerId: string;
+    others: boolean;
+    /** The people already marked on the photo — not offered again. */
+    named: () => string[];
+    onName: (personId: string, crop: CropRegion) => void;
+  };
 }
 
 /**
@@ -120,6 +134,10 @@ export interface MediaRefContext {
   /** Writes (or clears, with `null`) the link's crop region — the part of a
    *  group photo depicting the record. Enables the viewer's crop editor. */
   onEditMediaCrop?: (addr: MediaAddress, crop: CropRegion | null) => void;
+  /** Links a shared media record to another person with their region on it
+   *  (or sets the region, when they already have the photo). Enables naming
+   *  the other faces on a group photo. */
+  onTagPerson?: (personId: string, file: string, mediaXref: string, crop: CropRegion) => void;
   /** Which of a photo's date and place the info panel offers: only where a
    *  file kept with its variations writes them (see `mediaInfoOffered`).
    *  Both are offered when omitted. */
@@ -404,6 +422,22 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                     : undefined,
               }
             : undefined,
+          naming:
+            refCtx?.onEditMediaCrop && raw.tag === "INDI" && raw.xref && mediaKindOf(ref.file) === "image"
+              ? {
+                  dataset: refCtx.dataset,
+                  openerId: raw.xref,
+                  others: !!(xref && refCtx.onTagPerson),
+                  named: () =>
+                    xref
+                      ? mediaUsedBy(refCtx.dataset, xref).filter((u) => u.crop).flatMap((u) => u.persons.map((p) => p.id))
+                      : [],
+                  onName: (personId, crop) =>
+                    personId === raw.xref
+                      ? refCtx.onEditMediaCrop!(ref, crop)
+                      : refCtx.onTagPerson!(personId, ref.file, xref!, crop),
+                }
+              : undefined,
           details:
             refCtx && xref
               ? (close, onHoverCrop, refreshKey) => (
@@ -521,6 +555,77 @@ function MediaInfoEditor({
   );
 }
 
+/** Head regions per photo URL, found once per page session. */
+const headCache = new Map<string, Promise<CropRegion[]>>();
+function headsOf(url: string, img: HTMLImageElement): Promise<CropRegion[]> {
+  let heads = headCache.get(url);
+  if (!heads) {
+    heads = detectHeads(img);
+    headCache.set(url, heads);
+  }
+  return heads;
+}
+
+/** The name panel under a face being named: a search box over the people the
+ *  face may be (close family first) — or, when only the photo's own person may
+ *  be named, just that one. */
+function FaceNamer({
+  naming,
+  onPick,
+  onCancel,
+}: {
+  naming: NonNullable<MediaItem["naming"]>;
+  onPick: (personId: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState("");
+  // Escape puts the panel away, not the viewer: the viewer listens natively on
+  // its overlay, which a React handler here would reach too late to stop.
+  const ref = useRef<HTMLDivElement>(null);
+  const cancel = useRef(onCancel);
+  cancel.current = onCancel;
+  useEffect(() => {
+    const node = ref.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      cancel.current();
+    };
+    node?.addEventListener("keydown", onKey);
+    return () => node?.removeEventListener("keydown", onKey);
+  }, []);
+  const people = naming.others
+    ? nameCandidates(naming.dataset, naming.openerId, query, 8, naming.named())
+    : [naming.dataset.individuals.get(naming.openerId)].filter((i) => i !== undefined);
+  return (
+    <div className="photo-face-namer" ref={ref} onClick={(e) => e.stopPropagation()}>
+      <div className="photo-face-title">{t("media.face.who")}</div>
+      {naming.others && (
+        <input
+          className="edit-input"
+          autoFocus
+          placeholder={t("media.face.search")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && people[0]) onPick(people[0].id);
+          }}
+        />
+      )}
+      <ul className="photo-face-list">
+        {people.map((p) => (
+          <li key={p.id}>
+            <button type="button" onClick={() => onPick(p.id)}>{lifespanLabel(p)}</button>
+          </li>
+        ))}
+        {people.length === 0 && <li className="photo-face-none">{t("media.face.none")}</li>}
+      </ul>
+      <button type="button" className="tree-open-btn" onClick={onCancel}>{t("media.crop.cancel")}</button>
+    </div>
+  );
+}
+
 /** The lightbox image plus, when the photo carries GEDCOM 7 crop regions, dashed
  *  boxes (each with a name label) marking the people in it. Nothing shows by
  *  default: hovering a "referenced by" name shows that one person's box, and
@@ -535,6 +640,7 @@ function MediaStage({
   hoverMark,
   allCrops,
   cropEdit,
+  faces,
 }: {
   url: string;
   kind?: "image" | "pdf";
@@ -547,13 +653,32 @@ function MediaStage({
   /** Crop-marking mode: dragging on the image draws the record's region (in
    *  natural pixels) into `draft`; the overlay's controls save or discard it. */
   cropEdit?: { draft: CropRegion | null; onDraft: (crop: CropRegion | null) => void };
+  /** Face finding: the faces nobody is marked on are revealed on hover with a
+   *  »?«, and clicking one hands its region to `onFace`. While one is being
+   *  named, `naming` keeps its box drawn with the name panel under it. */
+  faces?: { onFace: (crop: CropRegion) => void; onFound: (count: number) => void; naming: { crop: CropRegion; panel: ReactNode } | null };
 }) {
+  const { t } = useTranslation();
   // Natural pixel size, captured on load; cleared while a new image loads so a
   // stale size from the previous photo can't briefly misposition a box.
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   // Hovering/touching the image reveals every tagged person's box with its name.
   const [revealing, setRevealing] = useState(false);
   useEffect(() => { setNatural(null); setRevealing(false); }, [url]);
+  // Head regions found on this photo (natural pixels), once it has loaded.
+  const [found, setFound] = useState<{ url: string; heads: CropRegion[] } | null>(null);
+  const examine = (img: HTMLImageElement) => {
+    if (!faces) return;
+    const onFound = faces.onFound;
+    void headsOf(url, img).then((heads) => {
+      setFound({ url, heads });
+      onFound(heads.length);
+    });
+  };
+  // Faces nobody is marked on yet: a marked person's region covers theirs.
+  const unnamed = (found?.url === url ? found.heads : []).filter(
+    (f) => !allCrops.some((m) => overlap(m.crop, f) > 0.4) && !(faces?.naming && overlap(faces.naming.crop, f) > 0.4),
+  );
 
   // Region → percentage box of the image (which fills the wrapper exactly).
   const box = (c: CropRegion): CSSProperties => ({
@@ -566,7 +691,7 @@ function MediaStage({
   // Anchor of an in-progress crop drag, in natural image pixels.
   const dragAnchor = useRef<{ x: number; y: number } | null>(null);
 
-  const canReveal = !cropEdit && allCrops.length > 0;
+  const canReveal = !cropEdit && (allCrops.length > 0 || (!!faces && unnamed.length > 0));
   // A hovered name shows just that person; otherwise an image hover reveals all.
   const marks = cropEdit ? [] : hoverMark ? [hoverMark] : revealing ? allCrops : [];
 
@@ -619,13 +744,43 @@ function MediaStage({
         className="person-media-full"
         alt={title ?? ""}
         draggable={false}
-        onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+        onLoad={(e) => {
+          setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight });
+          examine(e.currentTarget);
+        }}
       />
       {natural && marks.map((m, i) => (
         <div key={i} className="photo-crop-box" style={box(m.crop)}>
           <span className="photo-crop-name" title={m.label}>{m.label}</span>
         </div>
       ))}
+      {natural && faces && !cropEdit && !hoverMark && revealing && unnamed.map((f, i) => (
+        <button
+          key={`face-${i}`}
+          type="button"
+          className="photo-crop-box photo-face-box"
+          style={box(f)}
+          title={t("media.face.name")}
+          aria-label={t("media.face.name")}
+          onClick={() => faces.onFace(f)}
+        >
+          <span className="photo-crop-name">?</span>
+        </button>
+      ))}
+      {natural && faces?.naming && (
+        <>
+          <div className="photo-crop-box photo-crop-draft" style={box(faces.naming.crop)} />
+          <div
+            className="photo-face-panel"
+            style={{
+              left: `${(faces.naming.crop.left / natural.w) * 100}%`,
+              top: `${((faces.naming.crop.top + faces.naming.crop.height) / natural.h) * 100}%`,
+            }}
+          >
+            {faces.naming.panel}
+          </div>
+        </>
+      )}
       {natural && cropEdit?.draft && (
         <div className="photo-crop-box photo-crop-draft" style={box(cropEdit.draft)} />
       )}
@@ -664,7 +819,11 @@ function MediaViewerOverlay({
   // Bumped on every crop save/remove: re-runs the live `getAllCrops` read and
   // MediaReferencedBy's memo, so the new box shows without reopening the viewer.
   const [cropRefresh, setCropRefresh] = useState(0);
-  useEffect(() => { setHoverMark(null); setCropEditing(false); setCropDraft(null); }, [index]);
+  // The found face being named, if any (see FaceNamer).
+  const [namingFace, setNamingFace] = useState<CropRegion | null>(null);
+  // How many faces were found on each photo (by index), for the panel's hint.
+  const [facesFound, setFacesFound] = useState<Record<number, number>>({});
+  useEffect(() => { setHoverMark(null); setCropEditing(false); setCropDraft(null); setNamingFace(null); }, [index]);
   const effectiveCrop = current.edit ? (index in cropSaved ? cropSaved[index] : current.edit.crop) : undefined;
   // Memoized so hover-driven re-renders don't rescan the records; the deps are
   // the photo itself and the crop-edit counter.
@@ -739,6 +898,31 @@ function MediaViewerOverlay({
             hoverMark={hoverMark}
             allCrops={allCrops}
             cropEdit={cropEditing ? { draft: cropDraft, onDraft: setCropDraft } : undefined}
+            faces={
+              current.naming
+                ? {
+                    onFace: setNamingFace,
+                    onFound: (count) => setFacesFound((p) => ({ ...p, [index]: count })),
+                    naming: namingFace
+                      ? {
+                          crop: namingFace,
+                          panel: (
+                            <FaceNamer
+                              naming={current.naming}
+                              onCancel={() => setNamingFace(null)}
+                              onPick={(personId) => {
+                                current.naming!.onName(personId, namingFace);
+                                if (personId === current.naming!.openerId) setCropSaved((p) => ({ ...p, [index]: namingFace }));
+                                setCropRefresh((v) => v + 1);
+                                setNamingFace(null);
+                              }}
+                            />
+                          ),
+                        }
+                      : null,
+                  }
+                : undefined
+            }
           />
           {captionOnly && <div className="media-lightbox-under">{current.title}</div>}
         </div>
@@ -756,6 +940,9 @@ function MediaViewerOverlay({
                 />
                 {current.edit.onSaveCrop && current.kind !== "pdf" && (
                   <div className="media-crop-controls">
+                    {!cropEditing && current.naming && (facesFound[index] ?? 0) > 0 && (
+                      <div className="media-crop-hint">{t("media.face.hint")}</div>
+                    )}
                     {!cropEditing ? (
                       <button
                         type="button"

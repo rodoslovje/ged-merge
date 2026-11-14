@@ -3067,6 +3067,53 @@ button:focus-visible {
 }
 .media-crop-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
 .media-crop-hint { color: var(--muted); font-size: 0.78rem; }
+/* A face found on the photo that nobody is marked on yet: an accent dashed box
+   with a »?« under it; a click opens the name panel. */
+.photo-crop-box.photo-face-box {
+  border: 2px dashed var(--accent);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.photo-crop-box.photo-face-box:hover { background: var(--accent-soft); }
+/* The name panel, under the face being named. */
+.photo-face-panel {
+  position: absolute;
+  margin-top: 6px;
+  z-index: 2;
+}
+.photo-face-namer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 240px;
+  padding: 10px;
+  /* The image wrapper sets line-height 0 against the inline-image gap. */
+  line-height: 1.35;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  align-items: flex-start;
+}
+.photo-face-title { font-weight: 600; font-size: 0.85rem; }
+.photo-face-namer .edit-input { width: 100%; }
+.photo-face-list { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 220px; overflow-y: auto; flex-shrink: 0; }
+.photo-face-list button {
+  width: 100%;
+  text-align: left;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.photo-face-list button:hover { background: var(--accent-soft); }
+.photo-face-none { color: var(--muted); font-size: 0.8rem; padding: 4px 6px; }
 .photo-crop-name {
   position: absolute;
   top: 100%;
@@ -9259,6 +9306,11 @@ kbd {
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+/* ⓘ How it works — the list's explanation, closed until asked for. */
+.tools-intro-wrap { margin: 0 0 10px; }
+.tools-intro-wrap .tools-intro { margin: 6px 0 14px; }
+.tools-intro-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: none; background: none; color: var(--muted); font: inherit; font-size: 0.85rem; cursor: pointer; }
+.tools-intro-toggle:hover, .tools-intro-toggle:focus-visible, .tools-intro-toggle[aria-expanded="true"] { color: var(--accent); }
 /* What the last run did, and whether the re-scan behind it is still going —
    sits above the lists, which empty out while it runs. */
 .tools-cleanup-status { margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }

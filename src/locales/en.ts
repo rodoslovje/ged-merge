@@ -34,6 +34,7 @@ export const en = {
   // One key per count, joined with " · " in ToolsView: five independent numbers
   // cannot share one plural form, and Slovenian needs four of them per noun.
   "tools.running": "Working…",
+  "tools.introToggle": "How it works",
   "tools.scan.cancelled": "Scan cancelled.",
   "tools.scan.rerun": "Run again",
   "tools.scan.error": "The scan failed: {{message}}",
@@ -3349,6 +3350,11 @@ export const en = {
   "media.crop.save": "Save region",
   "media.crop.remove": "Remove region",
   "media.crop.cancel": "Cancel",
+  "media.face.name": "Click to say who this is",
+  "media.face.who": "Who is this?",
+  "media.face.search": "Find a person…",
+  "media.face.none": "No one by that name.",
+  "media.face.hint": "Faces found on the photo are marked with a “?” when you move the mouse over it. Click one to say who it is.",
   "media.crop.hint": "Drag on the photo to mark this person.",
   "media.field.event": "Event",
   "media.field.title": "Title",

@@ -34,6 +34,7 @@ export const sl = {
   // Število vodi, samostalnik mu sledi — zato ima vsak svoje sklonske oblike:
   // 1 oseba, 2 osebi, 3 osebe, 5 oseb (glej ToolsView, ki jih poveže z " · ").
   "tools.running": "Obdelujem…",
+  "tools.introToggle": "Kako deluje",
   "tools.scan.cancelled": "Iskanje je bilo prekinjeno.",
   "tools.scan.rerun": "Zaženi znova",
   "tools.scan.error": "Pregled ni uspel: {{message}}",
@@ -3810,6 +3811,11 @@ export const sl = {
   "media.crop.save": "Shrani območje",
   "media.crop.remove": "Odstrani območje",
   "media.crop.cancel": "Prekliči",
+  "media.face.name": "Kliknite in povejte, kdo je to",
+  "media.face.who": "Kdo je to?",
+  "media.face.search": "Poišči osebo…",
+  "media.face.none": "Nihče s tem imenom.",
+  "media.face.hint": "Ko z miško zapeljete nad fotografijo, so najdeni obrazi označeni z »?«. Kliknite obraz in povejte, kdo je to.",
   "media.crop.hint": "Povlecite po fotografiji, da označite to osebo.",
   "media.field.event": "Dogodek",
   "media.field.title": "Naslov",
