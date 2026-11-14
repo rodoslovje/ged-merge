@@ -38,6 +38,7 @@ import {
   usePersonNameIndex,
   useRenameDraft,
   withoutKeys,
+  ToolsIntro,
 } from "./shared";
 import { CountryChips } from "./CountryChips";
 import { BulkCoordPanel } from "./BulkCoordPanel";
@@ -1075,7 +1076,7 @@ export function AddressCoordsSection({
           downloaded: a register in the browser answers by itself, and saying
           "only on your click, behind the opt-in" of houses already answered
           reads as a refusal the list is not making. */}
-      <p className="tools-intro">
+      <ToolsIntro>
         {t("tools.geocode.addr.intro")} {someOffline && `${t("tools.geocode.addr.introLocal")} `}
         {someOnline && (
           <>
@@ -1086,7 +1087,7 @@ export function AddressCoordsSection({
             .
           </>
         )}
-      </p>
+      </ToolsIntro>
       {countryChips.length > 0 && (
         <CountryChips
           chips={countryChips}
