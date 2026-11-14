@@ -34,6 +34,7 @@ export const en = {
   // One key per count, joined with " · " in ToolsView: five independent numbers
   // cannot share one plural form, and Slovenian needs four of them per noun.
   "tools.running": "Working…",
+  "tools.introToggle": "How it works",
   "tools.scan.cancelled": "Scan cancelled.",
   "tools.scan.rerun": "Run again",
   "tools.scan.error": "The scan failed: {{message}}",

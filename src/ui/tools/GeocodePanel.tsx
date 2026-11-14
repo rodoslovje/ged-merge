@@ -20,7 +20,7 @@ import {
   type OfficialRename,
 } from "../../tools/geocode";
 import { loadDecisions, saveDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex, withoutKeys } from "./shared";
+import { AppliedNote, ExpandAllToggle, personMatches, ToolsIntro, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex, withoutKeys } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
@@ -646,7 +646,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       <div style={tab === "places" ? undefined : { display: "none" }}>
       {/* The offline-matching promise is the places tab's — the address tab
           asks the register online and says so in its own intro. */}
-      <p className="tools-intro">{t("tools.geocode.intro")}</p>
+      <ToolsIntro>{t("tools.geocode.intro")}</ToolsIntro>
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
       {/* The placed rows keep the section alive after the worklist is done —

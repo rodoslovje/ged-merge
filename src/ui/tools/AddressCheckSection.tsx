@@ -36,6 +36,7 @@ import {
   RowMap,
   toggledIn,
   useRenameDraft,
+  ToolsIntro,
 } from "./shared";
 import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -444,7 +445,7 @@ export function AddressCheckSection({
   return (
     <section className="tools-cleanup-section" style={hidden ? { display: "none" } : undefined}>
       {actionsHost ? createPortal(actions, actionsHost) : <p className="tools-fix-hint">{actions}</p>}
-      <p className="tools-intro">{t("tools.registerAddr.intro")}</p>
+      <ToolsIntro>{t("tools.registerAddr.intro")}</ToolsIntro>
 
       {report && (
         <>

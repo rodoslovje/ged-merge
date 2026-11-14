@@ -34,6 +34,7 @@ export const sl = {
   // Število vodi, samostalnik mu sledi — zato ima vsak svoje sklonske oblike:
   // 1 oseba, 2 osebi, 3 osebe, 5 oseb (glej ToolsView, ki jih poveže z " · ").
   "tools.running": "Obdelujem…",
+  "tools.introToggle": "Kako deluje",
   "tools.scan.cancelled": "Iskanje je bilo prekinjeno.",
   "tools.scan.rerun": "Zaženi znova",
   "tools.scan.error": "Pregled ni uspel: {{message}}",
