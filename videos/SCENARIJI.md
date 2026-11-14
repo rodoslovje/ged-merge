@@ -428,7 +428,7 @@ odstopanje: rojstva v kranjski porodnišnici so v datoteki zapisana kot »Kidri�
 (porodnišnica)« (trije dogodki, umrli), register piše »Kidričeva cesta 38a«; 89 starih
 številk je le preštetih. »bolnišnica /
 klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. »Krasinec 2 / 11
-(pd Hren)« je danes Krasinec 2, v datoteki postavljen na današnji Krasinec 11. Klošter 52
+(pd Hren)« je danes Krasinec 11, v datoteki postavljen na sredino vasi. Klošter 52
 je danes Klošter 11, stara hiša je stala nekoliko nižje in desno. »Zapisano dvakrat«: Krasinec 26 in
 Krasinec 26 (pd Jelin), oba brez lastne lege. GEDCOM 7.0, zato druga imena (TRAN).
 **Trajanje:** ~5 min (prenos naslovov ~10 min, v videu skrajšan)
@@ -446,8 +446,8 @@ zemljevida z zadetkoma za Krasinec 2 / 11 (pd Hren).
 | 6a | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
 | 7 | »Geokodiranje« → »Naslovi« → država »Slovenija« | Hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
 | 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
-| 9 | Filter »Krasinec 2 /« → vrstica »Krasinec 2 / 11 (pd Hren)« | Dve številki: najprej današnja, nato stara za poševnico, hišno ime v oklepaju. |
-| 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 2 | Vsaka številka posebej; 11 je danes druga hiša in prav tja je bila hiša postavljena; izberemo 2. |
+| 9 | Filter »Krasinec 2 /« → vrstica »Krasinec 2 / 11 (pd Hren)« | Dve številki, 2 in 11, ločeni s poševnico; hišno ime v oklepaju. |
+| 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 11 | Vsaka številka posebej; hiša je bila doslej na sredini vasi; danes je to Krasinec 11, številka 2 je druga hiša. |
 | 11 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
 | 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
 | 12a | Filter »Klošter 52« → ✎ spredaj »Klošter 11 / « → zadetek SI-ADR | Stara številka; današnji naslov spredaj, stara za poševnico; register hišo najde. |

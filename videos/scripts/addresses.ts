@@ -9,7 +9,7 @@
  * (GEDCOM 7.0), its places geocoded to the settlement, 255 of its houses placed
  * and 227 not yet. »bolnišnica / klinični center« (13 events in Ljubljana) is
  * the University Medical Centre, Zaloška cesta 2; »Krasinec 2 / 11 (pd Hren)«
- * is today's Krasinec 2, placed so far on today's Krasinec 11; Klošter 52 is
+ * is today's Krasinec 11, placed so far at the village centre; Klošter 52 is
  * today's Klošter 11.
  */
 import path from "node:path";
@@ -393,8 +393,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Več hišnih številk", en: "Several house numbers" },
       say: {
-        sl: "Ta hiša je v zgodovini dobila dve številki. Zapisana je tako, kot priporočamo: najprej današnji naslov, Krasinec 2, nato za poševnico stara številka 11, na koncu pa v oklepaju še hišno ime.",
-        en: "This house has had two numbers. It is written the way we recommend: the present address first, Krasinec 2, then the old number 11 after a slash, and the farm name in parentheses at the end.",
+        sl: "Ta hiša je v zgodovini dobila dve številki, 2 in 11. V naslovu sta zapisani obe, ločeni s poševnico, na koncu pa je v oklepaju še hišno ime.",
+        en: "This house has had two numbers, 2 and 11. The address records both, separated by a slash, with the farm name in parentheses at the end.",
       },
       run: async (d) => {
         await d.wait(1500);
@@ -405,24 +405,26 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Program vsako številko poišče posebej in zadetke pokaže na zemljevidu. Številka 11 danes pripada drugi hiši — in prav tja je bila ta hiša doslej postavljena. Izberemo današnjo številko 2.",
-        en: "The program looks each number up on its own and shows the answers on a map. Number 11 belongs to another house today — and that is exactly where this house has been placed so far. We pick today's number 2.",
+        sl: "Program vsako številko poišče posebej in zadetke pokaže na zemljevidu. Hiša je bila doslej postavljena le na sredino vasi. Danes je to Krasinec 11, številka 2 pa pripada drugi hiši, zato izberemo Krasinec 11.",
+        en: "The program looks each number up on its own and shows the answers on a map. So far the house was placed only at the village centre. Today it is Krasinec 11, while number 2 belongs to another house, so we pick Krasinec 11.",
       },
       run: async (d) => {
         // A click on an answer's coordinate opens the panel with every answer
         // on one map, under the numbers of the list — which is the house is a
         // question the map answers.
-        await d.click(visible(d, "*").getByText("45.59227, 15.27438", { exact: true }).first());
+        await d.click(visible(d, "*").getByText("45.59111, 15.28021", { exact: true }).first());
         const panelHit = (line: string) => visible(d, ".edit-coord-results *").getByText(line, { exact: false }).first();
         await visible(d, ".leaflet-marker-icon").filter({ hasText: /^2$/ }).last().waitFor();
         await d.wait(1500);
-        await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^1$/ }).last(), 10);
-        await d.wait(2500);
+        // In the order the narration names them: the village centre the house
+        // stood at so far (3), then today's Krasinec 11 (2).
+        await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^3$/ }).last(), 10);
+        await d.wait(3000);
         await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^2$/ }).last(), 10);
-        await d.wait(2500);
+        await d.wait(3000);
         await d.highlight(null);
         await d.snapshot();
-        await d.click(panelHit("Krasinec 2, 8332 Gradac"));
+        await d.click(panelHit("Krasinec 11, 8332 Gradac"));
         await d.wait(1500);
         await closeCoordPanel(d);
         await d.untilSaid();
