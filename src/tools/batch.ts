@@ -117,8 +117,8 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "private",
-  "privateNote", "media", "sources", "relation", "kinship", "line",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "media",
+  "sources", "relation", "kinship", "line", "private", "privateNote",
 ];
 
 /**
