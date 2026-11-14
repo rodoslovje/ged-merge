@@ -914,12 +914,38 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     });
   }
 
+  /** Name a face on a shared photo as another person: their own link to the
+   *  photo gets the region — added first, in the same commit, when they have no
+   *  link to it yet. */
+  function tagPersonOnMedia(personId: string, file: string, mediaXref: string, crop: CropRegion) {
+    const indi = dataset.individuals.get(personId);
+    if (!indi) return;
+    const own = { kind: "individual" } as const;
+    const existing = collectMediaRefs(indi.raw, dataset.records).find((r) => !r.eventTag && r.xref === mediaXref);
+    if (existing) {
+      ownerCommit(own, (raw) => {
+        const child = mediaNodeAt(raw, existing);
+        if (child) setCropRegion(child, crop);
+      }, undefined, indi);
+    } else {
+      const extraPatches: RecordPatch[] = [];
+      const attach = sharedMediaMutation(dataset.records, file, mediaXref, extraPatches);
+      ownerCommit(own, (raw) => {
+        attach(raw);
+        const links = childrenByTag(raw, "OBJE");
+        if (links.length) setCropRegion(links[links.length - 1], crop);
+      }, extraPatches, indi);
+    }
+    mediaGenRef.current += 1; // the person's tray (if on screen) shows the new link
+  }
+
   /** Referenced-by + edit context handed to the photo viewer/tray in Edit mode. */
   const mediaCtxFor = useStableHandler((owner: MediaOwner): MediaRefContext => ({
     dataset,
     onNavigate: navigate,
     onEditMedia: (addr, fields) => editMediaOn(owner, addr, fields),
     onEditMediaCrop: (addr, crop) => editMediaCropOn(owner, addr, crop),
+    onTagPerson: tagPersonOnMedia,
     mediaFields: mediaInfoOffered(dataset.records, formatOverrides),
   }));
   const mediaRefCtx = mediaCtxFor({ kind: "individual" });
