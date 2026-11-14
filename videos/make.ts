@@ -145,6 +145,10 @@ async function record(scenario: Scenario, lang: Lang, baseUrl: string, burnSubti
     const clip = clips[i];
     cues.push({ start: rec.now(), duration: clip.duration, text: step.say[lang], audio: clip.file });
     d.saidAt = rec.now() + clip.duration;
+    // The next step's callout, for a step that walks to the next screen at its
+    // end (Director.calloutAhead).
+    const next = scenario.steps[i + 1]?.callout;
+    d.upcoming = next ? { n: String(n + 1), text: next[lang] } : undefined;
     await Promise.all([step.run?.(d), sleep(clip.duration * 1000)]);
     await sleep(GAP_MS);
   }

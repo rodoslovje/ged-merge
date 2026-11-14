@@ -1,5 +1,5 @@
 /**
- * Video 12 (SCENARIJI.md, "Kraji in naslovi"): the GURS address register
+ * Video 13 (SCENARIJI.md, "Kraji in naslovi"): the GURS address register
  * downloaded on camera, the Places tree, a place's other names, the naming
  * check of addresses, and geocoding houses — including the way to write a house
  * that has had several numbers: the present address first, the older ones after
@@ -8,8 +8,9 @@
  * Data: `rodbina-renko.ged` — an anonymised excerpt of the author's tree
  * (GEDCOM 7.0), its places geocoded to the settlement, 255 of its houses placed
  * and 227 not yet. »bolnišnica / klinični center« (13 events in Ljubljana) is
- * the University Medical Centre, Zaloška cesta 2; »Hafnarjeva pot 55 / 21« in
- * Kranj was Stražišče 66 before the street was named.
+ * the University Medical Centre, Zaloška cesta 2; »Krasinec 2 / 11 (pd Hren)«
+ * is today's Krasinec 2, placed so far on today's Krasinec 11; Klošter 52 is
+ * today's Klošter 11.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,9 +19,6 @@ import { seriesSettingsWithMaps } from "../lib/series.ts";
 import type { Scenario, Text } from "../lib/types.ts";
 
 const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "rodbina-renko.ged");
-
-/** The places-tree chapter, shown a moment early (see the step before it). */
-const PLACES_TREE: Text = { sl: "Drevo krajev", en: "The places tree" };
 
 const modal = (d: Director) => d.page.locator(".settings-modal");
 const tab = (d: Director, label: Text) => modal(d).locator("button", { hasText: d.t(label) }).first();
@@ -66,14 +64,47 @@ async function openMapSettings(d: Director): Promise<void> {
   await d.click(tab(d, { sl: "Zemljevid", en: "Map" }));
 }
 
+/** Close the coordinate panel if it is still open — Escape with nothing open
+ *  leaves Geocoding for the Places page, so it is pressed only when needed. */
+async function closeCoordPanel(d: Director): Promise<void> {
+  if (await visible(d, ".edit-coord-results").first().isVisible()) {
+    await d.page.keyboard.press("Escape");
+    await d.wait(800);
+  }
+  await frameTools(d);
+}
+
 /** »Prikaži že umeščene« over the address list. */
 const showPlaced = (d: Director) =>
   visible(d, "label.tools-reshape-site").filter({ hasText: d.t({ sl: "Prikaži že umeščene", en: "Show already placed" }) }).first();
+
+/**
+ * Scroll the Tools page so the row of tool cards (Statistics, Places, Sources…)
+ * sits above the picture and what the step is about fills it — as far as the
+ * page is long enough to scroll.
+ */
+async function frameTools(d: Director): Promise<void> {
+  await d.page.evaluate(() => {
+    // The Tools page scrolls inside .tools-view, under the app's header.
+    const view = document.querySelector<HTMLElement>(".tools-view");
+    const tabs = [...document.querySelectorAll<HTMLElement>(".tools-tab")].filter((e) => e.offsetParent);
+    if (!view || !tabs.length) return;
+    // A click's scroll-into-view can also move the containers around the view
+    // (even overflow-hidden ones), taking the app's header out of the
+    // picture; they are put back at the top.
+    for (let el = view.parentElement; el; el = el.parentElement) if (el.scrollTop) el.scrollTop = 0;
+    const bottom = Math.max(...tabs.map((t) => t.getBoundingClientRect().bottom));
+    const top = view.getBoundingClientRect().top;
+    view.scrollTo({ top: view.scrollTop + bottom - top + 8, behavior: "smooth" });
+  });
+  await d.wait(700);
+}
 
 /** »Razširi vse«, unless the list is open already (it then offers »Strni vse«). */
 async function expandAll(d: Director): Promise<void> {
   const expand = link(d, { sl: "Razširi vse", en: "Expand all" });
   if (await expand.isVisible()) await d.click(expand);
+  await frameTools(d);
 }
 
 /** Type into the list's filter, the way a viewer would. */
@@ -83,6 +114,7 @@ async function filterTo(d: Director, text: string): Promise<void> {
   await box.fill("");
   if (text) await d.page.keyboard.type(text, { delay: 90 });
   await d.wait(900);
+  await frameTools(d);
 }
 
 /** Open a rename box (✎ beside `target`) and replace its text. */
@@ -109,7 +141,7 @@ const applyRename = (d: Director) =>
 
 const scenario: Scenario = {
   id: "addresses",
-  episode: 12,
+  episode: 13,
   settings: (lang) => ({ ...seriesSettingsWithMaps(lang), allowLinkFetch: true }),
   title: {
     sl: "GED Merge: kraji in naslovi — register naslovov GURS in hišne številke",
@@ -153,6 +185,9 @@ const scenario: Scenario = {
         en: "Let's open a larger tree. Its places already have coordinates, but many of its houses do not.",
       },
       run: async (d) => {
+        // Room below every page, so a short Tools list can still be scrolled
+        // past the tool cards (frameTools) — the recording's, not the app's.
+        await d.page.addStyleTag({ content: ".tools-view { padding-bottom: 100vh; }" });
         await d.card(null, null);
         await d.wait(700);
         await d.upload(d.page.locator(".lb-drop"), MAIN);
@@ -186,21 +221,19 @@ const scenario: Scenario = {
         await d.click(modal(d).locator(".modal-close"));
         await modal(d).waitFor({ state: "detached" });
         // Each step's way to its screen runs once the narration before it is
-        // done, so the next sentence starts on the screen it talks about.
+        // done, so the next sentence starts on the screen it talks about —
+        // and the next chapter's callout goes up just before the way there.
         await d.untilSaid();
-        // The next chapter's callout goes up before the way there, so the
-        // viewer is told where we are going before the screen changes; the
-        // step itself then sets the same one (chapter 2 of the video).
-        await d.overlay("callout", "2", d.t(PLACES_TREE));
-        await d.wait(1200);
+        await d.calloutAhead();
         await d.click(d.page.locator(".seg-btn").nth(2));
         await d.wait(800);
         await d.click(d.page.locator(".tools-tab", { hasText: d.t({ sl: "Kraji", en: "Places" }) }).first());
         await d.wait(1000);
+        await frameTools(d);
       },
     },
     {
-      callout: PLACES_TREE,
+      callout: { sl: "Drevo krajev", en: "The places tree" },
       say: {
         sl: "V Orodjih, pod »Kraji«, so kraji zbrani v drevo: država, občina, naselje in hiša. Ob vsakem je število zapisov in koordinata.",
         en: "In Tools, under Places, the places form a tree: country, municipality, settlement and house. Each shows how many records use it, and its coordinate.",
@@ -245,8 +278,10 @@ const scenario: Scenario = {
         // appears only once the register is stored. The wait is cut to two
         // seconds, so the next step's narration starts on a page that is ready.
         await d.untilSaid();
+        await d.calloutAhead();
         await d.click(link(d, { sl: "Poimenovanje", en: "Naming" }));
         await d.skippable(() => link(d, /^(Naslovi|Addresses)/).waitFor({ timeout: 2_400_000 }), 2);
+        await frameTools(d);
       },
     },
     {
@@ -263,6 +298,7 @@ const scenario: Scenario = {
         await d.wait(1500);
         await d.highlight(null);
         await d.click(link(d, /^(Naslovi|Addresses)/));
+        await frameTools(d);
         await d.skippable(() => noSuchAddress(d).waitFor({ timeout: 120_000 }));
         await d.wait(800);
         await expandAll(d);
@@ -296,11 +332,13 @@ const scenario: Scenario = {
         await d.wait(3500);
         await d.highlight(null);
         await d.untilSaid();
+        await d.calloutAhead();
         await d.click(link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
         await d.wait(800);
         await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
         await d.wait(1000);
         await d.click(link(d, /^(Naslovi|Addresses) \d/));
+        await frameTools(d);
         await d.wait(1000);
       },
     },
@@ -314,8 +352,10 @@ const scenario: Scenario = {
         await d.wait(2500);
         // Only Slovenia's register is loaded, so the list is narrowed to it.
         await d.click(visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
+        await frameTools(d);
         await d.wait(1500);
         await d.untilSaid();
+        await d.calloutAhead();
         // Both houses of the next steps already carry a position.
         await d.click(showPlaced(d).locator("input"));
         await filterTo(d, "klinični");
@@ -344,7 +384,8 @@ const scenario: Scenario = {
         await d.click(answer);
         await d.wait(1500);
         await d.untilSaid();
-        await filterTo(d, "Hafnarjeva pot 55");
+        await d.calloutAhead();
+        await filterTo(d, "Krasinec 2 /");
         await expandAll(d);
         await d.wait(800);
       },
@@ -352,31 +393,40 @@ const scenario: Scenario = {
     {
       callout: { sl: "Več hišnih številk", en: "Several house numbers" },
       say: {
-        sl: "Ta hiša je v zgodovini dobila tri številke. Najprej zapišemo današnji naslov, nato starejše, ločene s poševnico: Hafnarjeva pot 55, prej 21, še prej Stražišče 66.",
-        en: "This house has had three numbers. We write the present address first, then the older ones, separated by slashes: Hafnarjeva pot 55, before that 21, and earlier still Stražišče 66.",
+        sl: "Ta hiša je v zgodovini dobila dve številki. Zapisana je tako, kot priporočamo: najprej današnji naslov, Krasinec 2, nato za poševnico stara številka 11, na koncu pa v oklepaju še hišno ime.",
+        en: "This house has had two numbers. It is written the way we recommend: the present address first, Krasinec 2, then the old number 11 after a slash, and the farm name in parentheses at the end.",
       },
       run: async (d) => {
-        const row = addrRow(d, "Hafnarjeva pot 55 / 21");
-        await rename(d, row.locator("xpath=following-sibling::button[contains(@class,'tools-place-edit-btn')][1]"), " / Stražišče 66", "append");
-        await d.click(applyRename(d));
         await d.wait(1500);
+        await d.highlight(addrRow(d, "Krasinec 2 / 11 (pd Hren)"), 4);
+        await d.wait(5000);
+        await d.highlight(null);
       },
     },
     {
       say: {
-        sl: "Program vsako številko poišče posebej in zadetke oštevilči. Številka 21 danes pripada drugi hiši, zato pravo lego izberete sami: današnjo številko 55. Stare vaške številke register nima več, zato ostane zapisana le kot zgodovina.",
-        en: "The program looks each number up on its own and numbers the answers. Number 21 belongs to another house today, so you pick the right position yourself: today's number 55. The register no longer has the old village number, so it stays on record only as history.",
+        sl: "Program vsako številko poišče posebej in zadetke pokaže na zemljevidu. Številka 11 danes pripada drugi hiši — in prav tja je bila ta hiša doslej postavljena. Izberemo današnjo številko 2.",
+        en: "The program looks each number up on its own and shows the answers on a map. Number 11 belongs to another house today — and that is exactly where this house has been placed so far. We pick today's number 2.",
       },
       run: async (d) => {
-        await d.highlight(hit(d, "Hafnarjeva pot 55, Kranj, 4000 Kranj").locator(".."), 4);
-        await d.wait(2200);
-        await d.highlight(hit(d, "Hafnarjeva pot 21, Kranj, 4000 Kranj").locator(".."), 4);
+        // A click on an answer's coordinate opens the panel with every answer
+        // on one map, under the numbers of the list — which is the house is a
+        // question the map answers.
+        await d.click(visible(d, "*").getByText("45.59227, 15.27438", { exact: true }).first());
+        const panelHit = (line: string) => visible(d, ".edit-coord-results *").getByText(line, { exact: false }).first();
+        await visible(d, ".leaflet-marker-icon").filter({ hasText: /^2$/ }).last().waitFor();
+        await d.wait(1500);
+        await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^1$/ }).last(), 10);
+        await d.wait(2500);
+        await d.highlight(visible(d, ".leaflet-marker-icon").filter({ hasText: /^2$/ }).last(), 10);
         await d.wait(2500);
         await d.highlight(null);
-        await d.click(hit(d, "Hafnarjeva pot 55, Kranj, 4000 Kranj"));
-        await d.wait(1500);
         await d.snapshot();
+        await d.click(panelHit("Krasinec 2, 8332 Gradac"));
+        await d.wait(1500);
+        await closeCoordPanel(d);
         await d.untilSaid();
+        await d.calloutAhead();
         await filterTo(d, "");
         await d.click(showPlaced(d).locator("input"));
         await d.wait(800);
@@ -402,6 +452,7 @@ const scenario: Scenario = {
         await expandAll(d);
         await d.wait(6000);
         await d.untilSaid();
+        await d.calloutAhead();
         await d.click(visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Zapisano dvakrat", en: "Written twice" }) }).first());
         await d.wait(800);
         // Krasinec 26 and Krasinec 26 (pd Jelin): neither has a position of its
@@ -425,6 +476,7 @@ const scenario: Scenario = {
         await d.click(join);
         await d.wait(1500);
         await d.untilSaid();
+        await d.calloutAhead();
         await d.click(visible(d, "button.tools-chip").filter({ hasText: new RegExp(`^${d.t({ sl: "Vsi", en: "All" })}`) }).last());
         await filterTo(d, "Klošter 52");
         await expandAll(d);
@@ -455,8 +507,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Klik na koordinato odpre zemljevid. Povečajmo ga do posameznih hiš in preverimo, da zadetek stoji na pravi hiši. Če register hiše sploh ne pozna, jo na takem zemljevidu poiščete in kliknete sami.",
-        en: "Clicking the coordinate opens a map. Let's zoom in to single houses and check that the answer stands on the right one. If the register does not know a house at all, find it on such a map and click it yourself.",
+        sl: "Klik na koordinato odpre zemljevid. Povečajmo ga do posameznih hiš. Stara hiša je stala nekoliko nižje in desno od današnje številke 11, zato kliknemo nanjo in koordinato nastavimo tam. Tako hišo poiščete tudi, kadar je register sploh ne pozna.",
+        en: "Clicking the coordinate opens a map. Let's zoom in to single houses. The old house stood a little lower and to the right of today's number 11, so we click there and set the coordinate on it. That is also how you find a house the register does not know at all.",
       },
       run: async (d) => {
         const coord = visible(d, ".tools-geo-coord-btn").first();
@@ -475,10 +527,27 @@ const scenario: Scenario = {
           await d.page.mouse.wheel(0, -240);
           await d.wait(1800);
         }
-        await d.wait(3500);
+        await d.wait(1500);
+        // The old house, a little below and to the right of today's number 11
+        // (where the author places it): a click on the map types its
+        // position into the box, and »Nastavi« takes it.
+        const box = await pin.boundingBox();
+        if (box) {
+          const x = box.x + box.width / 2 + 38;
+          const y = box.y + box.height / 2 + 30;
+          await d.overlay("click", x, y);
+          await d.page.mouse.click(x, y);
+        }
+        await d.wait(1500);
+        const set = visible(d, "button, .tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Nastavi", en: "Set" })}$`) }).first();
+        await d.highlight(set, 4);
+        await d.wait(1000);
+        await d.highlight(null);
+        await d.click(set);
+        await d.wait(2000);
         await d.untilSaid();
-        await d.page.keyboard.press("Escape");
-        await d.wait(800);
+        await d.calloutAhead();
+        await closeCoordPanel(d);
         await filterTo(d, "");
       },
     },

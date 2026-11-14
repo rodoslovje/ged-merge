@@ -18,8 +18,10 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
-| 12 | Kraji in naslovi | `scripts/addresses.ts` | osnutek brez glasu |
-| 13 | Pregled | — | odloženo |
+| 12 | Fotografije | — | v delu (veja `worktree-video-photos`) |
+| 13 | Kraji in naslovi | `scripts/addresses.ts` | osnutek brez glasu |
+| 14 | Uredi vire | — | v delu (veja `video-13-sources`) |
+| 15 | Pregled | — | odloženo |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -205,7 +207,7 @@ pahljače z barvami po kraju rojstva.
 poiskati kraj pri urejanju in ga zapisati v obliki naselje, občina, država, hišno
 številko prestaviti iz kraja v naslov, stare zapise pretvoriti v Orodjih in krajem z
 geokodiranjem dodati koordinate. Naslovi (prenos GURS naslovov, geokodiranje hišnih
-številk) dobijo svoj video, epizodo 12.
+številk) dobijo svoj video, epizodo 13.
 **Podatki:** `preseren-hawlina-kraji.ged` — večina krajev v polni obliki, golih ostane
 nekaj: Kranj, Radovljica, Žirovnica, Osoje na Koroškem ter hišne številke v kraju
 (Žirovnica 7, Vrba 1, Vrba 7). Izvedba in govor: `scripts/geocoding.ts`.
@@ -411,13 +413,13 @@ dvojnikov drug ob drugem.
 
 ---
 
-## 12. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
+## 13. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
 
 **Cilj:** prenos registra naslovov GURS (v ozadju), drevo krajev, druga imena kraja,
 primerjava naslovov z uradnim registrom, geokodiranje naslovov in zapis hiše, ki je v
 zgodovini dobila več številk. Izvedba in govor: `scripts/addresses.ts`.
 **Zapis naslova:** najprej današnji naslov, nato starejši, ločeni s poševnico; na koncu
-je lahko pripis v oklepaju — `Hafnarjeva pot 55 / 21 / Stražišče 66`,
+je lahko pripis v oklepaju — `Krasinec 2 / 11 (pd Hren)`,
 `Zaloška cesta 2 (klinični center)`. Program vsako številko poišče posebej
 (`rnQueriesFrom`), pripis ostane.
 **Podatki:** `rodbina-renko.ged` — kraji imajo koordinate naselja, 255 hiš je že
@@ -425,12 +427,13 @@ umeščenih, 227 še ne (90 z zadetkom v registru). Poimenovanje naslovov najde 
 odstopanje: rojstva v kranjski porodnišnici so v datoteki zapisana kot »Kidričeva 38a
 (porodnišnica)« (trije dogodki, umrli), register piše »Kidričeva cesta 38a«; 89 starih
 številk je le preštetih. »bolnišnica /
-klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. Hafnarjeva pot 21
-je danes druga hiša, Stražišče 66 registra ni. »Zapisano dvakrat«: Krasinec 26 in
+klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. »Krasinec 2 / 11
+(pd Hren)« je danes Krasinec 2, v datoteki postavljen na današnji Krasinec 11. Klošter 52
+je danes Klošter 11, stara hiša je stala nekoliko nižje in desno. »Zapisano dvakrat«: Krasinec 26 in
 Krasinec 26 (pd Jelin), oba brez lastne lege. GEDCOM 7.0, zato druga imena (TRAN).
 **Trajanje:** ~5 min (prenos naslovov ~10 min, v videu skrajšan)
 **Naslovna slika:** oznaka »Naslovi« · »Vsaka *hiša* na svojem mestu« · posnetek
-zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66.
+zemljevida z zadetkoma za Krasinec 2 / 11 (pd Hren).
 
 | # | Kader | Govor |
 |---|-------|-------|
@@ -443,18 +446,18 @@ zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66.
 | 6a | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
 | 7 | »Geokodiranje« → »Naslovi« → država »Slovenija« | Hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
 | 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
-| 9 | Filter »Hafnarjeva pot 55« → ✎ dopiši » / Stražišče 66« | Tri številke: najprej današnja, nato starejše, ločene s poševnico. |
-| 10 | Zadetka 1 in 2 → izbira 55 | Vsaka številka posebej; 21 je danes druga hiša, izberete 55; vaške številke register nima več. |
+| 9 | Filter »Krasinec 2 /« → vrstica »Krasinec 2 / 11 (pd Hren)« | Dve številki: najprej današnja, nato stara za poševnico, hišno ime v oklepaju. |
+| 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 2 | Vsaka številka posebej; 11 je danes druga hiša in prav tja je bila hiša postavljena; izberemo 2. |
 | 11 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
 | 12 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
 | 12a | Filter »Klošter 52« → ✎ spredaj »Klošter 11 / « → zadetek SI-ADR | Stara številka; današnji naslov spredaj, stara za poševnico; register hišo najde. |
-| 12b | Klik na koordinato → zemljevid, kolesce nad žebljičkom do hiš | Preverite, da zadetek stoji na pravi hiši; hišo, ki je register ne pozna, poiščete in kliknete sami. |
+| 12b | Klik na koordinato → zemljevid, kolesce nad žebljičkom do hiš → klik nižje in desno → »Nastavi« | Stara hiša je stala nekoliko nižje in desno od današnje številke 11; tako najdete tudi hišo, ki je register ne pozna. |
 | 13 | »Zapiši koordinate« | Šele ob potrditvi, kot standardni zapis v GEDCOM. |
 | 14 | Zaključna kartica | |
 
 ---
 
-## 13. Pregled: čiščenje podatkov
+## 15. Pregled: čiščenje podatkov
 
 **Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
 z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
@@ -483,6 +486,6 @@ seznama težav s številkami.
 
 ## Odprta vprašanja
 
-1. **Epizoda 13 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
+1. **Epizoda 15 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
    rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
    dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.

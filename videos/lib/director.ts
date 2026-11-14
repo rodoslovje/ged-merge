@@ -172,6 +172,20 @@ export class Director {
     await this.overlay("chrome", true);
   }
 
+  /** The callout the next step opens with, set by make.ts before each step. */
+  upcoming?: { n: string; text: string };
+
+  /**
+   * Put up the next step's callout now — for a step that ends by walking to
+   * the screen the next one is about, so the chapter is named before the
+   * screen changes. The next step then sets the same callout again.
+   */
+  async calloutAhead(): Promise<void> {
+    if (!this.upcoming) return;
+    await this.overlay("callout", this.upcoming.n, this.upcoming.text);
+    await this.wait(1200);
+  }
+
   /** Wait until the current step's narration has been spoken — for an action
    *  that should follow what the narrator says about it. `secondsBefore` stops
    *  that much short of the end, for an action its last sentence names. */
