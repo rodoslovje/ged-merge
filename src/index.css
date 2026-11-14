@@ -10082,7 +10082,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 .batch-section-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
 .batch-block-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: var(--text); }
-.batch-saved, .batch-builder, .batch-results, .batch-action {
+.batch-saved, .batch-builder, .batch-results, .batch-action, .batch-save {
   margin: 0 0 16px; padding: 12px 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
 }
@@ -10106,7 +10106,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .batch-count-live { color: var(--accent); font-weight: 600; }
 .batch-crit-list { list-style: none; margin: 0 0 10px; padding: 0; }
 .batch-crit { display: flex; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
-.batch-crit-label { font-size: 0.88rem; color: var(--text); min-width: 8.5rem; }
+.batch-crit-label { font-size: 0.88rem; color: var(--text); min-width: 7rem; }
 .batch-input, .batch-select {
   padding: 3px 6px; font-size: 0.88rem;
   background: var(--bg); color: var(--text);
@@ -10120,6 +10120,23 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .batch-input { width: 12rem; }
 .batch-input.batch-year { width: 4.5rem; font-variant-numeric: tabular-nums; }
 .batch-media-select { max-width: min(24rem, 100%); }
+/* A select you type into (SearchSelect): the field shows the choice, typing
+   lists the matching options below it. */
+.search-select { position: relative; display: inline-block; width: min(24rem, 100%); }
+/* In a filter or action row it takes what the row has left, so mode and image
+   fit on one line beside the label on a desktop-wide column. */
+.batch-crit .search-select, .batch-action-editor .search-select { flex: 1 1 9rem; width: auto; min-width: 9rem; max-width: 24rem; }
+.search-select-input {
+  width: 100%; padding: 3px 6px; font-size: 0.88rem;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.search-select-input::placeholder { color: var(--muted); }
+.search-select-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
+}
 .batch-sep { color: var(--muted); font-size: 0.88rem; }
 .batch-remove {
   background: none; border: none; cursor: pointer; padding: 2px 6px;
@@ -10136,6 +10153,23 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
 }
 .batch-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+/* Saved filters, filters, action and save in the left column; the matches
+   beside them, their box as tall as the left column (never under 360px) with
+   the list scrolling inside it. `contain: size` keeps the list's own length
+   out of the row height, so the left column sets it. One column, matches
+   last, below 880px. */
+.batch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.batch-grid .batch-results { display: flex; flex-direction: column; min-height: 360px; }
+.batch-grid .batch-list { flex: 1 1 0; max-height: none; contain: size; }
+.batch-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* "+ Add filter": the Edit view's dashed add chip, always shown — it is how
+   this panel is used, not an extra revealed on hover. */
+.batch-add-filter { border-style: dashed; border-color: var(--border-2); color: var(--accent); font-size: 0.88rem; }
+@media (max-width: 880px) {
+  .batch-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .batch-grid .batch-results { display: block; min-height: 0; }
+  .batch-grid .batch-list { max-height: 320px; contain: none; }
+}
 .batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .batch-row input { cursor: pointer; flex: none; }
 .batch-row .tools-issue-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -10144,7 +10178,6 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .batch-preview-note { color: var(--muted); margin-left: 6px; }
 .batch-action-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .batch-done { margin: 0 0 10px; color: var(--accent); font-size: 0.88rem; }
-.batch-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text); }
 .batch-save { display: flex; align-items: center; gap: 8px; }
 .batch-save-name {
   flex: 0 1 16rem; padding: 4px 8px; font-size: 0.88rem;
