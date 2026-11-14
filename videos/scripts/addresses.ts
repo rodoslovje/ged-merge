@@ -214,7 +214,7 @@ const scenario: Scenario = {
       run: async (d) => {
         // Room below every page, so a short Tools list can still be scrolled
         // past the tool cards (frameTools) — the recording's, not the app's.
-        await d.page.addStyleTag({ content: ".tools-view { padding-bottom: 100vh; }" });
+        await d.page.addStyleTag({ content: ".tools-view { padding-bottom: 100vh; } .app { overflow: clip !important; }" });
         // Only the Tools view scrolls: a click's scroll-into-view would also
         // move the containers around it and take the app's header out of the
         // picture, so any of them that moves is put straight back.
