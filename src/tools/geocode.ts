@@ -547,6 +547,12 @@ export function renamePlaceValues(dataset: Dataset, renames: readonly OfficialRe
  *
  * `toCoord` must be the *place's* coordinate, never a single house's: it is
  * written to every moved event, which sit at different addresses.
+ *
+ * One position beats both: the house's own. Where the file already places this
+ * very address at `toPlace` (Krasinec 1 written under Gradac twice and under
+ * Krasinec five times, the five with the house's coordinate), the moved events
+ * take that one — joining the house they always were, rather than standing at
+ * the village centre and making the house disagree with itself.
  */
 export function movePlaceForAddresses(
   dataset: Dataset,
@@ -557,6 +563,7 @@ export function movePlaceForAddresses(
   const target = toPlace.trim();
   if (!target || !keys.size) return [];
   const targetCoord = toCoord ?? fileCoordForPlace(dataset, target);
+  const houses = fileCoordsForHouses(dataset, target);
   return patchRecords(dataset, (raw) => {
     let changed = false;
     walkPlaceAddr(raw, (plac, addr) => {
@@ -568,7 +575,8 @@ export function movePlaceForAddresses(
       // is no longer true of it (see reconcilePlaceForm).
       reconcilePlaceForm(plac, undefined, prev);
       clearPlaceGov(plac);
-      if (targetCoord) setPlaceCoord(plac, targetCoord.coord, targetCoord.govId);
+      const coord = houses.get(addr) ?? targetCoord;
+      if (coord) setPlaceCoord(plac, coord.coord, coord.govId);
       changed = true;
     });
     return changed;
@@ -601,6 +609,37 @@ export function fileCoordForPlace(dataset: Dataset, place: string): GeoAssignmen
   for (const indi of dataset.individuals.values()) visit(indi.raw);
   for (const fam of dataset.families.values()) visit(fam.raw);
   return [...seen.values()].sort((a, b) => b.n - a.n)[0]?.assignment;
+}
+
+/**
+ * The house coordinates the file records at one place value, by address: for
+ * each address written with exactly this PLAC, the most frequent coordinate its
+ * events carry. Built once per move, so a file of half a million people is
+ * walked once rather than once per moved event.
+ */
+function fileCoordsForHouses(dataset: Dataset, place: string): Map<string, GeoAssignment> {
+  const seen = new Map<string, Map<string, { assignment: GeoAssignment; n: number }>>();
+  const visit = (raw: GedNode) =>
+    walkPlaceAddr(raw, (plac, addr) => {
+      if (!addr || plac.value!.trim() !== place) return;
+      const coord = coordOf(plac);
+      if (!coord) return;
+      let byCoord = seen.get(addr);
+      if (!byCoord) seen.set(addr, (byCoord = new Map()));
+      const key = `${coord.lat}:${coord.lon}`;
+      const hit = byCoord.get(key);
+      if (hit) {
+        hit.n++;
+        return;
+      }
+      const govId = firstChild(plac, "_GOV")?.value?.trim();
+      byCoord.set(key, { assignment: govId ? { coord, govId } : { coord }, n: 1 });
+    });
+  for (const indi of dataset.individuals.values()) visit(indi.raw);
+  for (const fam of dataset.families.values()) visit(fam.raw);
+  const out = new Map<string, GeoAssignment>();
+  for (const [addr, byCoord] of seen) out.set(addr, [...byCoord.values()].sort((a, b) => b.n - a.n)[0].assignment);
+  return out;
 }
 
 /** Every distinct raw PLAC value in the file, for target autocomplete. */
