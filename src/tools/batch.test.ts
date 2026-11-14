@@ -719,8 +719,8 @@ describe("applyBatchAction", () => {
     const birtOf = (id: string) => ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!;
     // Father 1850 + a father's age (30) = 1880.
     expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1880"]]);
-    // The undated BIRT node gained a DATE and kept its place: a husband four
-    // years older than his 1880 wife, 1876, rounded to the nearest 5.
+    // The undated BIRT node gained a DATE and kept its place: a husband five
+    // years older than his 1880 wife.
     expect(birtOf("@I4@").children.map((c) => [c.tag, c.value])).toEqual([
       ["DATE", "ABT 1875"],
       ["PLAC", "Kranj"],

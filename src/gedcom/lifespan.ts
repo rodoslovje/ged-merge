@@ -88,7 +88,7 @@ export const LIVING_WINDOW_YEARS = 100;
 const FATHER_AGE = 30;
 const MOTHER_AGE = 25;
 /** How many years a husband is typically older than his wife. */
-const HUSBAND_OLDER = 4;
+const HUSBAND_OLDER = 5;
 
 /** Years from a partner's birth to this person's: a wife is born
  *  {@link HUSBAND_OLDER} years after her husband, a husband before his wife. */

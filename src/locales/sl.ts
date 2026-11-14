@@ -1749,7 +1749,7 @@ export const sl = {
   "tools.privacy.reason.recentDeath": "nedavno umrli",
   "tools.privacy.reason.relativeDetail": "ocena rojstva ~{{year}} prek {{relation}} {{name}} (r. {{relativeYear}})",
   "tools.privacy.reasonHint.birth": "Ima datum rojstva znotraj praga za žive.",
-  "tools.privacy.reasonHint.relative": "Brez datuma rojstva, zato je starost ocenjena iz datiranega sorodnika: oče je ob rojstvu otroka star približno 30 let, mati približno 25, mož pa je približno 4 leta starejši od žene.",
+  "tools.privacy.reasonHint.relative": "Brez datuma rojstva, zato je starost ocenjena iz datiranega sorodnika: oče je ob rojstvu otroka star približno 30 let, mati približno 25, mož pa je približno 5 let starejši od žene.",
   "tools.privacy.reasonHint.event": "Brez datuma rojstva, vendar ima dogodek z datumom znotraj praga za žive — svoj ali iz svoje zakonske zveze.",
   "tools.privacy.reasonHint.unknown": "Brez datuma rojstva in brez datiranih sorodnikov — zaradi previdnosti šteje med žive.",
   "tools.privacy.reasonHint.recentDeath": "Smrt spada v izbrano obdobje nedavnih smrti.",

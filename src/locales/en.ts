@@ -1521,7 +1521,7 @@ export const en = {
   "tools.privacy.reason.recentDeath": "recently deceased",
   "tools.privacy.reason.relativeDetail": "est. born ~{{year}} via {{relation}} {{name}} (b. {{relativeYear}})",
   "tools.privacy.reasonHint.birth": "Has a birth date within the living threshold.",
-  "tools.privacy.reasonHint.relative": "No birth date, so the age is estimated from a dated relative (a father ~30 and a mother ~25 at a child's birth, a husband ~4 years older than his wife).",
+  "tools.privacy.reasonHint.relative": "No birth date, so the age is estimated from a dated relative (a father ~30 and a mother ~25 at a child's birth, a husband ~5 years older than his wife).",
   "tools.privacy.reasonHint.event": "No birth date, but a dated event of their own or of their marriage falls within the living threshold.",
   "tools.privacy.reasonHint.unknown": "No birth date and no datable relatives — treated as living to be safe.",
   "tools.privacy.reasonHint.recentDeath": "Died within the recently-deceased window.",
