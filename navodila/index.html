@@ -1702,7 +1702,9 @@
                   dogodek);</li>
                 <li>dogodek, ki ga imajo ali nimajo zveze osebe (poroka, ločitev, stan zveze … — ali kateri koli
                   dogodek, tako da filter <em>Zveza</em> → <em>nima</em> → <em>kateri koli dogodek</em> skupaj s
-                  filtrom <em>Sorodniki: ima partnerja</em> najde pare, o katerih datoteka ne pove ničesar);</li>
+                  filtrom <em>Sorodniki: ima partnerja</em> najde pare, o katerih datoteka ne pove ničesar). Možnost
+                  <em>nima datuma</em> najde zvezo, pri kateri dogodka ni ali nima datuma, možnost <em>ima ocenjen
+                  datum</em> pa zvezo, pri kateri ima dogodek le ocenjen datum, na primer ABT, BEF ali AFT;</li>
                 <li>kraj;</li>
                 <li>besedilo opombe (išče po opombi, kakor je zapisana, tako da opombo, ki je zgolj povezava, najdete
                   po katerem koli njenem delu — <em>Opomba vsebuje facebook.com</em>);</li>
@@ -1725,16 +1727,23 @@
                 <li>osebam brez datuma rojstva ali krsta dodajo <strong>ocenjeno leto rojstva</strong>. Kjer dogodek z
                   datumom navaja starost osebe (smrt pri 62 letih), se leto izračuna iz te starosti in zapiše kot datum
                   <em>CAL</em>. Sicer je leto zapisano kot
-                  datum <em>ABT</em> in zaokroženo na pet let, da datoteka sama pove, da gre za približek, izpeljano
-                  iz let rojstva datiranih staršev, zakonca ali otrok (ista ocena, ki jo razloži orodje Zasebnost),
-                  pri čemer so bratje in sestre brez datumov razmaknjeni vsaj za leto po vrstnem redu otrok v družini,
-                  oprti na datiranega, če ta obstaja; osebe brez datiranega bližnjega sorodnika so preskočene, ponoven
+                  datum <em>ABT</em>, vedno na leto, ki se konča na 0 ali 5, da datoteka sama pove, da gre za
+                  približek. Leto se izpelje iz let rojstva datiranih staršev, zakonca ali otrok — oče je ob rojstvu
+                  otroka star približno 30 let, mati približno 25, mož pa je približno 5 let starejši od žene (ista
+                  ocena, ki jo razloži orodje Zasebnost) — ali iz datiranega brata ali sestre po vrstnem redu otrok v
+                  družini. Osebe brez datiranega bližnjega sorodnika so preskočene, ponoven
                   zagon pa jih doseže prek pravkar zapisanih ocen;</li>
                 <li>zapišejo <strong>poročne priimke po partnerjih</strong> — priimek vsakega partnerja, in sicer
                   tako, kot poročne priimke zapisuje datoteka sama (znotraj imena, pri več priimkih ločene z vejico,
                   ali kot samostojen zapis imena za vsako zvezo); prispeva vsaka zveza, po vrsti od prve poroke
                   naprej, tako da druga poroka doda drugi priimek, priimki, ki jih oseba že ima, pa ostanejo
                   nedotaknjeni;</li>
+                <li>porokam izbranih oseb, ki nimajo datuma, dodajo <strong>ocenjen datum poroke</strong>. Če ima
+                  kateri od otrok natančen datum rojstva, se zapiše <em>BEF</em> leto rojstva najstarejšega otroka.
+                  Sicer se zapiše <em>ABT</em> dve leti pred ocenjenim rojstvom najstarejšega otroka ali, kjer otroka
+                  z datumom ni, iz let rojstva zakoncev (žena se poroči pri približno 25 letih, mož pri približno
+                  30), vedno na leto, ki se konča na 0 ali 5. Ukrep popravi tudi oceno <em>BEF</em>, ki je bila
+                  zapisana, preden je bil dodan starejši otrok. Točni in drugače ocenjeni datumi poroke ostanejo;</li>
                 <li>ali nestandardni dogodek pretvorijo v standardno vrsto oziroma v poimenovan dogodek po meri, pri
                   čemer datumi, kraji in viri ostanejo. Ciljna vrsta je predlagana za vsako oznako posebej: položitev
                   v grob postane pokop, stanje, kot je bolezen, postane dejstvo, vse drugo pa dogodek po meri.
@@ -1742,7 +1751,7 @@
               </ul>
               <p>
                 Ob vsakem zadetku je potrditveno polje, da lahko koga pred
-                izvedbo izpustite — pri opravilu ocene vrstica tudi vnaprej pokaže leto, ki bi ga oseba dobila, pri
+                izvedbo izpustite — pri opravilih ocene vrstica tudi vnaprej pokaže datum, ki bi ga dobila oseba ali njena poroka, pri
                 poročnem priimku pa priimke, ki bi jih zapisalo. Pri tem opravilu so dvomljive osebe že v izhodišču
                 neoznačene, vrstica pa pove, zakaj: zveza nima zapisane poroke, zabeležena je kot partnerstvo ali pa
                 njeni otroci nosijo materin priimek in ne očetovega — klasično znamenje rojstva zunaj zakona. Nič ni

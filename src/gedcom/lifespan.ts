@@ -1,4 +1,4 @@
-import type { Dataset, GedDate, Individual } from "./types";
+import type { Dataset, Family, GedDate, Individual } from "./types";
 import { displayDate } from "./dateDisplay";
 import { ageYearsRange, parseAge } from "./ageValue";
 
@@ -82,8 +82,24 @@ export function isDeceased(indi: Individual | undefined): boolean {
 /** Years since a birth still counts a person as possibly living (privacy default). */
 export const LIVING_WINDOW_YEARS = 100;
 
-/** A rough generational gap (years) used to estimate an undated birth from kin. */
-const GENERATION = 28;
+/** Typical age of a father / a mother at a child's birth — the generational
+ *  gaps an undated birth is estimated across. Keyed by the parent's role in the
+ *  family, which the file states, rather than by a sex field it may lack. */
+export const FATHER_AGE = 30;
+export const MOTHER_AGE = 25;
+/** How many years a husband is typically older than his wife. */
+const HUSBAND_OLDER = 5;
+
+/** Years from a partner's birth to this person's: a wife is born
+ *  {@link HUSBAND_OLDER} years after her husband, a husband before his wife. */
+function spouseGap(fam: Family, id: string): number {
+  return fam.husband === id ? -HUSBAND_OLDER : HUSBAND_OLDER;
+}
+
+/** This person's age at the birth of a child of `fam` (see {@link FATHER_AGE}). */
+function parentAge(fam: Family, id: string): number {
+  return fam.husband === id ? FATHER_AGE : MOTHER_AGE;
+}
 
 /** The kin relation an undated birth estimate was derived from. */
 export type EstimateRelation = "father" | "mother" | "spouse" | "child";
@@ -123,20 +139,21 @@ export function estimateBirthYear(indi: Individual, ds: Dataset): BirthEstimate 
       };
     }
   };
-  // Parents → this person was born ~a generation later.
+  // Parents → this person was born a father's or a mother's age later.
   for (const famId of indi.childOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
-    consider(fam.husband ? ds.individuals.get(fam.husband) : undefined, "father", GENERATION);
-    consider(fam.wife ? ds.individuals.get(fam.wife) : undefined, "mother", GENERATION);
+    consider(fam.husband ? ds.individuals.get(fam.husband) : undefined, "father", FATHER_AGE);
+    consider(fam.wife ? ds.individuals.get(fam.wife) : undefined, "mother", MOTHER_AGE);
   }
-  // Spouse (same generation) and children (~a generation earlier).
+  // Spouse (a husband a few years older) and children (this person's
+  // parental age earlier).
   for (const famId of indi.spouseOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
     const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
-    consider(otherId ? ds.individuals.get(otherId) : undefined, "spouse", 0);
-    for (const cid of fam.children) consider(ds.individuals.get(cid), "child", -GENERATION);
+    consider(otherId ? ds.individuals.get(otherId) : undefined, "spouse", spouseGap(fam, indi.id));
+    for (const cid of fam.children) consider(ds.individuals.get(cid), "child", -parentAge(fam, indi.id));
   }
   return best;
 }
@@ -246,20 +263,21 @@ export function estimateBirthYearFromNetwork(start: Individual, ds: Dataset): nu
     for (const { id, offset } of frontier) {
       const person = ds.individuals.get(id);
       if (!person) continue;
-      // Parents are a generation earlier: offset(parent) = offset(self) + GENERATION.
+      // Parents are a parental age earlier: offset(parent) = offset(self) + that age.
       for (const famId of person.childOf) {
         const fam = ds.families.get(famId);
         if (!fam) continue;
-        visit(fam.husband, offset + GENERATION);
-        visit(fam.wife, offset + GENERATION);
+        visit(fam.husband, offset + FATHER_AGE);
+        visit(fam.wife, offset + MOTHER_AGE);
       }
-      // Spouses share a generation; children are a generation later.
+      // A spouse is a few years apart (see spouseGap); children are this
+      // person's parental age later.
       for (const famId of person.spouseOf) {
         const fam = ds.families.get(famId);
         if (!fam) continue;
         const otherId = fam.husband === id ? fam.wife : fam.husband;
-        visit(otherId, offset);
-        for (const cid of fam.children) visit(cid, offset - GENERATION);
+        visit(otherId, offset + spouseGap(fam, id));
+        for (const cid of fam.children) visit(cid, offset - parentAge(fam, id));
       }
     }
     for (const { id, offset } of next) {

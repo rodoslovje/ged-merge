@@ -5,6 +5,7 @@ import type { Dataset } from "../gedcom/types";
 import { isDeceased } from "../gedcom/lifespan";
 import { marriedSurnamesOf } from "../match/relatives";
 import { fullTextLookup } from "../ui/globalSearch";
+import { validateConformance } from "./conformance/conformance";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -14,6 +15,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimates,
+  previewMarriageEstimates,
   previewMarriedNames,
   readMarriedNames,
   unionMarriage,
@@ -715,11 +717,12 @@ describe("applyBatchAction", () => {
     expect(res.skipped).toBe(3);
     expect(res.patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I4@"]);
     const birtOf = (id: string) => ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!;
-    // Father 1850 + a generation = 1878, rounded to the nearest 5.
+    // Father 1850 + a father's age (30) = 1880.
     expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1880"]]);
-    // The undated BIRT node gained a DATE and kept its place.
+    // The undated BIRT node gained a DATE and kept its place: a husband five
+    // years older than his 1880 wife.
     expect(birtOf("@I4@").children.map((c) => [c.tag, c.value])).toEqual([
-      ["DATE", "ABT 1880"],
+      ["DATE", "ABT 1875"],
       ["PLAC", "Kranj"],
     ]);
     // @I5@'s recorded date is untouched.
@@ -731,9 +734,9 @@ describe("applyBatchAction", () => {
     expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1910"]]);
   });
 
-  it("keeps sibling estimates distinct: spread around the parent guess, or anchored on a dated sibling", () => {
+  it("rounds every ABT estimate, anchoring siblings on a dated sibling where one exists", () => {
     // Family A: dated mother, three undated children — all would share
-    // 1850+28≈1880; instead they spread a step apart in listed order.
+    // 1850+25=1875; instead they spread a step apart in listed order.
     // Family B: parents undated, first child dated 1882 — the other two anchor
     // on that sibling, and the father estimates from his child as before.
     const ds = dataset(`0 HEAD
@@ -784,7 +787,7 @@ describe("applyBatchAction", () => {
     // then writes, and dated @D1@ (queried too) gets no entry.
     const preview = previewBirthEstimates(ds, [...ids, "@D1@"]);
     expect(Object.fromEntries(preview)).toEqual({
-      "@C1@": 1879, "@C2@": 1880, "@C3@": 1881, "@C4@": 1883, "@C5@": 1884, "@P1@": 1855,
+      "@C1@": 1875, "@C2@": 1875, "@C3@": 1875, "@C4@": 1885, "@C5@": 1885, "@P1@": 1850,
     });
     expect(ds.individuals.get("@C1@")!.raw.children.some((c) => c.tag === "BIRT")).toBe(false);
     const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
@@ -792,13 +795,13 @@ describe("applyBatchAction", () => {
     expect(res.skipped).toBe(0);
     const abtOf = (id: string) =>
       ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!.children[0].value;
-    // Spread a year apart around the shared 1880 guess, in the family's child order.
-    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1879", "ABT 1880", "ABT 1881"]);
-    // Anchored one and two years after the dated 1882 sibling (unrounded) —
+    // Every ABT estimate lands on a year ending in 0 or 5, so siblings share the 1875 guess.
+    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1875", "ABT 1875", "ABT 1875"]);
+    // Anchored after the dated 1882 sibling (1883, 1884), then rounded —
     // even though no parent is dated and estimateBirthYear finds nothing.
-    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1883", "ABT 1884"]);
-    // The father's estimate comes from his own child — no sibling adjustment.
-    expect(abtOf("@P1@")).toBe("ABT 1855");
+    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1885", "ABT 1885"]);
+    // The father's estimate comes from his own child (1882 − 30) — no sibling adjustment.
+    expect(abtOf("@P1@")).toBe("ABT 1850");
   });
 
   it("converts vendor events to a named EVEN, keeping the substructure", () => {
@@ -1071,5 +1074,152 @@ describe("anyField criterion", () => {
   it("does not match pointers or the cited source's own record", () => {
     expect(match("@S1@")).toEqual([]);
     expect(match("matricula")).toEqual([]);
+  });
+});
+
+describe("marriage dates: undated/estimated filter and the marriage estimate", () => {
+  /** @FA@ no marriage, children born 1885 and ABT 1880; @FB@ married BEF
+   *  1900 though a child came in 1890; @FC@ married exactly; @FD@ MARR
+   *  without a date and nothing dated; @FE@ married ABT 1870 with a child;
+   *  @FG@ childless, wife born 1852; @FH@ one child born ABT 1883. */
+  const file = (vers: string) => `0 HEAD
+1 SOUR TEST
+1 GEDC
+2 VERS ${vers}
+${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
+1 NAME Ana /A/
+1 SEX F
+1 FAMS @FA@
+0 @A2@ INDI
+1 NAME Jože /A/
+1 SEX M
+1 FAMS @FA@
+0 @A3@ INDI
+1 NAME Mici /A/
+1 BIRT
+2 DATE 12 MAR 1885
+1 FAMC @FA@
+0 @A4@ INDI
+1 NAME Tone /A/
+1 BIRT
+2 DATE ABT 1880
+1 FAMC @FA@
+0 @B1@ INDI
+1 NAME Neža /B/
+1 SEX F
+1 FAMS @FB@
+0 @B2@ INDI
+1 NAME Jaka /B/
+1 BIRT
+2 DATE 1890
+1 FAMC @FB@
+0 @C1@ INDI
+1 NAME Rozi /C/
+1 SEX F
+1 FAMS @FC@
+0 @C2@ INDI
+1 NAME Lojze /C/
+1 BIRT
+2 DATE 1881
+1 FAMC @FC@
+0 @D1@ INDI
+1 NAME Pepca /D/
+1 SEX F
+1 FAMS @FD@
+0 @E1@ INDI
+1 NAME Mina /E/
+1 SEX F
+1 FAMS @FE@
+0 @E2@ INDI
+1 NAME Franc /E/
+1 BIRT
+2 DATE 1875
+1 FAMC @FE@
+0 @G1@ INDI
+1 NAME Urša /G/
+1 SEX F
+1 BIRT
+2 DATE 3 JUN 1852
+1 FAMS @FG@
+0 @H1@ INDI
+1 NAME Matija /H/
+1 SEX M
+1 FAMS @FH@
+0 @H2@ INDI
+1 NAME Jera /H/
+1 BIRT
+2 DATE ABT 1883
+1 FAMC @FH@
+0 @S1@ INDI
+1 NAME Samec /S/
+0 @FG@ FAM
+1 WIFE @G1@
+0 @FH@ FAM
+1 HUSB @H1@
+1 CHIL @H2@
+0 @FA@ FAM
+1 HUSB @A2@
+1 WIFE @A1@
+1 CHIL @A4@
+1 CHIL @A3@
+0 @FB@ FAM
+1 WIFE @B1@
+1 CHIL @B2@
+1 MARR
+2 DATE BEF 1900
+0 @FC@ FAM
+1 WIFE @C1@
+1 CHIL @C2@
+1 MARR
+2 DATE 4 FEB 1880
+0 @FD@ FAM
+1 WIFE @D1@
+1 MARR Y
+0 @FE@ FAM
+1 WIFE @E1@
+1 CHIL @E2@
+1 MARR
+2 DATE ABT 1870
+0 TRLR
+`;
+  const ctx = { lineSides: null, kinship: null, fullText: () => "" };
+  const match = (ds: Dataset, c: BatchCriterion[]) =>
+    buildBatchRows(ds, nameOf).filter((r) => matchesBatch(r, c, ctx)).map((r) => r.id).sort();
+
+  it("finds unions whose marriage is missing, undated, or only estimated", () => {
+    const ds = dataset(file("5.5.1"));
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual([
+      "@A1@", "@A2@", "@D1@", "@G1@", "@H1@",
+    ]);
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "estimated" }])).toEqual(["@B1@", "@E1@"]);
+  });
+
+  it("previews the strongest estimate per family, once per family", () => {
+    const ds = dataset(file("5.5.1"));
+    const all = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@E1@", "@G1@", "@H1@", "@S1@"];
+    expect([...previewMarriageEstimates(ds, all)]).toEqual([
+      // ABT 1880 is a guess, so the exact 1885 bounds the marriage; the late BEF is corrected.
+      ["@FA@", "BEF 1885"],
+      ["@FB@", "BEF 1890"],
+      // Wife 1852 + 25 = 1877; child ABT 1883 − 2 = 1881 — both rounded to 0 or 5.
+      ["@FG@", "ABT 1875"],
+      ["@FH@", "ABT 1880"],
+    ]);
+  });
+
+  it.each(["5.5.1", "7.0"])("writes the estimates as conformant %s", (vers) => {
+    const ds = dataset(file(vers));
+    const ids = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@G1@", "@H1@", "@S1@"];
+    const res = applyBatchAction(ds, ids, { kind: "estimateMarriage" });
+    expect(res).toMatchObject({ changed: 5, skipped: 3 });
+    expect(res.patches).toHaveLength(4);
+    const marr = (id: string) => ds.families.get(id)!.events.find((e) => e.tag === "MARR")?.date?.raw;
+    expect(marr("@FA@")).toBe("BEF 1885");
+    expect(marr("@FB@")).toBe("BEF 1890");
+    expect(marr("@FC@")).toBe("4 FEB 1880");
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@D1@"]);
+    expect(validateConformance(ds)).toEqual([]);
+    // Running again finds nothing left to do.
+    expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }).changed).toBe(0);
   });
 });
