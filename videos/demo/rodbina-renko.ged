@@ -224,7 +224,7 @@
 3 MAP
 4 LATI N46.24862
 4 LONG E14.35402
-2 ADDR Kidričeva cesta 38a (porodnišnica)
+2 ADDR Kidričeva 38a (porodnišnica)
 1 BAPM
 2 DATE 26 MAY 1974
 2 PLAC Kranj, Kranj, Slovenia
@@ -276,7 +276,7 @@
 3 MAP
 4 LATI N46.24862
 4 LONG E14.35402
-2 ADDR Kidričeva cesta 38a (porodnišnica)
+2 ADDR Kidričeva 38a (porodnišnica)
 1 BAPM
 2 DATE 29 MAR 1987
 2 PLAC Zgornje Jezersko, Jezersko, Slovenia
@@ -1697,9 +1697,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @88574516@
 2 OBJE @O_PZ5_0001@
@@ -2800,11 +2800,11 @@
 1 SEX M
 1 BIRT
 2 DATE 26 DEC 1759
-2 PLAC Krasinec, Metlika, Slovenia
+2 PLAC Gradac, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59302
-4 LONG E15.27404
+4 LATI N45.62343
+4 LONG E15.23825
 2 ADDR Krasinec 1
 2 AGNC župnija Podzemelj
 2 OBJE @433016@
@@ -2978,11 +2978,11 @@
 1 SEX M
 1 BIRT
 2 DATE 2 MAY 1803
-2 PLAC Krasinec, Metlika, Slovenia
+2 PLAC Gradac, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59302
-4 LONG E15.27404
+4 LATI N45.62343
+4 LONG E15.23825
 2 ADDR Krasinec 1
 2 AGNC župnija Podzemelj
 2 OBJE @97090156@
@@ -7314,9 +7314,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS ohromelost pljuč
 2 OBJE @48325306@
@@ -7383,9 +7383,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @85982613@
 2 SOUR @4175894@
@@ -7796,9 +7796,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @91399320@
 2 SOUR @4175894@
@@ -8069,7 +8069,7 @@
 3 MAP
 4 LATI N46.24862
 4 LONG E14.35402
-2 ADDR Kidričeva cesta 38a (porodnišnica)
+2 ADDR Kidričeva 38a (porodnišnica)
 1 BAPM
 2 DATE 24 MAY 1970
 2 PLAC Kranj, Kranj, Slovenia
@@ -8288,9 +8288,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @67909392@
 2 SOUR @67019223@
@@ -8495,9 +8495,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @33832817@
 2 SOUR @95838524@
@@ -9758,9 +9758,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @4791100@
 2 SOUR @22159366@
@@ -9946,9 +9946,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @55150462@
 2 SOUR @22159366@
@@ -12739,9 +12739,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @O_PZ_0016@
 2 SOUR @95838524@
@@ -14199,9 +14199,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @17501702@
 2 SOUR @95838524@
@@ -15785,9 +15785,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 1 DEAT
 1 FAMC @99018702@
 0 @80810932@ INDI
@@ -19454,9 +19454,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 SOUR @5297948@
 3 PAGE 254
@@ -20075,9 +20075,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @63822464@
 2 SOUR @67019223@
@@ -20141,9 +20141,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @O_PZ_0029@
 2 SOUR @95838524@
@@ -20168,9 +20168,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @97101314@
 2 SOUR @85282768@
 3 PAGE 249
@@ -20212,9 +20212,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @12668253@
 2 SOUR @85282768@
 3 PAGE 204
@@ -20747,9 +20747,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @7063658@
 2 SOUR @5297948@
@@ -20816,9 +20816,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @95731232@
 2 SOUR @5297948@
@@ -20853,9 +20853,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @55697962@
 2 SOUR @5297948@
 3 PAGE 176
@@ -20891,9 +20891,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @19466084@
 2 SOUR @5297948@
@@ -20964,9 +20964,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @78135055@
 2 SOUR @5297948@
 3 PAGE 279
@@ -27766,9 +27766,9 @@
 2 DATE 15 MAY 1921
 2 PLAC Krasinec, Metlika, Slovenia
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 1 DEAT
 2 DATE 1 OCT 1959
 2 PLAC Krasinec, Metlika, Slovenia
@@ -27821,9 +27821,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS kolera
 2 OBJE @O_PZ3_0074@
@@ -27913,9 +27913,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @94258052@
 2 SOUR @22159366@
@@ -28145,17 +28145,17 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 1 DEAT
 2 DATE 17 SEP 1854
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS žolčna vročica
 2 OBJE @O_PZ_0087@
@@ -28176,9 +28176,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @68672937@
 2 SOUR @22159366@
@@ -28215,9 +28215,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @44694436@
 2 SOUR @22159366@
@@ -28248,9 +28248,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @1946432@
 2 SOUR @67019223@
@@ -28268,9 +28268,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS božjast (krči)
 2 OBJE @O_PZ_0077@
@@ -28290,9 +28290,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @44063222@
 2 SOUR @67019223@
@@ -28322,9 +28322,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @72760160@
 2 SOUR @67019223@
@@ -28366,9 +28366,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @63010638@
 2 SOUR @67019223@
@@ -28386,9 +28386,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS oslabelost
 2 OBJE @18286592@
@@ -28408,9 +28408,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @76749603@
 2 SOUR @67019223@
@@ -28428,9 +28428,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS vnetje grla
 2 OBJE @68580148@
@@ -28450,9 +28450,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 SOUR @5297948@
 3 PAGE 6
@@ -28476,9 +28476,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 SOUR @5297948@
 3 PAGE 34
@@ -28502,9 +28502,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 SOUR @5297948@
 3 PAGE 56
 2 OBJE @43869374@
@@ -28513,9 +28513,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @23457392@
 2 SOUR @85282768@
 3 PAGE 34
@@ -28539,9 +28539,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 SOUR @5297948@
 3 PAGE 62
@@ -28558,9 +28558,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS jetika (tuberkuloza)
 2 OBJE @O_PZ_0064@
@@ -28580,9 +28580,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 SOUR @5297948@
 3 PAGE 62
@@ -28600,9 +28600,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @34423076@
 2 SOUR @85282768@
 3 PAGE 43
@@ -28626,9 +28626,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 SOUR @5297948@
 3 PAGE 83
@@ -28647,9 +28647,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 OBJE @21162105@
 2 SOUR @85282768@
 3 PAGE 58
@@ -28673,9 +28673,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @64588114@
 2 SOUR @5297948@
@@ -28721,9 +28721,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 CAUS živčna vročica (tifus)
 2 OBJE @O_PZ_0060@
@@ -31949,9 +31949,9 @@
 2 PLAC Krasinec, Metlika, Slovenia
 3 FORM Place, Upravna Enota, Country
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @O_PZ_0051@
 2 SOUR @95838524@
@@ -36974,9 +36974,9 @@
 2 DATE 20 MAY 1774
 2 PLAC Krasinec, Metlika, Slovenia
 3 MAP
-4 LATI N45.59111
-4 LONG E15.28021
-2 ADDR Krasinec 2 / 11 (pd Hren)
+4 LATI N45.58603
+4 LONG E15.2775
+2 ADDR Krasinec 11 / 2 (pd Hren)
 2 AGNC župnija Podzemelj
 2 OBJE @O_PZ_0175@
 2 SOUR @32747686@

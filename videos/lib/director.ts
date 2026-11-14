@@ -62,6 +62,10 @@ export class Recorder {
   }
 }
 
+/** A stretch of dead waiting: recording time from–to, the share of it kept
+ *  (default assemble.ts's), and at most how many seconds of it stay. */
+export type Skip = [number, number, number?, number?];
+
 export class Director {
   readonly page: Page;
   readonly lang: Lang;
@@ -72,8 +76,7 @@ export class Director {
   /** Recording time (seconds) at which the current step's narration ends, set by make.ts. */
   saidAt = 0;
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
-  /** [start, end, share kept] — the share defaults to assemble.ts's. */
-  readonly skips: [number, number, number?][] = [];
+  readonly skips: Skip[] = [];
   /** Stretches whose frames are left out (see `frozen`). */
   readonly freezes: [number, number][] = [];
   constructor(page: Page, lang: Lang) {
@@ -84,14 +87,17 @@ export class Director {
   /**
    * Run a wait that shows nothing worth watching — an online lookup, a slow
    * scan — and mark it, so assemble.ts shortens the part of it no narration
-   * plays over. `keep` is the share of it left in the video (default: a third).
+   * plays over. `keep` is the share of it left in the video (default: a
+   * third), or `{ seconds }` the most of it that stays, for a wait of minutes
+   * (a register download) that a third of would still drag.
    */
-  async skippable<T>(wait: () => Promise<T>, keep?: number): Promise<T> {
+  async skippable<T>(wait: () => Promise<T>, keep?: number | { seconds: number }): Promise<T> {
     const start = this.clock();
     try {
       return await wait();
     } finally {
-      this.skips.push(keep === undefined ? [start, this.clock()] : [start, this.clock(), keep]);
+      const end = this.clock();
+      this.skips.push(keep === undefined ? [start, end] : typeof keep === "number" ? [start, end, keep] : [start, end, undefined, keep.seconds]);
     }
   }
 
@@ -198,10 +204,25 @@ export class Director {
     await this.overlay("chrome", true);
   }
 
+  /** The callout the next step opens with, set by make.ts before each step. */
+  upcoming?: { n: string; text: string };
+
+  /**
+   * Put up the next step's callout now — for a step that ends by walking to
+   * the screen the next one is about, so the chapter is named before the
+   * screen changes. The next step then sets the same callout again.
+   */
+  async calloutAhead(): Promise<void> {
+    if (!this.upcoming) return;
+    await this.overlay("callout", this.upcoming.n, this.upcoming.text);
+    await this.wait(400);
+  }
+
   /** Wait until the current step's narration has been spoken — for an action
-   *  that should follow what the narrator says about it. */
-  untilSaid(): Promise<void> {
-    return sleep(Math.max(0, (this.saidAt - this.clock()) * 1000));
+   *  that should follow what the narrator says about it. `secondsBefore` stops
+   *  that much short of the end, for an action its last sentence names. */
+  untilSaid(secondsBefore = 0): Promise<void> {
+    return sleep(Math.max(0, (this.saidAt - secondsBefore - this.clock()) * 1000));
   }
 
   wait(ms: number): Promise<void> {
