@@ -504,7 +504,7 @@ govoru.
 |---|-------|-------|
 | 1 | Naslovna kartica | Povezave v opombah → pravi viri. |
 | 2 | Odpri datoteko, France v Urejanju | Povezava ni vir; ko stran izgine s spleta, ne veste več, za kateri vir je šlo. |
-| 3 | Orodja → Viri | Hrambe, viri, mediji; nepripete povezave posebej. |
+| 3 | Orodja → Viri, razprt Nadškofijski arhiv Ljubljana | Hrambe, viri, mediji; arhiv zaenkrat hrani eno knjigo; nepripete povezave posebej. |
 | 4 | »Uredi vire« → zavihki → »Viri« | Zavihek se pokaže le, kadar ima kaj za urediti. |
 | 5 | Seznam zbirk na zaslonu; obroč po filtrih | Matične knjige, grobovi, življenjepisi, knjige in časopisi, spletne strani; obdelujte eno za drugo. |
 | 6 | Matricula: »Razširi vse« | Razvrščeno po knjigi; vrstica pove, kje je povezava. |

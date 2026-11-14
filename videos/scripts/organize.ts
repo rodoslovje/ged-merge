@@ -162,8 +162,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Orodja → Viri", en: "Tools → Sources" },
       say: {
-        sl: "V Orodjih, pod »Viri«, vidite hrambe, vire in medije v datoteki. Povezave, ki niso pripete nobenemu viru, so zbrane posebej.",
-        en: "In Tools, under Sources, you see the repositories, sources and media in the file. Links not attached to any source are gathered separately.",
+        sl: "V Orodjih, pod »Viri«, vidite hrambe, vire in medije v datoteki. Nadškofijski arhiv Ljubljana zaenkrat hrani eno samo knjigo. Povezave, ki niso pripete nobenemu viru, so zbrane posebej.",
+        en: "In Tools, under Sources, you see the repositories, sources and media in the file. For now the Archdiocesan Archive of Ljubljana holds a single book. Links not attached to any source are gathered separately.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -172,6 +172,15 @@ const scenario: Scenario = {
         await d.click(d.page.locator(".tools-tab").nth(2));
         await d.page.locator(".tools-tree").first().waitFor();
         await d.wait(800);
+        // Open the archive to show what it holds: its book, and that book's page.
+        const archive = d.page.locator(".tools-tree > .tools-tree-node").filter({ hasText: "Nadškofijski arhiv" }).first();
+        await d.click(archive.locator(".tools-pair-toggle").first());
+        await d.wait(700);
+        const book = archive.locator(".tools-tree-children .tools-pair-toggle:not(.open)").first();
+        if ((await book.count()) > 0) await d.click(book);
+        await d.wait(500);
+        await d.highlight(archive, 6);
+        await d.wait(2500);
         await d.highlight(d.page.locator(".tools-tree").first(), 6);
       },
     },
