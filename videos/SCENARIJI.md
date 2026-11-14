@@ -18,9 +18,10 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
-| 12 | Kraji in naslovi | — | scenarij |
-| 13 | Pregled | — | odloženo |
-| 14 | Fotografije | `scripts/photos.ts` | osnutek brez glasu |
+| 12 | Fotografije | `scripts/photos.ts` | osnutek brez glasu |
+| 13 | Kraji in naslovi | — | scenarij |
+| 14 | Uredi vire | — (PR #145) | scenarij |
+| 15 | Pregled | — | odloženo |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -206,7 +207,7 @@ pahljače z barvami po kraju rojstva.
 poiskati kraj pri urejanju in ga zapisati v obliki naselje, občina, država, hišno
 številko prestaviti iz kraja v naslov, stare zapise pretvoriti v Orodjih in krajem z
 geokodiranjem dodati koordinate. Naslovi (prenos GURS naslovov, geokodiranje hišnih
-številk) dobijo svoj video, epizodo 12.
+številk) dobijo svoj video, epizodo 13.
 **Podatki:** `preseren-hawlina-kraji.ged` — večina krajev v polni obliki, golih ostane
 nekaj: Kranj, Radovljica, Žirovnica, Osoje na Koroškem ter hišne številke v kraju
 (Žirovnica 7, Vrba 1, Vrba 7). Izvedba in govor: `scripts/geocoding.ts`.
@@ -412,70 +413,7 @@ dvojnikov drug ob drugem.
 
 ---
 
-## 12. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
-
-**Cilj:** drevo krajev (država → naselje → hiša → naslov), druga imena kraja,
-primerjava krajev in naslovov z uradnim registrom, prenos registra naslovov GURS,
-geokodiranje naslovov in zapis hiše, ki je v zgodovini dobila več številk.
-**Zapis naslova:** najprej današnji naslov, nato starejši, ločeni s poševnico; na koncu
-je lahko pripis v oklepaju — `Hafnarjeva pot 55 / 21 / Stražišče 66`,
-`Škofjeloška cesta 4 / Labore 4 (porodnišnica)`. Program vsako številko poišče posebej
-(`rnQueriesFrom`), pripis ostane.
-**Podatki:** `rodbina-renko.ged` — 478 različnih naslovov, okoli 60 z več številkami
-(`Sušica 23 / Ravna Gora 186`, `Klošter 82 / 63 / 11`); kraji imajo koordinate
-naselja, hiše še ne. GEDCOM 7.0, zato tudi druga imena (TRAN). Na zaslonu samo
-umrli — pri Hafnarjevi poti preverite, kdo je naštet.
-**Trajanje:** ~5 min
-**Naslovna slika:** oznaka »Naslovi« · »Vsaka *hiša* na svojem mestu« · posnetek
-treh zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66 na zemljevidu.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Kraj pove vas, naslov pove hišo. Pokažimo, kako v GED Merge uredite oboje — tudi hišne številke, ki so se skozi zgodovino spreminjale. |
-| 2 | Orodja → Kraji, drevo: Slovenija → Kranj → hiše | Drevo krajev ima ravni država, naselje, hiša in naslov. Ob vsakem kraju sta število zapisov in koordinata. |
-| 3 | ✎ na Kranju → »+ Dodaj ime« Krainburg → »Zapiši imena« | Kraj ima lahko tudi stara imena. Iskanje ga najde tudi po njih. |
-| 4 | »Poimenovanje« → Kraji, ena ugotovitev | Poimenovanje primerja vsak kraj z uradnim registrom: kako je ime zapisano, pod katero občino spada in kje leži. |
-| 5 | ⚙ → Zemljevid → GURS »Naslovi«, prenos (skrajšano) | Za hišne številke prenesite še register naslovov: vseh 575 773 hiš v Sloveniji. Register ostane v brskalniku. |
-| 6 | »Poimenovanje« → »Naslovi«: Škofjeloška cesta 4 / Labore 4 | Program z registrom primerja tudi naslove. Kadar se je ulica preimenovala, register pozna le današnje ime, zgodovinsko pa ostane zapisano. |
-| 7 | »Geokodiranje« → »Naslovi«, skupine po krajih | Naslovi so razvrščeni po krajih. Hiša brez svoje lege podeduje koordinato naselja. |
-| 8 | ✎ Hafnarjeva pot 55 / 21 → dopiši » / Stražišče 66« | Ta hiša je v zgodovini dobila tri številke. Najprej zapišemo današnji naslov, nato starejše, ločene s poševnico. Na konec lahko dodate pripis v oklepaju, na primer porodnišnica. |
-| 9 | Poizvedba → zadetki, oštevilčeni na zemljevidu | Program vsako številko poišče posebej. Register pozna današnjo, katera lega velja, izberete sami. |
-| 10 | Skupina Krasinec: poizvedba za vse → »Izberi zanesljive« | Celo vas poiščete naenkrat. Nedvoumne zadetke izberete z enim klikom. |
-| 11 | »Zapisano dvakrat« → »Združi« | Isto hišo, zapisano enkrat s hišnim imenom in enkrat brez njega, združite v en naslov. |
-| 12 | »Več naslovov na eno koordinato…« → Stražišče | Starih številk register nima več. Take hiše postavite na eno točko, na primer na sredino vasi. |
-| 13 | »Zapiši koordinate« → Urejanje, zelena bucika ob naslovu | Koordinate se zapišejo šele ob potrditvi, kot standardni zapis v GEDCOM. |
-| 14 | Zaključna kartica | |
-
----
-
-## 13. Pregled: čiščenje podatkov
-
-**Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
-z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
-namerno vnesene napake.
-**Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
-popravilo.
-**Podatki:** vaše anonimizirano drevo (resnične napake) ali kopija Prešernovega drevesa
-z namerno vnesenimi napakami (smrt pred rojstvom, pokvarjena povezava, nestandarden
-datum) — glej odprta vprašanja. · **Trajanje:** ~4 min
-**Naslovna slika:** oznaka »Pregled« · »Počistite *napake* v drevesu« · posnetek
-seznama težav s številkami.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Tudi v skrbno vodenem drevesu se naberejo napake. Pregled jih najde v nekaj sekundah. |
-| 2 | Orodja → Pregled → »Težave v podatkih« | Pregled preveri vsebino: manjkajoče podatke, nemogoče datume in nenavadne starosti. |
-| 3 | Klik na »Smrt pred rojstvom« → oseba v Urejanju | Klik na težavo odpre osebo v Urejanju, kjer jo popravite. |
-| 4 | »Pokvarjene povezave« → »Odstrani povezavo« | Nekaterih napak v Urejanju ne vidite, na primer pokvarjenih povezav. Te popravite kar tukaj. |
-| 5 | Zavihek »Skladnost z GEDCOM« | Drugi zavihek preveri, ali je datoteka zapisana po standardu GEDCOM. |
-| 6 | Nestandarden datum → »Popravi« | Nestandarden datum program prepiše v standardno obliko. |
-| 7 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat. Pred tem vidite seznam popravkov s številom. |
-| 8 | »Zaženi znova« | Ko datoteko spremenite, pregled zaženete znova. |
-| 9 | Zaključna kartica | |
-
----
-
-## 14. Fotografije: portreti, skupinske fotografije in označevanje oseb
+## 12. Fotografije: portreti, skupinske fotografije in označevanje oseb
 
 **Cilj:** podpora brskalnikov (preglednica v navodilih, najboljša v Chromu in Edgu), mapa z
 mediji in podmape (»portraits«, »family«, »weddings«), portret, pregledovalnik z opisom,
@@ -511,9 +449,72 @@ fotografije z imeni vseh štirih oseb.
 
 ---
 
+## 13. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
+
+**Cilj:** drevo krajev (država → naselje → hiša → naslov), druga imena kraja,
+primerjava krajev in naslovov z uradnim registrom, prenos registra naslovov GURS,
+geokodiranje naslovov in zapis hiše, ki je v zgodovini dobila več številk.
+**Zapis naslova:** najprej današnji naslov, nato starejši, ločeni s poševnico; na koncu
+je lahko pripis v oklepaju — `Hafnarjeva pot 55 / 21 / Stražišče 66`,
+`Škofjeloška cesta 4 / Labore 4 (porodnišnica)`. Program vsako številko poišče posebej
+(`rnQueriesFrom`), pripis ostane.
+**Podatki:** `rodbina-renko.ged` — 478 različnih naslovov, okoli 60 z več številkami
+(`Sušica 23 / Ravna Gora 186`, `Klošter 82 / 63 / 11`); kraji imajo koordinate
+naselja, hiše še ne. GEDCOM 7.0, zato tudi druga imena (TRAN). Na zaslonu samo
+umrli — pri Hafnarjevi poti preverite, kdo je naštet.
+**Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Naslovi« · »Vsaka *hiša* na svojem mestu« · posnetek
+treh zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66 na zemljevidu.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Kraj pove vas, naslov pove hišo. Pokažimo, kako v GED Merge uredite oboje — tudi hišne številke, ki so se skozi zgodovino spreminjale. |
+| 2 | Orodja → Kraji, drevo: Slovenija → Kranj → hiše | Drevo krajev ima ravni država, naselje, hiša in naslov. Ob vsakem kraju sta število zapisov in koordinata. |
+| 3 | ✎ na Kranju → »+ Dodaj ime« Krainburg → »Zapiši imena« | Kraj ima lahko tudi stara imena. Iskanje ga najde tudi po njih. |
+| 4 | »Poimenovanje« → Kraji, ena ugotovitev | Poimenovanje primerja vsak kraj z uradnim registrom: kako je ime zapisano, pod katero občino spada in kje leži. |
+| 5 | ⚙ → Zemljevid → GURS »Naslovi«, prenos (skrajšano) | Za hišne številke prenesite še register naslovov: vseh 575 773 hiš v Sloveniji. Register ostane v brskalniku. |
+| 6 | »Poimenovanje« → »Naslovi«: Škofjeloška cesta 4 / Labore 4 | Program z registrom primerja tudi naslove. Kadar se je ulica preimenovala, register pozna le današnje ime, zgodovinsko pa ostane zapisano. |
+| 7 | »Geokodiranje« → »Naslovi«, skupine po krajih | Naslovi so razvrščeni po krajih. Hiša brez svoje lege podeduje koordinato naselja. |
+| 8 | ✎ Hafnarjeva pot 55 / 21 → dopiši » / Stražišče 66« | Ta hiša je v zgodovini dobila tri številke. Najprej zapišemo današnji naslov, nato starejše, ločene s poševnico. Na konec lahko dodate pripis v oklepaju, na primer porodnišnica. |
+| 9 | Poizvedba → zadetki, oštevilčeni na zemljevidu | Program vsako številko poišče posebej. Register pozna današnjo, katera lega velja, izberete sami. |
+| 10 | Skupina Krasinec: poizvedba za vse → »Izberi zanesljive« | Celo vas poiščete naenkrat. Nedvoumne zadetke izberete z enim klikom. |
+| 11 | »Zapisano dvakrat« → »Združi« | Isto hišo, zapisano enkrat s hišnim imenom in enkrat brez njega, združite v en naslov. |
+| 12 | »Več naslovov na eno koordinato…« → Stražišče | Starih številk register nima več. Take hiše postavite na eno točko, na primer na sredino vasi. |
+| 13 | »Zapiši koordinate« → Urejanje, zelena bucika ob naslovu | Koordinate se zapišejo šele ob potrditvi, kot standardni zapis v GEDCOM. |
+| 14 | Zaključna kartica | |
+
+---
+
+## 15. Pregled: čiščenje podatkov
+
+**Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
+z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
+namerno vnesene napake.
+**Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
+popravilo.
+**Podatki:** vaše anonimizirano drevo (resnične napake) ali kopija Prešernovega drevesa
+z namerno vnesenimi napakami (smrt pred rojstvom, pokvarjena povezava, nestandarden
+datum) — glej odprta vprašanja. · **Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Pregled« · »Počistite *napake* v drevesu« · posnetek
+seznama težav s številkami.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Tudi v skrbno vodenem drevesu se naberejo napake. Pregled jih najde v nekaj sekundah. |
+| 2 | Orodja → Pregled → »Težave v podatkih« | Pregled preveri vsebino: manjkajoče podatke, nemogoče datume in nenavadne starosti. |
+| 3 | Klik na »Smrt pred rojstvom« → oseba v Urejanju | Klik na težavo odpre osebo v Urejanju, kjer jo popravite. |
+| 4 | »Pokvarjene povezave« → »Odstrani povezavo« | Nekaterih napak v Urejanju ne vidite, na primer pokvarjenih povezav. Te popravite kar tukaj. |
+| 5 | Zavihek »Skladnost z GEDCOM« | Drugi zavihek preveri, ali je datoteka zapisana po standardu GEDCOM. |
+| 6 | Nestandarden datum → »Popravi« | Nestandarden datum program prepiše v standardno obliko. |
+| 7 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat. Pred tem vidite seznam popravkov s številom. |
+| 8 | »Zaženi znova« | Ko datoteko spremenite, pregled zaženete znova. |
+| 9 | Zaključna kartica | |
+
+---
+
 ## Odprta vprašanja
 
-1. **Epizoda 13 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
+1. **Epizoda 15 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
    rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
    dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.
-2. **Epizoda 12:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
+2. **Epizoda 13:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.

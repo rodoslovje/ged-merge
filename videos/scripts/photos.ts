@@ -1,5 +1,5 @@
 /**
- * Video 14 (SCENARIJI.md, "Fotografije"): photos on people — browser support
+ * Video 12 (SCENARIJI.md, "Fotografije"): photos on people — browser support
  * first (the guide's table), then a media folder sorted into subfolders, a
  * portrait, a group photo on which each person is marked, and the photos on
  * the charts.
@@ -181,7 +181,7 @@ async function tagOnWedding(d: Director, crop: Crop): Promise<void> {
 
 const scenario: Scenario = {
   id: "photos",
-  episode: 14,
+  episode: 12,
   settings: seriesSettingsWithMaps,
   title: {
     sl: "GED Merge: fotografije — portreti, skupinske fotografije in označevanje oseb",
