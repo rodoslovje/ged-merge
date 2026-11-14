@@ -18,7 +18,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
-| 12 | Fotografije | `scripts/photos.ts` | osnutek brez glasu |
+| 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
 | 13 | Kraji in naslovi | — (PR #152) | scenarij |
 | 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
 | 15 | Pregled | — | odloženo |
