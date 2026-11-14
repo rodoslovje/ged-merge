@@ -58,7 +58,11 @@ button:focus-visible {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* sections manage their own scrolling */
+  /* Sections manage their own scrolling. »clip« rather than »hidden«: a hidden
+     box can still be scrolled by script, and focusing a field or a click's
+     scroll-into-view did exactly that, sliding the whole app — header and all —
+     up out of the window. */
+  overflow: clip;
 }
 .app-head {
   flex: 0 0 auto;
