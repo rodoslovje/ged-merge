@@ -443,7 +443,7 @@ fotografije z imeni vseh štirih oseb.
 | 10 | Klik na Edvardov obraz → »Kdo je to?« → Edvard | Najprej oseba in bližnji sorodniki. |
 | 11 | Cvetka; Jože z vpisom »joze«; Peter z vpisom »peter« | Kogar ni med predlogi, poiščete z vpisom imena. |
 | 12 | Miška nad fotografijo, imena vseh štirih | Vsak je dobil fotografijo; kdo je kdo. |
-| 13 | Ročaj v vogalu: Jožetovo in Petrovo območje povečamo na celo glavo | Velikost območja katere koli osebe na fotografiji spremenite z vlečenjem vogala. |
+| 13 | Ročaj v vogalu: Jožetovo in Petrovo območje povečamo na celo glavo | Z vlečenjem vogala povečate območje katere koli osebe. |
 | 14 | Sličica Edvarda, Cvetkina kartica s fotografijo | Sličica pokaže obraz. |
 | 15 | Edvard → Drevo, predniki, 3 rodovi; »Diagram« → »Fotografija« | Fotografije in obrazi tudi na diagramih. |
 | 16 | Zaključna kartica | |

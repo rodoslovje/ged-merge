@@ -137,6 +137,18 @@ export function installOverlay(): void {
         card.classList.add("on");
       },
     };
+    // A title card held across a navigation (see `Director.holdCard`) is up
+    // from the first paint of the new page, without fading in.
+    try {
+      const held = sessionStorage.getItem("gmv-card");
+      if (held) {
+        const [k, t, l] = JSON.parse(held) as [string | null, string | null, string | null];
+        card.style.transition = "none";
+        (w.__gmv as { card(k: string | null, t: string | null, l: string | null): void }).card(k, t, l);
+        void card.offsetWidth;
+        card.style.transition = "";
+      }
+    } catch { /* storage unavailable: no card to hold */ }
   };
 
   if (document.documentElement) mount();

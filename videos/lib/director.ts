@@ -158,6 +158,20 @@ export class Director {
   }
 
   /**
+   * Keep a title card on screen through a page navigation: the next page
+   * shows it from its first paint, so its loading (an unstyled flash, the
+   * page behind) is never seen. `null` lets go; follow with `card(null, null)`
+   * to fade it out.
+   */
+  async holdCard(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {
+    const value = title ? JSON.stringify([kicker && this.t(kicker), this.t(title), line && this.t(line)]) : null;
+    await this.page.evaluate((v) => {
+      if (v) sessionStorage.setItem("gmv-card", v);
+      else sessionStorage.removeItem("gmv-card");
+    }, value);
+  }
+
+  /**
    * Grab the current screen for the thumbnail, without the pointer and the
    * step callout (a ring, if one is shown, stays: it marks the feature).
    */

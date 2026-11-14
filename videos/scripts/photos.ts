@@ -122,16 +122,6 @@ async function setTitle(d: Director, title: string): Promise<void> {
   await d.wait(500);
 }
 
-/** Type the photo's description (»Opis«); it is written as the field is left. */
-async function setDescription(d: Director, text: string): Promise<void> {
-  const area = d.page.locator(".media-lightbox-edit textarea").first();
-  await d.click(area);
-  await area.fill("");
-  await d.page.keyboard.type(text, { delay: 70 });
-  await area.evaluate((e: HTMLTextAreaElement) => e.blur());
-  await d.wait(500);
-}
-
 /** »Označi območje osebe«, drag the region with the visible pointer, »Shrani območje«. */
 async function markRegion(d: Director, crop: Crop): Promise<void> {
   await d.click(d.page.locator(".media-crop-controls button").first());
@@ -214,20 +204,20 @@ async function faceIn(d: Director, crop: Crop) {
 /** Click the face in `crop` and pick `who` in the name panel, typing `query` first if given. */
 /** Drag the pointer from (x1,y1) to (x2,y2) with the button held, the visible pointer following. */
 async function drag(d: Director, x1: number, y1: number, x2: number, y2: number): Promise<void> {
-  await d.overlay("cursor", x1, y1, 600);
-  await d.wait(650);
+  await d.overlay("cursor", x1, y1, 400);
+  await d.wait(450);
   await d.page.mouse.move(x1, y1);
   await d.page.mouse.down();
-  const steps = 20;
+  const steps = 12;
   for (let i = 1; i <= steps; i++) {
     const x = x1 + ((x2 - x1) * i) / steps;
     const y = y1 + ((y2 - y1) * i) / steps;
     await d.overlay("cursor", x, y, 40);
     await d.page.mouse.move(x, y);
-    await d.wait(45);
+    await d.wait(35);
   }
   await d.page.mouse.up();
-  await d.wait(600);
+  await d.wait(300);
 }
 
 /** Resize `who`'s marked region by its corner handles to `crop`: top-left corner, then bottom-right. */
@@ -243,9 +233,6 @@ async function resizeTo(d: Director, who: string, crop: Crop): Promise<void> {
     const h = (await region().locator(`.photo-crop-handle-${corner}`).boundingBox())!;
     return { x: h.x + h.width / 2, y: h.y + h.height / 2 };
   };
-  await d.highlight(region(), 4);
-  await d.wait(900);
-  await d.highlight(null);
   const nw = await centre("nw");
   await drag(d, nw.x, nw.y, sx(crop.left), sy(crop.top));
   const se = await centre("se");
@@ -304,14 +291,25 @@ const scenario: Scenario = {
         en: "A GEDCOM file does not contain photos; it only refers to them. So GED Merge needs access to the folder where the photos are kept. How much it can do there depends on the browser. Chrome and Edge have the best support: they remember the folder, and the program can copy new photos into it. The details are in the User's Guide, in the chapter on photos and media.",
       },
       run: async (d) => {
-        await d.card(null, null);
+        // The title card stays up while the guide loads and settles on its
+        // table, then fades: no glimpse of the start page or the bare guide.
+        const intro = {
+          kicker: { sl: "GED Merge · video navodila", en: "GED Merge · video tutorial" },
+          title: { sl: "Fotografije", en: "Photos" },
+          line: { sl: "Portreti in skupinske fotografije", en: "Portraits and group photos" },
+        };
+        await d.holdCard(intro.kicker, intro.title, intro.line);
         const home = d.page.url();
         await d.page.goto(new URL(d.lang === "sl" ? "navodila/#photos" : "guide/#photos", home).href);
         await d.page.evaluate(() => document.fonts.ready);
-        await d.wait(1500);
         const table = d.page.locator("#photos table.gm-table").first();
-        await d.scrollTo(table);
-        await d.wait(600);
+        await table.evaluate((e) => e.scrollIntoView({ block: "center" }));
+        await d.wait(500);
+        await d.holdCard(null, null);
+        // The navigation dropped the step callout with the old page: put it back.
+        await d.overlay("callout", "1", d.t({ sl: "Podpora brskalnikov", en: "Browser support" }));
+        await d.card(null, null);
+        await d.wait(900);
         await d.highlight(table, 8);
         await d.wait(2500);
         await d.point(table.locator("tbody tr").nth(2));
@@ -334,17 +332,17 @@ const scenario: Scenario = {
         await prepareFolder(d);
         await d.upload(d.page.locator(".lb-drop"), MAIN);
         await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(1200);
+        await d.wait(400);
         await d.click(card(d, "Edvard"));
-        await d.wait(1000);
+        await d.wait(300);
         await d.click(card(d, "Franc"));
         await d.wait(800);
       },
     },
     {
       say: {
-        sl: "Pri osebi kliknite »Dodaj medij«. Ob prvem dodajanju program vpraša za mapo z mediji. Izberete jo samo enkrat, Chrome pa si jo zapomni za naslednjič. Mapa se bere samo na vašem računalniku.",
-        en: "On the person, click Add media. The first time, the program asks for your media folder. You choose it only once, and Chrome remembers it for next time. The folder is read only on your computer.",
+        sl: "Pri osebi kliknite »Dodaj medij«. Ob prvem dodajanju program vpraša za mapo z mediji. Izberete jo samo enkrat, Chrome pa si jo zapomni za naslednjič. Mapa se bere samo na vašem računalniku. Slike se nikamor ne kopirajo.",
+        en: "On the person, click Add media. The first time, the program asks for your media folder. You choose it only once, and Chrome remembers it for next time. The folder is read only on your computer. The pictures are not copied anywhere.",
       },
       run: async (d) => {
         await d.click(addMediaChip(d));
@@ -418,7 +416,7 @@ const scenario: Scenario = {
         await openPicker(d);
         await pick(d, WEDDING);
         await openLast(d);
-        await setDescription(d, d.t({ sl: "Poroka Edvarda in Cvetke Renko", en: "Wedding of Edvard and Cvetka Renko" }));
+        await setTitle(d, d.t({ sl: "Poroka Edvarda in Cvetke Renko", en: "Wedding of Edvard and Cvetka Renko" }));
       },
     },
     {
@@ -486,8 +484,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Prilagodite območje", en: "Adjust a region" },
       say: {
-        sl: "Pri Jožetu najdeno območje ne zajame cele glave. Ko je miška nad fotografijo, ima vsako označeno območje v vogalih ročaje. Povlecite vogal in območje povečate ali pomanjšate, za katero koli osebo na fotografiji.",
-        en: "For Jože, the region found misses part of his head. While the mouse is over the photo, every marked region has handles at its corners. Drag a corner to make the region larger or smaller, for anyone in the photo.",
+        sl: "Jožetovo območje ne zajame cele glave. Povlecite vogal in območje povečate, za katero koli osebo na fotografiji.",
+        en: "Jože's region misses part of his head. Drag a corner to enlarge it, for anyone in the photo.",
       },
       run: async (d) => {
         await resizeTo(d, "Jože", CROP.joze);
@@ -495,12 +493,11 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Enako popravimo območje pri Petru. Obraz, ki ga program ne najde, označite pri osebi z gumbom »Označi območje osebe«.",
-        en: "We fix Peter's region the same way. A face the program misses is marked on the person's photo with Mark person's region.",
+        sl: "Enako popravimo še Petra.",
+        en: "And Peter's the same way.",
       },
       run: async (d) => {
         await resizeTo(d, "Peter", CROP.peter);
-        await d.wait(800);
         await closeViewer(d);
       },
     },
