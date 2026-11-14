@@ -171,12 +171,50 @@ async function find(d: Director, query: string, year: string): Promise<void> {
   await d.wait(900);
 }
 
-/** Add the wedding photo, already in the file, to the person on screen and mark them. */
-async function tagOnWedding(d: Director, crop: Crop): Promise<void> {
-  await openPicker(d);
-  await pick(d, WEDDING);
-  await openLast(d);
-  await markRegion(d, crop);
+/** Move the mouse onto the photo, below the faces, so the viewer reveals the marks. */
+async function hoverPhoto(d: Director): Promise<void> {
+  const box = (await viewerImage(d).boundingBox())!;
+  const x = box.x + box.width * 0.5;
+  const y = box.y + box.height * 0.85;
+  await d.overlay("cursor", x, y, 800);
+  await d.wait(900);
+  await d.page.mouse.move(x, y, { steps: 5 });
+  await d.wait(600);
+}
+
+/** The found face whose centre lies in `crop` (the region the author's file gives that person). */
+async function faceIn(d: Director, crop: Crop) {
+  const img = viewerImage(d);
+  const box = (await img.boundingBox())!;
+  const nat = await img.evaluate((e: HTMLImageElement) => ({ w: e.naturalWidth, h: e.naturalHeight }));
+  const area = {
+    x1: box.x + (crop.left / nat.w) * box.width,
+    y1: box.y + (crop.top / nat.h) * box.height,
+    x2: box.x + ((crop.left + crop.width) / nat.w) * box.width,
+    y2: box.y + ((crop.top + crop.height) / nat.h) * box.height,
+  };
+  const faces = d.page.locator(".photo-face-box");
+  await faces.first().waitFor({ timeout: 30_000 });
+  const rects = await faces.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 })));
+  const i = rects.findIndex((c) => c.x > area.x1 && c.x < area.x2 && c.y > area.y1 && c.y < area.y2);
+  if (i < 0) throw new Error(`No face found in ${JSON.stringify(crop)}`);
+  return faces.nth(i);
+}
+
+/** Click the face in `crop` and pick `who` in the name panel, typing `query` first if given. */
+async function nameFace(d: Director, crop: Crop, who: string, query?: string): Promise<void> {
+  await hoverPhoto(d);
+  await d.click(await faceIn(d, crop));
+  const namer = d.page.locator(".photo-face-namer");
+  await namer.waitFor();
+  await d.wait(900);
+  if (query) {
+    await d.page.keyboard.type(query, { delay: 140 });
+    await d.wait(900);
+  }
+  await d.click(namer.locator(".photo-face-list button").filter({ hasText: who }).first());
+  await namer.waitFor({ state: "detached" });
+  await d.wait(700);
 }
 
 const scenario: Scenario = {
@@ -334,65 +372,43 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Označite osebo", en: "Mark the person" },
+      callout: { sl: "Obrazi na fotografiji", en: "Faces in the photo" },
       say: {
-        sl: "Na skupinski fotografiji označite, kje je oseba. Kliknite »Označi območje osebe«, povlecite pravokotnik okoli njenega obraza in kliknite »Shrani območje«.",
-        en: "On a group photo, mark where the person is. Click Mark person's region, drag a rectangle around their face, and click Save region.",
+        sl: "Na skupinski fotografiji GED Merge sam najde obraze, kar na vašem računalniku. Ko z miško zapeljete nad fotografijo, je vsak obraz, ki še ni označen, prikazan z vprašajem.",
+        en: "On a group photo, GED Merge finds the faces itself, right on your computer. Move the mouse over the photo, and every face nobody is marked on yet shows a question mark.",
       },
       run: async (d) => {
-        await markRegion(d, CROP.edvard);
-        await closeViewer(d);
+        await hoverPhoto(d);
+        await d.page.locator(".photo-face-box").first().waitFor({ timeout: 30_000 });
+        await d.wait(2500);
+      },
+    },
+    {
+      callout: { sl: "Poimenujte obraz", en: "Name a face" },
+      say: {
+        sl: "Kliknite obraz in izberite, kdo je to. Najprej so ponujeni oseba, katere fotografija je, in njeni bližnji sorodniki. Ta obraz je Edvard.",
+        en: "Click a face and choose who it is. The person whose photo it is and their close family are offered first. This face is Edvard.",
+      },
+      run: async (d) => {
+        await nameFace(d, CROP.edvard, "Edvard Renko");
       },
     },
     {
       say: {
-        sl: "Sličica osebe zdaj pokaže samo njen obraz. Skupinska fotografija tako služi tudi kot portret.",
-        en: "The person's thumbnail now shows just their face, so the group photo doubles as a portrait.",
+        sl: "Zraven njega sedi Cvetka.",
+        en: "Next to him sits Cvetka.",
       },
       run: async (d) => {
-        await d.highlight(thumb(d).last(), 8);
-        await d.wait(3000);
-        await d.highlight(null);
-      },
-    },
-    {
-      callout: { sl: "Več oseb na fotografiji", en: "Several people in one photo" },
-      say: {
-        sl: "Isto fotografijo dodamo še Cvetki. Ker je že v datoteki, jo izbirnik pokaže v razdelku »Že v datoteki«, zato se zapis ne podvoji.",
-        en: "Now we add the same photo to Cvetka. Since it is already in the file, the picker lists it under Already in your file, so the record is not duplicated.",
-      },
-      run: async (d) => {
-        await d.click(card(d, "Cvetka"));
-        await d.wait(900);
-        await openPicker(d);
-        const existing = picker(d).locator(".add-media-section").nth(1);
-        await d.scrollTo(existing);
-        await d.highlight(existing, 6);
-        await d.wait(1500);
-        await d.highlight(null);
-        await pick(d, WEDDING);
-        await openLast(d);
+        await nameFace(d, CROP.cvetka, "Cvetka");
       },
     },
     {
       say: {
-        sl: "Edvard je na fotografiji že označen. Zdaj označimo še Cvetko.",
-        en: "Edvard is already marked in the photo. Now we mark Cvetka.",
+        sl: "Priča na levi je Edvardov brat Jože Renko. Osebo, ki je ni med predlogi, poiščete z vpisom imena.",
+        en: "The witness on the left is Edvard's brother, Jože Renko. Anyone not among the suggestions is found by typing their name.",
       },
       run: async (d) => {
-        await markRegion(d, CROP.cvetka);
-        await closeViewer(d);
-      },
-    },
-    {
-      say: {
-        sl: "Priča na levi je Edvardov brat Jože Renko.",
-        en: "The witness on the left is Edvard's brother, Jože Renko.",
-      },
-      run: async (d) => {
-        await find(d, "joze renko", "1938");
-        await tagOnWedding(d, CROP.joze);
-        await closeViewer(d);
+        await nameFace(d, CROP.joze, "Jože Renko", "joze");
       },
     },
     {
@@ -401,28 +417,47 @@ const scenario: Scenario = {
         en: "Standing at the back is Cvetka's brother, Peter Jekovec.",
       },
       run: async (d) => {
-        await find(d, "peter jekovec", "1935");
-        await tagOnWedding(d, CROP.peter);
+        await nameFace(d, CROP.peter, "1935", "peter");
       },
     },
     {
       callout: { sl: "Kdo je kdo", en: "Who is who" },
       say: {
-        sl: "Ko z miško zapeljete nad fotografijo, se pokažejo imena vseh označenih oseb. Tako bo vsak, ki bo drevo gledal za vami, vedel, kdo je kdo.",
-        en: "Move the mouse over the photo and the names of everyone marked appear. That way anyone who looks at the tree after you will know who is who.",
+        sl: "Poimenovani so vsi štirje. Vsak od njih je dobil to fotografijo in vsak, ki bo drevo gledal za vami, bo vedel, kdo je kdo.",
+        en: "All four are named. Each of them now has this photo, and anyone who looks at the tree after you will know who is who.",
       },
       run: async (d) => {
-        const img = viewerImage(d);
-        const box = (await img.boundingBox())!;
-        const x = box.x + box.width * 0.5;
-        const y = box.y + box.height * 0.75;
-        await d.overlay("cursor", x, y, 900);
-        await d.wait(1000);
-        await d.page.mouse.move(x, y, { steps: 5 });
-        await d.wait(1200);
+        await hoverPhoto(d);
+        await d.wait(800);
         await d.snapshot();
-        await d.wait(3500);
+        await d.wait(2500);
+      },
+    },
+    {
+      callout: { sl: "Prilagodite območje", en: "Adjust a region" },
+      say: {
+        sl: "Najdeno območje lahko tudi prilagodite. Kliknite »Spremeni območje osebe«, povlecite nov pravokotnik in kliknite »Shrani območje«. Obraz, ki ga program ne najde, označite enako.",
+        en: "You can adjust a region that was found. Click Change person's region, drag a new rectangle and click Save region. A face the program misses is marked the same way.",
+      },
+      run: async (d) => {
+        await markRegion(d, CROP.edvard);
         await closeViewer(d);
+      },
+    },
+    {
+      say: {
+        sl: "Sličica osebe zdaj pokaže samo njen obraz. Enako velja za Cvetko in obe priči.",
+        en: "The person's thumbnail now shows just their face. The same goes for Cvetka and both witnesses.",
+      },
+      run: async (d) => {
+        await d.highlight(thumb(d).last(), 8);
+        await d.wait(2200);
+        await d.highlight(null);
+        await d.click(card(d, "Cvetka"));
+        await d.wait(900);
+        await d.highlight(thumb(d).last(), 8);
+        await d.wait(2200);
+        await d.highlight(null);
       },
     },
     {

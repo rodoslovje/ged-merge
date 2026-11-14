@@ -439,11 +439,12 @@ fotografije z imeni vseh štirih oseb.
 | 6 | Iskanje »franc« → portret → »Dodaj« | Iskalno polje najde fotografijo po imenu datoteke. |
 | 7 | Pregledovalnik se odpre sam → naslov; zapri, obroč na sličico | Opis takoj ob dodajanju; nato je fotografija ob osebi. |
 | 8 | Edvard → poročna fotografija | Skupinska fotografija s pričama, dodamo jo Edvardu. |
-| 9 | »Označi območje osebe« → pravokotnik → »Shrani območje« | Označite, kje je oseba. |
-| 10 | Obroč na sličico z obrazom | Skupinska fotografija služi tudi kot portret. |
-| 11 | Cvetka → »Že v datoteki« → označi | Zapis se ne podvoji; Edvard je že označen. |
-| 12–13 | Iskanje Jože Renko, Peter Jekovec → označi | Priči: Edvardov brat in Cvetkin brat. |
-| 14 | Miška nad fotografijo, imena vseh štirih | Kdo je kdo. |
+| 9 | Miška nad fotografijo: najdeni obrazi z »?« | GED Merge sam najde obraze, kar na računalniku. |
+| 10 | Klik na Edvardov obraz → »Kdo je to?« → Edvard | Najprej oseba in bližnji sorodniki. |
+| 11 | Cvetka; Jože z vpisom »joze«; Peter z vpisom »peter« | Kogar ni med predlogi, poiščete z vpisom imena. |
+| 12 | Miška nad fotografijo, imena vseh štirih | Vsak je dobil fotografijo; kdo je kdo. |
+| 13 | »Spremeni območje osebe« → nov pravokotnik → »Shrani območje« | Najdeno območje prilagodite; spregledan obraz označite enako. |
+| 14 | Sličica Edvarda, nato Cvetke | Sličica pokaže obraz. |
 | 15 | Luka → Drevo, predniki, 3 rodovi; »Diagram« → »Fotografija« | Fotografije in obrazi tudi na diagramih. |
 | 16 | Zaključna kartica | |
 
