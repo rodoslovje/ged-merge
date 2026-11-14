@@ -72,7 +72,8 @@ export class Director {
   /** Recording time (seconds) at which the current step's narration ends, set by make.ts. */
   saidAt = 0;
   /** Stretches of dead waiting (see `skippable`) to shorten in the final cut. */
-  readonly skips: [number, number][] = [];
+  /** [start, end, share kept] — the share defaults to assemble.ts's. */
+  readonly skips: [number, number, number?][] = [];
   constructor(page: Page, lang: Lang) {
     this.page = page;
     this.lang = lang;
@@ -81,14 +82,14 @@ export class Director {
   /**
    * Run a wait that shows nothing worth watching — an online lookup, a slow
    * scan — and mark it, so assemble.ts shortens the part of it no narration
-   * plays over.
+   * plays over. `keep` is the share of it left in the video (default: a third).
    */
-  async skippable<T>(wait: () => Promise<T>): Promise<T> {
+  async skippable<T>(wait: () => Promise<T>, keep?: number): Promise<T> {
     const start = this.clock();
     try {
       return await wait();
     } finally {
-      this.skips.push([start, this.clock()]);
+      this.skips.push(keep === undefined ? [start, this.clock()] : [start, this.clock(), keep]);
     }
   }
 

@@ -1,5 +1,5 @@
 /**
- * Video 13 (SCENARIJI.md, "Uredi vire"): tidying the sources a file already
+ * Video 14 (SCENARIJI.md, "Uredi vire"): tidying the sources a file already
  * has — which collections GED Merge recognises and fills in, and what each tab
  * of Organize sources does (Sources, Duplicates, Pages; Repositories in words).
  *
@@ -45,6 +45,21 @@ const applyButton = (d: Director) => d.page.locator(".tools-geo-tabs-row .tools-
 const selectAll = (d: Director) => d.page.locator(".tools-geo-tabs-row .tools-dup-bulk .tools-issue-link").first();
 const fetchButton = (d: Director) => d.page.locator(".tools-reshape-options .tools-run").first();
 
+/** Scroll the page so the tabs row sits at the top: the Tools tiles above it go
+ *  off screen and the long list below gets the room. */
+async function listToTop(d: Director): Promise<void> {
+  await d.page
+    .locator(".tools-geo-tabs-row")
+    .first()
+    .evaluate((el) => {
+      // The Tools page scrolls in its own container, not the window.
+      const view = el.closest(".tools-view");
+      if (!view) return;
+      view.scrollBy({ top: el.getBoundingClientRect().top - view.getBoundingClientRect().top - 8, behavior: "instant" });
+    });
+  await d.wait(300);
+}
+
 /** »Razširi vse« on the open list, so every row shows what it holds. */
 async function expandAll(d: Director): Promise<void> {
   const btn = d.page.locator("button.tools-issue-link").filter({ hasText: d.t({ sl: "Razširi vse", en: "Expand all" }) }).first();
@@ -87,12 +102,19 @@ const COLLECTIONS: { name: Text; items: [string, string | Text][] }[] = [
 async function fetchDetails(d: Director): Promise<void> {
   if ((await fetchButton(d).count()) === 0) return;
   await d.click(fetchButton(d));
+  await fetchDone(d);
+}
+
+/** Wait for a fetch already started to finish. */
+async function fetchDone(d: Director): Promise<void> {
   // The button counts done/total while it runs, and goes once nothing is left to fetch.
   await d.skippable(() =>
     d.page
       .locator(".tools-reshape-options .tools-run")
       .filter({ hasText: /\d+\/\d+/ })
       .waitFor({ state: "detached", timeout: 120_000 }),
+    // Nothing happens on screen but a counter: a tenth of it is enough.
+    0.1,
   );
   await d.wait(600);
 }
@@ -110,7 +132,7 @@ async function apply(d: Director): Promise<void> {
 
 const scenario: Scenario = {
   id: "organize",
-  episode: 13,
+  episode: 14,
   settings: (lang) => ({
     ...seriesSettings(lang),
     // Online lookups were switched on in episode 4; page images beside every
@@ -263,17 +285,25 @@ const scenario: Scenario = {
     {
       callout: { sl: "Navedbe na dogodkih", en: "Citations on events" },
       say: {
-        sl: "Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari. Kakovost citata nastavite za vse navedbe hkrati, vidi se v vsaki vrstici.",
-        en: "A citation from a baptism register lands on the birth, one from a death register on the death, and a grave on the burial. If the event is missing, the program creates it. You set the citation quality for all citations at once; every row shows it.",
+        sl: "Navedba iz krstne knjige pristane pri rojstvu, iz mrliške pri smrti, grob pa pri pokopu. Če dogodka še ni, ga program ustvari.",
+        en: "A citation from a baptism register lands on the birth, one from a death register on the death, and a grave on the burial. If the event is missing, the program creates it.",
       },
       run: async (d) => {
         const options = d.page.locator(".tools-reshape-options").first();
         await d.highlight(options.locator(".tools-reshape-site").first(), 4);
-        await d.wait(3500);
+      },
+    },
+    {
+      callout: { sl: "Kakovost citata", en: "Citation quality" },
+      say: {
+        sl: "Kakovost citata nastavite za vse navedbe hkrati. Matične knjige so primarni vir. Izbira se pokaže v vsaki vrstici.",
+        en: "You set the citation quality for all citations at once. Parish registers are primary evidence. The choice shows in every row.",
+      },
+      run: async (d) => {
         await setQuay(d, { sl: "primarni vir", en: "primary evidence" });
         // Every citation row below takes the value at once.
         await d.highlight(d.page.locator(".tools-tree").first(), 6);
-        await d.wait(2000);
+        await d.wait(2500);
       },
     },
     {
@@ -313,14 +343,15 @@ const scenario: Scenario = {
       run: async (d) => {
         await d.highlight(null);
         await d.click(chip(d, "Geneanet", "Geneanet"));
-        await d.wait(700);
-        await expandAll(d);
-        await setQuay(d, { sl: "sekundarni vir", en: "secondary evidence" });
-        await d.click(selectAll(d));
         await d.wait(500);
-        await fetchDetails(d);
+        await expandAll(d);
+        await d.click(selectAll(d));
+        // The lookup runs while the quality is set, so the step does not wait on it afterwards.
+        if ((await fetchButton(d).count()) > 0) await d.click(fetchButton(d));
+        await setQuay(d, { sl: "sekundarni vir", en: "secondary evidence" });
+        await fetchDone(d);
         await d.highlight(d.page.locator(".tools-tree").first(), 6);
-        await d.untilSaid();
+        await d.wait(800);
         await apply(d);
       },
     },
@@ -335,40 +366,52 @@ const scenario: Scenario = {
         await d.click(chip(d, "Vsi", "All"));
         await d.wait(700);
         await expandAll(d);
-        await d.highlight(d.page.locator(".tools-tree").first(), 6);
+        await listToTop(d);
+        // Ring only rows already on screen: ringing the whole (tall) list
+        // scrolls it back and the Tools tiles return.
+        await d.highlight(d.page.locator(".tools-chips").first(), 6);
         await d.wait(1500);
         await d.highlight(d.page.locator(".tools-reshape-options .tools-reshape-site").nth(2), 4);
       },
     },
     {
-      callout: { sl: "Mrtve povezave", en: "Dead links" },
+      callout: { sl: "Podatki za vse", en: "Details for all" },
       say: {
-        sl: "Povezave, ki jih program ne pozna, so med »Drugimi povezavami«. Ta vodi na staro stran žrtev vojn na SIstory, ki je ni več. Označite jo za odstranitev: izgine z vseh mest v datoteki, besedilo opombe ostane, vir pa ne nastane.",
-        en: "Links the program does not know are under Other links. This one leads to an old page of war victims on SIstory that no longer exists. Mark it for removal: it disappears from every place in the file, the note's text stays, and no source is created.",
-      },
-      run: async (d) => {
-        const dead = group(d, "SIstory");
-        await dead.scrollIntoViewIfNeeded();
-        await d.highlight(dead, 4);
-        await d.wait(2500);
-        await d.click(dead.locator("button.tools-issue-link", { hasText: "🗑" }));
-        await d.wait(600);
-        await d.highlight(dead.locator(".tools-reshape-badge.remove"), 6);
-        await d.wait(1500);
-      },
-    },
-    {
-      say: {
-        sl: "Izberite vse in pridobite podatke: pri dLib in Google Knjigah naslov dela, pri življenjepisih ime osebe, pri YouTubu naslov videa in avtorja. Nato vse pretvorite v enem koraku.",
-        en: "Select all and fetch the details: a work's title on dLib and Google Books, the person's name for the biographies, a video's title and author on YouTube. Then convert everything in one step.",
+        sl: "Izberite vse in pridobite podatke: pri dLib in Google Knjigah naslov dela, pri življenjepisih ime osebe, pri YouTubu naslov videa in avtorja.",
+        en: "Select all and fetch the details: a work's title on dLib and Google Books, the person's name for the biographies, a video's title and author on YouTube.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.click(selectAll(d));
         await d.wait(600);
         await fetchDetails(d);
-        await d.highlight(d.page.locator(".tools-tree").first(), 6);
-        await d.wait(2500);
+        await listToTop(d);
+        await d.highlight(d.page.locator(".tools-tree > .tools-tree-node").nth(1), 4);
+      },
+    },
+    {
+      callout: { sl: "Mrtve povezave", en: "Dead links" },
+      say: {
+        sl: "Za eno povezavo program ni našel ničesar, zato je ostala brez naslova. Vodi na staro stran žrtev vojn na SIstory, ki je ni več. Označite jo za odstranitev: izgine z vseh mest v datoteki, besedilo opombe ostane, vir pa ne nastane.",
+        en: "For one link the program found nothing, so it stayed without a title. It leads to an old page of war victims on SIstory that no longer exists. Mark it for removal: it disappears from every place in the file, the note's text stays, and no source is created.",
+      },
+      run: async (d) => {
+        const dead = group(d, "SIstory");
+        await dead.scrollIntoViewIfNeeded();
+        await d.highlight(dead, 4);
+        await d.wait(4500);
+        await d.click(dead.locator("button.tools-issue-link", { hasText: "🗑" }));
+        await d.wait(600);
+        await d.highlight(dead.locator(".tools-reshape-badge.remove"), 6);
+      },
+    },
+    {
+      callout: { sl: "Pretvorba", en: "Converting" },
+      say: {
+        sl: "Nato vse pretvorite v enem koraku.",
+        en: "Then convert everything in one step.",
+      },
+      run: async (d) => {
         await d.highlight(null);
         await apply(d);
       },

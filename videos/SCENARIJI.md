@@ -18,9 +18,10 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
 | 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
 | 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
-| 12 | Kraji in naslovi | — | scenarij |
-| 13 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
-| 14 | Pregled | — | odloženo |
+| 12 | Fotografije | `scripts/photos.ts` (PR #156) | osnutek brez glasu |
+| 13 | Kraji in naslovi | — (PR #152) | scenarij |
+| 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
+| 15 | Pregled | — | odloženo |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -412,7 +413,7 @@ dvojnikov drug ob drugem.
 
 ---
 
-## 12. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
+## 13. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
 
 **Cilj:** drevo krajev (država → naselje → hiša → naslov), druga imena kraja,
 primerjava krajev in naslovov z uradnim registrom, prenos registra naslovov GURS,
@@ -448,7 +449,7 @@ treh zadetkov za Hafnarjevo pot 55 / 21 / Stražišče 66 na zemljevidu.
 
 ---
 
-## 13. Uredi vire: od raztresenih povezav do pravih virov
+## 14. Uredi vire: od raztresenih povezav do pravih virov
 
 **Cilj:** pokazati, katere spletne zbirke GED Merge prepozna in opremi s podatki, in kaj
 naredi vsak zavihek orodja »Uredi vire« (Viri, Dvojniki, Strani; Hrambe le v govoru).
@@ -509,7 +510,8 @@ govoru.
 | 5 | Seznam zbirk na zaslonu; obroč po filtrih | Matične knjige, grobovi, življenjepisi, knjige in časopisi, spletne strani; obdelujte eno za drugo. |
 | 6 | Matricula: »Razširi vse« | Razvrščeno po knjigi; vrstica pove, kje je povezava. |
 | 7 | »Izberi vse« → »Pridobi podatke o virih« | Pravi naslov, arhiv, leta; pošlje se le povezava. |
-| 8 | Navedbe na dogodkih; »Kakovost citata« → primarni vir (razširjeno) | Velja za vse navedbe, vidi se v vsaki vrstici. |
+| 8 | »Citate pripni na ustrezne dogodke« | Krst k rojstvu, smrt k smrti, grob k pokopu; manjkajoč dogodek se ustvari. |
+| 8a | »Kakovost citata« → primarni vir (razširjeno) | Velja za vse navedbe, vidi se v vsaki vrstici. |
 | 9 | ✎ → urejevalnik vira | Popravek pred pretvorbo. |
 | 10 | »Pretvori v vire« | En korak. |
 | 11 | Geneanet: »Razširi vse«, sekundarni vir, izberi, pridobi, pretvori | Grob ni primarni vir za smrt; Ernestina dobi pokop. |
@@ -527,7 +529,7 @@ Natančen govor v obeh jezikih je v `scripts/organize.ts`.
 
 ---
 
-## 14. Pregled: čiščenje podatkov
+## 15. Pregled: čiščenje podatkov
 
 **Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
 z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
@@ -556,11 +558,11 @@ seznama težav s številkami.
 
 ## Odprta vprašanja
 
-1. **Epizoda 14 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
+1. **Epizoda 15 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
    rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
    dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.
-2. **Epizoda 12:** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
-3. **Epizoda 13 (Uredi vire):** BillionGraves, Legacy.com, Newspapers.com in Geneanet
+2. **Epizoda 13 (Kraji in naslovi):** storitev INSPIRE pri GURS (prenos naslovov) preverite pred snemanjem.
+3. **Epizoda 14 (Uredi vire):** BillionGraves, Legacy.com, Newspapers.com in Geneanet
    Trees v Prešernovem drevesu nimajo preverjenega primera, zato jih le naštejemo.
    Zavihka Hrambe ne pokažemo (ni podatkov FamilySearch). Za aplikacijo preverite: po
    pretvorbi dLib »Poezije« (1847) se je povezava Google Knjig »Poezije« (1958) občasno
