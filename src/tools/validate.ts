@@ -297,35 +297,10 @@ function findIslands(ds: Dataset, startId?: string): Individual[][] {
   const components: Individual[][] = [];
   let mainGroup: Individual[] | undefined;
 
-  const membersOf = (indi: Individual): string[] => {
-    const out: string[] = [];
-    for (const famId of [...indi.childOf, ...indi.spouseOf]) {
-      const fam = ds.families.get(famId);
-      if (!fam) continue;
-      if (fam.husband) out.push(fam.husband);
-      if (fam.wife) out.push(fam.wife);
-      out.push(...fam.children);
-    }
-    return out;
-  };
-
   for (const start of ds.individuals.values()) {
     if (seen.has(start.id)) continue;
-    const group: Individual[] = [];
-    const queue = [start];
-    seen.add(start.id);
-    while (queue.length) {
-      const indi = queue.pop()!;
-      if (indi.id === startId) mainGroup = group;
-      group.push(indi);
-      for (const id of membersOf(indi)) {
-        if (seen.has(id)) continue;
-        const next = ds.individuals.get(id);
-        if (!next) continue; // dangling member — the brokenLink check's
-        seen.add(id);
-        queue.push(next);
-      }
-    }
+    const group = groupOf(ds, start, seen);
+    if (group.some((indi) => indi.id === startId)) mainGroup = group;
     components.push(group);
   }
 
@@ -334,6 +309,52 @@ function findIslands(ds: Dataset, startId?: string): Individual[][] {
   return components
     .filter((c) => c.length > 1 && !isMain(c))
     .sort((a, b) => a.length - b.length);
+}
+
+/** The people a person's own family links reach in one step: everyone in the
+ *  families they are a child or a partner in. */
+function linkedPeople(ds: Dataset, indi: Individual): string[] {
+  const out: string[] = [];
+  for (const famId of [...indi.childOf, ...indi.spouseOf]) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    if (fam.husband) out.push(fam.husband);
+    if (fam.wife) out.push(fam.wife);
+    out.push(...fam.children);
+  }
+  return out;
+}
+
+/** Everyone reachable from `start` through family links, `start` first —
+ *  marking each in `seen`, and skipping anyone already in it. Iterative, so a
+ *  long line does not grow the stack. */
+function groupOf(ds: Dataset, start: Individual, seen: Set<string>): Individual[] {
+  const group: Individual[] = [];
+  const queue = [start];
+  seen.add(start.id);
+  while (queue.length) {
+    const indi = queue.pop()!;
+    group.push(indi);
+    for (const id of linkedPeople(ds, indi)) {
+      if (seen.has(id)) continue;
+      const next = ds.individuals.get(id);
+      if (!next) continue; // dangling member — the brokenLink check's
+      seen.add(id);
+      queue.push(next);
+    }
+  }
+  return group;
+}
+
+/**
+ * The ids of everyone in `personId`'s branch — the group of people linked to
+ * one another through families that a detached-branch finding names by its
+ * youngest member. Empty when the file has no such person. Asked when the
+ * finding's row is acted on, so the scan itself only carries the count.
+ */
+export function branchOf(ds: Dataset, personId: string): string[] {
+  const start = ds.individuals.get(personId);
+  return start ? groupOf(ds, start, new Set()).map((indi) => indi.id) : [];
 }
 
 /**
