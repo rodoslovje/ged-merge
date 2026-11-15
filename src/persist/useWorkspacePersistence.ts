@@ -338,7 +338,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // edited, the edited main text and the edit-state (dirty tracking + undo
   // history). Debounced because these change rapidly while working; keyed to the
   // loaded main/compare so a stale restore can be skipped.
-  const { main, compare, lastMainFile, decisions, importBranches, rejectedDuplicates, startId } = opts.workspace;
+  const { main, compare, lastMainFile, decisions, importBranches, mergeScope, rejectedDuplicates, startId } = opts.workspace;
   const { mainDataset, editVersion, cleanEditVersionRef, changeJournal, dirty, undoRedo, sortEligiblePersonIdsRef } = opts;
   useEffect(() => {
     if (!persistEnabled) return; // caching is opt-in
@@ -383,6 +383,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
         decisions: Array.from(decisions),
         importBranches: Array.from(importBranches),
+        mergeScope,
         rejectedDuplicates: Array.from(rejectedDuplicates),
         startId,
         editState,
@@ -404,7 +405,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, dirty.changedPersonIds, dirty.changedFamilyIds, dirty.changedRecordIds, mainHandle]);
+  }, [persistEnabled, decisions, importBranches, mergeScope, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, dirty.changedPersonIds, dirty.changedFamilyIds, dirty.changedRecordIds, mainHandle]);
 
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on

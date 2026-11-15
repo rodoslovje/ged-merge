@@ -1,7 +1,60 @@
 import { firstChild } from "../gedcom/node";
 import type { Dataset, Family, GedNode } from "../gedcom/types";
+import type { MatchResult } from "../match/types";
+import { confirmedPeople, decisionKey, parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
 import { applyFamilyStructure, findMainSpouseFamily, type MergeContext } from "./applyRelations";
 import { cloneNodeRemapped, collectCustomTags, stripForeignPointers } from "./applyFields";
+
+/** Where a whole-file merge stands before the save. */
+export interface WholeFileSummary {
+  /** The records the save is expected to add, as xref-free keys (`I:`/`F:`
+   *  and the incoming id), for the Save badge — an estimate, as the branch
+   *  count is: the save preview is the exact account. */
+  records: Set<string>;
+  /** Incoming people the matcher offered a main candidate for. */
+  candidates: number;
+  /** Of those, the ones settled: a pair confirmed, or every pair rejected. */
+  reviewed: number;
+}
+
+/**
+ * Count a whole-file merge: what it adds — every incoming person no confirmed
+ * pair (or earlier addition) joins, and every family not already the main
+ * file's by its joined people — and how far the review of the candidates has
+ * got. One pass over the incoming file and the match list.
+ */
+export function wholeFileSummary(
+  compare: Dataset,
+  decisions: ReadonlyMap<string, CandidateDecision>,
+  matches: MatchResult | null | undefined,
+): WholeFileSummary {
+  const joined = new Set([...confirmedPeople(decisions).keys(), ...pinnedAdds(decisions).keys()]);
+  const records = new Set<string>();
+  for (const id of compare.individuals.keys()) if (!joined.has(id)) records.add(`I:${id}`);
+  for (const fam of compare.families.values()) {
+    const members = fam.husband || fam.wife ? [fam.husband, fam.wife] : fam.children;
+    if (!members.length || members.some((id) => !id || !joined.has(id))) {
+      if (fam.husband || fam.wife || fam.children.length) records.add(`F:${fam.id}`);
+    }
+  }
+  const status = new Map<string, "confirmed" | "rejected" | "open">();
+  for (const c of matches?.individuals ?? []) if (!status.has(c.compareId)) status.set(c.compareId, "rejected");
+  for (const c of matches?.individuals ?? []) {
+    const d = decisions.get(decisionKey("individual", c.mainId, c.compareId));
+    if (status.get(c.compareId) === "confirmed") continue;
+    if (d?.status === "confirmed") status.set(c.compareId, "confirmed");
+    else if (d?.status !== "rejected") status.set(c.compareId, "open");
+  }
+  // A person confirmed against a main record the matcher did not offer counts too.
+  for (const key of decisions.keys()) {
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind === "individual" && status.has(parsed.compareId) && decisions.get(key)!.status === "confirmed") {
+      status.set(parsed.compareId, "confirmed");
+    }
+  }
+  const reviewed = [...status.values()].filter((s) => s !== "open").length;
+  return { records, candidates: status.size, reviewed };
+}
 
 /**
  * A whole-file merge's structural pass: bring every incoming person and every

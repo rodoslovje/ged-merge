@@ -105,6 +105,8 @@ export interface StoredSession {
   /** `Array.from(decisions)` — Maps don't survive JSON but the entry array does. */
   decisions: [string, CandidateDecision][];
   importBranches: string[];
+  /** The merge's scope (see `WorkspaceState.mergeScope`); absent = people. */
+  mergeScope?: "people" | "file";
   /** Rejected within-file duplicate pairs (Tools tab), keyed by
    *  `duplicatePairKey(...)`. Restored only if `mainFileName` still matches the
    *  freshly-parsed main — see the restore site in App.tsx. */

@@ -5198,6 +5198,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 3px 10px;
   font-size: 0.8rem;
 }
+/* What the save brings across (by person / whole file), above the match list,
+   with a whole-file merge's review progress beside it. */
+.merge-scope-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin-bottom: 10px;
+}
+.merge-scope-progress { font-size: 0.85rem; }
 
 /* --- compare tree --- */
 .compare-nav-actions {

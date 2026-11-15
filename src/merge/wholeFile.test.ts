@@ -5,6 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { mergeDecisions, type WholeFileImport } from "./merge";
+import { wholeFileSummary } from "./wholeFile";
 
 const dataset = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
@@ -142,5 +143,45 @@ describe("whole-file merge", () => {
     expect(out.records.some((r) => r.tag === "REPO")).toBe(true);
     expect(out.records.some((r) => r.tag === "NOTE" && r.value === "Nobody points here.")).toBe(true);
     expect(out.records.some((r) => r.tag === "OBJE")).toBe(true);
+  });
+});
+
+describe("wholeFileSummary", () => {
+  const compare = dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Jože /Novak/\n1 FAMS @G1@\n" +
+    "0 @P2@ INDI\n1 NAME Marija /Novak/\n1 FAMS @G1@\n" +
+    "0 @P3@ INDI\n1 NAME Tone /Novak/\n" +
+    "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n" +
+    "0 @G2@ FAM\n",
+  ));
+  const matches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I3@", compareId: "@P2@" },
+      { mainId: "@I4@", compareId: "@P3@" },
+    ],
+  } as never;
+
+  it("counts what the save adds and how far the review has got", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "rejected", fields: {} }],
+      [decisionKey("individual", "@I4@", "@P3@"), { status: "rejected", fields: {} }],
+    ]);
+    const s = wholeFileSummary(compare, decisions, matches);
+    // Jože is joined; Marija and Tone come as new, and so does their family —
+    // the empty one does not.
+    expect([...s.records].sort()).toEqual(["F:@G1@", "I:@P2@", "I:@P3@"]);
+    // Marija still has an open candidate; Tone's only one is rejected.
+    expect(s).toMatchObject({ candidates: 3, reviewed: 2 });
+  });
+
+  it("calls a family the main file's once both its spouses are joined", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: {} }],
+    ]);
+    expect([...wholeFileSummary(compare, decisions, matches).records]).toEqual(["I:@P3@"]);
   });
 });

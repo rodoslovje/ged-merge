@@ -24,8 +24,9 @@ import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/priv
 import { hasPendingAdds, pendingAddsSettled } from "./ui/source/pendingAdds";
 import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
 import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
-import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest, type WholeFileImport } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
+import { wholeFileSummary } from "./merge/wholeFile";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
@@ -203,7 +204,7 @@ function AppContent() {
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
-  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
+  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, mergeScope, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
   // The main file's target format (Settings → GEDCOM): the choice remembered
   // for it, or — opened for the first time — the one its own habits propose.
@@ -489,6 +490,7 @@ function AppContent() {
               });
             }
             if (restored.importBranches.length) dispatch({ type: "importBranchesSet", branches: new Set(restored.importBranches) });
+            if (restored.mergeScope === "file") dispatch({ type: "mergeScopeSet", scope: "file" });
           }
           persistence.hydratedRef.current = true; // restore settled — persistence may resume
         };
@@ -1914,7 +1916,16 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, mainDataset, editVersion]);
 
-  const importCount = importBranches.size;
+  // A whole-file merge counts as one more import: it is a reason to save, and
+  // to ask before the incoming file is replaced.
+  const wholeFile = mergeScope === "file" && !!compareDataset;
+  const importCount = importBranches.size + (wholeFile ? 1 : 0);
+  // What unreviewed candidates stand for in this save, as asked when it began.
+  const wholeFilePendingRef = useRef<WholeFileImport["pending"]>("new");
+  const wholeFileState = useMemo(
+    () => (wholeFile ? wholeFileSummary(compareDataset!, decisions, matches) : undefined),
+    [wholeFile, compareDataset, decisions, matches],
+  );
 
   // Decode the import-branch key set into engine requests for the merge.
   const importRequests = useMemo<ImportBranchRequest[]>(() => {
@@ -1935,7 +1946,7 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [importRequests, mainDataset, compareDataset, decisions, matches, editVersion],
   );
-  const importRecordCount = importRecords.size;
+  const importRecordCount = wholeFileState ? new Set([...importRecords, ...wholeFileState.records]).size : importRecords.size;
   // The incoming people those branches add — Merge marks them as added.
   const branchAddIds = useMemo(
     () => new Set([...importRecords].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
@@ -1990,6 +2001,7 @@ function AppContent() {
       decisions,
       matches,
       importRequests,
+      wholeFile: wholeFile ? { pending: wholeFilePendingRef.current } : undefined,
       confirmedCount,
       importCount,
       changedPersonIds,
@@ -2066,6 +2078,18 @@ function AppContent() {
       setReadingSources(false);
       setSaveAfterAdds({ convertTo });
       return;
+    }
+    // A whole-file merge with candidates nobody settled asks what they are
+    // before anything is built: other people, or the same ones.
+    wholeFilePendingRef.current = "new";
+    if (wholeFileState && wholeFileState.reviewed < wholeFileState.candidates) {
+      const choice = await choiceDialog(
+        t("merge.wholeFile.pendingConfirm", { count: wholeFileState.candidates - wholeFileState.reviewed }),
+        t("merge.wholeFile.pendingNew"),
+        t("merge.wholeFile.pendingJoin"),
+      );
+      if (choice === "cancel") return;
+      wholeFilePendingRef.current = choice === "alt" ? "join" : "new";
     }
     // A strict target format saves in its own version, converting a file
     // that is in the other one.
@@ -2861,6 +2885,9 @@ function AppContent() {
               decisions={decisions}
               changedPersonIds={changedPersonIds}
               branchAddIds={branchAddIds}
+              mergeScope={mergeScope}
+              onMergeScope={(scope) => dispatch({ type: "mergeScopeSet", scope })}
+              wholeFileProgress={wholeFileState}
               showFilters={showFilters}
               setShowFilters={setShowFilters}
               startId={startId}
