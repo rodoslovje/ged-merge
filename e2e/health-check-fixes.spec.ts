@@ -76,7 +76,7 @@ test("fixes picked together run as one step, and one Undo brings them all back",
   await expect(chip(page, "Duplicate pointers")).toBeVisible();
 });
 
-test("health-check fixes repair the file and undo brings a defect back", async ({ page }) => {
+test("health-check fixes repair the file and undo brings a defect back", { tag: "@smoke" }, async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 

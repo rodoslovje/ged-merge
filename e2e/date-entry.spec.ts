@@ -24,7 +24,7 @@ function writeFixture(): string {
   return filePath;
 }
 
-test("a typed date reads back in words and is written in the file's style", async ({ page }) => {
+test("a typed date reads back in words and is written in the file's style", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(writeFixture());
   await page.getByRole("button", { name: "Edit", exact: true }).click();

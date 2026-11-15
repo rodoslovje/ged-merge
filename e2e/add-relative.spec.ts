@@ -12,11 +12,18 @@ test("edit mode: adding father/mother/partner/child creates new people and links
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
+  // The selected person's name, read from the editor's name fields.
+  const selectedName = () =>
+    page.locator(".edit-name-input").evaluateAll((els) => els.map((el) => (el as HTMLInputElement).value).join(" "));
+
   // Navigate up the paternal line until we find someone missing their own parents.
   for (let i = 0; i < 10; i++) {
     if (await page.locator(".edit-parents .person-card-add", { hasText: "Add father" }).count()) break;
+    // The name inputs are already visible before the click, so waiting for them
+    // says nothing: wait until the editor shows a different person.
+    const before = await selectedName();
     await page.locator(".edit-parents .person-card-wrap", { hasText: "Father" }).locator("button.person-card").click();
-    await page.locator(".edit-name-input").first().waitFor();
+    await expect.poll(selectedName).not.toBe(before);
   }
 
   // Add a father — clicking the placeholder opens a search-or-add picker;

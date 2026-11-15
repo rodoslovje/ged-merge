@@ -31,7 +31,7 @@ writeFileSync(CSV, "﻿" + [
   "",
 ].join("\r\n"), "utf-8");
 
-test("a parish-register index merges a register's facts into the tree", async ({ page }) => {
+test("a parish-register index merges a register's facts into the tree", { tag: "@smoke" }, async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 
