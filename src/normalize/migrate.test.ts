@@ -801,3 +801,51 @@ describe("migrateVersion — PEDI, FAMC.STAT, MEDI and RESN in the target's spel
     expect(findings(records, "5.5.1")).toEqual([]);
   });
 });
+
+describe("migrateVersion — a 7.0 PHRASE on the way to 5.5.1, which has none", () => {
+  it("gives an age keyword back as it was", () => {
+    const body = "0 @I1@ INDI\n1 DEAT\n2 AGE CHILD\n1 BURI\n2 AGE STILLBORN\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    expect(findings(records, "7.0")).toEqual([]);
+    const changes: string[] = [];
+    migrateVersion(records, "7.0", "5.5.1", (before, after) => changes.push(`${before} → ${after}`));
+    expect(changes).toContain("AGE < 8y → AGE CHILD");
+    expect(findings(records, "5.5.1")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
+
+    const own = migrated("7.0", "0 @I1@ INDI\n1 DEAT\n2 AGE <1y\n3 PHRASE infant\n", "5.5.1").records;
+    expect(findByPath(record(own, "@I1@"), ["DEAT", "AGE"])!.value).toBe("INFANT");
+  });
+
+  it("keeps every other PHRASE as a note on the nearest line 5.5.1 lets carry one", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 FAMC @F1@\n2 PEDI BIRTH\n3 PHRASE natural child\n2 STAT PROVEN\n3 PHRASE baptism record\n" +
+        "1 FAMC @F2@\n2 PEDI OTHER\n3 PHRASE step-child\n1 ALIA @I2@\n2 PHRASE as Johnny\n" +
+        "1 ADOP\n2 FAMC @F2@\n3 ADOP BOTH\n4 PHRASE both parents\n1 ASSO @I2@\n2 PHRASE best friend\n2 ROLE FRIEND\n" +
+        "1 DEAT\n2 AGE 5y\n3 PHRASE about five\n" +
+        "0 @I2@ INDI\n0 @F1@ FAM\n1 HUSB @I2@\n2 PHRASE the groom\n1 CHIL @I1@\n2 PHRASE eldest\n" +
+        "0 @F2@ FAM\n1 CHIL @I1@\n0 @R1@ REPO\n1 NAME Archive\n" +
+        "0 @S1@ SOUR\n1 TITL Register\n1 REPO @R1@\n2 CALN 1\n3 MEDI BOOK\n4 PHRASE ledger\n2 CALN 2\n3 MEDI OTHER\n4 PHRASE Microfiche reel\n",
+      "5.5.1",
+    );
+    const notes = (node: GedNode) => childrenByTag(node, "NOTE").map((n) => n.value);
+    const indi = record(records, "@I1@");
+    const [famc1, famc2] = childrenByTag(indi, "FAMC");
+    expect(famc1.children.map((c) => `${c.tag} ${c.value}`)).toEqual([
+      "PEDI birth", "STAT proven", "NOTE natural child", "NOTE baptism record",
+    ]);
+    expect(famc2.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["NOTE step-child"]);
+    expect(notes(indi)).toEqual(["as Johnny"]);
+    expect(notes(firstChild(indi, "ADOP")!)).toEqual(["both parents"]);
+    expect(notes(firstChild(indi, "ASSO")!)).toEqual(["best friend"]);
+    expect(notes(firstChild(indi, "DEAT")!)).toEqual(["about five"]);
+    expect(notes(record(records, "@F1@"))).toEqual(["the groom", "eldest"]);
+    const repo = firstChild(record(records, "@S1@"), "REPO")!;
+    expect(notes(repo)).toEqual(["ledger", "Microfiche reel"]);
+    expect(childrenByTag(repo, "CALN").map((c) => c.children.map((m) => `${m.tag} ${m.value}`))).toEqual([["MEDI book"], []]);
+    expect(changes).toContainEqual({ before: "PEDI.PHRASE natural child", after: "FAMC.NOTE natural child" });
+    expect(serializeGedcom(records)).not.toContain("PHRASE");
+    expect(findings(records, "5.5.1")).toEqual([]);
+  });
+});

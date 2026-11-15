@@ -6,7 +6,7 @@ import { hangMediaLinesUnderFile, MIME_TO_EXT, mimeFormOf, relevelRecords } from
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
-import { enumValuesAt } from "../tools/conformance/allows";
+import { allowsChild, enumValuesAt } from "../tools/conformance/allows";
 import { walkNodes } from "./walk";
 
 /**
@@ -58,7 +58,8 @@ import { walkNodes } from "./walk";
  *                                        but `_CREA` restored on the way up), a
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
  *                                        `@VOID@` pointers (see below),
- *                                        `SEX X` → `SEX U` + `_SEX X` (and back)
+ *                                        `SEX X` → `SEX U` + `_SEX X` (and back),
+ *                                        any other `PHRASE` → a `NOTE`
  *
  * A vendor line the upgrade turns into its standard form remembers what it was
  * (`GedNode.upgradedFrom`), so the downgrade gives back that very line — `_FID`
@@ -104,7 +105,9 @@ export function migrateVersion(
     upgradeFamilyAssociations(migratable, ctx);
   } else downgrade(migratable, ctx);
   // After the media moves, so every enumeration sits where the target has it.
-  migrateEnums(records.filter((r) => !SKIP_ROOTS.has(r.tag)), ctx, to);
+  const settled = records.filter((r) => !SKIP_ROOTS.has(r.tag));
+  migrateEnums(settled, ctx, to);
+  if (to === "5.5.1") downgradeLeftovers(settled, ctx);
   return ctx.changed;
 }
 
@@ -234,6 +237,35 @@ function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): v
       parent.children.splice(parent.children.indexOf(node), 1, ...(phrase ? [phrase] : []));
       ctx.changed++;
       ctx.onChange(before, "—");
+    }
+  });
+}
+
+/**
+ * The last 7.0 lines a 5.5.1 file cannot hold, once every other conversion
+ * has run. A `PHRASE` the conversions did not fold into their own 5.5.1 form
+ * (a date's, an age keyword's, a role's, a name type's, an OTHER's) — under a
+ * PEDI, a child link's STAT, a MEDI, a family's HUSB/WIFE/CHIL, an ALIA, an
+ * adoption's ADOP, an ASSO, an age — becomes a NOTE with its text, on the
+ * nearest line up that 5.5.1 lets carry one (the spec table says which).
+ */
+function downgradeLeftovers(records: GedNode[], ctx: MigrateCtx): void {
+  walkWithPath(records, (node, path, line) => {
+    for (const phrase of childrenByTag(node, "PHRASE")) {
+      const text = phrase.value?.trim();
+      const before = `${node.tag}.${describe(phrase)}`;
+      let depth = line.length - 1;
+      while (depth >= 0 && !allowsChild("5.5.1", path.slice(0, depth + 1), "NOTE")) depth--;
+      const host = text && depth >= 0 ? line[depth] : undefined;
+      node.children = node.children.filter((c) => c !== phrase);
+      ctx.changed++;
+      if (!host) {
+        ctx.onChange(before, "—");
+        continue;
+      }
+      const note: GedNode = { level: host.level + 1, tag: "NOTE", value: phrase.value, children: [] };
+      host.children.push(note);
+      ctx.onChange(before, `${host.tag}.${describe(note)}`);
     }
   });
 }
@@ -594,11 +626,15 @@ function signedYear(datePart: string): number | undefined {
   return m[2] ? -Number(m[1]) : Number(m[1]);
 }
 
+/** 5.5.1's age keywords and the bounded 7.0 ages that say them (with the
+ *  keyword, title-cased, as the age's PHRASE). */
+const AGE_KEYWORDS: Record<string, string> = { CHILD: "< 8y", INFANT: "< 1y", STILLBORN: "0y" };
+
 /** 5.5.1 age keywords → bounded 7.0 ages; normalize unit casing and bare years. */
 function upgradeAge(node: GedNode, ctx: MigrateCtx): void {
   const original = node.value!;
   const keyword = original.trim().toUpperCase();
-  const bounded = { CHILD: "< 8y", INFANT: "< 1y", STILLBORN: "0y" }[keyword];
+  const bounded = AGE_KEYWORDS[keyword];
   let value: string;
   if (bounded) {
     value = bounded;
@@ -1016,9 +1052,21 @@ function downgradeDate(node: GedNode, ctx: MigrateCtx): void {
   report(ctx, node, before);
 }
 
-/** 5.5.1 ages know years/months/days only — convert 7.0 weeks to days. */
+/** 5.5.1 ages know years/months/days only — convert 7.0 weeks to days. A
+ *  bounded age whose PHRASE names the 5.5.1 keyword it says (what upgradeAge
+ *  writes) is that keyword again. */
 function downgradeAge(node: GedNode, ctx: MigrateCtx): void {
   const original = node.value!;
+  const phrase = firstChild(node, "PHRASE");
+  const keyword = phrase?.value?.trim().toUpperCase() ?? "";
+  const squeeze = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  if (keyword in AGE_KEYWORDS && squeeze(AGE_KEYWORDS[keyword]) === squeeze(original)) {
+    const before = describe(node);
+    node.value = keyword;
+    node.children = node.children.filter((c) => c !== phrase);
+    report(ctx, node, before);
+    return;
+  }
   if (!/\d\s*w/i.test(original)) return;
   const value = original.replace(/(\d+)\s*w(?:\s+(\d+)\s*d)?/i, (_m, w: string, d?: string) => {
     return `${Number(w) * 7 + Number(d ?? 0)}d`;
