@@ -6,6 +6,8 @@ import { hangMediaLinesUnderFile, MIME_TO_EXT, mimeFormOf, relevelRecords } from
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
+import { allowsChild, enumValuesAt } from "../tools/conformance/allows";
+import { isHtmlNote } from "../gedcom/noteHtml";
 import { walkNodes } from "./walk";
 
 /**
@@ -48,12 +50,18 @@ import { walkNodes } from "./walk";
  *                                        themselves, `TEMP`, `STAT`.`DATE`
  *                                        and the sealing's `FAMC` are spelled
  *                                        alike in both
+ *  - enumerations                      : `PEDI`, a child link's `STAT`, `MEDI`
+ *                                        and `RESN` lower case ⇄ upper case,
+ *                                        from the spec tables; 7.0 `OTHER` +
+ *                                        `PHRASE`; a `RESN` list → its strongest
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
  *                                        `NO` → `_NO`, `SDATE` → `_SDATE` (all
  *                                        but `_CREA` restored on the way up), a
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
  *                                        `@VOID@` pointers (see below),
- *                                        `SEX X` → `SEX U` + `_SEX X` (and back)
+ *                                        `SEX X` → `SEX U` + `_SEX X` (and back),
+ *                                        an event date's `TIME` → `_TIME` (and back),
+ *                                        any other `PHRASE` → a `NOTE`
  *
  * A vendor line the upgrade turns into its standard form remembers what it was
  * (`GedNode.upgradedFrom`), so the downgrade gives back that very line — `_FID`
@@ -73,8 +81,10 @@ export function versionFamily(v: GedcomVersion): VersionFamily {
   return v === "7.0" ? "7.0" : "5.5.1";
 }
 
-/** Roots whose substructures are never merged into the main file. */
-const SKIP_ROOTS = new Set(["HEAD", "TRLR", "SUBM", "SUBN"]);
+/** Roots the record-level migration leaves alone: the header and the
+ *  submission record are `convertVersion`'s (src/save/outputFile.ts), the
+ *  trailer has nothing. The submitter is a record like any other. */
+const SKIP_ROOTS = new Set(["HEAD", "TRLR", "SUBN"]);
 
 /**
  * Migrate `records` in place between spec families. Reports each rewritten
@@ -97,8 +107,65 @@ export function migrateVersion(
     upgrade(migratable, ctx);
     extractInlineMedia(records, ctx);
     upgradeFamilyAssociations(migratable, ctx);
-  } else downgrade(migratable, ctx);
+  } else {
+    downgrade(migratable, ctx);
+    downgradeSubmitterRefns(migratable, ctx);
+    downgradeHeadNote(records, ctx);
+  }
+  // After the media moves, so every enumeration sits where the target has it.
+  const settled = records.filter((r) => !SKIP_ROOTS.has(r.tag));
+  migrateEnums(settled, ctx, to);
+  if (to === "5.5.1") downgradeLeftovers(settled, ctx);
   return ctx.changed;
+}
+
+/**
+ * 7.0's submitter may carry a `REFN` (and an `EXID` the downgrade could only
+ * make one of); 5.5.1's has no `REFN`. It is kept as the `_REFN` extension.
+ */
+function downgradeSubmitterRefns(records: GedNode[], ctx: MigrateCtx): void {
+  for (const subm of records) {
+    if (subm.tag !== "SUBM") continue;
+    for (const refn of childrenByTag(subm, "REFN")) {
+      const before = `SUBM.${describe(refn)}`;
+      retag(refn, "_REFN");
+      ctx.changed++;
+      ctx.onChange(before, `SUBM.${describe(refn)}`);
+    }
+  }
+}
+
+/**
+ * 7.0's header may point at a shared note (`HEAD.SNOTE @N1@`); 5.5.1's header
+ * note is text only. The note's text is copied in (joined to a text note the
+ * header already has, as 5.5.1 allows one), and the record stays for its
+ * other referrers. A pointer to no note says nothing and is dropped.
+ */
+function downgradeHeadNote(records: GedNode[], ctx: MigrateCtx): void {
+  const head = records.find((r) => r.tag === "HEAD");
+  if (!head?.children.some((c) => c.tag === "SNOTE")) return;
+  const notes = new Map(records.filter((r) => r.tag === "NOTE" && r.xref).map((r) => [r.xref!, r]));
+  for (const snote of childrenByTag(head, "SNOTE")) {
+    const before = `HEAD.${describe(snote)}`;
+    const rec = notes.get(snote.value?.trim() ?? "");
+    ctx.changed++;
+    const own = firstChild(head, "NOTE");
+    if (!rec) {
+      head.children = head.children.filter((c) => c !== snote);
+      ctx.onChange(before, "—");
+      continue;
+    }
+    const text = rec.value ?? "";
+    if (own) {
+      own.value = own.value ? `${own.value}\n${text}` : text;
+      head.children = head.children.filter((c) => c !== snote);
+    } else {
+      snote.tag = "NOTE";
+      snote.value = text;
+      snote.children = [];
+    }
+    ctx.onChange(before, "HEAD.NOTE (text)");
+  }
 }
 
 interface MigrateCtx {
@@ -147,6 +214,128 @@ function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const before = describe(node);
   node.value = next;
   report(ctx, node, before);
+}
+
+/**
+ * Depth-first visit with the tags from the record down to the node (the
+ * record's first) and the nodes along that path. Extension subtrees are not
+ * entered: what lies under a `_` tag is the extension's own business.
+ */
+function walkWithPath(records: GedNode[], visit: (node: GedNode, path: string[], line: GedNode[]) => void): void {
+  const path: string[] = [];
+  const line: GedNode[] = [];
+  const go = (node: GedNode): void => {
+    path.push(node.tag);
+    line.push(node);
+    visit(node, path, line);
+    for (const child of [...node.children]) if (!child.tag.startsWith("_")) go(child);
+    path.pop();
+    line.pop();
+  };
+  for (const rec of records) go(rec);
+}
+
+/** The enumerations {@link migrateEnums} respells: `PEDI`, a child link's
+ *  `STAT`, `MEDI` (5.5.1's `TYPE` under a media `FORM`) and `RESN`. ROLE, a
+ *  name's TYPE and an ordinance's STAT have conversions of their own. */
+function isRespelledEnum(tag: string, parentTag: string | undefined): boolean {
+  return tag === "PEDI" || tag === "MEDI" || tag === "RESN"
+    || (tag === "STAT" && parentTag === "FAMC") || (tag === "TYPE" && parentTag === "FORM");
+}
+
+/** 5.5.1's `RESN` holds one value where 7.0's holds a list: the strongest
+ *  restriction of the list is the one kept. */
+const RESN_STRENGTH = ["confidential", "privacy", "locked"];
+
+/**
+ * Spell `PEDI`, a child link's `STAT`, `MEDI` and `RESN` as the target version
+ * does, with the values the spec tables give for the line's place. 7.0 is
+ * upper case, and a value outside its set becomes `OTHER` with the value as
+ * its `PHRASE`. 5.5.1 is lower case: an `OTHER` takes its `PHRASE` when that
+ * is a 5.5.1 value, and is dropped otherwise, the `PHRASE` left in its place
+ * for {@link downgradeLeftovers} to keep as a note. A 7.0 `RESN` list narrows
+ * to its strongest restriction.
+ */
+function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): void {
+  walkWithPath(records, (node, path, line) => {
+    const raw = node.value?.trim();
+    if (!raw || !isRespelledEnum(node.tag, path[path.length - 2])) return;
+    const set = enumValuesAt(to, path);
+    if (!set) return;
+    const before = describe(node);
+    const find = (v: string) => set.find((s) => s.toLowerCase() === v.toLowerCase());
+    const items = node.tag === "RESN" ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [raw];
+    const phrase = firstChild(node, "PHRASE");
+    if (to === "7.0") {
+      const hits = items.map(find);
+      let next: string | undefined;
+      if (hits.every((h) => h !== undefined)) next = hits.join(", ");
+      else if (items.length === 1 && set.includes("OTHER") && !raw.startsWith("_")) {
+        next = "OTHER";
+        if (!phrase) node.children.unshift(plain("PHRASE", raw));
+      }
+      if (next === undefined || next === node.value) return;
+      node.value = next;
+      report(ctx, node, before);
+      return;
+    }
+    const other = items.length === 1 && raw.toUpperCase() === "OTHER";
+    const hits = (other ? [phrase?.value?.trim() ?? ""] : items).map(find);
+    if (hits.every((h): h is string => h !== undefined)) {
+      const rank = (v: string) => (RESN_STRENGTH.includes(v) ? RESN_STRENGTH.indexOf(v) : RESN_STRENGTH.length);
+      const next = [...hits].sort((a, b) => rank(a) - rank(b))[0];
+      if (next === node.value && !other) return;
+      node.value = next;
+      if (other) node.children = node.children.filter((c) => c !== phrase);
+      report(ctx, node, before);
+    } else if (other) {
+      // 5.5.1 has no OTHER: the line goes, and what its PHRASE said stays.
+      const parent = line[line.length - 2];
+      parent.children.splice(parent.children.indexOf(node), 1, ...(phrase ? [phrase] : []));
+      ctx.changed++;
+      ctx.onChange(before, "—");
+    }
+  });
+}
+
+/** 5.5.1's stand-in for an event date's 7.0 `TIME`. */
+const TIME_EXTENSION = "_TIME";
+
+/**
+ * The last 7.0 lines a 5.5.1 file cannot hold, once every other conversion
+ * has run: an event date's `TIME` (see {@link TIME_EXTENSION}). A `PHRASE` the conversions did not fold into their own 5.5.1 form
+ * (a date's, an age keyword's, a role's, a name type's, an OTHER's) — under a
+ * PEDI, a child link's STAT, a MEDI, a family's HUSB/WIFE/CHIL, an ALIA, an
+ * adoption's ADOP, an ASSO, an age — becomes a NOTE with its text, on the
+ * nearest line up that 5.5.1 lets carry one (the spec table says which).
+ */
+function downgradeLeftovers(records: GedNode[], ctx: MigrateCtx): void {
+  walkWithPath(records, (node, path, line) => {
+    // 5.5.1 times only a header's and a change stamp's date: an event's
+    // `TIME` is kept as `_TIME`, which the upgrade restores.
+    if (node.tag === "DATE" && !allowsChild("5.5.1", path, "TIME")) {
+      for (const time of childrenByTag(node, "TIME")) {
+        const before = `DATE.${describe(time)}`;
+        report(ctx, retag(time, TIME_EXTENSION), before);
+      }
+    }
+    for (const phrase of childrenByTag(node, "PHRASE")) {
+      const text = phrase.value?.trim();
+      const before = `${node.tag}.${describe(phrase)}`;
+      let depth = line.length - 1;
+      while (depth >= 0 && !allowsChild("5.5.1", path.slice(0, depth + 1), "NOTE")) depth--;
+      const host = text && depth >= 0 ? line[depth] : undefined;
+      node.children = node.children.filter((c) => c !== phrase);
+      ctx.changed++;
+      if (!host) {
+        ctx.onChange(before, "—");
+        continue;
+      }
+      const note: GedNode = { level: host.level + 1, tag: "NOTE", value: phrase.value, children: [] };
+      host.children.push(note);
+      ctx.onChange(before, `${host.tag}.${describe(note)}`);
+    }
+  });
 }
 
 /** Rewrite a name's `TYPE` into the target version's terms. 7.0 has a closed,
@@ -239,11 +428,21 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
   }
 
   for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
+  for (const rec of records) {
+    for (const { node, type } of untypedEvents(rec)) {
+      const before = `${rec.tag}.${describe(node)}`;
+      node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+      ctx.changed++;
+      ctx.onChange(before, `${rec.tag}.${node.tag}.TYPE ${type}`);
+    }
+  }
 
   walkNodes(records, (node) => {
     if (upgradeExtensionNode(node, ctx)) return;
+    upgradeHtmlNote(node, ctx);
     if (node.tag === "NOTE" && isPointer(node.value) && noteXrefs.has(node.value)) {
       report(ctx, retag(node, "SNOTE"), `NOTE ${node.value}`);
+      keepNoteCitations(node, ctx);
     } else if (node.tag === "ROMN" || node.tag === "FONE") {
       upgradeRomnFone(node, ctx);
     } else if (node.tag === "DATE" && node.value !== undefined) {
@@ -281,15 +480,41 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       migrateStat(node, ctx, "7.0");
     } else if (node.tag === "NAME" && node.level > 0) {
       migrateNameType(node, ctx, "7.0");
-    } else if (node.tag === "PEDI" && node.value !== undefined) {
-      const upper = node.value.trim().toUpperCase();
-      if (upper !== node.value && ["ADOPTED", "BIRTH", "FOSTER", "SEALING"].includes(upper)) {
-        const before = describe(node);
-        node.value = upper;
-        report(ctx, node, before);
-      }
     }
   });
+}
+
+/** 5.5.1 recognizes a note's markup from its text; 7.0 names it on a
+ *  `MIME text/html` line, which a note whose text is HTML (by the editor's
+ *  own test, `isHtmlNote`) gets. */
+function upgradeHtmlNote(node: GedNode, ctx: MigrateCtx): void {
+  if ((node.tag !== "NOTE" && node.tag !== "SNOTE") || isPointer(node.value)) return;
+  if (firstChild(node, "MIME") || !isHtmlNote(node.value ?? "")) return;
+  node.children.unshift({ level: node.level + 1, tag: "MIME", value: "text/html", children: [] });
+  const id = node.xref ? `${node.tag} ${node.xref}` : node.tag;
+  ctx.changed++;
+  ctx.onChange(id, `${id}.MIME text/html`);
+}
+
+/** The extension a shared-note pointer's own citations are kept under in 7.0
+ *  (see {@link keepNoteCitations}). */
+const NOTE_CITATION_EXTENSION = "_NOTE_SOUR";
+
+/**
+ * 5.5 let a pointer to a shared note carry citations (`1 NOTE @N1@` /
+ * `2 SOUR @S1@`); 7.0's `SNOTE` pointer has no lines of its own. Moving them
+ * onto the note record would cite the note for every record sharing it, so
+ * they stay where they are, as an extension (and stay one in 5.5.1, whose
+ * note pointer has no citations either).
+ */
+function keepNoteCitations(snote: GedNode, ctx: MigrateCtx): void {
+  for (const sour of childrenByTag(snote, "SOUR")) {
+    const before = `SNOTE ${snote.value}.${describe(sour)}`;
+    retag(sour, NOTE_CITATION_EXTENSION);
+    delete sour.spelling;
+    ctx.changed++;
+    ctx.onChange(before, `SNOTE ${snote.value}.${describe(sour)}`);
+  }
 }
 
 function retag(node: GedNode, tag: string): GedNode {
@@ -310,6 +535,14 @@ function upgradeExtensionNode(node: GedNode, ctx: MigrateCtx): boolean {
     for (const c of node.children) {
       const up = NOTE_UPGRADES[c.tag];
       if (up) report(ctx, retag(c, up), `${node.tag}.${describe(c)}`);
+    }
+    return false;
+  }
+  // An event date's time, which the downgrade kept as `_TIME`.
+  if (node.tag === "DATE") {
+    for (const c of childrenByTag(node, TIME_EXTENSION)) {
+      const before = `DATE.${describe(c)}`;
+      report(ctx, retag(c, "TIME"), before);
     }
     return false;
   }
@@ -348,6 +581,28 @@ export function upgradeExtensions(records: GedNode[], onChange: (before: string,
   for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
   walkNodes(records, (node) => { upgradeExtensionNode(node, ctx); });
   return ctx.changed;
+}
+
+/**
+ * The `TYPE` 7.0 requires on a person's or a family's generic `EVEN`/`FACT`,
+ * for one that has none. An event's own text names it where it reads as a
+ * name (`EVEN Graduation`: words, no digits, short): 5.5.1 programs write the
+ * kind there. Anything else gets the generic `Event`. A fact's text is its
+ * value (`FACT blue`), never its kind, so a fact gets `Fact`.
+ */
+export function eventTypeFor(node: GedNode): string {
+  const text = node.value?.trim() ?? "";
+  if (node.tag === "EVEN" && text.length <= 40 && /^\p{L}[\p{L} '’.-]+$/u.test(text)) return text;
+  return node.tag === "EVEN" ? "Event" : "Fact";
+}
+
+/** A person's or a family's `EVEN`/`FACT` lines with no `TYPE`, each with
+ *  the one {@link eventTypeFor} gives it. */
+export function untypedEvents(rec: GedNode): Array<{ node: GedNode; type: string }> {
+  if (rec.tag !== "INDI" && rec.tag !== "FAM") return [];
+  return rec.children
+    .filter((c) => (c.tag === "EVEN" || c.tag === "FACT") && !firstChild(c, "TYPE"))
+    .map((node) => ({ node, type: eventTypeFor(node) }));
 }
 
 /**
@@ -460,6 +715,15 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
     phrase = pure[1];
   }
 
+  // An escape written before the qualifier (`@#DJULIAN@ ABT 1700`, against
+  // 5.5.1's order) goes after it, as 7.0 writes the calendar: onto each end
+  // of a range, which it was meant for.
+  const lead = value.match(/^(@#D[A-Z]+(?: R)?@)\s*(ABT|CAL|EST|BEF|AFT|BET|FROM|TO)\s+(.*)$/i);
+  if (lead) {
+    const [, esc, qualifier, rest] = lead;
+    value = `${qualifier} ${esc} ${rest.replace(/\s+(AND|TO)\s+(?!@#)/i, ` $1 ${esc} `)}`;
+  }
+
   // Calendar escape → calendar tag prefix (GREGORIAN, being the default, drops).
   value = value.replace(/@#(D[A-Z]+(?: R)?)@\s*/gi, (m, esc: string) => {
     const cal = CALENDAR_ESCAPES[esc.toUpperCase()];
@@ -512,11 +776,15 @@ function signedYear(datePart: string): number | undefined {
   return m[2] ? -Number(m[1]) : Number(m[1]);
 }
 
+/** 5.5.1's age keywords and the bounded 7.0 ages that say them (with the
+ *  keyword, title-cased, as the age's PHRASE). */
+const AGE_KEYWORDS: Record<string, string> = { CHILD: "< 8y", INFANT: "< 1y", STILLBORN: "0y" };
+
 /** 5.5.1 age keywords → bounded 7.0 ages; normalize unit casing and bare years. */
 function upgradeAge(node: GedNode, ctx: MigrateCtx): void {
   const original = node.value!;
   const keyword = original.trim().toUpperCase();
-  const bounded = { CHILD: "< 8y", INFANT: "< 1y", STILLBORN: "0y" }[keyword];
+  const bounded = AGE_KEYWORDS[keyword];
   let value: string;
   if (bounded) {
     value = bounded;
@@ -619,7 +887,9 @@ function extractInlineMedia(records: GedNode[], ctx: MigrateCtx): void {
   };
   const made: GedNode[] = [];
   walkNodes(records.filter((r) => !SKIP_ROOTS.has(r.tag)), (node) => {
-    if (node.tag !== "OBJE" || node.level === 0 || isPointer(node.value?.trim()) || !firstChild(node, "FILE")) return;
+    // One with no FILE (a 5.5 BLOB, a title alone) goes too: 7.0 has no
+    // inline form for it, and the record keeps what it says.
+    if (node.tag !== "OBJE" || node.level === 0 || isPointer(node.value?.trim()) || node.children.length === 0) return;
     const rec: GedNode = { level: 0, tag: "OBJE", xref: nextXref(), children: node.children, upgradedFrom: { tag: "OBJE" } };
     reindent(rec.children, 1);
     node.value = rec.xref;
@@ -627,8 +897,13 @@ function extractInlineMedia(records: GedNode[], ctx: MigrateCtx): void {
     made.push(rec);
     report(ctx, node, "OBJE (inline)");
   });
+  if (!made.length) return;
+  // Pushed one by one: a spread of a large file's media records would
+  // overflow the call's argument limit.
   const trlr = records.findIndex((r) => r.tag === "TRLR");
-  records.splice(trlr >= 0 ? trlr : records.length, 0, ...made);
+  const tail = records.splice(trlr >= 0 ? trlr : records.length);
+  for (const rec of made) records.push(rec);
+  for (const rec of tail) records.push(rec);
 }
 
 /** The way back for {@link extractInlineMedia}: a media record it made goes
@@ -641,15 +916,21 @@ function inlineExtractedMedia(records: GedNode[], ctx: MigrateCtx): void {
     const target = node.tag === "OBJE" && node.level > 0 ? node.value?.trim() : undefined;
     if (target && made.has(target)) links.set(target, [...(links.get(target) ?? []), node]);
   });
+  const inlined = new Set<GedNode>();
   for (const [xref, [link, ...more]] of links) {
     if (more.length) continue;
     const rec = made.get(xref)!;
     link.children = [...rec.children, ...link.children];
     reindent(link.children, link.level + 1);
     delete link.value;
-    records.splice(records.indexOf(rec), 1);
+    inlined.add(rec);
     report(ctx, link, `OBJE ${xref}`);
   }
+  // One pass over the records, not a search and a splice per record.
+  if (!inlined.size) return;
+  let kept = 0;
+  for (const r of records) if (!inlined.has(r)) records[kept++] = r;
+  records.length = kept;
 }
 
 function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
@@ -710,6 +991,14 @@ function isVoidPointer(value: string | undefined): boolean {
  */
 function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
   walkNodes(records, (node) => {
+    // A child's sealing must name the family (5.5.1's SLGC.FAMC is {1:1}),
+    // so one to parents the file does not record has no 5.5.1 form: it goes.
+    const sealings = node.children.filter((c) => c.tag === "SLGC" && childrenByTag(c, "FAMC").some((f) => isVoidPointer(f.value)));
+    for (const slgc of sealings) {
+      node.children = node.children.filter((c) => c !== slgc);
+      ctx.changed++;
+      ctx.onChange(`${node.tag}.SLGC (FAMC ${VOID_XREF})`, "—");
+    }
     if (!node.children.some((c) => isVoidPointer(c.value))) return;
     const kept: GedNode[] = [];
     for (const child of node.children) {
@@ -934,9 +1223,21 @@ function downgradeDate(node: GedNode, ctx: MigrateCtx): void {
   report(ctx, node, before);
 }
 
-/** 5.5.1 ages know years/months/days only — convert 7.0 weeks to days. */
+/** 5.5.1 ages know years/months/days only — convert 7.0 weeks to days. A
+ *  bounded age whose PHRASE names the 5.5.1 keyword it says (what upgradeAge
+ *  writes) is that keyword again. */
 function downgradeAge(node: GedNode, ctx: MigrateCtx): void {
   const original = node.value!;
+  const phrase = firstChild(node, "PHRASE");
+  const keyword = phrase?.value?.trim().toUpperCase() ?? "";
+  const squeeze = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+  if (keyword in AGE_KEYWORDS && squeeze(AGE_KEYWORDS[keyword]) === squeeze(original)) {
+    const before = describe(node);
+    node.value = keyword;
+    node.children = node.children.filter((c) => c !== phrase);
+    report(ctx, node, before);
+    return;
+  }
   if (!/\d\s*w/i.test(original)) return;
   const value = original.replace(/(\d+)\s*w(?:\s+(\d+)\s*d)?/i, (_m, w: string, d?: string) => {
     return `${Number(w) * 7 + Number(d ?? 0)}d`;

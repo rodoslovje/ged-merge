@@ -51,7 +51,7 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -363,7 +363,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -799,6 +799,15 @@ export function ValidatePanel({
         run: () => onFixConformance("repeats", { id: issue.recordId!, path: issue.path }),
       };
     }
+    // A 7.0 event's or fact's missing TYPE: every line that would get this one.
+    if (issue.eventType && issue.fix !== undefined && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneAdd", { tag: issue.sample, value: issue.fix }),
+        hint: t("tools.validate.fixOneAddTypeHint"),
+        kind: "eventTypes",
+        run: () => onFixConformance("eventTypes", { value: issue.fix }),
+      };
+    }
     // A media file's missing FORM, read off its name.
     if (issue.category === "missingLine" && issue.fix !== undefined && issue.recordId) {
       return {
@@ -1040,9 +1049,13 @@ export function ValidatePanel({
   const conformRepeats = structure?.issues.filter((i) => i.category === "cardinality" && i.repeat && i.recordId).length ?? 0;
   if (conformRepeats > 0) fixActions.push({ kind: "repeats", count: conformRepeats });
   const conformForms = structure?.issues
-    .filter((i) => i.category === "missingLine" && i.fix !== undefined && i.recordId)
+    .filter((i) => i.category === "missingLine" && i.fix !== undefined && !i.eventType && i.recordId)
     .reduce((n, i) => n + (Number(i.messageVars?.count) || 1), 0) ?? 0;
   if (conformForms > 0) fixActions.push({ kind: "forms", count: conformForms });
+  const conformEventTypes = structure?.issues
+    .filter((i) => i.eventType && i.recordId)
+    .reduce((n, i) => n + (Number(i.messageVars?.count) || 1), 0) ?? 0;
+  if (conformEventTypes > 0) fixActions.push({ kind: "eventTypes", count: conformEventTypes });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });

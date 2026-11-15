@@ -27,7 +27,7 @@ export type NormalizeRepairKind = "dangling" | "dups" | "dates" | "nonStandard" 
  *  standard has otherwise. */
 export const NORMALIZE_REPAIRS: readonly NormalizeRepairKind[] = [
   "dangling", "dups", "dates", "nonStandard",
-  "values", "repeats", "forms", "notes", "relocate", "agency", "sourceFields", "extensions", "citationPage", "mediaInfo",
+  "values", "repeats", "forms", "eventTypes", "notes", "relocate", "agency", "sourceFields", "extensions", "citationPage", "mediaInfo",
   "childPedi", "smartMatch", "assoDates", "stamps",
 ];
 
