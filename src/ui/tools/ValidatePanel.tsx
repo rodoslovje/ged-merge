@@ -425,6 +425,13 @@ export function ValidatePanel({
     setMediaMissing(null);
     setMediaChecking(false);
   }, [dataset, folderName]);
+  // "All found" says its piece and goes, bringing the check button back; a
+  // list of missing files stays, as it is work still to do.
+  useEffect(() => {
+    if (mediaMissing === null || mediaMissing.length > 0) return;
+    const id = window.setTimeout(() => setMediaMissing(null), FIX_DONE_MS);
+    return () => window.clearTimeout(id);
+  }, [mediaMissing]);
 
   useEffect(() => {
     if (active) scans.ensure("validate");
