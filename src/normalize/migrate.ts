@@ -2,7 +2,7 @@ import type { GedcomVersion, GedNode } from "../gedcom/types";
 import { RELA_TO_ROLE, ROLE_TO_RELA, VOID_XREF } from "../gedcom/assoc";
 import { firstChild, childrenByTag } from "../gedcom/node";
 import { moveAssociation } from "../gedcom/edit";
-import { hangMediaLinesUnderFile, MIME_TO_EXT, mimeFormOf } from "../gedcom/mediaForm";
+import { hangMediaLinesUnderFile, MIME_TO_EXT, mimeFormOf, relevelRecords } from "../gedcom/mediaForm";
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
@@ -88,6 +88,8 @@ export function migrateVersion(
   onChange: (before: string, after: string) => void,
 ): number {
   if (from === to) return 0;
+  // The conversion asks `level` where a tag sits; a merged line's may be stale.
+  relevelRecords(records);
   const ctx: MigrateCtx = { changed: 0, onChange };
   if (to === "5.5.1") inlineExtractedMedia(records, ctx);
   const migratable = records.filter((r) => !SKIP_ROOTS.has(r.tag));

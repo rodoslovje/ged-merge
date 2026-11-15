@@ -1,6 +1,7 @@
 import { VOID_XREF } from "../gedcom/assoc";
 import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
+import { relevelRecords } from "../gedcom/mediaForm";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { migrateVersion, versionFamily, type VersionFamily } from "../normalize/migrate";
@@ -344,6 +345,9 @@ export function prepareDownload(
   author?: Submitter,
 ): PreparedDownload {
   const from = ownVersion(ds);
+  // Lines a merge or a normalize built may carry a stale `level`; the steps
+  // below read it.
+  relevelRecords(records);
   // The program that wrote the file, before the stamp below names GED Merge.
   const headSour = firstChild(records.find((r) => r.tag === "HEAD") ?? line("HEAD"), "SOUR")?.value;
   const fixes = completeStructure(records, version, true, author);

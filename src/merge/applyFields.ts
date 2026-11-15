@@ -19,6 +19,7 @@ import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedcomVersion, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
+import { relevel } from "../gedcom/mediaForm";
 import { parseDate } from "../gedcom/date";
 import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
 import { nodeSortDate, orderingDate } from "../gedcom/sortDate";
@@ -1726,6 +1727,9 @@ export function materializeEventSources(
   // Everything new at the top level: the records imported from the compare
   // file, and any `SOUR`/`OBJE` a recognized link minted along the way.
   const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
+  // Lines built here may carry `level: 0`; set them from depth (`relevelRecords`).
+  relevel(eventNode, eventNode.level);
+  for (const r of added) relevel(r, 0);
   if (added.length) bumpSourceCacheVersion(dataset.records);
   return added;
 }
@@ -1793,6 +1797,9 @@ export function materializeRecordField(
   if (!applyRecordField(target, incoming, field, choice, sourMap, dataset.records, order, {})) return [];
   importSourRecords(dataset.records, compare, sourMap, {});
   const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
+  // Lines built here may carry `level: 0`; set them from depth (`relevelRecords`).
+  relevel(target, 0);
+  for (const r of added) relevel(r, 0);
   if (added.length) bumpSourceCacheVersion(dataset.records);
   return added;
 }

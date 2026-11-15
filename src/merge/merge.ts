@@ -3,6 +3,7 @@ import type { MatchResult } from "../match/types";
 import { insertGrouped, memoOnContent } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { buildObjeIndex } from "../gedcom/source";
+import { relevelRecords } from "../gedcom/mediaForm";
 import { remapMergedAssociations } from "../gedcom/assoc";
 import { sharedRecordTitle } from "../gedcom/editReport";
 import { setPlaceCoord } from "../gedcom/edit/geo";
@@ -585,6 +586,9 @@ export function mergeDecisions(
   reportAddedSourcePages(records, main, report, t);
 
   report.recordsChanged = touched.size;
+  // The lines built above carry `level: 0` wherever they sit; make them true
+  // before anything (privacy, the 7.0 conversion) reads them.
+  relevelRecords(records);
   return { records, report, pendingSourceLookups: placement.pendingLookups ?? [] };
 }
 
