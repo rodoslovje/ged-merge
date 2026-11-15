@@ -456,31 +456,53 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Ta pa je le pozabljena povezava, zato ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
-        en: "She, though, is just a forgotten link, so we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+        sl: "Ta pa je le pozabljena povezava: oba starša sta že v datoteki.",
+        en: "She, though, is just a forgotten link: both her parents are already in the file.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(700);
+        await d.wait(500);
         await d.highlight(d.page.locator(".edit-parents").first(), 6);
-        await d.wait(700);
+        await d.untilSaid();
         await d.highlight(null);
+      },
+    },
+    {
+      say: {
+        sl: "Za očeta izberemo Franceta Prešerna,",
+        en: "As her father we pick France Prešeren,",
+      },
+      run: async (d) => {
         await pickParent(d, { sl: "Dodaj očeta", en: "Add Father" }, "France", "France Prešeren");
+      },
+    },
+    {
+      say: {
+        sl: "za mater pa Ano Jelovšek.",
+        en: "and as her mother Ana Jelovšek.",
+      },
+      run: async (d) => {
         await pickParent(d, { sl: "Dodaj mater", en: "Add Mother" }, "Ana", "Ana Jelovšek");
         await d.highlight(d.page.locator(".edit-parents").first(), 6);
         await d.untilSaid();
-        await d.wait(600);
         await d.highlight(null);
-        // Run again before the next sentence says what it shows.
+      },
+    },
+    {
+      say: {
+        sl: "Nato pregled zaženemo znova.",
+        en: "Then we run the check again.",
+      },
+      run: async (d) => {
         await backAndRerun(d);
       },
     },
     {
       say: {
-        sl: "Ko pregled zaženemo znova, je ni več na seznamu.",
-        en: "Once the check runs again, she is off the list.",
+        sl: "Na seznamu je ni več.",
+        en: "She is off the list.",
       },
       run: async (d) => {
         await d.highlight(d.page.locator(".tools-chips").first(), 6);
@@ -526,7 +548,7 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.click(dialog.locator(".confirm-dialog-confirm"));
         await dialog.waitFor({ state: "detached" });
-        await d.wait(1000);
+        await d.wait(300);
         await prepare(d, { sl: "Brez ključnih datumov", en: "No vital dates" });
       },
     },
@@ -567,7 +589,16 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         await clickFixWhenSaid(d, "Marija");
-        await showInEdit(d, ".edit-person", 2500);
+      },
+    },
+    {
+      say: {
+        sl: "Pri Mariji je zdaj zapisano rojstvo okoli leta 1670.",
+        en: "Marija now has a birth of about 1670.",
+      },
+      run: async (d) => {
+        await showInEdit(d, ".edit-person", 0);
+        await d.untilSaid();
         await backToTools(d);
         await prepare(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
       },
@@ -694,19 +725,27 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Datum »~1665« je navada drugega programa, standard pa ga zapiše kot »ABT 1665«. Tudi te popravite naenkrat.",
-        en: "A date like ~1665 is another program's habit; the standard writes it as ABT 1665. These you also fix at once.",
+        sl: "Datum »~1665« je navada drugega programa, standard pa ga zapiše kot »ABT 1665«.",
+        en: "A date like ~1665 is another program's habit; the standard writes it as ABT 1665.",
       },
       run: async (d) => {
         await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
-        await d.untilSaid(3);
+        await d.untilSaid();
         await d.highlight(null);
+      },
+    },
+    {
+      say: {
+        sl: "Tudi te popravite naenkrat, z gumboma »Izberi vse popravljive« in »Popravi izbrane«.",
+        en: "These you also fix at once, with Select all fixable and Fix selected.",
+      },
+      run: async (d) => {
         await d.click(chip(d, { sl: "Popravljivo", en: "Fixable" }));
         await d.wait(500);
         await d.click(d.page.locator(".tools-pick-bar .tools-issue-link").first());
         await d.wait(600);
         await d.click(d.page.locator(".tools-pick-bar .tools-run").first());
-        await confirmWhenSaid(d, 2500);
+        await confirmWhenSaid(d);
       },
     },
     {
