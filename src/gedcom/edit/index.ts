@@ -38,7 +38,7 @@ export {
   connectExistingParent, connectExistingPartner, connectExistingChild, impossibleRelatives,
   pruneDegenerateFamily, detachSpouseRole, detachChildFromFamily,
   removeIndividual, removeFamily, foldFamily, familyPointerHolders, familiesNaming, familyMembers, RECORD_OWN_TAGS,
-  pruneRecordsLeftBehind, pointersHeld,
+  pruneRecordsLeftBehind, pointersHeld, addFamilyLink, setFamilySpouse, addFamilyChild,
 } from "./family";
 export { familiesScope, individualsScope, pointerScope, reindexRecord, withPointerIndex } from "./pointerIndex";
 

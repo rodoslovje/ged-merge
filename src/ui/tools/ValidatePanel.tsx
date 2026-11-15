@@ -12,7 +12,7 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
-import type { BrokenLinkRef } from "../../tools/fixLinks";
+import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
@@ -623,14 +623,25 @@ export function ValidatePanel({
    *  above would touch — "→ Female" on the three no-sex spouses among eight. */
   function recordRowFix(issue: ValidationIssue): RowFix | null {
     switch (issue.category) {
-      case "brokenLink":
+      case "brokenLink": {
+        const target = brokenTarget(issue);
+        // A one-way link gets its back-pointer; one to a missing record goes.
+        const oneWay = issue.messageKey.endsWith("NotReciprocal");
+        if (issue.messageKey === "tools.validate.issue.famsNotReciprocal") {
+          // A spouse slot that is taken, or a role the sex can't tell, is the
+          // user's to settle: the fix leaves that link alone.
+          const indi = dataset.individuals.get(issue.id);
+          const fam = target ? dataset.families.get(target) : undefined;
+          if (!indi || !fam || !spouseSlotFor(indi, fam)) return null;
+        }
         return {
-          label: t("tools.validate.fixOneLink"),
-          hint: t("tools.validate.fixOneLinkHint"),
-          removes: true,
+          label: t(oneWay ? "tools.validate.fixOneLinkBack" : "tools.validate.fixOneLink"),
+          hint: t(oneWay ? "tools.validate.fixOneLinkBackHint" : "tools.validate.fixOneLinkHint"),
+          removes: !oneWay,
           kind: "links",
-        run: () => onFixBrokenLinks({ id: issue.id, target: brokenTarget(issue) }),
+        run: () => onFixBrokenLinks({ id: issue.id, target }),
         };
+      }
       case "duplicatePointer":
         return {
           label: t("tools.validate.fixOneDup"),
