@@ -469,7 +469,7 @@ export function ValidatePanel({
         tranFirst ??= issue;
         continue;
       }
-      if (issue.category === "enumValue" && issue.fix !== undefined && !issue.toNote && issue.recordId) {
+      if (isValueFix(issue)) {
         const k = `${issue.messageKey}\0${issue.messageVars?.parent}\0${issue.sample}\0${issue.fix}`;
         const list = valueGroups.get(k);
         if (list) list.push(issue);
@@ -754,8 +754,8 @@ export function ValidatePanel({
         run: () => onFixConformance("notes", { id: issue.recordId!, path: issue.path }),
       };
     }
-    if (issue.category === "enumValue" && issue.fix !== undefined && issue.recordId) {
-      const fix = issue.fix;
+    if (isValueFix(issue)) {
+      const fix = issue.fix!;
       return {
         label: t("tools.validate.fixOneValue", { value: fix }),
         hint: t("tools.validate.struct.fixableTitle", { value: fix }),
@@ -1017,7 +1017,7 @@ export function ValidatePanel({
   if (fixableNonStandard > 0) fixActions.push({ kind: "nonStandard", count: fixableNonStandard });
   // The conformance fixes, counted off the report the way the non-standard
   // dates are: each finding that carries its repair is one the batch makes.
-  const conformValues = structure?.issues.filter((i) => i.category === "enumValue" && i.fix !== undefined && !i.toNote && i.recordId).length ?? 0;
+  const conformValues = structure?.issues.filter((i) => isValueFix(i)).length ?? 0;
   if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
   const conformNotes = structure?.issues.filter((i) => i.toNote && i.recordId).length ?? 0;
   if (conformNotes > 0) fixActions.push({ kind: "notes", count: conformNotes });
@@ -1388,6 +1388,7 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.misplacedStamp",
   "tools.validate.struct.issue.missingMany",
   "tools.validate.struct.issue.smartMatch",
+  "tools.validate.struct.issue.inexactDate",
   TRAN_LANG_KEY,
   "tools.validate.struct.issue.misplacedStamps",
   "tools.validate.struct.issue.unknownTag",
@@ -1397,6 +1398,12 @@ const GROUPED_KEYS = new Set([
 ]);
 function isGrouped(i: StructIssue): boolean {
   return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
+}
+
+/** A value the fix rewrites in place: a mis-spelt enumeration value, or a
+ *  coordinate in the standard's form. */
+function isValueFix(i: StructIssue): boolean {
+  return (i.category === "enumValue" || i.category === "valueFormat") && i.fix !== undefined && !i.toNote && !!i.recordId;
 }
 
 /** Text on an event line (`DEAT 1.5y old`), which the fix moves into a note. */

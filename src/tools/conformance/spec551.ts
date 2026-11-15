@@ -63,7 +63,7 @@ const each = (tags: Record<string, string>, card: string): string =>
 const TEXT_LEAVES = [
   "TXT", "VERS", "NAME", "DEST", "FILE", "COPR", "LANG", "TIME", "ADR1", "ADR2", "ADR3", "CITY",
   "STAE", "POST", "CTRY", "PHON", "EMAIL", "FAX", "WWW", "AGNC", "CAUS", "TYPE", "PAGE", "TEXT",
-  "AUTH", "TITL", "ABBR", "PUBL", "RIN", "RFN", "AFN", "LATI", "LONG", "FORM", "NPFX", "GIVN",
+  "AUTH", "TITL", "ABBR", "PUBL", "RIN", "RFN", "AFN", "FORM", "NPFX", "GIVN",
   "NICK", "SPFX", "SURN", "NSFX", "TEMP", "FAMF", "ANCE", "DESC", "ORDI", "RELA",
 ];
 
@@ -82,8 +82,8 @@ export const SPEC_551: SpecTable = {
     HEAD: ["", "SOUR=HEAD-SOUR:11 DEST:01 DATE=HEAD-DATE:01 SUBM=SUBM-PTR:01 SUBN=SUBN-PTR:01 FILE:01 COPR:01 GEDC:11 CHAR:11 LANG:01 PLAC=HEAD-PLAC:01 NOTE=TXT:01"],
     "HEAD-SOUR": ["T", "VERS:01 NAME:01 CORP:01 DATA=HEAD-SOUR-DATA:01"],
     CORP: ["T", ADDRESS],
-    "HEAD-SOUR-DATA": ["T", "DATE=TXT:01 COPR:01"],
-    "HEAD-DATE": ["D", "TIME:01"],
+    "HEAD-SOUR-DATA": ["T", "DATE=DATE-exact:01 COPR:01"],
+    "HEAD-DATE": ["DX", "TIME:01"],
     GEDC: ["", "VERS:11 FORM=GEDC-FORM:11"],
     "GEDC-FORM": ["E:GEDC-FORM", ""],
     CHAR: ["E:CHAR", "VERS:01"],
@@ -92,8 +92,11 @@ export const SPEC_551: SpecTable = {
     // ── Shared substructures
     ADDR: ["T", "ADR1:01 ADR2:01 ADR3:01 CITY:01 STAE:01 POST:01 CTRY:01"],
     CHAN: ["", "DATE=CHAN-DATE:11 NOTE:0M"],
-    "CHAN-DATE": ["D", "TIME:01"],
+    "CHAN-DATE": ["DX", "TIME:01"],
     DATE: ["D", ""],
+    // DATE_EXACT: an ordinance status's date and the header source's
+    // publication date (CHANGE_DATE's and the header's own carry a TIME).
+    "DATE-exact": ["DX", ""],
     NOTE: ["@NOTE?", "SOUR=SOUR-CIT:0M"],
     "SOUR-CIT": ["@SOUR?", "PAGE:01 EVEN=CIT-EVEN:01 DATA=CIT-DATA:01 QUAY:01 OBJE=OBJE-LINK:0M NOTE:0M TEXT:0M"],
     "CIT-EVEN": ["T", "ROLE:01"],
@@ -115,6 +118,8 @@ export const SPEC_551: SpecTable = {
     PLAC: ["T", "FORM:01 FONE=PLAC-VARIANT:0M ROMN=PLAC-VARIANT:0M MAP:01 NOTE:0M SOUR=SOUR-CIT:0M"],
     "PLAC-VARIANT": ["T", "TYPE:11"],
     MAP: ["", "LATI:11 LONG:11"],
+    LATI: ["LAT", ""],
+    LONG: ["LON", ""],
     AGE: ["A", ""],
     "SUBM-PTR": ["@SUBM", ""],
     "SUBN-PTR": ["@SUBN", ""],
@@ -141,10 +146,10 @@ export const SPEC_551: SpecTable = {
     BAPL: ["", `${LDS} STAT=STAT-BAPL:01`],
     ENDL: ["", `${LDS} STAT=STAT-ENDL:01`],
     SLGC: ["", `${LDS} STAT=STAT-SLGC:01 FAMC=EVEN-FAMC:11`],
-    "STAT-BAPL": ["E:STAT-BAPL", "DATE=TXT:11"],
-    "STAT-ENDL": ["E:STAT-ENDL", "DATE=TXT:11"],
-    "STAT-SLGC": ["E:STAT-SLGC", "DATE=TXT:11"],
-    "STAT-SLGS": ["E:STAT-SLGS", "DATE=TXT:11"],
+    "STAT-BAPL": ["E:STAT-BAPL", "DATE=DATE-exact:11"],
+    "STAT-ENDL": ["E:STAT-ENDL", "DATE=DATE-exact:11"],
+    "STAT-SLGC": ["E:STAT-SLGC", "DATE=DATE-exact:11"],
+    "STAT-SLGS": ["E:STAT-SLGS", "DATE=DATE-exact:11"],
     "INDI-FAMC": ["@FAM", "PEDI:01 STAT=FAMC-STAT:01 NOTE:0M"],
     PEDI: ["E:PEDI", ""],
     "FAMC-STAT": ["E:FAMC-STAT", ""],

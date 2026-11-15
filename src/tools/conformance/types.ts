@@ -17,6 +17,10 @@
  *                `NOTE @N1@` | `NOTE text` and similar)
  *  - `"E:set"`   one value of the enumeration `set`; `"L:set"` a comma list of them
  *  - `"D"`       a date, `"A"` an age, `"G"` a language tag
+ *  - `"DX"`      an exact date: day, month and year (`5 MAR 2020`) — a
+ *                change or creation stamp, the header's date
+ *  - `"LAT"`     a latitude, `N`/`S` and decimal degrees (`N46.05`);
+ *                `"LON"` a longitude, `E`/`W` likewise
  *
  * **Children** — space-separated `TAG:card` (the child's structure id is its
  * tag) or `TAG=id:card`, where `card` is `01`, `11`, `0M`, `1M` or `03` — the

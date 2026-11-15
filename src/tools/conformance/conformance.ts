@@ -7,6 +7,7 @@ import { VOID_XREF } from "../../gedcom/assoc";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
 import { eventTypeFor } from "../../normalize/migrate";
 import { isUnparseable } from "../fixDates";
+import { standardCoordValue } from "../../gedcom/place";
 import type { SpecTable } from "./types";
 import { compile, type Compiled, type Struct } from "./compile";
 import { SPEC_55, SPEC_551, SPEC_555 } from "./spec551";
@@ -138,6 +139,14 @@ const AGE_551 = /^[<>]?\s*(?:CHILD|INFANT|STILLBORN|(?=\d)(?:\d+y)?\s*(?:\d+m)?\
 const AGE_70 = /^[<>]?\s*(?=\d)(?:\d+y)?\s*(?:\d+m)?\s*(?:\d+w)?\s*(?:\d+d)?$/i;
 /** BCP 47, by shape: a 2–8 letter language subtag and any 1–8 character subtags. */
 const BCP47 = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/;
+const MONTHS = "JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC";
+/** 7.0's DateExact: day, month and year, Gregorian, upper case. */
+const EXACT_70 = new RegExp(`^\\d{1,2} (?:${MONTHS}) \\d+$`);
+/** 5.5.1's DATE_EXACT: the same, a 3–4 digit year (or a dual one, 1700/01). */
+const EXACT_551 = new RegExp(`^\\d{1,2}\\s+(?:${MONTHS})\\s+\\d{3,4}(?:/\\d{2})?$`, "i");
+/** LATI / LONG: the hemisphere letter and decimal degrees. */
+const LATI = /^[NS]\d+(?:\.\d+)?$/;
+const LONG = /^[EW]\d+(?:\.\d+)?$/;
 /** The 5.5.1 calendar escapes 7.0 writes as a word (it has no ROMAN or UNKNOWN). */
 const CALENDARS_70: Record<string, string> = {
   GREGORIAN: "GREGORIAN", JULIAN: "JULIAN", HEBREW: "HEBREW", "FRENCH R": "FRENCH_R",
@@ -482,11 +491,46 @@ function checkPayload(
     emit("enumValue", fix ? "enumCase" : "enumValue", fix ? { allowed, standard: fix } : { allowed }, fix);
   } else if (payload === "D") {
     checkCalendar(value, spec.is70, emit);
+  } else if (payload === "DX") {
+    // A date that does not parse at all is "Unparseable dates".
+    if (!(spec.is70 ? EXACT_70 : EXACT_551).test(value) && !isUnparseable(value)) tallyInexact(node, value, loc, ctx, base);
+  } else if (payload === "LAT" || payload === "LON") {
+    if (!(payload === "LAT" ? LATI : LONG).test(value)) {
+      emit("valueFormat", payload === "LAT" ? "badLati" : "badLong", {}, standardCoordValue(value, payload === "LAT" ? "lat" : "lon"));
+    }
   } else if (payload === "A") {
     if (!(spec.is70 ? AGE_70 : AGE_551).test(value)) emit("valueFormat", "badAge", {});
   } else if (payload === "G") {
     if (!BCP47.test(value)) emit("valueFormat", "badLang", {});
   }
+}
+
+/**
+ * A date the standard wants exact (a change or creation stamp, the header's,
+ * an ordinance status's) written as a range, an estimate or a partial date.
+ * The program writes these for itself, so they come as a habit: one row per
+ * place they stand in. The day the stamp meant is not in the value, so there
+ * is no fix.
+ */
+function tallyInexact(
+  node: GedNode, value: string, loc: Loc, ctx: Ctx, base: { recordId?: string; recordTag?: string },
+): void {
+  const parent = loc.where();
+  const k = `\0inexact\0${parent}`;
+  const seen = ctx.misplaced.get(k);
+  if (seen) {
+    seen.count++;
+    return;
+  }
+  ctx.misplaced.set(k, {
+    count: 1,
+    issue: {
+      ...base, category: "valueFormat", severity: "warning",
+      messageKey: "tools.validate.struct.issue.inexactDate",
+      messageVars: { tag: node.tag, parent, sample: truncate(value), version: ctx.spec.version },
+      sample: truncate(value), tooltip: lineOf(node), path: loc.path(),
+    },
+  });
 }
 
 /**

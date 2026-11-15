@@ -353,6 +353,59 @@ describe("value formats and record ids", () => {
     expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TRAN B\n3 LANG Slovenian language`))).toEqual(["badLang"]);
   });
 
+  it("holds stamp, header and ordinance dates to an exact date, one row per place, with no fix", () => {
+    const stamp = (v: string, check = check551) => check(`0 @I1@ INDI\n1 CHAN\n2 DATE ${v}`);
+    for (const ok of ["1 JAN 2020", "15 MAR 1999", "1 FEB 1700/01"]) expect(stamp(ok), ok).toEqual([]);
+    expect(stamp("1 JAN 2020", check70)).toEqual([]);
+    for (const bad of ["ABT 2020", "2020", "MAR 2020", "BET 1 JAN 2020 AND 2 JAN 2020", "@#DJULIAN@ 1 JAN 2020"]) {
+      expect(kinds(stamp(bad)), bad).toEqual(["inexactDate"]);
+      expect(kinds(stamp(bad, check70)), bad).toEqual(["inexactDate"]);
+    }
+    // 7.0 writes its months in capitals; a calendar is not exact either.
+    expect(kinds(stamp("1 Jan 2020", check70))).toEqual(["inexactDate"]);
+    expect(kinds(stamp("JULIAN 1 JAN 2020", check70))).toEqual(["inexactDate"]);
+    // Not readable at all: "Unparseable dates", not this.
+    expect(stamp("včeraj")).toEqual([]);
+    // Every place an exact date stands.
+    expect(validateConformance(dataset(`0 HEAD\n1 SOUR T\n2 DATA D\n3 DATE 2020\n1 DATE ABT 2020\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR`))
+      .map((i) => `${i.messageVars.parent} ${kinds([i])[0]}`).sort()).toEqual(["HEAD.DATE inexactDate", "HEAD.SOUR.DATA.DATE inexactDate"]);
+    expect(kinds(check551(`0 @I1@ INDI\n1 BAPL\n2 STAT COMPLETED\n3 DATE 1990`))).toEqual(["inexactDate"]);
+    expect(kinds(check70(`0 @I1@ INDI\n1 BAPL\n2 STAT COMPLETED\n3 DATE 1990`))).toEqual(["inexactDate"]);
+    expect(kinds(check70(`0 @I1@ INDI\n1 CREA\n2 DATE 2020`))).toEqual(["inexactDate"]);
+    // 7.0's sort date is any date.
+    expect(check70(`0 @I1@ INDI\n1 BIRT\n2 SDATE ABT 1900`)).toEqual([]);
+    // A habit is one row, counted; nothing to fix.
+    const issues = check551(`0 @I1@ INDI\n1 CHAN\n2 DATE 2019\n0 @I2@ INDI\n1 CHAN\n2 DATE 2020`);
+    expect(issues).toMatchObject([{ messageKey: "tools.validate.struct.issue.inexactDate", messageVars: { parent: "INDI.CHAN.DATE", count: 2 }, recordId: "@I1@" }]);
+    expect(issues[0].fix).toBeUndefined();
+    expect(fixConformance(dataset(`${HEAD_551}\n0 @I1@ INDI\n1 CHAN\n2 DATE 2019\n0 TRLR`))).toEqual([]);
+  });
+
+  it("holds LATI and LONG to a hemisphere and decimal degrees, and writes them so", () => {
+    const map = (lati: string, long: string, check = check551) =>
+      check(`0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n3 MAP\n4 LATI ${lati}\n4 LONG ${long}`);
+    for (const check of [check551, check70]) {
+      expect(map("N46.2389", "E14.3556", check)).toEqual([]);
+      expect(map("S33", "W70.5", check)).toEqual([]);
+      expect(map("46.05", "-14.5", check).map((i) => [kinds([i])[0], i.fix])).toEqual([["badLati", "N46.05"], ["badLong", "W14.5"]]);
+      expect(map("n46.05", "E14", check).map((i) => i.fix)).toEqual(["N46.05"]);
+      expect(map(`N46::3::19"`, "E14", check).map((i) => i.fix)).toEqual(["N46.05528"]);
+      // No coordinate, the wrong axis, out of range: reported, nothing to write.
+      expect(map("foo", "E14.5", check).map((i) => [kinds([i])[0], i.fix])).toEqual([["badLati", undefined]]);
+      expect(map("E46", "N14", check).map((i) => i.fix)).toEqual([undefined, undefined]);
+      expect(map("95", "E14", check).map((i) => i.fix)).toEqual([undefined]);
+    }
+  });
+
+  it("fixes a coordinate to the standard form, once", () => {
+    const ds = dataset(`${HEAD_70}\n0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n3 MAP\n4 LATI 46.2389\n4 LONG 14.3556\n0 TRLR`);
+    expect(countFixableConformance(ds, "values")).toBe(2);
+    fixConformance(ds, "values");
+    expect(serializeGedcom(ds.records, ds)).toContain("4 LATI N46.2389\n4 LONG E14.3556\n");
+    expect(validateConformance(ds)).toEqual([]);
+    expect(fixConformance(ds, "values")).toEqual([]);
+  });
+
   it("flags a value on a line that takes none, and moves it into a NOTE where the line may carry one", () => {
     // A change stamp: NOTE allowed beneath it in both versions.
     for (const check of [check551, check70]) {
@@ -988,8 +1041,9 @@ describe("corpus", () => {
     "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
-    // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.
-    "webtrees-5.5.1-utf8.ged": ["enumCase PEDI@INDI.FAMC.PEDI", "enumValue RESN@FAM.MARR.RESN", "enumValue RESN@INDI.BIRT.RESN", "misplaced RESN@OBJE", "misplaced RESN@SOUR", "misplaced TIME@INDI.DEAT.DATE", "tooMany NICK@INDI.NAME"],
+    // webtrees: RESN NONE, RESN on source/media records, TIME on event dates,
+    // coordinates in degrees::minutes::seconds (N46::3::19").
+    "webtrees-5.5.1-utf8.ged": ["badLati LATI@FAM.MARR.PLAC.MAP.LATI", "badLati LATI@INDI.DEAT.PLAC.MAP.LATI", "badLong LONG@FAM.MARR.PLAC.MAP.LONG", "badLong LONG@INDI.DEAT.PLAC.MAP.LONG", "enumCase PEDI@INDI.FAMC.PEDI", "enumValue RESN@FAM.MARR.RESN", "enumValue RESN@INDI.BIRT.RESN", "misplaced RESN@OBJE", "misplaced RESN@SOUR", "misplaced TIME@INDI.DEAT.DATE", "tooMany NICK@INDI.NAME"],
   };
   const files = readdirSync(DIR).filter((f) => f.endsWith(".ged")).sort();
 

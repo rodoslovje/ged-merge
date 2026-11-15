@@ -63,7 +63,10 @@ function payloadCode(struct: string, payload: string): string {
   if (p === "Y|<NULL>") return "Y";
   if (p === "type-Enum") return `E:${enumOf.get(struct)}`;
   if (p === "type-List#Enum") return `L:${enumOf.get(struct)}`;
+  if (p === "type-Date#exact") return "DX";
   if (p.startsWith("type-Date")) return "D";
+  if (p === "type-Latitude") return "LAT";
+  if (p === "type-Longitude") return "LON";
   if (p === "type-Age") return "A";
   if (p.endsWith("#Language")) return "G";
   if (p === "") return "";

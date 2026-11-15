@@ -1058,6 +1058,19 @@ describe("migrateVersion — a child's sealing to unrecorded parents", () => {
   });
 });
 
+describe("migrateVersion — a month's case", () => {
+  it("is capitals in 7.0, so a change stamp stays an exact date", () => {
+    const { records, changes } = migrated(
+      "5.5.1",
+      "0 @I1@ INDI\n1 BIRT\n2 DATE abt 4 Mar 1900\n1 CHAN\n2 DATE 4 Jan 2026\n",
+      "7.0",
+    );
+    expect(serializeGedcom(records)).toContain("2 DATE abt 4 MAR 1900\n1 CHAN\n2 DATE 4 JAN 2026\n");
+    expect(changes).toContainEqual({ before: "DATE 4 Jan 2026", after: "DATE 4 JAN 2026" });
+    expect(findings(records, "7.0").filter((f) => f.includes("inexactDate"))).toEqual([]);
+  });
+});
+
 describe("migrateVersion — a residence's text", () => {
   it("is a NOTE in 5.5.1, whose RESI takes no value", () => {
     const { records, changes } = migrated(

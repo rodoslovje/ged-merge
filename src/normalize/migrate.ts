@@ -763,6 +763,10 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
   // BC era marker → BCE.
   value = value.replace(/\b(\d+)\s*(?:B\.C\.|BC\b)/gi, "$1 BCE");
 
+  // 7.0 spells a month in capitals (`4 Jan 2026` is no 7.0 date, exact or
+  // not); 5.5.1 readers took any case.
+  value = value.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?=\s+\d)/gi, (m) => m.toUpperCase());
+
   // `BET a AND b` must be chronological in 7.0 — swap endpoints when reversed.
   const bet = value.match(/^BET\s+(.+?)\s+AND\s+(.+)$/i);
   if (bet) {
