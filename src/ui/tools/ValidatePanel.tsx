@@ -261,14 +261,15 @@ export function ValidatePanel({
   // up; after a batch of several kinds, how many fixes it made.
   const [picked, setPicked] = useState<Map<string, IssueRow>>(() => new Map());
   const [batchPending, setBatchPending] = useState(false);
-  // A detached branch's removal, asked about: its members and the message
-  // counting everything that goes with them.
+  // A detached branch's (or a disconnected person's) removal, asked about: who
+  // goes and the message counting everything that goes with them.
   const [removeAsk, setRemoveAsk] = useState<{ issue: ValidationIssue; ids: string[]; message: string } | null>(null);
   function askRemoveBranch(issue: ValidationIssue) {
-    const plan = planBranchRemoval(dataset, branchOf(dataset, issue.id));
+    const branch = issue.category === "island";
+    const plan = planBranchRemoval(dataset, branch ? branchOf(dataset, issue.id) : [issue.id]);
     const shared = (tags: string[]) => plan.leftBehind.filter((r) => tags.includes(r.tag)).length;
     const lines: [string, number][] = [
-      ["people", plan.people.length],
+      ["people", branch ? plan.people.length : 0],
       ["families", plan.families.length],
       ["sources", shared(["SOUR"])],
       ["notes", shared(["NOTE", "SNOTE"])],
@@ -280,10 +281,12 @@ export function ValidatePanel({
       .map(([key, count]) => `• ${t(`tools.validate.branchGone.${key}`, { count })}`)
       .join("\n");
     const name = issue.subject;
+    const title = t(branch ? "tools.validate.branchRemoveConfirm" : "tools.validate.personRemoveConfirm", { name });
     setRemoveAsk({
       issue,
       ids: plan.people,
-      message: `${t("tools.validate.branchRemoveConfirm", { name })}\n\n${t("tools.validate.branchRemoveDeleted")}\n${body}`,
+      // A lone person with nothing of their own to take along needs no list.
+      message: body ? `${title}\n\n${t(branch ? "tools.validate.branchRemoveDeleted" : "tools.validate.personRemoveDeleted")}\n${body}` : title,
     });
   }
   const [batchDone, setBatchDone] = useState<number | null>(null);
@@ -1175,7 +1178,7 @@ export function ValidatePanel({
       {removeAsk && (
         <ConfirmDialog
           message={removeAsk.message}
-          confirmLabel={t("tools.validate.branchRemove")}
+          confirmLabel={t(removeAsk.issue.category === "island" ? "tools.validate.branchRemove" : "confirm.delete")}
           danger
           busy
           onConfirm={() => {
@@ -1313,6 +1316,21 @@ export function ValidatePanel({
                         done={fixedRows.has(rowKey(row.issue))}
                         onRemove={() => askRemoveBranch(row.issue)}
                       />
+                    )}
+                    {row.issue.category === "orphan" && (
+                      fixedRows.has(rowKey(row.issue))
+                        ? <span className="tools-issue-fixed">{t("tools.validate.fixOneDone")}</span>
+                        : (
+                          <button
+                            type="button"
+                            className="tools-issue-fix tools-issue-iconfix tools-issue-end"
+                            title={t("tools.validate.personRemoveTip")}
+                            aria-label={t("tools.validate.personRemoveTip")}
+                            onClick={() => askRemoveBranch(row.issue)}
+                          >
+                            <TrashIcon size={13} />
+                          </button>
+                        )
                     )}
                   </li>
                 ) : (

@@ -9866,6 +9866,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 .tools-issue-icon:hover { border-color: var(--accent); }
 .tools-issue-iconfix { display: inline-flex; align-items: center; gap: 4px; margin-left: 0; }
+.tools-issue-iconfix.tools-issue-end { margin-left: auto; align-self: center; }
 /* Its aftermath, while the re-run health check is still in flight. */
 .tools-issue-fixed {
   flex: none; margin-left: auto;

@@ -19,9 +19,12 @@ writeFileSync(FILE, [
   "0 @I5@ INDI", "1 NAME Franc /Kos/", "1 SEX M", "1 BIRT", "2 DATE 1900", "2 SOUR @S1@", "1 FAMS @F2@",
   "0 @I6@ INDI", "1 NAME Neža /Kos/", "1 SEX F", "1 BIRT", "2 DATE 1902", "1 FAMS @F2@",
   "0 @I7@ INDI", "1 NAME Pavel /Kos/", "1 SEX M", "1 BIRT", "2 DATE 1930", "1 FAMC @F2@",
+  // A person linked to nobody, with a note of their own.
+  "0 @I8@ INDI", "1 NAME Sam /Samec/", "1 NOTE @N1@",
   "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@", "1 CHIL @I3@", "1 CHIL @I4@",
   "0 @F2@ FAM", "1 HUSB @I5@", "1 WIFE @I6@", "1 CHIL @I7@",
   "0 @S1@ SOUR", "1 TITL Kos letters",
+  "0 @N1@ NOTE Sam's note",
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
@@ -54,7 +57,7 @@ test("removing a detached branch says what goes and takes it out of the file", a
   const dialog = page.locator(".confirm-dialog");
   await expect(dialog).toContainText("people: 3");
   await expect(dialog).toContainText("families: 1");
-  await expect(dialog).toContainText("sources only this branch cites: 1");
+  await expect(dialog).toContainText("sources cited nowhere else: 1");
   await dialog.getByRole("button", { name: "Remove branch" }).click();
   await expect(chip(page, "Detached branches")).toHaveCount(0);
 
@@ -65,4 +68,17 @@ test("removing a detached branch says what goes and takes it out of the file", a
   expect(text).not.toContain("/Kos/");
   expect(text).not.toContain("Kos letters");
   expect(text).toContain("Tone /Novak/");
+});
+
+test("a disconnected person is deleted from their row, with the note only they used", async ({ page }) => {
+  await openBranches(page);
+  await chip(page, "Disconnected people").click();
+  const row = page.locator(".tools-issue", { hasText: "Sam" });
+  await row.getByRole("button", { name: "Delete this person from the file" }).click();
+  const dialog = page.locator(".confirm-dialog");
+  await expect(dialog).toContainText("Delete Sam Samec");
+  await expect(dialog).toContainText("shared notes used nowhere else: 1");
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(chip(page, "Disconnected people")).toHaveCount(0);
+  await expect(chip(page, "Detached branches")).toBeVisible();
 });
