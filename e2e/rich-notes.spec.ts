@@ -28,7 +28,7 @@ function writeFixture(): string {
   return filePath;
 }
 
-test("edit mode: an HTML note reads as text, is rewritten clean once edited and kept verbatim otherwise", async ({ page }) => {
+test("edit mode: an HTML note reads as text, is rewritten clean once edited and kept verbatim otherwise", { tag: "@smoke" }, async ({ page }) => {
   const fixture = writeFixture();
   await page.goto("/");
 
