@@ -1963,8 +1963,8 @@ function AppContent() {
   const importRecordCount = wholeFileState ? new Set([...importRecords, ...wholeFileState.records]).size : importRecords.size;
   // The incoming people those branches add — Merge marks them as added.
   const branchAddIds = useMemo(
-    () => new Set([...importRecords].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
-    [importRecords],
+    () => new Set([...importRecords, ...(wholeFileState?.records ?? [])].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
+    [importRecords, wholeFileState],
   );
 
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;

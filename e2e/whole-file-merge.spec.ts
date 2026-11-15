@@ -70,6 +70,9 @@ test("the whole incoming file comes across, joined where confirmed", async ({ pa
   // Confirm Janez; Ana stays unreviewed and is joined at the save's question.
   await page.locator(".candidate", { hasText: "Janez" }).first().locator(".candidate-main").click();
   await page.locator(".decision-bar button").first().click();
+  // Marko comes with the whole file whatever is ticked: no "+ add" to press.
+  await expect(page.getByRole("button", { name: "+ add" })).toHaveCount(0);
+  await expect(page.locator(".gm-added-tag", { hasText: "added" })).toHaveCount(1);
   await expect(page.locator(".merge-scope-progress")).toHaveText("Reviewed: 1 of 2");
 
   const text = await save(page, "Merge where name, sex and birth year agree");

@@ -2534,6 +2534,7 @@ export const en = {
   "compare.added.title": "Already in your file — added with this match, so you can edit it in Edit. If the match is no longer confirmed, the person is removed again.",
   "compare.addedElsewhere.title": "Already in your file — added with another match, so you can edit it in Edit.",
   "compare.addedByBranch.title": "Added on save, with a whole branch you marked in the Compare Tree.",
+  "compare.addedByWholeFile.title": "Added on save, with the whole incoming file.",
   "field.given": "Given name",
   "field.surname": "Surname",
   "field.sex": "Sex",

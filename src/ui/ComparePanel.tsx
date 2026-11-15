@@ -42,8 +42,11 @@ interface Props {
   decisions: Map<string, CandidateDecision>;
   /** Main individuals carrying unsaved edits, for a relative's "M" chip. */
   changedPersonIds: Set<string> | undefined;
-  /** Incoming people a branch marked in the Compare Tree adds on save. */
+  /** Incoming people a branch marked in the Compare Tree — or a whole-file
+   *  merge — adds on save. */
   branchAddIds: Set<string>;
+  /** The save brings the whole incoming file: the relatives it adds say so. */
+  wholeFile?: boolean;
   onChange: (next: CandidateDecision) => void;
   /** Escape inside the panel: hand the keyboard back to the match list. */
   onLeave?: () => void;
@@ -69,6 +72,7 @@ export function ComparePanel({
   decisions,
   changedPersonIds,
   branchAddIds,
+  wholeFile,
   onChange,
   canNavigate,
   onNavigate,
@@ -162,7 +166,7 @@ export function ComparePanel({
   /** The marker for a relative a branch marked in the Compare Tree adds on save. */
   function branchTag() {
     return (
-      <span className="gm-added-tag" title={t("compare.addedByBranch.title")}>
+      <span className="gm-added-tag" title={t(wholeFile ? "compare.addedByWholeFile.title" : "compare.addedByBranch.title")}>
         {t("compare.childTaken.label")}
       </span>
     );

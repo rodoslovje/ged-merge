@@ -434,6 +434,7 @@ export function MergeView({
                 <div className="section-body" ref={compareBodyRef}>
                   {current && mainDataset && compareDataset ? (
                     <ComparePanel
+                      wholeFile={mergeScope === "file"}
                       candidate={current}
                       mainDs={mainDataset}
                       compareDs={compareDataset}
