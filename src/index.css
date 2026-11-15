@@ -3449,6 +3449,9 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
+/* The couple's own "+ Add note" / "+ Add link" beside the partner: shown, as
+   "+ Add family event" is — hidden, nothing said a family could hold a note. */
+.edit-family-card-row .edit-name-chip-add { opacity: 1; }
 /* The row that adds an event, under the list it adds to. Always visible (it is
    the way to add an event, not an incidental extra on another row), led by the
    "+ Add event" menu. Sized like the person's own chip row above —
