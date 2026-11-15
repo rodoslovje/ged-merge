@@ -9,6 +9,8 @@ interface PendingConfirm {
   confirmLabel: string;
   /** A third answer, shown left of Cancel (see `choiceDialog`). */
   altLabel?: string;
+  /** Show the confirm and the alt as two equal answers (see ConfirmDialog). */
+  stacked?: boolean;
   resolve: (choice: Choice) => void;
   onConfirmAction?: () => void;
 }
@@ -23,7 +25,7 @@ interface PendingConfirm {
  */
 export function useConfirmDialog(): {
   confirmDialog: (message: string, confirmLabel: string, onConfirmAction?: () => void) => Promise<boolean>;
-  choiceDialog: (message: string, confirmLabel: string, altLabel: string) => Promise<Choice>;
+  choiceDialog: (message: string, confirmLabel: string, altLabel: string, opts?: { stacked?: boolean }) => Promise<Choice>;
   confirmDialogElement: ReactNode;
 } {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
@@ -37,8 +39,8 @@ export function useConfirmDialog(): {
   );
 
   const choiceDialog = useCallback(
-    (message: string, confirmLabel: string, altLabel: string) =>
-      new Promise<Choice>((resolve) => setPending({ message, confirmLabel, altLabel, resolve })),
+    (message: string, confirmLabel: string, altLabel: string, opts?: { stacked?: boolean }) =>
+      new Promise<Choice>((resolve) => setPending({ message, confirmLabel, altLabel, stacked: opts?.stacked, resolve })),
     [],
   );
 
@@ -49,6 +51,7 @@ export function useConfirmDialog(): {
       onConfirm={() => { pending.onConfirmAction?.(); pending.resolve("confirm"); setPending(null); }}
       onCancel={() => { pending.resolve("cancel"); setPending(null); }}
       altLabel={pending.altLabel}
+      stacked={pending.stacked}
       onAlt={pending.altLabel ? () => { pending.resolve("alt"); setPending(null); } : undefined}
     />
   ) : null;

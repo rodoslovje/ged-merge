@@ -12,7 +12,7 @@ import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
 import { withBusyCursor } from "./ui/busyCursor";
 import { citationShownKey } from "./gedcom/source";
-import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
+import { initialWorkspace, workspaceReducer, type MergeScope, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
@@ -1926,6 +1926,20 @@ function AppContent() {
     () => (wholeFile ? wholeFileSummary(compareDataset!, decisions, matches) : undefined),
     [wholeFile, compareDataset, decisions, matches],
   );
+  /** Switch what the save brings across. Choosing the whole file first says
+   *  how many people it adds beyond the ones on the match list — those with no
+   *  candidate never show up there to be reviewed. */
+  async function chooseMergeScope(scope: MergeScope) {
+    if (scope === "file" && compareDataset) {
+      const { candidates } = wholeFileSummary(compareDataset, decisions, matches);
+      const ok = await confirmDialog(
+        t("merge.scope.fileConfirm", { matched: candidates, count: compareDataset.individuals.size - candidates }),
+        t("merge.scope.fileConfirmOk"),
+      );
+      if (!ok) return;
+    }
+    dispatch({ type: "mergeScopeSet", scope });
+  }
 
   // Decode the import-branch key set into engine requests for the merge.
   const importRequests = useMemo<ImportBranchRequest[]>(() => {
@@ -2087,6 +2101,7 @@ function AppContent() {
         t("merge.wholeFile.pendingConfirm", { count: wholeFileState.candidates - wholeFileState.reviewed }),
         t("merge.wholeFile.pendingNew"),
         t("merge.wholeFile.pendingJoin"),
+        { stacked: true },
       );
       if (choice === "cancel") return;
       wholeFilePendingRef.current = choice === "alt" ? "join" : "new";
@@ -2886,7 +2901,7 @@ function AppContent() {
               changedPersonIds={changedPersonIds}
               branchAddIds={branchAddIds}
               mergeScope={mergeScope}
-              onMergeScope={(scope) => dispatch({ type: "mergeScopeSet", scope })}
+              onMergeScope={chooseMergeScope}
               wholeFileProgress={wholeFileState}
               showFilters={showFilters}
               setShowFilters={setShowFilters}

@@ -52,9 +52,19 @@ async function save(page: Page, answer?: string): Promise<string> {
 
 const count = (text: string, line: string) => text.split(line).length - 1;
 
+/** Switch to Whole file; the confirmation counts who comes beyond the list. */
+async function chooseWholeFile(page: Page) {
+  await page.getByRole("tab", { name: "Whole file" }).click();
+  const dialog = page.locator(".confirm-dialog");
+  await expect(dialog).toContainText("on the match list: 2");
+  await expect(dialog).toContainText("no match, added as new: 3");
+  await dialog.getByRole("button", { name: "Bring in the whole file" }).click();
+  await expect(page.getByRole("tab", { name: "Whole file" })).toHaveAttribute("aria-selected", "true");
+}
+
 test("the whole incoming file comes across, joined where confirmed", async ({ page }) => {
   await openMerge(page);
-  await page.getByRole("tab", { name: "Whole file" }).click();
+  await chooseWholeFile(page);
   await expect(page.locator(".merge-scope-progress")).toHaveText("Reviewed: 0 of 2");
 
   // Confirm Janez; Ana stays unreviewed and is joined at the save's question.
@@ -62,7 +72,7 @@ test("the whole incoming file comes across, joined where confirmed", async ({ pa
   await page.locator(".decision-bar button").first().click();
   await expect(page.locator(".merge-scope-progress")).toHaveText("Reviewed: 1 of 2");
 
-  const text = await save(page, "Merge where they agree");
+  const text = await save(page, "Merge where name, sex and birth year agree");
   expect(count(text, "1 NAME Janez /Novak/")).toBe(1);
   expect(count(text, "1 NAME Ana /Kos/")).toBe(1);
   expect(count(text, "1 NAME Marko /Novak/")).toBe(1);
@@ -76,7 +86,7 @@ test("the whole incoming file comes across, joined where confirmed", async ({ pa
 
 test("unreviewed candidates can be added as new people instead", async ({ page }) => {
   await openMerge(page);
-  await page.getByRole("tab", { name: "Whole file" }).click();
+  await chooseWholeFile(page);
   const text = await save(page, "Add as new people");
   expect(count(text, "1 NAME Janez /Novak/")).toBe(2);
   expect(count(text, "1 NAME Ana /Kos/")).toBe(2);
