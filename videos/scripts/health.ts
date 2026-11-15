@@ -61,11 +61,14 @@ async function openChip(d: Director, label: Text): Promise<void> {
   await d.highlight(null);
 }
 
-/** Run one row's own fix and wait until the check has read the file again. */
-async function fixRow(d: Director, text: string): Promise<void> {
+/** Run one row's own fix and wait until the check has read the file again.
+ *  With `secondsBefore`, the click waits for the narration instead: it comes
+ *  that many seconds before the step's last sentence ends. */
+async function fixRow(d: Director, text: string, secondsBefore?: number): Promise<void> {
   const r = row(d, text);
   await d.highlight(r, 4);
   await d.wait(2500);
+  if (secondsBefore !== undefined) await d.untilSaid(secondsBefore);
   await d.click(r.locator(".tools-issue-fix"));
   await d.highlight(null);
   await d.wait(1500);
@@ -353,7 +356,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
       say: {
-        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
+        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: pesnika Franceta Prešerna in Ano Jelovšek.",
         en: "Prešeren's daughter, who died as a baby, is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
       },
       run: async (d) => {
@@ -403,7 +406,8 @@ const scenario: Scenario = {
         en: "Jernej and Mina Prešeren's marriage is recorded without a date. The program gives it a date before the birth of their first child, Šimen.",
       },
       run: async (d) => {
-        await fixRow(d, "Jernej");
+        // The date is written as the narration says what it will be.
+        await fixRow(d, "Jernej", 2);
       },
     },
     {
