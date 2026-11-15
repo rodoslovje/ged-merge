@@ -405,8 +405,15 @@ const scenario: Scenario = {
       run: async (d) => {
         await d.highlight(null);
         await d.scrollTo(view(d).locator(".batch-results"));
-        await d.click(rows(d).first().locator(".tools-issue-link"));
-        await d.page.locator(".edit-person").filter({ visible: true }).first().waitFor();
+        // The list re-renders after the action; a click landing mid-render opens
+        // nothing, so try again until Edit shows.
+        const edit = d.page.locator(".edit-person").filter({ visible: true }).first();
+        for (let tries = 0; tries < 3; tries++) {
+          await d.wait(500);
+          await d.click(rows(d).first().locator(".tools-issue-link"));
+          if (await edit.waitFor({ timeout: 5000 }).then(() => true, () => false)) break;
+        }
+        await edit.waitFor();
         await d.wait(900);
         await d.highlight(d.page.locator(".edit-person .person-media-btn").filter({ visible: true }).first(), 6);
         await d.wait(3000);
