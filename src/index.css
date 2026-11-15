@@ -10609,7 +10609,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-geo-running-pct {
   font-family: var(--font-mono);
   font-size: 0.8em;
-  color: var(--muted);
+  color: var(--accent);
   min-width: 5ch; /* "100 %", "59 s" — the button keeps one width as the number grows */
   font-variant-numeric: tabular-nums;
   text-align: left;
