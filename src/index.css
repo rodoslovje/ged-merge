@@ -7057,6 +7057,10 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   left: 50%;
   bottom: 32px;
   transform: translateX(-50%);
+  /* Centred on `left: 50%` alone, a toast may only grow to half the screen
+     before it wraps; size it to its content, within the screen's gutters. */
+  width: max-content;
+  max-width: calc(100vw - 32px);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -7076,11 +7080,14 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .pwa-toast {
   position: fixed;
   left: 50%;
-  bottom: 32px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px 16px;
+  font-size: 0.9rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -7089,10 +7096,18 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   box-shadow: inset 3px 0 0 var(--accent), 0 8px 32px rgba(0, 0, 0, 0.35);
   animation: save-toast-in 0.2s ease-out;
 }
-.pwa-toast-actions { display: flex; gap: 8px; }
-.pwa-toast-reload {
-  background: var(--accent); border: 1px solid var(--accent); color: var(--bg);
-  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+.pwa-toast-actions { display: flex; gap: 8px; flex: none; }
+/* Both answers one size, each on one line. */
+.pwa-toast-actions button {
+  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.pwa-toast-reload { background: var(--accent); border: 1px solid var(--accent); color: var(--bg); }
+/* A phone: the message across the toast, the answers under it at the right. */
+@media (max-width: 560px) {
+  .pwa-toast { flex-wrap: wrap; width: calc(100vw - 32px); }
+  .pwa-toast > span { flex: 1 1 100%; }
+  .pwa-toast-actions { margin-left: auto; }
 }
 .pwa-toast-reload:hover { filter: brightness(1.08); }
 /* Notices (Notice.tsx): open questions about the loaded file, as strips under
