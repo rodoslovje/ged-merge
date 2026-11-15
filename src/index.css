@@ -10599,9 +10599,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   font-family: var(--font-mono);
   font-size: 0.8em;
   color: var(--muted);
-  min-width: 7ch; /* "43.3 MB" — the button keeps one width as the number grows */
+  min-width: 5ch; /* "100 %", "59 s" — the button keeps one width as the number grows */
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: left;
 }
 .tools-geo-running-cancel { font-size: 0.8em; color: var(--muted); }
 .tools-geo-running:hover .tools-geo-running-cancel { color: var(--danger); }
