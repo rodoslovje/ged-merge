@@ -28,6 +28,7 @@ import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, incomingPageObje, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
@@ -433,7 +434,7 @@ export function applyRows(
     if (row.key === "given" || row.key === "surname") {
       applied = applyNamePart(target, incomingRecord, row.key, choice, sourMap, report.customTags);
     } else if (isRecordField(row.key)) {
-      applied = applyRecordField(target, incomingRecord, row.key, choice, sourMap, records, INDI_CHILD_ORDER, report.customTags);
+      applied = applyRecordField(target, incomingRecord, row.key, choice, sourMap, records, INDI_CHILD_ORDER, report.customTags, placement.overrides);
     } else if (parsed) {
       const { tag, sub } = parsed;
       // The row's own true per-side array positions, not a position parsed
@@ -672,9 +673,10 @@ export function applyNotes(
  * incoming side declares it. Additive only: merging never *removes* a
  * main-side privacy marker (that row is "main-only" and never reaches here).
  */
-export function applyPrivateFlag(target: GedNode, records: GedNode[]): boolean {
+export function applyPrivateFlag(target: GedNode, records: GedNode[], overrides?: FormatOverrides): boolean {
   if (isPrivateNode(target)) return false;
-  setPrivateFlag(target, true, detectPrivacyStyle(records), records);
+  // A strict target forces RESN (Settings → GEDCOM), like every Edit path.
+  setPrivateFlag(target, true, overrides?.privacy ?? detectPrivacyStyle(records), records);
   return true;
 }
 
@@ -709,7 +711,14 @@ export function applyNoEvents(target: GedNode, incomingRecord: GedNode, sourMap:
  * main's first id in place; "both" keeps both. Ids differing only in case
  * count as already present.
  */
-export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
+export function applyFsIds(
+  target: GedNode,
+  incomingRecord: GedNode,
+  choice: FieldChoice,
+  /** A strict target's version: 7.0 writes `EXID`; 5.5.1, which has no EXID,
+   *  keeps the file's extension (else `_FSFTID`), as `preferredFsIdTag` does. */
+  standard?: FormatOverrides["standard"],
+): boolean {
   const incoming = incomingRecord.children.filter((c) => isFsIdNode(c) && c.value?.trim());
   if (!incoming.length) return false;
   const existing = target.children.filter(isFsIdNode);
@@ -718,7 +727,8 @@ export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: Fie
     .map((c) => c.value!.trim().toUpperCase())
     .filter((v, i, a) => !have.has(v) && a.indexOf(v) === i);
   if (!fresh.length) return false;
-  const tag = existing[existing.length - 1]?.tag ?? incoming[0].tag;
+  const own = existing[existing.length - 1]?.tag ?? incoming[0].tag;
+  const tag = standard === "7.0" ? "EXID" : standard && own === "EXID" ? "_FSFTID" : own;
   let rest = fresh;
   if (choice !== "both" && existing.length) {
     existing[0].value = fresh[0];
@@ -1724,6 +1734,7 @@ export function applyRecordField(
   records: GedNode[],
   order: string[],
   customTags: Record<string, CustomTagNode[]>,
+  overrides?: FormatOverrides,
 ): boolean {
   switch (field) {
     case "sex": return setChild(target, "SEX", incoming, choice, order, sourMap, undefined, customTags);
@@ -1733,8 +1744,8 @@ export function applyRecordField(
     case "noEvents": return applyNoEvents(target, incoming, sourMap);
     case "nameTranslations": return applyNameTranslations(target, incoming);
     case "exid": return applyExids(target, incoming);
-    case "fsid": return applyFsIds(target, incoming, choice);
-    case "private": return applyPrivateFlag(target, records);
+    case "fsid": return applyFsIds(target, incoming, choice, overrides?.standard);
+    case "private": return applyPrivateFlag(target, records, overrides);
   }
 }
 
