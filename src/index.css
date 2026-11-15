@@ -409,7 +409,11 @@ button:focus-visible {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  /* At least the button's width, wider for the longest item: a short current
+     value ("Kraji") used to clip "Poenoti in paketno uredi" mid-word. */
+  min-width: 100%;
+  width: max-content;
+  max-width: calc(100vw - 32px);
   z-index: 70;
   padding: 6px;
   max-height: calc(100dvh - 160px);
@@ -430,6 +434,7 @@ button:focus-visible {
   font: inherit;
   font-size: 0.92rem;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 .picker-menu-item:hover {
@@ -2631,6 +2636,10 @@ button:focus-visible {
   display: grid;
   grid-template-columns: repeat(auto-fill, var(--sibling-w));
   gap: 8px;
+}
+/* A phone: two even columns, so a long name never leaves one box per row. */
+@media (max-width: 560px) {
+  .edit-sibling-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .edit-sibling {
   display: flex;
@@ -7057,6 +7066,10 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   left: 50%;
   bottom: 32px;
   transform: translateX(-50%);
+  /* Centred on `left: 50%` alone, a toast may only grow to half the screen
+     before it wraps; size it to its content, within the screen's gutters. */
+  width: max-content;
+  max-width: calc(100vw - 32px);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -7076,11 +7089,14 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .pwa-toast {
   position: fixed;
   left: 50%;
-  bottom: 32px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px 16px;
+  font-size: 0.9rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -7089,10 +7105,18 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   box-shadow: inset 3px 0 0 var(--accent), 0 8px 32px rgba(0, 0, 0, 0.35);
   animation: save-toast-in 0.2s ease-out;
 }
-.pwa-toast-actions { display: flex; gap: 8px; }
-.pwa-toast-reload {
-  background: var(--accent); border: 1px solid var(--accent); color: var(--bg);
-  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+.pwa-toast-actions { display: flex; gap: 8px; flex: none; }
+/* Both answers one size, each on one line. */
+.pwa-toast-actions button {
+  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.pwa-toast-reload { background: var(--accent); border: 1px solid var(--accent); color: var(--bg); }
+/* A phone: the message across the toast, the answers under it at the right. */
+@media (max-width: 560px) {
+  .pwa-toast { flex-wrap: wrap; width: calc(100vw - 32px); }
+  .pwa-toast > span { flex: 1 1 100%; }
+  .pwa-toast-actions { margin-left: auto; }
 }
 .pwa-toast-reload:hover { filter: brightness(1.08); }
 /* Notices (Notice.tsx): open questions about the loaded file, as strips under
@@ -7424,9 +7448,15 @@ body:has(.modal-overlay) {
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
+/* Five tabs don't fit a phone: the bar scrolls sideways rather than widening
+ * the dialog past the screen (its min-content width used to push the whole
+ * modal, body text included, off the right edge). */
 .settings-tabs {
   display: flex;
   gap: 2px;
+  flex: none;
+  overflow-x: auto;
+  scrollbar-width: none;
   margin: 12px 32px;
   padding: 3px;
   background: var(--panel-2);
@@ -7434,7 +7464,8 @@ body:has(.modal-overlay) {
   border-radius: 9px;
 }
 .settings-tabs button {
-  flex: 1 1 0;
+  flex: 1 0 auto;
+  white-space: nowrap;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
@@ -9008,6 +9039,7 @@ kbd {
     border-radius: 0;
     padding: 0 20px 24px;
   }
+  .settings-tabs { margin: 12px 20px; }
   .app {
     padding: 0;
     overflow-y: auto;
@@ -9561,7 +9593,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* One header row: the page, the line, the line's person — then, pushed to the
    end, the head count and the filters' fold toggle. */
 .stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
-.stats-head .tree-mode { flex-wrap: wrap; }
+/* The page and line rows shrink with the screen and scroll sideways, rather
+   than running past its right edge on a phone. */
+.stats-head .tree-mode { flex-shrink: 1; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.stats-head .tree-mode button { flex: none; white-space: nowrap; }
 /* The card's corner tools — show all, the tip — pinned there, so a title that
    wraps never pushes them onto a line of their own. */
 .stats-card-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
@@ -9648,6 +9683,12 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pick .stats-couple { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; flex: 1 1 auto; }
 .stats-relate { margin-left: auto; padding: 4px; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
+/* A phone: two even columns of tiles, filling the card's width. */
+@media (max-width: 560px) {
+  .stats-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-tiles .stats-pick { grid-column: 1 / -1; }
+  .stats-tile { min-width: 0; }
+}
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */
 .stats-columns { display: flex; gap: 2px; align-items: stretch; }
@@ -9991,6 +10032,37 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    or colour of its own and lets .tools-tree-meta / .gm-data dress it. */
 .tools-place-coord { background: none; border: 0; padding: 0; cursor: pointer; }
 .tools-place-coord:hover { color: var(--accent); }
+/* A phone: the pin alone says the place is placed; the numbers take the
+   name's room. A tap opens the panel with them. */
+@media (max-width: 560px) {
+  .tools-place-coord-text { display: none; }
+  /* A long place name used to share its line with the count, the verdict and
+     Hide, and was squeezed into a column a word wide. The row wraps instead:
+     the name keeps the line beside its ▶ (and the place list's checkbox), the
+     rest carries on underneath. A short name still keeps all on one line. */
+  .tools-tree-row { flex-wrap: wrap; row-gap: 2px; }
+  .tools-tree-row > .tools-tree-label { max-width: calc(100% - 26px); }
+  .tools-tree-row:has(> .tools-pick) > .tools-tree-label { max-width: calc(100% - 52px); }
+  /* Where the ▶ (18px + the 8px gap) leads the row, the wrapped line lines up
+     under the name rather than under the ▶: the row is inset by the ▶'s room
+     and the ▶ pulled back into it. */
+  .tools-tree-row:has(> .tools-pair-toggle:first-child, > .tools-pair-toggle-spacer:first-child) { padding-left: 26px; }
+  .tools-tree-row > .tools-pair-toggle:first-child,
+  .tools-tree-row > .tools-pair-toggle-spacer:first-child { margin-left: -26px; }
+  .tools-tree-row > :is(.tools-pair-toggle, .tools-pair-toggle-spacer):first-child + .tools-tree-label { max-width: 100%; }
+  .tools-tree-row > .tools-tree-meta,
+  .tools-tree-row > .tools-reshape-badge,
+  .tools-tree-row > .tools-issue-link { white-space: nowrap; }
+  .tools-tree-row > .tools-tree-meta { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* The filter box takes the width it is given rather than stopping at 340px. */
+  .tools-search { max-width: none; }
+  /* Action bars: each action on one line; the bar wraps between them. */
+  .tools-pick-bar > *, .tools-merge-bar > *, .tools-dup-bulk > * { white-space: nowrap; }
+  .tools-dup-bulk { flex-wrap: wrap; row-gap: 8px; }
+  /* Find duplicates: an xref like I412665969140 cut the names to "Matija M…".
+     On a phone the name and the years are what tell the pair apart. */
+  .tools-pairs .person-ref .person-xref { display: none; }
+}
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
 /* The coordinate and the panel it opens are one control, so the panel is
