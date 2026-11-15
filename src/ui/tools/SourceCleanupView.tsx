@@ -31,7 +31,7 @@ import { type PageMediaGroup, type PageMediaReport } from "../../tools/pageMedia
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
-import { ExpandAllToggle, personMatches, toggledIn, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
+import { ExpandAllToggle, personMatches, toggledIn, TreeSearch, UsageList, useDebounced, usePersonNameIndex, ToolsIntro } from "./shared";
 import { foldSearch, matchesQuery } from "../globalSearch";
 import { useQueryTerms } from "../useQueryTerms";
 import { PersonLink } from "../PersonLink";
@@ -731,7 +731,7 @@ export function SourceCleanupView({
           {/* No heading of its own: the page is called Organize sources, the
               summary counts its groups, and the paragraph below says what the
               list holds — a fourth telling would only repeat them. */}
-          <p className="tools-intro">{t("tools.sources.reshapeIntro")}</p>
+          <ToolsIntro>{t("tools.sources.reshapeIntro")}</ToolsIntro>
 
           {/* One chip per site, the geocoding pages' filter row. Each count is
               the rows the click shows — books, graves, films — not the links
@@ -834,7 +834,7 @@ export function SourceCleanupView({
             <span className="tools-chip-count">{visibleDupGroups.length}</span>
             <div className="tools-dup-bulk">{expandActions}</div>
           </div>
-          <p className="tools-intro">{t("tools.sources.dupIntro")}</p>
+          <ToolsIntro>{t("tools.sources.dupIntro")}</ToolsIntro>
 
           {DUP_KINDS.filter((k) => visibleDupGroups.some((g) => g.kind === k)).map((kind) => (
             <div key={kind} className="tools-dup-kind">
@@ -873,7 +873,7 @@ export function SourceCleanupView({
             <span className="tools-chip-count">{visibleRegroupGroups.length}</span>
             <div className="tools-dup-bulk">{expandActions}</div>
           </div>
-          <p className="tools-intro">{t("tools.sources.regroupIntro")}</p>
+          <ToolsIntro>{t("tools.sources.regroupIntro")}</ToolsIntro>
           <ul className="tools-tree">
             {visibleRegroupGroups.map((group) => (
               <RegroupRow
@@ -899,7 +899,7 @@ export function SourceCleanupView({
             <span className="tools-chip-count">{visiblePageMediaGroups.length}</span>
             <div className="tools-dup-bulk">{expandActions}</div>
           </div>
-          <p className="tools-intro">{t("tools.sources.pageMediaIntro")}</p>
+          <ToolsIntro>{t("tools.sources.pageMediaIntro")}</ToolsIntro>
           <ul className="tools-tree">
             {visiblePageMediaGroups.map((group) => (
               <PageMediaRow

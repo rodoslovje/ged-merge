@@ -29,7 +29,7 @@ import { useSettingsSlice } from "../SettingsContext";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
-import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced, ToolsIntro } from "./shared";
 import { useTranslationLang } from "./TranslationLangSection";
 import { MediaLinkDialog } from "../MediaLinkDialog";
 import { nodeAtPath } from "../../tools/conformance/conformance";
@@ -1043,11 +1043,11 @@ export function ValidatePanel({
           </button>
         ))}
       </div>
-      <p className="tools-fix-hint tools-group-intro">
+      <ToolsIntro>
         {group === "data"
           ? t("tools.validate.group.data.hint")
           : t(target.strict ? "tools.validate.group.gedcom.hint.strict" : "tools.validate.group.gedcom.hint.own", { version })}
-      </p>
+      </ToolsIntro>
       {showRerun && (
         <ul className="tools-fix-list">
           <li className="tools-fix-item">

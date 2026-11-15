@@ -4,6 +4,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { formatCoord } from "../../geo/points";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import type { PlaceGroup } from "./useAddressCoordRows";
+import { ToolsIntro } from "./shared";
 
 /**
  * Give every ticked address of one place the same position.
@@ -59,7 +60,7 @@ export function BulkCoordPanel({
         if (e.key === "Escape" && !e.defaultPrevented) onCancel();
       }}
     >
-      <p className="tools-intro">{t("tools.geocode.addr.bulkIntro")}</p>
+      <ToolsIntro>{t("tools.geocode.addr.bulkIntro")}</ToolsIntro>
       <EventCoordPicker
         place={group.place}
         // The prefix that ticked these rows is also what they are: "Stražišče"

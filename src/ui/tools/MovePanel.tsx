@@ -4,6 +4,7 @@ import { SuggestInput } from "../edit/SuggestInput";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceGroup } from "./useAddressCoordRows";
+import { ToolsIntro } from "./shared";
 
 /**
  * Move the ticked addresses of one place to another place. The destination is a
@@ -56,7 +57,7 @@ export function MovePanel({
         if (e.key === "Escape" && !e.defaultPrevented) onCancel();
       }}
     >
-      <p className="tools-intro">{t("tools.geocode.addr.moveIntro")}</p>
+      <ToolsIntro>{t("tools.geocode.addr.moveIntro")}</ToolsIntro>
       <SuggestInput
         value={target}
         suggestions={places.placeSuggestions}
