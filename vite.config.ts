@@ -232,6 +232,9 @@ export default defineConfig({
         // export, virtual list, match view) are only partly unit-tested; the
         // rest of their paths run in e2e.
         "src/ui/**": { statements: 75, branches: 73, functions: 79, lines: 75 },
+        // The two src/ui modules measured before the rest joined keep their
+        // own floor, so a drop there is not averaged away by the newcomers.
+        "src/ui/{tools/geoImport,useAppHistory}.ts": { statements: 95, branches: 89, functions: 93, lines: 96 },
         "src/worker/**": { statements: 95, branches: 87, functions: 98, lines: 95 },
       },
     },
