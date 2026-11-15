@@ -150,6 +150,7 @@ export default defineConfig({
         // own. In src/ui, list every pure-logic `.ts` module that has a
         // `*.test.ts` beside it (components stay with the e2e suite).
         "src/persist/fingerprint.ts",
+        "src/persist/geoDb.ts",
         "src/persist/idb.ts",
         "src/persist/serializedMain.ts",
         "src/persist/useWorkspacePersistence.ts",
