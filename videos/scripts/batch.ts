@@ -45,7 +45,7 @@ const crit = (d: Director, i: number) => view(d).locator(".batch-crit").nth(i);
 /** A menu option by its whole label (»Ime« must not pick »Ime vsebuje«), or by part of it. */
 const option = (d: Director, text: string, exact = true) =>
   d.page
-    .locator(".dd-menu [role=option], .picker-menu-popover [role=menuitemradio]")
+    .locator(".dd-menu [role=option]")
     .filter({ visible: true })
     .filter({ hasText: exact ? new RegExp(`^\\W*${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\W*$`) : text })
     .first();
@@ -53,35 +53,42 @@ const count = (d: Director) => view(d).locator(".batch-results-count").first();
 const rows = (d: Director) => view(d).locator(".batch-row");
 const actionSelect = (d: Director) => view(d).locator(".batch-action .batch-select").first();
 
-/** Open a menu and pick the option that reads `text`. */
+/** Open a menu and pick the option that reads `text` — slowly enough to read
+ *  the open list first and to see the choice land after. */
 async function choose(d: Director, trigger: Locator, text: string, exact = true): Promise<void> {
   await d.click(trigger);
   await option(d, text, exact).waitFor();
-  await d.wait(350);
+  await d.wait(1000);
   await d.click(option(d, text, exact));
-  await d.wait(500);
+  await d.wait(1100);
 }
 
 /** Add a filter row of the given kind (by its label key) and return it. */
 async function addFilter(d: Director, label: Key): Promise<Locator> {
   const n = await view(d).locator(".batch-crit").count();
-  await choose(d, view(d).locator(".batch-add-filter .picker-menu-btn"), L(d, label));
+  await choose(d, view(d).locator(".batch-add-filter"), L(d, label));
   return crit(d, n);
 }
 
-/** Remove every filter row and the previous action — the clean slate between
- *  examples, or the old action's previews (»bo preskočeno«) fill the new list. */
+/** »Počisti vse«: no filters, no action — the clean slate between examples. */
 async function clearFilters(d: Director): Promise<void> {
-  const none = L(d, "tools.batch.action.none");
-  if ((await actionSelect(d).innerText()).trim().replace(/\s*▾$/, "") !== none) {
-    await d.scrollTo(actionSelect(d));
-    await choose(d, actionSelect(d), none);
-    await d.scrollTo(view(d).locator(".batch-builder"));
-  }
-  while (await view(d).locator(".batch-crit").count()) {
-    await d.click(crit(d, 0).locator(".batch-remove"));
-    await d.wait(250);
-  }
+  await d.scrollTo(view(d).locator(".batch-builder"));
+  await d.click(view(d).locator(".batch-title-row .batch-bar-btn"));
+  await view(d).locator(".batch-crit").first().waitFor({ state: "detached" });
+  await d.wait(1000);
+}
+
+/** Pick in a search field (image or source): type `query` if given, then
+ *  click the option that contains `text`. */
+async function searchPick(d: Director, field: Locator, text: string, query?: string): Promise<void> {
+  await d.click(field.locator(".search-select-input"));
+  await d.wait(600);
+  if (query) await d.page.keyboard.type(query, { delay: 140 });
+  const opt = field.locator(".relative-picker-option").filter({ hasText: text }).first();
+  await opt.waitFor();
+  await d.wait(1100);
+  await d.click(opt);
+  await d.wait(1000);
 }
 
 /** Type into an input as a person would. */
@@ -90,20 +97,20 @@ async function type(d: Director, input: Locator, text: string): Promise<void> {
   // Select what is there and type over it: emptying a number field first
   // leaves the app's 0 behind (»018«).
   await input.press("ControlOrMeta+a");
-  await d.page.keyboard.type(text, { delay: 60 });
+  await d.page.keyboard.type(text, { delay: 110 });
 }
 
 /** Apply the action to the checked rows and wait for the report. */
 async function apply(d: Director): Promise<void> {
   await d.click(view(d).locator(".batch-action .tools-run"));
-  const confirm = view(d).locator(".batch-confirm .nav-btn.primary");
-  await confirm.waitFor();
-  await d.highlight(view(d).locator(".batch-confirm"), 4);
-  await d.wait(1500);
+  const dialog = d.page.locator(".confirm-dialog");
+  await dialog.waitFor();
+  await d.highlight(dialog, 6);
+  await d.wait(2500);
   await d.highlight(null);
-  await d.click(confirm);
+  await d.click(dialog.locator(".confirm-dialog-confirm"));
   await view(d).locator(".batch-done").waitFor();
-  await d.wait(400);
+  await d.wait(800);
   await d.highlight(view(d).locator(".batch-done"), 4);
 }
 
@@ -112,16 +119,16 @@ async function save(d: Director, name: string): Promise<void> {
   const input = view(d).locator(".batch-save-name");
   await d.scrollTo(input);
   await type(d, input, name);
-  await d.wait(300);
+  await d.wait(700);
   await d.click(view(d).locator(".batch-save .nav-btn"));
-  await d.wait(600);
+  await d.wait(1300);
 }
 
 /** Back from the Edit view to the batch tool, where the filters are kept. */
 async function backToTools(d: Director): Promise<void> {
   await d.click(d.page.locator(".seg-btn").nth(2));
   await view(d).waitFor();
-  await d.wait(500);
+  await d.wait(900);
 }
 
 /** Copy the died-young image into the browser's private file system and store that folder as the media folder. */
@@ -200,8 +207,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Paketna opravila", en: "Batch actions" },
       say: {
-        sl: "Odprimo izsek iz avtorjevega rodovnika. V Orodjih izberite »Poenoti in paketno uredi«. Filtri izberejo osebe iz celotne datoteke, seznam pokaže zadetke, izbrani ukrep pa se izvede nad vsemi označenimi.",
-        en: "Let's open the excerpt of the author's tree. In Tools, choose Normalize & batch. Filters pick people from the whole file, the list shows the matches, and the action you choose is applied to every ticked one.",
+        sl: "Odprimo izsek iz avtorjevega rodovnika. V Orodjih izberite »Poenoti in paketno uredi«. Levo filtri izberejo osebe iz celotne datoteke, desno so zadetki, izbrani ukrep pa se izvede nad vsemi označenimi.",
+        en: "Let's open the excerpt of the author's tree. In Tools, choose Normalize & batch. On the left, filters pick people from the whole file; on the right are the matches; and the action you choose is applied to every ticked one.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -280,15 +287,20 @@ const scenario: Scenario = {
     {
       callout: { sl: "Umrli mladi", en: "Died young" },
       say: {
-        sl: "Drugi primer: otroci, ki so umrli mladi. Filter »Živi« nastavimo na umrle, »Starost« pa na manj kot 20 let. Starost se pri umrlih šteje ob smrti. Najdemo 185 oseb.",
-        en: "A second example: children who died young. We set Living to deceased and Age to less than 20 years. For the deceased, age counts at death. We find 185 people.",
+        sl: "Drugi primer: otroci, ki so umrli mladi. Z gumbom »Počisti vse« začnemo znova. Filter »Živi« nastavimo na umrle, »Starost« pa na manj kot 20 let. Starost se pri umrlih šteje ob smrti. Najdemo 185 oseb.",
+        en: "A second example: children who died young. Clear all starts us over. We set Living to deceased and Age to less than 20 years. For the deceased, age counts at death. We find 185 people.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.scrollTo(view(d).locator(".batch-builder"));
         await clearFilters(d);
+        // Recording only: the Living filter starts at "yes", which would list
+        // the living people of this file for a moment — never shown in a
+        // public video. The matches stay hidden until it reads "deceased".
+        const hide = await d.page.addStyleTag({ content: ".batch-results .batch-list { visibility: hidden; }" });
         const living = await addFilter(d, "tools.batch.crit.living");
         await choose(d, living.locator(".batch-select").first(), L(d, "tools.batch.living.no"));
+        await hide.evaluate((el) => (el as Element).remove());
         const age = await addFilter(d, "tools.batch.crit.age");
         // 20 years is the filter's own default: ring it rather than retype it.
         await d.highlight(age, 4);
@@ -305,7 +317,7 @@ const scenario: Scenario = {
         await d.highlight(null);
         await d.scrollTo(actionSelect(d));
         await choose(d, actionSelect(d), L(d, "tools.batch.action.addMedia"));
-        await choose(d, view(d).locator(".batch-action .batch-media-select"), L(d, "tools.batch.newMedia"));
+        await searchPick(d, view(d).locator(".batch-action .search-select"), L(d, "tools.batch.newMedia"));
         const inputs = view(d).locator(".batch-action input.batch-input");
         await type(d, inputs.nth(0), DIED_YOUNG);
         await type(d, inputs.nth(1), "died-young");
@@ -332,14 +344,14 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Dodamo še filter »Mediji« s pogojem, da te slike nimajo. Zdaj ne ustreza nihče. Filter shranimo kot »Umrli mladi«: ko vnesete novega otroka, ki je umrl mlad, ga bo našel.",
-        en: "We add one more filter, Media, for people without this image. Now nobody matches. We save the filter as Died young: when you enter another child who died young, it will find them.",
+        sl: "Dodamo še filter »Mediji« s pogojem, da te slike nimajo. Sliko poiščemo tako, da vtipkamo del imena. Zdaj ne ustreza nihče. Filter shranimo kot »Umrli mladi«: ko vnesete novega otroka, ki je umrl mlad, ga bo našel.",
+        en: "We add one more filter, Media, for people without this image; we find the image by typing part of its name. Now nobody matches. We save the filter as Died young: when you enter another child who died young, it will find them.",
       },
       run: async (d) => {
         await d.scrollTo(view(d).locator(".batch-builder"));
         const media = await addFilter(d, "tools.batch.crit.media");
         await choose(d, media.locator(".batch-select").first(), L(d, "tools.batch.media.lacks"));
-        await choose(d, media.locator(".batch-media-select"), "died-young", false);
+        await searchPick(d, media.locator(".search-select"), "died-young", "died");
         await d.highlight(count(d), 4);
         await d.wait(1500);
         await d.highlight(null);
