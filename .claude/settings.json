@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "blockReadsOutsideWorkingDirectories": false,
     "allow": [
       "Bash",
       "Read",
