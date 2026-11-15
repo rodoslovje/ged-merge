@@ -512,8 +512,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Nepovezane veje", en: "Detached branches" },
       say: {
-        sl: "Nepovezana veja je skupina oseb, povezanih le med sabo. Tu je Svetinova družina zapisana še enkrat, kot ostanek uvoza, ki ni bil nikoli pripet.",
-        en: "A detached branch is a group of people linked only to each other. Here the Svetina family is written a second time, left over from an import that was never attached.",
+        sl: "Nepovezana veja je skupina oseb, povezanih le med sabo. Tu je ta oseba s staršema zapisana še enkrat, kot ostanek uvoza, ki ni bil nikoli pripet.",
+        en: "A detached branch is a group of people linked only to each other. Here this person and her parents are written a second time, left over from an import that was never attached.",
       },
       run: async (d) => {
         await d.highlight(row(d, "Mina Svetina"), 4);
@@ -725,11 +725,11 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Datum »~1665« je navada drugega programa, standard pa ga zapiše kot »ABT 1665«.",
-        en: "A date like ~1665 is another program's habit; the standard writes it as ABT 1665.",
+        sl: "GEDCOM ima predpisan standard za zapis datuma. Datumi, ki jih je drug program zapisal po svoje, se prepišejo v predpisano obliko.",
+        en: "GEDCOM prescribes how a date is written. Dates another program wrote its own way are rewritten in the prescribed form.",
       },
       run: async (d) => {
-        await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
+        await d.highlight(d.page.locator(".tools-issues").first(), 6);
         await d.untilSaid();
         await d.highlight(null);
       },

@@ -635,14 +635,14 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 4 | »Smrt pred rojstvom« → Mina Prešeren → Urejanje, 1723 → 1823 | Klik na težavo odpre osebo v Urejanju. Ena napačna števka povzroči tri težave. |
 | 5 | »Zaženi znova« | Ob ponovnem pregledu izginejo vse tri. |
 | 6 | »Nepovezane osebe« → obroč na »Odstrani osebo« → Terezija → Urejanje: poveži s staršema | Odvečno osebo odstranite z gumbom; ta je le pozabljena povezava. |
-| 6a | »Nepovezane veje« → obroč na prenos in »Odstrani vejo« → potrditev s seznamom → odstrani | Svetinova družina še enkrat, ostanek uvoza; vejo prenesete ali odstranite. |
+| 6a | »Nepovezane veje« → obroč na prenos in »Odstrani vejo« → potrditev s seznamom → odstrani | Ta oseba s staršema še enkrat, ostanek uvoza; vejo prenesete ali odstranite. |
 | 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
 | 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
 | 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |
 | 10 | »Živi nad 99 let«: Marija obroč → »Izberi vse popravljive« → »Popravi izbrane« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl. Med njimi je zdaj tudi Marija: popravek je odkril novo težavo. |
 | 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se prepiše v obliko GEDCOM, sklic na manjkajoč vir se odstrani. |
 | 12 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
-| 13 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« → enako vse naenkrat | `~1665` je navada drugega programa, standard pa piše `ABT 1665`. |
+| 13 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« → enako vse naenkrat | GEDCOM ima predpisan standard za zapis datuma; drugače zapisani datumi se prepišejo. |
 | 14 | Nazaj na »Težave v podatkih« → prazen seznam | Drevo je počiščeno. |
 | 15 | Zaključna kartica | |
 
