@@ -448,7 +448,7 @@ function newId(ctx: ParishIndexContext, kind: "I" | "F"): string {
 function personChildren(person: NamedPerson, sex: Sex | undefined): GedNode[] {
   const children: GedNode[] = [node(1, "NAME", `${person.given} /${person.surname}/`)];
   // An alternate spelling is a name of its own — the German or Italian form the
-  // register used, or the second given name — so it is written as a `TYPE aka`
+  // register used, or the second given name — so it is written as a `TYPE AKA`
   // NAME record and reshaped to whatever the main file does with such names.
   const alts: string[] = [];
   if (person.altSurname) alts.push(`${person.given} /${person.altSurname}/`);
@@ -459,7 +459,7 @@ function personChildren(person: NamedPerson, sex: Sex | undefined): GedNode[] {
       level: 1,
       tag: "NAME",
       value,
-      children: [node(2, "TYPE", "aka")],
+      children: [node(2, "TYPE", "AKA")],
     });
   }
   if (sex) children.push(node(1, "SEX", sex));
@@ -754,7 +754,11 @@ function links(cell: string): string[] {
 
 function finish(records: GedNode[]): Dataset {
   const parsed: ParseResult = {
-    version: "5.5.1",
+    // The records are written in 7.0's form — the witnesses' `ASSO @VOID@` +
+    // `PHRASE` under the event, `TYPE AKA` — so they say so: normalizing
+    // against a 5.5.1 main then runs the version downgrade, which restates
+    // each of them in 5.5.1's own form.
+    version: "7.0",
     charset: "UTF-8",
     records,
     warnings: [],
