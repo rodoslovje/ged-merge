@@ -34,6 +34,20 @@ import type { Scenario } from "../lib/types.ts";
 const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "rodbina-renko.ged");
 const MEDIA_DIR = process.env.VIDEO_MEDIA_DIR ?? path.join(os.homedir(), "Work", "rod", "renko-ged", "media");
 const DIED_YOUNG = "icons/died-young.jpg";
+/** The folder holds more than the one icon — the photos episode 12 shows — so
+ *  the picker lists a real folder before typing narrows it to one image. */
+const MEDIA_FILES = [
+  DIED_YOUNG,
+  "portraits/Renko-Franc-1901.jpg",
+  "portraits/Renko-Franc-1901-2.jpg",
+  "portraits/Starasinic-Neza-1906.jpg",
+  "portraits/Rakar-Alojzija-1903.jpg",
+  "portraits/Rakar-Antonija-1908.jpg",
+  "portraits/Jekovec-Peter-1935.jpg",
+  "family/Rakar-Tonka-Palcic-Toni.jpg",
+  "family/Jekovec-Pavle+Cvetka+Peter.jpg",
+  "weddings/Renko-Edvard+Jekovec-Cvetka-1962.jpg",
+];
 
 /** Tools in the tab row: 0 stats, 1 places, 2 sources, 3 validate, 4 duplicates, 5 normalize & batch, 6 privacy. */
 const BATCH_TAB = 5;
@@ -133,22 +147,24 @@ async function backToTools(d: Director): Promise<void> {
   await d.wait(900);
 }
 
-/** Copy the died-young image into the browser's private file system and store that folder as the media folder. */
+/** Copy the media files into the browser's private file system and store that folder as the media folder. */
 async function connectMediaFolder(d: Director): Promise<void> {
-  const b64 = readFileSync(path.join(MEDIA_DIR, DIED_YOUNG)).toString("base64");
+  const files = MEDIA_FILES.map((rel) => ({ rel, b64: readFileSync(path.join(MEDIA_DIR, rel)).toString("base64") }));
   await d.page.evaluate(
-    async ([rel, data]) => {
+    async (list) => {
       const root = await navigator.storage.getDirectory();
       try {
         await root.removeEntry("media", { recursive: true });
       } catch { /* first run */ }
       const media = await root.getDirectoryHandle("media", { create: true });
-      const segs = rel.split("/");
-      let dir = media;
-      for (const s of segs.slice(0, -1)) dir = await dir.getDirectoryHandle(s, { create: true });
-      const w = await (await dir.getFileHandle(segs[segs.length - 1], { create: true })).createWritable();
-      await w.write(Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
-      await w.close();
+      for (const { rel, b64 } of list) {
+        const segs = rel.split("/");
+        let dir = media;
+        for (const s of segs.slice(0, -1)) dir = await dir.getDirectoryHandle(s, { create: true });
+        const w = await (await dir.getFileHandle(segs[segs.length - 1], { create: true })).createWritable();
+        await w.write(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+        await w.close();
+      }
       // The app's own store for the folder (MediaFolderContext): restored on load.
       await new Promise<void>((resolve, reject) => {
         const req = indexedDB.open("gedmerge", 1);
@@ -162,7 +178,7 @@ async function connectMediaFolder(d: Director): Promise<void> {
         };
       });
     },
-    [DIED_YOUNG, b64] as const,
+    files,
   );
 }
 
@@ -370,7 +386,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Vsem pripnemo isto sličico, da jih v drevesu takoj prepoznamo. Izberite »Pripni medij« in poiščite sliko v mapi z mediji: dovolj je, da vtipkate del njenega imena.",
+        sl: "Vsem pripnemo isto sličico, da jih v drevesu takoj prepoznamo. Za ukrep izberite »Pripni medij« in poiščite sliko v mapi z mediji: dovolj je, da vtipkate del njenega imena.",
         en: "We attach the same small image to all of them, so they stand out in the tree at once. Choose Attach media and find the image in your media folder: typing part of its name is enough.",
       },
       run: async (d) => {
@@ -425,12 +441,28 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poroke brez datuma", en: "Undated marriages" },
       say: {
-        sl: "Tretji primer: poroke brez datuma. Filtru »Sorodniki: ima partnerja« dodamo filter »Zveza« z možnostjo »nima datuma« za poroko.",
-        en: "A third example: marriages without a date. Next to Relatives has a partner, we add the Union filter, set to has no date for Marriage.",
+        sl: "Tretji primer: poroke brez datuma.",
+        en: "A third example: marriages without a date.",
       },
       run: async (d) => {
         await clearFilters(d);
+      },
+    },
+    {
+      say: {
+        sl: "Dodamo filter »Sorodniki: ima partnerja«.",
+        en: "We add the filter Relatives: has a partner.",
+      },
+      run: async (d) => {
         await addFilter(d, "tools.batch.crit.relation");
+      },
+    },
+    {
+      say: {
+        sl: "In filter »Zveza« z možnostjo »nima datuma« za poroko.",
+        en: "And the Union filter, set to has no date for Marriage.",
+      },
+      run: async (d) => {
         const union = await addFilter(d, "tools.batch.crit.familyEvent");
         await choose(d, union.locator(".batch-select").first(), L(d, "tools.batch.event.undated"));
       },
