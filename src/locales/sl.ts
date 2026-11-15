@@ -1920,7 +1920,7 @@ export const sl = {
   "edit.noEvent.label": "Se ni zgodilo:",
   "edit.noEvent.add": "Se ni zgodilo",
   "edit.noEvent.addTooltip": "Zapišite dogodek, ki se tej osebi ni zgodil — na primer da ni bila krščena ali se ni izselila",
-  "edit.noEvent.addFamilyTooltip": "Zapišite dogodek, ki se temu paru ni zgodil — na primer da poroke ali ločitve ni bilo",
+  "edit.addEvent.happened": "Dogodek:",
   "edit.noEvent.remove": "Odstrani navedbo, da se dogodek »{{event}}« ni zgodil",
   "edit.fsId": "FamilySearch ID",
   "edit.fsIdTooltip": "Uredi FamilySearch ID",

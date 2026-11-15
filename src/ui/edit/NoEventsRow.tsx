@@ -56,11 +56,17 @@ export function NoEventsRow({
 }
 
 /**
- * "+ Did not happen" — the menu of events the record may state did not happen.
- * Leaves out the ones already stated and the ones the record actually holds:
- * saying a recorded marriage never happened is a contradiction the health check
- * reports, not something to offer.
+ * The events a record may state did not happen: `offer` less the ones already
+ * stated and the ones the record actually holds — saying a recorded marriage
+ * never happened is a contradiction the health check reports, not something
+ * to offer.
  */
+export function deniableTags(assertions: NegativeAssertion[], offer: readonly string[], recordedTags: Set<string>): string[] {
+  const stated = new Set(assertions.map((a) => a.tag));
+  return offer.filter((tag) => !stated.has(tag) && !recordedTags.has(tag));
+}
+
+/** "+ Did not happen" — the menu of {@link deniableTags}. */
 export function AddNoEventSelect({
   assertions,
   offer,
@@ -78,10 +84,9 @@ export function AddNoEventSelect({
   tooltip: string;
   onAdd: (tag: string) => void;
 }) {
-  const stated = new Set(assertions.map((a) => a.tag));
   return (
     <AddEventSelect
-      tags={offer.filter((tag) => !stated.has(tag) && !recordedTags.has(tag))}
+      tags={deniableTags(assertions, offer, recordedTags)}
       label={t("edit.noEvent.add")}
       tooltip={tooltip}
       t={t}

@@ -37,7 +37,7 @@ import { PersonCard } from "../PersonCard";
 import type { MediaRefContext } from "../MediaViewer";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { AddEventSelect } from "./AddEventSelect";
-import { AddNoEventSelect, NoEventsRow } from "./NoEventsRow";
+import { deniableTags, NoEventsRow } from "./NoEventsRow";
 import { addNegativeAssertion, NO_FAM_EVENT_TAGS, removeNegativeAssertion } from "../../gedcom/negative";
 import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
@@ -717,16 +717,10 @@ export const FamilySection = memo(function FamilySection({
               t={t}
               labelOf={familyEventLabel}
               onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
-            />
-          )}
-          {fam && (
-            <AddNoEventSelect
-              assertions={fam.noEvents ?? []}
-              offer={NO_FAM_EVENT_TAGS}
-              recordedTags={new Set(fam.events.map((e) => e.tag))}
-              t={t}
-              tooltip={t("edit.noEvent.addFamilyTooltip")}
-              onAdd={(tag) => commitFamily(fam, (f) => addNegativeAssertion(f.raw, tag, dataset.version))}
+              // What the couple never had — no marriage, no divorce — ends the
+              // same menu, so it is found where the events are.
+              denyTags={deniableTags(fam.noEvents ?? [], NO_FAM_EVENT_TAGS, new Set(fam.events.map((e) => e.tag)))}
+              onDeny={(tag) => commitFamily(fam, (f) => addNegativeAssertion(f.raw, tag, dataset.version))}
             />
           )}
           {fam && (

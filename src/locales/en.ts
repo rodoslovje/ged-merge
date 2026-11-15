@@ -1674,7 +1674,7 @@ export const en = {
   "edit.noEvent.label": "Did not happen:",
   "edit.noEvent.add": "Did not happen",
   "edit.noEvent.addTooltip": "State that an event did not happen to this person — never baptised, never emigrated",
-  "edit.noEvent.addFamilyTooltip": "State that an event did not happen to this couple — no marriage, no divorce",
+  "edit.addEvent.happened": "Event:",
   "edit.noEvent.remove": "Remove the statement that {{event}} did not happen",
   "edit.fsId": "FamilySearch ID",
   "edit.fsIdTooltip": "Edit the FamilySearch ID",
