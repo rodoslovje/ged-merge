@@ -22,7 +22,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ |
 | 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
 | 15 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ |
-| 16 | Pregled | — | odloženo |
+| 16 | Pregled | — | scenarij in demo datoteka |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -618,40 +618,76 @@ zadetkov s predogledom ocen.
 
 ## 16. Pregled: čiščenje podatkov
 
-**Odloženo:** `rodbina-renko` ima le vsebinske težave (20), nobene težave skladnosti
-z GEDCOM, smrti pred rojstvom ali pokvarjene povezave — kadri 4–7 bi potrebovali
-namerno vnesene napake.
-**Ideja:** »Domnevno živi« — osebe, starejše od 100 let, brez zapisane smrti; v
-`rodbina-renko` jih je malo, zato jih poiščemo in označimo kot umrle (dogodek smrti).
-To sodi sem, ne v epizodo 13.
-**Cilj:** poiskati in popraviti napake v podatkih in skladnost z GEDCOM; skupinsko
-popravilo.
-**Podatki:** vaše anonimizirano drevo (resnične napake) ali kopija Prešernovega drevesa
-z namerno vnesenimi napakami (smrt pred rojstvom, pokvarjena povezava, nestandarden
-datum) — glej odprta vprašanja. · **Trajanje:** ~4 min
+**Cilj:** pokazati, katere napake Pregled najde in kako jih popravite: večino z gumbom v
+samem Pregledu, nekatere v Urejanju, vse popravljive pa naenkrat. Ocena rojstva in poroke
+v Pregledu je ista kot pri paketnih opravilih »Dodaj ocenjeno leto rojstva (ABT, CAL)« in
+»Dodaj ocenjen datum poroke (BEF, ABT)«.
+**Podatki:** `demo/preseren-hawlina-pregled.ged`, kopija Prešernovega drevesa z namerno
+vnesenimi napakami; to povesta glava datoteke (NOTE) in govor. · **Trajanje:** ~5 min
 **Naslovna slika:** oznaka »Pregled« · »Počistite *napake* v drevesu« · posnetek
 seznama težav s številkami.
+
+### Kaj Pregled preveri (seznam na zaslonu)
+
+Kot seznam zbirk v epizodi 14: overlay `list` na začetku, obroč pa hodi po filtrih.
+Govor seznama ne bere, le povzame skupine. Imena so oznake filtrov iz `sl.ts`.
+
+- **Povezave:** Pokvarjene povezave, Podvojeni kazalci, Isti par dvakrat, Krožni predniki,
+  Dve družini staršev, Nepovezane, Nepovezane skupine
+- **Datumi:** Smrt pred rojstvom, Dogodek zunaj življenjske dobe, Datumi v prihodnosti,
+  Neberljivi datumi, Neobstoječi datumi
+- **Starosti:** Starost ob poroki, Starost ob smrti, Starost starša, Starostna razlika
+  zakoncev, Navedena starost, Rojstvo po smrti starša, Rojstvo pred poroko
+- **Manjkajoči podatki:** Brez imena, Brez spola, Brez ključnih datumov, Poroka brez
+  datuma, Živi nad 99 let
+- **Zapis GEDCOM:** skladnost s standardom 5.5.1 ali 7.0 (drugi zavihek)
+
+### Demo datoteka `preseren-hawlina-pregled.ged`
+
+Kopija `preseren-hawlina.ged`. Napake 1–9 popravi gumb v Pregledu, 10–11 popravite v
+Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kakor sta.
+
+| # | Oseba, zapis | Vnesena napaka | Kaj pokaže Pregled | Popravek |
+|---|---|---|---|---|
+| — | Matija Prešeren, Jera Mulej, Marija Prešeren, Simon Muhovec | *(resnično)* rojstvo brez smrti | Živi nad 99 let | »Dodaj smrt« (DEAT Y) |
+| — | 14 datumov, npr. `~1665`, `<1687`, `>1835` | *(resnično)* | Nestandardni datumi (zavihek GEDCOM) | → `ABT 1665` … |
+| 1 | Jožef Prešeren, rojstvo | `01 MAR 1698` → `1. 3. 1698` | Neberljivi datumi | → `1 MAR 1698` |
+| 2 | Ana Jelovšek | brez `SEX` | Brez spola | → Ženska (iz vloge žene) |
+| 3 | Simon Muhovec in Marija Legat | HUSB in WIFE zamenjana | Spol proti vlogi (oba) | zamenja vlogi |
+| 4 | družina Franceta in Ane | `CHIL` Ernestine dvakrat | Podvojeni kazalci | »Odstrani podvojeno« |
+| 5 | Ernestina Jelovšek | `FAMS` na družino, ki je ni | Pokvarjene povezave | »Odstrani povezavo« |
+| 6 | Šimen Prešeren in Mina Svetina | poroka v drugi družini istega para | Isti par dvakrat | »Združi v eno« |
+| 7 | France Prešeren, rojstvo | navedba vira `@S1@`, ki ga ni | Neobstoječi sklici | »Odstrani sklic« |
+| 8 | Marija, žena Matije Prešerna | rojstvo (`~1670`) odstranjeno | Brez ključnih datumov | → `ABT 1670` |
+| 9 | Jernej Prešeren in Mina Prešeren | poroka `~1761` → `MARR Y` | Poroka brez datuma | → `BEF 23 OCT 1762` (rojstvo Šimna) |
+| 10 | Mina Prešeren, smrt | `1823` → `1723` (napačna števka) | Smrt pred rojstvom; posledično še Dogodek zunaj življenjske dobe in Rojstvo po smrti starša (Šimen) | v Urejanju popravite letnico, ob ponovnem pregledu izginejo vse tri |
+| 11 | Terezija Jelovšek (1839–1840) | brez povezave s starši | Nepovezane | v Urejanju jo povežete kot otroka Franceta in Ane |
+
+### Kadri
 
 | # | Kader | Govor |
 |---|-------|-------|
 | 1 | Naslovna kartica | Tudi v skrbno vodenem drevesu se naberejo napake. Pregled jih najde v nekaj sekundah. |
-| 2 | Orodja → Pregled → »Težave v podatkih« | Pregled preveri vsebino: manjkajoče podatke, nemogoče datume in nenavadne starosti. |
-| 3 | Klik na »Smrt pred rojstvom« → oseba v Urejanju | Klik na težavo odpre osebo v Urejanju, kjer jo popravite. |
-| 4 | »Pokvarjene povezave« → »Odstrani povezavo« | Nekaterih napak v Urejanju ne vidite, na primer pokvarjenih povezav. Te popravite kar tukaj. |
-| 5 | Zavihek »Skladnost z GEDCOM« | Drugi zavihek preveri, ali je datoteka zapisana po standardu GEDCOM. |
-| 6 | Nestandarden datum → »Popravi« | Nestandarden datum program prepiše v standardno obliko. |
-| 7 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat. Pred tem vidite seznam popravkov s številom. |
-| 8 | »Zaženi znova« | Ko datoteko spremenite, pregled zaženete znova. |
-| 9 | Zaključna kartica | |
+| 2 | Odpri datoteko; glava (NOTE) | V tej kopiji Prešernovega drevesa smo napake vnesli namerno. |
+| 3 | Orodja → Pregled → »Težave v podatkih«; seznam na zaslonu | Pregled preveri povezave, datume, starosti in manjkajoče podatke, drugi zavihek pa še zapis GEDCOM. |
+| 4 | »Smrt pred rojstvom« → Mina Prešeren → Urejanje, 1723 → 1823 | Klik na težavo odpre osebo v Urejanju. Ena napačna števka povzroči tri težave. |
+| 5 | »Zaženi znova« | Ob ponovnem pregledu izginejo vse tri. |
+| 6 | »Nepovezane« → Terezija → Urejanje: poveži s staršema | Oseba brez družine je pogosto le pozabljena povezava. |
+| 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
+| 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
+| 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |
+| 10 | »Živi nad 99 let« → »Dodaj smrt« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl; zapis smrti ga loči od živih. |
+| 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se zapiše tako kot ostali. |
+| 12 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« | Drugi zavihek preveri zapis po standardu: `~1665` postane `ABT 1665`. |
+| 13 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
+| 14 | Ponoven pregled: »Živi nad 99 let« → Marija → »Dodaj smrt« | Popravek lahko odkrije novo težavo: z ocenjenim rojstvom je Marija zdaj starejša od 99 let. |
+| 15 | Zaključna kartica | |
 
 ---
 
 ## Odprta vprašanja
 
-1. **Epizoda 16 (Pregled):** `rodbina-renko` nima napak skladnosti, smrti pred
-   rojstvom ali pokvarjenih povezav. Namerno vnesene napake v kopiji drevesa le z
-   dovoljenjem, in v videu to povemo — ali pa scenarij skrajšamo na vsebinske težave.
-2. **Epizoda 14 (Uredi vire):** BillionGraves, Legacy.com, Newspapers.com in Geneanet
+1. **Epizoda 14 (Uredi vire):** BillionGraves, Legacy.com, Newspapers.com in Geneanet
    Trees v Prešernovem drevesu nimajo preverjenega primera, zato jih le naštejemo.
    Zavihka Hrambe ne pokažemo (ni podatkov FamilySearch). Za aplikacijo preverite: po
    pretvorbi dLib »Poezije« (1847) se je povezava Google Knjig »Poezije« (1958) občasno
