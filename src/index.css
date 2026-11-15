@@ -9801,6 +9801,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-pick-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 8px; min-height: 2rem; }
 .tools-pick-bar .tools-run { margin: 0; }
 .tools-pick { flex: none; margin: 0; align-self: center; cursor: pointer; }
+.tools-pick--blank { visibility: hidden; cursor: default; }
 .tools-tran-list .tools-tran-parts { flex: 0 1 auto; }
 .tools-tran-part .picker-menu-btn {
   width: auto;

@@ -593,12 +593,15 @@ export function ValidatePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles]);
 
-  const pickable = (row: IssueRow) => !!repairOf(row) &&!fixedRows.has(rowKey(row.issue));
+  const pickable = (row: IssueRow) => !!repairOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
     () => shown.filter(pickable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [shown, fixedRows],
   );
+  // The checkbox column, on every row of a list where any row has a repair.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pickColumn = useMemo(() => shown.some((r) => repairOf(r)), [shown]);
   const fixableTotal = useMemo(
     () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1399,7 +1402,7 @@ export function ValidatePanel({
                 const current = i === selected ? "true" : undefined;
                 return row.kind === "record" ? (
                   <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
-                    <PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
+                    <PickBox row={row} pickable={pickable(row)} column={pickColumn} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
                     <span className="tools-issue-msg"><LinkedTags text={t(row.issue.messageKey, issueVars(row.issue))} headSour={headSour} /></span>
                     <RowFixButton
@@ -1434,7 +1437,7 @@ export function ValidatePanel({
                 ) : (
                   <StructRow
                     key={`s-${row.issue.category}-${i}`}
-                    pick={<PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />}
+                    pick={<PickBox row={row} pickable={pickable(row)} column={pickColumn} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />}
                     onEditSource={setEditSrc}
                     issue={row.issue}
                     zebra={zebra}
@@ -1471,16 +1474,25 @@ export function ValidatePanel({
 function PickBox({
   row,
   pickable,
+  column,
   picked,
   onToggle,
 }: {
   row: IssueRow;
   pickable: boolean;
+  /** Whether the list shows a checkbox column at all. */
+  column: boolean;
   picked: boolean;
   onToggle: (row: IssueRow) => void;
 }) {
   const { t } = useTranslation();
-  if (!pickable) return null;
+  // A list with a checkbox column keeps it on every row: a row with nothing
+  // to pick holds the place, so the names stay in one line.
+  if (!pickable) {
+    return column
+      ? <input type="checkbox" className="tools-pick tools-pick--blank" disabled tabIndex={-1} aria-hidden />
+      : null;
+  }
   return (
     <input
       type="checkbox"
