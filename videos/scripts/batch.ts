@@ -533,11 +533,11 @@ const scenario: Scenario = {
         await d.scrollTo(actionSelect(d));
         await choose(d, actionSelect(d), L(d, "tools.batch.action.estimateMarriage"));
         await d.scrollTo(view(d).locator(".batch-results"));
-        await d.highlight(rows(d).filter({ hasText: "BEF" }).first().locator(".batch-preview"), 4);
+        await d.highlight(rows(d).filter({ has: d.page.locator(".batch-preview", { hasText: /→ (<|BEF)/ }) }).first().locator(".batch-preview"), 4);
         await d.wait(900);
         await d.snapshot();
         await d.wait(3500);
-        await d.highlight(rows(d).filter({ hasText: "ABT" }).first().locator(".batch-preview"), 4);
+        await d.highlight(rows(d).filter({ has: d.page.locator(".batch-preview", { hasText: /→ (~|ABT)/ }) }).first().locator(".batch-preview"), 4);
       },
     },
     {
