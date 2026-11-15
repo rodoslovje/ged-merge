@@ -427,6 +427,14 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
   }
 
   for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
+  for (const rec of records) {
+    for (const { node, type } of untypedEvents(rec)) {
+      const before = `${rec.tag}.${describe(node)}`;
+      node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+      ctx.changed++;
+      ctx.onChange(before, `${rec.tag}.${node.tag}.TYPE ${type}`);
+    }
+  }
 
   walkNodes(records, (node) => {
     if (upgradeExtensionNode(node, ctx)) return;
@@ -537,6 +545,28 @@ export function upgradeExtensions(records: GedNode[], onChange: (before: string,
   for (const rec of records) if (rec.tag === "INDI") upgradeMarriedNames(rec, ctx);
   walkNodes(records, (node) => { upgradeExtensionNode(node, ctx); });
   return ctx.changed;
+}
+
+/**
+ * The `TYPE` 7.0 requires on a person's or a family's generic `EVEN`/`FACT`,
+ * for one that has none. An event's own text names it where it reads as a
+ * name (`EVEN Graduation`: words, no digits, short): 5.5.1 programs write the
+ * kind there. Anything else gets the generic `Event`. A fact's text is its
+ * value (`FACT blue`), never its kind, so a fact gets `Fact`.
+ */
+export function eventTypeFor(node: GedNode): string {
+  const text = node.value?.trim() ?? "";
+  if (node.tag === "EVEN" && text.length <= 40 && /^\p{L}[\p{L} '’.-]+$/u.test(text)) return text;
+  return node.tag === "EVEN" ? "Event" : "Fact";
+}
+
+/** A person's or a family's `EVEN`/`FACT` lines with no `TYPE`, each with
+ *  the one {@link eventTypeFor} gives it. */
+export function untypedEvents(rec: GedNode): Array<{ node: GedNode; type: string }> {
+  if (rec.tag !== "INDI" && rec.tag !== "FAM") return [];
+  return rec.children
+    .filter((c) => (c.tag === "EVEN" || c.tag === "FACT") && !firstChild(c, "TYPE"))
+    .map((node) => ({ node, type: eventTypeFor(node) }));
 }
 
 /**

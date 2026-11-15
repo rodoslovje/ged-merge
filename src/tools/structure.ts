@@ -108,6 +108,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a text SOUR inside a citation, made its
    *  PAGE by the fix file-wide. */
   citationPage?: boolean;
+  /** Conformance `missingLine`: a 7.0 EVEN/FACT with no TYPE, which the fix
+   *  adds file-wide (the value is `fix`). */
+  eventType?: boolean;
   /** Set by the findings list on the one row it shows for many equal value
    *  fixes (same line, same value, same fix): how many it stands for. */
   groupCount?: number;

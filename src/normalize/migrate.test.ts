@@ -677,6 +677,21 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(changes).toContain("SUBM.REFN 7 → SUBM._REFN 7");
   });
 
+  it("gives a generic event or fact the TYPE 7.0 requires", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 EVEN Graduation\n2 DATE 1900\n1 EVEN 3 cows\n1 FACT blue\n" +
+        "1 FACT tall\n2 TYPE Height\n0 @F1@ FAM\n1 EVEN\n1 FACT x\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const types = (rec: GedNode) => rec.children.map((c) => `${c.tag} ${c.value ?? ""}: ${childValue(c, "TYPE")}`);
+    expect(types(record(records, "@I1@"))).toEqual(["EVEN Graduation: Graduation", "EVEN 3 cows: Event", "FACT blue: Fact", "FACT tall: Height"]);
+    expect(types(record(records, "@F1@"))).toEqual(["EVEN : Event", "FACT x: Fact"]);
+    expect(changes).toContain("INDI.EVEN Graduation → INDI.EVEN.TYPE Graduation");
+    expect(changes).toContain("FAM.EVEN → FAM.EVEN.TYPE Event");
+  });
+
   it("joins a header's shared note to the text note it already has", () => {
     const { records } = converted(
       "7.0",

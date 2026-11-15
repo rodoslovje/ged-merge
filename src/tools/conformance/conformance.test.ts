@@ -413,6 +413,47 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("adds the TYPE a 7.0 event or fact lacks, once", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 EVEN Graduation
+2 DATE 1900
+1 EVEN 1900 in Ljubljana
+1 FACT blue
+1 FACT tall
+2 TYPE Height
+0 @F1@ FAM
+1 EVEN
+0 TRLR`);
+    const missing = validateConformance(ds).filter((i) => i.messageVars.tag === "TYPE");
+    expect(missing.map((i) => [i.messageVars.parent, i.fix, i.eventType])).toEqual([
+      ["INDI.EVEN", "Graduation", true], ["INDI.EVEN", "Event", true], ["INDI.FACT", "Fact", true], ["FAM.EVEN", "Event", true],
+    ]);
+    expect(countFixableConformance(ds, "eventTypes")).toBe(4);
+    expect(countFixableConformance(ds, "forms")).toBe(0);
+    const before = serializeGedcom(ds.records, ds);
+
+    // A row's own button adds only the type it names.
+    fixConformance(ds, "eventTypes", { value: "Graduation" });
+    expect(countFixableConformance(ds, "eventTypes")).toBe(3);
+    const patches = fixConformance(ds, "eventTypes");
+    expect(patches.map((p) => p.id)).toEqual(["@I1@", "@F1@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 EVEN Graduation\n2 TYPE Graduation\n2 DATE 1900\n1 EVEN 1900 in Ljubljana\n2 TYPE Event\n1 FACT blue\n2 TYPE Fact\n1 FACT tall\n2 TYPE Height\n");
+    expect(out).toContain("0 @F1@ FAM\n1 EVEN\n2 TYPE Event\n");
+    expect(validateConformance(ds)).toEqual([]);
+    // Idempotent: nothing left to add.
+    expect(fixConformance(ds, "eventTypes")).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(countFixableConformance(ds, "eventTypes")).toBe(3);
+    expect(serializeGedcom(ds.records, ds)).not.toBe(before);
+  });
+
+  it("does not ask a 5.5.1 event for a TYPE", () => {
+    expect(check551("0 @I1@ INDI\n1 EVEN Graduation\n1 FACT blue").filter((i) => i.messageVars.tag === "TYPE")).toEqual([]);
+  });
+
   it("moves media titles and formats kept beside FILE under it, in every media record", () => {
     const ds = dataset(`${HEAD_551}
 0 @O1@ OBJE

@@ -5,6 +5,7 @@ import { nameType70 } from "../../gedcom/name";
 import { isVoidPointer } from "../../gedcom/uri";
 import { VOID_XREF } from "../../gedcom/assoc";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
+import { eventTypeFor } from "../../normalize/migrate";
 import { isUnparseable } from "../fixDates";
 import type { SpecTable } from "./types";
 import { compile, type Compiled } from "./compile";
@@ -98,6 +99,9 @@ export interface ConformanceIssue {
   /** Set on a text `SOUR` inside a citation — a page typed under the wrong
    *  tag: the fix makes it the citation's `PAGE`. */
   citationPage?: boolean;
+  /** Set on a 7.0 person's or family's `EVEN`/`FACT` with no `TYPE`: the fix
+   *  adds the one `fix` names (the event's own text, or `Event`/`Fact`). */
+  eventType?: boolean;
 }
 
 /** A text (not pointer) `SOUR` line inside a citation, with no lines of its own. */
@@ -266,9 +270,16 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       const add = recordId && tag === "FORM" && node.tag === "FILE" && node.value
         ? fileFormOf(node.value, spec.is70)
         : undefined;
-      if (add) {
-        // One row per form the fix would write, however many files lack it.
-        const k = `\0form\0${loc.where()}\0${add}`;
+      // A 7.0 event's or fact's missing TYPE is the kind 5.5.1 left implicit:
+      // the fix writes what the 5.5.1 → 7.0 conversion would.
+      const eventType = recordId && spec.is70 && tag === "TYPE" && tags.length === 2
+        && (node.tag === "EVEN" || node.tag === "FACT") && (rec.tag === "INDI" || rec.tag === "FAM")
+        ? eventTypeFor(node)
+        : undefined;
+      if (add || eventType) {
+        const value = (add ?? eventType)!;
+        // One row per value the fix would write, however many lines lack it.
+        const k = `\0${add ? "form" : "type"}\0${loc.where()}\0${value}`;
         const seen = ctx.misplaced.get(k);
         if (seen) seen.count++;
         else {
@@ -278,8 +289,8 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
               ...base, category: "missingLine", severity: "warning",
               messageKey: "tools.validate.struct.issue.missing",
               messageVars: { tag, parent: loc.where() },
-              sample: tag, tooltip: `${lineOf(node)} → ${tag} ${add}`, path: loc.path(),
-              fix: add,
+              sample: tag, tooltip: `${lineOf(node)} → ${tag} ${value}`, path: loc.path(),
+              fix: value, eventType: !!eventType || undefined,
             },
           });
         }
