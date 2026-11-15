@@ -221,6 +221,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       .map((file) => ({ key: mediaOptionKey({ file }), file }));
   }, [folderPaths, mediaOptions]);
 
+  /** What the media filter offers: the file's own images and the media
+   *  folder's — the same list the attach action picks from. */
+  const pickableMedia = useMemo(() => [...mediaOptions, ...folderMediaOptions], [mediaOptions, folderMediaOptions]);
+
   const sourceOptions = useMemo(() => {
     const list: Array<{ xref: string; title: string }> = [];
     for (const rec of dataset.records) {
@@ -489,7 +493,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
             <CriterionRow
               key={i}
               c={c}
-              mediaOptions={mediaOptions}
+              mediaOptions={pickableMedia}
               eventOptions={eventOptions}
               familyEventOptions={familyEventOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
