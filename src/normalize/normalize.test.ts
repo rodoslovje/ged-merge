@@ -12,6 +12,7 @@ import {
 import { normalizeDataset } from "./normalize";
 import { entryDate, formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
+import { validateConformance } from "../tools/conformance/conformance";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -160,14 +161,37 @@ describe("normalizeDataset", () => {
     const i1 = out.individuals.get("@I1@")!.raw;
     const chan = i1.children.find((c) => c.tag === "CHAN")!;
     expect(i1.children.some((c) => c.tag === "_UPD")).toBe(false);
-    // The new CHAN date then goes through the date pass like any other DATE,
-    // so it comes out in the main's house style (lowercase full months here).
-    expect(chan.children[0]).toMatchObject({ tag: "DATE", value: "23 july 2011" });
+    // A change stamp's date is an exact GEDCOM date, never restyled to the
+    // main's house style (lowercase full months here).
+    expect(chan.children[0]).toMatchObject({ tag: "DATE", value: "23 JUL 2011" });
     expect(chan.children[0].children[0]).toMatchObject({ tag: "TIME", value: "14:39:50" });
     // A record that already has CHAN keeps its _UPD untouched.
     const i2 = out.individuals.get("@I2@")!.raw;
     expect(i2.children.some((c) => c.tag === "_UPD")).toBe(true);
     expect(report.vendorTagExamples.some((e) => e.after.startsWith("CHAN"))).toBe(true);
+  });
+
+  it("never restyles CHAN/CREA stamp dates into a numeric house style", () => {
+    for (const version of ["5.5.1", "7.0"] as const) {
+      const head = `0 HEAD\n1 GEDC\n2 VERS ${version}\n1 CHAR UTF-8\n`;
+      const profile = inferMainProfile(
+        dataset(`${head}0 @I1@ INDI\n1 NAME Ana /Kos/\n1 BIRT\n2 DATE 05.03.1850\n1 DEAT\n2 DATE 12.11.1910\n0 TRLR\n`),
+      );
+      const stamps = version === "7.0" ? "1 CHAN\n2 DATE 5 MAR 1850\n1 CREA\n2 DATE 6 MAR 1850\n" : "1 CHAN\n2 DATE 5 MAR 1850\n";
+      const { dataset: out } = normalizeDataset(
+        dataset(`${head}0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 5 MAR 1850\n${stamps}0 TRLR\n`),
+        profile,
+      );
+      const raw = out.individuals.get("@I1@")!.raw;
+      // The event date takes the house style; the stamps keep the exact date.
+      expect(raw.children.find((c) => c.tag === "BIRT")!.children[0].value).toBe("05.03.1850");
+      expect(raw.children.find((c) => c.tag === "CHAN")!.children[0].value).toBe("5 MAR 1850");
+      if (version === "7.0") expect(raw.children.find((c) => c.tag === "CREA")!.children[0].value).toBe("6 MAR 1850");
+      const stampFindings = validateConformance(out).filter(
+        (i) => i.recordId === "@I1@" && /CHAN|CREA/.test(JSON.stringify(i)),
+      );
+      expect(stampFindings, version).toEqual([]);
+    }
   });
 
   it("converts MyHeritage's event spelling of the stamp too, and never lifts it as an event", () => {
@@ -189,7 +213,7 @@ describe("normalizeDataset", () => {
     const i1 = out.individuals.get("@I1@")!.raw;
     expect(i1.children.some((c) => c.tag === "EVEN")).toBe(false);
     const chan = i1.children.find((c) => c.tag === "CHAN")!;
-    expect(chan.children[0]).toMatchObject({ tag: "DATE", value: "31 january 2020" });
+    expect(chan.children[0]).toMatchObject({ tag: "DATE", value: "31 JAN 2020" });
   });
 
   it("strips software-internal tags only when the opt-in pass is selected", () => {
@@ -320,6 +344,18 @@ describe("normalizeDataset", () => {
     expect(chil("@I2@").children).toHaveLength(0);
     // Per-parent mismatch is preserved verbatim — PEDI cannot express it.
     expect(chil("@I3@").children.map((c) => c.tag)).toEqual(["_FREL", "_MREL"]);
+  });
+
+  it("writes the PEDI from _FREL/_MREL uppercase for a 7.0 main", () => {
+    const main7 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I9@ INDI\n1 NAME Main /Person/\n0 TRLR\n";
+    const profile = inferMainProfile(dataset(main7));
+    const compare = "0 HEAD\n1 GEDC\n2 VERS 7.0\n" +
+      "0 @I1@ INDI\n1 NAME Adopted /Child/\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 CHIL @I1@\n2 _FREL Adopted\n2 _MREL Adopted\n0 TRLR\n";
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const famc = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "FAMC")!;
+    expect(famc.children.find((c) => c.tag === "PEDI")?.value).toBe("ADOPTED");
+    expect(validateConformance(out).filter((f) => /PEDI/.test(JSON.stringify(f)))).toEqual([]);
   });
 
   it("does not mutate the input dataset", () => {

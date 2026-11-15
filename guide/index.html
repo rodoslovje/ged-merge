@@ -1454,11 +1454,15 @@
               <strong>→ BEF 3 MAY 1770</strong>, the same date the Batch marriage estimate writes), and <strong>children by two fathers at
               once</strong> — a mother whose children with one partner are interleaved in time with her children by
               another, which usually means a child or a whole sibling set hangs off the wrong family (consecutive
-              marriages and adopted children are not flagged). <strong>Detached groups</strong> catches what a single
-              disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
-              usually an import that never got attached, or a duplicate of a branch you already have. One finding per
-              group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
-              is never a group. <strong>Associations</strong> checks the people a record or an event names
+              marriages and adopted children are not flagged). <strong>Detached branches</strong> catches what a single
+              disconnected person doesn't: two or more people linked only to each other and to nobody else in the file —
+              usually an import that never got attached, a duplicate of a branch you already have, or a branch whose
+              link to the main tree is missing. One finding per branch, on its youngest member, so you can open them and
+              walk their relatives. The main tree is the one your start person belongs to, or the largest one when no
+              start person is set; it is never reported. On a branch's row, <strong>GEDCOM</strong> downloads the whole
+              branch as a file of its own and <strong>Remove branch</strong> deletes it from the file, after a
+              confirmation that lists the people, families, sources, notes and media that go with it; a disconnected
+              person's row has <strong>Remove person</strong> for the same. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable

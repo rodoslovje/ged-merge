@@ -64,6 +64,32 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     // Episode 15: "Franceta" (and the other cases built on it) came out as
     // "Frančeta"; spelled with z it keeps the Slovenian c, checked by ear.
     [/\b([Ff])rancet/g, "$1ranzet"],
+    // Episode 16: the voice reads a bare "spol" as "spou"; the accent keeps the l.
+    [/\b([Ss])pol\b/g, "$1pòl"],
+    // The Living filter is »Žívi«, stressed on the first i.
+    [/»Živi«/g, "»Žívi«"],
+    // The Normalize & batch tool, »Poenoti in paketno uredi«: spelled »Pòenoti«
+    // for the voice (checked by ear against Poenóti, Poenôti, Po enóti).
+    [/\b([Pp])oenoti\b/g, "$1òenoti"],
+    // "umrl" / "umrli" are stressed on the syllabic r: »Umŕli mladi«; "pri
+    // umrlih" the voice reads right as written (checked by ear).
+    [/\b([Uu])mrl(i|e)\b/g, "$1mŕl$2"],
+    // The bare participle, »ki je umrl mlad«, as »umŕu« (checked by ear).
+    [/\b([Uu])mrl\b/g, "$1mŕu"],
+    // The Attach media action, »Pripni medij«, is stressed on its last
+    // syllable: spelled »Prip-ní« for the voice (checked by ear).
+    [/»Pripni medij«/g, "»Prip-ní medij«"],
+    // The Union option »ima ocenjen datum«, stressed on -ma (checked by ear).
+    [/»ima ocenjen datum«/g, "»imá ocenjen datum«"],
+    // The Settings tab »Urejanje«, as »Urèjanje« (checked by ear; episode 14's
+    // bare "Urejanje" the voice reads right as written).
+    [/»Urejanje«/g, "»Urèjanje«"],
+    // A button label starting »Dodaj …«, stressed on -daj (checked by ear).
+    [/»Dodaj\b/g, "»Dodáj"],
+    // »naložì«, stressed on the last syllable (checked by ear).
+    [/\bnaloži\b/g, "naložì"],
+    // »ukrêp« (checked by ear against ukrèp, ukrép, úkrep).
+    [/\b([Uu])krep\b/g, "$1krêp"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],

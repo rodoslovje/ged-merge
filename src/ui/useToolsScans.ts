@@ -114,8 +114,13 @@ export function useToolsScans(
   dataset: Dataset,
   editVersionRef: { readonly current: number },
   changes: ChangeJournal,
+  /** The main file's start person: the health check measures detached groups
+   *  against its tree, so a new start person re-runs the check. */
+  startId?: string,
 ): ToolsScans {
   const [states, setStates] = useState<ScanStates>(ALL_IDLE);
+  const startIdRef = useRef(startId);
+  startIdRef.current = startId;
   // The source-reshape and normalize scans depend on the user's format
   // overrides (the report must match what the apply writes). Kept in a ref so
   // the stable callbacks below always read the current value; the overrides
@@ -264,8 +269,10 @@ export function useToolsScans(
    *  whose result depends on them. */
   const scanKey = useCallback(
     (kind: ScanKind) =>
-      `${datasetSeqRef.current}:${editVersionRef.current}` + (SALT_KEYS[kind] ? `:${overridesSalt(kind)}` : ""),
-    [editVersionRef, overridesSalt],
+      `${datasetSeqRef.current}:${editVersionRef.current}` +
+      (SALT_KEYS[kind] ? `:${overridesSalt(kind)}` : "") +
+      (kind === "validate" ? `:${startId ?? ""}` : ""),
+    [editVersionRef, overridesSalt, startId],
   );
 
   const start = useCallback(
@@ -301,7 +308,7 @@ export function useToolsScans(
             : kind === "normalize"
               ? { type: "normalizePreview", requestId, formatOverrides: formatOverridesRef.current }
               : kind === "validate"
-                ? { type: "validate", requestId, formatOverrides: formatOverridesRef.current }
+                ? { type: "validate", requestId, formatOverrides: formatOverridesRef.current, startId: startIdRef.current }
                 : { type: REQUEST_TYPE[kind], requestId },
           {
             kind,

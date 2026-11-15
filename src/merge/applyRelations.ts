@@ -11,7 +11,7 @@ import { displayName } from "../match/relatives";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, FAM_EVENT_TEXT_SUBS, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
-import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
+import { incomingParentIds, pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
 import { sexConflicts } from "../match/scoreIndividual";
 import { newSourceCitations } from "../gedcom/source";
@@ -693,7 +693,7 @@ function wantsIncoming(rows: Row[], fields: Record<string, FieldChoice>, key: st
 export function applyIndividualRelations(
   mainId: string,
   _mainIndi: import("../gedcom/types").Individual,
-  incomingIndi: import("../gedcom/types").Individual,
+  _incomingIndi: import("../gedcom/types").Individual,
   rows: Row[],
   fields: Record<string, FieldChoice>,
   main: Dataset,
@@ -706,7 +706,7 @@ export function applyIndividualRelations(
   ];
   // The parents this stitch links, for finding the family they already form.
   const slots = parents.flatMap(([key, role, labelKey]) => {
-    const incParentId = wantsIncoming(rows, fields, key) ? incomingParentId(incomingIndi, compare, role) : undefined;
+    const incParentId = wantsIncoming(rows, fields, key) ? rowIncomingRef(rows, key) : undefined;
     return incParentId ? [{ role, incParentId, labelKey }] : [];
   });
   let childFam: { id: string; node: GedNode } | undefined;
@@ -944,7 +944,7 @@ export function applyIndividualFamilies(
     const famPrivateKey = `${famKey}.private`;
     if (wantsIncoming(rows, fields, famPrivateKey)) {
       const choice = fields[famPrivateKey] ?? "incoming";
-      if (applyPrivateFlag(famNode, ctx.records)) {
+      if (applyPrivateFlag(famNode, ctx.records, ctx.linkPlacement.overrides)) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: ctx.t("field.private"),
@@ -1155,14 +1155,12 @@ function setSpouseSlot(
   ctx.touched.add(famId);
 }
 
-function incomingParentId(
-  incomingIndi: import("../gedcom/types").Individual,
-  compare: Dataset,
-  role: "HUSB" | "WIFE",
-): string | undefined {
-  const famId = incomingIndi.childOf[0];
-  const fam = famId ? compare.families.get(famId) : undefined;
-  return role === "HUSB" ? fam?.husband : fam?.wife;
+/** The incoming person a relative row shows (its first incoming ref). The
+ *  Parents rows already found the parent in whichever family holds them and
+ *  read crossed parents crossed, so taking the id from the row links exactly
+ *  the parent the review offered. */
+function rowIncomingRef(rows: Row[], key: string): string | undefined {
+  return rows.find((r) => r.key === key)?.incomingRefs?.find((id): id is string => !!id);
 }
 
 /**
@@ -1292,9 +1290,10 @@ function importAncestors(
   if (!incIndi) return;
   const mainId = ctx.resolve(incId);
   if (!mainId) return;
-  const childFamId = incIndi.childOf[0];
-  const incFam = childFamId ? compare.families.get(childFamId) : undefined;
-  if (!incFam) return;
+  // Each parent from whichever child family names them, read the way the
+  // review's Parents rows read them (see `incomingParentIds`).
+  const incParents = incomingParentIds(main.individuals.get(mainId), incIndi, main, compare, undefined);
+  if (!incParents.father && !incParents.mother) return;
 
   // The family the person already has, if any; one is created (or the
   // couple's own joined) only once a parent is actually linked, so a walk
@@ -1303,8 +1302,8 @@ function importAncestors(
   const existingNode = existingId ? ctx.famNode(existingId) : undefined;
   let childFam = existingNode ? { id: existingId!, node: existingNode } : undefined;
   const parents: Array<["HUSB" | "WIFE", string | undefined, string]> = [
-    ["HUSB", incFam.husband, "merge.field.father"],
-    ["WIFE", incFam.wife, "merge.field.mother"],
+    ["HUSB", incParents.father, "merge.field.father"],
+    ["WIFE", incParents.mother, "merge.field.mother"],
   ];
   const slots = parents.flatMap(([role, incParentId]) => (incParentId ? [{ role, incParentId }] : []));
   for (const [role, incParentId, labelKey] of parents) {
@@ -1343,9 +1342,10 @@ function importAncestors(
 /** Whether an incoming person has a parent of their own — i.e. whether stopping
  *  the walk at them leaves a further lineage behind, which the message says. */
 function hasIncomingAncestors(incId: string, compare: Dataset): boolean {
-  const famId = compare.individuals.get(incId)?.childOf[0];
-  const fam = famId ? compare.families.get(famId) : undefined;
-  return !!(fam?.husband || fam?.wife);
+  return (compare.individuals.get(incId)?.childOf ?? []).some((famId) => {
+    const fam = compare.families.get(famId);
+    return !!(fam?.husband || fam?.wife);
+  });
 }
 
 /** Recursively import an incoming person's spouses, children, and their descendants. */

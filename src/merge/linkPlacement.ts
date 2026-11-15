@@ -135,8 +135,9 @@ export function incomingCitationPage(
   placement: LinkPlacement,
 ): { url: string; source?: GedNode } | undefined {
   const value = citation.value?.trim();
-  const source =
-    value && isPointer(value) ? placement.incoming?.records.find((r) => r.tag === "SOUR" && r.xref === value) : undefined;
+  // The incoming file does not change during a merge: its source index is
+  // built once with the placement, so a citation is a lookup, not a scan.
+  const source = value && isPointer(value) ? placement.incoming?.sourceCtx.sourceIndex.get(value) : undefined;
   const own = pageTextUrl(childText(citation, "PAGE"));
   if (own) return { url: own, source };
   if (!placement.incoming) return undefined;
@@ -730,9 +731,10 @@ function childOrderOf(record: GedNode): string[] {
 }
 
 /** A strict target format never writes `WWW` on a record, which neither
- *  version allows there: the record-level link extension instead. */
+ *  version allows there, nor Family Historian's `_WEBTAG`, which the health
+ *  check reports as a dialect form: the record-level link extension instead. */
 function strictLinkFormat(format: LinkFormat, overrides?: FormatOverrides): LinkFormat {
-  return overrides?.standard && format === "WWW" ? "_URL" : format;
+  return overrides?.standard && (format === "WWW" || format === "WEBTAG") ? "_URL" : format;
 }
 
 /**

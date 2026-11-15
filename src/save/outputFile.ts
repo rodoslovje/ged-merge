@@ -1,10 +1,12 @@
 import { VOID_XREF } from "../gedcom/assoc";
 import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
+import { relevelRecords } from "../gedcom/mediaForm";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { migrateVersion, versionFamily, type VersionFamily } from "../normalize/migrate";
 import { walkNodes } from "../normalize/walk";
+import type { WriteTarget } from "../normalize/target";
 import { registryEntry } from "../gedcom/extensionRegistry";
 import { termsUri } from "../gedcom/extensionTerms";
 
@@ -29,6 +31,13 @@ export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm" | "gedc7"
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
   return versionFamily(ds.version);
+}
+
+/** The version a download of `ds` is written in under the main file's target
+ *  format: a strict target's own version (the download converts a file in the
+ *  other one), else the file's own — as Save does. */
+export function downloadVersion(ds: Pick<Dataset, "version">, target: Pick<WriteTarget, "strict" | "version">): OutputVersion {
+  return target.strict ? target.version : ownVersion(ds);
 }
 
 /** Serialize options for a download written in `version`. */
@@ -290,9 +299,17 @@ export function writeSchema(records: GedNode[], headSour?: string): string[] {
   };
   visit(records, []);
   let schma = firstChild(head, "SCHMA");
-  const declared = new Set(
-    (schma?.children ?? []).filter((c) => c.tag === "TAG").map((c) => c.value?.trim().split(/\s+/)[0]),
-  );
+  // Tags compare uppercase, as the parser reads them and the download writes
+  // them: an entry `_mytag` already declares `_MYTAG`, and is written as such.
+  const declared = new Set<string>();
+  for (const entry of schma?.children ?? []) {
+    if (entry.tag !== "TAG" || !entry.value) continue;
+    const [tag, ...rest] = entry.value.trim().split(/\s+/);
+    if (!tag) continue;
+    const upper = tag.toUpperCase();
+    if (upper !== tag) entry.value = [upper, ...rest].join(" ");
+    declared.add(upper);
+  }
   const added = [...used.keys()].filter((tag) => !declared.has(tag)).sort();
   if (added.length === 0) return added;
   if (!schma) {
@@ -328,6 +345,9 @@ export function prepareDownload(
   author?: Submitter,
 ): PreparedDownload {
   const from = ownVersion(ds);
+  // Lines a merge or a normalize built may carry a stale `level`; the steps
+  // below read it.
+  relevelRecords(records);
   // The program that wrote the file, before the stamp below names GED Merge.
   const headSour = firstChild(records.find((r) => r.tag === "HEAD") ?? line("HEAD"), "SOUR")?.value;
   const fixes = completeStructure(records, version, true, author);

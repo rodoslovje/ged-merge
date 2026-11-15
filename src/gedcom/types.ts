@@ -124,6 +124,15 @@ export interface GedNode {
    * nothing: it is the same string.
    */
   atBare?: string;
+  /**
+   * The file escaped a value that reads like a pointer (`1 NOTE @@I1@` in 7.0,
+   * `@@I1@@` in 5.5.x): decoded, it is the text `@I1@`, which looks exactly
+   * like a link. Holds the value it describes: while `value` still equals it
+   * the value is text, not a pointer — the builder reads it as a note's words
+   * and the serializer escapes it again. An edited value is read afresh. Like
+   * {@link atBare}, it costs nothing: it is the same string.
+   */
+  atText?: string;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */

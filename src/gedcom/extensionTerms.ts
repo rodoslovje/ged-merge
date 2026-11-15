@@ -91,6 +91,7 @@ export const STANDARD_FORMS: Record<string, StandardForm> = {
   _MARNM: { form: "a NAME of its own with TYPE MARRIED", converted: true },
   _NO: { form: "NO", converted: true },
   _SDATE: { form: "SDATE", converted: true },
+  _TIME: { form: "DATE.TIME", converted: true },
   _MIME: { form: "NOTE.MIME", converted: true },
   _LANG: { form: "NOTE.LANG", converted: true },
   _TRAN: { form: "NOTE.TRAN", converted: true },
@@ -140,6 +141,22 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     context: "a record of its own (level 0), and the header's line that points to it (HEAD._SUBN)",
   },
   {
+    tag: "_NOTE_SOUR",
+    meaning: {
+      en: "a source citation on a pointer to a shared note (a SOUR under NOTE @N1@, as GEDCOM 5.5 allowed), kept when the file is converted to GEDCOM 7.0, whose pointer to a shared note has no lines of its own",
+      sl: "navedba vira pri kazalcu na zapis opombe (SOUR pod NOTE @N1@, kot ga je dovoljeval GEDCOM 5.5), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, kjer kazalec na zapis opombe nima svojih vrstic",
+    },
+    context: "under a pointer to a shared note (SNOTE @N1@ in GEDCOM 7.0, NOTE @N1@ in GEDCOM 5.5.1), with the citation's own lines beneath it",
+  },
+  {
+    tag: "_REFN",
+    meaning: {
+      en: "a reference number on the submitter record (GEDCOM 7.0 SUBM.REFN, or an EXID GEDCOM 5.5.1 has no tag for), kept in a GEDCOM 5.5.1 file, whose submitter record has no REFN",
+      sl: "referenčna številka pri zapisu avtorja (SUBM.REFN iz GEDCOM 7.0 ali EXID, za katerega GEDCOM 5.5.1 nima oznake), ohranjena v datoteki GEDCOM 5.5.1, kjer zapis avtorja nima vrstice REFN",
+    },
+    context: "on the submitter record (SUBM), with its TYPE beneath it",
+  },
+  {
     tag: "_UID",
     meaning: {
       en: "the record's unique identifier (GEDCOM 7.0 UID), kept in a GEDCOM 5.5.1 file",
@@ -178,6 +195,14 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
       sl: "datum, po katerem se dogodek razvršča (SDATE iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
     },
     context: "under an event",
+  },
+  {
+    tag: "_TIME",
+    meaning: {
+      en: "the time of day of an event's date (GEDCOM 7.0 DATE.TIME), kept in a GEDCOM 5.5.1 file",
+      sl: "ura dogodka (DATE.TIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+    },
+    context: "under an event's DATE",
   },
   {
     tag: "_MIME",

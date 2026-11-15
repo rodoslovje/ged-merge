@@ -240,7 +240,19 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
     // does one with a line that starts with `@`: that one is doubled anyway,
     // and a line with one `@` doubled and another bare re-reads as doubled
     // throughout — the next save would write it differently.
-    const all = ctx.all && (node.atBare !== node.value || segments.some((seg) => escapeLeadingAt(seg) !== seg));
+    //
+    // Only a one-line value can be a pointer, and not one the file escaped to
+    // look like one (see `GedNode.atText`): a CONT line `@I2@` is text.
+    const pointer = segments.length === 1 && node.atText !== node.value;
+    const all = ctx.all &&
+      (node.atBare !== node.value || segments.some((seg, i) => escapeLeadingAt(seg, i === 0 && pointer, true) !== seg));
+    const esc: LineEscape = {
+      all,
+      pointer,
+      // 7.0 has at-sign escapes only in a date (`@#DJULIAN@`, which a Master
+      // file may still carry); anywhere else a leading `@#` is text.
+      calendar: ctx.all || node.tag === "DATE" || node.tag === "SDATE",
+    };
     // The file's own CONC positions, while they still describe this value.
     const breaks = node.conc?.of === node.value ? node.conc.at : undefined;
     let pos = 0;
@@ -248,7 +260,8 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
       // A tag the file wrote as `1 NOTE ` keeps its space while its line
       // still carries no text.
       const prefix = i > 0 ? `${depth + 1} CONT` : node.spaced && segments[0] === "" ? `${head} ` : head;
-      pushSegment(lines, prefix, segments[i], depth, maxLen, segmentBreaks(breaks, pos, segments[i].length), all);
+      const segEsc = i === 0 ? esc : { ...esc, pointer: false };
+      pushSegment(lines, prefix, segments[i], depth, maxLen, segmentBreaks(breaks, pos, segments[i].length), segEsc);
       pos += segments[i].length + 1; // + the "\n" the CONT line stands for
     }
   }
@@ -261,11 +274,12 @@ function emitNode(node: GedNode, depth: number, ctx: EmitCtx): void {
  * pointer in a strict importer — the GEDCOM at-sign escape, applied per
  * physical line (the tag line and each CONT continuation). The parser folds
  * `@@` back to `@`, so escaping is round-trip symmetric. Values that *are*
- * at-sign constructs keep their single `@`: pointers (`@I1@`) and 5.5.1
- * calendar/escape sequences (`@#DJULIAN@ …`).
+ * at-sign constructs keep their single `@`: a pointer (`@I1@`, when `pointer`
+ * allows one on this line) and, when `calendar` allows it, a calendar/escape
+ * sequence (`@#DJULIAN@ …`).
  */
-function escapeLeadingAt(text: string): string {
-  if (!text.startsWith("@") || text.startsWith("@#") || isPointer(text)) return text;
+function escapeLeadingAt(text: string, pointer: boolean, calendar: boolean): string {
+  if (!text.startsWith("@") || (calendar && text.startsWith("@#")) || (pointer && isPointer(text))) return text;
   return "@" + text;
 }
 
@@ -273,21 +287,33 @@ function escapeLeadingAt(text: string): string {
  * GEDCOM 5.5.1's at-sign rule: a literal `@` anywhere in a line value is
  * written `@@` (its grammar admits `@` only as a pointer's delimiter, inside an
  * `@#…@` escape, or doubled). Applied per physical line — the parser decodes a
- * 5.5.x file's every line the same way — and never to a pointer value or an
- * escape sequence, which keep their single `@`. An e-mail address therefore
- * leaves as `ana@@example.si`, the spec's spelling of `ana@example.si`.
+ * 5.5.x file's every line the same way — and never to a pointer value (when
+ * `pointer` allows one) or an escape sequence, which keep their single `@`. An
+ * e-mail address therefore leaves as `ana@@example.si`, the spec's spelling of
+ * `ana@example.si`.
  */
-function escapeAllAt(text: string): string {
-  if (!text.includes("@") || isPointer(text)) return text;
+function escapeAllAt(text: string, pointer: boolean): string {
+  if (!text.includes("@") || (pointer && isPointer(text))) return text;
   return text.replace(/@#D[A-Z ]*@|@/g, (m) => (m.length > 1 ? m : "@@"));
+}
+
+/** How one logical line's at-signs are escaped (see {@link escapeLine}). */
+interface LineEscape {
+  /** GEDCOM 5.5.1's rule: every `@` doubled. */
+  all: boolean;
+  /** The line may be a pointer, which keeps its single `@`s. */
+  pointer: boolean;
+  /** A leading `@#` escape sequence keeps its single `@`. */
+  calendar: boolean;
 }
 
 /** One physical line's text as it is written: every `@` doubled under the
  *  5.5.1 rule, otherwise only a leading one on the first line of a segment —
- *  a CONC piece keeps the text it was cut from. */
-function escapeLine(text: string, first: boolean, all: boolean): string {
-  if (all) return escapeAllAt(text);
-  return first ? escapeLeadingAt(text) : text;
+ *  a CONC piece keeps the text it was cut from. Only that first line may be a
+ *  pointer. */
+function escapeLine(text: string, first: boolean, esc: LineEscape): string {
+  if (esc.all) return escapeAllAt(text, first && esc.pointer);
+  return first ? escapeLeadingAt(text, esc.pointer, esc.calendar) : text;
 }
 
 /**
@@ -304,14 +330,14 @@ function pushSegment(
   maxLen: number | undefined,
   /** The source's own CONC offsets inside `text`, when they still apply. */
   breaks: number[] | undefined,
-  /** 5.5.1 escaping (see {@link escapeLine}). `text` arrives unescaped. */
-  all: boolean,
+  /** At-sign escaping (see {@link escapeLine}). `text` arrives unescaped. */
+  esc: LineEscape,
 ): void {
   const concPrefix = `${depth + 1} CONC`;
   if (maxLen !== undefined && breaks && breaks.length > 0) {
     // Cut first, escape each piece after: the offsets describe the value as
     // read, and each physical line carries its own escapes.
-    const chunks = chunkAt(text, breaks)?.map((c, i) => escapeLine(c, i === 0, all));
+    const chunks = chunkAt(text, breaks)?.map((c, i) => escapeLine(c, i === 0, esc));
     // A record that moved to another depth (or a source line that was already
     // over the limit) must not be reproduced into an invalid line — check
     // before trusting the source's positions, and re-wrap if they don't fit.
@@ -321,7 +347,7 @@ function pushSegment(
       return;
     }
   }
-  text = escapeLine(text, true, all);
+  text = escapeLine(text, true, esc);
   if (text.length === 0) {
     lines.push(prefix);
     return;

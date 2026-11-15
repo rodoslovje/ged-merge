@@ -92,7 +92,8 @@ export function newGedcomText(date: Date = new Date(), author?: Submitter): stri
     "2 FORM LINEAGE-LINKED",
     "1 CHAR UTF-8",
     "0 @U1@ SUBM",
-    ...submitterFields(author).map(([tag, value]) => `1 ${tag} ${value}`),
+    // 5.5.1 text: a literal at-sign (the e-mail's) is written `@@`.
+    ...submitterFields(author).map(([tag, value]) => `1 ${tag} ${value.replace(/@/g, "@@")}`),
     "0 TRLR",
     "",
   ].join("\n");

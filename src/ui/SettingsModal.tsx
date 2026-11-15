@@ -33,6 +33,7 @@ import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
+import { TrashIcon } from "./icons/TrashIcon";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
@@ -1090,7 +1091,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       title={t("settings.map.overlays.remove")}
                       aria-label={t("settings.map.overlays.remove")}
                     >
-                      🗑
+                      <TrashIcon />
                     </button>
                   </div>
                   {open && (

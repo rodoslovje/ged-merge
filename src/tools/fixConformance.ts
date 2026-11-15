@@ -6,7 +6,7 @@ import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import { upgradeExtensions } from "../normalize/migrate";
+import { untypedEvents, upgradeExtensions } from "../normalize/migrate";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
@@ -24,6 +24,10 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *  - **forms** — a media file with no `FORM`, where the file's name says what
  *    it is (`.jpg`, a web address): the line is added in every such file, or
  *    in those whose form is the one a row names;
+ *  - **eventTypes** — a 7.0 person's or family's `EVEN`/`FACT` with no
+ *    `TYPE`: the one the 5.5.1 → 7.0 conversion writes is added (the event's
+ *    own text where it names the kind, else `Event`/`Fact`), in every such
+ *    line or in those a row names;
  *  - **notes** — a 7.0 event line carrying text where only `Y` may stand
  *    (`BIRT ali Ravna Gora?`): the text moves word for word into a `NOTE` on
  *    the event, and the line is left bare;
@@ -69,7 +73,7 @@ import { applyPassSafely, type PassJournal } from "./passSafety";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage";
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -240,8 +244,21 @@ function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, ap
   return n;
 }
 
+/** Add the `TYPE` 7.0 requires to every person's or family's `EVEN`/`FACT`
+ *  without one (only where it is `value`, when given); with `apply` false,
+ *  only counts them. */
+function fillEventTypes(rec: GedNode, value: string | undefined, apply: boolean): number {
+  let n = 0;
+  for (const { node, type } of untypedEvents(rec)) {
+    if (value !== undefined && type !== value) continue;
+    n++;
+    if (apply) node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+  }
+  return n;
+}
+
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.eventType ? "eventTypes" : issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -312,7 +329,7 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
   // A grouped row (the media forms) stands for as many lines as it counts.
   return fixable
     .filter((i) => kindOf(i) === kind)
-    .reduce((n, i) => n + (kind === "forms" ? Number(i.messageVars?.count) || 1 : 1), 0);
+    .reduce((n, i) => n + (kind === "forms" || kind === "eventTypes" ? Number(i.messageVars?.count) || 1 : 1), 0);
 }
 
 /** @param only — settle just the one finding a row names.
@@ -357,7 +374,8 @@ export function fixConformance(
     else byRecord.set(issue.recordId!, [issue]);
   }
   const agencyPass = issues.some((i) => i.agency);
-  const formsPass = issues.some((i) => i.category === "missingLine" && i.fix !== undefined);
+  const formsPass = issues.some((i) => i.category === "missingLine" && i.fix !== undefined && !i.eventType);
+  const eventTypesPass = issues.some((i) => i.eventType);
   const stampsPass = issues.some((i) => i.stamps);
   const coveragePass = issues.some((i) => i.coverage);
   const assoPass = issues.some((i) => i.assoDate);
@@ -365,7 +383,7 @@ export function fixConformance(
   const mediaInfoPass = issues.some((i) => i.mediaInfo);
   const childPediPass = issues.some((i) => i.childPedi);
   const citationPagePass = issues.some((i) => i.citationPage);
-  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !coveragePass && !assoPass && !smartPass && !mediaInfoPass && !childPediPass && !citationPagePass) return [];
+  if (!byRecord.size && !mediaPass && !agencyPass && !stampsPass && !formsPass && !eventTypesPass && !coveragePass && !assoPass && !smartPass && !mediaInfoPass && !childPediPass && !citationPagePass) return [];
 
   const records = new Map<string, GedNode>();
   for (const r of dataset.records) if (r.xref && byRecord.has(r.xref)) records.set(r.xref, r);
@@ -388,8 +406,6 @@ export function fixConformance(
           const tag = issue.sample!;
           const first = node.children.find((c) => c.tag === tag);
           node.children = node.children.filter((c) => c === first || c.tag !== tag || !nodesEqual(c, first!));
-        } else if (issue.category === "missingLine" && issue.fix !== undefined) {
-          node.children.unshift({ level: node.level + 1, tag: issue.sample!, value: issue.fix, children: [] });
         } else if (issue.toNote && node.value) {
           const text = node.value.trim();
           if (!node.children.some((c) => c.tag === "NOTE" && c.value?.trim() === text)) {
@@ -415,6 +431,16 @@ export function fixConformance(
         const before = cloneNode(rec);
         journal.keep(rec.xref, before);
         fillMediaForms(rec, v7, only?.value, true);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+    }
+    if (eventTypesPass) {
+      for (const rec of dataset.records) {
+        if (!rec.xref || (only?.id && rec.xref !== only.id)) continue;
+        if (!fillEventTypes(rec, only?.value, false)) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        fillEventTypes(rec, only?.value, true);
         patches.push(recordPatch(dataset, rec.xref, rec, before));
       }
     }

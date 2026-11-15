@@ -1,11 +1,12 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
+import { relevel } from "../gedcom/mediaForm";
 import { contentStamp, familiesNaming, memoOnContent, removeIndividual } from "../gedcom/edit";
 import { recordsNaming, remapMergedAssociations } from "../gedcom/assoc";
 import type { MatchResult } from "../match/types";
 import type { Translate } from "../locales/i18n";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import { individualFieldRows } from "../review/fields";
+import { incomingParentIds, individualFieldRows } from "../review/fields";
 import { confirmedPeople, parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
 import { applyRecordPatches, coalescePatches, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords, remapSealingFamilies } from "./applyFields";
@@ -37,6 +38,9 @@ export function wantedAdds(
   decisions: ReadonlyMap<string, CandidateDecision>,
   main: Dataset,
   compare: Dataset,
+  /** Every confirmed pair, when `decisions` is only part of them — the review
+   *  rows weigh all of them when deciding whether parents read crossed. */
+  confirmed: ReadonlyMap<string, string> = confirmedPeople(decisions),
 ): Set<string> {
   const wanted = new Set<string>();
   for (const [key, d] of decisions) {
@@ -46,9 +50,11 @@ export function wantedAdds(
     const incoming = compare.individuals.get(parsed.compareId);
     if (!incoming) continue;
     for (const id of d.takenChildren ?? []) wanted.add(id);
-    const parents = incoming.childOf[0] ? compare.families.get(incoming.childOf[0]) : undefined;
-    if (parents?.husband && d.fields.father !== "main") wanted.add(parents.husband);
-    if (parents?.wife && d.fields.mother !== "main") wanted.add(parents.wife);
+    // The parents the review rows offer — found in any of the incoming person's
+    // child families, crossed when the rows read them crossed.
+    const parents = incomingParentIds(main.individuals.get(parsed.mainId), incoming, main, compare, confirmed);
+    if (parents.father && d.fields.father !== "main") wanted.add(parents.father);
+    if (parents.mother && d.fields.mother !== "main") wanted.add(parents.mother);
     for (const famId of incoming.spouseOf) {
       const fam = compare.families.get(famId);
       const partner = fam?.husband === incoming.id ? fam?.wife : fam?.husband;
@@ -131,6 +137,7 @@ export function materializeAdds(
   // left to the save is asked again on every pass: rejecting the matched pair
   // turns its join into an addition, and confirming it settles the flag.
   const pinned = pinnedAdds(decisions);
+  const confirmed = confirmedPeople(decisions);
   for (const [key, d] of decisions) {
     if (d.status !== "confirmed") {
       if (d.joins) decisions.set(key, withJoins(d, {}));
@@ -138,7 +145,7 @@ export function materializeAdds(
     }
     if (before.get(key) === after.get(key) && !d.joins) continue;
     // Most changes (a field choice) ask for nobody new; skip the stitching then.
-    const asks = [...wantedAdds(new Map([[key, d]]), main, compare)].some((id) => !pinned.has(id));
+    const asks = [...wantedAdds(new Map([[key, d]]), main, compare, confirmed)].some((id) => !pinned.has(id));
     const added = asks ? addFor(main, compare, matches, decisions, key, d, pinned, t, overrides) : undefined;
     if (added) {
       patches.push(...added.patches);
@@ -389,7 +396,7 @@ export function previewRelativeLinks(
   const pinned = pinnedAdds(decisions);
   const { ctx } = liveContext(main, compare, matches, decisions, pinned, t, overrides, false);
   const rejectedEvents = d.rejectedEvents?.length ? new Set(d.rejectedEvents) : undefined;
-  const rows = individualFieldRows(t, mainIndi, incoming, main, compare, mergePlaceFormat(main, overrides), rejectedEvents);
+  const rows = individualFieldRows(t, mainIndi, incoming, main, compare, mergePlaceFormat(main, overrides), rejectedEvents, false, confirmedPeople(decisions));
   applyIndividualRelations(parsed.mainId, mainIndi, incoming, rows, d.fields, main, compare, ctx);
   applyIndividualFamilies(
     parsed.mainId, mainIndi, incoming, rows, { ...d.fields, ...confirmedFamilyFields(decisions) },
@@ -441,9 +448,10 @@ export function refreshJoins(
 ): Map<string, CandidateDecision> {
   const out = new Map(decisions);
   const pinned = pinnedAdds(decisions);
+  const confirmed = confirmedPeople(decisions);
   for (const [key, d] of decisions) {
     if (d.status !== "confirmed") continue;
-    const asks = [...wantedAdds(new Map([[key, d]]), main, compare)].some((id) => !pinned.has(id));
+    const asks = [...wantedAdds(new Map([[key, d]]), main, compare, confirmed)].some((id) => !pinned.has(id));
     const run = asks ? addFor(main, compare, matches, decisions, key, d, pinned, t, overrides, true) : undefined;
     const next = withJoins(d, Object.fromEntries(run?.joins ?? []));
     if (!sameJoins(next.joins, d.joins)) out.set(key, next);
@@ -494,12 +502,15 @@ function addFor(
     sourXrefMap,
   );
   importSourRecords(records, compare, sourXrefMap, report.customTags);
-  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId));
+  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId), main.version);
   remapMergedAssociations(people, (incomingId) => ctx.resolved(incomingId));
   fillAddedPlaceCoords(people, records);
 
   const patches: RecordPatch[] = [];
+  // The lines the merge built carry `level: 0` wherever they sit; set them
+  // from depth on what goes into the main (see `relevelRecords`).
   const changed = (type: "individual" | "family" | "record", id: string, live: GedNode, copy: GedNode) => {
+    relevel(copy, 0);
     if (JSON.stringify(live) !== JSON.stringify(copy)) patches.push({ type, id, before: cloneNode(live), after: copy });
   };
   for (const id of individuals.copied) changed("individual", id, main.individuals.get(id)!.raw, individuals.get(id)!);
@@ -511,6 +522,7 @@ function addFor(
     if (live) changed("record", r.xref, live, r);
     else if (!liveIds.has(r.xref)) {
       const type = r.tag === "INDI" ? "individual" : r.tag === "FAM" ? "family" : "record";
+      relevel(r, 0);
       patches.push({ type, id: r.xref, before: null, after: r });
     }
   }

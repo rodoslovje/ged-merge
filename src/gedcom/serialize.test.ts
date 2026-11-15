@@ -521,6 +521,49 @@ describe("serializeGedcom", () => {
       const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @N1@ NOTE mail ana@@exa", "1 CONC mple.si, or @@b", "0 TRLR", ""].join("\n");
       expect(download(text)).toBe(text);
     });
+
+    describe("text that reads like a pointer or an escape", () => {
+      const file = (version: string, ...lines: string[]): string =>
+        ["0 HEAD", "1 GEDC", `2 VERS ${version}`, "0 @I1@ INDI", ...lines, "0 TRLR", ""].join("\n");
+      const load = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+
+      it.each([
+        ["7.0", "1 NOTE @@I1@"],
+        ["5.5.1", "1 NOTE @@I1@@"],
+      ])("an escaped @I1@ note stays text in %s, saved and re-read", (version, line) => {
+        const text = file(version, line);
+        expect(download(text)).toBe(text);
+        for (const ds of [load(text), load(download(text))]) {
+          const indi = ds.individuals.get("@I1@")!;
+          expect(indi.notes).toEqual(["@I1@"]);
+          expect(indi.noteRefs?.[0]?.xref).toBeUndefined();
+        }
+      });
+
+      it.each(["7.0", "5.5.1"])("escapes a pointer-shaped CONT line in %s", (version) => {
+        const cont = version === "7.0" ? "2 CONT @@I2@" : "2 CONT @@I2@@";
+        const text = file(version, "1 NOTE see", cont);
+        expect(download(text)).toBe(text);
+        expect(load(download(text)).individuals.get("@I1@")!.notes).toEqual(["see\n@I2@"]);
+      });
+
+      it("doubles a leading @# in 7.0 text, but not in a date", () => {
+        const text = file("7.0", "1 NOTE @@#DJULIAN@ foo", "1 BIRT", "2 DATE @#DJULIAN@ 1 JAN 1700");
+        expect(download(text)).toBe(text);
+        expect(load(download(text)).individuals.get("@I1@")!.notes).toEqual(["@#DJULIAN@ foo"]);
+      });
+
+      it("an edited value is read afresh, and a real pointer stays single", () => {
+        const parsed = parseGedcom(new TextEncoder().encode(file("7.0", "1 NOTE @@I1@", "1 FAMS @F1@")).buffer);
+        const indi = parsed.records[1];
+        const [note, fams] = indi.children;
+        expect(cloneNode(note).atText).toBe("@I1@");
+        note.value = "@N2@";
+        const out = serializeGedcom(parsed.records, downloadOptions(parsed));
+        expect(out).toContain("1 NOTE @N2@\n1 FAMS @F1@\n");
+        expect(serializeGedcom([fams], { atEscape: "all" })).toBe("0 FAMS @F1@\n");
+      });
+    });
   });
 
   it("renders an inserted node tree at the right depth (ignores node.level)", () => {

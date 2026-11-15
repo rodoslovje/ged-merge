@@ -5,6 +5,7 @@ import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
 import { LINK_TAGS } from "../gedcom/builder";
 import { cloneNode, mergeSubLines, nodeFingerprint, firstChild, hasChild } from "../gedcom/node";
 import { URL_RE, looksLikeUrl } from "../gedcom/uri";
+import { objeNodesFor } from "../gedcom/source";
 import {
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
@@ -495,15 +496,17 @@ export function duplicateDefaults(rows: FieldRow[]): Record<string, FieldChoice>
 
 // ── Lines no comparison row covers ───────────────────────────────────────────
 
-/** Record-level tags the comparison rows decide on (names, sex, notes, sources,
- *  links, FamilySearch ids, the private flag) or the relationship steps
- *  re-point (FAMC/FAMS). Events are recognized by tag on their own. */
+/** Record-level tags the comparison rows decide on (names, sex, notes and
+ *  shared notes, sources, links, FamilySearch and external ids, "never
+ *  happened" assertions, the private flag) or the relationship steps re-point
+ *  (FAMC/FAMS). Events are recognized by tag on their own. */
 const ROW_INDI_TAGS = new Set([
-  "NAME", "SEX", "NOTE", "SOUR", "FAMC", "FAMS", "_FID", "_FSFTID", "PRIV", "_PRIV", "RESN", ...LINK_TAGS,
+  "NAME", "SEX", "NOTE", "SNOTE", "SOUR", "FAMC", "FAMS", "_FID", "_FSFTID", "EXID", "NO", "_NO",
+  "PRIV", "_PRIV", "RESN", ...LINK_TAGS,
 ]);
 /** Event sub-tags the event rows decide on. */
 const ROW_EVENT_TAGS = new Set([
-  "TYPE", "DATE", "PLAC", "ADDR", "NOTE", "AGNC", "CAUS", "SOUR", "ASSO", "_ASSO", ...EDITABLE_LINK_TAGS,
+  "TYPE", "DATE", "PLAC", "ADDR", "NOTE", "SNOTE", "AGNC", "CAUS", "SOUR", "ASSO", "_ASSO", ...EDITABLE_LINK_TAGS,
 ]);
 /** Uncovered tags that hold one value: the survivor's own wins when it has one. */
 const SINGLE_VALUED = new Set(["_PHOTO", "AGE", "RELI", "RESN", "PRIV", "_PRIV"]);
@@ -543,7 +546,7 @@ function carryUncoveredLines(
 function carriesLink(line: GedNode, records: GedNode[]): boolean {
   const v = line.value?.trim() ?? "";
   if (line.tag === "OBJE" && /^@[^@]+@$/.test(v)) {
-    const file = records.find((r) => r.xref === v)?.children.find((c) => c.tag === "FILE")?.value?.trim();
+    const file = objeNodesFor(records).get(v)?.children.find((c) => c.tag === "FILE")?.value?.trim();
     if (file && looksLikeUrl(file)) return true;
   } else if (new RegExp(URL_RE.source, "i").test(v)) return true;
   return line.children.some((c) => carriesLink(c, records));

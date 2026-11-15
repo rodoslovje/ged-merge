@@ -80,10 +80,41 @@ describe("normalization edits", () => {
     expect(applyNormPatch(parseGedcom(enc(wrap("0 @I1@ INDI\n"))).records, patch)).toBe(false);
   });
 
+  it("carries a text-literal at-sign mark (atText) across the replay", () => {
+    const text = wrap("0 @I1@ INDI\n1 NOTE @@I1@@\n");
+    const records = parseGedcom(enc(text)).records;
+    expect(records[1].children[0].atText).toBe("@I1@");
+    const after = records.map((r) => structuredClone(r));
+    delete after[1].children[0].atText;
+    const fresh = parseGedcom(enc(text)).records;
+    expect(applyNormPatch(fresh, diffNormalized(records, after)!)).toBe(true);
+    expect(fresh[1].children[0].atText).toBeUndefined();
+  });
+
   it("an untouched forest yields no edits", () => {
     const records = parseGedcom(enc(wrap("0 @I1@ INDI\n1 NAME A /B/\n"))).records;
     const patch = diffNormalized(records, records.map((r) => structuredClone(r)))!;
     expect(patch.ops.length).toBe(0);
     expect(diffNormalized(records, records.slice(1))).toBeUndefined();
+  });
+
+  it("carries a retagged line's upgradedFrom through a scalar edit", () => {
+    const text = wrap("0 @I1@ INDI\n1 _FID ABCD-123\n1 ASSO @F1@\n");
+    const before = parseGedcom(enc(text)).records;
+    const after = structuredClone(before);
+    const indi = after.find((r) => r.xref === "@I1@")!;
+    // Retagged in place (the old child of that tag lines up) and re-pointed.
+    Object.assign(indi.children[0], { tag: "EXID", upgradedFrom: { tag: "_FID" } });
+    Object.assign(indi.children[1], { value: "@I1@", upgradedFrom: { tag: "ASSO", value: "@F1@" } });
+    const patch = diffNormalized(before, after)!;
+    const replayed = parseGedcom(enc(text)).records;
+    expect(applyNormPatch(replayed, structuredClone(patch))).toBe(true);
+    const out = replayed.find((r) => r.xref === "@I1@")!;
+    expect(out.children[0].upgradedFrom).toEqual({ tag: "_FID" });
+    expect(out.children[1].upgradedFrom).toEqual({ tag: "ASSO", value: "@F1@" });
+    // And the reverse: a dropped upgradedFrom is dropped on the replay too.
+    const back = diffNormalized(after, before)!;
+    expect(applyNormPatch(replayed, structuredClone(back))).toBe(true);
+    expect(out.children.map((c) => c.upgradedFrom)).toEqual([undefined, undefined]);
   });
 });

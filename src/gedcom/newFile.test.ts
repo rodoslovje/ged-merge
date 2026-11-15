@@ -48,7 +48,12 @@ describe("newGedcomText", () => {
 
   it("writes the reader's e-mail and website under the name, when set", () => {
     const text = newGedcomText(new Date(2026, 6, 27), { name: "Ana Novak", email: " ana@example.si ", www: "https://example.si" });
-    expect(text).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n1 EMAIL ana@example.si\n1 WWW https://example.si\n0 TRLR");
+    expect(text).toContain("0 @U1@ SUBM\n1 NAME Ana Novak\n1 EMAIL ana@@example.si\n1 WWW https://example.si\n0 TRLR");
+    // Read back as the address itself, and saved again with the at-sign doubled.
+    const ds = buildDataset(parseGedcom(toBuffer(text)));
+    const subm = ds.records.find((r) => r.tag === "SUBM")!;
+    expect(subm.children.find((c) => c.tag === "EMAIL")?.value).toBe("ana@example.si");
+    expect(serializeGedcom(ds.records, { atEscape: "all" })).toContain("1 EMAIL ana@@example.si\n");
     expect(newGedcomText(new Date(2026, 6, 27), { name: "", email: "  ", www: "" })).toContain(`1 NAME ${SUBMITTER_NAME}\n0 TRLR`);
   });
 

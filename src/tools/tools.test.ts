@@ -3,7 +3,7 @@ import { validateConformance } from "./conformance/conformance";
 import { fixMarriageDates } from "./fixMarriageDate";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { validateDataset } from "./validate";
+import { branchOf, validateDataset } from "./validate";
 import { KNOWN_TAGS, validateStructure } from "./structure";
 import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, isUnparseable, proposeDateFix } from "./fixDates";
 import { formatGedDate } from "../normalize/date";
@@ -713,6 +713,40 @@ describe("validateDataset", () => {
     expect(report.issues.filter((i) => i.category === "orphan").map((i) => i.id)).toEqual(["@I8@"]);
   });
 
+  it("lists everyone in a person's branch", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 FAMS @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+1 FAMC @F2@
+0 @I3@ INDI
+1 FAMC @F1@
+0 @I4@ INDI
+1 FAMS @F2@
+0 @I5@ INDI
+1 FAMS @F3@
+0 @I6@ INDI
+1 FAMC @F3@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+0 @F2@ FAM
+1 HUSB @I4@
+1 CHIL @I2@
+0 @F3@ FAM
+1 HUSB @I5@
+1 CHIL @I6@
+0 TRLR`);
+    // Through a marriage and up to the wife's father; the other group stays out.
+    expect(branchOf(ds, "@I3@").sort()).toEqual(["@I1@", "@I2@", "@I3@", "@I4@"]);
+    expect(branchOf(ds, "@I3@")[0]).toBe("@I3@");
+    expect(branchOf(ds, "@I6@").sort()).toEqual(["@I5@", "@I6@"]);
+    expect(branchOf(ds, "@I99@")).toEqual([]);
+  });
+
   it("leaves the main tree alone, however small the file", () => {
     // One family and nothing else: the only group is the file's tree.
     const ds = dataset(`0 HEAD
@@ -728,6 +762,38 @@ describe("validateDataset", () => {
 1 WIFE @I2@
 0 TRLR`);
     expect(validateDataset(ds, 2026).counts.island).toBe(0);
+  });
+
+  /** A couple (`@F<f>@`, husband `@I<n>@`) with `kids` children born from 1950. */
+  const family = (f: number, n: number, kids: number): string => {
+    const ids = Array.from({ length: kids + 2 }, (_, i) => `@I${n + i}@`);
+    const people = ids.map((id, i) =>
+      `0 ${id} INDI\n1 NAME P${n + i} /X/\n` +
+      (i < 2 ? `1 FAMS @F${f}@\n` : `1 BIRT\n2 DATE ${1948 + i}\n1 FAMC @F${f}@\n`));
+    const fam = `0 @F${f}@ FAM\n1 HUSB ${ids[0]}\n1 WIFE ${ids[1]}\n` + ids.slice(2).map((id) => `1 CHIL ${id}\n`).join("");
+    return people.join("") + fam;
+  };
+
+  it("reports every detached group, however large, on its youngest", () => {
+    // Main tree of 14 (I1–I14), a detached branch of 11 (I101–I111) and a
+    // stray group of 3 (I201–I203) — smallest first.
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(2, 101, 9)}${family(3, 201, 1)}0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const found = report.issues.filter((i) => i.category === "island");
+    expect(found.map((i) => [i.id, i.severity, i.messageVars?.count])).toEqual([
+      ["@I111@", "warning", 11],
+      ["@I203@", "warning", 3],
+    ]);
+  });
+
+  it("takes the start person's group as the main tree", () => {
+    // The start person sits in the 3-person group, so the 14-person tree is
+    // the one reported and the small group is not.
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(3, 201, 1)}0 TRLR`);
+    const report = validateDataset(ds, 2026, "@I201@");
+    expect(report.issues.filter((i) => i.category === "island").map((i) => i.id)).toEqual(["@I14@"]);
+    // A start person not in the file falls back to the largest group.
+    expect(validateDataset(ds, 2026, "@I999@").counts.island).toBe(1);
   });
 
   it("detects broken and non-reciprocal family links", () => {

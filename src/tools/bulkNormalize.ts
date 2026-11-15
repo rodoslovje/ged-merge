@@ -3,6 +3,7 @@ import type { NormChange, NormalizationReport, NormalizeOptions } from "../norma
 import { childValue, cloneNode, nodesEqual } from "../gedcom/node";
 import { bumpSourceCacheVersion, rebuildNoteReferrers } from "../gedcom/edit";
 import { clearObjeNodeCache } from "../gedcom/source";
+import { NOTE_TAGS } from "../gedcom/builder";
 import type { RecordPatch } from "../ui/historyTypes";
 import { recordPatch } from "./fixConformance";
 import { DATE_REPAIRS, normalizeRepairKinds, runNormalizeRepair } from "./normalizeRepairs";
@@ -160,7 +161,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     const node = live.get(r.xref);
     if (!node) {
       patches.push({ type: "record", id: r.xref, before: null, after: cloneNode(r), index: records.length });
-      if (r.tag === "NOTE") notes.push({ xref: r.xref });
+      if (NOTE_TAGS.includes(r.tag)) notes.push({ xref: r.xref });
       records.push(r);
       continue;
     }
@@ -170,7 +171,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     journal.keep(r.xref, before);
     node.value = r.value;
     node.children = r.children;
-    if (node.tag === "NOTE") notes.push({ xref: r.xref });
+    if (NOTE_TAGS.includes(node.tag)) notes.push({ xref: r.xref });
     changed.push({ node, before });
   }
   records.push(...headless);
@@ -178,7 +179,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     if (nextXrefs.has(xref)) continue;
     journal.keep(xref, node);
     patches.push({ type: "record", id: xref, before: node, after: null, index: liveIndex.get(xref) });
-    if (node.tag === "NOTE") notes.push({ xref });
+    if (NOTE_TAGS.includes(node.tag)) notes.push({ xref });
   }
   if (!patches.length && !changed.length) return [];
   // Pushed one by one: a spread of a large file's records overflows the stack.

@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
 import { validateConformance } from "../tools/conformance/conformance";
-import { completeStructure, convertVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
+import { completeStructure, convertVersion, downloadVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
 
 const TERMS = "https://gedmerge.com/terms/";
 
@@ -117,6 +117,17 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
   });
 });
 
+describe("downloadVersion — the version every download is written in", () => {
+  it("follows a strict target, else the file's own version", () => {
+    const v551 = { version: "5.5.1" as const };
+    const v70 = { version: "7.0" as const };
+    expect(downloadVersion(v551, { strict: true, version: "7.0" })).toBe("7.0");
+    expect(downloadVersion(v70, { strict: true, version: "5.5.1" })).toBe("5.5.1");
+    expect(downloadVersion(v551, { strict: false, version: "5.5.1" })).toBe("5.5.1");
+    expect(downloadVersion(v70, { strict: false, version: "7.0" })).toBe("7.0");
+  });
+});
+
 describe("writeSchema — GEDCOM 7 extension tags", () => {
   it("declares every extension tag a 7.0 file uses, after GEDC, in uppercase as the lines are written", () => {
     const { lines } = download([
@@ -192,6 +203,16 @@ describe("writeSchema — GEDCOM 7 extension tags", () => {
       `2 TAG _FSFTID ${TERMS}rootsmagic/_FSFTID`,
     ]);
     expect(lines.filter((l) => l === "1 SCHMA")).toHaveLength(1);
+  });
+
+  it("reads an entry spelled in lowercase as the uppercase tag the file writes", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SCHMA", "2 TAG _mytag https://example.org/mytag",
+      "0 @I1@ INDI", "1 _mytag x",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual(["2 TAG _MYTAG https://example.org/mytag"]);
+    expect(lines).toContain("1 _MYTAG x");
   });
 
   it("writes no schema for a 7.0 file without extensions, nor for 5.5.1", () => {
