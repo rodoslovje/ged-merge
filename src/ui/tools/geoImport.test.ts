@@ -257,3 +257,35 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     expect(runner.geoImportSnapshot().regions).toEqual({ country: "FR", list: REGIONS });
   });
 });
+
+describe("geo import runner: naming and progress", () => {
+  it("names every job by its source, and gives each source its own slot", () => {
+    const jobs = [
+      { kind: "gurs" },
+      { kind: "dgu" },
+      { kind: "addresses", country: "SI" },
+      { kind: "addresses", country: "HR" },
+      { kind: "osm", country: "SI" },
+      { kind: "file", file: new Blob() as File },
+    ] as const;
+    expect(jobs.map((j) => runner.importLabelKey(j))).toEqual([
+      "activity.import.gurs",
+      "activity.import.dgu",
+      "activity.import.gursAddresses",
+      "activity.import.dguAddresses",
+      "activity.import.osm",
+      "activity.import.file",
+    ]);
+    expect(jobs.map((j) => runner.slotOf(j))).toEqual(["gurs", "dgu", "addresses-SI", "addresses-HR", "osm", "file"]);
+  });
+
+  it("reads progress as a percentage, megabytes received, or a clock", () => {
+    const run = (done: number, total: number) =>
+      ({ phase: "running", job: { kind: "gurs" }, stage: "downloading", done, total, startedAt: 1_000 }) as const;
+    expect(runner.importProgress(run(42, 100), 0)).toBe("42 %");
+    expect(runner.importProgress(run(3 * 1048576, 0), 0)).toBe("3.0 MB");
+    expect(runner.importProgress(run(0, 0), 13_500)).toBe("12 s");
+    expect(runner.isUncounted(run(0, 0))).toBe(true);
+    expect(runner.isUncounted(run(1, 0))).toBe(false);
+  });
+});
