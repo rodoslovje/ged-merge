@@ -1,4 +1,5 @@
 import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
+import { writeVersionOf } from "../normalize/formatOverrides";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
@@ -614,6 +615,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
   // OBJE + pointer); ties / no photos fall back to shared.
   const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
+  // The version new lines are written in: the strict target's, else the file's.
+  const writeVersion = writeVersionOf(formatOverrides);
   // The file's privacy-marker dialect (PRIV / _PRIV / RESN) — the person and
   // family lock toggles write markers in the file's own style, unless the
   // Settings → GEDCOM override picks one explicitly.
@@ -639,7 +642,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    *  asynchronous action (a dropped photo's import) was started on. */
   const commitTo = useStableHandler((target: Individual, mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneNode(target.raw);
-    const notes = noteCtx(dataset.records, privacyStyle);
+    const notes = noteCtx(dataset.records, writeVersion, privacyStyle);
     mutate(target, notes);
     const after = cloneNode(target.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: target.id })];
@@ -743,7 +746,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // to Mother and Partner, which are named far more often than either.
     KeyI: () => handleAddMedia({ kind: "individual" }),
     KeyL: () =>
-      commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records)),
+      commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, writeVersion)),
     // X cycles ♂ → ♀ → ?, so the sex of a child just added is set without the
     // picker: three values put the one wanted at most two presses away, and no
     // letter has to stand for a sex name (M and F are Mother and Father here).
@@ -764,7 +767,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // for its page lookup) may hold one an undo or a save has since replaced.
     const fam = dataset.families.get(given.id) ?? given;
     const before = cloneNode(fam.raw);
-    const notes = noteCtx(dataset.records, privacyStyle);
+    const notes = noteCtx(dataset.records, writeVersion, privacyStyle);
     mutate(fam, notes);
     const after = cloneNode(fam.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "family", id: fam.id })];
@@ -855,7 +858,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       return;
     }
     const extraPatches: RecordPatch[] = [];
-    ownerCommit(owner, sharedMediaMutation(dataset.records, file, existingXref, extraPatches), extraPatches, indi);
+    ownerCommit(owner, sharedMediaMutation(dataset.records, file, writeVersion, existingXref, extraPatches), extraPatches, indi);
   }
 
   /** Edit a photo's metadata (title/date/place/description). An inline OBJE is
@@ -874,7 +877,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       if (!rec) return;
       const before = cloneNode(rec);
       setMediaInfo(rec, fields, dataset.records, formatOverrides);
-      if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
+      if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, writeVersion);
       const after = cloneNode(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
       bumpSourceCacheVersion(dataset.records);
@@ -898,7 +901,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         const child = mediaNodeAt(r, addr);
         if (child) {
           setMediaInfo(child, fields, dataset.records, formatOverrides);
-          if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, dataset.records);
+          if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, writeVersion);
         }
       });
     }
@@ -932,7 +935,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }, undefined, indi);
     } else {
       const extraPatches: RecordPatch[] = [];
-      const attach = sharedMediaMutation(dataset.records, file, mediaXref, extraPatches);
+      const attach = sharedMediaMutation(dataset.records, file, writeVersion, mediaXref, extraPatches);
       ownerCommit(own, (raw) => {
         attach(raw);
         const links = childrenByTag(raw, "OBJE");
@@ -1101,7 +1104,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneNode(sourceNode);
           const page = fields.page ?? match.page;
-          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage, fields.collection));
+          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, writeVersionOf(formatOverrides), pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage, fields.collection));
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneNode(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneNode(obje) });
           pageObjeXref = obje.xref ?? undefined;
@@ -1355,7 +1358,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function commitEditSource(node: GedNode, index: number, owner: RemoveSourceOwner, fields: EditSourceFields) {
     commitWithSourceDiff(owner, () => {
       const ownerId = owner.kind === "individual" ? owner.indi.id : owner.fam.id;
-      const notes = noteCtx(dataset.records, privacyStyle);
+      const notes = noteCtx(dataset.records, writeVersion, privacyStyle);
       updateSourceCitation(dataset.records, node, index, fields, notes, formatOverrides);
       const notePatches = noteChangePatches(notes.changes, { kind: owner.kind, id: ownerId });
       afterNoteChanges(notes.changes, ownerId);
@@ -2102,7 +2105,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                   target={t("edit.privateTarget.individual")}
                   onToggle={() => mergePreview.private
                     ? skipMergeField("private")
-                    : commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
+                    : commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, writeVersion))}
                 />
               </>
             }

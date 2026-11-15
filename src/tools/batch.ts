@@ -584,10 +584,16 @@ export interface BatchApplyResult {
  * entry. No-op targets are skipped, so re-running an action never duplicates
  * media links or citations.
  */
-export function applyBatchAction(ds: Dataset, ids: string[], action: BatchActionSpec): BatchApplyResult {
+export function applyBatchAction(
+  ds: Dataset,
+  ids: string[],
+  action: BatchActionSpec,
+  /** The version new lines are written in — the target's. */
+  version: "5.5.1" | "7.0",
+): BatchApplyResult {
   switch (action.kind) {
     case "addMedia":
-      return addMediaBatch(ds, ids, action);
+      return addMediaBatch(ds, ids, action, version);
     case "addSource":
       return addSourceBatch(ds, ids, action);
     case "removeMedia":
@@ -874,6 +880,7 @@ function addMediaBatch(
   ds: Dataset,
   ids: string[],
   action: { xref?: string; file: string; title?: string },
+  version: "5.5.1" | "7.0",
 ): BatchApplyResult {
   const extra: RecordPatch[] = [];
   // Resolve the shared record to point at: the picked one, else one already
@@ -883,7 +890,7 @@ function addMediaBatch(
     findSharedMediaByFile(ds.records, action.file) ||
     undefined;
   if (!shared && detectMediaMode(ds.records) === "shared") {
-    shared = createMediaRecord(ds.records, action.file, action.title);
+    shared = createMediaRecord(ds.records, action.file, version, action.title);
     extra.push({ type: "record", id: shared.xref!, before: null, after: cloneNode(shared) });
   }
   const snap = snapshotRecords(ds, ids, []);

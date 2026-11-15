@@ -948,7 +948,7 @@ describe("setNotes", () => {
   it("adds notes to an individual", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, [{ text: "First note" }, { text: "Second note" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [{ text: "First note" }, { text: "Second note" }]);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.notes).toEqual(["First note", "Second note"]);
   });
@@ -956,8 +956,8 @@ describe("setNotes", () => {
   it("replaces existing notes", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, [{ text: "Old note" }]);
-    setNotes(noteCtx(ds.records), indi, [{ text: "New note" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [{ text: "Old note" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [{ text: "New note" }]);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.notes).toEqual(["New note"]);
   });
@@ -965,8 +965,8 @@ describe("setNotes", () => {
   it("removes all notes when given an empty array", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, [{ text: "A note" }]);
-    setNotes(noteCtx(ds.records), indi, []);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [{ text: "A note" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, []);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.notes ?? []).toHaveLength(0);
     expect(serializeGedcom(ds.records)).not.toContain("NOTE");
@@ -977,7 +977,7 @@ describe("setFamilyNotes", () => {
   it("adds notes to a family", () => {
     const ds = buildFromText(FAM_BASE);
     const fam = ds.families.get("@F1@")!;
-    setFamilyNotes(noteCtx(ds.records), fam, [{ text: "Family note" }]);
+    setFamilyNotes(noteCtx(ds.records, "5.5.1"), fam, [{ text: "Family note" }]);
     const updated = rebuildFamily(ds, fam);
     expect(updated.notes).toEqual(["Family note"]);
   });
@@ -985,8 +985,8 @@ describe("setFamilyNotes", () => {
   it("clears family notes", () => {
     const ds = buildFromText(FAM_BASE);
     const fam = ds.families.get("@F1@")!;
-    setFamilyNotes(noteCtx(ds.records), fam, [{ text: "Note" }]);
-    setFamilyNotes(noteCtx(ds.records), fam, []);
+    setFamilyNotes(noteCtx(ds.records, "5.5.1"), fam, [{ text: "Note" }]);
+    setFamilyNotes(noteCtx(ds.records, "5.5.1"), fam, []);
     const updated = rebuildFamily(ds, fam);
     expect(updated.notes ?? []).toHaveLength(0);
   });
@@ -1753,7 +1753,7 @@ describe("addObjeToSource", () => {
   it("adds a new OBJE to an already-existing SOUR record", () => {
     const ds = buildFromText(BASE);
     const source = createSourceRecord(ds.records, { title: "Krstna knjiga", url: "https://example.com/book/?pg=1" });
-    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
+    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2", "5.5.1");
     expect(source.children.filter((c) => c.tag === "OBJE")).toHaveLength(2);
     expect(obje.children[0].value).toBe("https://example.com/book/?pg=2");
   });
@@ -2000,7 +2000,7 @@ describe("removeSourceCitationAtIndex", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const source = createSourceRecord(ds.records, { title: "Poročna knjiga" });
-    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=4");
+    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=4", "5.5.1");
     attachSourceCitation(indi.raw, source.xref!, "4", INDI_CHILD_ORDER);
     // The "on events" page-media style links the cited page beside the citation.
     indi.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
@@ -2016,8 +2016,8 @@ describe("removeSourceCitationAtIndex", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
-    const page = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
-    const photo = createMediaRecord(ds.records, "https://example.com/photo.jpg");
+    const page = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2", "5.5.1");
+    const photo = createMediaRecord(ds.records, "https://example.com/photo.jpg", "5.5.1");
     attachSourceCitation(indi.raw, source.xref!, "2", INDI_CHILD_ORDER);
     indi.raw.children.push({ level: 1, tag: "OBJE", value: page.xref, children: [] });
     indi.raw.children.push({ level: 1, tag: "OBJE", value: photo.xref, children: [] });
@@ -2032,11 +2032,11 @@ describe("removeSourceCitationAtIndex", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     // Left behind by an earlier remove-without-unlink: a page OBJE + pointer, no SOUR.
-    const orphan = createMediaRecord(ds.records, "https://example.com/book/?pg=9");
+    const orphan = createMediaRecord(ds.records, "https://example.com/book/?pg=9", "5.5.1");
     indi.raw.children.push({ level: 1, tag: "OBJE", value: orphan.xref, children: [] });
     // The same source re-added creates a fresh OBJE for the same page URL.
     const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
-    const fresh = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=9");
+    const fresh = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=9", "5.5.1");
     attachSourceCitation(indi.raw, source.xref!, "9", INDI_CHILD_ORDER);
     indi.raw.children.push({ level: 1, tag: "OBJE", value: fresh.xref, children: [] });
 
@@ -2070,7 +2070,7 @@ describe("removeMediaLinkByUrl", () => {
   it("removes the pointer, prunes the orphaned OBJE record, and clears mediaLinks", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const obje = createMediaRecord(ds.records, "https://example.com/book/?pg=3");
+    const obje = createMediaRecord(ds.records, "https://example.com/book/?pg=3", "5.5.1");
     indi.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
     expect(rebuildIndividual(ds, indi).mediaLinks).toEqual(["https://example.com/book/?pg=3"]);
 
@@ -2086,7 +2086,7 @@ describe("removeMediaLinkByUrl", () => {
     const ds = buildFromText(FAM_BASE);
     const indi1 = ds.individuals.get("@I1@")!;
     const indi3 = ds.individuals.get("@I3@")!;
-    const obje = createMediaRecord(ds.records, "https://example.com/shared-page");
+    const obje = createMediaRecord(ds.records, "https://example.com/shared-page", "5.5.1");
     indi1.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
     indi3.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
 
@@ -2100,7 +2100,7 @@ describe("removeMediaLinkByUrl", () => {
     const ds = buildFromText(FAM_BASE);
     const indi1 = ds.individuals.get("@I1@")!;
     const indi3 = ds.individuals.get("@I3@")!;
-    const obje = createMediaRecord(ds.records, "https://example.com/old");
+    const obje = createMediaRecord(ds.records, "https://example.com/old", "5.5.1");
     indi1.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
     indi3.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
 
@@ -2122,7 +2122,7 @@ describe("removeMediaLinkByUrl", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     attachInlineMedia(indi.raw, "https://example.com/inline-page");
-    const other = createMediaRecord(ds.records, "https://example.com/other");
+    const other = createMediaRecord(ds.records, "https://example.com/other", "5.5.1");
     indi.raw.children.push({ level: 1, tag: "OBJE", value: other.xref, children: [] });
 
     removeMediaLinkByUrl(ds, indi.raw, "https://example.com/inline-page");
@@ -2187,8 +2187,8 @@ describe("updateSourceCitation", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const source = createSourceRecord(ds.records, { title: "Matična knjiga" });
-    addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=1");
-    addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
+    addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=1", "5.5.1");
+    addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2", "5.5.1");
     attachSourceCitation(indi.raw, source.xref!, "1", INDI_CHILD_ORDER);
     attachSourceCitation(indi.raw, source.xref!, "2", INDI_CHILD_ORDER);
 
@@ -2256,7 +2256,7 @@ describe("individual media", () => {
   it("attaches a pointer to a shared top-level OBJE record", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const rec = createMediaRecord(ds.records, "photos/janez.jpg", "Janez 1870");
+    const rec = createMediaRecord(ds.records, "photos/janez.jpg", "5.5.1", "Janez 1870");
     attachMediaPointer(indi.raw, rec.xref!);
     const ptr = indi.raw.children.find((c) => c.tag === "OBJE");
     expect(ptr?.value).toBe(rec.xref);
@@ -2265,7 +2265,7 @@ describe("individual media", () => {
 
   it("finds an existing shared record by file, case-insensitively", () => {
     const ds = buildFromText(BASE);
-    createMediaRecord(ds.records, "Photos/Janez.JPG");
+    createMediaRecord(ds.records, "Photos/Janez.JPG", "5.5.1");
     expect(findSharedMediaByFile(ds.records, "photos/janez.jpg")?.tag).toBe("OBJE");
     expect(findSharedMediaByFile(ds.records, "other.jpg")).toBeUndefined();
   });
@@ -2284,7 +2284,7 @@ describe("individual media", () => {
   it("prunes a shared OBJE record when its last reference is removed", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const rec = createMediaRecord(ds.records, "a.jpg");
+    const rec = createMediaRecord(ds.records, "a.jpg", "5.5.1");
     attachMediaPointer(indi.raw, rec.xref!);
     removeMediaAt(ds, indi.raw, { objeIndex: 0 });
     expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
@@ -2293,7 +2293,7 @@ describe("individual media", () => {
   it("removes every link a collapsed ref stands for, then prunes the shared record", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const rec = createMediaRecord(ds.records, "scan.jpg");
+    const rec = createMediaRecord(ds.records, "scan.jpg", "5.5.1");
     attachMediaPointer(indi.raw, rec.xref!);
     attachMediaPointer(indi.raw, rec.xref!);
     const birt = { level: 1, tag: "BIRT", children: [{ level: 2, tag: "OBJE", value: rec.xref, children: [] }] };
@@ -2311,7 +2311,7 @@ describe("individual media", () => {
     const ds = buildFromText(FAM_BASE);
     const i1 = ds.individuals.get("@I1@")!;
     const i2 = ds.individuals.get("@I2@")!;
-    const rec = createMediaRecord(ds.records, "family.jpg");
+    const rec = createMediaRecord(ds.records, "family.jpg", "5.5.1");
     attachMediaPointer(i1.raw, rec.xref!);
     attachMediaPointer(i2.raw, rec.xref!);
     removeMediaAt(ds, i1.raw, { objeIndex: 0 });
@@ -2321,7 +2321,7 @@ describe("individual media", () => {
   it("does not prune a shared OBJE also cited as a source image", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const rec = createMediaRecord(ds.records, "scan.jpg");
+    const rec = createMediaRecord(ds.records, "scan.jpg", "5.5.1");
     attachMediaPointer(indi.raw, rec.xref!);
     // A SOUR record also points at the same media object.
     ds.records.push({
@@ -2352,7 +2352,7 @@ describe("individual media", () => {
   it("pruneUnreferencedMedia is a no-op while a reference remains", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
-    const rec = createMediaRecord(ds.records, "a.jpg");
+    const rec = createMediaRecord(ds.records, "a.jpg", "5.5.1");
     attachMediaPointer(indi.raw, rec.xref!);
     pruneUnreferencedMedia(ds, rec.xref!);
     expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === rec.xref)).toBe(true);
@@ -2408,7 +2408,7 @@ describe("individual media", () => {
 
   it("titles a media record under its FILE, where 5.5.1 and 7.0 both keep it", () => {
     const ds = buildFromText(BASE);
-    const rec = createMediaRecord(ds.records, "https://example.com/page", "Krst 1870");
+    const rec = createMediaRecord(ds.records, "https://example.com/page", "5.5.1", "Krst 1870");
     expect(serializeGedcom([rec])).toBe("0 @O1@ OBJE\n1 FILE https://example.com/page\n2 FORM htm\n2 TITL Krst 1870\n");
 
     // A caption edit moves a record-level title (the 5.5 shape) under the FILE.
@@ -2420,7 +2420,7 @@ describe("individual media", () => {
 
   it("renames a title where it stands rather than adding a second one", () => {
     const ds = buildFromText(BASE);
-    const rec = createMediaRecord(ds.records, "a.jpg", "First");
+    const rec = createMediaRecord(ds.records, "a.jpg", "5.5.1", "First");
     writeMediaTitle(rec, "Second");
     expect(mediaTitleLine(rec)?.value).toBe("Second");
     expect(serializeGedcom([rec]).match(/TITL/g)).toHaveLength(1);
@@ -2441,7 +2441,7 @@ describe("family media", () => {
   it("attaches a shared pointer to a FAM record and prunes on removal", () => {
     const ds = buildFromText(FAM_BASE);
     const fam = ds.families.get("@F1@")!;
-    const rec = createMediaRecord(ds.records, "wedding.jpg");
+    const rec = createMediaRecord(ds.records, "wedding.jpg", "5.5.1");
     attachMediaPointer(fam.raw, rec.xref!);
     expect(fam.raw.children.find((c) => c.tag === "OBJE")?.value).toBe(rec.xref);
     removeMediaAt(ds, fam.raw, { objeIndex: 0 });
@@ -2454,7 +2454,7 @@ describe("family media", () => {
     const fam = ds.families.get("@F1@")!;
     const marr: GedNode = { level: 1, tag: "MARR", children: [] };
     fam.raw.children.push(marr);
-    const rec = createMediaRecord(ds.records, "wedding.jpg");
+    const rec = createMediaRecord(ds.records, "wedding.jpg", "5.5.1");
     marr.children.push({ level: 2, tag: "OBJE", value: rec.xref, children: [] });
 
     removeMediaAt(ds, fam.raw, { eventTag: "MARR", eventIndex: 0, objeIndex: 0 });
@@ -2876,38 +2876,51 @@ describe("createMediaRecord FORM dialect", () => {
 
   it("writes the extension token in a 5.5.1 file, tif never tiff", () => {
     const ds = buildFromText(BASE);
-    expect(formOf(createMediaRecord(ds.records, "scan.tiff"))).toBe("tif");
-    expect(formOf(createMediaRecord(ds.records, "https://example.com/page"))).toBe("htm");
+    expect(formOf(createMediaRecord(ds.records, "scan.tiff", "5.5.1"))).toBe("tif");
+    expect(formOf(createMediaRecord(ds.records, "https://example.com/page", "5.5.1"))).toBe("htm");
   });
 
-  it("speaks IANA media types where the file's own FORMs do", () => {
+  it("speaks IANA media types in a 7.0 target", () => {
     const ds = buildFromText([
       "0 HEAD",
       "1 GEDC",
       "2 VERS 7.0",
       "0 @I1@ INDI",
       "1 NAME Janez /Novak/",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(formOf(createMediaRecord(ds.records, "krst.webp", "7.0"))).toBe("image/webp");
+    expect(formOf(createMediaRecord(ds.records, "https://example.com/page", "7.0"))).toBe("text/html");
+  });
+
+  it("follows the target's version, never the file's own FORMs or header", () => {
+    // A 5.5.1 file that writes media types, edited for a strict 7.0 target and
+    // for a strict 5.5.1 one: the target decides, not a count of the lines.
+    const lines = [
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
       "0 @O1@ OBJE",
       "1 FILE poroka.jpg",
       "2 FORM image/jpeg",
+      "0 @O2@ OBJE",
+      "1 FILE krst.jpg",
+      "2 FORM image/jpeg",
       "0 TRLR",
       "",
-    ].join("\n"));
-    expect(formOf(createMediaRecord(ds.records, "krst.webp"))).toBe("image/webp");
-    expect(formOf(createMediaRecord(ds.records, "https://example.com/page"))).toBe("text/html");
+    ].join("\n");
+    expect(formOf(createMediaRecord(buildFromText(lines).records, "smrt.jpg", "5.5.1"))).toBe("jpg");
+    expect(formOf(createMediaRecord(buildFromText(lines.replace("VERS 5.5.1", "VERS 7.0")).records, "smrt.jpg", "5.5.1"))).toBe("jpg");
+    expect(formOf(createMediaRecord(buildFromText(lines.replace("2 FORM image/jpeg", "2 FORM jpg")).records, "smrt.jpg", "7.0"))).toBe("image/jpeg");
   });
 
-  it("falls back to the header version when the file has no FORM habit yet", () => {
-    const ds = buildFromText([
-      "0 HEAD",
-      "1 GEDC",
-      "2 VERS 7.0",
-      "0 @I1@ INDI",
-      "1 NAME Janez /Novak/",
-      "0 TRLR",
-      "",
-    ].join("\n"));
-    expect(formOf(createMediaRecord(ds.records, "krst.jpg"))).toBe("image/jpeg");
+  it.each(["5.5.1", "7.0"] as const)("writes a media record strict %s finds nothing wrong with", (version) => {
+    const ds = buildFromText(`0 HEAD\n1 GEDC\n2 VERS ${version}\n0 @I1@ INDI\n1 NAME Janez /Novak/\n0 TRLR\n`);
+    const before = validateConformance(ds);
+    const rec = createMediaRecord(ds.records, "https://example.com/page", version, "Krst");
+    attachMediaPointer(ds.individuals.get("@I1@")!.raw, rec.xref!);
+    expect(validateConformance(ds)).toEqual(before);
   });
 
   it("states the FORM even where the file's older media leave it out", () => {
@@ -2922,6 +2935,6 @@ describe("createMediaRecord FORM dialect", () => {
       "0 TRLR",
       "",
     ].join("\n"));
-    expect(formOf(createMediaRecord(ds.records, "https://en.geneanet.org/cemetery/view/3"))).toBe("text/html");
+    expect(formOf(createMediaRecord(ds.records, "https://en.geneanet.org/cemetery/view/3", "7.0"))).toBe("text/html");
   });
 });

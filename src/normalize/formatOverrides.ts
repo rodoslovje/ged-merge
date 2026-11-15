@@ -65,6 +65,12 @@ export interface FormatOverrides {
   writeVersion?: "5.5.1" | "7.0";
 }
 
+/** The version a writer writes lines in: the strict target's, else the
+ *  file's own — both set by the target format (5.5.1 with no file in). */
+export function writeVersionOf(o?: Pick<FormatOverrides, "standard" | "writeVersion">): "5.5.1" | "7.0" {
+  return o?.standard ?? o?.writeVersion ?? "5.5.1";
+}
+
 /** What "Auto (detected)" resolves to per dimension, as override-value
  *  strings — computed at load (in the worker) and stored with the file. */
 export type DetectedFormats = Partial<Record<keyof FormatOverrides, string>>;

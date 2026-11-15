@@ -40,32 +40,28 @@ describe("detectPrivacyStyle", () => {
 describe("setPrivateFlag", () => {
   it("writes the file's dialect and clears all dialects", () => {
     const r = rec([node("NAME", "Ana /Novak/")]);
-    setPrivateFlag(r, true, "PRIV", []);
+    setPrivateFlag(r, true, "PRIV", "5.5.1");
     expect(r.children.some((c) => c.tag === "PRIV" && c.value === undefined)).toBe(true);
-    setPrivateFlag(r, false, "PRIV", []);
+    setPrivateFlag(r, false, "PRIV", "5.5.1");
     expect(isPrivateNode(r)).toBe(false);
 
-    setPrivateFlag(r, true, "_PRIV", []);
+    setPrivateFlag(r, true, "_PRIV", "5.5.1");
     expect(r.children.some((c) => c.tag === "_PRIV" && c.value === "Y")).toBe(true);
   });
 
   it("keeps non-privacy RESN list entries when clearing", () => {
     const r = rec([node("RESN", "CONFIDENTIAL, LOCKED")]);
-    setPrivateFlag(r, false, "RESN", []);
+    setPrivateFlag(r, false, "RESN", "5.5.1");
     expect(r.children.find((c) => c.tag === "RESN")?.value).toBe("LOCKED");
     expect(isPrivateNode(r)).toBe(false);
   });
 
   it("RESN casing follows the GEDCOM version", () => {
-    const head7: GedNode = {
-      level: 0, tag: "HEAD",
-      children: [{ level: 1, tag: "GEDC", children: [{ level: 2, tag: "VERS", value: "7.0.3", children: [] }] }],
-    };
     const r = rec([]);
-    setPrivateFlag(r, true, "RESN", [head7]);
+    setPrivateFlag(r, true, "RESN", "7.0");
     expect(r.children.find((c) => c.tag === "RESN")?.value).toBe("PRIVACY");
     const r2 = rec([]);
-    setPrivateFlag(r2, true, "RESN", []);
+    setPrivateFlag(r2, true, "RESN", "5.5.1");
     expect(r2.children.find((c) => c.tag === "RESN")?.value).toBe("privacy");
   });
 });

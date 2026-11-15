@@ -214,7 +214,7 @@ describe("validateDataset", () => {
     // I5 is just as old but carries an undated DEAT Y — deceased, not flagged.
     expect(tooOld.map((i) => i.id)).not.toContain("@I5@");
     // The finding's own repair (the batch "mark deceased" action) settles it.
-    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }).changed).toBe(tooOld.length);
+    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }, "5.5.1").changed).toBe(tooOld.length);
     expect(validateDataset(ds, 2026).issues.some((i) => i.category === "livingTooOld")).toBe(false);
     // The father-age finding is reported on the child record.
     expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");

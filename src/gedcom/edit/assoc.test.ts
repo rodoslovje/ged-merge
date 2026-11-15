@@ -168,7 +168,7 @@ describe("writing associations", () => {
     const record = ds.individuals.get("@I1@")!.raw;
     const node = addAssociation(record, { targetId: "@I2@", role: "OTHER", roleText: "DNA match" }, ds.version);
 
-    setAssociationNotes(noteCtx(ds.records), node, [{ text: "78 cM over 4 segments, largest 31 cM" }]);
+    setAssociationNotes(noteCtx(ds.records, "7.0"), node, [{ text: "78 cM over 4 segments, largest 31 cM" }]);
 
     expect(serializeGedcom([record])).toContain(
       "1 ASSO @I2@\n2 ROLE OTHER\n3 PHRASE DNA match\n2 NOTE 78 cM over 4 segments, largest 31 cM",

@@ -1,4 +1,5 @@
 import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
+import { writeVersionOf } from "../../normalize/formatOverrides";
 import { Fragment, memo, type CSSProperties } from "react";
 import { altLabel, altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import { familySiblings } from "../../gedcom/familyNav";
@@ -737,7 +738,7 @@ export const FamilySection = memo(function FamilySection({
               onToggle={() => mergePreview?.private
                 ? famMergeActions("private").onSkip()
                 : commitFamily(fam, (f) =>
-                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), dataset.records))}
+                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
             />
           )}
           {fam && (

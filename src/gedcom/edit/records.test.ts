@@ -185,7 +185,7 @@ describe("setNotes / setFamilyNotes", () => {
   it("replaces an individual's inline notes", () => {
     const ds = dataset(wrap("0 @I1@ INDI\n1 NAME A /B/\n1 NOTE old\n"));
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, [{ text: "new" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [{ text: "new" }]);
 
     const notes = indi.raw.children.filter((c) => c.tag === "NOTE");
     expect(notes.map((n) => n.value)).toEqual(["new"]);
@@ -194,7 +194,7 @@ describe("setNotes / setFamilyNotes", () => {
   it("clears an individual's notes when given none", () => {
     const ds = dataset(wrap("0 @I1@ INDI\n1 NAME A /B/\n1 NOTE old\n"));
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, []);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, []);
 
     expect(tagsOf(indi.raw)).toEqual(["NAME"]);
   });
@@ -202,7 +202,7 @@ describe("setNotes / setFamilyNotes", () => {
   it("writes several notes in order", () => {
     const ds = dataset(wrap("0 @I1@ INDI\n1 NAME A /B/\n"));
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, [{ text: "one" }, { text: "two" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [{ text: "one" }, { text: "two" }]);
 
     expect(indi.raw.children.filter((c) => c.tag === "NOTE").map((n) => n.value)).toEqual(["one", "two"]);
   });
@@ -210,7 +210,7 @@ describe("setNotes / setFamilyNotes", () => {
   it("replaces a family's notes", () => {
     const ds = dataset(wrap("0 @F1@ FAM\n1 HUSB @I1@\n1 NOTE old\n"));
     const fam = ds.families.get("@F1@")!;
-    setFamilyNotes(noteCtx(ds.records), fam, [{ text: "new" }]);
+    setFamilyNotes(noteCtx(ds.records, "5.5.1"), fam, [{ text: "new" }]);
 
     expect(fam.raw.children.filter((c) => c.tag === "NOTE").map((n) => n.value)).toEqual(["new"]);
   });
@@ -220,7 +220,7 @@ describe("setNotes / setFamilyNotes", () => {
       wrap("0 @I1@ INDI\n1 NAME A /B/\n1 NOTE @N1@\n0 @N1@ NOTE shared text\n"),
     );
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, [{ xref: "@N1@", text: "shared text" }]);
 
     const note = indi.raw.children.find((c) => c.tag === "NOTE")!;

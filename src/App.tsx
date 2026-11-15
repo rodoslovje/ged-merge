@@ -98,6 +98,7 @@ import { AUTHOR_KEYS, DatasetProvider, SettingsProvider, submitterOf, useSetSett
 import { TargetFormatContext, type TargetFormatValue } from "./ui/TargetFormatContext";
 import { noticeSnoozed, snoozeNotice } from "./ui/noticeSnooze";
 import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
+import { writeVersionOf } from "./normalize/formatOverrides";
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { ActivityIndicator } from "./ui/ActivityIndicator";
@@ -1714,7 +1715,7 @@ function AppContent() {
     if (!mainDataset) return;
     const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE" || r.tag === "REPO") && !!r.xref;
     const before = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, cloneNode(r)]));
-    const notes = noteCtx(mainDataset.records, detectPrivacyStyle(mainDataset.records));
+    const notes = noteCtx(mainDataset.records, writeVersionOf(formatOverrides), detectPrivacyStyle(mainDataset.records));
     mutate(mainDataset.records, notes);
     if (notes.changes.length) rebuildNoteReferrers(mainDataset, notes.changes);
     const after = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, r] as const));
@@ -2977,7 +2978,7 @@ function AppContent() {
                   const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
                   if (!node) return;
                   setMediaInfo(node, fields, records, formatOverrides);
-                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), records);
+                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), writeVersionOf(formatOverrides));
                   bumpSourceCacheVersion(records);
                 })
               }
@@ -3043,8 +3044,8 @@ function AppContent() {
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
               onFixMarriageDates={(fixes) => applyToolPatches(fixMarriageDates(mainDataset, fixes), true)}
-              onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }).patches, true)}
-              onEstimateBirths={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "estimateBirth" }).patches, true)}
+              onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }, writeVersionOf(formatOverrides)).patches, true)}
+              onEstimateBirths={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "estimateBirth" }, writeVersionOf(formatOverrides)).patches, true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
               onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}

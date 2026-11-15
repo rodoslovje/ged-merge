@@ -29,7 +29,7 @@ import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
-import type { FormatOverrides } from "../normalize/formatOverrides";
+import { writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, incomingPageObje, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
@@ -677,7 +677,7 @@ export function applyNotes(
 export function applyPrivateFlag(target: GedNode, records: GedNode[], overrides?: FormatOverrides): boolean {
   if (isPrivateNode(target)) return false;
   // A strict target forces RESN (Settings → GEDCOM), like every Edit path.
-  setPrivateFlag(target, true, overrides?.privacy ?? detectPrivacyStyle(records), records);
+  setPrivateFlag(target, true, overrides?.privacy ?? detectPrivacyStyle(records), writeVersionOf(overrides));
   return true;
 }
 

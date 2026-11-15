@@ -459,7 +459,7 @@ describe("addMarriedName action", () => {
 
   it("writes the file's own record form and skips the rest", () => {
     const ds = dataset(FILE);
-    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     expect(res.changed).toBe(2);
     expect(res.skipped).toBe(4);
     const ana = ds.individuals.get("@I1@")!;
@@ -467,14 +467,14 @@ describe("addMarriedName action", () => {
     expect(ana.raw.children.filter((c) => c.tag === "NAME").map((c) => c.value)).toEqual(["Ana /Novak/", "/Kovač/"]);
     expect(marriedSurnamesOf(ana)).toEqual(["Kovač"]);
     // Re-running is a no-op — everyone now has a married name or no source for one.
-    expect(applyBatchAction(ds, ids, { kind: "addMarriedName" })).toMatchObject({ changed: 0, patches: [] });
+    expect(applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1")).toMatchObject({ changed: 0, patches: [] });
   });
 
   it("follows a file that carries married names inline as _MARNM", () => {
     const ds = dataset(
       FILE.replace("1 NAME Cilka /Zupan/\n1 SEX F\n1 NAME /Rakar/\n2 TYPE married", "1 NAME Cilka /Zupan/\n2 _MARNM /Rakar/\n1 SEX F"),
     );
-    applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     const ana = ds.individuals.get("@I1@")!;
     expect(ana.names).toHaveLength(1);
     expect(ana.names[0].married).toBe("Kovač");
@@ -482,7 +482,7 @@ describe("addMarriedName action", () => {
 
   it("falls back to the standard record form when the file has no married name at all", () => {
     const ds = dataset(FILE.replace("1 NAME /Rakar/\n2 TYPE married\n", ""));
-    applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     expect(ds.individuals.get("@I1@")!.names[1]).toMatchObject({ full: "Kovač", type: "married" });
   });
 });
@@ -552,7 +552,7 @@ describe("addMarriedName across unions", () => {
   it("takes a surname from every union, ordered by marriage date", () => {
     const ds = dataset(FILE);
     expect(surnamesOf(ds, "@W1@")).toEqual(["Kovač", "Novak"]);
-    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     expect(res.changed).toBe(3);
     const w1 = ds.individuals.get("@W1@")!;
     expect(w1.names.map((n) => [n.full, n.type])).toEqual([
@@ -563,7 +563,7 @@ describe("addMarriedName across unions", () => {
 
   it("comma-joins several unions into the single _MARNM the tag convention has", () => {
     const ds = dataset(FILE.replace("0 @W3@ INDI\n1 NAME Ema /Sever/", "0 @W3@ INDI\n1 NAME Ema /Sever/\n2 _MARNM Turk"));
-    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" });
+    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" }, "5.5.1");
     const w1 = ds.individuals.get("@W1@")!;
     expect(w1.names).toHaveLength(1);
     expect(w1.names[0].married).toBe("Kovač, Novak");
@@ -575,7 +575,7 @@ describe("addMarriedName across unions", () => {
       { surname: "Kovač", marriage: "married", byChildren: false, recorded: true },
       { surname: "Novak", marriage: "married", byChildren: false, recorded: false },
     ]);
-    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" });
+    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" }, "5.5.1");
     expect(marriedSurnamesOf(ds.individuals.get("@W1@")!, ds)).toEqual(["Kovač", "Novak"]);
   });
 
@@ -651,7 +651,7 @@ describe("applyBatchAction", () => {
 1 NAME C //
 1 BURI
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(2);
     expect(res.patches.map((p) => p.id)).toEqual(["@I2@"]);
@@ -664,7 +664,7 @@ describe("applyBatchAction", () => {
     const tags = raw.children.map((c) => c.tag);
     expect(tags.indexOf("BIRT")).toBeLessThan(tags.indexOf("DEAT")); // canonical order
     // Re-running is a no-op: everyone now carries death evidence.
-    const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
+    const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" }, "5.5.1");
     expect(again.changed).toBe(0);
     expect(again.patches).toEqual([]);
   });
@@ -711,7 +711,7 @@ describe("applyBatchAction", () => {
 1 WIFE @I5@
 0 TRLR`);
     const ids = ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@"];
-    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" }, "5.5.1");
     // @I1@ from father 1850, @I4@ from spouse 1880; @I2@/@I5@ dated, @I3@ unestimable.
     expect(res.changed).toBe(2);
     expect(res.skipped).toBe(3);
@@ -728,7 +728,7 @@ describe("applyBatchAction", () => {
     // @I5@'s recorded date is untouched.
     expect(birtOf("@I5@").children).toEqual([{ level: 2, tag: "DATE", value: "12 MAY 1880", children: [] }]);
     // Re-running reaches @I3@ through @I1@'s now-written estimate; the rest skip.
-    const again = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    const again = applyBatchAction(ds, ids, { kind: "estimateBirth" }, "5.5.1");
     expect(again.changed).toBe(1);
     expect(again.skipped).toBe(4);
     expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1910"]]);
@@ -790,7 +790,7 @@ describe("applyBatchAction", () => {
       "@C1@": 1875, "@C2@": 1875, "@C3@": 1875, "@C4@": 1885, "@C5@": 1885, "@P1@": 1850,
     });
     expect(ds.individuals.get("@C1@")!.raw.children.some((c) => c.tag === "BIRT")).toBe(false);
-    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" }, "5.5.1");
     expect(res.changed).toBe(6);
     expect(res.skipped).toBe(0);
     const abtOf = (id: string) =>
@@ -819,7 +819,7 @@ describe("applyBatchAction", () => {
 0 TRLR`);
     const res = applyBatchAction(ds, ["@I1@", "@I2@"], {
       kind: "convertEvent", fromTag: "_FNRL", toTag: "EVEN", type: "Funeral",
-    });
+    }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(1); // @I2@ has no _FNRL
     const even = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "EVEN")!;
@@ -831,11 +831,11 @@ describe("applyBatchAction", () => {
     // Re-running finds nothing left to convert.
     const again = applyBatchAction(ds, ["@I1@", "@I2@"], {
       kind: "convertEvent", fromTag: "_FNRL", toTag: "EVEN", type: "Funeral",
-    });
+    }, "5.5.1");
     expect(again.changed).toBe(0);
 
     // Standard targets take no TYPE — the tag itself is the name.
-    applyBatchAction(ds, ["@I2@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI", type: "x" });
+    applyBatchAction(ds, ["@I2@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI", type: "x" }, "5.5.1");
     const buri = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "BURI")!;
     expect(buri.children.map((c) => c.tag)).toEqual(["DATE"]);
     // The typed records follow the raw tree, so the panel's own event filters see the new tags.
@@ -855,9 +855,9 @@ describe("applyBatchAction", () => {
 1 _FNRL Y
 2 DATE 1950
 0 TRLR`);
-    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "NOBI", toTag: "EVEN", type: "Priznanje" });
-    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI" });
-    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_FNRL", toTag: "BURI" });
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "NOBI", toTag: "EVEN", type: "Priznanje" }, "5.5.1");
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI" }, "5.5.1");
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_FNRL", toTag: "BURI" }, "5.5.1");
     const raw = ds.individuals.get("@I1@")!.raw.children;
     const even = raw.find((c) => c.tag === "EVEN")!;
     expect(even.value).toBe("Velika plaketa Občine Preddvor");
@@ -896,7 +896,7 @@ describe("applyBatchAction", () => {
 0 @O1@ OBJE
 1 FILE maternal.png
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(1);
     expect(res.patches).toHaveLength(1);
@@ -904,7 +904,7 @@ describe("applyBatchAction", () => {
     const objes = ds.individuals.get("@I2@")!.raw.children.filter((c) => c.tag === "OBJE");
     expect(objes.map((o) => o.value)).toEqual(["@O1@"]);
     // Re-running is a no-op: everyone already carries the image.
-    const again = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" });
+    const again = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" }, "5.5.1");
     expect(again.changed).toBe(0);
     expect(again.patches).toEqual([]);
   });
@@ -915,7 +915,7 @@ describe("applyBatchAction", () => {
 0 @I1@ INDI
 1 NAME A //
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@"], { kind: "addMedia", file: "paternal.png", title: "Paternal line" });
+    const res = applyBatchAction(ds, ["@I1@"], { kind: "addMedia", file: "paternal.png", title: "Paternal line" }, "5.5.1");
     expect(res.changed).toBe(1);
     const created = res.patches.find((p) => p.type === "record");
     expect(created).toBeDefined();
@@ -934,7 +934,7 @@ describe("applyBatchAction", () => {
 0 @I2@ INDI
 1 NAME B //
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I2@"], { kind: "addMedia", file: "maternal.png" });
+    const res = applyBatchAction(ds, ["@I2@"], { kind: "addMedia", file: "maternal.png" }, "5.5.1");
     expect(res.changed).toBe(1);
     const obje = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "OBJE")!;
     expect(obje.value).toBeUndefined();
@@ -952,7 +952,7 @@ describe("applyBatchAction", () => {
 0 @S1@ SOUR
 1 TITL Book
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", xref: "@S1@", page: "fol. 12" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", xref: "@S1@", page: "fol. 12" }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(1);
     const cite = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "SOUR")!;
@@ -968,7 +968,7 @@ describe("applyBatchAction", () => {
 0 @I2@ INDI
 1 NAME B //
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", title: "Status animarum" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", title: "Status animarum" }, "5.5.1");
     expect(res.changed).toBe(2);
     const sours = ds.records.filter((r) => r.tag === "SOUR" && r.xref);
     expect(sours).toHaveLength(1);
@@ -996,7 +996,7 @@ describe("applyBatchAction", () => {
 0 @O2@ OBJE
 1 FILE other.png
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "removeMedia", xref: "@O1@", file: "died-young.png" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "removeMedia", xref: "@O1@", file: "died-young.png" }, "5.5.1");
     expect(res.changed).toBe(2);
     expect(res.skipped).toBe(1);
     const hasObje = (id: string) =>
@@ -1284,7 +1284,7 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
       "0 @A@ INDI\n1 NAME Posvojenec /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1760\n1 FAMC @F1@\n2 PEDI adopted\n" +
       "0 @F1@ FAM\n1 HUSB @H@\n1 WIFE @W@\n1 MARR\n2 DATE ABT 1775\n1 CHIL @A@\n1 CHIL @K@\n0 TRLR\n");
     expect([...previewMarriageEstimates(ds, ["@H@"])]).toEqual([["@F1@", "BEF 3 MAY 1770"]]);
-    applyBatchAction(ds, ["@H@"], { kind: "estimateMarriage" });
+    applyBatchAction(ds, ["@H@"], { kind: "estimateMarriage" }, "5.5.1");
     expect([...previewMarriageEstimates(ds, ["@H@"])]).toEqual([]);
     expect(validateConformance(ds)).toEqual([]);
   });
@@ -1292,7 +1292,7 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
   it.each(["5.5.1", "7.0"])("writes the estimates as conformant %s", (vers) => {
     const ds = dataset(file(vers));
     const ids = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@G1@", "@H1@", "@S1@", "@S2@", "@N1@"];
-    const res = applyBatchAction(ds, ids, { kind: "estimateMarriage" });
+    const res = applyBatchAction(ds, ids, { kind: "estimateMarriage" }, "5.5.1");
     expect(res).toMatchObject({ changed: 5, skipped: 5 });
     expect(res.patches).toHaveLength(4);
     const marr = (id: string) => ds.families.get(id)!.events.find((e) => e.tag === "MARR")?.date?.raw;
@@ -1303,7 +1303,7 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
     expect(ds.families.get("@FN@")!.events.some((e) => e.tag === "MARR")).toBe(false);
     expect(validateConformance(ds)).toEqual([]);
     // Running again finds nothing left to do.
-    expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }).changed).toBe(0);
+    expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }, "5.5.1").changed).toBe(0);
   });
 });
 
