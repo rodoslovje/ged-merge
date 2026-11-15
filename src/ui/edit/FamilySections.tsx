@@ -757,6 +757,15 @@ export const FamilySection = memo(function FamilySection({
           )}
         </div>
       </div>
+      {/* What the couple never had leads their events. */}
+      {fam && (
+        <NoEventsRow
+          assertions={fam.noEvents ?? []}
+          t={t}
+          onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
+          merge={mergePreview?.noEvents && { assertions: mergePreview.noEvents, ...famMergeActions("noEvents") }}
+        />
+      )}
       {fam && shownFamilyTags.map((tag) => {
         const eventNode = firstChild(fam.raw, tag);
         const hasRealEvent = eventNode !== undefined;
@@ -799,14 +808,6 @@ export const FamilySection = memo(function FamilySection({
           />
         );
       })}
-      {fam && (
-        <NoEventsRow
-          assertions={fam.noEvents ?? []}
-          t={t}
-          onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
-          merge={mergePreview?.noEvents && { assertions: mergePreview.noEvents, ...famMergeActions("noEvents") }}
-        />
-      )}
       <div className="edit-children-wrap">
         <div className="person-card-role">{t("field.children")}</div>
         <div className="edit-children">

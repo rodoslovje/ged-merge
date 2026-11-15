@@ -3460,9 +3460,11 @@ button:focus-visible {
   color: var(--muted);
 }
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
-/* Events the record states did not happen (GEDCOM 7 NO): solid chips, since
-   they are statements the file makes, each with its own ×. */
+/* Events the record states did not happen (GEDCOM 7 NO): event rows ahead of
+   the events, the event's name in the label column and the statement beside
+   it where a date would stand. */
 .edit-no-events-label { color: var(--muted); }
+.edit-no-event-text { align-self: baseline; font-style: italic; color: var(--text); }
 .edit-no-event {
   display: inline-flex;
   align-items: center;
@@ -3470,16 +3472,7 @@ button:focus-visible {
   border-style: solid;
   color: var(--text);
 }
-.edit-no-event-date { color: var(--muted); }
-.edit-no-event-remove {
-  border: none;
-  background: none;
-  padding: 0 2px;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-}
-.edit-no-event-remove:hover { color: var(--danger); }
+.edit-no-event-date { color: var(--muted); font-style: normal; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
    destination — solid-bordered, where an offer to add is dashed. That border is
