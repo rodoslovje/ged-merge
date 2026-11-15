@@ -692,14 +692,31 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(changes).toContain("FAM.EVEN → FAM.EVEN.TYPE Event");
   });
 
-  it("joins a header's shared note to the text note it already has", () => {
-    const { records } = converted(
+  it("joins a header's shared note to the text note it already has, and drops one to no note", () => {
+    const { records, findings } = converted(
       "7.0",
-      HEAD_70 + "1 NOTE Own\n1 SNOTE @N1@\n0 @U1@ SUBM\n1 NAME Ana\n0 @N1@ SNOTE Shared\n0 TRLR\n",
+      HEAD_70 + "1 NOTE Own\n1 SNOTE @N1@\n1 SNOTE @N9@\n0 @U1@ SUBM\n1 NAME Ana\n0 @N1@ SNOTE Shared\n0 TRLR\n",
       "5.5.1",
     );
+    expect(findings).toEqual([]);
     const head = records.find((r) => r.tag === "HEAD")!;
     expect(childrenByTag(head, "NOTE").map((n) => n.value)).toEqual(["Own\nShared"]);
+    expect(head.children.some((c) => c.tag.includes("SNOTE"))).toBe(false);
+  });
+
+  it("keeps a shared-note pointer's citations on the pointer, as _NOTE_SOUR", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NOTE @N1@\n2 SOUR @S1@\n3 PAGE 4\n0 @I2@ INDI\n1 NOTE @N1@\n" +
+        "0 @N1@ NOTE Shared\n0 @S1@ SOUR\n1 TITL Register\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const snote = firstChild(record(records, "@I1@"), "SNOTE")!;
+    expect(snote.children.map((c) => `${c.tag} ${c.value} / ${childValue(c, "PAGE")}`)).toEqual(["_NOTE_SOUR @S1@ / 4"]);
+    // The note record cites nothing: the other person's note is not sourced.
+    expect(record(records, "@N1@").children).toEqual([]);
+    expect(changes).toContain("SNOTE @N1@.SOUR @S1@ → SNOTE @N1@._NOTE_SOUR @S1@");
   });
 });
 

@@ -138,7 +138,7 @@ function downgradeSubmitterRefns(records: GedNode[], ctx: MigrateCtx): void {
  * 7.0's header may point at a shared note (`HEAD.SNOTE @N1@`); 5.5.1's header
  * note is text only. The note's text is copied in (joined to a text note the
  * header already has, as 5.5.1 allows one), and the record stays for its
- * other referrers. A pointer to no note is kept as the `_SNOTE` extension.
+ * other referrers. A pointer to no note says nothing and is dropped.
  */
 function downgradeHeadNote(records: GedNode[], ctx: MigrateCtx): void {
   const head = records.find((r) => r.tag === "HEAD");
@@ -148,13 +148,13 @@ function downgradeHeadNote(records: GedNode[], ctx: MigrateCtx): void {
     const before = `HEAD.${describe(snote)}`;
     const rec = notes.get(snote.value?.trim() ?? "");
     ctx.changed++;
+    const own = firstChild(head, "NOTE");
     if (!rec) {
-      retag(snote, "_SNOTE");
-      ctx.onChange(before, `HEAD.${describe(snote)}`);
+      head.children = head.children.filter((c) => c !== snote);
+      ctx.onChange(before, "—");
       continue;
     }
     const text = rec.value ?? "";
-    const own = firstChild(head, "NOTE");
     if (own) {
       own.value = own.value ? `${own.value}\n${text}` : text;
       head.children = head.children.filter((c) => c !== snote);
@@ -440,6 +440,7 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
     if (upgradeExtensionNode(node, ctx)) return;
     if (node.tag === "NOTE" && isPointer(node.value) && noteXrefs.has(node.value)) {
       report(ctx, retag(node, "SNOTE"), `NOTE ${node.value}`);
+      keepNoteCitations(node, ctx);
     } else if (node.tag === "ROMN" || node.tag === "FONE") {
       upgradeRomnFone(node, ctx);
     } else if (node.tag === "DATE" && node.value !== undefined) {
@@ -479,6 +480,27 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       migrateNameType(node, ctx, "7.0");
     }
   });
+}
+
+/** The extension a shared-note pointer's own citations are kept under in 7.0
+ *  (see {@link keepNoteCitations}). */
+const NOTE_CITATION_EXTENSION = "_NOTE_SOUR";
+
+/**
+ * 5.5 let a pointer to a shared note carry citations (`1 NOTE @N1@` /
+ * `2 SOUR @S1@`); 7.0's `SNOTE` pointer has no lines of its own. Moving them
+ * onto the note record would cite the note for every record sharing it, so
+ * they stay where they are, as an extension (and stay one in 5.5.1, whose
+ * note pointer has no citations either).
+ */
+function keepNoteCitations(snote: GedNode, ctx: MigrateCtx): void {
+  for (const sour of childrenByTag(snote, "SOUR")) {
+    const before = `SNOTE ${snote.value}.${describe(sour)}`;
+    retag(sour, NOTE_CITATION_EXTENSION);
+    delete sour.spelling;
+    ctx.changed++;
+    ctx.onChange(before, `SNOTE ${snote.value}.${describe(sour)}`);
+  }
 }
 
 function retag(node: GedNode, tag: string): GedNode {
