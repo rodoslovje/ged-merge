@@ -34,7 +34,9 @@ test("the health check lists data issues and GEDCOM issues on their own tabs", a
 
   await gedcom.click();
   await expect(gedcom).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".tools-group-intro")).toContainText("departs from GEDCOM 7.0");
+  // The half's explanation sits behind "How it works".
+  await page.locator(".tools-intro-toggle").first().click();
+  await expect(page.locator(".tools-intro").first()).toContainText("departs from GEDCOM 7.0");
   await expect(list).toContainText("may hold only Y");
   await expect(list).not.toContainText("Sex not recorded");
   await expect(page.getByRole("button", { name: "Move into a note" }).first()).toBeVisible();

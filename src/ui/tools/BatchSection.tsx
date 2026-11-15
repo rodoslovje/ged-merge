@@ -40,6 +40,7 @@ import { useConfirmDialog } from "../useConfirmDialog";
 import { SearchSelect } from "../SearchSelect";
 import { useMediaFolder } from "../MediaFolderContext";
 import { basename, sameMediaFile } from "../mediaPath";
+import { ToolsIntro } from "./shared";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -220,6 +221,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       .filter((p) => !(byName.get(basename(p).toLowerCase()) ?? []).some((o) => sameMediaFile(o.file, p)))
       .map((file) => ({ key: mediaOptionKey({ file }), file }));
   }, [folderPaths, mediaOptions]);
+
+  /** What the media filter offers: the file's own images and the media
+   *  folder's — the same list the attach action picks from. */
+  const pickableMedia = useMemo(() => [...mediaOptions, ...folderMediaOptions], [mediaOptions, folderMediaOptions]);
 
   const sourceOptions = useMemo(() => {
     const list: Array<{ xref: string; title: string }> = [];
@@ -437,7 +442,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   return (
     <div className="batch-section">
       {confirmDialogElement}
-      <p className="tools-intro">{t("tools.batch.intro")}</p>
+      <ToolsIntro>{t("tools.batch.intro")}</ToolsIntro>
 
       {/* Saved filters, filters, action and save in the left column, the
           matches beside them on the right (below them on a narrow screen). */}
@@ -489,7 +494,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
             <CriterionRow
               key={i}
               c={c}
-              mediaOptions={mediaOptions}
+              mediaOptions={pickableMedia}
               eventOptions={eventOptions}
               familyEventOptions={familyEventOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}

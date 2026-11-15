@@ -35,3 +35,29 @@ test("the demo file's estimates match Batch, and one fix-all leaves the judgment
     await expect(chip(page, gone)).toHaveCount(0);
   }
 });
+
+test("a fix's confirmation goes with a switch to the other half, and after a while on its own", async ({ page }) => {
+  await page.clock.install();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Health check", { exact: true }).first().click();
+
+  const fixAll = async () => {
+    await chip(page, "Fixable").click();
+    await page.getByRole("button", { name: /^Select all fixable/ }).click();
+    await page.getByRole("button", { name: /^Fix selected/ }).click();
+    await page.getByRole("button", { name: "Apply fix" }).click();
+    await expect(page.locator(".tools-clean--ok")).toBeVisible();
+  };
+  const tabs = page.locator(".batch-section-tab");
+
+  await fixAll();
+  await tabs.nth(1).click();
+  await expect(page.locator(".tools-clean--ok")).toHaveCount(0);
+
+  await fixAll();
+  await page.clock.runFor(9000);
+  await expect(page.locator(".tools-clean--ok")).toHaveCount(0);
+});
