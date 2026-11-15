@@ -719,6 +719,20 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(changes).toContain("DATE @#DJULIAN@ ABT 1700 → DATE ABT JULIAN 1700");
   });
 
+  it("writes a date's qualifiers and calendar in capitals, as 7.0 requires", () => {
+    const { records, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 BIRT\n2 DATE abt 1900\n1 DEAT\n2 DATE bet 1950 and 1960\n" +
+        "1 BURI\n2 DATE @#DJULIAN@ from 1700 to 1710\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const indi = record(records, "@I1@");
+    expect(["BIRT", "DEAT", "BURI"].map((tag) => findByPath(indi, [tag, "DATE"])!.value)).toEqual([
+      "ABT 1900", "BET 1950 AND 1960", "FROM JULIAN 1700 TO JULIAN 1710",
+    ]);
+  });
+
   it("lifts every inline OBJE into a media record, wherever it stands", () => {
     const { records, changes, findings } = converted(
       "5.5.1",
@@ -1065,7 +1079,7 @@ describe("migrateVersion — a month's case", () => {
       "0 @I1@ INDI\n1 BIRT\n2 DATE abt 4 Mar 1900\n1 CHAN\n2 DATE 4 Jan 2026\n",
       "7.0",
     );
-    expect(serializeGedcom(records)).toContain("2 DATE abt 4 MAR 1900\n1 CHAN\n2 DATE 4 JAN 2026\n");
+    expect(serializeGedcom(records)).toContain("2 DATE ABT 4 MAR 1900\n1 CHAN\n2 DATE 4 JAN 2026\n");
     expect(changes).toContainEqual({ before: "DATE 4 Jan 2026", after: "DATE 4 JAN 2026" });
     expect(findings(records, "7.0").filter((f) => f.includes("inexactDate"))).toEqual([]);
   });
