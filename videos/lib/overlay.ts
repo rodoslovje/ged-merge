@@ -107,7 +107,7 @@ export function installOverlay(): void {
         $<HTMLElement>(".callout .t").textContent = text;
         callout.classList.add("on");
       },
-      list(title: string | null, groups: { name: string; items: [string, string][] }[]) {
+      list(title: string | null, groups: { name: string; items: [string, string][]; column?: boolean }[]) {
         if (!title) { list.classList.remove("on"); return; }
         $<HTMLElement>(".list h2").textContent = title;
         const box = $<HTMLElement>(".list .groups");
@@ -115,6 +115,8 @@ export function installOverlay(): void {
         for (const g of groups) {
           const el = document.createElement("div");
           el.className = "g";
+          // A group may open the next column instead of following the last one.
+          if (g.column) el.style.breakBefore = "column";
           const h = document.createElement("h3");
           h.textContent = g.name;
           el.appendChild(h);
@@ -165,5 +167,5 @@ export interface OverlayApi {
   callout(n: string | null, text: string | null): void;
   card(kicker: string | null, title: string | null, line: string | null): void;
   /** A panel listing named groups of [icon, label] rows; a null title hides it. */
-  list(title: string | null, groups: { name: string; items: [string, string][] }[]): void;
+  list(title: string | null, groups: { name: string; items: [string, string][]; column?: boolean }[]): void;
 }

@@ -637,7 +637,7 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
 | 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
 | 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |
-| 10 | »Živi nad 99 let«: Marija obroč, Matija → »Dodaj smrt« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl. Med njimi je zdaj tudi Marija: popravek je odkril novo težavo. |
+| 10 | »Živi nad 99 let«: Marija obroč → »Izberi vse popravljive« → »Popravi izbrane« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl. Med njimi je zdaj tudi Marija: popravek je odkril novo težavo. |
 | 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se prepiše v obliko GEDCOM, sklic na manjkajoč vir se odstrani. |
 | 12 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
 | 13 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« → enako vse naenkrat | `~1665` je navada drugega programa, standard pa piše `ABT 1665`. |

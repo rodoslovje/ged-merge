@@ -32,47 +32,69 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const chip = (d: Director, label: Text) =>
   d.page.locator(".tools-chips .tools-chip").filter({ hasText: new RegExp(`^${escape(d.t(label))}\\s*\\d`) }).first();
 const row = (d: Director, text: string) => d.page.locator(".tools-issues .tools-issue").filter({ hasText: text }).first();
-/** The row of the person named exactly `name` ("Marija", not "Marija Prešeren"). */
-const personRow = (d: Director, name: string) =>
-  d.page.locator(".tools-issues .tools-issue").filter({ has: d.page.locator(".tools-issue-link", { hasText: new RegExp(`^${escape(name)}\\s*\\d`) }) }).first();
 const groupTab = (d: Director, i: number) => d.page.locator(".batch-section-tab").nth(i);
 const rerun = (d: Director) => d.page.locator(".tools-fix-item .tools-run").first();
 
-/** Open a category's rows. */
+/** Scroll the Tools page so the health check's tabs sit at the top: the
+ *  other tools' tiles go off screen and the check has the screen to itself. */
+async function toolsToTop(d: Director): Promise<void> {
+  await d.page
+    .locator(".batch-section-toggle")
+    .first()
+    .evaluate((el) => {
+      // The Tools page scrolls in its own container, not the window.
+      const view = el.closest<HTMLElement>(".tools-view");
+      if (!view) return;
+      // A short list leaves nothing to scroll: room below lets the tiles go.
+      view.style.paddingBottom = "100vh";
+      view.scrollBy({ top: el.getBoundingClientRect().top - view.getBoundingClientRect().top - 8, behavior: "smooth" });
+    });
+  await d.wait(700);
+}
+
+/** Open a category's rows and give the viewer time to read them. */
 async function openChip(d: Director, label: Text): Promise<void> {
   await d.click(chip(d, label));
   await d.wait(600);
+  await d.highlight(d.page.locator(".tools-issues").first(), 6);
+  await d.wait(2200);
+  await d.highlight(null);
 }
 
 /** Run one row's own fix and wait until the check has read the file again. */
 async function fixRow(d: Director, text: string): Promise<void> {
   const r = row(d, text);
   await d.highlight(r, 4);
-  await d.wait(1200);
+  await d.wait(2500);
   await d.click(r.locator(".tools-issue-fix"));
   await d.highlight(null);
-  await d.wait(1200);
+  await d.wait(1500);
 }
 
-/** Back to Tools (the health check stays open) and read the file again. */
-async function backAndRerun(d: Director): Promise<void> {
+/** Back to Tools (the health check stays open). */
+async function backToTools(d: Director): Promise<void> {
   await d.click(d.page.locator(".seg-btn").nth(2));
   await d.wait(700);
+  await toolsToTop(d);
+}
+
+/** Back to Tools and read the file again. */
+async function backAndRerun(d: Director): Promise<void> {
+  await backToTools(d);
   const btn = rerun(d);
   await d.highlight(btn, 4);
-  await d.wait(700);
+  await d.wait(900);
   await d.click(btn);
   await d.highlight(null);
   await d.page.locator(".tools-chips").first().waitFor();
+  await toolsToTop(d);
   await d.wait(900);
 }
 
-/** Pick every fixable row of the open half and run them in one step. */
-async function fixAll(d: Director): Promise<void> {
-  await d.click(chip(d, { sl: "Popravljivo", en: "Fixable" }));
-  await d.wait(500);
+/** Pick every fixable row shown and run them in one step. */
+async function fixShown(d: Director): Promise<void> {
   await d.click(d.page.locator(".tools-pick-bar .tools-issue-link").first());
-  await d.wait(500);
+  await d.wait(900);
   await d.click(d.page.locator(".tools-pick-bar .tools-run").first());
   const dialog = d.page.locator(".confirm-dialog");
   await dialog.waitFor();
@@ -82,7 +104,23 @@ async function fixAll(d: Director): Promise<void> {
   await d.click(dialog.locator(".confirm-dialog-confirm"));
   await dialog.waitFor({ state: "detached" });
   await d.page.locator(".tools-clean--ok").first().waitFor();
-  await d.wait(900);
+  await d.wait(1200);
+}
+
+/** Pick every fixable row of the open half and run them in one step. */
+async function fixAll(d: Director): Promise<void> {
+  await openChip(d, { sl: "Popravljivo", en: "Fixable" });
+  await fixShown(d);
+}
+
+/** Show the person open in Edit, then come back. */
+async function showInEdit(d: Director, ring: string, ms = 3500): Promise<void> {
+  await d.click(d.page.locator(".seg-btn").nth(0));
+  await d.page.locator(".edit-person").first().waitFor();
+  await d.wait(800);
+  await d.highlight(d.page.locator(ring).first(), 6);
+  await d.wait(ms);
+  await d.highlight(null);
 }
 
 /** Fill an empty parent slot with a person already in the file. */
@@ -97,25 +135,14 @@ async function pickParent(d: Director, slot: Text, name: string, full: string): 
 }
 
 /** What the health check looks at, grouped, for the on-screen list (the filter names). */
-const CHECKS: { name: Text; items: [string, Text][] }[] = [
+const CHECKS: { name: Text; items: [string, Text][]; column?: boolean }[] = [
   {
-    name: { sl: "Povezave", en: "Links" },
+    name: { sl: "Manjkajoči podatki", en: "Missing data" },
     items: [
-      ["🔗", { sl: "Pokvarjene povezave", en: "Broken links" }],
-      ["⧉", { sl: "Podvojeni kazalci", en: "Duplicate pointers" }],
-      ["👫", { sl: "Isti par dvakrat", en: "Same couple twice" }],
-      ["🔁", { sl: "Krožni predniki", en: "Pedigree loops" }],
-      ["👪", { sl: "Dve družini staršev", en: "Two sets of parents" }],
-      ["🏝️", { sl: "Nepovezane osebe in skupine", en: "Disconnected people and groups" }],
-    ],
-  },
-  {
-    name: { sl: "Datumi", en: "Dates" },
-    items: [
-      ["✝", { sl: "Smrt pred rojstvom", en: "Death before birth" }],
-      ["📅", { sl: "Dogodek zunaj življenjske dobe", en: "Event outside lifespan" }],
-      ["⏩", { sl: "Datumi v prihodnosti", en: "Future dates" }],
-      ["❓", { sl: "Neberljivi in neobstoječi datumi", en: "Unparseable and impossible dates" }],
+      ["🏷️", { sl: "Brez imena, brez spola", en: "No name, no sex" }],
+      ["⌛", { sl: "Brez ključnih datumov", en: "No vital dates" }],
+      ["💒", { sl: "Poroka brez datuma", en: "Undated marriage" }],
+      ["🧓", { sl: "Živi nad 99 let", en: "Living over 99" }],
     ],
   },
   {
@@ -130,15 +157,28 @@ const CHECKS: { name: Text; items: [string, Text][] }[] = [
     ],
   },
   {
-    name: { sl: "Manjkajoči podatki", en: "Missing data" },
+    column: true,
+    name: { sl: "Datumi", en: "Dates" },
     items: [
-      ["🏷️", { sl: "Brez imena, brez spola", en: "No name, no sex" }],
-      ["⌛", { sl: "Brez ključnih datumov", en: "No vital dates" }],
-      ["💒", { sl: "Poroka brez datuma", en: "Undated marriage" }],
-      ["🧓", { sl: "Živi nad 99 let", en: "Living over 99" }],
+      ["✝", { sl: "Smrt pred rojstvom", en: "Death before birth" }],
+      ["📅", { sl: "Dogodek zunaj življenjske dobe", en: "Event outside lifespan" }],
+      ["⏩", { sl: "Datumi v prihodnosti", en: "Future dates" }],
+      ["❓", { sl: "Neberljivi in neobstoječi datumi", en: "Unparseable and impossible dates" }],
     ],
   },
   {
+    name: { sl: "Povezave", en: "Links" },
+    items: [
+      ["🔗", { sl: "Pokvarjene povezave", en: "Broken links" }],
+      ["⧉", { sl: "Podvojeni kazalci", en: "Duplicate pointers" }],
+      ["👫", { sl: "Isti par dvakrat", en: "Same couple twice" }],
+      ["🔁", { sl: "Krožni predniki", en: "Pedigree loops" }],
+      ["👪", { sl: "Dve družini staršev", en: "Two sets of parents" }],
+      ["🏝️", { sl: "Nepovezane osebe in skupine", en: "Disconnected people and groups" }],
+    ],
+  },
+  {
+    column: true,
     name: { sl: "Zapis GEDCOM", en: "GEDCOM" },
     items: [
       ["📄", { sl: "Skladnost s standardom", en: "Conformance to the standard" }],
@@ -151,7 +191,8 @@ const CHECKS: { name: Text; items: [string, Text][] }[] = [
 const scenario: Scenario = {
   id: "health",
   episode: 15,
-  settings: seriesSettings,
+  // Married surnames shown throughout (episode 3 explains the two switches).
+  settings: (lang) => ({ ...seriesSettings(lang), marriedSurname: true, marriedNameFromPartner: true }),
   title: {
     sl: "GED Merge: pregled — poiščite in popravite napake v drevesu",
     en: "GED Merge: health check — find and fix the errors in your tree",
@@ -205,11 +246,11 @@ const scenario: Scenario = {
         await d.wait(250);
         await d.click(d.page.locator(".tools-tab").filter({ has: d.page.locator(".tools-tab-label", { hasText: new RegExp(`^${d.t({ sl: "Pregled", en: "Health check" })}$`) }) }).first());
         await d.skippable(() => d.page.locator(".tools-chips").first().waitFor({ timeout: 60_000 }));
-        await d.wait(500);
+        await toolsToTop(d);
         await d.overlay(
           "list",
           d.t({ sl: "Kaj Pregled preveri", en: "What the health check looks at" }),
-          CHECKS.map((g) => ({ name: d.t(g.name), items: g.items.map(([icon, label]) => [icon, d.t(label)] as [string, string]) })),
+          CHECKS.map((g) => ({ name: d.t(g.name), column: g.column, items: g.items.map(([icon, label]) => [icon, d.t(label)] as [string, string]) })),
         );
         // The ring walks the file's own findings, filter by filter.
         const chips = d.page.locator(".tools-chips .tools-chip");
@@ -235,7 +276,7 @@ const scenario: Scenario = {
         await openChip(d, { sl: "Smrt pred rojstvom", en: "Death before birth" });
         const mina = row(d, "Mina Prešeren");
         await d.highlight(mina, 4);
-        await d.wait(1500);
+        await d.wait(2500);
         await d.highlight(null);
         await d.click(mina.locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
@@ -267,29 +308,6 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
-      say: {
-        sl: "Terezija Jelovšek ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
-        en: "Terezija Jelovšek is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
-      },
-      run: async (d) => {
-        await d.highlight(null);
-        await openChip(d, { sl: "Nepovezane", en: "Disconnected" });
-        await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
-        await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(900);
-        await d.highlight(d.page.locator(".edit-parents").first(), 6);
-        await d.wait(900);
-        await d.highlight(null);
-        await pickParent(d, { sl: "Dodaj očeta", en: "Add Father" }, "France", "France Prešeren");
-        await pickParent(d, { sl: "Dodaj mater", en: "Add Mother" }, "Ana", "Ana Jelovšek");
-        await d.highlight(d.page.locator(".edit-parents").first(), 6);
-        await d.wait(1200);
-        await d.highlight(null);
-        await backAndRerun(d);
-      },
-    },
-    {
       callout: { sl: "Popravek z enim klikom", en: "One-click fixes" },
       say: {
         sl: "Nekaterih napak v Urejanju sploh ne vidite: povezave na družino, ki je ni več, otroka, ki je v družini naveden dvakrat, in para, zapisanega v dveh družinah. Te popravite kar tukaj, z gumbom v vrstici.",
@@ -318,14 +336,57 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Ocene datumov", en: "Estimated dates" },
+      callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
       say: {
-        sl: "Manjkajoče datume program oceni iz sorodnikov, enako kot paketno opravilo. Marija, žena Matije Prešerna, dobi rojstvo okoli leta 1670. Poroka Jerneja in Mine Prešeren je zapisana brez datuma, zato dobi datum pred rojstvom njunega prvega otroka.",
-        en: "The program estimates missing dates from the relatives, the same way the batch action does. Marija, Matija Prešeren's wife, gets a birth of about 1670. Jernej and Mina Prešeren's marriage has no date, so it gets one before the birth of their first child.",
+        sl: "Terezija Jelovšek ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
+        en: "Terezija Jelovšek is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await openChip(d, { sl: "Nepovezane", en: "Disconnected" });
+        await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
+        await d.page.locator(".edit-person").first().waitFor();
+        await d.wait(900);
+        await d.highlight(d.page.locator(".edit-parents").first(), 6);
+        await d.wait(900);
+        await d.highlight(null);
+        await pickParent(d, { sl: "Dodaj očeta", en: "Add Father" }, "France", "France Prešeren");
+        await pickParent(d, { sl: "Dodaj mater", en: "Add Mother" }, "Ana", "Ana Jelovšek");
+        await d.highlight(d.page.locator(".edit-parents").first(), 6);
+        await d.wait(1200);
+        await d.highlight(null);
+        await backAndRerun(d);
+      },
+    },
+    {
+      callout: { sl: "Ocena rojstva", en: "Estimated birth" },
+      say: {
+        sl: "Manjkajoče datume program oceni iz sorodnikov, enako kot paketno opravilo. Marija, žena Matije Prešerna, nima zapisanega ne rojstva ne smrti. Njen mož je rojen okoli leta 1665, zato ji program pripiše rojstvo okoli leta 1670.",
+        en: "The program estimates missing dates from the relatives, the same way the batch action does. Marija, Matija Prešeren's wife, has neither a birth nor a death recorded. Her husband was born about 1665, so the program gives her a birth of about 1670.",
       },
       run: async (d) => {
         await openChip(d, { sl: "Brez ključnih datumov", en: "No vital dates" });
+        // With married surnames shown she reads "Marija Prešeren", like Matija's
+        // sister: the only row in this filter.
+        await d.click(d.page.locator(".tools-issues .tools-issue").first().locator(".tools-issue-link").first());
+        await d.page.locator(".edit-person").first().waitFor();
+        await d.wait(800);
+        await d.highlight(d.page.locator(".edit-person").first(), 6);
+        await d.wait(4000);
+        await d.highlight(null);
+        await backToTools(d);
         await fixRow(d, "Marija");
+        await showInEdit(d, ".edit-person");
+        await backToTools(d);
+      },
+    },
+    {
+      callout: { sl: "Ocena poroke", en: "Estimated marriage" },
+      say: {
+        sl: "Poroka Jerneja in Mine Prešeren je zapisana brez datuma. Program ji pripiše datum pred rojstvom njunega prvega otroka, Šimna.",
+        en: "Jernej and Mina Prešeren's marriage is recorded without a date. The program gives it a date before the birth of their first child, Šimen.",
+      },
+      run: async (d) => {
         await openChip(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
         await fixRow(d, "Jernej");
       },
@@ -333,15 +394,16 @@ const scenario: Scenario = {
     {
       callout: { sl: "Živi nad 99 let", en: "Living over 99" },
       say: {
-        sl: "Kdor bi bil danes star več kot 99 let, je skoraj gotovo umrl, le zapisa o smrti ni. Gumb »Dodaj smrt« zapiše smrt brez datuma in kraja. Med njimi je zdaj tudi Marija: z ocenjenim rojstvom je popravek odkril novo težavo.",
-        en: "Anyone who would be over 99 today has almost certainly died; only the death record is missing. The Add death button records a death without a date or place. Marija is among them now: her estimated birth has brought up a new issue.",
+        sl: "Kdor bi bil danes star več kot 99 let, je skoraj gotovo umrl, le zapisa o smrti ni. Med njimi je zdaj tudi Marija: z ocenjenim rojstvom je popravek odkril novo težavo. Z gumboma »Izberi vse popravljive« in »Popravi izbrane« vsem v enem koraku dodate smrt brez datuma in kraja.",
+        en: "Anyone who would be over 99 today has almost certainly died; only the death record is missing. Marija is among them now: her estimated birth has brought up a new issue. With Select all fixable and Fix selected, you give them all a death without a date or place in one step.",
       },
       run: async (d) => {
         await openChip(d, { sl: "Živi nad 99 let", en: "Living over 99" });
-        await d.highlight(personRow(d, "Marija"), 4);
-        await d.wait(2500);
+        // Her estimated birth year sets her apart from Matija's sister Marija.
+        await d.highlight(row(d, "1670"), 4);
+        await d.wait(3000);
         await d.highlight(null);
-        await fixRow(d, "Matija Prešeren");
+        await fixShown(d);
       },
     },
     {
@@ -381,9 +443,6 @@ const scenario: Scenario = {
         await d.page.locator(".tools-chips").first().waitFor();
         await d.wait(600);
         await openChip(d, { sl: "Nestandardni datumi", en: "Non-standard dates" });
-        await d.highlight(d.page.locator(".tools-issues").first(), 6);
-        await d.wait(2000);
-        await d.highlight(null);
         await fixAll(d);
       },
     },
