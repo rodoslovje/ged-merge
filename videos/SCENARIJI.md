@@ -640,7 +640,7 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se zapiše tako kot ostali. |
 | 12 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« | Drugi zavihek preveri zapis po standardu: `~1665` postane `ABT 1665`. |
 | 13 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
-| 14 | »Zaženi znova« → prazen seznam | |
+| 14 | Ponoven pregled: »Živi nad 99 let« → Marija → »Dodaj smrt« | Popravek lahko odkrije novo težavo: z ocenjenim rojstvom je Marija zdaj starejša od 99 let. |
 | 15 | Zaključna kartica | |
 
 ---
