@@ -16,6 +16,8 @@ import { Section } from "./Section";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { ScoreBadge } from "./ScoreBadge";
+import { Segmented } from "./Segmented";
+import type { MergeScope } from "../state/workspace";
 import {
   candidateLifespan,
   type Candidate,
@@ -74,6 +76,11 @@ interface Props {
    * re-render the whole tab from scratch. Gates the global keydown shortcut
    * so it doesn't fire while another mode is the one actually visible. */
   active: boolean;
+  /** What the save brings across: the people decided on, or the whole file. */
+  mergeScope: MergeScope;
+  onMergeScope: (scope: MergeScope) => void;
+  /** A whole-file merge's review progress. */
+  wholeFileProgress?: { reviewed: number; candidates: number };
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -84,6 +91,9 @@ const SETTINGS_KEYS = ["showAge", "showKinship"] as const;
  * merge preview/export modal. Extracted from App.tsx as the "Merge" mode body
  * — the Main GEDCOM is loaded by the shared shell. */
 export function MergeView({
+  mergeScope,
+  onMergeScope,
+  wholeFileProgress,
   matches,
   sort,
   onToggleSort,
@@ -380,6 +390,24 @@ export function MergeView({
                 open={openMatches}
                 onToggle={() => setOpenMatches((o) => !o)}
               >
+                {/* What the save brings across — above the list, since in a
+                    whole-file merge the list is what is left to review. */}
+                <div className="merge-scope-bar">
+                  <Segmented<MergeScope>
+                    label={t("merge.scope.label")}
+                    value={mergeScope}
+                    onChange={onMergeScope}
+                    items={[
+                      { key: "people", label: t("merge.scope.people"), title: t("merge.scope.peopleTip") },
+                      { key: "file", label: t("merge.scope.file"), title: t("merge.scope.fileTip") },
+                    ]}
+                  />
+                  {wholeFileProgress && wholeFileProgress.candidates > 0 && (
+                    <span className="muted merge-scope-progress" title={t("merge.wholeFile.progressTip")}>
+                      {t("merge.wholeFile.progress", { reviewed: wholeFileProgress.reviewed, count: wholeFileProgress.candidates })}
+                    </span>
+                  )}
+                </div>
                 <MatchResults
                   result={matches}
                   sort={sort}
@@ -406,6 +434,7 @@ export function MergeView({
                 <div className="section-body" ref={compareBodyRef}>
                   {current && mainDataset && compareDataset ? (
                     <ComparePanel
+                      wholeFile={mergeScope === "file"}
                       candidate={current}
                       mainDs={mainDataset}
                       compareDs={compareDataset}

@@ -6,7 +6,7 @@ import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { sortEventsByDate } from "../merge/applyFields";
 import { buildEditSaveRecords } from "../merge/editSaveRecords";
-import { mergeDecisions, type ChangeReport, type ImportBranchRequest } from "../merge/merge";
+import { mergeDecisions, type ChangeReport, type ImportBranchRequest, type WholeFileImport } from "../merge/merge";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { parseDecisionKey, type CandidateDecision } from "../review/types";
 import { findDanglingXrefs } from "../tools/structure";
@@ -35,6 +35,8 @@ export interface SavePreviewInput {
   /** The last match result, if any — `null` while none has been computed. */
   matches: MatchResult | null | undefined;
   importRequests: ImportBranchRequest[];
+  /** Bring the whole incoming file across (see `WholeFileImport`). */
+  wholeFile?: WholeFileImport;
   /** Confirmed decisions whose main person still exists, and opted-in branch
    *  imports — together they decide whether this save is a merge. */
   confirmedCount: number;
@@ -120,7 +122,7 @@ export interface SavePreview {
  */
 export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const {
-    main, mainFileName, homeId, compare, decisions, matches, importRequests,
+    main, mainFileName, homeId, compare, decisions, matches, importRequests, wholeFile,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
     loadedPersonIds, loadedFamilyIds, baseline, personSnapshots, familySnapshots, recordSnapshots,
     isSortEligible, isSubstantive, now, formatOverrides, force, t,
@@ -153,7 +155,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   let pendingSourceLookups: string[] = [];
   if (isMerge) {
     const { records: mergedRecords, report: mergeReport, pendingSourceLookups: pending } = mergeDecisions(
-      main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests, formatOverrides,
+      main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests, formatOverrides, wholeFile,
     );
     records = mergedRecords;
     pendingSourceLookups = pending;

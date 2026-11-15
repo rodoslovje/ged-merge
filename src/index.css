@@ -5203,6 +5203,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 3px 10px;
   font-size: 0.8rem;
 }
+/* What the save brings across (by person / whole file), above the match list,
+   with a whole-file merge's review progress beside it. */
+.merge-scope-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin-bottom: 10px;
+}
+.merge-scope-progress { font-size: 0.85rem; }
 
 /* --- compare tree --- */
 .compare-nav-actions {
@@ -7715,6 +7722,12 @@ kbd {
   order: -1;
   margin-right: auto;
 }
+/* Two equal answers, one above the other at full width, Cancel last. */
+.confirm-dialog-actions.stacked { flex-direction: column; align-items: stretch; }
+.confirm-dialog-actions.stacked > .confirm-dialog-confirm { order: -2; }
+.confirm-dialog-actions.stacked > .confirm-dialog-alt { order: -1; margin-right: 0; }
+.confirm-dialog-actions.stacked > button { text-align: center; }
+.confirm-dialog-actions.stacked > .btn-secondary:not(.confirm-dialog-alt) { align-self: flex-end; margin-top: 4px; }
 .confirm-dialog-confirm {
   background: var(--accent);
   border: 1px solid var(--accent);

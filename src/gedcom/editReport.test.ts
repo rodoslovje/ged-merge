@@ -561,7 +561,7 @@ describe("buildEditReport", () => {
     );
 
     expect(report.recordKinds["@N1@"]).toBe("record");
-    expect(report.recordLabels["@N1@"]).toBe("a private remark");
+    expect(report.recordLabels["@N1@"]).toBe("📝 a private remark"); // marked as a note, as a source is with 📖
     // Described — so the audit leaves it alone instead of warning about it.
     expect(report.changes.some((c) => c.recordId === "@N1@")).toBe(true);
   });

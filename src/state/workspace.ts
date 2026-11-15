@@ -72,11 +72,18 @@ export interface WorkspaceState {
   decisions: Map<string, CandidateDecision>;
   /** Import-branch requests, keyed by `importKey(...)`. */
   importBranches: Set<string>;
+  /** What a merge brings across: the people the decisions and branches name
+   *  (`"people"`), or the whole incoming file (`"file"`). Back to `"people"`
+   *  whenever the branch requests are cleared — a new incoming file, a save —
+   *  so a second save never brings the same file across again. */
+  mergeScope: MergeScope;
   /** Within-file duplicate pairs the user has dismissed as not-a-duplicate,
    *  keyed by `duplicatePairKey(...)`, so re-running the Tools duplicate scan
    *  doesn't resurface them. */
   rejectedDuplicates: Set<string>;
 }
+
+export type MergeScope = "people" | "file";
 
 export const initialWorkspace: WorkspaceState = {
   main: { status: "empty" },
@@ -88,6 +95,7 @@ export const initialWorkspace: WorkspaceState = {
   startId: undefined,
   decisions: new Map(),
   importBranches: new Set(),
+  mergeScope: "people",
   rejectedDuplicates: new Set(),
 };
 
@@ -107,6 +115,7 @@ export type WorkspaceAction =
   | { type: "confirmedDecisionsCleared" }
   | { type: "importBranchesSet"; branches: Set<string> }
   | { type: "importBranchesCleared" }
+  | { type: "mergeScopeSet"; scope: MergeScope }
   | { type: "rejectedDuplicatesSet"; pairs: Set<string> }
   | { type: "rejectedDuplicatesCleared" }
   | { type: "reset" };
@@ -203,7 +212,12 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
       return { ...state, importBranches: new Set(action.branches) };
 
     case "importBranchesCleared":
-      return state.importBranches.size === 0 ? state : { ...state, importBranches: new Set() };
+      return state.importBranches.size === 0 && state.mergeScope === "people"
+        ? state
+        : { ...state, importBranches: new Set(), mergeScope: "people" };
+
+    case "mergeScopeSet":
+      return state.mergeScope === action.scope ? state : { ...state, mergeScope: action.scope };
 
     case "rejectedDuplicatesSet":
       return { ...state, rejectedDuplicates: new Set(action.pairs) };

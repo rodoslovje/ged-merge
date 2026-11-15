@@ -1567,8 +1567,14 @@ export function importSourRecords(
   compare: Dataset,
   sourMap: SourXrefMap,
   customTags: Record<string, CustomTagNode[]>,
+  /** Output xrefs to bring across even when nothing in the merge names them —
+   *  a whole-file merge passes every one `sourMap` holds. One the main file
+   *  already has (the same content, mapped onto the main's record) is skipped
+   *  as any present record is. */
+  alsoImport?: Iterable<string>,
 ): GedNode[] {
   const importedNodes: GedNode[] = [];
+  const extra = [...(alsoImport ?? [])];
   // Reverse map: output xref → compare xref.
   const reverseMap = new Map<string, string>();
   for (const [cXref, outXref] of sourMap) reverseMap.set(outXref, cXref);
@@ -1598,7 +1604,7 @@ export function importSourRecords(
   while (changed) {
     changed = false;
     const presentXrefs = new Set(records.filter((r) => r.xref).map((r) => r.xref as string));
-    const needed = new Set<string>();
+    const needed = new Set<string>(extra);
     for (const rec of records) collectSourRefs(rec, needed);
     for (const outXref of needed) {
       if (presentXrefs.has(outXref) || fileless.has(outXref)) continue;
