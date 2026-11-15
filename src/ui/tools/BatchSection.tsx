@@ -31,6 +31,7 @@ import {
 import { fullTextLookup } from "../globalSearch";
 import type { RecordPatch } from "../historyTypes";
 import { useNameOf, useSettings } from "../SettingsContext";
+import { displayDateText } from "../../gedcom/dateDisplay";
 import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
@@ -106,6 +107,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const derivations = useDatasetDerivations();
   const nameOf = useNameOf();
   const { settings } = useSettings();
+  // The estimate previews quote dates as the screen shows them.
+  const dateDisplay = settings.dateDisplay;
 
   // Rows rebuild when the file content moves: any render while visible (tab
   // return, an undo/redo elsewhere, this panel's own apply) re-reads the
@@ -242,10 +245,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const birthPreview = useMemo(() => {
     if (action?.kind !== "estimateBirth") return null;
     return new Map(
-      [...previewBirthEstimateDates(dataset, targets.map((r) => r.id))].map(([id, date]) => [id, { text: `→ ${date}` }]),
+      [...previewBirthEstimateDates(dataset, targets.map((r) => r.id))].map(([id, date]) => [id, { text: `→ ${displayDateText(date)}` }]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [action?.kind, dataset, targets, ver]);
+  }, [action?.kind, dataset, targets, ver, dateDisplay]);
 
   /** Per-row preview of the married-name action: the surnames the person would
    *  end up carrying, plus the doubt that left the row unchecked. Computed over
@@ -273,16 +276,17 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     for (const r of targets) {
       const fams = (dataset.individuals.get(r.id)?.spouseOf ?? []).filter((f) => byFamily.has(f));
       const dates = fams.map((f) => {
-        if (fams.length === 1) return byFamily.get(f)!;
+        const date = displayDateText(byFamily.get(f)!);
+        if (fams.length === 1) return date;
         const fam = dataset.families.get(f)!;
         const partner = dataset.individuals.get((fam.husband === r.id ? fam.wife : fam.husband) ?? "");
-        return partner ? `${byFamily.get(f)!} (${nameOf(partner)})` : byFamily.get(f)!;
+        return partner ? `${date} (${nameOf(partner)})` : date;
       });
       if (dates.length) out.set(r.id, { text: `→ ${dates.join(", ")}` });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [action?.kind, dataset, targets, nameOf, ver]);
+  }, [action?.kind, dataset, targets, nameOf, ver, dateDisplay]);
 
   const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview ?? marriagePreview;
   /** The married-name preview speaks for unchecked rows too (see above). */

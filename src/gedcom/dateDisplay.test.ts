@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { parseDate } from "./date";
-import { datesReformatted, displayDate, setDateDisplay } from "./dateDisplay";
+import { datesReformatted, displayDate, displayDateText, setDateDisplay } from "./dateDisplay";
+import { dateDisplayFormatter } from "../ui/dateDisplayFormat";
 import { narrativeSl } from "../report/lang/sl";
 
 describe("displayDate", () => {
@@ -9,6 +10,13 @@ describe("displayDate", () => {
   it("shows the file's own text by default", () => {
     expect(datesReformatted()).toBe(false);
     expect(displayDate(parseDate("ABT 5 MAR 1850"))).toBe("ABT 5 MAR 1850");
+  });
+
+  it("shows a date that travels as GEDCOM text the same way", () => {
+    expect(displayDateText("BEF 23 OCT 1762")).toBe("BEF 23 OCT 1762");
+    setDateDisplay(dateDisplayFormatter("D. M. YYYY", () => "sl"));
+    expect(displayDateText("23 OCT 1762")).toBe("23. 10. 1762");
+    expect(displayDateText("ABT 1670")).toBe(displayDate(parseDate("ABT 1670")));
   });
 
   it("shows the date through an installed formatter", () => {
