@@ -26,6 +26,7 @@ import { charsetNotices } from "../charsetNotice";
 import { completeStructure, ownVersion } from "../../save/outputFile";
 import { submitterName } from "../../gedcom/newFile";
 import { useSettingsSlice } from "../SettingsContext";
+import { displayDateText } from "../../gedcom/dateDisplay";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
@@ -34,6 +35,10 @@ import { useTranslationLang } from "./TranslationLangSection";
 import { MediaLinkDialog } from "../MediaLinkDialog";
 import { nodeAtPath } from "../../tools/conformance/conformance";
 import { keptHabits } from "../../tools/normalizeRepairs";
+
+/** Message vars that hold a date as GEDCOM text (years travel as numbers). */
+const DATE_VARS = ["birth", "marriage", "date", "death"] as const;
+const DATE_DISPLAY_KEYS = ["dateDisplay"] as const;
 
 /** How long a fix's confirmation stays up. */
 const FIX_DONE_MS = 8000;
@@ -219,6 +224,11 @@ export function ValidatePanel({
    *  is unaffected: i18next falls back to the base key. */
   const issueVars = (issue: ValidationIssue) => ({
     ...issue.messageVars,
+    // Dates a finding quotes as text, shown the way Settings → Display shows dates.
+    ...Object.fromEntries(DATE_VARS.flatMap((k) => {
+      const v = issue.messageVars?.[k];
+      return typeof v === "string" ? [[k, displayDateText(v)]] : [];
+    })),
     ...(typeof issue.messageVars?.tag === "string"
       ? { tag: eventDisplayLabel(issue.messageVars.tag, t) }
       : {}),
@@ -391,6 +401,8 @@ export function ValidatePanel({
   const version = ownVersion(dataset);
   const records = dataset.records;
   const { authorName } = useSettingsSlice(AUTHOR_KEYS);
+  // Re-render on a change of the date display: findings and fixes quote dates.
+  useSettingsSlice(DATE_DISPLAY_KEYS);
   const fileFixes = useMemo(() => completeStructure(records, version, false), [records, version]);
 
   const q = useDebounced(query).trim().toLowerCase();
@@ -658,8 +670,8 @@ export function ValidatePanel({
         const value = issue.birthEstimate;
         if (!value) return null;
         return {
-          label: t("tools.validate.fixOneValue", { value }),
-          hint: t("tools.validate.fixOneBirthEstimateHint"),
+          label: t("tools.validate.fixOneValue", { value: displayDateText(value) }),
+          hint: `${t("tools.validate.fixOneBirthEstimateHint")} (${value})`,
           kind: "births",
           run: () => onEstimateBirths([issue.id]),
         };
@@ -669,8 +681,8 @@ export function ValidatePanel({
         const fix = issue.marriageFix;
         if (!fix) return null;
         return {
-          label: t("tools.validate.fixOneValue", { value: fix.value }),
-          hint: t("tools.validate.fixOneMarriageDateHint"),
+          label: t("tools.validate.fixOneValue", { value: displayDateText(fix.value) }),
+          hint: `${t("tools.validate.fixOneMarriageDateHint")} (${fix.value})`,
           kind: "marriageDates",
           run: () => onFixMarriageDates([fix]),
         };

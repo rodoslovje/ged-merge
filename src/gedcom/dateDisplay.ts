@@ -1,5 +1,5 @@
 import type { GedDate } from "./types";
-import { dateText, withPhrase } from "./date";
+import { dateText, parseDate, withPhrase } from "./date";
 
 // How a date is shown on screen, as opposed to how the file writes it. By
 // default the two are the same text; Settings → Display "Date display" can
@@ -28,4 +28,10 @@ export function displayDate(d: GedDate): string {
   const shown = formatter && !d.placeholder && formatter(d);
   if (!shown) return dateText(d);
   return d.phrase && !shown.includes(d.phrase) ? withPhrase(shown, d.phrase) : shown;
+}
+
+/** A GEDCOM date value (`BEF 23 OCT 1762`) as the screen shows dates — for a
+ *  date that travels as text, such as a finding's message or a fix preview. */
+export function displayDateText(raw: string): string {
+  return formatter ? displayDate(parseDate(raw)) : raw;
 }
