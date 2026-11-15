@@ -64,7 +64,9 @@ test("a new deploy is offered as a toast, and Reload switches to it", async ({ p
   const toast = page.locator(".pwa-toast");
   await expect(toast).toContainText("A new version is available.");
   // Waiting, not active: nothing has been swapped under the open page yet.
-  expect(await page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting))
+    .toBe(true);
 
   const reloaded = page.waitForEvent("load");
   await toast.getByRole("button", { name: "Reload", exact: true }).click();
