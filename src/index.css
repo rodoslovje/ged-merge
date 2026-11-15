@@ -9569,7 +9569,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* One header row: the page, the line, the line's person — then, pushed to the
    end, the head count and the filters' fold toggle. */
 .stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
-.stats-head .tree-mode { flex-wrap: wrap; }
+/* The page and line rows shrink with the screen and scroll sideways, rather
+   than running past its right edge on a phone. */
+.stats-head .tree-mode { flex-shrink: 1; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.stats-head .tree-mode button { flex: none; white-space: nowrap; }
 /* The card's corner tools — show all, the tip — pinned there, so a title that
    wraps never pushes them onto a line of their own. */
 .stats-card-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
@@ -9656,6 +9659,12 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pick .stats-couple { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; flex: 1 1 auto; }
 .stats-relate { margin-left: auto; padding: 4px; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
+/* A phone: two even columns of tiles, filling the card's width. */
+@media (max-width: 560px) {
+  .stats-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-tiles .stats-pick { grid-column: 1 / -1; }
+  .stats-tile { min-width: 0; }
+}
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */
 .stats-columns { display: flex; gap: 2px; align-items: stretch; }
