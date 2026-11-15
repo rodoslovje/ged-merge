@@ -196,7 +196,10 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
   }
   if (o.privacy) out.privacyStyle = o.privacy;
   // A strict target keeps none of a source's 5.5-EL lines.
-  if (o.standard) out.sourceTags = { FILN: false, PERI: false };
+  if (o.standard) {
+    out.sourceTags = { FILN: false, PERI: false };
+    out.standard = o.standard;
+  }
   return out;
 }
 

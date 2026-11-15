@@ -3193,6 +3193,29 @@ describe("bulkNormalize vendor-tag dialect", () => {
     expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(true);
   });
 
+  it.each(["5.5.1", "7.0"] as const)("keeps a standard EVEN + TYPE partnership in a strict %s target", (version) => {
+    // `_MSTAT` is the producer's own tag here, so only the strict target
+    // keeps the standard event from becoming the extension.
+    const { dataset: out } = bulkNormalize(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR BROSKEEP
+1 GEDC
+2 VERS ${version}
+2 FORM LINEAGE-LINKED
+0 @F1@ FAM
+1 EVEN
+2 TYPE MYHERITAGE:REL_PARTNERS
+0 TRLR`),
+      undefined,
+      { standard: version, writeVersion: version },
+    );
+    const fam = out.families.get("@F1@")!.raw;
+    expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(false);
+    expect(fam.children.find((c) => c.tag === "EVEN")?.children[0]?.value).toBe("MYHERITAGE:REL_PARTNERS");
+    expect(validateConformance(out).filter((i) => i.recordId === "@F1@")).toEqual([]);
+  });
+
   it("still renames _MILI in a Brother's Keeper file — _MILT is BK's own spelling too", () => {
     const { dataset: out, report } = bulkNormalize(dataset(`0 HEAD
 1 CHAR UTF-8

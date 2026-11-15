@@ -232,7 +232,8 @@ export function normalizeDataset(
   // a third program's dialect, which `preserveFamilyStatus` holds off — the
   // same doctrine as `preserveVendorTags` above.
   if (options.vendorTags && !options.preserveFamilyStatus) {
-    for (const change of normalizeFamilyStatus(editable)) {
+    // A strict target keeps MyHeritage's standard `EVEN` + `TYPE` form.
+    for (const change of normalizeFamilyStatus(editable, { keepStandardEvents: !!profile.standard })) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);
     }

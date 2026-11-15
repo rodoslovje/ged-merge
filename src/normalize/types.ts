@@ -31,6 +31,10 @@ export interface MainProfile {
    *  a strict target). Incoming ones it does not keep are restated in the
    *  standard's form: the repository link's `CALN`, the `TITL`. */
   sourceTags?: { FILN: boolean; PERI: boolean };
+  /** The strict target version, when the main follows one (set from the
+   *  target format by `applyFormatOverrides`): the standard form is then
+   *  preferred over an extension. Absent in Master file mode. */
+  standard?: "5.5.1" | "7.0";
 }
 
 /**
