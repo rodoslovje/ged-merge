@@ -73,7 +73,8 @@ export type BatchCriterion =
    *  any event at all, so `lacks` finds the unions nothing is recorded about.
    *  `has` means one union carries it, `lacks` that none does; people with no
    *  union at all count as lacking everything. `undated` finds a union whose
-   *  event is missing or carries no date, `estimated` one whose event is dated
+   *  event is recorded without a date (a union without the event at all is
+   *  `lacks`'s question), `estimated` one whose event is dated
    *  only by an estimate (ABT, CAL, EST, BEF, AFT, BET) — both look at each
    *  union on its own, and people with no union match neither. */
   | { kind: "familyEvent"; tag: string; mode: FamilyEventMode }
@@ -376,7 +377,7 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
           const of = (events: BatchRow["unionEvents"][number]) =>
             events.filter((e) => c.tag === ANY_EVENT || e.tag === c.tag);
           const ok = c.mode === "undated"
-            ? row.unionEvents.some((u) => !of(u).some((e) => e.dated))
+            ? row.unionEvents.some((u) => of(u).length > 0 && !of(u).some((e) => e.dated))
             : row.unionEvents.some((u) => of(u).some((e) => e.estimated));
           if (!ok) return false;
           break;
@@ -550,7 +551,7 @@ export type BatchActionSpec =
    *  whether a union looks like a marriage ({@link unionMarriage}) decides only
    *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
-  /** Date each undated marriage of the selected people with the strongest
+  /** Date each recorded but undated marriage of the selected people with the strongest
    *  estimate the family supports — `BEF` the oldest exactly dated child, else
    *  `ABT` from an estimated child or from the spouses' births (see
    *  {@link previewMarriageEstimates}). A family is written once even when
@@ -795,8 +796,8 @@ const MARRIAGE_BEFORE_CHILD = 2;
  *  3. otherwise `ABT` from the spouses' births — the wife's plus a mother's
  *     age at a first child, else the husband's plus a father's.
  * `ABT` years are rounded to a year ending in 0 or 5, like birth estimates. A
- * union qualifies when its marriage has no date (or no marriage is recorded),
- * or when its date is a `BEF` later than rule 1's year — an estimate written
+ * union qualifies when its recorded marriage has no date — a union with no
+ * marriage at all gets none — or when its date is a `BEF` later than rule 1's year — an estimate written
  * before an older child was added. Other dates, estimates included, are the
  * researcher's and stay.
  */
@@ -817,7 +818,11 @@ export function previewMarriageEstimates(ds: Dataset, ids: string[]): Map<string
         if (d.qualifier === "exact") exact = Math.min(exact ?? d.year, d.year);
         else estimated = Math.min(estimated ?? d.year, d.year);
       }
-      const date = fam.events.find((e) => e.tag === "MARR")?.date;
+      // Only a recorded marriage is dated: a couple with none may never have
+      // married, and the estimate must not assert that they did.
+      const marr = fam.events.find((e) => e.tag === "MARR");
+      if (!marr) continue;
+      const date = marr.date;
       if (!date?.raw.trim()) {
         const wife = birthYear(fam.wife ? ds.individuals.get(fam.wife) : undefined);
         const husband = birthYear(fam.husband ? ds.individuals.get(fam.husband) : undefined);
