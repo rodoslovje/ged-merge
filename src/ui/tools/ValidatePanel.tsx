@@ -24,6 +24,7 @@ import { countFixableConformance, type ConformanceFixKind, type ConformanceRef }
 import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { MULTI } from "../../gedcom/vendorTags";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
@@ -1690,7 +1691,9 @@ function StructRow({
       </span>
       {variationOf !== undefined && (
         <span className="tools-issue-detail">
-          {variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}
+          {variationOf === MULTI
+            ? t("tools.validate.struct.variationCommon")
+            : variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}
         </span>
       )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />

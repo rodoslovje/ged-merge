@@ -678,6 +678,8 @@ export const en = {
   "tools.validate.struct.issue.misplaced": "{{tag}} is not allowed under {{parent}} in GEDCOM {{version}} ({{count}}×)",
   "tools.validate.struct.variationOwn": "this file's variation, kept",
   "tools.validate.struct.variationOf": "{{software}}'s variation, kept",
+  "tools.validate.struct.variationCommon": "a variation several programs use, kept",
+  "tools.validate.struct.severalPrograms": "several programs",
   "tools.validate.struct.issue.missingTranLang": "Translations (TRAN) of place and personal names have no LANG line, which the standard requires ({{count}}×)",
   "tools.validate.struct.issue.smartMatch": "MyHeritage citations hold a label in EVEN (Smart Matching, Discovery, Record) instead of an event, and a person's or record's ID in ROLE ({{count}}×)",
   "tools.validate.struct.issue.missingMany": "{{parent}} is missing the {{tag}} line the standard requires ({{count}}×)",

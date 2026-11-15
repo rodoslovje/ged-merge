@@ -776,6 +776,8 @@ export const sl = {
   "tools.validate.struct.issue.misplaced": "Oznaka {{tag}} pod {{parent}} v GEDCOM {{version}} ni dovoljena ({{count}}×)",
   "tools.validate.struct.variationOwn": "odstopanje te datoteke, ki se ohrani",
   "tools.validate.struct.variationOf": "odstopanje programa {{software}}, ki se ohrani",
+  "tools.validate.struct.variationCommon": "odstopanje več programov, ki se ohrani",
+  "tools.validate.struct.severalPrograms": "več programov",
   "tools.validate.struct.issue.missingTranLang": "Prevodom (TRAN) imen krajev in oseb manjka vrstica LANG, ki jo standard zahteva ({{count}}×)",
   "tools.validate.struct.issue.smartMatch": "Navedbe virov MyHeritage imajo v vrstici EVEN oznako (Smart Matching, Discovery, Record) namesto dogodka, v vrstici ROLE pa ID osebe ali zapisa ({{count}}×)",
   "tools.validate.struct.issue.missingMany": "Pod {{parent}} manjka vrstica {{tag}}, ki jo standard zahteva ({{count}}×)",
