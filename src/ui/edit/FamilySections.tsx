@@ -709,6 +709,20 @@ export const FamilySection = memo(function FamilySection({
               refCtx={cardRefCtx}
             />
           )}
+          {/* The couple's note, right beside the partner — mostly there is
+              one, and below the children it read as the last child's. */}
+          {fam && (
+            <div className="edit-family-notes">
+              <NotesEditor
+                key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}-${mergeGen}`}
+                notes={fam.noteRefs ?? []}
+                addTrigger={famNoteAddCount}
+                incoming={mergePreview?.notes && { ...mergePreview.notes, ...famMergeActions("notes") }}
+                t={t}
+                onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
+              />
+            </div>
+          )}
           {fam && (
             <AddEventSelect
               tags={emptyFamilyTags}
@@ -872,18 +886,6 @@ export const FamilySection = memo(function FamilySection({
               }, extraPatches)
             }
             onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}
-          />
-        </div>
-      )}
-      {fam && (
-        <div className="edit-record-section">
-          <NotesEditor
-            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}-${mergeGen}`}
-            notes={fam.noteRefs ?? []}
-            addTrigger={famNoteAddCount}
-            incoming={mergePreview?.notes && { ...mergePreview.notes, ...famMergeActions("notes") }}
-            t={t}
-            onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
           />
         </div>
       )}

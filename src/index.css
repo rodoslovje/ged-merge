@@ -2745,6 +2745,10 @@ button:focus-visible {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* The couple's note beside the partner, as wide as its text; an empty one takes
+   no room. */
+.edit-family-notes { flex: 0 1 auto; min-width: 0; }
+.edit-family-notes:empty { display: none; }
 /* Separate multiple spouse families with a divider above each subsequent one. */
 .edit-family + .edit-family {
   border-top: 1px solid var(--border);
