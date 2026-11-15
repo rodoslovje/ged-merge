@@ -195,7 +195,6 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
         onBack={onBack}
         onNavigate={onNavigate}
         onTargetChange={onRootChange}
-        preferBlood={!!relationFromId}
         kindSwitcher={kindSwitcher}
       />
     );

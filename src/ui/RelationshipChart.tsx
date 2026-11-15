@@ -11,7 +11,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
-import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
@@ -51,9 +51,6 @@ interface Props {
   onNavigate: (id: string) => void;
   /** The Charts-hub kind switcher, rendered under the toolbar. */
   kindSwitcher?: React.ReactNode;
-  /** Open on the blood relationship even where a shorter path exists — for a
-   *  couple, whose shortest path is always their own marriage. */
-  preferBlood?: boolean;
   /** Reports target swaps up to the Charts hub, so switching to a pedigree
    *  chart roots on the person this diagram currently points at. */
   onTargetChange?: (id: string) => void;
@@ -71,7 +68,7 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange, preferBlood = false }: Props) {
+export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const formatName = useNameOf(marriedNameOverride(settings.showMarriedName));
@@ -111,29 +108,22 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     );
   };
 
-  // Shortest path + every distinct bloodline, deduped (a shortest path that is
-  // already a pure bloodline isn't listed twice).
+  // Every route the relationship label names (each bloodline, or for an in-law
+  // a bloodline plus one marriage) first — the first is the default, so the
+  // drawing always agrees with the label — then the shortest path through any
+  // edge, unless it is one of those routes already.
   const options = useMemo<PathOption[]>(() => {
-    const blood = bloodPaths(mainDs, startSel, targetSel);
+    const blood = labelPaths(mainDs, startSel, targetSel);
     const opts: PathOption[] = blood.map((path) => ({
       path,
       label: t("relpath.optBlood", { name: nameOf(path.steps[path.lcaIndex!].id), count: path.hops }),
     }));
     const shortest = shortestPath(mainDs, startSel, targetSel);
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
-      // A bloodline can never be shorter than the general shortest path, only
-      // equal or longer. Insert before the first bloodline that's strictly
-      // longer, so equal-length bloodlines stay ahead of it — a tie in step
-      // count still defaults to the blood relationship (index 0).
-      // Asked to prefer the blood relationship, the shortest path goes last.
-      const insertAt = preferBlood ? -1 : blood.findIndex((b) => b.hops > shortest.hops);
-      opts.splice(insertAt === -1 ? opts.length : insertAt, 0, {
-        path: shortest,
-        label: t("relpath.optShortest", { count: shortest.hops }),
-      });
+      opts.push({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
     return opts;
-  }, [mainDs, startSel, targetSel, t, nameOf, preferBlood]);
+  }, [mainDs, startSel, targetSel, t, nameOf]);
 
   const { alignment } = settings;
   const nodeH = nodeHeight(settings);
