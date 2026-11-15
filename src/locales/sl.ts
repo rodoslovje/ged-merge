@@ -3128,6 +3128,7 @@ export const sl = {
   "eventGroup.death":     "Smrt",
   "eventGroup.lds":       "Obredi LDS",
   "eventGroup.other":     "Drugo",
+  "eventGroup.family":    "Družinski dogodki",
   "kinship.spouse":           "Zakonec",
   "kinship.father":           "Oče",
   "kinship.mother":           "Mati",

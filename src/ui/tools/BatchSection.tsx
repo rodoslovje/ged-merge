@@ -4,9 +4,9 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
 import { applyPassSafely } from "../../tools/passSafety";
-import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
-import { offeredEventGroups } from "../edit/editConstants";
+import { offeredEventGroups, offersEventTag } from "../edit/editConstants";
 import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
 import { writeVersionOf } from "../../normalize/formatOverrides";
 import {
@@ -155,8 +155,18 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     for (const r of rows) for (const tag of r.eventTags) present.add(tag);
     return INDI_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
-  /** Non-standard tags the file actually uses — the convert action's sources. */
-  const vendorEventOptions = useMemo(() => eventOptions.filter(isNonStandardTag), [eventOptions]);
+  /** Non-standard family-event tags the unions use (`SEPA`). */
+  const familyVendorOptions = useMemo(() => {
+    const present = new Set<string>();
+    for (const r of rows) for (const tag of r.familyEventTags) if (isNonStandardTag(tag)) present.add(tag);
+    return [...present].filter((tag) => !eventOptions.includes(tag));
+  }, [rows, eventOptions]);
+  /** Non-standard tags the file actually uses, a person's and then a
+   *  family's — the convert action's sources. */
+  const vendorEventOptions = useMemo(
+    () => [...eventOptions.filter(isNonStandardTag), ...familyVendorOptions],
+    [eventOptions, familyVendorOptions],
+  );
   /** Tags offered by the family-event filter: marriage always (the point of the
    *  filter is finding unions without it) plus whatever the file's unions use. */
   const familyEventOptions = useMemo(() => {
@@ -525,6 +535,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           folderMediaOptions={folderMediaOptions}
           sourceOptions={sourceOptions}
           vendorEventOptions={vendorEventOptions}
+          familyVendorOptions={familyVendorOptions}
           onChange={changeAction}
         />
         {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
@@ -969,6 +980,7 @@ function ActionEditor({
   folderMediaOptions,
   sourceOptions,
   vendorEventOptions,
+  familyVendorOptions,
   onChange,
 }: {
   action: BatchActionSpec | null;
@@ -978,6 +990,8 @@ function ActionEditor({
   sourceOptions: Array<{ xref: string; title: string }>;
   /** Non-standard event tags present in the file — the convert action's sources. */
   vendorEventOptions: string[];
+  /** Those of them only families hold: converted into a family event. */
+  familyVendorOptions: string[];
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t } = useTranslation();
@@ -1128,7 +1142,10 @@ function ActionEditor({
               const named = v === "EVEN" || v === "FACT";
               onChange({ ...action, toTag: v, type: named ? action.type?.trim() || typeFor(action.fromTag) : undefined });
             }}
-            groups={offeredEventGroups(eventOffer).map((g) => ({
+            groups={(familyVendorOptions.includes(action.fromTag)
+              ? [{ labelKey: "eventGroup.family", tags: EDITABLE_FAM_EVENT_TAGS.filter((tag) => tag !== action.fromTag && offersEventTag(tag, "FAM", eventOffer)) }]
+              : offeredEventGroups(eventOffer)
+            ).map((g) => ({
               label: t(g.labelKey),
               items: g.tags.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
             }))}

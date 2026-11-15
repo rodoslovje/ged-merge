@@ -843,6 +843,40 @@ describe("applyBatchAction", () => {
     expect(ds.individuals.get("@I2@")!.events.map((e) => e.tag)).toEqual(["BURI"]);
   });
 
+  it("converts a family event in every union of a picked partner, each union once", () => {
+    for (const vers of ["5.5.1", "7.0"] as const) {
+      const head = vers === "7.0"
+        ? "0 HEAD\n1 GEDC\n2 VERS 7.0\n"
+        : "0 HEAD\n1 SOUR TEST\n1 SUBM @U1@\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @U1@ SUBM\n1 NAME Test\n";
+      const ds = dataset(`${head}0 @I1@ INDI
+1 NAME Erik //
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Dunja //
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Ana //
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 SEPA
+2 DATE 2010
+0 TRLR`);
+      const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], {
+        kind: "convertEvent", fromTag: "SEPA", toTag: "EVEN", type: "Ločeno življenje",
+      }, vers);
+      expect(res.changed).toBe(2);
+      expect(res.skipped).toBe(1);
+      const fam = ds.families.get("@F1@")!;
+      expect(fam.raw.children.filter((c) => c.tag === "EVEN").map((e) => e.children.map((c) => [c.tag, c.value])))
+        .toEqual([[["TYPE", "Ločeno življenje"], ["DATE", "2010"]]]);
+      expect(fam.events.map((e) => e.tag)).toEqual(["EVEN"]);
+      expect(validateConformance(ds).filter((i) => i.sample === "SEPA" || i.sample === "EVEN")).toEqual([]);
+      // Undo puts the family back.
+      expect(res.patches.some((p) => p.type === "family" && p.id === "@F1@")).toBe(true);
+    }
+  });
+
   it("keeps the line value where the target holds one, and makes it a note where it does not", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

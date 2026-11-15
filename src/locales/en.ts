@@ -2707,6 +2707,7 @@ export const en = {
   "eventGroup.death":     "Death",
   "eventGroup.lds":       "LDS Ordinances",
   "eventGroup.other":     "Other",
+  "eventGroup.family":    "Family events",
   "kinship.spouse":           "Spouse",
   "kinship.father":           "Father",
   "kinship.mother":           "Mother",
