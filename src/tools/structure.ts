@@ -46,6 +46,9 @@ export type StructSeverity = "error" | "warning" | "info";
 /** Sort weight per severity — errors first, informational (custom tags) last. */
 const SEV_RANK: Record<StructSeverity, number> = { error: 0, warning: 1, info: 2 };
 
+/** The order the categories are listed in, within one severity. */
+export const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
+
 export interface StructIssue {
   category: StructCategory;
   severity: StructSeverity;
@@ -565,7 +568,6 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   for (const issue of validateConformance(ds)) push(issue);
 
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);

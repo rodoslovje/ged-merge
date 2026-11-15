@@ -9835,6 +9835,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 /* A family-scoped structural issue reads as its couple (husband & wife links). */
 .tools-couple-ref { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
+.tools-couple-ref > .tools-struct-rec-tag { margin-right: 0.5em; }
 .tools-issue-link {
   border: none; background: none; padding: 0;
   color: var(--accent); cursor: pointer; font-weight: 600;

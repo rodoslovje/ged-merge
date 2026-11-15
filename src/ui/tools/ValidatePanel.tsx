@@ -21,7 +21,7 @@ import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
-import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
+import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { MULTI } from "../../gedcom/vendorTags";
@@ -31,7 +31,10 @@ import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
 import { completeStructure, ownVersion } from "../../save/outputFile";
 import { submitterName } from "../../gedcom/newFile";
-import { AUTHOR_KEYS as SUBMITTER_KEYS, submitterOf, useSettingsSlice } from "../SettingsContext";
+import { AUTHOR_KEYS as SUBMITTER_KEYS, submitterOf, useNameOf, useSettingsSlice } from "../SettingsContext";
+
+/** The order record types are listed in, within one category of findings. */
+const RECORD_TAG_ORDER = ["HEAD", "INDI", "FAM", "SOUR", "REPO", "OBJE", "NOTE", "SNOTE", "SUBM"];
 import { displayDateText } from "../../gedcom/dateDisplay";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
@@ -213,6 +216,7 @@ export function ValidatePanel({
   onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
+  const nameOf = useNameOf();
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
@@ -533,7 +537,39 @@ export function ValidatePanel({
         issue: { ...tranFirst, messageKey: TRAN_LANG_KEY, messageVars: { ...tranFirst.messageVars, count: tranCount } },
       });
     }
-    rows.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+    // Within a severity and a category, the records by type (people, then
+    // families, sources…), and each type by what the row calls its record.
+    const titles = new Map<string, string>();
+    const titleOf = (issue: StructIssue): string => {
+      const id = issue.recordId;
+      if (!id) return issue.sample ?? "";
+      let title = titles.get(id);
+      if (title === undefined) {
+        const indi = dataset.individuals.get(id);
+        const fam = dataset.families.get(id);
+        const rec = indi || fam ? undefined : recordByXref(dataset.records, id);
+        title = indi ? nameOf(indi)
+          : fam ? [fam.husband, fam.wife].map((s) => (s ? nameOf(dataset.individuals.get(s)) : "")).join(" ")
+          : (rec && recordTitle(rec)) ?? id;
+        titles.set(id, title);
+      }
+      return title;
+    };
+    const tagRank = (tag: string | undefined) => {
+      const i = tag ? RECORD_TAG_ORDER.indexOf(tag) : -1;
+      return i < 0 ? RECORD_TAG_ORDER.length : i;
+    };
+    rows.sort((a, b) => {
+      if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
+      if (a.kind !== b.kind) return a.kind === "record" ? -1 : 1;
+      if (a.kind === "record" || b.kind === "record") return 0;
+      const x = a.issue;
+      const y = b.issue;
+      return CATEGORY_ORDER.indexOf(x.category) - CATEGORY_ORDER.indexOf(y.category)
+        || tagRank(x.recordTag) - tagRank(y.recordTag)
+        || titleOf(x).localeCompare(titleOf(y))
+        || (x.line ?? 0) - (y.line ?? 0);
+    });
     return rows;
   };
   const rowFixOf = (row: IssueRow): RowFix | null =>
@@ -1584,14 +1620,22 @@ function RecordRef({
   onEditSource?: (xref: string) => void;
 }) {
   const { t } = useTranslation();
+  // A person or a couple starts with its type too, as every other row does.
+  const typeTag = tag && <span className="tools-struct-rec tools-struct-rec-tag">{tag}</span>;
   if (id && dataset.individuals.has(id)) {
-    return <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />;
+    return (
+      <span className="tools-couple-ref">
+        {typeTag}
+        <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+      </span>
+    );
   }
   const fam = id ? dataset.families.get(id) : undefined;
   const spouses = fam ? [fam.husband, fam.wife].filter((s): s is string => !!s) : [];
   if (spouses.length > 0) {
     return (
       <span className="tools-couple-ref">
+        {typeTag}
         {spouses.map((sid, i) => (
           <span key={sid}>
             {i > 0 && <span className="tools-usage-amp">&amp;</span>}
@@ -1682,7 +1726,9 @@ function StructRow({
       ) : null}
       <span className="tools-issue-msg">
         <LinkedTags
-          text={t(issue.messageKey, issue.messageVars)}
+          text={t(issue.messageKey, issue.messageVars?.software === MULTI
+            ? { ...issue.messageVars, software: t("tools.validate.struct.severalPrograms") }
+            : issue.messageVars)}
           headSour={headSour}
           // A tag no table knows still gets the page that says so.
           unknown={issue.category === "unknownTag" ? issue.sample : undefined}
