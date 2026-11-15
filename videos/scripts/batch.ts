@@ -459,8 +459,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "In filter »Zveza« z možnostjo »nima datuma« za poroko.",
-        en: "And the Union filter, set to has no date for Marriage.",
+        sl: "In filter »Zveza«, kjer izberemo možnost »nima datuma«. Tako najdemo poroke, ki so zapisane brez datuma.",
+        en: "And the Union filter, where we choose has no date for. That finds the marriages recorded without a date.",
       },
       run: async (d) => {
         const union = await addFilter(d, "tools.batch.crit.familyEvent");
