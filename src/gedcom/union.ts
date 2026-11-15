@@ -7,7 +7,7 @@ import { hasChild } from "./node";
  *  - `married` — a `MARR` event (even undated or a bare `Y`: its presence is
  *    the assertion), a `DIV`/`DIVF`/`ANUL` that presupposes one, `_MSTAT
  *    Married` or Brother's Keeper's `_MARRIED Y`;
- *  - `unmarried` — the file says so: `_MSTAT Partners` (the canonical form
+ *  - `unmarried` — the file says so: `NO MARR`, `_MSTAT Partners` (the canonical form
  *    {@link normalizeFamilyStatus} consolidates the vendor vocabularies into),
  *    a bare `_NMR` ("never married"), `_MARRIED N`;
  *  - `unknown` — no signal either way, the ordinary case in files built from
@@ -39,6 +39,8 @@ export function unionMarriage(fam: Family): UnionMarriage {
       if (value === "n") unmarried = true;
     }
     if (node.tag === "_NMR" && !value) unmarried = true;
+    // GEDCOM 7's own statement, and its 5.5.1 stand-in: `NO MARR`.
+    if ((node.tag === "NO" || node.tag === "_NO") && value === "marr") unmarried = true;
   }
   return unmarried ? "unmarried" : "unknown";
 }

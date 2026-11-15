@@ -159,6 +159,30 @@ describe("formatMarriage", () => {
   });
 });
 
+describe("the union's status on the marriage label", () => {
+  const ds = buildDataset(parseGedcom(new TextEncoder().encode(
+    "0 HEAD\n1 GEDC\n2 VERS 7.0\n" +
+      "0 @F1@ FAM\n1 NO MARR\n" +
+      "0 @F2@ FAM\n1 MARR\n2 DATE 1950\n2 PLAC Kranj\n1 DIV\n2 DATE 1960\n" +
+      "0 @F3@ FAM\n1 SEPA\n" +
+      "0 @F4@ FAM\n1 MARR Y\n0 TRLR\n",
+  ).buffer));
+  const both = { date: true, place: true };
+  const label = (id: string, fields = both) => formatMarriage(marriageOf(ds.families.get(id), ds), fields);
+
+  it("marks a couple the file says never married, a divorce with its year, and a couple living apart", () => {
+    expect(label("@F1@")).toBe("⚯");
+    expect(label("@F2@")).toBe("⚭ 1950 Kranj ⚮ 1960");
+    expect(label("@F2@", { date: false, place: true })).toBe("⚭ Kranj ⚮");
+    expect(label("@F3@")).toBe("⚬⚬");
+  });
+
+  it("says nothing of a plain marriage with nothing recorded, or when no field is asked for", () => {
+    expect(label("@F4@")).toBeUndefined();
+    expect(label("@F1@", { date: false, place: false })).toBeUndefined();
+  });
+});
+
 describe("marriageApprox", () => {
   const ds = buildDataset(parseGedcom(new TextEncoder().encode(
     "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
