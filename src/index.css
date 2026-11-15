@@ -223,6 +223,15 @@ button:focus-visible {
   border: 2px solid var(--accent);
   border-radius: 50%;
 }
+/* An entry's value in the list (42 %, 12.3 MB, 8 s), set apart from its words. */
+.activity-value {
+  margin-left: 12px;
+  float: right;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
 .activity-count {
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -10594,6 +10603,8 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+.tools-geo-running-cancel { font-size: 0.8em; color: var(--muted); }
+.tools-geo-running:hover .tools-geo-running-cancel { color: var(--danger); }
 /* A source's failure, under its own buttons, in the source's own grid cell. */
 .tools-geo-source-error {
   max-width: 18em;

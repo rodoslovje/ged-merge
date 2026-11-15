@@ -66,6 +66,25 @@ export interface GeoRunning {
   /** What this particular download is, when one click starts many: the region
    *  being fetched and its place in the run. */
   note?: string;
+  /** When this download started — the clock shown while nothing is counted. */
+  startedAt: number;
+}
+
+/** True while a run has counted nothing yet, and only a clock says it lives. */
+export function isUncounted(run: GeoRunning): boolean {
+  return run.total === 0 && run.done === 0;
+}
+
+/**
+ * How far a download has got, in one short value: a percentage when its length
+ * is known, the megabytes received when the server never announced one, and
+ * otherwise the seconds since it started — a service preparing its extract
+ * sends nothing for a while, and a ticking number tells "working" from "hung".
+ */
+export function importProgress(run: GeoRunning, now: number): string {
+  if (run.total > 0) return `${Math.round((run.done / run.total) * 100)} %`;
+  if (run.done > 0) return `${(run.done / 1048576).toFixed(1)} MB`;
+  return `${Math.max(0, Math.floor((now - run.startedAt) / 1000))} s`;
 }
 
 export type GeoImportState =
@@ -189,6 +208,7 @@ const STALL_MS = 300_000;
 function runJob(job: GeoJob, note?: string): Promise<Outcome> {
   const id = slotOf(job);
   const s = slot(id);
+  const startedAt = Date.now();
   return new Promise((resolve) => {
     const w = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     s.worker = w;
@@ -214,7 +234,7 @@ function runJob(job: GeoJob, note?: string): Promise<Outcome> {
       const msg = e.data;
       heard();
       if (msg.type === "progress") {
-        set(id, { phase: "running", job, stage: msg.stage, done: msg.done, total: msg.total, note });
+        set(id, { phase: "running", job, stage: msg.stage, done: msg.done, total: msg.total, note, startedAt });
       } else if (msg.type === "error") {
         finish({ ok: false, failure: msg.failure });
       } else {
@@ -235,7 +255,7 @@ function runJob(job: GeoJob, note?: string): Promise<Outcome> {
     // generation on, so every caller drops what it gets back.
     s.stop = () => finish({ ok: false, failure: { code: "workerFailed" } });
     heard();
-    set(id, { phase: "running", job, stage: "waiting", done: 0, total: 0, note });
+    set(id, { phase: "running", job, stage: "waiting", done: 0, total: 0, note, startedAt });
     const req: GeoWorkerRequest = { type: "import", requestId: 1, job };
     w.postMessage(req);
   });

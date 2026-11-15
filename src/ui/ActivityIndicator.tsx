@@ -1,7 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { activitySnapshot, watchActivity, type ActivityKind } from "../state/activity";
-import { geoImportSnapshot, importLabelKey, watchGeoImport, type GeoRunning } from "./tools/geoImport";
+import { geoImportSnapshot, importLabelKey, importProgress, isUncounted, watchGeoImport, type GeoRunning } from "./tools/geoImport";
+import { useNow } from "./useNow";
+import { countryNameOf } from "../geo/placeProposal";
 import { DropdownMenu, type DropdownItem } from "./DropdownMenu";
 import { requestSettings } from "./settingsBus";
 
@@ -11,6 +13,14 @@ import { requestSettings } from "./settingsBus";
 const LINGER_MS = 1200;
 
 const KINDS: ActivityKind[] = ["places", "addresses", "sources"];
+
+/** Which download of a source it is, where the source has many: the region in
+ *  a run of them, or the OpenStreetMap country (region) picked. */
+function whichOne(run: GeoRunning, language: string): string | undefined {
+  if (run.note) return run.note;
+  if (run.job.kind !== "osm") return undefined;
+  return run.job.region ?? countryNameOf(run.job.country, language) ?? run.job.country;
+}
 
 /** `done` of `total` as a whole percentage. */
 const percent = (done: number, total: number) => Math.round((done / total) * 100);
@@ -23,11 +33,12 @@ const percent = (done: number, total: number) => Math.round((done / total) * 100
  * can be followed and cancelled.
  */
 export function ActivityIndicator() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const counts = useSyncExternalStore(watchActivity, activitySnapshot, activitySnapshot);
   const geo = useSyncExternalStore(watchGeoImport, geoImportSnapshot, geoImportSnapshot);
   const running = Object.values(geo.jobs).filter((j): j is GeoRunning => j.phase === "running");
   const busy = running.length > 0 || KINDS.some((k) => counts[k].active > 0);
+  const now = useNow(running.some(isUncounted));
 
   const [shown, setShown] = useState(busy);
   useEffect(() => {
@@ -41,18 +52,18 @@ export function ActivityIndicator() {
   if (!shown) return null;
 
   const items: DropdownItem[] = [];
+  // What runs, then how far it has got — the number set apart from the words,
+  // so a list of several reads down its values at a glance.
+  const entry = (text: string, value: string) => (
+    <>
+      {text} <span className="activity-value">{value}</span>
+    </>
+  );
   for (const run of running) {
-    // A download whose length the server never announced still shows how
-    // much has arrived — the same reading as the import's own bar.
-    const pct =
-      run.total > 0
-        ? ` ${percent(run.done, run.total)} %`
-        : run.done > 0
-          ? ` ${(run.done / 1048576).toFixed(1)} MB`
-          : "";
     items.push({
       value: `import:${importLabelKey(run.job)}`,
-      label: `${t(importLabelKey(run.job))}${run.note ? ` — ${run.note}` : ""}${pct}`,
+      // The same reading as the download's own button in Settings › Map.
+      label: entry([t(importLabelKey(run.job)), whichOne(run, i18n.language)].filter(Boolean).join(" — "), importProgress(run, now)),
     });
   }
   for (const kind of KINDS) {
@@ -60,7 +71,10 @@ export function ActivityIndicator() {
     if (active > 0)
       items.push({
         value: kind,
-        label: t(`activity.${kind}`, { count: active, percent: percent(total - active, total) }),
+        label: entry(
+          t(`activity.${kind}`),
+          `${t("activity.remaining", { count: active })} · ${percent(total - active, total)} %`,
+        ),
       });
   }
   const total = KINDS.reduce((n, k) => n + counts[k].active, running.length);

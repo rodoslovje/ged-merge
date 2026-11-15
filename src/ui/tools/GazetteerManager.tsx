@@ -20,16 +20,19 @@ import {
   geoDataChanged,
   geoImportSnapshot,
   importLabelKey,
+  importProgress,
+  isUncounted,
   startAllRegions,
   startImport,
   startOsmCountry,
   watchGeoData,
   watchGeoImport,
-  type GeoJob,
+  type GeoRunning,
   type GeoSlot,
 } from "./geoImport";
+import { useNow } from "../useNow";
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
-import type { GeoFailure, GeoStage } from "../../worker/geoMessages";
+import type { GeoFailure } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
 import { SelectMenu } from "../DropdownMenu";
 
@@ -69,27 +72,8 @@ const UPLOAD_GLYPH = "↑";
 /** What the manager shows while a source's import runs, or once it has failed
  *  — the runner's state with its failure already worded. */
 type ImportState =
-  | { phase: "running"; job: GeoJob; stage: GeoStage; done: number; total: number; note?: string }
+  | GeoRunning
   | { phase: "error"; message: string };
-
-/**
- * Whole seconds since `active` became true, 0 when it is not. Overpass answers a
- * country query only once it has computed the whole extract, so for ten seconds
- * or more there is no byte to count and nothing else on screen moves — a ticking
- * number is the difference between "working" and "hung".
- */
-function useElapsed(active: boolean): number {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (!active) {
-      setSeconds(0);
-      return;
-    }
-    const id = setInterval(() => setSeconds((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-  return active ? seconds : 0;
-}
 
 /** A stored national address register — a different kind of thing from the
  *  place directories beside it: houses, not settlements, and read straight out
@@ -338,6 +322,9 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
  */
 function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: string; list: Subdivision[] } }) {
   const { t, i18n } = useTranslation();
+  // One OpenStreetMap download at a time: while a country or region is on the
+  // wire, the next one waits for it.
+  const busy = gaz.imports.osm?.phase === "running";
   const countryName = useMemo(
     () => new Intl.DisplayNames([i18n.language], { type: "region" }).of(regions.country) ?? regions.country,
     [i18n.language, regions.country],
@@ -357,8 +344,9 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
             if (region) gaz.downloadRegion(region);
           }}
           options={regions.list.map(({ code, name }) => ({ value: code, label: name }))}
+          disabled={busy}
         />
-        <button className="nav-btn tools-run" onClick={() => gaz.downloadAllRegions()}>
+        <button className="nav-btn tools-run" onClick={() => gaz.downloadAllRegions()} disabled={busy}>
           <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
           {t("tools.geocode.regionAll", { count: regions.list.length })}
         </button>
@@ -464,10 +452,10 @@ function DownloadButton({
   label: string;
   children: ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const state = gaz.imports[slot];
   const running = state?.phase === "running" ? state : undefined;
-  const waited = useElapsed(running?.stage === "waiting");
+  const now = useNow(!!running && isUncounted(running));
   if (!running) return <>{children}</>;
   // Each stage says what it is actually doing: waiting on a service that sends
   // nothing until it is ready, looking up the regions a country is fetched
@@ -483,17 +471,13 @@ function DownloadButton({
           : running.stage === "storing"
             ? t("tools.geocode.storing")
             : t("tools.geocode.importing");
-  // A known length is a percentage; an unannounced one counts what has
-  // arrived; a service still preparing its extract has only a clock; a step
-  // that reports no numbers (converting) has only the spinner.
-  const progress =
-    running.total > 0
-      ? `${Math.round((running.done / running.total) * 100)} %`
-      : running.done > 0
-        ? `${(running.done / 1048576).toFixed(1)} MB`
-        : running.stage === "waiting"
-          ? `${waited} s`
-          : "…";
+  const progress = importProgress(running, now);
+  // OpenStreetMap downloads one country (or one region) at a time, picked from
+  // a list — so while it runs, the button names that country instead of
+  // "Places", and it is plain which one is on the wire.
+  const job = running.job;
+  const name =
+    job.kind === "osm" ? (running.note ?? countryNameOf(job.region ?? job.country, i18n.language) ?? job.region ?? job.country) : label;
   // In a region run the region on the wire leads the tooltip.
   const detail = [t(importLabelKey(running.job)), running.note, stage].filter(Boolean).join(" — ");
   return (
@@ -503,7 +487,11 @@ function DownloadButton({
       title={`${detail}\n${t("tools.geocode.clickToCancel")}`}
     >
       <span className="spinner tools-geo-running-spinner" aria-hidden="true" />
-      {label} <span className="tools-geo-running-pct">{progress}</span>
+      {name} <span className="tools-geo-running-pct">{progress}</span>
+      {/* A click here cancels — said on the button, not only in its tooltip:
+          the OpenStreetMap one stands where a list was, and a click meant to
+          open the list again must not stop the download unawares. */}
+      <span className="tools-geo-running-cancel" aria-hidden="true">✕</span>
     </button>
   );
 }
