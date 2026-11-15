@@ -96,15 +96,15 @@ async function clearFilters(d: Director): Promise<void> {
 
 /** Pick in a search field (image or source): type `query` if given, then
  *  click the option that contains `text`. */
-async function searchPick(d: Director, field: Locator, text: string, query?: string): Promise<void> {
+async function searchPick(d: Director, field: Locator, text: string, query?: string, quick = false): Promise<void> {
   await d.click(field.locator(".search-select-input"));
-  await d.wait(600);
-  if (query) await d.page.keyboard.type(query, { delay: 140 });
+  await d.wait(quick ? 300 : 600);
+  if (query) await d.page.keyboard.type(query, { delay: quick ? 80 : 140 });
   const opt = field.locator(".relative-picker-option").filter({ hasText: text }).first();
   await opt.waitFor();
-  await d.wait(1100);
+  await d.wait(quick ? 500 : 1100);
   await d.click(opt);
-  await d.wait(1000);
+  await d.wait(quick ? 500 : 1000);
 }
 
 /** Type into an input as a person would. */
@@ -460,14 +460,15 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Dodamo še filter »Mediji« s pogojem, da te slike nimajo. Sliko poiščemo tako, da vtipkamo del imena.",
-        en: "We add one more filter, Media, for people without this image; we find the image by typing part of its name.",
+        sl: "Dodamo še filter »Mediji« s pogojem, da te slike nimajo.",
+        en: "We add one more filter, Media, for people without this image.",
       },
       run: async (d) => {
+        // The search field is known by now: quicker than the first time.
         await d.scrollTo(view(d).locator(".batch-builder"));
-        const media = await addFilter(d, "tools.batch.crit.media");
-        await choose(d, media.locator(".batch-select").first(), L(d, "tools.batch.media.lacks"));
-        await searchPick(d, media.locator(".search-select"), "died-young", "died");
+        const media = await addFilter(d, "tools.batch.crit.media", true);
+        await choose(d, media.locator(".batch-select").first(), L(d, "tools.batch.media.lacks"), true, true);
+        await searchPick(d, media.locator(".search-select"), "died-young", "died", true);
       },
     },
     {
