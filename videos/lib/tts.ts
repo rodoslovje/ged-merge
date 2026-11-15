@@ -78,6 +78,8 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/»Pripni medij«/g, "»Prip-ní medij«"],
     // The Union option »ima ocenjen datum«, stressed on -ma (checked by ear).
     [/»ima ocenjen datum«/g, "»imá ocenjen datum«"],
+    // »naložì«, stressed on the last syllable (checked by ear).
+    [/\bnaloži\b/g, "naložì"],
     // »ukrêp« (checked by ear against ukrèp, ukrép, úkrep).
     [/\b([Uu])krep\b/g, "$1krêp"],
   ],

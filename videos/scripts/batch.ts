@@ -614,7 +614,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Vsi shranjeni filtri so zbrani na vrhu, vsak s številom oseb, ki mu trenutno ustrezajo. Klik na ime filter naloži. Shranjeni so v brskalniku, ne v datoteki GEDCOM, zato jih na drugem računalniku ni.",
+        sl: "Vsi shranjeni filtri so zbrani na vrhu, vsak s številom oseb, ki mu trenutno ustrezajo. Klik na ime filtra ga naloži. Shranjeni so v brskalniku, ne v datoteki GEDCOM, zato jih na drugem računalniku ni.",
         en: "All saved filters are gathered at the top, each with the number of people it matches right now. A click on a name loads the filter. They are kept in the browser, not in the GEDCOM file, so another computer won't have them.",
       },
       run: async (d) => {
