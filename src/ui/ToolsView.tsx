@@ -188,7 +188,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
   // One shared worker runs the heavy whole-file scans off the main thread;
   // the results live here (not in the panels) so switching sub-tabs or modes
   // neither restarts a scan nor loses a finished one.
-  const scans = useToolsScans(dataset, editVersionRef, changeJournal);
+  const scans = useToolsScans(dataset, editVersionRef, changeJournal, startId);
 
   // Who the file puts at a place+address pair, for the coordinate panel the
   // place pages open. Walked on the panel's first ask and kept until an edit

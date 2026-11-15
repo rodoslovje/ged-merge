@@ -39,9 +39,10 @@ export const MIN_BIRTH_INTERVAL_MONTHS = 9;
 
 /**
  * Largest group of people, linked only to each other, still reported as a stray
- * island rather than left alone as a branch in its own right. A handful of
+ * island (a warning) rather than as a detached branch (info). A handful of
  * people who connect to nobody else is usually an import that never got
- * attached, or a duplicate of a branch already in the file.
+ * attached, or a duplicate of a branch already in the file; a larger group may
+ * be a branch kept apart on purpose.
  */
 export const MAX_ISLAND_SIZE = 9;
 
@@ -70,6 +71,7 @@ export type IssueCategory =
   | "missingName"
   | "missingVitals"
   | "island"
+  | "detachedBranch"
   | "orphan"
   | "duplicateVital"
   | "noEventConflict"
@@ -88,7 +90,11 @@ export type IssueCategory =
   | "statedAge"
   | "association";
 
-export type IssueSeverity = "error" | "warning";
+/** `info` points at something worth a look that may well be the file's intent
+ *  (a detached branch kept on purpose) rather than at a problem. */
+export type IssueSeverity = "error" | "warning" | "info";
+
+const SEVERITY_RANK: Record<IssueSeverity, number> = { error: 0, warning: 1, info: 2 };
 
 export interface ValidationIssue {
   scope: IssueScope;
@@ -145,6 +151,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   missingName: 0,
   missingVitals: 0,
   island: 0,
+  detachedBranch: 0,
   orphan: 0,
   duplicateVital: 0,
   noEventConflict: 0,
@@ -288,18 +295,20 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
  * The file's disconnected groups: each set of people reachable from one another
  * through family links, smallest-first, with the file's main tree left out.
  *
- * The largest component is the tree the file is about, so it's never an island —
- * and when several tie for largest, none of them stands out as the stray, so
- * they all stay out. A component of one is already an `orphan` finding, and
- * anything above {@link MAX_ISLAND_SIZE} is a branch in its own right; both are
- * dropped here so nothing is reported twice or cried wolf over.
+ * The main tree is the group the start person (`startId`) belongs to. Without
+ * one, or when it names nobody in the file, it is the largest group, and when
+ * several tie for largest none of them stands out as the stray, so they all
+ * stay out. A group of one is already an `orphan` finding and is dropped here,
+ * so nothing is reported twice. The caller splits the rest by size: up to
+ * {@link MAX_ISLAND_SIZE} a stray island, above it a detached branch.
  *
  * Iterative breadth-first walk over `childOf`/`spouseOf` and back out through
  * each family's members — one pass over the graph, no recursion.
  */
-function findIslands(ds: Dataset): Individual[][] {
+function findIslands(ds: Dataset, startId?: string): Individual[][] {
   const seen = new Set<string>();
   const components: Individual[][] = [];
+  let mainGroup: Individual[] | undefined;
 
   const membersOf = (indi: Individual): string[] => {
     const out: string[] = [];
@@ -320,6 +329,7 @@ function findIslands(ds: Dataset): Individual[][] {
     seen.add(start.id);
     while (queue.length) {
       const indi = queue.pop()!;
+      if (indi.id === startId) mainGroup = group;
       group.push(indi);
       for (const id of membersOf(indi)) {
         if (seen.has(id)) continue;
@@ -333,8 +343,9 @@ function findIslands(ds: Dataset): Individual[][] {
   }
 
   const largest = components.reduce((max, c) => Math.max(max, c.length), 0);
+  const isMain = (c: Individual[]) => (mainGroup ? c === mainGroup : c.length >= largest);
   return components
-    .filter((c) => c.length > 1 && c.length <= MAX_ISLAND_SIZE && c.length < largest)
+    .filter((c) => c.length > 1 && !isMain(c))
     .sort((a, b) => a.length - b.length);
 }
 
@@ -507,7 +518,15 @@ function findParallelFamilies(ds: Dataset): ParallelFamilies[] {
   }
 }
 
-export function validateDataset(ds: Dataset, currentYear: number = new Date().getFullYear()): ValidationReport {
+/**
+ * @param startId The main file's start person, if one is set: its group is the
+ *   main tree that detached groups are measured against.
+ */
+export function validateDataset(
+  ds: Dataset,
+  currentYear: number = new Date().getFullYear(),
+  startId?: string,
+): ValidationReport {
   const issues: ValidationIssue[] = [];
   const counts: Record<IssueCategory, number> = { ...EMPTY_COUNTS };
 
@@ -972,13 +991,17 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     });
   }
 
-  // Small groups linked only to each other — reported once, on the youngest,
-  // who is where the search for the missing link starts.
-  for (const group of findIslands(ds)) {
+  // Groups linked only to each other — reported once, on the youngest, who is
+  // where the search for the missing link starts. A small one is a stray
+  // (warning); a larger one may be a branch kept apart on purpose (info).
+  for (const group of findIslands(ds, startId)) {
     const person = youngestOf(group);
+    const small = group.length <= MAX_ISLAND_SIZE;
     push({
-      scope: "individual", id: person.id, category: "island", severity: "warning",
-      subject: subjectOf(person), sexContext: sexOf(person), messageKey: "tools.validate.issue.island",
+      scope: "individual", id: person.id, category: small ? "island" : "detachedBranch",
+      severity: small ? "warning" : "info",
+      subject: subjectOf(person), sexContext: sexOf(person),
+      messageKey: small ? "tools.validate.issue.island" : "tools.validate.issue.detachedBranch",
       messageVars: { count: group.length },
     });
   }
@@ -1060,7 +1083,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
 
   // Stable, useful ordering: errors first, then by category, then by subject.
   issues.sort((a, b) => {
-    if (a.severity !== b.severity) return a.severity === "error" ? -1 : 1;
+    if (a.severity !== b.severity) return SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
     if (a.category !== b.category) return a.category.localeCompare(b.category);
     return a.subject.localeCompare(b.subject);
   });
