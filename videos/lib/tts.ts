@@ -67,12 +67,11 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/»Živi«/g, "»Žívi«"],
     // The Normalize & batch tool: »Poenóti in paketno uredi«.
     [/\b([Pp])oenoti\b/g, "$1oenóti"],
-    // "umrli" / "umrl" are stressed on the syllabic r: »Umŕli mladi«.
-    [/\b([Uu])mrl(i|e|ih)?\b/g, "$1mŕl$2"],
-    // The GEDCOM date keywords are said as words, quickly — in capitals the
-    // voice spells them letter by letter.
-    [/\bABT\b/g, "abt"],
-    [/\bBEF\b/g, "bef"],
+    // "umrl" / "umrli" are stressed on the syllabic r: »Umŕli mladi«; "pri
+    // umrlih" the voice reads right as written (checked by ear).
+    [/\b([Uu])mrl(i|e)?\b/g, "$1mŕl$2"],
+    // »ukrêp« (checked by ear against ukrèp, ukrép, úkrep).
+    [/\b([Uu])krep\b/g, "$1krêp"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],

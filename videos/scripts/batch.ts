@@ -480,8 +480,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Izberemo ukrep »Dodaj ocenjen datum poroke«. Kjer ima kateri od otrok natančen datum rojstva, se par poroči pred njim: zapiše se oznaka »BEF« in leto rojstva najstarejšega otroka. Sicer se zapiše oznaka »ABT« s približnim letom, ocenjenim iz rojstva otroka ali iz let rojstva zakoncev.",
-        en: "We choose the action Add estimated marriage date. Where a child has an exact birth date, the couple married before it: the action writes BEF and the oldest child's birth year. Otherwise it writes an approximate year, ABT, from a child's estimated birth or from the spouses' births.",
+        sl: "Izberemo ukrep »Dodaj ocenjen datum poroke«. Kjer ima kateri od otrok natančen datum rojstva, se par poroči pred njim: zapiše se »pred« in datum rojstva najstarejšega otroka. Sicer se zapiše »okoli« in približno leto, ocenjeno iz rojstva otroka ali iz let rojstva zakoncev.",
+        en: "We choose the action Add estimated marriage date. Where a child has an exact birth date, the couple married before it: the action writes before and the oldest child's birth date. Otherwise it writes about and an approximate year, from a child's estimated birth or from the spouses' births.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -511,8 +511,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Iskanje brez ukrepa", en: "A search without an action" },
       say: {
-        sl: "Filter je uporaben tudi brez ukrepa, kot shranjeno iskanje. Možnost »ima ocenjen datum« najde vse ocenjene poroke. Te je dobro preveriti v matičnih knjigah. Če pozneje dodate starejšega otroka, ukrep oceno z oznako »BEF« tudi popravi. Shranimo ga kot »Ocenjene poroke«.",
-        en: "A filter is useful without an action too, as a saved search. The option has an estimated date for finds every estimated marriage. Those are worth checking in the parish registers. And if you later add an older child, the action corrects a BEF estimate. We save it as Estimated marriages.",
+        sl: "Filter je uporaben tudi brez ukrepa, kot shranjeno iskanje. Možnost »ima ocenjen datum« najde vse ocenjene poroke. Te je dobro preveriti v matičnih knjigah. Če pozneje dodate starejšega otroka, ukrep oceno »pred« tudi popravi. Shranimo ga kot »Ocenjene poroke«.",
+        en: "A filter is useful without an action too, as a saved search. The option has an estimated date for finds every estimated marriage. Those are worth checking in the parish registers. And if you later add an older child, the action corrects a before estimate. We save it as Estimated marriages.",
       },
       run: async (d) => {
         await d.scrollTo(view(d).locator(".batch-builder"));
