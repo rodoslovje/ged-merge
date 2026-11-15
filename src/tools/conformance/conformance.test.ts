@@ -272,6 +272,34 @@ describe("enumerations", () => {
     expect(check70(`0 @I1@ INDI\n1 BIRT nezakonski`)).toMatchObject([{ fix: "nezakonski", toNote: true }]);
   });
 
+  it("holds 5.5.1's events to Y, attributes and EVEN to text, and RESI to nothing", () => {
+    // Clean: Y or nothing on events, any text on attributes and EVEN.
+    expect(check551(`0 @I1@ INDI\n1 BIRT Y\n1 DEAT\n1 BURI y\n1 OCCU kmet\n1 TITL dr.\n1 EVEN Birma\n2 TYPE Zakrament\n1 FACT 3 krave\n2 TYPE Imetje\n1 RESI\n0 @F1@ FAM\n1 MARR Y\n1 EVEN Oklici\n1 RESI`))
+      .toMatchObject([{ messageKey: "tools.validate.struct.issue.badY", fix: "Y" }]);
+    // An individual event, a birth, an adoption, a family event: text → NOTE.
+    for (const line of ["1 DEAT umrl mlad", "1 CHR ali Ravna Gora?", "1 ADOP posvojen"]) {
+      expect(check551(`0 @I1@ INDI\n${line}`), line).toMatchObject([
+        { messageKey: "tools.validate.struct.issue.badY", toNote: true },
+      ]);
+    }
+    expect(check551(`0 @F1@ FAM\n1 MARR v Kranju`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.badY", fix: "v Kranju", toNote: true }]);
+    // A residence's text, on a person or a family.
+    expect(check551(`0 @I1@ INDI\n1 RESI Bojanja vas 17`)).toMatchObject([
+      { messageKey: "tools.validate.struct.issue.valueNotAllowed", fix: "Bojanja vas 17", toNote: true },
+    ]);
+    expect(kinds(check551(`0 @F1@ FAM\n1 RESI Metlika`))).toEqual(["valueNotAllowed"]);
+    // 7.0's residence is text.
+    expect(check70(`0 @I1@ INDI\n1 RESI Bojanja vas 17`)).toEqual([]);
+  });
+
+  it("moves 5.5.1 event and residence text into notes", () => {
+    const ds = dataset(`${HEAD_551}\n0 @I1@ INDI\n1 DEAT umrl mlad\n1 RESI Bojanja vas 17\n2 NOTE hiša\n0 TRLR`);
+    expect(countFixableConformance(ds, "notes")).toBe(2);
+    fixConformance(ds, "notes");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 DEAT\n2 NOTE umrl mlad\n1 RESI\n2 NOTE hiša\n2 NOTE Bojanja vas 17\n");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("rewrites a 5.5.1 calendar escape left in a 7.0 date, where the word has a place", () => {
     expect(check70(`0 @I1@ INDI\n1 BIRT\n2 DATE ABT @#DJULIAN@ 1700`)).toMatchObject([
       { messageKey: "tools.validate.struct.issue.calendarEscape", fix: "ABT JULIAN 1700" },
@@ -955,11 +983,26 @@ describe("corpus", () => {
     });
   }
 
-  it("the bundled sample files are clean", () => {
+  it("the bundled sample files are clean but for their exporter's text on event and residence lines", () => {
     const SAMPLES = resolve(dirname(fileURLToPath(import.meta.url)), "../../../public/samples");
-    for (const file of readdirSync(SAMPLES).filter((f) => f.endsWith(".ged"))) {
+    // Census details on RESI ("Age: 57; Occupation: Farmer"), a cemetery on
+    // DEAT/BURI: text 5.5.1 gives those lines no room for. The notes fix
+    // settles every one.
+    const EXPECTED_SAMPLES: Record<string, string[]> = {
+      "EnglishTudorRoyalFamily.ged": [],
+      // No GEDC.VERS: no table to hold it to.
+      "EuropeRoyalFamilies.ged": [],
+      "USPresidents.ged": ["badY", "valueNotAllowed"],
+    };
+    const files = readdirSync(SAMPLES).filter((f) => f.endsWith(".ged")).sort();
+    expect(files).toEqual(Object.keys(EXPECTED_SAMPLES).sort());
+    for (const file of files) {
       const buf = readFileSync(resolve(SAMPLES, file));
       const ds = buildDataset(parseGedcom(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer));
+      const issues = validateConformance(ds);
+      expect([...new Set(kinds(issues))].sort(), file).toEqual(EXPECTED_SAMPLES[file]);
+      expect(issues.every((i) => i.toNote), file).toBe(true);
+      fixConformance(ds, "notes");
       expect(validateConformance(ds), file).toEqual([]);
     }
   });

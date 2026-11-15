@@ -32,24 +32,32 @@ const NAME_PIECES = "NPFX:01 GIVN:01 NICK:01 SPFX:01 SURN:01 NSFX:01 NOTE:0M SOU
 /** LDS ordinance lines common to BAPL/CONL/ENDL/SLGC/SLGS. */
 const LDS = "DATE:01 TEMP:01 PLAC:01 NOTE:0M SOUR=SOUR-CIT:0M";
 
-/** The individual events of INDIVIDUAL_EVENT_STRUCTURE by structure id. */
+/**
+ * The individual events of INDIVIDUAL_EVENT_STRUCTURE by structure id. They
+ * share their detail lines but not their value: an event line holds `Y` or
+ * nothing (IEVEN), `EVEN` its EVENT_DESCRIPTOR, an attribute its text (IATTR),
+ * and `RESI` nothing at all — 5.5.1's residence is an attribute with no value.
+ */
 const INDI_EVENTS: Record<string, string> = {
   BIRT: "BIRT", CHR: "BIRT", ADOP: "ADOP",
   DEAT: "IEVEN", BURI: "IEVEN", CREM: "IEVEN", BAPM: "IEVEN", BARM: "IEVEN", BASM: "IEVEN",
   BLES: "IEVEN", CHRA: "IEVEN", CONF: "IEVEN", FCOM: "IEVEN", ORDN: "IEVEN", NATU: "IEVEN",
   EMIG: "IEVEN", IMMI: "IEVEN", CENS: "IEVEN", PROB: "IEVEN", WILL: "IEVEN", GRAD: "IEVEN",
-  RETI: "IEVEN", EVEN: "IEVEN",
+  RETI: "IEVEN", EVEN: "IEVEN-EVEN",
   // INDIVIDUAL_ATTRIBUTE_STRUCTURE: the same detail lines.
-  CAST: "IEVEN", DSCR: "IEVEN", EDUC: "IEVEN", IDNO: "IEVEN", NATI: "IEVEN", NCHI: "IEVEN",
-  NMR: "IEVEN", OCCU: "IEVEN", PROP: "IEVEN", RELI: "IEVEN", RESI: "IEVEN", SSN: "IEVEN",
-  TITL: "IEVEN", FACT: "IEVEN",
+  CAST: "IATTR", DSCR: "IATTR", EDUC: "IATTR", IDNO: "IATTR", NATI: "IATTR", NCHI: "IATTR",
+  NMR: "IATTR", OCCU: "IATTR", PROP: "IATTR", RELI: "IATTR", RESI: "IRESI", SSN: "IATTR",
+  TITL: "IATTR", FACT: "IATTR",
 };
-const FAM_EVENTS = ["ANUL", "CENS", "DIV", "DIVF", "ENGA", "MARB", "MARC", "MARR", "MARL", "MARS", "RESI", "EVEN"];
+/** FAMILY_EVENT_STRUCTURE likewise: `Y` or nothing, `EVEN` its descriptor,
+ *  `RESI` nothing. */
+const FAM_EVENTS: Record<string, string> = {
+  ANUL: "FEVEN", CENS: "FEVEN", DIV: "FEVEN", DIVF: "FEVEN", ENGA: "FEVEN", MARB: "FEVEN",
+  MARC: "FEVEN", MARR: "FEVEN", MARL: "FEVEN", MARS: "FEVEN", RESI: "FRESI", EVEN: "FEVEN-EVEN",
+};
 
-const each = (tags: Record<string, string> | string[], card: string): string =>
-  (Array.isArray(tags) ? tags.map((t) => `${t}=FEVEN`) : Object.entries(tags).map(([t, id]) => `${t}=${id}`))
-    .map((c) => `${c}:${card}`)
-    .join(" ");
+const each = (tags: Record<string, string>, card: string): string =>
+  Object.entries(tags).map(([t, id]) => `${t}=${id}:${card}`).join(" ");
 
 /** Text lines with no children of their own. */
 const TEXT_LEAVES = [
@@ -119,9 +127,12 @@ export const SPEC_551: SpecTable = {
     "NAME-TYPE": ["T", ""],
     "NAME-VARIANT": ["T", `TYPE:11 ${NAME_PIECES}`],
     SEX: ["E:SEX", ""],
-    IEVEN: ["T", INDI_EVENT],
-    BIRT: ["T", `${INDI_EVENT} FAMC=EVEN-FAMC:01`],
-    ADOP: ["T", `${INDI_EVENT} FAMC=ADOP-FAMC:01`],
+    IEVEN: ["Y", INDI_EVENT],
+    "IEVEN-EVEN": ["T", INDI_EVENT],
+    IATTR: ["T", INDI_EVENT],
+    IRESI: ["", INDI_EVENT],
+    BIRT: ["Y", `${INDI_EVENT} FAMC=EVEN-FAMC:01`],
+    ADOP: ["Y", `${INDI_EVENT} FAMC=ADOP-FAMC:01`],
     "EVEN-FAMC": ["@FAM", ""],
     "ADOP-FAMC": ["@FAM", "ADOP=ADOP-ADOP:01"],
     "ADOP-ADOP": ["E:ADOP", ""],
@@ -145,7 +156,9 @@ export const SPEC_551: SpecTable = {
       "HUSB=FAM-SPOUSE:01 WIFE=FAM-SPOUSE:01 CHIL:0M NCHI=TXT:01 SUBM=SUBM-PTR:0M SLGS:0M",
       "REFN:0M RIN:01 CHAN:01", CITES,
     ].join(" ")],
-    FEVEN: ["T", FAM_EVENT],
+    FEVEN: ["Y", FAM_EVENT],
+    "FEVEN-EVEN": ["T", FAM_EVENT],
+    FRESI: ["", FAM_EVENT],
     "EVEN-SPOUSE": ["", "AGE:11"],
     "FAM-SPOUSE": ["@INDI", ""],
     CHIL: ["@INDI", ""],

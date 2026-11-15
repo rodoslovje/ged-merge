@@ -1057,3 +1057,16 @@ describe("migrateVersion — a child's sealing to unrecorded parents", () => {
     expect(findings(records, "5.5.1")).toEqual([]);
   });
 });
+
+describe("migrateVersion — a residence's text", () => {
+  it("is a NOTE in 5.5.1, whose RESI takes no value", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 RESI Bojanja vas 17\n2 DATE 1900\n0 @F1@ FAM\n1 RESI\n2 PLAC Metlika\n",
+      "5.5.1",
+    );
+    expect(serializeGedcom(records)).toContain("1 RESI\n2 DATE 1900\n2 NOTE Bojanja vas 17\n");
+    expect(changes).toEqual([{ before: "RESI Bojanja vas 17", after: "RESI" }]);
+    expect(findings(records, "5.5.1")).toEqual([]);
+  });
+});

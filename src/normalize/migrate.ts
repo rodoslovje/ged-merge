@@ -62,7 +62,8 @@ import { walkNodes } from "./walk";
  *                                        `SEX X` → `SEX U` + `_SEX X` (and back),
  *                                        an event date's `TIME` → `_TIME` (and back),
  *                                        a media record's `RESN` → `_RESN` (and back),
- *                                        any other `PHRASE` → a `NOTE`
+ *                                        any other `PHRASE` → a `NOTE`, a
+ *                                        `RESI`'s text → its `NOTE`
  *
  * A vendor line the upgrade turns into its standard form remembers what it was
  * (`GedNode.upgradedFrom`), so the downgrade gives back that very line — `_FID`
@@ -1219,6 +1220,13 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       if (!node.children.some((c) => c.tag === SEX_X_EXTENSION)) {
         node.children.push({ level: node.level + 1, tag: SEX_X_EXTENSION, value: "X", children: [] });
       }
+      report(ctx, node, before);
+    } else if (node.tag === "RESI" && node.level === 1 && node.value?.trim()) {
+      // 7.0's residence carries text (an address, a description); 5.5.1's
+      // takes none, so the text is kept word for word as its NOTE.
+      const before = describe(node);
+      node.children.push({ level: node.level + 1, tag: "NOTE", value: node.value.trim(), children: [] });
+      node.value = undefined;
       report(ctx, node, before);
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "5.5.1");
