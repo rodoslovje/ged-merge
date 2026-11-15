@@ -109,7 +109,7 @@ describe("Slovenian gendered health-check findings", () => {
     // i18next falls back to the base key — including through a plural, so the
     // count still picks the right form.
     expect(g("tools.validate.issue.missingSex", "F")).toBe("Spol ni zabeležen");
-    expect(inst.sl.t("tools.validate.issue.island", { context: "F", count: 2 })).toContain("Ena od 2 oseb");
+    expect(inst.sl.t("tools.validate.issue.island", { context: "F", count: 2 })).toContain("oseb v veji: 2");
   });
 });
 
