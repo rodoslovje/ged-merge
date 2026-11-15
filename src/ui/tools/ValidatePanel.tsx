@@ -29,11 +29,14 @@ import { useSettingsSlice } from "../SettingsContext";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { recordByXref, recordTitle } from "../../gedcom/recordTitle";
-import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced, ToolsIntro } from "./shared";
 import { useTranslationLang } from "./TranslationLangSection";
 import { MediaLinkDialog } from "../MediaLinkDialog";
 import { nodeAtPath } from "../../tools/conformance/conformance";
 import { keptHabits } from "../../tools/normalizeRepairs";
+
+/** How long a fix's confirmation stays up. */
+const FIX_DONE_MS = 8000;
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
@@ -331,7 +334,21 @@ export function ValidatePanel({
   const livingTooOldIds = () =>
     (report?.issues ?? []).filter((i) => i.category === "livingTooOld").map((i) => i.id);
 
-  useEffect(() => { setFilter("all"); }, [group]);
+  // The other half starts afresh: its own list, and no word of fixes made in this one.
+  useEffect(() => {
+    setFilter("all");
+    setFixDone(null);
+    setBatchDone(null);
+  }, [group]);
+  // A fix's confirmation says its piece and goes.
+  useEffect(() => {
+    if (fixDone === null && batchDone === null) return;
+    const id = window.setTimeout(() => {
+      setFixDone(null);
+      setBatchDone(null);
+    }, FIX_DONE_MS);
+    return () => window.clearTimeout(id);
+  }, [fixDone, batchDone]);
   // The last translation given its language takes its chip away: back to All.
   useEffect(() => {
     if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
@@ -1026,11 +1043,11 @@ export function ValidatePanel({
           </button>
         ))}
       </div>
-      <p className="tools-fix-hint tools-group-intro">
+      <ToolsIntro>
         {group === "data"
           ? t("tools.validate.group.data.hint")
           : t(target.strict ? "tools.validate.group.gedcom.hint.strict" : "tools.validate.group.gedcom.hint.own", { version })}
-      </p>
+      </ToolsIntro>
       {showRerun && (
         <ul className="tools-fix-list">
           <li className="tools-fix-item">

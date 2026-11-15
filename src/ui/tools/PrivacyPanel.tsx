@@ -16,7 +16,7 @@ import { downloadOptions, serializeGedcom } from "../../gedcom/serialize";
 import { prepareDownload } from "../../save/outputFile";
 import { downloadText, savedName } from "../download";
 import { PersonLink } from "../PersonLink";
-import { ToolsLoading } from "./shared";
+import { ToolsLoading, ToolsIntro } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { afterPendingAdds } from "../source/pendingAdds";
 
@@ -108,7 +108,7 @@ export function PrivacyPanel({
 
   return (
     <div className="tools-privacy">
-      <p className="tools-intro">{t("tools.privacy.intro")}</p>
+      <ToolsIntro>{t("tools.privacy.intro")}</ToolsIntro>
 
       {/* Threshold + recent-death */}
       <div className="tools-privacy-group">

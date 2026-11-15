@@ -41,8 +41,11 @@ export interface CoordConflict {
   value: string;
   /** The event's raw ADDR value ("" when it has none). */
   address: string;
-  /** The distinct coordinates found, most frequent first, with their counts. */
-  coords: { coord: GeoCoord; n: number }[];
+  /** The distinct coordinates found, most frequent first, with their counts.
+   *  `placeOwn` marks the one that is the place's own position — what the
+   *  same place carries on events that name no address — so an address that
+   *  merely inherited the settlement's coordinate is told from a house's. */
+  coords: { coord: GeoCoord; n: number; placeOwn?: true }[];
 }
 
 export interface PlaceCoordReport {
@@ -51,6 +54,10 @@ export interface PlaceCoordReport {
   /** Pairs that disagree with themselves. */
   conflicts: CoordConflict[];
 }
+
+/** Whether two coordinates are within {@link SAME_SPOT_DEG} of each other. */
+const nearSpot = (a: GeoCoord, b: GeoCoord) =>
+  Math.abs(a.lat - b.lat) < SAME_SPOT_DEG && Math.abs(a.lon - b.lon) < SAME_SPOT_DEG;
 
 /** Coordinates within this many degrees (~55 m) describe the same spot. Files
  *  accumulate harmless variants — different rounding, a re-geocode a few metres
@@ -62,13 +69,7 @@ const SAME_SPOT_DEG = 0.0005;
 function clusterCoords(coords: { coord: GeoCoord; n: number }[]): { coord: GeoCoord; n: number }[][] {
   const clusters: { coord: GeoCoord; n: number }[][] = [];
   for (const entry of [...coords].sort((a, b) => b.n - a.n)) {
-    const near = clusters.find((cluster) =>
-      cluster.some(
-        (c) =>
-          Math.abs(c.coord.lat - entry.coord.lat) < SAME_SPOT_DEG &&
-          Math.abs(c.coord.lon - entry.coord.lon) < SAME_SPOT_DEG,
-      ),
-    );
+    const near = clusters.find((cluster) => cluster.some((c) => nearSpot(c.coord, entry.coord)));
     if (near) near.push(entry);
     else clusters.push([entry]);
   }
@@ -133,13 +134,24 @@ export function distinctSpots(coords: { coord: GeoCoord; n: number }[]): { coord
 export function scanPlaceCoords(dataset: Dataset): PlaceCoordReport {
   const fills: SplitCoordPlace[] = [];
   const conflicts: CoordConflict[] = [];
-  for (const g of groupByPair(datasetRecords(dataset)).values()) {
+  const groups = groupByPair(datasetRecords(dataset));
+  for (const g of groups.values()) {
     if (!g.coords.size) continue;
     const clusters = clusterCoords([...g.coords.values()]);
     if (clusters.length > 1) {
       // Disagrees with itself: report, and do not also offer to fill from it —
-      // which coordinate to copy is precisely what is unresolved.
-      conflicts.push({ value: g.value, address: g.address, coords: clusters.map((c) => c[0]) });
+      // which coordinate to copy is precisely what is unresolved. For an
+      // address, the place's own position (what its address-less events
+      // carry) is marked: usually the house just inherited it.
+      const own = g.address ? [...(groups.get(placeAddrKey(g.value, ""))?.coords.values() ?? [])] : [];
+      conflicts.push({
+        value: g.value,
+        address: g.address,
+        coords: clusters.map((cluster) => ({
+          ...cluster[0],
+          ...(own.some((o) => cluster.some((c) => nearSpot(c.coord, o.coord))) ? { placeOwn: true as const } : {}),
+        })),
+      });
       continue;
     }
     // One spot, possibly recorded with harmless rounding variants: fill the

@@ -50,7 +50,8 @@ test("a register download outlives the dialog it was started in", async ({ page 
     .locator(".tools-geo-source", { hasText: "GURS (Slovenia)" })
     .getByRole("button", { name: "Places" });
   await places.click();
-  await expect(page.locator(".tools-loading")).toBeVisible();
+  // The download's progress is in its own button now.
+  await expect(page.locator(".tools-geo-running")).toBeVisible();
 
   // Away from the tab, and out of the dialog altogether — the two ways the
   // manager is unmounted mid-import.
