@@ -868,3 +868,18 @@ describe("migrateVersion — an event date's TIME", () => {
     expect(serializeGedcom(records)).toBe(head("7.0") + V70 + "0 TRLR\n");
   });
 });
+
+describe("migrateVersion — a child's sealing to unrecorded parents", () => {
+  it("is dropped in 5.5.1, whose SLGC must name its family, and reported", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 SLGC\n2 DATE 1 JAN 1950\n2 TEMP SLAKE\n2 FAMC @VOID@\n3 PHRASE unknown parents\n" +
+        "1 SLGC\n2 TEMP LOGAN\n2 FAMC @F1@\n1 FAMC @F1@\n0 @F1@ FAM\n1 CHIL @I1@\n",
+      "5.5.1",
+    );
+    const sealings = childrenByTag(record(records, "@I1@"), "SLGC");
+    expect(sealings.map((s) => childValue(s, "FAMC"))).toEqual(["@F1@"]);
+    expect(changes).toContainEqual({ before: "INDI.SLGC (FAMC @VOID@)", after: "—" });
+    expect(findings(records, "5.5.1")).toEqual([]);
+  });
+});

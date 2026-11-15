@@ -848,6 +848,14 @@ function isVoidPointer(value: string | undefined): boolean {
  */
 function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
   walkNodes(records, (node) => {
+    // A child's sealing must name the family (5.5.1's SLGC.FAMC is {1:1}),
+    // so one to parents the file does not record has no 5.5.1 form: it goes.
+    const sealings = node.children.filter((c) => c.tag === "SLGC" && childrenByTag(c, "FAMC").some((f) => isVoidPointer(f.value)));
+    for (const slgc of sealings) {
+      node.children = node.children.filter((c) => c !== slgc);
+      ctx.changed++;
+      ctx.onChange(`${node.tag}.SLGC (FAMC ${VOID_XREF})`, "—");
+    }
     if (!node.children.some((c) => isVoidPointer(c.value))) return;
     const kept: GedNode[] = [];
     for (const child of node.children) {
