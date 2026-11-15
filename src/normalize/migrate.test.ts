@@ -719,6 +719,34 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(changes).toContain("DATE @#DJULIAN@ ABT 1700 → DATE ABT JULIAN 1700");
   });
 
+  it("lifts every inline OBJE into a media record, wherever it stands", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 OBJE\n2 FILE a.jpg\n3 FORM jpg\n1 BIRT\n2 SOUR @S1@\n3 OBJE\n4 FILE c.jpg\n5 FORM jpg\n" +
+        "0 @S1@ SOUR\n1 TITL Register\n1 OBJE\n2 FILE d.png\n3 FORM png\n1 OBJE\n2 TITL A title alone\n0 TRLR\n",
+      "7.0",
+    );
+    const links: GedNode[] = [];
+    for (const rec of records) {
+      if (rec.tag === "OBJE") continue;
+      const visit = (n: GedNode) => n.children.forEach((c) => { if (c.tag === "OBJE") links.push(c); visit(c); });
+      visit(rec);
+    }
+    expect(links).toHaveLength(4);
+    for (const link of links) {
+      expect(link.children).toEqual([]);
+      expect(record(records, link.value!).tag).toBe("OBJE");
+    }
+    expect(changes.filter((c) => c.startsWith("OBJE (inline)"))).toHaveLength(4);
+    // The one with no file says what it says on a record. It lacked its FILE
+    // in 5.5.1 too, and that (with the title it cannot hang under one) is
+    // all that is left to report.
+    const titled = records.find((r) => r.tag === "OBJE" && childValue(r, "TITL") === "A title alone")!;
+    expect(findings.map((i) => [i.recordId, i.messageVars.tag, i.category])).toEqual([
+      [titled.xref, "FILE", "missingLine"], [titled.xref, "TITL", "misplacedTag"],
+    ]);
+  });
+
   it("keeps a shared-note pointer's citations on the pointer, as _NOTE_SOUR", () => {
     const { records, changes, findings } = converted(
       "5.5.1",

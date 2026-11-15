@@ -873,7 +873,9 @@ function extractInlineMedia(records: GedNode[], ctx: MigrateCtx): void {
   };
   const made: GedNode[] = [];
   walkNodes(records.filter((r) => !SKIP_ROOTS.has(r.tag)), (node) => {
-    if (node.tag !== "OBJE" || node.level === 0 || isPointer(node.value?.trim()) || !firstChild(node, "FILE")) return;
+    // One with no FILE (a 5.5 BLOB, a title alone) goes too: 7.0 has no
+    // inline form for it, and the record keeps what it says.
+    if (node.tag !== "OBJE" || node.level === 0 || isPointer(node.value?.trim()) || node.children.length === 0) return;
     const rec: GedNode = { level: 0, tag: "OBJE", xref: nextXref(), children: node.children, upgradedFrom: { tag: "OBJE" } };
     reindent(rec.children, 1);
     node.value = rec.xref;
@@ -881,8 +883,13 @@ function extractInlineMedia(records: GedNode[], ctx: MigrateCtx): void {
     made.push(rec);
     report(ctx, node, "OBJE (inline)");
   });
+  if (!made.length) return;
+  // Pushed one by one: a spread of a large file's media records would
+  // overflow the call's argument limit.
   const trlr = records.findIndex((r) => r.tag === "TRLR");
-  records.splice(trlr >= 0 ? trlr : records.length, 0, ...made);
+  const tail = records.splice(trlr >= 0 ? trlr : records.length);
+  for (const rec of made) records.push(rec);
+  for (const rec of tail) records.push(rec);
 }
 
 /** The way back for {@link extractInlineMedia}: a media record it made goes
@@ -895,15 +902,21 @@ function inlineExtractedMedia(records: GedNode[], ctx: MigrateCtx): void {
     const target = node.tag === "OBJE" && node.level > 0 ? node.value?.trim() : undefined;
     if (target && made.has(target)) links.set(target, [...(links.get(target) ?? []), node]);
   });
+  const inlined = new Set<GedNode>();
   for (const [xref, [link, ...more]] of links) {
     if (more.length) continue;
     const rec = made.get(xref)!;
     link.children = [...rec.children, ...link.children];
     reindent(link.children, link.level + 1);
     delete link.value;
-    records.splice(records.indexOf(rec), 1);
+    inlined.add(rec);
     report(ctx, link, `OBJE ${xref}`);
   }
+  // One pass over the records, not a search and a splice per record.
+  if (!inlined.size) return;
+  let kept = 0;
+  for (const r of records) if (!inlined.has(r)) records[kept++] = r;
+  records.length = kept;
 }
 
 function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
