@@ -61,17 +61,47 @@ async function openChip(d: Director, label: Text): Promise<void> {
   await d.highlight(null);
 }
 
-/** Run one row's own fix and wait until the check has read the file again.
- *  With `secondsBefore`, the click waits for the narration instead: it comes
- *  that many seconds before the step's last sentence ends. */
-async function fixRow(d: Director, text: string, secondsBefore?: number): Promise<void> {
+/** Run one row's own fix and wait until the check has read the file again. */
+async function fixRow(d: Director, text: string): Promise<void> {
   const r = row(d, text);
   await d.highlight(r, 4);
   await d.wait(2500);
-  if (secondsBefore !== undefined) await d.untilSaid(secondsBefore);
   await d.click(r.locator(".tools-issue-fix"));
   await d.highlight(null);
   await d.wait(1500);
+}
+
+/** Ring a row's fix button and click it as the narration ends: the button
+ *  is pressed once the narration has said what it does. */
+async function clickFixWhenSaid(d: Director, text: string, secondsBefore = 1.2): Promise<void> {
+  const button = row(d, text).locator(".tools-issue-fix").first();
+  await d.highlight(button, 4);
+  await d.untilSaid(secondsBefore);
+  await d.click(button);
+  await d.highlight(null);
+  await d.wait(1200);
+}
+
+/** Once the narration is done, open the next step's filter, so its rows are
+ *  on screen before its narration names them. */
+async function prepare(d: Director, label: Text): Promise<void> {
+  await d.untilSaid();
+  await d.calloutAhead();
+  await openChip(d, label);
+}
+
+/** Ring the open confirmation, and confirm it as the narration ends. */
+async function confirmWhenSaid(d: Director, atLeastMs = 0): Promise<void> {
+  const dialog = d.page.locator(".confirm-dialog");
+  await dialog.waitFor();
+  await d.highlight(dialog, 4);
+  await d.wait(atLeastMs);
+  await d.untilSaid(0.3);
+  await d.highlight(null);
+  await d.click(dialog.locator(".confirm-dialog-confirm"));
+  await dialog.waitFor({ state: "detached" });
+  await d.page.locator(".tools-clean--ok").first().waitFor();
+  await d.wait(1200);
 }
 
 /** Back to Tools (the health check stays open). */
@@ -108,12 +138,6 @@ async function fixShown(d: Director): Promise<void> {
   await dialog.waitFor({ state: "detached" });
   await d.page.locator(".tools-clean--ok").first().waitFor();
   await d.wait(1200);
-}
-
-/** Pick every fixable row of the open half and run them in one step. */
-async function fixAll(d: Director): Promise<void> {
-  await openChip(d, { sl: "Popravljivo", en: "Fixable" });
-  await fixShown(d);
 }
 
 /** Show the person open in Edit, then come back. */
@@ -332,174 +356,311 @@ const scenario: Scenario = {
     {
       callout: { sl: "Spol in vloga", en: "Sex and role" },
       say: {
-        sl: "Simon Muhovec je zapisan kot žena, Marija Legat pa kot mož. Program ju vrne v pravi vlogi.",
-        en: "Simon Muhovec is recorded as the wife and Marija Legat as the husband. The program puts them back in their roles.",
+        sl: "Simon Muhovec je zapisan kot žena, Marija Legat pa kot mož.",
+        en: "Simon Muhovec is recorded as the wife, and Marija Legat as the husband.",
       },
       run: async (d) => {
-        await fixRow(d, "Simon Muhovec");
+        await d.highlight(d.page.locator(".tools-issues").first(), 6);
         await d.untilSaid();
-        await openChip(d, { sl: "Brez spola", en: "No sex" });
       },
     },
     {
       say: {
-        sl: "Ana Jelovšek nima spola, a je zapisana kot žena, zato ji ga program določi iz te vloge.",
-        en: "Ana Jelovšek has no sex recorded, but she is listed as a wife, so the program takes it from that role.",
+        sl: "Gumb v vrstici ju vrne v pravi vlogi.",
+        en: "The button on the row puts them back in their roles.",
       },
       run: async (d) => {
-        await fixRow(d, "Ana Jelovšek");
+        await clickFixWhenSaid(d, "Simon Muhovec");
+        await prepare(d, { sl: "Brez spola", en: "No sex" });
+      },
+    },
+    {
+      say: {
+        sl: "Ana Jelovšek nima zapisanega spola, je pa zapisana kot žena.",
+        en: "Ana Jelovšek has no sex recorded, but she is listed as a wife.",
+      },
+      run: async (d) => {
+        await d.highlight(row(d, "Ana Jelovšek"), 4);
         await d.untilSaid();
-        await d.calloutAhead();
-        await openChip(d, { sl: "Nepovezane osebe", en: "Disconnected people" });
+      },
+    },
+    {
+      say: {
+        sl: "Gumb v vrstici ji spol določi iz te vloge.",
+        en: "The button on the row takes her sex from that role.",
+      },
+      run: async (d) => {
+        await clickFixWhenSaid(d, "Ana Jelovšek");
+        await prepare(d, { sl: "Nepovezane osebe", en: "Disconnected people" });
       },
     },
     {
       callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
       say: {
-        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Osebo, ki v datoteko ne sodi, odstranite z gumbom »Odstrani osebo«. Ta pa je le pozabljena povezava, zato ji v Urejanju dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
-        en: "Prešeren's daughter, who died as a baby, is linked to nobody. A person who does not belong in the file you remove with the Remove person button. She, though, is just a forgotten link, so in Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer.",
+        en: "Prešeren's daughter, who died as a baby, is linked to nobody.",
       },
       run: async (d) => {
-        const terezija = row(d, "Terezija");
-        await d.highlight(terezija, 4);
-        await d.wait(3800);
-        // The row's own remove button, named but not used.
-        await d.highlight(terezija.locator(".tools-issue-iconfix").first(), 4);
-        await d.wait(3200);
+        await d.highlight(row(d, "Terezija"), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Osebo, ki v datoteko ne sodi, odstranite z gumbom »Odstrani osebo«.",
+        en: "A person who does not belong in the file you remove with the Remove person button.",
+      },
+      run: async (d) => {
+        await d.highlight(row(d, "Terezija").locator(".tools-issue-iconfix").first(), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Ta pa je le pozabljena povezava, zato ji v Urejanju dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
+        en: "She, though, is just a forgotten link, so in Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+      },
+      run: async (d) => {
         await d.highlight(null);
-        await d.click(terezija.locator(".tools-issue-link").first());
+        await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(900);
+        await d.wait(700);
         await d.highlight(d.page.locator(".edit-parents").first(), 6);
-        await d.wait(900);
+        await d.wait(700);
         await d.highlight(null);
         await pickParent(d, { sl: "Dodaj očeta", en: "Add Father" }, "France", "France Prešeren");
         await pickParent(d, { sl: "Dodaj mater", en: "Add Mother" }, "Ana", "Ana Jelovšek");
         await d.highlight(d.page.locator(".edit-parents").first(), 6);
-        await d.wait(1200);
-        await d.highlight(null);
-        await backAndRerun(d);
         await d.untilSaid();
-        await d.calloutAhead();
-        await openChip(d, { sl: "Nepovezane veje", en: "Detached branches" });
+        await d.wait(600);
+        await d.highlight(null);
+      },
+    },
+    {
+      say: {
+        sl: "Nazaj v Pregledu ga zaženemo znova in Terezija ni več na seznamu.",
+        en: "Back in the health check we run it again, and Terezija is off the list.",
+      },
+      run: async (d) => {
+        await backAndRerun(d);
+        await d.highlight(d.page.locator(".tools-chips").first(), 6);
+        await prepare(d, { sl: "Nepovezane veje", en: "Detached branches" });
       },
     },
     {
       callout: { sl: "Nepovezane veje", en: "Detached branches" },
       say: {
-        sl: "Nepovezana veja je skupina oseb, povezanih le med sabo. Tu je Svetinova družina zapisana še enkrat, kot ostanek uvoza, ki ni bil nikoli pripet. Vejo lahko prenesete kot datoteko GEDCOM ali jo odstranite. Pred odstranitvijo program pove, kaj vse se izbriše.",
-        en: "A detached branch is a group of people linked only to each other. Here the Svetina family is written a second time, left over from an import that was never attached. You can download the branch as a GEDCOM file or remove it. Before removing it, the program tells you everything that goes.",
+        sl: "Nepovezana veja je skupina oseb, povezanih le med sabo. Tu je Svetinova družina zapisana še enkrat, kot ostanek uvoza, ki ni bil nikoli pripet.",
+        en: "A detached branch is a group of people linked only to each other. Here the Svetina family is written a second time, left over from an import that was never attached.",
+      },
+      run: async (d) => {
+        await d.highlight(row(d, "Mina Svetina"), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Vejo lahko prenesete kot datoteko GEDCOM ali pa jo odstranite.",
+        en: "You can download the branch as a GEDCOM file, or remove it.",
       },
       run: async (d) => {
         const branch = row(d, "Mina Svetina");
-        await d.highlight(branch, 4);
-        await d.wait(5500);
         await d.highlight(branch.locator(".tools-issue-icon").first(), 4);
-        await d.wait(2500);
-        const remove = branch.locator(".tools-issue-iconfix").first();
-        await d.highlight(remove, 4);
-        await d.wait(1500);
+        await d.untilSaid(1.6);
+        await d.highlight(branch.locator(".tools-issue-iconfix").first(), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Pred odstranitvijo program pove, kaj vse se izbriše: tri osebe in njihova družina.",
+        en: "Before removing it, the program tells you everything that goes: three people and their family.",
+      },
+      run: async (d) => {
         await d.highlight(null);
-        await d.click(remove);
+        await d.click(row(d, "Mina Svetina").locator(".tools-issue-iconfix").first());
         const dialog = d.page.locator(".confirm-dialog");
         await dialog.waitFor();
         await d.highlight(dialog, 4);
-        await d.untilSaid(1);
+        await d.untilSaid(0.5);
         await d.highlight(null);
         await d.click(dialog.locator(".confirm-dialog-confirm"));
         await dialog.waitFor({ state: "detached" });
-        await d.wait(1500);
+        await d.wait(1000);
+        await prepare(d, { sl: "Brez ključnih datumov", en: "No vital dates" });
       },
     },
     {
       callout: { sl: "Ocena rojstva", en: "Estimated birth" },
       say: {
-        sl: "Manjkajoče datume program oceni iz sorodnikov, enako kot paketno opravilo. Marija, žena Matije Prešerna, nima zapisanega ne rojstva ne smrti. Njen mož je rojen okoli leta 1665, zato ji program pripiše rojstvo okoli leta 1670.",
-        en: "The program estimates missing dates from the relatives, the same way the batch action does. Marija, Matija Prešeren's wife, has neither a birth nor a death recorded. Her husband was born about 1665, so the program gives her a birth of about 1670.",
+        sl: "Manjkajoče datume program oceni iz sorodnikov, enako kot paketno opravilo.",
+        en: "The program estimates missing dates from the relatives, the same way the batch action does.",
       },
       run: async (d) => {
-        await openChip(d, { sl: "Brez ključnih datumov", en: "No vital dates" });
-        // With married surnames shown she reads "Marija Prešeren", like Matija's
-        // sister: the only row in this filter.
+        await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Marija, žena Matije Prešerna, nima zapisanega ne rojstva ne smrti. Njen mož je rojen okoli leta 1665.",
+        en: "Marija, Matija Prešeren's wife, has neither a birth nor a death recorded. Her husband was born about 1665.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
         await d.click(d.page.locator(".tools-issues .tools-issue").first().locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(800);
+        await d.wait(700);
         await d.highlight(d.page.locator(".edit-person").first(), 6);
-        await d.wait(4000);
+        await d.untilSaid(3);
+        // Her husband's card, below her own.
+        await d.highlight(d.page.locator(".person-card").filter({ hasText: "Matija" }).filter({ visible: true }).first(), 4);
+        await d.untilSaid();
         await d.highlight(null);
         await backToTools(d);
-        await fixRow(d, "Marija");
-        await showInEdit(d, ".edit-person");
+      },
+    },
+    {
+      say: {
+        sl: "Zato ji program pripiše rojstvo okoli leta 1670.",
+        en: "So the program gives her a birth of about 1670.",
+      },
+      run: async (d) => {
+        await clickFixWhenSaid(d, "Marija");
+        await showInEdit(d, ".edit-person", 2500);
         await backToTools(d);
-        await d.untilSaid();
-        await d.calloutAhead();
-        await openChip(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
+        await prepare(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
       },
     },
     {
       callout: { sl: "Ocena poroke", en: "Estimated marriage" },
       say: {
-        sl: "Poroka Jerneja in Mine Prešeren je zapisana brez datuma. Program ji pripiše datum pred rojstvom njunega prvega otroka, Šimna.",
-        en: "Jernej and Mina Prešeren's marriage is recorded without a date. The program gives it a date before the birth of their first child, Šimen.",
+        sl: "Poroka Jerneja in Mine Prešeren je zapisana brez datuma.",
+        en: "Jernej and Mina Prešeren's marriage is recorded without a date.",
       },
       run: async (d) => {
-        // The date is written as the narration says what it will be.
-        await fixRow(d, "Jernej", 2);
+        await d.highlight(row(d, "Jernej"), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Program ji pripiše datum pred rojstvom njunega prvega otroka, Šimna.",
+        en: "The program gives it a date before the birth of their first child, Šimen.",
+      },
+      run: async (d) => {
+        await clickFixWhenSaid(d, "Jernej");
+        await prepare(d, { sl: "Živi nad 99 let", en: "Living over 99" });
       },
     },
     {
       callout: { sl: "Živi nad 99 let", en: "Living over 99" },
       say: {
-        sl: "Kdor bi bil danes star več kot 99 let, je skoraj gotovo umrl, le zapisa o smrti ni. Med njimi je zdaj tudi Marija: z ocenjenim rojstvom je popravek odkril novo težavo. Z gumboma »Izberi vse popravljive« in »Popravi izbrane« vsem v enem koraku dodate smrt brez datuma in kraja.",
-        en: "Anyone who would be over 99 today has almost certainly died; only the death record is missing. Marija is among them now: her estimated birth has brought up a new issue. With Select all fixable and Fix selected, you give them all a death without a date or place in one step.",
+        sl: "Kdor bi bil danes star več kot 99 let, skoraj gotovo ni več živ, le zapisa o smrti ni.",
+        en: "Anyone who would be over 99 today has almost certainly died; only the death record is missing.",
       },
       run: async (d) => {
-        await openChip(d, { sl: "Živi nad 99 let", en: "Living over 99" });
+        await d.highlight(d.page.locator(".tools-issues").first(), 6);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Med njimi je zdaj tudi Marija: z ocenjenim rojstvom je popravek odkril novo težavo.",
+        en: "Marija is among them now: her estimated birth has brought up a new issue.",
+      },
+      run: async (d) => {
         // Her estimated birth year sets her apart from Matija's sister Marija.
         await d.highlight(row(d, "1670"), 4);
-        await d.wait(3000);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Z gumboma »Izberi vse popravljive« in »Popravi izbrane« vsem v enem koraku dodate smrt brez datuma in kraja.",
+        en: "With Select all fixable and Fix selected, you give them all a death without a date or place in one step.",
+      },
+      run: async (d) => {
         await d.highlight(null);
         await fixShown(d);
+        await prepare(d, { sl: "Neberljivi datumi", en: "Unparseable dates" });
       },
     },
     {
       callout: { sl: "Datumi in sklici", en: "Dates and references" },
       say: {
-        sl: "Datum, zapisan kot »1. 3. 1698«, program prepiše v obliko GEDCOM. Navedba vira, ki ga v datoteki ni, pa se odstrani.",
-        en: "A date written as 1. 3. 1698 is rewritten in the GEDCOM form. A citation of a source that is not in the file is removed.",
+        sl: "Datum, zapisan kot »1. 3. 1698«, program prepiše v obliko GEDCOM.",
+        en: "A date written as 1. 3. 1698 is rewritten in the GEDCOM form.",
       },
       run: async (d) => {
-        await openChip(d, { sl: "Neberljivi datumi", en: "Unparseable dates" });
         await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
-        await d.wait(2500);
-        await openChip(d, { sl: "Neobstoječi sklici", en: "Dangling references" });
+        await d.untilSaid();
+        await prepare(d, { sl: "Neobstoječi sklici", en: "Dangling references" });
+      },
+    },
+    {
+      say: {
+        sl: "Navedba vira, ki ga v datoteki ni, pa se odstrani.",
+        en: "A citation of a source that is not in the file is removed.",
+      },
+      run: async (d) => {
         await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
-        await d.wait(1500);
+        await d.untilSaid();
         await d.highlight(null);
+        await prepare(d, { sl: "Popravljivo", en: "Fixable" });
       },
     },
     {
       callout: { sl: "Vse naenkrat", en: "All at once" },
       say: {
-        sl: "Vse popravljive težave pa lahko popravite tudi naenkrat: »Popravljivo«, »Izberi vse popravljive« in »Popravi izbrane«. Pred tem vidite seznam popravkov s številom.",
-        en: "You can also fix all the fixable issues at once: Fixable, Select all fixable, and Fix selected. Before that you see the list of fixes with their counts.",
+        sl: "Vse popravljive težave lahko popravite tudi naenkrat: z gumboma »Izberi vse popravljive« in »Popravi izbrane«.",
+        en: "You can also fix all the fixable issues at once, with Select all fixable and Fix selected.",
       },
       run: async (d) => {
-        await fixAll(d);
+        await d.click(d.page.locator(".tools-pick-bar .tools-issue-link").first());
+        await d.wait(900);
+        await d.untilSaid(1.5);
+        await d.click(d.page.locator(".tools-pick-bar .tools-run").first());
+        await d.page.locator(".confirm-dialog").waitFor();
+      },
+    },
+    {
+      say: {
+        sl: "Pred tem vidite seznam popravkov s številom.",
+        en: "Before that you see the list of fixes with their counts.",
+      },
+      run: async (d) => {
+        await confirmWhenSaid(d);
       },
     },
     {
       callout: { sl: "Skladnost z GEDCOM", en: "GEDCOM conformance" },
       say: {
-        sl: "Drugi zavihek preveri, ali je datoteka zapisana po standardu. Datum »~1665« je navada drugega programa, standard pa ga zapiše kot »ABT 1665«. Tudi te popravite naenkrat.",
-        en: "The second tab checks whether the file is written to the standard. A date like ~1665 is another program's habit; the standard writes it as ABT 1665. These you also fix at once.",
+        sl: "Drugi zavihek preveri, ali je datoteka zapisana po standardu.",
+        en: "The second tab checks whether the file is written to the standard.",
       },
       run: async (d) => {
         await d.click(groupTab(d, 1));
         await d.page.locator(".tools-chips").first().waitFor();
+        await d.untilSaid();
+        await prepare(d, { sl: "Nestandardni datumi", en: "Non-standard dates" });
+      },
+    },
+    {
+      say: {
+        sl: "Datum »~1665« je navada drugega programa, standard pa ga zapiše kot »ABT 1665«. Tudi te popravite naenkrat.",
+        en: "A date like ~1665 is another program's habit; the standard writes it as ABT 1665. These you also fix at once.",
+      },
+      run: async (d) => {
+        await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
+        await d.untilSaid(3);
+        await d.highlight(null);
+        await d.click(chip(d, { sl: "Popravljivo", en: "Fixable" }));
+        await d.wait(500);
+        await d.click(d.page.locator(".tools-pick-bar .tools-issue-link").first());
         await d.wait(600);
-        await openChip(d, { sl: "Nestandardni datumi", en: "Non-standard dates" });
-        await fixAll(d);
+        await d.click(d.page.locator(".tools-pick-bar .tools-run").first());
+        await confirmWhenSaid(d, 2500);
       },
     },
     {
