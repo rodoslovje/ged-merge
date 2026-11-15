@@ -10059,6 +10059,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   /* Action bars: each action on one line; the bar wraps between them. */
   .tools-pick-bar > *, .tools-merge-bar > *, .tools-dup-bulk > * { white-space: nowrap; }
   .tools-dup-bulk { flex-wrap: wrap; row-gap: 8px; }
+  /* Find duplicates: an xref like I412665969140 cut the names to "Matija M…".
+     On a phone the name and the years are what tell the pair apart. */
+  .tools-pairs .person-ref .person-xref { display: none; }
 }
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
