@@ -8,6 +8,7 @@ import { normalizeDataset } from "./normalize";
 import { migrateVersion } from "./migrate";
 import { serializeGedcom } from "../gedcom/serialize";
 import { validateConformance } from "../tools/conformance/conformance";
+import { completeStructure, convertVersion } from "../save/outputFile";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -626,6 +627,64 @@ describe("migrateVersion — vendor tags with a GEDCOM 7 standard form", () => {
     const { records, changed } = migrated("7.0", "0 @I1@ INDI\n1 NAME Ana /Novak/\n2 _MARNM Kovač\n1 _UID 1\n", "7.0");
     expect(changed).toBe(0);
     expect(serializeGedcom(records)).toContain("2 _MARNM Kovač\n1 _UID 1\n");
+  });
+});
+
+describe("convertVersion — structures the conversion must leave valid", () => {
+  const HEAD_551 = "0 HEAD\n1 SOUR GEDMERGE\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n1 SUBM @U1@\n";
+  const HEAD_70 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n1 SOUR GEDMERGE\n1 SUBM @U1@\n";
+
+  /** Convert a whole file the way a save does; its conformance findings in
+   *  the target version, and the conversion report. */
+  function converted(from: "5.5.1" | "7.0", text: string, to: "5.5.1" | "7.0") {
+    const ds = dataset(text);
+    const changes = convertVersion(ds.records, from, to);
+    // The header lines the save adds (5.5.1's CHAR) are not the conversion's.
+    completeStructure(ds.records, to);
+    return { records: ds.records, changes, findings: validateConformance({ records: ds.records }) };
+  }
+
+  it("migrates the submitter record up: shared note, inline media, RIN", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n1 NOTE @N1@\n1 RIN 5\n1 OBJE\n2 FILE a.jpg\n3 FORM jpg\n0 @N1@ NOTE hi\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const subm = record(records, "@U1@");
+    expect(childValue(subm, "SNOTE")).toBe("@N1@");
+    expect(firstChild(subm, "RIN")).toBeUndefined();
+    expect(childValue(subm, "EXID")).toBe("5");
+    expect(childValue(subm, "OBJE")).toMatch(/^@M\d+@$/);
+    expect(changes).toContain("NOTE @N1@ → SNOTE @N1@");
+    expect(changes).toContain("OBJE (inline) → OBJE @M1@");
+  });
+
+  it("migrates the submitter record and a header's shared note down", () => {
+    const { records, changes, findings } = converted(
+      "7.0",
+      HEAD_70 + "1 SNOTE @N1@\n0 @U1@ SUBM\n1 NAME Ana\n1 UID 123e4567-e89b-12d3-a456-426614174000\n" +
+        "1 CREA\n2 DATE 1 JAN 2000\n1 EXID 5\n2 TYPE http://example.com/\n1 REFN 7\n1 SNOTE @N1@\n0 @N1@ SNOTE Header text\n0 TRLR\n",
+      "5.5.1",
+    );
+    expect(findings).toEqual([]);
+    const subm = record(records, "@U1@");
+    expect(subm.children.map((c) => c.tag)).toEqual(["NAME", "_UID", "_CREA", "_REFN", "_REFN", "NOTE"]);
+    const head = records.find((r) => r.tag === "HEAD")!;
+    expect(firstChild(head, "SNOTE")).toBeUndefined();
+    expect(childValue(head, "NOTE")).toBe("Header text");
+    expect(changes).toContain("HEAD.SNOTE @N1@ → HEAD.NOTE (text)");
+    expect(changes).toContain("SUBM.REFN 7 → SUBM._REFN 7");
+  });
+
+  it("joins a header's shared note to the text note it already has", () => {
+    const { records } = converted(
+      "7.0",
+      HEAD_70 + "1 NOTE Own\n1 SNOTE @N1@\n0 @U1@ SUBM\n1 NAME Ana\n0 @N1@ SNOTE Shared\n0 TRLR\n",
+      "5.5.1",
+    );
+    const head = records.find((r) => r.tag === "HEAD")!;
+    expect(childrenByTag(head, "NOTE").map((n) => n.value)).toEqual(["Own\nShared"]);
   });
 });
 

@@ -80,8 +80,10 @@ export function versionFamily(v: GedcomVersion): VersionFamily {
   return v === "7.0" ? "7.0" : "5.5.1";
 }
 
-/** Roots whose substructures are never merged into the main file. */
-const SKIP_ROOTS = new Set(["HEAD", "TRLR", "SUBM", "SUBN"]);
+/** Roots the record-level migration leaves alone: the header and the
+ *  submission record are `convertVersion`'s (src/save/outputFile.ts), the
+ *  trailer has nothing. The submitter is a record like any other. */
+const SKIP_ROOTS = new Set(["HEAD", "TRLR", "SUBN"]);
 
 /**
  * Migrate `records` in place between spec families. Reports each rewritten
@@ -104,12 +106,65 @@ export function migrateVersion(
     upgrade(migratable, ctx);
     extractInlineMedia(records, ctx);
     upgradeFamilyAssociations(migratable, ctx);
-  } else downgrade(migratable, ctx);
+  } else {
+    downgrade(migratable, ctx);
+    downgradeSubmitterRefns(migratable, ctx);
+    downgradeHeadNote(records, ctx);
+  }
   // After the media moves, so every enumeration sits where the target has it.
   const settled = records.filter((r) => !SKIP_ROOTS.has(r.tag));
   migrateEnums(settled, ctx, to);
   if (to === "5.5.1") downgradeLeftovers(settled, ctx);
   return ctx.changed;
+}
+
+/**
+ * 7.0's submitter may carry a `REFN` (and an `EXID` the downgrade could only
+ * make one of); 5.5.1's has no `REFN`. It is kept as the `_REFN` extension.
+ */
+function downgradeSubmitterRefns(records: GedNode[], ctx: MigrateCtx): void {
+  for (const subm of records) {
+    if (subm.tag !== "SUBM") continue;
+    for (const refn of childrenByTag(subm, "REFN")) {
+      const before = `SUBM.${describe(refn)}`;
+      retag(refn, "_REFN");
+      ctx.changed++;
+      ctx.onChange(before, `SUBM.${describe(refn)}`);
+    }
+  }
+}
+
+/**
+ * 7.0's header may point at a shared note (`HEAD.SNOTE @N1@`); 5.5.1's header
+ * note is text only. The note's text is copied in (joined to a text note the
+ * header already has, as 5.5.1 allows one), and the record stays for its
+ * other referrers. A pointer to no note is kept as the `_SNOTE` extension.
+ */
+function downgradeHeadNote(records: GedNode[], ctx: MigrateCtx): void {
+  const head = records.find((r) => r.tag === "HEAD");
+  if (!head?.children.some((c) => c.tag === "SNOTE")) return;
+  const notes = new Map(records.filter((r) => r.tag === "NOTE" && r.xref).map((r) => [r.xref!, r]));
+  for (const snote of childrenByTag(head, "SNOTE")) {
+    const before = `HEAD.${describe(snote)}`;
+    const rec = notes.get(snote.value?.trim() ?? "");
+    ctx.changed++;
+    if (!rec) {
+      retag(snote, "_SNOTE");
+      ctx.onChange(before, `HEAD.${describe(snote)}`);
+      continue;
+    }
+    const text = rec.value ?? "";
+    const own = firstChild(head, "NOTE");
+    if (own) {
+      own.value = own.value ? `${own.value}\n${text}` : text;
+      head.children = head.children.filter((c) => c !== snote);
+    } else {
+      snote.tag = "NOTE";
+      snote.value = text;
+      snote.children = [];
+    }
+    ctx.onChange(before, "HEAD.NOTE (text)");
+  }
 }
 
 interface MigrateCtx {
