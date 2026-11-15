@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { activitySnapshot, watchActivity, type ActivityKind } from "../state/activity";
-import { geoImportSnapshot, watchGeoImport, type GeoRunning } from "./tools/geoImport";
+import { geoImportSnapshot, importLabelKey, watchGeoImport, type GeoRunning } from "./tools/geoImport";
 import { DropdownMenu, type DropdownItem } from "./DropdownMenu";
 import { requestSettings } from "./settingsBus";
 
@@ -15,23 +15,6 @@ const KINDS: ActivityKind[] = ["places", "addresses", "sources"];
 /** `done` of `total` as a whole percentage. */
 const percent = (done: number, total: number) => Math.round((done / total) * 100);
 
-/** The import's own name, by what it fetches and from whom — the register is
- *  named, so a GURS run reads differently from a DGU one. */
-function importKey(job: GeoRunning["job"]): string {
-  switch (job.kind) {
-    case "gurs":
-      return "activity.import.gurs";
-    case "dgu":
-      return "activity.import.dgu";
-    case "addresses":
-      return job.country === "SI" ? "activity.import.gursAddresses" : "activity.import.dguAddresses";
-    case "osm":
-      return "activity.import.osm";
-    case "file":
-      return "activity.import.file";
-  }
-}
-
 /**
  * Beside Undo/Redo/Save: a spinner while anything is being downloaded in the
  * background — register and geocoder lookups, source pages, a directory being
@@ -43,8 +26,8 @@ export function ActivityIndicator() {
   const { t } = useTranslation();
   const counts = useSyncExternalStore(watchActivity, activitySnapshot, activitySnapshot);
   const geo = useSyncExternalStore(watchGeoImport, geoImportSnapshot, geoImportSnapshot);
-  const running = geo.state.phase === "running" ? geo.state : undefined;
-  const busy = !!running || KINDS.some((k) => counts[k].active > 0);
+  const running = Object.values(geo.jobs).filter((j): j is GeoRunning => j.phase === "running");
+  const busy = running.length > 0 || KINDS.some((k) => counts[k].active > 0);
 
   const [shown, setShown] = useState(busy);
   useEffect(() => {
@@ -58,18 +41,18 @@ export function ActivityIndicator() {
   if (!shown) return null;
 
   const items: DropdownItem[] = [];
-  if (running) {
+  for (const run of running) {
     // A download whose length the server never announced still shows how
     // much has arrived — the same reading as the import's own bar.
     const pct =
-      running.total > 0
-        ? ` ${percent(running.done, running.total)} %`
-        : running.done > 0
-          ? ` ${(running.done / 1048576).toFixed(1)} MB`
+      run.total > 0
+        ? ` ${percent(run.done, run.total)} %`
+        : run.done > 0
+          ? ` ${(run.done / 1048576).toFixed(1)} MB`
           : "";
     items.push({
-      value: "import",
-      label: `${t(importKey(running.job))}${running.note ? ` — ${running.note}` : ""}${pct}`,
+      value: `import:${importLabelKey(run.job)}`,
+      label: `${t(importLabelKey(run.job))}${run.note ? ` — ${run.note}` : ""}${pct}`,
     });
   }
   for (const kind of KINDS) {
@@ -80,13 +63,13 @@ export function ActivityIndicator() {
         label: t(`activity.${kind}`, { count: active, percent: percent(total - active, total) }),
       });
   }
-  const total = KINDS.reduce((n, k) => n + counts[k].active, running ? 1 : 0);
+  const total = KINDS.reduce((n, k) => n + counts[k].active, running.length);
 
   return (
     <DropdownMenu
       groups={[{ label: t("activity.title"), items: items.length ? items : [{ value: "done", label: t("activity.done") }] }]}
       onSelect={(value) => {
-        if (value === "import") requestSettings("map");
+        if (value.startsWith("import:")) requestSettings("map");
       }}
       className="nav-btn activity-btn"
       title={t("activity.tooltip")}

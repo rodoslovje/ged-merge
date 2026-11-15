@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
+import type { GeoSlot } from "./geoImport";
 
 vi.mock("../edit/PlaceLookupContext", () => ({ invalidateGazetteerIndex: vi.fn() }));
 vi.mock("../../geo/addressLookup", () => ({ invalidateAddressRegisters: vi.fn() }));
@@ -37,7 +38,7 @@ type Runner = typeof import("./geoImport");
 let runner: Runner;
 let storage: Map<string, string>;
 const latest = () => FakeWorker.all.at(-1)!;
-const state = () => runner.geoImportSnapshot().state;
+const state = (slot: GeoSlot) => runner.geoImportSnapshot().jobs[slot] ?? { phase: "idle" };
 /** Let the runner's awaits catch up. */
 const settle = async () => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
@@ -71,12 +72,12 @@ describe("geo import runner: one job", () => {
     runner.startImport({ kind: "gurs" });
     expect(FakeWorker.all).toHaveLength(1);
     expect(latest().sent).toEqual([{ type: "import", requestId: 1, job: { kind: "gurs" } }]);
-    expect(state()).toMatchObject({ phase: "running", stage: "waiting", done: 0, total: 0 });
+    expect(state("gurs")).toMatchObject({ phase: "running", stage: "waiting", done: 0, total: 0 });
     latest().say({ type: "progress", requestId: 1, stage: "downloading", done: 512, total: 0 });
-    expect(state()).toMatchObject({ phase: "running", stage: "downloading", done: 512 });
+    expect(state("gurs")).toMatchObject({ phase: "running", stage: "downloading", done: 512 });
     latest().say({ type: "result", requestId: 1, countries: [{ code: "SI-GURS", count: 6000 }] });
     await settle();
-    expect(state()).toEqual({ phase: "idle" });
+    expect(state("gurs")).toEqual({ phase: "idle" });
     expect(latest().terminated).toBe(true);
     expect(data).toHaveBeenCalledTimes(1);
     expect(invalidateGazetteerIndex).toHaveBeenCalled();
@@ -87,14 +88,14 @@ describe("geo import runner: one job", () => {
     runner.startImport({ kind: "addresses", country: "SI" });
     latest().say({ type: "addressRegister", requestId: 1, country: "SI", count: 5 });
     await settle();
-    expect(state()).toEqual({ phase: "idle" });
+    expect(state("addresses-SI")).toEqual({ phase: "idle" });
   });
 
   it("a failure the worker reports is shown as it was named", async () => {
     runner.startImport({ kind: "dgu" });
     latest().say({ type: "error", requestId: 1, failure: { code: "download" } });
     await settle();
-    expect(state()).toEqual({ phase: "error", failure: { code: "download" } });
+    expect(state("dgu")).toEqual({ phase: "error", failure: { code: "download" } });
     expect(latest().terminated).toBe(true);
   });
 
@@ -102,11 +103,11 @@ describe("geo import runner: one job", () => {
     runner.startImport({ kind: "gurs" });
     latest().onerror!();
     await settle();
-    expect(state()).toEqual({ phase: "error", failure: { code: "workerFailed" } });
+    expect(state("gurs")).toEqual({ phase: "error", failure: { code: "workerFailed" } });
     runner.startImport({ kind: "gurs" });
     latest().onmessageerror!();
     await settle();
-    expect(state()).toEqual({ phase: "error", failure: { code: "workerFailed" } });
+    expect(state("gurs")).toEqual({ phase: "error", failure: { code: "workerFailed" } });
   });
 
   it("a worker silent for five minutes is taken for dead", async () => {
@@ -115,33 +116,45 @@ describe("geo import runner: one job", () => {
     vi.advanceTimersByTime(299_000);
     latest().say({ type: "progress", requestId: 1, stage: "parsing", done: 1, total: 2 });
     vi.advanceTimersByTime(299_000);
-    expect(state()).toMatchObject({ phase: "running" });
+    expect(state("addresses-HR")).toMatchObject({ phase: "running" });
     vi.advanceTimersByTime(2_000);
     await settle();
-    expect(state()).toEqual({ phase: "error", failure: { code: "stalled" } });
+    expect(state("addresses-HR")).toEqual({ phase: "error", failure: { code: "stalled" } });
     expect(latest().terminated).toBe(true);
   });
 
-  it("runs one import at a time", async () => {
+  it("runs different sources side by side, each source once at a time", async () => {
     runner.startImport({ kind: "gurs" });
-    runner.startImport({ kind: "dgu" });
-    expect(FakeWorker.all).toHaveLength(1);
-    latest().say({ type: "result", requestId: 1, countries: [] });
-    await settle();
-    runner.startImport({ kind: "dgu" });
+    runner.startImport({ kind: "gurs" });
+    runner.startImport({ kind: "addresses", country: "SI" });
     expect(FakeWorker.all).toHaveLength(2);
+    const [places, addresses] = FakeWorker.all;
+    expect(state("gurs")).toMatchObject({ phase: "running" });
+    expect(state("addresses-SI")).toMatchObject({ phase: "running" });
+    places.say({ type: "result", requestId: 1, countries: [] });
+    await settle();
+    // One landing leaves the other running.
+    expect(state("gurs")).toEqual({ phase: "idle" });
+    expect(state("addresses-SI")).toMatchObject({ phase: "running" });
+    runner.startImport({ kind: "gurs" });
+    expect(FakeWorker.all).toHaveLength(3);
+    // Cancelling one source leaves the others alone.
+    runner.cancelGeoImport("addresses-SI");
+    expect(addresses.terminated).toBe(true);
+    expect(latest().terminated).toBe(false);
+    expect(state("gurs")).toMatchObject({ phase: "running" });
   });
 
   it("Cancel stops the worker, clears the bar, and what it says afterwards goes nowhere", async () => {
     runner.startImport({ kind: "osm", country: "SI" });
     const w = latest();
-    runner.cancelGeoImport();
+    runner.cancelGeoImport("osm");
     await settle();
     expect(w.terminated).toBe(true);
-    expect(state()).toEqual({ phase: "idle" });
+    expect(state("osm")).toEqual({ phase: "idle" });
     w.say({ type: "error", requestId: 1, failure: { code: "busy" } });
     await settle();
-    expect(state()).toEqual({ phase: "idle" });
+    expect(state("osm")).toEqual({ phase: "idle" });
     // Free for the next import straight away.
     runner.startImport({ kind: "gurs" });
     expect(FakeWorker.all).toHaveLength(2);
@@ -161,7 +174,7 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     expect(latest().sent[0].job).toEqual({ kind: "osm", country: "FR" });
     latest().say({ type: "error", requestId: 1, failure: { code: "tooLarge", regions: REGIONS } });
     await settle();
-    expect(runner.geoImportSnapshot()).toEqual({ state: { phase: "idle" }, regions: { country: "FR", list: REGIONS } });
+    expect(runner.geoImportSnapshot()).toEqual({ jobs: {}, regions: { country: "FR", list: REGIONS } });
     expect(JSON.parse(storage.get("gedmerge.osmRegions")!)).toEqual({ FR: REGIONS });
     runner.dismissRegions();
     expect(runner.geoImportSnapshot().regions).toBeNull();
@@ -176,7 +189,7 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     runner.startOsmCountry("XX");
     latest().say({ type: "error", requestId: 1, failure: { code: "tooLarge", regions: [] } });
     await settle();
-    expect(state()).toEqual({ phase: "error", failure: { code: "tooLarge", regions: [] } });
+    expect(state("osm")).toEqual({ phase: "error", failure: { code: "tooLarge", regions: [] } });
   });
 
   it("fetches every offered region in turn, and names the ones that did not land", async () => {
@@ -186,7 +199,7 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     await settle();
     runner.startAllRegions((name, i, n) => `${name} ${i}/${n}`);
     expect(latest().sent[0].job).toEqual({ kind: "osm", country: "FR", region: "FR-BRE" });
-    expect(state()).toMatchObject({ phase: "running", note: "Bretagne 1/2" });
+    expect(state("osm")).toMatchObject({ phase: "running", note: "Bretagne 1/2" });
     latest().say({ type: "error", requestId: 1, failure: { code: "busy" } });
     await settle();
     // Unhurried on purpose: the next region waits out the gap.
@@ -195,7 +208,7 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     expect(latest().sent[0].job).toEqual({ kind: "osm", country: "FR", region: "FR-NOR" });
     latest().say({ type: "result", requestId: 1, countries: [{ code: "FR-OSM", count: 9 }] });
     await settle();
-    expect(runner.geoImportSnapshot()).toEqual({ state: { phase: "partial", failed: ["Bretagne"] }, regions: { country: "FR", list: REGIONS } });
+    expect(runner.geoImportSnapshot()).toEqual({ jobs: { osm: { phase: "partial", failed: ["Bretagne"] } }, regions: { country: "FR", list: REGIONS } });
   });
 
   it("a run where every region lands puts the offer away", async () => {
@@ -206,7 +219,7 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     runner.startAllRegions((name) => name);
     latest().say({ type: "result", requestId: 1, countries: [] });
     await settle();
-    expect(runner.geoImportSnapshot()).toEqual({ state: { phase: "idle" }, regions: null });
+    expect(runner.geoImportSnapshot()).toEqual({ jobs: {}, regions: null });
   });
 
   it("Cancel between two regions stops the batch there", async () => {
@@ -217,10 +230,10 @@ describe("geo import runner: OpenStreetMap countries and regions", () => {
     runner.startAllRegions((name) => name);
     latest().say({ type: "result", requestId: 1, countries: [] });
     await settle();
-    runner.cancelGeoImport();
+    runner.cancelGeoImport("osm");
     await vi.advanceTimersByTimeAsync(5000);
     expect(FakeWorker.all).toHaveLength(1);
-    expect(state()).toEqual({ phase: "idle" });
+    expect(state("osm")).toEqual({ phase: "idle" });
   });
 
   it("with no offer, fetching all regions does nothing", () => {
