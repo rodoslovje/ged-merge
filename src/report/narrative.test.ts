@@ -355,10 +355,12 @@ describe("living people, addresses and repeated residences", () => {
     // Both parents presumed living: the origin sentence stays in the present.
     expect(open).toContain("Njegova žena je Silvija Sekušak (1976); poročila sta se");
     expect(open).toContain("Njena starša sta Ivan Sekušak in Vera Horvat.");
-    // Privacy: the living wife keeps her name but loses the years, and her
-    // living parents' names stay out — the origin sentence disappears whole.
-    const priv = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num), { privacyLiving: true }));
-    expect(priv).toContain("Njegova žena je Silvija Sekušak; poročila sta se");
+    // Privacy: the living wife is redacted like an entry — her kinship /
+    // "Living" label, no years — and the origin sentence disappears whole.
+    const livingNameOf = () => "Živa oseba";
+    const priv = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num), { privacyLiving: true, livingNameOf }));
+    expect(priv).toContain("Njegova žena je Živa oseba; poročila sta se");
+    expect(priv).not.toContain("Silvija");
     expect(priv).not.toContain("starša");
   });
 

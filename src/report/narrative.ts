@@ -9,6 +9,7 @@
 import type { GedDate, Sex } from "../gedcom/types";
 import { factDateKey, type ReportData, type ReportEntry } from "./model";
 import type { FactLine } from "./model";
+import { spouseName, spouseRedacted, type ReportTextOptions } from "./text";
 
 /** How a sentence refers to the person: the first statement names them, the
  *  rest use the language's short form (pronoun in English, bare verb form in
@@ -121,7 +122,7 @@ export function childGroups(
 export function planEntry(
   entry: ReportEntry,
   groups: ChildGroup[] = [],
-  opts: { privacyLiving?: boolean } = {},
+  opts: Pick<ReportTextOptions, "privacyLiving" | "livingNameOf"> = {},
 ): Statement[] {
   if (entry.dupOf !== undefined) return [];
   const priv = !!opts.privacyLiving;
@@ -172,7 +173,10 @@ export function planEntry(
   unions.forEach(({ m, key }, index) => {
     const bothLiving = entry.living && m.spouseLiving === true;
     // The partner's lifespan joins their name (like the register's ⚭ line);
-    // a living partner keeps the name but loses the years under privacy.
+    // a living partner is redacted under privacy — the kinship / "Living"
+    // label, no years, no origin sentence.
+    const hidden = spouseRedacted(m, opts);
+    const name = spouseName(m, opts);
     const years = m.spouseYears && !(priv && m.spouseLiving) ? ` (${m.spouseYears})` : "";
     // "Again" counts marriages only — a partnership (recorded as such, or a
     // union with no marriage record) before the first wedding doesn't make
@@ -191,7 +195,7 @@ export function planEntry(
         kind: "married",
         fact: m,
         ...(widowed ? { fact2: { tag: "DEAT", glyph: "", parsed: prevMarriage!.spouseDied, date: undefined } } : null),
-        spouse: m.spouse && `${m.spouse}${years}`,
+        spouse: name && `${name}${years}`,
         again,
         unmarried: m.unmarried,
         unrecorded: m.unrecorded,
@@ -205,8 +209,8 @@ export function planEntry(
     // The partner's parents, told right after the marriage that names them; a
     // living parent's name stays out under privacy. `living` carries the named
     // parents' tense (present only when all of them are presumed living).
-    const father = m.spouseFather && !(priv && m.spouseFather.living) ? m.spouseFather.name : undefined;
-    const mother = m.spouseMother && !(priv && m.spouseMother.living) ? m.spouseMother.name : undefined;
+    const father = !hidden && m.spouseFather && !(priv && m.spouseFather.living) ? m.spouseFather.name : undefined;
+    const mother = !hidden && m.spouseMother && !(priv && m.spouseMother.living) ? m.spouseMother.name : undefined;
     if (father || mother) {
       const parentsLiving = (father ? !!m.spouseFather?.living : true) && (mother ? !!m.spouseMother?.living : true);
       stmts.push({ kind: "spouseOrigin", spouseSex: m.spouseSex, father, mother, living: parentsLiving });

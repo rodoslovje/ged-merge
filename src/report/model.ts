@@ -47,6 +47,9 @@ export interface FactLine {
   placeParts?: string[];
   /** Marriage lines carry the partner's display name. */
   spouse?: string;
+  /** The partner's xref, so a renderer can replace a living partner's name
+   *  with their kinship / "Living" label under the privacy option. */
+  spouseId?: string;
   /** Whether the named partner is presumed living — the narrative needs the
    *  tense ("njegova žena je" vs "je bila"). Undefined when unknown. */
   spouseLiving?: boolean;
@@ -560,7 +563,10 @@ export function marriageFacts(
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
       const fact = marriageFact(fam, partner && nameOf(partner), opts, partner && (isPresumedLiving(partner, ds, nowYear) || !!partner.private), ds);
-      if (fact && partner) enrichSpouse(fact, partner, ds, nameOf, nowYear);
+      if (fact && partner) {
+        fact.spouseId = partner.id;
+        enrichSpouse(fact, partner, ds, nameOf, nowYear);
+      }
       return fact;
     })
     .filter((f): f is FactLine => f !== undefined);
