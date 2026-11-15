@@ -42,6 +42,7 @@ test("a health-check fix shows in Edit on the events it changed", async ({ page 
   await expect(birth.locator(".edit-note-chip [contenteditable]")).toHaveText(["Kranj"]);
   await expect(death.locator(".edit-note-chip [contenteditable]")).toHaveText(["Ljubljana"]);
   // The text left the death line: a value field still holding it would show
-  // it twice, and write it back on the row's next edit.
-  await expect(death.locator("input.edit-event-value")).toHaveValue("");
+  // it twice, and write it back on the row's next edit. A 7.0 death takes no
+  // text, so with the value gone the row offers no value field at all.
+  await expect(death.locator("input.edit-event-value")).toHaveCount(0);
 });

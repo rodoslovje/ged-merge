@@ -20,6 +20,9 @@ function writeFixture(): string {
     "0 @I2@ INDI",
     "1 NAME Janez /Dolenc/",
     "1 SEX M",
+    // The file's own PRIV habit opens it in Master file mode: no NOTE carries
+    // RESN in either standard, so a strict target offers no private note.
+    "1 PRIV Y",
     "1 FAMS @F1@",
     "0 @F1@ FAM",
     "1 HUSB @I2@",
