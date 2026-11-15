@@ -71,8 +71,8 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     // "umrl" / "umrli" are stressed on the syllabic r: »Umŕli mladi«; "pri
     // umrlih" the voice reads right as written (checked by ear).
     [/\b([Uu])mrl(i|e)\b/g, "$1mŕl$2"],
-    // The bare participle, »ki je umrl mlad«, as »umrèl« (checked by ear).
-    [/\b([Uu])mrl\b/g, "$1mrèl"],
+    // The bare participle, »ki je umrl mlad«, as »umŕu« (checked by ear).
+    [/\b([Uu])mrl\b/g, "$1mŕu"],
     // The Attach media action, »Pripni medij«, is stressed on its last
     // syllable: spelled »Prip-ní« for the voice (checked by ear).
     [/»Pripni medij«/g, "»Prip-ní medij«"],
