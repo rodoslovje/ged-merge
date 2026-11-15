@@ -22,7 +22,7 @@ import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 import { serializeGedcom } from "../gedcom/serialize";
 import { applyRecordPatches } from "../ui/historyTypes";
-import { applyBatchAction } from "./batch";
+import { applyBatchAction, previewBirthEstimateDates, previewMarriageEstimates } from "./batch";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -380,6 +380,54 @@ describe("validateDataset", () => {
       expect(fixMarriageDates(ds, fixes)).toHaveLength(1);
       expect(validateConformance(ds)).toHaveLength(before);
     }
+  });
+
+  it("reports an undated marriage, with the estimate Batch writes", () => {
+    const person = (id: string, sex: string, birth?: string, famc?: string, fams?: string) =>
+      `0 @${id}@ INDI\n1 NAME Oseba /${id}/\n1 SEX ${sex}\n` +
+      (birth ? `1 BIRT\n2 DATE ${birth}\n` : "") + (famc ? `1 FAMC @${famc}@\n` : "") + (fams ? `1 FAMS @${fams}@\n` : "");
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      person("H1", "M", "1740", undefined, "F1") + person("W1", "F", "1745", undefined, "F1") +
+      person("C1", "F", "3 MAY 1770", "F1") + person("C2", "M", "1772", "F1") +
+      person("H2", "M", undefined, undefined, "F2") + person("W2", "F", "1752", undefined, "F2") +
+      person("H3", "M", undefined, undefined, "F3") + person("W3", "F", undefined, undefined, "F3") +
+      person("W4", "F", "1760", undefined, "F4") +
+      `0 @F1@ FAM\n1 HUSB @H1@\n1 WIFE @W1@\n1 MARR Y\n1 CHIL @C2@\n1 CHIL @C1@\n` +
+      `0 @F2@ FAM\n1 HUSB @H2@\n1 WIFE @W2@\n1 MARR\n2 PLAC Kranj\n` +
+      `0 @F3@ FAM\n1 HUSB @H3@\n1 WIFE @W3@\n1 MARR Y\n` +
+      `0 @F4@ FAM\n1 WIFE @W4@\n1 MARR Y\n` +
+      `0 @F5@ FAM\n1 HUSB @H1@\n1 WIFE @W2@\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "undatedMarriage");
+    // F1: the eldest stated birth, day and month kept; F2: the wife's birth +25;
+    // F3: nothing to estimate from; F4 names one parent; F5 records no marriage.
+    expect(found.map((i) => [i.id, i.marriageFix?.value])).toEqual([
+      ["@H1@", "BEF 3 MAY 1770"],
+      ["@H2@", "ABT 1775"],
+      ["@H3@", undefined],
+    ]);
+    const all = [...ds.individuals.keys()];
+    expect(Object.fromEntries(found.flatMap((i) => (i.marriageFix ? [[i.marriageFix.famId, i.marriageFix.value]] : []))))
+      .toEqual(Object.fromEntries(previewMarriageEstimates(ds, all)));
+    expect(fixMarriageDates(ds, found.flatMap((i) => (i.marriageFix ? [i.marriageFix] : [])))).toHaveLength(2);
+    expect(validateDataset(ds, 2026).issues.filter((i) => i.category === "undatedMarriage").map((i) => i.id)).toEqual(["@H3@"]);
+  });
+
+  it("offers the people without vital dates the birth Batch estimates", () => {
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      "0 @P1@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1801\n1 FAMS @F1@\n" +
+      "0 @P2@ INDI\n1 NAME Mati /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @C1@ INDI\n1 NAME Sin /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @X1@ INDI\n1 NAME Sam /Novak/\n1 SEX M\n" +
+      "0 @F1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @C1@\n0 TRLR");
+    const undated = validateDataset(ds, 2026).issues.filter((i) => i.category === "missingVitals");
+    expect(undated.map((i) => [i.id, i.birthEstimate])).toEqual([
+      ["@P2@", "ABT 1805"],
+      ["@X1@", undefined],
+      ["@C1@", "ABT 1830"],
+    ]);
+    const ids = undated.map((i) => i.id);
+    const preview = previewBirthEstimateDates(ds, ids);
+    for (const i of undated) expect(i.birthEstimate).toBe(preview.get(i.id));
   });
 
   it("flags a mother with children by two fathers in the same years", () => {

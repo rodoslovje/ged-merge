@@ -19,16 +19,21 @@ import {
   dismissRegions,
   geoDataChanged,
   geoImportSnapshot,
+  importLabelKey,
+  importProgress,
+  isUncounted,
   startAllRegions,
   startImport,
   startOsmCountry,
   watchGeoData,
   watchGeoImport,
+  type GeoRunning,
+  type GeoSlot,
 } from "./geoImport";
+import { useNow } from "../useNow";
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
-import type { GeoFailure, GeoStage } from "../../worker/geoMessages";
+import type { GeoFailure } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
-import { ToolsLoading } from "./shared";
 import { SelectMenu } from "../DropdownMenu";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
@@ -64,31 +69,11 @@ import { SelectMenu } from "../DropdownMenu";
 const DOWNLOAD_GLYPH = "↓";
 const UPLOAD_GLYPH = "↑";
 
-/** What the manager shows while an import runs, or once it has failed — the
- *  runner's state with its failure already worded. */
+/** What the manager shows while a source's import runs, or once it has failed
+ *  — the runner's state with its failure already worded. */
 type ImportState =
-  | { phase: "running"; stage: GeoStage; done: number; total: number; note?: string }
-  | { phase: "error"; message: string }
-  | null;
-
-/**
- * Whole seconds since `active` became true, 0 when it is not. Overpass answers a
- * country query only once it has computed the whole extract, so for ten seconds
- * or more there is no byte to count and nothing else on screen moves — a ticking
- * number is the difference between "working" and "hung".
- */
-function useElapsed(active: boolean): number {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (!active) {
-      setSeconds(0);
-      return;
-    }
-    const id = setInterval(() => setSeconds((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-  return active ? seconds : 0;
-}
+  | GeoRunning
+  | { phase: "error"; message: string };
 
 /** A stored national address register — a different kind of thing from the
  *  place directories beside it: houses, not settlements, and read straight out
@@ -114,7 +99,9 @@ export interface Gazetteer {
   addressRegisters: AddressRegisterMeta[] | null;
   /** The searchable index, built only where it is used (`withIndex`). */
   index: GazetteerIndex | undefined;
-  importState: ImportState;
+  /** Each source's import, running or failed; an idle source is absent.
+   *  Sources run side by side, so each has its own. */
+  imports: Partial<Record<GeoSlot, ImportState>>;
   importFile: (file: File) => void;
   /** Fetch one country's places from OpenStreetMap, by ISO 3166-1 alpha-2. */
   downloadCountry: (country: string) => void;
@@ -132,7 +119,7 @@ export interface Gazetteer {
   /** Fetch every offered subdivision, one after another. */
   downloadAllRegions: () => void;
   dismissRegions: () => void;
-  cancelImport: () => void;
+  cancelImport: (slot: GeoSlot) => void;
   removeCountry: (code: string) => Promise<void>;
 }
 
@@ -214,21 +201,21 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     }
   };
 
-  const state = snapshot.state;
-  const importState: ImportState =
-    state.phase === "running"
-      ? { phase: "running", stage: state.stage, done: state.done, total: state.total, note: state.note }
-      : state.phase === "error"
-        ? { phase: "error", message: failureText(state.failure) }
-        : state.phase === "partial"
-          ? {
+  const imports: Partial<Record<GeoSlot, ImportState>> = {};
+  for (const [slot, state] of Object.entries(snapshot.jobs) as [GeoSlot, NonNullable<(typeof snapshot.jobs)[GeoSlot]>][]) {
+    imports[slot] =
+      state.phase === "running"
+        ? state
+        : state.phase === "error"
+          ? { phase: "error", message: failureText(state.failure) }
+          : {
               phase: "error",
               message: t("tools.geocode.regionAllFailed", {
                 count: state.failed.length,
                 names: state.failed.join(", "),
               }),
-            }
-          : null;
+            };
+  }
 
   const removeCountry = async (code: string) => {
     await deleteCountry(code);
@@ -244,7 +231,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     countries,
     addressRegisters,
     index,
-    importState,
+    imports,
     importFile: (file) => startImport({ kind: "file", file }),
     downloadCountry: startOsmCountry,
     downloadSlovenia: () => startImport({ kind: "gurs" }),
@@ -335,6 +322,9 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
  */
 function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: string; list: Subdivision[] } }) {
   const { t, i18n } = useTranslation();
+  // One OpenStreetMap download at a time: while a country or region is on the
+  // wire, the next one waits for it.
+  const busy = gaz.imports.osm?.phase === "running";
   const countryName = useMemo(
     () => new Intl.DisplayNames([i18n.language], { type: "region" }).of(regions.country) ?? regions.country,
     [i18n.language, regions.country],
@@ -354,8 +344,9 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
             if (region) gaz.downloadRegion(region);
           }}
           options={regions.list.map(({ code, name }) => ({ value: code, label: name }))}
+          disabled={busy}
         />
-        <button className="nav-btn tools-run" onClick={() => gaz.downloadAllRegions()}>
+        <button className="nav-btn tools-run" onClick={() => gaz.downloadAllRegions()} disabled={busy}>
           <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
           {t("tools.geocode.regionAll", { count: regions.list.length })}
         </button>
@@ -378,11 +369,32 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
  * lifted out, every row reads the same way: who it comes from, then what of
  * theirs you can take.
  */
-function SourceGroup({ name, children }: { name: string; children: ReactNode }) {
+function SourceGroup({
+  name,
+  children,
+  gaz,
+  slots = [],
+}: {
+  name: string;
+  children: ReactNode;
+  /** With `slots`: the sources' failures are said here, under their buttons. */
+  gaz?: Gazetteer;
+  slots?: GeoSlot[];
+}) {
+  // Inside the group's own cell, so a message never shifts the grid's rows.
+  const failures = slots.flatMap((slot) => {
+    const state = gaz?.imports[slot];
+    return state?.phase === "error" ? [{ slot, message: state.message }] : [];
+  });
   return (
     <div className="tools-geo-source">
       <span className="tools-geo-source-name">{name}</span>
       <div className="tools-geo-source-actions">{children}</div>
+      {failures.map((f) => (
+        <span key={f.slot} className="tools-geo-source-error">
+          {f.message}
+        </span>
+      ))}
     </div>
   );
 }
@@ -395,23 +407,92 @@ function RegisterSource({
   name,
   places,
   addresses,
+  gaz,
 }: {
   name: string;
-  places: { onClick: () => void; title: string };
-  addresses: { onClick: () => void; title: string };
+  places: { onClick: () => void; title: string; slot: GeoSlot };
+  addresses: { onClick: () => void; title: string; slot: GeoSlot };
+  gaz: Gazetteer;
 }) {
   const { t } = useTranslation();
   return (
-    <SourceGroup name={name}>
-      <button className="nav-btn tools-run" onClick={places.onClick} title={places.title}>
-        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-        {t("tools.geocode.sourcePlaces")}
-      </button>
-      <button className="nav-btn tools-run" onClick={addresses.onClick} title={addresses.title}>
-        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-        {t("tools.geocode.sourceAddresses")}
-      </button>
+    <SourceGroup name={name} gaz={gaz} slots={[places.slot, addresses.slot]}>
+      <DownloadButton gaz={gaz} slot={places.slot} label={t("tools.geocode.sourcePlaces")}>
+        <button className="nav-btn tools-run" onClick={places.onClick} title={places.title}>
+          <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+          {t("tools.geocode.sourcePlaces")}
+        </button>
+      </DownloadButton>
+      <DownloadButton gaz={gaz} slot={addresses.slot} label={t("tools.geocode.sourceAddresses")}>
+        <button className="nav-btn tools-run" onClick={addresses.onClick} title={addresses.title}>
+          <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+          {t("tools.geocode.sourceAddresses")}
+        </button>
+      </DownloadButton>
     </SourceGroup>
+  );
+}
+
+/**
+ * A download's own control. Idle, it is the control it wraps (`children`);
+ * while its source downloads, the same place holds the progress — a spinner,
+ * what is downloading, and how far it has got — and a click there cancels that
+ * one download. Sources download side by side, so each button says its own,
+ * and nothing is added beside it to shift the rows.
+ */
+function DownloadButton({
+  gaz,
+  slot,
+  label,
+  children,
+}: {
+  gaz: Gazetteer;
+  slot: GeoSlot;
+  /** What the button downloads ("Places"), kept while it runs. */
+  label: string;
+  children: ReactNode;
+}) {
+  const { t, i18n } = useTranslation();
+  const state = gaz.imports[slot];
+  const running = state?.phase === "running" ? state : undefined;
+  const now = useNow(!!running && isUncounted(running));
+  if (!running) return <>{children}</>;
+  // Each stage says what it is actually doing: waiting on a service that sends
+  // nothing until it is ready, looking up the regions a country is fetched
+  // in, receiving bytes, converting them, or writing them away. The full
+  // wording goes in the tooltip; the button carries only the number.
+  const stage =
+    running.stage === "waiting"
+      ? t("tools.geocode.waiting")
+      : running.stage === "regions"
+        ? t("tools.geocode.regionsLoading")
+        : running.stage === "downloading"
+          ? t("tools.geocode.downloading")
+          : running.stage === "storing"
+            ? t("tools.geocode.storing")
+            : t("tools.geocode.importing");
+  const progress = importProgress(running, now);
+  // OpenStreetMap downloads one country (or one region) at a time, picked from
+  // a list — so while it runs, the button names that country instead of
+  // "Places", and it is plain which one is on the wire.
+  const job = running.job;
+  const name =
+    job.kind === "osm" ? (running.note ?? countryNameOf(job.region ?? job.country, i18n.language) ?? job.region ?? job.country) : label;
+  // In a region run the region on the wire leads the tooltip.
+  const detail = [t(importLabelKey(running.job)), running.note, stage].filter(Boolean).join(" — ");
+  return (
+    <button
+      className="nav-btn tools-run tools-geo-running"
+      onClick={() => gaz.cancelImport(slot)}
+      title={`${detail}\n${t("tools.geocode.clickToCancel")}`}
+    >
+      <span className="spinner tools-geo-running-spinner" aria-hidden="true" />
+      {name} <span className="tools-geo-running-pct">{progress}</span>
+      {/* A click here cancels — said on the button, not only in its tooltip:
+          the OpenStreetMap one stands where a list was, and a click meant to
+          open the list again must not stop the download unawares. */}
+      <span className="tools-geo-running-cancel" aria-hidden="true">✕</span>
+    </button>
   );
 }
 
@@ -430,33 +511,8 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
       a.name.localeCompare(b.name, i18n.language),
     );
   }, [i18n.language]);
-  const running = gaz.importState?.phase === "running" ? gaz.importState : undefined;
-  const waited = useElapsed(running?.stage === "waiting");
-  if (running) {
-    // Each stage says what it is actually doing: waiting on a service that sends
-    // nothing until it is ready, looking up the regions a country is fetched
-    // in, receiving bytes, converting them, or writing them away. Only the wait
-    // needs a clock — the others have their own numbers.
-    const stage =
-      running.stage === "waiting"
-        ? `${t("tools.geocode.waiting")}${waited ? ` ${waited} s` : ""}`
-        : running.stage === "regions"
-          ? t("tools.geocode.regionsLoading")
-          : running.stage === "downloading"
-            ? t("tools.geocode.downloading")
-            : running.stage === "storing"
-              ? t("tools.geocode.storing")
-              : t("tools.geocode.importing");
-    // In a region run the region leads: which of the fifty is on the wire is
-    // the thing being waited for, and the stage is a detail of it.
-    const label = running.note ? `${running.note} — ${stage}` : stage;
-    return <ToolsLoading label={label} progress={running} bytes onCancel={gaz.cancelImport} />;
-  }
   return (
     <>
-      {/* Said as it is: the shared wrapper prefixes "Scan failed", and a
-          download is not a scan. */}
-      {gaz.importState?.phase === "error" && <p className="tools-clean">{gaz.importState.message}</p>}
       {gaz.regions && <RegionPicker gaz={gaz} regions={gaz.regions} />}
       {/* Each way in is its button and the sentence that explains it, side by
           side: what the source gives you and what it asks in return is the whole
@@ -479,10 +535,12 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 out of the locale files. */}
             <RegisterSource
               name={t("tools.geocode.gursName")}
-              places={{ onClick: () => gaz.downloadSlovenia(), title: t("tools.geocode.gursTooltip") }}
+              gaz={gaz}
+              places={{ onClick: () => gaz.downloadSlovenia(), title: t("tools.geocode.gursTooltip"), slot: "gurs" }}
               addresses={{
                 onClick: () => gaz.downloadSloveniaAddresses(),
                 title: t("tools.geocode.gursAddressesTooltip"),
+                slot: "addresses-SI",
               }}
             />
             <p className="tools-geo-hint">
@@ -494,10 +552,12 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
             </p>
             <RegisterSource
               name={t("tools.geocode.dguName")}
-              places={{ onClick: () => gaz.downloadCroatia(), title: t("tools.geocode.dguTooltip") }}
+              gaz={gaz}
+              places={{ onClick: () => gaz.downloadCroatia(), title: t("tools.geocode.dguTooltip"), slot: "dgu" }}
               addresses={{
                 onClick: () => gaz.downloadCroatiaAddresses(),
                 title: t("tools.geocode.dguAddressesTooltip"),
+                slot: "addresses-HR",
               }}
             />
             <p className="tools-geo-hint">
@@ -512,18 +572,20 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
                 its own label again the moment the download starts. */}
-            <SourceGroup name="OpenStreetMap">
-              <SelectMenu
-                className="nav-btn tools-run tools-geo-osm"
-                title={t("tools.geocode.countryTooltip")}
-                ariaLabel={t("tools.geocode.countryTooltip")}
-                value=""
-                placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.sourcePlaces")}`}
-                onChange={(code) => {
-                  if (code) gaz.downloadCountry(code);
-                }}
-                options={countries.map(({ code, name }) => ({ value: code, label: name }))}
-              />
+            <SourceGroup name="OpenStreetMap" gaz={gaz} slots={["osm"]}>
+              <DownloadButton gaz={gaz} slot="osm" label={t("tools.geocode.sourcePlaces")}>
+                <SelectMenu
+                  className="nav-btn tools-run tools-geo-osm"
+                  title={t("tools.geocode.countryTooltip")}
+                  ariaLabel={t("tools.geocode.countryTooltip")}
+                  value=""
+                  placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.sourcePlaces")}`}
+                  onChange={(code) => {
+                    if (code) gaz.downloadCountry(code);
+                  }}
+                  options={countries.map(({ code, name }) => ({ value: code, label: name }))}
+                />
+              </DownloadButton>
             </SourceGroup>
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
@@ -537,21 +599,23 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
             who would rather the app fetched nothing at all. Named like the rows
             above even though the arrow points the other way — where the data
             comes from is the thing being chosen either way. */}
-        <SourceGroup name="GeoNames">
-          <label className="nav-btn tools-geo-import">
-            <span aria-hidden="true">{UPLOAD_GLYPH} </span>
-            {t("tools.geocode.importBtn")}
-            <input
-              type="file"
-              accept=".txt,.zip"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) gaz.importFile(file);
-              }}
-            />
-          </label>
+        <SourceGroup name="GeoNames" gaz={gaz} slots={["file"]}>
+          <DownloadButton gaz={gaz} slot="file" label={t("tools.geocode.importBtn")}>
+            <label className="nav-btn tools-geo-import">
+              <span aria-hidden="true">{UPLOAD_GLYPH} </span>
+              {t("tools.geocode.importBtn")}
+              <input
+                type="file"
+                accept=".txt,.zip"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) gaz.importFile(file);
+                }}
+              />
+            </label>
+          </DownloadButton>
         </SourceGroup>
         <p className="tools-geo-hint">
           {t("tools.geocode.sourceGeoNames")}{" "}

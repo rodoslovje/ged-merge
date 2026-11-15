@@ -346,7 +346,7 @@ const FS_GAP_MS = 600;
  *  try that one link again — a whole file's worth of lookups must not be lost
  *  to a single refusal partway through. */
 const FS_RETRY_MS = 5000;
-const pacedFsFetch = createThrottledQueue(FS_GAP_MS, { fromEnd: true });
+const pacedFsFetch = createThrottledQueue(FS_GAP_MS, { fromEnd: true, activity: "sources" });
 
 /** A refused request worth trying again: the edge's block/rate-limit answers,
  *  and a connection that produced no answer at all. A 401 (a record page

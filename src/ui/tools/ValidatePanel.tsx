@@ -37,8 +37,8 @@ import { keptHabits } from "../../tools/normalizeRepairs";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
-type FixKind = "links" | "sex" | "roles" | "deceased" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
+type FixKind = "links" | "sex" | "roles" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", notes: "ConformNotes" };
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -59,6 +59,7 @@ const CATEGORIES: IssueCategory[] = [
   "parentAge",
   "bornAfterParentDeath",
   "bornBeforeMarriage",
+  "undatedMarriage",
   "parallelFamilies",
   "spouseAgeGap",
   "futureDate",
@@ -146,6 +147,7 @@ export function ValidatePanel({
   onFixSexFromRole,
   onFixSwappedRoles,
   onMarkDeceased,
+  onEstimateBirths,
   onFixMarriageDates,
   onFixDates,
   onFixNonStandardDates,
@@ -170,6 +172,9 @@ export function ValidatePanel({
   /** Add an undated death (`1 DEAT Y`) to these people — the "living over 99"
    *  findings, which are almost always a missing death record. */
   onMarkDeceased: (ids: string[]) => number;
+  /** Write the estimated birth (Batch's "Estimate birth") for these people —
+   *  the "no vital dates" findings that carry one. */
+  onEstimateBirths: (ids: string[]) => number;
   onFixMarriageDates: (fixes: MarriageDateFix[]) => number;
   onFixDates: (only?: BadDateRef) => number;
   onFixNonStandardDates: (only?: BadDateRef) => number;
@@ -303,6 +308,7 @@ export function ValidatePanel({
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
       : kind === "deceased" ? onMarkDeceased(livingTooOldIds())
+      : kind === "births" ? onEstimateBirths(birthEstimateIds())
       : kind === "marriageDates" ? onFixMarriageDates(marriageFixes())
       : kind === "dates" ? onFixDates()
       : kind === "nonStandard" ? onFixNonStandardDates()
@@ -312,7 +318,12 @@ export function ValidatePanel({
       : onFixDuplicatePointers();
   }
 
-  /** Every marriage date the "Born before the marriage" findings prove. */
+  /** Everyone an undated finding carries a birth estimate for. */
+  const birthEstimateIds = () =>
+    (report?.issues ?? []).filter((i) => i.birthEstimate).map((i) => i.id);
+
+  /** Every marriage date the marriage findings carry ("born before the
+   *  marriage", "undated marriage"). */
   const marriageFixes = () =>
     (report?.issues ?? []).flatMap((i) => (i.marriageFix ? [i.marriageFix] : []));
 
@@ -626,6 +637,17 @@ export function ValidatePanel({
         run: () => onFixSwappedRoles(issue.id),
         };
       }
+      case "missingVitals": {
+        const value = issue.birthEstimate;
+        if (!value) return null;
+        return {
+          label: t("tools.validate.fixOneValue", { value }),
+          hint: t("tools.validate.fixOneBirthEstimateHint"),
+          kind: "births",
+          run: () => onEstimateBirths([issue.id]),
+        };
+      }
+      case "undatedMarriage":
       case "bornBeforeMarriage": {
         const fix = issue.marriageFix;
         if (!fix) return null;

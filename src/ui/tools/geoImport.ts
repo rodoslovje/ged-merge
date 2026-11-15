@@ -21,8 +21,40 @@ import type { GeoFailure, GeoJob, GeoStage, GeoWorkerRequest, GeoWorkerResponse 
 // itself, and the only thing the screen contributes is a progress bar. So it
 // runs here, for as long as it takes, and any manager that mounts meanwhile
 // picks up where it has got to. Cancel is the one thing that stops it.
+//
+// Different sources run side by side, each in its own worker: they store under
+// different keys (a country's directory, a country's address register), so
+// GURS places and DGU addresses have nothing to wait for from each other. One
+// source runs once at a time — a second click on it would only race the first
+// to write the same key.
 
 export type { GeoJob } from "../../worker/geoMessages";
+
+/** One source that downloads on its own: each national register's places and
+ *  addresses, OpenStreetMap (a country, or a run of its regions), a GeoNames
+ *  file. Each runs at most once at a time, and all of them side by side. */
+export type GeoSlot = "gurs" | "dgu" | "addresses-SI" | "addresses-HR" | "osm" | "file";
+
+export function slotOf(job: GeoJob): GeoSlot {
+  return job.kind === "addresses" ? `addresses-${job.country}` : job.kind;
+}
+
+/** The i18n key naming a job by what it fetches and from whom — "GURS places",
+ *  "DGU addresses" — for every place that shows one running. */
+export function importLabelKey(job: GeoJob): string {
+  switch (job.kind) {
+    case "gurs":
+      return "activity.import.gurs";
+    case "dgu":
+      return "activity.import.dgu";
+    case "addresses":
+      return job.country === "SI" ? "activity.import.gursAddresses" : "activity.import.dguAddresses";
+    case "osm":
+      return "activity.import.osm";
+    case "file":
+      return "activity.import.file";
+  }
+}
 
 /** What an import is doing, so the bar can say it. */
 export interface GeoRunning {
@@ -34,6 +66,25 @@ export interface GeoRunning {
   /** What this particular download is, when one click starts many: the region
    *  being fetched and its place in the run. */
   note?: string;
+  /** When this download started — the clock shown while nothing is counted. */
+  startedAt: number;
+}
+
+/** True while a run has counted nothing yet, and only a clock says it lives. */
+export function isUncounted(run: GeoRunning): boolean {
+  return run.total === 0 && run.done === 0;
+}
+
+/**
+ * How far a download has got, in one short value: a percentage when its length
+ * is known, the megabytes received when the server never announced one, and
+ * otherwise the seconds since it started — a service preparing its extract
+ * sends nothing for a while, and a ticking number tells "working" from "hung".
+ */
+export function importProgress(run: GeoRunning, now: number): string {
+  if (run.total > 0) return `${Math.round((run.done / run.total) * 100)} %`;
+  if (run.done > 0) return `${(run.done / 1048576).toFixed(1)} MB`;
+  return `${Math.max(0, Math.floor((now - run.startedAt) / 1000))} s`;
 }
 
 export type GeoImportState =
@@ -45,37 +96,53 @@ export type GeoImportState =
   | { phase: "partial"; failed: string[] };
 
 /**
- * Everything an import can put on screen, in one snapshot: what is running, and
- * the offer of a country's regions when it turned out to be too large for one
- * query. The offer outlives the run that produced it — it is a question waiting
- * to be answered, and closing the dialog is not an answer.
+ * Everything an import can put on screen, in one snapshot: what each source is
+ * doing (an idle source is absent), and the offer of a country's regions when
+ * it turned out to be too large for one query. The offer outlives the run that
+ * produced it — it is a question waiting to be answered, and closing the dialog
+ * is not an answer.
  */
 export interface GeoImportSnapshot {
-  state: GeoImportState;
+  jobs: Partial<Record<GeoSlot, Exclude<GeoImportState, { phase: "idle" }>>>;
   regions: { country: string; list: Subdivision[] } | null;
 }
 
-// Carried across Vite's hot updates in development. An import takes minutes,
-// and every save reloads this module — which without this would drop the worker
-// on the floor, reset the bar to idle and leave the download running invisibly
-// until the tab closed. In a production build `import.meta.hot` is undefined and
-// this is a plain module-level pair.
-const kept = (import.meta.hot?.data ?? {}) as { snapshot?: GeoImportSnapshot; worker?: Worker | null };
+/** One source's run in hand: its worker, and how to end it from outside. */
+interface Slot {
+  worker: Worker | null;
+  stop: (() => void) | null;
+  /** Counted rather than flagged — see {@link start}. */
+  generation: number;
+  running: boolean;
+}
 
-let snapshot: GeoImportSnapshot = kept.snapshot ?? { state: { phase: "idle" }, regions: null };
-let worker: Worker | null = kept.worker ?? null;
-/** Set while a click's work is still going — a region batch outlives the single
- *  worker run it is on, so "is something running" is not "is there a worker". */
-let running = false;
+// Carried across Vite's hot updates in development. An import takes minutes,
+// and every save reloads this module — which without this would drop the
+// workers on the floor, reset the bars to idle and leave the downloads running
+// invisibly until the tab closed. In a production build `import.meta.hot` is
+// undefined and this is a plain module-level pair.
+const kept = (import.meta.hot?.data ?? {}) as { snapshot?: GeoImportSnapshot; slots?: Map<GeoSlot, Slot> };
+
+let snapshot: GeoImportSnapshot = kept.snapshot?.jobs ? kept.snapshot : { jobs: {}, regions: null };
+const slots: Map<GeoSlot, Slot> = kept.slots ?? new Map();
 const watchers = new Set<() => void>();
+
+function slot(id: GeoSlot): Slot {
+  let s = slots.get(id);
+  if (!s) {
+    s = { worker: null, stop: null, generation: 0, running: false };
+    slots.set(id, s);
+  }
+  return s;
+}
 
 /** Told whenever the stored directories change, so every mounted manager
  *  reloads — including the one that was not on screen when the import landed. */
 const changeWatchers = new Set<() => void>();
 
-import.meta.hot?.dispose((data: { snapshot?: GeoImportSnapshot; worker?: Worker | null }) => {
+import.meta.hot?.dispose((data: { snapshot?: GeoImportSnapshot; slots?: Map<GeoSlot, Slot> }) => {
   data.snapshot = snapshot;
-  data.worker = worker;
+  data.slots = slots;
 });
 
 /** The current snapshot. A stable reference between changes, so it can back a
@@ -108,8 +175,11 @@ export function geoDataChanged(): void {
   for (const fn of changeWatchers) fn();
 }
 
-function set(state: GeoImportState, regions = snapshot.regions): void {
-  snapshot = { state, regions };
+function set(id: GeoSlot, state: GeoImportState, regions = snapshot.regions): void {
+  const jobs = { ...snapshot.jobs };
+  if (state.phase === "idle") delete jobs[id];
+  else jobs[id] = state;
+  snapshot = { jobs, regions };
   for (const fn of watchers) fn();
 }
 
@@ -136,9 +206,12 @@ const STALL_MS = 300_000;
  * file and the address registers alike.
  */
 function runJob(job: GeoJob, note?: string): Promise<Outcome> {
+  const id = slotOf(job);
+  const s = slot(id);
+  const startedAt = Date.now();
   return new Promise((resolve) => {
     const w = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
-    worker = w;
+    s.worker = w;
     let watchdog: ReturnType<typeof setTimeout> | undefined;
     const heard = () => {
       clearTimeout(watchdog);
@@ -146,9 +219,11 @@ function runJob(job: GeoJob, note?: string): Promise<Outcome> {
     };
     const finish = (outcome: Outcome) => {
       clearTimeout(watchdog);
-      stopCurrent = null;
+      if (s.worker === w) {
+        s.worker = null;
+        s.stop = null;
+      }
       w.terminate();
-      if (worker === w) worker = null;
       // Whatever happened, what is stored may have changed — a failed address
       // import clears the old register before it writes — so the caches are
       // dropped either way.
@@ -159,7 +234,7 @@ function runJob(job: GeoJob, note?: string): Promise<Outcome> {
       const msg = e.data;
       heard();
       if (msg.type === "progress") {
-        set({ phase: "running", job, stage: msg.stage, done: msg.done, total: msg.total, note });
+        set(id, { phase: "running", job, stage: msg.stage, done: msg.done, total: msg.total, note, startedAt });
       } else if (msg.type === "error") {
         finish({ ok: false, failure: msg.failure });
       } else {
@@ -178,17 +253,13 @@ function runJob(job: GeoJob, note?: string): Promise<Outcome> {
     // the life of the tab, and the batch awaiting it would stop mid-list with
     // no way to be woken. The outcome itself goes nowhere: Cancel has moved the
     // generation on, so every caller drops what it gets back.
-    stopCurrent = () => finish({ ok: false, failure: { code: "workerFailed" } });
+    s.stop = () => finish({ ok: false, failure: { code: "workerFailed" } });
     heard();
-    set({ phase: "running", job, stage: "waiting", done: 0, total: 0, note });
+    set(id, { phase: "running", job, stage: "waiting", done: 0, total: 0, note, startedAt });
     const req: GeoWorkerRequest = { type: "import", requestId: 1, job };
     w.postMessage(req);
   });
 }
-
-/** Ends the run in hand, when something other than the worker decides it is
- *  over. Null whenever no job is on the wire. */
-let stopCurrent: (() => void) | null = null;
 
 /** Countries already known to need splitting, with the subdivisions found for
  *  them — so the discovery (three minutes of a query timing out) happens once
@@ -215,57 +286,51 @@ function rememberRegions(country: string, list: Subdivision[]): void {
 
 /** Report one job's outcome, and turn the one failure that is not a failure —
  *  a country too large for a single query — into the offer of its regions. */
-function report(outcome: Outcome, country?: string): void {
+function report(id: GeoSlot, outcome: Outcome, country?: string): void {
   // Nothing to say about a download that worked: what it produced is in the
   // list of directories, which `geoDataChanged` has already refreshed.
   if (outcome.ok) {
-    set({ phase: "idle" });
+    set(id, { phase: "idle" });
     return;
   }
   if (outcome.failure.code === "tooLarge" && outcome.failure.regions.length && country) {
     rememberRegions(country, outcome.failure.regions);
-    set({ phase: "idle" }, { country, list: outcome.failure.regions });
+    set(id, { phase: "idle" }, { country, list: outcome.failure.regions });
     return;
   }
-  set({ phase: "error", failure: outcome.failure });
+  set(id, { phase: "error", failure: outcome.failure });
 }
 
 /**
- * The run a click started, counted rather than flagged.
+ * Guard every entry point: one run per source at a time, and each one knows
+ * whether it is still the one running.
  *
- * A batch of regions is a run that spans many worker lifetimes, with gaps
- * between them where nothing is on the wire — and Cancel lands in one of those
- * gaps as readily as in the middle of a download. A generation says which run
- * the code that wakes up belongs to, where a boolean cleared by the next click
- * would let a cancelled batch walk on through it.
+ * The run is counted rather than flagged. A batch of regions spans many worker
+ * lifetimes, with gaps between them where nothing is on the wire — and Cancel
+ * lands in one of those gaps as readily as in the middle of a download. A
+ * generation says which run the code that wakes up belongs to, where a boolean
+ * cleared by the next click would let a cancelled batch walk on through it.
  */
-let generation = 0;
-
-/** Whether the caller is still the current run — false once Cancel or another
- *  click has moved on. */
-function isCurrent(mine: number): boolean {
-  return generation === mine;
-}
-
-/** Guard every entry point: one import at a time, and each one knows whether
- *  it is still the one running. */
-async function start(fn: (mine: number) => Promise<void>): Promise<void> {
-  if (running) return;
-  running = true;
-  const mine = ++generation;
+async function start(id: GeoSlot, fn: (isCurrent: () => boolean) => Promise<void>): Promise<void> {
+  const s = slot(id);
+  if (s.running) return;
+  s.running = true;
+  const mine = ++s.generation;
+  const isCurrent = () => s.generation === mine;
   try {
-    await fn(mine);
+    await fn(isCurrent);
   } finally {
-    if (isCurrent(mine)) running = false;
+    if (isCurrent()) s.running = false;
   }
 }
 
 /** One source, start to finish: the two national registers, a GeoNames file
  *  from the reader's disk, one country's addresses, one OpenStreetMap region. */
 export function startImport(job: GeoJob): void {
-  void start(async (mine) => {
+  const id = slotOf(job);
+  void start(id, async (isCurrent) => {
     const outcome = await runJob(job);
-    if (isCurrent(mine)) report(outcome);
+    if (isCurrent()) report(id, outcome);
   });
 }
 
@@ -280,15 +345,15 @@ export function startImport(job: GeoJob): void {
 export function startOsmCountry(country: string): void {
   const code = country.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return;
-  void start(async (mine) => {
+  void start("osm", async (isCurrent) => {
     const known = knownRegions()[code];
     if (known?.length) {
-      set({ phase: "idle" }, { country: code, list: known });
+      set("osm", { phase: "idle" }, { country: code, list: known });
       return;
     }
-    set({ phase: "idle" }, null);
+    set("osm", { phase: "idle" }, null);
     const outcome = await runJob({ kind: "osm", country: code });
-    if (isCurrent(mine)) report(outcome, code);
+    if (isCurrent()) report("osm", outcome, code);
   });
 }
 
@@ -311,47 +376,58 @@ function wait(ms: number): Promise<void> {
 export function startAllRegions(label: (name: string, index: number, total: number) => string): void {
   const offer = snapshot.regions;
   if (!offer) return;
-  void start(async (mine) => {
+  void start("osm", async (isCurrent) => {
     const failed: string[] = [];
     for (const [i, region] of offer.list.entries()) {
       const outcome = await runJob(
         { kind: "osm", country: offer.country, region: region.code },
         label(region.name, i + 1, offer.list.length),
       );
-      if (!isCurrent(mine)) return;
+      if (!isCurrent()) return;
       if (!outcome.ok) failed.push(region.name);
       if (i < offer.list.length - 1) await wait(REGION_GAP);
-      if (!isCurrent(mine)) return;
+      if (!isCurrent()) return;
     }
-    if (failed.length) set({ phase: "partial", failed });
-    else set({ phase: "idle" }, null);
+    if (failed.length) set("osm", { phase: "partial", failed });
+    else set("osm", { phase: "idle" }, null);
   });
 }
 
-/** Stop an import, and clear whatever it last said. The generation moves on, so
- *  a batch waiting out its gap between regions finds it is no longer the run in
- *  hand and stops there. */
-export function cancelGeoImport(): void {
-  generation++;
-  running = false;
-  stopCurrent?.();
-  worker?.terminate();
-  worker = null;
-  set({ phase: "idle" });
+/** Stop one source's import, and clear whatever it last said. The generation
+ *  moves on, so a batch waiting out its gap between regions finds it is no
+ *  longer the run in hand and stops there. */
+export function cancelGeoImport(id: GeoSlot): void {
+  const s = slot(id);
+  s.generation++;
+  s.running = false;
+  s.stop?.();
+  s.worker?.terminate();
+  s.worker = null;
+  s.stop = null;
+  set(id, { phase: "idle" });
 }
 
 /** Put the region offer away. The whole-country control stays where it is: what
  *  fails for one country works for the next. */
 export function dismissRegions(): void {
-  set(snapshot.state, null);
+  snapshot = { ...snapshot, regions: null };
+  for (const fn of watchers) fn();
 }
 
-// An import carried across a hot update is still running, but its worker's
-// message handler belongs to the old copy of this module. There is nothing to
-// rebind it to — the promise that owned it is gone — so it is stopped rather
-// than left driving a bar nothing renders.
-if (import.meta.hot && worker && snapshot.state.phase === "running") {
-  worker.terminate();
-  worker = null;
-  snapshot = { state: { phase: "idle" }, regions: snapshot.regions };
+// Imports carried across a hot update are still running, but their workers'
+// message handlers belong to the old copy of this module. There is nothing to
+// rebind them to — the promises that owned them are gone — so they are stopped
+// rather than left driving bars nothing renders.
+if (import.meta.hot) {
+  for (const [id, s] of slots) {
+    if (!s.worker) continue;
+    s.worker.terminate();
+    s.worker = null;
+    s.stop = null;
+    s.running = false;
+    s.generation++;
+    const jobs = { ...snapshot.jobs };
+    delete jobs[id];
+    snapshot = { ...snapshot, jobs };
+  }
 }
