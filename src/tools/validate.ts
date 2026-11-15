@@ -1016,6 +1016,10 @@ export function validateDataset(
       const ref = fam[role];
       if (ref && !ds.individuals.has(ref)) {
         add("tools.validate.issue.spouseMissing", { indi: ref });
+      } else if (ref && !ds.individuals.get(ref)!.spouseOf.includes(fam.id)) {
+        // The family names a spouse who doesn't name it back — the other half
+        // of the person-side `famsNotReciprocal` (reciprocal from both sides).
+        add("tools.validate.issue.spouseNotReciprocal", { indi: ref });
       }
     }
     // Two different individuals crammed into one spouse slot — some exporters
@@ -1044,6 +1048,8 @@ export function validateDataset(
     for (const childId of fam.children) {
       if (!ds.individuals.has(childId)) {
         add("tools.validate.issue.childMissing", { indi: childId });
+      } else if (!ds.individuals.get(childId)!.childOf.includes(fam.id)) {
+        add("tools.validate.issue.childNotReciprocal", { indi: childId });
       }
     }
     // Redundant pointer lines: the same child listed twice as CHIL.

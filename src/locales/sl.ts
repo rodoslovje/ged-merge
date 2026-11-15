@@ -714,6 +714,8 @@ export const sl = {
   "tools.validate.issue.famsNotReciprocal": "Zakonec v družini {{fam}}, ki te osebe ne navaja med zakonci",
   "tools.validate.issue.spouseMissing": "Sklicuje se na neobstoječega zakonca {{indi}}",
   "tools.validate.issue.childMissing": "Sklicuje se na neobstoječega otroka {{indi}}",
+  "tools.validate.issue.childNotReciprocal": "Navaja {{indi}} med otroki, oseba pa te družine ne navaja",
+  "tools.validate.issue.spouseNotReciprocal": "Navaja {{indi}} med zakonci, oseba pa te družine ne navaja",
   "tools.validate.struct.title": "Težave v strukturi GEDCOM",
   "tools.validate.struct.atLine": "Vrstica {{line}}",
   "tools.validate.struct.cat.encoding": "Kodiranje",

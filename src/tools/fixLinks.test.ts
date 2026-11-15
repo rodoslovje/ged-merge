@@ -138,8 +138,7 @@ describe("fixBrokenLinks repairs one-way links", () => {
   });
 
   it("a family's one-way CHIL/HUSB gets the person's FAMC/FAMS", () => {
-    // The health check reports one-way links from the person's side only, so
-    // this one carries no finding; the whole-file fix completes it all the same.
+    // Reported from the family's side (spouseNotReciprocal/childNotReciprocal).
     for (const ds of fixClean(`0 @I1@ INDI
 1 NAME Jan /Kos/
 1 SEX M
@@ -150,7 +149,7 @@ describe("fixBrokenLinks repairs one-way links", () => {
 1 NOTE Born at home
 0 @F1@ FAM
 1 HUSB @I1@
-1 CHIL @I2@`, false)) {
+1 CHIL @I2@`)) {
       expect(lines(rec(ds, "@I1@"))).toEqual(["NAME Jan /Kos/", "SEX M", "FAMS @F1@"]);
       // FAMC sits before the notes, by INDI_CHILD_ORDER.
       expect(lines(rec(ds, "@I2@"))).toEqual(["NAME Eva /Kos/", "BIRT", "FAMC @F1@", "NOTE Born at home"]);

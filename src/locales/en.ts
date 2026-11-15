@@ -616,6 +616,8 @@ export const en = {
   "tools.validate.issue.famsNotReciprocal": "Spouse in {{fam}}, but that family doesn't list them",
   "tools.validate.issue.spouseMissing": "References missing spouse {{indi}}",
   "tools.validate.issue.childMissing": "References missing child {{indi}}",
+  "tools.validate.issue.childNotReciprocal": "Lists {{indi}} as a child, but they don't name this family",
+  "tools.validate.issue.spouseNotReciprocal": "Lists {{indi}} as a spouse, but they don't name this family",
   "tools.validate.struct.title": "GEDCOM structure issues",
   "tools.validate.struct.atLine": "Line {{line}}",
   "tools.validate.struct.cat.encoding": "Encoding",
