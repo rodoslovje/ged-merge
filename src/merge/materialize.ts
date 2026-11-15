@@ -197,14 +197,21 @@ function pruneAddedRecords(main: Dataset, decisions: ReadonlyMap<string, Candida
     for (const r of main.records) walk(r);
     const drop = [...candidates].filter((id) => !referenced.has(id) && !pruned.has(id));
     if (!drop.length) return pruned;
+    const dropSet = new Set(drop);
+    // Each dropped record's position, read in one walk: the first shared
+    // record carrying the xref, as a per-id search would find it.
+    const indexOf = new Map<string, number>();
+    main.records.forEach((r, i) => {
+      if (r.xref && dropSet.has(r.xref) && r.tag !== "INDI" && r.tag !== "FAM" && !indexOf.has(r.xref)) indexOf.set(r.xref, i);
+    });
     for (const id of drop) {
       candidates.delete(id);
       pruned.add(id);
-      const index = main.records.findIndex((r) => r.xref === id && r.tag !== "INDI" && r.tag !== "FAM");
-      if (index === -1) continue; // already gone (deleted in Edit)
+      const index = indexOf.get(id);
+      if (index === undefined) continue; // already gone (deleted in Edit)
       patches.push({ type: "record", id, before: cloneNode(main.records[index]), after: null, index });
     }
-    applyRecordPatches(main, patches.filter((p) => p.type === "record" && p.after === null && drop.includes(p.id)), "redo");
+    applyRecordPatches(main, patches.filter((p) => p.type === "record" && p.after === null && dropSet.has(p.id)), "redo");
   }
 }
 
@@ -536,6 +543,7 @@ function addFor(
  * make, not this step's: left in, it would sit in the file as a family of one.
  */
 function dropLoneFamilies(records: GedNode[], liveIds: ReadonlySet<string>, individuals: CopyOnRead, families: CopyOnRead): void {
+  const dropped = new Set<GedNode>();
   for (const fam of records.filter((r) => r.tag === "FAM" && r.xref && !liveIds.has(r.xref))) {
     const members = fam.children.filter((c) => (c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL") && c.value);
     if (members.length >= 2) continue;
@@ -544,6 +552,11 @@ function dropLoneFamilies(records: GedNode[], liveIds: ReadonlySet<string>, indi
       if (person) person.children = person.children.filter((c) => !((c.tag === "FAMS" || c.tag === "FAMC") && c.value === fam.xref));
     }
     families.delete(fam.xref!);
-    records.splice(records.indexOf(fam), 1);
+    dropped.add(fam);
   }
+  if (!dropped.size) return;
+  // One compaction in place (the array's identity keys its caches), keeping order.
+  let kept = 0;
+  for (const r of records) if (!dropped.has(r)) records[kept++] = r;
+  records.length = kept;
 }
