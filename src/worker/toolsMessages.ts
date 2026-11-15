@@ -22,7 +22,7 @@ export type ToolsRequest =
   | { type: "setMain"; snapshot: MainSnapshot }
   | { type: "patchMain"; patch: RecordsPatch }
   | { type: "findDuplicates"; requestId: number }
-  | { type: "validate"; requestId: number; formatOverrides?: FormatOverrides }
+  | { type: "validate"; requestId: number; formatOverrides?: FormatOverrides; startId?: string }
   | { type: "sourceDuplicates"; requestId: number }
   | { type: "sourceReshape"; requestId: number; formatOverrides?: FormatOverrides }
   | { type: "normalizePreview"; requestId: number; formatOverrides?: FormatOverrides };

@@ -21,7 +21,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
 | 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ |
 | 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
-| 15 | Pregled | — | scenarij in demo datoteka |
+| 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ |
 | 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
@@ -590,7 +590,7 @@ seznama težav s številkami.
 
 ### Kaj Pregled preveri (seznam na zaslonu)
 
-Kot seznam zbirk v epizodi 14: overlay `list` na začetku, obroč pa hodi po filtrih.
+Kot seznam podprtih povezav v epizodi 4 (Viri): overlay `list` na začetku, obroč pa hodi po filtrih.
 Govor seznama ne bere, le povzame skupine. Imena so oznake filtrov iz `sl.ts`.
 
 - **Povezave:** Pokvarjene povezave, Podvojeni kazalci, Isti par dvakrat, Krožni predniki,
@@ -637,11 +637,11 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
 | 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
 | 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |
-| 10 | »Živi nad 99 let« → »Dodaj smrt« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl; zapis smrti ga loči od živih. |
-| 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se zapiše tako kot ostali. |
-| 12 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« | Drugi zavihek preveri zapis po standardu: `~1665` postane `ABT 1665`. |
-| 13 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
-| 14 | Ponoven pregled: »Živi nad 99 let« → Marija → »Dodaj smrt« | Popravek lahko odkrije novo težavo: z ocenjenim rojstvom je Marija zdaj starejša od 99 let. |
+| 10 | »Živi nad 99 let«: Marija obroč → »Izberi vse popravljive« → »Popravi izbrane« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl. Med njimi je zdaj tudi Marija: popravek je odkril novo težavo. |
+| 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se prepiše v obliko GEDCOM, sklic na manjkajoč vir se odstrani. |
+| 12 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
+| 13 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« → enako vse naenkrat | `~1665` je navada drugega programa, standard pa piše `ABT 1665`. |
+| 14 | Nazaj na »Težave v podatkih« → prazen seznam | Drevo je počiščeno. |
 | 15 | Zaključna kartica | |
 
 ---
