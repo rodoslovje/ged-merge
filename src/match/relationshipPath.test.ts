@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { bloodLineage, bloodPath, bloodPaths, relationshipPaths, shortestPath } from "./relationshipPath";
+import { bloodLineage, bloodPath, bloodPaths, labelPaths, relationshipPaths, shortestPath } from "./relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -127,6 +127,33 @@ describe("relationshipPath", () => {
     expect(edges(shortest)).toEqual([undefined, "spouse", "parent"]);
     expect(blood).toBeUndefined();
     expect(bloodPath(ds, "@I1@", "@I10@")).toBeUndefined();
+  });
+
+  it("labelPaths: the bloodlines themselves for a blood relative", () => {
+    expect(labelPaths(ds, "@I1@", "@I8@")).toEqual(bloodPaths(ds, "@I1@", "@I8@"));
+  });
+
+  it("labelPaths: a relative's spouse is the bloodline plus the marriage", () => {
+    // Aunt-by-marriage @I7@: bloodline to uncle @I6@, then his marriage.
+    const [p, ...rest] = labelPaths(ds, "@I1@", "@I7@");
+    expect(rest).toEqual([]);
+    expect(ids(p)).toEqual(["@I1@", "@I2@", "@I4@", "@I6@", "@I7@"]);
+    expect(edges(p)).toEqual([undefined, "parent", "parent", "child", "spouse"]);
+    expect(p.hops).toBe(4);
+    expect(p.steps[p.lcaIndex!].id).toBe("@I4@");
+  });
+
+  it("labelPaths: a spouse's relative is the marriage plus the spouse's bloodline", () => {
+    const [p, ...rest] = labelPaths(ds, "@I1@", "@I10@");
+    expect(rest).toEqual([]);
+    expect(ids(p)).toEqual(["@I1@", "@I9@", "@I10@"]);
+    expect(edges(p)).toEqual([undefined, "spouse", "parent"]);
+    expect(p.steps[p.lcaIndex!].id).toBe("@I10@");
+  });
+
+  it("labelPaths: empty for one's own spouse and for the unrelated", () => {
+    expect(labelPaths(ds, "@I1@", "@I9@")).toEqual([]);
+    expect(labelPaths(ds, "@I1@", "@NOPE@")).toEqual([]);
   });
 
   it("returns undefined for unknown ids", () => {
