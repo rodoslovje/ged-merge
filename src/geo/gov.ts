@@ -172,7 +172,7 @@ export function scoreObject(obj: GovObject, foldedLocality: string, language: st
 
 // One shared queue so a search's own fan-out — and concurrent rows — respect
 // the spacing. Each POST starts ≥ INTERVAL_MS after the previous one.
-const enqueue = createThrottledQueue(INTERVAL_MS);
+const enqueue = createThrottledQueue(INTERVAL_MS, { activity: "places" });
 
 /** Send one SOAP call through the shared throttle; returns the response text. */
 function govCall(operation: string, inner: string, signal?: AbortSignal): Promise<string> {
