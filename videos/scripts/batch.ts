@@ -193,6 +193,11 @@ const scenario: Scenario = {
           line: { sl: "En popravek za sto oseb naenkrat", en: "One fix for a hundred people at once" },
         };
         await d.holdCard(intro.kicker, intro.title, intro.line);
+        // Let the card be recorded before the reload: frames inside `frozen`
+        // are dropped, and with none before it the video would start after
+        // the reload while the opening line had already begun — overlapping
+        // the next one.
+        await d.wait(1200);
         // The media folder is connected before the video starts (episode 12 shows how).
         await d.frozen(async () => {
           await connectMediaFolder(d);
@@ -202,6 +207,9 @@ const scenario: Scenario = {
         });
         await d.holdCard(null, null);
         await d.card(intro.kicker, intro.title, intro.line);
+        // The title stays a moment after the opening line.
+        await d.untilSaid();
+        await d.wait(1500);
       },
     },
     {
